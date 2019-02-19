@@ -392,20 +392,6 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         self.wapp = t_web.Application(**opts)
 
-        #opts = {'ssl_options': self.sslctx}
-        #opts = {}
-        #self.wsrv = t_httpserver.HTTPServer(self.wapp, **opts)
-
-        #port = self.conf.get('port')
-        #logger.info(f'https listening on: 0.0.0.0:{port}')
-        #port = self.conf.get('http:port', 56080)
-        #host = self.conf.get('http:host', '0.0.0.0')
-
-        #socks = t_netutil.bind_sockets(port, '0.0.0.0')
-        #self.webaddr = socks[0].getsockname()
-
-        #self.wsrv.add_sockets(socks)
-
         self.addHttpApi('/login', s_httpapi.LoginV1, {'cell': self})
 
         self.addHttpApi('/api/v1/auth/users', s_httpapi.AuthUsersV1, {'cell': self})

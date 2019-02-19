@@ -27,8 +27,11 @@ def parse(argv):
     teleport = os.getenv('SYN_CORTEX_PORT', '27492')
     telehost = os.getenv('SYN_CORTEX_HOST', '127.0.0.1')
 
-    pars = argparse.ArgumentParser(prog='synapse.servers.cortex')
+    insecure = json.loads(os.getenv('SYN_CORTEX_INSECURE', 'false').lower())
+    teleport = os.getenv('SYN_CORTEX_PORT', '27492')
+    telehost = os.getenv('SYN_CORTEX_HOST', '127.0.0.1')
 
+    pars = argparse.ArgumentParser(prog='synapse.servers.cortex')
     pars.add_argument('--port', default=teleport, help='The TCP port to bind for telepath.')
     pars.add_argument('--host', default=telehost, help='The host address to bind telepath.')
 
@@ -54,9 +57,7 @@ def main(argv, outp=s_output.stdout): # pragma: no cover
 
 async def mainopts(opts, outp=s_output.stdout):
 
-    proto = 'tcp'
-
-    lisn = f'{proto}://{opts.host}:{opts.port}/cortex'
+    lisn = f'tcp://{opts.host}:{opts.port}/cortex'
 
     outp.printf('starting cortex at: %s' % (lisn,))
 
@@ -71,8 +72,7 @@ async def mainopts(opts, outp=s_output.stdout):
     if opts.http_port:
         await core.addHttpPort(int(opts.http_port), host=opts.http_host)
 
-    #if opts.https_port:
-        #core.addHttpPort(int(opts.https_port), host=opts.https_host, ssl=True)
+    await core.dmon.listen(lisn)
 
     return core
 

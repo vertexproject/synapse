@@ -80,9 +80,23 @@ class CellTest(s_t_utils.SynTest):
     async def test_cell_unix_sock(self):
         async with self.getTestCore() as core:
             self.true(core.insecure)  # No remote auth on this cortex is currently enabled
+            # This directs the connection through the cell:// handler.
             async with core.getLocalProxy() as prox:
                 user = await prox.getCellUser()
                 self.eq('root', user.get('name'))
+
+        # Explicit use of the unix:// handler
+        async with self.getTestCore() as core:
+            dirn = core.dirn
+            url = f'unix://{dirn}/sock:cortex'
+            async with await s_telepath.openurl(url) as prox:
+                user = await prox.getCellUser()
+                self.eq('root', user.get('name'))
+                iden = await prox.getCellIden()
+
+            url = f'unix://{dirn}/sock:*'
+            async with await s_telepath.openurl(url) as prox:
+                self.eq(iden, await prox.getCellIden())
 
     async def test_cell_nonstandard_admin(self):
         boot = {

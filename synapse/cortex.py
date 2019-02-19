@@ -1678,6 +1678,7 @@ class Cortex(s_cell.Cell):
                 continue
 
             mods.append(modu)
+
             cmds.extend(modu.getStormCmds())
             mdefs.extend(modu.getModelDefs())
 

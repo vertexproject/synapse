@@ -75,10 +75,10 @@ class Snap(s_base.Base):
                 if self.wlyrdirt:
                     await self.wlyr.commit()
 
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover
                 raise
 
-            except Exception:
+            except Exception:  # pragma: no cover
                 logger.exception('commit error for layer')
 
         self.onfini(fini)
