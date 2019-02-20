@@ -69,10 +69,7 @@ class AxonTest(s_t_utils.SynTest):
         async with self.getTestAxon() as axon:
             await self.runAxonTestBase(axon)
 
-    # FIXME for hiveauth
-    #async def test_axon_proxy(self):
-        #async with self.getTestAxon() as axon:
-            #async with axon.getLocalProxy() as prox:
-                #await self.runAxonTestBase(prox)
-
-    # FIXME TODO add default axon to cortex
+    async def test_axon_proxy(self):
+        async with self.getTestAxon() as axon:
+            async with axon.getLocalProxy() as prox:
+                await self.runAxonTestBase(prox)

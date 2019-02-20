@@ -2523,3 +2523,9 @@ class CortexTest(s_t_utils.SynTest):
 
             # Sad path for underlying Cortex.runRuntLift
             await self.agenraises(s_exc.NoSuchLift, core.runRuntLift('test:newp', 'newp'))
+
+    async def test_cortex_axon(self):
+        async with self.getTestCore() as core:
+            async with await core.getLocalProxy() as prox:
+                async with await prox.axon() as axon:
+                    await axon.put(b'asdfasdf')

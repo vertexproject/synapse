@@ -9,6 +9,7 @@ import regex
 
 import synapse
 import synapse.exc as s_exc
+import synapse.axon as s_axon
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
@@ -112,6 +113,11 @@ class CoreApi(s_cell.CellApi):
             (dict): A model description dictionary.
         '''
         return self.cell.model.getModelDict()
+
+    def axon(self):
+        '''
+        '''
+        return s_axon.AxonApi.anit(self.cell.axon, self.link, self.user)
 
     def getCoreInfo(self):
         '''
@@ -536,6 +542,10 @@ class Cortex(s_cell.Cell):
 
         if self.conf.get('cron:enable'):
             await self.agenda.enable()
+
+        #TODO config remote axon
+        path = s_common.genpath(self.dirn, 'axon')
+        self.axon = await s_axon.Axon.anit(path)
 
         self._initCryoLoop()
         self._initPushLoop()

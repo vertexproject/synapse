@@ -78,12 +78,13 @@ class UpLoadShare(UpLoad, s_share.Share):
     typename = 'upload'
     async def __anit__(self, axon, link):
         await UpLoad.__anit__(self, axon)
-        await s_share.Share.__anit__(link, None)
+        await s_share.Share.__anit__(self, link, None)
 
-class AxonApi(s_cell.CellApi):
+class AxonApi(s_cell.CellApi, s_share.Share):
 
     async def __anit__(self, cell, link, user):
         await s_cell.CellApi.__anit__(self, cell, link, user)
+        await s_share.Share.__anit__(self, link, None)
 
     async def get(self, sha256):
         self.user.allowed(('axon:get',))
@@ -208,3 +209,6 @@ class Axon(s_cell.Cell):
         Given a list of sha256 bytes, returns a list of the hashes we want bytes for.
         '''
         return [s for s in sha256s if not await self.has(s)]
+
+class AxonClient:
+    def __init__(self, url):
