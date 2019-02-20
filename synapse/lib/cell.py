@@ -198,7 +198,13 @@ class CellApi(s_base.Base):
         An admin only API endpoint for getting user info.
         '''
         item = self._getAuthItem(name)
-        return (name, item.pack())
+        pack = item.pack()
+
+        # translate role guids to names for back compat
+        if pack.get('type') == 'user':
+            pack['roles'] = [self.cell.auth.role(r).name for r in pack['roles']]
+
+        return (name, pack)
 
     def _getAuthItem(self, name):
         user = self.cell.auth.getUserByName(name)
@@ -246,15 +252,6 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     # config options that are in all cells...
     confbase = ()
-
-    confdefs = (
-        ('http:port', {'type': 'int', 'defval': 0}),
-        ('http:host', {'type': 'str', 'defval': '127.0.0.1'}),
-
-        ('https:only', {'type': 'bool', 'defval': False}),
-        ('https:host', {'type': 'str', 'defval': '127.0.0.1'}),
-        ('https:port', {'type': 'int', 'defval': '127.0.0.1'}),
-    )
 
     async def __anit__(self, dirn, readonly=False):
 

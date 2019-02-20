@@ -521,7 +521,7 @@ class Cortex(s_cell.Cell):
             'type': 'bool', 'defval': True,
             'doc': 'Enable cron jobs running.'
         }),
-    ) + s_cell.Cell.confdefs
+    )
 
     cellapi = CoreApi
 
