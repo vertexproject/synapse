@@ -1668,6 +1668,8 @@ class Cortex(s_cell.Cell):
         await s_coro.ornot(modu.initCoreModule)
         await self.fire('core:module:load', module=ctor)
 
+        return modu
+
     async def _loadCoreMods(self, ctors):
 
         mods = []

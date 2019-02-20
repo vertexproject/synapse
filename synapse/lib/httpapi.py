@@ -197,8 +197,6 @@ class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
 class Handler(HandlerBase, t_web.RequestHandler):
     pass
 
-#class StormV1(Handler):
-
 class StormNodesV1(Handler):
 
     async def get(self):
@@ -243,6 +241,8 @@ class LoginV1(Handler):
 
     async def post(self):
 
+        sess = await self.sess()
+
         body = self.getJsonBody()
 
         name = body.get('user')
@@ -250,12 +250,10 @@ class LoginV1(Handler):
 
         user = self.cell.auth.getUserByName(name)
         if user is None:
-            return await self.sendRestErr('AuthDeny', 'No such user.')
+            return self.sendRestErr('AuthDeny', 'No such user.')
 
         if not user.tryPasswd(passwd):
-            return await self.sendRestErr('AuthDeny', 'Incorrect password.')
-
-        sess = await self.sess()
+            return self.sendRestErr('AuthDeny', 'Incorrect password.')
 
         await sess.login(user)
 
