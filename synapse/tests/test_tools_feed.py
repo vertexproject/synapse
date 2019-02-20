@@ -5,7 +5,6 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
-import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.tools.feed as s_feed
@@ -97,33 +96,35 @@ class FeedTest(s_t_utils.SynTest):
         async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
             host, port = dmon.addr
-            curl = f'tcp://root:root@{host}:{port}/core'
+            curl = f'tcp://pennywise:cottoncandy@{host}:{port}/core'
 
-            async with await s_telepath.openurl(curl) as core:
+            async with await self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
 
                 await self.addCreatorDeleterRoles(core)
-                await core.addUserRole('root', 'creator')
+                await core.addAuthUser('pennywise')
+                await core.setUserPasswd('pennywise', 'cottoncandy')
+                await core.addUserRole('pennywise', 'creator')
 
-                with self.getTestDir() as dirn:
+            def testmain():
 
-                    def testmain():
+                mesg = ('node:add', {'ndef': ('teststr', 'foo')})
+                splicefp = s_common.genpath(dmon.dirn, 'splice.mpk')
+                with s_common.genfile(splicefp) as fd:
+                    fd.write(s_msgpack.en(mesg))
 
-                        mesg = ('node:add', {'ndef': ('teststr', 'foo')})
-                        splicefp = s_common.genpath(dirn, 'splice.mpk')
-                        with s_common.genfile(splicefp) as fd:
-                            fd.write(s_msgpack.en(mesg))
+                argv = ['--cortex', curl,
+                        '--format', 'syn.splice',
+                        '--modules', 'synapse.tests.utils.TestModule',
+                        splicefp]
 
-                        argv = ['--cortex', curl,
-                                '--format', 'syn.splice',
-                                '--modules', 'synapse.tests.utils.TestModule',
-                                splicefp]
+                outp = self.getTestOutp()
+                self.eq(s_feed.main(argv, outp=outp), 0)
+                with self.getTestProxy(dmon, 'core', user='pennywise', passwd='cottoncandy') as core:
+                    self.len(1, list(core.eval('teststr=foo')))
+                return True
 
-                        outp = self.getTestOutp()
-                        self.eq(s_feed.main(argv, outp=outp), 0)
-                        with self.getTestProxy(dmon, 'core', **pconf) as core:
-                            self.len(1, list(core.eval('teststr=foo')))
-
-                    s_coro.executor(testmain)
+            ret = await s_coro.executor(testmain)
+            self.true(ret)
 
     async def test_synnodes_remote(self):
 

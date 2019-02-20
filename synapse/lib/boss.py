@@ -1,7 +1,5 @@
 import asyncio
 
-import synapse.common as s_common
-
 import synapse.lib.base as s_base
 import synapse.lib.task as s_task
 

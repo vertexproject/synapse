@@ -212,3 +212,7 @@ class Axon(s_cell.Cell):
 
 class AxonClient:
     def __init__(self, url):
+        pass
+
+async def openurl(url, **opts):
+    prox = s_telepath.openurl(url)

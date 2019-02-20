@@ -5,8 +5,6 @@ import asyncio
 import inspect
 import logging
 import functools
-import threading
-import collections
 
 logger = logging.getLogger(__name__)
 

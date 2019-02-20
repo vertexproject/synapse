@@ -1,7 +1,6 @@
 import hashlib
 
 import synapse.exc as s_exc
-import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_t_utils
 

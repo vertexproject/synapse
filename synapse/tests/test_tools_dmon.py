@@ -1,11 +1,3 @@
-
-import os
-import sys
-import argparse
-import tempfile
-
-import synapse.tools.dmon as s_dmon
-
 from synapse.tests.utils import SynTest
 from synapse.tools.dmon import getArgParser
 

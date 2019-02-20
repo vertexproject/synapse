@@ -456,8 +456,16 @@ class CryoCell(s_cell.Cell):
             tank = await CryoTank.anit(path, conf)
             self.tanks.put(name, tank)
 
-    async def onTeleOpen(self, link, path):
-        return await self.init(path[1])
+    async def getCellApi(self, link, user, path):
+
+        if not path:
+            return await CryoApi.anit(self, link, user)
+
+        if len(path) == 1:
+            tank = await self.init(path[0])
+            return await TankApi.anit(tank, link, user)
+
+        raise s_exc.NoSuchPath(path=path)
 
     async def init(self, name, conf=None):
         '''

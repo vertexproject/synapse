@@ -68,7 +68,7 @@ class Triggers:
                 opts['vars'] = vars
 
             if node.snap.core.auth is not None:
-                user = node.snap.core.auth.users.get(self.user)
+                user = node.snap.core.auth.getUserByName(self.user)
                 if user is None:
                     logger.warning('Unknown user %s in stored trigger', self.user)
                     return
@@ -170,7 +170,7 @@ class Triggers:
                 user = ruledict.pop('user')
                 query = ruledict.pop('storm')
                 self._load_rule(iden, ver, cond, user, query, info=ruledict)
-            except Exception as e:
+            except (KeyError, s_exc.SynErr) as e:
                 logger.warning('Invalid rule %r found in storage: %r', iden, e)
                 continue
 

@@ -1,9 +1,6 @@
 import os
-import datetime
 
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
-import synapse.telepath as s_telepath
 
 class CoreModule:
     '''
@@ -27,6 +24,16 @@ class CoreModule:
         if os.path.isfile(self._confpath):
             conf = s_common.yamlload(self._confpath)
         self.conf = s_common.config(conf, self.confdefs)
+
+    def getStormCmds(self):  # pragma: no cover
+        '''
+        Module implementers may over-ride this to provide a list of Storm
+        commands which will be loaded into the Cortex.
+
+        Returns:
+            list: A list of Storm Command classes (not instances).
+        '''
+        return ()
 
     def getModelDefs(self):
         return ()
@@ -103,7 +110,10 @@ class CoreModule:
         this method will be raised from the constructor and mark the module
         as failed.
 
-        Args:
+        Notes:
+            This is called for modules after getModelDefs() and getStormCmds()
+            has been called, in order to allow for model loading and storm
+            command loading prior to code execution offered by initCoreModule.
 
         Returns:
             None

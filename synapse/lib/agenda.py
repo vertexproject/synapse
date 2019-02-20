@@ -591,7 +591,7 @@ class Agenda(s_base.Base):
         if appt.username is None or self.core.auth is None:
             user = None
         else:
-            user = self.core.auth.users.get(appt.username)
+            user = self.core.auth.getUserByName(appt.username)
             if user is None:
                 logger.warning('Unknown username %s in stored appointment', appt.username)
                 return

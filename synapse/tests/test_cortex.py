@@ -94,12 +94,13 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(node.get('asn'), 20)
 
             # rows are (buid, valu) tuples
-            rows = await alist((core.layer.iterPropRows('inet:ipv4', 'asn')))
+            layr = core.view.layers[0]
+            rows = await alist(layr.iterPropRows('inet:ipv4', 'asn'))
 
             self.eq((10, 20), tuple(sorted([row[1] for row in rows])))
 
             # rows are (buid, valu) tuples
-            rows = await alist(core.layer.iterUnivRows('.seen'))
+            rows = await alist(layr.iterUnivRows('.seen'))
 
             ivals = ((1420070400000, 1420070400001), (1451606400000, 1451606400001))
             self.eq(ivals, tuple(sorted([row[1] for row in rows])))
@@ -1012,17 +1013,15 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_cortex_cell_splices(self):
 
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+        async with self.getTestCore() as core:
 
-            pconf = {'user': 'root', 'passwd': 'root'}
-
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
+            async with core.getLocalProxy() as prox:
                 # TestModule creates one node and 3 splices
-                await self.agenlen(3, await core.splices(0, 1000))
+                await self.agenlen(3, await prox.splices(0, 1000))
 
-                await alist(await core.eval('[ teststr=foo ]'))
+                await alist(await prox.eval('[ teststr=foo ]'))
 
-                self.ge(len(await alist(await core.splices(0, 1000))), 5)
+                self.ge(len(await alist(await prox.splices(0, 1000))), 3)
 
     async def test_pivot_inout(self):
 
@@ -2523,6 +2522,17 @@ class CortexTest(s_t_utils.SynTest):
 
             # Sad path for underlying Cortex.runRuntLift
             await self.agenraises(s_exc.NoSuchLift, core.runRuntLift('test:newp', 'newp'))
+
+    async def test_cortex_view_borked(self):
+
+        async with self.getTestCore() as core:
+
+            core.view.borked = s_common.guid()
+            with self.raises(s_exc.NoSuchLayer):
+                await core.eval('[ teststr=foo ]').list()
+
+            core.view.borked = None
+            self.len(1, await core.eval('[ teststr=foo ]').list())
 
     async def test_cortex_axon(self):
         async with self.getTestCore() as core:

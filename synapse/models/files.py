@@ -7,15 +7,15 @@ import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lookup.pe as s_l_pe
 
-class FileBase(s_types.Type):
+class FileBase(s_types.StrBase):
 
     def postTypeInit(self):
+        s_types.StrBase.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
-        self.indxcmpr['^='] = self.indxByPref
 
     def indxByPref(self, valu):
         valu = valu.strip().lower().replace('\\', '/')
-        indx = valu.encode('utf8', 'surrogatepass')
+        indx = valu.encode('utf8', 'surrogatepass')[:248]
         return (
             ('pref', indx),
         )
@@ -33,18 +33,15 @@ class FileBase(s_types.Type):
 
         return norm, {'subs': subs}
 
-    def indx(self, norm):
-        return norm.encode('utf8', 'surrogatepass')
-
-class FilePath(s_types.Type):
+class FilePath(s_types.StrBase):
 
     def postTypeInit(self):
+        s_types.StrBase.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
-        self.indxcmpr['^='] = self.indxByPref
 
     def indxByPref(self, valu):
         valu = valu.strip().lower().replace('\\', '/')
-        indx = valu.encode('utf8', 'surrogatepass')
+        indx = valu.encode('utf8', 'surrogatepass')[:248]
         return (
             ('pref', indx),
         )
@@ -91,9 +88,6 @@ class FilePath(s_types.Type):
 
         return fullpath, {'subs': subs}
 
-    def indx(self, norm):
-        return norm.encode('utf8', 'surrogatepass')
-
 class FileBytes(s_types.Type):
 
     def postTypeInit(self):
@@ -101,6 +95,7 @@ class FileBytes(s_types.Type):
         self.setNormFunc(bytes, self._normPyBytes)
 
     def indx(self, norm):
+        # impossible for the normed value to be too long for indx
         return norm.encode('utf8')
 
     def _normPyStr(self, valu):

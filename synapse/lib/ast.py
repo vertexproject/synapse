@@ -1,14 +1,11 @@
-import asyncio
 import fnmatch
 import logging
 import itertools
 import collections
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 
-import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
 import synapse.lib.stormtypes as s_stormtypes
@@ -391,7 +388,7 @@ class ForLoop(Oper):
 
             for item in await self.kids[1].runtval(runt):
 
-                if isinstance(name, (list,tuple)):
+                if isinstance(name, (list, tuple)):
 
                     if len(name) != len(item):
                         raise s_exc.StormVarListError(names=name, vals=item)

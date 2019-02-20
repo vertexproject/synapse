@@ -45,6 +45,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
+import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
@@ -83,6 +84,7 @@ class TestType(s_types.Type):
         return valu.lower(), {}
 
     def indx(self, norm):
+        # make this purposely fragile...
         return norm.encode('utf8')
 
 class ThreeType(s_types.Type):
@@ -180,6 +182,8 @@ testmodel = {
             ('cycle0', ('cycle0', {}), {}),
         )),
 
+        ('testtype', {}, ()),
+
         ('testcomp', {}, (
             ('hehe', ('testint', {}), {'ro': 1}),
             ('haha', ('testlower', {}), {'ro': 1}),
@@ -251,6 +255,22 @@ testmodel = {
         )),
     ),
 }
+
+class TestCmd(s_storm.Cmd):
+    '''
+    A test command
+    '''
+
+    name = 'testcmd'
+
+    def getArgParser(self):
+        pars = s_storm.Cmd.getArgParser(self)
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+        async for node, path in genr:
+            yield node, path
+
 
 class TestModule(s_module.CoreModule):
     testguid = '8f1401de15918358d5247e21ca29a814'
@@ -374,6 +394,9 @@ class TestModule(s_module.CoreModule):
         return (
             ('test', testmodel),
         )
+
+    def getStormCmds(self):
+        return (TestCmd,)
 
 class TstEnv:
 
@@ -697,6 +720,28 @@ class SynTest(unittest.TestCase):
     def skip(self, mesg):
         raise unittest.SkipTest(mesg)
 
+    @contextlib.contextmanager
+    def getRegrDir(self, *path):
+        regr = os.getenv('SYN_REGRESSION_REPO')
+        if regr is None: # pragma: no cover
+            raise unittest.SkipTest('SYN_REGRESSION_REPO is not set')
+
+        regr = s_common.genpath(regr)
+
+        if not os.path.isdir(regr): # pragma: no cover
+            raise Exception('SYN_REGREGSSION_REPO is not a dir')
+
+        dirn = os.path.join(regr, *path)
+
+        with self.getTestDir(copyfrom=dirn) as regrdir:
+            yield regrdir
+
+    @contextlib.asynccontextmanager
+    async def getRegrCore(self, vers):
+        with self.getRegrDir('cortexes', vers) as dirn:
+            async with await s_cells.init('cortex', dirn) as core:
+                yield core
+
     def skipIfNoInternet(self):  # pragma: no cover
         '''
         Allow skipping a test if SYN_TEST_SKIP_INTERNET envar is set.
@@ -770,22 +815,6 @@ class SynTest(unittest.TestCase):
            conf:  additional configuration entries.  Combined with contents from mirror.
         '''
         with self.getTestDir(mirror=mirror) as dirn:
-            s_cells.deploy('cortex', dirn)
-            s_common.yamlmod(conf, dirn, 'cell.yaml')
-            ldir = s_common.gendir(dirn, 'layers')
-            layerdir = pathlib.Path(ldir, '000-default')
-
-            if self.alt_write_layer:
-                os.symlink(self.alt_write_layer, layerdir)
-            else:
-                layerdir.mkdir()
-                s_cells.deploy('layer-lmdb', layerdir)
-                s_common.yamlmod({'lmdb:mapsize': TEST_MAP_SIZE}, layerdir, 'cell.yaml')
-
-            for i, fn in enumerate(extra_layers):
-                src = pathlib.Path(fn).resolve()
-                os.symlink(src, pathlib.Path(ldir, f'{i + 1:03}-testlayer'))
-
             async with await s_cortex.Cortex.anit(dirn) as core:
                 yield core
 
@@ -838,7 +867,7 @@ class SynTest(unittest.TestCase):
         return await s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
     @contextlib.contextmanager
-    def getTestDir(self, mirror=None):
+    def getTestDir(self, mirror=None, copyfrom=None):
         '''
         Get a temporary directory for test purposes.
         This destroys the directory afterwards.
@@ -866,6 +895,11 @@ class SynTest(unittest.TestCase):
                 srcpath = self.getTestFilePath(mirror)
                 dstpath = os.path.join(tempdir, 'mirror')
                 shutil.copytree(srcpath, dstpath)
+                yield dstpath
+
+            elif copyfrom is not None:
+                dstpath = os.path.join(tempdir, 'mirror')
+                shutil.copytree(copyfrom, dstpath)
                 yield dstpath
 
             else:
@@ -1422,6 +1456,7 @@ class SynTest(unittest.TestCase):
         await core.addAuthRule('creator', (True, ('node:add',)))
         await core.addAuthRule('creator', (True, ('prop:set',)))
         await core.addAuthRule('creator', (True, ('tag:add',)))
+        await core.addAuthRule('creator', (True, ('feed:data',)))
 
         await core.addAuthRole('deleter')
         await core.addAuthRule('deleter', (True, ('node:del',)))

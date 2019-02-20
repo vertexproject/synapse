@@ -5,7 +5,6 @@ import hashlib
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.coro as s_coro
 import synapse.lib.scope as s_scope
 
 import synapse.tools.pushfile as s_pushfile

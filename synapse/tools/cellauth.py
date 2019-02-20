@@ -48,11 +48,8 @@ def printuser(user):
     if authtype == 'user':
 
         outp.printf('roles:')
-        for rolename, roleinfo in sorted(user[1].get('roles')):
+        for rolename in sorted(user[1].get('roles')):
             outp.printf(f'    role: {rolename}')
-            for rule in roleinfo.get('rules'):
-                rrep = reprrule(rule)
-                outp.printf(f'        {rrep}')
 
 async def handleModify(opts):
     try:

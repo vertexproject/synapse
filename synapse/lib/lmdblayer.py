@@ -13,7 +13,6 @@ import synapse.lib.slabseqn as s_slabseqn
 import synapse.lib.slaboffs as s_slaboffs
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.threads as s_threads
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +38,10 @@ class LmdbLayer(s_layer.Layer):
         ('lmdb:readahead', {'type': 'bool', 'defval': True}),
     )
 
-    async def __anit__(self, dirn, readonly=False):
+    async def __anit__(self, core, node):
 
-        await s_layer.Layer.__anit__(self, dirn, readonly=readonly)
+        await s_layer.Layer.__anit__(self, core, node)
+
         path = os.path.join(self.dirn, 'layer.lmdb')
 
         self.fresh = not os.path.exists(path)
@@ -51,8 +51,8 @@ class LmdbLayer(s_layer.Layer):
         maxsize = self.conf.get('lmdb:maxsize')
         growsize = self.conf.get('lmdb:growsize')
 
-        self.layrslab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, maxsize=maxsize, growsize=growsize,
-                                               writemap=True, readahead=readahead, readonly=readonly)
+        self.layrslab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, maxsize=maxsize,
+                                                   growsize=growsize, writemap=True, readahead=readahead)
 
         self.onfini(self.layrslab.fini)
 
@@ -60,8 +60,6 @@ class LmdbLayer(s_layer.Layer):
 
         self.utf8 = s_layer.Utf8er()
         self.encoder = s_layer.Encoder()
-
-        self.tid = s_threads.iden()
 
         self.bybuid = await self.initdb('bybuid') # <buid><prop>=<valu>
         self.byprop = await self.initdb('byprop', dupsort=True) # <form>00<prop>00<indx>=<buid>
@@ -109,7 +107,6 @@ class LmdbLayer(s_layer.Layer):
         return props
 
     async def getNodeNdef(self, buid):
-        pref = buid + b'*'
         for lkey, lval in self.layrslab.scanByPref(buid + b'*', db=self.bybuid):
             valu, indx = s_msgpack.un(lval)
             return lkey[33:].decode('utf'), valu
@@ -125,27 +122,29 @@ class LmdbLayer(s_layer.Layer):
 
         for lkey, lval in self.layrslab.scanByPref(oldb, db=self.bybuid):
 
-            penc = lkey[32:]
+            proputf8 = lkey[32:]
             valu, indx = s_msgpack.un(lval)
 
-            if penc[0] in (46, 35): # ".univ" or "#tag"
-                byunivkey = penc + indx
-                self.layrslab.put(byunivkey, pvnewval, db=self.byuniv)
-                self.layrslab.delete(byunivkey, pvoldval, db=self.byuniv)
+            #<prop><00><indx>
+            propindx = proputf8 + b'\x00' + indx
 
-            bypropkey = fenc + penc + indx
+            if proputf8[0] in (46, 35): # ".univ" or "#tag"
+                self.layrslab.put(propindx, pvnewval, dupdata=True, db=self.byuniv)
+                self.layrslab.delete(propindx, pvoldval, db=self.byuniv)
+
+            bypropkey = fenc + propindx
 
             self.layrslab.put(bypropkey, pvnewval, db=self.byprop)
             self.layrslab.delete(bypropkey, pvoldval, db=self.byprop)
 
-            self.layrslab.put(newb + penc, lval, db=self.bybuid)
+            self.layrslab.put(newb + proputf8, lval, db=self.bybuid)
             self.layrslab.delete(lkey, db=self.bybuid)
 
     async def _storPropSet(self, oper):
 
         _, (buid, form, prop, valu, indx, info) = oper
 
-        if len(indx) > MAX_INDEX_LEN:
+        if indx is not None and len(indx) > MAX_INDEX_LEN:
             mesg = 'index bytes are too large'
             raise s_exc.BadIndxValu(mesg=mesg, prop=prop, valu=valu)
 
@@ -178,10 +177,12 @@ class LmdbLayer(s_layer.Layer):
                 unkey = penc + oldi
                 self.layrslab.delete(unkey, pvvalu, db=self.byuniv)
 
-        self.layrslab.put(pvpref + indx, pvvalu, dupdata=True, db=self.byprop)
+        if indx is not None:
 
-        if univ:
-            self.layrslab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
+            self.layrslab.put(pvpref + indx, pvvalu, dupdata=True, db=self.byprop)
+
+            if univ:
+                self.layrslab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
 
     async def _storPropDel(self, oper):
 

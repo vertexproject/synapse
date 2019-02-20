@@ -80,7 +80,10 @@ class Type:
         return self.norm(node.ndef[1])
 
     def _getIndxChop(self, indx):
-
+        '''
+        A helper method for Type subclasses to use for a simple way to truncate
+        indx bytes.
+        '''
         # cut down an index value to 256 bytes...
         if len(indx) <= 256:
             return indx
@@ -203,17 +206,6 @@ class Type:
         return (
             ('eq', indx),
         )
-
-    def getStorIndx(self, norm):
-
-        indx = self.indx(norm)
-        if indx is None:
-            return b''
-
-        if len(indx) <= 256:
-            return indx
-
-        return self._getIndxChop(indx)
 
     def indxByIn(self, vals):
 
@@ -453,7 +445,6 @@ class Comp(Type):
     def indx(self, norm):
         return s_common.buid(norm)
 
-
 class FieldHelper(collections.defaultdict):
     '''
     Helper for Comp types. Performs Type lookup/creation upon first use.
@@ -506,7 +497,6 @@ class Guid(Type):
 
     def indx(self, norm):
         return s_common.uhex(norm)
-
 
 class Hex(Type):
 
@@ -1139,7 +1129,7 @@ class Range(Type):
 
     def postTypeInit(self):
         subtype = self.opts.get('type')
-        if not(type(subtype) is tuple and len(subtype) is 2):
+        if not(type(subtype) is tuple and len(subtype) == 2):
             raise s_exc.BadTypeDef(self.opts, name=self.name)
 
         try:
@@ -1192,12 +1182,14 @@ class StrBase(Type):
         self.indxcmpr['^='] = self.indxByPref
 
     def indxByPref(self, valu):
+        # truncate index bytes to account for indx chop
+        indx = self.indx(valu)[:248]
         return (
-            ('pref', valu.encode('utf8', 'surrogatepass')),
+            ('pref', indx),
         )
 
     def indx(self, norm):
-        return norm.encode('utf8', 'surrogatepass')
+        return self._getIndxChop(norm.encode('utf8', 'surrogatepass'))
 
 class Str(StrBase):
 
@@ -1265,16 +1257,16 @@ class Str(StrBase):
 
         return norm, {}
 
-class Tag(Type):
+class Tag(StrBase):
 
     def postTypeInit(self):
+        StrBase.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
-        self.indxcmpr['^='] = self.indxByPref
 
     def indxByPref(self, valu):
         norm, info = self.norm(valu)
         return (
-            ('pref', norm.encode('utf8')),
+            ('pref', norm.encode('utf8')[:248]),
         )
 
     def _normPyStr(self, text):
@@ -1296,10 +1288,6 @@ class Tag(Type):
             subs['up'] = '.'.join(toks[:-1])
 
         return norm, {'subs': subs}
-
-    def indx(self, norm):
-        return norm.encode('utf8')
-
 
 class Time(IntBase):
 

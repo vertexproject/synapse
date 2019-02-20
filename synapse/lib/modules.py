@@ -1,11 +1,6 @@
 '''
 Module which implements the synapse module API/convention.
 '''
-import logging
-
-import synapse.exc as s_exc
-import synapse.dyndeps as s_dyndeps
-
 coremods = (
     'synapse.models.dns.DnsModule',
     'synapse.models.orgs.OuModule',

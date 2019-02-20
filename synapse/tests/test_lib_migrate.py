@@ -1,6 +1,5 @@
 import synapse.common as s_common
 
-import synapse.lib.module as s_module
 import synapse.lib.migrate as s_migrate
 
 import synapse.tests.utils as s_testutils

@@ -192,6 +192,31 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.get('broadcast'), 3232236031)  # 192.168.1.255
                 self.eq(node.get('mask'), 24)
 
+    async def test_cidr6(self):
+        formname = 'inet:cidr6'
+        async with self.getTestCore() as core:
+
+            # Type Tests ======================================================
+            t = core.model.type(formname)
+
+            valu = '::/0'
+            expected = ('::/0', {'subs': {
+                'broadcast': 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff',
+                'network': '::',
+                'mask': 0,
+            }})
+            self.eq(t.norm(valu), expected)
+
+            valu = '2001:db8::/59'
+            expected = ('2001:db8::/59', {'subs': {
+                'broadcast': '2001:db8:0:1f:ffff:ffff:ffff:ffff',
+                'network': '2001:db8::',
+                'mask': 59,
+            }})
+            self.eq(t.norm(valu), expected)
+
+            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/-1')
+
     async def test_client(self):
         formname = 'inet:client'
         data = (
@@ -754,7 +779,15 @@ class InetModelTest(s_t_utils.SynTest):
             valu = '1.2.3.4-5.6.7.8'
             self.eq(t.norm(valu), expected)
 
-            self.raises(s_exc.BadTypeValu, t.norm, (valu[1], valu[0]))
+            valu = '1.2.3.0/24'
+            expected = ((0x01020300, 0x010203ff), {'subs': {'min': 0x01020300, 'max': 0x010203ff}})
+            self.eq(t.norm(valu), expected)
+
+            valu = '5.6.7.8-1.2.3.4'
+            self.raises(s_exc.BadTypeValu, t.norm, valu)
+
+            valu = ('1.2.3.4', '5.6.7.8', '7.8.9.10')
+            self.raises(s_exc.BadTypeValu, t.norm, valu)
 
     async def test_net6(self):
         tname = 'inet:net6'
@@ -769,12 +802,22 @@ class InetModelTest(s_t_utils.SynTest):
             valu = '0:0:0:0:0:0:0:0-::Ff'
             self.eq(t.norm(valu), expected)
 
-            self.raises(s_exc.BadTypeValu, t.norm, (valu[1], valu[0]))
-
             # Test case in which ipaddress ordering is not alphabetical
             valu = ('3300:100::', '3300:100:1::ffff')
             expected = (('3300:100::', '3300:100:1::ffff'), {'subs': {'min': '3300:100::', 'max': '3300:100:1::ffff'}})
             self.eq(t.norm(valu), expected)
+
+            valu = '2001:db8::/101'
+
+            expected = (('2001:db8::', '2001:db8::7ff:ffff'),
+                        {'subs': {'min': '2001:db8::', 'max': '2001:db8::7ff:ffff'}})
+            self.eq(t.norm(valu), expected)
+
+            valu = ('fe00::', 'fd00::')
+            self.raises(s_exc.BadTypeValu, t.norm, valu)
+
+            valu = ('fd00::', 'fe00::', 'ff00::')
+            self.raises(s_exc.BadTypeValu, t.norm, valu)
 
     async def test_passwd(self):
         async with self.getTestCore() as core:
