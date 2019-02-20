@@ -46,15 +46,29 @@ class Node:
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
 
-    async def storm(self, text, opts=None, user=None):
+    async def storm(self, text, opts=None, user=None, path=None):
+        '''
+        Args:
+            path (Path):
+                If set, then vars from path are copied into the new runtime, and vars are copied back out into path
+                at the end
+
+        Note:
+            If opts is not None and opts['vars'] is set and path is not None, then values of path vars take precedent
+        '''
         query = self.snap.core.getStormQuery(text)
-        with self.snap.getStormRuntime(opts=opts, user=user) as runt:
+        newopts = dict(opts) if opts else {}
+        if path:
+            newopts['vars'] = {**newopts.get('vars', {}), **path.vars}
+        with self.snap.getStormRuntime(opts=newopts, user=user) as runt:
             runt.addInput(self)
             async for item in runt.iterStormQuery(query):
                 yield item
+            if path:
+                path.vars.update(runt.vars)
 
-    async def filter(self, text, opts=None, user=None):
-        async for item in self.storm(text, opts=opts, user=user):  # NOQA
+    async def filter(self, text, opts=None, user=None, path=None):
+        async for item in self.storm(text, opts=opts, user=user, path=path):
             return False
         return True
 
