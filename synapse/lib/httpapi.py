@@ -197,6 +197,48 @@ class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
 class Handler(HandlerBase, t_web.RequestHandler):
     pass
 
+#class StormV1(Handler):
+
+class StormNodesV1(Handler):
+
+    async def get(self):
+
+        if not await self.reqAuthUser():
+            return
+
+        user = await self.user()
+        body = self.getJsonBody()
+
+        # dont allow a user to be specified
+        opts = body.get('opts')
+        query = body.get('query')
+
+        await self.cell.boss.promote('storm', user=user, info={'query': query})
+
+        async for pode in self.cell.iterStormPodes(query, opts=opts, user=user):
+            self.write(json.dumps(pode))
+            await self.flush()
+
+class StormV1(Handler):
+
+    async def get(self):
+
+        if not await self.reqAuthUser():
+            return
+
+        user = await self.user()
+        body = self.getJsonBody()
+
+        # dont allow a user to be specified
+        opts = body.get('opts')
+        query = body.get('query')
+
+        await self.cell.boss.promote('storm', user=user, info={'query': query})
+
+        async for mesg in self.cell.streamstorm(query, opts=opts, user=user):
+            self.write(json.dumps(mesg))
+            await self.flush()
+
 class LoginV1(Handler):
 
     async def post(self):
@@ -264,8 +306,7 @@ class AuthUserV1(Handler):
 
         rules = self.get_argument('rules', None)
         if rules is not None:
-            for rule in json.loads(rules):
-                await user.addRule(rule)
+            await user.setRules(rules)
 
         admin = self.get_argument('admin', None)
         if admin is not None:
@@ -299,8 +340,7 @@ class AuthRoleV1(Handler):
 
         rules = self.get_argument('rules', None)
         if rules is not None:
-            for rule in rules:
-                await role.addRule(rule)
+            await role.setRules(rules)
 
         self.sendRestRetn(role.pack())
 
@@ -316,21 +356,22 @@ class AuthGrantV1(Handler):
         if not await self.reqAuthAdmin():
             return
 
-        iden = self.get_argument('user', None)
+        body = self.getJsonBody()
 
+        iden = body.get('user')
         user = self.cell.auth.user(iden)
         if user is None:
             self.sendRestErr('NoSuchUser', f'User iden {iden} not found.')
             return
 
-        iden = self.get_argument('role', None)
-
+        iden = body.get('role')
         role = self.cell.auth.role(iden)
         if role is None:
             self.sendRestErr('NoSuchRole', f'Role iden {iden} not found.')
             return
 
         await user.grantRole(role)
+
         self.sendRestRetn(user.pack())
 
         return
@@ -347,15 +388,15 @@ class AuthRevokeV1(Handler):
         if not await self.reqAuthAdmin():
             return
 
-        iden = self.get_argument('user', None)
+        body = self.getJsonBody()
 
+        iden = body.get('user')
         user = self.cell.auth.user(iden)
         if user is None:
             self.sendRestErr('NoSuchUser', f'User iden {iden} not found.')
             return
 
-        iden = self.get_argument('role', None)
-
+        iden = body.get('role')
         role = self.cell.auth.role(iden)
         if role is None:
             self.sendRestErr('NoSuchRole', f'Role iden {iden} not found.')
@@ -369,14 +410,13 @@ class AuthRevokeV1(Handler):
 class AuthAddUserV1(Handler):
 
     async def post(self):
-        return await self.get()
-
-    async def get(self):
 
         if not await self.reqAuthAdmin():
             return
 
-        name = self.get_argument('name', None)
+        info = self.getJsonBody()
+
+        name = info.get('name')
         if name is None:
             self.sendRestErr('MissingField', 'The adduser API requires a "name" argument.')
             return
@@ -387,22 +427,21 @@ class AuthAddUserV1(Handler):
 
         user = await self.cell.auth.addUser(name)
 
-        passwd = self.get_argument('passwd', None)
+        passwd = info.get('passwd', None)
         if passwd is not None:
             await user.setPasswd(passwd)
 
-        admin = self.get_argument('admin', None)
+        admin = info.get('admin', None)
         if admin is not None:
             await user.setAdmin(bool(admin))
 
-        email = self.get_argument('email', None)
+        email = info.get('email', None)
         if email is not None:
             await user.info.set('email', email)
 
-        rules = self.get_argument('rules', None)
+        rules = info.get('rules')
         if rules is not None:
-            for rule in rules:
-                await user.addRule(rule)
+            await user.setRules(rules)
 
         self.sendRestRetn(user.pack())
         return
@@ -417,7 +456,9 @@ class AuthAddRoleV1(Handler):
         if not await self.reqAuthAdmin():
             return
 
-        name = self.get_argument('name', None)
+        info = self.getJsonBody()
+
+        name = info.get('name')
         if name is None:
             self.sendRestErr('MissingField', 'The addrole API requires a "name" argument.')
             return
@@ -428,10 +469,9 @@ class AuthAddRoleV1(Handler):
 
         role = await self.cell.auth.addRole(name)
 
-        rules = self.get_argument('rules', None)
+        rules = info.get('rules', None)
         if rules is not None:
-            for rule in rules:
-                await user.addRule(rule)
+            await role.setRules(rules)
 
         self.sendRestRetn(role.pack())
         return

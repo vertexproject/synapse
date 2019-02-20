@@ -765,7 +765,7 @@ class HiveUser(HiveIden):
             'name': self.name,
             'iden': self.node.name(),
             'rules': self.rules,
-            'roles': [r.name for r in self.getRoles()],
+            'roles': [r.iden for r in self.getRoles()],
             'admin': self.admin,
             'locked': self.locked,
         }

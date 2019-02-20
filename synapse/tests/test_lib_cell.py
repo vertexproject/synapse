@@ -1,3 +1,4 @@
+import json
 import aiohttp
 import contextlib
 
@@ -151,27 +152,56 @@ class CellTest(s_t_utils.SynTest):
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
-            item = await self.getHttpJson(f'https://localhost:{port}/api/v1/auth/adduser?name=visi&passwd=secret')
-            self.nn(item.get('result').get('iden'))
+            async with self.getHttpSess() as sess:
 
-            item = await self.getHttpJson(f'https://localhost:{port}/api/v1/auth/users')
-            users = item.get('result')
-            self.isin('visi', [u.get('name') for u in users])
+                info = {'name': 'visi', 'passwd': 'secret', 'admin': True}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', json=info) as resp:
+                    item = await resp.json()
+                    self.nn(item.get('result').get('iden'))
+                    visiiden = item['result']['iden']
 
-            item = await self.getHttpJson(f'https://localhost:{port}/api/v1/auth/adduser?name=visi')
-            self.eq('err', item.get('status'))
-            self.eq('DupUser', item.get('code'))
+                info = {'name': 'visi', 'passwd': 'secret', 'admin': True}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('DupUser', item.get('code'))
 
-            item = await self.getHttpJson(f'https://localhost:{port}/api/v1/auth/addrole?name=analysts')
-            self.nn(item.get('result').get('iden'))
+                info = {'name': 'analysts'}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/addrole', json=info) as resp:
+                    item = await resp.json()
+                    self.nn(item.get('result').get('iden'))
+                    analystiden = item['result']['iden']
 
-            item = await self.getHttpJson(f'https://localhost:{port}/api/v1/auth/addrole?name=analysts')
-            self.eq('err', item.get('status'))
-            self.eq('DupRole', item.get('code'))
+                info = {'name': 'analysts'}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/addrole', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('DupRole', item.get('code'))
 
-            item = await self.getHttpJson(f'https://localhost:{port}/api/v1/auth/roles')
-            roles = item.get('result')
-            self.isin('analysts', [r.get('name') for r in roles])
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
+                    item = await resp.json()
+                    users = item.get('result')
+                    self.isin('visi', [u.get('name') for u in users])
+
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/roles') as resp:
+                    item = await resp.json()
+                    roles = item.get('result')
+                    self.isin('analysts', [r.get('name') for r in roles])
+
+                info = {'user': visiiden, 'role': analystiden}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/grant', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+                    roles = item['result']['roles']
+                    self.len(1, roles)
+                    self.eq(analystiden, roles[0])
+
+                info = {'user': visiiden, 'role': analystiden}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/revoke', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+                    roles = item['result']['roles']
+                    self.len(0, roles)
 
             # lets try out session based login
             core.insecure = False
@@ -187,3 +217,43 @@ class CellTest(s_t_utils.SynTest):
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
+
+                rules = [(True, ('node:add',))]
+                info = {'name': 'derpuser', 'rules': rules}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', json=info) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    user = retn.get('result')
+                    self.eq('derpuser', user.get('name'))
+                    self.len(1, user.get('rules'))
+
+                node = None
+                body = {'query': '[ inet:ipv4=1.2.3.4 ]'}
+
+                async with sess.get(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
+
+                    async for byts, x in resp.content.iter_chunks():
+
+                        if not byts:
+                            break
+
+                        mesg = json.loads(byts)
+
+                        if mesg[0] == 'node':
+                            node = mesg[1]
+
+                    self.eq(0x01020304, node[0][1])
+
+                node = None
+                body = {'query': '[ inet:ipv4=1.2.3.4 ]'}
+
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
+
+                    async for byts, x in resp.content.iter_chunks():
+
+                        if not byts:
+                            break
+
+                        node = json.loads(byts)
+
+                    self.eq(0x01020304, node[0][1])

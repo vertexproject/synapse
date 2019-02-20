@@ -344,22 +344,25 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         return sess
 
-    async def addHttpsPort(self, port, host='0.0.0.0'):
+    async def addHttpsPort(self, port, host='0.0.0.0', sslctx=None):
 
         addr = socket.gethostbyname(host)
 
-        pkeypath = os.path.join(self.dirn, 'sslkey.pem')
-        certpath = os.path.join(self.dirn, 'sslcert.pem')
+        if sslctx is None:
 
-        if not os.path.isfile(certpath):
-            logger.warning('NO CERTIFICATE FOUND! generating self-signed certificate.')
-            with s_common.getTempDir() as dirn:
-                cdir = s_certdir.CertDir(dirn)
-                pkey, cert = cdir.genHostCert('cortex')
-                cdir.savePkeyPem(pkey, pkeypath)
-                cdir.saveCertPem(cert, certpath)
+            pkeypath = os.path.join(self.dirn, 'sslkey.pem')
+            certpath = os.path.join(self.dirn, 'sslcert.pem')
 
-        sslctx = self.initSslCtx(certpath, pkeypath)
+            if not os.path.isfile(certpath):
+                logger.warning('NO CERTIFICATE FOUND! generating self-signed certificate.')
+                with s_common.getTempDir() as dirn:
+                    cdir = s_certdir.CertDir(dirn)
+                    pkey, cert = cdir.genHostCert('cortex')
+                    cdir.savePkeyPem(pkey, pkeypath)
+                    cdir.saveCertPem(cert, certpath)
+
+            sslctx = self.initSslCtx(certpath, pkeypath)
+
         serv = self.wapp.listen(port, address=addr, ssl_options=sslctx)
 
         return list(serv._sockets.values())[0].getsockname()

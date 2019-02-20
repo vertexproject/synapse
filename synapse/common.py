@@ -176,7 +176,7 @@ def reqpath(*paths):
 def reqfile(*paths, **opts):
     path = genpath(*paths)
     if not os.path.isfile(path):
-        raise s_exc.NoSuchFile(path)
+        raise s_exc.NoSuchFile(path=path)
     opts.setdefault('mode', 'rb')
     return io.open(path, **opts)
 
