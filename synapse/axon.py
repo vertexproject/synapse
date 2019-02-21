@@ -97,12 +97,12 @@ class AxonApi(s_cell.CellApi, s_share.Share):
 
     async def hashes(self, offs):
         self.user.allowed(('axon:has',))
-        for item in self.cell.hashes(offs):
+        async for item in self.cell.hashes(offs):
             yield item
 
     async def history(self, tick, tock=None):
         self.user.allowed(('axon:has',))
-        for item in self.cell.history(tick, tock=tock):
+        async for item in self.cell.history(tick, tock=tock):
             yield item
 
     async def wants(self, sha256s):
@@ -111,7 +111,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):
 
     async def upload(self):
         self.user.allowed(('axon:upload',))
-        return UpLoadShare.anit(self.cell, self.link)
+        return await UpLoadShare.anit(self.cell, self.link)
 
     async def metrics(self):
         self.user.allowed(('axon:has',))
@@ -149,6 +149,13 @@ class Axon(s_cell.Cell):
         self.axonhist.add(item)
         self.axonseqn.add(item)
 
+    def getTeleMethInfo(self):
+        return {
+            'get': {'genr': True},
+            'hashes': {'genr': True},
+            'history': {'genr': True},
+        }
+
     async def history(self, tick, tock=None):
         for item in self.axonhist.carve(tick, tock=tock):
             yield item
@@ -159,7 +166,7 @@ class Axon(s_cell.Cell):
 
     async def get(self, sha256):
 
-        if not self.has(sha256):
+        if not await self.has(sha256):
             raise s_exc.NoSuchFile(sha256=s_common.ehex(sha256))
 
         for lkey, byts in self.blobslab.scanByPref(sha256, db=self.blobs):
@@ -167,7 +174,7 @@ class Axon(s_cell.Cell):
 
     async def put(self, byts):
         sha256 = hashlib.sha256(byts).digest()
-        self.save(sha256, [byts])
+        await self.save(sha256, [byts])
         return len(byts), sha256
 
     async def puts(self, files):
@@ -192,7 +199,7 @@ class Axon(s_cell.Cell):
         for i, byts in enumerate(genr):
             size += len(byts)
             lkey = sha256 + i.to_bytes(8, 'big')
-            self.blobslab.put(lkey, byts)
+            self.blobslab.put(lkey, byts, db=self.blobs)
             await asyncio.sleep(0)
 
         self._addSyncItem((sha256, size))
@@ -211,7 +218,7 @@ class Axon(s_cell.Cell):
         return [s for s in sha256s if not await self.has(s)]
 
 class AxonClient:
-    def __init__(self, url):
+    def __init__(self, prox):
         pass
 
 async def openurl(url, **opts):

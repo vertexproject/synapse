@@ -476,3 +476,13 @@ class TeleTest(s_t_utils.SynTest):
                     # with a dynamic share attached to it.
                     async with await s_telepath.openurl(f'{name}/bar') as prox:
                         self.eq('bar: beep', await prox.beep())
+
+    async def test_default_name(self):
+
+        async with self.getTestDmon() as dmon:
+
+            addr, port = await dmon.listen('tcp://127.0.0.1:0')
+            dmon.share('*', Foo())
+
+            async with await s_telepath.openurl(f'tcp://{addr}:{port}/') as prox:
+                self.eq('hiya', await prox.echo('hiya'))

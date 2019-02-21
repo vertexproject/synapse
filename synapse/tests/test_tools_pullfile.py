@@ -15,15 +15,19 @@ class TestPullFile(s_t_utils.SynTest):
 
         async with self.getTestAxon() as axon:
 
-            await axon.puts([b'visi', b'test'])
-
             axonurl = axon.getLocalUrl()
 
-            def pullfile():
+            testhash = hashlib.sha256(b'test').hexdigest()
+            visihash = hashlib.sha256(b'visi').hexdigest()
+            nonehash = hashlib.sha256(b'none').hexdigest()
 
-                testhash = hashlib.sha256(b'test').hexdigest()
-                visihash = hashlib.sha256(b'visi').hexdigest()
-                nonehash = hashlib.sha256(b'none').hexdigest()
+            testbash = hashlib.sha256(b'test').digest()
+            visibash = hashlib.sha256(b'visi').digest()
+            nonebash = hashlib.sha256(b'none').digest()
+
+            self.eq(((4, visibash), (4, testbash)), await axon.puts([b'visi', b'test']))
+
+            def pullfile():
 
                 with self.getTestDir() as wdir:
 

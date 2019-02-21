@@ -37,6 +37,9 @@ class Aware:
         '''
         return self
 
+    def getTeleMethInfo(self):
+        return {}
+
     def onTeleShare(self, dmon, name):
         pass
 
@@ -168,6 +171,31 @@ class Method:
         todo = (self.name, args, kwargs)
         return await self.proxy.task(todo, name=self.share)
 
+class GenrIter:
+    '''
+    An object to help delay a telepath call until iteration.
+    '''
+    def __init__(self, proxy, todo, share):
+        self.todo = todo
+        self.proxy = proxy
+        self.share = share
+
+    async def __aiter__(self):
+        genr = await self.proxy.task(self.todo, name=self.share)
+        async for item in genr:
+            yield item
+
+    def __iter__(self):
+        genr = s_glob.sync(self.proxy.task(self.todo, name=self.share))
+        for item in genr:
+            yield item
+
+class GenrMethod(Method):
+
+    def __call__(self, *args, **kwargs):
+        todo = (self.name, args, kwargs)
+        return GenrIter(self.proxy, todo, self.share)
+
 class Proxy(s_base.Base):
     '''
     A telepath Proxy is used to call remote APIs on a shared object.
@@ -202,6 +230,8 @@ class Proxy(s_base.Base):
         self.tasks = {}
         self.shares = {}
 
+        self.methinfo = {}
+
         self.sess = None
         self.links = collections.deque()
 
@@ -209,7 +239,6 @@ class Proxy(s_base.Base):
         self.syndone = asyncio.Event()
 
         self.handlers = {
-            'tele:syn': self._onTeleSyn,
             'task:fini': self._onTaskFini,
             'share:data': self._onShareData,
             'share:fini': self._onShareFini,
@@ -439,6 +468,7 @@ class Proxy(s_base.Base):
             raise s_exc.LinkShutDown(mesg=mesg)
 
         self.sess = self.synack[1].get('sess')
+        self.methinfo = self.synack[1].get('methinfo', {})
 
         vers = self.synack[1].get('vers')
         if vers[0] != televers[0]:
@@ -502,6 +532,13 @@ class Proxy(s_base.Base):
         return task.reply((True, item))
 
     def __getattr__(self, name):
+
+        info = self.methinfo.get(name)
+        if info is not None and info.get('genr'):
+            meth = GenrMethod(self, name)
+            setattr(self, name, meth)
+            return meth
+
         meth = Method(self, name)
         setattr(self, name, meth)
         return meth

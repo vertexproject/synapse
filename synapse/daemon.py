@@ -355,7 +355,10 @@ class Daemon(s_base.Base):
                 raise s_exc.BadMesgVers(vers=vers, myvers=s_telepath.televers)
 
             path = ()
+
             name = mesg[1].get('name')
+            if not name:
+                name = '*'
 
             if '/' in name:
                 name, rest = name.split('/', 1)
@@ -379,6 +382,7 @@ class Daemon(s_base.Base):
             link.set('sess', sess)
 
             if isinstance(item, s_telepath.Aware):
+                reply[1]['methinfo'] = item.getTeleMethInfo()
                 item = await s_coro.ornot(item.getTeleApi, link, mesg, path)
                 if isinstance(item, s_base.Base):
                     link.onfini(item.fini)

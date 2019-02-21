@@ -37,10 +37,13 @@ def main(argv, outp=None):
 
             try:
                 outp.printf(f'Fetching {h} to file')
+
                 with open(outdir.joinpath(h), 'wb') as fd:
                     for b in axon.get(binascii.unhexlify(h)):
                         fd.write(b)
+
                 outp.printf(f'Fetched {h} to file')
+
             except Exception as e:
                 outp.printf('Error: Hit Exception: %s' % (str(e),))
                 continue

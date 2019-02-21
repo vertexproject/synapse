@@ -38,6 +38,12 @@ class AxonTest(s_t_utils.SynTest):
             await fd.write(b'asdfasdf')
             await fd.save()
 
+        bytz = []
+        async for byts in axon.get(asdfhash):
+            bytz.append(byts)
+
+        self.eq(b'asdfasdf', b''.join(bytz))
+
         self.true(await axon.has(asdfhash))
         self.false(await axon.has(bbufhash))
 
