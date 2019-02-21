@@ -27,19 +27,29 @@ import synapse.datamodel as s_datamodel
 
 logger = logging.getLogger(__name__)
 
-class TankApi(s_cell.CellApi):
+class TankApi(s_base.Base):
+
+    async def __anit__(self, tank, link, user):
+        await s_base.Base.__anit__(self)
+        self.tank = tank
+        self.link = link
+        self.user = user
+
+    # Backwards compatibility for CellApi
+    def getCellIden(self):
+        return self.tank.iden
 
     def slice(self, size, offs, iden=None):
-        yield from self.cell.slice(size, offs, iden=iden)
+        yield from self.tank.slice(size, offs, iden=iden)
 
     def puts(self, items, seqn=None):
-        return self.cell.puts(items, seqn=seqn)
+        return self.tank.puts(items, seqn=seqn)
 
     def metrics(self, offs, size=None):
-        yield from self.cell.metrics(offs, size=size)
+        yield from self.tank.metrics(offs, size=size)
 
     def offset(self, iden):
-        return self.cell.getOffset(iden)
+        return self.tank.getOffset(iden)
 
     def addIndex(self, prop, syntype, datapaths):
         '''
@@ -57,7 +67,7 @@ class TankApi(s_cell.CellApi):
             Additional datapaths will only be tried if prior datapaths are not present, and *not* if
             the normalization fails.
         '''
-        return self.cell.indexer.addIndex(prop, syntype, datapaths)
+        return self.tank.indexer.addIndex(prop, syntype, datapaths)
 
     def delIndex(self, prop):
         '''
@@ -68,7 +78,7 @@ class TankApi(s_cell.CellApi):
         Returns:
             None
         '''
-        return self.cell.indexer.delIndex(prop)
+        return self.tank.indexer.delIndex(prop)
 
     def pauseIndex(self, prop=None):
         '''
@@ -81,7 +91,7 @@ class TankApi(s_cell.CellApi):
         Note:
             Pausing is not persistent.  Restarting the process will resume indexing.
         '''
-        return self.cell.indexer.pauseIndex(prop)
+        return self.tank.indexer.pauseIndex(prop)
 
     def resumeIndex(self, prop=None):
         '''
@@ -92,7 +102,7 @@ class TankApi(s_cell.CellApi):
         Returns:
             None
         '''
-        return self.cell.indexer.resumeIndex(prop=prop)
+        return self.tank.indexer.resumeIndex(prop=prop)
 
     def getIndices(self):
         '''
@@ -103,9 +113,9 @@ class TankApi(s_cell.CellApi):
         Returns:
             List[Dict[str: Any]]: all the indices with progress and statistics
         '''
-        if self.cell.indexer is None:
+        if self.tank.indexer is None:
             return []
-        return self.cell.indexer.getIndices()
+        return self.tank.indexer.getIndices()
 
     def queryNormValu(self, prop, valu=None, exact=False):
         '''
@@ -121,7 +131,7 @@ class TankApi(s_cell.CellApi):
         Returns:
             Iterable[Tuple[int, Union[str, int]]]:  A generator of offset, normalized value tuples.
         '''
-        yield from self.cell.indexer.queryNormValu(prop, valu, exact)
+        yield from self.tank.indexer.queryNormValu(prop, valu, exact)
 
     def queryNormRecords(self, prop, valu=None, exact=False):
         '''
@@ -137,7 +147,7 @@ class TankApi(s_cell.CellApi):
         Returns:
             Iterable[Tuple[int, Dict[str, Union[str, int]]]]: A generator of offset, dictionary tuples
         '''
-        yield from self.cell.indexer.queryNormRecords(prop, valu, exact)
+        yield from self.tank.indexer.queryNormRecords(prop, valu, exact)
 
     def queryRows(self, prop, valu=None, exact=False):
         '''
@@ -153,9 +163,9 @@ class TankApi(s_cell.CellApi):
         Returns:
             Iterable[Tuple[int, bytes]]: A generator of tuple (offset, messagepack encoded) raw records
         '''
-        yield from self.cell.indexer.queryRows(prop, valu, exact)
+        yield from self.tank.indexer.queryRows(prop, valu, exact)
 
-class CryoTank(s_cell.Cell):
+class CryoTank(s_base.Base):
     '''
     A CryoTank implements a stream of structured data.
     '''
@@ -168,11 +178,25 @@ class CryoTank(s_cell.Cell):
 
     async def __anit__(self, dirn: str, conf=None) -> None:
 
-        await s_cell.Cell.__anit__(self, dirn)
+        await s_base.Base.__anit__(self)
+
+        # Backwards compatibility for cells
+        self.dirn = s_common.gendir(dirn)
+
+        _conf = self._loadConfYaml('cell.yaml')
+        self.conf = s_common.config(_conf, self.confdefs)
 
         if conf is not None:
             self.conf.update(conf)
 
+        path = s_common.genpath(self.dirn, 'cell.guid')
+        if not os.path.isfile(path):
+            with open(path, 'w') as fd:
+                fd.write(s_common.guid())
+        with open(path, 'r') as fd:
+            self.iden = fd.read().strip()
+
+        # Cryotank specific items
         path = s_common.gendir(self.dirn, 'tank.lmdb')
 
         mapsize = self.conf.get('mapsize')
@@ -197,6 +221,16 @@ class CryoTank(s_cell.Cell):
             self.lenv.close()
 
         self.onfini(fini)
+
+    def _loadConfYaml(self, *path):
+
+        path = os.path.join(self.dirn, *path)
+
+        if os.path.isfile(path):
+            logger.debug('Loading file from [%s]', path)
+            return s_common.yamlload(path)
+
+        return {}
 
     def getOffset(self, iden):
         return self.offs.get(iden)
