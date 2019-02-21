@@ -96,6 +96,7 @@ class Layer(s_base.Base):
     async def __anit__(self, core, node):
 
         await s_base.Base.__anit__(self)
+        self._fini_atexit = True
 
         self.core = core
         self.node = node

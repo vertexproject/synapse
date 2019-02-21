@@ -23,6 +23,7 @@ class Sess(s_base.Base):
     async def __anit__(self):
 
         await s_base.Base.__anit__(self)
+        self._fini_atexit = True
 
         self.items = {}
         self.iden = s_common.guid()
@@ -119,6 +120,7 @@ class Daemon(s_base.Base):
     async def __anit__(self, dirn=None, conf=None):
 
         await s_base.Base.__anit__(self)
+        self._fini_atexit = True
 
         self.dirn = None
         if dirn is not None:

@@ -349,7 +349,10 @@ class Agenda(s_base.Base):
     '''
 
     async def __anit__(self, core):
+
         await s_base.Base.__anit__(self)
+        self._fini_atexit = True
+
         self.core = core
         self.apptheap = []  # Stores the appointments in a heap such that the first element is the next appt to run
         self.appts = {}  # Dict[bytes: Appt]
