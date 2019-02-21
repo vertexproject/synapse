@@ -367,10 +367,10 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         return list(serv._sockets.values())[0].getsockname()
 
-    #async def addHttpPort(self, port, host='0.0.0.0', ssl=None):
-        #addr = socket.gethostbyname(host)
-        #serv = self.wapp.listen(port, address=addr)
-        #return list(serv._sockets.values())[0].getsockname()
+    async def addHttpPort(self, port, host='0.0.0.0'):
+        addr = socket.gethostbyname(host)
+        serv = self.wapp.listen(port, address=addr)
+        return list(serv._sockets.values())[0].getsockname()
 
     def initSslCtx(self, certpath, keypath):
 

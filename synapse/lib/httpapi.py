@@ -94,7 +94,7 @@ class HandlerBase:
         try:
             return json.loads(byts)
         except Exception as e:
-            logger.exception('invalid json message: %r' % (byts,))
+            self.sendRestErr('BadJson', 'Invalid JSON content.')
             return None
 
     def sendAuthReqired(self):
@@ -165,7 +165,6 @@ class HandlerBase:
             name, passwd = text.split(':', 1)
         except Exception:
             logger.exception('invalid basic auth header')
-            traceback.print_exc()
             return None
 
         user = self.cell.auth.getUserByName(name)
@@ -205,7 +204,10 @@ class StormNodesV1(Handler):
             return
 
         user = await self.user()
+
         body = self.getJsonBody()
+        if body is None:
+            return
 
         # dont allow a user to be specified
         opts = body.get('opts')
@@ -226,6 +228,8 @@ class StormV1(Handler):
 
         user = await self.user()
         body = self.getJsonBody()
+        if body is None:
+            return
 
         # dont allow a user to be specified
         opts = body.get('opts')
@@ -244,6 +248,8 @@ class LoginV1(Handler):
         sess = await self.sess()
 
         body = self.getJsonBody()
+        if body is None:
+            return
 
         name = body.get('user')
         passwd = body.get('passwd')
@@ -303,6 +309,8 @@ class AuthUserV1(Handler):
             return
 
         body = self.getJsonBody()
+        if body is None:
+            return
 
         rules = body.get('rules')
         if rules is not None:
@@ -339,6 +347,8 @@ class AuthRoleV1(Handler):
             return
 
         body = self.getJsonBody()
+        if body is None:
+            return
 
         rules = body.get('rules')
         if rules is not None:
@@ -359,6 +369,8 @@ class AuthGrantV1(Handler):
             return
 
         body = self.getJsonBody()
+        if body is None:
+            return
 
         iden = body.get('user')
         user = self.cell.auth.user(iden)
@@ -391,6 +403,8 @@ class AuthRevokeV1(Handler):
             return
 
         body = self.getJsonBody()
+        if body is None:
+            return
 
         iden = body.get('user')
         user = self.cell.auth.user(iden)
@@ -416,9 +430,11 @@ class AuthAddUserV1(Handler):
         if not await self.reqAuthAdmin():
             return
 
-        info = self.getJsonBody()
+        body = self.getJsonBody()
+        if body is None:
+            return
 
-        name = info.get('name')
+        name = body.get('name')
         if name is None:
             self.sendRestErr('MissingField', 'The adduser API requires a "name" argument.')
             return
@@ -429,19 +445,19 @@ class AuthAddUserV1(Handler):
 
         user = await self.cell.auth.addUser(name)
 
-        passwd = info.get('passwd', None)
+        passwd = body.get('passwd', None)
         if passwd is not None:
             await user.setPasswd(passwd)
 
-        admin = info.get('admin', None)
+        admin = body.get('admin', None)
         if admin is not None:
             await user.setAdmin(bool(admin))
 
-        email = info.get('email', None)
+        email = body.get('email', None)
         if email is not None:
             await user.info.set('email', email)
 
-        rules = info.get('rules')
+        rules = body.get('rules')
         if rules is not None:
             await user.setRules(rules)
 
@@ -451,16 +467,15 @@ class AuthAddUserV1(Handler):
 class AuthAddRoleV1(Handler):
 
     async def post(self):
-        return await self.get()
-
-    async def get(self):
 
         if not await self.reqAuthAdmin():
             return
 
-        info = self.getJsonBody()
+        body = self.getJsonBody()
+        if body is None:
+            return
 
-        name = info.get('name')
+        name = body.get('name')
         if name is None:
             self.sendRestErr('MissingField', 'The addrole API requires a "name" argument.')
             return
@@ -471,7 +486,7 @@ class AuthAddRoleV1(Handler):
 
         role = await self.cell.auth.addRole(name)
 
-        rules = info.get('rules', None)
+        rules = body.get('rules', None)
         if rules is not None:
             await role.setRules(rules)
 

@@ -236,6 +236,20 @@ class CellTest(s_t_utils.SynTest):
 
             async with self.getHttpSess() as sess:
 
+                info = {'user': 'hehe'}
+                async with sess.post(f'https://localhost:{port}/login', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('AuthDeny', item.get('code'))
+
+            async with self.getHttpSess() as sess:
+
+                info = {'user': 'visi', 'passwd': 'borked'}
+                async with sess.post(f'https://localhost:{port}/login', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('AuthDeny', item.get('code'))
+
+            async with self.getHttpSess() as sess:
+
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', json=info) as resp:
                     item = await resp.json()
                     self.eq('NotAuthenticated', item.get('code'))
@@ -248,6 +262,16 @@ class CellTest(s_t_utils.SynTest):
                     self.eq('ok', item.get('status'))
 
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=newpauth) as resp:
+                    item = await resp.json()
+                    self.eq('NotAuthenticated', item.get('code'))
+
+                headers = {'Authorization': 'yermom'}
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users', headers=headers) as resp:
+                    item = await resp.json()
+                    self.eq('NotAuthenticated', item.get('code'))
+
+                headers = {'Authorization': 'Basic zzzz'}
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users', headers=headers) as resp:
                     item = await resp.json()
                     self.eq('NotAuthenticated', item.get('code'))
 
@@ -289,6 +313,38 @@ class CellTest(s_t_utils.SynTest):
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/addrole', json={}) as resp:
                     item = await resp.json()
                     self.eq('MissingField', item.get('code'))
+
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', data=b'asdf') as resp:
+                    item = await resp.json()
+                    self.eq('BadJson', item.get('code'))
+
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/addrole', data=b'asdf') as resp:
+                    item = await resp.json()
+                    self.eq('BadJson', item.get('code'))
+
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/grant', data=b'asdf') as resp:
+                    item = await resp.json()
+                    self.eq('BadJson', item.get('code'))
+
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/revoke', data=b'asdf') as resp:
+                    item = await resp.json()
+                    self.eq('BadJson', item.get('code'))
+
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/user/{visiiden}', data=b'asdf') as resp:
+                    item = await resp.json()
+                    self.eq('BadJson', item.get('code'))
+
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/role/{analystiden}', data=b'asdf') as resp:
+                    item = await resp.json()
+                    self.eq('BadJson', item.get('code'))
+
+                async with sess.get(f'https://localhost:{port}/api/v1/storm', data=b'asdf') as resp:
+                    item = await resp.json()
+                    self.eq('BadJson', item.get('code'))
+
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', data=b'asdf') as resp:
+                    item = await resp.json()
+                    self.eq('BadJson', item.get('code'))
 
                 rules = [(True, ('node:add',))]
                 info = {'name': 'derpuser', 'passwd': 'derpuser', 'rules': rules}
@@ -348,6 +404,10 @@ class CellTest(s_t_utils.SynTest):
 
             # test some auth but not admin paths
             async with self.getHttpSess() as sess:
+
+                async with sess.post(f'https://localhost:{port}/login', data=b'asdf') as resp:
+                    retn = await resp.json()
+                    self.eq('BadJson', retn.get('code'))
 
                 async with sess.post(f'https://localhost:{port}/login', json={'user': 'derpuser', 'passwd': 'derpuser'}) as resp:
                     retn = await resp.json()
