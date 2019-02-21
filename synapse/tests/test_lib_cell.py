@@ -196,6 +196,26 @@ class CellTest(s_t_utils.SynTest):
                     roles = item.get('result')
                     self.isin('analysts', [r.get('name') for r in roles])
 
+                info = {'user': 'blah', 'role': 'blah'}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/grant', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('NoSuchUser', item.get('code'))
+
+                info = {'user': visiiden, 'role': 'blah'}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/grant', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('NoSuchRole', item.get('code'))
+
+                info = {'user': 'blah', 'role': 'blah'}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/revoke', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('NoSuchUser', item.get('code'))
+
+                info = {'user': visiiden, 'role': 'blah'}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/revoke', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('NoSuchRole', item.get('code'))
+
                 info = {'user': visiiden, 'role': analystiden}
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/grant', json=info) as resp:
                     item = await resp.json()
@@ -261,6 +281,14 @@ class CellTest(s_t_utils.SynTest):
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/role/{analystiden}', json=info) as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
+
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', json={}) as resp:
+                    item = await resp.json()
+                    self.eq('MissingField', item.get('code'))
+
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/addrole', json={}) as resp:
+                    item = await resp.json()
+                    self.eq('MissingField', item.get('code'))
 
                 rules = [(True, ('node:add',))]
                 info = {'name': 'derpuser', 'rules': rules}
