@@ -52,7 +52,7 @@ class Task(s_base.Base):
 
     def _onTaskDone(self, t):
         if not self.isfini:
-            self.boss.schedCoro(self.fini())
+            self.boss.schedCoroSafe(self.fini())
 
     async def _onTaskFini(self):
 
@@ -62,14 +62,19 @@ class Task(s_base.Base):
         self.task.cancel()
 
         try:
-            await self.task
-        except Exception as e:
+            await asyncio.wait(self.task)
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception:
             pass
 
-        if self.root is not None:
-            self.root.kids.pop(self.iden)
+        finally:
+            if self.root is not None:
+                self.root.kids.pop(self.iden)
 
-        self.boss.tasks.pop(self.iden)
+            self.boss.tasks.pop(self.iden)
 
     async def worker(self, coro, name='worker'):
 
@@ -141,3 +146,64 @@ async def executor(func, *args, **kwargs):
 
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, syncfunc)
+
+_TaskDictCtors = {}  # type: ignore
+
+def varinit(task=None):
+    '''
+    Initializes (or re-initializes for testing purposes) all of a task's task-local variables
+    '''
+    if task is None:
+        task = asyncio.current_task()
+    taskvars = {}
+    task._syn_taskvars = taskvars
+    return taskvars
+
+def _taskdict(task):
+    '''
+    Note: No locking is provided.  Under normal circumstances, like the other task is not running (e.g. this is running
+    from the same event loop as the task) or task is the current task, this is fine.
+    '''
+    if task is None:
+        task = asyncio.current_task()
+    taskvars = getattr(task, '_syn_taskvars', None)
+
+    if taskvars is None:
+        taskvars = varinit(task)
+
+    return taskvars
+
+def varget(name, defval=None, task=None):
+    '''
+    Access a task local variable by name
+    '''
+    taskdict = _taskdict(task)
+    retn = taskdict.get(name, s_common.NoValu)
+    if retn is not s_common.NoValu:
+        return retn
+
+    func = _TaskDictCtors.get(name)
+    if func is None:
+        return defval
+
+    item = func()
+    taskdict[name] = item
+
+    return item
+
+def varset(name, valu, task=None):
+    '''
+    Set a task-local variable
+
+    Args:
+        task: If task is None, uses current task
+    '''
+    _taskdict(task)[name] = valu
+
+def vardefault(name, func):
+    '''
+    Add a default constructor for a particular task-local variable
+
+    All future calls to taskVarGet with the same name will return the result of calling func
+    '''
+    _TaskDictCtors[name] = func

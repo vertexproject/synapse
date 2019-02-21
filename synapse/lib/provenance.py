@@ -1,7 +1,8 @@
 import contextlib
-import contextvars
 
 import synapse.exc as s_exc
+
+import synapse.lib.task as s_task
 
 '''
 Provenance tracks the reason and path how a particular hypergraph operation
@@ -19,50 +20,49 @@ alias on each stack frame (which represents the alias for the stack that ends
 on that stack frame.
 '''
 
-_ProvStack = contextvars.ContextVar('ProvStack', default=[(None, ('', {}))])  # type: ignore
+_BaseFrame = (None, ('', {}))  # type: ignore
+
+s_task.vardefault('provstack', lambda: [_BaseFrame])
 
 @contextlib.contextmanager
 def claim(typ, **info):
     '''
     Add an entry to the provenance stack for the duration of the context
     '''
-    stack = _ProvStack.get()
+    stack = s_task.varget('provstack')
 
     if len(stack) > 256:  # pragma: no cover
+        breakpoint()
         raise s_exc.RecursionLimitHit(mesg='Hit global recursion limit')
 
     frame = (None, (typ, info))
     stack.append(frame)
-    yield
-    stack.pop()
+    try:
+        yield
+    finally:
+        stack.pop()
 
 def reset():
     '''
-    Resets the stack to its initial state.
+    Reset the stack to its initial state
 
     For testing purposes
     '''
-    _ProvStack.set([(None, ('', {}))])
+    s_task.varset('provstack', [_BaseFrame])
 
-def copy():
+def dupstack(newtask):
     '''
-    Get a copy of the raw stack (solely for the sake of pasting it to a child task)
+    Duplicate the current provenance stack onto another task
     '''
-    return _ProvStack.get()[:]
-
-def paste(stack):
-    '''
-    Sets the stack from a raw copy
-    '''
-    _ProvStack.set(stack)
+    stack = s_task.varget('provstack')
+    s_task.varset('provstack', stack[:], newtask)
 
 def get():
     '''
     Returns:
-       A tuple of the stack alias if set, the current provenance stack
+       A tuple of (stack alias (or None if not set), the current provenance stack)
     '''
-    stack = _ProvStack.get()
-    assert stack  # there's a base frame that shall never be popped
+    stack = s_task.varget('provstack')
     stackalias = stack[-1][0]
     return stackalias, [frame[1] for frame in stack]
 
@@ -70,6 +70,8 @@ def setStackAlias(stackalias):
     '''
     Sets the stack alias for the current provenance stack
     '''
-    stack = _ProvStack.get()
-    assert stack  # there's a base frame that shall never be popped
+    stack = s_task.varget('provstack')
+    if stack is None:
+        stack = [_BaseFrame]
+        s_task.varset('provstack', stack)
     stack[-1] = stackalias, stack[-1][1]
