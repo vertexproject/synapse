@@ -238,6 +238,7 @@ class Cli(s_eventbus.EventBus):
 
         self.echoline = False
         self.finikill = False
+        self.inithist = False
         self.loopthread = None
 
         if isinstance(item, (s_base.Base, s_eventbus.EventBus)):
@@ -260,6 +261,38 @@ class Cli(s_eventbus.EventBus):
 
         if self.loopthread is not None and self.finikill:
             signal.pthread_kill(self.loopthread, signal.SIGINT)
+
+    def _initReadline(self, readline):
+        try:
+            readline.read_init_file()
+        except OSError:
+            # from cpython 3.6 site.py:
+            # An OSError here could have many causes, but the most likely one
+            # is that there's no .inputrc file (or .editrc file in the case of
+            # Mac OS X + libedit) in the expected location.  In that case, we
+            # want to ignore the exception.
+            pass
+
+        if not self.inithist:
+            return
+
+        if readline.get_current_history_length() == 0:  # pragma: no cover
+            history_path = s_common.getSynPath('cmdr_history')
+            # We have to ensure the file exists to use append mode
+            with s_common.genfile(history_path) as fd:
+                pass
+            try:
+                readline.read_history_file(history_path)
+            except IOError:
+                pass
+            h_len = readline.get_current_history_length()
+
+            def save(prev_h_len, histfile):
+                new_h_len = readline.get_current_history_length()
+                readline.set_history_length(1000)
+                readline.append_history_file(new_h_len - prev_h_len, histfile)
+
+            atexit.register(save, h_len, history_path)
 
     def reflectItem(self):
         refl = s_reflect.getItemInfo(self.item)
@@ -331,27 +364,7 @@ class Cli(s_eventbus.EventBus):
         self.loopthread = threading.currentThread().ident
 
         import readline
-
-        try:
-            readline.read_init_file()
-        except OSError:
-            # from cpython 3.6 site.py:
-            # An OSError here could have many causes, but the most likely one
-            # is that there's no .inputrc file (or .editrc file in the case of
-            # Mac OS X + libedit) in the expected location.  In that case, we
-            # want to ignore the exception.
-            pass
-
-        if readline.get_current_history_length() == 0:  # pragma: no cover
-            history_path = s_common.getSynPath('.cmdr_history')
-            # We have to ensure the file exists to use append mode
-            with s_common.genfile(history_path) as fd:
-                pass
-            try:
-                readline.read_history_file(history_path)
-            except IOError:
-                pass
-            atexit.register(readline.append_history_file, 1000, history_path)
+        self._initReadline(readline)
 
         while not self.isfini:
 
