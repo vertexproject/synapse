@@ -178,11 +178,9 @@ class Daemon(s_base.Base):
             path = info.get('path')
             try:
                 server = await s_link.unixlisten(path, self._onLinkInit)
-            except OSError as e:
+            except Exception as e:
                 if 'path too long' in str(e):
                     logger.error(f'unix:// exceeds OS supported UNIX socket path length: {path}')
-                raise
-            except Exception as e:  # pragma: no cover
                 raise
 
         else:
