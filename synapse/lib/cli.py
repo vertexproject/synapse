@@ -292,7 +292,7 @@ class Cli(s_eventbus.EventBus):
             # Recipe from cpython stdlib documentation for readline.
             def save(prev_h_len, histfile):
                 new_h_len = readline.get_current_history_length()
-                readline.set_history_length(1000)
+                readline.set_history_length(10000)
                 readline.append_history_file(new_h_len - prev_h_len, histfile)
 
             atexit.register(save, h_len, history_path)
