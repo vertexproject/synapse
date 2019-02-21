@@ -2533,9 +2533,3 @@ class CortexTest(s_t_utils.SynTest):
 
             core.view.borked = None
             self.len(1, await core.eval('[ teststr=foo ]').list())
-
-    async def test_cortex_axon(self):
-        async with self.getTestCore() as core:
-            async with await core.getLocalProxy() as prox:
-                async with await prox.axon() as axon:
-                    await axon.put(b'asdfasdf')
