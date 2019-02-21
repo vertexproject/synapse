@@ -82,7 +82,7 @@ class HandlerBase:
         return self.isOrigHost(origin)
 
     def getJsonBody(self):
-        return json.loads(self.request.body)
+        return self.loadJsonMesg(self.request.body)
 
     def sendRestErr(self, code, mesg):
         return self.write({'status': 'err', 'code': code, 'mesg': mesg})
@@ -302,11 +302,13 @@ class AuthUserV1(Handler):
             self.sendRestErr('NoSuchUser', f'User {iden} does not exist.')
             return
 
-        rules = self.get_argument('rules', None)
+        body = self.getJsonBody()
+
+        rules = body.get('rules')
         if rules is not None:
             await user.setRules(rules)
 
-        admin = self.get_argument('admin', None)
+        admin = body.get('admin')
         if admin is not None:
             await user.setAdmin(bool(admin))
 
@@ -331,12 +333,14 @@ class AuthRoleV1(Handler):
         if not await self.reqAuthAdmin():
             return
 
-        role = self.cell.auth.user(iden)
+        role = self.cell.auth.role(iden)
         if role is None:
             self.sendRestErr('NoSuchRole', f'Role {iden} does not exist.')
             return
 
-        rules = self.get_argument('rules', None)
+        body = self.getJsonBody()
+
+        rules = body.get('rules')
         if rules is not None:
             await role.setRules(rules)
 

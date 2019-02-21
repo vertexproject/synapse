@@ -178,6 +178,14 @@ class CellTest(s_t_utils.SynTest):
                     self.eq('err', item.get('status'))
                     self.eq('DupRole', item.get('code'))
 
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/user/newp') as resp:
+                    item = await resp.json()
+                    self.eq('NoSuchUser', item.get('code'))
+
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/role/newp') as resp:
+                    item = await resp.json()
+                    self.eq('NoSuchRole', item.get('code'))
+
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
                     item = await resp.json()
                     users = item.get('result')
@@ -208,13 +216,49 @@ class CellTest(s_t_utils.SynTest):
 
             async with self.getHttpSess() as sess:
 
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('NotAuthenticated', item.get('code'))
+
+                visiauth = aiohttp.BasicAuth('visi', 'secret')
+                newpauth = aiohttp.BasicAuth('visi', 'newp')
+
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=visiauth) as resp:
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=newpauth) as resp:
+                    item = await resp.json()
+                    self.eq('NotAuthenticated', item.get('code'))
+
+            # work some authenticated as admin code paths
+            async with self.getHttpSess() as sess:
+
                 async with sess.post(f'https://localhost:{port}/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
                     self.eq('visi', retn['result']['name'])
 
+                # check same-host cross-origin behavior
+                origin = 'https://localhost:1/web/site'
+                headers = {'origin': origin}
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users', headers=headers) as resp:
+                    retn = await resp.json()
+                    self.eq(origin, resp.headers.get('Access-Control-Allow-Origin'))
+                    self.eq('ok', retn.get('status'))
+
                 # use the authenticated session to do stuff...
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+
+                info = {'rules': ()}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/user/{visiiden}', json=info) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+
+                info = {'rules': ()}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/role/{analystiden}', json=info) as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
 
@@ -224,8 +268,17 @@ class CellTest(s_t_utils.SynTest):
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
                     user = retn.get('result')
+                    derpiden = user.get('iden')
                     self.eq('derpuser', user.get('name'))
                     self.len(1, user.get('rules'))
+                    self.false(user.get('admin'))
+
+                info = {'admin': True}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/user/{derpiden}', json=info) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    user = retn.get('result')
+                    self.true(user.get('admin'))
 
                 node = None
                 body = {'query': '[ inet:ipv4=1.2.3.4 ]'}
