@@ -62,19 +62,14 @@ class Task(s_base.Base):
         self.task.cancel()
 
         try:
-            await asyncio.wait(self.task)
-
-        except asyncio.CancelledError:
-            raise
-
-        except Exception:
+            await self.task
+        except Exception as e:
             pass
 
-        finally:
-            if self.root is not None:
-                self.root.kids.pop(self.iden)
+        if self.root is not None:
+            self.root.kids.pop(self.iden)
 
-            self.boss.tasks.pop(self.iden)
+        self.boss.tasks.pop(self.iden)
 
     async def worker(self, coro, name='worker'):
 
@@ -108,8 +103,6 @@ def loop():
         return asyncio.get_running_loop()
     except Exception as e:
         return None
-
-#def fork(coro, name, user=None, info=None):
 
 def current():
     '''
@@ -146,6 +139,8 @@ async def executor(func, *args, **kwargs):
 
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, syncfunc)
+
+# Task vars:  task-local variables
 
 _TaskDictCtors = {}  # type: ignore
 

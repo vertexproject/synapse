@@ -45,7 +45,6 @@ class TaskTest(s_test.SynTest):
             self.eq([1, 2, 3], s_task.varget('test2'))
             s_task.varset('test', 42)
 
-        task = asyncio.schedCoro(taskfunc)
-        await task
+        await asyncio.create_task(taskfunc())
 
         self.eq(s_task.varget('test'), 'foo')
