@@ -63,7 +63,7 @@ class LayerApi(s_cell.CellApi):
 
     async def stor(self, sops, prov=None, splices=None):
         self.allowed(self.storperm)
-        return await self.layr.stor(sops)
+        return await self.layr.stor(sops, prov, splices)
 
     async def getBuidProps(self, buid):
         self.allowed(self.liftperm)

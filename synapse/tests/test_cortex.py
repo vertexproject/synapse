@@ -837,7 +837,7 @@ class CortexTest(s_t_utils.SynTest):
             await alist(core.eval('teststr [-:tick]'))
             await alist(core.eval('teststr | delnode --force'))
 
-            _splices = await alist(core.layer.splices(0, 10000))
+            _splices = await alist(core.view.layers[0].splices(0, 10000))
             splices = []
             # strip out user and time
             for splice in _splices:
