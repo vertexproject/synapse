@@ -17,6 +17,8 @@ def main(argv):  # pragma: no cover
         # the fini handler sends a SIGINT to mainthread; which can
         # be problematic for test runners.
         cmdr.finikill = True
+        # Initialize history support
+        cmdr.inithist = True
         cmdr.runCmdLoop()
         cmdr.finikill = False
 
