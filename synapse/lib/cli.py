@@ -343,8 +343,7 @@ class Cli(s_eventbus.EventBus):
             pass
 
         if readline.get_current_history_length() == 0:  # pragma: no cover
-            fp = s_common.gendir(os.path.expanduser('~'), '.syn',)
-            history_path = s_common.genpath(fp, '.cmdr_history')
+            history_path = s_common.getSynPath('.cmdr_history')
             # We have to ensure the file exists to use append mode
             with s_common.genfile(history_path) as fd:
                 pass
