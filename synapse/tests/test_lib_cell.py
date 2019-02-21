@@ -291,7 +291,7 @@ class CellTest(s_t_utils.SynTest):
                     self.eq('MissingField', item.get('code'))
 
                 rules = [(True, ('node:add',))]
-                info = {'name': 'derpuser', 'rules': rules}
+                info = {'name': 'derpuser', 'passwd': 'derpuser', 'rules': rules}
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', json=info) as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
@@ -307,6 +307,13 @@ class CellTest(s_t_utils.SynTest):
                     self.eq('ok', retn.get('status'))
                     user = retn.get('result')
                     self.true(user.get('admin'))
+
+                info = {'admin': False}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/user/{derpiden}', json=info) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    user = retn.get('result')
+                    self.false(user.get('admin'))
 
                 node = None
                 body = {'query': '[ inet:ipv4=1.2.3.4 ]'}
@@ -338,3 +345,37 @@ class CellTest(s_t_utils.SynTest):
                         node = json.loads(byts)
 
                     self.eq(0x01020304, node[0][1])
+
+            # test some auth but not admin paths
+            async with self.getHttpSess() as sess:
+
+                async with sess.post(f'https://localhost:{port}/login', json={'user': 'derpuser', 'passwd': 'derpuser'}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq('derpuser', retn['result']['name'])
+
+                info = {'admin': True}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/user/{derpiden}', json=info) as resp:
+                    retn = await resp.json()
+                    self.eq('AuthDeny', retn.get('code'))
+
+                info = {'rules': ()}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/role/{analystiden}', json=info) as resp:
+                    retn = await resp.json()
+                    self.eq('AuthDeny', retn.get('code'))
+
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/grant', json={}) as resp:
+                    retn = await resp.json()
+                    self.eq('AuthDeny', retn.get('code'))
+
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/revoke', json={}) as resp:
+                    retn = await resp.json()
+                    self.eq('AuthDeny', retn.get('code'))
+
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', json={}) as resp:
+                    retn = await resp.json()
+                    self.eq('AuthDeny', retn.get('code'))
+
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/addrole', json={}) as resp:
+                    retn = await resp.json()
+                    self.eq('AuthDeny', retn.get('code'))

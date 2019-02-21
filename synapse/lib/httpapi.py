@@ -119,7 +119,7 @@ class HandlerBase:
             return False
 
         if not user.admin:
-            self.sendJsonErr('AuthDeny', f'User {user.iden} ({user.name}) is not an admin.')
+            self.sendRestErr('AuthDeny', f'User {user.iden} ({user.name}) is not an admin.')
             return False
 
         return True
