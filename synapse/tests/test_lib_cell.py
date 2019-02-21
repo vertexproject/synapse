@@ -127,16 +127,6 @@ class CellTest(s_t_utils.SynTest):
         self.true(item.auth.getUserByName('root').isfini)
         self.true(item.auth.getUserByName('pennywise').isfini)
 
-    async def getHttpJson(self, url):
-        async with self.getHttpSess() as sess:
-            async with sess.get(url) as resp:
-                return await resp.json()
-
-    async def postHttpJson(self, url, data):
-        async with self.getHttpSess() as sess:
-            async with sess.post(url, json=data) as resp:
-                return await resp.json()
-
     @contextlib.asynccontextmanager
     async def getHttpSess(self):
         jar = aiohttp.CookieJar(unsafe=True)
