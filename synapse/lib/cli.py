@@ -265,7 +265,7 @@ class Cli(s_eventbus.EventBus):
     def _initReadline(self, readline):
         try:
             readline.read_init_file()
-        except OSError:
+        except OSError:  # pragma: no cover
             # from cpython 3.6 site.py:
             # An OSError here could have many causes, but the most likely one
             # is that there's no .inputrc file (or .editrc file in the case of
