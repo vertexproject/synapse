@@ -287,6 +287,9 @@ class Cli(s_eventbus.EventBus):
                 pass
             h_len = readline.get_current_history_length()
 
+            # Allows for concurrent usage to only append the new items from
+            # a given cmdr session to the file.
+            # Recipe from cpython stdlib documentation for readline.
             def save(prev_h_len, histfile):
                 new_h_len = readline.get_current_history_length()
                 readline.set_history_length(1000)
