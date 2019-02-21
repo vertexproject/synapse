@@ -50,7 +50,6 @@ class CellApi(s_base.Base):
 
     async def __anit__(self, cell, link, user):
         await s_base.Base.__anit__(self)
-        self._fini_atexit = True
         self.cell = cell
         self.link = link
         self.user = user
@@ -258,7 +257,6 @@ class Cell(s_base.Base, s_telepath.Aware):
     async def __anit__(self, dirn, readonly=False):
 
         await s_base.Base.__anit__(self)
-        self._fini_atexit = True
 
         s_telepath.Aware.__init__(self)
 

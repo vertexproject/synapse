@@ -10,7 +10,6 @@ class Boss(s_base.Base):
     '''
     async def __anit__(self):
         await s_base.Base.__anit__(self)
-        self._fini_atexit = True
         self.tasks = {}
         self.onfini(self._onBossFini)
 

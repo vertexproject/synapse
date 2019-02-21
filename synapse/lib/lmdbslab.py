@@ -78,8 +78,6 @@ class Slab(s_base.Base):
 
         await s_base.Base.__anit__(self)
 
-        self._fini_atexit = True
-
         kwargs.setdefault('map_size', s_const.gibibyte)
 
         opts = kwargs

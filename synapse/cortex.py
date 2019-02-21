@@ -58,7 +58,6 @@ class View(s_base.Base):
             node (HiveNode): The hive node containing the view info.
         '''
         await s_base.Base.__anit__(self)
-        self._fini_atexit = True
 
         self.core = core
 

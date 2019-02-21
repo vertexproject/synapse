@@ -24,8 +24,6 @@ class Node(s_base.Base):
 
         await s_base.Base.__anit__(self)
 
-        self._fini_atexit = True
-
         self.kids = {}
         self.valu = valu
         self.hive = hive
@@ -81,8 +79,6 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         await s_base.Base.__anit__(self)
         s_telepath.Aware.__init__(self)
-
-        self._fini_atexit = True
 
         if conf is None:
             conf = {}
@@ -531,8 +527,6 @@ class HiveDict(s_base.Base):
 
         await s_base.Base.__anit__(self)
 
-        self._fini_atexit = True
-
         self.defs = {}
 
         self.hive = hive
@@ -586,8 +580,6 @@ class HiveAuth(s_base.Base):
     async def __anit__(self, node):
 
         await s_base.Base.__anit__(self)
-
-        self._fini_atexit = True
 
         self.node = node
 
@@ -686,8 +678,6 @@ class HiveIden(s_base.Base):
     async def __anit__(self, auth, node):
 
         await s_base.Base.__anit__(self)
-
-        self._fini_atexit = True
 
         self.auth = auth
         self.node = node
