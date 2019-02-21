@@ -367,10 +367,10 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         return list(serv._sockets.values())[0].getsockname()
 
-    async def addHttpPort(self, port, host='0.0.0.0', ssl=None):
-        addr = socket.gethostbyname(host)
-        serv = self.wapp.listen(port, address=addr)
-        return list(serv._sockets.values())[0].getsockname()
+    #async def addHttpPort(self, port, host='0.0.0.0', ssl=None):
+        #addr = socket.gethostbyname(host)
+        #serv = self.wapp.listen(port, address=addr)
+        #return list(serv._sockets.values())[0].getsockname()
 
     def initSslCtx(self, certpath, keypath):
 
@@ -393,6 +393,8 @@ class Cell(s_base.Base, s_telepath.Aware):
         async def fini():
             for http in self.httpds:
                 await http.stop()
+
+        self.onfini(fini)
 
         # Generate/Load a Cookie Secret
         secpath = os.path.join(self.dirn, 'cookie.secret')

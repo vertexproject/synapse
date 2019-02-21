@@ -212,3 +212,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 # we wrote 100, read 60.  We should read only another 40
                 self.len(40, list(iter))
+
+    async def test_slab_guid_stor(self):
+
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'slab.lmdb')
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                guidstor = s_lmdbslab.GuidStor(slab, 'guids')
+                info = guidstor.gen('aaaa')
+                info.set('hehe', 20)
+                self.eq({'hehe': 20}, guidstor.props('aaaa'))
