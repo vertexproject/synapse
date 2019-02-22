@@ -172,8 +172,9 @@ class Layer(s_base.Base):
 
         if splices is not None:
             if iden is not None:
+                istr = s_common.ehex(iden)
                 for splice in splices:
-                    splice[1]['prov'] = s_common.ehex(iden)
+                    splice[1]['prov'] = istr
 
             await self._storSplices(splices)
             self.spliced.set()

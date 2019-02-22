@@ -16,7 +16,7 @@ a storm frame, then a trig frame, then another storm frame, then a stormcmd fram
 To save space in the splice log, the storage system provides an iden for each
 unique provenance stack.  The iden is provided on each splice.  We cache the
 iden on each stack frame (which represents the iden for the stack that ends
-on that stack frame.
+on that stack frame).
 '''
 
 class _ProvStack:
