@@ -609,7 +609,7 @@ class Agenda(s_base.Base):
         appt.startcount += 1
         await self._storeAppt(appt)
         idenf = s_common.ehex(appt.iden)
-        with s_provenance.claim('cron', recs=[d.pack() for d in appt.recs]):
+        with s_provenance.claim('cron', iden=idenf):
             logger.info(f'Agenda executing for iden={idenf}, user={user}: query={{appt.query}}')
             try:
                 async for _ in self.core.eval(appt.query, user=user):  # NOQA

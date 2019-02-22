@@ -3,6 +3,7 @@ The layer library contains the base Layer object and helpers used for
 cortex construction.
 '''
 import asyncio
+import hashlib
 import logging
 import collections
 
@@ -14,6 +15,7 @@ import synapse.exc as s_exc
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -162,26 +164,26 @@ class Layer(s_base.Base):
             await func(oper)
 
         if prov is None:
-            alias = None
+            iden = None
         elif isinstance(prov, bytes):
-            alias = prov
+            iden = prov
         else:
-            alias = await self._storProvStack(prov)
+            iden = await self._storProvStack(prov)
 
         if splices is not None:
-            if alias is not None:
+            if iden is not None:
                 for splice in splices:
-                    splice[1]['prov'] = alias
+                    splice[1]['prov'] = s_common.ehex(iden)
 
             await self._storSplices(splices)
             self.spliced.set()
             self.spliced.clear()
 
-        return alias
+        return iden
 
-    async def getProvStack(self, alias):  # pragma: no cover
+    async def getProvStack(self, iden):  # pragma: no cover
         '''
-        Returns the provenance stack given the alias to it
+        Returns the provenance stack given the iden to it
         '''
         raise NotImplementedError
 
@@ -190,6 +192,13 @@ class Layer(s_base.Base):
         Returns a stream of provenance stacks at the given offset
         '''
         raise NotImplementedError
+
+    @staticmethod
+    def _providen(prov):
+        '''
+        Calculates a provenance iden from a provenance stack
+        '''
+        return hashlib.md5(s_msgpack.en(prov)).digest()
 
     async def _storSplices(splices):  # pragma: no cover
         raise NotImplementedError

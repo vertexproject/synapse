@@ -147,6 +147,9 @@ _TaskDictCtors = {}  # type: ignore
 def varinit(task=None):
     '''
     Initializes (or re-initializes for testing purposes) all of a task's task-local variables
+
+    Precondition:
+        If task is None, this must be called from task context
     '''
     if task is None:
         task = asyncio.current_task()
@@ -161,6 +164,8 @@ def _taskdict(task):
     '''
     if task is None:
         task = asyncio.current_task()
+
+    assert task
     taskvars = getattr(task, '_syn_taskvars', None)
 
     if taskvars is None:
@@ -171,6 +176,9 @@ def _taskdict(task):
 def varget(name, defval=None, task=None):
     '''
     Access a task local variable by name
+
+    Precondition:
+        If task is None, this must be called from task context
     '''
     taskdict = _taskdict(task)
     retn = taskdict.get(name, s_common.NoValu)
@@ -192,6 +200,9 @@ def varset(name, valu, task=None):
 
     Args:
         task: If task is None, uses current task
+
+    Precondition:
+        If task is None, this must be called from task context
     '''
     _taskdict(task)[name] = valu
 

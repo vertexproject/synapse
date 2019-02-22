@@ -256,7 +256,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, data[1])
             self.eq(data[1][0], 'node:add')
             self.eq(data[1][1].get('ndef'), ('teststr', 'teehee'))
-            self.eq(data[1][1].get('user'), '?')
+            self.nn(data[1][1].get('user'))
             self.ge(data[1][1].get('time'), 0)
 
             data = slices[1]
@@ -267,7 +267,7 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(data[1][1].get('prop'), '.created')
             self.ge(data[1][1].get('valu'), 0)
             self.none(data[1][1].get('oldv'))
-            self.eq(data[1][1].get('user'), '?')
+            self.nn(data[1][1].get('user'))
             self.ge(data[1][1].get('time'), 0)
 
     async def test_splice_sync(self):
@@ -814,17 +814,6 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_splice_generation(self):
 
-        def isin(mesg, splices):
-            '''
-            Checks if the given mesg is in splices except for the 'prov' entry
-            '''
-            for splice in splices:
-                noprovsplice = copy.deepcopy(splice)
-                noprovsplice[1].pop('prov')
-                if mesg == noprovsplice:
-                    return
-            assert 0
-
         async with self.getTestCore() as core:
 
             await alist(core.eval('[teststr=hello]'))
@@ -843,6 +832,7 @@ class CortexTest(s_t_utils.SynTest):
             for splice in _splices:
                 splice[1].pop('user', None)
                 splice[1].pop('time', None)
+                splice[1].pop('prov', None)
                 splices.append(splice)
 
             # Ensure the splices are unique
@@ -850,35 +840,35 @@ class CortexTest(s_t_utils.SynTest):
 
             # Check to ensure a few expected splices exist
             mesg = ('node:add', {'ndef': ('teststr', 'hello')})
-            isin(mesg, splices)
+            self.isin(mesg, splices)
 
             mesg = ('prop:set', {'ndef': ('teststr', 'hello'), 'prop': 'tick', 'valu': 978307200000, 'oldv': None})
-            isin(mesg, splices)
+            self.isin(mesg, splices)
 
             mesg = ('prop:set',
                     {'ndef': ('teststr', 'hello'), 'prop': 'tick', 'valu': 1009843200000, 'oldv': 978307200000})
-            isin(mesg, splices)
+            self.isin(mesg, splices)
 
             mesg = ('tag:add', {'ndef': ('teststr', 'hello'), 'tag': 'foo', 'valu': (None, None)})
-            isin(mesg, splices)
+            self.isin(mesg, splices)
 
             mesg = ('tag:add', {'ndef': ('teststr', 'hello'), 'tag': 'foo.bar', 'valu': (None, None)})
-            isin(mesg, splices)
+            self.isin(mesg, splices)
 
             mesg = ('tag:add', {'ndef': ('teststr', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1009843200000)})
-            isin(mesg, splices)
+            self.isin(mesg, splices)
 
             mesg = ('tag:add', {'ndef': ('teststr', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1022889600000)})
-            isin(mesg, splices)
+            self.isin(mesg, splices)
 
             mesg = ('tag:del', {'ndef': ('teststr', 'hello'), 'tag': 'foo', 'valu': (None, None)})
-            isin(mesg, splices)
+            self.isin(mesg, splices)
 
             mesg = ('prop:del', {'ndef': ('teststr', 'hello'), 'prop': 'tick', 'valu': 1009843200000})
-            isin(mesg, splices)
+            self.isin(mesg, splices)
 
             mesg = ('node:del', {'ndef': ('teststr', 'hello')})
-            isin(mesg, splices)
+            self.isin(mesg, splices)
 
     async def test_strict(self):
 

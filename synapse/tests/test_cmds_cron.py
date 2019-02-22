@@ -119,9 +119,9 @@ class CmdCronTest(s_t_utils.SynTest):
                     aliases = [splice[1]['prov'] for splice in splices]
                     self.true(all(a == aliases[0] for a in aliases))
                     prov = await core.getProvStack(aliases[0])
-                    correct = (('', {}),
-                               ('cron', {'recs': (({}, 'minute', 1),)}),
-                               ('storm', {'q': "[graph:node='*' :type=m1]", 'user': 'root'}))
+                    correct = ({}, (
+                               ('cron', {'iden': guid}),
+                               ('storm', {'q': "[graph:node='*' :type=m1]", 'user': 'root'})))
                     self.eq(prov, correct)
 
                     await cmdr.runCmdLine(f"cron mod {guid[:6]} {{[graph:node='*' :type=m2]}}")

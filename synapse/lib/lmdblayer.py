@@ -3,7 +3,6 @@ The layer library contains the base Layer object and helpers used for
 cortex construction.
 '''
 import os
-import hashlib
 import logging
 
 import synapse.exc as s_exc
@@ -205,16 +204,19 @@ class LmdbLayer(s_layer.Layer):
         self.splicelog.save(splices)
 
     async def _storProvStack(self, prov):
-        data = s_msgpack.en(prov)
-        iden = hashlib.md5(data).digest()
-        didwrite = self.layrslab.put(iden, data, overwrite=False, db=self.provdb)
+        iden = self._providen(prov)
+        misc, frames = prov
+        # Convert each frame back from (k, v) tuples to a dict
+        dictframes = [(typ, {k: v for (k, v) in info}) for (typ, info) in frames]
+        bytz = s_msgpack.en((misc, dictframes))
+        didwrite = self.layrslab.put(iden, bytz, overwrite=False, db=self.provdb)
         if didwrite:
             self.provseq.save([iden])
 
         return iden
 
-    async def getProvStack(self, alias):
-        retn = self.layrslab.get(alias, db=self.provdb)
+    async def getProvStack(self, iden: bytes):
+        retn = self.layrslab.get(iden, db=self.provdb)
         if retn is None:
             return None
 

@@ -33,7 +33,7 @@ class Snap(s_base.Base):
     ('print', {}),
     '''
 
-    async def __anit__(self, core, layers, emitprov=True):
+    async def __anit__(self, core, layers, user, emitprov=True):
         '''
         Args:
             core (cortex):  the cortex
@@ -44,12 +44,12 @@ class Snap(s_base.Base):
 
         self.stack = contextlib.ExitStack()
 
-        self.user = None
         self.strict = True
         self.elevated = False
         self.canceled = False
 
         self.core = core
+        self.user = user
         self.model = core.model
 
         # it is optimal for a snap to have layers in "bottom up" order
@@ -123,9 +123,6 @@ class Snap(s_base.Base):
 
     async def getOffset(self, iden, offs):
         return await self.wlyr.getOffset(iden, offs)
-
-    def setUser(self, user):
-        self.user = user
 
     async def printf(self, mesg):
         await self.fire('print', mesg=mesg)
@@ -518,28 +515,25 @@ class Snap(s_base.Base):
             yield node
 
     async def stor(self, sops, splices=None):
-        user = '?'
-        if self.user is not None:
-            user = self.user.name
-
         now = s_common.now()
-        stackalias, provstack = s_provenance.get()
+        stackiden, provstack = s_provenance.get()
 
         if splices is not None:
             for splice in splices:
                 name, info = splice
-                info['user'] = user
+                info['user'] = self.user.iden
                 info['time'] = now
                 if self.emitprov:
                     await self.fire(name, provstack=provstack, **info)
                 else:
                     await self.fire(name, **info)
 
-        newstackalias = await self.wlyr.stor(sops, stackalias if stackalias is not None else provstack, splices)
+        newstackiden = await self.wlyr.stor(sops, stackiden if stackiden is not None else provstack, splices)
 
-        if newstackalias != stackalias:
-            # Save off the alias the write layer gave us so we can use that for future calls to save bandwidth
-            s_provenance.setStackAlias(newstackalias)
+        if newstackiden != stackiden:
+            # Save off the alias the write layer gave us so we can use that for future calls to avoid future DB
+            # accesses
+            s_provenance.setiden(newstackiden)
 
     async def getLiftNodes(self, lops, rawprop, cmpr=None):
         genr = self.getLiftRows(lops)

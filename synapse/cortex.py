@@ -29,6 +29,7 @@ import synapse.lib.trigger as s_trigger
 import synapse.lib.modules as s_modules
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.lmdblayer as s_lmdblayer
+import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 import synapse.lib.remotelayer as s_remotelayer
 
@@ -82,12 +83,12 @@ class View(s_base.Base):
 
             self.layers.append(layr)
 
-    async def snap(self):
+    async def snap(self, user):
 
         if self.borked is not None:
             raise s_exc.NoSuchLayer(iden=self.borked)
 
-        return await s_snap.Snap.anit(self.core, self.layers)
+        return await s_snap.Snap.anit(self.core, self.layers, user)
 
     def pack(self):
         return {
@@ -414,9 +415,11 @@ class CoreApi(s_cell.CellApi):
 
         self._reqUserAllowed('feed:data', *name.split('.'))
 
-        async with await self.cell.snap(user=self.user) as snap:
-            snap.strict = False
-            return await snap.addFeedData(name, items, seqn=seqn)
+        with s_provenance.claim('feed:data', name=name):
+
+            async with await self.cell.snap(user=self.user) as snap:
+                snap.strict = False
+                return await snap.addFeedData(name, items, seqn=seqn)
 
     def getFeedOffs(self, iden):
         return self.cell.getFeedOffs(iden)
@@ -472,23 +475,26 @@ class CoreApi(s_cell.CellApi):
     @s_cell.adminapi
     async def provStacks(self, offs, size):
         '''
-        Return stream of (alias, provenance stack) tuples at the given offset.
+        Return stream of (iden, provenance stack) tuples at the given offset.
         '''
         count = 0
-        async for mesg in self.cell.layer.provStacks(offs, size):
+        async for iden, stack in self.cell.layer.provStacks(offs, size):
             count += 1
             if not count % 1000:
                 await asyncio.sleep(0)
-            yield mesg
+            yield s_common.ehex(iden), stack
 
     @s_cell.adminapi
-    async def getProvStack(self, alias):
+    async def getProvStack(self, iden: str):
         '''
-        Return the providence stack associated with the given alias.
+        Return the providence stack associated with the given iden.
 
-        Note: the alias appears on each splice entry as the 'prov' property
+        Args:
+            iden (str):  the iden from splice
+
+        Note: the iden appears on each splice entry as the 'prov' property
         '''
-        return await self.cell.layer.getProvStack(alias)
+        return await self.cell.layer.getProvStack(s_common.uhex(iden))
 
 class Cortex(s_cell.Cell):
     '''
@@ -1657,9 +1663,10 @@ class Cortex(s_cell.Cell):
         if view is None:
             view = self.view
 
-        snap = await self.view.snap()
-        if user is not None:
-            snap.setUser(user)
+        if user is None:
+            user = self.auth.getUserByName('root')
+
+        snap = await self.view.snap(user)
 
         return snap
 
