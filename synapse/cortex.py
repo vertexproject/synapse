@@ -322,13 +322,14 @@ class CoreApi(s_cell.CellApi):
         self._reqUserAllowed('tag:add', *parts)
 
         async with await self.cell.snap(user=self.user) as snap:
+            with s_provenance.claim('coreapi', meth='tag:add', user=snap.user.iden):
 
-            node = await snap.getNodeByBuid(buid)
-            if node is None:
-                raise s_exc.NoSuchIden(iden=iden)
+                node = await snap.getNodeByBuid(buid)
+                if node is None:
+                    raise s_exc.NoSuchIden(iden=iden)
 
-            await node.addTag(tag, valu=valu)
-            return node.pack()
+                await node.addTag(tag, valu=valu)
+                return node.pack()
 
     async def delNodeTag(self, iden, tag):
         '''
@@ -344,37 +345,41 @@ class CoreApi(s_cell.CellApi):
         self._reqUserAllowed('tag:del', *parts)
 
         async with await self.cell.snap(user=self.user) as snap:
+            with s_provenance.claim('coreapi', meth='tag:del', user=snap.user.iden):
 
-            node = await snap.getNodeByBuid(buid)
-            if node is None:
-                raise s_exc.NoSuchIden(iden=iden)
+                node = await snap.getNodeByBuid(buid)
+                if node is None:
+                    raise s_exc.NoSuchIden(iden=iden)
 
-            await node.delTag(tag)
-            return node.pack()
+                await node.delTag(tag)
+                return node.pack()
 
     async def setNodeProp(self, iden, name, valu):
 
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
+            with s_provenance.claim('coreapi', meth='prop:set', user=snap.user.iden):
 
-            node = await snap.getNodeByBuid(buid)
-            if node is None:
-                raise s_exc.NoSuchIden(iden=iden)
+                node = await snap.getNodeByBuid(buid)
+                if node is None:
+                    raise s_exc.NoSuchIden(iden=iden)
 
-            prop = node.form.props.get(name)
-            self._reqUserAllowed('prop:set', prop.full)
+                prop = node.form.props.get(name)
+                self._reqUserAllowed('prop:set', prop.full)
 
-            await node.set(name, valu)
-            return node.pack()
+                await node.set(name, valu)
+                return node.pack()
 
     async def addNode(self, form, valu, props=None):
 
         self._reqUserAllowed('node:add', form)
 
         async with await self.cell.snap(user=self.user) as snap:
-            node = await snap.addNode(form, valu, props=props)
-            return node.pack()
+            with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
+
+                node = await snap.addNode(form, valu, props=props)
+                return node.pack()
 
     async def addNodes(self, nodes):
         '''
@@ -401,15 +406,16 @@ class CoreApi(s_cell.CellApi):
             done[formname] = True
 
         async with await self.cell.snap(user=self.user) as snap:
+            with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
 
-            snap.strict = False
+                snap.strict = False
 
-            async for node in snap.addNodes(nodes):
+                async for node in snap.addNodes(nodes):
 
-                if node is not None:
-                    node = node.pack()
+                    if node is not None:
+                        node = node.pack()
 
-                yield node
+                    yield node
 
     async def addFeedData(self, name, items, seqn=None):
 
@@ -716,7 +722,7 @@ class Cortex(s_cell.Cell):
                 if count % fairiter == 0:
                     await asyncio.sleep(0)
                     # identity check for small integer
-                    if fairiter is 5 and tcount > 100000:
+                    if fairiter == 5 and tcount > 100000:
                         fairiter = 1000
 
             self.counts[name] = count
@@ -909,7 +915,7 @@ class Cortex(s_cell.Cell):
         Delete a cortex view by iden.
         '''
         if iden == self.iden:
-            raise SynErr(mesg='cannot delete the main view')
+            raise s_exc.SynErr(mesg='cannot delete the main view')
 
         view = self.views.pop(iden, None)
         if view is None:
@@ -1003,7 +1009,6 @@ class Cortex(s_cell.Cell):
 
     async def _initCoreLayers(self):
 
-        dirn = s_common.gendir(self.dirn, 'layers')
         node = await self.hive.open(('cortex', 'layers'))
 
         # TODO eventually hold this and watch for changes
@@ -1524,7 +1529,7 @@ class Cortex(s_cell.Cell):
 
     @s_coro.genrhelp
     async def iterStormPodes(self, text, opts=None, user=None):
-        synt = await self.boss.promote('storm', user=user, info={'query': text})
+        await self.boss.promote('storm', user=user, info={'query': text})
         async with await self.snap(user=user) as snap:
             async for pode in snap.iterStormPodes(text, opts=opts, user=user):
                 yield pode
