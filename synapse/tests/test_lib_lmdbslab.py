@@ -189,14 +189,20 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             async with await s_lmdbslab.Slab.anit(path, map_size=10000) as slab:
                 # A putmulti across a grow
+                before_mapsize = slab.mapsize
                 kvpairs = [(x, x) for x in data]
                 retn = slab.putmulti(kvpairs)
                 self.eq(retn, (1000, 1000))
+
+                after_mapsize1 = slab.mapsize
+                self.gt(after_mapsize1, before_mapsize)
 
                 # A putmulti across a grow with a generator passed in
                 kvpairs = ((b' ' + x, x) for x in data)
                 retn = slab.putmulti(kvpairs)
                 self.eq(retn, (1000, 1000))
+                after_mapsize2 = slab.mapsize
+                self.gt(after_mapsize2, after_mapsize1)
 
 
     async def test_lmdbslab_iternext_repeat_regression(self):
