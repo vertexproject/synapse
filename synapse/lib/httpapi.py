@@ -68,6 +68,10 @@ class HandlerBase:
             self.add_header('Access-Control-Allow-Credentials', 'true')
             self.add_header('Access-Control-Allow-Headers', 'Content-Type')
 
+    def options(self):
+        self.set_status(204)
+        self.finish()
+
     def isOrigHost(self, origin):
 
         host = urlparse(origin).hostname
