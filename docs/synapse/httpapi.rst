@@ -12,14 +12,12 @@ All Synapse RESTful APIs use HTTP GET/POST methods to retrieve and modify data.
 All POST requests expect a JSON body.  Each RESTful API call will return a
 result wrapper dictionary with one of two conventions.
 
-For a successful API call:
+For a successful API call::
 
-.. code-block:: json
     {"status": "ok", "result": "some api result here"}
 
-or for an unsuccessful API call
+or for an unsuccessful API call::
 
-.. code-block:: json
     {"status": "err": "code": "ErrCodeString", "mesg": "A humon friendly message."}
 
 Streaming HTTP API endpoints, such as the interface provided to retrieve nodes
@@ -92,12 +90,9 @@ session may then be used to call other HTTP API endpoints as the authenticated u
     This API endpoint allows the caller to add a user to the system.
 
     *Input*
-        This API expects the following JSON body.
+        This API expects the following JSON body::
 
-        .. code-block:: json
-            {
-                "name": "myuser",
-            }
+            { "name": "myuser" }
 
         Any additional "user dictionary" fields (other than "iden") may be specified.
 
@@ -113,12 +108,9 @@ session may then be used to call other HTTP API endpoints as the authenticated u
     This API endpoint allows the caller to add a role to the system.
 
     *Input*
-        This API expects the following JSON body.
+        This API expects the following JSON body::
 
-        .. code-block:: json
-            {
-                "name": "myrole",
-            }
+            { "name": "myrole" }
 
         Any additional "role dictionary" fields (other than "iden") may be specified.
 
@@ -178,7 +170,7 @@ session may then be used to call other HTTP API endpoints as the authenticated u
     This API allows the caller to grant a role to a given user.
 
     *Input*
-        .. code-block:: json
+        This API expects the following JSON body::
             {
                 "user": "<id>",
                 "role": "<id>"
@@ -196,7 +188,7 @@ session may then be used to call other HTTP API endpoints as the authenticated u
     This API allows the caller to revoke a role which was previously granted to a user.
 
     *Input*
-        .. code-block:: json
+        This API expects the following JSON body::
             {
                 "user": "<id>",
                 "role": "<id>"
