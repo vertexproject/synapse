@@ -58,7 +58,7 @@ def now():
     Returns:
         int: Epoch time in milliseconds.
     '''
-    return int(time.time() * 1000)
+    return time.time_ns() // 1000000
 
 def guid(valu=None):
     '''
