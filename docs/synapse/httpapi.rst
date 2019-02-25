@@ -21,7 +21,7 @@ or for an unsuccessful API call::
     {"status": "err": "code": "ErrCodeString", "mesg": "A humon friendly message."}
 
 Streaming HTTP API endpoints, such as the interface provided to retrieve nodes
-from a Syntaps Cortex, provide JSON results via HTTP chunked encoding where each
+from a Synapse Cortex, provide JSON results via HTTP chunked encoding where each
 chunk is a single result.
 
 Client example code in these docs uses the python "aiohttp" module and assumes
