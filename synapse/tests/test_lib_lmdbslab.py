@@ -176,6 +176,35 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 # Now trigger a remap for me
                 newdb.get(multikey, db=foo)
 
+    async def test_lmdbslab_grow_putmulti(self):
+        '''
+        Test for a regression where putmulti's across a grow could corrupt the database
+
+        Test for a regression where a generator being passed into a putmulti would result in a partial write
+        '''
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            data = [i.to_bytes(4, 'little') for i in range(1000)]
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=10000) as slab:
+                # A putmulti across a grow
+                before_mapsize = slab.mapsize
+                kvpairs = [(x, x) for x in data]
+                retn = slab.putmulti(kvpairs)
+                self.eq(retn, (1000, 1000))
+
+                after_mapsize1 = slab.mapsize
+                self.gt(after_mapsize1, before_mapsize)
+
+                # A putmulti across a grow with a generator passed in
+                kvpairs = ((b' ' + x, x) for x in data)
+                retn = slab.putmulti(kvpairs)
+                self.eq(retn, (1000, 1000))
+                after_mapsize2 = slab.mapsize
+                self.gt(after_mapsize2, after_mapsize1)
+
+
     async def test_lmdbslab_iternext_repeat_regression(self):
         '''
         Test for a scan being bumped in an iternext where the cursor is in the middle of a list of values with the same

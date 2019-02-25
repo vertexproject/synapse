@@ -3,6 +3,7 @@ import synapse.exc as s_exc
 import synapse.lib.node as s_node
 
 import synapse.tests.utils as s_t_utils
+from synapse.tests.utils import alist
 
 class NodeTest(s_t_utils.SynTest):
 
@@ -209,3 +210,35 @@ class NodeTest(s_t_utils.SynTest):
         self.isin('.created', props)
         self.isin('tick', props)
         self.notin('newp', props)
+
+    async def test_storm(self):
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('testcomp', (42, 'lol'))
+                nodepaths = await alist(node.storm('-> testint'))
+                self.len(1, nodepaths)
+                self.eq(nodepaths[0][0].ndef, ('testint', 42))
+
+                nodepaths = await alist(node.storm('-> testint [:loc=$foo]', opts={'vars': {'foo': 'us'}}))
+                self.eq(nodepaths[0][0].props.get('loc'), 'us')
+
+                path = nodepaths[0][1].fork(node)
+                path.vars['zed'] = 'ca'
+
+                # Path present, opts not present
+                nodes = await alist(node.storm('-> testint [:loc=$zed] $bar=$foo', path=path))
+                self.eq(nodes[0][0].props.get('loc'), 'ca')
+                self.eq(path.vars.get('bar'), 'us')
+
+                # Path present, opts present but no opts['vars']
+                nodes = await alist(node.storm('-> testint [:loc=$zed] $bar=$foo', opts={}, path=path))
+                self.eq(nodes[0][0].props.get('loc'), 'ca')
+                self.eq(path.vars.get('bar'), 'us')
+
+                # Path present, opts present with vars
+                nodes = await alist(node.storm('-> testint [:loc=$zed] $bar=$baz',
+                                               opts={'vars': {'baz': 'ru'}},
+                                               path=path))
+                self.eq(nodes[0][0].props.get('loc'), 'ca')
+                self.eq(path.vars.get('bar'), 'ru')

@@ -265,6 +265,7 @@ class Slab(s_base.Base):
         self.xact.abort()
 
         del self.xact
+        self.xact = None  # Note: it is possible for us to be fini'd in the following yield
 
         yield
 
@@ -303,14 +304,22 @@ class Slab(s_base.Base):
             return self._handle_mapfull()
 
     def putmulti(self, kvpairs, dupdata=False, append=False, db=_DefaultDB):
+        '''
+        Returns:
+            Tuple of number of items consumed, number of items added
+        '''
         if self.readonly:
             raise s_exc.IsReadOnly()
+
+        # Log playback isn't compatible with generators
+        if not isinstance(kvpairs, list):
+            kvpairs = list(kvpairs)
 
         try:
             self.dirty = True
 
             if not self.recovering:
-                self._logXactOper(self.putmulti, kvpairs, dupdata=dupdata, append=True, db=db)
+                self._logXactOper(self.putmulti, kvpairs, dupdata=dupdata, append=append, db=db)
 
             with self.xact.cursor(db=db.db) as curs:
                 retn = curs.putmulti(kvpairs, dupdata=dupdata, append=append)
