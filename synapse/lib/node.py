@@ -57,14 +57,23 @@ class Node:
             If opts is not None and opts['vars'] is set and path is not None, then values of path vars take precedent
         '''
         query = self.snap.core.getStormQuery(text)
+
+        # Merge vars from path into opts.vars
         pathvars = path.vars if path is not None else None
-        if opts is not None:
-            if pathvars:
-                newopts = {**opts, **pathvars}
+        if opts is None:
+            if pathvars is None:
+                newopts = None
             else:
-                newopts = opts
+                newopts = {'vars': pathvars}
         else:
-            newopts = pathvars
+            vars = opts.get('vars')
+            if pathvars is None:
+                newopts = opts
+            elif vars is None:
+                newopts = {**opts, **{'vars': pathvars}}
+            else:
+                newopts = {**opts, **{'vars': {**vars, **pathvars}}}
+
         with self.snap.getStormRuntime(opts=newopts, user=user) as runt:
             runt.addInput(self)
             async for item in runt.iterStormQuery(query):
