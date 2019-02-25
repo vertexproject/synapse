@@ -240,7 +240,7 @@ class Cell(s_base.Base, s_telepath.Aware):
     confbase = ()
     confdefs = ()
 
-    async def __anit__(self, dirn, readonly=False):
+    async def __anit__(self, dirn, conf=None, readonly=False):
 
         await s_base.Base.__anit__(self)
 
@@ -267,7 +267,11 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         await self._initCellDmon()
 
-        conf = self._loadCellYaml('cell.yaml')
+        if conf is None:
+            conf = {}
+
+        [conf.setdefault(k, v) for (k, v) in self._loadCellYaml('cell.yaml').items()]
+
         self.conf = s_common.config(conf, self.confdefs + self.confbase)
 
         self.cmds = {}
@@ -319,7 +323,9 @@ class Cell(s_base.Base, s_telepath.Aware):
             return await s_hive.openurl(hurl)
 
         db = self.slab.initdb('hive')
-        return await s_hive.SlabHive.anit(self.slab, db=db)
+        hive = await s_hive.SlabHive.anit(self.slab, db=db)
+        self.onfini(hive)
+        return hive
 
     async def _initCellSlab(self, readonly=False):
 
@@ -343,13 +349,13 @@ class Cell(s_base.Base, s_telepath.Aware):
         return auth
 
     @contextlib.asynccontextmanager
-    async def getLocalProxy(self, share='*'):
-        url = self.getLocalUrl(share=share)
+    async def getLocalProxy(self, share='*', user='root'):
+        url = self.getLocalUrl(share=share, user=user)
         prox = await s_telepath.openurl(url)
         yield prox
 
-    def getLocalUrl(self, share='*'):
-        return f'cell://{self.dirn}:{share}'
+    def getLocalUrl(self, share='*', user='root'):
+        return f'cell://{user}@{self.dirn}:{share}'
 
     def _loadCellYaml(self, *path):
 

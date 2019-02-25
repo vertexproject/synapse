@@ -17,58 +17,56 @@ cryodata = (('foo', {'bar': 10}), ('baz', {'faz': 20}))
 class CryoTest(s_t_utils.SynTest):
 
     async def test_cryo_cell_async(self):
-        async with self.getTestDmon(mirror='cryodmon') as dmon, \
-                await self.agetTestProxy(dmon, 'cryo00') as prox:
-            self.true(await prox.init('foo'))
-            self.eq([], [x async for x in await prox.rows('foo', 0, 1)])
+        async with self.getTestCryo() as cryo:
+            async with cryo.getLocalProxy() as prox:
+                self.true(await prox.init('foo'))
+                self.eq([], [x async for x in await prox.rows('foo', 0, 1)])
 
     @s_glob.synchelp
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     async def test_cryo_cell(self):
 
-        async with self.getTestDmon(mirror='cryodmon') as dmon:
+        async with self.getTestCryoAndProxy() as (cryo, prox):
 
-            async with await self.agetTestProxy(dmon, 'cryo00') as prox:
+            self.eq((), await prox.list())
 
-                self.eq((), await prox.list())
+            self.true(await prox.init('foo'))
 
-                self.true(await prox.init('foo'))
+            self.eq('foo', (await prox.list())[0][0])
 
-                self.eq('foo', (await prox.list())[0][0])
+            self.none(await prox.last('foo'))
 
-                self.none(await prox.last('foo'))
+            self.eq([], await alist(await prox.rows('foo', 0, 1)))
 
-                self.eq([], await alist(await prox.rows('foo', 0, 1)))
+            self.true(await prox.puts('foo', cryodata))
 
-                self.true(await prox.puts('foo', cryodata))
+            info = await prox.list()
+            self.eq('foo', info[0][0])
+            self.eq(2, info[0][1].get('stat').get('entries'))
 
-                info = await prox.list()
-                self.eq('foo', info[0][0])
-                self.eq(2, info[0][1].get('stat').get('entries'))
+            self.true(await prox.puts('foo', cryodata))
 
-                self.true(await prox.puts('foo', cryodata))
+            items = await alist(await prox.slice('foo', 1, 3))
+            self.eq(items[0][1][0], 'baz')
 
-                items = await alist(await prox.slice('foo', 1, 3))
-                self.eq(items[0][1][0], 'baz')
+            metrics = await alist(await prox.metrics('foo', 0, 9999))
+            self.len(2, metrics)
+            self.eq(2, metrics[0][1]['count'])
 
-                metrics = await alist(await prox.metrics('foo', 0, 9999))
-                self.len(2, metrics)
-                self.eq(2, metrics[0][1]['count'])
+            self.eq(3, (await prox.last('foo'))[0])
+            self.eq('baz', (await prox.last('foo'))[1][0])
 
-                self.eq(3, (await prox.last('foo'))[0])
-                self.eq('baz', (await prox.last('foo'))[1][0])
+            iden = s_common.guid()
+            self.eq(0, await prox.offset('foo', iden))
 
-                iden = s_common.guid()
-                self.eq(0, await prox.offset('foo', iden))
+            items = await alist(await prox.slice('foo', 0, 1000, iden=iden))
+            self.eq(0, await prox.offset('foo', iden))
 
-                items = await alist(await prox.slice('foo', 0, 1000, iden=iden))
-                self.eq(0, await prox.offset('foo', iden))
-
-                items = await alist(await prox.slice('foo', 4, 1000, iden=iden))
-                self.eq(4, await prox.offset('foo', iden))
+            items = await alist(await prox.slice('foo', 4, 1000, iden=iden))
+            self.eq(4, await prox.offset('foo', iden))
 
             # test the direct tank share....
-            async with await self.agetTestProxy(dmon, 'cryo00/foo') as prox:
+            async with cryo.getLocalProxy(share='cryo/foo') as prox:
 
                 items = await alist(await prox.slice(1, 3))
 
@@ -87,7 +85,7 @@ class CryoTest(s_t_utils.SynTest):
                 self.eq(2, await prox.offset(iden))
 
             # test the new open share
-            async with await self.agetTestProxy(dmon, 'cryo00/lulz') as prox:
+            async with cryo.getLocalProxy(share='cryo/lulz') as prox:
 
                 self.len(0, await alist(await prox.slice(0, 9999)))
 
@@ -99,34 +97,36 @@ class CryoTest(s_t_utils.SynTest):
 
     async def test_cryo_cell_indexing(self):
 
-        # conf = {'defvals': {'mapsize': s_t_utils.TEST_MAP_SIZE}}
-        async with self.getTestDmon(mirror='cryodmon') as dmon, \
-                await self.agetTestProxy(dmon, 'cryo00') as ccell, \
-                await self.agetTestProxy(dmon, 'cryo00/woot:woot') as tank:
-            # Setting the _chunksize to 1 forces iteration on the client
-            # side of puts, as well as the server-side.
-            tank._chunksize = 1
-            await tank.puts(cryodata)
+        async with self.getTestCryo() as cryo, \
+                cryo.getLocalProxy(share='cryo') as ccell:
 
-            # Test index operations
-            self.eq((), await tank.getIndices())
-            await self.asyncraises(s_exc.BadOperArg, tank.addIndex('prop1', 'str', []))
-            await tank.addIndex('prop1', 'str', ['0'])
-            await tank.delIndex('prop1')
-            await self.asyncraises(s_exc.NoSuchIndx, tank.delIndex('noexist'))
-            await tank.addIndex('prop1', 'str', ['0'])
-            await tank.pauseIndex('prop1')
-            await tank.pauseIndex()
-            await tank.resumeIndex()
-            self.eq([(1, 'baz'), (0, 'foo')], await alist(await tank.queryNormValu('prop1')))
-            self.eq([(1, 'baz')], await alist(await tank.queryNormValu('prop1', valu='b')))
-            self.eq([], await alist(await tank.queryNormValu('prop1', valu='bz')))
-            self.eq([(1, {'prop1': 'baz'})], (await alist(await tank.queryNormRecords('prop1', valu='b'))))
-            self.eq([(1, s_msgpack.en(('baz', {'faz': 20})))],
-                    await alist(await tank.queryRows('prop1', valu='b')))
+            async with cryo.getLocalProxy(share='cryo/woot_woot') as tank:
 
-            await ccell.init('woot:boring', {'noindex': True})
-            async with await self.agetTestProxy(dmon, 'cryo00/woot:boring') as tank2:
+                # Setting the _chunksize to 1 forces iteration on the client
+                # side of puts, as well as the server-side.
+                tank._chunksize = 1
+                await tank.puts(cryodata)
+
+                # Test index operations
+                self.eq((), await tank.getIndices())
+                await self.asyncraises(s_exc.BadOperArg, tank.addIndex('prop1', 'str', []))
+                await tank.addIndex('prop1', 'str', ['0'])
+                await tank.delIndex('prop1')
+                await self.asyncraises(s_exc.NoSuchIndx, tank.delIndex('noexist'))
+                await tank.addIndex('prop1', 'str', ['0'])
+                await tank.pauseIndex('prop1')
+                await tank.pauseIndex()
+                await tank.resumeIndex()
+                self.eq([(1, 'baz'), (0, 'foo')], await alist(await tank.queryNormValu('prop1')))
+                self.eq([(1, 'baz')], await alist(await tank.queryNormValu('prop1', valu='b')))
+                self.eq([], await alist(await tank.queryNormValu('prop1', valu='bz')))
+                self.eq([(1, {'prop1': 'baz'})], (await alist(await tank.queryNormRecords('prop1', valu='b'))))
+                self.eq([(1, s_msgpack.en(('baz', {'faz': 20})))],
+                        await alist(await tank.queryRows('prop1', valu='b')))
+
+            await ccell.init('woot_boring', {'noindex': True})
+
+            async with cryo.getLocalProxy(share='cryo/woot_boring') as tank2:
                 self.eq([], await tank2.getIndices())
 
 class CryoIndexTest(s_t_utils.SynTest):

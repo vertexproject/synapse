@@ -62,9 +62,7 @@ class Node(s_base.Base):
         return await self.hive.open(full)
 
     async def dict(self):
-        info = await HiveDict.anit(self.hive, self)
-        self.onfini(info)
-        return info
+        return await HiveDict.anit(self.hive, self)
 
     def __iter__(self):
         for name, node in self.kids.items():
@@ -532,6 +530,8 @@ class HiveDict(s_base.Base):
         self.hive = hive
         self.node = node
 
+        self.node.onfini(self)
+
     def get(self, name, onedit=None):
 
         # use hive.onedit() here to register for
@@ -602,6 +602,12 @@ class HiveAuth(s_base.Base):
 
         await root.setAdmin(True)
         await root.setLocked(False)
+
+        async def fini():
+            [await u.fini() for u in self.users()]
+            [await r.fini() for r in self.roles()]
+
+        self.onfini(fini)
 
     def users(self):
         return self.usersbyiden.values()
@@ -683,6 +689,7 @@ class HiveIden(s_base.Base):
         self.name = node.valu
 
         self.info = await node.dict()
+        self.onfini(self.info)
 
         self.info.setdefault('rules', ())
         self.rules = self.info.get('rules', onedit=self._onRulesEdit)

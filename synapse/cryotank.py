@@ -432,10 +432,9 @@ class CryoCell(s_cell.Cell):
 
         await s_cell.Cell.__anit__(self, dirn)
 
-        path = s_common.gendir(self.dirn, 'cryo.lmdb')
+        self.dmon.share('cryo', self)
 
-        self.dmon = None
-        self.sharename = None
+        path = s_common.gendir(self.dirn, 'cryo.lmdb')
 
         self.kvstor = s_kv.KvStor(path)
         self.onfini(self.kvstor.fini)

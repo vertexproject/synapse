@@ -9,7 +9,7 @@ class CoreModule:
     confdefs = ()
     mod_name = None
 
-    def __init__(self, core):
+    def __init__(self, core, conf=None):
 
         self.core = core        # type: synapse.cortex.Cortex
         self.model = core.model # type: synapse.datamodel.Model
@@ -20,9 +20,13 @@ class CoreModule:
                                      'mods',
                                      self.getModName())
         self._confpath = os.path.join(self._modpath, 'conf.yaml')
-        conf = {}
+
+        if conf is None:
+            conf = {}
+
         if os.path.isfile(self._confpath):
             conf = s_common.yamlload(self._confpath)
+
         self.conf = s_common.config(conf, self.confdefs)
 
     def getStormCmds(self):  # pragma: no cover

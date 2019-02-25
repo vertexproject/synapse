@@ -35,7 +35,8 @@ class CmdCronTest(s_t_utils.SynTest):
         loop = asyncio.get_running_loop()
 
         with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime):
-            async with self.getTestDmon('dmoncore') as dmon, await self.agetTestProxy(dmon, 'core') as core:
+            async with self.getTestCoreAndProxy() as (realcore, core):
+
                 outp = self.getTestOutp()
                 with await s_cmdr.getItemCmdr(core, outp=outp) as cmdr:
 

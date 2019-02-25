@@ -35,19 +35,6 @@ class DaemonTest(s_t_utils.SynTest):
 
         self.ne(s_certdir.defdir, path)
 
-    async def test_daemon_boot(self):
-        # get a localhost:0 dmon with an EchoCell "echo00"
-        async with self.getTestDmon(mirror='dmonboot') as dmon:
-
-            self.nn(dmon.shared.get('echo00'))
-            self.nn(dmon.mods.get('synapse.tests.test_daemon'))
-
-            host, port = dmon.addr
-
-            async with await s_telepath.openurl('tcp:///echo00', host=host, port=port) as prox:
-
-                self.eq('woot', await prox.ping('woot'))
-
     async def test_unixsock_longpath(self):
 
         # Explicit failure for starting a daemon with a path too deep

@@ -530,9 +530,9 @@ class Cortex(s_cell.Cell):
 
     cellapi = CoreApi
 
-    async def __anit__(self, dirn):
+    async def __anit__(self, dirn, conf=None):
 
-        await s_cell.Cell.__anit__(self, dirn)
+        await s_cell.Cell.__anit__(self, dirn, conf=conf)
 
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use
@@ -624,10 +624,6 @@ class Cortex(s_cell.Cell):
 
         if self.conf.get('cron:enable'):
             await self.agenda.enable()
-
-        #TODO config remote axon
-        path = s_common.genpath(self.dirn, 'axon')
-        self.axon = await s_axon.Axon.anit(path)
 
         await self._initCoreMods()
 
@@ -1663,7 +1659,7 @@ class Cortex(s_cell.Cell):
         if conf is None:
             conf = {}
 
-        modu = self._loadCoreModule(ctor)
+        modu = self._loadCoreModule(ctor, conf=conf)
 
         mdefs = modu.getModelDefs()
         self.model.addDataModels(mdefs)
@@ -1673,6 +1669,8 @@ class Cortex(s_cell.Cell):
 
         await s_coro.ornot(modu.initCoreModule)
         await self.fire('core:module:load', module=ctor)
+
+        return modu
 
     async def _loadCoreMods(self, ctors):
 
@@ -1706,10 +1704,10 @@ class Cortex(s_cell.Cell):
             except Exception as e:
                 logger.exception(f'module init failed: {name}')
 
-    def _loadCoreModule(self, ctor):
+    def _loadCoreModule(self, ctor, conf=None):
 
         try:
-            modu = s_dyndeps.tryDynFunc(ctor, self)
+            modu = s_dyndeps.tryDynFunc(ctor, self, conf=conf)
             self.modules[ctor] = modu
             return modu
 

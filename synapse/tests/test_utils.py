@@ -273,17 +273,8 @@ class TestUtils(s_t_utils.SynTest):
 
         await self.asyncraises(ZeroDivisionError, araiser())
 
-    async def test_dmoncoreaxon(self):
-        async with self.getTestDmonCortexAxon() as dmon:
-            self.isin('core', dmon.cells)
-            self.isin('axon00', dmon.cells)
-            self.isin('blobstor00', dmon.cells)
-
-            async with await self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
-                node = await core.addNode('teststr', 'hehe')
-                self.nn(node)
-
     async def test_storm_mesgs(self):
+
         async with self.getTestCore() as core:
             mesgs = await core.streamstorm('[teststr=1234] | count').list()
             self.stormIsInPrint('Counted 1 nodes.', mesgs)

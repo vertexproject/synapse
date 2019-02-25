@@ -39,6 +39,7 @@ import synapse.cells as s_cells
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
+import synapse.cryotank as s_cryotank
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
@@ -276,7 +277,9 @@ class TestModule(s_module.CoreModule):
     testguid = '8f1401de15918358d5247e21ca29a814'
 
     async def initCoreModule(self):
+
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
+
         async with await self.core.snap() as snap:
             await snap.addNode('source', self.testguid, {'name': 'test'})
 
@@ -807,16 +810,37 @@ class SynTest(unittest.TestCase):
                 yield axon
 
     @contextlib.asynccontextmanager
-    async def getTestCore(self, mirror='testcore', conf=None, extra_layers=()):
+    async def getTestCore(self, conf=None):
         '''
         Return a simple test Cortex.
 
         Args:
            conf:  additional configuration entries.  Combined with contents from mirror.
         '''
-        with self.getTestDir(mirror=mirror) as dirn:
-            async with await s_cortex.Cortex.anit(dirn) as core:
+        with self.getTestDir() as dirn:
+            async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                conf = {'key': 'valu'}
+                self.nn(await core.loadCoreModule('synapse.tests.utils.TestModule', conf=conf))
                 yield core
+
+    @contextlib.asynccontextmanager
+    async def getTestCoreAndProxy(self):
+        async with self.getTestCore() as core:
+            core.conf['storm:log'] = True
+            async with core.getLocalProxy() as prox:
+                yield core, prox
+
+    @contextlib.asynccontextmanager
+    async def getTestCryo(self):
+        with self.getTestDir() as dirn:
+            async with await s_cryotank.CryoCell.anit(dirn) as cryo:
+                yield cryo
+
+    @contextlib.asynccontextmanager
+    async def getTestCryoAndProxy(self):
+        async with self.getTestCryo() as cryo:
+            async with cryo.getLocalProxy() as prox:
+                yield cryo, prox
 
     @contextlib.asynccontextmanager
     async def getTestDmon(self, mirror='dmontest'):
@@ -829,8 +853,6 @@ class SynTest(unittest.TestCase):
             coredir = pathlib.Path(dirn, 'cells', 'core')
             if coredir.is_dir():
                 ldir = s_common.gendir(coredir, 'layers')
-                if self.alt_write_layer:
-                    os.symlink(self.alt_write_layer, pathlib.Path(ldir, '000-default'))
 
             certdir = s_certdir.defdir
 
@@ -1345,13 +1367,13 @@ class SynTest(unittest.TestCase):
             s_common.yamlsave(boot, cdir, 'boot.yaml')
         if conf:
             s_common.yamlsave(conf, cdir, 'cell.yaml')
-        if name == 'cortex' and self.alt_write_layer:
-            ldir = s_common.gendir(cdir, 'layers')
-            layerdir = pathlib.Path(ldir, '000-default')
-            try:
-                shutil.copytree(self.alt_write_layer, layerdir)
-            except FileExistsError:
-                pass
+        #if name == 'cortex' and self.alt_write_layer:
+            #ldir = s_common.gendir(cdir, 'layers')
+            #layerdir = pathlib.Path(ldir, '000-default')
+            #try:
+                #shutil.copytree(self.alt_write_layer, layerdir)
+            #except FileExistsError:
+                #pass
         return await s_cells.init(name, cdir)
 
     def getIngestDef(self, guid, seen):
@@ -1452,59 +1474,26 @@ class SynTest(unittest.TestCase):
         Args:
             core: Auth enabled cortex.
         '''
-        await core.addAuthRole('creator')
-        await core.addAuthRule('creator', (True, ('node:add',)))
-        await core.addAuthRule('creator', (True, ('prop:set',)))
-        await core.addAuthRule('creator', (True, ('tag:add',)))
-        await core.addAuthRule('creator', (True, ('feed:data',)))
+        creator = await core.auth.addRole('creator')
 
-        await core.addAuthRole('deleter')
-        await core.addAuthRule('deleter', (True, ('node:del',)))
-        await core.addAuthRule('deleter', (True, ('prop:del',)))
-        await core.addAuthRule('deleter', (True, ('tag:del',)))
+        await creator.setRules((
+            (True, ('node:add',)),
+            (True, ('prop:set',)),
+            (True, ('tag:add',)),
+            (True, ('feed:data',)),
+        ))
 
-    @contextlib.asynccontextmanager
-    async def getTestDmonCortexAxon(self, rootperms=True):
-        '''
-        Get a test Daemon with a Cortex and a Axon with a single BlobStor
-        enabled. The Cortex is an auth enabled cortex with the root username
-        and password as "root:root".
+        deleter = await core.auth.addRole('deleter')
+        await deleter.setRules((
+            (True, ('node:del',)),
+            (True, ('prop:del',)),
+            (True, ('tag:del',)),
+        ))
 
-        This environment can be used to run tests which require having both
-        an Cortex and a Axon readily available.
+        iadd = await core.auth.addUser('icanadd')
+        await iadd.grant('creator')
+        await iadd.setPasswd('secret')
 
-        Valid connection URLs for the Axon and Cortex are set in the local
-        scope as "axonurl" and "coreurl" respectively.
-
-        Args:
-            perms (bool): If true, grant the root user * permissions on the Cortex.
-
-        Returns:
-            s_daemon.Daemon: A configured Daemon.
-        '''
-        async with self.getTestDmon('axoncortexdmon') as dmon:
-
-            # Construct URLS for later use
-            blobstorurl = f'tcp://{dmon.addr[0]}:{dmon.addr[1]}/blobstor00'
-            axonurl = f'tcp://{dmon.addr[0]}:{dmon.addr[1]}/axon00'
-            coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
-
-            # register the blob with the Axon.
-            async with await self.agetTestProxy(dmon, 'axon00') as axon:
-                await axon.addBlobStor(blobstorurl)
-
-            # Add our helper URLs to scope so others don't
-            # have to construct them.
-            s_scope.set('axonurl', axonurl)
-            s_scope.set('coreurl', coreurl)
-
-            s_scope.set('blobstorurl', blobstorurl)
-
-            # grant the root user permissions
-            if rootperms:
-                async with await self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
-                    await self.addCreatorDeleterRoles(core)
-                    await core.addUserRole('root', 'creator')
-                    await core.addUserRole('root', 'deleter')
-
-            yield dmon
+        idel = await core.auth.addUser('icandel')
+        await idel.grant('deleter')
+        await idel.setPasswd('secret')

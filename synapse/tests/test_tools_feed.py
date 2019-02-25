@@ -52,21 +52,9 @@ class FeedTest(s_t_utils.SynTest):
 
     async def test_syningest_remote(self):
 
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+        async with self.getTestCore() as core:
 
             def testmain():
-
-                pconf = {'user': 'root', 'passwd': 'root'}
-                with self.getTestProxy(dmon, 'core', **pconf) as core:
-                    # Setup user permissions
-                    core.addAuthRole('creator')
-                    core.addAuthRule('creator', (True, ('node:add',)))
-                    core.addAuthRule('creator', (True, ('prop:set',)))
-                    core.addAuthRule('creator', (True, ('tag:add',)))
-                    core.addUserRole('root', 'creator')
-
-                host, port = dmon.addr
-                curl = f'tcp://root:root@{host}:{port}/core'
 
                 guid = s_common.guid()
                 seen = s_common.now()
@@ -77,15 +65,17 @@ class FeedTest(s_t_utils.SynTest):
                     # Test yaml support here
                     gestfp = s_common.genpath(dirn, 'gest.yaml')
                     s_common.yamlsave(gestdef, gestfp)
-                    argv = ['--cortex', curl,
+                    argv = ['--cortex', core.getLocalUrl(),
                             '--debug',
                             '--modules', 'synapse.tests.utils.TestModule',
                             gestfp]
 
                     outp = self.getTestOutp()
                     cmdg = s_t_utils.CmdGenerator(['storm pivcomp -> *'], on_end=EOFError)
+
                     with mock.patch('synapse.lib.cli.get_input', cmdg):
                         self.eq(s_feed.main(argv, outp=outp), 0)
+
                     self.true(outp.expect('teststr=haha', throw=False))
                     self.true(outp.expect('pivtarg=hehe', throw=False))
 
@@ -93,22 +83,18 @@ class FeedTest(s_t_utils.SynTest):
 
     async def test_synsplice_remote(self):
 
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+        async with self.getTestCore() as core:
 
-            host, port = dmon.addr
-            curl = f'tcp://pennywise:cottoncandy@{host}:{port}/core'
+            await self.addCreatorDeleterRoles(core)
 
-            async with await self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
+            host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
 
-                await self.addCreatorDeleterRoles(core)
-                await core.addAuthUser('pennywise')
-                await core.setUserPasswd('pennywise', 'cottoncandy')
-                await core.addUserRole('pennywise', 'creator')
+            curl = f'tcp://icanadd:secret@{host}:{port}/'
 
             def testmain():
 
                 mesg = ('node:add', {'ndef': ('teststr', 'foo')})
-                splicefp = s_common.genpath(dmon.dirn, 'splice.mpk')
+                splicefp = s_common.genpath(core.dirn, 'splice.mpk')
                 with s_common.genfile(splicefp) as fd:
                     fd.write(s_msgpack.en(mesg))
 
@@ -119,64 +105,55 @@ class FeedTest(s_t_utils.SynTest):
 
                 outp = self.getTestOutp()
                 self.eq(s_feed.main(argv, outp=outp), 0)
-                with self.getTestProxy(dmon, 'core', user='pennywise', passwd='cottoncandy') as core:
-                    self.len(1, list(core.eval('teststr=foo')))
-                return True
 
-            ret = await s_coro.executor(testmain)
-            self.true(ret)
+            await s_coro.executor(testmain)
+            nodes = await core.eval('teststr=foo').list()
+            self.len(1, nodes)
 
     async def test_synnodes_remote(self):
 
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+        async with self.getTestCore() as core:
 
-            host, port = dmon.addr
+            await self.addCreatorDeleterRoles(core)
 
-            pconf = {'user': 'root', 'passwd': 'root'}
+            host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
 
-            curl = f'tcp://root:root@{host}:{port}/core'
+            curl = f'tcp://icanadd:secret@{host}:{port}/'
 
-            async with await s_telepath.openurl(curl) as core:
+            with self.getTestDir() as dirn:
 
-                await self.addCreatorDeleterRoles(core)
-                await core.addUserRole('root', 'creator')
+                def testmain():
 
-                with self.getTestDir() as dirn:
+                    mpkfp = s_common.genpath(dirn, 'podes.mpk')
+                    with s_common.genfile(mpkfp) as fd:
+                        for i in range(20):
+                            pode = (('testint', i), {})
+                            fd.write(s_msgpack.en(pode))
 
-                    def testmain():
+                    argv = ['--cortex', curl,
+                            '--format', 'syn.nodes',
+                            '--modules', 'synapse.tests.utils.TestModule',
+                            '--chunksize', '3',
+                            mpkfp]
 
-                        mpkfp = s_common.genpath(dirn, 'podes.mpk')
-                        with s_common.genfile(mpkfp) as fd:
-                            for i in range(20):
-                                pode = (('testint', i), {})
-                                fd.write(s_msgpack.en(pode))
+                    outp = self.getTestOutp()
+                    self.eq(s_feed.main(argv, outp=outp), 0)
 
-                        argv = ['--cortex', curl,
-                                '--format', 'syn.nodes',
-                                '--modules', 'synapse.tests.utils.TestModule',
-                                '--chunksize', '3',
-                                mpkfp]
+                await s_coro.executor(testmain)
 
-                        outp = self.getTestOutp()
-                        self.eq(s_feed.main(argv, outp=outp), 0)
-                        with self.getTestProxy(dmon, 'core', **pconf) as core:
-                            self.len(20, list(core.eval('testint')))
-
-                    await s_coro.executor(testmain)
+            nodes = await core.eval('testint').list()
+            self.len(20, nodes)
 
     async def test_synnodes_offset(self):
 
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+        async with self.getTestCore() as core:
+
+            await self.addCreatorDeleterRoles(core)
+
+            host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
+            curl = f'tcp://icanadd:secret@{host}:{port}/'
 
             def testmain():
-
-                pconf = {'user': 'root', 'passwd': 'root'}
-                with self.getTestProxy(dmon, 'core', **pconf) as core:
-                    s_glob.sync(self.addCreatorDeleterRoles(core))
-                    core.addUserRole('root', 'creator')
-
-                host, port = dmon.addr
-                curl = f'tcp://root:root@{host}:{port}/core'
 
                 with self.getTestDir() as dirn:
 
@@ -195,8 +172,6 @@ class FeedTest(s_t_utils.SynTest):
 
                     outp = self.getTestOutp()
                     self.eq(s_feed.main(argv, outp=outp), 0)
-                    with self.getTestProxy(dmon, 'core', **pconf) as core:
-                        self.len(8, list(core.eval('testint')))
 
                     # Sad path catch
                     outp = self.getTestOutp()
@@ -205,3 +180,5 @@ class FeedTest(s_t_utils.SynTest):
                     self.true(outp.expect('Cannot start from a arbitrary offset for more than 1 file.'))
 
             await s_coro.executor(testmain)
+            nodes = await core.eval('testint').list()
+            self.len(8, nodes)
