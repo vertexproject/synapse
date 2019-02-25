@@ -72,7 +72,7 @@ session may then be used to call other HTTP API endpoints as the authenticated u
     GET
 
     *Returns*
-    A list of dictionaries, each of which represents a user on the system.
+        A list of dictionaries, each of which represents a user on the system.
 
 /api/v1/auth/roles
 ~~~~~~~~~~~~~~~~~~
@@ -81,7 +81,7 @@ session may then be used to call other HTTP API endpoints as the authenticated u
     GET
 
     *Returns*
-    A list of dictionaries, each of which represents a role on the system.
+        A list of dictionaries, each of which represents a role on the system.
 
 /api/v1/auth/adduser
 ~~~~~~~~~~~~~~~~~~~~
@@ -92,7 +92,6 @@ session may then be used to call other HTTP API endpoints as the authenticated u
     This API endpoint allows the caller to add a user to the system.
 
     *Input*
-
         This API expects the following JSON body.
 
         .. code-block:: json
@@ -114,7 +113,6 @@ session may then be used to call other HTTP API endpoints as the authenticated u
     This API endpoint allows the caller to add a role to the system.
 
     *Input*
-
         This API expects the following JSON body.
 
         .. code-block:: json
