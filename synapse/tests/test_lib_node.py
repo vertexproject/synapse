@@ -226,6 +226,19 @@ class NodeTest(s_t_utils.SynTest):
                 path = nodepaths[0][1].fork(node)
                 path.vars['zed'] = 'ca'
 
+                # Path present, opts not present
                 nodes = await alist(node.storm('-> testint [:loc=$zed] $bar=$foo', path=path))
                 self.eq(nodes[0][0].props.get('loc'), 'ca')
                 self.eq(path.vars.get('bar'), 'us')
+
+                # Path present, opts present but no opts['vars']
+                nodes = await alist(node.storm('-> testint [:loc=$zed] $bar=$foo', opts={}, path=path))
+                self.eq(nodes[0][0].props.get('loc'), 'ca')
+                self.eq(path.vars.get('bar'), 'us')
+
+                # Path present, opts present with vars
+                nodes = await alist(node.storm('-> testint [:loc=$zed] $bar=$baz',
+                                               opts={'vars': {'baz': 'ru'}},
+                                               path=path))
+                self.eq(nodes[0][0].props.get('loc'), 'ca')
+                self.eq(path.vars.get('bar'), 'ru')
