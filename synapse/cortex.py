@@ -1671,7 +1671,7 @@ class Cortex(s_cell.Cell):
         if user is None:
             user = self.auth.getUserByName('root')
 
-        snap = await self.view.snap(user)
+        snap = await view.snap(user)
 
         return snap
 
