@@ -1474,8 +1474,7 @@ class RunValue(CompValue):
         return await self.runtval(path.runt)
 
     def isRuntSafe(self, runt):
-        if all([k.isRuntSafe(runt) for k in self.kids]):
-            return True
+        return all(k.isRuntSafe(runt) for k in self.kids)
 
 class Value(RunValue):
 
