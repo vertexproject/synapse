@@ -62,8 +62,6 @@ class Slab(s_base.Base):
 
         self.scans = set()
 
-        self.holders = 0
-
         self.dirty = False
         if self.readonly:
             self.xact = None
@@ -100,8 +98,7 @@ class Slab(s_base.Base):
             if self.isfini:
                 # There's no reason to forcecommit on fini, because there's a separate handler to already do that
                 break
-            if self.holders == 0:
-                self.forcecommit()
+            self.forcecommit()
 
     async def _onCoFini(self):
         assert s_glob.iAmLoop()
@@ -268,6 +265,7 @@ class Slab(s_base.Base):
         self.xact.abort()
 
         del self.xact
+        self.xact = None  # Note: it is possible for us to be fini'd in the following yield
 
         yield
 
@@ -306,14 +304,22 @@ class Slab(s_base.Base):
             return self._handle_mapfull()
 
     def putmulti(self, kvpairs, dupdata=False, append=False, db=_DefaultDB):
+        '''
+        Returns:
+            Tuple of number of items consumed, number of items added
+        '''
         if self.readonly:
             raise s_exc.IsReadOnly()
+
+        # Log playback isn't compatible with generators
+        if not isinstance(kvpairs, list):
+            kvpairs = list(kvpairs)
 
         try:
             self.dirty = True
 
             if not self.recovering:
-                self._logXactOper(self.putmulti, kvpairs, dupdata=dupdata, append=True, db=db)
+                self._logXactOper(self.putmulti, kvpairs, dupdata=dupdata, append=append, db=db)
 
             with self.xact.cursor(db=db.db) as curs:
                 retn = curs.putmulti(kvpairs, dupdata=dupdata, append=append)
@@ -329,31 +335,15 @@ class Slab(s_base.Base):
     def delete(self, lkey, val=None, db=None):
         return self._xact_action(self.delete, lmdb.Transaction.delete, lkey, val, db=db)
 
-    def put(self, lkey, lval, dupdata=False, db=None):
-        return self._xact_action(self.put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, db=db)
+    def put(self, lkey, lval, dupdata=False, overwrite=True, db=None):
+        return self._xact_action(self.put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, overwrite=overwrite,
+                                 db=db)
 
     def replace(self, lkey, lval, db=None):
         '''
         Like put, but returns the previous value if existed
         '''
         return self._xact_action(self.replace, lmdb.Transaction.replace, lkey, lval, db=db)
-
-    @contextlib.contextmanager
-    def synchold(self):
-        '''
-        Hold this across small/fast multi-writes to delay commit evaluation.
-        This allows commit() boundaries to occur when the underlying db is coherent.
-
-        Example:
-
-            with dude.writer():
-                dude.put(foo, bar)
-                dude.put(baz, faz)
-
-        '''
-        self.holders += 1
-        yield None
-        self.holders -= 1
 
     def forcecommit(self):
         '''

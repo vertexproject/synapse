@@ -69,6 +69,7 @@ class JupyterTest(s_t_utils.SynTest):
                     podes = await cmdrcore.eval('teststr', num=3)
                     self.len(3, podes)
                     await self.asyncraises(AssertionError, cmdrcore.eval('teststr', num=1))
+                    await self.asyncraises(AssertionError, cmdrcore.storm('teststr', num=1))
 
                     # Feed function for data loading
                     data = [

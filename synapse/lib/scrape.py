@@ -24,11 +24,21 @@ scrape_types = [
 
 regexes = {name: regex.compile(rule, regex.IGNORECASE) for (name, rule, opts) in scrape_types}
 
-def scrape(text):
+def scrape(text, ptype=None):
     '''
     Scrape types from a blob of text and return node tuples.
+
+    Args:
+        text (str): Text to scrape.
+        ptype (str): Optional ptype to scrape. If present, only scrape rules which match the provided type.
+
+    Returns:
+        (str, str): Yield tuples of type, valu strings.
     '''
-    for ptype, rule, info in scrape_types:
-        regx = regexes.get(ptype)
+
+    for ruletype, rule, info in scrape_types:
+        if ptype and ptype != ruletype:
+            continue
+        regx = regexes.get(ruletype)
         for valu in regx.findall(text):
-            yield (ptype, valu)
+            yield (ruletype, valu)

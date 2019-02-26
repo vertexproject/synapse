@@ -29,6 +29,7 @@ import synapse.lib.trigger as s_trigger
 import synapse.lib.modules as s_modules
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.lmdblayer as s_lmdblayer
+import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 import synapse.lib.remotelayer as s_remotelayer
 
@@ -82,12 +83,12 @@ class View(s_base.Base):
 
             self.layers.append(layr)
 
-    async def snap(self):
+    async def snap(self, user):
 
         if self.borked is not None:
             raise s_exc.NoSuchLayer(iden=self.borked)
 
-        return await s_snap.Snap.anit(self.core, self.layers)
+        return await s_snap.Snap.anit(self.core, self.layers, user)
 
     def pack(self):
         return {
@@ -321,13 +322,14 @@ class CoreApi(s_cell.CellApi):
         self._reqUserAllowed('tag:add', *parts)
 
         async with await self.cell.snap(user=self.user) as snap:
+            with s_provenance.claim('coreapi', meth='tag:add', user=snap.user.iden):
 
-            node = await snap.getNodeByBuid(buid)
-            if node is None:
-                raise s_exc.NoSuchIden(iden=iden)
+                node = await snap.getNodeByBuid(buid)
+                if node is None:
+                    raise s_exc.NoSuchIden(iden=iden)
 
-            await node.addTag(tag, valu=valu)
-            return node.pack()
+                await node.addTag(tag, valu=valu)
+                return node.pack()
 
     async def delNodeTag(self, iden, tag):
         '''
@@ -343,37 +345,41 @@ class CoreApi(s_cell.CellApi):
         self._reqUserAllowed('tag:del', *parts)
 
         async with await self.cell.snap(user=self.user) as snap:
+            with s_provenance.claim('coreapi', meth='tag:del', user=snap.user.iden):
 
-            node = await snap.getNodeByBuid(buid)
-            if node is None:
-                raise s_exc.NoSuchIden(iden=iden)
+                node = await snap.getNodeByBuid(buid)
+                if node is None:
+                    raise s_exc.NoSuchIden(iden=iden)
 
-            await node.delTag(tag)
-            return node.pack()
+                await node.delTag(tag)
+                return node.pack()
 
     async def setNodeProp(self, iden, name, valu):
 
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
+            with s_provenance.claim('coreapi', meth='prop:set', user=snap.user.iden):
 
-            node = await snap.getNodeByBuid(buid)
-            if node is None:
-                raise s_exc.NoSuchIden(iden=iden)
+                node = await snap.getNodeByBuid(buid)
+                if node is None:
+                    raise s_exc.NoSuchIden(iden=iden)
 
-            prop = node.form.props.get(name)
-            self._reqUserAllowed('prop:set', prop.full)
+                prop = node.form.props.get(name)
+                self._reqUserAllowed('prop:set', prop.full)
 
-            await node.set(name, valu)
-            return node.pack()
+                await node.set(name, valu)
+                return node.pack()
 
     async def addNode(self, form, valu, props=None):
 
         self._reqUserAllowed('node:add', form)
 
         async with await self.cell.snap(user=self.user) as snap:
-            node = await snap.addNode(form, valu, props=props)
-            return node.pack()
+            with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
+
+                node = await snap.addNode(form, valu, props=props)
+                return node.pack()
 
     async def addNodes(self, nodes):
         '''
@@ -400,23 +406,26 @@ class CoreApi(s_cell.CellApi):
             done[formname] = True
 
         async with await self.cell.snap(user=self.user) as snap:
+            with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
 
-            snap.strict = False
+                snap.strict = False
 
-            async for node in snap.addNodes(nodes):
+                async for node in snap.addNodes(nodes):
 
-                if node is not None:
-                    node = node.pack()
+                    if node is not None:
+                        node = node.pack()
 
-                yield node
+                    yield node
 
     async def addFeedData(self, name, items, seqn=None):
 
         self._reqUserAllowed('feed:data', *name.split('.'))
 
-        async with await self.cell.snap(user=self.user) as snap:
-            snap.strict = False
-            return await snap.addFeedData(name, items, seqn=seqn)
+        with s_provenance.claim('feed:data', name=name):
+
+            async with await self.cell.snap(user=self.user) as snap:
+                snap.strict = False
+                return await snap.addFeedData(name, items, seqn=seqn)
 
     def getFeedOffs(self, iden):
         return self.cell.getFeedOffs(iden)
@@ -468,6 +477,30 @@ class CoreApi(s_cell.CellApi):
             if not count % 1000:
                 await asyncio.sleep(0)
             yield mesg
+
+    @s_cell.adminapi
+    async def provStacks(self, offs, size):
+        '''
+        Return stream of (iden, provenance stack) tuples at the given offset.
+        '''
+        count = 0
+        async for iden, stack in self.cell.layer.provStacks(offs, size):
+            count += 1
+            if not count % 1000:
+                await asyncio.sleep(0)
+            yield s_common.ehex(iden), stack
+
+    @s_cell.adminapi
+    async def getProvStack(self, iden: str):
+        '''
+        Return the providence stack associated with the given iden.
+
+        Args:
+            iden (str):  the iden from splice
+
+        Note: the iden appears on each splice entry as the 'prov' property
+        '''
+        return await self.cell.layer.getProvStack(s_common.uhex(iden))
 
 class Cortex(s_cell.Cell):
     '''
@@ -689,7 +722,7 @@ class Cortex(s_cell.Cell):
                 if count % fairiter == 0:
                     await asyncio.sleep(0)
                     # identity check for small integer
-                    if fairiter is 5 and tcount > 100000:
+                    if fairiter == 5 and tcount > 100000:
                         fairiter = 1000
 
             self.counts[name] = count
@@ -882,7 +915,7 @@ class Cortex(s_cell.Cell):
         Delete a cortex view by iden.
         '''
         if iden == self.iden:
-            raise SynErr(mesg='cannot delete the main view')
+            raise s_exc.SynErr(mesg='cannot delete the main view')
 
         view = self.views.pop(iden, None)
         if view is None:
@@ -976,7 +1009,6 @@ class Cortex(s_cell.Cell):
 
     async def _initCoreLayers(self):
 
-        dirn = s_common.gendir(self.dirn, 'layers')
         node = await self.hive.open(('cortex', 'layers'))
 
         # TODO eventually hold this and watch for changes
@@ -1497,7 +1529,7 @@ class Cortex(s_cell.Cell):
 
     @s_coro.genrhelp
     async def iterStormPodes(self, text, opts=None, user=None):
-        synt = await self.boss.promote('storm', user=user, info={'query': text})
+        await self.boss.promote('storm', user=user, info={'query': text})
         async with await self.snap(user=user) as snap:
             async for pode in snap.iterStormPodes(text, opts=opts, user=user):
                 yield pode
@@ -1636,9 +1668,10 @@ class Cortex(s_cell.Cell):
         if view is None:
             view = self.view
 
-        snap = await self.view.snap()
-        if user is not None:
-            snap.setUser(user)
+        if user is None:
+            user = self.auth.getUserByName('root')
+
+        snap = await view.snap(user)
 
         return snap
 

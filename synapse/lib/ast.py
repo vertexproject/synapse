@@ -8,6 +8,7 @@ import synapse.common as s_common
 
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
+import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -426,8 +427,10 @@ class CmdOper(Oper):
         if not await scmd.hasValidOpts(runt.snap):
             return
 
-        async for item in scmd.execStormCmd(runt, genr):
-            yield item
+        with s_provenance.claim('stormcmd', name=name, argv=argv):
+
+            async for item in scmd.execStormCmd(runt, genr):
+                yield item
 
 class VarSetOper(Oper):
 
