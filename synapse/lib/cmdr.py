@@ -6,6 +6,10 @@ import synapse.cmds.cortex as s_cmds_cortex
 import synapse.cmds.trigger as s_cmds_trigger
 
 cmdsbycell = {
+    'cell': (
+        s_cmds_hive.HiveCmd,
+    ),
+
     'cortex': (
         s_cmds_cron.At,
         s_cmds_cron.Cron,
