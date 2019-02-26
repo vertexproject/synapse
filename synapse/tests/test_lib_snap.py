@@ -24,20 +24,6 @@ class SnapTest(s_t_utils.SynTest):
 
                 self.len(3, await alist(snap.storm('teststr')))
 
-    async def test_stor(self):
-        async with self.getTestCore() as core:
-
-            # Bulk
-            async with await core.snap() as snap:
-                snap.bulk = True
-                self.eq(snap.bulksops, ())
-
-                self.none(await snap.stor((1,)))
-                self.eq(snap.bulksops, (1,))
-
-                self.none(await snap.stor((2,)))
-                self.eq(snap.bulksops, (1, 2,))
-
     async def test_snap_feed_genr(self):
 
         async def testGenrFunc(snap, items):

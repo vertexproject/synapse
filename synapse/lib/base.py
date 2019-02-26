@@ -420,12 +420,18 @@ class Base:
             An asyncio.Task
 
         '''
+        import synapse.lib.provenance as s_provenance  # avoid import cycle
+
         if __debug__:
             assert s_coro.iscoro(coro)
             import synapse.lib.threads as s_threads  # avoid import cycle
             assert s_threads.iden() == self.tid
 
         task = self.loop.create_task(coro)
+
+        # In rare cases, (Like this function being triggered from call_soon_threadsafe), there's no task context
+        if asyncio.current_task():
+            s_provenance.dupstack(task)
 
         def taskDone(task):
             self._active_tasks.remove(task)

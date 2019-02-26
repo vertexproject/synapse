@@ -10,6 +10,7 @@ import synapse.lib.ast as s_ast
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
+import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -147,27 +148,23 @@ class Runtime:
         perm = '.'.join(args)
         raise s_exc.AuthDeny(perm=perm, user=self.user.name)
 
-    async def execStormQuery(self, query):
-        count = 0
-        for node, path in self.iterStormQuery(query):
-            count += 1
-        return count
-
     async def iterStormQuery(self, query):
 
-        # do a quick pass to determine which vars are per-node.
-        for oper in query.kids:
-            for name in oper.getRuntVars(self):
-                self.runtvars.add(name)
+        with s_provenance.claim('storm', q=query.text, user=self.user.name if self.user else None):
 
-        # init any options from the query
-        # (but dont override our own opts)
-        for name, valu in query.opts.items():
-            self.opts.setdefault(name, valu)
+            # do a quick pass to determine which vars are per-node.
+            for oper in query.kids:
+                for name in oper.getRuntVars(self):
+                    self.runtvars.add(name)
 
-        async for node, path in query.iterNodePaths(self):
-            self.tick()
-            yield node, path
+            # init any options from the query
+            # (but dont override our own opts)
+            for name, valu in query.opts.items():
+                self.opts.setdefault(name, valu)
+
+            async for node, path in query.iterNodePaths(self):
+                self.tick()
+                yield node, path
 
 class Parser(argparse.ArgumentParser):
 
