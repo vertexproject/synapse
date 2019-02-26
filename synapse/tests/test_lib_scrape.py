@@ -40,6 +40,6 @@ class ScrapeTest(s_t_utils.SynTest):
 
         nodes = set(s_scrape.scrape(data0, 'inet:email'))
         self.len(2, nodes)
-        nodes.remove(('inet:email', 'visi@vertex.link'))
         nodes.remove(('inet:email', 'BOB@WOOT.COM'))
+        nodes.remove(('inet:email', 'visi@vertex.link'))
         self.len(0, nodes)
