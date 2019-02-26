@@ -103,40 +103,14 @@ dmonwrap = (
 
 class Daemon(s_base.Base):
 
-    confdefs = (
-
-        ('listen', {'defval': 'tcp://127.0.0.1:27492',
-            'doc': 'The default listen host/port'}),
-
-        ('modules', {'defval': (),
-            'doc': 'A list of python modules to import before Cell construction.'}),
-
-        #('hostname', {'defval':
-        #('ssl': {'defval': None,
-            #'doc': 'An SSL config dict with certfile/keyfile optional cacert.'}),
-    )
-
-    async def __anit__(self, dirn=None, conf=None):
+    async def __anit__(self, certdir=None):
 
         await s_base.Base.__anit__(self)
 
-        self.dirn = None
-        if dirn is not None:
-            self.dirn = s_common.gendir(dirn)
-
         self._shareLoopTasks = set()
 
-        yaml = self._loadDmonYaml()
-        if conf is not None:
-            yaml.update(conf)
+        self.certdir = s_certdir.CertDir(path=certdir)
 
-        self.conf = s_common.config(yaml, self.confdefs)
-        self.certdir = None
-
-        if self.dirn is not None:
-            self.certdir = s_certdir.CertDir(os.path.join(dirn, 'certs'))
-
-        self.mods = {}      # keep refs to mods we load ( mostly for testing )
         self.televers = s_telepath.televers
 
         self.addr = None    # our main listen address
@@ -157,9 +131,6 @@ class Daemon(s_base.Base):
         }
 
         self.onfini(self._onDmonFini)
-
-        await self._loadDmonConf()
-        await self._loadDmonCells()
 
     async def listen(self, url, **opts):
         '''
@@ -239,69 +210,6 @@ class Daemon(s_base.Base):
         finis = [link.fini() for link in self.connectedlinks]
         if finis:
             await asyncio.wait(finis)
-
-    def _loadDmonYaml(self):
-        if self.dirn is not None:
-            path = s_common.genpath(self.dirn, 'dmon.yaml')
-            return self._loadYamlPath(path)
-        return {}
-
-    def _loadYamlPath(self, path):
-
-        if os.path.isfile(path):
-            return s_common.yamlload(path)
-
-        return {}
-
-    async def _loadDmonCells(self):
-
-        # load our services from a directory
-
-        if self.dirn is None:
-            return
-
-        path = s_common.gendir(self.dirn, 'cells')
-
-        for name in os.listdir(path):
-
-            if name.startswith('.'):
-                continue
-
-            await self.loadDmonCell(name)
-
-    async def loadDmonCell(self, name):
-        dirn = s_common.gendir(self.dirn, 'cells', name)
-        logger.info(f'loading cell from: {dirn}')
-
-        path = os.path.join(dirn, 'boot.yaml')
-
-        if not os.path.exists(path):
-            raise s_exc.NoSuchFile(name=path)
-
-        conf = self._loadYamlPath(path)
-
-        kind = conf.get('type')
-
-        # avoid import loop... TODO figure out how to avoid
-        import synapse.cells as s_cells
-
-        cell = await s_cells.init(kind, dirn)
-
-        self.share(name, cell)
-        self.cells[name] = cell
-
-    async def _loadDmonConf(self):
-
-        # process per-conf elements...
-        for name in self.conf.get('modules', ()):
-            try:
-                self.mods[name] = s_dyndeps.getDynMod(name)
-            except Exception as e:
-                logger.exception('dmon module error')
-
-        lisn = self.conf.get('listen')
-        if lisn is not None:
-            self.addr = await self.listen(lisn)
 
     async def _onLinkInit(self, link):
 
@@ -502,6 +410,7 @@ class Daemon(s_base.Base):
                 return
 
             if isinstance(valu, s_share.Share):
+                sess.onfini(valu)
                 iden = s_common.guid()
                 sess.setSessItem(iden, valu)
                 await link.tx(('t2:share', {'iden': iden}))

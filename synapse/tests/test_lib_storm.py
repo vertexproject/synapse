@@ -10,31 +10,26 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_sudo(self):
 
-        async with self.getTestDmon('dmoncoreauth') as dmon:
+        async with self.getTestCore() as core:
 
-            pconf = {'user': 'root', 'passwd': 'root'}
+            user = await core.auth.addUser('sudoer')
 
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
+            async with core.getLocalProxy(user='sudoer') as prox:
 
-                await core.addAuthUser('sudoer')
-                await core.setUserPasswd('sudoer', 'high5')
+                with self.raises(s_exc.AuthDeny):
+                    await s_common.aspin(await prox.eval('[ teststr=woot ]'))
 
-                uconf = {'user': 'sudoer', 'passwd': 'high5'}
+                with self.raises(s_exc.AuthDeny):
+                    await s_common.aspin(await prox.eval('sudo | [ teststr=woot ]'))
 
-                async with await self.getTestProxy(dmon, 'core', **uconf) as eroc:
+                rule = (True, ('storm', 'cmd', 'sudo'))
 
-                    with self.raises(s_exc.AuthDeny):
-                        await s_common.aspin(await eroc.eval('[ teststr=woot ]'))
+                await user.addRule(rule)
 
-                    with self.raises(s_exc.AuthDeny):
-                        await s_common.aspin(await eroc.eval('sudo | [ teststr=woot ]'))
+                with self.raises(s_exc.AuthDeny):
+                    await s_common.aspin(await prox.eval('[ teststr=woot ]'))
 
-                    await core.addAuthRule('sudoer', (True, ('storm', 'cmd', 'sudo')))
-
-                    with self.raises(s_exc.AuthDeny):
-                        await s_common.aspin(await eroc.eval('[ teststr=woot ]'))
-
-                    await s_common.aspin(await eroc.eval('sudo | [ teststr=woot ]'))
+                await s_common.aspin(await prox.eval('sudo | [ teststr=woot ]'))
 
     async def test_storm_movetag(self):
 
@@ -232,8 +227,8 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_count(self):
 
-        async with self.getTestDmon(mirror='dmoncore') as dmon, \
-                await self.agetTestProxy(dmon, 'core') as core:
+        async with self.getTestCoreAndProxy() as (realcore, core):
+
             await self.agenlen(2, await core.eval('[ teststr=foo teststr=bar ]'))
 
             mesgs = await alist(await core.storm('teststr=foo teststr=bar | count |  [+#test.tag]'))

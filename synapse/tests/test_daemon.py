@@ -1,4 +1,3 @@
-import synapse.cells as s_cells
 import synapse.common as s_common
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
@@ -8,32 +7,7 @@ import synapse.lib.certdir as s_certdir
 
 import synapse.tests.utils as s_t_utils
 
-class Newp: pass
-
-class EchoApi(s_cell.CellApi):
-
-    def ping(self, mesg):
-        return mesg
-
-    def newp(self):
-        return Newp()
-
-class EchoCell(s_cell.Cell):
-
-    cellapi = EchoApi
-
-s_cells.add('echo', EchoCell)
-
 class DaemonTest(s_t_utils.SynTest):
-
-    async def test_daemon_certdir(self):
-
-        # ensure the test env by checking for certs
-        async with self.getTestDmon() as dmon:
-            path = s_common.genpath(dmon.dirn, 'certs')
-            self.eq(s_certdir.defdir, path)
-
-        self.ne(s_certdir.defdir, path)
 
     async def test_unixsock_longpath(self):
 
@@ -50,5 +24,9 @@ class DaemonTest(s_t_utils.SynTest):
             listpath = f'unix://{s_common.genpath(longdirn, "sock")}'
             with self.getAsyncLoggerStream('synapse.daemon',
                                            'exceeds OS supported UNIX socket path length') as stream:
-                await self.asyncraises(OSError, s_daemon.Daemon.anit(longdirn, conf={'listen': listpath}))
+
+                async with await s_daemon.Daemon.anit() as dmon:
+                    with self.raises(OSError):
+                        await dmon.listen(listpath)
+
                 self.true(await stream.wait(1))

@@ -6,14 +6,13 @@ import synapse.tests.utils as s_t_utils
 class TrigTest(s_t_utils.SynTest):
 
     async def test_trigger_recursion(self):
-        async with self.getTestDmon(mirror='dmoncore') as dmon, \
-                await self.agetTestProxy(dmon, 'core') as core:
+        async with self.getTestCoreAndProxy() as (realcore, core):
             await core.addTrigger('node:add', '[ testguid="*" ]', info={'form': 'testguid'})
             await s_common.aspin(await core.eval('[ testguid="*" ]'))
 
     async def test_modification_persistence(self):
         with self.getTestDir() as fdir:
-            async with await self.getTestCell(fdir, 'cortex') as core:
+            async with self.getTestCore(dirn=fdir) as core:
                 core.triggers.add('root', 'node:add', '[inet:user=1] | testcmd', info={'form': 'inet:ipv4'})
                 triggers = core.triggers.list()
                 self.eq(triggers[0][1].get('storm'), '[inet:user=1] | testcmd')
@@ -26,7 +25,7 @@ class TrigTest(s_t_utils.SynTest):
                 self.raises(s_exc.BadStormSyntax, core.triggers.mod, iden, ' | | badstorm ')
                 self.raises(s_exc.NoSuchIden, core.triggers.mod, 'deadb33f', 'inet:user')
 
-            async with await self.getTestCell(fdir, 'cortex') as core:
+            async with self.getTestCore(dirn=fdir) as core:
                 triggers = core.triggers.list()
                 self.eq(triggers[0][1].get('storm'), '[inet:user=2] | testcmd')
 

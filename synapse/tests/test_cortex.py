@@ -7,6 +7,7 @@ from unittest.mock import patch
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
@@ -153,7 +154,7 @@ class CortexTest(s_t_utils.SynTest):
             # Spin up a source core configured to eat data from the cryotank
             with self.getTestDir() as dirn:
 
-                async with await self.getTestCell(dirn, 'cortex', conf=conf) as core:
+                async with self.getTestCore(dirn=dirn, conf=conf) as core:
 
                     waiter = core.waiter(3, 'core:feed:loop')
 
@@ -165,11 +166,6 @@ class CortexTest(s_t_utils.SynTest):
                     offs = await core.layer.getOffset(iden)
                     self.eq(offs, 3)
                     await self.agenlen(3, core.storm('teststr'))
-
-            with self.getTestDir() as dirn:
-                # Sad path testing
-                conf['feeds'][0]['type'] = 'com.clown'
-                await self.asyncraises(s_exc.NoSuchType, self.getTestCell(dirn, 'cortex', conf=conf))
 
     async def test_cortex_coreinfo(self):
 
@@ -231,7 +227,7 @@ class CortexTest(s_t_utils.SynTest):
                     'splice:cryotank': tank_addr,
                     'modules': ('synapse.tests.utils.TestModule',),
                 }
-                src_core = await self.getTestCell(dirn, 'cortex', conf=conf)
+                src_core = await s_cortex.Cortex.anit(dirn, conf=conf)
 
                 waiter = src_core.waiter(2, 'core:splice:cryotank:sent')
                 # Form a node and make sure that it exists
@@ -1813,7 +1809,7 @@ class CortexTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
 
-            async with await self.getTestCell(dirn, 'cortex') as core:
+            async with self.getTestCore(dirn=dirn) as core:
 
                 await core.loadCoreModule('synapse.tests.utils.TestModule')
 
@@ -1830,7 +1826,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(2, core.counts['teststr'])
 
             # test that counts persist...
-            async with await self.getTestCell(dirn, 'cortex') as core:
+            async with self.getTestCore(dirn=dirn) as core:
 
                 await core.loadCoreModule('synapse.tests.utils.TestModule')
 

@@ -1,4 +1,5 @@
 import synapse.exc as s_exc
+import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_t_utils
 
@@ -179,7 +180,7 @@ class SynModelTest(s_t_utils.SynTest):
         # Ensure that the model runts are re-populated after a model load has occurred.
         with self.getTestDir() as dirn:
 
-            async with await self.getTestCell(dirn, 'cortex') as core:
+            async with await s_cortex.Cortex.anit(dirn) as core:
 
                 # Lift nodes
                 nodes = await core.eval('syn:form=syn:tag').list()

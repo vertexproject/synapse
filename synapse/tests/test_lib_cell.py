@@ -1,5 +1,4 @@
 import synapse.exc as s_exc
-import synapse.cells as s_cells
 import synapse.common as s_common
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
@@ -19,61 +18,56 @@ class EchoAuthApi(s_cell.CellApi):
 class EchoAuth(s_cell.Cell):
     cellapi = EchoAuthApi
 
-s_cells.add('echoauth', EchoAuth)
-
 class CellTest(s_t_utils.SynTest):
 
     async def test_cell_auth(self):
 
-        # test out built in cell auth
-        async with self.getTestDmon(mirror='cellauth') as dmon:
+        with self.getTestDir() as dirn:
 
-            echo = dmon.shared.get('echo00')
-            self.nn(echo)
+            async with await EchoAuth.anit(dirn) as echo:
 
-            host, port = dmon.addr
+                echo.insecure = False
+                echo.dmon.share('echo00', echo)
+                root = echo.auth.getUserByName('root')
+                await root.setPasswd('secretsauce')
 
-            url = f'tcp://{host}:{port}/echo00'
-            await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
+                host, port = await echo.dmon.listen('tcp://127.0.0.1:0/')
 
-            url = f'tcp://fake@{host}:{port}/echo00'
-            await self.asyncraises(s_exc.NoSuchUser, s_telepath.openurl(url))
+                url = f'tcp://127.0.0.1:{port}/echo00'
+                await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
 
-            url = f'tcp://root@{host}:{port}/echo00'
-            await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
+                url = f'tcp://fake@127.0.0.1:{port}/echo00'
+                await self.asyncraises(s_exc.NoSuchUser, s_telepath.openurl(url))
 
-            url = f'tcp://root:newpnewp@{host}:{port}/echo00'
-            await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
+                url = f'tcp://root@127.0.0.1:{port}/echo00'
+                await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
 
-            url = f'tcp://root:secretsauce@{host}:{port}/echo00'
-            async with await s_telepath.openurl(url) as proxy:
-                self.true(await proxy.isadmin())
-                self.true(await proxy.allowed(('hehe', 'haha')))
+                url = f'tcp://root:newpnewp@127.0.0.1:{port}/echo00'
+                await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
 
-            user = await echo.auth.addUser('visi')
-            await user.setPasswd('foo')
-            await user.addRule((True, ('foo', 'bar')))
+                url = f'tcp://root:secretsauce@127.0.0.1:{port}/echo00'
+                async with await s_telepath.openurl(url) as proxy:
+                    self.true(await proxy.isadmin())
+                    self.true(await proxy.allowed(('hehe', 'haha')))
 
-            url = f'tcp://visi:foo@{host}:{port}/echo00'
-            async with await s_telepath.openurl(url) as proxy:
-                self.true(await proxy.allowed(('foo', 'bar')))
-                self.false(await proxy.isadmin())
-                self.false(await proxy.allowed(('hehe', 'haha')))
+                user = await echo.auth.addUser('visi')
+                await user.setPasswd('foo')
+                await user.addRule((True, ('foo', 'bar')))
 
-    async def test_cell_hive(self):
+                url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
+                async with await s_telepath.openurl(url) as proxy:
+                    self.true(await proxy.allowed(('foo', 'bar')))
+                    self.false(await proxy.isadmin())
+                    self.false(await proxy.allowed(('hehe', 'haha')))
 
-        # test out built in cell auth
-        async with self.getTestDmon(mirror='cellauth') as dmon:
-            host, port = dmon.addr
-            url = f'tcp://root:secretsauce@{host}:{port}/echo00'
-            async with await s_telepath.openurl(url) as proxy:
+                async with echo.getLocalProxy() as proxy:
 
-                await proxy.setHiveKey(('foo', 'bar'), [1, 2, 3, 4])
-                self.eq([1, 2, 3, 4], await proxy.getHiveKey(('foo', 'bar')))
-                self.isin('foo', await proxy.listHiveKey())
-                self.eq(['bar'], await proxy.listHiveKey(('foo', )))
-                await proxy.popHiveKey(('foo', 'bar'))
-                self.eq([], await proxy.listHiveKey(('foo', )))
+                    await proxy.setHiveKey(('foo', 'bar'), [1, 2, 3, 4])
+                    self.eq([1, 2, 3, 4], await proxy.getHiveKey(('foo', 'bar')))
+                    self.isin('foo', await proxy.listHiveKey())
+                    self.eq(['bar'], await proxy.listHiveKey(('foo', )))
+                    await proxy.popHiveKey(('foo', 'bar'))
+                    self.eq([], await proxy.listHiveKey(('foo', )))
 
     async def test_cell_unix_sock(self):
         async with self.getTestCore() as core:
@@ -104,21 +98,17 @@ class CellTest(s_t_utils.SynTest):
         pconf = {'user': 'pennywise', 'passwd': 'cottoncandy'}
 
         with self.getTestDir('cellauth') as dirn:
-            s_common.yamlsave(boot, dirn, 'cells', 'echo00', 'boot.yaml')
-            async with await s_daemon.Daemon.anit(dirn) as dmon:
-                item = dmon.shared.get('echo00')
-                self.false(item.insecure)
+            s_common.yamlsave(boot, dirn, 'boot.yaml')
+            async with await EchoAuth.anit(dirn) as echo:
 
-                async with await self.getTestProxy(dmon, 'echo00', **pconf) as proxy:
+                echo.insecure = False
+
+                # start a regular network listener so we can auth
+                host, port = await echo.dmon.listen('tcp://127.0.0.1:0/')
+                async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}/', **pconf) as proxy:
+
                     self.true(await proxy.isadmin())
                     self.true(await proxy.allowed(('hehe', 'haha')))
 
-                host, port = dmon.addr
-                url = f'tcp://root@{host}:{port}/echo00'
+                url = f'tcp://root@127.0.0.1:{port}/'
                 await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
-
-        # Ensure the cell and its auth have been fini'd
-        self.true(item.isfini)
-        self.true(item.auth.isfini)
-        self.true(item.auth.getUserByName('root').isfini)
-        self.true(item.auth.getUserByName('pennywise').isfini)

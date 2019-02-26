@@ -35,7 +35,6 @@ import collections
 import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.glob as s_glob
-import synapse.cells as s_cells
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
@@ -742,7 +741,7 @@ class SynTest(unittest.TestCase):
     @contextlib.asynccontextmanager
     async def getRegrCore(self, vers):
         with self.getRegrDir('cortexes', vers) as dirn:
-            async with await s_cells.init('cortex', dirn) as core:
+            async with await s_cortex.Cortex.anit(dirn) as core:
                 yield core
 
     def skipIfNoInternet(self):  # pragma: no cover
@@ -810,13 +809,22 @@ class SynTest(unittest.TestCase):
                 yield axon
 
     @contextlib.asynccontextmanager
-    async def getTestCore(self, conf=None):
+    async def getTestCore(self, conf=None, dirn=None):
         '''
         Return a simple test Cortex.
 
         Args:
            conf:  additional configuration entries.  Combined with contents from mirror.
         '''
+        if dirn is not None:
+
+            async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                conf = {'key': 'valu'}
+                self.nn(await core.loadCoreModule('synapse.tests.utils.TestModule', conf=conf))
+                yield core
+
+            return
+
         with self.getTestDir() as dirn:
             async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
                 conf = {'key': 'valu'}
@@ -824,8 +832,8 @@ class SynTest(unittest.TestCase):
                 yield core
 
     @contextlib.asynccontextmanager
-    async def getTestCoreAndProxy(self):
-        async with self.getTestCore() as core:
+    async def getTestCoreAndProxy(self, conf=None, dirn=None):
+        async with self.getTestCore(conf=conf, dirn=dirn) as core:
             core.conf['storm:log'] = True
             async with core.getLocalProxy() as prox:
                 yield core, prox
@@ -843,27 +851,12 @@ class SynTest(unittest.TestCase):
                 yield cryo, prox
 
     @contextlib.asynccontextmanager
-    async def getTestDmon(self, mirror='dmontest'):
-
-        with self.getTestDir(mirror=mirror) as dirn:
-
-            # Copy test certs
-            shutil.copytree(self.getTestFilePath('certdir'), os.path.join(dirn, 'certs'))
-
-            coredir = pathlib.Path(dirn, 'cells', 'core')
-            if coredir.is_dir():
-                ldir = s_common.gendir(coredir, 'layers')
-
-            certdir = s_certdir.defdir
-
-            async with await s_daemon.Daemon.anit(dirn) as dmon:
-
-                # act like synapse.tools.dmon...
-                s_certdir.defdir = s_common.genpath(dirn, 'certs')
-
-                yield dmon
-
-                s_certdir.defdir = certdir
+    async def getTestDmon(self):
+        with self.getTestDir(mirror='certdir') as certdir:
+            async with await s_daemon.Daemon.anit(certdir=certdir) as dmon:
+                await dmon.listen('tcp://127.0.0.1:0/')
+                with unittest.mock.patch('synapse.lib.certdir.defdir', certdir):
+                    yield dmon
 
     def getTestUrl(self, dmon, name, **opts):
 
@@ -1336,45 +1329,6 @@ class SynTest(unittest.TestCase):
             if conf:
                 s_common.yamlsave(conf, cdir, 'cell.yaml')
             yield dirn
-
-    async def getTestCell(self, dirn, name, boot=None, conf=None):
-        '''
-        Get an instance of a Cell with specific boot and configuration data.
-
-        Args:
-            dirn (str): The directory the celldir is made in.
-            name (str): The name of the cell to make. This must be a
-            registered cell name in ``s_cells.ctors.``
-            boot (dict): Optional boot data. This is saved to ``boot.yaml``
-            for the cell to load.
-            conf (dict): Optional configuration data. This is saved to
-            ``cell.yaml`` for the Cell to load.
-
-        Examples:
-
-            Get a test Cortex cell:
-
-                conf = {'key': 'value'}
-                boot = {'cell:name': 'TestCell'}
-                cell = getTestCell(someDirectory, 'cortex', conf, boot)
-
-        Returns:
-            s_cell.Cell: A Cell instance.
-        '''
-        cdir = os.path.join(dirn, name)
-        s_common.makedirs(cdir)
-        if boot:
-            s_common.yamlsave(boot, cdir, 'boot.yaml')
-        if conf:
-            s_common.yamlsave(conf, cdir, 'cell.yaml')
-        #if name == 'cortex' and self.alt_write_layer:
-            #ldir = s_common.gendir(cdir, 'layers')
-            #layerdir = pathlib.Path(ldir, '000-default')
-            #try:
-                #shutil.copytree(self.alt_write_layer, layerdir)
-            #except FileExistsError:
-                #pass
-        return await s_cells.init(name, cdir)
 
     def getIngestDef(self, guid, seen):
         gestdef = {
