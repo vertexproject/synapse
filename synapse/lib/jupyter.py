@@ -176,7 +176,8 @@ class CmdrCore(s_base.Base):
         mesgs = await self._runStorm(text, opts, cmdr)
         if num is not None:
             nodes = [m for m in mesgs if m[0] == 'node']
-            assert len(nodes) == num
+            if len(nodes) != num:
+                raise AssertionError(f'Expected {num} nodes, got {len(nodes)}')
 
         return mesgs
 
@@ -201,7 +202,8 @@ class CmdrCore(s_base.Base):
         nodes = [m[1] for m in mesgs if m[0] == 'node']
 
         if num is not None:
-            assert len(nodes) == num
+            if len(nodes) != num:
+                raise AssertionError(f'Expected {num} nodes, got {len(nodes)}')
 
         return nodes
 

@@ -8,6 +8,8 @@ import functools
 import subprocess
 
 import synapse.exc as s_exc
+import synapse.common as s_common
+
 import synapse.lib.cmd as s_cmd
 import synapse.lib.cli as s_cli
 
@@ -73,6 +75,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
 
         parser_get = subparsers.add_parser('get', help="Get any entry in the hive", usage=ListHelp)
         parser_get.add_argument('path', help='Hive path')
+        parser_get.add_argument('-f', '--file', default=False, action='store', help='Save the data to a file. Only works for str values.')
         parser_get.add_argument('--json', default=False, action='store_true', help='Emit output as json')
 
         parser_rm = subparsers.add_parser('rm', help='Delete a key in the hive', usage=DelHelp)
@@ -136,6 +139,11 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
             rend = json.dumps(valu, indent=2)
         elif isinstance(valu, str):
             rend = valu
+            if opts.file:
+                with s_common.genfile(opts.file) as fd:
+                    fd.write(valu.encode())
+                self.printf(f'Saved the hive entry [{opts.path}] to {opts.file}')
+                return
         else:
             rend = pprint.pformat(valu)
         self.printf(f'{opts.path}:\n{rend}')

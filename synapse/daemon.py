@@ -483,7 +483,7 @@ class Daemon(s_base.Base):
                     return
 
             except Exception as e:
-                logger.exception(f'error during {desc} task')
+                logger.exception(f'error during {desc} task: {methname}')
                 if not link.isfini:
                     retn = s_common.retnexc(e)
                     await link.tx(('t2:yield', {'retn': retn}))
@@ -500,7 +500,7 @@ class Daemon(s_base.Base):
 
         except Exception as e:
 
-            logger.exception('on task:init: %r' % (mesg,))
+            logger.exception('on t2:init: %r' % (mesg,))
 
             if not link.isfini:
                 retn = s_common.retnexc(e)

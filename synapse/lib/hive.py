@@ -626,7 +626,6 @@ class HiveAuth(s_base.Base):
         user = await HiveUser.anit(self, node)
 
         self.onfini(user)
-        logger.debug(f'Adding user: {user.iden}/{user.name}')
         self.usersbyiden[user.iden] = user
         self.usersbyname[user.name] = user
 
