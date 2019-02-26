@@ -60,6 +60,13 @@ class CmdHiveTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('hive get foo/bar2')
                 self.true(outp.expect("foo/bar2:\njust a string"))
 
+                ofn = os.path.join(dirn, 'test.output')
+                outp.clear()
+                await cmdr.runCmdLine(f'hive get --file {ofn} foo/bar2')
+                self.true(outp.expect(f'Saved the hive entry [foo/bar2] to {ofn}'))
+                with open(ofn, 'rb') as fh:
+                    self.eq(fh.read(), b'just a string')
+
                 outp.clear()
                 fn = os.path.join(dirn, 'empty.json')
                 with open(fn, 'w') as fh:
@@ -106,4 +113,3 @@ class CmdHiveTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine(f'hive edit foo/notJson --editor --string')
                     await cmdr.runCmdLine('hive get foo/notJson')
                     self.true(outp.expect("foo/notJson:\n[1,2,3]"))
-
