@@ -1,3 +1,4 @@
+import copy
 import time
 import asyncio
 import unittest
@@ -255,7 +256,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, data[1])
             self.eq(data[1][0], 'node:add')
             self.eq(data[1][1].get('ndef'), ('teststr', 'teehee'))
-            self.eq(data[1][1].get('user'), '?')
+            self.nn(data[1][1].get('user'))
             self.ge(data[1][1].get('time'), 0)
 
             data = slices[1]
@@ -266,7 +267,7 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(data[1][1].get('prop'), '.created')
             self.ge(data[1][1].get('valu'), 0)
             self.none(data[1][1].get('oldv'))
-            self.eq(data[1][1].get('user'), '?')
+            self.nn(data[1][1].get('user'))
             self.ge(data[1][1].get('time'), 0)
 
     async def test_splice_sync(self):
@@ -825,12 +826,13 @@ class CortexTest(s_t_utils.SynTest):
             await alist(core.eval('teststr [-:tick]'))
             await alist(core.eval('teststr | delnode --force'))
 
-            _splices = await alist(core.layer.splices(0, 10000))
+            _splices = await alist(core.view.layers[0].splices(0, 10000))
             splices = []
             # strip out user and time
             for splice in _splices:
                 splice[1].pop('user', None)
                 splice[1].pop('time', None)
+                splice[1].pop('prov', None)
                 splices.append(splice)
 
             # Ensure the splices are unique

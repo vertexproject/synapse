@@ -26,7 +26,7 @@ class SlabSeqn:
             items (tuple): The series of items to save into the sequence.
 
         Returns:
-            None
+            The index of the first item
         '''
         rows = []
         indx = self.indx
@@ -42,7 +42,10 @@ class SlabSeqn:
 
         self.lenv.putmulti(rows, append=True, db=self.db)
 
+        origindx = self.indx
         self.indx = indx
+
+        return origindx
 
     def index(self):
         '''
