@@ -30,7 +30,7 @@ def scrape(text, ptype=None):
 
     Args:
         text (str): Text to scrape.
-        ptype (srt): Optional ptype to scrape. If present, only scrape rules which match the provided type.
+        ptype (str): Optional ptype to scrape. If present, only scrape rules which match the provided type.
 
     Returns:
         (str, str): Yield tuples of type, valu strings.
