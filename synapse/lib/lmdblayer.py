@@ -66,9 +66,9 @@ class LmdbLayer(s_layer.Layer):
         self.byuniv = await self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
         offsdb = await self.initdb('offsets')
         self.offs = s_slaboffs.SlabOffs(self.layrslab, offsdb)
-
-        self.splicedb = await self.initdb('splices')
         self.splicelog = s_slabseqn.SlabSeqn(self.layrslab, 'splices')
+        self.provdb = await self.initdb('prov') # md5 -> provenance stack
+        self.provseq = s_slabseqn.SlabSeqn(self.layrslab, 'provs')
 
     async def getModelVers(self):
         byts = self.layrslab.get(b'layer:model:version')
@@ -80,19 +80,6 @@ class LmdbLayer(s_layer.Layer):
     async def setModelVers(self, vers):
         byts = s_msgpack.en(vers)
         self.layrslab.put(b'layer:model:version', byts)
-
-    async def commit(self):
-
-        if self.splicelist:
-            self.splicelog.save(self.splicelist)
-
-        self.layrslab.forcecommit()
-
-        # wake any splice waiters and clear the splices out...
-        if self.splicelist:
-            self.spliced.set()
-            self.spliced.clear()
-            self.splicelist.clear()
 
     async def getBuidProps(self, buid):
 
@@ -212,6 +199,35 @@ class LmdbLayer(s_layer.Layer):
 
         if univ:
             self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
+
+    async def _storSplices(self, splices):
+        self.splicelog.save(splices)
+
+    async def _storProvStack(self, prov):
+        iden = self._providen(prov)
+        misc, frames = prov
+        # Convert each frame back from (k, v) tuples to a dict
+        dictframes = [(typ, {k: v for (k, v) in info}) for (typ, info) in frames]
+        bytz = s_msgpack.en((misc, dictframes))
+        didwrite = self.layrslab.put(iden, bytz, overwrite=False, db=self.provdb)
+        if didwrite:
+            self.provseq.save([iden])
+
+        return iden
+
+    async def getProvStack(self, iden: bytes):
+        retn = self.layrslab.get(iden, db=self.provdb)
+        if retn is None:
+            return None
+
+        return s_msgpack.un(retn)
+
+    async def provStacks(self, offs, size):
+        for _, iden in self.provseq.slice(offs, size):
+            stack = await self.getProvStack(iden)
+            if stack is None:
+                continue
+            yield (iden, stack)
 
     async def _liftByIndx(self, oper):
         # ('indx', (<dbname>, <prefix>, (<indxopers>...))

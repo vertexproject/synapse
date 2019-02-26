@@ -235,7 +235,7 @@ class AsyncQueueTest(s_t_utils.SynTest):
 
             await q.put(6)
 
-            self.lt(0.1, time.time() - before)
+            self.lt(0.09, time.time() - before)
             await asyncio.sleep(0.1)
             self.eq(last_msg, 2)
 
