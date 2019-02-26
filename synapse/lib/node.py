@@ -280,32 +280,9 @@ class Node:
         Returns:
             (obj): The secondary property value or None.
         '''
-        parts = name.split('::', 1)
-
-        if len(parts) == 1:
-            name = parts[0]
-            if name.startswith('#'):
-                return self.tags.get(name[1:])
-            return self.props.get(name)
-
-        # FIXME
-        raise Exception('Temporarily disabled implicit pivoting in get')
-
-        name, text = parts
-        prop = self.form.props.get(name)
-        if prop is None:
-            raise s_exc.NoSuchProp(prop=name, form=self.form.name)
-
-        valu = self.props.get(name, s_common.novalu)
-        if valu is s_common.novalu:
-            return None
-
-        form = self.snap.model.form(prop.type.name)
-        if form is None:
-            raise s_exc.NoSuchForm(form=prop.type.name)
-
-        # node = await self.snap.getNodeByNdef((form.name, valu))
-        # return await node.get(text)
+        if name.startswith('#'):
+            return self.tags.get(name[1:])
+        return self.props.get(name)
 
     async def pop(self, name, init=False):
 
