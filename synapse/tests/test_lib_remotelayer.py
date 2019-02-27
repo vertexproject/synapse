@@ -14,7 +14,13 @@ class RemoteLayerTest(t_cortex.CortexTest):
 
     @contextlib.asynccontextmanager
     async def getTestCore(self, conf=None, dirn=None):
-        async with self.getRemoteCores(conf1=conf, dirn1=dirn) as (core0, core1):
+
+        # make remote core from provided dirn for repeatability
+        dirn0 = None
+        if dirn is not None:
+            dirn0 = s_common.gendir(dirn, 'remotecore')
+
+        async with self.getRemoteCores(dirn0=dirn0, conf1=conf, dirn1=dirn) as (core0, core1):
             yield core1
 
     @contextlib.asynccontextmanager

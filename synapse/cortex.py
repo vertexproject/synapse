@@ -687,7 +687,7 @@ class Cortex(s_cell.Cell):
                         name, i, len(nameforms))
             count = 0
 
-            async for buid, valu in self.layer.iterFormRows(name):
+            async for buid, valu in self.view.layers[0].iterFormRows(name):
 
                 count += 1
                 tcount += 1

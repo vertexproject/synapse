@@ -163,7 +163,7 @@ class CortexTest(s_t_utils.SynTest):
                     # self.true(evt.wait(3))
                     self.true(await waiter.wait(4))
 
-                    offs = await core.layer.getOffset(iden)
+                    offs = await core.view.layers[0].getOffset(iden)
                     self.eq(offs, 3)
                     await self.agenlen(3, core.storm('teststr'))
 
