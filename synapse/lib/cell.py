@@ -432,7 +432,11 @@ class Cell(s_base.Base, s_telepath.Aware):
     async def _initCellDmon(self):
         # start a unix local socket daemon listener
         sockpath = os.path.join(self.dirn, 'sock')
-        dmonconf = {'listen': f'unix://{sockpath}'}
+        nosock = os.environ.get('_SYN_CELL_NOSOCK')
+        if nosock is None:
+            dmonconf = {'listen': f'unix://{sockpath}'}
+        else:
+            dmonconf = {'listen': None}
 
         self.dmon = await s_daemon.Daemon.anit(conf=dmonconf)
         self.dmon.share('*', self)

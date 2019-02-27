@@ -429,3 +429,11 @@ class CellTest(s_t_utils.SynTest):
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/addrole', json={}) as resp:
                     retn = await resp.json()
                     self.eq('AuthDeny', retn.get('code'))
+
+    async def test_nosock(self):
+        with self.getTestDir() as dirn:
+            async with await s_cell.Cell.anit(dirn) as cell:
+                self.nn(cell.dmon.addr)
+            with self.setTstEnvars(**{'_SYN_CELL_NOSOCK': '1'}) as cm:
+                async with await s_cell.Cell.anit(dirn) as cell:
+                    self.none(cell.dmon.addr)
