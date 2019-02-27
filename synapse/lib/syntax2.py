@@ -68,8 +68,7 @@ class AstConverter(lark.Transformer):
         if kid.type == 'TAG':
             return s_ast.TagName(kid.value)
         assert kid.type == 'VARTOKN'
-        newkids = self._convert_children(kids)
-        return s_ast.TagVar(kids=newkids)
+        return self.varvalu(kids)
 
 class Parser:
     def __init__(self, parseinfo, text, offs=0):

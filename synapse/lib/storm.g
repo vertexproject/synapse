@@ -23,7 +23,7 @@ ABSPROP: VARSETS // must be a propname
 _oper: subquery | formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | filtoper | liftbytag
     | _liftprop | stormcmd | operrelprop | forloop | switchcase | "break" | "continue" | valuvar
 
-forloop: "for" _WS? (_varname | varlist) _WS? "in" _WS? _varname _WS? subquery
+forloop: "for" _WS? (_varname | varlist) _WS? "in" _WS? varvalu _WS? subquery
 subquery: "{" query "}"
 switchcase: "switch" _WS? varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (CASEVALU _WSCOMM? subquery)) )* _WSCOMM? "}"
 varlist: "(" [_WS? _varname (_WS? "," _WS? _varname)*] _WS? ["," _WS?] ")"
@@ -47,7 +47,7 @@ valuvar: _varname _WS? "=" _WS? _valu
 
 _liftprop: liftpropby | liftprop
 liftprop: PROPNAME
-liftpropby: PROPNAME (tagname [_WS? CMPR _valu]) | (_WS? CMPR _WS? _valu)
+liftpropby: PROPNAME ((tagname [_WS? CMPR _valu]) | (_WS? CMPR _WS? _valu))
 lifttagtag: "#" tagname
 liftbytag: tagname
 tagname: "#" _WS? (_varname | TAG)
