@@ -1199,7 +1199,6 @@ class Parser:
 
         if self.nextstr('#'):
 
-            # tag = self.tagname()
             tag = self.tagmatch()
 
             self.ignore(whitespace)
