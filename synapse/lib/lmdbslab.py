@@ -35,15 +35,6 @@ class SlabDict:
         self.pref = pref
         self.info = self._getPrefProps(pref)
 
-    def get(self, name, defval=None):
-        return self.info.get(name, defval)
-
-    def set(self, name, valu):
-        byts = s_msgpack.en(valu)
-        lkey = self.pref + name.encode('utf8')
-        self.slab.put(lkey, byts, db=self.db)
-        self.info[name] = valu
-
     def _getPrefProps(self, bidn):
 
         size = len(bidn)
@@ -54,6 +45,60 @@ class SlabDict:
             props[name] = s_msgpack.un(lval)
 
         return props
+
+    def items(self):
+        '''
+        Return a tuple of (prop, valu) tuples from the SlabDict.
+
+        Returns:
+            (((str, object), ...)): Tuple of (name, valu) tuples.
+        '''
+        return tuple(self.info.items())
+
+    def get(self, name, defval=None):
+        '''
+        Get a name from the SlabDict.
+
+        Args:
+            name (str): The key name.
+            defval (obj): The default value to return.
+
+        Returns:
+            (obj): The return value, or None.
+        '''
+        return self.info.get(name, defval)
+
+    def set(self, name, valu):
+        '''
+        Set a name in the SlabDict.
+
+        Args:
+            name (str): The key name.
+            valu (obj): A msgpack compatible value.
+
+        Returns:
+            None
+        '''
+        byts = s_msgpack.en(valu)
+        lkey = self.pref + name.encode('utf8')
+        self.slab.put(lkey, byts, db=self.db)
+        self.info[name] = valu
+
+    def pop(self, name, defval=None):
+        '''
+        Pop a name from the SlabDict.
+
+        Args:
+            name (str): The name to remove.
+            defval (obj): The default value to return if the name is not present.
+
+        Returns:
+            object: The object stored in the SlabDict, or defval if the object was not present.
+        '''
+        valu = self.info.pop(name, defval)
+        lkey = self.pref + name.encode('utf8')
+        self.slab.pop(lkey, db=self.db)
+        return valu
 
 class GuidStor:
 

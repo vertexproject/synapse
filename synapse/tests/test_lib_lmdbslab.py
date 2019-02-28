@@ -250,8 +250,25 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 info0 = guidstor.gen('aaaa')
                 info0.set('hehe', 20)
+                self.eq(20, info0.get('hehe'))
+                self.none(info0.get('haha'))
+
+                info0.set('woot', {'woot': 1})
+                self.eq((('hehe', 20), ('woot', {'woot': 1})), info0.items())
+
+                self.eq({'woot': 1}, info0.get('woot'))
+                self.eq({'woot': 1}, info0.pop('woot'))
+                self.none(info0.get('woot'))
+                self.none(info0.pop('woot'))
+                self.true(info0.pop('woot', s_common.novalu) is s_common.novalu)
+
+                # Sad path case
+                self.raises(TypeError, info0.set, 'newp', {1, 2, 3})
 
             async with await s_lmdbslab.Slab.anit(path) as slab:
                 guidstor = s_lmdbslab.GuidStor(slab, 'guids')
                 info1 = guidstor.gen('aaaa')
                 self.eq(20, info1.get('hehe'))
+                self.none(info1.pop('woot'))
+                self.len(1, info1.items())
+                self.eq((('hehe', 20), ), info1.items())
