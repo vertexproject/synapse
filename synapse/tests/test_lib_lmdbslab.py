@@ -251,7 +251,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 info0 = guidstor.gen('aaaa')
                 info0.set('hehe', 20)
 
-                # now imagine we've thrown away info0 and are loading again...
-
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                guidstor = s_lmdbslab.GuidStor(slab, 'guids')
                 info1 = guidstor.gen('aaaa')
                 self.eq(20, info1.get('hehe'))
