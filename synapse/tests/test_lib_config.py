@@ -34,11 +34,11 @@ class ConfTest(s_test.SynTest):
 
         self.eq(conf.get('foo'), 8080)
 
-        os.environ['SYN_CONF_TEST_FOO'] = '31337'
+        with self.setTstEnvars(SYN_CONF_TEST_FOO='31337'):
 
-        await conf.loadConfEnvs('SYN_CONF_TEST')
+            await conf.loadConfEnvs('SYN_CONF_TEST')
 
-        self.eq(conf.get('foo'), 31337)
+            self.eq(conf.get('foo'), 31337)
 
-        info = dict(iter(conf))
-        self.eq(31337, info.get('foo'))
+            info = dict(iter(conf))
+            self.eq(31337, info.get('foo'))

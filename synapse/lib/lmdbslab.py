@@ -23,12 +23,17 @@ class _LmdbDatabase():
 _DefaultDB = _LmdbDatabase(None, False)
 
 class SlabDict:
+    '''
+    A dictionary-like object which stores it's props in a slab via a prefix.
 
-    def __init__(self, slab, info, db=None, pref=b''):
+    It is assumed that only one SlabDict with a given prefix exists at any given
+    time, but it is up to the caller to cache them.
+    '''
+    def __init__(self, slab, db=None, pref=b''):
         self.db = db
         self.slab = slab
-        self.info = info
         self.pref = pref
+        self.info = self._getPrefProps(pref)
 
     def get(self, name, defval=None):
         return self.info.get(name, defval)
@@ -38,6 +43,17 @@ class SlabDict:
         lkey = self.pref + name.encode('utf8')
         self.slab.put(lkey, byts, db=self.db)
         self.info[name] = valu
+
+    def _getPrefProps(self, bidn):
+
+        size = len(bidn)
+
+        props = {}
+        for lkey, lval in self.slab.scanByPref(bidn, db=self.db):
+            name = lkey[size:].decode('utf8')
+            props[name] = s_msgpack.un(lval)
+
+        return props
 
 class GuidStor:
 
@@ -49,24 +65,8 @@ class GuidStor:
         self.db = self.slab.initdb(name)
 
     def gen(self, iden):
-
         bidn = s_common.uhex(iden)
-        props = self._getBidnProps(bidn)
-        return SlabDict(self.slab, props, db=self.db, pref=bidn)
-
-    def props(self, iden):
-        bidn = s_common.uhex(iden)
-        return self._getBidnProps(bidn)
-
-    def _getBidnProps(self, bidn):
-        size = len(bidn)
-        props = {}
-
-        for lkey, lval in self.slab.scanByPref(bidn, db=self.db):
-            name = lkey[size:].decode('utf8')
-            props[name] = s_msgpack.un(lval)
-
-        return props
+        return SlabDict(self.slab, db=self.db, pref=bidn)
 
 class Slab(s_base.Base):
     '''

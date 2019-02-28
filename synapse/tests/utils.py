@@ -32,6 +32,8 @@ import threading
 import contextlib
 import collections
 
+import aiohttp
+
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.cells as s_cells
@@ -982,6 +984,13 @@ class SynTest(unittest.TestCase):
             raise
         finally:
             slogger.removeHandler(handler)
+
+    @contextlib.asynccontextmanager
+    async def getHttpSess(self):
+        jar = aiohttp.CookieJar(unsafe=True)
+        conn = aiohttp.TCPConnector(verify_ssl=False)
+        async with aiohttp.ClientSession(cookie_jar=jar, connector=conn) as sess:
+            yield sess
 
     @contextlib.contextmanager
     def setTstEnvars(self, **props):

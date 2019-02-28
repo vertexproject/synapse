@@ -39,10 +39,10 @@ session.  For more information on configuring users/roles see TODO.
 To create and use an authenticated session, the HTTP client library must support
 cookies.
 
-/login
+/api/v1/login
 ~~~~~~
 
-The /login API endpoint may be used to create an authenticated session.  This
+The login API endpoint may be used to create an authenticated session.  This
 session may then be used to call other HTTP API endpoints as the authenticated user.
 
 .. code-block:: python
@@ -54,7 +54,7 @@ session may then be used to call other HTTP API endpoints as the authenticated u
         async with aiohttp.ClientSession() as sess:
 
             info = {'name': 'visi', 'passwd': 'secret'}
-            async with sess.post(f'https://localhost:56443/login', json=info) as resp:
+            async with sess.post(f'https://localhost:56443/api/v1/login', json=info) as resp:
                 item = await resp.json()
                 if item.get('status') != 'ok':
                     code = item.get('code')

@@ -410,7 +410,7 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         self.wapp = t_web.Application(**opts)
 
-        self.addHttpApi('/login', s_httpapi.LoginV1, {'cell': self})
+        self.addHttpApi('/api/v1/login', s_httpapi.LoginV1, {'cell': self})
 
         self.addHttpApi('/api/v1/auth/users', s_httpapi.AuthUsersV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/roles', s_httpapi.AuthRolesV1, {'cell': self})

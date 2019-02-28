@@ -204,7 +204,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 after_mapsize2 = slab.mapsize
                 self.gt(after_mapsize2, after_mapsize1)
 
-
     async def test_lmdbslab_iternext_repeat_regression(self):
         '''
         Test for a scan being bumped in an iternext where the cursor is in the middle of a list of values with the same
@@ -248,6 +247,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
             path = os.path.join(dirn, 'slab.lmdb')
             async with await s_lmdbslab.Slab.anit(path) as slab:
                 guidstor = s_lmdbslab.GuidStor(slab, 'guids')
-                info = guidstor.gen('aaaa')
-                info.set('hehe', 20)
-                self.eq({'hehe': 20}, guidstor.props('aaaa'))
+
+                info0 = guidstor.gen('aaaa')
+                info0.set('hehe', 20)
+
+                # now imagine we've thrown away info0 and are loading again...
+
+                info1 = guidstor.gen('aaaa')
+                self.eq(20, info1.get('hehe'))
