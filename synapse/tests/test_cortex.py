@@ -2536,30 +2536,30 @@ class CortexTest(s_t_utils.SynTest):
             core.view.borked = None
             self.len(1, await core.eval('[ teststr=foo ]').list())
 
-    def test_tag_globbing(self):
-        with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode('teststr', 'n1')
-                node.addTag('foo.bar.baz', (None, None))
+    async def test_tag_globbing(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('teststr', 'n1')
+                await node.addTag('foo.bar.baz', (None, None))
 
-                node = snap.addNode('teststr', 'n2')
-                node.addTag('foo.bad.baz', (None, None))
+                node = await snap.addNode('teststr', 'n2')
+                await node.addTag('foo.bad.baz', (None, None))
 
-                node = snap.addNode('teststr', 'n3')  # No tags on him
+                node = await snap.addNode('teststr', 'n3')  # No tags on him
 
             # Setup worked correct
-            self.len(3, core.eval('teststr'))
-            self.len(2, core.eval('teststr +#foo'))
+            self.len(3, await core.eval('teststr').list())
+            self.len(2, await core.eval('teststr +#foo').list())
 
             # XXX This is not allowed because * is a tag terminator!?!?!?
             # Now test globbing - exact match for *
-            self.len(2, core.eval('teststr +#*'))
-            self.len(1, core.eval('teststr -#*'))
+            self.len(2, await core.eval('teststr +#*').list())
+            self.len(1, await core.eval('teststr -#*').list())
 
             # Now test globbing - single star matches one tag level
-            self.len(2, core.eval('teststr +#foo.*.baz'))
-            self.len(1, core.eval('teststr +#*.bad'))
+            self.len(2, await core.eval('teststr +#foo.*.baz').list())
+            self.len(1, await core.eval('teststr +#*.bad').list())
             # Double stars matches a whole lot more!
-            self.len(2, core.eval('teststr +#foo.**.az'))
-            self.len(1, core.eval('teststr +#**.bar.baz'))
-            self.len(2, core.eval('teststr +#**.baz'))
+            self.len(2, await core.eval('teststr +#foo.**.az').list())
+            self.len(1, await core.eval('teststr +#**.bar.baz').list())
+            self.len(2, await core.eval('teststr +#**.baz').list())
