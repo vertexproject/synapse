@@ -1142,13 +1142,13 @@ class Cortex(s_cell.Cell):
 
                 async with await s_telepath.openurl(url) as tank:
 
-                    iden = await tank.getCellIden()
+                    iden = await tank.iden()
 
                     offs = await self.layer.getOffset(iden)
 
                     while not self.isfini:
 
-                        items = [item async for item in await tank.slice(offs, fsize)]
+                        items = [item async for item in tank.slice(offs, fsize)]
                         if not items:
                             await self.waitfini(timeout=2)
                             continue

@@ -149,7 +149,7 @@ class CortexTest(s_t_utils.SynTest):
 
             # initialize the tank and get his iden
             async with await s_telepath.openurl(tank_addr) as tank:
-                iden = await tank.getCellIden()
+                iden = await tank.iden()
 
             # Spin up a source core configured to eat data from the cryotank
             with self.getTestDir() as dirn:
@@ -241,7 +241,7 @@ class CortexTest(s_t_utils.SynTest):
 
             # Now that the src core is closed, make sure that the splice exists in the tank
             tank = cryo.tanks.get('tank:blahblah')
-            slices = list(tank.slice(0, 1000))
+            slices = [x async for x in tank.slice(0, size=1000)]
             # # TestModule creates one node and 3 splices
             self.len(3 + 2, slices)
 

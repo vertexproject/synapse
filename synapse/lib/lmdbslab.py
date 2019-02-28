@@ -44,6 +44,31 @@ class Hist:
             tick = int.from_bytes(lkey, 'big')
             yield tick, s_msgpack.un(byts)
 
+class Offs:
+    '''
+
+    A helper for storing offset integers by iden. ( ported from synapse/lib/lmdb.py )
+
+    As with all slab objects, this is meant for single-thread async loop use.
+    '''
+    def __init__(self, slab, name):
+        self.slab = slab
+        self.db = slab.initdb(name)
+
+    def get(self, iden):
+
+        buid = s_common.uhex(iden)
+        byts = self.slab.get(buid, db=self.db)
+        if byts is None:
+            return 0
+
+        return int.from_bytes(byts, byteorder='big')
+
+    def set(self, iden, offs):
+        buid = s_common.uhex(iden)
+        byts = offs.to_bytes(length=8, byteorder='big')
+        self.slab.put(buid, byts, db=self.db)
+
 class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
@@ -201,6 +226,26 @@ class Slab(s_base.Base):
         self._acqXactForReading()
         try:
             return self.xact.get(lkey, db=db.db)
+        finally:
+            self._relXactForReading()
+
+    def last(self, db=_DefaultDB):
+        '''
+        Return the last key/value pair from the given db.
+        '''
+        self._acqXactForReading()
+        try:
+            with self.xact.cursor(db=db.db) as curs:
+                if not curs.last():
+                    return None
+                return curs.key(), curs.value()
+        finally:
+            self._relXactForReading()
+
+    def stat(self, db=_DefaultDB):
+        self._acqXactForReading()
+        try:
+            return self.xact.stat(db=db.db)
         finally:
             self._relXactForReading()
 

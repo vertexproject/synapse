@@ -1,15 +1,7 @@
-import enum
-import struct
-import random
 import asyncio
 import hashlib
 import logging
-import binascii
 import tempfile
-import concurrent
-import contextlib
-
-import lmdb  # type: ignore
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -18,7 +10,6 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
 import synapse.lib.base as s_base
-#import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
 import synapse.lib.queue as s_queue
 import synapse.lib.share as s_share

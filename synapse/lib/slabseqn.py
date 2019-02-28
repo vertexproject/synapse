@@ -13,8 +13,8 @@ class SlabSeqn:
     '''
     def __init__(self, slab: s_lmdbslab.Slab, name: str) -> None:
 
-        self.lenv = slab
-        self.db = self.lenv.initdb(name)
+        self.slab = slab
+        self.db = self.slab.initdb(name)
 
         self.indx = self.nextindx()
 
@@ -25,8 +25,22 @@ class SlabSeqn:
         byts = s_msgpack.en(item)
         lkey = s_common.int64en(self.indx)
 
-        self.lenv.put(lkey, byts, db=self.db)
+        self.slab.put(lkey, byts, db=self.db)
         self.indx += 1
+
+    def last(self):
+
+        last = self.slab.last(db=self.db)
+        if last is None:
+            return None
+
+        lkey, lval = last
+
+        indx = s_common.int64un(lkey)
+        return indx, s_msgpack.un(lval)
+
+    def stat(self):
+        return self.slab.stat(db=self.db)
 
     def save(self, items):
         '''
@@ -41,18 +55,25 @@ class SlabSeqn:
         rows = []
         indx = self.indx
 
+        size = 0
+        tick = s_common.now()
+
         for item in items:
 
             byts = s_msgpack.en(item)
+
+            size += len(byts)
 
             lkey = s_common.int64en(indx)
             indx += 1
 
             rows.append((lkey, byts))
 
-        self.lenv.putmulti(rows, append=True, db=self.db)
+        self.slab.putmulti(rows, append=True, db=self.db)
+        took = s_common.now() - tick
 
         self.indx = indx
+        return {'indx': indx, 'size': size, 'count': len(items), 'time': tick, 'took': took}
 
     def index(self):
         '''
@@ -71,7 +92,7 @@ class SlabSeqn:
             int: The next insert offset.
         '''
         indx = 0
-        with s_lmdbslab.Scan(self.lenv, self.db) as curs:
+        with s_lmdbslab.Scan(self.slab, self.db) as curs:
             last_key = curs.last_key()
             if last_key is not None:
                 indx = s_common.int64un(last_key) + 1
@@ -89,10 +110,19 @@ class SlabSeqn:
         '''
         startkey = s_common.int64en(offs)
 
-        for lkey, lval in self.lenv.scanByRange(startkey, db=self.db):
+        for lkey, lval in self.slab.scanByRange(startkey, db=self.db):
             indx = s_common.int64un(lkey)
             valu = s_msgpack.un(lval)
             yield indx, valu
+
+    def rows(self, offs):
+        '''
+        Iterate over raw indx, bytes tuples from a given offset.
+        '''
+        lkey = s_common.int64en(offs)
+        for lkey, byts in self.slab.scanByRange(lkey, db=self.db):
+            indx = s_common.int64un(lkey)
+            yield indx, byts
 
     def slice(self, offs, size):
 
