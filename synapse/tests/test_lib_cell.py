@@ -126,3 +126,11 @@ class CellTest(s_t_utils.SynTest):
         self.true(item.auth.isfini)
         self.true(item.auth.getUserByName('root').isfini)
         self.true(item.auth.getUserByName('pennywise').isfini)
+
+    async def test_nosock(self):
+        with self.getTestDir() as dirn:
+            async with await s_cell.Cell.anit(dirn) as cell:
+                self.nn(cell.dmon.addr)
+            with self.setTstEnvars(**{'_SYN_CELL_NOSOCK': '1'}) as cm:
+                async with await s_cell.Cell.anit(dirn) as cell:
+                    self.none(cell.dmon.addr)
