@@ -2551,7 +2551,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(3, await core.eval('teststr').list())
             self.len(2, await core.eval('teststr +#foo').list())
 
-            # XXX This is not allowed because * is a tag terminator!?!?!?
             # Now test globbing - exact match for *
             self.len(2, await core.eval('teststr +#*').list())
             self.len(1, await core.eval('teststr -#*').list())
