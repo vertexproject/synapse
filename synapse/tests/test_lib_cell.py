@@ -127,10 +127,14 @@ class CellTest(s_t_utils.SynTest):
         self.true(item.auth.getUserByName('root').isfini)
         self.true(item.auth.getUserByName('pennywise').isfini)
 
-    async def test_nosock(self):
+    async def test_longpath(self):
+        # This is similar to the DaemonTest::test_unixsock_longpath
+        # but exercises the long-path failure inside of the cell's daemon
+        # instead.
         with self.getTestDir() as dirn:
-            async with await s_cell.Cell.anit(dirn) as cell:
-                self.nn(cell.dmon.addr)
-            with self.setTstEnvars(**{'_SYN_CELL_NOSOCK': '1'}) as cm:
-                async with await s_cell.Cell.anit(dirn) as cell:
+            extrapath = 108 * 'A'
+            longdirn = s_common.genpath(dirn, extrapath)
+            with self.getAsyncLoggerStream('synapse.lib.cell', 'LOCAL UNIX SOCKET WILL BE UNAVAILABLE') as stream:
+                async with await s_cell.Cell.anit(longdirn) as cell:
                     self.none(cell.dmon.addr)
+                self.true(await stream.wait(1))

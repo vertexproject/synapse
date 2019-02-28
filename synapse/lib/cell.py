@@ -1,6 +1,7 @@
 import os
 import ssl
 import socket
+import asyncio
 import logging
 import contextlib
 
@@ -432,14 +433,22 @@ class Cell(s_base.Base, s_telepath.Aware):
     async def _initCellDmon(self):
         # start a unix local socket daemon listener
         sockpath = os.path.join(self.dirn, 'sock')
-        nosock = os.environ.get('_SYN_CELL_NOSOCK')
-        if nosock is None:
-            dmonconf = {'listen': f'unix://{sockpath}'}
-        else:
-            dmonconf = {'listen': None}
+        sockurl = f'unix://{sockpath}'
 
-        self.dmon = await s_daemon.Daemon.anit(conf=dmonconf)
+        self.dmon = await s_daemon.Daemon.anit(conf={'listen': None})
         self.dmon.share('*', self)
+
+        try:
+            await self.dmon.listen(sockurl)
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except OSError as e:
+            logger.error(f'Failed to lissten on unix socket at: [{sockpath}][{e}]')
+            logger.error('LOCAL UNIX SOCKET WILL BE UNAVAILABLE')
+        except Exception as e:  # pragma: no cover
+            logging.exception('Unknown dmon listen error.')
+            raise
+
         self.onfini(self.dmon.fini)
 
     async def _initCellHive(self):
