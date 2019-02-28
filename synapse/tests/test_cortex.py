@@ -733,7 +733,7 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.BadOptValu, core.eval('%limit=asdf'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('teststr*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('teststr +teststr@=2018'))
-            await self.agenraises(s_exc.NoSuchCmpr, core.eval('teststr +#test*near=newp'))
+            await self.agenraises(s_exc.BadStormSyntax, core.eval('teststr +#test*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('teststr +teststr:tick*near=newp'))
             await self.agenraises(s_exc.BadStormSyntax, core.eval(' | | '))
             await self.agenraises(s_exc.BadStormSyntax, core.eval('[-teststr]'))

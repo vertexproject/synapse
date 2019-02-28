@@ -1211,6 +1211,9 @@ class Parser:
             if self.nextstrs('<-', '<+-'):
                 return s_ast.TagCond(kids=(tag,))
 
+            if '*' in tag.value():
+                self._raiseSyntaxError('* globbing is not supported in tag/value combinations.')
+
             cmpr = self.cmpr()
             self.ignore(whitespace)
 
