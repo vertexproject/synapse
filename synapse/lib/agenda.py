@@ -12,7 +12,9 @@ from collections.abc import Iterable, Mapping
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
 import synapse.lib.base as s_base
+import synapse.lib.provenance as s_provenance
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
@@ -609,23 +611,24 @@ class Agenda(s_base.Base):
         appt.startcount += 1
         await self._storeAppt(appt)
         idenf = s_common.ehex(appt.iden)
-        logger.info(f'Agenda executing for iden={idenf}, user={user}: query={{appt.query}}')
-        try:
-            async for _ in self.core.eval(appt.query, user=user):  # NOQA
-                count += 1
-        except asyncio.CancelledError:
-            result = 'cancelled'
-            raise
-        except Exception as e:
-            result = f'raised exception {e}'
-            logger.exception('Agenda job %s raised exception', idenf)
-        else:
-            result = f'finished successfully with {count} nodes'
-        finally:
-            finishtime = time.time()
-            logger.info(f'Agenda completed query for iden={idenf} with result="{result}" took {finishtime:0.2}')
-            appt.lastfinishtime = finishtime
-            appt.isrunning = False
-            appt.lastresult = result
-            if not self.isfini:
-                await self._storeAppt(appt)
+        with s_provenance.claim('cron', iden=idenf):
+            logger.info(f'Agenda executing for iden={idenf}, user={user}: query={{appt.query}}')
+            try:
+                async for _ in self.core.eval(appt.query, user=user):  # NOQA
+                    count += 1
+            except asyncio.CancelledError:
+                result = 'cancelled'
+                raise
+            except Exception as e:
+                result = f'raised exception {e}'
+                logger.exception('Agenda job %s raised exception', idenf)
+            else:
+                result = f'finished successfully with {count} nodes'
+            finally:
+                finishtime = time.time()
+                logger.info(f'Agenda completed query for iden={idenf} with result="{result}" took {finishtime:0.2}')
+                appt.lastfinishtime = finishtime
+                appt.isrunning = False
+                appt.lastresult = result
+                if not self.isfini:
+                    await self._storeAppt(appt)

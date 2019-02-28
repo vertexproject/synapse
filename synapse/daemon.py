@@ -459,9 +459,9 @@ class Daemon(s_base.Base):
             if s_coro.iscoro(valu):
                 valu = await valu
 
-            if isinstance(valu, types.AsyncGeneratorType):
-
-                try:
+            try:
+                if isinstance(valu, types.AsyncGeneratorType):
+                    desc = 'async generator'
 
                     await link.tx(('t2:genr', {}))
 
@@ -469,18 +469,10 @@ class Daemon(s_base.Base):
                         await link.tx(('t2:yield', {'retn': (True, item)}))
 
                     await link.tx(('t2:yield', {'retn': None}))
+                    return
 
-                except Exception as e:
-                    logger.exception('error during async generator task')
-                    if not link.isfini:
-                        retn = s_common.retnexc(e)
-                        await link.tx(('t2:yield', {'retn': retn}))
-
-                return
-
-            if isinstance(valu, types.GeneratorType):
-
-                try:
+                elif isinstance(valu, types.GeneratorType):
+                    desc = 'generator'
 
                     await link.tx(('t2:genr', {}))
 
@@ -488,12 +480,13 @@ class Daemon(s_base.Base):
                         await link.tx(('t2:yield', {'retn': (True, item)}))
 
                     await link.tx(('t2:yield', {'retn': None}))
+                    return
 
-                except Exception as e:
-                    logger.exception('error during generator task')
-                    if not link.isfini:
-                        retn = s_common.retnexc(e)
-                        await link.tx(('t2:yield', {'retn': retn}))
+            except Exception as e:
+                logger.exception(f'error during {desc} task: {methname}')
+                if not link.isfini:
+                    retn = s_common.retnexc(e)
+                    await link.tx(('t2:yield', {'retn': retn}))
 
                 return
 
@@ -507,7 +500,7 @@ class Daemon(s_base.Base):
 
         except Exception as e:
 
-            logger.exception('on task:init: %r' % (mesg,))
+            logger.exception('on t2:init: %r' % (mesg,))
 
             if not link.isfini:
                 retn = s_common.retnexc(e)
