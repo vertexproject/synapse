@@ -249,11 +249,13 @@ class Slab(s_base.Base):
         return self.mapsize
 
     def initdb(self, name, dupsort=False):
-
         with self._noCoXact():
-            db = self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
-
-        return _LmdbDatabase(db, dupsort)
+            while True:
+                try:
+                    db = self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
+                    return _LmdbDatabase(db, dupsort)
+                except lmdb.MapFullError:
+                    self._growMapSize()
 
     @contextlib.contextmanager
     def _noCoXact(self):

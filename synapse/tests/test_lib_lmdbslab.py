@@ -272,3 +272,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.none(info1.pop('woot'))
                 self.len(1, info1.items())
                 self.eq((('hehe', 20), ), info1.items())
+
+    async def test_slab_initdb_grow(self):
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'slab.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=1024) as slab:
+                [slab.initdb(str(i)) for i in range(10)]
