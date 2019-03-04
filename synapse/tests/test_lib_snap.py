@@ -3,6 +3,7 @@ import asyncio
 import contextlib
 
 import synapse.lib.coro as s_coro
+import synapse.lib.cache as s_cache
 
 from synapse.tests.utils import alist
 import synapse.tests.utils as s_t_utils
@@ -40,6 +41,23 @@ class SnapTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 nodes = await alist(snap.addFeedNodes('test.genr', []))
                 self.len(2, nodes)
+
+    async def test_same_node_different_object(self):
+        '''
+        Test the problem in which a live node might be evicted out of the snap's buidcache causing two node
+        objects to be representing the same logical thing
+        '''
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                # Reduce the buid cache so we don't have to make 100K nodes
+                snap.buidcache = s_cache.FixedCache(snap._getNodeByBuid, size=10)
+
+                nodes = await alist(snap.addNodes([(('testint', x), {}) for x in range(20)]))
+
+                node = await snap.getNodeByNdef(('testint', 0))
+
+                self.eq(nodes[0].buid, node.buid)
+                self.eq(id(nodes[0]), id(node))
 
     async def test_addNodes(self):
         async with self.getTestCore() as core:
