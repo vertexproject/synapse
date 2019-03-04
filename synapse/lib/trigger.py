@@ -117,6 +117,8 @@ class Triggers:
     async def runPropSet(self, node, prop, oldv):
         with self._recursion_check():
             [await rule.execute(node) for rule in self.propset.get(prop.full, ())]
+            if prop.univ is not None:
+                [await rule.execute(node) for rule in self.propset.get(prop.univ, ())]
 
     async def runTagAdd(self, node, tag):
 
