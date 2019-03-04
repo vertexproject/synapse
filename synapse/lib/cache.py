@@ -110,7 +110,7 @@ def regexizeTagGlob(tag):
     A single asterisk will replace exactly one dot-delimited component of a tag
     A double asterisk will replace one or more of any character.
 
-    The returned string does not contain ^ or $
+    The returned string does not contain a starting ^ or trailing $
     '''
     parts = []
     for part in tag.split('.'):
