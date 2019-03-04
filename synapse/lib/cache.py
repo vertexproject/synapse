@@ -1,7 +1,6 @@
 '''
 A few speed optimized (lockless) cache helpers.  Use carefully.
 '''
-import re
 import asyncio
 import collections
 
@@ -99,15 +98,29 @@ class FixedCache:
         self.fifo.clear()
         self.cache.clear()
 
+ReRegex = regex.compile(r'(\\\*\\\*)|(\\\*)')
+
+def regexizeTagGlob(tag):
+    '''
+    Returns:
+        a regular expression string with ** and * interpreted as tag globs
+
+    Note:
+
+    A single asterisk will replace exactly one dot-delimited component of a tag
+    A double asterisk will replace one or more of any character.
+
+    The returned string does not contain ^ or $
+    '''
+    parts = []
+    for part in tag.split('.'):
+        parts.append(ReRegex.sub(lambda m: r'[^.]+?' if m.group(1) is None else r'.+', regex.escape(part)))
+
+    return r'\.'.join(parts)
+
 @memoize()
 def getTagGlobRegx(name):
-
-    parts = []
-    for part in name.split('.'):
-        part = re.escape(part).replace('\\*', '([^.]+)')
-        parts.append(part)
-
-    regq = '\\.'.join(parts)
+    regq = regexizeTagGlob(name)
     return regex.compile(regq)
 
 class TagGlobs:
