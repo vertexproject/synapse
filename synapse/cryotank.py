@@ -253,7 +253,7 @@ class CryoCell(s_cell.Cell):
 
         await s_cell.Cell.__anit__(self, dirn)
 
-        self.dmon.share('cryo', self)
+        self.dmon.share('cryotank', self)
 
         path = s_common.gendir(self.dirn, 'cryo.lmdb')
 

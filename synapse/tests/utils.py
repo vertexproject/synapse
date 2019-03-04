@@ -491,24 +491,6 @@ class TestSteps:
             raise s_exc.StepTimeout(mesg='timeout waiting for step', step=step)
         return True
 
-    async def asyncwait(self, step, timeout=None):
-        '''
-        Wait (up to timeout seconds) for a step to complete.
-
-        Args:
-            step (str): The step name to wait for.
-            timeout (int): The timeout in seconds (or None)
-
-        Returns:
-            bool: True if the step is completed within the wait timeout.
-
-        Raises:
-            StepTimeout: on wait timeout
-        '''
-        if not await s_glob.executor(self.steps[step].wait, timeout=timeout):
-            raise s_exc.StepTimeout(mesg='timeout waiting for step', step=step)
-        return True
-
     def step(self, done, wait, timeout=None):
         '''
         Complete a step and wait for another.
@@ -1055,6 +1037,13 @@ class SynTest(unittest.TestCase):
                 del os.environ[key]
             for key, valu in old_data.items():
                 os.environ[key] = valu
+
+    async def execToolMain(self, func, argv):
+        outp = self.getTestOutp()
+        def execmain():
+            return func(argv, outp=outp)
+        retn = await s_coro.executor(execmain)
+        return retn, outp
 
     @contextlib.contextmanager
     def redirectStdin(self, new_stdin):
