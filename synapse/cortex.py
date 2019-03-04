@@ -661,6 +661,7 @@ class Cortex(s_cell.Cell):
 
         self.addHttpApi('/api/v1/storm', s_httpapi.StormV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
+        self.addHttpApi('/api/v1/model/norm', s_httpapi.ModelNormV1, {'cell': self})
 
     async def getCellApi(self, link, user, path):
 

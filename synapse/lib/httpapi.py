@@ -62,6 +62,7 @@ class HandlerBase:
         if (self.httpsonly or self.cell.httpsonly) and self.request.protocol != 'https':
             self.redirect('https://' + self.request.host, permanent=False)
 
+    def set_default_headers(self):
         origin = self.request.headers.get('origin')
         if origin is not None and self.isOrigHost(origin):
             self.add_header('Access-Control-Allow-Origin', origin)
@@ -90,6 +91,9 @@ class HandlerBase:
 
     def sendRestErr(self, code, mesg):
         return self.write({'status': 'err', 'code': code, 'mesg': mesg})
+
+    def sendRestExc(self, e):
+        return self.sendRestErr(e.__class__.__name__, str(e))
 
     def sendRestRetn(self, valu):
         return self.write({'status': 'ok', 'result': valu})
@@ -496,3 +500,35 @@ class AuthAddRoleV1(Handler):
 
         self.sendRestRetn(role.pack())
         return
+
+class ModelNormV1(Handler):
+
+    async def get(self):
+
+        if not await self.reqAuthUser():
+            return
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        propname = body.get('prop')
+        propvalu = body.get('value')
+
+        if propname is None:
+            self.sendRestErr('MissingField', 'The property normalization API requires a prop name.')
+            return
+
+        prop = self.cell.model.props.get(propname)
+        if prop is None:
+            return self.sendRestErr('NoSuchProp', 'The property {propname} does not exist.')
+
+        try:
+            valu, info = prop.type.norm(propvalu)
+            self.sendRestRetn({'norm': valu, 'info': info})
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception as e:
+            return self.sendRestExc(e)

@@ -161,6 +161,13 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(origin, resp.headers.get('Access-Control-Allow-Origin'))
                     self.eq('ok', retn.get('status'))
 
+                # check same-host cross-origin options
+                origin = 'https://localhost:1/web/site'
+                headers = {'origin': origin}
+                async with sess.options(f'https://localhost:{port}/api/v1/auth/users', headers=headers) as resp:
+                    self.eq(origin, resp.headers.get('Access-Control-Allow-Origin'))
+                    self.eq(204, resp.status)
+
                 # use the authenticated session to do stuff...
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
                     retn = await resp.json()
@@ -274,6 +281,43 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/addrole', json={}) as resp:
                     retn = await resp.json()
                     self.eq('AuthDeny', retn.get('code'))
+
+    async def test_http_model(self):
+
+        async with self.getTestCore() as core:
+
+            core.insecure = False
+
+            visi = await core.auth.addUser('visi')
+
+            await visi.setAdmin(True)
+            await visi.setPasswd('secret')
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            async with self.getHttpSess() as sess:
+
+                async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq('visi', retn['result']['name'])
+
+                body = {'prop': 'inet:ipv4', 'value': '1.2.3.4'}
+                async with sess.get(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq(0x01020304, retn['result']['norm'])
+                    self.eq('unicast', retn['result']['info']['subs']['type'])
+
+                body = {'prop': 'fake:prop', 'value': '1.2.3.4'}
+                async with sess.get(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
+                    retn = await resp.json()
+                    self.eq('NoSuchProp', retn.get('code'))
+
+                body = {'value': '1.2.3.4'}
+                async with sess.get(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
+                    retn = await resp.json()
+                    self.eq('MissingField', retn.get('code'))
 
     async def test_http_storm(self):
 
