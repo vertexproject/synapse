@@ -1259,7 +1259,7 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('dst:proto', ('str', {'lower': True}), {
                             'ro': True,
-                            'doc': 'The destination port.'
+                            'doc': 'The destination protocol.'
                         }),
                         ('dst:host', ('it:host', {}), {
                             'doc': 'The guid of the destination host.'
@@ -1293,7 +1293,7 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('src:proto', ('str', {'lower': True}), {
                             'ro': True,
-                            'doc': 'The source port.'
+                            'doc': 'The source protocol.'
                         }),
                         ('src:host', ('it:host', {}), {
                             'ro': True,
