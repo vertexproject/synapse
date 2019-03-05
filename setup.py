@@ -23,6 +23,7 @@ setup(
         'tornado>=5.1,<6.0.0',
         'regex>=2017.9.23',
         'PyYAML>=4.2b4,<5.0',
+        'aiohttp>=3.5.4,<4.0',
     ],
 
     extras_require={
