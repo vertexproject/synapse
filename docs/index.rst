@@ -13,6 +13,7 @@ Welcome to synapse's documentation!
    synapse/userguide
    synapse/devops
    synapse/contributing
+   synapse/httpapi
    autodocs/datamodel_types
    autodocs/datamodel_forms
    autodocs/modules
