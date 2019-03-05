@@ -12,6 +12,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
 import synapse.lib.share as s_share
+import synapse.lib.thishost as s_thishost
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -277,9 +278,15 @@ class TeleTest(s_t_utils.SynTest):
             addr = await dmon.listen(f'ssl://{hostname}:0')
             dmon.share('foo', foo)
 
-            # host cert is *NOT* signed by a CA that client recognizes
-            await self.asyncraises(ssl.SSLCertVerificationError,
-                                   s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]))
+            hostmap = {}
+            if s_thishost.get('platform') in ('darwin',
+                                              ):
+                hostmap[hostname] = 'localhost'
+
+            with self.socketGetAddrInfoPatch(hostmap) as p:
+                # host cert is *NOT* signed by a CA that client recognizes
+                await self.asyncraises(ssl.SSLCertVerificationError,
+                                       s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]))
 
     async def test_telepath_tls(self):
 
@@ -295,9 +302,14 @@ class TeleTest(s_t_utils.SynTest):
             addr = await dmon.listen(f'ssl://{hostname}:0')
             dmon.share('foo', foo)
 
-            prox = await s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1])
+            hostmap = {}
+            if s_thishost.get('platform') in ('darwin',
+                                              ):
+                hostmap[hostname] = 'localhost'
 
-            self.eq(30, await prox.bar(10, 20))
+            with self.socketGetAddrInfoPatch(hostmap) as p:
+                async with await s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]) as prox:
+                    self.eq(30, await prox.bar(10, 20))
 
     async def test_telepath_surrogate(self):
 
