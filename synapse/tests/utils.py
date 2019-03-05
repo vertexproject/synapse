@@ -21,7 +21,6 @@ import io
 import os
 import sys
 import types
-import socket
 import shutil
 import asyncio
 import inspect
@@ -32,8 +31,6 @@ import unittest
 import threading
 import contextlib
 import collections
-
-import unittest.mock as mock
 
 import aiohttp
 
@@ -725,46 +722,6 @@ class SynTest(unittest.TestCase):
 
     def skip(self, mesg):
         raise unittest.SkipTest(mesg)
-
-    @contextlib.contextmanager
-    def socketGetAddrInfoPatch(self, hosts):
-        '''
-        Patch socket.getaddrinfo() to intercept calls, allowing the substitution of
-        one hostname for another.
-
-        Args:
-            hosts (dict): A dictionary of hosts to override their hostname resolution too.
-
-        Examples:
-            Override the resolution of vertex.link to localhost:
-
-                hosts = {'vertex.link': 'localhost'}
-                with self.socketGetAddrInfoPatch(hosts) as p:
-                    # DNS resolutionsresolutions through socket.getaddrinfo() for vertex.link
-                    # will now resolve the value of localhost instead.
-                    doStuff()
-
-        Notes:
-            This directly calls the private socket methods in order to work and avoid
-            a recursive patching issue.
-
-        Returns:
-            mock.Patch: A mock.Patch object
-        '''
-        def _getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-            addrlist = []
-            real_host = hosts.get(host)
-            if real_host is None:
-                real_host = host
-            for res in socket._socket.getaddrinfo(real_host, port, family, type, proto, flags):
-                af, socktype, proto, canonname, sa = res
-                addrlist.append((socket._intenum_converter(af, socket.AddressFamily),
-                                 socket._intenum_converter(socktype, socket.SocketKind),
-                                 proto, canonname, sa))
-            return addrlist
-
-        with mock.patch('socket.getaddrinfo', _getaddrinfo) as p:
-            yield p
 
     @contextlib.contextmanager
     def getRegrDir(self, *path):

@@ -265,6 +265,7 @@ class TeleTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
 
     async def test_telepath_tls_bad_cert(self):
+        self.thisHostMustNot(platform='darwin')
 
         foo = Foo()
 
@@ -278,17 +279,12 @@ class TeleTest(s_t_utils.SynTest):
             addr = await dmon.listen(f'ssl://{hostname}:0')
             dmon.share('foo', foo)
 
-            hostmap = {}
-            if s_thishost.get('platform') in ('darwin',
-                                              ):
-                hostmap[hostname] = 'localhost'
-
-            with self.socketGetAddrInfoPatch(hostmap) as p:
-                # host cert is *NOT* signed by a CA that client recognizes
-                await self.asyncraises(ssl.SSLCertVerificationError,
-                                       s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]))
+            # host cert is *NOT* signed by a CA that client recognizes
+            await self.asyncraises(ssl.SSLCertVerificationError,
+                                   s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]))
 
     async def test_telepath_tls(self):
+        self.thisHostMustNot(platform='darwin')
 
         foo = Foo()
 
@@ -302,14 +298,8 @@ class TeleTest(s_t_utils.SynTest):
             addr = await dmon.listen(f'ssl://{hostname}:0')
             dmon.share('foo', foo)
 
-            hostmap = {}
-            if s_thishost.get('platform') in ('darwin',
-                                              ):
-                hostmap[hostname] = 'localhost'
-
-            with self.socketGetAddrInfoPatch(hostmap) as p:
-                async with await s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]) as prox:
-                    self.eq(30, await prox.bar(10, 20))
+            async with await s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]) as prox:
+                self.eq(30, await prox.bar(10, 20))
 
     async def test_telepath_surrogate(self):
 
