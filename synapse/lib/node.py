@@ -545,7 +545,7 @@ class Node:
         splice = self.snap.splice('node:del', ndef=self.ndef)
         await self.snap.stor(sops, [splice])
 
-        self.snap.buidcache.pop(self.buid)
+        self.snap.livenodes.pop(self.buid)
         self.snap.core.pokeFormCount(formname, -1)
 
         await self.form.wasDeleted(self)

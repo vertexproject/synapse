@@ -1,9 +1,9 @@
 import random
 import asyncio
 import contextlib
+import collections
 
 import synapse.lib.coro as s_coro
-import synapse.lib.cache as s_cache
 
 from synapse.tests.utils import alist
 import synapse.tests.utils as s_t_utils
@@ -45,19 +45,31 @@ class SnapTest(s_t_utils.SynTest):
     async def test_same_node_different_object(self):
         '''
         Test the problem in which a live node might be evicted out of the snap's buidcache causing two node
-        objects to be representing the same logical thing
+        objects to be representing the same logical thing.
+
+        Also tests that creating a node then querying it back returns the same object
         '''
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 # Reduce the buid cache so we don't have to make 100K nodes
-                snap.buidcache = s_cache.FixedCache(snap._getNodeByBuid, size=10)
+                snap.buidcache = collections.deque(maxlen=10)
 
-                nodes = await alist(snap.addNodes([(('testint', x), {}) for x in range(20)]))
+                node0 = await snap.addNode('testint', 0)
 
                 node = await snap.getNodeByNdef(('testint', 0))
 
-                self.eq(nodes[0].buid, node.buid)
-                self.eq(id(nodes[0]), id(node))
+                # Test write then read coherency
+
+                self.eq(node0.buid, node.buid)
+                self.eq(id(node0), id(node))
+
+                # Test read, then a bunch of reads, then read coherency
+
+                await alist(snap.addNodes([(('testint', x), {}) for x in range(1, 20)]))
+                nodes = await alist(snap.getNodesBy('testint'))
+
+                self.eq(nodes[0].buid, node0.buid)
+                self.eq(id(nodes[0]), id(node0))
 
     async def test_addNodes(self):
         async with self.getTestCore() as core:
@@ -133,12 +145,14 @@ class SnapTest(s_t_utils.SynTest):
                 async with await core.snap() as snap:
                     call_count = 0
 
+                    origGetNodeByBuid = snap.getNodeByBuid
+
                     async def slowGetNodeByBuid(buid):
                         nonlocal call_count
                         call_count += 1
                         if call_count > 0:
                             await ab_middle_event.wait()
-                        return await snap.buidcache.aget(buid)
+                        return await origGetNodeByBuid(buid)
 
                     snap.getNodeByBuid = slowGetNodeByBuid
 
@@ -151,9 +165,11 @@ class SnapTest(s_t_utils.SynTest):
             async def ab_writer():
                 async with await core.snap() as snap:
 
+                    origGetNodeByBuid = snap.getNodeByBuid
+
                     async def slowGetNodeByBuid(buid):
                         ab_middle_event.set()
-                        return await snap.buidcache.aget(buid)
+                        return await origGetNodeByBuid(buid)
 
                     snap.getNodeByBuid = slowGetNodeByBuid
 
