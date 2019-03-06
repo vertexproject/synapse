@@ -7,6 +7,7 @@ ruleClassMap = {
     'liftbytag': s_ast.LiftTag,
     'liftprop': s_ast.LiftProp,
     'liftpropby': s_ast.LiftPropBy,
+    'liftformtag': s_ast.LiftFormTag,
     'edittagdel': s_ast.EditTagDel,
     'lifttagtag': s_ast.LiftTagTag
 }

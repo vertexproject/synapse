@@ -45,9 +45,10 @@ propjoin: "-*>" _WS? ABSPROP
 
 valuvar: _varname _WS? "=" _WS? _valu
 
-_liftprop: liftpropby | liftprop
+_liftprop: liftformtag | liftpropby | liftprop
+liftformtag: PROPNAME tagname [_WS CMPR _valu]
+liftpropby: PROPNAME _WS? CMPR _WS? _valu
 liftprop: PROPNAME
-liftpropby: PROPNAME ((tagname [_WS? CMPR _valu]) | (_WS? CMPR _WS? _valu))
 lifttagtag: "#" tagname
 liftbytag: tagname
 tagname: "#" _WS? (_varname | TAG)
