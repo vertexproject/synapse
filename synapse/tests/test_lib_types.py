@@ -294,16 +294,23 @@ class TypesTest(s_t_utils.SynTest):
         # test integer enums for repr and norm
         eint = model.type('int').clone({'enums': ((1, 'hehe'), (2, 'haha'))})
 
+        self.eq(1, eint.norm(1)[0])
+        self.eq(1, eint.norm('1')[0])
         self.eq(1, eint.norm('hehe')[0])
         self.eq(2, eint.norm('haha')[0])
-        self.eq(20, eint.norm('20')[0])
+        self.eq(2, eint.norm('HAHA')[0])
 
         self.eq('hehe', eint.repr(1))
         self.eq('haha', eint.repr(2))
-        self.eq('20', eint.repr(20))
+
+        self.raises(s_exc.BadTypeValu, eint.norm, 0)
+        self.raises(s_exc.BadTypeValu, eint.norm, '0')
+        self.raises(s_exc.BadTypeValu, eint.norm, 'newp')
 
         # Invalid Config
         self.raises(s_exc.BadTypeDef, model.type('int').clone, {'min': 100, 'max': 1})
+        self.raises(s_exc.BadTypeDef, model.type('int').clone, {'enums': ((1, 'hehe'), (2, 'haha'), (3, 'HAHA'))})
+        self.raises(s_exc.BadTypeDef, model.type('int').clone, {'enums': ((1, 'hehe'), (2, 'haha'), (2, 'beep'))})
 
     async def test_ival(self):
         model = s_datamodel.Model()
