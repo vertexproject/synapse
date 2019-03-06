@@ -59,7 +59,8 @@ stormcmd: CMDNAME (_WS cmdargv)* [_WS? "|"]
 cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
 
 // Note: different from syntax.py in explicitly disallowing # as first char
-TAG: /[^#=\)\]},@ \t\n][^=\)\]},@ \t\n]*/
+// FIXME: encode tag re directly: ^([\w]+\.)*[\w]+ (currently in semantic?!
+TAG: /[^#=)\]},@ \t\n][^=)\]},@ \t\n]*/
 TAGMATCH: /#[^=)\]},@ \t\n]*/
 
 CMPR: /\*[^=]*=|[!<>@^~=]+/
@@ -68,7 +69,7 @@ _valu: NONQUOTEWORD | valulist | varvalu | RELPROPVALU | UNIVPROPVALU | tagname 
 valulist: "(" [_WS? _valu (_WS? "," _WS? _valu)*] _WS? ["," _WS?] ")"
 
 NONCMDQUOTE: /[^ \t\n|}]+/
-NONQUOTEWORD: (LETTER | DIGIT | "-" | "?") /[^ \t\n\),=\]}|]*/
+NONQUOTEWORD: (LETTER | DIGIT | "-" | "?") /[^ \t\n),=\]}|]*/
 
 varvalu:  _varname (VARDEREF | varcall)*
 varcall: valulist
