@@ -136,6 +136,7 @@ osx_test_steps:  &osx_test_steps
           command: |
             . venv/bin/activate
             env | grep -vi codecov
+            mount
 
       - run:
           name: run tests
