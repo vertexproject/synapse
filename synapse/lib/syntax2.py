@@ -2,12 +2,19 @@ import lark
 
 import synapse.lib.ast as s_ast
 
+optcast = {
+    'limit': int,
+    'uniq': bool,
+    'graph': bool,
+}
+
 ruleClassMap = {
     'query': s_ast.Query,
     'liftbytag': s_ast.LiftTag,
     'liftprop': s_ast.LiftProp,
     'liftpropby': s_ast.LiftPropBy,
     'liftformtag': s_ast.LiftFormTag,
+    'editpropdel': s_ast.EditPropDel,
     'edittagdel': s_ast.EditTagDel,
     'lifttagtag': s_ast.LiftTagTag,
     'editnodeadd': s_ast.EditNodeAdd,
@@ -59,9 +66,15 @@ class AstConverter(lark.Transformer):
 
     def cond(self, kids):
         kids = self._convert_children(kids)
-        if isinstance(kids[0], s_ast.RelProp):
-            prop = s_ast.RelPropValue(kids=(kids[0], ))
-            return s_ast.RelPropCond(kids=(prop, ) + tuple(kids[1:]))
+        first, cmprvalu = kids[0], kids[1:]
+        if isinstance(first, s_ast.RelProp):
+            prop = s_ast.RelPropValue(kids=(first, ))
+            return s_ast.RelPropCond(kids=(prop, ) + tuple(cmprvalu))
+        elif isinstance(first, s_ast.TagName):
+            if not cmprvalu:
+                return s_ast.TagCond(kids=kids)
+            breakpoint()
+            return s_ast.TagValuCond(kids=kids)
         breakpoint()
 
     def formpivot(self, kids):
@@ -69,6 +82,20 @@ class AstConverter(lark.Transformer):
         if len(kids) == 0:
             return s_ast.PivotOut()
         # more to add
+        breakpoint()
+
+    def formjoinin(self, kids):
+        kids = self._convert_children(kids)
+        if len(kids) == 0:
+            return s_ast.PivotIn(isjoin=True)
+        # more to add
+        breakpoint()
+
+    def formpivotin(self, kids):
+        if not kids:
+            return s_ast.PivotIn()
+        breakpoint()
+
 
     def varvalu(self, kids):
         kids = self._convert_children(kids)
@@ -77,10 +104,10 @@ class AstConverter(lark.Transformer):
         varv = s_ast.VarValue(kids=[kids[0]])
         return varv
 
-    def operrelprop(self, kids):
-        kids = self._convert_children(kids)
-        # FIXME
-        breakpoint()
+    # def operrelprop(self, kids):
+    #     kids = self._convert_children(kids)
+    #     # FIXME
+    #     breakpoint()
 
     def stormcmd(self, kids):
         kids = self._convert_children(kids)
@@ -95,6 +122,23 @@ class AstConverter(lark.Transformer):
             return s_ast.TagName(kid.value)
         assert kid.type == 'VARTOKN'
         return self.varvalu(kids)
+
+    def queryoption(self, kids):
+        opt = kids[0].value
+        valu = kids[1].value
+
+        cast = optcast.get(opt)
+        if cast is None:
+            raise s_exc.NoSuchOpt(name=opt)
+
+        try:
+            valu = cast(valu)
+        except Exception:
+            raise s_exc.BadOptValu(name=opt, valu=valu)
+
+        # FIXME:  need to plumb in some generic context or make a node for this
+        # query.opts[name] = valu
+        raise lark.Discard
 
 class Parser:
     def __init__(self, parseinfo, text, offs=0):

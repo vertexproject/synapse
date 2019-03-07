@@ -951,10 +951,10 @@ class GrammarTest(s_t_utils.SynTest):
             }
             # import IPython; IPython.embed()
             for i, query in enumerate(_Queries):
-                # if i < 50:
+                # if i < 70:
                 #     continue
                 print(f'{{{query}}}: ', end='')
-                if i > 55:
+                if i > 75:
                     # FIXME:  increase as we get more
                     break
                 parser = s_syntax2.Parser(parseinfo, query)

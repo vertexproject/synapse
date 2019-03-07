@@ -8,7 +8,7 @@ query: _WSCOMM? ((command | queryoption | _editopers | _oper) _WSCOMM?)*
 
 command: "|" _WS? stormcmd _WSCOMM? ["|"]
 
-queryoption: "%" _WS? LCASE_LETTER+ _WS? "=" (LETTER | DIGIT)+
+queryoption: "%" _WS? /[a-z]+/ _WS? "=" /\w+/
 _editopers: "[" _WS? (_editoper _WS?)* "]"
 _editoper: editpropset | editunivset | edittagadd | editpropdel | editunivdel | edittagdel | editnodeadd
 edittagadd: "+" tagname [_WS? "=" _valu]
@@ -20,8 +20,8 @@ editunivset: UNIVPROP _WS? "=" _WS? _valu
 editnodeadd: ABSPROP _WS? "=" _WS? _valu
 ABSPROP: PROPNAME // must be a propname
 
-_oper: subquery | formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | filtoper | liftbytag
-    | _liftprop | stormcmd | operrelprop | forloop | switchcase | "break" | "continue" | valuvar
+_oper: subquery | formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | filtoper
+    | liftbytag | operrelprop | forloop | switchcase | "break" | "continue" | _liftprop | stormcmd
 
 forloop: "for" _WS? (_varname | varlist) _WS? "in" _WS? varvalu _WS? subquery
 subquery: "{" query "}"
@@ -48,7 +48,7 @@ propjoin: "-*>" _WS? ABSPROP
 valuvar: _varname _WS? "=" _WS? _valu
 
 _liftprop: liftformtag | liftpropby | liftprop
-liftformtag: PROPNAME tagname [_WS CMPR _valu]
+liftformtag: PROPNAME tagname [_WS? CMPR _valu]
 liftpropby: PROPNAME _WS? CMPR _WS? _valu
 liftprop: PROPNAME
 lifttagtag: "#" tagname
@@ -67,7 +67,7 @@ cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
 TAG: /([\w]+\.)*[\w]+/
 TAGMATCH: TAG
 
-CMPR: /\*[^=]*=|[!<>@^~=]+/
+CMPR: /[@!<>^~=*][@!<>^~=]*/
 _valu: NONQUOTEWORD | valulist | varvalu | RELPROPVALU | UNIVPROPVALU | tagname | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING
 valulist: "(" [_WS? _valu (_WS? "," _WS? _valu)*] _WS? ["," _WS?] ")"
