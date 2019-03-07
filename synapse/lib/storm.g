@@ -18,7 +18,7 @@ editpropset: RELPROP _WS? "=" _WS? _valu
 editpropdel: "-" RELPROP
 editunivset: UNIVPROP _WS? "=" _WS? _valu
 editnodeadd: ABSPROP _WS? "=" _WS? _valu
-ABSPROP: VARSETS // must be a propname
+ABSPROP: PROPNAME // must be a propname
 
 _oper: subquery | formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | filtoper | liftbytag
     | _liftprop | stormcmd | operrelprop | forloop | switchcase | "break" | "continue" | valuvar
@@ -29,6 +29,8 @@ switchcase: "switch" _WS? varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | 
 varlist: "(" [_WS? _varname (_WS? "," _WS? _varname)*] _WS? ["," _WS?] ")"
 CASEVALU: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | /[^:]+:/
 
+
+// FIXME:  reconsider this after prop redo
 // Note: changed from syntax.py in that cannot start with ':' or '.'
 VARSETS: ("$" | "." | LETTER | DIGIT) ("$" | "." | ":" | LETTER | DIGIT)*
 
@@ -59,10 +61,11 @@ VARCHARS: (LETTER | DIGIT | "_")+
 stormcmd: CMDNAME (_WS cmdargv)* [_WS? "|"]
 cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
 
-// Note: different from syntax.py in explicitly disallowing # as first char
-// FIXME: encode tag re directly: ^([\w]+\.)*[\w]+ (currently in semantic?!
-TAG: /[^#=)\]},@ \t\n][^=)\]},@ \t\n]*/
-TAGMATCH: /#[^=)\]},@ \t\n]*/
+// Note: deviates from syntax.py in that moved regexp up from ast into syntax
+// TAG: /[^#=)\]},@ \t\n][^=)\]},@ \t\n]*/
+//# TAGMATCH: /#[^=)\]},@ \t\n]*/
+TAG: /([\w]+\.)*[\w]+/
+TAGMATCH: TAG
 
 CMPR: /\*[^=]*=|[!<>@^~=]+/
 _valu: NONQUOTEWORD | valulist | varvalu | RELPROPVALU | UNIVPROPVALU | tagname | DOUBLEQUOTEDSTRING
@@ -74,7 +77,8 @@ NONQUOTEWORD: (LETTER | DIGIT | "-" | "?") /[^ \t\n),=\]}|]*/
 
 varvalu:  _varname (VARDEREF | varcall)*
 varcall: valulist
-filtoper: ("+" | "-") cond
+filtoper: FILTPREFIX cond
+FILTPREFIX: "+" | "-"
 
 cond: condexpr | condsubq | ("not" _WS? cond)
     | ((RELPROP | UNIVPROP | tagname | ABSPROP) [_WS? CMPR _WS? _valu])

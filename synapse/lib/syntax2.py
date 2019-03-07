@@ -9,16 +9,24 @@ ruleClassMap = {
     'liftpropby': s_ast.LiftPropBy,
     'liftformtag': s_ast.LiftFormTag,
     'edittagdel': s_ast.EditTagDel,
-    'lifttagtag': s_ast.LiftTagTag
+    'lifttagtag': s_ast.LiftTagTag,
+    'editnodeadd': s_ast.EditNodeAdd,
+    'editunivdel': s_ast.EditUnivDel,
+    'filtoper': s_ast.FiltOper,
 }
 
 terminalClassMap = {
     'PROPNAME': s_ast.Const,
     'CMPR': s_ast.Const,
     'NONQUOTEWORD': s_ast.Const,
-    'RELPROP': s_ast.RelProp,
+    'RELPROP': lambda x: s_ast.RelProp(x[1:]),  # no leading :
     'CMDNAME': s_ast.Const,
-    'VARTOKN': s_ast.Const
+    'VARTOKN': s_ast.Const,
+    'ABSPROP': s_ast.AbsProp,
+    'NONCMDQUOTE': s_ast.Const,
+    'FILTPREFIX': s_ast.Const,
+    'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # no quotes
+    'UNIVPROP': s_ast.UnivProp,
 }
 
 class AstConverter(lark.Transformer):
@@ -44,6 +52,23 @@ class AstConverter(lark.Transformer):
         cls = ruleClassMap[treedata]
         newkids = self._convert_children(children)
         return cls(kids=newkids)
+
+    def cmdargv(self, kids):
+        kids = self._convert_children(kids)
+        return kids[0].value()
+
+    def cond(self, kids):
+        kids = self._convert_children(kids)
+        if isinstance(kids[0], s_ast.RelProp):
+            prop = s_ast.RelPropValue(kids=(kids[0], ))
+            return s_ast.RelPropCond(kids=(prop, ) + tuple(kids[1:]))
+        breakpoint()
+
+    def formpivot(self, kids):
+        kids = self._convert_children(kids)
+        if len(kids) == 0:
+            return s_ast.PivotOut()
+        # more to add
 
     def varvalu(self, kids):
         kids = self._convert_children(kids)
