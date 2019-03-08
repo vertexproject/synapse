@@ -18,8 +18,21 @@ ruleClassMap = {
     'edittagdel': s_ast.EditTagDel,
     'lifttagtag': s_ast.LiftTagTag,
     'editnodeadd': s_ast.EditNodeAdd,
+    'editpropset': s_ast.EditPropSet,
+    'edittagadd': s_ast.EditTagAdd,
     'editunivdel': s_ast.EditUnivDel,
+    'editunivset': s_ast.EditPropSet,
     'filtoper': s_ast.FiltOper,
+    'formpivot_pivottotags': s_ast.PivotToTags,
+    'formpivot_pivotout': s_ast.PivotOut,
+    'formpivot_': s_ast.FormPivot,
+    'formpivotin_': s_ast.PivotIn,
+    'formpivotin_pivotinfrom': s_ast.PivotInFrom,
+    'formjoinin_pivotinfrom': lambda kids: s_ast.PivotInFrom(kids, isjoin=True),
+    'formjoinin_pivotin': lambda kids: s_ast.PivotIn(kids, isjoin=True),
+    'formjoin_pivotout': lambda _: s_ast.PivotOut(isjoin=True),
+    'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),
+    'tagpropvalue': s_ast.TagPropValue,
 }
 
 terminalClassMap = {
@@ -34,6 +47,7 @@ terminalClassMap = {
     'FILTPREFIX': s_ast.Const,
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # no quotes
     'UNIVPROP': s_ast.UnivProp,
+    'TAGMATCH': lambda x: s_ast.TagMatch(x[1:]),  # no leading #
 }
 
 class AstConverter(lark.Transformer):
@@ -41,8 +55,6 @@ class AstConverter(lark.Transformer):
     def _convert_children(self, children):
         kids = []
         for k in children:
-            # if k is None:
-            #     continue
             if not isinstance(k, lark.lexer.Token):
                 kids.append(k)
                 continue
@@ -58,7 +70,7 @@ class AstConverter(lark.Transformer):
             breakpoint()
         cls = ruleClassMap[treedata]
         newkids = self._convert_children(children)
-        return cls(kids=newkids)
+        return cls(newkids)
 
     def cmdargv(self, kids):
         kids = self._convert_children(kids)
@@ -67,35 +79,37 @@ class AstConverter(lark.Transformer):
     def cond(self, kids):
         kids = self._convert_children(kids)
         first, cmprvalu = kids[0], kids[1:]
+
         if isinstance(first, s_ast.RelProp):
             prop = s_ast.RelPropValue(kids=(first, ))
             return s_ast.RelPropCond(kids=(prop, ) + tuple(cmprvalu))
+
         elif isinstance(first, s_ast.TagName):
             if not cmprvalu:
                 return s_ast.TagCond(kids=kids)
-            breakpoint()
             return s_ast.TagValuCond(kids=kids)
+
+        elif isinstance(first, s_ast.AbsProp):
+            if not cmprvalu:
+                return s_ast.HasAbsPropCond(kids=kids)
+            else:
+                return s_ast.AbsPropCond(kids=kids)
+
+        elif isinstance(first, s_ast.UnivProp):
+            prop = s_ast.RelPropValue(kids=(first, ))
+            if not cmprvalu:
+                return s_ast.HasRelPropCond(kids=prop)
+            else:
+                return s_ast.RelPropCond(kids=(prop, ) + tuple(cmprvalu))
+
         breakpoint()
 
-    def formpivot(self, kids):
-        kids = self._convert_children(kids)
-        if len(kids) == 0:
-            return s_ast.PivotOut()
-        # more to add
-        breakpoint()
-
-    def formjoinin(self, kids):
-        kids = self._convert_children(kids)
-        if len(kids) == 0:
-            return s_ast.PivotIn(isjoin=True)
-        # more to add
-        breakpoint()
-
-    def formpivotin(self, kids):
-        if not kids:
-            return s_ast.PivotIn()
-        breakpoint()
-
+    # def formpivot(self, kids):
+    #     kids = self._convert_children(kids)
+    #     if len(kids) == 0:
+    #         return s_ast.PivotOut()
+    #     # more to add
+    #     breakpoint()
 
     def varvalu(self, kids):
         kids = self._convert_children(kids)
@@ -104,10 +118,14 @@ class AstConverter(lark.Transformer):
         varv = s_ast.VarValue(kids=[kids[0]])
         return varv
 
-    # def operrelprop(self, kids):
-    #     kids = self._convert_children(kids)
-    #     # FIXME
-    #     breakpoint()
+    def operrelprop_pivot(self, kids):
+        kids = self._convert_children(kids)
+        relprop, rest = kids[0], kids[1:]
+        if not rest:
+            return s_ast.PropPivotOut(kids=kids)
+        breakpoint()
+        pval = s_ast.RelPropValue(kids=(relprop,))
+        return s_ast.PropPivot(kids=(pval, *kids))
 
     def stormcmd(self, kids):
         kids = self._convert_children(kids)
@@ -139,6 +157,11 @@ class AstConverter(lark.Transformer):
         # FIXME:  need to plumb in some generic context or make a node for this
         # query.opts[name] = valu
         raise lark.Discard
+
+    def valulist(self, kids):
+        kids = self._convert_children(kids)
+        assert kids
+        return s_ast.List(None, kids=kids)
 
 class Parser:
     def __init__(self, parseinfo, text, offs=0):

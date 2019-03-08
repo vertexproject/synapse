@@ -725,6 +725,12 @@ class PivotOper(Oper):
         Oper.__init__(self, kids=kids)
         self.isjoin = isjoin
 
+    def repr(self):
+        return f'{self.__class__.__name__}: {self.kids}, isjoin={self.isjoin}'
+
+    def __repr__(self):
+        return self.repr()
+
 class PivotOut(PivotOper):
     '''
     -> *
@@ -1529,11 +1535,11 @@ class Value(RunValue):
         RunValue.__init__(self, kids=kids)
         self.valu = valu
 
-    def __repr__(self):
-        return f'{self.__class__.__name__}: {self.valu}'
-
     def repr(self):
-        return f'{self.__class__.__name__}: {self.valu}'
+        return f'{self.__class__.__name__}: {self.valu}, kids={self.kids}'
+
+    def __repr__(self):
+        return self.repr()
 
     async def runtval(self, runt):
         return self.value()

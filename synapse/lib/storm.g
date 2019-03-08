@@ -4,9 +4,9 @@
 %import common.DIGIT
 %import common.ESCAPED_STRING
 
-query: _WSCOMM? ((command | queryoption | _editopers | _oper) _WSCOMM?)*
+query: _WSCOMM? ((_command | queryoption | _editopers | _oper) _WSCOMM?)*
 
-command: "|" _WS? stormcmd _WSCOMM? ["|"]
+_command: "|" _WS? stormcmd _WSCOMM? ["|"]
 
 queryoption: "%" _WS? /[a-z]+/ _WS? "=" /\w+/
 _editopers: "[" _WS? (_editoper _WS?)* "]"
@@ -20,7 +20,7 @@ editunivset: UNIVPROP _WS? "=" _WS? _valu
 editnodeadd: ABSPROP _WS? "=" _WS? _valu
 ABSPROP: PROPNAME // must be a propname
 
-_oper: subquery | formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | filtoper
+_oper: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | filtoper
     | liftbytag | operrelprop | forloop | switchcase | "break" | "continue" | _liftprop | stormcmd
 
 forloop: "for" _WS? (_varname | varlist) _WS? "in" _WS? varvalu _WS? subquery
@@ -34,16 +34,23 @@ CASEVALU: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | /[^:]+:/
 // Note: changed from syntax.py in that cannot start with ':' or '.'
 VARSETS: ("$" | "." | LETTER | DIGIT) ("$" | "." | ":" | LETTER | DIGIT)*
 
-// TODO: TAGMATCH and tagname/TAG are redundant
-formpivot: "->" _WS? ("*" | TAGMATCH | ABSPROP)
-formjoin:   "-+>" _WS? ("*" | ABSPROP)
-formpivotin: "<-" _WS? ("*" | ABSPROP)
-formjoinin: "<+-" _WS? ("*" | ABSPROP)
+_formpivot: formpivot_pivottotags | formpivot_pivotout | formpivot_
+formpivot_pivottotags: "->" _WS? TAGMATCH
+formpivot_pivotout:    "->" _WS? "*"
+formpivot_:            "->" _WS? ABSPROP
+
+formjoin: "-+>" _WS? "*" -> formjoin_pivotout
+        | "-+>" _WS? ABSPROP -> formjoin_formpivot
+
+formpivotin: "<-" _WS? "*" -> formpivotin_
+           | "<-" _WS? ABSPROP -> formpivotin_pivotinfrom
+
+formjoinin: "<+-" _WS? "*" -> formjoinin_pivotin
+          | "<+-" _WS? ABSPROP -> formjoinin_pivotinfrom
 opervarlist: varlist _WS? "=" _WS? _valu
 
-operrelprop: RELPROP [_WS? (_proppivot | propjoin)]
-_proppivot: "->" _WS? ("*" | ABSPROP)
-propjoin: "-*>" _WS? ABSPROP
+operrelprop: RELPROP _WS? "->" _WS? ("*" | ABSPROP) -> operrelprop_pivot
+           | RELPROP _WS? "-*>" _WS? ABSPROP -> operrelprop_join
 
 valuvar: _varname _WS? "=" _WS? _valu
 
@@ -61,16 +68,18 @@ VARCHARS: (LETTER | DIGIT | "_")+
 stormcmd: CMDNAME (_WS cmdargv)* [_WS? "|"]
 cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
 
+// TODO: TAGMATCH and tagname/TAG are redundant
 // Note: deviates from syntax.py in that moved regexp up from ast into syntax
 // TAG: /[^#=)\]},@ \t\n][^=)\]},@ \t\n]*/
 //# TAGMATCH: /#[^=)\]},@ \t\n]*/
 TAG: /([\w]+\.)*[\w]+/
-TAGMATCH: TAG
+TAGMATCH: "#" /([\w*]+\.)*[\w*]+/
 
 CMPR: /[@!<>^~=*][@!<>^~=]*/
-_valu: NONQUOTEWORD | valulist | varvalu | RELPROPVALU | UNIVPROPVALU | tagname | DOUBLEQUOTEDSTRING
+_valu: NONQUOTEWORD | valulist | varvalu | RELPROPVALU | UNIVPROPVALU | tagpropvalue | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING
 valulist: "(" [_WS? _valu (_WS? "," _WS? _valu)*] _WS? ["," _WS?] ")"
+tagpropvalue: tagname
 
 NONCMDQUOTE: /[^ \t\n|}]+/
 NONQUOTEWORD: (LETTER | DIGIT | "-" | "?") /[^ \t\n),=\]}|]*/
@@ -106,7 +115,7 @@ PROPNAME: "inet:fqdn" | "inet:dns:a" | "inet:dns:query" | "syn:tag" | "teststr:t
     | "file:bytes:size" | "pivcomp:tick" | "pivcomp" | "pivtarg" | "inet:ipv4:loc"
     | "inet:ipv4" | "seen:source" | "inet:user" | "media:news"
     | "ps:person" | "geo:place:latlong" | "geo:place" | "cluster" | "testguid" | "inet:asn"
-    | "tel:mob:telem:latlong" | "source" // FIXME: all the props
+    | "tel:mob:telem:latlong" | "source" | "has" // FIXME: all the props
 
 CMDNAME: "help" | "iden" | "movetag" | "noderefs" | "sudo" | "limit" | "reindex" | "delnode" | "uniq" | "count"
     | "spin" | "graph" | "max" | "min" | "sleep" // FIXME: all the commands
