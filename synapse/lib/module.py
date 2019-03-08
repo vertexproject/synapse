@@ -107,10 +107,14 @@ class CoreModule:
         Module implementers may override this method to execute code
         immediately after a module has been loaded.
 
-        No Cortex layer/storage operations will function in preCoreModule.
+        Notes:
+            The ``initCoreModule`` function is preferred for overriding
+            instead of ``preCoreModule()``.
 
-        Any exception raised within this method will halt additional
-        loading of the module.
+            No Cortex layer/storage operations will function in preCoreModule.
+
+            Any exception raised within this method will halt additional
+            loading of the module.
 
         Returns:
             None
@@ -124,6 +128,9 @@ class CoreModule:
         storage operations.
 
         Notes:
+            This is the preferred function to override for implementing custom
+            code that needs to be executed during Cortex startup.
+
             Any exception raised within this method will remove the module from
             the list of currently loaded modules.
 
