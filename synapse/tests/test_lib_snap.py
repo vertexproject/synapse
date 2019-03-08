@@ -51,25 +51,41 @@ class SnapTest(s_t_utils.SynTest):
         '''
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
-                # Reduce the buid cache so we don't have to make 100K nodes
+                nodebuid = None
+                nodeid = None
                 snap.buidcache = collections.deque(maxlen=10)
 
-                node0 = await snap.addNode('testint', 0)
+                async def doit():
+                    nonlocal nodeid, nodebuid
+                    # Reduce the buid cache so we don't have to make 100K nodes
 
+                    node0 = await snap.addNode('testint', 0)
+
+                    node = await snap.getNodeByNdef(('testint', 0))
+
+                    # Test write then read coherency
+
+                    self.eq(node0.buid, node.buid)
+                    self.eq(id(node0), id(node))
+                    nodeid = id(node)
+                    nodebuid = node.buid
+
+                    # Test read, then a bunch of reads, then read coherency
+
+                    await alist(snap.addNodes([(('testint', x), {}) for x in range(1, 20)]))
+                    nodes = await alist(snap.getNodesBy('testint'))
+
+                    self.eq(nodes[0].buid, node0.buid)
+                    self.eq(id(nodes[0]), id(node0))
+
+                await doit()  # run in separate function so that objects are gc'd
+
+                await alist(snap.addNodes([(('testint', x), {}) for x in range(20, 30)]))
+
+                # Test that coherency goes away (and we don't store all nodes forever)
                 node = await snap.getNodeByNdef(('testint', 0))
-
-                # Test write then read coherency
-
-                self.eq(node0.buid, node.buid)
-                self.eq(id(node0), id(node))
-
-                # Test read, then a bunch of reads, then read coherency
-
-                await alist(snap.addNodes([(('testint', x), {}) for x in range(1, 20)]))
-                nodes = await alist(snap.getNodesBy('testint'))
-
-                self.eq(nodes[0].buid, node0.buid)
-                self.eq(id(nodes[0]), id(node0))
+                self.eq(nodebuid, node.buid)
+                self.ne(nodeid, id(node))
 
     async def test_addNodes(self):
         async with self.getTestCore() as core:
