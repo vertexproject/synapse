@@ -188,7 +188,7 @@ class CoreApi(s_cell.CellApi):
         '''
         return self.cell.getCoreInfo()
 
-    async def addTrigger(self, condition, query, *, info):
+    async def addTrigger(self, condition, query, info):
         '''
         Adds a trigger to the cortex
         '''
