@@ -738,7 +738,7 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.BadOptValu, core.eval('%limit=asdf'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('teststr*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('teststr +teststr@=2018'))
-            await self.agenraises(s_exc.NoSuchCmpr, core.eval('teststr +#test*near=newp'))
+            await self.agenraises(s_exc.BadStormSyntax, core.eval('teststr +#test*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('teststr +teststr:tick*near=newp'))
             await self.agenraises(s_exc.BadStormSyntax, core.eval(' | | '))
             await self.agenraises(s_exc.BadStormSyntax, core.eval('[-teststr]'))
@@ -2540,3 +2540,30 @@ class CortexTest(s_t_utils.SynTest):
 
             core.view.borked = None
             self.len(1, await core.eval('[ teststr=foo ]').list())
+
+    async def test_tag_globbing(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('teststr', 'n1')
+                await node.addTag('foo.bar.baz', (None, None))
+
+                node = await snap.addNode('teststr', 'n2')
+                await node.addTag('foo.bad.baz', (None, None))
+
+                node = await snap.addNode('teststr', 'n3')  # No tags on him
+
+            # Setup worked correct
+            self.len(3, await core.eval('teststr').list())
+            self.len(2, await core.eval('teststr +#foo').list())
+
+            # Now test globbing - exact match for *
+            self.len(2, await core.eval('teststr +#*').list())
+            self.len(1, await core.eval('teststr -#*').list())
+
+            # Now test globbing - single star matches one tag level
+            self.len(2, await core.eval('teststr +#foo.*.baz').list())
+            self.len(1, await core.eval('teststr +#*.bad').list())
+            # Double stars matches a whole lot more!
+            self.len(2, await core.eval('teststr +#foo.**.baz').list())
+            self.len(1, await core.eval('teststr +#**.bar.baz').list())
+            self.len(2, await core.eval('teststr +#**.baz').list())
