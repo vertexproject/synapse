@@ -98,6 +98,8 @@ class FixedCache:
         self.fifo.clear()
         self.cache.clear()
 
+# Search for instances of escaped double or single asterisks
+# https://regex101.com/r/fOdmF2/1
 ReRegex = regex.compile(r'(\\\*\\\*)|(\\\*)')
 
 def regexizeTagGlob(tag):
@@ -105,18 +107,16 @@ def regexizeTagGlob(tag):
     Returns:
         a regular expression string with ** and * interpreted as tag globs
 
-    Note:
+    Precondition:
+        tag is a valid tagmatch
 
-    A single asterisk will replace exactly one dot-delimited component of a tag
-    A double asterisk will replace one or more of any character.
+    Notes:
+        A single asterisk will replace exactly one dot-delimited component of a tag
+        A double asterisk will replace one or more of any character.
 
-    The returned string does not contain a starting ^ or trailing $
+        The returned string does not contain a starting '^' or trailing '$'.
     '''
-    parts = []
-    for part in tag.split('.'):
-        parts.append(ReRegex.sub(lambda m: r'[^.]+?' if m.group(1) is None else r'.+', regex.escape(part)))
-
-    return r'\.'.join(parts)
+    return ReRegex.sub(lambda m: r'[^.]+?' if m.group(1) is None else r'.+', regex.escape(tag))
 
 @memoize()
 def getTagGlobRegx(name):
