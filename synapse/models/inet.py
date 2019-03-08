@@ -1593,7 +1593,7 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('server', ('inet:server', {}), {
                             'ro': True,
-                            'doc': 'The file bytes for the SSL certificate.'
+                            'doc': 'The server that presented the SSL certificate.'
                         }),
                         ('server:ipv4', ('inet:ipv4', {}), {
                             'ro': True,
