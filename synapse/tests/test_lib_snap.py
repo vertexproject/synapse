@@ -1,3 +1,4 @@
+import gc
 import random
 import asyncio
 import contextlib
@@ -80,9 +81,11 @@ class SnapTest(s_t_utils.SynTest):
 
                 await doit()  # run in separate function so that objects are gc'd
 
-                await alist(snap.addNodes([(('testint', x), {}) for x in range(20, 30)]))
+                gc.collect()
 
                 # Test that coherency goes away (and we don't store all nodes forever)
+                await alist(snap.addNodes([(('testint', x), {}) for x in range(20, 30)]))
+
                 node = await snap.getNodeByNdef(('testint', 0))
                 self.eq(nodebuid, node.buid)
                 self.ne(nodeid, id(node))
