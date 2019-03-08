@@ -111,7 +111,7 @@ osx_test_steps:  &osx_test_steps
 
       - restore_cache:
           keys:
-          - v4-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+          - v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - run:
           name: setup venv
@@ -129,7 +129,7 @@ osx_test_steps:  &osx_test_steps
       - save_cache:
           paths:
             - ./venv
-          key: v4-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+          key: v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - run:
           name: run tests
