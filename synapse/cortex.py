@@ -670,7 +670,9 @@ class Cortex(s_cell.Cell):
         self.splicers.update(**splicers)
 
     def _initLayerCtors(self):
-        '''Registration for built-in Layer ctors'''
+        '''
+        Registration for built-in Layer ctors
+        '''
         ctors = {
             'lmdb': s_lmdblayer.LmdbLayer,
             'remote': s_remotelayer.RemoteLayer,
