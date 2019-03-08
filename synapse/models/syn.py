@@ -23,10 +23,6 @@ class SynModule(s_module.CoreModule):
             self.core.addRuntLift(form.full, self._synModelLift)
             for name, prop in form.props.items():
                 pfull = prop.full
-                # universal properties are indexed separately.
-                univ = prop.univ
-                if univ:
-                    pfull = form.full + univ
                 self.core.addRuntLift(pfull, self._synModelLift)
 
         # add event registration for model changes to allow for new models to reset the runtime model data

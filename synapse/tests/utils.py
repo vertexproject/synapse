@@ -295,10 +295,6 @@ class TestModule(s_module.CoreModule):
             self.core.addRuntLift(form.full, self._testRuntLift)
             for name, prop in form.props.items():
                 pfull = prop.full
-                # universal properties are indexed separately.
-                univ = prop.univ
-                if univ:
-                    pfull = form.full + univ
                 self.core.addRuntLift(pfull, self._testRuntLift)
         self.core.addRuntPropSet(self.model.prop('test:runt:lulz'), self._testRuntPropSetLulz)
         self.core.addRuntPropDel(self.model.prop('test:runt:lulz'), self._testRuntPropDelLulz)

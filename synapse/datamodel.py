@@ -109,13 +109,12 @@ class Prop(PropBase):
         }
 
         self.univ = None
+        self.full = '%s:%s' % (form.name, name)
         if name.startswith('.'):
             self.univ = name
-
-        self.full = '%s:%s' % (form.name, name)
+            self.full = '%s%s' % (form.name, name)
 
         self.utf8name = self.name.encode('utf8')
-        self.utf8full = self.full.encode('utf8')
 
         self.pref = self.form.utf8name + b'\x00' + self.utf8name + b'\x00'
 
