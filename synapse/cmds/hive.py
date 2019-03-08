@@ -23,6 +23,13 @@ Notes:
     If path is not specified, the root is listed.
 '''
 
+GetHelp = '''
+Display or save to file the contents of a key in the hive.
+
+Syntax:
+    hive get [--file] [--json] {path}
+'''
+
 DelHelp = '''
 Deletes a key in the cell's hive.
 
@@ -33,11 +40,11 @@ Notes:
     Delete will recursively delete all subkeys underneath path if they exist.
 '''
 
-ModHelp = '''
+EditHelp = '''
 Edits or creates a key in the cell's hive.
 
 Syntax:
-    hive edit {path} ({value} | --editor | -f {filename})
+    hive edit {path} [--string] ({value} | --editor | -f {filename})
 
 Notes:
     One may specify the value directly on the command line, from a file, or use an editor.  For the --editor option,
@@ -59,7 +66,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
 '''
     _cmd_name = 'hive'
 
-    _cmd_syntax = (
+    _cmd_syntax = (  # type: ignore
         ('line', {'type': 'glob'}),
     )
 
@@ -73,15 +80,16 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
         parser_ls = subparsers.add_parser('ls', help="List entries in the hive", usage=ListHelp)
         parser_ls .add_argument('path', nargs='?', help='Hive path')
 
-        parser_get = subparsers.add_parser('get', help="Get any entry in the hive", usage=ListHelp)
+        parser_get = subparsers.add_parser('get', help="Get any entry in the hive", usage=GetHelp)
         parser_get.add_argument('path', help='Hive path')
-        parser_get.add_argument('-f', '--file', default=False, action='store', help='Save the data to a file. Only works for str values.')
+        parser_get.add_argument('-f', '--file', default=False, action='store',
+                                help='Save the data to a file. Only works for str values.')
         parser_get.add_argument('--json', default=False, action='store_true', help='Emit output as json')
 
         parser_rm = subparsers.add_parser('rm', help='Delete a key in the hive', usage=DelHelp)
         parser_rm.add_argument('path', help='Hive path')
 
-        parser_edit = subparsers.add_parser('edit', help='Sets/creates a key', usage=ModHelp)
+        parser_edit = subparsers.add_parser('edit', help='Sets/creates a key', usage=EditHelp)
         parser_edit.add_argument('--string', action='store_true', help="Edit value as a single string")
         parser_edit.add_argument('path', help='Hive path')
         group = parser_edit.add_mutually_exclusive_group(required=True)

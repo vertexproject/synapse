@@ -86,6 +86,9 @@ class EditAtom:
         '''
         Push the recorded changes to disk, notify all the listeners
         '''
+        if not self.npvs:  # nothing to do
+            return
+
         for node, prop, _, valu in self.npvs:
             node.props[prop.name] = valu
 
@@ -113,4 +116,6 @@ class EditAtom:
                 univ = snap.model.prop(prop.univ)
                 await univ.wasSet(node, oldv)
 
+        # Finally, fire all the triggers
+        for node, prop, oldv, _ in self.npvs:
             await snap.core.triggers.runPropSet(node, prop, oldv)
