@@ -2564,6 +2564,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, await core.eval('teststr +#foo.*.baz').list())
             self.len(1, await core.eval('teststr +#*.bad').list())
             # Double stars matches a whole lot more!
-            self.len(2, await core.eval('teststr +#foo.**.az').list())
+            self.len(2, await core.eval('teststr +#foo.**.baz').list())
             self.len(1, await core.eval('teststr +#**.bar.baz').list())
             self.len(2, await core.eval('teststr +#**.baz').list())

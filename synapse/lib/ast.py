@@ -26,40 +26,6 @@ class StormCtrlFlow(Exception):
 class StormBreak(StormCtrlFlow): pass
 class StormContinue(StormCtrlFlow): pass
 
-@s_cache.memoize()
-def getGlobRegex(text):
-    '''
-    Compute a tag regex for glob style matching.
-
-    Args:
-        text (str): String to generate a regex for.
-
-    Notes:
-        This function acts as a global cache for compiled regex objects for tags.
-
-    Returns:
-        regex.Regex: Compiled tag regex.
-    '''
-    # Glob helpers
-    glob_smark = '*'
-    glob_mmark = '**'
-    glob_sre = r'[^\.]+?'
-    glob_mre = '.+'
-
-    text = text.lower()
-
-    def _cmpGlobParts(s, sep='.'):
-        parts = s.split(sep)
-        parts = [p.replace(glob_mmark, glob_mre) for p in parts]
-        parts = [p.replace(glob_smark, glob_sre) for p in parts]
-        regex = '{}'.format(sep).join(parts)
-        return regex + '$'
-
-    restr = _cmpGlobParts(text)
-
-    reobj = regex.compile(restr)
-    return reobj
-
 class AstNode:
     '''
     Base class for all nodes in the STORM abstract syntax tree.
@@ -1321,11 +1287,12 @@ class TagCond(Cond):
 
         # Allow a user to use tag globbing to do regex matching of a node.
         if '*' in name:
-            reobj = getGlobRegex(name)
+            reobj = s_cache.getTagGlobRegx(name)
 
             def getIsHit(tag):
-                return reobj.match(tag)
+                return reobj.fullmatch(tag)
 
+            # This cache persists per-query
             cache = s_cache.FixedCache(getIsHit)
 
             async def cond(node, path):
