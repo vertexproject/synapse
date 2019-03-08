@@ -278,7 +278,7 @@ class Form:
         '''
         try:
             self.onadds.remove(func)
-        except ValueError:
+        except ValueError:  # pragma: no cover
             pass
 
     def onDel(self, func):
