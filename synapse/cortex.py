@@ -26,6 +26,7 @@ import synapse.lib.storm as s_storm
 import synapse.lib.syntax as s_syntax
 import synapse.lib.agenda as s_agenda
 import synapse.lib.trigger as s_trigger
+import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.lmdblayer as s_lmdblayer
@@ -187,7 +188,7 @@ class CoreApi(s_cell.CellApi):
         '''
         return self.cell.getCoreInfo()
 
-    async def addTrigger(self, condition, query, *, info):
+    async def addTrigger(self, condition, query, info):
         '''
         Adds a trigger to the cortex
         '''
@@ -657,6 +658,10 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+        self.addHttpApi('/api/v1/storm', s_httpapi.StormV1, {'cell': self})
+        self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
+        self.addHttpApi('/api/v1/model/norm', s_httpapi.ModelNormV1, {'cell': self})
 
     async def getCellApi(self, link, user, path):
 
@@ -1697,6 +1702,8 @@ class Cortex(s_cell.Cell):
         await s_coro.ornot(modu.initCoreModule)
         await self.fire('core:module:load', module=ctor)
 
+        return modu
+
     async def _loadCoreMods(self, ctors):
 
         mods = []
@@ -1707,8 +1714,10 @@ class Cortex(s_cell.Cell):
         for ctor in ctors:
 
             modu = self._loadCoreModule(ctor)
-            if modu is not None:
-                mods.append(modu)
+            if modu is None:
+                continue
+
+            mods.append(modu)
 
             cmds.extend(modu.getStormCmds())
             mdefs.extend(modu.getModelDefs())

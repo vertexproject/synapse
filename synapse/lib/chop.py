@@ -1,9 +1,13 @@
 import binascii
 
+import regex
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cache as s_cache
+
+TagMatchRe = regex.compile(r'([\w*]+\.)*[\w*]+')
 
 '''
 Shared primitive routines for chopping up strings and values.
@@ -103,3 +107,11 @@ def stormstring(s):
     s = s.replace('\\', '\\\\')
     s = s.replace('"', '\\"')
     return s
+
+def validateTagMatch(tag):
+    '''
+    Raises an exception if tag is not a valid tagmatch (i.e. a tag that might have globs)
+    '''
+
+    if TagMatchRe.fullmatch(tag) is None:
+        raise s_exc.BadTag(mesg='Invalid tag match')

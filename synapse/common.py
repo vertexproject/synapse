@@ -176,44 +176,9 @@ def reqpath(*paths):
 def reqfile(*paths, **opts):
     path = genpath(*paths)
     if not os.path.isfile(path):
-        raise s_exc.NoSuchFile(path)
+        raise s_exc.NoSuchFile(path=path)
     opts.setdefault('mode', 'rb')
     return io.open(path, **opts)
-
-def reqlines(*paths, **opts):
-    '''
-    Open a file and yield lines of text.
-
-    Example:
-
-        for line in reqlines('foo.txt'):
-            dostuff(line)
-
-    NOTE: This API is used as a performance optimization
-          over the standard fd line iteration mechanism.
-    '''
-    opts.setdefault('mode', 'r')
-    opts.setdefault('encoding', 'utf8')
-
-    rem = None
-    with reqfile(*paths, **opts) as fd:
-
-        bufr = fd.read(10000000)
-        while bufr:
-
-            if rem is not None:
-                bufr = rem + bufr
-
-            lines = bufr.split('\n')
-            rem = lines[-1]
-
-            for line in lines[:-1]:
-                yield line.strip()
-
-            bufr = fd.read(10000000)
-
-            if rem is not None:
-                bufr = rem + bufr
 
 def getfile(*paths, **opts):
     path = genpath(*paths)
@@ -409,14 +374,6 @@ def getexcfo(e):
 
     return (e.__class__.__name__, retd)
 
-def reqok(ok, retn):
-    '''
-    Raise exception from retn if not ok.
-    '''
-    if not ok:
-        raise s_exc.RetnErr(retn)
-    return retn
-
 def excinfo(e):
     '''
     Populate err,errmsg,errtrace info from exc.
@@ -434,15 +391,6 @@ def excinfo(e):
         ret['errinfo'] = e.errinfo
 
     return ret
-
-def synerr(excname, **info):
-    '''
-    Return a SynErr exception.  If the given name
-    is not known, fall back on the base class.
-    '''
-    info['excname'] = excname
-    cls = getattr(s_exc, excname, s_exc.SynErr)
-    return cls(**info)
 
 def errinfo(name, mesg):
     return {
@@ -567,27 +515,7 @@ def worker(meth, *args, **kwargs):
     thr.start()
     return thr
 
-def rowstotufos(rows):
-    '''
-    Convert rows into tufos.
-
-    Args:
-        rows (list): List of rows containing (i, p, v, t) tuples.
-
-    Returns:
-        list: List of tufos.
-    '''
-    res = collections.defaultdict(dict)
-    [res[i].__setitem__(p, v) for (i, p, v, t) in rows]
-    return list(res.items())
-
 sockerrs = (builtins.ConnectionError, builtins.FileNotFoundError)
-
-def to_bytes(valu, size):
-    return valu.to_bytes(size, byteorder='little')
-
-def to_int(byts):
-    return int.from_bytes(byts, 'little')
 
 _Int64be = struct.Struct('>Q')
 

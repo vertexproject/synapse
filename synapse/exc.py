@@ -57,13 +57,13 @@ class BadCtorType(SynErr): pass
 class BadMesgVers(SynErr): pass
 class BadInfoValu(SynErr): pass
 class BadStorValu(SynErr): pass
-class BadRuleValu(SynErr): pass
 class BadOperArg(SynErr): pass
 class BadUrl(SynErr): pass
 class BadOptValu(SynErr): pass
 class BadPropValu(SynErr): pass
 class BadStormSyntax(SynErr): pass
 class BadSyntaxError(SynErr): pass
+class BadTag(SynErr): pass
 class BadPropConf(SynErr):
     '''
     The configuration for the property is invalid.
