@@ -324,6 +324,11 @@ class CortexTest(s_t_utils.SynTest):
                 node = await snap.addNode('inet:ipv4', '1.2.3.4')
                 self.eq(node, arg_hit.get('hit'))
 
+                arg_hit['hit'] = None
+                core.model.form('inet:ipv4').offAdd(testcb)
+                node = await snap.addNode('inet:ipv4', '1.2.3.5')
+                self.none(arg_hit.get('hit'))
+
     async def test_adddata(self):
 
         data = ('foo', 'bar', 'baz')
