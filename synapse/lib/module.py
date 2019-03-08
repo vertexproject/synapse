@@ -84,7 +84,6 @@ class CoreModule:
         ret = self.mod_name
         if ret is None:
             ret = self.__class__.__name__
-            self.mod_name = ret
         return ret.lower()
 
     def getModPath(self, *paths):
