@@ -12,7 +12,6 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
 import synapse.lib.share as s_share
-import synapse.lib.thishost as s_thishost
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist

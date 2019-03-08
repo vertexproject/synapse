@@ -132,12 +132,6 @@ osx_test_steps:  &osx_test_steps
           key: v4-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - run:
-          name: dump envars
-          command: |
-            . venv/bin/activate
-            env | grep -vi codecov
-
-      - run:
           name: run tests
           command: |
             . venv/bin/activate
@@ -201,6 +195,6 @@ workflows:
   version: 2
   run_tests:
     jobs:
-#      - doctests
+      - doctests
       - osx37
-#      - python37
+      - python37
