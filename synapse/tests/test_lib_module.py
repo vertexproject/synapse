@@ -1,73 +1,107 @@
+import os
+
+import synapse.common as s_common
 import synapse.cortex as s_cortex
+
 import synapse.lib.module as s_module
 
 import synapse.tests.utils as s_t_utils
 
-data = {}
-
-import unittest
-raise unittest.SkipTest()
-
 class FooMod(s_module.CoreModule):
-    _mod_name = 'foo'
-    _mod_iden = 'e8ff3739f5d9dbacafef75a532691420'
+    mod_name = 'foo'
+
+    def preCoreModule(self):
+        if os.environ.get('SYN_TEST_MOD_FAIL_PRE'):
+            raise Exception('preCoreModuleFail')
+
+    def initCoreModule(self):
+        if os.environ.get('SYN_TEST_MOD_FAIL_INIT'):
+            raise Exception('initCoreModuleFail')
 
 class BarMod(s_module.CoreModule):
-    def finiCoreModule(self):
-        data['fini'] = True
+    confdefs = (
+        ('hehe', {'defval': 'haha'}),
+        ('duck', {}),
+    )
+    def preCoreModule(self):
+        self.core.addLayerCtor('newp', int)
+
+    def initCoreModule(self):
+        self.data = {}
+
+        def onfini():
+            self.data['fini'] = True
+
+        self.core.onfini(onfini)
+
+foo_ctor = 'synapse.tests.test_lib_module.FooMod'
+bar_ctor = 'synapse.tests.test_lib_module.BarMod'
 
 class CoreModTest(s_t_utils.SynTest):
 
-    def test_lib_module_modname(self):
-        with self.getRamCore() as core:
-            foo = core.initCoreModule('synapse.tests.test_lib_module.FooMod', {})
-            self.eq(foo.getModName(), 'foo')
-            self.eq(foo.getModIden(), 'e8ff3739f5d9dbacafef75a532691420')
+    async def test_basics(self):
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
 
-            bar = core.initCoreModule('synapse.tests.test_lib_module.BarMod', {})
-            self.eq(bar.getModName(), 'BarMod')
-            self.none(bar.getModIden())
+            testmod = core.getCoreMod('synapse.tests.utils.TestModule')
+            self.isinstance(testmod, s_module.CoreModule)
+            # modname from class name
+            self.eq(testmod.mod_name, 'testmodule')
 
-    def test_lib_module_modpath(self):
+            foomod = await core.loadCoreModule(foo_ctor)
+            # modname from explicit modname
+            self.eq(foomod.mod_name, 'foo')
+            # modpaths are dynamically made on demand
+            self.false(os.path.isdir(foomod._modpath))
+            mpath = foomod.getModPath()
+            self.isin(os.path.join('mods', 'foo'), mpath)
+            self.true(os.path.isdir(foomod._modpath))
 
-        with self.getRamCore() as core:
+            # preload a config file for the BarModule
+            dirn = s_common.gendir(core.dirn, 'mods', 'barmod')
+            s_common.yamlsave({'test': 1, 'duck': 'quack'}, dirn, 'conf.yaml')
+            # barmodule laods a layerctor
+            self.false(core.layrctors.get('newp') is int)
 
-            foo = core.initCoreModule('synapse.tests.test_lib_module.FooMod', {})
+            barmod = await core.loadCoreModule(bar_ctor)
 
-            self.none(foo.getModPath('woot.txt'))
-            self.raises(ReqConfOpt, foo.reqModPath, 'woot.txt')
+            self.eq(barmod.data, {})
+            self.eq(barmod.conf, {'test': 1,
+                                  'hehe': 'haha',
+                                  'duck': 'quack',
+                                  })
+            self.true(core.layrctors.get('newp') is int)
 
-        with self.getTestDir() as dirn:
+        self.eq(barmod.data, {'fini': True})
 
-            with s_cortex.fromdir(dirn) as core:
+    async def test_load_failures(self):
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            with self.setTstEnvars(SYN_TEST_MOD_FAIL_PRE=1) as cm:
+                with self.getAsyncLoggerStream('synapse.cortex', 'preCoreModuleFail') as stream:
+                    self.none(await core.loadCoreModule(foo_ctor))
+                    self.true(await stream.wait(1))
+                    self.none(core.getCoreMod(foo_ctor))
 
-                foo = core.initCoreModule('synapse.tests.test_lib_module.FooMod', {})
+            with self.setTstEnvars(SYN_TEST_MOD_FAIL_INIT=1) as cm:
+                with self.getAsyncLoggerStream('synapse.cortex', 'initCoreModuleFail') as stream:
+                    self.none(await core.loadCoreModule(foo_ctor))
+                    self.true(await stream.wait(1))
+                    self.none(core.getCoreMod(foo_ctor))
 
-                self.nn(foo.getModPath('woot.txt'))
-                self.nn(foo.reqModPath('woot.txt'))
+        with self.getTestDir(mirror='testcore') as dirn:
+            conf = s_common.yamlload(dirn, 'cell.yaml')
+            conf['modules'].append(foo_ctor)
+            s_common.yamlsave(conf, dirn, 'cell.yaml')
+            conf = s_common.yamlload(dirn, 'cell.yaml')
+            print(conf)
 
-    def test_lib_module_prop(self):
+            with self.setTstEnvars(SYN_TEST_MOD_FAIL_PRE=1) as cm:
+                with self.getAsyncLoggerStream('synapse.cortex', 'preCoreModuleFail') as stream:
+                    async with await s_cortex.Cortex.anit(dirn) as core:
+                        self.true(await stream.wait(1))
+                        self.none(core.getCoreMod(foo_ctor))
 
-        with self.getRamCore() as core:
-
-            foo = core.initCoreModule('synapse.tests.test_lib_module.FooMod', {})
-            bar = core.initCoreModule('synapse.tests.test_lib_module.BarMod', {})
-
-            foo.setModProp('hehe', 10)
-            self.eq(10, foo.getModProp('hehe'))
-            self.none(foo.getModProp('haha'))
-
-            self.raises(NoModIden, bar.getModProp, 'hehe')
-            self.raises(NoModIden, bar.setModProp, 'hehe', 10)
-
-    def test_lib_module_fini(self):
-        # Clear the module local dictionary
-        data.clear()
-        self.none(data.get('fini'))
-
-        with self.getRamCore() as core:
-            bar = core.initCoreModule('synapse.tests.test_lib_module.BarMod', {})
-            self.isinstance(bar, s_module.CoreModule)
-            bar.fini()
-
-            self.true(data.get('fini'))
+            with self.setTstEnvars(SYN_TEST_MOD_FAIL_INIT=1) as cm:
+                with self.getAsyncLoggerStream('synapse.cortex', 'initCoreModuleFail') as stream:
+                    async with await s_cortex.Cortex.anit(dirn) as core:
+                        self.true(await stream.wait(1))
+                        self.none(core.getCoreMod(foo_ctor))

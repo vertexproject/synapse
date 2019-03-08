@@ -3,8 +3,6 @@ import os
 import synapse.common as s_common
 
 class CoreModule:
-    '''
-    '''
 
     confdefs = ()
     mod_name = None
@@ -13,6 +11,8 @@ class CoreModule:
 
         self.core = core        # type: synapse.cortex.Cortex
         self.model = core.model # type: synapse.datamodel.Model
+        if self.mod_name is None:
+            self.mod_name = self.getModName()
 
         # Avoid getModPath / getConfPath during __init__ since these APIs
         # will create directories. We do not need that behavior by default.
@@ -36,9 +36,6 @@ class CoreModule:
         return ()
 
     def getModelDefs(self):
-        return ()
-
-    def getModelRevs(self):
         return ()
 
     def getConfPath(self):
@@ -77,7 +74,9 @@ class CoreModule:
         Notes:
             This pulls the ``mod_name`` attribute on the class. This allows
             an implementer to set a arbitrary name for the module.  If this
-            attribute is not set, it defaults to ``self.__class__.__name__``.
+            attribute is not set, it defaults to
+            ``self.__class__.__name__.lower()`` and sets ``mod_name`` to
+            that value.
 
         Returns:
             (str): The module name.
@@ -85,6 +84,7 @@ class CoreModule:
         ret = self.mod_name
         if ret is None:
             ret = self.__class__.__name__
+            self.mod_name = ret
         return ret.lower()
 
     def getModPath(self, *paths):
@@ -103,17 +103,37 @@ class CoreModule:
         dirn = self.getModDir()
         return s_common.genpath(dirn, *paths)
 
+    async def preCoreModule(self):
+        '''
+        Module implementers may over-ride this method to execute code
+        immediately after a module has been loaded.
+
+        No Cortex layer/storage operations will function in preCoreModule.
+
+        Any exception raised within this method will halt additional
+        loading of the module.
+
+        Returns:
+            None
+        '''
+        pass
+
     async def initCoreModule(self):
         '''
         Module implementers may over-ride this method to initialize the
-        module during initial construction.  Any exception raised within
-        this method will be raised from the constructor and mark the module
-        as failed.
+        module after the Cortex has completed and is accessible to perform
+        storage operations.
 
         Notes:
+            Any exception raised within this method will remove the module from
+            the list of currently loaded modules.
+
             This is called for modules after getModelDefs() and getStormCmds()
             has been called, in order to allow for model loading and storm
             command loading prior to code execution offered by initCoreModule.
+
+            A failure during initCoreModule will not unload data model or storm
+            commands registered by the module.
 
         Returns:
             None
