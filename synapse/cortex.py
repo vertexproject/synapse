@@ -650,7 +650,6 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.DelNodeCmd)
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
-        self.addStormCmd(s_storm.NoderefsCmd)
 
     def _initStormLibs(self):
         '''
