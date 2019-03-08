@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 MAX_INDEX_LEN = 256
 
 # The layer map size can start much lower because the underlying slab auto-grows.
-LMDB_LAYER_DEFAULT_MAP_SIZE = 64 * s_const.mebibyte
+LMDB_LAYER_DEFAULT_MAP_SIZE = 512 * s_const.mebibyte
 
 class LmdbLayer(s_layer.Layer):
     '''

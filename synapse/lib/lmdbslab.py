@@ -123,7 +123,7 @@ class Slab(s_base.Base):
 
         await s_base.Base.__anit__(self)
 
-        kwargs.setdefault('map_size', s_const.mebibyte * 64)
+        kwargs.setdefault('map_size', s_const.gibibyte)
 
         opts = kwargs
 
