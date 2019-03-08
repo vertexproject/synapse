@@ -59,7 +59,7 @@ class CoreModTest(s_t_utils.SynTest):
             # preload a config file for the BarModule
             dirn = s_common.gendir(core.dirn, 'mods', 'barmod')
             s_common.yamlsave({'test': 1, 'duck': 'quack'}, dirn, 'conf.yaml')
-            # barmodule laods a layerctor
+            # barmodule loads a layerctor
             self.false(core.layrctors.get('newp') is int)
 
             barmod = await core.loadCoreModule(bar_ctor)

@@ -27,7 +27,7 @@ class CoreModule:
 
     def getStormCmds(self):  # pragma: no cover
         '''
-        Module implementers may over-ride this to provide a list of Storm
+        Module implementers may override this to provide a list of Storm
         commands which will be loaded into the Cortex.
 
         Returns:
@@ -104,7 +104,7 @@ class CoreModule:
 
     async def preCoreModule(self):
         '''
-        Module implementers may over-ride this method to execute code
+        Module implementers may override this method to execute code
         immediately after a module has been loaded.
 
         No Cortex layer/storage operations will function in preCoreModule.
@@ -119,7 +119,7 @@ class CoreModule:
 
     async def initCoreModule(self):
         '''
-        Module implementers may over-ride this method to initialize the
+        Module implementers may override this method to initialize the
         module after the Cortex has completed and is accessible to perform
         storage operations.
 

@@ -1762,7 +1762,7 @@ class Cortex(s_cell.Cell):
 
             mods.append(modu)
 
-            try:  # pragma: no cover
+            try:
                 await s_coro.ornot(modu.preCoreModule)
             except asyncio.CancelledError:  # pragma: no cover
                 raise
@@ -1783,7 +1783,7 @@ class Cortex(s_cell.Cell):
 
             try:
                 await s_coro.ornot(modu.initCoreModule)
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover
                 raise
             except Exception as e:
                 logger.exception(f'module initCoreModule failed: {ctor}')
