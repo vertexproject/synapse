@@ -17,8 +17,9 @@ edittagdel: "-" tagname
 editpropset: RELPROP _WS? "=" _WS? _valu
 editpropdel: "-" RELPROP
 editunivset: UNIVPROP _WS? "=" _WS? _valu
-editnodeadd: ABSPROP _WS? "=" _WS? _valu
+editnodeadd: ABSPROPNOUNIV _WS? "=" _WS? _valu
 ABSPROP: PROPNAME // must be a propname
+ABSPROPNOUNIV: PROPS
 
 _oper: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | filtoper
     | liftbytag | operrelprop | forloop | switchcase | "break" | "continue" | _liftprop | stormcmd
@@ -90,13 +91,13 @@ filtoper: FILTPREFIX cond
 FILTPREFIX: "+" | "-"
 
 cond: condexpr | condsubq | ("not" _WS? cond)
-    | ((RELPROP | UNIVPROP | tagname | ABSPROP) [_WS? CMPR _WS? _valu])
+    | ((RELPROP | UNIVPROP | tagname | ABSPROPNOUNIV) [_WS? CMPR _WS? _valu])
 condexpr: "(" _WS? cond (_WS? (("and" | "or") _WS? cond))* _WS? ")"
 condsubq: "{" _WSCOMM? query _WS? "}" [_WSCOMM? CMPR _valu]
 VARDEREF: "." VARTOKN
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
 SINGLEQUOTEDSTRING: "'" /[^']/ "'"
-UNIVPROP:  "." VARSETS
+UNIVPROP:  UNIVNAME
 UNIVPROPVALU: UNIVPROP
 
 RELPROP: ":" VARSETS
@@ -110,12 +111,16 @@ CCOMMENT: /\/\*+[^*]*\*+([^\/*][^*]*\*+)*\//
 CPPCOMMENT: /\/\/[^\n]*/
 
 // TOOD:  fix all one-word propnames and define propname as word with a colon
-PROPNAME: "inet:fqdn" | "inet:dns:a" | "inet:dns:query" | "syn:tag" | "teststr:tick" | "teststr" | ".created"
-    | "refs" | ".seen" | "testcomp:haha" | "testcomp" | "testint:loc" | "testint" | "wentto"
+PROPS: "inet:fqdn" | "inet:dns:a" | "inet:dns:query" | "syn:tag" | "teststr:tick" | "teststr"
+    | "refs" | "testcomp:haha" | "testcomp" | "testint:loc" | "testint" | "wentto"
     | "file:bytes:size" | "pivcomp:tick" | "pivcomp" | "pivtarg" | "inet:ipv4:loc"
     | "inet:ipv4" | "seen:source" | "inet:user" | "media:news"
     | "ps:person" | "geo:place:latlong" | "geo:place" | "cluster" | "testguid" | "inet:asn"
     | "tel:mob:telem:latlong" | "source" | "has" // FIXME: all the props
+
+PROPNAME: PROPS | UNIVNAME
+
+UNIVNAME: ".seen" | ".created"
 
 CMDNAME: "help" | "iden" | "movetag" | "noderefs" | "sudo" | "limit" | "reindex" | "delnode" | "uniq" | "count"
     | "spin" | "graph" | "max" | "min" | "sleep" // FIXME: all the commands

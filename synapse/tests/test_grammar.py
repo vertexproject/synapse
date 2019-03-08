@@ -943,6 +943,7 @@ class GrammarTest(s_t_utils.SynTest):
                 raise
 
     async def test_parser(self):
+        self.maxDiff = None
         async with self.getTestCore() as core:
 
             parseinfo = {
@@ -951,7 +952,7 @@ class GrammarTest(s_t_utils.SynTest):
             }
             # import IPython; IPython.embed()
             for i, query in enumerate(_Queries):
-                if i < 167:
+                if i < 0:
                     continue
                 print(f'{i:3}: {{{query}}}: ', end='')
                 if i > 170:

@@ -43,6 +43,7 @@ terminalClassMap = {
     'CMDNAME': s_ast.Const,
     'VARTOKN': s_ast.Const,
     'ABSPROP': s_ast.AbsProp,
+    'ABSPROPNOUNIV': s_ast.AbsProp,
     'NONCMDQUOTE': s_ast.Const,
     'FILTPREFIX': s_ast.Const,
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # no quotes
