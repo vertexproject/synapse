@@ -1278,7 +1278,8 @@ class TagCond(Cond):
         # Allow for a user to ask for #* to signify "any tags on this node"
         if name == '*':
             async def cond(node, path):
-                if node.tags:  # Check if the tags dictionary is even present
+                # Check if the tags dictionary has any members
+                if node.tags:
                     return True
                 return False
             return cond
