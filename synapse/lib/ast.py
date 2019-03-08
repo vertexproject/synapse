@@ -3,8 +3,6 @@ import logging
 import itertools
 import collections
 
-import regex
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 
