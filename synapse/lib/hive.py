@@ -532,6 +532,8 @@ class HiveDict(s_base.Base):
         self.hive = hive
         self.node = node
 
+        self.node.onfini(self)
+
     def get(self, name, onedit=None):
 
         # use hive.onedit() here to register for
@@ -728,6 +730,7 @@ class HiveRole(HiveIden):
     def pack(self):
         return {
             'type': 'role',
+            'iden': self.iden,
             'name': self.name,
             'rules': self.rules,
         }
@@ -763,7 +766,7 @@ class HiveUser(HiveIden):
             'name': self.name,
             'iden': self.node.name(),
             'rules': self.rules,
-            'roles': [r.name for r in self.getRoles()],
+            'roles': [r.iden for r in self.getRoles()],
             'admin': self.admin,
             'locked': self.locked,
         }
@@ -827,6 +830,10 @@ class HiveUser(HiveIden):
         if role is None:
             raise s_exc.NoSuchRole(name=name)
 
+        return await self.grantRole(role)
+
+    async def grantRole(self, role, indx=None):
+
         roles = list(self.roles)
         if role.iden in roles:
             return
@@ -843,6 +850,10 @@ class HiveUser(HiveIden):
         role = self.auth.rolesbyname.get(name)
         if role is None:
             raise s_exc.NoSuchRole(name=name)
+
+        return await self.revokeRole(role)
+
+    async def revokeRole(self, role):
 
         roles = list(self.roles)
         if role.iden not in roles:

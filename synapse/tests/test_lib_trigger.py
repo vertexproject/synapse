@@ -102,6 +102,11 @@ class TrigTest(s_t_utils.SynTest):
                 await s_common.aspin(await core.eval('[ testtype10=1 .testuniv=1 ]'))
                 await self.agenlen(1, await core.eval('testint=7'))
 
+                # Prop set form specific univ
+                await core.addTrigger('prop:set', '[ testint=8 ]', info={'prop': 'teststr.testuniv'})
+                await s_common.aspin(await core.eval('[ teststr=beep .testuniv=1 ]'))
+                await self.agenlen(1, await core.eval('testint=8'))
+
                 # Bad trigger parms
                 await self.asyncraises(s_exc.BadOptValu, core.addTrigger('nocond', 'testint=4', info={'form': 'teststr'}))
                 await self.asyncraises(s_exc.BadStormSyntax,
@@ -113,7 +118,7 @@ class TrigTest(s_t_utils.SynTest):
 
                 # Trigger list
                 triglist = await core.listTriggers()
-                self.len(8, triglist)
+                self.len(9, triglist)
 
                 # Delete trigger
                 buid = [b for b, r in triglist if r['cond'] == 'prop:set'][0]

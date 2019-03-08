@@ -1001,10 +1001,6 @@ class InetModule(s_module.CoreModule):
                         'ex': 'woot hostmaster'
                     }),
 
-                    ('inet:whois:regmail', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
-                        'doc': 'An association between a domain and a registrant email address.'
-                    }),
-
                     ('inet:whois:email', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
                         'doc': 'An email address associated with an FQDN via whois registration text.',
                     }),
@@ -1597,7 +1593,7 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('server', ('inet:server', {}), {
                             'ro': True,
-                            'doc': 'The file bytes for the SSL certificate.'
+                            'doc': 'The server that presented the SSL certificate.'
                         }),
                         ('server:ipv4', ('inet:ipv4', {}), {
                             'ro': True,
@@ -2198,17 +2194,6 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:whois:reg', {}, ()),
-
-                    ('inet:whois:regmail', {}, (
-                        ('fqdn', ('inet:fqdn', {}), {
-                            'ro': True,
-                            'doc': 'The domain associated with the registrant email address.'
-                        }),
-                        ('email', ('inet:email', {}), {
-                            'ro': True,
-                            'doc': 'The registrant email address associated with the domain.'
-                        }),
-                    )),
 
                     ('inet:whois:email', {}, (
                         ('fqdn', ('inet:fqdn', {}), {'ro': True,
