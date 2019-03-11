@@ -3,9 +3,6 @@ import asyncio
 import hashlib
 import pathlib
 
-import synapse.axon as s_axon
-import synapse.common as s_common
-
 import synapse.tests.utils as s_t_utils
 import synapse.tools.pullfile as s_pullfile
 
@@ -23,7 +20,6 @@ class TestPullFile(s_t_utils.SynTest):
 
             testbash = hashlib.sha256(b'test').digest()
             visibash = hashlib.sha256(b'visi').digest()
-            nonebash = hashlib.sha256(b'none').digest()
 
             self.eq(((4, visibash), (4, testbash)), await axon.puts([b'visi', b'test']))
 

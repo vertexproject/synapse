@@ -5,13 +5,11 @@ import tempfile
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
-import synapse.lib.queue as s_queue
 import synapse.lib.share as s_share
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
@@ -53,7 +51,7 @@ class UpLoad(s_base.Base):
             while True:
 
                 if self.isfini:
-                    raise IsFini()
+                    raise s_exc.IsFini()
 
                 byts = self.fd.read(CHUNK_SIZE)
                 if not byts:
@@ -113,7 +111,7 @@ class Axon(s_cell.Cell):
     cellapi = AxonApi
     confdefs = ()
 
-    async def __anit__(self, dirn: str, conf=None) -> None:  # type: ignore
+    async def __anit__(self, dirn, conf=None):
 
         await s_cell.Cell.__anit__(self, dirn)
 

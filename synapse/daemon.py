@@ -1,4 +1,3 @@
-import os
 import types
 import asyncio
 import logging
@@ -7,7 +6,6 @@ logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base

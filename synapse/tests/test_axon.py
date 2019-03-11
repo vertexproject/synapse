@@ -20,13 +20,9 @@ bbuf = b'0123456' * 4793491
 bbufhash = hashlib.sha256(bbuf).digest()
 asdfhash = hashlib.sha256(b'asdfasdf').digest()
 
-class AxonTest(s_t_utils.SynTest):
+asdfretn = (8, asdfhash)
 
-    @contextlib.asynccontextmanager
-    async def getTestAxon(self):
-        with self.getTestDir() as dirn:
-            async with await s_axon.Axon.anit(dirn) as axon:
-                yield axon
+class AxonTest(s_t_utils.SynTest):
 
     async def runAxonTestBase(self, axon):
 
@@ -36,7 +32,12 @@ class AxonTest(s_t_utils.SynTest):
 
         async with await axon.upload() as fd:
             await fd.write(b'asdfasdf')
-            await fd.save()
+            self.eq(asdfretn, await fd.save())
+
+        # do it again to test the short circuit
+        async with await axon.upload() as fd:
+            await fd.write(b'asdfasdf')
+            self.eq(asdfretn, await fd.save())
 
         bytz = []
         async for byts in axon.get(asdfhash):

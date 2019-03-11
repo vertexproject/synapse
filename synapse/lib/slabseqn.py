@@ -88,9 +88,6 @@ class SlabSeqn:
         '''
         Determine the next insert offset according to storage.
 
-        Args:
-            xact (lmdb.Transaction): An LMDB transaction.
-
         Returns:
             int: The next insert offset.
         '''

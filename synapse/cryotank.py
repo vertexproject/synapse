@@ -5,13 +5,11 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.kv as s_kv
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
-import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 
@@ -33,8 +31,8 @@ class TankApi(s_cell.CellApi):
     async def offset(self, iden):
         return self.cell.getOffset(iden)
 
-    def iden(self):
-        return self.cell.iden()
+    async def iden(self):
+        return await self.cell.iden()
 
 class CryoTank(s_base.Base):
     '''
@@ -44,10 +42,11 @@ class CryoTank(s_base.Base):
 
         await s_base.Base.__anit__(self)
 
-        self.dirn = s_common.gendir(dirn)
+        if conf is None:
+            conf = {}
 
-        if conf is not None:
-            self.conf.update(conf)
+        self.conf = conf
+        self.dirn = s_common.gendir(dirn)
 
         self._iden = self._getTankIden()
 
@@ -62,7 +61,7 @@ class CryoTank(s_base.Base):
 
         self.onfini(self.slab.fini)
 
-    def iden(self):
+    async def iden(self):
         return self._iden
 
     def _getTankIden(self):
