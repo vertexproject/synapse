@@ -33,6 +33,7 @@ ruleClassMap = {
     'formjoin_pivotout': lambda _: s_ast.PivotOut(isjoin=True),
     'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),
     'tagpropvalue': s_ast.TagPropValue,
+    'valuvar': s_ast.VarSetOper,
 }
 
 terminalClassMap = {
@@ -49,6 +50,7 @@ terminalClassMap = {
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # no quotes
     'UNIVPROP': s_ast.UnivProp,
     'TAGMATCH': lambda x: s_ast.TagMatch(x[1:]),  # no leading #
+    'VARDEREF': s_ast.VarDeref,
 }
 
 class AstConverter(lark.Transformer):
@@ -118,6 +120,11 @@ class AstConverter(lark.Transformer):
             breakpoint()
         varv = s_ast.VarValue(kids=[kids[0]])
         return varv
+
+    def varcall(self, kids):
+        assert len(kids) == 1
+        kids = self._convert_children(kids)
+        return s_ast.FuncCall(kids=kids)
 
     def operrelprop_pivot(self, kids):
         kids = self._convert_children(kids)
