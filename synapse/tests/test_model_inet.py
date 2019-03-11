@@ -1546,19 +1546,6 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    async def test_whois_regmail(self):
-        formname = 'inet:whois:regmail'
-        valu = ('wOOt.Com', 'visi@vertex.LINK')
-        expected_props = {
-            'fqdn': 'woot.com',
-            'email': 'visi@vertex.link',
-        }
-        expected_ndef = (formname, tuple(item.lower() for item in valu))
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode(formname, valu)
-                self.checkNode(node, (expected_ndef, expected_props))
-
     async def test_wifi_ap(self):
         formname = 'inet:wifi:ap'
         valu = ('The Best SSID2 ', '00:11:22:33:44:55')
