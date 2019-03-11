@@ -60,16 +60,16 @@ langcodes = (
     (0x2401, 'ar-YE'), # ARABIC_YEMEN
     (0x042B, 'hy-AM'), # ARMENIAN_ARMENIA
     (0x044D, 'as-IN'), # ASSAMESE_INDIA
-    (0x082C, 'az-Cyrl-AZ'), # AZERI_CYRILLIC
-    (0x042C, 'az-Latn-AZ'), # AZERI_LATIN
+    (0x082C, 'az-AZ-Cyrillic'), # AZERI_CYRILLIC
+    (0x042C, 'az-AZ-Latin'), # AZERI_LATIN
     (0x0445, 'bn-Bangledesh'), # BANGLA_BANGLADESH AND BANGLA_INDIA
     (0x0845, 'bn-IN'), # BANGLA_INDIA
     (0x046D, 'ba-RU'), # BASHKIR_RUSSIA
     (0x042D, 'Basque-Basque'), # BASQUE_BASQUE
     (0x0423, 'be-BY'), # BELARUSIAN_BELARUS
     (0x781A, 'bs-neutral'), # BOSNIAN NEUTRAL
-    (0x201A, 'bs-Cyrl-BA'), # BOSNIAN_BOSNIA_HERZEGOVINA_CYRILLIC
-    (0x141A, 'bs-Latn-BA'), # BOSNIAN_BOSNIA_HERZEGOVINA_LATIN
+    (0x201A, 'bs-BA-Cyrillic'), # BOSNIAN_BOSNIA_HERZEGOVINA_CYRILLIC
+    (0x141A, 'bs-BA-Latin'), # BOSNIAN_BOSNIA_HERZEGOVINA_LATIN
     (0x047E, 'br-FR'), # BRETON_FRANCE
     (0x0402, 'bg-BG'), # BULGARIAN_BULGARIA
     (0x0492, 'ku-IQ'), # CENTRAL_KURDISH_IRAQ
@@ -244,7 +244,6 @@ langcodes = (
     (0x0451, 'bo-CN'), # TIBETAN_PRC
     (0x0873, 'ti-ER'), # TIGRINYA_ERITREA
     (0x0473, 'ti-ET'), # TIGRINYA_ETHIOPIA
-    # (0x0873, 'tigrigna-eritrea'), # TIGRIGNA_ERITREA
     (0x041F, 'tr-TR'), # TURKISH_TURKEY
     (0x0442, 'tk-TM'), # TURKMEN_TURKMENISTAN
     (0x0422, 'uk-UA'), # UKRAINIAN_UKRAINE
@@ -252,8 +251,8 @@ langcodes = (
     (0x0820, 'ur-IN'), # URDU_INDIA
     (0x0420, 'ur-PK'), # URDU_PAKISTAN
     (0x0480, 'ug-CN'), # UIGHUR_PRC
-    (0x0843, 'uz-Cyrl-UZ'), # UZBEK_CYRILLIC
-    (0x0443, 'uz-Latn-UZ'), # UZBEK_LATIN
+    (0x0843, 'uz-UZ-Cyrillic'), # UZBEK_CYRILLIC
+    (0x0443, 'uz-UZ-Latin'), # UZBEK_LATIN
     (0x0803, 'ca-ES-Valencia'), # VALENCIAN_VALENCIA
     (0x042A, 'vi-VN'), # VIETNAMESE_VIETNAM
     (0x0452, 'cy-GB'), # WELSH_UNITED_KINGDOM
