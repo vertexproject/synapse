@@ -1580,6 +1580,9 @@ class CortexTest(s_t_utils.SynTest):
             core.onTagDel('foo.bar', ondel)
             core.onTagDel('foo.bar.baz', ondel)
 
+            core.onTagAdd('glob.*', onadd)
+            core.onTagDel('glob.*', ondel)
+
             async with await core.snap() as snap:
 
                 node = await snap.addNode('teststr', 'hehe')
@@ -1612,6 +1615,25 @@ class CortexTest(s_t_utils.SynTest):
                 # tag we never added a handler for.
                 core.offTagAdd('test.newp', lambda x: 0)
                 core.offTagDel('test.newp', lambda x: 0)
+
+                # Test tag glob handlers
+                await node.addTag('glob.foo', valu=(200, 300))
+                self.eq(tags.get('glob.foo'), (200, 300))
+
+                await node.delTag('glob.foo')
+                self.none(tags.get('glob.foo'))
+
+                await node.addTag('glob.foo.bar', valu=(200, 300))
+                self.none(tags.get('glob.foo.bar'))
+
+                # Test handlers don't run after removed
+                core.offTagAdd('glob.*', onadd)
+                core.offTagDel('glob.*', ondel)
+                await node.addTag('glob.faz', valu=(200, 300))
+                self.none(tags.get('glob.faz'))
+                tags['glob.faz'] = (1, 2)
+                await node.delTag('glob.faz')
+                self.eq(tags['glob.faz'], (1, 2))
 
     async def test_cortex_univ(self):
 
