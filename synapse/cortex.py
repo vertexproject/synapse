@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+import itertools
 import contextlib
 import collections
 
@@ -582,6 +583,8 @@ class Cortex(s_cell.Cell):
 
         self.ontagadds = collections.defaultdict(list)
         self.ontagdels = collections.defaultdict(list)
+        self.ontagaddglobs = s_cache.TagGlobs()
+        self.ontagdelglobs = s_cache.TagGlobs()
 
         self.libroot = (None, {}, {})
         self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
@@ -773,22 +776,29 @@ class Cortex(s_cell.Cell):
         Register a callback for tag addition.
 
         Args:
-            name (str): The name of the tag.
+            name (str): The name of the tag or tag glob.
             func (function): The callback func(node, tagname, tagval).
 
         '''
         # TODO allow name wild cards
-        self.ontagadds[name].append(func)
+        if '*' in name:
+            self.ontagaddglobs.add(name, func)
+        else:
+            self.ontagadds[name].append(func)
 
     def offTagAdd(self, name, func):
         '''
         Unregister a callback for tag addition.
 
         Args:
-            name (str): The name of the tag.
+            name (str): The name of the tag or tag glob.
             func (function): The callback func(node, tagname, tagval).
 
         '''
+        if '*' in name:
+            self.ontagaddglobs.rem(name, func)
+            return
+
         cblist = self.ontagadds.get(name)
         if cblist is None:
             return
@@ -802,22 +812,28 @@ class Cortex(s_cell.Cell):
         Register a callback for tag deletion.
 
         Args:
-            name (str): The name of the tag.
+            name (str): The name of the tag or tag glob.
             func (function): The callback func(node, tagname, tagval).
 
         '''
-        # TODO allow name wild cards
-        self.ontagdels[name].append(func)
+        if '*' in name:
+            self.ontagdelglobs.add(name, func)
+        else:
+            self.ontagdels[name].append(func)
 
     def offTagDel(self, name, func):
         '''
         Unregister a callback for tag deletion.
 
         Args:
-            name (str): The name of the tag.
+            name (str): The name of the tag or tag glob.
             func (function): The callback func(node, tagname, tagval).
 
         '''
+        if '*' in name:
+            self.ontagdelglobs.rem(name, func)
+            return
+
         cblist = self.ontagdels.get(name)
         if cblist is None:
             return
@@ -891,7 +907,9 @@ class Cortex(s_cell.Cell):
 
     async def runTagAdd(self, node, tag, valu):
 
-        for func in self.ontagadds.get(tag, ()):
+        # Run the non-glob callbacks, then the glob callbacks
+        funcs = itertools.chain(self.ontagadds.get(tag, ()), (x[1] for x in self.ontagaddglobs.get(tag)))
+        for func in funcs:
             try:
                 await s_coro.ornot(func, node, tag, valu)
             except asyncio.CancelledError as e:
@@ -899,11 +917,13 @@ class Cortex(s_cell.Cell):
             except Exception as e:
                 logger.exception('onTagAdd Error')
 
+        # Run any trigger handlers
         await self.triggers.runTagAdd(node, tag)
 
     async def runTagDel(self, node, tag, valu):
 
-        for func in self.ontagdels.get(tag, ()):
+        funcs = itertools.chain(self.ontagdels.get(tag, ()), (x[1] for x in self.ontagdelglobs.get(tag)))
+        for func in funcs:
             try:
                 await s_coro.ornot(func, node, tag, valu)
             except asyncio.CancelledError as e:
