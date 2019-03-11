@@ -1,7 +1,9 @@
 import types
 import asyncio
 import logging
+import weakref
 import contextlib
+import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -66,7 +68,8 @@ class Snap(s_base.Base):
         self.write = False      # True when the snap has a write lock on a layer.
 
         self.tagcache = s_cache.FixedCache(self._addTagNode, size=10000)
-        self.buidcache = s_cache.FixedCache(self._getNodeByBuid, size=100000)
+        self.buidcache = collections.deque(maxlen=100000)  # Keeps alive the most recently accessed node objects
+        self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
 
         self.onfini(self.stack.close)
         self.changelog = []
@@ -142,7 +145,26 @@ class Snap(s_base.Base):
             Optional[s_node.Node]: The node object or None.
 
         '''
-        return await self.buidcache.aget(buid)
+        node = self.livenodes.get(buid)
+        if node is not None:
+            return node
+
+        props = {}
+        for layr in self.layers:
+            layerprops = await layr.getBuidProps(buid)
+            props.update(layerprops)
+
+        node = s_node.Node(self, buid, props.items())
+
+        # Give other tasks a chance to run
+        await asyncio.sleep(0)
+
+        if node.ndef is None:
+            return None
+
+        self.buidcache.append(node)
+        self.livenodes[buid] = node
+        return node
 
     async def getNodeByNdef(self, ndef):
         '''
@@ -587,7 +609,7 @@ class Snap(s_base.Base):
                 await asyncio.sleep(0)  # give other tasks some time
             props = {}
             buid = row[0]
-            node = self.buidcache.cache.get(buid)
+            node = self.livenodes.get(buid)
             # Evaluate layers top-down to more quickly abort if we've found a higher layer with the property set
             for layeridx in range(len(self.layers) - 1, -1, -1):
                 layr = self.layers[layeridx]
@@ -603,35 +625,23 @@ class Snap(s_base.Base):
                             props[k] = v
             if props is None:
                 continue
+
             if node is None:
                 node = s_node.Node(self, buid, props.items())
-                if node and node.ndef is not None:
-                    self.buidcache.put(buid, node)
+                if node.ndef is None:
+                    continue
+                self.livenodes[buid] = node
 
-            if node.ndef is not None:
-                if cmpr:
-                    if rawprop == node.form.name:
-                        valu = node.ndef[1]
-                    else:
-                        valu = node.get(rawprop)
-                    if valu is None:
-                        # cmpr required to evaluate something; cannot know if this
-                        # node is valid or not without the prop being present.
-                        continue
-                    if not cmpr(valu):
-                        continue
+            if cmpr:
+                if rawprop == node.form.name:
+                    valu = node.ndef[1]
+                else:
+                    valu = node.get(rawprop)
+                if valu is None:
+                    # cmpr required to evaluate something; cannot know if this
+                    # node is valid or not without the prop being present.
+                    continue
+                if not cmpr(valu):
+                    continue
 
-                yield row, node
-
-    async def _getNodeByBuid(self, buid):
-        props = {}
-        for layr in self.layers:
-            layerprops = await layr.getBuidProps(buid)
-            props.update(layerprops)
-
-        node = s_node.Node(self, buid, props.items())
-
-        # Give other tasks a chance to run
-        await asyncio.sleep(0)
-
-        return None if node.ndef is None else node
+            yield row, node

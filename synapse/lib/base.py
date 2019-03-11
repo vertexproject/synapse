@@ -551,38 +551,6 @@ class Base:
         '''
         return Waiter(self, count, self.loop, *names)
 
-    # async def log(self, level, mesg, **info):
-    #     '''
-    #     Implements the log event convention for a Base.
-
-    #     Args:
-    #         level (int):  A python logger level for the event
-    #         mesg (str):   A log message
-    #         **info:       Additional log metadata
-
-    #     '''
-    #     info['time'] = s_common.now()
-    #     info['host'] = s_thishost.get('hostname')
-
-    #     info['level'] = level
-    #     info['class'] = self.__class__.__name__
-
-    #     await self.fire('log', mesg=mesg, **info)
-
-    # async def exc(self, exc, **info):
-    #     '''
-    #     Implements the exception log convention for Base.
-    #     A caller is expected to be within the except frame.
-
-    #     Args:
-    #         exc (Exception):    The exception to log
-
-    #     Returns:
-    #         None
-    #     '''
-    #     info.update(s_common.excinfo(exc))
-    #     await self.log(logging.ERROR, str(exc), **info)
-
 class Waiter:
     '''
     A helper to wait for a given number of events on a Base.

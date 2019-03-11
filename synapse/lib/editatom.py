@@ -100,7 +100,8 @@ class EditAtom:
 
         for node in self.mybldgbuids.values():
             snap.core.pokeFormCount(node.form.name, 1)
-            snap.buidcache.put(node.buid, node)
+            snap.buidcache.append(node)
+            snap.livenodes[node.buid] = node
 
         await self.rendevous()
 
