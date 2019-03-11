@@ -17,9 +17,9 @@ class TrigTest(s_t_utils.SynTest):
                 triggers = core.triggers.list()
                 self.eq(triggers[0][1].get('storm'), '[inet:user=1] | testcmd')
                 iden = triggers[0][0]
-                core.triggers.mod(iden, '[inet:user=2] | testcmd')
+                core.triggers.mod(iden, '[inet:user=2 .test:univ=4] | testcmd')
                 triggers = core.triggers.list()
-                self.eq(triggers[0][1].get('storm'), '[inet:user=2] | testcmd')
+                self.eq(triggers[0][1].get('storm'), '[inet:user=2 .test:univ=4] | testcmd')
 
                 # Sad case
                 self.raises(s_exc.BadStormSyntax, core.triggers.mod, iden, ' | | badstorm ')
@@ -27,7 +27,8 @@ class TrigTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=fdir) as core:
                 triggers = core.triggers.list()
-                self.eq(triggers[0][1].get('storm'), '[inet:user=2] | testcmd')
+                self.len(1, triggers)
+                self.eq(triggers[0][1].get('storm'), '[inet:user=2 .test:univ=4] | testcmd')
 
     async def test_trigger_basics(self):
 
@@ -51,12 +52,16 @@ class TrigTest(s_t_utils.SynTest):
                 await self.agenlen(3, await core.eval('testint'))
 
                 # tag:add globbing and storm var
-                await core.addTrigger('tag:add', 'sudo | [ +#count teststr=$tag ]', info={'tag': 'a.*.c'})
-                await s_common.aspin(await core.eval('sudo | [ teststr=foo +#a.b ]'))
-                await s_common.aspin(await core.eval('sudo | [ teststr=foo +#a.b.c ]'))
-                await s_common.aspin(await core.eval('sudo | [ teststr=foo +#a.b.ccc ]'))
+                await core.addTrigger('tag:add', '[ +#count teststr=$tag ]', info={'tag': 'a.*.c'})
+                await s_common.aspin(await core.eval('[ teststr=foo +#a.b ]'))
+                await s_common.aspin(await core.eval('[ teststr=foo +#a.b.c ]'))
+                await s_common.aspin(await core.eval('[ teststr=foo +#a.b.ccc ]'))
                 await self.agenlen(1, await core.eval('#count'))
                 await self.agenlen(1, await core.eval('teststr=a.b.c'))
+
+                await core.addTrigger('tag:add', '[ +#count teststr=$tag ]', info={'tag': 'foo.**.baz'})
+                await s_common.aspin(await core.eval('[ teststr=foo +#foo.1.2.3.baz ]'))
+                await self.agenlen(1, await core.eval('teststr=foo.1.2.3.baz'))
 
                 # tag:del case
                 await core.addTrigger('tag:del', '[ testint=4 ]', info={'tag': 'footag'})
@@ -90,18 +95,37 @@ class TrigTest(s_t_utils.SynTest):
                 await s_common.aspin(await core.eval('[ testtype10=1 :intprop=25 ]'))
                 await self.agenlen(0, await core.eval('testint=6'))
 
+                # Prop set univ
+                await core.addTrigger('prop:set', '[ testint=7 ]', info={'prop': '.test:univ'})
+                await s_common.aspin(await core.eval('[ testtype10=1 .test:univ=1 ]'))
+                await self.agenlen(1, await core.eval('testint=7'))
+
+                # Prop set form specific univ
+                await core.addTrigger('prop:set', '[ testint=8 ]', info={'prop': 'teststr.test:univ'})
+                await s_common.aspin(await core.eval('[ teststr=beep .test:univ=1 ]'))
+                await self.agenlen(1, await core.eval('testint=8'))
+
                 # Bad trigger parms
-                await self.asyncraises(s_exc.BadOptValu, core.addTrigger('nocond', 'testint=4', info={'form': 'teststr'}))
+                await self.asyncraises(s_exc.BadOptValu, core.addTrigger('nocond', 'testint=4',
+                                                                         info={'form': 'teststr'}))
                 await self.asyncraises(s_exc.BadStormSyntax,
                                        core.addTrigger('node:add', ' | | badstorm ', info={'form': 'teststr'}))
                 await self.asyncraises(s_exc.BadOptValu,
                                        core.addTrigger('node:add', 'testint=4', info={'form': 'teststr', 'tag': 'foo'}))
                 await self.asyncraises(s_exc.BadOptValu,
-                                       core.addTrigger('prop:set', 'testint=4', info={'form': 'teststr', 'prop': 'foo'}))
+                                       core.addTrigger('prop:set', 'testint=4',
+                                                       info={'form': 'teststr', 'prop': 'foo'}))
+                await self.asyncraises(s_exc.BadOptValu,
+                                       core.addTrigger('tag:add', '[ +#count teststr=$tag ]', info={}))
+                await self.asyncraises(s_exc.BadOptValu, core.addTrigger('tag:add', '[ +#count teststr=$tag ]',
+                                                                         info={'tag': 'foo', 'prop': 'teststr'}))
+                # bad tagmatch
+                await self.asyncraises(s_exc.BadTag,
+                                       core.addTrigger('tag:add', '[ +#count teststr=$tag ]', info={'tag': 'foo&baz'}))
 
                 # Trigger list
                 triglist = await core.listTriggers()
-                self.len(7, triglist)
+                self.len(10, triglist)
 
                 # Delete trigger
                 buid = [b for b, r in triglist if r['cond'] == 'prop:set'][0]

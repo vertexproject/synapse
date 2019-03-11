@@ -151,13 +151,13 @@ class SynModelTest(s_t_utils.SynTest):
 
             # Ensure that we can filter / pivot across the model nodes
             nodes = await core.eval('syn:form=testcomp -> syn:prop:form').list()
-            # form is a prop, two universal properties and two model secondary properties.
-            self.len(1 + 2 + 2, nodes)
+            # form is a prop, two universal properties (+1 test univ) and two model secondary properties.
+            self.len(1 + 2 + 1 + 2, nodes)
 
             # Go from a syn:type to a syn:form to a syn:prop with a filter
             q = 'syn:type:subof=comp +syn:type:doc~=".*fake.*" -> syn:form:type -> syn:prop:form'
             nodes = await core.eval(q).list()
-            self.len(1 + 2 + 2, nodes)
+            self.len(1 + 2 + 1 + 2, nodes)
 
             # Some forms inherit from a single type
             nodes = await core.eval('syn:type="inet:addr" -> syn:type:subof').list()

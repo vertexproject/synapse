@@ -69,6 +69,97 @@ class Offs:
         byts = offs.to_bytes(length=8, byteorder='big')
         self.slab.put(buid, byts, db=self.db)
 
+class SlabDict:
+    '''
+    A dictionary-like object which stores it's props in a slab via a prefix.
+
+    It is assumed that only one SlabDict with a given prefix exists at any given
+    time, but it is up to the caller to cache them.
+    '''
+    def __init__(self, slab, db=None, pref=b''):
+        self.db = db
+        self.slab = slab
+        self.pref = pref
+        self.info = self._getPrefProps(pref)
+
+    def _getPrefProps(self, bidn):
+
+        size = len(bidn)
+
+        props = {}
+        for lkey, lval in self.slab.scanByPref(bidn, db=self.db):
+            name = lkey[size:].decode('utf8')
+            props[name] = s_msgpack.un(lval)
+
+        return props
+
+    def items(self):
+        '''
+        Return a tuple of (prop, valu) tuples from the SlabDict.
+
+        Returns:
+            (((str, object), ...)): Tuple of (name, valu) tuples.
+        '''
+        return tuple(self.info.items())
+
+    def get(self, name, defval=None):
+        '''
+        Get a name from the SlabDict.
+
+        Args:
+            name (str): The key name.
+            defval (obj): The default value to return.
+
+        Returns:
+            (obj): The return value, or None.
+        '''
+        return self.info.get(name, defval)
+
+    def set(self, name, valu):
+        '''
+        Set a name in the SlabDict.
+
+        Args:
+            name (str): The key name.
+            valu (obj): A msgpack compatible value.
+
+        Returns:
+            None
+        '''
+        byts = s_msgpack.en(valu)
+        lkey = self.pref + name.encode('utf8')
+        self.slab.put(lkey, byts, db=self.db)
+        self.info[name] = valu
+
+    def pop(self, name, defval=None):
+        '''
+        Pop a name from the SlabDict.
+
+        Args:
+            name (str): The name to remove.
+            defval (obj): The default value to return if the name is not present.
+
+        Returns:
+            object: The object stored in the SlabDict, or defval if the object was not present.
+        '''
+        valu = self.info.pop(name, defval)
+        lkey = self.pref + name.encode('utf8')
+        self.slab.pop(lkey, db=self.db)
+        return valu
+
+class GuidStor:
+
+    def __init__(self, slab, name):
+
+        self.slab = slab
+        self.name = name
+
+        self.db = self.slab.initdb(name)
+
+    def gen(self, iden):
+        bidn = s_common.uhex(iden)
+        return SlabDict(self.slab, db=self.db, pref=bidn)
+
 class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
@@ -110,8 +201,6 @@ class Slab(s_base.Base):
 
         self.scans = set()
 
-        self.holders = 0
-
         self.dirty = False
         if self.readonly:
             self.xact = None
@@ -148,8 +237,7 @@ class Slab(s_base.Base):
             if self.isfini:
                 # There's no reason to forcecommit on fini, because there's a separate handler to already do that
                 break
-            if self.holders == 0:
-                self.forcecommit()
+            self.forcecommit()
 
     async def _onCoFini(self):
         assert s_glob.iAmLoop()
@@ -208,11 +296,13 @@ class Slab(s_base.Base):
         return self.mapsize
 
     def initdb(self, name, dupsort=False):
-
         with self._noCoXact():
-            db = self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
-
-        return _LmdbDatabase(db, dupsort)
+            while True:
+                try:
+                    db = self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
+                    return _LmdbDatabase(db, dupsort)
+                except lmdb.MapFullError:
+                    self._growMapSize()
 
     @contextlib.contextmanager
     def _noCoXact(self):
@@ -406,31 +496,15 @@ class Slab(s_base.Base):
     def delete(self, lkey, val=None, db=None):
         return self._xact_action(self.delete, lmdb.Transaction.delete, lkey, val, db=db)
 
-    def put(self, lkey, lval, dupdata=False, db=None):
-        return self._xact_action(self.put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, db=db)
+    def put(self, lkey, lval, dupdata=False, overwrite=True, db=None):
+        return self._xact_action(self.put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, overwrite=overwrite,
+                                 db=db)
 
     def replace(self, lkey, lval, db=None):
         '''
         Like put, but returns the previous value if existed
         '''
         return self._xact_action(self.replace, lmdb.Transaction.replace, lkey, lval, db=db)
-
-    @contextlib.contextmanager
-    def synchold(self):
-        '''
-        Hold this across small/fast multi-writes to delay commit evaluation.
-        This allows commit() boundaries to occur when the underlying db is coherent.
-
-        Example:
-
-            with dude.writer():
-                dude.put(foo, bar)
-                dude.put(baz, faz)
-
-        '''
-        self.holders += 1
-        yield None
-        self.holders -= 1
 
     def forcecommit(self):
         '''

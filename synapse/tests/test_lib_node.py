@@ -95,11 +95,6 @@ class NodeTest(s_t_utils.SynTest):
                 self.eq(node.get('#cool'), (1, 2))
                 self.none(node.get('#newp'))
 
-                # FIXME:  disabled implicit pivot temporarily
-                # self.raises(s_exc.NoSuchProp, node.get, 'neat::tick')  # implicit pivot from neat (not a prop) to tick
-                # self.raises(s_exc.NoSuchForm, node.get, 'tick::tick')  # implicit pivot from neat to tick (not a form)
-                # self.none(node.get('bar::bar'))  # implicit piviot from bar to bar
-
     async def test_pop(self):
         form = 'teststr'
         valu = 'cool'

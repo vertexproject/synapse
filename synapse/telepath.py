@@ -82,7 +82,8 @@ class Share(s_base.Base):
             return
 
         mesg = ('share:fini', {'share': self.iden})
-        await self.proxy.link.tx(mesg)
+        if not self.proxy.link.isfini:
+            await self.proxy.link.tx(mesg)
 
     def __getattr__(self, name):
         meth = Method(self.proxy, name, share=self.iden)

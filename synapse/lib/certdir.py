@@ -868,6 +868,20 @@ class CertDir:
 
         return sslctx
 
+    def saveCertPem(self, cert, path):
+        '''
+        Save a certificate in PEM format to a file outside the certdir.
+        '''
+        with s_common.genfile(path) as fd:
+            fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+
+    def savePkeyPem(self, pkey, path):
+        '''
+        Save a private key in PEM format to a file outside the certdir.
+        '''
+        with s_common.genfile(path) as fd:
+            fd.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
+
     def _checkDupFile(self, path):
         if os.path.isfile(path):
             raise s_exc.DupFileName(path=path)

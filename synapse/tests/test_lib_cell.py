@@ -1,3 +1,7 @@
+import json
+import aiohttp
+import contextlib
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.daemon as s_daemon
@@ -112,3 +116,21 @@ class CellTest(s_t_utils.SynTest):
 
                 url = f'tcp://root@127.0.0.1:{port}/'
                 await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
+
+        # Ensure the cell and its auth have been fini'd
+        self.true(item.isfini)
+        self.true(item.auth.isfini)
+        self.true(item.auth.getUserByName('root').isfini)
+        self.true(item.auth.getUserByName('pennywise').isfini)
+
+    async def test_longpath(self):
+        # This is similar to the DaemonTest::test_unixsock_longpath
+        # but exercises the long-path failure inside of the cell's daemon
+        # instead.
+        with self.getTestDir() as dirn:
+            extrapath = 108 * 'A'
+            longdirn = s_common.genpath(dirn, extrapath)
+            with self.getAsyncLoggerStream('synapse.lib.cell', 'LOCAL UNIX SOCKET WILL BE UNAVAILABLE') as stream:
+                async with await s_cell.Cell.anit(longdirn) as cell:
+                    self.none(cell.dmon.addr)
+                self.true(await stream.wait(1))

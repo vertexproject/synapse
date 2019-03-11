@@ -1,3 +1,4 @@
+import copy
 import time
 import asyncio
 import unittest
@@ -9,6 +10,7 @@ import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
@@ -251,7 +253,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, data[1])
             self.eq(data[1][0], 'node:add')
             self.eq(data[1][1].get('ndef'), ('teststr', 'teehee'))
-            self.eq(data[1][1].get('user'), '?')
+            self.nn(data[1][1].get('user'))
             self.ge(data[1][1].get('time'), 0)
 
             data = slices[1]
@@ -262,7 +264,7 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(data[1][1].get('prop'), '.created')
             self.ge(data[1][1].get('valu'), 0)
             self.none(data[1][1].get('oldv'))
-            self.eq(data[1][1].get('user'), '?')
+            self.nn(data[1][1].get('user'))
             self.ge(data[1][1].get('time'), 0)
 
     async def test_splice_sync(self):
@@ -315,6 +317,11 @@ class CortexTest(s_t_utils.SynTest):
 
                 node = await snap.addNode('inet:ipv4', '1.2.3.4')
                 self.eq(node, arg_hit.get('hit'))
+
+                arg_hit['hit'] = None
+                core.model.form('inet:ipv4').offAdd(testcb)
+                node = await snap.addNode('inet:ipv4', '1.2.3.5')
+                self.none(arg_hit.get('hit'))
 
     async def test_adddata(self):
 
@@ -723,7 +730,7 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.BadOptValu, core.eval('%limit=asdf'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('teststr*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('teststr +teststr@=2018'))
-            await self.agenraises(s_exc.NoSuchCmpr, core.eval('teststr +#test*near=newp'))
+            await self.agenraises(s_exc.BadStormSyntax, core.eval('teststr +#test*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('teststr +teststr:tick*near=newp'))
             await self.agenraises(s_exc.BadStormSyntax, core.eval(' | | '))
             await self.agenraises(s_exc.BadStormSyntax, core.eval('[-teststr]'))
@@ -814,12 +821,13 @@ class CortexTest(s_t_utils.SynTest):
             await alist(core.eval('teststr [-:tick]'))
             await alist(core.eval('teststr | delnode --force'))
 
-            _splices = await alist(core.layer.splices(0, 10000))
+            _splices = await alist(core.view.layers[0].splices(0, 10000))
             splices = []
             # strip out user and time
             for splice in _splices:
                 splice[1].pop('user', None)
                 splice[1].pop('time', None)
+                splice[1].pop('prov', None)
                 splices.append(splice)
 
             # Ensure the splices are unique
@@ -1588,6 +1596,11 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            # Ensure that the test model loads a univ property
+            prop = core.model.prop('.test:univ')
+            self.isinstance(prop, s_datamodel.Univ)
+
+            # Add a univprop directly via API for testing
             core.model.addUnivProp('hehe', ('int', {}), {})
 
             await self.agenlen(1, core.eval('[ teststr=woot .hehe=20 ]'))
@@ -2506,3 +2519,30 @@ class CortexTest(s_t_utils.SynTest):
 
             core.view.borked = None
             self.len(1, await core.eval('[ teststr=foo ]').list())
+
+    async def test_tag_globbing(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('teststr', 'n1')
+                await node.addTag('foo.bar.baz', (None, None))
+
+                node = await snap.addNode('teststr', 'n2')
+                await node.addTag('foo.bad.baz', (None, None))
+
+                node = await snap.addNode('teststr', 'n3')  # No tags on him
+
+            # Setup worked correct
+            self.len(3, await core.eval('teststr').list())
+            self.len(2, await core.eval('teststr +#foo').list())
+
+            # Now test globbing - exact match for *
+            self.len(2, await core.eval('teststr +#*').list())
+            self.len(1, await core.eval('teststr -#*').list())
+
+            # Now test globbing - single star matches one tag level
+            self.len(2, await core.eval('teststr +#foo.*.baz').list())
+            self.len(1, await core.eval('teststr +#*.bad').list())
+            # Double stars matches a whole lot more!
+            self.len(2, await core.eval('teststr +#foo.**.baz').list())
+            self.len(1, await core.eval('teststr +#**.bar.baz').list())
+            self.len(2, await core.eval('teststr +#**.baz').list())

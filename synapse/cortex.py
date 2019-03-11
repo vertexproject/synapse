@@ -27,9 +27,11 @@ import synapse.lib.storm as s_storm
 import synapse.lib.syntax as s_syntax
 import synapse.lib.agenda as s_agenda
 import synapse.lib.trigger as s_trigger
+import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.lmdblayer as s_lmdblayer
+import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 import synapse.lib.remotelayer as s_remotelayer
 
@@ -83,12 +85,12 @@ class View(s_base.Base):
 
             self.layers.append(layr)
 
-    async def snap(self):
+    async def snap(self, user):
 
         if self.borked is not None:
             raise s_exc.NoSuchLayer(iden=self.borked)
 
-        return await s_snap.Snap.anit(self.core, self.layers)
+        return await s_snap.Snap.anit(self.core, self.layers, user)
 
     def pack(self):
         return {
@@ -192,7 +194,7 @@ class CoreApi(s_cell.CellApi):
         '''
         return self.cell.getCoreInfo()
 
-    async def addTrigger(self, condition, query, *, info):
+    async def addTrigger(self, condition, query, info):
         '''
         Adds a trigger to the cortex
         '''
@@ -327,13 +329,14 @@ class CoreApi(s_cell.CellApi):
         self._reqUserAllowed('tag:add', *parts)
 
         async with await self.cell.snap(user=self.user) as snap:
+            with s_provenance.claim('coreapi', meth='tag:add', user=snap.user.iden):
 
-            node = await snap.getNodeByBuid(buid)
-            if node is None:
-                raise s_exc.NoSuchIden(iden=iden)
+                node = await snap.getNodeByBuid(buid)
+                if node is None:
+                    raise s_exc.NoSuchIden(iden=iden)
 
-            await node.addTag(tag, valu=valu)
-            return node.pack()
+                await node.addTag(tag, valu=valu)
+                return node.pack()
 
     async def delNodeTag(self, iden, tag):
         '''
@@ -349,37 +352,41 @@ class CoreApi(s_cell.CellApi):
         self._reqUserAllowed('tag:del', *parts)
 
         async with await self.cell.snap(user=self.user) as snap:
+            with s_provenance.claim('coreapi', meth='tag:del', user=snap.user.iden):
 
-            node = await snap.getNodeByBuid(buid)
-            if node is None:
-                raise s_exc.NoSuchIden(iden=iden)
+                node = await snap.getNodeByBuid(buid)
+                if node is None:
+                    raise s_exc.NoSuchIden(iden=iden)
 
-            await node.delTag(tag)
-            return node.pack()
+                await node.delTag(tag)
+                return node.pack()
 
     async def setNodeProp(self, iden, name, valu):
 
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
+            with s_provenance.claim('coreapi', meth='prop:set', user=snap.user.iden):
 
-            node = await snap.getNodeByBuid(buid)
-            if node is None:
-                raise s_exc.NoSuchIden(iden=iden)
+                node = await snap.getNodeByBuid(buid)
+                if node is None:
+                    raise s_exc.NoSuchIden(iden=iden)
 
-            prop = node.form.props.get(name)
-            self._reqUserAllowed('prop:set', prop.full)
+                prop = node.form.props.get(name)
+                self._reqUserAllowed('prop:set', prop.full)
 
-            await node.set(name, valu)
-            return node.pack()
+                await node.set(name, valu)
+                return node.pack()
 
     async def addNode(self, form, valu, props=None):
 
         self._reqUserAllowed('node:add', form)
 
         async with await self.cell.snap(user=self.user) as snap:
-            node = await snap.addNode(form, valu, props=props)
-            return node.pack()
+            with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
+
+                node = await snap.addNode(form, valu, props=props)
+                return node.pack()
 
     async def addNodes(self, nodes):
         '''
@@ -406,23 +413,26 @@ class CoreApi(s_cell.CellApi):
             done[formname] = True
 
         async with await self.cell.snap(user=self.user) as snap:
+            with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
 
-            snap.strict = False
+                snap.strict = False
 
-            async for node in snap.addNodes(nodes):
+                async for node in snap.addNodes(nodes):
 
-                if node is not None:
-                    node = node.pack()
+                    if node is not None:
+                        node = node.pack()
 
-                yield node
+                    yield node
 
     async def addFeedData(self, name, items, seqn=None):
 
         self._reqUserAllowed('feed:data', *name.split('.'))
 
-        async with await self.cell.snap(user=self.user) as snap:
-            snap.strict = False
-            return await snap.addFeedData(name, items, seqn=seqn)
+        with s_provenance.claim('feed:data', name=name):
+
+            async with await self.cell.snap(user=self.user) as snap:
+                snap.strict = False
+                return await snap.addFeedData(name, items, seqn=seqn)
 
     def getFeedOffs(self, iden):
         return self.cell.getFeedOffs(iden)
@@ -474,6 +484,30 @@ class CoreApi(s_cell.CellApi):
             if not count % 1000:
                 await asyncio.sleep(0)
             yield mesg
+
+    @s_cell.adminapi
+    async def provStacks(self, offs, size):
+        '''
+        Return stream of (iden, provenance stack) tuples at the given offset.
+        '''
+        count = 0
+        async for iden, stack in self.cell.layer.provStacks(offs, size):
+            count += 1
+            if not count % 1000:
+                await asyncio.sleep(0)
+            yield s_common.ehex(iden), stack
+
+    @s_cell.adminapi
+    async def getProvStack(self, iden: str):
+        '''
+        Return the providence stack associated with the given iden.
+
+        Args:
+            iden (str):  the iden from splice
+
+        Note: the iden appears on each splice entry as the 'prov' property
+        '''
+        return await self.cell.layer.getProvStack(s_common.uhex(iden))
 
 class Cortex(s_cell.Cell):
     '''
@@ -540,21 +574,71 @@ class Cortex(s_cell.Cell):
 
         self.views = {}
         self.layers = {}
-
-        self.layrctors = {
-            'lmdb': s_lmdblayer.LmdbLayer,
-            'remote': s_remotelayer.RemoteLayer,
-        }
-
+        self.counts = {}
         self.modules = {}
+        self.splicers = {}
+        self.layrctors = {}
         self.feedfuncs = {}
-
         self.stormcmds = {}
         self.stormrunts = {}
+
+        self._runtLiftFuncs = {}
+        self._runtPropSetFuncs = {}
+        self._runtPropDelFuncs = {}
+
+        self.ontagadds = collections.defaultdict(list)
+        self.ontagdels = collections.defaultdict(list)
 
         self.libroot = (None, {}, {})
         self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
 
+        self._initSplicers()
+        self._initStormCmds()
+        self._initStormLibs()
+        self._initFeedFuncs()
+        self._initFormCounts()
+        self._initLayerCtors()
+        self._initCortexHttpApi()
+
+        self.model = s_datamodel.Model()
+
+        # Perform module loading
+        mods = list(s_modules.coremods)
+        mods.extend(self.conf.get('modules'))
+        await self._loadCoreMods(mods)
+
+        # Initialize our storage and views
+        await self._initCoreLayers()
+        await self._checkLayerModels()
+        await self._initCoreViews()
+
+        async def fini():
+            await asyncio.gather(*[view.fini() for view in self.views.values()])
+            await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
+
+        self.onfini(fini)
+
+        # our "main" view has the same iden as we do
+        self.view = self.views.get(self.iden)
+
+        self.triggers = s_trigger.Triggers(self)
+        self.agenda = await s_agenda.Agenda.anit(self)
+        self.onfini(self.agenda)
+
+        if self.conf.get('cron:enable'):
+            await self.agenda.enable()
+
+        await self._initCoreMods()
+
+        # Initialize free-running tasks.
+        self._initCryoLoop()
+        self._initPushLoop()
+        self._initFeedLoops()
+
+    def _initStormCmds(self):
+        '''
+        Registration for built-in Storm commands.
+        '''
         self.addStormCmd(s_storm.MaxCmd)
         self.addStormCmd(s_storm.MinCmd)
         self.addStormCmd(s_storm.HelpCmd)
@@ -571,65 +655,51 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.ReIndexCmd)
         self.addStormCmd(s_storm.NoderefsCmd)
 
+    def _initStormLibs(self):
+        '''
+        Registration for built-in Storm Libraries
+        '''
         self.addStormLib(('time',), s_stormtypes.LibTime)
 
-        self.splicers = {
+    def _initSplicers(self):
+        '''
+        Registration for splice handlers.
+        '''
+        splicers = {
+            'tag:add': self._onFeedTagAdd,
+            'tag:del': self._onFeedTagDel,
             'node:add': self._onFeedNodeAdd,
             'node:del': self._onFeedNodeDel,
             'prop:set': self._onFeedPropSet,
             'prop:del': self._onFeedPropDel,
-            'tag:add': self._onFeedTagAdd,
-            'tag:del': self._onFeedTagDel,
         }
+        self.splicers.update(**splicers)
 
+    def _initLayerCtors(self):
+        '''
+        Registration for built-in Layer ctors
+        '''
+        ctors = {
+            'lmdb': s_lmdblayer.LmdbLayer,
+            'remote': s_remotelayer.RemoteLayer,
+        }
+        self.layrctors.update(**ctors)
+
+    def _initFeedFuncs(self):
+        '''
+        Registration for built-in Cortex feed functions.
+        '''
         self.setFeedFunc('syn.nodes', self._addSynNodes)
         self.setFeedFunc('syn.splice', self._addSynSplice)
         self.setFeedFunc('syn.ingest', self._addSynIngest)
 
-        await self._initCoreLayers()
-        await self._checkLayerModels()
-
-        await self._initCoreViews()
-
-        async def fini():
-            await asyncio.gather(*[view.fini() for view in self.views.values()])
-            await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
-
-        self.onfini(fini)
-
-        # these may be used directly
-        self.model = s_datamodel.Model()
-
-        # our "main" view has the same iden as we do
-        self.view = self.views.get(self.iden)
-
-        self.ontagadds = collections.defaultdict(list)
-        self.ontagdels = collections.defaultdict(list)
-
-        self._runtLiftFuncs = {}
-        self._runtPropSetFuncs = {}
-        self._runtPropDelFuncs = {}
-
-        mods = list(s_modules.coremods)
-        mods.extend(self.conf.get('modules'))
-
-        await self._loadCoreMods(mods)
-
-        self._initFormCounts()
-
-        self.triggers = s_trigger.Triggers(self)
-
-        self.agenda = await s_agenda.Agenda.anit(self)
-        self.onfini(self.agenda)
-
-        if self.conf.get('cron:enable'):
-            await self.agenda.enable()
-
-        await self._initCoreMods()
-
-        self._initCryoLoop()
-        self._initPushLoop()
-        self._initFeedLoops()
+    def _initCortexHttpApi(self):
+        '''
+        Registration for built-in Cortex httpapi endpoints
+        '''
+        self.addHttpApi('/api/v1/storm', s_httpapi.StormV1, {'cell': self})
+        self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
+        self.addHttpApi('/api/v1/model/norm', s_httpapi.ModelNormV1, {'cell': self})
 
     async def getCellApi(self, link, user, path):
 
@@ -654,7 +724,6 @@ class Cortex(s_cell.Cell):
 
     def _initFormCounts(self):
 
-        self.counts = {}
         self.formcountdb = self.slab.initdb('form:counts')
 
         for lkey, lval in self.slab.scanByFull(db=self.formcountdb):
@@ -695,7 +764,7 @@ class Cortex(s_cell.Cell):
                 if count % fairiter == 0:
                     await asyncio.sleep(0)
                     # identity check for small integer
-                    if fairiter is 5 and tcount > 100000:
+                    if fairiter == 5 and tcount > 100000:
                         fairiter = 1000
 
             self.counts[name] = count
@@ -888,7 +957,7 @@ class Cortex(s_cell.Cell):
         Delete a cortex view by iden.
         '''
         if iden == self.iden:
-            raise SynErr(mesg='cannot delete the main view')
+            raise s_exc.SynErr(mesg='cannot delete the main view')
 
         view = self.views.pop(iden, None)
         if view is None:
@@ -982,7 +1051,6 @@ class Cortex(s_cell.Cell):
 
     async def _initCoreLayers(self):
 
-        dirn = s_common.gendir(self.dirn, 'layers')
         node = await self.hive.open(('cortex', 'layers'))
 
         # TODO eventually hold this and watch for changes
@@ -1317,9 +1385,6 @@ class Cortex(s_cell.Cell):
 
         await node.delTag(tag)
 
-    # def _addSynUndo(self, snap, items):
-        # TODO apply splices in reverse
-
     async def _addSynIngest(self, snap, items):
 
         for item in items:
@@ -1503,7 +1568,7 @@ class Cortex(s_cell.Cell):
 
     @s_coro.genrhelp
     async def iterStormPodes(self, text, opts=None, user=None):
-        synt = await self.boss.promote('storm', user=user, info={'query': text})
+        await self.boss.promote('storm', user=user, info={'query': text})
         async with await self.snap(user=user) as snap:
             async for pode in snap.iterStormPodes(text, opts=opts, user=user):
                 yield pode
@@ -1642,9 +1707,10 @@ class Cortex(s_cell.Cell):
         if view is None:
             view = self.view
 
-        snap = await self.view.snap()
-        if user is not None:
-            snap.setUser(user)
+        if user is None:
+            user = self.auth.getUserByName('root')
+
+        snap = await view.snap(user)
 
         return snap
 
@@ -1661,13 +1727,30 @@ class Cortex(s_cell.Cell):
 
         modu = self._loadCoreModule(ctor, conf=conf)
 
+        try:
+            await s_coro.ornot(modu.preCoreModule)
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception as e:
+            logger.exception(f'module preCoreModule failed: {ctor}')
+            self.modules.pop(ctor, None)
+            return
+
         mdefs = modu.getModelDefs()
         self.model.addDataModels(mdefs)
 
         cmds = modu.getStormCmds()
         [self.addStormCmd(c) for c in cmds]
 
-        await s_coro.ornot(modu.initCoreModule)
+        try:
+            await s_coro.ornot(modu.initCoreModule)
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception as e:
+            logger.exception(f'module initCoreModule failed: {ctor}')
+            self.modules.pop(ctor, None)
+            return
+
         await self.fire('core:module:load', module=ctor)
 
         return modu
@@ -1682,8 +1765,19 @@ class Cortex(s_cell.Cell):
         for ctor in ctors:
 
             modu = self._loadCoreModule(ctor)
-            if modu is not None:
-                mods.append(modu)
+            if modu is None:
+                continue
+
+            mods.append(modu)
+
+            try:
+                await s_coro.ornot(modu.preCoreModule)
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+            except Exception as e:
+                logger.exception(f'module preCoreModule failed: {ctor}')
+                self.modules.pop(ctor, None)
+                continue
 
             cmds.extend(modu.getStormCmds())
             mdefs.extend(modu.getModelDefs())
@@ -1693,16 +1787,15 @@ class Cortex(s_cell.Cell):
 
     async def _initCoreMods(self):
 
-        for name, modu in self.modules.items():
+        for ctor, modu in list(self.modules.items()):
 
             try:
                 await s_coro.ornot(modu.initCoreModule)
-
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover
                 raise
-
             except Exception as e:
-                logger.exception(f'module init failed: {name}')
+                logger.exception(f'module initCoreModule failed: {ctor}')
+                self.modules.pop(ctor, None)
 
     def _loadCoreModule(self, ctor, conf=None):
 

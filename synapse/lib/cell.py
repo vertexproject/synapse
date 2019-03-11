@@ -1,6 +1,13 @@
 import os
+import ssl
+import socket
+import asyncio
 import logging
 import contextlib
+
+import tornado.web as t_web
+import tornado.netutil as t_netutil
+import tornado.httpserver as t_httpserver
 
 import synapse.exc as s_exc
 
@@ -12,6 +19,8 @@ import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.hive as s_hive
 import synapse.lib.compat as s_compat
+import synapse.lib.certdir as s_certdir
+import synapse.lib.httpapi as s_httpapi
 
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -190,7 +199,13 @@ class CellApi(s_base.Base):
         An admin only API endpoint for getting user info.
         '''
         item = self._getAuthItem(name)
-        return (name, item.pack())
+        pack = item.pack()
+
+        # translate role guids to names for back compat
+        if pack.get('type') == 'user':
+            pack['roles'] = [self.cell.auth.role(r).name for r in pack['roles']]
+
+        return (name, pack)
 
     def _getAuthItem(self, name):
         user = self.cell.auth.getUserByName(name)
@@ -237,8 +252,8 @@ class Cell(s_base.Base, s_telepath.Aware):
     cellapi = CellApi
 
     # config options that are in all cells...
-    confbase = ()
     confdefs = ()
+    confbase = ()
 
     async def __anit__(self, dirn, conf=None, readonly=False):
 
@@ -277,6 +292,9 @@ class Cell(s_base.Base, s_telepath.Aware):
         self.cmds = {}
         self.insecure = False
 
+        self.sessions = {}
+        self.httpsonly = self.conf.get('https:only', False)
+
         self.boss = await s_boss.Boss.anit()
         self.onfini(self.boss)
 
@@ -307,13 +325,134 @@ class Cell(s_base.Base, s_telepath.Aware):
             await user.setPasswd(passwd)
             self.insecure = False
 
+        await self._initCellHttp()
+
+        async def fini():
+            [await s.fini() for s in self.sessions.values()]
+
+        self.onfini(fini)
+
+    def _getSessInfo(self, iden):
+        return self.sessstor.gen(iden)
+
+    async def genHttpSess(self, iden):
+
+        # TODO age out http sessions
+        sess = self.sessions.get(iden)
+        if sess is not None:
+            return sess
+
+        sess = await s_httpapi.Sess.anit(self, iden)
+        self.sessions[iden] = sess
+
+        return sess
+
+    async def addHttpsPort(self, port, host='0.0.0.0', sslctx=None):
+
+        addr = socket.gethostbyname(host)
+
+        if sslctx is None:
+
+            pkeypath = os.path.join(self.dirn, 'sslkey.pem')
+            certpath = os.path.join(self.dirn, 'sslcert.pem')
+
+            if not os.path.isfile(certpath):
+                logger.warning('NO CERTIFICATE FOUND! generating self-signed certificate.')
+                with s_common.getTempDir() as dirn:
+                    cdir = s_certdir.CertDir(dirn)
+                    pkey, cert = cdir.genHostCert('cortex')
+                    cdir.savePkeyPem(pkey, pkeypath)
+                    cdir.saveCertPem(cert, certpath)
+
+            sslctx = self.initSslCtx(certpath, pkeypath)
+
+        serv = self.wapp.listen(port, address=addr, ssl_options=sslctx)
+
+        return list(serv._sockets.values())[0].getsockname()
+
+    async def addHttpPort(self, port, host='0.0.0.0'):
+        addr = socket.gethostbyname(host)
+        serv = self.wapp.listen(port, address=addr)
+        return list(serv._sockets.values())[0].getsockname()
+
+    def initSslCtx(self, certpath, keypath):
+
+        sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+
+        if not os.path.isfile(keypath):
+            raise s_exc.NoSuchFile(name=keypath)
+
+        if not os.path.isfile(certpath):
+            raise s_exc.NoSuchFile(name=certpath)
+
+        sslctx.load_cert_chain(certpath, keypath)
+        return sslctx
+
+    async def _initCellHttp(self):
+
+        self.httpds = []
+        self.sessstor = s_lmdbslab.GuidStor(self.slab, 'http:sess')
+
+        async def fini():
+            for http in self.httpds:
+                await http.stop()
+
+        self.onfini(fini)
+
+        # Generate/Load a Cookie Secret
+        secpath = os.path.join(self.dirn, 'cookie.secret')
+        if not os.path.isfile(secpath):
+            with s_common.genfile(secpath) as fd:
+                fd.write(s_common.guid().encode('utf8'))
+
+        with s_common.getfile(secpath) as fd:
+            secret = fd.read().decode('utf8')
+
+        opts = {
+            'cookie_secret': secret,
+            'websocket_ping_interval': 10
+        }
+
+        self.wapp = t_web.Application(**opts)
+
+        self.addHttpApi('/api/v1/login', s_httpapi.LoginV1, {'cell': self})
+
+        self.addHttpApi('/api/v1/auth/users', s_httpapi.AuthUsersV1, {'cell': self})
+        self.addHttpApi('/api/v1/auth/roles', s_httpapi.AuthRolesV1, {'cell': self})
+
+        self.addHttpApi('/api/v1/auth/adduser', s_httpapi.AuthAddUserV1, {'cell': self})
+        self.addHttpApi('/api/v1/auth/addrole', s_httpapi.AuthAddRoleV1, {'cell': self})
+
+        self.addHttpApi('/api/v1/auth/user/(.*)', s_httpapi.AuthUserV1, {'cell': self})
+        self.addHttpApi('/api/v1/auth/role/(.*)', s_httpapi.AuthRoleV1, {'cell': self})
+
+        self.addHttpApi('/api/v1/auth/grant', s_httpapi.AuthGrantV1, {'cell': self})
+        self.addHttpApi('/api/v1/auth/revoke', s_httpapi.AuthRevokeV1, {'cell': self})
+
+    def addHttpApi(self, path, ctor, info):
+        self.wapp.add_handlers('.*', (
+            (path, ctor, info),
+        ))
+
     async def _initCellDmon(self):
         # start a unix local socket daemon listener
         sockpath = os.path.join(self.dirn, 'sock')
+        sockurl = f'unix://{sockpath}'
 
-        self.dmon = await s_daemon.Daemon.anit()
+        self.dmon = await s_daemon.Daemon.anit(conf={'listen': None})
         self.dmon.share('*', self)
-        await self.dmon.listen(f'unix://{sockpath}')
+
+        try:
+            await self.dmon.listen(sockurl)
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except OSError as e:
+            logger.error(f'Failed to lissten on unix socket at: [{sockpath}][{e}]')
+            logger.error('LOCAL UNIX SOCKET WILL BE UNAVAILABLE')
+        except Exception as e:  # pragma: no cover
+            logging.exception('Unknown dmon listen error.')
+            raise
+
         self.onfini(self.dmon.fini)
 
     async def _initCellHive(self):

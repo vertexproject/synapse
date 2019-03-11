@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='synapse',
-    version='0.1.0a3',
+    version='0.1.0a4',
     description='Synapse Distributed Key-Value Hypergraph Analysis Framework',
     author='Invisigoth Kenshoto',
     author_email='invisigoth.kenshoto@gmail.com',
@@ -23,6 +23,7 @@ setup(
         'tornado>=5.1,<6.0.0',
         'regex>=2017.9.23',
         'PyYAML>=4.2b4,<5.0',
+        'aiohttp>=3.5.4,<4.0',
     ],
 
     extras_require={

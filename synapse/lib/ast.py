@@ -8,6 +8,7 @@ import synapse.common as s_common
 
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
+import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -426,8 +427,10 @@ class CmdOper(Oper):
         if not await scmd.hasValidOpts(runt.snap):
             return
 
-        async for item in scmd.execStormCmd(runt, genr):
-            yield item
+        with s_provenance.claim('stormcmd', name=name, argv=argv):
+
+            async for item in scmd.execStormCmd(runt, genr):
+                yield item
 
 class VarSetOper(Oper):
 
@@ -1262,6 +1265,8 @@ class TagCond(Cond):
     '''
     def getLiftHints(self):
         name = self.kids[0].value()
+        if '*' in name:
+            return ()
         return (
             ('tag', {'name': name}),
         )
@@ -1270,6 +1275,31 @@ class TagCond(Cond):
 
         name = self.kids[0].value()
 
+        # Allow for a user to ask for #* to signify "any tags on this node"
+        if name == '*':
+            async def cond(node, path):
+                # Check if the tags dictionary has any members
+                if node.tags:
+                    return True
+                return False
+            return cond
+
+        # Allow a user to use tag globbing to do regex matching of a node.
+        if '*' in name:
+            reobj = s_cache.getTagGlobRegx(name)
+
+            def getIsHit(tag):
+                return reobj.fullmatch(tag)
+
+            # This cache persists per-query
+            cache = s_cache.FixedCache(getIsHit)
+
+            async def cond(node, path):
+                return any((cache.get(p) for p in node.tags))
+
+            return cond
+
+        # Default exact match
         async def cond(node, path):
             return node.tags.get(name) is not None
 

@@ -204,7 +204,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 after_mapsize2 = slab.mapsize
                 self.gt(after_mapsize2, after_mapsize1)
 
-
     async def test_lmdbslab_iternext_repeat_regression(self):
         '''
         Test for a scan being bumped in an iternext where the cursor is in the middle of a list of values with the same
@@ -241,3 +240,41 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 # we wrote 100, read 60.  We should read only another 40
                 self.len(40, list(iter))
+
+    async def test_slab_guid_stor(self):
+
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'slab.lmdb')
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                guidstor = s_lmdbslab.GuidStor(slab, 'guids')
+
+                info0 = guidstor.gen('aaaa')
+                info0.set('hehe', 20)
+                self.eq(20, info0.get('hehe'))
+                self.none(info0.get('haha'))
+
+                info0.set('woot', {'woot': 1})
+                self.eq((('hehe', 20), ('woot', {'woot': 1})), info0.items())
+
+                self.eq({'woot': 1}, info0.get('woot'))
+                self.eq({'woot': 1}, info0.pop('woot'))
+                self.none(info0.get('woot'))
+                self.none(info0.pop('woot'))
+                self.true(info0.pop('woot', s_common.novalu) is s_common.novalu)
+
+                # Sad path case
+                self.raises(TypeError, info0.set, 'newp', {1, 2, 3})
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                guidstor = s_lmdbslab.GuidStor(slab, 'guids')
+                info1 = guidstor.gen('aaaa')
+                self.eq(20, info1.get('hehe'))
+                self.none(info1.pop('woot'))
+                self.len(1, info1.items())
+                self.eq((('hehe', 20), ), info1.items())
+
+    async def test_slab_initdb_grow(self):
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'slab.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=1024) as slab:
+                [slab.initdb(str(i)) for i in range(10)]

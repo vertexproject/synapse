@@ -11,8 +11,10 @@ from typing import Optional
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.chop as s_chop
 import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +35,7 @@ class Triggers:
         ver: int  # version: must be 0
         cond: str  # condition from above list
         user: str  # username
-        storm: str  # story query
+        storm: str  # storm query
         form: Optional[str] = dataclasses.field(default=None) # form name
         tag: Optional[str] = dataclasses.field(default=None) # tag name
         prop: Optional[str] = dataclasses.field(default=None) # property name
@@ -49,8 +51,10 @@ class Triggers:
                 raise s_exc.BadOptValu(mesg='tag must not be present for node:add or node:del')
             if self.cond == 'prop:set' and (self.form is not None or self.tag is not None):
                 raise s_exc.BadOptValu(mesg='form and tag must not be present for prop:set')
-            if self.cond in ('tag:add', 'tag:del') and self.tag is None:
-                raise s_exc.BadOptValu(mesg='missing tag')
+            if self.cond in ('tag:add', 'tag:del'):
+                if self.tag is None:
+                    raise s_exc.BadOptValu(mesg='missing tag')
+                s_chop.validateTagMatch(self.tag)
             if self.prop is not None and self.cond != 'prop:set':
                 raise s_exc.BadOptValu(mesg='prop parameter invalid')
             if self.cond == 'prop:set' and self.prop is None:
@@ -75,12 +79,14 @@ class Triggers:
             else:
                 user = None
 
-            try:
-                await s_common.aspin(node.storm(self.storm, opts=opts, user=user))
-            except asyncio.CancelledError: # pragma: no cover
-                raise
-            except Exception:
-                logger.exception('Trigger encountered exception running storm query %s', self.storm)
+            with s_provenance.claim('trig', cond=self.cond, form=self.form, tag=self.tag, prop=self.prop):
+
+                try:
+                    await s_common.aspin(node.storm(self.storm, opts=opts, user=user))
+                except asyncio.CancelledError: # pragma: no cover
+                    raise
+                except Exception:
+                    logger.exception('Trigger encountered exception running storm query %s', self.storm)
 
     def __init__(self, core):
         '''
@@ -114,6 +120,8 @@ class Triggers:
     async def runPropSet(self, node, prop, oldv):
         with self._recursion_check():
             [await rule.execute(node) for rule in self.propset.get(prop.full, ())]
+            if prop.univ is not None:
+                [await rule.execute(node) for rule in self.propset.get(prop.univ, ())]
 
     async def runTagAdd(self, node, tag):
 
