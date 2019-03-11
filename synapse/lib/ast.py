@@ -439,22 +439,16 @@ class VarSetOper(Oper):
         name = self.kids[0].value()
         vkid = self.kids[1]
 
-        if vkid.isRuntSafe(runt):
-
-            valu = await vkid.runtval(runt)
-            runt.setVar(name, valu)
-
-            # yield from :(
-            async for item in genr:
-                yield item
-
-            return
-
         async for node, path in genr:
             valu = await vkid.compute(path)
             path.set(name, valu)
             runt.vars[name] = valu
             yield node, path
+
+        if vkid.isRuntSafe(runt):
+
+            valu = await vkid.runtval(runt)
+            runt.setVar(name, valu)
 
     def getRuntVars(self, runt):
         if not self.kids[1].isRuntSafe(runt):
