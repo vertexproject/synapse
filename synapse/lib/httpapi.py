@@ -320,6 +320,14 @@ class AuthUserV1(Handler):
         if body is None:
             return
 
+        name = body.get('name')
+        if name is not None:
+            await user.setName(str(name))
+
+        email = body.get('email')
+        if email is not None:
+            await user.info.set('email', email)
+
         locked = body.get('locked')
         if locked is not None:
             await user.setLocked(bool(locked))
