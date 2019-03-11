@@ -21,9 +21,9 @@ class TrigTest(s_t_utils.SynTest):
                 triggers = core.triggers.list()
                 self.eq(triggers[0][1].get('storm'), '[inet:user=1] | testcmd')
                 iden = triggers[0][0]
-                core.triggers.mod(iden, '[inet:user=2 .testuniv=4] | testcmd')
+                core.triggers.mod(iden, '[inet:user=2 .test:univ=4] | testcmd')
                 triggers = core.triggers.list()
-                self.eq(triggers[0][1].get('storm'), '[inet:user=2 .testuniv=4] | testcmd')
+                self.eq(triggers[0][1].get('storm'), '[inet:user=2 .test:univ=4] | testcmd')
 
                 # Sad case
                 self.raises(s_exc.BadStormSyntax, core.triggers.mod, iden, ' | | badstorm ')
@@ -31,10 +31,8 @@ class TrigTest(s_t_utils.SynTest):
 
             async with await self.getTestCell(fdir, 'cortex', conf=conf) as core:
                 triggers = core.triggers.list()
-
-                # FIXME:  two phase problem this fails
-                # self.len(1, triggers)
-                # self.eq(triggers[0][1].get('storm'), '[inet:user=2 .testuniv] | testcmd')
+                self.len(1, triggers)
+                self.eq(triggers[0][1].get('storm'), '[inet:user=2 .test:univ=4] | testcmd')
 
     async def test_trigger_basics(self):
 
@@ -102,13 +100,13 @@ class TrigTest(s_t_utils.SynTest):
                 await self.agenlen(0, await core.eval('testint=6'))
 
                 # Prop set univ
-                await core.addTrigger('prop:set', '[ testint=7 ]', info={'prop': '.testuniv'})
-                await s_common.aspin(await core.eval('[ testtype10=1 .testuniv=1 ]'))
+                await core.addTrigger('prop:set', '[ testint=7 ]', info={'prop': '.test:univ'})
+                await s_common.aspin(await core.eval('[ testtype10=1 .test:univ=1 ]'))
                 await self.agenlen(1, await core.eval('testint=7'))
 
                 # Prop set form specific univ
-                await core.addTrigger('prop:set', '[ testint=8 ]', info={'prop': 'teststr.testuniv'})
-                await s_common.aspin(await core.eval('[ teststr=beep .testuniv=1 ]'))
+                await core.addTrigger('prop:set', '[ testint=8 ]', info={'prop': 'teststr.test:univ'})
+                await s_common.aspin(await core.eval('[ teststr=beep .test:univ=1 ]'))
                 await self.agenlen(1, await core.eval('testint=8'))
 
                 # Bad trigger parms

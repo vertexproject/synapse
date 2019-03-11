@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+import itertools
 import contextlib
 import collections
 
@@ -568,21 +569,73 @@ class Cortex(s_cell.Cell):
 
         self.views = {}
         self.layers = {}
-
-        self.layrctors = {
-            'lmdb': s_lmdblayer.LmdbLayer,
-            'remote': s_remotelayer.RemoteLayer,
-        }
-
+        self.counts = {}
         self.modules = {}
+        self.splicers = {}
+        self.layrctors = {}
         self.feedfuncs = {}
-
         self.stormcmds = {}
         self.stormrunts = {}
+
+        self._runtLiftFuncs = {}
+        self._runtPropSetFuncs = {}
+        self._runtPropDelFuncs = {}
+
+        self.ontagadds = collections.defaultdict(list)
+        self.ontagdels = collections.defaultdict(list)
+        self.ontagaddglobs = s_cache.TagGlobs()
+        self.ontagdelglobs = s_cache.TagGlobs()
 
         self.libroot = (None, {}, {})
         self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
 
+        self._initSplicers()
+        self._initStormCmds()
+        self._initStormLibs()
+        self._initFeedFuncs()
+        self._initFormCounts()
+        self._initLayerCtors()
+        self._initCortexHttpApi()
+
+        self.model = s_datamodel.Model()
+
+        # Perform module loading
+        mods = list(s_modules.coremods)
+        mods.extend(self.conf.get('modules'))
+        await self._loadCoreMods(mods)
+
+        # Initialize our storage and views
+        await self._initCoreLayers()
+        await self._checkLayerModels()
+        await self._initCoreViews()
+
+        async def fini():
+            await asyncio.gather(*[view.fini() for view in self.views.values()])
+            await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
+
+        self.onfini(fini)
+
+        # our "main" view has the same iden as we do
+        self.view = self.views.get(self.iden)
+
+        self.triggers = s_trigger.Triggers(self)
+        self.agenda = await s_agenda.Agenda.anit(self)
+        self.onfini(self.agenda)
+
+        if self.conf.get('cron:enable'):
+            await self.agenda.enable()
+
+        await self._initCoreMods()
+
+        # Initialize free-running tasks.
+        self._initCryoLoop()
+        self._initPushLoop()
+        self._initFeedLoops()
+
+    def _initStormCmds(self):
+        '''
+        Registration for built-in Storm commands.
+        '''
         self.addStormCmd(s_storm.MaxCmd)
         self.addStormCmd(s_storm.MinCmd)
         self.addStormCmd(s_storm.HelpCmd)
@@ -599,66 +652,48 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.ReIndexCmd)
         self.addStormCmd(s_storm.NoderefsCmd)
 
+    def _initStormLibs(self):
+        '''
+        Registration for built-in Storm Libraries
+        '''
         self.addStormLib(('time',), s_stormtypes.LibTime)
 
-        self.splicers = {
+    def _initSplicers(self):
+        '''
+        Registration for splice handlers.
+        '''
+        splicers = {
+            'tag:add': self._onFeedTagAdd,
+            'tag:del': self._onFeedTagDel,
             'node:add': self._onFeedNodeAdd,
             'node:del': self._onFeedNodeDel,
             'prop:set': self._onFeedPropSet,
             'prop:del': self._onFeedPropDel,
-            'tag:add': self._onFeedTagAdd,
-            'tag:del': self._onFeedTagDel,
         }
+        self.splicers.update(**splicers)
 
+    def _initLayerCtors(self):
+        '''
+        Registration for built-in Layer ctors
+        '''
+        ctors = {
+            'lmdb': s_lmdblayer.LmdbLayer,
+            'remote': s_remotelayer.RemoteLayer,
+        }
+        self.layrctors.update(**ctors)
+
+    def _initFeedFuncs(self):
+        '''
+        Registration for built-in Cortex feed functions.
+        '''
         self.setFeedFunc('syn.nodes', self._addSynNodes)
         self.setFeedFunc('syn.splice', self._addSynSplice)
         self.setFeedFunc('syn.ingest', self._addSynIngest)
 
-        await self._initCoreLayers()
-        await self._checkLayerModels()
-
-        await self._initCoreViews()
-
-        async def fini():
-            await asyncio.gather(*[view.fini() for view in self.views.values()])
-            await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
-
-        self.onfini(fini)
-
-        # these may be used directly
-        self.model = s_datamodel.Model()
-
-        # our "main" view has the same iden as we do
-        self.view = self.views.get(self.iden)
-
-        self.ontagadds = collections.defaultdict(list)
-        self.ontagdels = collections.defaultdict(list)
-
-        self._runtLiftFuncs = {}
-        self._runtPropSetFuncs = {}
-        self._runtPropDelFuncs = {}
-
-        mods = list(s_modules.coremods)
-        mods.extend(self.conf.get('modules'))
-
-        await self._loadCoreMods(mods)
-
-        self._initFormCounts()
-
-        self.triggers = s_trigger.Triggers(self)
-
-        self.agenda = await s_agenda.Agenda.anit(self)
-        self.onfini(self.agenda)
-
-        if self.conf.get('cron:enable'):
-            await self.agenda.enable()
-
-        await self._initCoreMods()
-
-        self._initCryoLoop()
-        self._initPushLoop()
-        self._initFeedLoops()
-
+    def _initCortexHttpApi(self):
+        '''
+        Registration for built-in Cortex httpapi endpoints
+        '''
         self.addHttpApi('/api/v1/storm', s_httpapi.StormV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
         self.addHttpApi('/api/v1/model/norm', s_httpapi.ModelNormV1, {'cell': self})
@@ -686,7 +721,6 @@ class Cortex(s_cell.Cell):
 
     def _initFormCounts(self):
 
-        self.counts = {}
         self.formcountdb = self.slab.initdb('form:counts')
 
         for lkey, lval in self.slab.scanByFull(db=self.formcountdb):
@@ -742,22 +776,29 @@ class Cortex(s_cell.Cell):
         Register a callback for tag addition.
 
         Args:
-            name (str): The name of the tag.
+            name (str): The name of the tag or tag glob.
             func (function): The callback func(node, tagname, tagval).
 
         '''
         # TODO allow name wild cards
-        self.ontagadds[name].append(func)
+        if '*' in name:
+            self.ontagaddglobs.add(name, func)
+        else:
+            self.ontagadds[name].append(func)
 
     def offTagAdd(self, name, func):
         '''
         Unregister a callback for tag addition.
 
         Args:
-            name (str): The name of the tag.
+            name (str): The name of the tag or tag glob.
             func (function): The callback func(node, tagname, tagval).
 
         '''
+        if '*' in name:
+            self.ontagaddglobs.rem(name, func)
+            return
+
         cblist = self.ontagadds.get(name)
         if cblist is None:
             return
@@ -771,22 +812,28 @@ class Cortex(s_cell.Cell):
         Register a callback for tag deletion.
 
         Args:
-            name (str): The name of the tag.
+            name (str): The name of the tag or tag glob.
             func (function): The callback func(node, tagname, tagval).
 
         '''
-        # TODO allow name wild cards
-        self.ontagdels[name].append(func)
+        if '*' in name:
+            self.ontagdelglobs.add(name, func)
+        else:
+            self.ontagdels[name].append(func)
 
     def offTagDel(self, name, func):
         '''
         Unregister a callback for tag deletion.
 
         Args:
-            name (str): The name of the tag.
+            name (str): The name of the tag or tag glob.
             func (function): The callback func(node, tagname, tagval).
 
         '''
+        if '*' in name:
+            self.ontagdelglobs.rem(name, func)
+            return
+
         cblist = self.ontagdels.get(name)
         if cblist is None:
             return
@@ -860,7 +907,9 @@ class Cortex(s_cell.Cell):
 
     async def runTagAdd(self, node, tag, valu):
 
-        for func in self.ontagadds.get(tag, ()):
+        # Run the non-glob callbacks, then the glob callbacks
+        funcs = itertools.chain(self.ontagadds.get(tag, ()), (x[1] for x in self.ontagaddglobs.get(tag)))
+        for func in funcs:
             try:
                 await s_coro.ornot(func, node, tag, valu)
             except asyncio.CancelledError as e:
@@ -868,11 +917,13 @@ class Cortex(s_cell.Cell):
             except Exception as e:
                 logger.exception('onTagAdd Error')
 
+        # Run any trigger handlers
         await self.triggers.runTagAdd(node, tag)
 
     async def runTagDel(self, node, tag, valu):
 
-        for func in self.ontagdels.get(tag, ()):
+        funcs = itertools.chain(self.ontagdels.get(tag, ()), (x[1] for x in self.ontagdelglobs.get(tag)))
+        for func in funcs:
             try:
                 await s_coro.ornot(func, node, tag, valu)
             except asyncio.CancelledError as e:
@@ -1348,9 +1399,6 @@ class Cortex(s_cell.Cell):
 
         await node.delTag(tag)
 
-    # def _addSynUndo(self, snap, items):
-        # TODO apply splices in reverse
-
     async def _addSynIngest(self, snap, items):
 
         for item in items:
@@ -1693,13 +1741,30 @@ class Cortex(s_cell.Cell):
 
         modu = self._loadCoreModule(ctor)
 
+        try:
+            await s_coro.ornot(modu.preCoreModule)
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception as e:
+            logger.exception(f'module preCoreModule failed: {ctor}')
+            self.modules.pop(ctor, None)
+            return
+
         mdefs = modu.getModelDefs()
         self.model.addDataModels(mdefs)
 
         cmds = modu.getStormCmds()
         [self.addStormCmd(c) for c in cmds]
 
-        await s_coro.ornot(modu.initCoreModule)
+        try:
+            await s_coro.ornot(modu.initCoreModule)
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception as e:
+            logger.exception(f'module initCoreModule failed: {ctor}')
+            self.modules.pop(ctor, None)
+            return
+
         await self.fire('core:module:load', module=ctor)
 
         return modu
@@ -1719,6 +1784,15 @@ class Cortex(s_cell.Cell):
 
             mods.append(modu)
 
+            try:
+                await s_coro.ornot(modu.preCoreModule)
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+            except Exception as e:
+                logger.exception(f'module preCoreModule failed: {ctor}')
+                self.modules.pop(ctor, None)
+                continue
+
             cmds.extend(modu.getStormCmds())
             mdefs.extend(modu.getModelDefs())
 
@@ -1727,16 +1801,15 @@ class Cortex(s_cell.Cell):
 
     async def _initCoreMods(self):
 
-        for name, modu in self.modules.items():
+        for ctor, modu in list(self.modules.items()):
 
             try:
                 await s_coro.ornot(modu.initCoreModule)
-
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pragma: no cover
                 raise
-
             except Exception as e:
-                logger.exception(f'module init failed: {name}')
+                logger.exception(f'module initCoreModule failed: {ctor}')
+                self.modules.pop(ctor, None)
 
     def _loadCoreModule(self, ctor):
 
