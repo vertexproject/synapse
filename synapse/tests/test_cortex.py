@@ -9,6 +9,7 @@ import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
@@ -1616,6 +1617,11 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            # Ensure that the test model loads a univ property
+            prop = core.model.prop('.test:univ')
+            self.isinstance(prop, s_datamodel.Univ)
+
+            # Add a univprop directly via API for testing
             core.model.addUnivProp('hehe', ('int', {}), {})
 
             await self.agenlen(1, core.eval('[ teststr=woot .hehe=20 ]'))
