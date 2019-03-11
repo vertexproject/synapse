@@ -109,13 +109,12 @@ class Prop(PropBase):
         }
 
         self.univ = None
+        self.full = '%s:%s' % (form.name, name)
         if name.startswith('.'):
             self.univ = name
-
-        self.full = '%s:%s' % (form.name, name)
+            self.full = '%s%s' % (form.name, name)
 
         self.utf8name = self.name.encode('utf8')
-        self.utf8full = self.full.encode('utf8')
 
         self.pref = self.form.utf8name + b'\x00' + self.utf8name + b'\x00'
 
@@ -261,15 +260,26 @@ class Form:
         The callback is executed after node construction.
 
         Args:
-            func (function): A node add callback.
-
-        The callback is called with the current transaction
-        and the new node.
+            func (function): A callback func(node)
 
         def func(xact, node):
             dostuff()
         '''
         self.onadds.append(func)
+
+    def offAdd(self, func):
+        '''
+        Unregister a callback for tag addition.
+
+        Args:
+            name (str): The name of the tag.
+            func (function): The callback func(node)
+
+        '''
+        try:
+            self.onadds.remove(func)
+        except ValueError:  # pragma: no cover
+            pass
 
     def onDel(self, func):
         self.ondels.append(func)

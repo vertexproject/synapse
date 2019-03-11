@@ -389,7 +389,7 @@ class ForLoop(Oper):
 
             for item in await self.kids[1].runtval(runt):
 
-                if isinstance(name, (list,tuple)):
+                if isinstance(name, (list, tuple)):
 
                     if len(name) != len(item):
                         raise s_exc.StormVarListError(names=name, vals=item)
@@ -1265,6 +1265,8 @@ class TagCond(Cond):
     '''
     def getLiftHints(self):
         name = self.kids[0].value()
+        if '*' in name:
+            return ()
         return (
             ('tag', {'name': name}),
         )
@@ -1273,6 +1275,31 @@ class TagCond(Cond):
 
         name = self.kids[0].value()
 
+        # Allow for a user to ask for #* to signify "any tags on this node"
+        if name == '*':
+            async def cond(node, path):
+                # Check if the tags dictionary has any members
+                if node.tags:
+                    return True
+                return False
+            return cond
+
+        # Allow a user to use tag globbing to do regex matching of a node.
+        if '*' in name:
+            reobj = s_cache.getTagGlobRegx(name)
+
+            def getIsHit(tag):
+                return reobj.fullmatch(tag)
+
+            # This cache persists per-query
+            cache = s_cache.FixedCache(getIsHit)
+
+            async def cond(node, path):
+                return any((cache.get(p) for p in node.tags))
+
+            return cond
+
+        # Default exact match
         async def cond(node, path):
             return node.tags.get(name) is not None
 
