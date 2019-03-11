@@ -1764,7 +1764,13 @@ class Cortex(s_cell.Cell):
 
         for ctor in ctors:
 
-            modu = self._loadCoreModule(ctor)
+            conf = None
+
+            # allow module entry to be (ctor, conf) tuple
+            if isinstance(ctor, (list, tuple)):
+                ctor, conf = ctor
+
+            modu = self._loadCoreModule(ctor, conf=conf)
             if modu is None:
                 continue
 

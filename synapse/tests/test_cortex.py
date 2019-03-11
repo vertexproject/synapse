@@ -146,7 +146,6 @@ class CortexTest(s_t_utils.SynTest):
                      'size': 1,
                      }
                 ],
-                'modules': ('synapse.tests.utils.TestModule',),
             }
 
             # initialize the tank and get his iden
@@ -227,19 +226,18 @@ class CortexTest(s_t_utils.SynTest):
             with self.getTestDir() as dirn:
                 conf = {
                     'splice:cryotank': tank_addr,
-                    'modules': ('synapse.tests.utils.TestModule',),
                 }
-                src_core = await s_cortex.Cortex.anit(dirn, conf=conf)
+                async with self.getTestCore(dirn=dirn, conf=conf) as src_core:
 
-                waiter = src_core.waiter(2, 'core:splice:cryotank:sent')
-                # Form a node and make sure that it exists
-                async with await src_core.snap() as snap:
-                    await snap.addNode('teststr', 'teehee')
-                    self.nn(await snap.getNodeByNdef(('teststr', 'teehee')))
+                    waiter = src_core.waiter(2, 'core:splice:cryotank:sent')
+                    # Form a node and make sure that it exists
+                    async with await src_core.snap() as snap:
+                        await snap.addNode('teststr', 'teehee')
+                        self.nn(await snap.getNodeByNdef(('teststr', 'teehee')))
 
-                await waiter.wait(timeout=3)
-                await src_core.fini()
-                await src_core.waitfini()
+                    await waiter.wait(timeout=3)
+                    await src_core.fini()
+                    await src_core.waitfini()
 
             # Now that the src core is closed, make sure that the splice exists in the tank
             tank = cryo.tanks.get('tank:blahblah')

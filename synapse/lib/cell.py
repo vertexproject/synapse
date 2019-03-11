@@ -439,7 +439,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         sockpath = os.path.join(self.dirn, 'sock')
         sockurl = f'unix://{sockpath}'
 
-        self.dmon = await s_daemon.Daemon.anit(conf={'listen': None})
+        self.dmon = await s_daemon.Daemon.anit()
         self.dmon.share('*', self)
 
         try:

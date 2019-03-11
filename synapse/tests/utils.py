@@ -796,23 +796,27 @@ class SynTest(unittest.TestCase):
     async def getTestCore(self, conf=None, dirn=None):
         '''
         Return a simple test Cortex.
-
-        Args:
-           conf:  additional configuration entries.  Combined with contents from mirror.
         '''
+        if conf is None:
+            conf = {}
+
+        mods = conf.get('modules')
+
+        if mods is None:
+            mods = []
+            conf['modules'] = mods
+
+        mods.append(('synapse.tests.utils.TestModule', {'key': 'valu'}))
+
         if dirn is not None:
 
             async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                conf = {'key': 'valu'}
-                self.nn(await core.loadCoreModule('synapse.tests.utils.TestModule', conf=conf))
                 yield core
 
             return
 
         with self.getTestDir() as dirn:
             async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                conf = {'key': 'valu'}
-                self.nn(await core.loadCoreModule('synapse.tests.utils.TestModule', conf=conf))
                 yield core
 
     @contextlib.asynccontextmanager
@@ -992,7 +996,7 @@ class SynTest(unittest.TestCase):
     @contextlib.asynccontextmanager
     async def getHttpSess(self):
         jar = aiohttp.CookieJar(unsafe=True)
-        conn = aiohttp.TCPConnector(verify_ssl=False)
+        conn = aiohttp.TCPConnector(ssl=False)
         async with aiohttp.ClientSession(cookie_jar=jar, connector=conn) as sess:
             yield sess
 

@@ -64,7 +64,7 @@ class CryoTest(s_t_utils.SynTest):
             self.eq(4, await prox.offset('foo', iden))
 
             # test the direct tank share....
-            async with cryo.getLocalProxy(share='cryo/foo') as prox:
+            async with cryo.getLocalProxy(share='cryotank/foo') as prox:
 
                 items = await alist(prox.slice(1, 3))
 
@@ -83,7 +83,7 @@ class CryoTest(s_t_utils.SynTest):
                 self.eq(2, await prox.offset(iden))
 
             # test the new open share
-            async with cryo.getLocalProxy(share='cryo/lulz') as prox:
+            async with cryo.getLocalProxy(share='cryotank/lulz') as prox:
 
                 self.len(0, await alist(prox.slice(0, 9999)))
 

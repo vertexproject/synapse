@@ -102,6 +102,7 @@ class CellTest(s_t_utils.SynTest):
         pconf = {'user': 'pennywise', 'passwd': 'cottoncandy'}
 
         with self.getTestDir('cellauth') as dirn:
+
             s_common.yamlsave(boot, dirn, 'boot.yaml')
             async with await EchoAuth.anit(dirn) as echo:
 
@@ -118,10 +119,10 @@ class CellTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
 
         # Ensure the cell and its auth have been fini'd
-        self.true(item.isfini)
-        self.true(item.auth.isfini)
-        self.true(item.auth.getUserByName('root').isfini)
-        self.true(item.auth.getUserByName('pennywise').isfini)
+        self.true(echo.isfini)
+        self.true(echo.auth.isfini)
+        self.true(echo.auth.getUserByName('root').isfini)
+        self.true(echo.auth.getUserByName('pennywise').isfini)
 
     async def test_longpath(self):
         # This is similar to the DaemonTest::test_unixsock_longpath

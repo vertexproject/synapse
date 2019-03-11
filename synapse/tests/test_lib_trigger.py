@@ -11,7 +11,9 @@ class TrigTest(s_t_utils.SynTest):
             await s_common.aspin(await core.eval('[ testguid="*" ]'))
 
     async def test_modification_persistence(self):
+
         with self.getTestDir() as fdir:
+
             async with self.getTestCore(dirn=fdir) as core:
                 core.triggers.add('root', 'node:add', '[inet:user=1] | testcmd', info={'form': 'inet:ipv4'})
                 triggers = core.triggers.list()

@@ -62,6 +62,9 @@ class RemoteLayerTest(t_cortex.CortexTest):
     async def test_splice_generation(self):
         self.skip('test_splice_generation directly uses layers')
 
+    async def test_splice_cryo(self):
+        self.skip('test_splice_generation directly uses layers')
+
     async def test_splice_sync(self):
         self.skip('test_splice_sync directly uses events')
 
