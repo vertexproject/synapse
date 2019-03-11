@@ -320,6 +320,10 @@ class AuthUserV1(Handler):
         if body is None:
             return
 
+        locked = body.get('locked')
+        if locked is not None:
+            await user.setLocked(bool(locked))
+
         rules = body.get('rules')
         if rules is not None:
             await user.setRules(rules)
