@@ -158,6 +158,10 @@ testmodel = {
 
     ),
 
+    'univs': (
+        ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
+    ),
+
     'forms': (
 
         ('testtype10', {}, (
@@ -282,8 +286,6 @@ class TestModule(s_module.CoreModule):
             await snap.addNode('source', self.testguid, {'name': 'test'})
 
         self.core.addStormLib(('test',), LibTst)
-
-        self.core.model.addUnivProp('testuniv', ('int', {'min': -1, 'max': 10}), {})
 
         self._runtsByBuid = {}
         self._runtsByPropValu = collections.defaultdict(list)
