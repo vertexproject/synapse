@@ -194,7 +194,7 @@ class Triggers:
             ruledict['ver'] = 1
             ruledict['useriden'] = user
             newiden = s_common.ehex(iden)
-            self.core.slab.pop(iden)
+            self.core.slab.pop(iden, db=self.trigdb)
             self.core.slab.put(newiden.encode(), s_msgpack.en(ruledict), db=self.trigdb)
 
     def _load_all(self):

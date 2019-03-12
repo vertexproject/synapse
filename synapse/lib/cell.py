@@ -69,7 +69,6 @@ class CellApi(s_base.Base):
 
         retn = []
 
-        admin = False
         admin = self.user.admin
 
         for synt in self.cell.boss.ps():

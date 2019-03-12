@@ -595,8 +595,17 @@ class Agenda(s_base.Base):
         user = self.core.auth.user(appt.useriden)
         if user is None:
             logger.warning('Unknown user %s in stored appointment', appt.useriden)
+            await self._markfailed(appt)
             return
         await self.core.boss.execute(self._runJob(user, appt), f'Agenda {appt.iden}', user)
+
+    async def _markfailed(self, appt):
+        appt.lastfinishtime = appt.laststarttime = time.time()
+        appt.startcount += 1
+        appt.isrunning = False
+        appt.lastresult = 'Failed due to unknown user'
+        if not self.isfini:
+            await self._storeAppt(appt)
 
     async def _runJob(self, user, appt):
         '''

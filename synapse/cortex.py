@@ -223,10 +223,13 @@ class CoreApi(s_cell.CellApi):
         '''
         trigs = []
         for (iden, trig) in self.cell.triggers.list():
-            if not (self.user.admin or trig['useriden'] == self.user.iden):
+            useriden = trig['useriden']
+            if not (self.user.admin or useriden == self.user.iden):
                 continue
-            trig['username'] = self.cell.auth.user(trig['useriden']).name
+            user = self.cell.auth.user(useriden)
+            trig['username'] = '<unknown>' if user is None else user.name
             trigs.append((iden, trig))
+
         return trigs
 
     async def addCronJob(self, query, reqs, incunit=None, incval=1):
@@ -309,9 +312,11 @@ class CoreApi(s_cell.CellApi):
         '''
         crons = []
         for iden, cron in self.cell.agenda.list():
-            if not (self.user.admin or cron['useriden'] == self.user.iden):
+            useriden = cron['useriden']
+            if not (self.user.admin or useriden == self.user.iden):
                 continue
-            cron['username'] = self.cell.auth.user(cron['useriden']).name
+            user = self.cell.auth.user(useriden)
+            cron['username'] = '<unknown>' if user is None else user.name
             crons.append((iden, cron))
 
         return crons
