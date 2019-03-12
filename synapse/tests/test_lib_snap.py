@@ -53,7 +53,6 @@ class SnapTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 nodebuid = None
-                nodeid = None
                 snap.buidcache = collections.deque(maxlen=10)
 
                 async def doit():
@@ -68,7 +67,6 @@ class SnapTest(s_t_utils.SynTest):
 
                     self.eq(node0.buid, node.buid)
                     self.eq(id(node0), id(node))
-                    nodeid = id(node)
                     nodebuid = node.buid
 
                     # Test read, then a bunch of reads, then read coherency
@@ -83,11 +81,7 @@ class SnapTest(s_t_utils.SynTest):
 
                 await doit()  # run in separate function so that objects are gc'd
 
-                self.gt(nodeid, 0)
-
                 gc.collect()
-                # Ensure that the object *has* been garbage collected.
-                self.notin(nodeid, [id(obj) for obj in gc.get_objects()])
 
                 # Test that coherency goes away (and we don't store all nodes forever)
                 await alist(snap.addNodes([(('test:int', x), {}) for x in range(20, 30)]))
