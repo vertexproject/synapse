@@ -79,7 +79,6 @@ class CellApi(s_base.Base):
 
     async def kill(self, iden):
 
-        admin = False
         admin = self.user.admin
 
         logger.info(f'User [{str(self.user)}] Requesting task kill: {iden}')
