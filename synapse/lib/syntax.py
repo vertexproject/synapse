@@ -6,7 +6,6 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
 import synapse.lib.cache as s_cache
-import synapse.lib.scrape as s_scrape
 
 '''
 This module implements syntax parsing for the storm runtime.
@@ -389,9 +388,9 @@ class Parser:
     def remaining_text(self):
         return self.text[self.offs:]
 
-    def _raiseSyntaxError(self, mesg):
+    def _raiseSyntaxError(self, mesg, **kwargs):
         at = self.text[self.offs:self.offs + 12]
-        raise s_exc.BadStormSyntax(mesg=mesg, at=at, text=self.text, offs=self.offs)
+        raise s_exc.BadStormSyntax(mesg=mesg, at=at, text=self.text, offs=self.offs, **kwargs)
 
     def _raiseSyntaxExpects(self, text):
         self._raiseSyntaxError(f'expected: {text}')
@@ -960,17 +959,7 @@ class Parser:
 
             return s_ast.CmdOper(kids=(s_ast.Const(name), argv))
 
-        # rewind and noms until whitespace
-        self.offs = noff
-
-        tokn = self.noms(until=whitespace)
-
-        ndefs = list(s_scrape.scrape(tokn))
-        if ndefs:
-            return s_ast.LiftByScrape(ndefs)
-
-        self.offs = noff
-        raise s_exc.NoSuchProp(name=name)
+        self._raiseSyntaxError(mesg=f'No such property or command.', name=name)
 
     def casevalu(self):
 

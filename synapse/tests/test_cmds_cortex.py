@@ -105,7 +105,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm newpz')
             outp.expect('err')
-            outp.expect('NoSuchProp')
+            outp.expect('BadStormSyntax')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
@@ -184,7 +184,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                     cmdr.fini()
                     self.true(outp.expect('Pick one'))
 
-    async def test_storm_cmd_ps_kill(self):
+    async def test_ps_kill(self):
 
         async with self.getTestDmon('dmoncore') as dmon:
 

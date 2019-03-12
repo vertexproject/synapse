@@ -671,17 +671,6 @@ class LiftPropBy(LiftOper):
         async for node in runt.snap.getNodesBy(name, valu, cmpr=cmpr):
             yield node
 
-class LiftByScrape(LiftOper):
-
-    def __init__(self, ndefs):
-        LiftOper.__init__(self)
-        self.ndefs = ndefs
-
-    async def lift(self, runt):
-        for name, valu in self.ndefs:
-            async for node in runt.snap.getNodesBy(name, valu):
-                yield node
-
 class PivotOper(Oper):
 
     def __init__(self, kids=(), isjoin=False):
