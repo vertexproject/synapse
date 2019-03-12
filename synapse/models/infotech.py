@@ -862,22 +862,6 @@ class ItModule(s_module.CoreModule):
                     ('reg', ('it:dev:regval', {}), {
                         'doc': 'The registry key or value that was read.',
                     }),
-                    ('reg:key', ('it:dev:regkey', {}), {
-                        'ro': True,
-                        'doc': 'The registry key that was read (parsed from :reg).',
-                    }),
-                    ('reg:str', ('it:dev:str', {}), {
-                        'ro': True,
-                        'doc': 'The string value that was read (parsed from :reg).',
-                    }),
-                    ('reg:int', ('it:dev:int', {}), {
-                        'ro': True,
-                        'doc': 'The integer value that was read (parsed from :reg).',
-                    }),
-                    ('reg:bytes', ('file:bytes', {}), {
-                        'ro': True,
-                        'doc': 'The binary data that was read (parsed from :reg).',
-                    }),
                 )),
                 ('it:exec:reg:set', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -895,22 +879,6 @@ class ItModule(s_module.CoreModule):
                     ('reg', ('it:dev:regval', {}), {
                         'doc': 'The registry key or value that was written to.',
                     }),
-                    ('reg:key', ('it:dev:regkey', {}), {
-                        'ro': True,
-                        'doc': 'The registry key that was written (parsed from :reg).',
-                    }),
-                    ('reg:str', ('it:dev:str', {}), {
-                        'ro': True,
-                        'doc': 'The string value that was written (parsed from :reg).',
-                    }),
-                    ('reg:int', ('it:dev:int', {}), {
-                        'ro': True,
-                        'doc': 'The integer value that was written (parsed from :reg).',
-                    }),
-                    ('reg:bytes', ('file:bytes', {}), {
-                        'ro': True,
-                        'doc': 'The binary data that was written (parsed from :reg).',
-                    }),
                 )),
                 ('it:exec:reg:del', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -927,22 +895,6 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('reg', ('it:dev:regval', {}), {
                         'doc': 'The registry key or value that was deleted.',
-                    }),
-                    ('reg:key', ('it:dev:regkey', {}), {
-                        'ro': True,
-                        'doc': 'The registry key that was deleted (parsed from :reg).',
-                    }),
-                    ('reg:str', ('it:dev:str', {}), {
-                        'ro': True,
-                        'doc': 'The string value that was deleted (parsed from :reg).',
-                    }),
-                    ('reg:int', ('it:dev:int', {}), {
-                        'ro': True,
-                        'doc': 'The integer value that was deleted (parsed from :reg).',
-                    }),
-                    ('reg:bytes', ('file:bytes', {}), {
-                        'ro': True,
-                        'doc': 'The binary data that was deleted (parsed from :reg).',
                     }),
                 )),
 
