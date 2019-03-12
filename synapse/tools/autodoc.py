@@ -18,6 +18,8 @@ poptsToWords = {
         'defval': 'Default Value',
     }
 
+raw_back_slash_colon = r'\:'
+
 # TODO Ensure this is consistent with other documentation.
 rstlvls = [
     ('#', {'over': True}),
@@ -107,17 +109,17 @@ def processCtors(rst, dochelp, ctors):
         # Break implicit links to nowhere
         hname = name
         if ':' in name:
-            hname = name.replace(':', '\:')
+            hname = name.replace(':', raw_back_slash_colon)
 
         link = f'.. _dm-type-{name.replace(":", "-")}:'
         rst.addHead(hname, lvl=2, link=link)
 
-        rst.addLines(doc, f'It is implemented by the following class\: ``{ctor}``.')
+        rst.addLines(doc, f'It is implemented by the following class{raw_back_slash_colon} ``{ctor}``.')
         _ = info.pop('doc', None)
         ex = info.pop('ex', None)
         if ex:
             rst.addLines('',
-                         f'A example of ``{name}``\:',
+                         f'A example of ``{name}``{raw_back_slash_colon}',
                          '',
                          f' * ``{ex}``',
                          )
@@ -161,7 +163,7 @@ def processTypes(rst, dochelp, types):
         # Break implicit links to nowhere
         hname = name
         if ':' in name:
-            hname = name.replace(':', '\:')
+            hname = name.replace(':', raw_back_slash_colon)
 
         link = f'.. _dm-type-{name.replace(":", "-")}:'
         rst.addHead(hname, lvl=2, link=link)
@@ -173,7 +175,7 @@ def processTypes(rst, dochelp, types):
         ex = info.pop('ex', None)
         if ex:
             rst.addLines('',
-                         f'A example of {name}\:',
+                         f'A example of {name}{raw_back_slash_colon}:',
                          '',
                          f' * ``{ex}``',
                          )
@@ -205,7 +207,7 @@ def processFormsProps(rst, dochelp, forms):
 
         hname = name
         if ':' in name:
-            hname = name.replace(':', '\:')
+            hname = name.replace(':', raw_back_slash_colon)
         link = f'.. _dm-form-{name.replace(":", "-")}:'
         rst.addHead(hname, lvl=2, link=link)
 
@@ -219,7 +221,7 @@ def processFormsProps(rst, dochelp, forms):
 
             hpname = pname
             if ':' in pname:
-                hpname = pname.replace(':', '\:')
+                hpname = pname.replace(':', raw_back_slash_colon)
 
             _ = popts.pop('doc', None)
             doc = dochelp.props.get((name, pname))
@@ -228,7 +230,7 @@ def processFormsProps(rst, dochelp, forms):
                 doc = doc + '.'
 
             rst.addLines('',
-                         '\:' + hpname + ' / ' + f'{":".join([hname, hpname])}',
+                         raw_back_slash_colon + hpname + ' / ' + f'{":".join([hname, hpname])}',
                          '  ' + doc,
                          )
 
@@ -240,7 +242,7 @@ def processFormsProps(rst, dochelp, forms):
                 for k, v in popts.items():
                     if k == 'defval' and v == '':
                         v = "''"
-                    k = poptsToWords.get(k, k.replace(':', '\:'))
+                    k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
                     rst.addLines('  ' + f'* {k}: ``{v}``')
 
             hptlink = f'dm-type-{ptname.replace(":", "-")}'
@@ -275,7 +277,7 @@ def processUnivs(rst, dochelp, univs):
 
         hname = name
         if ':' in name:
-            hname = name.replace(':', '\:')
+            hname = name.replace(':', raw_back_slash_colon)
 
         rst.addHead('.' + hname, lvl=2, link=f'.. _dm-univ-{name.replace(":", "-")}:')
 
@@ -290,7 +292,7 @@ def processUnivs(rst, dochelp, univs):
             for k, v in info.items():
                 if k == 'defval' and v == '':
                     v = "''"
-                k = poptsToWords.get(k, k.replace(':', '\:'))
+                k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
                 rst.addLines('  ' + f'* {k}: ``{v}``')
 
         hptlink = f'dm-type-{utyp.replace(":", "-")}'
