@@ -83,6 +83,8 @@ class SnapTest(s_t_utils.SynTest):
 
                 await doit()  # run in separate function so that objects are gc'd
 
+                self.gt(nodeid, 0)
+
                 gc.collect()
                 # Ensure that the object *has* been garbage collected.
                 self.notin(nodeid, [id(obj) for obj in gc.get_objects()])
