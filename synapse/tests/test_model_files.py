@@ -9,7 +9,6 @@ class FileTest(s_t_utils.SynTest):
 
     async def test_model_filebytes(self):
 
-        # test that sha256: form kicks out a sha256 sub.
         async with self.getTestCore() as core:
             valu = 'sha256:' + ('a' * 64)
             fbyts = core.model.type('file:bytes')
@@ -18,6 +17,11 @@ class FileTest(s_t_utils.SynTest):
 
             norm, info = fbyts.norm('b' * 64)
             self.eq(info['subs']['sha256'], 'b' * 64)
+
+            # Allow an arbitrary struct to be ground into a file:bytes guid.
+            norm, info = fbyts.norm(('md5', 'b' * 32))
+            self.eq(norm, 'guid:d32efb12cb5a0f83ffd12788572e1c88')
+            self.eq(info, {})
 
             self.raises(s_exc.BadTypeValu, fbyts.norm, s_common.guid())
             self.raises(s_exc.BadTypeValu, fbyts.norm, 'guid:0101')
