@@ -693,6 +693,10 @@ class HiveIden(s_base.Base):
         self.info.setdefault('rules', ())
         self.rules = self.info.get('rules', onedit=self._onRulesEdit)
 
+    async def setName(self, name):
+        self.name = name
+        await self.node.set(name)
+
     async def setRules(self, rules):
         self.rules = list(rules)
         await self.info.set('rules', rules)
@@ -773,6 +777,7 @@ class HiveUser(HiveIden):
             'rules': self.rules,
             'roles': [r.iden for r in self.getRoles()],
             'admin': self.admin,
+            'email': self.info.get('email'),
             'locked': self.locked,
         }
 

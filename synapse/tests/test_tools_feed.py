@@ -27,15 +27,15 @@ class FeedTest(s_t_utils.SynTest):
                     gestfp]
 
             outp = self.getTestOutp()
-            cmdg = s_t_utils.CmdGenerator(['storm pivcomp -> *'], on_end=EOFError)
+            cmdg = s_t_utils.CmdGenerator(['storm test:pivcomp -> *'], on_end=EOFError)
             with mock.patch('synapse.lib.cli.get_input', cmdg):
                 self.eq(s_feed.main(argv, outp=outp), 0)
-            self.true(outp.expect('teststr=haha', throw=False))
-            self.true(outp.expect('pivtarg=hehe', throw=False))
+            self.true(outp.expect('test:str=haha', throw=False))
+            self.true(outp.expect('test:pivtarg=hehe', throw=False))
 
     def test_syningest_fail(self):
         with self.getTestDir() as dirn:
-            gestdef = {'forms': {'teststr': ['yes', ],
+            gestdef = {'forms': {'test:str': ['yes', ],
                                  'newp': ['haha', ],
                                  }
                        }
@@ -71,13 +71,11 @@ class FeedTest(s_t_utils.SynTest):
                             gestfp]
 
                     outp = self.getTestOutp()
-                    cmdg = s_t_utils.CmdGenerator(['storm pivcomp -> *'], on_end=EOFError)
-
+                    cmdg = s_t_utils.CmdGenerator(['storm test:pivcomp -> *'], on_end=EOFError)
                     with mock.patch('synapse.lib.cli.get_input', cmdg):
                         self.eq(s_feed.main(argv, outp=outp), 0)
-
-                    self.true(outp.expect('teststr=haha', throw=False))
-                    self.true(outp.expect('pivtarg=hehe', throw=False))
+                    self.true(outp.expect('test:str=haha', throw=False))
+                    self.true(outp.expect('test:pivtarg=hehe', throw=False))
 
             await s_coro.executor(testmain)
 
@@ -93,7 +91,7 @@ class FeedTest(s_t_utils.SynTest):
 
             def testmain():
 
-                mesg = ('node:add', {'ndef': ('teststr', 'foo')})
+                mesg = ('node:add', {'ndef': ('test:str', 'foo')})
                 splicefp = s_common.genpath(core.dirn, 'splice.mpk')
                 with s_common.genfile(splicefp) as fd:
                     fd.write(s_msgpack.en(mesg))
@@ -105,9 +103,10 @@ class FeedTest(s_t_utils.SynTest):
 
                 outp = self.getTestOutp()
                 self.eq(s_feed.main(argv, outp=outp), 0)
+                return True
 
             await s_coro.executor(testmain)
-            nodes = await core.eval('teststr=foo').list()
+            nodes = await core.eval('test:str=foo').list()
             self.len(1, nodes)
 
     async def test_synnodes_remote(self):
@@ -127,7 +126,7 @@ class FeedTest(s_t_utils.SynTest):
                     mpkfp = s_common.genpath(dirn, 'podes.mpk')
                     with s_common.genfile(mpkfp) as fd:
                         for i in range(20):
-                            pode = (('testint', i), {})
+                            pode = (('test:int', i), {})
                             fd.write(s_msgpack.en(pode))
 
                     argv = ['--cortex', curl,
@@ -141,7 +140,7 @@ class FeedTest(s_t_utils.SynTest):
 
                 await s_coro.executor(testmain)
 
-            nodes = await core.eval('testint').list()
+            nodes = await core.eval('test:int').list()
             self.len(20, nodes)
 
     async def test_synnodes_offset(self):
@@ -160,7 +159,7 @@ class FeedTest(s_t_utils.SynTest):
                     mpkfp = s_common.genpath(dirn, 'podes.mpk')
                     with s_common.genfile(mpkfp) as fd:
                         for i in range(20):
-                            pode = (('testint', i), {})
+                            pode = (('test:int', i), {})
                             fd.write(s_msgpack.en(pode))
 
                     argv = ['--cortex', curl,
@@ -180,5 +179,5 @@ class FeedTest(s_t_utils.SynTest):
                     self.true(outp.expect('Cannot start from a arbitrary offset for more than 1 file.'))
 
             await s_coro.executor(testmain)
-            nodes = await core.eval('testint').list()
+            nodes = await core.eval('test:int').list()
             self.len(8, nodes)

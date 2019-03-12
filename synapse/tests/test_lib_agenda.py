@@ -186,12 +186,12 @@ class AgendaTest(s_t_utils.SynTest):
                 await self.asyncraises(ValueError, agenda.add('visi', '', {s_agenda.TimeUnit.MINUTE: 1}))
 
                 # Schedule a one-shot 1 minute from now
-                await agenda.add('visi', '[teststr=foo]', {s_agenda.TimeUnit.MINUTE: 1})
+                await agenda.add('visi', '[test:str=foo]', {s_agenda.TimeUnit.MINUTE: 1})
                 await asyncio.sleep(0)  # give the scheduler a shot to wait
                 unixtime += 61
                 await sync.wait()  # wait for the query to run
                 sync.clear()
-                self.eq(lastquery, '[teststr=foo]')
+                self.eq(lastquery, '[test:str=foo]')
                 self.eq(list(core.method_calls[0]), ['auth.getUserByName', ('visi',), {}])
                 core.reset_mock()
                 lastquery = None
@@ -202,11 +202,11 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(appts[0][1]['nexttime'], None)
 
                 # Schedule a query to run every Wednesday and Friday at 10:15am
-                guid = await agenda.add('visi', '[teststr=bar]', {s_tu.HOUR: 10, s_tu.MINUTE: 15},
+                guid = await agenda.add('visi', '[test:str=bar]', {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                                         incunit=s_agenda.TimeUnit.DAYOFWEEK, incvals=(2, 4))
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
-                guid2 = await agenda.add('visi', '[teststr=baz]',
+                guid2 = await agenda.add('visi', '[test:str=baz]',
                                          {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
                                          incunit=s_agenda.TimeUnit.MONTH, incvals=1)
 
@@ -225,24 +225,24 @@ class AgendaTest(s_t_utils.SynTest):
                 unixtime = datetime.datetime(year=2018, month=12, day=5, hour=10, minute=16, tzinfo=tz.utc).timestamp()
                 await sync.wait()
                 sync.clear()
-                self.eq(lastquery, '[teststr=bar]')
+                self.eq(lastquery, '[test:str=bar]')
 
                 # Then two on the 6th
                 unixtime = datetime.datetime(year=2018, month=12, day=6, hour=7, minute=15, tzinfo=tz.utc).timestamp()
                 await sync.wait()
                 sync.clear()
-                self.eq(lastquery, '[teststr=baz]')
+                self.eq(lastquery, '[test:str=baz]')
                 lastquery = None
                 unixtime = datetime.datetime(year=2018, month=12, day=6, hour=8, minute=15, tzinfo=tz.utc).timestamp()
                 await sync.wait()
                 sync.clear()
-                self.eq(lastquery, '[teststr=baz]')
+                self.eq(lastquery, '[test:str=baz]')
 
                 # Then back to the 10:15 on Friday
                 unixtime = datetime.datetime(year=2018, month=12, day=7, hour=10, minute=16, tzinfo=tz.utc).timestamp()
                 await sync.wait()
                 sync.clear()
-                self.eq(lastquery, '[teststr=bar]')
+                self.eq(lastquery, '[test:str=bar]')
 
                 # Then Dec 10
                 unixtime = datetime.datetime(year=2018, month=12, day=10, hour=10, minute=16, tzinfo=tz.utc).timestamp()
@@ -254,7 +254,7 @@ class AgendaTest(s_t_utils.SynTest):
                 unixtime = datetime.datetime(year=2018, month=12, day=12, hour=10, minute=16, tzinfo=tz.utc).timestamp()
                 await sync.wait()
                 sync.clear()
-                self.eq(lastquery, '[teststr=bar]')
+                self.eq(lastquery, '[test:str=bar]')
 
                 # Cancel the Wednesday/Friday appt
                 await agenda.delete(guid)
@@ -270,7 +270,7 @@ class AgendaTest(s_t_utils.SynTest):
                 unixtime = datetime.datetime(year=2019, month=1, day=6, hour=10, minute=16, tzinfo=tz.utc).timestamp()
                 await sync.wait()
                 sync.clear()
-                self.eq(lastquery, '[teststr=baz]')
+                self.eq(lastquery, '[test:str=baz]')
 
                 # Modify the last appointment
                 await self.asyncraises(ValueError, agenda.mod(guid2, '', ))
@@ -318,11 +318,11 @@ class AgendaTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=fdir) as core:
                 agenda = core.agenda
                 # Schedule a query to run every Wednesday and Friday at 10:15am
-                guid1 = await agenda.add('visi', '[teststr=bar]', {s_tu.HOUR: 10, s_tu.MINUTE: 15},
+                guid1 = await agenda.add('visi', '[test:str=bar]', {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                                          incunit=s_agenda.TimeUnit.DAYOFWEEK, incvals=(2, 4))
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
-                await agenda.add('visi', '[teststr=baz]', {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
+                await agenda.add('visi', '[test:str=baz]', {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
                                  incunit=s_agenda.TimeUnit.MONTH, incvals=1)
 
                 xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2099}

@@ -36,20 +36,20 @@ class RemoteLayerTest(t_cortex.CortexTest):
 
         async with self.getTestCore() as core:
 
-            await s_common.aspin(core.eval('[ teststr=woot :tick=2015 ]'))
+            await s_common.aspin(core.eval('[ test:str=woot :tick=2015 ]'))
 
             layr = core.view.layers[0]
             self.true(isinstance(layr, s_remotelayer.RemoteLayer))
 
-            self.len(1, [x async for x in layr.iterFormRows('teststr')])
-            self.len(1, [x async for x in layr.iterPropRows('teststr', 'tick')])
+            self.len(1, [x async for x in layr.iterFormRows('test:str')])
+            self.len(1, [x async for x in layr.iterPropRows('test:str', 'tick')])
 
             iden = s_common.guid()
 
-            buid = s_common.buid(('teststr', 'woot'))
+            buid = s_common.buid(('test:str', 'woot'))
             props = await layr.getBuidProps(buid)
 
-            self.eq('woot', props.get('*teststr'))
+            self.eq('woot', props.get('*test:str'))
 
             await layr.setOffset(iden, 200)
             self.eq(200, await layr.getOffset(iden))
@@ -72,14 +72,14 @@ class RemoteLayerTest(t_cortex.CortexTest):
 
         async with self.getRemoteCores() as (core0, core1):
 
-            await core0.eval('[teststr=woot]').list()
-            self.len(1, await core1.eval('teststr=woot').list())
+            await core0.eval('[test:str=woot]').list()
+            self.len(1, await core1.eval('test:str=woot').list())
 
             # hulk smash the proxy
             await core1.view.layers[0].proxy.fini()
 
             # cause a reconnect...
-            self.len(1, await core1.eval('teststr=woot').list())
+            self.len(1, await core1.eval('test:str=woot').list())
 
 class RemoteLayerConfigTest(s_test.SynTest):
 
@@ -95,8 +95,8 @@ class RemoteLayerConfigTest(s_test.SynTest):
             await rem1.setPasswd('beep')
             await rem1.addRule((True, ('layer:lift', core0.iden)))
 
-            # make a teststr node
-            nodes = await core0.eval('[teststr=woot]').list()
+            # make a test:str node
+            nodes = await core0.eval('[test:str=woot]').list()
             self.len(1, nodes)
 
             created = nodes[0].get('.created')
@@ -111,17 +111,17 @@ class RemoteLayerConfigTest(s_test.SynTest):
 
                 async with self.getTestCore(dirn=dirn) as core1:
 
-                    self.len(0, await core1.eval('teststr=woot').list())
+                    self.len(0, await core1.eval('test:str=woot').list())
                     self.len(1, core1.view.layers)
 
                     # Add the remote layer via Telepath
                     self.nn(await core1.joinTeleLayer(layerurl))
                     self.len(2, core1.view.layers)
 
-                    self.len(1, await core1.eval('teststr=woot').list())
+                    self.len(1, await core1.eval('test:str=woot').list())
 
                     # Lift the node and set a prop in our layer
-                    nodes = await core1.eval('teststr=woot [:tick=2018]').list()
+                    nodes = await core1.eval('test:str=woot [:tick=2018]').list()
                     self.len(1, nodes)
                     self.eq(created, nodes[0].get('.created'))
                     self.eq(1514764800000, nodes[0].get('tick'))
@@ -130,7 +130,7 @@ class RemoteLayerConfigTest(s_test.SynTest):
 
                     self.len(2, core1.view.layers)
 
-                    nodes = await core1.eval('teststr=woot').list()
+                    nodes = await core1.eval('test:str=woot').list()
                     self.len(1, nodes)
                     self.eq(created, nodes[0].get('.created'))
                     self.eq(1514764800000, nodes[0].get('tick'))
