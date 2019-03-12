@@ -43,24 +43,25 @@ class ProvenanceTest(s_t_utils.SynTest):
 
             # The test:str splices
             prov2 = await core.getProvStack(idens[3])
-            s2 = ('storm', {'q': '[ test:str=foo ]', 'user': 'root'})
+            rootiden = prov2[1][0][1]['user']
+            s2 = ('storm', {'q': '[ test:str=foo ]', 'user': rootiden})
             self.eq((s2, ), prov2[1])
 
             # Validate that the iden calc itself is correct
-            rawprov = ({}, [('storm', (('q', '[ test:str=foo ]'), ('user', 'root')))])
+            rawprov = ({}, [('storm', (('q', '[ test:str=foo ]'), ('user', rootiden)))])
             hash = hashlib.md5(s_msgpack.en(rawprov)).hexdigest()
             self.eq(hash, idens[3])
 
             # The trigger splices
             prov3 = await core.getProvStack(idens[5])
             s3 = ('trig', {'cond': 'node:add', 'form': 'test:str', 'tag': None, 'prop': None})
-            s4 = ('storm', {'q': '[ test:int=1 ]', 'user': 'root'})
+            s4 = ('storm', {'q': '[ test:int=1 ]', 'user': rootiden})
             self.eq((s2, s3, s4), prov3[1])
 
             # prop:del/node:del
             prov4 = await core.getProvStack(idens[7])
 
-            ds2 = ('storm', {'q': 'test:int | delnode', 'user': 'root'})
+            ds2 = ('storm', {'q': 'test:int | delnode', 'user': rootiden})
             ds3 = ('stormcmd', {'name': 'delnode', 'argv': ()})
             self.eq((ds2, ds3), prov4[1])
 

@@ -150,7 +150,7 @@ class Runtime:
 
     async def iterStormQuery(self, query):
 
-        with s_provenance.claim('storm', q=query.text, user=self.user.name if self.user else None):
+        with s_provenance.claim('storm', q=query.text, user=self.user.iden):
 
             # do a quick pass to determine which vars are per-node.
             for oper in query.kids:

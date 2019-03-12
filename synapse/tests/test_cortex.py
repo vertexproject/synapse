@@ -648,24 +648,6 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(nodes[0].get('hehe'), 33)
                 self.eq(nodes[0].ndef[1], (33, 'thirty three'))
 
-    @unittest.skip('functionality temporarily removed')
-    async def test_pivprop(self):
-
-        async with self.getTestCore() as core:
-
-            async with await core.snap() as snap:
-
-                pivc = await snap.addNode('test:pivcomp', ('woot', 'rofl'))
-                self.eq(pivc.get('targ'), 'woot')
-
-                pivt = await snap.getNodeByNdef(('test:pivtarg', 'woot'))
-                await pivt.set('name', 'visi')
-                self.nn(pivt)
-
-            async with await core.snap() as snap:
-                pivc = await snap.getNodeByNdef(('test:pivcomp', ('woot', 'rofl')))
-                self.eq(pivc.get('targ::name'), 'visi')
-
     async def test_eval(self):
         ''' Cortex.eval test '''
 
