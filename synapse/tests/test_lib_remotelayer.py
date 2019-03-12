@@ -32,20 +32,20 @@ class RemoteLayerTest(t_cortex.CortexTest):
 
         async with self.getTestCore() as core:
 
-            await s_common.aspin(core.eval('[ teststr=woot :tick=2015 ]'))
+            await s_common.aspin(core.eval('[ test:str=woot :tick=2015 ]'))
 
             layr = core.view.layers[0]
             self.true(isinstance(layr, s_remotelayer.RemoteLayer))
 
-            self.len(1, [x async for x in layr.iterFormRows('teststr')])
-            self.len(1, [x async for x in layr.iterPropRows('teststr', 'tick')])
+            self.len(1, [x async for x in layr.iterFormRows('test:str')])
+            self.len(1, [x async for x in layr.iterPropRows('test:str', 'tick')])
 
             iden = s_common.guid()
 
-            buid = s_common.buid(('teststr', 'woot'))
+            buid = s_common.buid(('test:str', 'woot'))
             props = await layr.getBuidProps(buid)
 
-            self.eq('woot', props.get('*teststr'))
+            self.eq('woot', props.get('*test:str'))
 
             await layr.setOffset(iden, 200)
             self.eq(200, await layr.getOffset(iden))
@@ -59,14 +59,14 @@ class RemoteLayerTest(t_cortex.CortexTest):
 
         async with self.getRemoteCores() as (core0, core1):
 
-            await core0.eval('[teststr=woot]').list()
-            self.len(1, await core1.eval('teststr=woot').list())
+            await core0.eval('[test:str=woot]').list()
+            self.len(1, await core1.eval('test:str=woot').list())
 
             # hulk smash the proxy
             await core1.view.layers[0].proxy.fini()
 
             # cause a reconnect...
-            self.len(1, await core1.eval('teststr=woot').list())
+            self.len(1, await core1.eval('test:str=woot').list())
 
     async def test_cortex_remote_dmon(self):
         # Full telepath / auth stack
@@ -80,7 +80,7 @@ class RemoteLayerTest(t_cortex.CortexTest):
                 await core0.addAuthRule('remuser1', (True, ('layer:lift', coreiden)))
 
                 # Make a node
-                nodes = await alist(await core0.eval('[teststr=core0]'))
+                nodes = await alist(await core0.eval('[test:str=core0]'))
                 self.len(1, nodes)
                 created = s_node.prop(nodes[0], '.created')
 
@@ -96,7 +96,7 @@ class RemoteLayerTest(t_cortex.CortexTest):
 
                     async with await self.getTestProxy(dmon1, 'core', **pconf) as core1:
                         # Remote layer does not exist, so this node does not exist
-                        nodes = await alist(await core1.eval('teststr=core0'))
+                        nodes = await alist(await core1.eval('test:str=core0'))
                         self.len(0, nodes)
 
                         # Add the remote layer via Telepath
@@ -107,20 +107,20 @@ class RemoteLayerTest(t_cortex.CortexTest):
 
                     async with await self.getTestProxy(dmon1, 'core', **pconf) as core1:
                         # Lift the node from the remote layer
-                        nodes = await alist(await core1.eval('teststr=core0'))
+                        nodes = await alist(await core1.eval('test:str=core0'))
                         self.len(1, nodes)
                         self.eq(created, s_node.prop(nodes[0], '.created'))
                         # Lift the node and set a prop in our layer
-                        nodes = await alist(await core1.eval('teststr=core0 [:tick=2018]'))
+                        nodes = await alist(await core1.eval('test:str=core0 [:tick=2018]'))
                         self.len(1, nodes)
                         self.eq(1514764800000, s_node.prop(nodes[0], 'tick'))
 
                         # Make a node for our layer
-                        nodes = await alist(await core1.eval('[teststr=core1]'))
+                        nodes = await alist(await core1.eval('[test:str=core1]'))
                         self.len(1, nodes)
 
-                        # Lift all teststr nodes
-                        nodes = await alist(await core1.eval('teststr'))
+                        # Lift all test:str nodes
+                        nodes = await alist(await core1.eval('test:str'))
                         self.len(2, nodes)
 
                 # Turn the dmon back on and sure the layer configuration persists
@@ -128,9 +128,9 @@ class RemoteLayerTest(t_cortex.CortexTest):
                     self.len(2, dmon1.shared['core'].layers)
                     async with await self.getTestProxy(dmon1, 'core', **pconf) as core1:
                         # Lift the node from the remote layer
-                        nodes = await alist(await core1.eval('teststr=core0'))
+                        nodes = await alist(await core1.eval('test:str=core0'))
                         self.eq(created, s_node.prop(nodes[0], '.created'))
 
-                        # Lift all teststr nodes
-                        nodes = await alist(await core1.eval('teststr'))
+                        # Lift all test:str nodes
+                        nodes = await alist(await core1.eval('test:str'))
                         self.len(2, nodes)
