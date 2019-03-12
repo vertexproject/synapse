@@ -988,7 +988,7 @@ class SynTest(unittest.TestCase):
     @contextlib.asynccontextmanager
     async def getHttpSess(self):
         jar = aiohttp.CookieJar(unsafe=True)
-        conn = aiohttp.TCPConnector(verify_ssl=False)
+        conn = aiohttp.TCPConnector(ssl=False)
         async with aiohttp.ClientSession(cookie_jar=jar, connector=conn) as sess:
             yield sess
 
