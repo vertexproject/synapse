@@ -1,7 +1,3 @@
-# FIXME
-# "nullvals" - inet:mac, inet:ipv4, inet:ipv6
-
-
 import socket
 import hashlib
 import logging
@@ -864,7 +860,6 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:mac', ('str', {'lower': True, 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$'}), {
-                        # 'nullval': '??',  # FIXME this should not be here
                         'doc': 'A 48-bit Media Access Control (MAC) address.',
                         'ex': 'aa:bb:cc:dd:ee:ff'
                     }),
@@ -936,10 +931,6 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An instance of an account performing an action at an Internet-based site or service.'
                     }),
 
-                    ('inet:web:actref', ('comp', {'fields': (('act', 'inet:web:action'), ('node', 'ndef'))}), {
-                        'doc': 'A web action that references a given node.'
-                    }),
-
                     ('inet:web:chprofile', ('guid', {}), {
                         'doc': 'A change to a web account. Used to capture historical properties associated with '
                                ' an account, as opposed to current data in the inet:web:acct node.'
@@ -973,10 +964,6 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:post', ('guid', {}), {
                         'doc': 'A post made by a web account.'
-                    }),
-
-                    ('inet:web:postref', ('comp', {'fields': (('post', 'inet:web:post'), ('node', 'ndef'))}), {
-                        'doc': 'A web post that references a given node.'
                     }),
 
                     ('inet:whois:contact', ('comp', {'fields': (('rec', 'inet:whois:rec'), ('type', ('str', {'lower': True})))}), {
@@ -1310,15 +1297,9 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:fqdn', {}, (
-                        ('created', ('time', {'ismin': True}), {
-                            'doc': 'The earliest known registration (creation) date for the fqdn.'
-                        }),
                         ('domain', ('inet:fqdn', {}), {
                             'ro': True,
                             'doc': 'The parent domain for the FQDN.',
-                        }),
-                        ('expires', ('time', {'ismax': True}), {
-                            'doc': 'The current expiration date for the fqdn.'
                         }),
                         ('host', ('str', {'lower': True}), {
                             'ro': True,
@@ -1331,9 +1312,6 @@ class InetModule(s_module.CoreModule):
                         ('iszone', ('bool', {}), {
                             'doc': 'True if the FQDN is considered a zone.',
                             'defval': 0,
-                        }),
-                        ('updated', ('time', {'ismax': True}), {
-                            'doc': 'The last known updated date for the fqdn.'
                         }),
                         ('zone', ('inet:fqdn', {}), {
                             'doc': 'The zone level parent for this FQDN.',
@@ -1819,21 +1797,6 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
-                    ('inet:web:actref', {}, (
-                        ('act', ('inet:web:action', {}), {
-                            'ro': True,
-                            'doc': 'The action that references the given node.'
-                        }),
-                        ('node', ('ndef', {}), {
-                            'ro': True,
-                            'doc': 'The ndef that is referenced as part of the action.'
-                        }),
-                        ('node:form', ('str', {}), {
-                            'ro': True,
-                            'doc': 'The form of node that is referenced as part of the action.'
-                        }),
-                    )),
-
                     ('inet:web:chprofile', {}, (
                         ('acct', ('inet:web:acct', {}), {
                             'ro': True,
@@ -2069,21 +2032,6 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('repost', ('inet:web:post', {}), {
                             'doc': 'The original post that this is a repost of.'
-                        }),
-                    )),
-
-                    ('inet:web:postref', {}, (
-                        ('post', ('inet:web:post', {}), {
-                            'ro': True,
-                            'doc': 'The web post that references the given node.'
-                        }),
-                        ('node', ('ndef', {}), {
-                            'ro': True,
-                            'doc': 'The ndef that is referenced as part of the web post.'
-                        }),
-                        ('node:form', ('str', {}), {
-                            'ro': True,
-                            'doc': 'The form of node that is referenced as part of the web post.'
                         }),
                     )),
 

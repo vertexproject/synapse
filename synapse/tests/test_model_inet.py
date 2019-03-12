@@ -383,14 +383,12 @@ class InetModelTest(s_t_utils.SynTest):
             # Demonstrate cascading formation
             # FIXME use checkNode
             async with await core.snap() as snap:
-                node = await snap.addNode(formname, valu, props={'created': 0, 'expires': 1, 'updated': 2})
+                node = await snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('domain'), 'vertex.link')
-                self.eq(node.get('expires'), 1)
                 self.eq(node.get('host'), 'api')
                 self.eq(node.get('issuffix'), 0)
                 self.eq(node.get('iszone'), 0)
-                self.eq(node.get('updated'), 2)
                 self.eq(node.get('zone'), 'vertex.link')
 
             async with await core.snap() as snap:
@@ -1220,21 +1218,6 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    async def test_web_actref(self):
-        formname = 'inet:web:actref'
-        valu = (32 * 'a', ('inet:ipv4', '0.0.0.1'))
-        input_props = {}
-        expected_props = {
-            'act': 32 * 'a',
-            'node': ('inet:ipv4', 1),
-            'node:form': 'inet:ipv4',
-        }
-        expected_ndef = (formname, (32 * 'a', ('inet:ipv4', 1)))
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode(formname, valu, props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
     async def test_web_chprofile(self):
         formname = 'inet:web:chprofile'
         valu = 32 * 'a'
@@ -1425,21 +1408,6 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    async def test_web_postref(self):
-        formname = 'inet:web:postref'
-        valu = (32 * 'a', ('inet:ipv4', '0.0.0.1'))
-        input_props = {}
-        expected_props = {
-            'post': 32 * 'a',
-            'node': ('inet:ipv4', 1),
-            'node:form': 'inet:ipv4',
-        }
-        expected_ndef = (formname, (32 * 'a', ('inet:ipv4', 1)))
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode(formname, valu, props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
     async def test_whois_contact(self):
         formname = 'inet:whois:contact'
         valu = (('vertex.link', '@2015'), 'regiStrar')
@@ -1496,9 +1464,6 @@ class InetModelTest(s_t_utils.SynTest):
         valu = ('woot.com', '@20501217')
         input_props = {
             'text': 'YELLING AT pennywise@vertex.link LOUDLY',
-            'created': 0,
-            'updated': 1,
-            'expires': 2,
             'registrar': ' cool REGISTRAR ',
             'registrant': ' cool REGISTRANT ',
         }
@@ -1506,9 +1471,6 @@ class InetModelTest(s_t_utils.SynTest):
             'fqdn': 'woot.com',
             'asof': 2554848000000,
             'text': 'yelling at pennywise@vertex.link loudly',
-            'created': 0,
-            'updated': 1,
-            'expires': 2,
             'registrar': ' cool registrar ',
             'registrant': ' cool registrant ',
         }
