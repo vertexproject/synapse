@@ -29,29 +29,29 @@ class BaseTest(s_t_utils.SynTest):
 
             async with await core.snap() as snap:
 
-                node1 = await snap.addNode('testint', 20)
-                node2 = await snap.addNode('teststr', 'foo')
+                node1 = await snap.addNode('test:int', 20)
+                node2 = await snap.addNode('test:str', 'foo')
 
                 link = await snap.addNode('graph:link', (node1.ndef, node2.ndef))
 
-                self.eq(link.ndef[1], (('testint', 20), ('teststr', 'foo')))
-                self.eq(link.get('n1'), ('testint', 20))
-                self.eq(link.get('n1:form'), 'testint')
+                self.eq(link.ndef[1], (('test:int', 20), ('test:str', 'foo')))
+                self.eq(link.get('n1'), ('test:int', 20))
+                self.eq(link.get('n1:form'), 'test:int')
 
-                self.eq(link.get('n2'), ('teststr', 'foo'))
-                self.eq(link.get('n2:form'), 'teststr')
+                self.eq(link.get('n2'), ('test:str', 'foo'))
+                self.eq(link.get('n2:form'), 'test:str')
 
                 timelink = await snap.addNode('graph:timelink', (node1.ndef, node2.ndef, '2015'))
 
-                self.eq(timelink.ndef[1], (('testint', 20), ('teststr', 'foo'), 1420070400000))
+                self.eq(timelink.ndef[1], (('test:int', 20), ('test:str', 'foo'), 1420070400000))
 
                 self.eq(timelink.get('time'), 1420070400000)
 
-                self.eq(timelink.get('n1'), ('testint', 20))
-                self.eq(timelink.get('n1:form'), 'testint')
+                self.eq(timelink.get('n1'), ('test:int', 20))
+                self.eq(timelink.get('n1:form'), 'test:int')
 
-                self.eq(timelink.get('n2'), ('teststr', 'foo'))
-                self.eq(timelink.get('n2:form'), 'teststr')
+                self.eq(timelink.get('n2'), ('test:str', 'foo'))
+                self.eq(timelink.get('n2:form'), 'test:str')
 
     async def test_model_base_event(self):
 
@@ -130,8 +130,8 @@ class BaseTest(s_t_utils.SynTest):
             t = core.model.type('edge').clone(copts)
             norm, info = t.norm((n1def, n2def))
             self.eq(norm, (n1def, n2def))
-            self.raises(s_exc.BadTypeValu, t.norm, (n1def, ('testint', 1)))
-            self.raises(s_exc.BadTypeValu, t.norm, (('testint', 1), n2def))
+            self.raises(s_exc.BadTypeValu, t.norm, (n1def, ('test:int', 1)))
+            self.raises(s_exc.BadTypeValu, t.norm, (('test:int', 1), n2def))
 
             # Make sure we don't return None nodes if one node of an edge is deleted
             node = await core.getNodeByNdef(n2def)
@@ -146,7 +146,7 @@ class BaseTest(s_t_utils.SynTest):
             # repr test
             async with await core.snap() as snap:
                 node = await snap.addNode('refs', (('inet:ipv4', 0x08080808),
-                                                   ('teststr', 'beep')))
+                                                   ('test:str', 'beep')))
                 pode = node.pack(dorepr=True)
                 self.isin('8.8.8.8', pode[1].get('repr', ''))
 
@@ -185,8 +185,8 @@ class BaseTest(s_t_utils.SynTest):
                 self.eq(cnode.get('desc'), 'a cluster for testing')
 
                 # Example reference nodes
-                r1 = await snap.addNode('refs', (cnode.ndef, ('teststr', '1234')))
-                r2 = await snap.addNode('refs', (cnode.ndef, ('testint', 1234)))
+                r1 = await snap.addNode('refs', (cnode.ndef, ('test:str', '1234')))
+                r2 = await snap.addNode('refs', (cnode.ndef, ('test:int', 1234)))
 
                 # Gather up all the nodes in the cluster
                 nodes = await snap.eval(f'cluster={guid} | noderefs -d 2 --join').list()

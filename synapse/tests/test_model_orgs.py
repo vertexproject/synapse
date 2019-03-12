@@ -122,11 +122,11 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('org'), guid0)
 
                 # ou:org:has
-                node = await snap.addNode('ou:org:has', (guid0, ('teststr', 'pretty floral bonnet')))
-                self.eq(node.ndef[1], (guid0, ('teststr', 'pretty floral bonnet')))
+                node = await snap.addNode('ou:org:has', (guid0, ('test:str', 'pretty floral bonnet')))
+                self.eq(node.ndef[1], (guid0, ('test:str', 'pretty floral bonnet')))
                 self.eq(node.get('org'), guid0)
-                self.eq(node.get('node'), ('teststr', 'pretty floral bonnet'))
-                self.eq(node.get('node:form'), 'teststr')
+                self.eq(node.get('node'), ('test:str', 'pretty floral bonnet'))
+                self.eq(node.get('node:form'), 'test:str')
 
                 # ou:meet
                 place0 = s_common.guid()

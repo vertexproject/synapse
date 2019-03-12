@@ -60,17 +60,17 @@ class PsModelTest(s_t_utils.SynTest):
                 # self.eq(node.get('img'), '')  # fixme file:bytes
                 # self.eq(node.get('guidname'), '')  # fixme guid aliases
 
-                node = await snap.addNode('ps:person:has', (person0, ('teststr', 'sewer map')))
-                self.eq(node.ndef[1], (person0, ('teststr', 'sewer map')))
+                node = await snap.addNode('ps:person:has', (person0, ('test:str', 'sewer map')))
+                self.eq(node.ndef[1], (person0, ('test:str', 'sewer map')))
                 self.eq(node.get('person'), person0)
-                self.eq(node.get('node'), ('teststr', 'sewer map'))
-                self.eq(node.get('node:form'), 'teststr')
+                self.eq(node.get('node'), ('test:str', 'sewer map'))
+                self.eq(node.get('node:form'), 'test:str')
 
-                node = await snap.addNode('ps:persona:has', (persona0, ('teststr', 'the gibson')))
-                self.eq(node.ndef[1], (persona0, ('teststr', 'the gibson')))
+                node = await snap.addNode('ps:persona:has', (persona0, ('test:str', 'the gibson')))
+                self.eq(node.ndef[1], (persona0, ('test:str', 'the gibson')))
                 self.eq(node.get('persona'), persona0)
-                self.eq(node.get('node'), ('teststr', 'the gibson'))
-                self.eq(node.get('node:form'), 'teststr')
+                self.eq(node.get('node'), ('test:str', 'the gibson'))
+                self.eq(node.get('node:form'), 'test:str')
 
                 org0 = s_common.guid()
                 con0 = s_common.guid()
