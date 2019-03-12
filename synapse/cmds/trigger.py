@@ -52,7 +52,7 @@ Syntax:
 Example:
     cli> trigger list
     user       iden         cond      object                    storm query
-    <None>     739719ff..   prop:set  testtype10.intprop            [ testint=6 ]
+    <None>     739719ff..   prop:set  test:type10.intprop            [ test:int=6 ]
 '''
 
 DelHelp = '''
