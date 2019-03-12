@@ -37,7 +37,7 @@ import synapse.lib.remotelayer as s_remotelayer
 
 logger = logging.getLogger(__name__)
 
-cmdre = regex.compile(r'^[\w\.]+$')
+cmdre = regex.compile(r'^[^\W\d_][\w\.]+$')
 
 '''
 A Cortex implements the synapse hypergraph object.

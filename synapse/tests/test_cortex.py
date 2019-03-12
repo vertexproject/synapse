@@ -2069,9 +2069,16 @@ class CortexTest(s_t_utils.SynTest):
         class Bork:
             name = 'foo:bar'
 
+        class Bawk:
+            name = '.foobar'
+
         async with self.getTestCore() as core:
+
             with self.raises(s_exc.BadCmdName):
                 core.addStormCmd(Bork)
+
+            with self.raises(s_exc.BadCmdName):
+                core.addStormCmd(Bawk)
 
     async def test_storm_comment(self):
 
