@@ -6,27 +6,27 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.eval('[ testcomp=(20, haha) +#foo +#bar testcomp=(30, hoho) ]').list()
+            await core.eval('[ test:comp=(20, haha) +#foo +#bar test:comp=(30, hoho) ]').list()
 
             q = '''
-            testcomp
+            test:comp
             for $tag in $node.tags() {
-                -> testint [ +#$tag ]
+                -> test:int [ +#$tag ]
             }
             '''
 
             await core.eval(q).list()
 
-            self.len(1, await core.eval('testint#foo').list())
-            self.len(1, await core.eval('testint#bar').list())
+            self.len(1, await core.eval('test:int#foo').list())
+            self.len(1, await core.eval('test:int#bar').list())
 
             q = '''
-            testcomp
+            test:comp
             for $tag in $node.tags(fo*) {
-                -> testint [ -#$tag ]
+                -> test:int [ -#$tag ]
             }
             '''
             await core.eval(q).list()
 
-            self.len(0, await core.eval('testint#foo').list())
-            self.len(1, await core.eval('testint#bar').list())
+            self.len(0, await core.eval('test:int#foo').list())
+            self.len(1, await core.eval('test:int#bar').list())

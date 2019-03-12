@@ -20,13 +20,13 @@ class DataModelTest(s_t_utils.SynTest):
 
             modelinfo = s_datamodel.ModelInfo()
             modelinfo.addDataModels(modeldef)
-            self.true(modelinfo.isform('teststr'))
+            self.true(modelinfo.isform('test:str'))
             self.true(modelinfo.isuniv('.seen'))
             self.false(modelinfo.isuniv('seen'))
-            self.true(modelinfo.isprop('testtype10:intprop'))
-            self.true(modelinfo.isprop('testtype10.seen'))
+            self.true(modelinfo.isprop('test:type10:intprop'))
+            self.true(modelinfo.isprop('test:type10.seen'))
 
     async def test_datamodel_indx_too_big(self):
         async with self.getTestCore() as core:
             with self.raises(s_exc.BadIndxValu):
-                core.model.form('testtype').getSetOps('testtype', 'A' * 512)
+                core.model.form('test:type').getSetOps('test:type', 'A' * 512)
