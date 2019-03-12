@@ -21,12 +21,12 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('Base types are defined via Python classes.', s)
             self.isin('synapse.models.inet.Addr', s)
             self.isin('Regular types are derived from BaseTypes.', s)
-            self.isin('inet\:server', s)
+            self.isin('inet\\:server', s)
 
             with s_common.genfile(path, 'datamodel_forms.rst') as fd:
                 buf = fd.read()
             s = buf.decode()
             self.isin('Forms are derived from types, or base types. Forms represent node types in the graph.', s)
-            self.isin('inet\:ipv4', s)
+            self.isin('inet\\:ipv4', s)
             self.isin('Universal props are system level properties which may be present on every node.', s)
             self.isin('.created', s)

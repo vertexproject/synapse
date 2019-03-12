@@ -107,17 +107,17 @@ def processCtors(rst, dochelp, ctors):
         # Break implicit links to nowhere
         hname = name
         if ':' in name:
-            hname = name.replace(':', '\:')
+            hname = name.replace(':', '\\:')
 
         link = f'.. _dm-type-{name.replace(":", "-")}:'
         rst.addHead(hname, lvl=2, link=link)
 
-        rst.addLines(doc, f'It is implemented by the following class\: ``{ctor}``.')
+        rst.addLines(doc, f'It is implemented by the following class\\: ``{ctor}``.')
         _ = info.pop('doc', None)
         ex = info.pop('ex', None)
         if ex:
             rst.addLines('',
-                         f'A example of ``{name}``\:',
+                         f'A example of ``{name}``\\:',
                          '',
                          f' * ``{ex}``',
                          )
@@ -161,7 +161,7 @@ def processTypes(rst, dochelp, types):
         # Break implicit links to nowhere
         hname = name
         if ':' in name:
-            hname = name.replace(':', '\:')
+            hname = name.replace(':', '\\:')
 
         link = f'.. _dm-type-{name.replace(":", "-")}:'
         rst.addHead(hname, lvl=2, link=link)
@@ -173,7 +173,7 @@ def processTypes(rst, dochelp, types):
         ex = info.pop('ex', None)
         if ex:
             rst.addLines('',
-                         f'A example of {name}\:',
+                         f'A example of {name}\\:',
                          '',
                          f' * ``{ex}``',
                          )
@@ -205,7 +205,7 @@ def processFormsProps(rst, dochelp, forms):
 
         hname = name
         if ':' in name:
-            hname = name.replace(':', '\:')
+            hname = name.replace(':', '\\:')
         link = f'.. _dm-form-{name.replace(":", "-")}:'
         rst.addHead(hname, lvl=2, link=link)
 
@@ -219,7 +219,7 @@ def processFormsProps(rst, dochelp, forms):
 
             hpname = pname
             if ':' in pname:
-                hpname = pname.replace(':', '\:')
+                hpname = pname.replace(':', '\\:')
 
             _ = popts.pop('doc', None)
             doc = dochelp.props.get((name, pname))
@@ -228,7 +228,7 @@ def processFormsProps(rst, dochelp, forms):
                 doc = doc + '.'
 
             rst.addLines('',
-                         '\:' + hpname + ' / ' + f'{":".join([hname, hpname])}',
+                         '\\:' + hpname + ' / ' + f'{":".join([hname, hpname])}',
                          '  ' + doc,
                          )
 
@@ -240,7 +240,7 @@ def processFormsProps(rst, dochelp, forms):
                 for k, v in popts.items():
                     if k == 'defval' and v == '':
                         v = "''"
-                    k = poptsToWords.get(k, k.replace(':', '\:'))
+                    k = poptsToWords.get(k, k.replace(':', '\\:'))
                     rst.addLines('  ' + f'* {k}: ``{v}``')
 
             hptlink = f'dm-type-{ptname.replace(":", "-")}'
@@ -275,7 +275,7 @@ def processUnivs(rst, dochelp, univs):
 
         hname = name
         if ':' in name:
-            hname = name.replace(':', '\:')
+            hname = name.replace(':', '\\:')
 
         rst.addHead('.' + hname, lvl=2, link=f'.. _dm-univ-{name.replace(":", "-")}:')
 
@@ -290,7 +290,7 @@ def processUnivs(rst, dochelp, univs):
             for k, v in info.items():
                 if k == 'defval' and v == '':
                     v = "''"
-                k = poptsToWords.get(k, k.replace(':', '\:'))
+                k = poptsToWords.get(k, k.replace(':', '\\:'))
                 rst.addLines('  ' + f'* {k}: ``{v}``')
 
         hptlink = f'dm-type-{utyp.replace(":", "-")}'
