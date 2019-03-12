@@ -2125,9 +2125,11 @@ class CortexTest(s_t_utils.SynTest):
 
             await core.eval('[ inet:asn=200 :name=visi ]').spin()
             await core.eval('[ inet:ipv4=1.2.3.4 :asn=200 ]').spin()
+            await core.eval('[ inet:ipv4=5.6.7.8 :asn=8080 ]').spin()
 
             nodes = await core.eval('inet:ipv4 +:asn::name=visi').list()
             self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
     async def test_storm_contbreak(self):
 
