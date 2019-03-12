@@ -183,16 +183,17 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.enable()  # make sure it doesn't blow up
                 self.eq([], agenda.list())
 
-                await self.asyncraises(ValueError, agenda.add('visi', '', {s_agenda.TimeUnit.MINUTE: 1}))
+                rootiden = 'aaaaa'
+
+                await self.asyncraises(ValueError, agenda.add(rootiden, '', {s_agenda.TimeUnit.MINUTE: 1}))
 
                 # Schedule a one-shot 1 minute from now
-                await agenda.add('visi', '[test:str=foo]', {s_agenda.TimeUnit.MINUTE: 1})
+                await agenda.add(rootiden, '[test:str=foo]', {s_agenda.TimeUnit.MINUTE: 1})
                 await asyncio.sleep(0)  # give the scheduler a shot to wait
                 unixtime += 61
                 await sync.wait()  # wait for the query to run
                 sync.clear()
                 self.eq(lastquery, '[test:str=foo]')
-                self.eq(list(core.method_calls[0]), ['auth.getUserByName', ('visi',), {}])
                 core.reset_mock()
                 lastquery = None
 
@@ -202,11 +203,11 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(appts[0][1]['nexttime'], None)
 
                 # Schedule a query to run every Wednesday and Friday at 10:15am
-                guid = await agenda.add('visi', '[test:str=bar]', {s_tu.HOUR: 10, s_tu.MINUTE: 15},
+                guid = await agenda.add(rootiden, '[test:str=bar]', {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                                         incunit=s_agenda.TimeUnit.DAYOFWEEK, incvals=(2, 4))
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
-                guid2 = await agenda.add('visi', '[test:str=baz]',
+                guid2 = await agenda.add(rootiden, '[test:str=baz]',
                                          {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
                                          incunit=s_agenda.TimeUnit.MONTH, incvals=1)
 
@@ -214,7 +215,7 @@ class AgendaTest(s_t_utils.SynTest):
                 lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2018}
 
                 # And one-shots for Christmas and last day of Hanukkah of 2018
-                await agenda.add('visi', '#happyholidays', (xmas, lasthanu))
+                await agenda.add(rootiden, '#happyholidays', (xmas, lasthanu))
 
                 await asyncio.sleep(0)
                 unixtime += 1
@@ -284,7 +285,7 @@ class AgendaTest(s_t_utils.SynTest):
                 self.len(0, agenda.apptheap)
 
                 # Test that isrunning updated, cancelling works
-                guid = await agenda.add('visi', 'inet:ipv4=1 | sleep 120', {},
+                guid = await agenda.add(rootiden, 'inet:ipv4=1 | sleep 120', {},
                                         incunit=s_agenda.TimeUnit.MINUTE, incvals=1)
                 unixtime += 60
                 await sync.wait()
@@ -300,7 +301,7 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.delete(guid)
 
                 # Test bad queries record exception
-                guid = await agenda.add('visi', '#foo', {},
+                guid = await agenda.add(rootiden, '#foo', {},
                                         incunit=s_agenda.TimeUnit.MINUTE, incvals=1)
                 # bypass the API because it would actually syntax check
                 agenda.appts[guid].query = 'badquery'

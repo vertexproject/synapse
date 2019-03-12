@@ -53,6 +53,7 @@ class CellApi(s_base.Base):
         await s_base.Base.__anit__(self)
         self.cell = cell
         self.link = link
+        assert user
         self.user = user
 
     def getCellType(self):
@@ -69,8 +70,7 @@ class CellApi(s_base.Base):
         retn = []
 
         admin = False
-        if self.user is not None:
-            admin = self.user.admin
+        admin = self.user.admin
 
         for synt in self.cell.boss.ps():
             if admin or synt.user == self.user:
@@ -81,8 +81,7 @@ class CellApi(s_base.Base):
     async def kill(self, iden):
 
         admin = False
-        if self.user is not None:
-            admin = self.user.admin
+        admin = self.user.admin
 
         logger.info(f'User [{str(self.user)}] Requesting task kill: {iden}')
         task = self.cell.boss.get(iden)
