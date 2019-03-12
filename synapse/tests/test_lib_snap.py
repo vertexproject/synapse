@@ -78,17 +78,24 @@ class SnapTest(s_t_utils.SynTest):
 
                     self.eq(nodes[0].buid, node0.buid)
                     self.eq(id(nodes[0]), id(node0))
+                    # Hang a attr off of the node
+                    setattr(node, '_test', True)
 
                 await doit()  # run in separate function so that objects are gc'd
 
                 gc.collect()
+                # Ensure that the object *has* been garbage collected.
+                self.notin(nodeid, [id(obj) for obj in gc.get_objects()])
 
                 # Test that coherency goes away (and we don't store all nodes forever)
                 await alist(snap.addNodes([(('test:int', x), {}) for x in range(20, 30)]))
 
                 node = await snap.getNodeByNdef(('test:int', 0))
                 self.eq(nodebuid, node.buid)
-                self.ne(nodeid, id(node))
+                # Ensure that the node is not the same object as we encountered earlier.
+                # We cannot check via id() since it is possible for a pyobject to be
+                # allocated at the same location as the old object.
+                self.false(hasattr(node, '_test'))
 
     async def test_addNodes(self):
         async with self.getTestCore() as core:
