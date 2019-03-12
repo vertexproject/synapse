@@ -56,7 +56,7 @@ class SnapTest(s_t_utils.SynTest):
                 snap.buidcache = collections.deque(maxlen=10)
 
                 async def doit():
-                    nonlocal nodeid, nodebuid
+                    nonlocal nodebuid
                     # Reduce the buid cache so we don't have to make 100K nodes
 
                     node0 = await snap.addNode('test:int', 0)
