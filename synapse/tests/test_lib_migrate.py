@@ -21,7 +21,7 @@ class MigrTest(s_testutils.SynTest):
             self.eq(100, nodes[0].get('posneg'))
             self.eq(0, nodes[0].get('posneg:isbig'))
 
-            await core.eval('[ refs=( (test:guid, $guid), (test:comp, (10, test10)) ) +#baz ]', opts=opts).list()
+            await core.eval('[ edge:refs=( (test:guid, $guid), (test:comp, (10, test10)) ) +#baz ]', opts=opts).list()
 
             self.len(1, await core.eval('test:int=10 [ +#foo ]').list())
             self.len(1, await core.eval('test:comp=(10, test10) [ +#bar ]').list())
@@ -45,9 +45,9 @@ class MigrTest(s_testutils.SynTest):
             self.len(1, await core.eval('test:int=1010').list())
             self.len(1, await core.eval('test:int#foo').list())
 
-            self.len(1, await core.eval('refs#baz').list())
+            self.len(1, await core.eval('edge:refs#baz').list())
 
-            refs = await core.eval('test:guid -> refs +#baz').list()
+            refs = await core.eval('test:guid -> edge:refs +#baz').list()
 
             self.len(1, refs)
             self.eq(refs[0].get('n2'), ('test:comp', (1010, 'test10')))

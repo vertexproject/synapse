@@ -1476,12 +1476,12 @@ class Cortex(s_cell.Cell):
         source = item.get('source')
         if source:
             # Base object
-            obj = [['source', source], {}]
+            obj = [['meta:source', source], {}]
             pnodes.append(obj)
 
             # Subsequent links
             for ndef in ndefs:
-                obj = [['seen', (source, ndef)],
+                obj = [['meta:seen', (source, ndef)],
                        {'props': {'.seen': (seen, seen)}}]
                 pnodes.append(obj)
         return pnodes

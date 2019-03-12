@@ -283,7 +283,7 @@ class TestModule(s_module.CoreModule):
     async def initCoreModule(self):
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
         async with await self.core.snap() as snap:
-            await snap.addNode('source', self.testguid, {'name': 'test'})
+            await snap.addNode('meta:source', self.testguid, {'name': 'test'})
 
         self.core.addStormLib(('test',), LibTst)
 
@@ -1414,7 +1414,7 @@ class SynTest(unittest.TestCase):
                         'test:str',
                         '1234'
                     ],
-                    'refs',
+                    'edge:refs',
                     [
                         [
                             'test:int',
@@ -1429,7 +1429,7 @@ class SynTest(unittest.TestCase):
                         'test:str',
                         '1234'
                     ],
-                    'wentto',
+                    'edge:wentto',
                     [
                         [
                             [

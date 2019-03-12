@@ -320,7 +320,7 @@ class StormTest(s_t_utils.SynTest):
             await self.agenlen(4, core.eval(q))
 
             srcguid = s_common.guid()
-            await self.agenlen(2, core.eval(f'[source={srcguid} +#omit.nopiv] [seen=({srcguid}, (test:pivtarg, foo))]'))
+            await self.agenlen(2, core.eval(f'[meta:source={srcguid} +#omit.nopiv] [meta:seen=({srcguid}, (test:pivtarg, foo))]'))
 
             q = 'test:pivcomp | noderefs --join --degrees 2'
             await self.agenlen(5, core.eval(q))
@@ -329,14 +329,14 @@ class StormTest(s_t_utils.SynTest):
             await self.agenlen(6, core.eval(q))
 
             # We can traverse edges in both directions
-            nodes = await alist(core.eval('[refs=((test:str, 123), (test:int, 123))]'))
+            nodes = await alist(core.eval('[edge:refs=((test:str, 123), (test:int, 123))]'))
             self.len(1, nodes)
             ref_iden = nodes[0].iden()
 
             q = 'test:str=123 | noderefs'
             nodes = await alist(core.eval(q))
             self.len(3, nodes)
-            self.eq({n.ndef[0] for n in nodes}, {'test:guid', 'refs', 'test:pivcomp'})
+            self.eq({n.ndef[0] for n in nodes}, {'test:guid', 'edge:refs', 'test:pivcomp'})
 
             q = 'test:str=123 | noderefs --traverse-edge'
             nodes = await alist(core.eval(q))
@@ -346,7 +346,7 @@ class StormTest(s_t_utils.SynTest):
             q = 'test:int=123 | noderefs'
             nodes = await alist(core.eval(q))
             self.len(1, nodes)
-            self.eq({n.ndef[0] for n in nodes}, {'refs'})
+            self.eq({n.ndef[0] for n in nodes}, {'edge:refs'})
 
             q = 'test:int=123 | noderefs -te'
             nodes = await alist(core.eval(q))
@@ -355,19 +355,19 @@ class StormTest(s_t_utils.SynTest):
 
             # Prevent inclusion of a form, and the traversal across said form/tag
             # Use long and short form arguments
-            await self.agenlen(1, core.eval(f'[seen=({srcguid}, (test:str, pennywise))]'))
+            await self.agenlen(1, core.eval(f'[meta:seen=({srcguid}, (test:str, pennywise))]'))
 
             q = 'test:str=pennywise | noderefs -d 3'
             await self.agenlen(3, core.eval(q))
 
-            q = 'test:str=pennywise | noderefs -d 3 --omit-traversal-form=source'
+            q = 'test:str=pennywise | noderefs -d 3 --omit-traversal-form=meta:source'
             await self.agenlen(2, core.eval(q))
-            q = 'test:str=pennywise | noderefs -d 3 -otf=source'
+            q = 'test:str=pennywise | noderefs -d 3 -otf=meta:source'
             await self.agenlen(2, core.eval(q))
 
-            q = 'test:str=pennywise | noderefs -d 3 --omit-form=source'
+            q = 'test:str=pennywise | noderefs -d 3 --omit-form=meta:source'
             await self.agenlen(1, core.eval(q))
-            q = 'test:str=pennywise | noderefs -d 3 -of=source'
+            q = 'test:str=pennywise | noderefs -d 3 -of=meta:source'
             await self.agenlen(1, core.eval(q))
 
             q = 'test:str=pennywise | noderefs -d 3 --omit-traversal-tag=omit.nopiv --omit-traversal-tag=test'
@@ -420,10 +420,10 @@ class StormTest(s_t_utils.SynTest):
 
             # Coverage for the pivot-in optimization.
             guid = s_common.guid()
-            await alist(core.eval(f'[inet:ipv4=1.2.3.4 :asn=10] [seen=({guid}, (inet:asn, 10))]'))
+            await alist(core.eval(f'[inet:ipv4=1.2.3.4 :asn=10] [meta:seen=({guid}, (inet:asn, 10))]'))
             nodes = await alist(core.eval('inet:asn=10 | noderefs -of inet:ipv4 --join -d 3'))
             forms = {node.form.full for node in nodes}
-            self.eq(forms, {'source', 'inet:asn', 'seen'})
+            self.eq(forms, {'meta:source', 'inet:asn', 'meta:seen'})
 
     async def test_minmax(self):
 

@@ -134,7 +134,7 @@ class Node:
         await self.set('.seen', tick)
 
         if source is not None:
-            seen = await self.snap.addNode('seen', (source, self.ndef))
+            seen = await self.snap.addNode('meta:seen', (source, self.ndef))
             await seen.set('.seen', tick)
 
     def getNodeRefs(self):

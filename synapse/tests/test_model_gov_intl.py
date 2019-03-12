@@ -7,11 +7,11 @@ testmodel = (
         'test',
         {
             'types': (
-                ('fakem49', ('gov:intl:un:m49', {}), {'doc': 'A fake int type.'}),
+                ('fake:m49', ('gov:intl:un:m49', {}), {'doc': 'A fake int type.'}),
             ),
 
             'forms': (
-                ('fakem49', {}, ()),
+                ('fake:m49', {}, ()),
             ),
         }
     ),
@@ -25,7 +25,7 @@ class IntlGovTest(SynTest):
 
             core.model.addDataModels(testmodel)
 
-            formname = 'fakem49'
+            formname = 'fake:m49'
             expected_ndef = (formname, 17)
             async with await core.snap() as snap:
                 await self.asyncraises(s_exc.BadPropValu, snap.addNode(formname, 3417))

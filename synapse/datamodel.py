@@ -623,6 +623,10 @@ class Model:
 
             for formname, forminfo, propdefs in mdef.get('forms', ()):
 
+                if ':' not in formname:
+                    mesg = 'Form names must be namespaced with a :'
+                    raise s_exc.BadFormDef(name=formname, mesg=mesg)
+
                 _type = self.types.get(formname)
                 if _type is None:
                     raise s_exc.NoSuchType(name=formname)
