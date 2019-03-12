@@ -1500,6 +1500,9 @@ class Cortex(s_cell.Cell):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
+        if user is None:
+            user = self.auth.getUserByName('root')
+
         await self.boss.promote('storm', user=user, info={'query': text})
         async with await self.snap(user=user) as snap:
             async for node in snap.eval(text, opts=opts, user=user):
@@ -1512,9 +1515,12 @@ class Cortex(s_cell.Cell):
         Yields:
             (Node, Path) tuples
         '''
+        if user is None:
+            user = self.auth.getUserByName('root')
+
         await self.boss.promote('storm', user=user, info={'query': text})
         async with await self.snap(user=user) as snap:
-            async for mesg in snap.storm(text, opts=opts):
+            async for mesg in snap.storm(text, opts=opts, user=user):
                 yield mesg
 
     @s_coro.genrhelp
@@ -1526,6 +1532,9 @@ class Cortex(s_cell.Cell):
         '''
         MSG_QUEUE_SIZE = 1000
         chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
+
+        if user is None:
+            user = self.auth.getUserByName('root')
 
         # promote ourself to a synapse task
         synt = await self.boss.promote('storm', user=user, info={'query': text})
@@ -1582,6 +1591,9 @@ class Cortex(s_cell.Cell):
 
     @s_coro.genrhelp
     async def iterStormPodes(self, text, opts=None, user=None):
+        if user is None:
+            user = self.auth.getUserByName('root')
+
         await self.boss.promote('storm', user=user, info={'query': text})
         async with await self.snap(user=user) as snap:
             async for pode in snap.iterStormPodes(text, opts=opts, user=user):
