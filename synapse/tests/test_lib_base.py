@@ -184,36 +184,6 @@ class BaseTest(s_t_utils.SynTest):
         evts = await wait1.wait(timeout=0.1)
         self.none(evts)
 
-    @unittest.skip('Remove me when base.log confirmed unused')
-    async def test_base_log(self):
-
-        logs = []
-        async with await s_base.Base.anit() as base:
-            base.on('log', logs.append)
-
-            await base.log(100, 'omg woot', foo=10)
-
-        mesg = logs[0]
-        self.eq(mesg[0], 'log')
-        self.eq(mesg[1].get('foo'), 10)
-        self.eq(mesg[1].get('mesg'), 'omg woot')
-        self.eq(mesg[1].get('level'), 100)
-
-    @unittest.skip('Remove me when exc confirmed unused')
-    async def test_base_exc(self):
-
-        logs = []
-        async with await s_base.Base.anit() as base:
-            base.on('log', logs.append)
-
-            try:
-                raise s_exc.NoSuchObj(name='hehe')
-            except Exception as e:
-                await base.exc(e)
-
-        mesg = logs[0]
-        self.eq(mesg[1].get('err'), 'NoSuchObj')
-
     async def test_baseref(self):
 
         bref = await s_base.BaseRef.anit()

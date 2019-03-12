@@ -385,6 +385,10 @@ class Parser:
         self.stormcmds = set(parseinfo['stormcmds'])
         self.modelinfo = parseinfo['modelinfo']
 
+    @property
+    def remaining_text(self):
+        return self.text[self.offs:]
+
     def _raiseSyntaxError(self, mesg):
         at = self.text[self.offs:self.offs + 12]
         raise s_exc.BadStormSyntax(mesg=mesg, at=at, text=self.text, offs=self.offs)
@@ -732,6 +736,9 @@ class Parser:
         self.ignore(whitespace)
 
         self.nextmust('#')
+
+        if self.nextstr('$'):
+            return self.varvalu()
 
         text = self.noms(until=tagmatchterm)
 
@@ -1192,7 +1199,7 @@ class Parser:
 
         if self.nextstr('#'):
 
-            tag = self.tagname()
+            tag = self.tagmatch()
 
             self.ignore(whitespace)
 
@@ -1202,6 +1209,9 @@ class Parser:
             # Special case of pivot operations which ALSO start with cmprstart chars
             if self.nextstrs('<-', '<+-'):
                 return s_ast.TagCond(kids=(tag,))
+
+            if '*' in tag.value():
+                self._raiseSyntaxError('* globbing is not supported in tag/value combinations.')
 
             cmpr = self.cmpr()
             self.ignore(whitespace)

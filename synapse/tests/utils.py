@@ -114,53 +114,57 @@ class TestSubType(s_types.Type):
 testmodel = {
 
     'ctors': (
-        ('testsub', 'synapse.tests.utils.TestSubType', {}, {}),
-        ('testtype', 'synapse.tests.utils.TestType', {}, {}),
-        ('testthreetype', 'synapse.tests.utils.ThreeType', {}, {}),
+        ('test:sub', 'synapse.tests.utils.TestSubType', {}, {}),
+        ('test:type', 'synapse.tests.utils.TestType', {}, {}),
+        ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
     ),
 
     'types': (
-        ('testtype10', ('testtype', {'foo': 10}), {
+        ('test:type10', ('test:type', {'foo': 10}), {
             'doc': 'A fake type.'}),
 
-        ('testlower', ('str', {'lower': True}), {}),
+        ('test:lower', ('str', {'lower': True}), {}),
 
-        ('testtime', ('time', {}), {}),
+        ('test:time', ('time', {}), {}),
 
-        ('testival', ('ival', {}), {}),
+        ('test:ival', ('ival', {}), {}),
 
-        ('testint', ('int', {}), {}),
-        ('teststr', ('str', {}), {}),
-        ('testauto', ('str', {}), {}),
+        ('test:int', ('int', {}), {}),
+        ('test:str', ('str', {}), {}),
+        ('test:auto', ('str', {}), {}),
         ('test:edge', ('edge', {}), {}),
-        ('testguid', ('guid', {}), {}),
+        ('test:guid', ('guid', {}), {}),
 
-        ('testcomp', ('comp', {'fields': (
-            ('hehe', 'testint'),
-            ('haha', 'testlower'))
+        ('test:comp', ('comp', {'fields': (
+            ('hehe', 'test:int'),
+            ('haha', 'test:lower'))
         }), {'doc': 'A fake comp type.'}),
-        ('testcomplexcomp', ('comp', {'fields': (
-            ('foo', 'testint'),
+        ('test:complexcomp', ('comp', {'fields': (
+            ('foo', 'test:int'),
             ('bar', ('str', {'lower': True}),),
         )}), {'doc': 'A complex comp type.'}),
-        ('testhexa', ('hex', {}), {'doc': 'anysize test hex type'}),
-        ('testhex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
+        ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type'}),
+        ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
 
-        ('pivtarg', ('str', {}), {}),
-        ('pivcomp', ('comp', {'fields': (('targ', 'pivtarg'), ('lulz', 'teststr'))}), {}),
-        ('haspivcomp', ('int', {}), {}),
+        ('test:pivtarg', ('str', {}), {}),
+        ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
+        ('test:haspivcomp', ('int', {}), {}),
 
-        ('cycle0', ('str', {}), {}),
-        ('cycle1', ('str', {}), {}),
+        ('test:cycle0', ('str', {}), {}),
+        ('test:cycle1', ('str', {}), {}),
 
         ('test:ndef', ('ndef', {}), {}),
         ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node'}),
 
     ),
 
+    'univs': (
+        ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
+    ),
+
     'forms': (
 
-        ('testtype10', {}, (
+        ('test:type10', {}, (
 
             ('intprop', ('int', {'min': 20, 'max': 30}), {
                 'defval': 20}),
@@ -175,27 +179,27 @@ testmodel = {
                 'defval': '??'}),
         )),
 
-        ('cycle0', {}, (
-            ('cycle1', ('cycle1', {}), {}),
+        ('test:cycle0', {}, (
+            ('cycle1', ('test:cycle1', {}), {}),
         )),
 
-        ('cycle1', {}, (
-            ('cycle0', ('cycle0', {}), {}),
+        ('test:cycle1', {}, (
+            ('cycle0', ('test:cycle0', {}), {}),
         )),
 
-        ('testtype', {}, ()),
+        ('test:type', {}, ()),
 
-        ('testcomp', {}, (
-            ('hehe', ('testint', {}), {'ro': 1}),
-            ('haha', ('testlower', {}), {'ro': 1}),
+        ('test:comp', {}, (
+            ('hehe', ('test:int', {}), {'ro': 1}),
+            ('haha', ('test:lower', {}), {'ro': 1}),
         )),
 
-        ('testcomplexcomp', {}, (
-            ('foo', ('testint', {}), {'ro': 1}),
+        ('test:complexcomp', {}, (
+            ('foo', ('test:int', {}), {'ro': 1}),
             ('bar', ('str', {'lower': 1}), {'ro': 1})
         )),
 
-        ('testint', {}, (
+        ('test:int', {}, (
             ('loc', ('loc', {}), {}),
         )),
 
@@ -206,43 +210,43 @@ testmodel = {
                     ('n2:form', ('str', {}), {'ro': 1}),
         )),
 
-        ('testguid', {}, (
-            ('size', ('testint', {}), {}),
-            ('tick', ('testtime', {}), {}),
-            ('posneg', ('testsub', {}), {}),
+        ('test:guid', {}, (
+            ('size', ('test:int', {}), {}),
+            ('tick', ('test:time', {}), {}),
+            ('posneg', ('test:sub', {}), {}),
             ('posneg:isbig', ('bool', {}), {}),
         )),
 
-        ('teststr', {}, (
+        ('test:str', {}, (
             ('bar', ('ndef', {}), {}),
             ('baz', ('nodeprop', {}), {}),
-            ('tick', ('testtime', {}), {}),
+            ('tick', ('test:time', {}), {}),
         )),
 
-        ('testthreetype', {}, (
+        ('test:threetype', {}, (
             ('three', ('int', {}), {}),
         )),
-        ('testauto', {}, ()),
-        ('testhexa', {}, ()),
-        ('testhex4', {}, ()),
-        ('testival', {}, (
+        ('test:auto', {}, ()),
+        ('test:hexa', {}, ()),
+        ('test:hex4', {}, ()),
+        ('test:ival', {}, (
             ('interval', ('ival', {}), {}),
         )),
 
-        ('pivtarg', {}, (
+        ('test:pivtarg', {}, (
             ('name', ('str', {}), {}),
         )),
 
-        ('pivcomp', {}, (
-            ('targ', ('pivtarg', {}), {}),
-            ('lulz', ('teststr', {}), {}),
+        ('test:pivcomp', {}, (
+            ('targ', ('test:pivtarg', {}), {}),
+            ('lulz', ('test:str', {}), {}),
             ('tick', ('time', {}), {}),
-            ('size', ('testint', {}), {}),
-            ('width', ('testint', {}), {}),
+            ('size', ('test:int', {}), {}),
+            ('width', ('test:int', {}), {}),
         )),
 
-        ('haspivcomp', {}, (
-            ('have', ('pivcomp', {}), {}),
+        ('test:haspivcomp', {}, (
+            ('have', ('test:pivcomp', {}), {}),
         )),
 
         ('test:ndef', {}, (
@@ -283,8 +287,6 @@ class TestModule(s_module.CoreModule):
 
         self.core.addStormLib(('test',), LibTst)
 
-        self.core.model.addUnivProp('testuniv', ('int', {'min': -1, 'max': 10}), {})
-
         self._runtsByBuid = {}
         self._runtsByPropValu = collections.defaultdict(list)
         await self._initTestRunts()
@@ -295,17 +297,13 @@ class TestModule(s_module.CoreModule):
             self.core.addRuntLift(form.full, self._testRuntLift)
             for name, prop in form.props.items():
                 pfull = prop.full
-                # universal properties are indexed separately.
-                univ = prop.univ
-                if univ:
-                    pfull = form.full + univ
                 self.core.addRuntLift(pfull, self._testRuntLift)
         self.core.addRuntPropSet(self.model.prop('test:runt:lulz'), self._testRuntPropSetLulz)
         self.core.addRuntPropDel(self.model.prop('test:runt:lulz'), self._testRuntPropDelLulz)
 
     async def addTestRecords(self, snap, items):
         for name in items:
-            await snap.addNode('teststr', name)
+            await snap.addNode('test:str', name)
 
     async def _testRuntLift(self, full, valu=None, cmpr=None):
         # runt lift helpers must decide what comparators they support
@@ -990,7 +988,7 @@ class SynTest(unittest.TestCase):
     @contextlib.asynccontextmanager
     async def getHttpSess(self):
         jar = aiohttp.CookieJar(unsafe=True)
-        conn = aiohttp.TCPConnector(verify_ssl=False)
+        conn = aiohttp.TCPConnector(ssl=False)
         async with aiohttp.ClientSession(cookie_jar=jar, connector=conn) as sess:
             yield sess
 
@@ -1364,15 +1362,15 @@ class SynTest(unittest.TestCase):
             'source': guid,
             'seen': '20180102',
             'forms': {
-                'teststr': [
+                'test:str': [
                     '1234',
                     'duck',
                     'knight',
                 ],
-                'testint': [
+                'test:int': [
                     '1234'
                 ],
-                'pivcomp': [
+                'test:pivcomp': [
                     ('hehe', 'haha')
                 ]
             },
@@ -1384,12 +1382,12 @@ class SynTest(unittest.TestCase):
             'nodes': [
                 [
                     [
-                        'teststr',
+                        'test:str',
                         'ohmy'
                     ],
                     {
                         'props': {
-                            'bar': ('testint', 137),
+                            'bar': ('test:int', 137),
                             'tick': '2001',
                         },
                         'tags': {
@@ -1400,7 +1398,7 @@ class SynTest(unittest.TestCase):
                 ],
                 [
                     [
-                        'testint',
+                        'test:int',
                         '8675309'
                     ],
                     {
@@ -1413,13 +1411,13 @@ class SynTest(unittest.TestCase):
             'edges': [
                 [
                     [
-                        'teststr',
+                        'test:str',
                         '1234'
                     ],
                     'refs',
                     [
                         [
-                            'testint',
+                            'test:int',
                             1234
                         ]
                     ]
@@ -1428,14 +1426,14 @@ class SynTest(unittest.TestCase):
             'time:edges': [
                 [
                     [
-                        'teststr',
+                        'test:str',
                         '1234'
                     ],
                     'wentto',
                     [
                         [
                             [
-                                'testint',
+                                'test:int',
                                 8675309
 
                             ],

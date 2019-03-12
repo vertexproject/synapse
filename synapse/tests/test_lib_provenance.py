@@ -19,11 +19,11 @@ class ProvenanceTest(s_t_utils.SynTest):
             # Non-existent iden
             self.none(await core.getProvStack('abcd'))
 
-            await core.addTrigger('node:add', '[ testint=1 ]', info={'form': 'teststr'})
-            await s_common.aspin(await core.eval('[ teststr=foo ]'))
-            await self.agenlen(1, await core.eval('testint'))
+            await core.addTrigger('node:add', '[ test:int=1 ]', info={'form': 'test:str'})
+            await s_common.aspin(await core.eval('[ test:str=foo ]'))
+            await self.agenlen(1, await core.eval('test:int'))
 
-            await self.agenlen(0, await core.eval('testint | delnode'))
+            await self.agenlen(0, await core.eval('test:int | delnode'))
 
             splices = await alist(await core.splices(0, 1000))
 
@@ -41,26 +41,26 @@ class ProvenanceTest(s_t_utils.SynTest):
             prov1 = await core.getProvStack(idens[0])
             self.eq(({}, ()), prov1)
 
-            # The teststr splices
+            # The test:str splices
             prov2 = await core.getProvStack(idens[3])
-            s2 = ('storm', {'q': '[ teststr=foo ]', 'user': 'root'})
+            s2 = ('storm', {'q': '[ test:str=foo ]', 'user': 'root'})
             self.eq((s2, ), prov2[1])
 
             # Validate that the iden calc itself is correct
-            rawprov = ({}, [('storm', (('q', '[ teststr=foo ]'), ('user', 'root')))])
+            rawprov = ({}, [('storm', (('q', '[ test:str=foo ]'), ('user', 'root')))])
             hash = hashlib.md5(s_msgpack.en(rawprov)).hexdigest()
             self.eq(hash, idens[3])
 
             # The trigger splices
             prov3 = await core.getProvStack(idens[5])
-            s3 = ('trig', {'cond': 'node:add', 'form': 'teststr', 'tag': None, 'prop': None})
-            s4 = ('storm', {'q': '[ testint=1 ]', 'user': 'root'})
+            s3 = ('trig', {'cond': 'node:add', 'form': 'test:str', 'tag': None, 'prop': None})
+            s4 = ('storm', {'q': '[ test:int=1 ]', 'user': 'root'})
             self.eq((s2, s3, s4), prov3[1])
 
             # prop:del/node:del
             prov4 = await core.getProvStack(idens[7])
 
-            ds2 = ('storm', {'q': 'testint | delnode', 'user': 'root'})
+            ds2 = ('storm', {'q': 'test:int | delnode', 'user': 'root'})
             ds3 = ('stormcmd', {'name': 'delnode', 'argv': ()})
             self.eq((ds2, ds3), prov4[1])
 

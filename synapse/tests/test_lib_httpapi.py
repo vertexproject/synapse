@@ -30,6 +30,13 @@ class HttpApiTest(s_tests.SynTest):
                     self.nn(item.get('result').get('iden'))
                     visiiden = item['result']['iden']
 
+                info = {'name': 'noob', 'passwd': 'nooblet', 'email': 'nobody@nowhere.com'}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', json=info) as resp:
+                    item = await resp.json()
+                    self.nn(item.get('result').get('iden'))
+                    self.eq('nobody@nowhere.com', item['result']['email'])
+                    noobiden = item['result']['iden']
+
                 info = {'name': 'visi', 'passwd': 'secret', 'admin': True}
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', json=info) as resp:
                     item = await resp.json()
@@ -177,6 +184,29 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/user/{visiiden}', json=info) as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
+
+                info = {'locked': True, 'name': 'derpderp', 'email': 'noob@derp.com'}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/user/{noobiden}', json=info) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq(True, retn['result']['locked'])
+                    self.eq('derpderp', retn['result']['name'])
+                    self.eq('noob@derp.com', retn['result']['email'])
+                    self.eq(noobiden, retn['result']['iden'])
+
+                async with self.getHttpSess() as noobsess:
+                    info = {'user': 'noob', 'passwd': 'nooblet'}
+                    async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
+                        item = await resp.json()
+                        self.eq('AuthDeny', item.get('code'))
+
+                info = {'locked': False}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/user/{noobiden}', json=info) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.false(retn['result']['locked'])
+                    self.eq('derpderp', retn['result']['name'])
+                    self.eq(noobiden, retn['result']['iden'])
 
                 info = {'rules': ()}
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/role/{analystiden}', json=info) as resp:

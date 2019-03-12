@@ -389,7 +389,7 @@ class ForLoop(Oper):
 
             for item in await self.kids[1].runtval(runt):
 
-                if isinstance(name, (list,tuple)):
+                if isinstance(name, (list, tuple)):
 
                     if len(name) != len(item):
                         raise s_exc.StormVarListError(names=name, vals=item)
@@ -439,22 +439,16 @@ class VarSetOper(Oper):
         name = self.kids[0].value()
         vkid = self.kids[1]
 
-        if vkid.isRuntSafe(runt):
-
-            valu = await vkid.runtval(runt)
-            runt.setVar(name, valu)
-
-            # yield from :(
-            async for item in genr:
-                yield item
-
-            return
-
         async for node, path in genr:
             valu = await vkid.compute(path)
             path.set(name, valu)
             runt.vars[name] = valu
             yield node, path
+
+        if vkid.isRuntSafe(runt):
+
+            valu = await vkid.runtval(runt)
+            runt.setVar(name, valu)
 
     def getRuntVars(self, runt):
         if not self.kids[1].isRuntSafe(runt):
@@ -1265,6 +1259,8 @@ class TagCond(Cond):
     '''
     def getLiftHints(self):
         name = self.kids[0].value()
+        if '*' in name:
+            return ()
         return (
             ('tag', {'name': name}),
         )
@@ -1273,6 +1269,31 @@ class TagCond(Cond):
 
         name = self.kids[0].value()
 
+        # Allow for a user to ask for #* to signify "any tags on this node"
+        if name == '*':
+            async def cond(node, path):
+                # Check if the tags dictionary has any members
+                if node.tags:
+                    return True
+                return False
+            return cond
+
+        # Allow a user to use tag globbing to do regex matching of a node.
+        if '*' in name:
+            reobj = s_cache.getTagGlobRegx(name)
+
+            def getIsHit(tag):
+                return reobj.fullmatch(tag)
+
+            # This cache persists per-query
+            cache = s_cache.FixedCache(getIsHit)
+
+            async def cond(node, path):
+                return any((cache.get(p) for p in node.tags))
+
+            return cond
+
+        # Default exact match
         async def cond(node, path):
             return node.tags.get(name) is not None
 
@@ -1447,8 +1468,7 @@ class RunValue(CompValue):
         return await self.runtval(path.runt)
 
     def isRuntSafe(self, runt):
-        if all([k.isRuntSafe(runt) for k in self.kids]):
-            return True
+        return all(k.isRuntSafe(runt) for k in self.kids)
 
 class Value(RunValue):
 

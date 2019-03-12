@@ -27,15 +27,15 @@ class FeedTest(s_t_utils.SynTest):
                     gestfp]
 
             outp = self.getTestOutp()
-            cmdg = s_t_utils.CmdGenerator(['storm pivcomp -> *'], on_end=EOFError)
+            cmdg = s_t_utils.CmdGenerator(['storm test:pivcomp -> *'], on_end=EOFError)
             with mock.patch('synapse.lib.cli.get_input', cmdg):
                 self.eq(s_feed.main(argv, outp=outp), 0)
-            self.true(outp.expect('teststr=haha', throw=False))
-            self.true(outp.expect('pivtarg=hehe', throw=False))
+            self.true(outp.expect('test:str=haha', throw=False))
+            self.true(outp.expect('test:pivtarg=hehe', throw=False))
 
     def test_syningest_fail(self):
         with self.getTestDir() as dirn:
-            gestdef = {'forms': {'teststr': ['yes', ],
+            gestdef = {'forms': {'test:str': ['yes', ],
                                  'newp': ['haha', ],
                                  }
                        }
@@ -83,11 +83,11 @@ class FeedTest(s_t_utils.SynTest):
                             gestfp]
 
                     outp = self.getTestOutp()
-                    cmdg = s_t_utils.CmdGenerator(['storm pivcomp -> *'], on_end=EOFError)
+                    cmdg = s_t_utils.CmdGenerator(['storm test:pivcomp -> *'], on_end=EOFError)
                     with mock.patch('synapse.lib.cli.get_input', cmdg):
                         self.eq(s_feed.main(argv, outp=outp), 0)
-                    self.true(outp.expect('teststr=haha', throw=False))
-                    self.true(outp.expect('pivtarg=hehe', throw=False))
+                    self.true(outp.expect('test:str=haha', throw=False))
+                    self.true(outp.expect('test:pivtarg=hehe', throw=False))
 
             await s_coro.executor(testmain)
 
@@ -107,7 +107,7 @@ class FeedTest(s_t_utils.SynTest):
 
             def testmain():
 
-                mesg = ('node:add', {'ndef': ('teststr', 'foo')})
+                mesg = ('node:add', {'ndef': ('test:str', 'foo')})
                 splicefp = s_common.genpath(dmon.dirn, 'splice.mpk')
                 with s_common.genfile(splicefp) as fd:
                     fd.write(s_msgpack.en(mesg))
@@ -120,7 +120,7 @@ class FeedTest(s_t_utils.SynTest):
                 outp = self.getTestOutp()
                 self.eq(s_feed.main(argv, outp=outp), 0)
                 with self.getTestProxy(dmon, 'core', user='pennywise', passwd='cottoncandy') as core:
-                    self.len(1, list(core.eval('teststr=foo')))
+                    self.len(1, list(core.eval('test:str=foo')))
                 return True
 
             ret = await s_coro.executor(testmain)
@@ -148,7 +148,7 @@ class FeedTest(s_t_utils.SynTest):
                         mpkfp = s_common.genpath(dirn, 'podes.mpk')
                         with s_common.genfile(mpkfp) as fd:
                             for i in range(20):
-                                pode = (('testint', i), {})
+                                pode = (('test:int', i), {})
                                 fd.write(s_msgpack.en(pode))
 
                         argv = ['--cortex', curl,
@@ -160,7 +160,7 @@ class FeedTest(s_t_utils.SynTest):
                         outp = self.getTestOutp()
                         self.eq(s_feed.main(argv, outp=outp), 0)
                         with self.getTestProxy(dmon, 'core', **pconf) as core:
-                            self.len(20, list(core.eval('testint')))
+                            self.len(20, list(core.eval('test:int')))
 
                     await s_coro.executor(testmain)
 
@@ -183,7 +183,7 @@ class FeedTest(s_t_utils.SynTest):
                     mpkfp = s_common.genpath(dirn, 'podes.mpk')
                     with s_common.genfile(mpkfp) as fd:
                         for i in range(20):
-                            pode = (('testint', i), {})
+                            pode = (('test:int', i), {})
                             fd.write(s_msgpack.en(pode))
 
                     argv = ['--cortex', curl,
@@ -196,7 +196,7 @@ class FeedTest(s_t_utils.SynTest):
                     outp = self.getTestOutp()
                     self.eq(s_feed.main(argv, outp=outp), 0)
                     with self.getTestProxy(dmon, 'core', **pconf) as core:
-                        self.len(8, list(core.eval('testint')))
+                        self.len(8, list(core.eval('test:int')))
 
                     # Sad path catch
                     outp = self.getTestOutp()

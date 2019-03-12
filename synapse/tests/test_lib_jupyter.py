@@ -14,19 +14,19 @@ class JupyterTest(s_t_utils.SynTest):
         outp = self.getTestOutp()
         cmdrcore = await s_jupyter.getTempCoreCmdr(self.testmods, outp)
         self.false(cmdrcore.isfini)
-        nodes = await cmdrcore.eval('[teststr=beep]', cmdr=True)
+        nodes = await cmdrcore.eval('[test:str=beep]', cmdr=True)
         self.len(1, nodes)
-        self.eq(nodes[0][0], ('teststr', 'beep'))
-        self.true(outp.expect('cli> storm [teststr=beep]'))
+        self.eq(nodes[0][0], ('test:str', 'beep'))
+        self.true(outp.expect('cli> storm [test:str=beep]'))
         await cmdrcore.fini()
         self.true(cmdrcore.isfini)
 
     async def test_tempcoreprox(self):
         prox = await s_jupyter.getTempCoreProx(self.testmods)
         self.false(prox.isfini)
-        nodes = await s_t_utils.alist(await prox.eval('[teststr=beep]'))
+        nodes = await s_t_utils.alist(await prox.eval('[test:str=beep]'))
         self.len(1, nodes)
-        self.eq(nodes[0][0], ('teststr', 'beep'))
+        self.eq(nodes[0][0], ('test:str', 'beep'))
         await prox.fini()
         self.true(prox.isfini)
 
@@ -35,50 +35,50 @@ class JupyterTest(s_t_utils.SynTest):
             async with await self.agetTestProxy(dmon, 'core') as core:
                 outp = self.getTestOutp()
                 async with await s_jupyter.CmdrCore.anit(core, outp=outp) as cmdrcore:
-                    podes = await cmdrcore.eval('[teststr=beep]',
+                    podes = await cmdrcore.eval('[test:str=beep]',
                                                 num=1, cmdr=False)
                     self.len(1, podes)
-                    self.false(outp.expect('[teststr=beep]', throw=False))
+                    self.false(outp.expect('[test:str=beep]', throw=False))
 
-                    mesgs = await cmdrcore.storm('[teststr=boop]',
+                    mesgs = await cmdrcore.storm('[test:str=boop]',
                                                  num=1, cmdr=True)
-                    self.true(outp.expect('[teststr=boop]', throw=False))
+                    self.true(outp.expect('[test:str=boop]', throw=False))
                     podes = [m[1] for m in mesgs if m[0] == 'node']
                     self.gt(len(mesgs), len(podes))
                     self.len(1, podes)
-                    self.eq(podes[0][0], ('teststr', 'boop'))
+                    self.eq(podes[0][0], ('test:str', 'boop'))
 
                     # Opts works for cmdr=False
-                    podes = await cmdrcore.eval('[teststr=$foo]',
+                    podes = await cmdrcore.eval('[test:str=$foo]',
                                                 {'vars': {'foo': 'duck'}},
                                                 num=1, cmdr=False)
                     self.len(1, podes)
-                    self.eq(podes[0][0], ('teststr', 'duck'))
+                    self.eq(podes[0][0], ('test:str', 'duck'))
                     # Opts does not work with cmdr=True - we have no way to plumb it through.
                     with self.getAsyncLoggerStream('synapse.cortex',
                                                    'Error during storm execution') as stream:
-                        ret = await cmdrcore.eval('[teststr=$foo]',
+                        ret = await cmdrcore.eval('[test:str=$foo]',
                                                   {'vars': {'foo': 'fowl'}},
                                                   cmdr=True)
                         await stream.wait(1)
                         self.eq(ret, [])
 
                     # Assertion based tests
-                    podes = await cmdrcore.eval('testint', num=0)
+                    podes = await cmdrcore.eval('test:int', num=0)
                     self.len(0, podes)
-                    podes = await cmdrcore.eval('teststr', num=3)
+                    podes = await cmdrcore.eval('test:str', num=3)
                     self.len(3, podes)
-                    await self.asyncraises(AssertionError, cmdrcore.eval('teststr', num=1))
-                    await self.asyncraises(AssertionError, cmdrcore.storm('teststr', num=1))
+                    await self.asyncraises(AssertionError, cmdrcore.eval('test:str', num=1))
+                    await self.asyncraises(AssertionError, cmdrcore.storm('test:str', num=1))
 
                     # Feed function for data loading
                     data = [
-                        (('testint', 137), {}),
+                        (('test:int', 137), {}),
                     ]
                     guid = s_common.guid()
                     ret = await cmdrcore.addFeedData('syn.nodes', data, (guid, 1))
                     self.eq(ret, 2)
-                    podes = await cmdrcore.eval('testint=137',
+                    podes = await cmdrcore.eval('test:int=137',
                                                 num=1, cmdr=False)
                     self.len(1, podes)
 
