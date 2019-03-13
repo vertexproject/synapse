@@ -7,8 +7,6 @@ import collections
 
 from collections.abc import Mapping
 
-import regex
-
 import synapse
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -36,8 +34,6 @@ import synapse.lib.stormtypes as s_stormtypes
 import synapse.lib.remotelayer as s_remotelayer
 
 logger = logging.getLogger(__name__)
-
-cmdre = regex.compile(r'^[^\W\d_][\w\.]+$')
 
 '''
 A Cortex implements the synapse hypergraph object.
@@ -1092,7 +1088,7 @@ class Cortex(s_cell.Cell):
         '''
         Add a synapse.lib.storm.Cmd class to the cortex.
         '''
-        if cmdre.match(ctor.name) is None:
+        if not s_syntax.isCmdName(ctor.name):
             raise s_exc.BadCmdName(name=ctor.name)
 
         self.stormcmds[ctor.name] = ctor
@@ -1603,11 +1599,7 @@ class Cortex(s_cell.Cell):
         '''
         Parse storm query text and return a Query object.
         '''
-        parseinfo = {
-            'stormcmds': {cmd: {} for cmd in self.stormcmds.keys()},
-            'modelinfo': self.model.getModelInfo(),
-        }
-        query = s_syntax.Parser(parseinfo, text).query()
+        query = s_syntax.Parser(text).query()
         query.init(self)
         return query
 

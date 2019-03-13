@@ -416,11 +416,7 @@ class CortexTest(s_t_utils.SynTest):
             # test cmd as last text syntax
             await self.agenlen(1, await core.eval('inet:user | limit 1'))
 
-            # test cmd and trailing pipe syntax
-            await self.agenlen(1, await core.eval('inet:user | limit 1|'))
-
-            # test cmd and trailing pipe and whitespace syntax
-            await self.agenlen(1, await core.eval('inet:user | limit 1    |     '))
+            await self.agenlen(1, await core.eval('inet:user | limit 1      '))
 
             # test cmd and trailing pipe and whitespace syntax
             await self.agenlen(2, await core.eval('inet:user | limit 10 | [ +#foo.bar ]'))
@@ -522,6 +518,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(node.get('intprop'), 21)
 
     async def test_base_types2(self):
+
         async with self.getTestCore() as core:
 
             # Test some default values
@@ -1308,7 +1305,7 @@ class CortexTest(s_t_utils.SynTest):
             async for node in core.eval('inet:dns:a=(woot.com,1.2.3.4) $seen=.seen :fqdn -> inet:fqdn [ .seen=$seen ]'):
                 self.eq(node.get('.seen'), (1420070400000, 1514764800000))
 
-            await self.agenraises(s_exc.BadStormSyntax, core.eval('inet:dns:a=(woot.com,1.2.3.4) $newp=.newp'))
+            await self.agenraises(s_exc.NoSuchProp, core.eval('inet:dns:a=(woot.com,1.2.3.4) $newp=.newp'))
 
             # Vars can also be provided as tuple
             opts = {'vars': {'foo': ('hehe', 'haha')}}
