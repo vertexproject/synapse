@@ -1,8 +1,11 @@
+import os
 import logging
+import contextlib
 
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.lmdbslab as s_lmdbslab
 
 logger = logging.getLogger(__name__)
 
@@ -11,19 +14,52 @@ class Migration(s_base.Base):
     A migration instance provides a resume-capable workspace for
     large data migrations within a cortex.
     '''
-    async def __anit__(self, core, iden):
+    async def __anit__(self, core, layers=None):
 
         await s_base.Base.__anit__(self)
 
+        if layers is None:
+            layers = core.layers.values()
+
         self.core = core
-        self.iden = iden
+        self.layers = layers
 
-        #path = os.path.join(self.core.dirn, 'migrations', iden)
-        #if os.path.exists(path):
-            #logger.info('resuming migration from %r' % (path,))
+        self.dirn = await self.enter_context(s_common.getTempDir())
 
-        #dirn = s_common.gendir(path)
-        #slab
+        path = os.path.join(self.dirn, 'migr.lmdb')
+
+        self.slab = await s_lmdbslab.Slab.anit(path)
+        self.onfini(self.slab.fini)
+
+        self.buid2ndef = self.slab.initdb('buid2ndef')
+
+    @contextlib.asynccontextmanager
+    async def getTempSlab(self):
+        with s_common.getTempDir() as dirn:
+            path = os.path.join(dirn, 'migrate.lmdb')
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                yield slab
+
+    async def editNodeNdef(self, oldv, newv):
+
+        for layr in self.layers:
+            await layr.editNodeNdef(oldv, newv)
+
+        await self.editNdefProps(oldv, newv)
+
+    async def setFormName(self, oldn, newn):
+        '''
+        Rename a form within all the layers.
+        '''
+        async with self.getTempSlab() as slab:
+
+            async for layr, buid, valu in self.getFormTodo(oldn):
+
+                # create a de-dupd list of buids to translate
+                if not slab.put(buid, b'\x01', overwrite=False):
+                    continue
+
+                await self.editNodeNdef((oldn, valu), (newn, valu))
 
     async def setNodeBuid(self, form, oldb, newb):
         '''
@@ -32,7 +68,7 @@ class Migration(s_base.Base):
         sops = (
             ('buid:set', (form, oldb, newb)),
         )
-        for layr in self.core.layers.values():
+        for layr in self.layers:
             await layr.stor(sops)
 
     async def editNdefProps(self, oldv, newv):
@@ -52,7 +88,8 @@ class Migration(s_base.Base):
     async def _editCompProp(self, prop, coff, oldv, newv, info):
 
         lops = prop.getLiftOps(oldv)
-        for layr in self.getLayers():
+
+        for layr in self.layers:
 
             async for row in layr.getLiftRows(lops):
 
@@ -82,7 +119,7 @@ class Migration(s_base.Base):
 
         lops = prop.getLiftOps(oldv)
 
-        for layr in self.getLayers():
+        for layr in self.layers:
 
             async for row in layr.getLiftRows(lops):
 
@@ -154,12 +191,7 @@ class Migration(s_base.Base):
 
         await self.editNdefProps(oldndef, newndef)
 
-    def getLayers(self):
-        # TODO check layers for remote / etc
-        return self.core.layers.values()
-
     async def getFormTodo(self, name):
-        # TODO implement lift / store / resume
-        for layr in self.getLayers():
+        for layr in self.layers:
             async for buid, valu in layr.iterFormRows(name):
                 yield layr, buid, valu

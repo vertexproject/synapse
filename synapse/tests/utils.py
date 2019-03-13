@@ -131,6 +131,7 @@ testmodel = {
 
         ('test:int', ('int', {}), {}),
         ('test:str', ('str', {}), {}),
+        ('test:migr', ('str', {}), {}),
         ('test:auto', ('str', {}), {}),
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
@@ -218,6 +219,12 @@ testmodel = {
         )),
 
         ('test:str', {}, (
+            ('bar', ('ndef', {}), {}),
+            ('baz', ('nodeprop', {}), {}),
+            ('tick', ('test:time', {}), {}),
+        )),
+
+        ('test:migr', {}, (
             ('bar', ('ndef', {}), {}),
             ('baz', ('nodeprop', {}), {}),
             ('tick', ('test:time', {}), {}),

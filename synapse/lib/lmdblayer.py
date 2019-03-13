@@ -6,6 +6,7 @@ import os
 import logging
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -97,6 +98,57 @@ class LmdbLayer(s_layer.Layer):
         for lkey, lval in self.layrslab.scanByPref(buid + b'*', db=self.bybuid):
             valu, indx = s_msgpack.un(lval)
             return lkey[33:].decode('utf'), valu
+
+    async def editNodeNdef(self, oldv, newv):
+
+        oldb = s_common.buid(oldv)
+        newb = s_common.buid(newv)
+
+        pvoldval = s_msgpack.en((oldb,))
+        pvnewval = s_msgpack.en((newb,))
+
+        oldfenc = self.encoder[oldv[0]]
+        newfenc = self.encoder[newv[0]]
+
+        #oldprel = self.utf8['*' + oldv[0]]
+        newprel = self.utf8['*' + newv[0]]
+
+        for lkey, lval in self.layrslab.scanByPref(oldb, db=self.bybuid):
+
+            proputf8 = lkey[32:]
+            valu, indx = s_msgpack.un(lval)
+
+            # for the *<form> prop, the byprop index has <form><00><00><indx>
+            if proputf8[0] == 42:
+
+                oldpropkey = oldfenc + b'\x00' + indx
+                newpropkey = newfenc + b'\x00' + indx
+
+                if not self.layrslab.delete(oldpropkey, pvoldval, db=self.byprop): # pragma: no cover
+                    logger.warning(f'editNodeNdef del byprop missing for {repr(oldv)} {repr(oldpropkey)}')
+
+                self.layrslab.put(newpropkey, pvnewval, dupdata=True, db=self.byprop)
+                self.layrslab.put(newb + newprel, lval, db=self.bybuid)
+
+            else:
+
+                #<prop><00><indx>
+                propindx = proputf8 + b'\x00' + indx
+
+                if proputf8[0] in (46, 35): # ".univ" or "#tag"
+                    self.layrslab.put(propindx, pvnewval, dupdata=True, db=self.byuniv)
+                    self.layrslab.delete(propindx, pvoldval, db=self.byuniv)
+
+                oldpropkey = oldfenc + propindx
+                newpropkey = newfenc + propindx
+
+                if not self.layrslab.delete(oldpropkey, pvoldval, db=self.byprop): # pragma: no cover
+                    logger.warning(f'editNodeNdef del byprop missing for {repr(oldv)} {repr(oldpropkey)}')
+
+                self.layrslab.put(newpropkey, pvnewval, dupdata=True, db=self.byprop)
+                self.layrslab.put(newb + proputf8, lval, db=self.bybuid)
+
+            self.layrslab.delete(lkey, db=self.bybuid)
 
     async def _storBuidSet(self, oper):
 

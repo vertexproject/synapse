@@ -132,6 +132,31 @@ class Base:
         self._fini_atexit = False
         self._active_tasks = set()  # the free running tasks associated with me
 
+    async def enter_context(self, item):
+
+        async def fini():
+            meth = getattr(item, '__aexit__', None)
+            if meth is not None:
+                return await meth(None, None, None)
+
+            meth = getattr(item, '__exit__', None)
+            if meth is not None:
+                return meth(None, None, None)
+
+        entr = getattr(item, '__aenter__', None)
+        if entr is not None:
+            async def fini():
+                await item.__aexit__(None, None, None)
+            self.onfini(fini)
+            return await entr()
+
+        entr = getattr(item, '__enter__', None)
+        if entr is not None:
+            async def fini():
+                item.__exit__(None, None, None)
+            self.onfini(fini)
+            return entr()
+
     def onfini(self, func):
         '''
         Add a function/coroutine/Base to be called on fini().

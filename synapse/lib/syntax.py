@@ -937,13 +937,16 @@ class Parser:
 
             self.ignore(whitespace)
 
-            if self.nextchar() in cmprstart:
+            # we need pivots to take prec over cmpr
+            if not self.nextstrs('->', '<-', '-+>', '<+-'):
 
-                cmpr = self.cmpr()
-                valu = self.valu()
+                if self.nextchar() in cmprstart:
 
-                kids = (s_ast.Const(name), cmpr, valu)
-                return s_ast.LiftPropBy(kids=kids)
+                    cmpr = self.cmpr()
+                    valu = self.valu()
+
+                    kids = (s_ast.Const(name), cmpr, valu)
+                    return s_ast.LiftPropBy(kids=kids)
 
             # lift by prop only
             return s_ast.LiftProp(kids=(s_ast.Const(name),))
