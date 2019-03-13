@@ -92,11 +92,18 @@ class FileBytes(s_types.Type):
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyList)
+        self.setNormFunc(tuple, self._normPyList)
         self.setNormFunc(bytes, self._normPyBytes)
 
     def indx(self, norm):
         # impossible for the normed value to be too long for indx
         return norm.encode('utf8')
+
+    def _normPyList(self, valu):
+        guid, info = self.modl.type('guid').norm(valu)
+        norm = f'guid:{guid}'
+        return norm, {}
 
     def _normPyStr(self, valu):
 
