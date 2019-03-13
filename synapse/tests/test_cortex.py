@@ -746,16 +746,19 @@ class CortexTest(s_t_utils.SynTest):
                 # Storm logging
                 with self.getAsyncLoggerStream('synapse.cortex', 'Executing storm query {help ask} as [root]') \
                         as stream:
-                    await alist(await core.storm('help ask'))
+                    await alist(core.storm('help ask'))
                     self.true(await stream.wait(4))
                 # Bad syntax
-                mesgs = await alist(await core.storm(' | | | '))
+                mesgs = await alist(core.storm(' | | | '))
                 self.len(0, [mesg for mesg in mesgs if mesg[0] == 'init'])
                 self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
                 mesgs = [mesg for mesg in mesgs if mesg[0] == 'err']
                 self.len(1, mesgs)
                 enfo = mesgs[0][1]
                 self.eq(enfo[0], 'BadStormSyntax')
+
+                async with realcore.getLocalProxy() as core2:
+                    mesg = await alist(core.storm('help ask'))
 
     async def test_feed_splice(self):
 

@@ -1,5 +1,9 @@
 import inspect
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 clsskip = set([object])
 def getClsNames(item):
     '''
@@ -72,3 +76,39 @@ def getItemInfo(item):
     return {
         'inherits': getClsNames(item)
     }
+
+def getItemMagic(item):
+    '''
+    Get, and set magic on the item's base class, for magic things we need to know for telepath
+
+    Args:
+        item:
+
+    Returns:
+
+    '''
+    info = getattr(item, '_syn_magic', None)
+    if info is not None:
+        print(f'got info: {info}')
+        return info
+    print(f'computing info for {item}')
+    info = {}
+
+    for name in dir(item):
+        if name.startswith('_'):
+            continue
+        attr = getattr(item, name)
+        if inspect.isasyncgenfunction(attr):
+            info[name] = {'genr': True}
+
+    try:
+        setattr(item, '_syn_magic', info)
+    except Exception as e:
+        logger.exception(f'Failed to set magic on {item}')
+
+    try:
+        setattr(item.__class__, '_syn_magic', info)
+    except Exception as e:
+        logger.exception(f'Failed to set magic on {item.__class__}')
+
+    return info
