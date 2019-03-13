@@ -5,7 +5,6 @@ import datetime
 import functools
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.lib.cli as s_cli
 import synapse.lib.cmd as s_cmd
 import synapse.lib.time as s_time
@@ -160,7 +159,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         exactly one.
         '''
         idens = [iden for iden, trig in await core.listCronJobs()]
-        matches = [iden for iden in idens if s_common.ehex(iden).startswith(prefix)]
+        matches = [iden for iden in idens if iden.startswith(prefix)]
         if len(matches) == 1:
             return matches[0]
         elif len(matches) == 0:
@@ -425,7 +424,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         query = opts.query[1:-1]
 
         iden = await core.addCronJob(query, reqdict, incunit, incval)
-        self.printf(f'Created cron job {s_common.ehex(iden)}')
+        self.printf(f'Created cron job {iden}')
 
     @staticmethod
     def _format_timestamp(ts):
@@ -443,7 +442,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             f'{"# start":7} {"last start":16} {"last end":16} {"query"}')
 
         for iden, cron in cronlist:
-            idenf = s_common.ehex(iden)[:8] + '..'
+            idenf = iden[:8] + '..'
             user = cron.get('username') or '<None>'
             query = cron.get('query') or '<missing>'
             isrecur = 'Y' if cron.get('recur') else 'N'
@@ -469,7 +468,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         if iden is None:
             return
         await core.updateCronJob(iden, query)
-        self.printf(f'Modified cron job {s_common.ehex(iden)}')
+        self.printf(f'Modified cron job {iden}')
 
     async def _handle_del(self, core, opts):
         prefix = opts.prefix
@@ -477,14 +476,14 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         if iden is None:
             return
         await core.delCronJob(iden)
-        self.printf(f'Deleted cron job {s_common.ehex(iden)}')
+        self.printf(f'Deleted cron job {iden}')
 
     async def _handle_stat(self, core, opts):
         ''' Prints details about a particular cron job. Not actually a different API call '''
         prefix = opts.prefix
         crons = await core.listCronJobs()
         idens = [cron[0] for cron in crons]
-        matches = [iden for iden in idens if s_common.ehex(iden).startswith(prefix)]
+        matches = [iden for iden in idens if iden.startswith(prefix)]
         if len(matches) == 0:
             self.printf('Error: provided iden does not match any valid authorized cron job')
             return
@@ -495,7 +494,6 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         iden = matches[0]
         cron = [cron[1] for cron in crons if cron[0] == iden][0]
 
-        idenf = s_common.ehex(iden)
         user = cron.get('username') or '<None>'
         query = cron.get('query') or '<missing>'
         isrecur = 'Yes' if cron.get('recur') else 'No'
@@ -507,7 +505,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         lastend = 'Never' if lastend is None else self._format_timestamp(lastend)
         lastresult = cron.get('lastresult') or '<None>'
 
-        self.printf(f'iden:            {idenf}')
+        self.printf(f'iden:            {iden}')
         self.printf(f'user:            {user}')
         self.printf(f'recurring:       {isrecur}')
         self.printf(f'# starts:        {startcount}')
@@ -672,4 +670,4 @@ Examples:
         reqdicts = [_ts_to_reqdict(ts) for ts in tslist]
 
         iden = await core.addCronJob(query, reqdicts, None, None)
-        self.printf(f'Created cron job {s_common.ehex(iden)}')
+        self.printf(f'Created cron job {iden}')
