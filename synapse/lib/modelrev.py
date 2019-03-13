@@ -66,7 +66,7 @@ class ModelRev:
 
     @contextlib.asynccontextmanager
     async def getCoreMigr(self, layers):
-        async with await s_migrate.Migration(self.core, layers=layers) as migr:
+        async with await s_migrate.Migration.anit(self.core, layers=layers) as migr:
             yield migr
 
     async def _addModelVers(self, layers):
