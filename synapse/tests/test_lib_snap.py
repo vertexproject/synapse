@@ -53,11 +53,10 @@ class SnapTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 nodebuid = None
-                nodeid = None
                 snap.buidcache = collections.deque(maxlen=10)
 
                 async def doit():
-                    nonlocal nodeid, nodebuid
+                    nonlocal nodebuid
                     # Reduce the buid cache so we don't have to make 100K nodes
 
                     node0 = await snap.addNode('test:int', 0)
@@ -68,7 +67,6 @@ class SnapTest(s_t_utils.SynTest):
 
                     self.eq(node0.buid, node.buid)
                     self.eq(id(node0), id(node))
-                    nodeid = id(node)
                     nodebuid = node.buid
 
                     # Test read, then a bunch of reads, then read coherency
@@ -78,6 +76,8 @@ class SnapTest(s_t_utils.SynTest):
 
                     self.eq(nodes[0].buid, node0.buid)
                     self.eq(id(nodes[0]), id(node0))
+                    # Hang a attr off of the node
+                    setattr(node, '_test', True)
 
                 await doit()  # run in separate function so that objects are gc'd
 
@@ -88,7 +88,10 @@ class SnapTest(s_t_utils.SynTest):
 
                 node = await snap.getNodeByNdef(('test:int', 0))
                 self.eq(nodebuid, node.buid)
-                self.ne(nodeid, id(node))
+                # Ensure that the node is not the same object as we encountered earlier.
+                # We cannot check via id() since it is possible for a pyobject to be
+                # allocated at the same location as the old object.
+                self.false(hasattr(node, '_test'))
 
     async def test_addNodes(self):
         async with self.getTestCore() as core:

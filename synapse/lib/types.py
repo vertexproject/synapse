@@ -285,7 +285,7 @@ class Type:
 
     def merge(self, oldv, newv):
         '''
-        Allow types to "merge" data from two sources based on value precidence.
+        Allow types to "merge" data from two sources based on value precedence.
 
         Args:
             valu (object): The current value.

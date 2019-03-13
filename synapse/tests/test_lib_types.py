@@ -660,7 +660,7 @@ class TypesTest(s_t_utils.SynTest):
             guid1 = 'D' * 32
             nodes = await alist(core.eval(f'test:guid +test:guid*range=({guid0}, {guid1})'))
             self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
-            nodes = await alist(core.eval('test:int | noderefs | +test:comp*range=((1000, grinch), (4000, whoville))'))
+            nodes = await alist(core.eval('test:int -> test:comp:hehe +test:comp*range=((1000, grinch), (4000, whoville))'))
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
             nodes = await alist(core.eval('refs +:n1*range=((test:comp, (1000, green)), (test:comp, (3000, ham)))'))
             self.eq({node.ndef[1] for node in nodes},
