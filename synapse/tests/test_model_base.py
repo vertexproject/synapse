@@ -189,5 +189,5 @@ class BaseTest(s_t_utils.SynTest):
                 r2 = await snap.addNode('edge:refs', (cnode.ndef, ('test:int', 1234)))
 
                 # Gather up all the nodes in the cluster
-                nodes = await snap.eval(f'graph:cluster={guid} | noderefs -d 2 --join').list()
+                nodes = await snap.eval(f'graph:cluster={guid} -+> edge:refs -+> * | uniq').list()
                 self.len(5, nodes)

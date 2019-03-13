@@ -725,6 +725,8 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str +test:str:tick*near=newp'))
             await self.agenraises(s_exc.BadStormSyntax, core.eval(' | | '))
             await self.agenraises(s_exc.BadStormSyntax, core.eval('[-test:str]'))
+            # Scrape is not a default behavior
+            await self.agenraises(s_exc.BadStormSyntax, core.eval('pennywise@vertex.link'))
 
             await self.agenlen(2, core.eval(('[ test:str=foo test:str=bar ]')))
             await self.agenlen(1, core.eval(('test:str %limit=1')))
@@ -2018,25 +2020,6 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(node.ndef[0], 'inet:dns:a')
                 self.eq(node.ndef[1], ('woot.com', 0x01020304))
 
-    async def test_storm_scrape(self):
-
-        async with self.getTestCore() as core:
-
-            nodes = await alist(core.eval('[ inet:fqdn=vertex.link inet:ipv4=1.2.3.4 ]'))
-            self.len(2, nodes)
-
-            nodes = await alist(core.eval('vertex.link'))
-            self.len(1, nodes)
-            for node in nodes:
-                self.eq(node.ndef[0], 'inet:fqdn')
-                self.eq(node.ndef[1], 'vertex.link')
-
-            nodes = await alist(core.eval('1.2.3.4'))
-            self.len(1, nodes)
-            for node in nodes:
-                self.eq(node.ndef[0], 'inet:ipv4')
-                self.eq(node.ndef[1], 0x01020304)
-
     async def test_storm_formpivot(self):
 
         async with self.getTestCore() as core:
@@ -2132,9 +2115,11 @@ class CortexTest(s_t_utils.SynTest):
 
             await core.eval('[ inet:asn=200 :name=visi ]').spin()
             await core.eval('[ inet:ipv4=1.2.3.4 :asn=200 ]').spin()
+            await core.eval('[ inet:ipv4=5.6.7.8 :asn=8080 ]').spin()
 
             nodes = await core.eval('inet:ipv4 +:asn::name=visi').list()
             self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
     async def test_storm_contbreak(self):
 
