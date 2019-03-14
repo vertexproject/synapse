@@ -205,10 +205,3 @@ class Axon(s_cell.Cell):
         Given a list of sha256 bytes, returns a list of the hashes we want bytes for.
         '''
         return [s for s in sha256s if not await self.has(s)]
-
-class AxonClient:
-    def __init__(self, prox):
-        pass
-
-async def openurl(url, **opts):
-    prox = s_telepath.openurl(url)
