@@ -5,8 +5,8 @@ setup(
     name='synapse',
     version='0.1.0a6',
     description='Synapse Distributed Key-Value Hypergraph Analysis Framework',
-    author='Invisigoth Kenshoto',
-    author_email='invisigoth.kenshoto@gmail.com',
+    author='The Vertex Project LLC',
+    author_email='synapse@vertex.link',
     url='https://github.com/vertexproject/synapse',
     license='Apache License 2.0',
 
