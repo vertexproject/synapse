@@ -19,8 +19,10 @@ bbuf = b'0123456' * 4793491
 
 bbufhash = hashlib.sha256(bbuf).digest()
 asdfhash = hashlib.sha256(b'asdfasdf').digest()
+emptyhash = hashlib.sha256(b'').digest()
 
 asdfretn = (8, asdfhash)
+emptyretn = (0, emptyhash)
 
 class AxonTest(s_t_utils.SynTest):
 
@@ -71,6 +73,16 @@ class AxonTest(s_t_utils.SynTest):
         info = await axon.metrics()
         self.eq(33554445, info.get('size:bytes'))
         self.eq(2, info.get('file:count'))
+
+        async with await axon.upload() as fd:
+            await fd.write(b'')
+            self.eq(emptyretn, await fd.save())
+
+        bytz = []
+        async for byts in axon.get(emptyhash):
+            bytz.append(byts)
+
+        self.eq(b'', b''.join(bytz))
 
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
