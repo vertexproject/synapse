@@ -66,8 +66,6 @@ class Migration(s_base.Base):
 
     async def editNodeNdef(self, oldv, newv):
 
-        #print(f'NDEF EDIT: {repr(oldv)} -> {repr(newv)}')
-
         oldb = s_common.buid(oldv)
         newb = s_common.buid(newv)
 

@@ -109,13 +109,8 @@ class LmdbLayer(s_layer.Layer):
         oldb = s_common.buid(oldv)
         newb = s_common.buid(newv)
 
-        #print(f'LAYER EDIT NDEF: {repr(oldv)} -> {repr(newv)}')
-
         pvoldval = s_msgpack.en((oldb,))
         pvnewval = s_msgpack.en((newb,))
-
-        #form0 = self.core.model.form(oldv[0])
-        #form1 = self.core.model.form(newv[0])
 
         oldfenc = self.encoder[oldv[0]]
         newfenc = self.encoder[newv[0]]
@@ -124,9 +119,9 @@ class LmdbLayer(s_layer.Layer):
 
         newnindx = self.core.model.prop(newv[0]).type.indx(newv[1])
 
-        #for lkey, lval in self.layrslab.scanByPref(oldb, db=self.bybuid):
+        # avoid any potential iter/edit issues...
         todo = list(self.layrslab.scanByPref(oldb, db=self.bybuid))
-        #for lkey, lval in self.layrslab.scanByPref(oldb, db=self.bybuid):
+
         for lkey, lval in todo:
 
             proputf8 = lkey[32:]
