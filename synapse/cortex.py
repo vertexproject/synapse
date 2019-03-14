@@ -84,6 +84,10 @@ class View(s_base.Base):
                 logger.warning('view %r has missing layer %r' % (self.iden, iden))
                 continue
 
+            if not self.layers and layr.readonly:
+                self.borked = iden
+                raise s_exc.ReadOnlyLayer(mesg=f'First layer {iden} must not be read-only')
+
             self.layers.append(layr)
 
     async def snap(self, user):
@@ -102,8 +106,12 @@ class View(s_base.Base):
 
     async def addLayer(self, layr, indx=None):
         if indx is None:
+            if not self.layers and layr.readonly:
+                raise s_exc.ReadOnlyLayer(mesg=f'First layer {layr.iden} must not be read-only')
             self.layers.append(layr)
         else:
+            if indx == 0 and layr.readonly:
+                raise s_exc.ReadOnlyLayer(mesg=f'First layer {layr.iden} must not be read-only')
             self.layers.insert(indx, layr)
         await self.info.set('layers', [l.iden for l in self.layers])
 
@@ -118,6 +126,8 @@ class View(s_base.Base):
             layr = self.core.layers.get(iden)
             if layr is None:
                 raise s_exc.NoSuchLayer(iden=iden)
+            if not layrs and layr.readonly:
+                raise s_exc.ReadOnlyLayer(mesg=f'First layer {layr.iden} must not be read-only')
 
             layrs.append(layr)
 

@@ -63,9 +63,9 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.iterUnivRows(univ):
             yield item
 
-    async def stor(self, sops, prov=None, splices=None):
+    async def stor(self, sops, splices=None):
         self.allowed(self.storperm)
-        return await self.layr.stor(sops, prov, splices)
+        return await self.layr.stor(sops, splices=splices)
 
     async def getBuidProps(self, buid):
         self.allowed(self.liftperm)
@@ -90,6 +90,7 @@ class Layer(s_base.Base):
     The base class for a cortex layer.
     '''
     confdefs = ()
+    readonly = False
 
     async def __anit__(self, core, node):
 
@@ -153,7 +154,10 @@ class Layer(s_base.Base):
             async for row in func(oper):
                 yield row
 
-    async def stor(self, sops, prov=None, splices=None):
+    async def getproviden(self, provstack):
+        return await self._storProvStack(provstack)
+
+    async def stor(self, sops, splices=None):
         '''
         Execute a series of storage operations.
         '''
@@ -163,24 +167,10 @@ class Layer(s_base.Base):
                 raise s_exc.NoSuchStor(name=oper[0])
             await func(oper)
 
-        if prov is None:
-            iden = None
-        elif isinstance(prov, bytes):
-            iden = prov
-        else:
-            iden = await self._storProvStack(prov)
-
-        if splices is not None:
-            if iden is not None:
-                istr = s_common.ehex(iden)
-                for splice in splices:
-                    splice[1]['prov'] = istr
-
+        if splices:
             await self._storSplices(splices)
             self.spliced.set()
             self.spliced.clear()
-
-        return iden
 
     async def getProvStack(self, iden):  # pragma: no cover
         '''

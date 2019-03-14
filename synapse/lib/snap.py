@@ -35,12 +35,11 @@ class Snap(s_base.Base):
     ('print', {}),
     '''
 
-    async def __anit__(self, core, layers, user, emitprov=True):
+    async def __anit__(self, core, layers, user):
         '''
         Args:
             core (cortex):  the cortex
             layers (List[Layer]): the list of layers to access, write layer last
-            emitprov (bool): whether the provenance stack will be emitted inside write events
         '''
         await s_base.Base.__anit__(self)
 
@@ -66,7 +65,6 @@ class Snap(s_base.Base):
         self.runt = {}
 
         self.debug = False      # Set to true to enable debug output.
-        self.emitprov = emitprov  # Whether the provenance stack is on every event
         self.write = False      # True when the snap has a write lock on a layer.
 
         self.tagcache = s_cache.FixedCache(self._addTagNode, size=10000)
@@ -551,25 +549,28 @@ class Snap(s_base.Base):
             yield node
 
     async def stor(self, sops, splices=None):
+
+        if not splices:
+            await self.wlyr.stor(sops)
+            return
+
+        providen, provstack = s_provenance.get()
+        if providen is None:
+            providen = await self.wlyr.getproviden(provstack)
+            # Save off the iden and use that for future calls to avoid future DB accesses
+            s_provenance.setiden(providen)
+
         now = s_common.now()
-        stackiden, provstack = s_provenance.get()
+        user = self.user.iden
+        prov = s_common.ehex(providen)
+        await self.fire('prov:new', time=now, user=user, prov=prov, provstack=provstack)
 
-        if splices is not None:
-            for splice in splices:
-                name, info = splice
-                info['user'] = self.user.iden
-                info['time'] = now
-                if self.emitprov:
-                    await self.fire(name, provstack=provstack, **info)
-                else:
-                    await self.fire(name, **info)
+        for splice in splices:
+            name, info = splice
+            info.update(time=now, user=user, prov=prov)
+            await self.fire(name, **info)
 
-        newstackiden = await self.wlyr.stor(sops, stackiden if stackiden is not None else provstack, splices)
-
-        if newstackiden != stackiden:
-            # Save off the alias the write layer gave us so we can use that for future calls to avoid future DB
-            # accesses
-            s_provenance.setiden(newstackiden)
+        await self.wlyr.stor(sops, splices=splices)
 
     async def getLiftNodes(self, lops, rawprop, cmpr=None):
         genr = self.getLiftRows(lops)

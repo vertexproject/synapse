@@ -1,7 +1,5 @@
-import copy
 import time
 import asyncio
-import unittest
 
 from unittest.mock import patch
 
@@ -817,7 +815,7 @@ class CortexTest(s_t_utils.SynTest):
             mesg = ('node:add', {'ndef': ('test:str', 'hello')})
             self.isin(mesg, splices)
 
-            mesg = ('prop:set', {'ndef': ('test:str', 'hello'), 'prop': 'tick', 'valu': 978307200000, 'oldv': None})
+            mesg = ('prop:set', {'ndef': ('test:str', 'hello'), 'prop': 'tick', 'valu': 978307200000})
             self.isin(mesg, splices)
 
             mesg = ('prop:set',
