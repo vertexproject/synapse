@@ -1,10 +1,11 @@
-import synapse.tests.utils as s_t_utils
+import synapse.eventbus as s_eventbus
 
+import synapse.lib.base as s_base
 import synapse.lib.reflect as s_reflect
 
-from synapse.eventbus import EventBus
+import synapse.tests.utils as s_t_utils
 
-class Foo(EventBus): pass
+class Foo(s_eventbus.EventBus): pass
 
 class Bar:
     def __init__(self):
@@ -12,6 +13,14 @@ class Bar:
 
     def _syn_reflect(self):
         return s_reflect.getItemInfo(self.foo)
+
+class Echo(s_base.Base):
+    def echo(self, args):
+        return args
+
+    async def mygenr(self, n):
+        for i in range(n):
+            yield i
 
 class ReflectTest(s_t_utils.SynTest):
 
@@ -34,3 +43,15 @@ class ReflectTest(s_t_utils.SynTest):
         names = info.get('inherits', ())
         self.isin('synapse.eventbus.EventBus', names)
         self.isin('synapse.tests.test_lib_reflect.Foo', names)
+
+    async def test_telemeth(self):
+        self.none(getattr(Echo, '_syn_telemeth', None))
+        async with self.getTestDmon() as dmon:
+            echo = await Echo.anit()
+            dmon.share('echo', echo)
+            self.none(getattr(echo, '_syn_telemeth', None))
+            self.none(getattr(Echo, '_syn_telemeth', None))
+            async with await self.getTestProxy(dmon, 'echo') as proxy:
+                pass
+            self.isinstance(getattr(echo, '_syn_telemeth', None), dict)
+            self.isinstance(getattr(Echo, '_syn_telemeth', None), dict)

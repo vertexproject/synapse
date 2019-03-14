@@ -298,7 +298,7 @@ class Daemon(s_base.Base):
                 if isinstance(item, s_base.Base):
                     link.onfini(item.fini)
 
-            reply[1]['methinfo'] = s_reflect.getItemMagic(item)
+            reply[1]['methinfo'] = s_reflect.getTeleMeths(item)
 
             sess.setSessItem(None, item)
             reply[1]['sess'] = sess.iden

@@ -80,17 +80,21 @@ def getItemInfo(item):
         'inherits': getClsNames(item)
     }
 
-def getItemMagic(item):
+def getTeleMeths(item):
     '''
-    Get, and set magic on the item's base class, for magic things we need to know for telepath
+    Get a dictionary of special annotations for a Telepath Proxy.
 
     Args:
-        item:
+        item:  Item to inspect.
+
+    Notes:
+        This will set the ``_syn_telemeth`` attribute on the item
+        and the items class, so this data is only computed once.
 
     Returns:
-
+        dict: A dictionary of methods requiring special handling by the proxy.
     '''
-    info = getattr(item, '_syn_magic', None)
+    info = getattr(item, '_syn_telemeth', None)
     if info is not None:
         return info
 
@@ -116,12 +120,12 @@ def getItemMagic(item):
             info[name] = {'genr': True}
 
     try:
-        setattr(item, '_syn_magic', info)
+        setattr(item, '_syn_telemeth', info)
     except Exception as e:
         logger.exception(f'Failed to set magic on {item}')
 
     try:
-        setattr(item.__class__, '_syn_magic', info)
+        setattr(item.__class__, '_syn_telemeth', info)
     except Exception as e:
         logger.exception(f'Failed to set magic on {item.__class__}')
 
