@@ -50,35 +50,35 @@ def getItemLocals(item):
         except Exception as e:
             pass # various legit reasons...
 
-def getItemInfo(item):
-    '''
-    Get "reflection info" dict for the given object.
-
-    Args:
-        item: Item to inspect.
-
-    Examples:
-        Find out what classes a Telepath Proxy object inherits::
-
-            info = getItemInfo(prox)
-            classes = info.get('inherits')
-
-    Notes:
-        Classes may implement a ``def _syn_reflect(self):`` function
-        in order to return explicit values. The Telepath Proxy object
-        is one example of doing this, in order to allow a remote caller
-        to identify what classes the Proxy object represents.
-
-    Returns:
-        dict: Dictionary of reflection information.
-    '''
-    func = getattr(item, '_syn_reflect', None)
-    if func is not None:
-        return func()
-
-    return {
-        'inherits': getClsNames(item)
-    }
+# def getItemInfo(item):
+#     '''
+#     Get "reflection info" dict for the given object.
+#
+#     Args:
+#         item: Item to inspect.
+#
+#     Examples:
+#         Find out what classes a Telepath Proxy object inherits::
+#
+#             info = getItemInfo(prox)
+#             classes = info.get('inherits')
+#
+#     Notes:
+#         Classes may implement a ``def _syn_reflect(self):`` function
+#         in order to return explicit values. The Telepath Proxy object
+#         is one example of doing this, in order to allow a remote caller
+#         to identify what classes the Proxy object represents.
+#
+#     Returns:
+#         dict: Dictionary of reflection information.
+#     '''
+#     func = getattr(item, '_syn_reflect', None)
+#     if func is not None:
+#         return func()
+#
+#     return {
+#         'inherits': getClsNames(item)
+#     }
 
 def getTeleMeths(item):
     '''
