@@ -29,15 +29,9 @@ class MigrTest(s_testutils.SynTest):
 
             async with await s_migrate.Migration.anit(core) as migr:
 
-                async for layr, buid, valu in migr.getFormTodo('test:int'):
+                async for buid, valu in migr.getFormTodo('test:int'):
                     if valu == 10:
-                        await migr.setNodeForm(layr, buid, 'test:int', valu, valu + 1000)
-
-                # check sub sets via easy prop
-                norm, info = core.model.type('test:sub').norm(2000)
-                await migr.setPropsByType('test:sub', 100, norm, info)
-
-            self.len(1, await core.eval('test:guid:posneg=2000 +:posneg:isbig=1').list())
+                        await migr.editNodeNdef(('test:int', valu), ('test:int', valu + 1000))
 
             # check main node values *and* indexes
             self.len(0, await core.eval('test:int=10').list())
@@ -47,11 +41,18 @@ class MigrTest(s_testutils.SynTest):
 
             self.len(1, await core.eval('edge:refs#baz').list())
 
+            self.len(1, await core.eval(f'edge:refs').list())
+            self.len(1, await core.eval(f'edge:refs=((test:guid, {guid}), (test:comp, (1010, test10)))').list())
+            x = await core.eval(f'edge:refs=((test:guid, {guid}), (test:comp, (1010, test10)))').list()
+
             refs = await core.eval('test:guid -> edge:refs +#baz').list()
 
             self.len(1, refs)
+
             self.eq(refs[0].get('n2'), ('test:comp', (1010, 'test10')))
             self.eq(refs[0].ndef[1], (('test:guid', guid), ('test:comp', (1010, 'test10'))))
+
+            self.len(1, await core.eval('test:comp:hehe=1010').list())
 
             self.len(0, await core.eval('test:comp:hehe=10').list())
             self.len(0, await core.eval('test:comp=(10, test10)').list())

@@ -5,7 +5,9 @@ import contextlib
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.slabseqn as s_slabseqn
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +31,11 @@ class Migration(s_base.Base):
         path = os.path.join(self.dirn, 'migr.lmdb')
 
         self.slab = await s_lmdbslab.Slab.anit(path)
+        self.oldb2indx = self.slab.initdb('oldb2indx')
+
         self.onfini(self.slab.fini)
 
-        self.buid2ndef = self.slab.initdb('buid2ndef')
+        self.ndefdelay = None
 
     @contextlib.asynccontextmanager
     async def getTempSlab(self):
@@ -40,10 +44,46 @@ class Migration(s_base.Base):
             async with await s_lmdbslab.Slab.anit(path) as slab:
                 yield slab
 
+    @contextlib.asynccontextmanager
+    async def delayNdefProps(self):
+        '''
+        Hold this during a series of renames to delay ndef
+        secondary property processing until the end....
+        '''
+        async with self.getTempSlab() as slab:
+
+            seqn = s_slabseqn.SlabSeqn(slab, 'ndef')
+
+            self.ndefdelay = seqn
+
+            yield
+
+            self.ndefdelay = None
+
+            # process them all now...
+            for oldv, newv in seqn.iter(0):
+                await self.editNdefProps(oldv, newv)
+
     async def editNodeNdef(self, oldv, newv):
 
+        #print(f'NDEF EDIT: {repr(oldv)} -> {repr(newv)}')
+
+        oldb = s_common.buid(oldv)
+        newb = s_common.buid(newv)
+
         for layr in self.layers:
+
+            indx = await layr.getFormIndx(oldb)
+
+            # save off any old indx valu so we can scan for them
+            if indx is not None:
+                self.slab.put(oldb, indx, overwrite=False, db=self.oldb2indx)
+
             await layr.editNodeNdef(oldv, newv)
+
+        if self.ndefdelay is not None:
+            self.ndefdelay.append((oldv, newv))
+            return
 
         await self.editNdefProps(oldv, newv)
 
@@ -53,145 +93,100 @@ class Migration(s_base.Base):
         '''
         async with self.getTempSlab() as slab:
 
-            async for layr, buid, valu in self.getFormTodo(oldn):
-
-                # create a de-dupd list of buids to translate
-                if not slab.put(buid, b'\x01', overwrite=False):
-                    continue
+            async for buid, valu in self.getFormTodo(oldn):
 
                 await self.editNodeNdef((oldn, valu), (newn, valu))
 
-    async def setNodeBuid(self, form, oldb, newb):
+    async def editNdefProps(self, oldndef, newndef):
         '''
-        Carry out the rewrite of a node buid in all layers.
+        Change all props as a result of an ndef change.
         '''
-        sops = (
-            ('buid:set', (form, oldb, newb)),
-        )
-        for layr in self.layers:
-            await layr.stor(sops)
+        oldbuid = s_common.buid(oldndef)
+        newbuid = s_common.buid(newndef)
 
-    async def editNdefProps(self, oldv, newv):
-        '''
-        Change all ndef props from oldv to newv.
-        '''
-        norm, info = self.core.model.type('ndef').norm(newv)
+        oldname, oldvalu = oldndef
+        newname, newvalu = newndef
+
+        rename = newname != oldname
+
+        # we only need to update secondary props if they have diff vals
+        # ( vs for example a pure rename )
+        if oldvalu != newvalu:
+
+            # get the indx bytes for the *value* of the ndef
+            indx = self.slab.get(oldbuid, db=self.oldb2indx)
+            if indx is not None:
+
+                # the only way for indx to be None is if we dont have the node...
+                for prop in self.core.model.getPropsByType(newname):
+
+                    coff = prop.getCompOffs()
+
+                    for layr in self.layers:
+
+                        async for buid, valu in layr.iterPropIndx(prop.form.name, prop.name, indx):
+
+                            #print(f'FOUND A {newname} at {prop.full}={repr(valu)} -> {repr(newvalu)}')
+                            await layr.storPropSet(buid, prop, newvalu)
+
+                            # for now, assume any comp sub is on the same layer as it's form prop
+                            if coff is not None:
+
+                                #print(f'WHICH IS A COFF AT {coff}')
+
+                                ndef = await layr.getNodeNdef(buid)
+
+                                edit = list(ndef[1])
+                                edit[coff] = newvalu
+
+                                await self.editNodeNdef(ndef, (ndef[0], edit))
+
         for prop in self.core.model.getPropsByType('ndef'):
 
-            coff = prop.getCompOffs()
-            if coff is not None:
-                await self._editCompProp(prop, coff, oldv, newv, info)
-                continue
-
-            await self._editEasyProp(prop, oldv, newv, info)
-
-    async def _editCompProp(self, prop, coff, oldv, newv, info):
-
-        lops = prop.getLiftOps(oldv)
-
-        for layr in self.layers:
-
-            async for row in layr.getLiftRows(lops):
-
-                buid = row[0]
-
-                # if this prop is part of a compound, just use the form set method
-                _, valu = await layr.getNodeNdef(buid)
-
-                edit = list(valu)
-                edit[coff] = newv
-
-                await self.setNodeForm(layr, buid, prop.form.name, valu, edit)
-
-    async def _editEasyProp(self, prop, oldv, newv, info):
-
-        # check for subs on the form from us...
-        subtodo = []
-
-        subs = info.get('subs')
-        if subs is not None:
-            for subn, subv in subs.items():
-                subp = self.core.model.prop(prop.full + ':' + subn)
-                if subp is None:
-                    continue
-
-                subtodo.append((subp, subv))
-
-        lops = prop.getLiftOps(oldv)
-
-        for layr in self.layers:
-
-            async for row in layr.getLiftRows(lops):
-
-                buid = row[0]
-
-                sops = []
-                sops.extend(prop.getDelOps(buid))
-                sops.extend(prop.getSetOps(buid, newv))
-
-                for subp, subv in subtodo:
-                    sops.extend(subp.getDelOps(buid))
-                    sops.extend(subp.getSetOps(buid, subv))
-
-                await layr.stor(sops)
-
-    async def setPropsByType(self, name, oldv, newv, info):
-        '''
-        Update secondary props of the given type.
-        '''
-        # update secondary props from oldv to newv
-        for prop in self.core.model.getPropsByType(name):
+            formsub = self.core.model.prop(prop.full + ':' + 'form')
 
             coff = prop.getCompOffs()
-            if coff is not None:
-                await self._editCompProp(prop, coff, oldv, newv, info)
-                continue
 
-            await self._editEasyProp(prop, oldv, newv, info)
+            for layr in self.layers:
 
-    async def setNodeForm(self, layr, buid, name, oldv, newv):
-        '''
-        Reset the primary property for the given buid.
-        '''
-        form = self.core.model.form(name)
+                async for buid, valu in layr.iterPropIndx(prop.form.name, prop.name, oldbuid):
 
-        norm, info = form.type.norm(newv)
+                    #print(f'FOUND NDEF {prop.full} = {repr(valu)} -> {repr(newndef)}')
 
-        subtodo = []
+                    await layr.storPropSet(buid, prop, newndef)
 
-        subs = info.get('subs')
-        if subs is not None:
-            subtodo = list(subs.items())
+                    if rename and formsub is not None:
+                        #print('RENAME WITH FORMSUBS %s %r -> %r' % (formsub.name, oldname, newname))
+                        await layr.storPropSet(buid, formsub, newname)
 
-        newb = s_common.buid((name, norm))
+                    if coff is not None:
+                        #print(f'WHICH IS A COFF AT {coff}')
 
-        ops = []
-        ops.extend(form.getDelOps(buid))
-        ops.extend(form.getSetOps(newb, norm))
+                        # for now, assume form and prop on the same layer...
+                        ndef = await layr.getNodeNdef(buid)
 
-        # scoop up any set operations for form subs
-        for subn, subv in subtodo:
-            subp = self.core.model.prop(name + ':' + subn)
-            if subp is None:
-                continue
+                        edit = list(ndef[1])
+                        edit[coff] = newndef
 
-            ops.extend(subp.getDelOps(buid))
-            ops.extend(subp.getSetOps(newb, subv))
+                        #print(f'NDEF COFF EDIT: {repr(ndef)} -> {repr((ndef[0], edit))}')
 
-        # rewrite the primary property and subs
-        await layr.stor(ops)
-
-        # update props in all layers
-        await self.setNodeBuid(name, buid, newb)
-
-        await self.setPropsByType(name, oldv, norm, info)
-
-        oldndef = (name, oldv)
-        newndef = (name, norm)
-
-        await self.editNdefProps(oldndef, newndef)
+                        await self.editNodeNdef(ndef, (ndef[0], edit))
 
     async def getFormTodo(self, name):
-        for layr in self.layers:
-            async for buid, valu in layr.iterFormRows(name):
-                yield layr, buid, valu
+        '''
+        Produce a deconflicted list of form values across layers
+        as a *copy* to avoid iter vs edit issues in the indexes.
+        '''
+        size = 0
+        async with self.getTempSlab() as slab:
+
+            for layr in self.layers:
+
+                async for buid, valu in layr.iterFormRows(name):
+                    slab.put(buid, s_msgpack.en(valu), overwrite=False)
+                    size += 1
+
+            print(f'MIGRATION FORM TODO ({name}): {size}')
+
+            for buid, byts in slab.scanByFull():
+                yield buid, s_msgpack.un(byts)

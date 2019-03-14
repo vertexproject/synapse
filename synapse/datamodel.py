@@ -115,6 +115,7 @@ class Prop(PropBase):
             self.full = '%s%s' % (form.name, name)
 
         self.utf8name = self.name.encode('utf8')
+        self.encname = self.utf8name + b'\x00'
 
         self.pref = self.form.utf8name + b'\x00' + self.utf8name + b'\x00'
 

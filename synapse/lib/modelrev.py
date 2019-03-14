@@ -77,14 +77,17 @@ class ModelRev:
          # time to rename a bunch of forms...
         async with self.getCoreMigr(layers) as migr:
 
-            migr.setFormName('seen', 'meta:seen')
-            migr.setFormName('source', 'meta:source')
+            # delay ndef prop cascade so we can rename everything first
+            async with migr.delayNdefProps():
 
-            migr.setFormName('has', 'edge:has')
-            migr.setFormName('refs', 'edge:refs')
-            migr.setFormName('wentto', 'edge:wentto')
+                await migr.setFormName('seen', 'meta:seen')
+                await migr.setFormName('source', 'meta:source')
 
-            migr.setFormName('event', 'graph:event')
-            migr.setFormName('cluster', 'graph:cluster')
-            migr.setFormName('graph:link', 'graph:edge')
-            migr.setFormName('graph:timelink', 'graph:timeedge')
+                await migr.setFormName('has', 'edge:has')
+                await migr.setFormName('refs', 'edge:refs')
+                await migr.setFormName('wentto', 'edge:wentto')
+
+                await migr.setFormName('event', 'graph:event')
+                await migr.setFormName('cluster', 'graph:cluster')
+                await migr.setFormName('graph:link', 'graph:edge')
+                await migr.setFormName('graph:timelink', 'graph:timeedge')

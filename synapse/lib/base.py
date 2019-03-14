@@ -339,16 +339,6 @@ class Base:
 
         return ret
 
-    def _iAmLoop(self):
-        '''
-        Return True if the current thread is same loop anit was called on
-
-        Returns:
-            (bool)
-
-        '''
-        return threading.get_ident() == self.ident
-
     async def _kill_active_tasks(self):
         # FIXME: distinguish between the CancelledError from task being cancelled and *running* task being cancelled
 
@@ -502,53 +492,28 @@ class Base:
         task = asyncio.run_coroutine_threadsafe(coro, self.loop)
         return task.result()
 
-    def main(self):
+    async def addSignalHandlers(self):
+
+        def sigterm():
+            print('Caught SIGTERM, shutting down.')
+            asyncio.create_task(self.fini())
+
+        def sigint():
+            print('Caught SIGINT, shutting down.')
+            asyncio.create_task(self.fini())
+
+        loop = asyncio.get_running_loop()
+        loop.add_signal_handler(signal.SIGINT, sigint)
+        loop.add_signal_handler(signal.SIGTERM, sigterm)
+
+
+    async def main(self):
         '''
-        Helper function to block until shutdown ( and handle ctrl-c and SIGTERM).
-
-        Examples:
-            Run a base, wait until main() has returned, then do other stuff::
-
-                foo = Base()
-                foo.main()
-                dostuff()
-
-        Notes:
-            This fires a 'ebus:main' event prior to entering the waitfini() loop.
-
-        Returns:
-            None
+        Helper function to setup signal handlers for this base as the main object.
+        ( use base.waitfini() to block )
         '''
-        doneevent = threading.Event()
-        self.onfini(doneevent.set)
-
-        async def sighandler():
-            print('Caught SIGTERM, shutting down')
-            await self.fini()
-
-        def handler():
-            asyncio.run_coroutine_threadsafe(sighandler(), loop=self.loop)
-
-        try:
-            self.loop.add_signal_handler(signal.SIGTERM, handler)
-        except Exception as e:  # pragma: no cover
-            logger.exception('Unable to register SIGTERM handler.')
-
-        async def asyncmain():
-            await self.fire('ebus:main')
-
-        asyncio.run_coroutine_threadsafe(asyncmain(), loop=self.loop)
-
-        try:
-            doneevent.wait()
-
-        except KeyboardInterrupt as e:
-            print('ctrl-c caught: shutting down')
-
-        finally:
-            # Avoid https://bugs.python.org/issue34680 by removing handler before closing down
-            self.loop.remove_signal_handler(signal.SIGTERM)
-            s_glob.sync(self.fini())
+        await self.addSignalHandlers()
+        return await self.waitfini()
 
     def waiter(self, count, *names):
         '''
@@ -722,3 +687,7 @@ class BaseRef(Base):
         # make a copy during iteration to prevent dict
         # change during iteration exceptions
         return iter(list(self.base_by_name.values()))
+
+async def main(coro): # pragma: no cover
+    async with await coro as base:
+        await base.main()
