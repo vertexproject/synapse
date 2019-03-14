@@ -55,7 +55,21 @@ class ModelRevTest(s_tests.SynTest):
 
     async def test_modelrev_pre010(self):
 
+        sorc = 'a6246e97d7b02e2dcc90dd117611a981'
+        plac = '36c0959d703b9d16e7566a858234bece'
+        pers = '83fc390015c0c0ed054d09e87aa31853'
+        evnt = '7156b48f84de79d3a375baa3c7904387'
+        clus = 'fae28e60d8af681f12109d6da0c48555'
+
         async with self.getRegrCore('pre-010') as core:
+
+            self.len(1, await core.nodes(f'meta:source={sorc} +#hehe +.seen=2019'))
+            self.len(1, await core.nodes(f'meta:seen=({sorc}, (inet:dns:a, (vertex.link, 1.2.3.4))) +#hehe +.seen=2019'))
+            self.len(1, await core.nodes(f'graph:event={evnt} +#hehe +.seen=2019'))
+            self.len(1, await core.nodes(f'graph:cluster={clus} +#hehe +.seen=2019'))
+            self.len(1, await core.nodes(f'edge:has=((ps:person, {pers}), (geo:place, {plac})) +#hehe +.seen=2019'))
+            self.len(1, await core.nodes(f'edge:refs=((ps:person, {pers}), (geo:place, {plac})) +#hehe +.seen=2019'))
+            self.len(1, await core.nodes(f'edge:wentto=((ps:person, {pers}), (geo:place, {plac}), 2019) +#hehe +.seen=2019'))
 
             self.len(1, await core.nodes('meta:source#hehe'))
             self.len(1, await core.nodes('meta:source.seen=2019'))
