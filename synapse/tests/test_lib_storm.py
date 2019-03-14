@@ -17,19 +17,19 @@ class StormTest(s_t_utils.SynTest):
             async with core.getLocalProxy(user='sudoer') as prox:
 
                 with self.raises(s_exc.AuthDeny):
-                    await s_common.aspin(await prox.eval('[ test:str=woot ]'))
+                    await s_common.aspin(prox.eval('[ test:str=woot ]'))
 
                 with self.raises(s_exc.AuthDeny):
-                    await s_common.aspin(await prox.eval('sudo | [ test:str=woot ]'))
+                    await s_common.aspin(prox.eval('sudo | [ test:str=woot ]'))
 
                 rule = (True, ('storm', 'cmd', 'sudo'))
 
                 await user.addRule(rule)
 
                 with self.raises(s_exc.AuthDeny):
-                    await s_common.aspin(await prox.eval('[ test:str=woot ]'))
+                    await s_common.aspin(prox.eval('[ test:str=woot ]'))
 
-                await s_common.aspin(await prox.eval('sudo | [ test:str=woot ]'))
+                await s_common.aspin(prox.eval('sudo | [ test:str=woot ]'))
 
     async def test_storm_movetag(self):
 
@@ -228,16 +228,16 @@ class StormTest(s_t_utils.SynTest):
     async def test_storm_count(self):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
-            await self.agenlen(2, await core.eval('[ test:str=foo test:str=bar ]'))
+            await self.agenlen(2, core.eval('[ test:str=foo test:str=bar ]'))
 
-            mesgs = await alist(await core.storm('test:str=foo test:str=bar | count |  [+#test.tag]'))
+            mesgs = await alist(core.storm('test:str=foo test:str=bar | count |  [+#test.tag]'))
             nodes = [mesg for mesg in mesgs if mesg[0] == 'node']
             self.len(2, nodes)
             prints = [mesg for mesg in mesgs if mesg[0] == 'print']
             self.len(1, prints)
             self.eq(prints[0][1].get('mesg'), 'Counted 2 nodes.')
 
-            mesgs = await alist(await core.storm('test:str=newp | count'))
+            mesgs = await alist(core.storm('test:str=newp | count'))
             prints = [mesg for mesg in mesgs if mesg[0] == 'print']
             self.len(1, prints)
             self.eq(prints[0][1].get('mesg'), 'Counted 0 nodes.')

@@ -20,12 +20,12 @@ class ProvenanceTest(s_t_utils.SynTest):
             self.none(await core.getProvStack('abcd'))
 
             await core.addTrigger('node:add', '[ test:int=1 ]', info={'form': 'test:str'})
-            await s_common.aspin(await core.eval('[ test:str=foo ]'))
-            await self.agenlen(1, await core.eval('test:int'))
+            await s_common.aspin(core.eval('[ test:str=foo ]'))
+            await self.agenlen(1, core.eval('test:int'))
 
-            await self.agenlen(0, await core.eval('test:int | delnode'))
+            await self.agenlen(0, core.eval('test:int | delnode'))
 
-            splices = await alist(await core.splices(0, 1000))
+            splices = await alist(core.splices(0, 1000))
 
             self.len(9, splices)
             idens = [splice[1]['prov'] for splice in splices]
@@ -65,6 +65,6 @@ class ProvenanceTest(s_t_utils.SynTest):
             self.eq((ds2, ds3), prov4[1])
 
             # Test the streaming API
-            provstacks = await alist(await core.provStacks(0, 1000))
+            provstacks = await alist(core.provStacks(0, 1000))
             correct = [(idens[0], prov1), (idens[3], prov2), (idens[5], prov3), (idens[7], prov4)]
             self.eq(provstacks, correct)
