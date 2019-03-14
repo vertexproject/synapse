@@ -103,8 +103,8 @@ def getItemMagic(item):
         if not callable(attr):
             continue
 
-        # We know we can cleanly unwrapped these functions for
-        # asyncgenerator inspection.
+        # We know we can cleanly unwrap these functions
+        # for asyncgenerator inspection.
         wrapped = getattr(attr, '__syn_wrapped__', None)
         if wrapped in unwraps:
             real = inspect.unwrap(attr)
