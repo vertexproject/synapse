@@ -43,6 +43,7 @@ class LmdbLayer(s_layer.Layer):
         await s_layer.Layer.__anit__(self, core, node)
 
         path = os.path.join(self.dirn, 'layer.lmdb')
+        splicepath = os.path.join(self.dirn, 'splices.lmdb')
 
         self.fresh = not os.path.exists(path)
 
@@ -53,8 +54,11 @@ class LmdbLayer(s_layer.Layer):
 
         self.layrslab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, maxsize=maxsize,
                                                    growsize=growsize, writemap=True, readahead=readahead)
-
         self.onfini(self.layrslab.fini)
+
+        self.spliceslab = await s_lmdbslab.Slab.anit(splicepath, max_dbs=128, map_size=mapsize, maxsize=maxsize,
+                                                     growsize=growsize, writemap=True, readahead=readahead)
+        self.onfini(self.spliceslab.fini)
 
         self.dbs = {}
 
@@ -66,7 +70,7 @@ class LmdbLayer(s_layer.Layer):
         self.byuniv = await self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
         offsdb = await self.initdb('offsets')
         self.offs = s_slaboffs.SlabOffs(self.layrslab, offsdb)
-        self.splicelog = s_slabseqn.SlabSeqn(self.layrslab, 'splices')
+        self.splicelog = s_slabseqn.SlabSeqn(self.spliceslab, 'splices')
 
     async def getModelVers(self):
         byts = self.layrslab.get(b'layer:model:version')
