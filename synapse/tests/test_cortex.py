@@ -1005,11 +1005,11 @@ class CortexTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy() as prox:
                 # TestModule creates one node and 3 splices
-                await self.agenlen(3, await prox.splices(0, 1000))
+                await self.agenlen(3, prox.splices(0, 1000))
 
                 await alist(prox.eval('[ test:str=foo ]'))
 
-                self.ge(len(await alist(await prox.splices(0, 1000))), 3)
+                self.ge(len(await alist(prox.splices(0, 1000))), 3)
 
     async def test_pivot_inout(self):
 

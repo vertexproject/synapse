@@ -5,6 +5,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 clsskip = set([object])
+unwraps = {'adminapi',
+           }
+
 def getClsNames(item):
     '''
     Return a list of "fully qualified" class names for an instance.
@@ -100,10 +103,16 @@ def getItemMagic(item):
         attr = getattr(item, name)
         if not callable(attr):
             continue
-        print(name, attr)
-        if name == 'splices':
-            print(type(attr))
-            print(f'IS coro? {inspect.iscoroutine(attr)}')
+
+        # We know we can cleanly unwrapped these functions for
+        # asyncgenerator inspection.
+        wrapped = getattr(attr, '__syn_wrapped__', None)
+        if wrapped in unwraps:
+            real = inspect.unwrap(attr)
+            if inspect.isasyncgenfunction(real):
+                info[name] = {'genr': True}
+                continue
+
         if inspect.isasyncgenfunction(attr):
             info[name] = {'genr': True}
 
@@ -116,5 +125,4 @@ def getItemMagic(item):
         setattr(item.__class__, '_syn_magic', info)
     except Exception as e:
         logger.exception(f'Failed to set magic on {item.__class__}')
-    print(info)
     return info

@@ -47,6 +47,8 @@ def adminapi(f):
 
         return f(*args, **kwargs)
 
+    func.__syn_wrapped__ = 'adminapi'
+
     return func
 
 class CellApi(s_base.Base):
