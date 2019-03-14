@@ -98,6 +98,12 @@ def getItemMagic(item):
         if name.startswith('_'):
             continue
         attr = getattr(item, name)
+        if not callable(attr):
+            continue
+        print(name, attr)
+        if name == 'splices':
+            print(type(attr))
+            print(f'IS coro? {inspect.iscoroutine(attr)}')
         if inspect.isasyncgenfunction(attr):
             info[name] = {'genr': True}
 
@@ -110,5 +116,5 @@ def getItemMagic(item):
         setattr(item.__class__, '_syn_magic', info)
     except Exception as e:
         logger.exception(f'Failed to set magic on {item.__class__}')
-
+    print(info)
     return info

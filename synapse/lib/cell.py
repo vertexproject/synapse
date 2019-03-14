@@ -3,6 +3,7 @@ import ssl
 import socket
 import asyncio
 import logging
+import functools
 import contextlib
 
 import tornado.web as t_web
@@ -34,6 +35,7 @@ Base classes for the synapse "cell" microservice architecture.
 '''
 def adminapi(f):
 
+    @functools.wraps(f)
     def func(*args, **kwargs):
 
         if args[0].user is not None and not args[0].user.admin:
