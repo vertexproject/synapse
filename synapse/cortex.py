@@ -1530,6 +1530,12 @@ class Cortex(s_cell.Cell):
             async for mesg in snap.storm(text, opts=opts, user=user):
                 yield mesg
 
+    async def nodes(self, text, opts=None, user=None):
+        '''
+        A simple non-streaming way to return a list of nodes.
+        '''
+        return [n async for n in self.eval(text, opts=opts, user=user)]
+
     @s_coro.genrhelp
     async def streamstorm(self, text, opts=None, user=None):
         '''

@@ -730,6 +730,7 @@ class SynTest(unittest.TestCase):
 
     @contextlib.contextmanager
     def getRegrDir(self, *path):
+
         regr = os.getenv('SYN_REGRESSION_REPO')
         if regr is None: # pragma: no cover
             raise unittest.SkipTest('SYN_REGRESSION_REPO is not set')

@@ -52,3 +52,29 @@ class ModelRevTest(s_tests.SynTest):
 
                 self.true(layr.woot)
                 self.eq((9999, 9999, 9999), await layr.getModelVers())
+
+    async def test_modelrev_pre010(self):
+
+        async with self.getRegrCore('pre-010') as core:
+
+            self.len(1, await core.nodes('meta:source#hehe'))
+            self.len(1, await core.nodes('meta:source.seen=2019'))
+            self.len(1, await core.nodes('meta:source +#hehe +.seen=2019'))
+
+            self.len(1, await core.nodes('meta:seen#hehe'))
+            self.len(1, await core.nodes('meta:seen.seen=2019'))
+            self.len(1, await core.nodes('meta:seen +#hehe +.seen=2019'))
+
+            self.len(1, await core.nodes('edge:has#hehe'))
+            self.len(1, await core.nodes('edge:has.seen=2019'))
+            self.len(1, await core.nodes('edge:has +#hehe +.seen=2019'))
+
+            self.len(1, await core.nodes('edge:refs#hehe'))
+            self.len(1, await core.nodes('edge:refs.seen=2019'))
+            self.len(1, await core.nodes('edge:refs +#hehe +.seen=2019'))
+
+            self.len(1, await core.nodes('edge:wentto#hehe'))
+            self.len(1, await core.nodes('edge:wentto.seen=2019'))
+            self.len(1, await core.nodes('edge:wentto +#hehe +.seen=2019'))
+
+            #self.len(1, await core.nodes('meta:source -> meta:seen'))

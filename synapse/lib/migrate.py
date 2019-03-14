@@ -61,7 +61,7 @@ class Migration(s_base.Base):
             self.ndefdelay = None
 
             # process them all now...
-            for oldv, newv in seqn.iter(0):
+            for i, (oldv, newv) in seqn.iter(0):
                 await self.editNdefProps(oldv, newv)
 
     async def editNodeNdef(self, oldv, newv):
