@@ -510,11 +510,6 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         return {}
 
-    @classmethod
-    def deploy(cls, dirn):
-        # sub-classes may over-ride to do deploy initialization
-        pass
-
     async def getTeleApi(self, link, mesg, path):
 
         # if auth is disabled or it's a unix socket, they're root.

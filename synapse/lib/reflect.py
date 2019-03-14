@@ -80,7 +80,7 @@ def getItemLocals(item):
 #         'inherits': getClsNames(item)
 #     }
 
-def getTeleMeths(item):
+def getShareInfo(item):
     '''
     Get a dictionary of special annotations for a Telepath Proxy.
 
@@ -94,11 +94,12 @@ def getTeleMeths(item):
     Returns:
         dict: A dictionary of methods requiring special handling by the proxy.
     '''
-    info = getattr(item, '_syn_telemeth', None)
+    info = getattr(item, '_syn_sharinfo', None)
     if info is not None:
         return info
 
-    info = {}
+    meths = {}
+    info = {'meths': meths}
 
     for name in dir(item):
         if name.startswith('_'):
@@ -113,19 +114,19 @@ def getTeleMeths(item):
         if wrapped in unwraps:
             real = inspect.unwrap(attr)
             if inspect.isasyncgenfunction(real):
-                info[name] = {'genr': True}
+                meths[name] = {'genr': True}
                 continue
 
         if inspect.isasyncgenfunction(attr):
-            info[name] = {'genr': True}
+            meths[name] = {'genr': True}
 
     try:
-        setattr(item, '_syn_telemeth', info)
+        setattr(item, '_syn_sharinfo', info)
     except Exception as e:  # pragma: no cover
         logger.exception(f'Failed to set magic on {item}')
 
     try:
-        setattr(item.__class__, '_syn_telemeth', info)
+        setattr(item.__class__, '_syn_sharinfo', info)
     except Exception as e:  # pragma: no cover
         logger.exception(f'Failed to set magic on {item.__class__}')
 

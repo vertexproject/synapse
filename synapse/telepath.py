@@ -228,6 +228,7 @@ class Proxy(s_base.Base):
         self.tasks = {}
         self.shares = {}
 
+        self.sharinfo = {}
         self.methinfo = {}
 
         self.sess = None
@@ -466,7 +467,8 @@ class Proxy(s_base.Base):
             raise s_exc.LinkShutDown(mesg=mesg)
 
         self.sess = self.synack[1].get('sess')
-        self.methinfo = self.synack[1].get('methinfo', {})
+        self.sharinfo = self.synack[1].get('sharinfo', {})
+        self.methinfo = self.sharinfo.get('meths', {})
 
         vers = self.synack[1].get('vers')
         if vers[0] != televers[0]:

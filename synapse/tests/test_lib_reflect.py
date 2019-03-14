@@ -45,13 +45,13 @@ class ReflectTest(s_t_utils.SynTest):
     #     self.isin('synapse.tests.test_lib_reflect.Foo', names)
 
     async def test_telemeth(self):
-        self.none(getattr(Echo, '_syn_telemeth', None))
+        self.none(getattr(Echo, '_syn_sharinfo', None))
         async with self.getTestDmon() as dmon:
             echo = await Echo.anit()
             dmon.share('echo', echo)
-            self.none(getattr(echo, '_syn_telemeth', None))
-            self.none(getattr(Echo, '_syn_telemeth', None))
+            self.none(getattr(echo, '_syn_sharinfo', None))
+            self.none(getattr(Echo, '_syn_sharinfo', None))
             async with await self.getTestProxy(dmon, 'echo') as proxy:
                 pass
-            self.isinstance(getattr(echo, '_syn_telemeth', None), dict)
-            self.isinstance(getattr(Echo, '_syn_telemeth', None), dict)
+            self.isinstance(getattr(echo, '_syn_sharinfo', None), dict)
+            self.isinstance(getattr(Echo, '_syn_sharinfo', None), dict)
