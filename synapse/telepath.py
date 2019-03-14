@@ -37,9 +37,6 @@ class Aware:
         '''
         return self
 
-    def getTeleMethInfo(self):
-        return {}
-
     def onTeleShare(self, dmon, name):
         pass
 

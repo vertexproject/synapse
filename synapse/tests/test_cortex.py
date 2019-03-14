@@ -203,7 +203,7 @@ class CortexTest(s_t_utils.SynTest):
             await prox.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
 
             opts = {'graph': True}
-            nodes = [n async for n in await prox.eval('inet:dns:a', opts=opts)]
+            nodes = [n async for n in prox.eval('inet:dns:a', opts=opts)]
 
             self.len(5, nodes)
 
@@ -757,9 +757,6 @@ class CortexTest(s_t_utils.SynTest):
             enfo = mesgs[0][1]
             self.eq(enfo[0], 'BadStormSyntax')
 
-            async with realcore.getLocalProxy() as core2:
-                mesg = await alist(core.storm('help ask'))
-
     async def test_feed_splice(self):
 
         iden = s_common.guid()
@@ -973,31 +970,31 @@ class CortexTest(s_t_utils.SynTest):
 
             async with realcore.getLocalProxy(user='visi') as asvisi:
 
-                await alist(await asvisi.eval('[ test:cycle0=foo :cycle1=bar ]'))
-                await alist(await asvisi.eval('[ test:cycle1=bar :cycle0=foo ]'))
+                await alist(asvisi.eval('[ test:cycle0=foo :cycle1=bar ]'))
+                await alist(asvisi.eval('[ test:cycle1=bar :cycle0=foo ]'))
 
-                await alist(await asvisi.eval('[ test:str=foo +#lol ]'))
+                await alist(asvisi.eval('[ test:str=foo +#lol ]'))
 
                 # no perms and not elevated...
-                await self.agenraises(s_exc.AuthDeny, await asvisi.eval('test:str=foo | delnode'))
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval('test:str=foo | delnode'))
 
                 rule = (True, ('node:del',))
                 await core.addAuthRule('visi', rule)
 
                 # should still deny because node has tag we can't delete
-                await self.agenraises(s_exc.AuthDeny, await asvisi.eval('test:str=foo | delnode'))
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval('test:str=foo | delnode'))
 
                 rule = (True, ('tag:del', 'lol'))
                 await core.addAuthRule('visi', rule)
 
-                await self.agenlen(0, await asvisi.eval('test:str=foo | delnode'))
+                await self.agenlen(0, asvisi.eval('test:str=foo | delnode'))
 
-                await self.agenraises(s_exc.CantDelNode, await asvisi.eval('test:cycle0=foo | delnode'))
-                await self.agenraises(s_exc.AuthDeny, await asvisi.eval('test:cycle0=foo | delnode --force'))
+                await self.agenraises(s_exc.CantDelNode, asvisi.eval('test:cycle0=foo | delnode'))
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval('test:cycle0=foo | delnode --force'))
 
                 await core.setAuthAdmin('visi', True)
 
-                await self.agenlen(0, await asvisi.eval('test:cycle0=foo | delnode --force'))
+                await self.agenlen(0, asvisi.eval('test:cycle0=foo | delnode --force'))
 
     async def test_cortex_cell_splices(self):
 
@@ -1638,9 +1635,9 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenlen(1, realcore.eval('[ test:str=woot .hehe=20 ]'))
             await self.agenlen(1, realcore.eval('[ test:str=pennywise .hehe=8086 ]'))
 
-            podes = await alist(await core.eval('test:str=woot [-.hehe]'))
+            podes = await alist(core.eval('test:str=woot [-.hehe]'))
             self.none(s_node.prop(podes[0], '.hehe'))
-            podes = await alist(await core.eval('test:str=pennywise [-.hehe]'))
+            podes = await alist(core.eval('test:str=pennywise [-.hehe]'))
             self.none(s_node.prop(podes[0], '.hehe'))
 
     async def test_cortex_snap_eval(self):
@@ -1665,7 +1662,7 @@ class CortexTest(s_t_utils.SynTest):
             ostat = await core.stat()
             self.eq(ostat.get('iden'), coreiden)
             self.isin('layer', ostat)
-            await self.agenlen(1, (await core.eval('[test:str=123 :tick=2018]')))
+            await self.agenlen(1, (core.eval('[test:str=123 :tick=2018]')))
             nstat = await core.stat()
             self.ge(nstat.get('layer').get('splicelog_indx'), ostat.get('layer').get('splicelog_indx'))
 
