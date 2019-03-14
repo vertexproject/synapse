@@ -96,7 +96,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         exactly one.
         '''
         idens = [iden for iden, trig in await core.listTriggers()]
-        matches = [iden for iden in idens if s_common.ehex(iden).startswith(prefix)]
+        matches = [iden for iden in idens if iden.startswith(prefix)]
         if len(matches) == 1:
             return matches[0]
         elif len(matches) == 0:
@@ -185,7 +185,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         query = query[1:-1]
 
         iden = await core.addTrigger(cond, query, info={'form': form, 'tag': tag, 'prop': prop})
-        self.printf(f'Added trigger {s_common.ehex(iden)}')
+        self.printf(f'Added trigger {iden}')
 
     async def _handle_list(self, core, opts):
         triglist = await core.listTriggers()
@@ -197,8 +197,8 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         self.printf(f'{"user":10} {"iden":12} {"cond":9} {"object":14} {"":10} {"storm query"}')
 
         for iden, trig in triglist:
-            idenf = s_common.ehex(iden)[:8] + '..'
-            user = trig.get('user') or '<None>'
+            idenf = iden[:8] + '..'
+            user = trig.get('username') or '<None>'
             query = trig.get('storm') or '<missing>'
             cond = trig.get('cond') or '<missing'
             if cond.startswith('tag:'):
@@ -222,7 +222,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         if iden is None:
             return
         await core.updateTrigger(iden, query)
-        self.printf(f'Modified trigger {s_common.ehex(iden)}')
+        self.printf(f'Modified trigger {iden}')
 
     async def _handle_del(self, core, opts):
         prefix = opts.prefix
@@ -230,7 +230,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         if iden is None:
             return
         await core.delTrigger(iden)
-        self.printf(f'Deleted trigger {s_common.ehex(iden)}')
+        self.printf(f'Deleted trigger {iden}')
 
     async def runCmdOpts(self, opts):
         line = opts.get('line')
