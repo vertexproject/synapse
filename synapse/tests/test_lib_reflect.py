@@ -30,20 +30,6 @@ class ReflectTest(s_t_utils.SynTest):
         self.isin('synapse.eventbus.EventBus', names)
         self.isin('synapse.tests.test_lib_reflect.Foo', names)
 
-    # def test_reflect_getItemInfo(self):
-    #     foo = Foo()
-    #     info = s_reflect.getItemInfo(foo)
-    #     names = info.get('inherits', ())
-    #     self.isin('synapse.eventbus.EventBus', names)
-    #     self.isin('synapse.tests.test_lib_reflect.Foo', names)
-    #
-    # def test_reflect_syn_reflect(self):
-    #     bar = Bar()
-    #     info = s_reflect.getItemInfo(bar)
-    #     names = info.get('inherits', ())
-    #     self.isin('synapse.eventbus.EventBus', names)
-    #     self.isin('synapse.tests.test_lib_reflect.Foo', names)
-
     async def test_telemeth(self):
         self.none(getattr(Echo, '_syn_sharinfo', None))
         async with self.getTestDmon() as dmon:
