@@ -629,30 +629,21 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'exe': exe,
                     'time': tick,
                     'reg': '*',
-                    'reg:key': key,
                 }
                 forms = ('it:exec:reg:get',
                          'it:exec:reg:set',
                          'it:exec:reg:del',
                          )
-                valus = (('reg:str', 'oh my'),
-                         ('reg:int', 20),
-                         ('reg:bytes', fbyts),
-                         )
                 for form in forms:
-                    for ekey, valu in valus:
-                        rk0 = s_common.guid()
-                        nprops = rprops.copy()
-                        nprops[ekey] = valu
-                        node = await snap.addNode(form, rk0, nprops)
-                        self.eq(node.ndef[1], rk0)
-                        self.eq(node.get('host'), host)
-                        self.eq(node.get('proc'), proc)
-                        self.eq(node.get('exe'), exe)
-                        self.eq(node.get('time'), tick)
-                        self.nn(node.get('reg'))
-                        self.eq(node.get('reg:key'), key)
-                        self.eq(node.get(ekey), valu)
+                    rk0 = s_common.guid()
+                    nprops = rprops.copy()
+                    node = await snap.addNode(form, rk0, nprops)
+                    self.eq(node.ndef[1], rk0)
+                    self.eq(node.get('host'), host)
+                    self.eq(node.get('proc'), proc)
+                    self.eq(node.get('exe'), exe)
+                    self.eq(node.get('time'), tick)
+                    self.nn(node.get('reg'))
 
     async def test_it_app_yara(self):
 

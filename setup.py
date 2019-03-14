@@ -3,10 +3,10 @@ from setuptools import setup, find_packages
 
 setup(
     name='synapse',
-    version='0.1.0a4',
+    version='0.1.0a6',
     description='Synapse Distributed Key-Value Hypergraph Analysis Framework',
-    author='Invisigoth Kenshoto',
-    author_email='invisigoth.kenshoto@gmail.com',
+    author='The Vertex Project LLC',
+    author_email='synapse@vertex.link',
     url='https://github.com/vertexproject/synapse',
     license='Apache License 2.0',
 
@@ -16,13 +16,13 @@ setup(
     include_package_data=True,
 
     install_requires=[
-        'pyOpenSSL>=16.2.0,<18.0.0',
+        'pyOpenSSL>=16.2.0,<20.0.0',
         'msgpack>=0.6.1,<0.7.0',
         'xxhash>=1.0.1,<2.0.0',
         'lmdb>=0.94,<1.0.0',
         'tornado>=5.1,<6.0.0',
         'regex>=2017.9.23',
-        'PyYAML>=4.2b4,<5.0',
+        'PyYAML>=5.1,<6.0',
         'aiohttp>=3.5.4,<4.0',
     ],
 

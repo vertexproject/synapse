@@ -1,6 +1,7 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
+import synapse.lib.msgpack as s_msgpack
 import synapse.tests.utils as s_t_utils
 
 class TrigTest(s_t_utils.SynTest):
@@ -15,6 +16,7 @@ class TrigTest(s_t_utils.SynTest):
         with self.getTestDir() as fdir:
 
             async with self.getTestCore(dirn=fdir) as core:
+                rootiden = core.auth.getUserByName('root').iden
                 core.triggers.add('root', 'node:add', '[inet:user=1] | testcmd', info={'form': 'inet:ipv4'})
                 triggers = core.triggers.list()
                 self.eq(triggers[0][1].get('storm'), '[inet:user=1] | testcmd')
@@ -27,10 +29,22 @@ class TrigTest(s_t_utils.SynTest):
                 self.raises(s_exc.BadStormSyntax, core.triggers.mod, iden, ' | | badstorm ')
                 self.raises(s_exc.NoSuchIden, core.triggers.mod, 'deadb33f', 'inet:user')
 
+                # Manually store a v0 trigger
+                ruledict = {'ver': 0, 'cond': 'node:add', 'form': 'inet:ipv4', 'user': 'root', 'storm': 'testcmd'}
+                iden = b'\xff' * 16
+                core.slab.put(iden, s_msgpack.en(ruledict), db=core.triggers.trigdb)
+
             async with self.getTestCore(dirn=fdir) as core:
                 triggers = core.triggers.list()
-                self.len(1, triggers)
+                self.len(2, triggers)
                 self.eq(triggers[0][1].get('storm'), '[inet:user=2 .test:univ=4] | testcmd')
+
+                # Verify that the v0 trigger was migrated correctly
+                iden2, trig2 = triggers[1]
+                self.eq(iden2, 'ff' * 16)
+                self.eq(trig2['useriden'], rootiden)
+                self.eq(trig2['ver'], 1)
+                self.eq(trig2['storm'], 'testcmd')
 
     async def test_trigger_basics(self):
 
@@ -168,10 +182,11 @@ class TrigTest(s_t_utils.SynTest):
     async def test_trigger_delete(self):
 
         async with self.getTestCore() as core:
+            rootiden = core.auth.getUserByName('root').iden
 
-            iden0 = core.triggers.add('root', 'node:add', '[test:str=add]', {'form': 'test:guid'})
-            iden1 = core.triggers.add('root', 'node:del', '[test:str=del]', {'form': 'test:guid'})
-            iden2 = core.triggers.add('root', 'prop:set', '[test:str=set]', {'prop': 'test:guid:tick'})
+            iden0 = core.triggers.add(rootiden, 'node:add', '[test:str=add]', {'form': 'test:guid'})
+            iden1 = core.triggers.add(rootiden, 'node:del', '[test:str=del]', {'form': 'test:guid'})
+            iden2 = core.triggers.add(rootiden, 'prop:set', '[test:str=set]', {'prop': 'test:guid:tick'})
 
             await core.eval('[test:guid="*" :tick=2015] | delnode').list()
             self.len(3, await core.eval('test:str').list())
@@ -189,8 +204,9 @@ class TrigTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            iden0 = core.triggers.add('root', 'tag:add', '[ +#count0 ]', {'tag': 'foo.*.bar'})
-            iden1 = core.triggers.add('root', 'tag:del', '[ +#count1 ]', {'tag': 'baz.*.faz'})
+            rootiden = core.auth.getUserByName('root').iden
+            iden0 = core.triggers.add(rootiden, 'tag:add', '[ +#count0 ]', {'tag': 'foo.*.bar'})
+            iden1 = core.triggers.add(rootiden, 'tag:del', '[ +#count1 ]', {'tag': 'baz.*.faz'})
 
             await core.eval('[ test:guid="*" +#foo.asdf.bar ]').list()
             await core.eval('[ test:guid="*" +#baz.asdf.faz ]').list()

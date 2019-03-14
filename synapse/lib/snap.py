@@ -46,6 +46,8 @@ class Snap(s_base.Base):
 
         self.stack = contextlib.ExitStack()
 
+        assert user is not None
+
         self.strict = True
         self.elevated = False
         self.canceled = False
@@ -77,6 +79,9 @@ class Snap(s_base.Base):
 
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):
+        if user is None:
+            user = self.user
+
         runt = s_storm.Runtime(self, opts=opts, user=user)
         self.core.stormrunts[runt.iden] = runt
         yield runt
@@ -86,6 +91,9 @@ class Snap(s_base.Base):
         '''
         Yield packed node tuples for the given storm query text.
         '''
+        if user is None:
+            user = self.user
+
         dorepr = False
         dopath = False
 
@@ -105,6 +113,9 @@ class Snap(s_base.Base):
         '''
         Execute a storm query and yield (Node(), Path()) tuples.
         '''
+        if user is None:
+            user = self.user
+
         query = self.core.getStormQuery(text)
         with self.getStormRuntime(opts=opts, user=user) as runt:
             async for x in runt.iterStormQuery(query):
@@ -115,6 +126,9 @@ class Snap(s_base.Base):
         '''
         Run a storm query and yield Node() objects.
         '''
+        if user is None:
+            user = self.user
+
         # maintained for backward compatibility
         query = self.core.getStormQuery(text)
         with self.getStormRuntime(opts=opts, user=user) as runt:

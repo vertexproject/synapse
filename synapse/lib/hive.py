@@ -597,7 +597,6 @@ class HiveAuth(s_base.Base):
         # initialize an admin user named root
         root = self.getUserByName('root')
         if root is None:
-            logger.debug('No root user found. Making default root user.')
             root = await self.addUser('root')
 
         await root.setAdmin(True)
