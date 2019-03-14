@@ -554,20 +554,16 @@ class Snap(s_base.Base):
             await self.wlyr.stor(sops)
             return
 
-        providen, provstack = s_provenance.get()
-        if providen is None:
-            providen = await self.wlyr.getproviden(provstack)
-            # Save off the iden and use that for future calls to avoid future DB accesses
-            s_provenance.setiden(providen)
-
         now = s_common.now()
         user = self.user.iden
-        prov = s_common.ehex(providen)
-        await self.fire('prov:new', time=now, user=user, prov=prov, provstack=provstack)
+
+        wasnew, providen, provstack = self.core.provstor.commit()
+        if wasnew:
+            await self.fire('prov:new', time=now, user=user, prov=providen, provstack=provstack)
 
         for splice in splices:
             name, info = splice
-            info.update(time=now, user=user, prov=prov)
+            info.update(time=now, user=user, prov=providen)
             await self.fire(name, **info)
 
         await self.wlyr.stor(sops, splices=splices)

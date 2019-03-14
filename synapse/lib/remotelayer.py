@@ -81,9 +81,6 @@ class RemoteLayer(s_layer.Layer):
     async def stor(self, sops, splices=None):
         raise s_exc.ReadOnlyLayer(mesg='Remote layer does not support writing')
 
-    async def _storProvStack(self, prov):
-        raise s_exc.ReadOnlyLayer(mesg='Remote layer does not support writing')
-
     # Hack to get around issue that telepath is not async-generator-transparent
     async def getBuidProps(self, buid):
         await self._readyPlayerOne()

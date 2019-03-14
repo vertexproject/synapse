@@ -31,6 +31,7 @@ import synapse.lib.trigger as s_trigger
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
 import synapse.lib.modelrev as s_modelrev
+import synapse.lib.slabseqn as s_slabseqn
 import synapse.lib.lmdblayer as s_lmdblayer
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -514,7 +515,7 @@ class CoreApi(s_cell.CellApi):
         Return stream of (iden, provenance stack) tuples at the given offset.
         '''
         count = 0
-        async for iden, stack in self.cell.layer.provStacks(offs, size):
+        for iden, stack in self.cell.provstor.provStacks(offs, size):
             count += 1
             if not count % 1000:
                 await asyncio.sleep(0)
@@ -530,7 +531,7 @@ class CoreApi(s_cell.CellApi):
 
         Note: the iden appears on each splice entry as the 'prov' property
         '''
-        return await self.cell.layer.getProvStack(s_common.uhex(iden))
+        return self.cell.provstor.getProvStack(s_common.uhex(iden))
 
 class Cortex(s_cell.Cell):
     '''
@@ -626,6 +627,9 @@ class Cortex(s_cell.Cell):
         self._initCortexHttpApi()
 
         self.model = s_datamodel.Model()
+
+        self.provstor = await s_provenance.ProvStor.anit(self.dirn)
+        self.onfini(self.provstor.fini)
 
         # Perform module loading
         mods = list(s_modules.coremods)

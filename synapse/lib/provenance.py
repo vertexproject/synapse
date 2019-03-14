@@ -1,8 +1,17 @@
+import hashlib
+import pathlib
 import contextlib
 
 import synapse.exc as s_exc
 
+import synapse.common as s_common
+
+import synapse.lib.base as s_base
 import synapse.lib.task as s_task
+import synapse.lib.const as s_const
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.slabseqn as s_slabseqn
 
 '''
 Provenance tracks the reason and path how a particular hypergraph operation
@@ -94,7 +103,79 @@ def get():
 
 def setiden(iden):
     '''
-    Sets the stack iden for the current provenance stack
+    Sets the cached stack iden for the current provenance stack
     '''
     stack = s_task.varget('provstack')
     stack.setiden(iden)
+
+def _providen(prov):
+    '''
+    Calculates a provenance iden from a provenance stack
+    '''
+    return hashlib.md5(s_msgpack.en(prov)).digest()
+
+class ProvStor(s_base.Base):
+    '''
+    Persistently stores provstacks so they can be retrieved by iden and sequence
+    '''
+    PROV_MAP_SIZE = 64 * s_const.mebibyte
+    PROV_FN = 'prov.lmdb'
+
+    async def __anit__(self, dirn):
+        await s_base.Base.__anit__(self)
+        path = str(pathlib.Path(dirn) / 'slabs' / self.PROV_FN)
+        self.slab = await s_lmdbslab.Slab.anit(path, map_size=self.PROV_MAP_SIZE)
+        self.onfini(self.slab.fini)
+
+        self.db = self.slab.initdb('prov')
+
+        self.provseq = s_slabseqn.SlabSeqn(self.slab, 'provs')
+
+    def getProvStack(self, iden: bytes):
+        '''
+        Returns the provenance stack given the iden to it
+        '''
+        retn = self.slab.get(iden, db=self.db)
+        if retn is None:
+            return None
+
+        return s_msgpack.un(retn)
+
+    def provStacks(self, offs, size):
+        '''
+        Returns a stream of provenance stacks at the given offset
+        '''
+        for _, iden in self.provseq.slice(offs, size):
+            stack = self.getProvStack(iden)
+            if stack is None:
+                continue
+            yield (iden, stack)
+
+    def getProvIden(self, provstack):
+        '''
+        Returns the iden corresponding to a provenance stack and stores if it hasn't seen it before
+        '''
+        iden = _providen(provstack)
+        misc, frames = provstack
+        # Convert each frame back from (k, v) tuples to a dict
+        dictframes = [(typ, {k: v for (k, v) in info}) for (typ, info) in frames]
+        bytz = s_msgpack.en((misc, dictframes))
+        didwrite = self.slab.put(iden, bytz, overwrite=False, db=self.db)
+        if didwrite:
+            self.provseq.save([iden])
+
+        return iden
+
+    def commit(self):
+        '''
+        Writes the current provenance stack to storage if it wasn't already there and returns it
+
+        Returns (Tuple[bool, str, List[]]):
+            Whether the stack was not cached, the iden of the prov stack, and the provstack
+        '''
+        providen, provstack = get()
+        wasnew = (providen is None)
+        if wasnew:
+            providen = self.getProvIden(provstack)
+            setiden(providen)
+        return wasnew, s_common.ehex(providen), provstack
