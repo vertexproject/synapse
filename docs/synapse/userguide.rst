@@ -8,18 +8,28 @@ The User Guide is a living document and will continue to be updated and expanded
 .. toctree::
     :titlesonly:
 
-    userguides/bkd_data_model
-    userguides/bkd_storm
+    userguides/bkd_why_synapse
+    userguides/bkd_graphs_hypergraphs
+
+    userguides/data_model_terms
+    userguides/data_model_object_categories
+    userguides/data_model_form_categories
+
+    userguides/analytical_model_tags
+    userguides/analytical_model_tags_analysis
+
+    userguides/design_data_model
+    userguides/design_analytical_model
+    userguides/design_forms_vs_tags
 
     userguides/syn_tools_cmdr
+    userguides/syn_ref_cmdr
+
+    userguides/syn_tools_pushfile
+    userguides/syn_tools_pullfile
     userguides/syn_tools_feed
     userguides/syn_tools_csvtool
 
-    userguides/syn_perms
-    userguides/syn_triggers
-    userguides/syn_layers
-
-    userguides/syn_ref_cmd
     userguides/storm_ref_intro
     userguides/storm_ref_syntax
     userguides/storm_ref_lift
@@ -28,6 +38,7 @@ The User Guide is a living document and will continue to be updated and expanded
     userguides/storm_ref_data_mod
     userguides/storm_ref_subquery
     userguides/storm_ref_vars
+    userguides/storm_ref_model_introspect
     userguides/storm_ref_type_specific
     userguides/storm_ref_cmd
 
