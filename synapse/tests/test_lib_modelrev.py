@@ -69,12 +69,35 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, await core.nodes('edge:has.seen=2019'))
             self.len(1, await core.nodes('edge:has +#hehe +.seen=2019'))
 
-            self.len(1, await core.nodes('edge:refs#hehe'))
-            self.len(1, await core.nodes('edge:refs.seen=2019'))
-            self.len(1, await core.nodes('edge:refs +#hehe +.seen=2019'))
+            self.len(2, await core.nodes('edge:refs#hehe'))
+            self.len(2, await core.nodes('edge:refs.seen=2019'))
+            self.len(2, await core.nodes('edge:refs +#hehe +.seen=2019'))
 
             self.len(1, await core.nodes('edge:wentto#hehe'))
             self.len(1, await core.nodes('edge:wentto.seen=2019'))
             self.len(1, await core.nodes('edge:wentto +#hehe +.seen=2019'))
 
-            #self.len(1, await core.nodes('meta:source -> meta:seen'))
+            self.len(1, await core.nodes('graph:cluster#hehe'))
+            self.len(1, await core.nodes('graph:cluster.seen=2019'))
+            self.len(1, await core.nodes('graph:cluster +#hehe +.seen=2019'))
+
+            self.len(1, await core.nodes('graph:edge#hehe'))
+            self.len(1, await core.nodes('graph:edge.seen=2019'))
+            self.len(1, await core.nodes('graph:edge +#hehe +.seen=2019'))
+
+            self.len(1, await core.nodes('graph:timeedge#hehe'))
+            self.len(1, await core.nodes('graph:timeedge.seen=2019'))
+            self.len(1, await core.nodes('graph:timeedge +#hehe +.seen=2019'))
+
+            self.len(1, await core.nodes('meta:source -> meta:seen :node -> * +inet:dns:a'))
+
+            self.len(1, await core.nodes('ps:person -> edge:has +:n1:form=ps:person +:n2:form=geo:place -> geo:place'))
+            self.len(1, await core.nodes('ps:person -> edge:refs +:n1:form=ps:person +:n2:form=geo:place -> geo:place'))
+            self.len(1, await core.nodes('ps:person -> edge:wentto +:n1:form=ps:person +:n2:form=geo:place +:time=2019 -> geo:place'))
+
+            # check secondary ndef property index
+            self.len(1, await core.nodes('graph:cluster -> edge:refs -> inet:fqdn'))
+
+            # check secondary compound property index
+            sorc = (await core.nodes('meta:source'))[0].ndef[1]
+            self.len(1, await core.nodes(f'meta:seen:source={sorc}'))

@@ -126,13 +126,10 @@ class Migration(s_base.Base):
 
                         async for buid, valu in layr.iterPropIndx(prop.form.name, prop.name, indx):
 
-                            #print(f'FOUND A {newname} at {prop.full}={repr(valu)} -> {repr(newvalu)}')
                             await layr.storPropSet(buid, prop, newvalu)
 
                             # for now, assume any comp sub is on the same layer as it's form prop
                             if coff is not None:
-
-                                #print(f'WHICH IS A COFF AT {coff}')
 
                                 ndef = await layr.getNodeNdef(buid)
 
@@ -151,24 +148,18 @@ class Migration(s_base.Base):
 
                 async for buid, valu in layr.iterPropIndx(prop.form.name, prop.name, oldbuid):
 
-                    #print(f'FOUND NDEF {prop.full} = {repr(valu)} -> {repr(newndef)}')
-
                     await layr.storPropSet(buid, prop, newndef)
 
                     if rename and formsub is not None:
-                        #print('RENAME WITH FORMSUBS %s %r -> %r' % (formsub.name, oldname, newname))
                         await layr.storPropSet(buid, formsub, newname)
 
                     if coff is not None:
-                        #print(f'WHICH IS A COFF AT {coff}')
 
                         # for now, assume form and prop on the same layer...
                         ndef = await layr.getNodeNdef(buid)
 
                         edit = list(ndef[1])
                         edit[coff] = newndef
-
-                        #print(f'NDEF COFF EDIT: {repr(ndef)} -> {repr((ndef[0], edit))}')
 
                         await self.editNodeNdef(ndef, (ndef[0], edit))
 
@@ -178,6 +169,7 @@ class Migration(s_base.Base):
         as a *copy* to avoid iter vs edit issues in the indexes.
         '''
         size = 0
+        logger.warning(f'MIGRATION: calculating form todo: {name}')
         async with self.getTempSlab() as slab:
 
             for layr in self.layers:
@@ -186,7 +178,7 @@ class Migration(s_base.Base):
                     slab.put(buid, s_msgpack.en(valu), overwrite=False)
                     size += 1
 
-            print(f'MIGRATION FORM TODO ({name}): {size}')
+            logger.warning(f'MIGRATION: {name} todo size: {size}')
 
             for buid, byts in slab.scanByFull():
                 yield buid, s_msgpack.un(byts)
