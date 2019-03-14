@@ -17,27 +17,27 @@ class SnapTest(s_t_utils.SynTest):
 
             async with await core.snap() as snap:
 
-                await snap.addNode('teststr', 'hehe')
-                await snap.addNode('teststr', 'haha')
+                await snap.addNode('test:str', 'hehe')
+                await snap.addNode('test:str', 'haha')
 
-                self.len(2, await alist(snap.eval('teststr')))
+                self.len(2, await alist(snap.eval('test:str')))
 
-                await snap.addNode('teststr', 'hoho')
+                await snap.addNode('test:str', 'hoho')
 
-                self.len(3, await alist(snap.storm('teststr')))
+                self.len(3, await alist(snap.storm('test:str')))
 
     async def test_snap_feed_genr(self):
 
         async def testGenrFunc(snap, items):
-            yield await snap.addNode('teststr', 'foo')
-            yield await snap.addNode('teststr', 'bar')
+            yield await snap.addNode('test:str', 'foo')
+            yield await snap.addNode('test:str', 'bar')
 
         async with self.getTestCore() as core:
 
             core.setFeedFunc('test.genr', testGenrFunc)
 
             await core.addFeedData('test.genr', [])
-            self.len(2, await alist(core.eval('teststr')))
+            self.len(2, await alist(core.eval('test:str')))
 
             async with await core.snap() as snap:
                 nodes = await alist(snap.addFeedNodes('test.genr', []))
@@ -53,42 +53,45 @@ class SnapTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 nodebuid = None
-                nodeid = None
                 snap.buidcache = collections.deque(maxlen=10)
 
                 async def doit():
-                    nonlocal nodeid, nodebuid
+                    nonlocal nodebuid
                     # Reduce the buid cache so we don't have to make 100K nodes
 
-                    node0 = await snap.addNode('testint', 0)
+                    node0 = await snap.addNode('test:int', 0)
 
-                    node = await snap.getNodeByNdef(('testint', 0))
+                    node = await snap.getNodeByNdef(('test:int', 0))
 
                     # Test write then read coherency
 
                     self.eq(node0.buid, node.buid)
                     self.eq(id(node0), id(node))
-                    nodeid = id(node)
                     nodebuid = node.buid
 
                     # Test read, then a bunch of reads, then read coherency
 
-                    await alist(snap.addNodes([(('testint', x), {}) for x in range(1, 20)]))
-                    nodes = await alist(snap.getNodesBy('testint'))
+                    await alist(snap.addNodes([(('test:int', x), {}) for x in range(1, 20)]))
+                    nodes = await alist(snap.getNodesBy('test:int'))
 
                     self.eq(nodes[0].buid, node0.buid)
                     self.eq(id(nodes[0]), id(node0))
+                    # Hang a attr off of the node
+                    setattr(node, '_test', True)
 
                 await doit()  # run in separate function so that objects are gc'd
 
                 gc.collect()
 
                 # Test that coherency goes away (and we don't store all nodes forever)
-                await alist(snap.addNodes([(('testint', x), {}) for x in range(20, 30)]))
+                await alist(snap.addNodes([(('test:int', x), {}) for x in range(20, 30)]))
 
-                node = await snap.getNodeByNdef(('testint', 0))
+                node = await snap.getNodeByNdef(('test:int', 0))
                 self.eq(nodebuid, node.buid)
-                self.ne(nodeid, id(node))
+                # Ensure that the node is not the same object as we encountered earlier.
+                # We cannot check via id() since it is possible for a pyobject to be
+                # allocated at the same location as the old object.
+                self.false(hasattr(node, '_test'))
 
     async def test_addNodes(self):
         async with self.getTestCore() as core:
@@ -97,7 +100,7 @@ class SnapTest(s_t_utils.SynTest):
                 self.len(0, await alist(snap.addNodes(ndefs)))
 
                 ndefs = (
-                    (('teststr', 'hehe'), {'props': {'.created': 5, 'tick': 3}, 'tags': {'cool': (1, 2)}}, ),
+                    (('test:str', 'hehe'), {'props': {'.created': 5, 'tick': 3}, 'tags': {'cool': (1, 2)}}, ),
                 )
                 result = await alist(snap.addNodes(ndefs))
                 self.len(1, result)
@@ -107,7 +110,7 @@ class SnapTest(s_t_utils.SynTest):
                 self.ge(node.props.get('.created', 0), 5)
                 self.eq(node.tags.get('cool'), (1, 2))
 
-                nodes = await alist(snap.getNodesBy('teststr', 'hehe'))
+                nodes = await alist(snap.getNodesBy('test:str', 'hehe'))
                 self.len(1, nodes)
                 self.eq(nodes[0], node)
 
@@ -135,7 +138,7 @@ class SnapTest(s_t_utils.SynTest):
                     snap.on('node:add', waitabit)
 
                     for i in data:
-                        node = await snap.addNode('testint', i)
+                        node = await snap.addNode('test:int', i)
                         if node.props.get('.created') is None:
                             failed = True
                             done_event.set()
@@ -175,7 +178,7 @@ class SnapTest(s_t_utils.SynTest):
 
                     snap.getNodeByBuid = slowGetNodeByBuid
 
-                    await snap.addNode('pivcomp', ('woot', 'rofl'))
+                    await snap.addNode('test:pivcomp', ('woot', 'rofl'))
                 bc_done_event.set()
 
             core.schedCoro(bc_writer())
@@ -192,7 +195,7 @@ class SnapTest(s_t_utils.SynTest):
 
                     snap.getNodeByBuid = slowGetNodeByBuid
 
-                    await snap.addNode('haspivcomp', 42, props={'have': ('woot', 'rofl')})
+                    await snap.addNode('test:haspivcomp', 42, props={'have': ('woot', 'rofl')})
                 ab_done_event.set()
 
             core.schedCoro(ab_writer())

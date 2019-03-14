@@ -193,13 +193,12 @@ class CoreApi(s_cell.CellApi):
         '''
         Adds a trigger to the cortex
         '''
-        iden = self.cell.triggers.add(self.user.name, condition, query, info=info)
+        iden = self.cell.triggers.add(self.user.iden, condition, query, info=info)
         return iden
 
-    def _auth_check(self, user):
+    def _trig_auth_check(self, useriden):
         ''' Check that, as a non-admin, may only manipulate resources created by you. '''
-        username = None if self.user is None else self.user.name
-        if username is not None and (not self.user.admin) and username != user:
+        if not self.user.admin and useriden != self.user.iden:
             raise s_exc.AuthDeny(user=self.user.name, mesg='As non-admin, may only manipulate triggers created by you')
 
     async def delTrigger(self, iden):
@@ -207,7 +206,7 @@ class CoreApi(s_cell.CellApi):
         Deletes a trigger from the cortex
         '''
         trig = self.cell.triggers.get(iden)
-        self._auth_check(trig.get('user'))
+        self._trig_auth_check(trig.get('useriden'))
         self.cell.triggers.delete(iden)
 
     async def updateTrigger(self, iden, query):
@@ -215,16 +214,23 @@ class CoreApi(s_cell.CellApi):
         Change an existing trigger's query
         '''
         trig = self.cell.triggers.get(iden)
-        self._auth_check(trig.get('user'))
+        self._trig_auth_check(trig.get('useriden'))
         self.cell.triggers.mod(iden, query)
 
     async def listTriggers(self):
         '''
         Lists all the triggers that the current user is authorized to access
         '''
-        username = None if self.user is None else self.user.name
-        return [(iden, trig) for (iden, trig) in self.cell.triggers.list()
-                if username is None or self.user.admin or trig.get('user') == username]
+        trigs = []
+        for (iden, trig) in self.cell.triggers.list():
+            useriden = trig['useriden']
+            if not (self.user.admin or useriden == self.user.iden):
+                continue
+            user = self.cell.auth.user(useriden)
+            trig['username'] = '<unknown>' if user is None else user.name
+            trigs.append((iden, trig))
+
+        return trigs
 
     async def addCronJob(self, query, reqs, incunit=None, incval=1):
         '''
@@ -272,8 +278,7 @@ class CoreApi(s_cell.CellApi):
         except KeyError:
             raise s_exc.BadConfValu('Unrecognized time unit')
 
-        username = None if self.user is None else self.user.name
-        return await self.cell.agenda.add(username, query, newreqs, incunit, incval)
+        return await self.cell.agenda.add(self.user.iden, query, newreqs, incunit, incval)
 
     async def delCronJob(self, iden):
         '''
@@ -285,7 +290,7 @@ class CoreApi(s_cell.CellApi):
         cron = self.cell.agenda.appts.get(iden)
         if cron is None:
             raise s_exc.NoSuchIden()
-        self._auth_check(cron.username)
+        self._trig_auth_check(cron.useriden)
         await self.cell.agenda.delete(iden)
 
     async def updateCronJob(self, iden, query):
@@ -298,16 +303,23 @@ class CoreApi(s_cell.CellApi):
         cron = self.cell.agenda.appts.get(iden)
         if cron is None:
             raise s_exc.NoSuchIden()
-        self._auth_check(cron.username)
+        self._trig_auth_check(cron.useriden)
         await self.cell.agenda.mod(iden, query)
 
     async def listCronJobs(self):
         '''
         Get information about all the cron jobs accessible to the current user
         '''
-        username = None if self.user is None else self.user.name
-        return [(iden, cron) for (iden, cron) in self.cell.agenda.list()
-                if username is None or self.user.admin or cron.get('user') == username]
+        crons = []
+        for iden, cron in self.cell.agenda.list():
+            useriden = cron['useriden']
+            if not (self.user.admin or useriden == self.user.iden):
+                continue
+            user = self.cell.auth.user(useriden)
+            cron['username'] = '<unknown>' if user is None else user.name
+            crons.append((iden, cron))
+
+        return crons
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
@@ -650,7 +662,6 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.DelNodeCmd)
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
-        self.addStormCmd(s_storm.NoderefsCmd)
 
     def _initStormLibs(self):
         '''
@@ -1500,6 +1511,9 @@ class Cortex(s_cell.Cell):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
+        if user is None:
+            user = self.auth.getUserByName('root')
+
         await self.boss.promote('storm', user=user, info={'query': text})
         async with await self.snap(user=user) as snap:
             async for node in snap.eval(text, opts=opts, user=user):
@@ -1512,9 +1526,12 @@ class Cortex(s_cell.Cell):
         Yields:
             (Node, Path) tuples
         '''
+        if user is None:
+            user = self.auth.getUserByName('root')
+
         await self.boss.promote('storm', user=user, info={'query': text})
         async with await self.snap(user=user) as snap:
-            async for mesg in snap.storm(text, opts=opts):
+            async for mesg in snap.storm(text, opts=opts, user=user):
                 yield mesg
 
     @s_coro.genrhelp
@@ -1526,6 +1543,9 @@ class Cortex(s_cell.Cell):
         '''
         MSG_QUEUE_SIZE = 1000
         chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
+
+        if user is None:
+            user = self.auth.getUserByName('root')
 
         # promote ourself to a synapse task
         synt = await self.boss.promote('storm', user=user, info={'query': text})
@@ -1582,6 +1602,9 @@ class Cortex(s_cell.Cell):
 
     @s_coro.genrhelp
     async def iterStormPodes(self, text, opts=None, user=None):
+        if user is None:
+            user = self.auth.getUserByName('root')
+
         await self.boss.promote('storm', user=user, info={'query': text})
         async with await self.snap(user=user) as snap:
             async for pode in snap.iterStormPodes(text, opts=opts, user=user):

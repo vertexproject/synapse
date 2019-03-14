@@ -439,22 +439,16 @@ class VarSetOper(Oper):
         name = self.kids[0].value()
         vkid = self.kids[1]
 
-        if vkid.isRuntSafe(runt):
-
-            valu = await vkid.runtval(runt)
-            runt.setVar(name, valu)
-
-            # yield from :(
-            async for item in genr:
-                yield item
-
-            return
-
         async for node, path in genr:
             valu = await vkid.compute(path)
             path.set(name, valu)
             runt.vars[name] = valu
             yield node, path
+
+        if vkid.isRuntSafe(runt):
+
+            valu = await vkid.runtval(runt)
+            runt.setVar(name, valu)
 
     def getRuntVars(self, runt):
         if not self.kids[1].isRuntSafe(runt):
@@ -676,17 +670,6 @@ class LiftPropBy(LiftOper):
 
         async for node in runt.snap.getNodesBy(name, valu, cmpr=cmpr):
             yield node
-
-class LiftByScrape(LiftOper):
-
-    def __init__(self, ndefs):
-        LiftOper.__init__(self)
-        self.ndefs = ndefs
-
-    async def lift(self, runt):
-        for name, valu in self.ndefs:
-            async for node in runt.snap.getNodesBy(name, valu):
-                yield node
 
 class PivotOper(Oper):
 
@@ -1474,8 +1457,7 @@ class RunValue(CompValue):
         return await self.runtval(path.runt)
 
     def isRuntSafe(self, runt):
-        if all([k.isRuntSafe(runt) for k in self.kids]):
-            return True
+        return all(k.isRuntSafe(runt) for k in self.kids)
 
 class Value(RunValue):
 

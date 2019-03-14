@@ -599,7 +599,6 @@ class HiveAuth(s_base.Base):
         # initialize an admin user named root
         root = self.getUserByName('root')
         if root is None:
-            logger.debug('No root user found. Making default root user.')
             root = await self.addUser('root')
 
         await root.setAdmin(True)
@@ -688,6 +687,10 @@ class HiveIden(s_base.Base):
         self.info.setdefault('rules', ())
         self.rules = self.info.get('rules', onedit=self._onRulesEdit)
 
+    async def setName(self, name):
+        self.name = name
+        await self.node.set(name)
+
     async def setRules(self, rules):
         self.rules = list(rules)
         await self.info.set('rules', rules)
@@ -768,6 +771,7 @@ class HiveUser(HiveIden):
             'rules': self.rules,
             'roles': [r.iden for r in self.getRoles()],
             'admin': self.admin,
+            'email': self.info.get('email'),
             'locked': self.locked,
         }
 
