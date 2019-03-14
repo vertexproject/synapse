@@ -121,12 +121,12 @@ def getTeleMeths(item):
 
     try:
         setattr(item, '_syn_telemeth', info)
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
         logger.exception(f'Failed to set magic on {item}')
 
     try:
         setattr(item.__class__, '_syn_telemeth', info)
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
         logger.exception(f'Failed to set magic on {item.__class__}')
 
     return info
