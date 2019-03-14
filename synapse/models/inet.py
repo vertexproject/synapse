@@ -783,7 +783,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:ipv4range', 'synapse.models.inet.IPv4Range', {}, {
                         'doc': 'An IPv6 address range',
-                        'ex': '(1.2.3.4-1.2.3.8)'
+                        'ex': '1.2.3.4-1.2.3.8'
                     }),
 
                     ('inet:ipv6', 'synapse.models.inet.IPv6', {}, {
