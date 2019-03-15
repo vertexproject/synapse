@@ -9,6 +9,7 @@ from collections.abc import Mapping
 
 import synapse
 import synapse.exc as s_exc
+import synapse.axon as s_axon
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
@@ -178,6 +179,11 @@ class CoreApi(s_cell.CellApi):
             (dict): A model description dictionary.
         '''
         return self.cell.model.getModelDict()
+
+    def axon(self):
+        '''
+        '''
+        return s_axon.AxonApi.anit(self.cell.axon, self.link, self.user)
 
     def getCoreInfo(self):
         '''
@@ -567,9 +573,9 @@ class Cortex(s_cell.Cell):
 
     cellapi = CoreApi
 
-    async def __anit__(self, dirn):
+    async def __anit__(self, dirn, conf=None):
 
-        await s_cell.Cell.__anit__(self, dirn)
+        await s_cell.Cell.__anit__(self, dirn, conf=conf)
 
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use
@@ -760,7 +766,7 @@ class Cortex(s_cell.Cell):
                         name, i, len(nameforms))
             count = 0
 
-            async for buid, valu in self.layer.iterFormRows(name):
+            async for buid, valu in self.view.layers[0].iterFormRows(name):
 
                 count += 1
                 tcount += 1
@@ -1231,13 +1237,13 @@ class Cortex(s_cell.Cell):
 
                 async with await s_telepath.openurl(url) as tank:
 
-                    iden = await tank.getCellIden()
+                    iden = await tank.iden()
 
                     offs = await self.layer.getOffset(iden)
 
                     while not self.isfini:
 
-                        items = [item async for item in await tank.slice(offs, fsize)]
+                        items = [item async for item in tank.slice(offs, fsize)]
                         if not items:
                             await self.waitfini(timeout=2)
                             continue
@@ -1760,7 +1766,7 @@ class Cortex(s_cell.Cell):
         if conf is None:
             conf = {}
 
-        modu = self._loadCoreModule(ctor)
+        modu = self._loadCoreModule(ctor, conf=conf)
 
         try:
             await s_coro.ornot(modu.preCoreModule)
@@ -1799,7 +1805,13 @@ class Cortex(s_cell.Cell):
 
         for ctor in ctors:
 
-            modu = self._loadCoreModule(ctor)
+            conf = None
+
+            # allow module entry to be (ctor, conf) tuple
+            if isinstance(ctor, (list, tuple)):
+                ctor, conf = ctor
+
+            modu = self._loadCoreModule(ctor, conf=conf)
             if modu is None:
                 continue
 
@@ -1832,10 +1844,10 @@ class Cortex(s_cell.Cell):
                 logger.exception(f'module initCoreModule failed: {ctor}')
                 self.modules.pop(ctor, None)
 
-    def _loadCoreModule(self, ctor):
+    def _loadCoreModule(self, ctor, conf=None):
 
         try:
-            modu = s_dyndeps.tryDynFunc(ctor, self)
+            modu = s_dyndeps.tryDynFunc(ctor, self, conf=conf)
             self.modules[ctor] = modu
             return modu
 

@@ -23,32 +23,33 @@ class CsvToolTest(s_t_utils.SynTest):
 
     async def test_csvtool(self):
 
-        async with self.getTestDmon(mirror='dmoncore') as dmon:
+        async with self.getTestCore() as core:
 
-            url = self.getTestUrl(dmon, 'core')
+            url = core.getLocalUrl()
 
-            with self.getTestDir() as dirn:
+            dirn = s_common.gendir(core.dirn, 'junk')
 
-                logpath = s_common.genpath(dirn, 'csvtest.log')
+            logpath = s_common.genpath(dirn, 'csvtest.log')
 
-                csvpath = s_common.genpath(dirn, 'csvtest.csv')
-                with s_common.genfile(csvpath) as fd:
-                    fd.write(csvfile)
+            csvpath = s_common.genpath(dirn, 'csvtest.csv')
+            with s_common.genfile(csvpath) as fd:
+                fd.write(csvfile)
 
-                stormpath = s_common.genpath(dirn, 'csvtest.storm')
-                with s_common.genfile(stormpath) as fd:
-                    fd.write(csvstorm)
+            stormpath = s_common.genpath(dirn, 'csvtest.storm')
+            with s_common.genfile(stormpath) as fd:
+                fd.write(csvstorm)
 
-                podes = []
+            podes = []
 
-                argv = ['--csv-header', '--debug', '--cortex', url, '--logfile', logpath, stormpath, csvpath]
-                outp = self.getTestOutp()
+            argv = ['--csv-header', '--debug', '--cortex', url, '--logfile', logpath, stormpath, csvpath]
+            outp = self.getTestOutp()
 
-                await s_coro.executor(s_csvtool.main, argv, outp=outp)
+            await s_coro.executor(s_csvtool.main, argv, outp=outp)
 
-                outp.expect('2 nodes (9 created)')
+            outp.expect('2 nodes (9 created)')
 
     async def test_csvtool_local(self):
+
         with self.getTestDir() as dirn:
 
             logpath = s_common.genpath(dirn, 'csvtest.log')

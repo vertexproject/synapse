@@ -3,27 +3,31 @@ import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.daemon as s_daemon
+import synapse.cortex as s_cortex
 
-import synapse.lib.node as s_node
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.remotelayer as s_remotelayer
 
+import synapse.tests.utils as s_test
 import synapse.tests.test_cortex as t_cortex
-
-from synapse.tests.utils import alist
 
 class RemoteLayerTest(t_cortex.CortexTest):
 
     @contextlib.asynccontextmanager
-    async def getTestCore(self):
-        async with self.getRemoteCores() as (core0, core1):
+    async def getTestCore(self, conf=None, dirn=None):
+
+        # make remote core from provided dirn for repeatability
+        dirn0 = None
+        if dirn is not None:
+            dirn0 = s_common.gendir(dirn, 'remotecore')
+
+        async with self.getRemoteCores(dirn0=dirn0, conf1=conf, dirn1=dirn) as (core0, core1):
             yield core1
 
     @contextlib.asynccontextmanager
-    async def getRemoteCores(self):
-        async with t_cortex.CortexTest.getTestCore(self) as core0:
-            async with t_cortex.CortexTest.getTestCore(self) as core1:
+    async def getRemoteCores(self, conf0=None, conf1=None, dirn0=None, dirn1=None):
+        async with t_cortex.CortexTest.getTestCore(self, conf=conf0, dirn=dirn0) as core0:
+            async with t_cortex.CortexTest.getTestCore(self, conf=conf1, dirn=dirn1) as core1:
                 conf = {'url': core0.getLocalUrl('*/layer')}
                 layr = await core1.addLayer(type='remote', config=conf)
                 await core1.view.addLayer(layr, indx=0)
@@ -56,6 +60,15 @@ class RemoteLayerTest(t_cortex.CortexTest):
             self.eq(s_modelrev.maxvers, await layr.getModelVers())
             await self.asyncraises(s_exc.SynErr, layr.setModelVers((9, 9, 9)))
 
+    async def test_splice_generation(self):
+        self.skip('test_splice_generation directly uses layers')
+
+    async def test_splice_cryo(self):
+        self.skip('test_splice_generation directly uses layers')
+
+    async def test_splice_sync(self):
+        self.skip('test_splice_sync directly uses events')
+
     async def test_cortex_remote_reconn(self):
 
         async with self.getRemoteCores() as (core0, core1):
@@ -69,69 +82,56 @@ class RemoteLayerTest(t_cortex.CortexTest):
             # cause a reconnect...
             self.len(1, await core1.eval('test:str=woot').list())
 
-    async def test_cortex_remote_dmon(self):
+class RemoteLayerConfigTest(s_test.SynTest):
+
+    async def test_cortex_remote_config(self):
         # Full telepath / auth stack
         pconf = {'user': 'root', 'passwd': 'root'}
-        async with self.getTestDmon('dmoncoreauth') as dmon0:
-            # Setup a remote user that has view into the layer for core0
-            async with await self.getTestProxy(dmon0, 'core', user='root', passwd='root') as core0:
-                coreiden = await core0.getCellIden()
-                await core0.addAuthUser('remuser1')
-                await core0.setUserPasswd('remuser1', 'beep')
-                await core0.addAuthRule('remuser1', (True, ('layer:lift', coreiden)))
 
-                # Make a node
-                nodes = await alist(await core0.eval('[test:str=core0]'))
-                self.len(1, nodes)
-                created = s_node.prop(nodes[0], '.created')
+        # use the original API so we dont do yodawg layers remote layers
+        async with self.getTestCoreAndProxy() as (core0, prox0):
 
-            addr, port = dmon0.addr
-            # Default path is /layer - could be /layer/iden for a specific layer
-            remote_layer_url = f'tcp://remuser1:beep@{addr}:{port}/core/layer'
+            rem1 = await core0.auth.addUser('remuser1')
+
+            await rem1.setPasswd('beep')
+            await rem1.addRule((True, ('layer:lift', core0.iden)))
+
+            # make a test:str node
+            nodes = await core0.eval('[test:str=woot]').list()
+            self.len(1, nodes)
+
+            created = nodes[0].get('.created')
+
+            addr, port = await core0.dmon.listen('tcp://127.0.0.1:0/')
+
+            layerurl = f'tcp://remuser1:beep@127.0.0.1:{port}/cortex/layer'
 
             await asyncio.sleep(0.002)
 
-            with self.getTestDir(mirror='dmoncoreauth') as dirn:
-                async with await s_daemon.Daemon.anit(dirn) as dmon1:
-                    self.len(1, dmon1.shared['core'].layers)
+            with self.getTestDir() as dirn:
 
-                    async with await self.getTestProxy(dmon1, 'core', **pconf) as core1:
-                        # Remote layer does not exist, so this node does not exist
-                        nodes = await alist(await core1.eval('test:str=core0'))
-                        self.len(0, nodes)
+                async with self.getTestCore(dirn=dirn) as core1:
 
-                        # Add the remote layer via Telepath
-                        ret = await core1.joinTeleLayer(remote_layer_url)
-                        print(ret)
+                    self.len(0, await core1.eval('test:str=woot').list())
+                    self.len(1, core1.view.layers)
 
-                    self.len(2, dmon1.shared['core'].layers)
+                    # Add the remote layer via Telepath
+                    self.nn(await core1.joinTeleLayer(layerurl))
+                    self.len(2, core1.view.layers)
 
-                    async with await self.getTestProxy(dmon1, 'core', **pconf) as core1:
-                        # Lift the node from the remote layer
-                        nodes = await alist(await core1.eval('test:str=core0'))
-                        self.len(1, nodes)
-                        self.eq(created, s_node.prop(nodes[0], '.created'))
-                        # Lift the node and set a prop in our layer
-                        nodes = await alist(await core1.eval('test:str=core0 [:tick=2018]'))
-                        self.len(1, nodes)
-                        self.eq(1514764800000, s_node.prop(nodes[0], 'tick'))
+                    self.len(1, await core1.eval('test:str=woot').list())
 
-                        # Make a node for our layer
-                        nodes = await alist(await core1.eval('[test:str=core1]'))
-                        self.len(1, nodes)
+                    # Lift the node and set a prop in our layer
+                    nodes = await core1.eval('test:str=woot [:tick=2018]').list()
+                    self.len(1, nodes)
+                    self.eq(created, nodes[0].get('.created'))
+                    self.eq(1514764800000, nodes[0].get('tick'))
 
-                        # Lift all test:str nodes
-                        nodes = await alist(await core1.eval('test:str'))
-                        self.len(2, nodes)
+                async with self.getTestCore(dirn=dirn) as core1:
 
-                # Turn the dmon back on and sure the layer configuration persists
-                async with await s_daemon.Daemon.anit(dirn) as dmon1:
-                    self.len(2, dmon1.shared['core'].layers)
-                    async with await self.getTestProxy(dmon1, 'core', **pconf) as core1:
-                        # Lift the node from the remote layer
-                        nodes = await alist(await core1.eval('test:str=core0'))
-                        self.eq(created, s_node.prop(nodes[0], '.created'))
+                    self.len(2, core1.view.layers)
 
-                        # Lift all test:str nodes
-                        nodes = await alist(await core1.eval('test:str'))
-                        self.len(2, nodes)
+                    nodes = await core1.eval('test:str=woot').list()
+                    self.len(1, nodes)
+                    self.eq(created, nodes[0].get('.created'))
+                    self.eq(1514764800000, nodes[0].get('tick'))

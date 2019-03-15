@@ -18,69 +18,72 @@ class TestPushFile(s_t_utils.SynTest):
 
     async def test_pushfile(self):
 
-        async with self.getTestDmonCortexAxon() as dmon:
+        async with self.getTestAxon() as axon:
 
-            coreurl = s_scope.get('coreurl')
-            axonurl = s_scope.get('axonurl')
+            async with self.getTestCore() as core:
 
-            def pushfile():
+                coreurl = core.getLocalUrl()
+                axonurl = axon.getLocalUrl()
 
-                with self.getTestDir() as dirn:
+                async with axon.getLocalProxy() as axonprox:
 
-                    nullpath = os.path.join(dirn, 'null.txt')
-                    visipath = os.path.join(dirn, 'visi.txt')
+                    async with core.getLocalProxy() as coreprox:
 
-                    with s_common.genfile(visipath) as fd:
-                        fd.write(b'visi')
+                        def pushfile():
 
-                    with self.getTestProxy(dmon, 'axon00') as axon:
-                        self.len(1, axon.wants([visihash]))
+                            with self.getTestDir() as dirn:
 
-                    outp = self.getTestOutp()
-                    args = ['-a', axonurl,
-                            '-c', coreurl,
-                            '-t', 'foo.bar,baz.faz',
-                            visipath]
+                                nullpath = os.path.join(dirn, 'null.txt')
+                                visipath = os.path.join(dirn, 'visi.txt')
 
-                    self.eq(0, s_pushfile.main(args, outp))
-                    self.true(outp.expect('Uploaded [visi.txt] to axon'))
-                    self.true(outp.expect('file: visi.txt (4) added to core'))
+                                with s_common.genfile(visipath) as fd:
+                                    fd.write(b'visi')
 
-                    with self.getTestProxy(dmon, 'axon00') as axon:
-                        self.len(0, axon.wants([visihash]))
-                        self.eq(b'visi', b''.join([buf for buf in axon.get(visihash)]))
+                                self.len(1, axonprox.wants([visihash]))
 
-                    outp = self.getTestOutp()
-                    self.eq(0, s_pushfile.main(args, outp))
-                    self.true(outp.expect('Axon already had [visi.txt]'))
+                                outp = self.getTestOutp()
+                                args = ['-a', axonurl,
+                                        '-c', coreurl,
+                                        '-t', 'foo.bar,baz.faz',
+                                        visipath]
 
-                    with self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
-                        self.len(1, core.eval(f'file:bytes={s_common.ehex(visihash)}'))
-                        self.len(1, core.eval('file:bytes:size=4'))
-                        self.len(1, core.eval('#foo.bar'))
-                        self.len(1, core.eval('#baz.faz'))
+                                self.eq(0, s_pushfile.main(args, outp))
+                                self.true(outp.expect('Uploaded [visi.txt] to axon'))
+                                self.true(outp.expect('file: visi.txt (4) added to core'))
 
-                    # Ensure user can't push a non-existant file and that it won't exist
-                    args = ['-a', axonurl, nullpath]
-                    self.raises(s_exc.NoSuchFile, s_pushfile.main, args, outp=outp)
+                                self.len(0, axonprox.wants([visihash]))
+                                self.eq(b'visi', b''.join([buf for buf in axonprox.get(visihash)]))
 
-                    with self.getTestProxy(dmon, 'axon00') as axon:
-                        self.len(1, axon.wants([nullhash]))
+                                outp = self.getTestOutp()
+                                self.eq(0, s_pushfile.main(args, outp))
+                                self.true(outp.expect('Axon already had [visi.txt]'))
 
-                    with s_common.genfile(nullpath) as fd:
-                        fd.write(b'')
+                                self.len(1, coreprox.eval(f'file:bytes={s_common.ehex(visihash)}'))
+                                self.len(1, coreprox.eval('file:bytes:size=4'))
+                                self.len(1, coreprox.eval('#foo.bar'))
+                                self.len(1, coreprox.eval('#baz.faz'))
 
-                    outp = self.getTestOutp()
-                    args = ['-a', axonurl,
-                            '-c', coreurl,
-                            '-t', 'empty',
-                            nullpath]
+                                # Ensure user can't push a non-existant file and that it won't exist
+                                args = ['-a', axonurl, nullpath]
+                                self.raises(s_exc.NoSuchFile, s_pushfile.main, args, outp=outp)
 
-                    self.eq(0, s_pushfile.main(args, outp))
+                                self.len(1, axonprox.wants([nullhash]))
 
-                    with self.getTestProxy(dmon, 'axon00') as axon:
-                        self.len(0, axon.wants([nullhash]))
-                        self.eq(b'', b''.join([buf for buf in axon.get(nullhash)]))
+                                with s_common.genfile(nullpath) as fd:
+                                    fd.write(b'')
 
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, pushfile)
+                                outp = self.getTestOutp()
+                                args = ['-a', axonurl,
+                                        '-c', coreurl,
+                                        '-t', 'empty',
+                                        nullpath]
+
+                                self.eq(0, s_pushfile.main(args, outp))
+
+                                self.len(0, axonprox.wants([nullhash]))
+                                self.eq(b'', b''.join([buf for buf in axonprox.get(nullhash)]))
+                            return 1
+
+                        loop = asyncio.get_running_loop()
+                        ret = await loop.run_in_executor(None, pushfile)
+                        self.eq(1, ret)

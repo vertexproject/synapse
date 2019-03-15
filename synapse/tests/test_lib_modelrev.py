@@ -1,5 +1,6 @@
 import synapse.exc as s_exc
-import synapse.cells as s_cells
+import synapse.cortex as s_cortex
+
 import synapse.tests.utils as s_tests
 import synapse.lib.modelrev as s_modelrev
 
@@ -12,14 +13,14 @@ class ModelRevTest(s_tests.SynTest):
 
         with self.getTestDir(mirror='testcore') as dirn:
 
-            async with await s_cells.init('cortex', dirn) as core:
+            async with await s_cortex.Cortex.anit(dirn) as core:
                 layr = core.getLayer()
                 self.true(layr.fresh)
                 self.eq(s_modelrev.maxvers, await layr.getModelVers())
 
             # no longer "fresh", but lets mark a layer as read only
             # and test the bail condition for layers which we cant update
-            async with await s_cells.init('cortex', dirn) as core:
+            async with await s_cortex.Cortex.anit(dirn) as core:
 
                 layr = core.getLayer()
                 layr.canrev = False
@@ -32,7 +33,7 @@ class ModelRevTest(s_tests.SynTest):
                     await mrev.revCoreLayers()
 
             # no longer "fresh"
-            async with await s_cells.init('cortex', dirn) as core:
+            async with await s_cortex.Cortex.anit(dirn) as core:
 
                 layr = core.getLayer()
                 self.false(layr.fresh)

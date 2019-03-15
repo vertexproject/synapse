@@ -152,7 +152,7 @@ class CmdrCore(s_base.Base):
                 await self.runCmdLine(text)
 
         else:
-            async for mesg in await self.core.storm(text, opts=opts):
+            async for mesg in self.core.storm(text, opts=opts):
                 mesgs.append(mesg)
 
         return mesgs

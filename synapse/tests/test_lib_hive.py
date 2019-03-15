@@ -31,15 +31,10 @@ class HiveTest(s_test.SynTest):
 
     @contextlib.asynccontextmanager
     async def getTestHiveDmon(self):
-
         with self.getTestDir() as dirn:
-
             async with self.getTestHiveFromDirn(dirn) as hive:
-
-                async with await s_daemon.Daemon.anit(dirn, conf={'listen': None}) as dmon:
-                    await dmon.listen('tcp://127.0.0.1:0/')
+                async with self.getTestDmon() as dmon:
                     dmon.share('hive', hive)
-
                     yield dmon
 
     @contextlib.asynccontextmanager

@@ -3,6 +3,7 @@ import ssl
 import socket
 import asyncio
 import logging
+import functools
 import contextlib
 
 import tornado.web as t_web
@@ -34,6 +35,7 @@ Base classes for the synapse "cell" microservice architecture.
 '''
 def adminapi(f):
 
+    @functools.wraps(f)
     def func(*args, **kwargs):
 
         if args[0].user is not None and not args[0].user.admin:
@@ -44,6 +46,8 @@ def adminapi(f):
                     f.__qualname__, args[0].user.name, args[1:], kwargs)
 
         return f(*args, **kwargs)
+
+    func.__syn_wrapped__ = 'adminapi'
 
     return func
 
@@ -252,7 +256,7 @@ class Cell(s_base.Base, s_telepath.Aware):
     confdefs = ()
     confbase = ()
 
-    async def __anit__(self, dirn, readonly=False):
+    async def __anit__(self, dirn, conf=None, readonly=False):
 
         await s_base.Base.__anit__(self)
 
@@ -279,7 +283,11 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         await self._initCellDmon()
 
-        conf = self._loadCellYaml('cell.yaml')
+        if conf is None:
+            conf = {}
+
+        [conf.setdefault(k, v) for (k, v) in self._loadCellYaml('cell.yaml').items()]
+
         self.conf = s_common.config(conf, self.confdefs + self.confbase)
 
         self.cmds = {}
@@ -432,7 +440,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         sockpath = os.path.join(self.dirn, 'sock')
         sockurl = f'unix://{sockpath}'
 
-        self.dmon = await s_daemon.Daemon.anit(conf={'listen': None})
+        self.dmon = await s_daemon.Daemon.anit()
         self.dmon.share('*', self)
 
         try:
@@ -455,7 +463,9 @@ class Cell(s_base.Base, s_telepath.Aware):
             return await s_hive.openurl(hurl)
 
         db = self.slab.initdb('hive')
-        return await s_hive.SlabHive.anit(self.slab, db=db)
+        hive = await s_hive.SlabHive.anit(self.slab, db=db)
+        self.onfini(hive)
+        return hive
 
     async def _initCellSlab(self, readonly=False):
 
@@ -479,13 +489,13 @@ class Cell(s_base.Base, s_telepath.Aware):
         return auth
 
     @contextlib.asynccontextmanager
-    async def getLocalProxy(self, share='*'):
-        url = self.getLocalUrl(share=share)
+    async def getLocalProxy(self, share='*', user='root'):
+        url = self.getLocalUrl(share=share, user=user)
         prox = await s_telepath.openurl(url)
         yield prox
 
-    def getLocalUrl(self, share='*'):
-        return f'cell://{self.dirn}:{share}'
+    def getLocalUrl(self, share='*', user='root'):
+        return f'cell://{user}@{self.dirn}:{share}'
 
     def _loadCellYaml(self, *path):
 
@@ -496,11 +506,6 @@ class Cell(s_base.Base, s_telepath.Aware):
             return s_common.yamlload(path)
 
         return {}
-
-    @classmethod
-    def deploy(cls, dirn):
-        # sub-classes may over-ride to do deploy initialization
-        pass
 
     async def getTeleApi(self, link, mesg, path):
 

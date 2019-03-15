@@ -8,6 +8,7 @@ from unittest.mock import patch
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
@@ -125,12 +126,16 @@ class CortexTest(s_t_utils.SynTest):
     @s_glob.synchelp
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     async def test_feed_conf(self):
-        async with self.getTestDmon(mirror='cryodmon') as dst_dmon:
 
-            name = 'cryo00'
+        async with self.getTestCryo() as cryo:
+
+            host, port = await cryo.dmon.listen('tcp://127.0.0.1:0/')
+
+            cryo.insecure = True
+
             tname = 'tank:blahblah'
-            host, port = dst_dmon.addr
-            tank_addr = f'tcp://{host}:{port}/{name}/{tname}'
+            #host, port = dst_dmon.addr
+            tank_addr = f'tcp://{host}:{port}/*/{tname}'
 
             recs = ['a', 'b', 'c']
 
@@ -141,17 +146,16 @@ class CortexTest(s_t_utils.SynTest):
                      'size': 1,
                      }
                 ],
-                'modules': ('synapse.tests.utils.TestModule',),
             }
 
             # initialize the tank and get his iden
             async with await s_telepath.openurl(tank_addr) as tank:
-                iden = await tank.getCellIden()
+                iden = await tank.iden()
 
             # Spin up a source core configured to eat data from the cryotank
             with self.getTestDir() as dirn:
 
-                async with await self.getTestCell(dirn, 'cortex', conf=conf) as core:
+                async with self.getTestCore(dirn=dirn, conf=conf) as core:
 
                     waiter = core.waiter(3, 'core:feed:loop')
 
@@ -160,32 +164,24 @@ class CortexTest(s_t_utils.SynTest):
                     # self.true(evt.wait(3))
                     self.true(await waiter.wait(4))
 
-                    offs = await core.layer.getOffset(iden)
+                    offs = await core.view.layers[0].getOffset(iden)
                     self.eq(offs, 3)
                     await self.agenlen(3, core.storm('test:str'))
 
-            with self.getTestDir() as dirn:
-                # Sad path testing
-                conf['feeds'][0]['type'] = 'com.clown'
-                await self.asyncraises(s_exc.NoSuchType, self.getTestCell(dirn, 'cortex', conf=conf))
-
     async def test_cortex_coreinfo(self):
-        async with self.getTestDmon(mirror='dmoncore') as dmon, \
-                await self.agetTestProxy(dmon, 'core') as core:
 
-            coreinfo = await core.getCoreInfo()
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            coreinfo = await prox.getCoreInfo()
+
             for field in ('version', 'modeldef', 'stormcmds'):
                 self.isin(field, coreinfo)
 
-            # Verify serializability
-            s_msgpack.en(coreinfo)
-
     async def test_cortex_model_dict(self):
 
-        async with self.getTestDmon(mirror='dmoncore') as dmon, \
-                await self.agetTestProxy(dmon, 'core') as core:
+        async with self.getTestCoreAndProxy() as (core, prox):
 
-            model = await core.getModelDict()
+            model = await prox.getModelDict()
 
             tnfo = model['types'].get('inet:ipv4')
 
@@ -202,13 +198,12 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_storm_graph(self):
 
-        async with self.getTestDmon(mirror='dmoncore') as dmon, \
-                await self.agetTestProxy(dmon, 'core') as core:
+        async with self.getTestCoreAndProxy() as (core, prox):
 
-            await core.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+            await prox.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
 
             opts = {'graph': True}
-            nodes = await alist(await core.eval('inet:dns:a', opts=opts))
+            nodes = [n async for n in prox.eval('inet:dns:a', opts=opts)]
 
             self.len(5, nodes)
 
@@ -221,33 +216,32 @@ class CortexTest(s_t_utils.SynTest):
     @s_glob.synchelp
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     async def test_splice_cryo(self):
-        async with self.getTestDmon(mirror='cryodmon') as dst_dmon:
-            name = 'cryo00'
-            host, port = dst_dmon.addr
-            tank_addr = f'tcp://{host}:{port}/{name}/tank:blahblah'
+
+        async with self.getTestCryo() as cryo:
+
+            host, port = await cryo.dmon.listen('tcp://127.0.0.1:0/')
+            tank_addr = f'tcp://{host}:{port}/*/tank:blahblah'
 
             # Spin up a source core configured to send splices to dst core
             with self.getTestDir() as dirn:
                 conf = {
                     'splice:cryotank': tank_addr,
-                    'modules': ('synapse.tests.utils.TestModule',),
                 }
-                src_core = await self.getTestCell(dirn, 'cortex', conf=conf)
+                async with self.getTestCore(dirn=dirn, conf=conf) as src_core:
 
-                waiter = src_core.waiter(2, 'core:splice:cryotank:sent')
-                # Form a node and make sure that it exists
-                async with await src_core.snap() as snap:
-                    await snap.addNode('test:str', 'teehee')
-                    self.nn(await snap.getNodeByNdef(('test:str', 'teehee')))
+                    waiter = src_core.waiter(2, 'core:splice:cryotank:sent')
+                    # Form a node and make sure that it exists
+                    async with await src_core.snap() as snap:
+                        await snap.addNode('test:str', 'teehee')
+                        self.nn(await snap.getNodeByNdef(('test:str', 'teehee')))
 
-                await waiter.wait(timeout=3)
-                await src_core.fini()
-                await src_core.waitfini()
+                    await waiter.wait(timeout=3)
+                    await src_core.fini()
+                    await src_core.waitfini()
 
             # Now that the src core is closed, make sure that the splice exists in the tank
-            tankcell = dst_dmon.shared.get(name)
-            tank = tankcell.tanks.get('tank:blahblah')
-            slices = list(tank.slice(0, 1000))
+            tank = cryo.tanks.get('tank:blahblah')
+            slices = [x async for x in tank.slice(0, size=1000)]
             # # TestModule creates one node and 3 splices
             self.len(3 + 2, slices)
 
@@ -272,41 +266,36 @@ class CortexTest(s_t_utils.SynTest):
             self.ge(data[1][1].get('time'), 0)
 
     async def test_splice_sync(self):
+
         # Save off the alternative write layer because we only want the source cortex to use that
-        saved_alt, self.alt_write_layer = self.alt_write_layer, None
-        async with self.getTestDmon(mirror='dmoncore') as dst_dmon:
-            name = 'core'
-            host, port = dst_dmon.addr
-            dst_core = dst_dmon.shared.get(name)
-            dst_core_addr = f'tcp://{host}:{port}/{name}'
-            evt = asyncio.Event(loop=dst_dmon.loop)
+        #saved_alt, self.alt_write_layer = self.alt_write_layer, None
+        async with self.getTestCore() as core0:
+            evt = asyncio.Event()
 
             def onAdd(node):
                 evt.set()
 
-            dst_core.model.form('test:str').onAdd(onAdd)
-
-            self.alt_write_layer = saved_alt
+            core0.model.form('test:str').onAdd(onAdd)
 
             # Spin up a source core configured to send splices to dst core
-            with self.getTestDir() as dirn:
-                conf = {
-                    'splice:sync': dst_core_addr,
-                    'modules': ('synapse.tests.utils.TestModule',),
-                }
-                async with await self.getTestCell(dirn, 'cortex', conf=conf) as src_core:
-                    # Form a node and make sure that it exists
-                    waiter = src_core.waiter(2, 'core:splice:sync:sent')
-                    async with await src_core.snap() as snap:
-                        await snap.addNode('test:str', 'teehee')
-                        self.nn(await snap.getNodeByNdef(('test:str', 'teehee')))
+            conf = {
+                'splice:sync': core0.getLocalUrl(),
+            }
+            async with self.getTestCore(conf=conf) as core1:
 
-                    await waiter.wait(timeout=5)
+                # Form a node and make sure that it exists
+                waiter = core1.waiter(2, 'core:splice:sync:sent')
+                async with await core1.snap() as snap:
+                    await snap.addNode('test:str', 'teehee')
+                    self.nn(await snap.getNodeByNdef(('test:str', 'teehee')))
+
+                await waiter.wait(timeout=5)
 
             self.true(await s_coro.event_wait(evt, timeout=3))
+
             # Now that the src core is closed, make sure that the node exists
             # in the dst core without creating it
-            async with await dst_core.snap() as snap:
+            async with await core0.snap() as snap:
                 node = await snap.getNodeByNdef(('test:str', 'teehee'))
                 self.eq(node.ndef, ('test:str', 'teehee'))
 
@@ -359,71 +348,69 @@ class CortexTest(s_t_utils.SynTest):
 
         data = ('foo', 'bar', 'baz')
 
-        async with self.getTestDmon(mirror='dmoncore') as dmon, \
-                await self.agetTestProxy(dmon, 'core') as core:
+        async with self.getTestCoreAndProxy() as (core, proxy):
 
             nodes = ((('inet:user', 'visi'), {}), )
 
-            nodes = await alist(await core.addNodes(nodes))
+            nodes = await alist(proxy.addNodes(nodes))
             self.len(1, nodes)
 
-            nodes = await alist(await core.getNodesBy('inet:user', 'visi'))
+            nodes = await alist(proxy.getNodesBy('inet:user', 'visi'))
             self.len(1, nodes)
             self.eq('visi', nodes[0][0][1])
 
-            node = await core.addNode('test:str', 'foo')
+            node = await proxy.addNode('test:str', 'foo')
 
-            pack = await core.addNodeTag(node[1].get('iden'), '#foo.bar')
+            pack = await proxy.addNodeTag(node[1].get('iden'), '#foo.bar')
             self.eq(pack[1]['tags'].get('foo.bar'), (None, None))
 
-            pack = await core.setNodeProp(node[1].get('iden'), 'tick', '2015')
+            pack = await proxy.setNodeProp(node[1].get('iden'), 'tick', '2015')
             self.eq(pack[1]['props'].get('tick'), 1420070400000)
 
-            self.len(1, await alist(await core.eval('test:str#foo.bar')))
-            self.len(1, await alist(await core.eval('test:str:tick=2015')))
+            self.len(1, await alist(proxy.eval('test:str#foo.bar')))
+            self.len(1, await alist(proxy.eval('test:str:tick=2015')))
 
-            await core.delNodeTag(node[1].get('iden'), '#foo.bar')
-            self.len(0, await alist(await core.eval('test:str#foo.bar')))
+            await proxy.delNodeTag(node[1].get('iden'), '#foo.bar')
+            self.len(0, await alist(proxy.eval('test:str#foo.bar')))
 
             opts = {'ndefs': [('inet:user', 'visi')]}
 
-            nodes = await alist(await core.eval('', opts=opts))
+            nodes = await alist(proxy.eval('', opts=opts))
 
             self.len(1, nodes)
             self.eq('visi', nodes[0][0][1])
 
-            await core.addFeedData('com.test.record', data)
+            await proxy.addFeedData('com.test.record', data)
 
             # test the remote storm result counting API
-            self.eq(0, await core.count('test:pivtarg'))
-            self.eq(1, await core.count('inet:user'))
+            self.eq(0, await proxy.count('test:pivtarg'))
+            self.eq(1, await proxy.count('inet:user'))
 
     async def test_stormcmd(self):
 
-        async with self.getTestDmon(mirror='dmoncore') as dmon, \
-                await self.agetTestProxy(dmon, 'core') as core:
+        async with self.getTestCoreAndProxy() as (realcore, core):
 
-            msgs = await alist(await core.storm('|help'))
+            msgs = await alist(core.storm('|help'))
             self.printed(msgs, 'help: List available commands and a brief description for each.')
 
-            msgs = await alist(await core.storm('help'))
+            msgs = await alist(core.storm('help'))
             self.printed(msgs, 'help: List available commands and a brief description for each.')
 
-            await alist(await core.eval('[ inet:user=visi inet:user=whippit ]'))
+            await alist(core.eval('[ inet:user=visi inet:user=whippit ]'))
 
-            await self.agenlen(2, await core.eval('inet:user'))
+            await self.agenlen(2, core.eval('inet:user'))
 
             # test cmd as last text syntax
-            await self.agenlen(1, await core.eval('inet:user | limit 1'))
+            await self.agenlen(1, core.eval('inet:user | limit 1'))
 
             await self.agenlen(1, await core.eval('inet:user | limit 1      '))
 
             # test cmd and trailing pipe and whitespace syntax
-            await self.agenlen(2, await core.eval('inet:user | limit 10 | [ +#foo.bar ]'))
-            await self.agenlen(1, await core.eval('inet:user | limit 10 | +inet:user=visi'))
+            await self.agenlen(2, core.eval('inet:user | limit 10 | [ +#foo.bar ]'))
+            await self.agenlen(1, core.eval('inet:user | limit 10 | +inet:user=visi'))
 
             # test invalid option syntax
-            msgs = await alist(await core.storm('inet:user | limit --woot'))
+            msgs = await alist(core.storm('inet:user | limit --woot'))
             self.printed(msgs, 'usage: limit [-h] count')
             self.len(0, [m for m in msgs if m[0] == 'node'])
 
@@ -736,22 +723,20 @@ class CortexTest(s_t_utils.SynTest):
     async def test_remote_storm(self):
 
         # Remote storm test paths
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
-            pconf = {'user': 'root', 'passwd': 'root'}
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
+        async with self.getTestCoreAndProxy() as (realcore, core):
                 # Storm logging
-                with self.getAsyncLoggerStream('synapse.cortex', 'Executing storm query {help ask} as [root]') \
-                        as stream:
-                    await alist(await core.storm('help ask'))
-                    self.true(await stream.wait(4))
-                # Bad syntax
-                mesgs = await alist(await core.storm(' | | | '))
-                self.len(0, [mesg for mesg in mesgs if mesg[0] == 'init'])
-                self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
-                mesgs = [mesg for mesg in mesgs if mesg[0] == 'err']
-                self.len(1, mesgs)
-                enfo = mesgs[0][1]
-                self.eq(enfo[0], 'BadStormSyntax')
+            with self.getAsyncLoggerStream('synapse.cortex', 'Executing storm query {help ask} as [root]') \
+                    as stream:
+                await alist(core.storm('help ask'))
+                self.true(await stream.wait(4))
+            # Bad syntax
+            mesgs = await alist(core.storm(' | | | '))
+            self.len(0, [mesg for mesg in mesgs if mesg[0] == 'init'])
+            self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
+            mesgs = [mesg for mesg in mesgs if mesg[0] == 'err']
+            self.len(1, mesgs)
+            enfo = mesgs[0][1]
+            self.eq(enfo[0], 'BadStormSyntax')
 
     async def test_feed_splice(self):
 
@@ -876,24 +861,19 @@ class CortexTest(s_t_utils.SynTest):
                 self.false(await node.set('tick', (20, 30)))
 
     async def test_getcoremods(self):
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
-            pconf = {'user': 'root', 'passwd': 'root'}
+        async with self.getTestCoreAndProxy() as (core, prox):
 
-            core = dmon.shared.get('core')
             self.nn(core.getCoreMod('synapse.tests.utils.TestModule'))
 
             # Ensure that the module load creates a node.
             await self.agenlen(1, core.eval('meta:source=8f1401de15918358d5247e21ca29a814'))
 
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as prox:
+            mods = dict(await prox.getCoreMods())
 
-                mods = await prox.getCoreMods()
-
-                mods = {k: v for k, v in mods}
-                conf = mods.get('synapse.tests.utils.TestModule')
-                self.nn(conf)
-                self.eq(conf.get('key'), 'valu')
+            conf = mods.get('synapse.tests.utils.TestModule')
+            self.nn(conf)
+            self.eq(conf.get('key'), 'valu')
 
     async def test_cortex_delnode(self):
 
@@ -958,47 +938,44 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_cortex_delnode_perms(self):
 
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+        async with self.getTestCoreAndProxy() as (realcore, core):
 
-            pconf = {'user': 'root', 'passwd': 'root'}
+            await core.addAuthUser('visi')
+            await core.setUserPasswd('visi', 'secret')
 
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
+            await core.addAuthRule('visi', (True, ('node:add',)))
+            await core.addAuthRule('visi', (True, ('prop:set',)))
+            await core.addAuthRule('visi', (True, ('tag:add',)))
 
-                await core.addAuthUser('visi')
-                await core.setUserPasswd('visi', 'secret')
+            uconf = {'user': 'visi', 'passwd': 'secret'}
 
-                await core.addAuthRule('visi', (True, ('node:add',)))
-                await core.addAuthRule('visi', (True, ('prop:set',)))
-                await core.addAuthRule('visi', (True, ('tag:add',)))
+            async with realcore.getLocalProxy(user='visi') as asvisi:
 
-                uconf = {'user': 'visi', 'passwd': 'secret'}
-                async with await self.agetTestProxy(dmon, 'core', **uconf) as asvisi:
+                await alist(asvisi.eval('[ test:cycle0=foo :cycle1=bar ]'))
+                await alist(asvisi.eval('[ test:cycle1=bar :cycle0=foo ]'))
 
-                    await alist(await asvisi.eval('[ test:cycle0=foo :cycle1=bar ]'))
-                    await alist(await asvisi.eval('[ test:cycle1=bar :cycle0=foo ]'))
+                await alist(asvisi.eval('[ test:str=foo +#lol ]'))
 
-                    await alist(await asvisi.eval('[ test:str=foo +#lol ]'))
+                # no perms and not elevated...
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval('test:str=foo | delnode'))
 
-                    # no perms and not elevated...
-                    await self.agenraises(s_exc.AuthDeny, await asvisi.eval('test:str=foo | delnode'))
+                rule = (True, ('node:del',))
+                await core.addAuthRule('visi', rule)
 
-                    rule = (True, ('node:del',))
-                    await core.addAuthRule('visi', rule)
+                # should still deny because node has tag we can't delete
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval('test:str=foo | delnode'))
 
-                    # should still deny because node has tag we can't delete
-                    await self.agenraises(s_exc.AuthDeny, await asvisi.eval('test:str=foo | delnode'))
+                rule = (True, ('tag:del', 'lol'))
+                await core.addAuthRule('visi', rule)
 
-                    rule = (True, ('tag:del', 'lol'))
-                    await core.addAuthRule('visi', rule)
+                await self.agenlen(0, asvisi.eval('test:str=foo | delnode'))
 
-                    await self.agenlen(0, await asvisi.eval('test:str=foo | delnode'))
+                await self.agenraises(s_exc.CantDelNode, asvisi.eval('test:cycle0=foo | delnode'))
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval('test:cycle0=foo | delnode --force'))
 
-                    await self.agenraises(s_exc.CantDelNode, await asvisi.eval('test:cycle0=foo | delnode'))
-                    await self.agenraises(s_exc.AuthDeny, await asvisi.eval('test:cycle0=foo | delnode --force'))
+                await core.setAuthAdmin('visi', True)
 
-                    await core.setAuthAdmin('visi', True)
-
-                    await self.agenlen(0, await asvisi.eval('test:cycle0=foo | delnode --force'))
+                await self.agenlen(0, asvisi.eval('test:cycle0=foo | delnode --force'))
 
     async def test_cortex_cell_splices(self):
 
@@ -1006,11 +983,11 @@ class CortexTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy() as prox:
                 # TestModule creates one node and 3 splices
-                await self.agenlen(3, await prox.splices(0, 1000))
+                await self.agenlen(3, prox.splices(0, 1000))
 
-                await alist(await prox.eval('[ test:str=foo ]'))
+                await alist(prox.eval('[ test:str=foo ]'))
 
-                self.ge(len(await alist(await prox.splices(0, 1000))), 3)
+                self.ge(len(await alist(prox.splices(0, 1000))), 3)
 
     async def test_pivot_inout(self):
 
@@ -1440,17 +1417,15 @@ class CortexTest(s_t_utils.SynTest):
         gestdef = self.getIngestDef(guid, seen)
 
         # Test Remote Cortex
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
-            pconf = {'user': 'root', 'passwd': 'root'}
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
+        async with self.getTestCoreAndProxy() as (realcore, core):
 
-                # Setup user permissions
-                await core.addAuthRole('creator')
-                await core.addAuthRule('creator', (True, ('node:add',)))
-                await core.addAuthRule('creator', (True, ('prop:set',)))
-                await core.addAuthRule('creator', (True, ('tag:add',)))
-                await core.addUserRole('root', 'creator')
-                await self._validate_feed(core, gestdef, guid, seen)
+            # Setup user permissions
+            await core.addAuthRole('creator')
+            await core.addAuthRule('creator', (True, ('node:add',)))
+            await core.addAuthRule('creator', (True, ('prop:set',)))
+            await core.addAuthRule('creator', (True, ('tag:add',)))
+            await core.addUserRole('root', 'creator')
+            await self._validate_feed(core, gestdef, guid, seen)
 
     async def test_syn_ingest_local(self):
         guid = s_common.guid()
@@ -1635,18 +1610,16 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenlen(0, core.eval('.hehe'))
 
         # ensure that we can delete univ props in a authenticated setting
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
-            realcore = dmon.shared['core']
+        async with self.getTestCoreAndProxy() as (realcore, core):
+
             realcore.model.addUnivProp('hehe', ('int', {}), {})
             await self.agenlen(1, realcore.eval('[ test:str=woot .hehe=20 ]'))
             await self.agenlen(1, realcore.eval('[ test:str=pennywise .hehe=8086 ]'))
 
-            pconf = {'user': 'root', 'passwd': 'root'}
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
-                podes = await alist(await core.eval('test:str=woot [-.hehe]'))
-                self.none(s_node.prop(podes[0], '.hehe'))
-                podes = await alist(await core.eval('test:str=pennywise [-.hehe]'))
-                self.none(s_node.prop(podes[0], '.hehe'))
+            podes = await alist(core.eval('test:str=woot [-.hehe]'))
+            self.none(s_node.prop(podes[0], '.hehe'))
+            podes = await alist(core.eval('test:str=pennywise [-.hehe]'))
+            self.none(s_node.prop(podes[0], '.hehe'))
 
     async def test_cortex_snap_eval(self):
         async with self.getTestCore() as core:
@@ -1665,33 +1638,29 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_stat(self):
 
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
-            coreiden = dmon.shared['core'].iden
-            pconf = {'user': 'root', 'passwd': 'root'}
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
-                ostat = await core.stat()
-                self.eq(ostat.get('iden'), coreiden)
-                self.isin('layer', ostat)
-                await self.agenlen(1, (await core.eval('[test:str=123 :tick=2018]')))
-                nstat = await core.stat()
-                self.gt(nstat.get('layer').get('splicelog_indx'), ostat.get('layer').get('splicelog_indx'))
+        async with self.getTestCoreAndProxy() as (realcore, core):
+            coreiden = realcore.iden
+            ostat = await core.stat()
+            self.eq(ostat.get('iden'), coreiden)
+            self.isin('layer', ostat)
+            await self.agenlen(1, (core.eval('[test:str=123 :tick=2018]')))
+            nstat = await core.stat()
+            self.ge(nstat.get('layer').get('splicelog_indx'), ostat.get('layer').get('splicelog_indx'))
 
-                core_counts = dmon.shared['core'].counts
-                counts = nstat.get('formcounts')
-                self.eq(counts.get('test:str'), 1)
-                self.eq(counts, core_counts)
+            core_counts = realcore.counts
+            counts = nstat.get('formcounts')
+            self.eq(counts.get('test:str'), 1)
+            self.eq(counts, core_counts)
 
     async def test_offset(self):
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
-            pconf = {'user': 'root', 'passwd': 'root'}
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
-                iden = s_common.guid()
-                self.eq(await core.getFeedOffs(iden), 0)
-                self.none(await core.setFeedOffs(iden, 10))
-                self.eq(await core.getFeedOffs(iden), 10)
-                self.none(await core.setFeedOffs(iden, 0))
-                self.eq(await core.getFeedOffs(iden), 0)
-                await self.asyncraises(s_exc.BadConfValu, core.setFeedOffs(iden, -1))
+        async with self.getTestCoreAndProxy() as (realcore, core):
+            iden = s_common.guid()
+            self.eq(await core.getFeedOffs(iden), 0)
+            self.none(await core.setFeedOffs(iden, 10))
+            self.eq(await core.getFeedOffs(iden), 10)
+            self.none(await core.setFeedOffs(iden, 0))
+            self.eq(await core.getFeedOffs(iden), 0)
+            await self.asyncraises(s_exc.BadConfValu, core.setFeedOffs(iden, -1))
 
     async def test_storm_sub_query(self):
 
@@ -1852,7 +1821,7 @@ class CortexTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
 
-            async with await self.getTestCell(dirn, 'cortex') as core:
+            async with self.getTestCore(dirn=dirn) as core:
 
                 await core.loadCoreModule('synapse.tests.utils.TestModule')
 
@@ -1869,7 +1838,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(2, core.counts['test:str'])
 
             # test that counts persist...
-            async with await self.getTestCell(dirn, 'cortex') as core:
+            async with self.getTestCore(dirn=dirn) as core:
 
                 await core.loadCoreModule('synapse.tests.utils.TestModule')
 
