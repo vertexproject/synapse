@@ -7,22 +7,24 @@ import synapse.tests.utils as s_t_utils
 class CmdTriggersTest(s_t_utils.SynTest):
 
     async def test_triggers(self):
-        async with self.getTestDmon('dmoncore') as dmon, await self.agetTestProxy(dmon, 'core') as core:
+
+        async with self.getTestCoreAndProxy() as (realcore, core):
+
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
 
             await cmdr.runCmdLine('trigger add Node:add test:str {[ test:int=1 ] }')
-            await s_common.aspin(await core.eval('[ test:str=foo ]'))
-            await self.agenlen(1, await core.eval('test:int'))
+            await s_common.aspin(core.eval('[ test:str=foo ]'))
+            await self.agenlen(1, core.eval('test:int'))
 
             await cmdr.runCmdLine('trigger add tag:add test:str #footag.* {[ +#count test:str=$tag ]}')
-            await s_common.aspin(await core.eval('[ test:str=bar +#footag.bar ]'))
-            await self.agenlen(1, await core.eval('#count'))
-            await self.agenlen(1, await core.eval('test:str=footag.bar'))
+            await s_common.aspin(core.eval('[ test:str=bar +#footag.bar ]'))
+            await self.agenlen(1, core.eval('#count'))
+            await self.agenlen(1, core.eval('test:str=footag.bar'))
 
             await cmdr.runCmdLine('trigger add prop:set test:type10:intprop {[ test:int=6 ]}')
-            await s_common.aspin(await core.eval('[ test:type10=1 :intprop=25 ]'))
-            await self.agenlen(1, await core.eval('test:int=6'))
+            await s_common.aspin(core.eval('[ test:type10=1 :intprop=25 ]'))
+            await self.agenlen(1, core.eval('test:int=6'))
 
             await cmdr.runCmdLine('trigger list')
             self.true(outp.expect('user'))
@@ -99,5 +101,5 @@ class CmdTriggersTest(s_t_utils.SynTest):
 
             # (Regression) Just a command as the storm query
             await cmdr.runCmdLine('trigger add Node:add test:str {[ test:int=99 ] | spin }')
-            await s_common.aspin(await core.eval('[ test:str=foo4 ]'))
-            await self.agenlen(1, await core.eval('test:int=99'))
+            await s_common.aspin(core.eval('[ test:str=foo4 ]'))
+            await self.agenlen(1, core.eval('test:int=99'))

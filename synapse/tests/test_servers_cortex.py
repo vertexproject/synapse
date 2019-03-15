@@ -20,11 +20,11 @@ class CortexServerTest(s_t_utils.SynTest):
 
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                     # Make a node with the cortex
-                    podes = await s_t_utils.alist(await proxy.eval(f'[ou:org={guid}]'))
+                    podes = await s_t_utils.alist(proxy.eval(f'[ou:org={guid}]'))
                     self.len(1, podes)
 
             # And data persists...
             async with await s_s_cortex.mainopts(opts, outp) as core:
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
-                    podes = await s_t_utils.alist(await proxy.eval(f'ou:org={guid}'))
+                    podes = await s_t_utils.alist(proxy.eval(f'ou:org={guid}'))
                     self.len(1, podes)

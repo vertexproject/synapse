@@ -38,7 +38,8 @@ class CmdCronTest(s_t_utils.SynTest):
         loop = asyncio.get_running_loop()
 
         with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime):
-            async with self.getTestDmon('dmoncore') as dmon, await self.agetTestProxy(dmon, 'core') as core:
+            async with self.getTestCoreAndProxy() as (realcore, core):
+
                 outp = self.getTestOutp()
                 with await s_cmdr.getItemCmdr(core, outp=outp) as cmdr:
 
@@ -98,7 +99,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(outp.expect('query parameter must start with {'))
 
                     ##################
-                    oldsplices = len(await alist(await core.splices(0, 1000)))
+                    oldsplices = len(await alist(core.splices(0, 1000)))
 
                     # Start simple: add a cron job that creates a node every minute
                     outp.clear()
@@ -111,10 +112,10 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(outp.expect(':type=m1'))
 
                     # Make sure it ran
-                    await self.agenlen(1, await core.eval('graph:node:type=m1'))
+                    await self.agenlen(1, core.eval('graph:node:type=m1'))
 
                     # Make sure the provenance of the new splices looks right
-                    splices = await alist(await core.splices(oldsplices, 1000))
+                    splices = await alist(core.splices(oldsplices, 1000))
                     self.gt(len(splices), 1)
                     aliases = [splice[1]['prov'] for splice in splices]
                     self.true(all(a == aliases[0] for a in aliases))
@@ -134,8 +135,8 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     # Make sure the old one didn't run and the new query ran
                     unixtime += 60
-                    await self.agenlen(1, await core.eval('graph:node:type=m1'))
-                    await self.agenlen(1, await core.eval('graph:node:type=m2'))
+                    await self.agenlen(1, core.eval('graph:node:type=m1'))
+                    await self.agenlen(1, core.eval('graph:node:type=m2'))
 
                     outp.clear()
 
@@ -147,8 +148,8 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     # Make sure deleted job didn't run
                     unixtime += 60
-                    await self.agenlen(1, await core.eval('graph:node:type=m1'))
-                    await self.agenlen(1, await core.eval('graph:node:type=m2'))
+                    await self.agenlen(1, core.eval('graph:node:type=m1'))
+                    await self.agenlen(1, core.eval('graph:node:type=m2'))
 
                     # Test fixed minute, i.e. every hour at 17 past
                     unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,
@@ -160,7 +161,7 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     # Make sure it runs.  We add the cron list to give the cron scheduler a chance to run
                     await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, await core.eval('graph:node:type=m3'))
+                    await self.agenlen(1, core.eval('graph:node:type=m3'))
                     await cmdr.runCmdLine(f"cron del {guid}")
 
                     ##################
@@ -173,18 +174,18 @@ class CmdCronTest(s_t_utils.SynTest):
                     unixtime += DAYSECS
 
                     # Make sure it *didn't* run
-                    await self.agenlen(0, await core.eval('graph:node:type=d1'))
+                    await self.agenlen(0, core.eval('graph:node:type=d1'))
 
                     unixtime += DAYSECS
 
                     # Make sure it runs.  We add the cron list to give the cron scheduler a chance to run
 
                     await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, await core.eval('graph:node:type=d1'))
+                    await self.agenlen(1, core.eval('graph:node:type=d1'))
 
                     unixtime += DAYSECS * 2
                     await cmdr.runCmdLine('cron list')
-                    await self.agenlen(2, await core.eval('graph:node:type=d1'))
+                    await self.agenlen(2, core.eval('graph:node:type=d1'))
 
                     ##################
 
@@ -197,7 +198,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     unixtime = datetime.datetime(year=2018, month=12, day=13, hour=3, minute=10,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
                     await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, await core.eval('graph:node:type=d2'))
+                    await self.agenlen(1, core.eval('graph:node:type=d2'))
 
                     await cmdr.runCmdLine(f"cron del {guid1}")
                     await cmdr.runCmdLine(f"cron del {guid2}")
@@ -214,10 +215,10 @@ class CmdCronTest(s_t_utils.SynTest):
                     unixtime = datetime.datetime(year=2018, month=12, day=29, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
                     await cmdr.runCmdLine('cron list')
-                    await self.agenlen(0, await core.eval('graph:node:type=d3'))  # Not yet
+                    await self.agenlen(0, core.eval('graph:node:type=d3'))  # Not yet
                     unixtime += DAYSECS
                     await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, await core.eval('graph:node:type=d3'))
+                    await self.agenlen(1, core.eval('graph:node:type=d3'))
                     await cmdr.runCmdLine(f"cron del {guid}")
 
                     ##################
@@ -229,7 +230,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     unixtime = datetime.datetime(year=2019, month=2, day=4, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
                     await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, await core.eval('graph:node:type=month1'))
+                    await self.agenlen(1, core.eval('graph:node:type=month1'))
 
                     ##################
 
@@ -240,14 +241,14 @@ class CmdCronTest(s_t_utils.SynTest):
                     unixtime = datetime.datetime(year=2021, month=1, day=1, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
                     await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, await core.eval('graph:node:type=year1'))
+                    await self.agenlen(1, core.eval('graph:node:type=year1'))
 
                     # Make sure second-to-last day works for February
                     await cmdr.runCmdLine("cron add -m February -d=-2 {[graph:node='*' :type=year2]}")
                     unixtime = datetime.datetime(year=2021, month=2, day=27, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
                     await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, await core.eval('graph:node:type=year2'))
+                    await self.agenlen(1, core.eval('graph:node:type=year2'))
 
                     ##################
 
@@ -277,22 +278,22 @@ class CmdCronTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine("at +5 minutes {[graph:node='*' :type=at1]}")
                     unixtime += 5 * MINSECS
                     await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, await core.eval('graph:node:type=at1'))
+                    await self.agenlen(1, core.eval('graph:node:type=at1'))
 
                     await cmdr.runCmdLine("at +1 day +7 days {[graph:node='*' :type=at2]}")
                     guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
                     unixtime += DAYSECS
-                    await self.agenlen(1, await core.eval('graph:node:type=at2'))
+                    await self.agenlen(1, core.eval('graph:node:type=at2'))
                     unixtime += 6 * DAYSECS + 1
                     await cmdr.runCmdLine('cron list')
-                    await self.agenlen(2, await core.eval('graph:node:type=at2'))
+                    await self.agenlen(2, core.eval('graph:node:type=at2'))
 
                     await cmdr.runCmdLine("at 202104170415 {[graph:node='*' :type=at3]}")
 
                     unixtime = datetime.datetime(year=2021, month=4, day=17, hour=4, minute=15,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
                     await cmdr.runCmdLine('cron list')
-                    await self.agenlen(1, await core.eval('graph:node:type=at3'))
+                    await self.agenlen(1, core.eval('graph:node:type=at3'))
                     ##################
 
                     # Test 'stat' command

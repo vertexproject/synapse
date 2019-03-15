@@ -1,7 +1,6 @@
 import os
 
-import synapse.cells as s_cells
-
+import synapse.cortex as s_cortex
 import synapse.tests.utils as s_tests
 
 class CompatTest(s_tests.SynTest):
@@ -30,14 +29,14 @@ class CompatTest(s_tests.SynTest):
 
         # This copies a bit of the regression helper code
         with self.getRegrDir('cortexes', 'old-cell-auth') as dirn:
-            async with await s_cells.init('cortex', dirn) as core:
+            async with await s_cortex.Cortex.anit(dirn) as core:
                 self.true(os.path.isdir(os.path.join(core.dirn, 'auth.old')))
 
                 await self.cellauth_migration_checks(core)
 
             self.true(core.isfini)
             # Now start the cortex back up and ensure that we can get the auth data we expect.
-            async with await s_cells.init('cortex', dirn) as core:
+            async with await s_cortex.Cortex.anit(dirn) as core:
                 self.true(os.path.isdir(os.path.join(core.dirn, 'auth.old')))
 
                 await self.cellauth_migration_checks(core)

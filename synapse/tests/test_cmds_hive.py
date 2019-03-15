@@ -15,7 +15,9 @@ class CmdHiveTest(s_t_utils.SynTest):
 
     async def test_hive(self):
         with self.getTestDir() as dirn:
-            async with self.getTestDmon('dmoncore') as dmon, await self.agetTestProxy(dmon, 'core') as core:
+
+            async with self.getTestCoreAndProxy() as (realcore, core):
+
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
 
