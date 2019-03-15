@@ -23,6 +23,12 @@ class _LmdbDatabase():
 _DefaultDB = _LmdbDatabase(None, False)
 
 class Hist:
+    '''
+    A class for storing items in a slab by time.
+
+    Each added item is inserted into the specified db within
+    the slab using the current epoch-millis time stamp as the key.
+    '''
 
     def __init__(self, slab, name):
         self.slab = slab
