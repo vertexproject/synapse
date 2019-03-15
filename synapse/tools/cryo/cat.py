@@ -36,7 +36,7 @@ def main(argv, outp=s_output.stdout):
         outp.printf('Must specify exactly one of --jsonl or --msgpack if --ingest is specified')
         return 1
 
-    outp.printf(f'connecting to: {opts.cryotank}')
+    logger.info(f'connecting to: {opts.cryotank}')
 
     with s_telepath.openurl(opts.cryotank) as tank:
 
