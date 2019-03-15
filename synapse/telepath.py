@@ -61,11 +61,15 @@ class Share(s_base.Base):
     '''
     The telepath client side of a dynamically shared object.
     '''
-    async def __anit__(self, proxy, iden):
+    async def __anit__(self, proxy, iden, sharinfo=None):
         await s_base.Base.__anit__(self)
         self.iden = iden
         self.proxy = proxy
 
+        if sharinfo is None:
+            sharinfo = {}
+        self.sharinfo = sharinfo
+        self.methinfo = sharinfo.get('meths', {})
         self.proxy.shares[iden] = self
 
         self.txfini = True
@@ -83,6 +87,12 @@ class Share(s_base.Base):
             await self.proxy.link.tx(mesg)
 
     def __getattr__(self, name):
+        info = self.methinfo.get(name)
+        if info is not None and info.get('genr'):
+            meth = GenrMethod(self.proxy, name, share=self.iden)
+            setattr(self, name, meth)
+            return meth
+
         meth = Method(self.proxy, name, share=self.iden)
         setattr(self, name, meth)
         return meth
@@ -109,7 +119,7 @@ class Share(s_base.Base):
 class Genr(Share):
 
     async def __anit__(self, proxy, iden):
-        await Share.__anit__(self, proxy, iden)
+        await Share.__anit__(self, proxy, iden, sharinfo={})
         self.queue = await s_queue.AQueue.anit()
         self.onfini(self.queue.fini)
 
@@ -421,8 +431,9 @@ class Proxy(s_base.Base):
 
         if mesg[0] == 't2:share':
             iden = mesg[1].get('iden')
+            sharinfo = mesg[1].get('sharinfo')
             await self._putPoolLink(link)
-            return await Share.anit(self, iden)
+            return await Share.anit(self, iden, sharinfo)
 
     async def task(self, todo, name=None):
 
