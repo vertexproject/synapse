@@ -1103,7 +1103,6 @@ class NodeProp(Type):
     def indx(self, norm):
         return s_common.buid(norm)
 
-
 class Range(Type):
 
     _opt_defs = (
@@ -1392,6 +1391,7 @@ class Time(IntBase):
         Returns:
             (int, int): A pair of integers, sorted so that it the first is less than or equal to the second int.
         '''
+        # FIXME Fix returns API doc
         val0, val1 = vals
 
         _tick = self._getLiftValu(val0)
@@ -1403,6 +1403,9 @@ class Time(IntBase):
             _tick = _tick - delt
         else:
             _tock = self._getLiftValu(val1, relto=_tick)
+
+        if _tick >= _tock:
+            logger.error(f'OUT OF ORDER TICK TOCK: {vals}')
 
         tick = min(_tick, _tock)
         tock = max(_tick, _tock)
@@ -1429,10 +1432,6 @@ class Time(IntBase):
                 tock = s_common.now()
                 delt = s_time.delta(valu)
                 return self._indxTimeRange(tock + delt, tock)
-
-        if type(valu) in (tuple, list):
-            tick, tock = self.getTickTock(valu)
-            return self._indxTimeRange(tick, tock)
 
         return Type.indxByEq(self, valu)
 
@@ -1470,14 +1469,6 @@ class Time(IntBase):
         return cmpr
 
     def _ctorCmprEq(self, text):
-
-        if isinstance(text, (tuple, list)):
-
-            tick, tock = self.getTickTock(text)
-
-            def cmpr(valu):
-                return tick <= valu < tock
-            return cmpr
 
         norm, info = self.norm(text)
 
