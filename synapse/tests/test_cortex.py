@@ -574,18 +574,9 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(node.get('baz'), ('test:type10:strprop', 'woot'))
                 self.eq(node.get('tick'), 1462406400000)
 
-                nodes = await alist(snap.getNodesBy('test:str:tick', '20160505'))
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('test:str', 'woot'))
-
                 # add some time range bumper nodes
                 await snap.addNode('test:str', 'toolow', props={'tick': '2015'})
                 await snap.addNode('test:str', 'toohigh', props={'tick': '2018'})
-
-                # test a few time range syntax options...
-                nodes = await alist(snap.getNodesBy('test:str:tick', '2016*'))
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('test:str', 'woot'))
 
                 self.nn(await snap.getNodeByNdef(('test:auto', 'autothis')))
 
