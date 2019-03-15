@@ -447,7 +447,7 @@ class TeleHive(Hive):
 
     async def _runHiveLoop(self):
         while not self.isfini:
-            async for mesg in await self.proxy.edits():
+            async for mesg in self.proxy.edits():
                 await self.mesgbus.dist(mesg)
 
     async def _onHiveSet(self, mesg):

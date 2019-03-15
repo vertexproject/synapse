@@ -297,15 +297,6 @@ class Cli(s_eventbus.EventBus):
 
             atexit.register(save, h_len, history_path)
 
-    def reflectItem(self):
-        refl = s_reflect.getItemInfo(self.item)
-        if refl is None:
-            return
-
-        for name in refl.get('inherits', ()):
-            for mixi in s_mixins.getSynMixins('cmdr', name):
-                self.addCmdClass(mixi)
-
     def get(self, name, defval=None):
         return self.locs.get(name, defval)
 

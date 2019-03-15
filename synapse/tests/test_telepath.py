@@ -189,8 +189,8 @@ class TeleTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.SynErr, genr.list())
 
             # check an async generator return channel
-            genr = await prox.corogenr(3)
-            self.true(isinstance(genr, s_coro.GenrHelp))
+            genr = prox.corogenr(3)
+            self.true(isinstance(genr, s_telepath.GenrIter))
             self.eq((0, 1, 2), await alist(genr))
 
             await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
@@ -249,7 +249,7 @@ class TeleTest(s_t_utils.SynTest):
                 self.eq((10, 20, 30), await alist(genr))
 
                 # check an async generator return channel
-                genr = await prox.corogenr(3)
+                genr = prox.corogenr(3)
                 self.eq((0, 1, 2), await alist(genr))
 
                 await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
@@ -329,14 +329,14 @@ class TeleTest(s_t_utils.SynTest):
             async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1]) as prox:
 
                 genr = prox.corogenr(3)
-                self.eq([0, 1, 2], [x async for x in await genr])
+                self.eq([0, 1, 2], [x async for x in genr])
                 # To act the same as a local object, would be:
                 # self.eq([0, 1, 2], [x async for x in genr])
 
-                aitr = (await prox.corogenr('fred')).__aiter__()
+                aitr = prox.corogenr('fred').__aiter__()
                 await self.asyncraises(s_exc.SynErr, aitr.__anext__())
 
-                aitr = (await prox.corogenr(3)).__aiter__()
+                aitr = prox.corogenr(3).__aiter__()
                 await aitr.__anext__()
 
                 start_event = asyncio.Event()

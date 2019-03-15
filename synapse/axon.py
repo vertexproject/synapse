@@ -138,13 +138,6 @@ class Axon(s_cell.Cell):
         self.axonhist.add(item)
         self.axonseqn.add(item)
 
-    def getTeleMethInfo(self):
-        return {
-            'get': {'genr': True},
-            'hashes': {'genr': True},
-            'history': {'genr': True},
-        }
-
     async def history(self, tick, tock=None):
         for item in self.axonhist.carve(tick, tock=tock):
             yield item

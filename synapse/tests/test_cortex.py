@@ -203,7 +203,7 @@ class CortexTest(s_t_utils.SynTest):
             await prox.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
 
             opts = {'graph': True}
-            nodes = [n async for n in await prox.eval('inet:dns:a', opts=opts)]
+            nodes = [n async for n in prox.eval('inet:dns:a', opts=opts)]
 
             self.len(5, nodes)
 
@@ -352,10 +352,10 @@ class CortexTest(s_t_utils.SynTest):
 
             nodes = ((('inet:user', 'visi'), {}), )
 
-            nodes = await alist(await proxy.addNodes(nodes))
+            nodes = await alist(proxy.addNodes(nodes))
             self.len(1, nodes)
 
-            nodes = await alist(await proxy.getNodesBy('inet:user', 'visi'))
+            nodes = await alist(proxy.getNodesBy('inet:user', 'visi'))
             self.len(1, nodes)
             self.eq('visi', nodes[0][0][1])
 
@@ -367,15 +367,15 @@ class CortexTest(s_t_utils.SynTest):
             pack = await proxy.setNodeProp(node[1].get('iden'), 'tick', '2015')
             self.eq(pack[1]['props'].get('tick'), 1420070400000)
 
-            self.len(1, await alist(await proxy.eval('test:str#foo.bar')))
-            self.len(1, await alist(await proxy.eval('test:str:tick=2015')))
+            self.len(1, await alist(proxy.eval('test:str#foo.bar')))
+            self.len(1, await alist(proxy.eval('test:str:tick=2015')))
 
             await proxy.delNodeTag(node[1].get('iden'), '#foo.bar')
-            self.len(0, await alist(await proxy.eval('test:str#foo.bar')))
+            self.len(0, await alist(proxy.eval('test:str#foo.bar')))
 
             opts = {'ndefs': [('inet:user', 'visi')]}
 
-            nodes = await alist(await proxy.eval('', opts=opts))
+            nodes = await alist(proxy.eval('', opts=opts))
 
             self.len(1, nodes)
             self.eq('visi', nodes[0][0][1])
@@ -390,31 +390,31 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
 
-            msgs = await alist(await core.storm('|help'))
+            msgs = await alist(core.storm('|help'))
             self.printed(msgs, 'help: List available commands and a brief description for each.')
 
-            msgs = await alist(await core.storm('help'))
+            msgs = await alist(core.storm('help'))
             self.printed(msgs, 'help: List available commands and a brief description for each.')
 
-            await alist(await core.eval('[ inet:user=visi inet:user=whippit ]'))
+            await alist(core.eval('[ inet:user=visi inet:user=whippit ]'))
 
-            await self.agenlen(2, await core.eval('inet:user'))
+            await self.agenlen(2, core.eval('inet:user'))
 
             # test cmd as last text syntax
-            await self.agenlen(1, await core.eval('inet:user | limit 1'))
+            await self.agenlen(1, core.eval('inet:user | limit 1'))
 
             # test cmd and trailing pipe syntax
-            await self.agenlen(1, await core.eval('inet:user | limit 1|'))
+            await self.agenlen(1, core.eval('inet:user | limit 1|'))
 
             # test cmd and trailing pipe and whitespace syntax
-            await self.agenlen(1, await core.eval('inet:user | limit 1    |     '))
+            await self.agenlen(1, core.eval('inet:user | limit 1    |     '))
 
             # test cmd and trailing pipe and whitespace syntax
-            await self.agenlen(2, await core.eval('inet:user | limit 10 | [ +#foo.bar ]'))
-            await self.agenlen(1, await core.eval('inet:user | limit 10 | +inet:user=visi'))
+            await self.agenlen(2, core.eval('inet:user | limit 10 | [ +#foo.bar ]'))
+            await self.agenlen(1, core.eval('inet:user | limit 10 | +inet:user=visi'))
 
             # test invalid option syntax
-            msgs = await alist(await core.storm('inet:user | limit --woot'))
+            msgs = await alist(core.storm('inet:user | limit --woot'))
             self.printed(msgs, 'usage: limit [-h] count')
             self.len(0, [m for m in msgs if m[0] == 'node'])
 
@@ -728,18 +728,18 @@ class CortexTest(s_t_utils.SynTest):
         # Remote storm test paths
         async with self.getTestCoreAndProxy() as (realcore, core):
                 # Storm logging
-                with self.getAsyncLoggerStream('synapse.cortex', 'Executing storm query {help ask} as [root]') \
-                        as stream:
-                    await alist(await core.storm('help ask'))
-                    self.true(await stream.wait(4))
-                # Bad syntax
-                mesgs = await alist(await core.storm(' | | | '))
-                self.len(0, [mesg for mesg in mesgs if mesg[0] == 'init'])
-                self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
-                mesgs = [mesg for mesg in mesgs if mesg[0] == 'err']
-                self.len(1, mesgs)
-                enfo = mesgs[0][1]
-                self.eq(enfo[0], 'BadStormSyntax')
+            with self.getAsyncLoggerStream('synapse.cortex', 'Executing storm query {help ask} as [root]') \
+                    as stream:
+                await alist(core.storm('help ask'))
+                self.true(await stream.wait(4))
+            # Bad syntax
+            mesgs = await alist(core.storm(' | | | '))
+            self.len(0, [mesg for mesg in mesgs if mesg[0] == 'init'])
+            self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
+            mesgs = [mesg for mesg in mesgs if mesg[0] == 'err']
+            self.len(1, mesgs)
+            enfo = mesgs[0][1]
+            self.eq(enfo[0], 'BadStormSyntax')
 
     async def test_feed_splice(self):
 
@@ -954,31 +954,31 @@ class CortexTest(s_t_utils.SynTest):
 
             async with realcore.getLocalProxy(user='visi') as asvisi:
 
-                await alist(await asvisi.eval('[ test:cycle0=foo :cycle1=bar ]'))
-                await alist(await asvisi.eval('[ test:cycle1=bar :cycle0=foo ]'))
+                await alist(asvisi.eval('[ test:cycle0=foo :cycle1=bar ]'))
+                await alist(asvisi.eval('[ test:cycle1=bar :cycle0=foo ]'))
 
-                await alist(await asvisi.eval('[ test:str=foo +#lol ]'))
+                await alist(asvisi.eval('[ test:str=foo +#lol ]'))
 
                 # no perms and not elevated...
-                await self.agenraises(s_exc.AuthDeny, await asvisi.eval('test:str=foo | delnode'))
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval('test:str=foo | delnode'))
 
                 rule = (True, ('node:del',))
                 await core.addAuthRule('visi', rule)
 
                 # should still deny because node has tag we can't delete
-                await self.agenraises(s_exc.AuthDeny, await asvisi.eval('test:str=foo | delnode'))
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval('test:str=foo | delnode'))
 
                 rule = (True, ('tag:del', 'lol'))
                 await core.addAuthRule('visi', rule)
 
-                await self.agenlen(0, await asvisi.eval('test:str=foo | delnode'))
+                await self.agenlen(0, asvisi.eval('test:str=foo | delnode'))
 
-                await self.agenraises(s_exc.CantDelNode, await asvisi.eval('test:cycle0=foo | delnode'))
-                await self.agenraises(s_exc.AuthDeny, await asvisi.eval('test:cycle0=foo | delnode --force'))
+                await self.agenraises(s_exc.CantDelNode, asvisi.eval('test:cycle0=foo | delnode'))
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval('test:cycle0=foo | delnode --force'))
 
                 await core.setAuthAdmin('visi', True)
 
-                await self.agenlen(0, await asvisi.eval('test:cycle0=foo | delnode --force'))
+                await self.agenlen(0, asvisi.eval('test:cycle0=foo | delnode --force'))
 
     async def test_cortex_cell_splices(self):
 
@@ -986,11 +986,11 @@ class CortexTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy() as prox:
                 # TestModule creates one node and 3 splices
-                await self.agenlen(3, await prox.splices(0, 1000))
+                await self.agenlen(3, prox.splices(0, 1000))
 
-                await alist(await prox.eval('[ test:str=foo ]'))
+                await alist(prox.eval('[ test:str=foo ]'))
 
-                self.ge(len(await alist(await prox.splices(0, 1000))), 3)
+                self.ge(len(await alist(prox.splices(0, 1000))), 3)
 
     async def test_pivot_inout(self):
 
@@ -1619,9 +1619,9 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenlen(1, realcore.eval('[ test:str=woot .hehe=20 ]'))
             await self.agenlen(1, realcore.eval('[ test:str=pennywise .hehe=8086 ]'))
 
-            podes = await alist(await core.eval('test:str=woot [-.hehe]'))
+            podes = await alist(core.eval('test:str=woot [-.hehe]'))
             self.none(s_node.prop(podes[0], '.hehe'))
-            podes = await alist(await core.eval('test:str=pennywise [-.hehe]'))
+            podes = await alist(core.eval('test:str=pennywise [-.hehe]'))
             self.none(s_node.prop(podes[0], '.hehe'))
 
     async def test_cortex_snap_eval(self):
@@ -1646,7 +1646,7 @@ class CortexTest(s_t_utils.SynTest):
             ostat = await core.stat()
             self.eq(ostat.get('iden'), coreiden)
             self.isin('layer', ostat)
-            await self.agenlen(1, (await core.eval('[test:str=123 :tick=2018]')))
+            await self.agenlen(1, (core.eval('[test:str=123 :tick=2018]')))
             nstat = await core.stat()
             self.ge(nstat.get('layer').get('splicelog_indx'), ostat.get('layer').get('splicelog_indx'))
 

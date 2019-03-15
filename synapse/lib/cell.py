@@ -3,6 +3,7 @@ import ssl
 import socket
 import asyncio
 import logging
+import functools
 import contextlib
 
 import tornado.web as t_web
@@ -34,6 +35,7 @@ Base classes for the synapse "cell" microservice architecture.
 '''
 def adminapi(f):
 
+    @functools.wraps(f)
     def func(*args, **kwargs):
 
         if args[0].user is not None and not args[0].user.admin:
@@ -44,6 +46,8 @@ def adminapi(f):
                     f.__qualname__, args[0].user.name, args[1:], kwargs)
 
         return f(*args, **kwargs)
+
+    func.__syn_wrapped__ = 'adminapi'
 
     return func
 
@@ -502,11 +506,6 @@ class Cell(s_base.Base, s_telepath.Aware):
             return s_common.yamlload(path)
 
         return {}
-
-    @classmethod
-    def deploy(cls, dirn):
-        # sub-classes may over-ride to do deploy initialization
-        pass
 
     async def getTeleApi(self, link, mesg, path):
 

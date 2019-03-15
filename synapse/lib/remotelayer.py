@@ -86,22 +86,22 @@ class RemoteLayer(s_layer.Layer):
 
     async def getLiftRows(self, *args, **kwargs):
         await self._readyPlayerOne()
-        async for item in await self.proxy.getLiftRows(*args, **kwargs):
+        async for item in self.proxy.getLiftRows(*args, **kwargs):
             yield item
 
     async def iterFormRows(self, *args, **kwargs):
         await self._readyPlayerOne()
-        async for item in await self.proxy.iterFormRows(*args, **kwargs):
+        async for item in self.proxy.iterFormRows(*args, **kwargs):
             yield item
 
     async def iterPropRows(self, *args, **kwargs):
         await self._readyPlayerOne()
-        async for item in await self.proxy.iterPropRows(*args, **kwargs):
+        async for item in self.proxy.iterPropRows(*args, **kwargs):
             yield item
 
     async def iterUnivRows(self, *args, **kwargs):
         await self._readyPlayerOne()
-        async for item in await self.proxy.iterUnivRows(*args, **kwargs):
+        async for item in self.proxy.iterUnivRows(*args, **kwargs):
             yield item
 
     async def getModelVers(self):
@@ -114,7 +114,7 @@ class RemoteLayer(s_layer.Layer):
 
     async def splices(self, offs, size):
         await self._readyPlayerOne()
-        async for item in await self.proxy.splices(offs, size):
+        async for item in self.proxy.splices(offs, size):
             yield item
 
     async def getOffset(self, iden):

@@ -9,7 +9,7 @@ class TrigTest(s_t_utils.SynTest):
     async def test_trigger_recursion(self):
         async with self.getTestCoreAndProxy() as (realcore, core):
             await core.addTrigger('node:add', '[ test:guid="*" ]', info={'form': 'test:guid'})
-            await s_common.aspin(await core.eval('[ test:guid="*" ]'))
+            await s_common.aspin(core.eval('[ test:guid="*" ]'))
 
     async def test_modification_persistence(self):
 
@@ -54,72 +54,72 @@ class TrigTest(s_t_utils.SynTest):
 
                 # node:add case
                 await core.addTrigger('node:add', '[ test:int=1 ]', info={'form': 'test:str'})
-                await s_common.aspin(await core.eval('[ test:str=foo ]'))
-                await self.agenlen(1, await core.eval('test:int'))
+                await s_common.aspin(core.eval('[ test:str=foo ]'))
+                await self.agenlen(1, core.eval('test:int'))
 
                 # node:del case
                 await core.addTrigger('node:del', '[ test:int=2 ]', info={'form': 'test:str'})
-                await s_common.aspin(await core.eval('test:str=foo | delnode'))
-                await self.agenlen(2, await core.eval('test:int'))
+                await s_common.aspin(core.eval('test:str=foo | delnode'))
+                await self.agenlen(2, core.eval('test:int'))
 
                 # tag:add case
                 await core.addTrigger('tag:add', '[ test:int=3 ]', info={'tag': 'footag'})
-                await s_common.aspin(await core.eval('[ test:str=foo +#footag ]'))
-                await self.agenlen(3, await core.eval('test:int'))
+                await s_common.aspin(core.eval('[ test:str=foo +#footag ]'))
+                await self.agenlen(3, core.eval('test:int'))
 
                 # tag:add globbing and storm var
                 await core.addTrigger('tag:add', '[ +#count test:str=$tag ]', info={'tag': 'a.*.c'})
-                await s_common.aspin(await core.eval('[ test:str=foo +#a.b ]'))
-                await s_common.aspin(await core.eval('[ test:str=foo +#a.b.c ]'))
-                await s_common.aspin(await core.eval('[ test:str=foo +#a.b.ccc ]'))
-                await self.agenlen(1, await core.eval('#count'))
-                await self.agenlen(1, await core.eval('test:str=a.b.c'))
+                await s_common.aspin(core.eval('[ test:str=foo +#a.b ]'))
+                await s_common.aspin(core.eval('[ test:str=foo +#a.b.c ]'))
+                await s_common.aspin(core.eval('[ test:str=foo +#a.b.ccc ]'))
+                await self.agenlen(1, core.eval('#count'))
+                await self.agenlen(1, core.eval('test:str=a.b.c'))
 
                 await core.addTrigger('tag:add', '[ +#count test:str=$tag ]', info={'tag': 'foo.**.baz'})
-                await s_common.aspin(await core.eval('[ test:str=foo +#foo.1.2.3.baz ]'))
-                await self.agenlen(1, await core.eval('test:str=foo.1.2.3.baz'))
+                await s_common.aspin(core.eval('[ test:str=foo +#foo.1.2.3.baz ]'))
+                await self.agenlen(1, core.eval('test:str=foo.1.2.3.baz'))
 
                 # tag:del case
                 await core.addTrigger('tag:del', '[ test:int=4 ]', info={'tag': 'footag'})
-                await s_common.aspin(await core.eval('test:str=foo [ -#footag ]'))
-                await self.agenlen(1, await core.eval('test:int=4'))
+                await s_common.aspin(core.eval('test:str=foo [ -#footag ]'))
+                await self.agenlen(1, core.eval('test:int=4'))
 
                 # Form/tag add
                 await core.addTrigger('tag:add', '[ test:int=5 ]', info={'tag': 'bartag', 'form': 'test:str'})
-                await s_common.aspin(await core.eval('[ test:str=foo +#bartag ]'))
-                await self.agenlen(1, await core.eval('test:int=5'))
+                await s_common.aspin(core.eval('[ test:str=foo +#bartag ]'))
+                await self.agenlen(1, core.eval('test:int=5'))
 
                 # Wrong form/right tag add doesn't fire
-                await s_common.aspin(await core.eval('test:int=5 | delnode'))
-                await self.agenlen(0, await core.eval('test:int=5'))
-                await s_common.aspin(await core.eval('[ test:auto=1 +#bartag ]'))
-                await self.agenlen(0, await core.eval('test:int=5'))
+                await s_common.aspin(core.eval('test:int=5 | delnode'))
+                await self.agenlen(0, core.eval('test:int=5'))
+                await s_common.aspin(core.eval('[ test:auto=1 +#bartag ]'))
+                await self.agenlen(0, core.eval('test:int=5'))
 
                 # Right form/wrong tag add doesn't fire
-                await s_common.aspin(await core.eval('[ test:str=bar +#footag ]'))
-                await self.agenlen(0, await core.eval('test:int=5'))
+                await s_common.aspin(core.eval('[ test:str=bar +#footag ]'))
+                await self.agenlen(0, core.eval('test:int=5'))
 
                 # Prop set
                 await core.addTrigger('prop:set', '[ test:int=6 ]', info={'prop': 'test:type10:intprop'})
-                await s_common.aspin(await core.eval('[ test:type10=1 ]'))
-                await self.agenlen(1, await core.eval('test:int=6'))  # Triggered by default value setting
-                await s_common.aspin(await core.eval('[ test:type10=1 :intprop=25 ]'))
-                await self.agenlen(1, await core.eval('test:int=6'))
+                await s_common.aspin(core.eval('[ test:type10=1 ]'))
+                await self.agenlen(1, core.eval('test:int=6'))  # Triggered by default value setting
+                await s_common.aspin(core.eval('[ test:type10=1 :intprop=25 ]'))
+                await self.agenlen(1, core.eval('test:int=6'))
 
                 # Test re-setting doesn't fire
-                await s_common.aspin(await core.eval('test:int=6 | delnode'))
-                await s_common.aspin(await core.eval('[ test:type10=1 :intprop=25 ]'))
-                await self.agenlen(0, await core.eval('test:int=6'))
+                await s_common.aspin(core.eval('test:int=6 | delnode'))
+                await s_common.aspin(core.eval('[ test:type10=1 :intprop=25 ]'))
+                await self.agenlen(0, core.eval('test:int=6'))
 
                 # Prop set univ
                 await core.addTrigger('prop:set', '[ test:int=7 ]', info={'prop': '.test:univ'})
-                await s_common.aspin(await core.eval('[ test:type10=1 .test:univ=1 ]'))
-                await self.agenlen(1, await core.eval('test:int=7'))
+                await s_common.aspin(core.eval('[ test:type10=1 .test:univ=1 ]'))
+                await self.agenlen(1, core.eval('test:int=7'))
 
                 # Prop set form specific univ
                 await core.addTrigger('prop:set', '[ test:int=8 ]', info={'prop': 'test:str.test:univ'})
-                await s_common.aspin(await core.eval('[ test:str=beep .test:univ=1 ]'))
-                await self.agenlen(1, await core.eval('test:int=8'))
+                await s_common.aspin(core.eval('[ test:str=beep .test:univ=1 ]'))
+                await self.agenlen(1, core.eval('test:int=8'))
 
                 # Bad trigger parms
                 await self.asyncraises(s_exc.BadOptValu, core.addTrigger('nocond', 'test:int=4',
@@ -145,11 +145,11 @@ class TrigTest(s_t_utils.SynTest):
 
                 # Delete trigger
                 buid = [b for b, r in triglist if r['cond'] == 'prop:set'][0]
-                await s_common.aspin(await core.eval('test:int=6 | delnode'))
+                await s_common.aspin(core.eval('test:int=6 | delnode'))
                 await core.delTrigger(buid)
                 # Make sure it didn't fire
-                await s_common.aspin(await core.eval('[ test:type10=3 :intprop=25 ]'))
-                await self.agenlen(0, await core.eval('test:int=6'))
+                await s_common.aspin(core.eval('[ test:type10=3 :intprop=25 ]'))
+                await self.agenlen(0, core.eval('test:int=6'))
 
                 await self.asyncraises(s_exc.NoSuchIden, core.delTrigger(b'badbuid'))
 
@@ -157,8 +157,8 @@ class TrigTest(s_t_utils.SynTest):
                 buid = [b for b, r in triglist if r['cond'] == 'tag:add' and r.get('form') == 'test:str'][0]
                 buid2 = [b for b, r in triglist if r['cond'] == 'tag:add' and r.get('form') is None][0]
                 await core.updateTrigger(buid, '[ test:int=42 ]')
-                await s_common.aspin(await core.eval('[ test:str=foo4 +#bartag ]'))
-                await self.agenlen(1, await core.eval('test:int=42'))
+                await s_common.aspin(core.eval('[ test:str=foo4 +#bartag ]'))
+                await self.agenlen(1, core.eval('test:int=42'))
 
                 # Delete a tag:add
                 await core.delTrigger(buid2)

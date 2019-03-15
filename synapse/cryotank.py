@@ -286,13 +286,6 @@ class CryoCell(s_cell.Cell):
 
         raise s_exc.NoSuchPath(path=path)
 
-    def getTeleMethInfo(self):
-        return {
-            'rows': {'genr': True},
-            'slice': {'genr': True},
-            'metrics': {'genr': True},
-        }
-
     async def init(self, name, conf=None):
         '''
         Generate a new CryoTank with a given name or get an reference to an existing CryoTank.

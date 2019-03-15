@@ -19,7 +19,7 @@ class CmdCoreTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
 
-            await self.agenlen(1, await core.eval("[ test:str=abcd :tick=2015 +#cool ]"))
+            await self.agenlen(1, core.eval("[ test:str=abcd :tick=2015 +#cool ]"))
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
@@ -113,7 +113,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             s = str(outp)
             self.notin('node:add', s)
             self.notin('prop:set', s)
-            await self.agenlen(1, await core.eval('[test:comp=(1234, 5678)]'))
+            await self.agenlen(1, core.eval('[test:comp=(1234, 5678)]'))
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
@@ -195,12 +195,12 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.true(outp.expect('0 tasks found.'))
 
             async def runLongStorm():
-                async for _ in await core.storm('[ test:str=foo test:str=bar ] | sleep 10'):
+                async for _ in core.storm('[ test:str=foo test:str=bar ] | sleep 10'):
                     evnt.set()
 
             task = realcore.schedCoro(runLongStorm())
 
-            await evnt.wait()
+            self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
 
             outp.clear()
             await cmdr.runCmdLine('ps')
@@ -231,7 +231,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 evnt = asyncio.Event()
 
                 async def runLongStorm():
-                    async for mesg in await core.storm('[ test:str=foo test:str=bar ] | sleep 10'):
+                    async for mesg in core.storm('[ test:str=foo test:str=bar ] | sleep 10'):
                         evnt.set()
 
                 outp = self.getTestOutp()
@@ -241,7 +241,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 tcmdr = await s_cmdr.getItemCmdr(tcore, outp=toutp)
 
                 task = realcore.schedCoro(runLongStorm())
-                await evnt.wait()
+                self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
 
                 outp.clear()
                 await cmdr.runCmdLine('ps')

@@ -82,6 +82,8 @@ class TestPushFile(s_t_utils.SynTest):
 
                                 self.len(0, axonprox.wants([nullhash]))
                                 self.eq(b'', b''.join([buf for buf in axonprox.get(nullhash)]))
+                            return 1
 
                         loop = asyncio.get_running_loop()
-                        await loop.run_in_executor(None, pushfile)
+                        ret = await loop.run_in_executor(None, pushfile)
+                        self.eq(1, ret)

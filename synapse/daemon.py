@@ -15,6 +15,7 @@ import synapse.lib.scope as s_scope
 import synapse.lib.share as s_share
 import synapse.lib.certdir as s_certdir
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.reflect as s_reflect
 
 class Sess(s_base.Base):
 
@@ -293,10 +294,11 @@ class Daemon(s_base.Base):
             link.set('sess', sess)
 
             if isinstance(item, s_telepath.Aware):
-                reply[1]['methinfo'] = item.getTeleMethInfo()
                 item = await s_coro.ornot(item.getTeleApi, link, mesg, path)
                 if isinstance(item, s_base.Base):
                     link.onfini(item.fini)
+
+            reply[1]['sharinfo'] = s_reflect.getShareInfo(item)
 
             sess.setSessItem(None, item)
             reply[1]['sess'] = sess.iden

@@ -32,6 +32,8 @@ import threading
 import contextlib
 import collections
 
+import unittest.mock as mock
+
 import aiohttp
 
 import synapse.exc as s_exc
@@ -843,7 +845,7 @@ class SynTest(unittest.TestCase):
         with self.getTestDir(mirror='certdir') as certdir:
             async with await s_daemon.Daemon.anit(certdir=certdir) as dmon:
                 await dmon.listen('tcp://127.0.0.1:0/')
-                with unittest.mock.patch('synapse.lib.certdir.defdir', certdir):
+                with mock.patch('synapse.lib.certdir.defdir', certdir):
                     yield dmon
 
     def getTestUrl(self, dmon, name, **opts):
@@ -1262,6 +1264,7 @@ class SynTest(unittest.TestCase):
         gtyps = (
                  s_coro.GenrHelp,
                  s_telepath.Genr,
+                 s_telepath.GenrIter,
                  types.GeneratorType,
                  )
 

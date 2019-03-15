@@ -24,7 +24,7 @@ class JupyterTest(s_t_utils.SynTest):
     async def test_tempcoreprox(self):
         prox = await s_jupyter.getTempCoreProx(self.testmods)
         self.false(prox.isfini)
-        nodes = await s_t_utils.alist(await prox.eval('[test:str=beep]'))
+        nodes = await s_t_utils.alist(prox.eval('[test:str=beep]'))
         self.len(1, nodes)
         self.eq(nodes[0][0], ('test:str', 'beep'))
         await prox.fini()
