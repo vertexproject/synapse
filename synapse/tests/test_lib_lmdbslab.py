@@ -87,12 +87,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     self.eq(4, slab.copydb(foo2, slab2, destdbname='foo2', progresscb=progfunc))
                     self.gt(vardict.get('prog', 0), 0)
 
-            # Test slab.drop
-            self.nn(slab.last(db=foo2))
+            # Test slab.drop and slab.dbexists
+            self.true(slab.dbexists('foo2'))
             slab.dropdb(foo2)
-
-            # Actually test for presence of DB by looking in the default DB for a key with the name of the DB
-            self.none(slab.get(b'foo2'))
+            self.false(slab.dbexists('foo2'))
 
             # start a scan and then fini the whole db...
             scan = slab.scanByPref(b'\x00', db=foo)

@@ -313,6 +313,13 @@ class Slab(s_base.Base):
                 except lmdb.MapFullError:
                     self._growMapSize()
 
+    def dbexists(self, name):
+        '''
+        The DB exists already if there's a key in the default DB with the name of the database
+        '''
+        valu = self.get(name.encode())
+        return valu is not None
+
     @contextlib.contextmanager
     def _noCoXact(self):
         if not self.readonly or self.txnrefcount:

@@ -38,6 +38,32 @@ class LmdbLayer(s_layer.Layer):
         ('lmdb:readahead', {'type': 'bool', 'defval': True}),
     )
 
+    def migrate_splices_pre010(self):
+        '''
+        Check for any pre-010 splices and migrate those to the new location (same base directory, separate file)
+
+        Once complete, drop the old splice database
+        '''
+        if not self.layrslab.dbexists('splices'):
+            return
+
+        oldslab = self.layrslab
+        olddb = oldslab.initdb('splices')
+
+        entries = oldslab.stat(olddb)['entries']
+        if not entries:
+            return
+
+        logger.info('Pre-010 splice migration starting.  Total rows: %d...', entries)
+
+        def progfunc(count):
+            logger.info('Progress %d/%d (%2.2f%)', count, entries, count / entries * 100)
+
+        oldslab.copydb(olddb, self.spliceslab, destdbname='splices', progresscb=progfunc)
+        logger.info('Pre-010 splice migration copying done.  Deleting from old location.')
+        oldslab.drop(olddb)
+        logger.info('Pre-010 splice migration completed.')
+
     async def __anit__(self, core, node):
 
         await s_layer.Layer.__anit__(self, core, node)
@@ -59,6 +85,8 @@ class LmdbLayer(s_layer.Layer):
         self.spliceslab = await s_lmdbslab.Slab.anit(splicepath, max_dbs=128, map_size=mapsize, maxsize=maxsize,
                                                      growsize=growsize, writemap=True, readahead=readahead)
         self.onfini(self.spliceslab.fini)
+
+        self._migrate_splices_pre010()
 
         self.dbs = {}
 
