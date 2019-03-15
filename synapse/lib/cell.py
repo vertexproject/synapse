@@ -448,7 +448,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except OSError as e:
-            logger.error(f'Failed to lissten on unix socket at: [{sockpath}][{e}]')
+            logger.error(f'Failed to listen on unix socket at: [{sockpath}][{e}]')
             logger.error('LOCAL UNIX SOCKET WILL BE UNAVAILABLE')
         except Exception as e:  # pragma: no cover
             logging.exception('Unknown dmon listen error.')

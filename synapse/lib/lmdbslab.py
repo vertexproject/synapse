@@ -15,12 +15,15 @@ import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
-class _LmdbDatabase():
+COPY_CHUNKSIZE = 512
+PROGRESS_PERIOD = COPY_CHUNKSIZE * 128
+
+class LmdbDatabase():
     def __init__(self, db, dupsort):
         self.db = db
         self.dupsort = dupsort
 
-_DefaultDB = _LmdbDatabase(None, False)
+_DefaultDB = LmdbDatabase(None, False)
 
 class Hist:
     '''
@@ -306,9 +309,16 @@ class Slab(s_base.Base):
             while True:
                 try:
                     db = self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
-                    return _LmdbDatabase(db, dupsort)
+                    return LmdbDatabase(db, dupsort)
                 except lmdb.MapFullError:
                     self._growMapSize()
+
+    def dbexists(self, name):
+        '''
+        The DB exists already if there's a key in the default DB with the name of the database
+        '''
+        valu = self.get(name.encode())
+        return valu is not None
 
     @contextlib.contextmanager
     def _noCoXact(self):
@@ -495,6 +505,49 @@ class Slab(s_base.Base):
 
         except lmdb.MapFullError:
             return self._handle_mapfull()
+
+    def dropdb(self, db):
+        '''
+        Deletes an **entire database** (i.e. a table), losing all data.
+        '''
+        self.xact.drop(db.db, delete=True)
+
+    def copydb(self, sourcedb, destslab, destdbname=None, progresscb=None):
+        '''
+        Copy an entire database in this slab to a new database in potentially another slab.
+
+        Args:
+            sourcedb (LmdbDatabase): which database in this slab to copy rows from
+            destslab (LmdbSlab): which slab to copy rows to
+            destdbname (str): the name of the database to copy rows to in destslab
+            progresscb (Callable[int]):  if not None, this function will be periodically called with the number of rows
+                                         completed
+
+        Returns:
+            (int): the number of rows copied
+
+        Note:
+            If any rows already exist in the target database, this method returns an error.  This means that one cannot
+            use destdbname=None unless there are no explicit databases in the destination slab.
+        '''
+        destdb = destslab.initdb(destdbname, sourcedb.dupsort)
+
+        statdict = destslab.stat(db=destdb)
+        if statdict['entries'] > 0:
+            raise s_exc.DataAlreadyExists()
+
+        rowcount = 0
+
+        for chunk in s_common.chunks(self.scanByFull(db=sourcedb), COPY_CHUNKSIZE):
+            ccount, acount = destslab.putmulti(chunk, dupdata=True, append=True, db=destdb)
+            if ccount != len(chunk) or acount != len(chunk):
+                raise s_exc.BadCoreStore(mesg='Unexpected number of values written')
+
+            rowcount += len(chunk)
+            if progresscb is not None and 0 == (rowcount % PROGRESS_PERIOD):
+                progresscb(rowcount)
+
+        return rowcount
 
     def pop(self, lkey, db=None):
         return self._xact_action(self.pop, lmdb.Transaction.pop, lkey, db=db)
