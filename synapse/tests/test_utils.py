@@ -257,15 +257,6 @@ class TestUtils(s_t_utils.SynTest):
         self.raises(AssertionError, self.istufo, (1234, set()))
         self.raises(AssertionError, self.istufo, (None, set()))
 
-    async def test_getTestCell(self):
-        with self.getTestDir() as dirn:
-            boot = {'auth:en': True}
-            conf = {'test': 1}
-            async with await self.getTestCell(dirn, 'cortex', boot, conf) as cortex:
-                self.eq(os.path.join(dirn, 'cortex'), cortex.dirn)
-                self.eq(cortex.conf.get('test'), 1)
-                self.eq(cortex.boot.get('auth:en'), True)
-
     async def test_async(self):
 
         async def araiser():
@@ -273,17 +264,8 @@ class TestUtils(s_t_utils.SynTest):
 
         await self.asyncraises(ZeroDivisionError, araiser())
 
-    async def test_dmoncoreaxon(self):
-        async with self.getTestDmonCortexAxon() as dmon:
-            self.isin('core', dmon.cells)
-            self.isin('axon00', dmon.cells)
-            self.isin('blobstor00', dmon.cells)
-
-            async with await self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
-                node = await core.addNode('test:str', 'hehe')
-                self.nn(node)
-
     async def test_storm_mesgs(self):
+
         async with self.getTestCore() as core:
             mesgs = await core.streamstorm('[test:str=1234] | count').list()
             self.stormIsInPrint('Counted 1 nodes.', mesgs)

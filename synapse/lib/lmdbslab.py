@@ -22,6 +22,59 @@ class _LmdbDatabase():
 
 _DefaultDB = _LmdbDatabase(None, False)
 
+class Hist:
+    '''
+    A class for storing items in a slab by time.
+
+    Each added item is inserted into the specified db within
+    the slab using the current epoch-millis time stamp as the key.
+    '''
+
+    def __init__(self, slab, name):
+        self.slab = slab
+        self.db = slab.initdb(name, dupsort=True)
+
+    def add(self, item):
+        tick = s_common.now()
+        lkey = tick.to_bytes(8, 'big')
+        self.slab.put(lkey, s_msgpack.en(item), dupdata=True, db=self.db)
+
+    def carve(self, tick, tock=None):
+
+        lmax = None
+        lmin = tick.to_bytes(8, 'big')
+        if tock is not None:
+            lmax = tock.to_bytes(8, 'big')
+
+        for lkey, byts in self.slab.scanByRange(lmin, lmax=lmax, db=self.db):
+            tick = int.from_bytes(lkey, 'big')
+            yield tick, s_msgpack.un(byts)
+
+class Offs:
+    '''
+
+    A helper for storing offset integers by iden. ( ported from synapse/lib/lmdb.py )
+
+    As with all slab objects, this is meant for single-thread async loop use.
+    '''
+    def __init__(self, slab, name):
+        self.slab = slab
+        self.db = slab.initdb(name)
+
+    def get(self, iden):
+
+        buid = s_common.uhex(iden)
+        byts = self.slab.get(buid, db=self.db)
+        if byts is None:
+            return 0
+
+        return int.from_bytes(byts, byteorder='big')
+
+    def set(self, iden, offs):
+        buid = s_common.uhex(iden)
+        byts = offs.to_bytes(length=8, byteorder='big')
+        self.slab.put(buid, byts, db=self.db)
+
 class SlabDict:
     '''
     A dictionary-like object which stores it's props in a slab via a prefix.
@@ -269,6 +322,26 @@ class Slab(s_base.Base):
         self._acqXactForReading()
         try:
             return self.xact.get(lkey, db=db.db)
+        finally:
+            self._relXactForReading()
+
+    def last(self, db=_DefaultDB):
+        '''
+        Return the last key/value pair from the given db.
+        '''
+        self._acqXactForReading()
+        try:
+            with self.xact.cursor(db=db.db) as curs:
+                if not curs.last():
+                    return None
+                return curs.key(), curs.value()
+        finally:
+            self._relXactForReading()
+
+    def stat(self, db=_DefaultDB):
+        self._acqXactForReading()
+        try:
+            return self.xact.stat(db=db.db)
         finally:
             self._relXactForReading()
 

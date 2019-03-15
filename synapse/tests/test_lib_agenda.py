@@ -315,7 +315,8 @@ class AgendaTest(s_t_utils.SynTest):
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
         with self.getTestDir() as fdir:
-            async with await self.getTestCell(fdir, 'cortex') as core:
+
+            async with self.getTestCore(dirn=fdir) as core:
                 agenda = core.agenda
                 # Schedule a query to run every Wednesday and Friday at 10:15am
                 guid1 = await agenda.add('visi', '[test:str=bar]', {s_tu.HOUR: 10, s_tu.MINUTE: 15},
@@ -335,7 +336,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 await agenda.mod(guid3, '#bahhumbug')
 
-            async with await self.getTestCell(fdir, 'cortex') as core:
+            async with self.getTestCore(dirn=fdir) as core:
                 appts = agenda.list()
                 self.len(2, appts)
                 last_appt = [appt for (iden, appt) in appts if iden == guid3][0]
