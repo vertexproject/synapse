@@ -1393,7 +1393,11 @@ class Time(IntBase):
         '''
         val0, val1 = vals
 
-        _tick = self._getLiftValu(val0)
+        try:
+            _tick = self._getLiftValu(val0)
+        except ValueError as e:
+            raise s_exc.BadTypeValu(name=self.name, valu=val0,
+                                    mesg='Unable to process the value for val0 in getTickTock.')
 
         sortval = False
         if isinstance(val1, str):
@@ -1411,15 +1415,11 @@ class Time(IntBase):
         else:
             _tock = self._getLiftValu(val1, relto=_tick)
 
-        logger.info(f'Val: {vals}')
-        logger.info(f'Pre: {_tick}, {_tock}')
         if sortval and _tick >= _tock:
-            logger.error(f'OUT OF ORDER TICK TOCK!')
             tick = min(_tick, _tock)
             tock = max(_tick, _tock)
-            logger.info(f'Ret: {tick}, {tock}')
             return tick, tock
-        logger.info(f'Ret: {_tick}, {_tock}')
+
         return _tick, _tock
 
     def _indxTimeRange(self, mint, maxt):

@@ -892,6 +892,10 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(0, core.eval('test:str:tick*range=(now, "+1 day")'))
 
             # Sad path for *range=
+            await self.agenraises(s_exc.BadTypeValu,
+                                  core.eval('test:str:tick*range=("+- 1day", "now")'))
+            await self.agenraises(s_exc.BadTypeValu,
+                                  core.eval('test:str:tick*range=("-+ 1day", "now")'))
             await self.agenraises(s_exc.BadCmprValu,
                                   core.eval('test:str:tick*range=(2015)'))
             await self.agenraises(s_exc.BadCmprValu,
@@ -922,6 +926,23 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(2, core.eval('test:str:tick*range=(2018/12/02, "+24 hours")'))
             await self.agenlen(3, core.eval('test:str:tick*range=(2018/12/02, "+86401 seconds")'))
             await self.agenlen(3, core.eval('test:str:tick*range=(2018/12/02, "+25 hours")'))
+
+        async with self.getTestCore() as core:
+
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'a', {'tick': '2014'})
+                node = await snap.addNode('test:int', node.get('tick') + 1)
+                node = await snap.addNode('test:str', 'b', {'tick': '2015'})
+                node = await snap.addNode('test:int', node.get('tick') + 1)
+                node = await snap.addNode('test:str', 'c', {'tick': '2016'})
+                node = await snap.addNode('test:int', node.get('tick') + 1)
+                node = await snap.addNode('test:str', 'd', {'tick': 'now'})
+                node = await snap.addNode('test:int', node.get('tick') + 1)
+
+            q = 'test:int $end=$node.value() test:str:tick*range=(2015, $end) -test:int'
+            nodes = await alist(core.eval(q))
+            self.len(3, nodes)
+            self.eq({node.ndef[1] for node in nodes}, {'b', 'c', 'd'})
 
     def test_edges(self):
         model = s_datamodel.Model()
