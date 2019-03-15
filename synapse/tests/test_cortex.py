@@ -1,7 +1,5 @@
-import copy
 import time
 import asyncio
-import unittest
 
 from unittest.mock import patch
 
@@ -814,7 +812,7 @@ class CortexTest(s_t_utils.SynTest):
             mesg = ('node:add', {'ndef': ('test:str', 'hello')})
             self.isin(mesg, splices)
 
-            mesg = ('prop:set', {'ndef': ('test:str', 'hello'), 'prop': 'tick', 'valu': 978307200000, 'oldv': None})
+            mesg = ('prop:set', {'ndef': ('test:str', 'hello'), 'prop': 'tick', 'valu': 978307200000})
             self.isin(mesg, splices)
 
             mesg = ('prop:set',
@@ -2548,3 +2546,10 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, await core.eval('test:str +#foo.**.baz').list())
             self.len(1, await core.eval('test:str +#**.bar.baz').list())
             self.len(2, await core.eval('test:str +#**.baz').list())
+
+    async def test_provstackmigration_pre010(self):
+        async with self.getRegrCore('pre-010') as core:
+            provstacks = list(core.provstor.provStacks(0, 1000))
+            self.gt(len(provstacks), 5)
+            self.false(core.layer.layrslab.dbexists('prov'))
+            self.false(core.layer.layrslab.dbexists('provs'))

@@ -4,6 +4,8 @@ import multiprocessing
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+from unittest.mock import patch
+
 import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
@@ -64,6 +66,31 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             items = list(scan)
             self.eq(items, ((b'\x00\x02', b'visi'), (b'\x00\x02', b'zomg')))
+
+            # Copy a database inside the same slab
+            self.raises(s_exc.DataAlreadyExists, slab.copydb, foo, slab, 'bar')
+            self.eq(3, slab.copydb(foo, slab, 'foo2'))
+
+            # Increase the size of the new source DB to trigger a resize on the next copydb
+            foo2 = slab.initdb('foo2')
+            slab.put(b'bigkey', b'x' * 1024 * 1024, dupdata=True, db=foo2)
+
+            vardict = {}
+
+            def progfunc(count):
+                vardict['prog'] = count
+
+            # Copy a database to a different slab
+            path2 = os.path.join(dirn, 'test2.lmdb')
+            async with await s_lmdbslab.Slab.anit(path2, map_size=512 * 1024) as slab2:
+                with patch('synapse.lib.lmdbslab.PROGRESS_PERIOD', 2):
+                    self.eq(4, slab.copydb(foo2, slab2, destdbname='foo2', progresscb=progfunc))
+                    self.gt(vardict.get('prog', 0), 0)
+
+            # Test slab.drop and slab.dbexists
+            self.true(slab.dbexists('foo2'))
+            slab.dropdb(foo2)
+            self.false(slab.dbexists('foo2'))
 
             # start a scan and then fini the whole db...
             scan = slab.scanByPref(b'\x00', db=foo)

@@ -94,7 +94,10 @@ class EditAtom:
 
         splices = [snap.splice('node:add', ndef=node.ndef) for node in self.mybldgbuids.values()]
         for node, prop, oldv, valu in self.npvs:
-            splices.append(snap.splice('prop:set', ndef=node.ndef, prop=prop.name, valu=valu, oldv=oldv))
+            info = {'ndef': node.ndef, 'prop': prop.name, 'valu': valu}
+            if oldv is not None:
+                info['oldv'] = oldv
+            splices.append(snap.splice('prop:set', **info))
 
         await snap.stor(self.sops, splices)
 
