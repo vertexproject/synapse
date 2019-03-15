@@ -90,8 +90,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
             # Test slab.drop
             self.nn(slab.last(db=foo2))
             slab.dropdb(foo2)
-            foo2 = slab.initdb('foo2')
-            self.none(slab.last(db=foo2))
+
+            # Actually test for presence of DB by looking in the default DB for a key with the name of the DB
+            self.none(slab.get(b'foo2'))
 
             # start a scan and then fini the whole db...
             scan = slab.scanByPref(b'\x00', db=foo)

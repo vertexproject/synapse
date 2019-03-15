@@ -525,8 +525,8 @@ class Slab(s_base.Base):
         '''
         destdb = destslab.initdb(destdbname, sourcedb.dupsort)
 
-        hasdata = destslab.last(db=destdb)
-        if hasdata is not None:
+        statdict = destslab.stat(db=destdb)
+        if statdict['entries'] > 0:
             raise s_exc.DataAlreadyExists()
 
         rowcount = 0
