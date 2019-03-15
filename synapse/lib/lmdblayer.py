@@ -38,32 +38,6 @@ class LmdbLayer(s_layer.Layer):
         ('lmdb:readahead', {'type': 'bool', 'defval': True}),
     )
 
-    def _migrate_splices_pre010(self):
-        '''
-        Check for any pre-010 splices and migrate those to the new location (same base directory, separate file)
-
-        Once complete, drop the old splice database
-        '''
-        if not self.layrslab.dbexists('splices'):
-            return
-
-        oldslab = self.layrslab
-        olddb = oldslab.initdb('splices')
-
-        entries = oldslab.stat(olddb)['entries']
-        if not entries:
-            return
-
-        logger.info('Pre-010 splice migration starting.  Total rows: %d...', entries)
-
-        def progfunc(count):
-            logger.info('Progress %d/%d (%2.2f%)', count, entries, count / entries * 100)
-
-        oldslab.copydb(olddb, self.spliceslab, destdbname='splices', progresscb=progfunc)
-        logger.info('Pre-010 splice migration copying done.  Deleting from old location...')
-        oldslab.dropdb(olddb)
-        logger.info('Pre-010 splice migration completed.')
-
     async def __anit__(self, core, node):
 
         await s_layer.Layer.__anit__(self, core, node)
@@ -99,6 +73,50 @@ class LmdbLayer(s_layer.Layer):
         offsdb = await self.initdb('offsets')
         self.offs = s_slaboffs.SlabOffs(self.layrslab, offsdb)
         self.splicelog = s_slabseqn.SlabSeqn(self.spliceslab, 'splices')
+
+    def _migrate_db_pre010(self, dbname, newslab):
+        '''
+        Check for any pre-010 entries in 'dbname' in my slab and migrate those to the new slab.
+
+        Once complete, drop the database from me with the name 'dbname'
+
+        Returns (bool): True if a migration occurred, else False
+
+        '''
+        if not self.layrslab.dbexists(dbname):
+            return False
+
+        oldslab = self.layrslab
+        olddb = oldslab.initdb(dbname)
+
+        entries = oldslab.stat(olddb)['entries']
+        if not entries:
+            return False
+
+        logger.info('Pre-010 %s migration starting.  Total rows: %d...', dbname, entries)
+
+        def progfunc(count):
+            logger.info('Progress %d/%d (%2.2f%)', count, entries, count / entries * 100)
+
+        oldslab.copydb(olddb, newslab, destdbname=dbname, progresscb=progfunc)
+        logger.info('Pre-010 %s migration copying done.  Deleting from old location...', dbname)
+        oldslab.dropdb(olddb)
+        logger.info('Pre-010 %s migration completed.', dbname)
+
+        return True
+
+    def _migrate_splices_pre010(self):
+        self._migrate_db_pre010('splices', self.spliceslab)
+
+    def migrate_provstack_pre010(self, newslab):
+        '''
+        Check for any pre-010 provstacks and migrate those to the new slab.
+        '''
+        did_migrate = self._migrate_db_pre010('prov', newslab)
+        if not did_migrate:
+            return
+
+        self._migrate_db_pre010('provs', newslab)
 
     async def getModelVers(self):
         byts = self.layrslab.get(b'layer:model:version')

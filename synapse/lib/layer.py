@@ -379,3 +379,6 @@ class Layer(s_base.Base):
 
     async def getNodeNdef(self, buid):  # pragma: no cover
         raise NotImplementedError
+
+    def migrate_provstack_pre010(self, slab):  # pragma: no cover
+        raise NotImplementedError

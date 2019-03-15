@@ -2542,3 +2542,10 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, await core.eval('test:str +#foo.**.baz').list())
             self.len(1, await core.eval('test:str +#**.bar.baz').list())
             self.len(2, await core.eval('test:str +#**.baz').list())
+
+    async def test_provstackmigration_pre010(self):
+        async with self.getRegrCore('pre-010') as core:
+            provstacks = list(core.provstor.provStacks(0, 1000))
+            self.gt(len(provstacks), 5)
+            self.false(core.layer.layrslab.dbexists('prov'))
+            self.false(core.layer.layrslab.dbexists('provs'))

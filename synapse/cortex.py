@@ -628,9 +628,6 @@ class Cortex(s_cell.Cell):
 
         self.model = s_datamodel.Model()
 
-        self.provstor = await s_provenance.ProvStor.anit(self.dirn)
-        self.onfini(self.provstor.fini)
-
         # Perform module loading
         mods = list(s_modules.coremods)
         mods.extend(self.conf.get('modules'))
@@ -640,6 +637,10 @@ class Cortex(s_cell.Cell):
         await self._initCoreLayers()
         await self._checkLayerModels()
         await self._initCoreViews()
+
+        self.provstor = await s_provenance.ProvStor.anit(self.dirn)
+        self.onfini(self.provstor.fini)
+        self.provstor.migrate_pre010(self.layer)
 
         async def fini():
             await asyncio.gather(*[view.fini() for view in self.views.values()])
