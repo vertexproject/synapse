@@ -3,14 +3,11 @@ import json
 import pathlib
 import contextlib
 
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.cortex as s_cortex
-import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.cmdr as s_cmdr
-import synapse.lib.node as s_node
 import synapse.lib.msgpack as s_msgpack
 
 def getDocPath(fn, root=None):
@@ -155,7 +152,7 @@ class CmdrCore(s_base.Base):
                 await self.runCmdLine(text)
 
         else:
-            async for mesg in await self.core.storm(text, opts=opts):
+            async for mesg in self.core.storm(text, opts=opts):
                 mesgs.append(mesg)
 
         return mesgs
@@ -179,7 +176,8 @@ class CmdrCore(s_base.Base):
         mesgs = await self._runStorm(text, opts, cmdr)
         if num is not None:
             nodes = [m for m in mesgs if m[0] == 'node']
-            assert len(nodes) == num
+            if len(nodes) != num:
+                raise AssertionError(f'Expected {num} nodes, got {len(nodes)}')
 
         return mesgs
 
@@ -204,7 +202,8 @@ class CmdrCore(s_base.Base):
         nodes = [m[1] for m in mesgs if m[0] == 'node']
 
         if num is not None:
-            assert len(nodes) == num
+            if len(nodes) != num:
+                raise AssertionError(f'Expected {num} nodes, got {len(nodes)}')
 
         return nodes
 

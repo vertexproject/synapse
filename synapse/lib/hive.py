@@ -62,9 +62,7 @@ class Node(s_base.Base):
         return await self.hive.open(full)
 
     async def dict(self):
-        info = await HiveDict.anit(self.hive, self)
-        self.onfini(info)
-        return info
+        return await HiveDict.anit(self.hive, self)
 
     def __iter__(self):
         for name, node in self.kids.items():
@@ -279,7 +277,7 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         return node.valu
 
-    async def getTeleApi(self, link, mesg):
+    async def getTeleApi(self, link, mesg, path):
 
         auth = await self.getHiveAuth()
 
@@ -300,13 +298,6 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         return await HiveApi.anit(self, user)
 
-    # TODO maybe eventually allow opening at a position and acting
-    # like a hive with the given path as the root...
-    #async def onTeleOpen(self, link, path):
-        #class HivePathApi(s_telepath.Aware):
-            #async def getTeleApi(self, link, mesg):
-                #return await HiveApi.anit(self, link, mesg, path=path)
-
     async def _storLoadHive(self):
         pass
 
@@ -319,6 +310,7 @@ class SlabHive(Hive):
         self.db = db
         self.slab = slab
         await Hive.__anit__(self, conf=conf)
+        self.slab.onfini(self.fini)
 
     async def _storLoadHive(self):
 
@@ -455,7 +447,7 @@ class TeleHive(Hive):
 
     async def _runHiveLoop(self):
         while not self.isfini:
-            async for mesg in await self.proxy.edits():
+            async for mesg in self.proxy.edits():
                 await self.mesgbus.dist(mesg)
 
     async def _onHiveSet(self, mesg):
@@ -538,6 +530,8 @@ class HiveDict(s_base.Base):
         self.hive = hive
         self.node = node
 
+        self.node.onfini(self)
+
     def get(self, name, onedit=None):
 
         # use hive.onedit() here to register for
@@ -587,24 +581,38 @@ class HiveAuth(s_base.Base):
 
         self.node = node
 
-        self.users = await node.open('users')
-        self.roles = await node.open('roles')
-
         self.usersbyiden = {}
         self.rolesbyiden = {}
         self.usersbyname = {}
         self.rolesbyname = {}
 
-        for iden, node in self.roles:
+        roles = await self.node.open('roles')
+        for iden, node in roles:
             await self._addRoleNode(node)
 
-        for idne, node in self.users:
+        users = await self.node.open('users')
+        for iden, node in users:
             await self._addUserNode(node)
 
         # initialize an admin user named root
-        if self.getUserByName('root') is None:
-            user = await self.addUser('root')
-            await user.setAdmin(True)
+        root = self.getUserByName('root')
+        if root is None:
+            root = await self.addUser('root')
+
+        await root.setAdmin(True)
+        await root.setLocked(False)
+
+        async def fini():
+            [await u.fini() for u in self.users()]
+            [await r.fini() for r in self.roles()]
+
+        self.onfini(fini)
+
+    def users(self):
+        return self.usersbyiden.values()
+
+    def roles(self):
+        return self.rolesbyiden.values()
 
     def role(self, iden):
         return self.rolesbyiden.get(iden)
@@ -623,7 +631,6 @@ class HiveAuth(s_base.Base):
         user = await HiveUser.anit(self, node)
 
         self.onfini(user)
-
         self.usersbyiden[user.iden] = user
         self.usersbyname[user.name] = user
 
@@ -680,9 +687,18 @@ class HiveIden(s_base.Base):
         self.name = node.valu
 
         self.info = await node.dict()
+        self.onfini(self.info)
 
         self.info.setdefault('rules', ())
         self.rules = self.info.get('rules', onedit=self._onRulesEdit)
+
+    async def setName(self, name):
+        self.name = name
+        await self.node.set(name)
+
+    async def setRules(self, rules):
+        self.rules = list(rules)
+        await self.info.set('rules', rules)
 
     async def addRule(self, rule, indx=None):
 
@@ -719,6 +735,14 @@ class HiveRole(HiveIden):
             if self.iden in user.roles:
                 await user._initFullRules()
 
+    def pack(self):
+        return {
+            'type': 'role',
+            'iden': self.iden,
+            'name': self.name,
+            'rules': self.rules,
+        }
+
 class HiveUser(HiveIden):
 
     async def __anit__(self, auth, node):
@@ -735,10 +759,26 @@ class HiveUser(HiveIden):
         self.admin = self.info.get('admin', onedit=self._onAdminEdit)
         self.locked = self.info.get('locked', onedit=self._onLockedEdit)
 
+        # arbitrary profile data for application layer use
+        prof = await self.node.open('profile')
+        self.profile = await prof.dict()
+
         self.fullrules = []
         self.permcache = s_cache.FixedCache(self._calcPermAllow)
 
         self._initFullRules()
+
+    def pack(self):
+        return {
+            'type': 'user',
+            'name': self.name,
+            'iden': self.node.name(),
+            'rules': self.rules,
+            'roles': [r.iden for r in self.getRoles()],
+            'admin': self.admin,
+            'email': self.info.get('email'),
+            'locked': self.locked,
+        }
 
     def _calcPermAllow(self, perm):
         for retn, path in self.fullrules:
@@ -746,6 +786,12 @@ class HiveUser(HiveIden):
                 return retn
 
         return False
+
+    def getRoles(self):
+        for iden in self.roles:
+            role = self.auth.role(iden)
+            if role is not None:
+                yield role
 
     def _initFullRules(self):
 
@@ -793,6 +839,10 @@ class HiveUser(HiveIden):
         if role is None:
             raise s_exc.NoSuchRole(name=name)
 
+        return await self.grantRole(role)
+
+    async def grantRole(self, role, indx=None):
+
         roles = list(self.roles)
         if role.iden in roles:
             return
@@ -809,6 +859,10 @@ class HiveUser(HiveIden):
         role = self.auth.rolesbyname.get(name)
         if role is None:
             raise s_exc.NoSuchRole(name=name)
+
+        return await self.revokeRole(role)
+
+    async def revokeRole(self, role):
 
         roles = list(self.roles)
         if role.iden not in roles:

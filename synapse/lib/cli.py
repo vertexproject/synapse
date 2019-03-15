@@ -1,6 +1,7 @@
+import os
 import json
 import time
-import shlex
+import atexit
 import signal
 import asyncio
 import threading
@@ -9,6 +10,7 @@ import collections
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
+import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.base as s_base
@@ -236,6 +238,7 @@ class Cli(s_eventbus.EventBus):
 
         self.echoline = False
         self.finikill = False
+        self.inithist = False
         self.loopthread = None
 
         if isinstance(item, (s_base.Base, s_eventbus.EventBus)):
@@ -259,14 +262,40 @@ class Cli(s_eventbus.EventBus):
         if self.loopthread is not None and self.finikill:
             signal.pthread_kill(self.loopthread, signal.SIGINT)
 
-    def reflectItem(self):
-        refl = s_reflect.getItemInfo(self.item)
-        if refl is None:
+    def _initReadline(self, readline):
+        try:
+            readline.read_init_file()
+        except OSError:  # pragma: no cover
+            # from cpython 3.6 site.py:
+            # An OSError here could have many causes, but the most likely one
+            # is that there's no .inputrc file (or .editrc file in the case of
+            # Mac OS X + libedit) in the expected location.  In that case, we
+            # want to ignore the exception.
+            pass
+
+        if not self.inithist:
             return
 
-        for name in refl.get('inherits', ()):
-            for mixi in s_mixins.getSynMixins('cmdr', name):
-                self.addCmdClass(mixi)
+        if readline.get_current_history_length() == 0:  # pragma: no cover
+            history_path = s_common.getSynPath('cmdr_history')
+            # We have to ensure the file exists to use append mode
+            with s_common.genfile(history_path) as fd:
+                pass
+            try:
+                readline.read_history_file(history_path)
+            except IOError:
+                pass
+            h_len = readline.get_current_history_length()
+
+            # Allows for concurrent usage to only append the new items from
+            # a given cmdr session to the file.
+            # Recipe from cpython stdlib documentation for readline.
+            def save(prev_h_len, histfile):
+                new_h_len = readline.get_current_history_length()
+                readline.set_history_length(10000)
+                readline.append_history_file(new_h_len - prev_h_len, histfile)
+
+            atexit.register(save, h_len, history_path)
 
     def get(self, name, defval=None):
         return self.locs.get(name, defval)
@@ -329,20 +358,11 @@ class Cli(s_eventbus.EventBus):
         self.loopthread = threading.currentThread().ident
 
         import readline
-
-        try:
-            readline.read_init_file()
-        except OSError:
-            # from cpython 3.6 site.py:
-            # An OSError here could have many causes, but the most likely one
-            # is that there's no .inputrc file (or .editrc file in the case of
-            # Mac OS X + libedit) in the expected location.  In that case, we
-            # want to ignore the exception.
-            pass
+        self._initReadline(readline)
 
         while not self.isfini:
 
-            # FIXME history / completion
+            # FIXME completion
 
             try:
                 task = None

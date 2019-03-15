@@ -285,7 +285,7 @@ class Type:
 
     def merge(self, oldv, newv):
         '''
-        Allow types to "merge" data from two sources based on value precidence.
+        Allow types to "merge" data from two sources based on value precedence.
 
         Args:
             valu (object): The current value.
@@ -651,7 +651,17 @@ class Int(IntBase):
         enums = self.opts.get('enums')
         if enums is not None:
             self.enumrepr.update(dict(enums))
-            self.enumnorm.update({(n, v) for (v, n) in enums})
+            self.enumnorm.update({(n.lower(), v) for (v, n) in enums})
+
+            if len(enums) != len(self.enumrepr):
+                mesg = 'Number of enums does not match the number of string reprs.'
+                raise s_exc.BadTypeDef(mesg=mesg,
+                                       name=self.name)
+
+            if len(enums) != len(self.enumnorm):
+                mesg = 'Number of enums does not match the number of string norms.'
+                raise s_exc.BadTypeDef(mesg=mesg,
+                                       name=self.name)
 
         minval = self.opts.get('min')
         maxval = self.opts.get('max')
@@ -691,9 +701,10 @@ class Int(IntBase):
 
     def _normPyStr(self, valu):
 
-        ival = self.enumnorm.get(valu)
-        if ival is not None:
-            return self._normPyInt(ival)
+        if self.enumnorm:
+            ival = self.enumnorm.get(valu.lower())
+            if ival is not None:
+                return self._normPyInt(ival)
 
         try:
             valu = int(valu, 0)
@@ -710,6 +721,10 @@ class Int(IntBase):
 
         if self.maxval is not None and valu > self.maxval:
             mesg = f'value is above max={self.maxval}'
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
+
+        if self.enumrepr and valu not in self.enumrepr:
+            mesg = 'Value is not a valid enum value.'
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
 
         return valu, {}
@@ -1129,7 +1144,7 @@ class Range(Type):
 
     def postTypeInit(self):
         subtype = self.opts.get('type')
-        if not(type(subtype) is tuple and len(subtype) is 2):
+        if not(type(subtype) is tuple and len(subtype) == 2):
             raise s_exc.BadTypeDef(self.opts, name=self.name)
 
         try:

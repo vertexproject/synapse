@@ -1,4 +1,3 @@
-import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 
 class PsModule(s_module.CoreModule):

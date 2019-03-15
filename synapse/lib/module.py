@@ -1,21 +1,18 @@
 import os
-import datetime
 
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
-import synapse.telepath as s_telepath
 
 class CoreModule:
-    '''
-    '''
 
     confdefs = ()
     mod_name = None
 
-    def __init__(self, core):
+    def __init__(self, core, conf=None):
 
         self.core = core        # type: synapse.cortex.Cortex
         self.model = core.model # type: synapse.datamodel.Model
+        if self.mod_name is None:
+            self.mod_name = self.getModName()
 
         # Avoid getModPath / getConfPath during __init__ since these APIs
         # will create directories. We do not need that behavior by default.
@@ -23,15 +20,26 @@ class CoreModule:
                                      'mods',
                                      self.getModName())
         self._confpath = os.path.join(self._modpath, 'conf.yaml')
-        conf = {}
+
+        if conf is None:
+            conf = {}
+
         if os.path.isfile(self._confpath):
             conf = s_common.yamlload(self._confpath)
+
         self.conf = s_common.config(conf, self.confdefs)
 
-    def getModelDefs(self):
+    def getStormCmds(self):  # pragma: no cover
+        '''
+        Module implementers may override this to provide a list of Storm
+        commands which will be loaded into the Cortex.
+
+        Returns:
+            list: A list of Storm Command classes (not instances).
+        '''
         return ()
 
-    def getModelRevs(self):
+    def getModelDefs(self):
         return ()
 
     def getConfPath(self):
@@ -70,7 +78,9 @@ class CoreModule:
         Notes:
             This pulls the ``mod_name`` attribute on the class. This allows
             an implementer to set a arbitrary name for the module.  If this
-            attribute is not set, it defaults to ``self.__class__.__name__``.
+            attribute is not set, it defaults to
+            ``self.__class__.__name__.lower()`` and sets ``mod_name`` to
+            that value.
 
         Returns:
             (str): The module name.
@@ -96,14 +106,44 @@ class CoreModule:
         dirn = self.getModDir()
         return s_common.genpath(dirn, *paths)
 
+    async def preCoreModule(self):
+        '''
+        Module implementers may override this method to execute code
+        immediately after a module has been loaded.
+
+        Notes:
+            The ``initCoreModule`` function is preferred for overriding
+            instead of ``preCoreModule()``.
+
+            No Cortex layer/storage operations will function in preCoreModule.
+
+            Any exception raised within this method will halt additional
+            loading of the module.
+
+        Returns:
+            None
+        '''
+        pass
+
     async def initCoreModule(self):
         '''
-        Module implementers may over-ride this method to initialize the
-        module during initial construction.  Any exception raised within
-        this method will be raised from the constructor and mark the module
-        as failed.
+        Module implementers may override this method to initialize the
+        module after the Cortex has completed and is accessible to perform
+        storage operations.
 
-        Args:
+        Notes:
+            This is the preferred function to override for implementing custom
+            code that needs to be executed during Cortex startup.
+
+            Any exception raised within this method will remove the module from
+            the list of currently loaded modules.
+
+            This is called for modules after getModelDefs() and getStormCmds()
+            has been called, in order to allow for model loading and storm
+            command loading prior to code execution offered by initCoreModule.
+
+            A failure during initCoreModule will not unload data model or storm
+            commands registered by the module.
 
         Returns:
             None

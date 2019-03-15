@@ -46,15 +46,43 @@ class Node:
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
 
-    async def storm(self, text, opts=None, user=None):
+    async def storm(self, text, opts=None, user=None, path=None):
+        '''
+        Args:
+            path (Path):
+                If set, then vars from path are copied into the new runtime, and vars are copied back out into path
+                at the end
+
+        Note:
+            If opts is not None and opts['vars'] is set and path is not None, then values of path vars take precedent
+        '''
         query = self.snap.core.getStormQuery(text)
-        with self.snap.getStormRuntime(opts=opts, user=user) as runt:
+
+        # Merge vars from path into opts.vars
+        pathvars = path.vars if path is not None else None
+        if opts is None:
+            if pathvars is None:
+                newopts = None
+            else:
+                newopts = {'vars': pathvars}
+        else:
+            vars = opts.get('vars')
+            if pathvars is None:
+                newopts = opts
+            elif vars is None:
+                newopts = {**opts, **{'vars': pathvars}}
+            else:
+                newopts = {**opts, **{'vars': {**vars, **pathvars}}}
+
+        with self.snap.getStormRuntime(opts=newopts, user=user) as runt:
             runt.addInput(self)
             async for item in runt.iterStormQuery(query):
                 yield item
+            if path:
+                path.vars.update(runt.vars)
 
-    async def filter(self, text, opts=None, user=None):
-        async for item in self.storm(text, opts=opts, user=user):  # NOQA
+    async def filter(self, text, opts=None, user=None, path=None):
+        async for item in self.storm(text, opts=opts, user=user, path=path):
             return False
         return True
 
@@ -252,32 +280,9 @@ class Node:
         Returns:
             (obj): The secondary property value or None.
         '''
-        parts = name.split('::', 1)
-
-        if len(parts) is 1:
-            name = parts[0]
-            if name.startswith('#'):
-                return self.tags.get(name[1:])
-            return self.props.get(name)
-
-        # FIXME
-        raise Exception('Temporarily disabled implicit pivoting in get')
-
-        name, text = parts
-        prop = self.form.props.get(name)
-        if prop is None:
-            raise s_exc.NoSuchProp(prop=name, form=self.form.name)
-
-        valu = self.props.get(name, s_common.novalu)
-        if valu is s_common.novalu:
-            return None
-
-        form = self.snap.model.form(prop.type.name)
-        if form is None:
-            raise s_exc.NoSuchForm(form=prop.type.name)
-
-        # node = await self.snap.getNodeByNdef((form.name, valu))
-        # return await node.get(text)
+        if name.startswith('#'):
+            return self.tags.get(name[1:])
+        return self.props.get(name)
 
     async def pop(self, name, init=False):
 
@@ -307,9 +312,8 @@ class Node:
             return False
 
         sops = prop.getDelOps(self.buid)
-        await self.snap.stor(sops)
-
-        await self.snap.splice('prop:del', ndef=self.ndef, prop=prop.name, valu=curv)
+        splice = self.snap.splice('prop:del', ndef=self.ndef, prop=prop.name, valu=curv)
+        await self.snap.stor(sops, [splice])
 
         await prop.wasDel(self, curv)
 
@@ -416,8 +420,8 @@ class Node:
 
     async def _setTagProp(self, name, norm, indx, info):
         self.tags[name] = norm
-        await self.snap.stor((('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),))
-        await self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
+        splice = self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
+        await self.snap.stor((('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),), [splice])
 
     async def _addTagRaw(self, name, norm):
 
@@ -468,10 +472,9 @@ class Node:
         info = {'univ': True}
         sops = [('prop:del', (self.buid, self.form.name, '#' + t, info)) for (t, v) in removed]
 
-        await self.snap.stor(sops)
-
         # fire all the splices
-        [await self.snap.splice('tag:del', ndef=self.ndef, tag=t, valu=v) for (t, v) in removed]
+        splices = [self.snap.splice('tag:del', ndef=self.ndef, tag=t, valu=v) for (t, v) in removed]
+        await self.snap.stor(sops, splices)
 
         # fire all the handlers / triggers
         [await self.snap.core.runTagDel(self, t, v) for (t, v) in removed]
@@ -539,10 +542,10 @@ class Node:
 
         sops = self.form.getDelOps(self.buid)
 
-        await self.snap.stor(sops)
-        await self.snap.splice('node:del', ndef=self.ndef)
+        splice = self.snap.splice('node:del', ndef=self.ndef)
+        await self.snap.stor(sops, [splice])
 
-        self.snap.buidcache.pop(self.buid)
+        self.snap.livenodes.pop(self.buid)
         self.snap.core.pokeFormCount(formname, -1)
 
         await self.form.wasDeleted(self)

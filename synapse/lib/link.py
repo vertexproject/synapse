@@ -7,13 +7,10 @@ import collections
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
-import synapse.lib.queue as s_queue
 import synapse.lib.msgpack as s_msgpack
 
 readsize = 10 * s_const.megabyte
@@ -39,6 +36,24 @@ async def listen(host, port, onlink, ssl=None):
     server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
     return server
 
+async def unixlisten(path, onlink):
+    '''
+    Start an PF_UNIX server listening on the given path.
+    '''
+    info = {'path': path, 'unix': True}
+    async def onconn(reader, writer):
+        link = await Link.anit(reader, writer, info=info)
+        link.schedCoro(onlink(link))
+    return await asyncio.start_unix_server(onconn, path=path)
+
+async def unixconnect(path):
+    '''
+    Connect to a PF_UNIX server listening on the given path.
+    '''
+    reader, writer = await asyncio.open_unix_connection(path=path)
+    info = {'path': path, 'unix': True}
+    return await Link.anit(reader, writer, info=info)
+
 class Link(s_base.Base):
     '''
     A Link() is created to wrap a socket reader/writer.
@@ -58,21 +73,23 @@ class Link(s_base.Base):
 
         self._drain_lock = asyncio.Lock()
 
-        # disable nagle ( to minimize latency for small xmit )
-        self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-
-        # enable TCP keep alives...
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-        if hasattr(socket, 'TCP_KEEPIDLE'):
-            # start sending a keep alives after 3 sec of inactivity
-            self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 3)
-            # send keep alives every 3 seconds once started
-            self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)
-            # close the socket after 5 failed keep alives (15 sec)
-            self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
-
         if info is None:
             info = {}
+
+        if not info.get('unix'):
+
+            # disable nagle ( to minimize latency for small xmit )
+            self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+            # enable TCP keep alives...
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+            if hasattr(socket, 'TCP_KEEPIDLE'):
+                # start sending a keep alives after 3 sec of inactivity
+                self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 3)
+                # send keep alives every 3 seconds once started
+                self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)
+                # close the socket after 5 failed keep alives (15 sec)
+                self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
 
         self.info = info
 

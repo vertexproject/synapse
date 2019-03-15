@@ -77,3 +77,10 @@ class ChopTest(s_t_utils.SynTest):
         for tv, ev in tvs:
             gv = s_chop.stormstring(tv)
             self.eq(gv, ev)
+
+    def test_chop_validatetagmatch(self):
+        self.raises(s_exc.BadTag, s_chop.validateTagMatch, ' foo')
+        self.raises(s_exc.BadTag, s_chop.validateTagMatch, 'foo&bar')
+        self.raises(s_exc.BadTag, s_chop.validateTagMatch, 'foo..bar')
+        self.none(s_chop.validateTagMatch('foo.*.bar'))
+        self.none(s_chop.validateTagMatch('**foo.*.bar'))

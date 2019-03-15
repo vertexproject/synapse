@@ -3,11 +3,12 @@ import synapse.exc as s_exc
 import synapse.lib.node as s_node
 
 import synapse.tests.utils as s_t_utils
+from synapse.tests.utils import alist
 
 class NodeTest(s_t_utils.SynTest):
 
     async def test_pack(self):
-        form = 'teststr'
+        form = 'test:str'
         valu = 'cool'
         props = {'tick': 12345}
 
@@ -16,13 +17,13 @@ class NodeTest(s_t_utils.SynTest):
                 node = await snap.addNode(form, valu, props=props)
 
                 iden, info = node.pack()
-                self.eq(iden, ('teststr', 'cool'))
+                self.eq(iden, ('test:str', 'cool'))
                 self.eq(info.get('tags'), {})
                 props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
                 self.eq(props, {'tick': 12345})
 
                 iden, info = node.pack(dorepr=True)
-                self.eq(iden, ('teststr', 'cool'))
+                self.eq(iden, ('test:str', 'cool'))
                 self.eq(info.get('tags'), {})
                 props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
                 self.eq(props, {'tick': 12345})
@@ -45,7 +46,7 @@ class NodeTest(s_t_utils.SynTest):
                 self.eq(reprs.get('newp'), '(2, 3)')
 
     async def test_set(self):
-        form = 'teststr'
+        form = 'test:str'
         valu = 'cool'
         props = {'tick': 12345}
 
@@ -58,14 +59,14 @@ class NodeTest(s_t_utils.SynTest):
                 self.true(await node.set('tick', 123456))
                 await self.asyncraises(s_exc.NoSuchProp, node.set('notreal', 12345))
 
-                ronode = await snap.addNode('testcomp', (1, 's'))
+                ronode = await snap.addNode('test:comp', (1, 's'))
                 await self.asyncraises(s_exc.ReadOnlyProp, ronode.set('hehe', 2))
                 snap.strict = False
                 self.false(await ronode.set('hehe', 3))
                 snap.strict = True
 
     async def test_has(self):
-        form = 'teststr'
+        form = 'test:str'
         valu = 'cool'
         props = {'tick': 12345}
 
@@ -79,7 +80,7 @@ class NodeTest(s_t_utils.SynTest):
                 self.false(node.has('.nope'))
 
     async def test_get(self):
-        form = 'teststr'
+        form = 'test:str'
         valu = 'cool'
         props = {'tick': 12345}
 
@@ -94,13 +95,8 @@ class NodeTest(s_t_utils.SynTest):
                 self.eq(node.get('#cool'), (1, 2))
                 self.none(node.get('#newp'))
 
-                # FIXME:  disabled implicit pivot temporarily
-                # self.raises(s_exc.NoSuchProp, node.get, 'neat::tick')  # implicit pivot from neat (not a prop) to tick
-                # self.raises(s_exc.NoSuchForm, node.get, 'tick::tick')  # implicit pivot from neat to tick (not a form)
-                # self.none(node.get('bar::bar'))  # implicit piviot from bar to bar
-
     async def test_pop(self):
-        form = 'teststr'
+        form = 'test:str'
         valu = 'cool'
         props = {'tick': 12345}
 
@@ -114,7 +110,7 @@ class NodeTest(s_t_utils.SynTest):
                 self.false(await node.pop('nope'))
                 snap.strict = True
 
-                ronode = await snap.addNode('testcomp', (1, 's'))
+                ronode = await snap.addNode('test:comp', (1, 's'))
                 await self.asyncraises(s_exc.ReadOnlyProp, ronode.pop('hehe'))
                 snap.strict = False
                 self.false(await ronode.pop('hehe'))
@@ -124,14 +120,14 @@ class NodeTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
 
-                form = 'teststr'
+                form = 'test:str'
                 valu = 'cool'
                 props = {'tick': 12345}
                 node = await snap.addNode(form, valu, props=props)
                 self.none(node.repr())
                 self.eq(node.repr('tick'), '1970/01/01 00:00:12.345')
 
-                form = 'testthreetype'
+                form = 'test:threetype'
                 valu = 'cool'
                 node = await snap.addNode(form, valu)
                 self.eq(node.repr(), '3')
@@ -139,7 +135,7 @@ class NodeTest(s_t_utils.SynTest):
                 self.eq(reprs.get('three'), '3')
 
     async def test_tags(self):
-        form = 'teststr'
+        form = 'test:str'
         valu = 'cool'
         props = {'tick': 12345}
 
@@ -175,7 +171,7 @@ class NodeTest(s_t_utils.SynTest):
                 snap.strict = True
 
     async def test_helpers(self):
-        form = 'teststr'
+        form = 'test:str'
         valu = 'cool'
         props = {'tick': 12345}
         tval = (None, None)
@@ -187,9 +183,9 @@ class NodeTest(s_t_utils.SynTest):
                 await node.addTag('test.foo.baz', tval)
                 pode = node.pack(dorepr=True)
 
-        self.eq(s_node.ndef(pode), ('teststr', 'cool'))
+        self.eq(s_node.ndef(pode), ('test:str', 'cool'))
 
-        e = '15985dca780f125a6cefdcbd332c64faa505116ea652b1702a3df81e29e98732'
+        e = 'bf1198c5f28dae61d595434b0788dd6f7206b1e62d06b0798e012685f1abc85d'
         self.eq(s_node.iden(pode), e)
 
         self.true(s_node.tagged(pode, 'test'))
@@ -202,10 +198,42 @@ class NodeTest(s_t_utils.SynTest):
 
         self.eq(s_node.prop(pode, 'tick'), 12345)
         self.eq(s_node.prop(pode, ':tick'), 12345)
-        self.eq(s_node.prop(pode, 'teststr:tick'), 12345)
+        self.eq(s_node.prop(pode, 'test:str:tick'), 12345)
         self.none(s_node.prop(pode, 'newp'))
 
         props = s_node.props(pode)
         self.isin('.created', props)
         self.isin('tick', props)
         self.notin('newp', props)
+
+    async def test_storm(self):
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:comp', (42, 'lol'))
+                nodepaths = await alist(node.storm('-> test:int'))
+                self.len(1, nodepaths)
+                self.eq(nodepaths[0][0].ndef, ('test:int', 42))
+
+                nodepaths = await alist(node.storm('-> test:int [:loc=$foo]', opts={'vars': {'foo': 'us'}}))
+                self.eq(nodepaths[0][0].props.get('loc'), 'us')
+
+                path = nodepaths[0][1].fork(node)
+                path.vars['zed'] = 'ca'
+
+                # Path present, opts not present
+                nodes = await alist(node.storm('-> test:int [:loc=$zed] $bar=$foo', path=path))
+                self.eq(nodes[0][0].props.get('loc'), 'ca')
+                self.eq(path.vars.get('bar'), 'us')
+
+                # Path present, opts present but no opts['vars']
+                nodes = await alist(node.storm('-> test:int [:loc=$zed] $bar=$foo', opts={}, path=path))
+                self.eq(nodes[0][0].props.get('loc'), 'ca')
+                self.eq(path.vars.get('bar'), 'us')
+
+                # Path present, opts present with vars
+                nodes = await alist(node.storm('-> test:int [:loc=$zed] $bar=$baz',
+                                               opts={'vars': {'baz': 'ru'}},
+                                               path=path))
+                self.eq(nodes[0][0].props.get('loc'), 'ca')
+                self.eq(path.vars.get('bar'), 'ru')

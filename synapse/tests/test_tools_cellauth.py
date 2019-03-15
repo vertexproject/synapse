@@ -5,21 +5,21 @@ import synapse.tools.cellauth as s_cellauth
 class CellAuthTest(s_t_utils.SynTest):
 
     async def test_cellauth_bad(self):
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon, \
-                await self.agetTestProxy(dmon, 'core', user='root', passwd='root'):
-            coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
-            argv = [coreurl]
+
+        async with self.getTestCore() as core:
+
+            argv = [core.getLocalUrl()]
             outp = self.getTestOutp()
             self.eq(await s_cellauth.main(argv, outp), -1)
             outp.expect('the following arguments are required:')
 
     async def test_cellauth_list(self):
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon, \
-                await self.agetTestProxy(dmon, 'core', user='root', passwd='root') as core:
-            await self.addCreatorDeleterRoles(core)
-            await core.addUserRole('root', 'creator')
 
-            coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
+        async with self.getTestCore() as core:
+
+            await self.addCreatorDeleterRoles(core)
+
+            coreurl = core.getLocalUrl()
 
             argv = [coreurl, 'list']
             outp = self.getTestOutp()
@@ -29,11 +29,12 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('root')
             outp.expect('roles:')
 
-            argv = [coreurl, 'list', 'root']
+            argv = [coreurl, '--debug', 'list', 'icanadd']
             outp = self.getTestOutp()
             self.eq(await s_cellauth.main(argv, outp), 0)
-            outp.expect('root')
-            outp.expect('admin: True')
+
+            outp.expect('icanadd')
+            outp.expect('admin: False')
             outp.expect('role: creator')
 
             argv = [coreurl, 'list', 'creator']
@@ -43,9 +44,10 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('type: role')
 
     async def test_cellauth_user(self):
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
-            coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
+        async with self.getTestCore() as core:
+
+            coreurl = core.getLocalUrl()
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', 'root']
@@ -87,9 +89,10 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('admin: False')
 
     async def test_cellauth_lock(self):
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
-            coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
+        async with self.getTestCore() as core:
+
+            coreurl = core.getLocalUrl()
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--adduser', 'foo']
@@ -110,9 +113,10 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('locked: False')
 
     async def test_cellauth_passwd(self):
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
-            coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
+        async with self.getTestCore() as core:
+
+            coreurl = core.getLocalUrl()
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--adduser', 'foo']
@@ -125,9 +129,10 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('setting passwd for: foo')
 
     async def test_cellauth_grants(self):
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
-            coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
+        async with self.getTestCore() as core:
+
+            coreurl = core.getLocalUrl()
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--adduser', 'foo']
@@ -149,9 +154,11 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('revoking bar from: foo')
 
     async def test_cellauth_rules(self):
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
-            coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
+        async with self.getTestCore() as core:
+
+            coreurl = core.getLocalUrl()
+
             rule = 'node:add'
             nrule = '!node:add'
             name = 'foo'

@@ -1,5 +1,3 @@
-import synapse.lib.hashset as s_hashset
-
 from synapse.common import guid
 import synapse.tests.utils as s_t_utils
 

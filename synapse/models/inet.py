@@ -1,7 +1,3 @@
-# FIXME
-# "nullvals" - inet:mac, inet:ipv4, inet:ipv6
-
-
 import socket
 import hashlib
 import logging
@@ -162,6 +158,28 @@ class Cidr4(s_types.StrBase):
         }
         return norm, info
 
+class Cidr6(s_types.StrBase):
+
+    def postTypeInit(self):
+        s_types.StrBase.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+
+    def _normPyStr(self, valu):
+        try:
+            network = ipaddress.IPv6Network(valu)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=e)
+
+        norm = str(network)
+        info = {
+            'subs': {
+                'broadcast': str(network.broadcast_address),
+                'mask': network.prefixlen,
+                'network': str(network.network_address),
+            }
+        }
+        return norm, info
+
 class Email(s_types.StrBase):
 
     def postTypeInit(self):
@@ -277,12 +295,14 @@ class IPv4(s_types.Type):
 
             if valu.find('/') != -1:
                 minv, maxv = self.getCidrRange(valu)
+
                 def cmpr(norm):
                     return norm >= minv and norm < maxv
                 return cmpr
 
             if valu.find('-') != -1:
                 minv, maxv = self.getNetRange(valu)
+
                 def cmpr(norm):
                     return norm >= minv and norm <= maxv
                 return cmpr
@@ -408,12 +428,35 @@ class IPv6(s_types.Type):
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e))
 
+class IPv4Range(s_types.Range):
+
+    def postTypeInit(self):
+        self.opts['type'] = ('inet:ipv4', {})
+        s_types.Range.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+        self.cidrtype = self.modl.type('inet:cidr4')
+
+    def _normPyStr(self, valu):
+        if '-' in valu:
+            return super()._normPyStr(valu)
+        cidrnorm = self.cidrtype._normPyStr(valu)
+        tupl = cidrnorm[1]['subs']['network'], cidrnorm[1]['subs']['broadcast']
+        return self._normPyTuple(tupl)
+
 class IPv6Range(s_types.Range):
-    _opt_defs = ()
 
     def postTypeInit(self):
         self.opts['type'] = ('inet:ipv6', {})
         s_types.Range.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+        self.cidrtype = self.modl.type('inet:cidr6')
+
+    def _normPyStr(self, valu):
+        if '-' in valu:
+            return super()._normPyStr(valu)
+        cidrnorm = self.cidrtype._normPyStr(valu)
+        tupl = cidrnorm[1]['subs']['network'], cidrnorm[1]['subs']['broadcast']
+        return self._normPyTuple(tupl)
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
@@ -721,6 +764,11 @@ class InetModule(s_module.CoreModule):
                         'ex': '1.2.3.0/24'
                     }),
 
+                    ('inet:cidr6', 'synapse.models.inet.Cidr6', {}, {
+                        'doc': 'An IPv6 address block in Classless Inter-Domain Routing (CIDR) notation.',
+                        'ex': '2001:db8::/101'
+                    }),
+
                     ('inet:email', 'synapse.models.inet.Email', {}, {
                         'doc': 'An e-mail address.'}),
 
@@ -731,6 +779,11 @@ class InetModule(s_module.CoreModule):
                     ('inet:ipv4', 'synapse.models.inet.IPv4', {}, {
                         'doc': 'An IPv4 address.',
                         'ex': '1.2.3.4'
+                    }),
+
+                    ('inet:ipv4range', 'synapse.models.inet.IPv4Range', {}, {
+                        'doc': 'An IPv6 address range',
+                        'ex': '(1.2.3.4-1.2.3.8)'
                     }),
 
                     ('inet:ipv6', 'synapse.models.inet.IPv6', {}, {
@@ -807,12 +860,11 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:mac', ('str', {'lower': True, 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$'}), {
-                        # 'nullval': '??',  # FIXME this should not be here
                         'doc': 'A 48-bit Media Access Control (MAC) address.',
                         'ex': 'aa:bb:cc:dd:ee:ff'
                     }),
 
-                    ('inet:net4', ('range', {'type': ('inet:ipv4', {})}), {
+                    ('inet:net4', ('inet:ipv4range', {}), {
                         'doc': 'An IPv4 address range.',
                         'ex': '(1.2.3.4, 1.2.3.20)'
                     }),
@@ -879,10 +931,6 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An instance of an account performing an action at an Internet-based site or service.'
                     }),
 
-                    ('inet:web:actref', ('comp', {'fields': (('act', 'inet:web:action'), ('node', 'ndef'))}), {
-                        'doc': 'A web action that references a given node.'
-                    }),
-
                     ('inet:web:chprofile', ('guid', {}), {
                         'doc': 'A change to a web account. Used to capture historical properties associated with '
                                ' an account, as opposed to current data in the inet:web:acct node.'
@@ -918,10 +966,6 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A post made by a web account.'
                     }),
 
-                    ('inet:web:postref', ('comp', {'fields': (('post', 'inet:web:post'), ('node', 'ndef'))}), {
-                        'doc': 'A web post that references a given node.'
-                    }),
-
                     ('inet:whois:contact', ('comp', {'fields': (('rec', 'inet:whois:rec'), ('type', ('str', {'lower': True})))}), {
                         'doc': 'An individual contact from a domain whois record.'
                     }),
@@ -942,10 +986,6 @@ class InetModule(s_module.CoreModule):
                     ('inet:whois:reg', ('str', {'lower': True}), {
                         'doc': 'A domain registrant.',
                         'ex': 'woot hostmaster'
-                    }),
-
-                    ('inet:whois:regmail', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
-                        'doc': 'An association between a domain and a registrant email address.'
                     }),
 
                     ('inet:whois:email', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
@@ -1079,6 +1119,22 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:cidr6', {}, (
+                        ('broadcast', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The broadcast IP address from the CIDR notation.'
+                        }),
+                        ('mask', ('int', {}), {
+                            'ro': True,
+                            'doc': 'The mask from the CIDR notation.'
+                        }),
+                        ('network', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The network IP address from the CIDR notation.'
+                        }),
+                    )),
+
+
                     ('inet:client', {}, (
                         ('proto', ('str', {'lower': True}), {
                             'ro': True,
@@ -1186,7 +1242,7 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('dst:proto', ('str', {'lower': True}), {
                             'ro': True,
-                            'doc': 'The destination port.'
+                            'doc': 'The destination protocol.'
                         }),
                         ('dst:host', ('it:host', {}), {
                             'doc': 'The guid of the destination host.'
@@ -1220,7 +1276,7 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('src:proto', ('str', {'lower': True}), {
                             'ro': True,
-                            'doc': 'The source port.'
+                            'doc': 'The source protocol.'
                         }),
                         ('src:host', ('it:host', {}), {
                             'ro': True,
@@ -1241,15 +1297,9 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:fqdn', {}, (
-                        ('created', ('time', {'ismin': True}), {
-                            'doc': 'The earliest known registration (creation) date for the fqdn.'
-                        }),
                         ('domain', ('inet:fqdn', {}), {
                             'ro': True,
                             'doc': 'The parent domain for the FQDN.',
-                        }),
-                        ('expires', ('time', {'ismax': True}), {
-                            'doc': 'The current expiration date for the fqdn.'
                         }),
                         ('host', ('str', {'lower': True}), {
                             'ro': True,
@@ -1262,9 +1312,6 @@ class InetModule(s_module.CoreModule):
                         ('iszone', ('bool', {}), {
                             'doc': 'True if the FQDN is considered a zone.',
                             'defval': 0,
-                        }),
-                        ('updated', ('time', {'ismax': True}), {
-                            'doc': 'The last known updated date for the fqdn.'
                         }),
                         ('zone', ('inet:fqdn', {}), {
                             'doc': 'The zone level parent for this FQDN.',
@@ -1524,7 +1571,7 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('server', ('inet:server', {}), {
                             'ro': True,
-                            'doc': 'The file bytes for the SSL certificate.'
+                            'doc': 'The server that presented the SSL certificate.'
                         }),
                         ('server:ipv4', ('inet:ipv4', {}), {
                             'ro': True,
@@ -1747,21 +1794,6 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The source IPv6 address of the action.'
-                        }),
-                    )),
-
-                    ('inet:web:actref', {}, (
-                        ('act', ('inet:web:action', {}), {
-                            'ro': True,
-                            'doc': 'The action that references the given node.'
-                        }),
-                        ('node', ('ndef', {}), {
-                            'ro': True,
-                            'doc': 'The ndef that is referenced as part of the action.'
-                        }),
-                        ('node:form', ('str', {}), {
-                            'ro': True,
-                            'doc': 'The form of node that is referenced as part of the action.'
                         }),
                     )),
 
@@ -2003,21 +2035,6 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
-                    ('inet:web:postref', {}, (
-                        ('post', ('inet:web:post', {}), {
-                            'ro': True,
-                            'doc': 'The web post that references the given node.'
-                        }),
-                        ('node', ('ndef', {}), {
-                            'ro': True,
-                            'doc': 'The ndef that is referenced as part of the web post.'
-                        }),
-                        ('node:form', ('str', {}), {
-                            'ro': True,
-                            'doc': 'The form of node that is referenced as part of the web post.'
-                        }),
-                    )),
-
                     ('inet:whois:contact', {}, (
                         ('rec', ('inet:whois:rec', {}), {
                             'ro': True,
@@ -2125,17 +2142,6 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:whois:reg', {}, ()),
-
-                    ('inet:whois:regmail', {}, (
-                        ('fqdn', ('inet:fqdn', {}), {
-                            'ro': True,
-                            'doc': 'The domain associated with the registrant email address.'
-                        }),
-                        ('email', ('inet:email', {}), {
-                            'ro': True,
-                            'doc': 'The registrant email address associated with the domain.'
-                        }),
-                    )),
 
                     ('inet:whois:email', {}, (
                         ('fqdn', ('inet:fqdn', {}), {'ro': True,

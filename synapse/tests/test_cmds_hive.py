@@ -15,7 +15,9 @@ class CmdHiveTest(s_t_utils.SynTest):
 
     async def test_hive(self):
         with self.getTestDir() as dirn:
-            async with self.getTestDmon('dmoncore') as dmon, await self.agetTestProxy(dmon, 'core') as core:
+
+            async with self.getTestCoreAndProxy() as (realcore, core):
+
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
 
@@ -53,6 +55,20 @@ class CmdHiveTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('hive get foo/bar2')
                 self.true(outp.expect("foo/bar2:\n{'foo': 123}"))
 
+                with open(fn, 'w') as fh:
+                    fh.write('just a string')
+
+                await cmdr.runCmdLine(f'hive edit --string foo/bar2 -f {fn}')
+                await cmdr.runCmdLine('hive get foo/bar2')
+                self.true(outp.expect("foo/bar2:\njust a string"))
+
+                ofn = os.path.join(dirn, 'test.output')
+                outp.clear()
+                await cmdr.runCmdLine(f'hive get --file {ofn} foo/bar2')
+                self.true(outp.expect(f'Saved the hive entry [foo/bar2] to {ofn}'))
+                with open(ofn, 'rb') as fh:
+                    self.eq(fh.read(), b'just a string')
+
                 outp.clear()
                 fn = os.path.join(dirn, 'empty.json')
                 with open(fn, 'w') as fh:
@@ -89,3 +105,13 @@ class CmdHiveTest(s_t_utils.SynTest):
                 with self.setTstEnvars(VISUAL='echo [1,2,3] > '):
                     await cmdr.runCmdLine(f'hive edit foo/notJson --editor')
                     self.true(outp.expect('Value is not JSON-encodable, therefore not editable.'))
+
+                with self.setTstEnvars(VISUAL='echo [1,2,3] > '):
+                    await cmdr.runCmdLine(f'hive edit foo/notJson --editor --string')
+                    self.true(outp.expect('Existing value is not a string, therefore not editable as a string'))
+                    await cmdr.item.setHiveKey(('foo', 'notJson'), 'foo')
+                    outp.clear()
+
+                    await cmdr.runCmdLine(f'hive edit foo/notJson --editor --string')
+                    await cmdr.runCmdLine('hive get foo/notJson')
+                    self.true(outp.expect("foo/notJson:\n[1,2,3]"))

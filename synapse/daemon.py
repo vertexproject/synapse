@@ -1,4 +1,3 @@
-import os
 import types
 import asyncio
 import logging
@@ -6,9 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
-import synapse.cells as s_cells
 import synapse.common as s_common
-import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
@@ -18,6 +15,7 @@ import synapse.lib.scope as s_scope
 import synapse.lib.share as s_share
 import synapse.lib.certdir as s_certdir
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.reflect as s_reflect
 
 class Sess(s_base.Base):
 
@@ -27,6 +25,7 @@ class Sess(s_base.Base):
 
         self.items = {}
         self.iden = s_common.guid()
+        self.user = None
 
     def getSessItem(self, name):
         return self.items.get(name)
@@ -103,37 +102,14 @@ dmonwrap = (
 
 class Daemon(s_base.Base):
 
-    confdefs = (
-
-        ('listen', {'defval': 'tcp://127.0.0.1:27492',
-            'doc': 'The default listen host/port'}),
-
-        ('modules', {'defval': (),
-            'doc': 'A list of python modules to import before Cell construction.'}),
-
-        #('hostname', {'defval':
-        #('ssl': {'defval': None,
-            #'doc': 'An SSL config dict with certfile/keyfile optional cacert.'}),
-    )
-
-    async def __anit__(self, dirn=None, conf=None):
+    async def __anit__(self, certdir=None):
 
         await s_base.Base.__anit__(self)
 
-        self.dirn = None
-        if dirn is not None:
-            self.dirn = s_common.gendir(dirn)
-
         self._shareLoopTasks = set()
 
-        yaml = self._loadDmonYaml()
-        if conf is not None:
-            yaml.update(conf)
+        self.certdir = s_certdir.CertDir(path=certdir)
 
-        self.conf = s_common.config(yaml, self.confdefs)
-        self.certdir = s_certdir.CertDir(os.path.join(dirn, 'certs'))
-
-        self.mods = {}      # keep refs to mods we load ( mostly for testing )
         self.televers = s_telepath.televers
 
         self.addr = None    # our main listen address
@@ -155,9 +131,6 @@ class Daemon(s_base.Base):
 
         self.onfini(self._onDmonFini)
 
-        await self._loadDmonConf()
-        await self._loadDmonCells()
-
     async def listen(self, url, **opts):
         '''
         Bind and listen on the given host/port with possible SSL.
@@ -169,14 +142,28 @@ class Daemon(s_base.Base):
         info = s_urlhelp.chopurl(url, **opts)
         info.update(opts)
 
-        host = info.get('host')
-        port = info.get('port')
+        scheme = info.get('scheme')
 
-        sslctx = None
-        if info.get('scheme') == 'ssl':
-            sslctx = self.certdir.getServerSSLContext(hostname=host)
+        if scheme == 'unix':
+            path = info.get('path')
+            try:
+                server = await s_link.unixlisten(path, self._onLinkInit)
+            except Exception as e:
+                if 'path too long' in str(e):
+                    logger.error(f'unix:// exceeds OS supported UNIX socket path length: {path}')
+                raise
 
-        server = await s_link.listen(host, port, self._onLinkInit, ssl=sslctx)
+        else:
+
+            host = info.get('host')
+            port = info.get('port')
+
+            sslctx = None
+            if scheme == 'ssl':
+                sslctx = self.certdir.getServerSSLContext(hostname=host)
+
+            server = await s_link.listen(host, port, self._onLinkInit, ssl=sslctx)
+
         self.listenservers.append(server)
         ret = server.sockets[0].getsockname()
 
@@ -222,65 +209,6 @@ class Daemon(s_base.Base):
         finis = [link.fini() for link in self.connectedlinks]
         if finis:
             await asyncio.wait(finis)
-
-    def _loadDmonYaml(self):
-        if self.dirn is not None:
-            path = s_common.genpath(self.dirn, 'dmon.yaml')
-            return self._loadYamlPath(path)
-
-    def _loadYamlPath(self, path):
-
-        if os.path.isfile(path):
-            return s_common.yamlload(path)
-
-        return {}
-
-    async def _loadDmonCells(self):
-
-        # load our services from a directory
-
-        if self.dirn is None:
-            return
-
-        path = s_common.gendir(self.dirn, 'cells')
-
-        for name in os.listdir(path):
-
-            if name.startswith('.'):
-                continue
-
-            await self.loadDmonCell(name)
-
-    async def loadDmonCell(self, name):
-        dirn = s_common.gendir(self.dirn, 'cells', name)
-        logger.info(f'loading cell from: {dirn}')
-
-        path = os.path.join(dirn, 'boot.yaml')
-
-        if not os.path.exists(path):
-            raise s_exc.NoSuchFile(name=path)
-
-        conf = self._loadYamlPath(path)
-
-        kind = conf.get('type')
-
-        cell = await s_cells.init(kind, dirn)
-
-        self.share(name, cell)
-        self.cells[name] = cell
-
-    async def _loadDmonConf(self):
-
-        # process per-conf elements...
-        for name in self.conf.get('modules', ()):
-            try:
-                self.mods[name] = s_dyndeps.getDynMod(name)
-            except Exception as e:
-                logger.exception('dmon module error')
-
-        lisn = self.conf.get('listen')
-        if lisn is not None:
-            self.addr = await self.listen(lisn)
 
     async def _onLinkInit(self, link):
 
@@ -338,18 +266,18 @@ class Daemon(s_base.Base):
             if vers[0] != s_telepath.televers[0]:
                 raise s_exc.BadMesgVers(vers=vers, myvers=s_telepath.televers)
 
+            path = ()
+
             name = mesg[1].get('name')
+            if not name:
+                name = '*'
+
+            if '/' in name:
+                name, rest = name.split('/', 1)
+                if rest:
+                    path = rest.split('/')
 
             item = self.shared.get(name)
-
-            # allow a telepath aware object a shot at dynamic share names
-            if item is None and name.find('/') != -1:
-
-                path = name.split('/')
-
-                base = self.shared.get(path[0])
-                if base is not None and isinstance(base, s_telepath.Aware):
-                    item = await s_coro.ornot(base.onTeleOpen, link, path)
 
             if item is None:
                 raise s_exc.NoSuchName(name=name)
@@ -366,9 +294,11 @@ class Daemon(s_base.Base):
             link.set('sess', sess)
 
             if isinstance(item, s_telepath.Aware):
-                item = await s_coro.ornot(item.getTeleApi, link, mesg)
+                item = await s_coro.ornot(item.getTeleApi, link, mesg, path)
                 if isinstance(item, s_base.Base):
                     link.onfini(item.fini)
+
+            reply[1]['sharinfo'] = s_reflect.getShareInfo(item)
 
             sess.setSessItem(None, item)
             reply[1]['sess'] = sess.iden
@@ -441,9 +371,9 @@ class Daemon(s_base.Base):
             if s_coro.iscoro(valu):
                 valu = await valu
 
-            if isinstance(valu, types.AsyncGeneratorType):
-
-                try:
+            try:
+                if isinstance(valu, types.AsyncGeneratorType):
+                    desc = 'async generator'
 
                     await link.tx(('t2:genr', {}))
 
@@ -451,17 +381,10 @@ class Daemon(s_base.Base):
                         await link.tx(('t2:yield', {'retn': (True, item)}))
 
                     await link.tx(('t2:yield', {'retn': None}))
+                    return
 
-                except Exception as e:
-                    if not link.isfini:
-                        retn = s_common.retnexc(e)
-                        await link.tx(('t2:yield', {'retn': retn}))
-
-                return
-
-            if isinstance(valu, types.GeneratorType):
-
-                try:
+                elif isinstance(valu, types.GeneratorType):
+                    desc = 'generator'
 
                     await link.tx(('t2:genr', {}))
 
@@ -469,15 +392,18 @@ class Daemon(s_base.Base):
                         await link.tx(('t2:yield', {'retn': (True, item)}))
 
                     await link.tx(('t2:yield', {'retn': None}))
+                    return
 
-                except Exception as e:
-                    if not link.isfini:
-                        retn = s_common.retnexc(e)
-                        await link.tx(('t2:yield', {'retn': (False, retn)}))
+            except Exception as e:
+                logger.exception(f'error during {desc} task: {methname}')
+                if not link.isfini:
+                    retn = s_common.retnexc(e)
+                    await link.tx(('t2:yield', {'retn': retn}))
 
                 return
 
             if isinstance(valu, s_share.Share):
+                sess.onfini(valu)
                 iden = s_common.guid()
                 sess.setSessItem(iden, valu)
                 await link.tx(('t2:share', {'iden': iden}))
@@ -487,7 +413,7 @@ class Daemon(s_base.Base):
 
         except Exception as e:
 
-            logger.exception('on task:init: %r' % (mesg,))
+            logger.exception('on t2:init: %r' % (mesg,))
 
             if not link.isfini:
                 retn = s_common.retnexc(e)

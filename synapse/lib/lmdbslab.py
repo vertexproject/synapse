@@ -13,6 +13,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
+import synapse.lib.msgpack as s_msgpack
 
 class _LmdbDatabase():
     def __init__(self, db, dupsort):
@@ -20,6 +21,150 @@ class _LmdbDatabase():
         self.dupsort = dupsort
 
 _DefaultDB = _LmdbDatabase(None, False)
+
+class Hist:
+    '''
+    A class for storing items in a slab by time.
+
+    Each added item is inserted into the specified db within
+    the slab using the current epoch-millis time stamp as the key.
+    '''
+
+    def __init__(self, slab, name):
+        self.slab = slab
+        self.db = slab.initdb(name, dupsort=True)
+
+    def add(self, item):
+        tick = s_common.now()
+        lkey = tick.to_bytes(8, 'big')
+        self.slab.put(lkey, s_msgpack.en(item), dupdata=True, db=self.db)
+
+    def carve(self, tick, tock=None):
+
+        lmax = None
+        lmin = tick.to_bytes(8, 'big')
+        if tock is not None:
+            lmax = tock.to_bytes(8, 'big')
+
+        for lkey, byts in self.slab.scanByRange(lmin, lmax=lmax, db=self.db):
+            tick = int.from_bytes(lkey, 'big')
+            yield tick, s_msgpack.un(byts)
+
+class Offs:
+    '''
+
+    A helper for storing offset integers by iden. ( ported from synapse/lib/lmdb.py )
+
+    As with all slab objects, this is meant for single-thread async loop use.
+    '''
+    def __init__(self, slab, name):
+        self.slab = slab
+        self.db = slab.initdb(name)
+
+    def get(self, iden):
+
+        buid = s_common.uhex(iden)
+        byts = self.slab.get(buid, db=self.db)
+        if byts is None:
+            return 0
+
+        return int.from_bytes(byts, byteorder='big')
+
+    def set(self, iden, offs):
+        buid = s_common.uhex(iden)
+        byts = offs.to_bytes(length=8, byteorder='big')
+        self.slab.put(buid, byts, db=self.db)
+
+class SlabDict:
+    '''
+    A dictionary-like object which stores it's props in a slab via a prefix.
+
+    It is assumed that only one SlabDict with a given prefix exists at any given
+    time, but it is up to the caller to cache them.
+    '''
+    def __init__(self, slab, db=None, pref=b''):
+        self.db = db
+        self.slab = slab
+        self.pref = pref
+        self.info = self._getPrefProps(pref)
+
+    def _getPrefProps(self, bidn):
+
+        size = len(bidn)
+
+        props = {}
+        for lkey, lval in self.slab.scanByPref(bidn, db=self.db):
+            name = lkey[size:].decode('utf8')
+            props[name] = s_msgpack.un(lval)
+
+        return props
+
+    def items(self):
+        '''
+        Return a tuple of (prop, valu) tuples from the SlabDict.
+
+        Returns:
+            (((str, object), ...)): Tuple of (name, valu) tuples.
+        '''
+        return tuple(self.info.items())
+
+    def get(self, name, defval=None):
+        '''
+        Get a name from the SlabDict.
+
+        Args:
+            name (str): The key name.
+            defval (obj): The default value to return.
+
+        Returns:
+            (obj): The return value, or None.
+        '''
+        return self.info.get(name, defval)
+
+    def set(self, name, valu):
+        '''
+        Set a name in the SlabDict.
+
+        Args:
+            name (str): The key name.
+            valu (obj): A msgpack compatible value.
+
+        Returns:
+            None
+        '''
+        byts = s_msgpack.en(valu)
+        lkey = self.pref + name.encode('utf8')
+        self.slab.put(lkey, byts, db=self.db)
+        self.info[name] = valu
+
+    def pop(self, name, defval=None):
+        '''
+        Pop a name from the SlabDict.
+
+        Args:
+            name (str): The name to remove.
+            defval (obj): The default value to return if the name is not present.
+
+        Returns:
+            object: The object stored in the SlabDict, or defval if the object was not present.
+        '''
+        valu = self.info.pop(name, defval)
+        lkey = self.pref + name.encode('utf8')
+        self.slab.pop(lkey, db=self.db)
+        return valu
+
+class GuidStor:
+
+    def __init__(self, slab, name):
+
+        self.slab = slab
+        self.name = name
+
+        self.db = self.slab.initdb(name)
+
+    def gen(self, iden):
+        bidn = s_common.uhex(iden)
+        return SlabDict(self.slab, db=self.db, pref=bidn)
 
 class Slab(s_base.Base):
     '''
@@ -62,8 +207,6 @@ class Slab(s_base.Base):
 
         self.scans = set()
 
-        self.holders = 0
-
         self.dirty = False
         if self.readonly:
             self.xact = None
@@ -100,8 +243,7 @@ class Slab(s_base.Base):
             if self.isfini:
                 # There's no reason to forcecommit on fini, because there's a separate handler to already do that
                 break
-            if self.holders == 0:
-                self.forcecommit()
+            self.forcecommit()
 
     async def _onCoFini(self):
         assert s_glob.iAmLoop()
@@ -160,11 +302,13 @@ class Slab(s_base.Base):
         return self.mapsize
 
     def initdb(self, name, dupsort=False):
-
         with self._noCoXact():
-            db = self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
-
-        return _LmdbDatabase(db, dupsort)
+            while True:
+                try:
+                    db = self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
+                    return _LmdbDatabase(db, dupsort)
+                except lmdb.MapFullError:
+                    self._growMapSize()
 
     @contextlib.contextmanager
     def _noCoXact(self):
@@ -178,6 +322,26 @@ class Slab(s_base.Base):
         self._acqXactForReading()
         try:
             return self.xact.get(lkey, db=db.db)
+        finally:
+            self._relXactForReading()
+
+    def last(self, db=_DefaultDB):
+        '''
+        Return the last key/value pair from the given db.
+        '''
+        self._acqXactForReading()
+        try:
+            with self.xact.cursor(db=db.db) as curs:
+                if not curs.last():
+                    return None
+                return curs.key(), curs.value()
+        finally:
+            self._relXactForReading()
+
+    def stat(self, db=_DefaultDB):
+        self._acqXactForReading()
+        try:
+            return self.xact.stat(db=db.db)
         finally:
             self._relXactForReading()
 
@@ -268,6 +432,7 @@ class Slab(s_base.Base):
         self.xact.abort()
 
         del self.xact
+        self.xact = None  # Note: it is possible for us to be fini'd in the following yield
 
         yield
 
@@ -306,14 +471,22 @@ class Slab(s_base.Base):
             return self._handle_mapfull()
 
     def putmulti(self, kvpairs, dupdata=False, append=False, db=_DefaultDB):
+        '''
+        Returns:
+            Tuple of number of items consumed, number of items added
+        '''
         if self.readonly:
             raise s_exc.IsReadOnly()
+
+        # Log playback isn't compatible with generators
+        if not isinstance(kvpairs, list):
+            kvpairs = list(kvpairs)
 
         try:
             self.dirty = True
 
             if not self.recovering:
-                self._logXactOper(self.putmulti, kvpairs, dupdata=dupdata, append=True, db=db)
+                self._logXactOper(self.putmulti, kvpairs, dupdata=dupdata, append=append, db=db)
 
             with self.xact.cursor(db=db.db) as curs:
                 retn = curs.putmulti(kvpairs, dupdata=dupdata, append=append)
@@ -329,31 +502,15 @@ class Slab(s_base.Base):
     def delete(self, lkey, val=None, db=None):
         return self._xact_action(self.delete, lmdb.Transaction.delete, lkey, val, db=db)
 
-    def put(self, lkey, lval, dupdata=False, db=None):
-        return self._xact_action(self.put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, db=db)
+    def put(self, lkey, lval, dupdata=False, overwrite=True, db=None):
+        return self._xact_action(self.put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, overwrite=overwrite,
+                                 db=db)
 
     def replace(self, lkey, lval, db=None):
         '''
         Like put, but returns the previous value if existed
         '''
         return self._xact_action(self.replace, lmdb.Transaction.replace, lkey, lval, db=db)
-
-    @contextlib.contextmanager
-    def synchold(self):
-        '''
-        Hold this across small/fast multi-writes to delay commit evaluation.
-        This allows commit() boundaries to occur when the underlying db is coherent.
-
-        Example:
-
-            with dude.writer():
-                dude.put(foo, bar)
-                dude.put(baz, faz)
-
-        '''
-        self.holders += 1
-        yield None
-        self.holders -= 1
 
     def forcecommit(self):
         '''

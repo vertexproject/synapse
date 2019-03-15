@@ -11,8 +11,10 @@ from typing import Optional
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.chop as s_chop
 import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
 
@@ -30,16 +32,16 @@ class Triggers:
 
     @dataclasses.dataclass
     class Rule:
-        ver: int  # version: must be 0
+        ver: int  # version: must be 1
         cond: str  # condition from above list
-        user: str  # username
-        storm: str  # story query
+        useriden: str
+        storm: str  # storm query
         form: Optional[str] = dataclasses.field(default=None) # form name
         tag: Optional[str] = dataclasses.field(default=None) # tag name
         prop: Optional[str] = dataclasses.field(default=None) # property name
 
         def __post_init__(self):
-            if self.ver != 0:
+            if self.ver != 1:
                 raise s_exc.BadOptValu(mesg='Unexpected rule version')
             if self.cond not in Conditions:
                 raise s_exc.BadOptValu(mesg='Invalid trigger condition')
@@ -49,8 +51,10 @@ class Triggers:
                 raise s_exc.BadOptValu(mesg='tag must not be present for node:add or node:del')
             if self.cond == 'prop:set' and (self.form is not None or self.tag is not None):
                 raise s_exc.BadOptValu(mesg='form and tag must not be present for prop:set')
-            if self.cond in ('tag:add', 'tag:del') and self.tag is None:
-                raise s_exc.BadOptValu(mesg='missing tag')
+            if self.cond in ('tag:add', 'tag:del'):
+                if self.tag is None:
+                    raise s_exc.BadOptValu(mesg='missing tag')
+                s_chop.validateTagMatch(self.tag)
             if self.prop is not None and self.cond != 'prop:set':
                 raise s_exc.BadOptValu(mesg='prop parameter invalid')
             if self.cond == 'prop:set' and self.prop is None:
@@ -67,20 +71,19 @@ class Triggers:
             if vars is not None:
                 opts['vars'] = vars
 
-            if node.snap.core.auth is not None:
-                user = node.snap.core.auth.users.get(self.user)
-                if user is None:
-                    logger.warning('Unknown user %s in stored trigger', self.user)
-                    return
-            else:
-                user = None
+            user = node.snap.core.auth.user(self.useriden)
+            if user is None:
+                logger.warning('Unknown user %s in stored trigger', self.useriden)
+                return
 
-            try:
-                await s_common.aspin(node.storm(self.storm, opts=opts, user=user))
-            except asyncio.CancelledError: # pragma: no cover
-                raise
-            except Exception:
-                logger.exception('Trigger encountered exception running storm query %s', self.storm)
+            with s_provenance.claim('trig', cond=self.cond, form=self.form, tag=self.tag, prop=self.prop):
+
+                try:
+                    await s_common.aspin(node.storm(self.storm, opts=opts, user=user))
+                except asyncio.CancelledError: # pragma: no cover
+                    raise
+                except Exception:
+                    logger.exception('Trigger encountered exception running storm query %s', self.storm)
 
     def __init__(self, core):
         '''
@@ -101,7 +104,7 @@ class Triggers:
         self.nodedel = collections.defaultdict(list)   # form: rule
         self.propset = collections.defaultdict(list)   # prop: rule
 
-        self._load_all(self.core.slab)
+        self._load_all()
 
     async def runNodeAdd(self, node):
         with self._recursion_check():
@@ -114,6 +117,8 @@ class Triggers:
     async def runPropSet(self, node, prop, oldv):
         with self._recursion_check():
             [await rule.execute(node) for rule in self.propset.get(prop.full, ())]
+            if prop.univ is not None:
+                [await rule.execute(node) for rule in self.propset.get(prop.univ, ())]
 
     async def runTagAdd(self, node, tag):
 
@@ -161,21 +166,52 @@ class Triggers:
                 for expr, rule in globs.get(tag):
                     await rule.execute(node, vars=vars)
 
-    def _load_all(self, slab):
-        for iden, val in self.core.slab.scanByFull(db=self.trigdb):
+    def migrate_v0_rules(self):
+        '''
+        Remove any v0 rules from storage and replace them with v1 rules.
+
+        Notes:
+            v0 had two differences user was a username.  Replaced with iden of user as 'iden' field.
+            Also 'iden' was storage as binary.  Now it is stored as hex string.
+        '''
+        for iden, valu in self.core.slab.scanByFull(db=self.trigdb):
+            ruledict = s_msgpack.un(valu)
+            ver = ruledict.get('ver')
+            if ver != 0:
+                continue
+
+            user = ruledict.pop('user')
+            if user is None:
+                logger.warning('Username missing in stored trigger rule %r', iden)
+                continue
+
+            # In v0, stored user was username, in >0 user is useriden
+            user = self.core.auth.getUserByName(user).iden
+            if user is None:
+                logger.warning('Unrecognized username in stored trigger rule %r', iden)
+                continue
+
+            ruledict['ver'] = 1
+            ruledict['useriden'] = user
+            newiden = s_common.ehex(iden)
+            self.core.slab.pop(iden, db=self.trigdb)
+            self.core.slab.put(newiden.encode(), s_msgpack.en(ruledict), db=self.trigdb)
+
+    def _load_all(self):
+        self.migrate_v0_rules()
+        for iden, valu in self.core.slab.scanByFull(db=self.trigdb):
             try:
-                ruledict = s_msgpack.un(val)
+                ruledict = s_msgpack.un(valu)
                 ver = ruledict.pop('ver')
                 cond = ruledict.pop('cond')
-                user = ruledict.pop('user')
+                user = ruledict.pop('useriden')
                 query = ruledict.pop('storm')
-                self._load_rule(iden, ver, cond, user, query, info=ruledict)
-            except Exception as e:
+                self._load_rule(iden.decode(), ver, cond, user, query, info=ruledict)
+            except (KeyError, s_exc.SynErr) as e:
                 logger.warning('Invalid rule %r found in storage: %r', iden, e)
                 continue
 
     def _load_rule(self, iden, ver, cond, user, query, info):
-
         rule = Triggers.Rule(ver, cond, user, query, **info)
 
         # Make sure the query parses
@@ -227,7 +263,7 @@ class Triggers:
         self.core.getStormQuery(query)
 
         rule.storm = query
-        self.core.slab.put(iden, rule.en(), db=self.trigdb)
+        self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
 
     @contextlib.contextmanager
     def _recursion_check(self):
@@ -244,17 +280,16 @@ class Triggers:
         finally:
             RecursionDepth.reset(token)
 
-    def add(self, username, condition, query, info):
-
-        iden = os.urandom(16)
+    def add(self, useriden, condition, query, info):
+        iden = s_common.guid()
 
         if not query:
             raise ValueError('empty query')
 
         self.core.getStormQuery(query)
 
-        rule = self._load_rule(iden, 0, condition, username, query, info=info)
-        self.core.slab.put(iden, rule.en(), db=self.trigdb)
+        rule = self._load_rule(iden, 1, condition, useriden, query, info=info)
+        self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
         return iden
 
     def delete(self, iden):
@@ -263,7 +298,7 @@ class Triggers:
         if rule is None:
             raise s_exc.NoSuchIden()
 
-        self.core.slab.delete(iden, db=self.trigdb)
+        self.core.slab.delete(iden.encode(), db=self.trigdb)
 
         if rule.cond == 'node:add':
             self.nodeadd[rule.form].remove(rule)

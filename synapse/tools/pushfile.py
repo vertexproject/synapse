@@ -39,24 +39,33 @@ def main(argv, outp=None):
     for path in opts.filenames:
 
         bname = os.path.basename(path)
+
         hset = s_hashset.HashSet()
         with s_common.reqfile(path) as fd:
             hset.eatfd(fd)
+
         fhashes = {htyp: hasher.hexdigest() for htyp, hasher in hset.hashes}
+
         sha256 = fhashes.get('sha256')
         bsha256 = s_common.uhex(sha256)
 
         awants = axon.wants([bsha256])
-        if awants:
-            with axon.startput() as uploader:
+
+        if not axon.has(bsha256):
+
+            with axon.upload() as upfd:
+
                 with s_common.genfile(path) as fd:
                     for byts in s_common.iterfd(fd):
-                        uploader.write(byts)
-                count, hashval = uploader.finish()
+                        upfd.write(byts)
+
+                size, hashval = upfd.save()
+
             if hashval != bsha256:  # pragma: no cover
                 raise s_exc.SynErr(mesg='hashes do not match',
                                    ehash=s_common.ehex(hashval),
                                    ahash=hashval)
+
             outp.printf(f'Uploaded [{bname}] to axon')
         else:
             outp.printf(f'Axon already had [{bname}]')

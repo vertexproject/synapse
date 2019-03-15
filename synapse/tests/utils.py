@@ -32,18 +32,24 @@ import threading
 import contextlib
 import collections
 
+import unittest.mock as mock
+
+import aiohttp
+
 import synapse.exc as s_exc
+import synapse.axon as s_axon
 import synapse.glob as s_glob
-import synapse.cells as s_cells
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
+import synapse.cryotank as s_cryotank
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
+import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
@@ -111,53 +117,57 @@ class TestSubType(s_types.Type):
 testmodel = {
 
     'ctors': (
-        ('testsub', 'synapse.tests.utils.TestSubType', {}, {}),
-        ('testtype', 'synapse.tests.utils.TestType', {}, {}),
-        ('testthreetype', 'synapse.tests.utils.ThreeType', {}, {}),
+        ('test:sub', 'synapse.tests.utils.TestSubType', {}, {}),
+        ('test:type', 'synapse.tests.utils.TestType', {}, {}),
+        ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
     ),
 
     'types': (
-        ('testtype10', ('testtype', {'foo': 10}), {
+        ('test:type10', ('test:type', {'foo': 10}), {
             'doc': 'A fake type.'}),
 
-        ('testlower', ('str', {'lower': True}), {}),
+        ('test:lower', ('str', {'lower': True}), {}),
 
-        ('testtime', ('time', {}), {}),
+        ('test:time', ('time', {}), {}),
 
-        ('testival', ('ival', {}), {}),
+        ('test:ival', ('ival', {}), {}),
 
-        ('testint', ('int', {}), {}),
-        ('teststr', ('str', {}), {}),
-        ('testauto', ('str', {}), {}),
+        ('test:int', ('int', {}), {}),
+        ('test:str', ('str', {}), {}),
+        ('test:auto', ('str', {}), {}),
         ('test:edge', ('edge', {}), {}),
-        ('testguid', ('guid', {}), {}),
+        ('test:guid', ('guid', {}), {}),
 
-        ('testcomp', ('comp', {'fields': (
-            ('hehe', 'testint'),
-            ('haha', 'testlower'))
+        ('test:comp', ('comp', {'fields': (
+            ('hehe', 'test:int'),
+            ('haha', 'test:lower'))
         }), {'doc': 'A fake comp type.'}),
-        ('testcomplexcomp', ('comp', {'fields': (
-            ('foo', 'testint'),
+        ('test:complexcomp', ('comp', {'fields': (
+            ('foo', 'test:int'),
             ('bar', ('str', {'lower': True}),),
         )}), {'doc': 'A complex comp type.'}),
-        ('testhexa', ('hex', {}), {'doc': 'anysize test hex type'}),
-        ('testhex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
+        ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type'}),
+        ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
 
-        ('pivtarg', ('str', {}), {}),
-        ('pivcomp', ('comp', {'fields': (('targ', 'pivtarg'), ('lulz', 'teststr'))}), {}),
-        ('haspivcomp', ('int', {}), {}),
+        ('test:pivtarg', ('str', {}), {}),
+        ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
+        ('test:haspivcomp', ('int', {}), {}),
 
-        ('cycle0', ('str', {}), {}),
-        ('cycle1', ('str', {}), {}),
+        ('test:cycle0', ('str', {}), {}),
+        ('test:cycle1', ('str', {}), {}),
 
         ('test:ndef', ('ndef', {}), {}),
         ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node'}),
 
     ),
 
+    'univs': (
+        ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
+    ),
+
     'forms': (
 
-        ('testtype10', {}, (
+        ('test:type10', {}, (
 
             ('intprop', ('int', {'min': 20, 'max': 30}), {
                 'defval': 20}),
@@ -172,27 +182,27 @@ testmodel = {
                 'defval': '??'}),
         )),
 
-        ('cycle0', {}, (
-            ('cycle1', ('cycle1', {}), {}),
+        ('test:cycle0', {}, (
+            ('cycle1', ('test:cycle1', {}), {}),
         )),
 
-        ('cycle1', {}, (
-            ('cycle0', ('cycle0', {}), {}),
+        ('test:cycle1', {}, (
+            ('cycle0', ('test:cycle0', {}), {}),
         )),
 
-        ('testtype', {}, ()),
+        ('test:type', {}, ()),
 
-        ('testcomp', {}, (
-            ('hehe', ('testint', {}), {'ro': 1}),
-            ('haha', ('testlower', {}), {'ro': 1}),
+        ('test:comp', {}, (
+            ('hehe', ('test:int', {}), {'ro': 1}),
+            ('haha', ('test:lower', {}), {'ro': 1}),
         )),
 
-        ('testcomplexcomp', {}, (
-            ('foo', ('testint', {}), {'ro': 1}),
+        ('test:complexcomp', {}, (
+            ('foo', ('test:int', {}), {'ro': 1}),
             ('bar', ('str', {'lower': 1}), {'ro': 1})
         )),
 
-        ('testint', {}, (
+        ('test:int', {}, (
             ('loc', ('loc', {}), {}),
         )),
 
@@ -203,43 +213,43 @@ testmodel = {
                     ('n2:form', ('str', {}), {'ro': 1}),
         )),
 
-        ('testguid', {}, (
-            ('size', ('testint', {}), {}),
-            ('tick', ('testtime', {}), {}),
-            ('posneg', ('testsub', {}), {}),
+        ('test:guid', {}, (
+            ('size', ('test:int', {}), {}),
+            ('tick', ('test:time', {}), {}),
+            ('posneg', ('test:sub', {}), {}),
             ('posneg:isbig', ('bool', {}), {}),
         )),
 
-        ('teststr', {}, (
+        ('test:str', {}, (
             ('bar', ('ndef', {}), {}),
             ('baz', ('nodeprop', {}), {}),
-            ('tick', ('testtime', {}), {}),
+            ('tick', ('test:time', {}), {}),
         )),
 
-        ('testthreetype', {}, (
+        ('test:threetype', {}, (
             ('three', ('int', {}), {}),
         )),
-        ('testauto', {}, ()),
-        ('testhexa', {}, ()),
-        ('testhex4', {}, ()),
-        ('testival', {}, (
+        ('test:auto', {}, ()),
+        ('test:hexa', {}, ()),
+        ('test:hex4', {}, ()),
+        ('test:ival', {}, (
             ('interval', ('ival', {}), {}),
         )),
 
-        ('pivtarg', {}, (
+        ('test:pivtarg', {}, (
             ('name', ('str', {}), {}),
         )),
 
-        ('pivcomp', {}, (
-            ('targ', ('pivtarg', {}), {}),
-            ('lulz', ('teststr', {}), {}),
+        ('test:pivcomp', {}, (
+            ('targ', ('test:pivtarg', {}), {}),
+            ('lulz', ('test:str', {}), {}),
             ('tick', ('time', {}), {}),
-            ('size', ('testint', {}), {}),
-            ('width', ('testint', {}), {}),
+            ('size', ('test:int', {}), {}),
+            ('width', ('test:int', {}), {}),
         )),
 
-        ('haspivcomp', {}, (
-            ('have', ('pivcomp', {}), {}),
+        ('test:haspivcomp', {}, (
+            ('have', ('test:pivcomp', {}), {}),
         )),
 
         ('test:ndef', {}, (
@@ -254,11 +264,29 @@ testmodel = {
     ),
 }
 
+class TestCmd(s_storm.Cmd):
+    '''
+    A test command
+    '''
+
+    name = 'testcmd'
+
+    def getArgParser(self):
+        pars = s_storm.Cmd.getArgParser(self)
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+        async for node, path in genr:
+            yield node, path
+
+
 class TestModule(s_module.CoreModule):
     testguid = '8f1401de15918358d5247e21ca29a814'
 
     async def initCoreModule(self):
+
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
+
         async with await self.core.snap() as snap:
             await snap.addNode('source', self.testguid, {'name': 'test'})
 
@@ -274,17 +302,13 @@ class TestModule(s_module.CoreModule):
             self.core.addRuntLift(form.full, self._testRuntLift)
             for name, prop in form.props.items():
                 pfull = prop.full
-                # universal properties are indexed separately.
-                univ = prop.univ
-                if univ:
-                    pfull = form.full + univ
                 self.core.addRuntLift(pfull, self._testRuntLift)
         self.core.addRuntPropSet(self.model.prop('test:runt:lulz'), self._testRuntPropSetLulz)
         self.core.addRuntPropDel(self.model.prop('test:runt:lulz'), self._testRuntPropDelLulz)
 
     async def addTestRecords(self, snap, items):
         for name in items:
-            await snap.addNode('teststr', name)
+            await snap.addNode('test:str', name)
 
     async def _testRuntLift(self, full, valu=None, cmpr=None):
         # runt lift helpers must decide what comparators they support
@@ -377,6 +401,9 @@ class TestModule(s_module.CoreModule):
             ('test', testmodel),
         )
 
+    def getStormCmds(self):
+        return (TestCmd,)
+
 class TstEnv:
 
     def __init__(self):
@@ -465,24 +492,6 @@ class TestSteps:
             StepTimeout: on wait timeout
         '''
         if not self.steps[step].wait(timeout=timeout):
-            raise s_exc.StepTimeout(mesg='timeout waiting for step', step=step)
-        return True
-
-    async def asyncwait(self, step, timeout=None):
-        '''
-        Wait (up to timeout seconds) for a step to complete.
-
-        Args:
-            step (str): The step name to wait for.
-            timeout (int): The timeout in seconds (or None)
-
-        Returns:
-            bool: True if the step is completed within the wait timeout.
-
-        Raises:
-            StepTimeout: on wait timeout
-        '''
-        if not await s_glob.executor(self.steps[step].wait, timeout=timeout):
             raise s_exc.StepTimeout(mesg='timeout waiting for step', step=step)
         return True
 
@@ -699,6 +708,28 @@ class SynTest(unittest.TestCase):
     def skip(self, mesg):
         raise unittest.SkipTest(mesg)
 
+    @contextlib.contextmanager
+    def getRegrDir(self, *path):
+        regr = os.getenv('SYN_REGRESSION_REPO')
+        if regr is None: # pragma: no cover
+            raise unittest.SkipTest('SYN_REGRESSION_REPO is not set')
+
+        regr = s_common.genpath(regr)
+
+        if not os.path.isdir(regr): # pragma: no cover
+            raise Exception('SYN_REGREGSSION_REPO is not a dir')
+
+        dirn = os.path.join(regr, *path)
+
+        with self.getTestDir(copyfrom=dirn) as regrdir:
+            yield regrdir
+
+    @contextlib.asynccontextmanager
+    async def getRegrCore(self, vers):
+        with self.getRegrDir('cortexes', vers) as dirn:
+            async with await s_cortex.Cortex.anit(dirn) as core:
+                yield core
+
     def skipIfNoInternet(self):  # pragma: no cover
         '''
         Allow skipping a test if SYN_TEST_SKIP_INTERNET envar is set.
@@ -758,57 +789,64 @@ class SynTest(unittest.TestCase):
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
     @contextlib.asynccontextmanager
-    async def getTestCore(self, mirror='testcore', conf=None, extra_layers=()):
+    async def getTestAxon(self):
+        with self.getTestDir() as dirn:
+            async with await s_axon.Axon.anit(dirn) as axon:
+                yield axon
+
+    @contextlib.asynccontextmanager
+    async def getTestCore(self, conf=None, dirn=None):
         '''
         Return a simple test Cortex.
-
-        Args:
-           conf:  additional configuration entries.  Combined with contents from mirror.
         '''
-        with self.getTestDir(mirror=mirror) as dirn:
-            s_cells.deploy('cortex', dirn)
-            s_common.yamlmod(conf, dirn, 'cell.yaml')
-            ldir = s_common.gendir(dirn, 'layers')
-            layerdir = pathlib.Path(ldir, '000-default')
+        if conf is None:
+            conf = {}
 
-            if self.alt_write_layer:
-                os.symlink(self.alt_write_layer, layerdir)
-            else:
-                layerdir.mkdir()
-                s_cells.deploy('layer-lmdb', layerdir)
-                s_common.yamlmod({'lmdb:mapsize': TEST_MAP_SIZE}, layerdir, 'cell.yaml')
+        mods = conf.get('modules')
 
-            for i, fn in enumerate(extra_layers):
-                src = pathlib.Path(fn).resolve()
-                os.symlink(src, pathlib.Path(ldir, f'{i + 1:03}-testlayer'))
+        if mods is None:
+            mods = []
+            conf['modules'] = mods
 
-            async with await s_cortex.Cortex.anit(dirn) as core:
+        mods.append(('synapse.tests.utils.TestModule', {'key': 'valu'}))
+
+        if dirn is not None:
+
+            async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                yield core
+
+            return
+
+        with self.getTestDir() as dirn:
+            async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
                 yield core
 
     @contextlib.asynccontextmanager
-    async def getTestDmon(self, mirror='dmontest'):
+    async def getTestCoreAndProxy(self, conf=None, dirn=None):
+        async with self.getTestCore(conf=conf, dirn=dirn) as core:
+            core.conf['storm:log'] = True
+            async with core.getLocalProxy() as prox:
+                yield core, prox
 
-        with self.getTestDir(mirror=mirror) as dirn:
+    @contextlib.asynccontextmanager
+    async def getTestCryo(self):
+        with self.getTestDir() as dirn:
+            async with await s_cryotank.CryoCell.anit(dirn) as cryo:
+                yield cryo
 
-            # Copy test certs
-            shutil.copytree(self.getTestFilePath('certdir'), os.path.join(dirn, 'certs'))
+    @contextlib.asynccontextmanager
+    async def getTestCryoAndProxy(self):
+        async with self.getTestCryo() as cryo:
+            async with cryo.getLocalProxy() as prox:
+                yield cryo, prox
 
-            coredir = pathlib.Path(dirn, 'cells', 'core')
-            if coredir.is_dir():
-                ldir = s_common.gendir(coredir, 'layers')
-                if self.alt_write_layer:
-                    os.symlink(self.alt_write_layer, pathlib.Path(ldir, '000-default'))
-
-            certdir = s_certdir.defdir
-
-            async with await s_daemon.Daemon.anit(dirn) as dmon:
-
-                # act like synapse.tools.dmon...
-                s_certdir.defdir = s_common.genpath(dirn, 'certs')
-
-                yield dmon
-
-                s_certdir.defdir = certdir
+    @contextlib.asynccontextmanager
+    async def getTestDmon(self):
+        with self.getTestDir(mirror='certdir') as certdir:
+            async with await s_daemon.Daemon.anit(certdir=certdir) as dmon:
+                await dmon.listen('tcp://127.0.0.1:0/')
+                with mock.patch('synapse.lib.certdir.defdir', certdir):
+                    yield dmon
 
     def getTestUrl(self, dmon, name, **opts):
 
@@ -834,7 +872,7 @@ class SynTest(unittest.TestCase):
         return await s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
     @contextlib.contextmanager
-    def getTestDir(self, mirror=None):
+    def getTestDir(self, mirror=None, copyfrom=None):
         '''
         Get a temporary directory for test purposes.
         This destroys the directory afterwards.
@@ -862,6 +900,11 @@ class SynTest(unittest.TestCase):
                 srcpath = self.getTestFilePath(mirror)
                 dstpath = os.path.join(tempdir, 'mirror')
                 shutil.copytree(srcpath, dstpath)
+                yield dstpath
+
+            elif copyfrom is not None:
+                dstpath = os.path.join(tempdir, 'mirror')
+                shutil.copytree(copyfrom, dstpath)
                 yield dstpath
 
             else:
@@ -952,6 +995,13 @@ class SynTest(unittest.TestCase):
         finally:
             slogger.removeHandler(handler)
 
+    @contextlib.asynccontextmanager
+    async def getHttpSess(self):
+        jar = aiohttp.CookieJar(unsafe=True)
+        conn = aiohttp.TCPConnector(ssl=False)
+        async with aiohttp.ClientSession(cookie_jar=jar, connector=conn) as sess:
+            yield sess
+
     @contextlib.contextmanager
     def setTstEnvars(self, **props):
         '''
@@ -1002,6 +1052,13 @@ class SynTest(unittest.TestCase):
                 del os.environ[key]
             for key, valu in old_data.items():
                 os.environ[key] = valu
+
+    async def execToolMain(self, func, argv):
+        outp = self.getTestOutp()
+        def execmain():
+            return func(argv, outp=outp)
+        retn = await s_coro.executor(execmain)
+        return retn, outp
 
     @contextlib.contextmanager
     def redirectStdin(self, new_stdin):
@@ -1207,6 +1264,7 @@ class SynTest(unittest.TestCase):
         gtyps = (
                  s_coro.GenrHelp,
                  s_telepath.Genr,
+                 s_telepath.GenrIter,
                  types.GeneratorType,
                  )
 
@@ -1277,60 +1335,21 @@ class SynTest(unittest.TestCase):
                 s_common.yamlsave(conf, cdir, 'cell.yaml')
             yield dirn
 
-    async def getTestCell(self, dirn, name, boot=None, conf=None):
-        '''
-        Get an instance of a Cell with specific boot and configuration data.
-
-        Args:
-            dirn (str): The directory the celldir is made in.
-            name (str): The name of the cell to make. This must be a
-            registered cell name in ``s_cells.ctors.``
-            boot (dict): Optional boot data. This is saved to ``boot.yaml``
-            for the cell to load.
-            conf (dict): Optional configuration data. This is saved to
-            ``cell.yaml`` for the Cell to load.
-
-        Examples:
-
-            Get a test Cortex cell:
-
-                conf = {'key': 'value'}
-                boot = {'cell:name': 'TestCell'}
-                cell = getTestCell(someDirectory, 'cortex', conf, boot)
-
-        Returns:
-            s_cell.Cell: A Cell instance.
-        '''
-        cdir = os.path.join(dirn, name)
-        s_common.makedirs(cdir)
-        if boot:
-            s_common.yamlsave(boot, cdir, 'boot.yaml')
-        if conf:
-            s_common.yamlsave(conf, cdir, 'cell.yaml')
-        if name == 'cortex' and self.alt_write_layer:
-            ldir = s_common.gendir(cdir, 'layers')
-            layerdir = pathlib.Path(ldir, '000-default')
-            try:
-                shutil.copytree(self.alt_write_layer, layerdir)
-            except FileExistsError:
-                pass
-        return await s_cells.init(name, cdir)
-
     def getIngestDef(self, guid, seen):
         gestdef = {
             'comment': 'ingest_test',
             'source': guid,
             'seen': '20180102',
             'forms': {
-                'teststr': [
+                'test:str': [
                     '1234',
                     'duck',
                     'knight',
                 ],
-                'testint': [
+                'test:int': [
                     '1234'
                 ],
-                'pivcomp': [
+                'test:pivcomp': [
                     ('hehe', 'haha')
                 ]
             },
@@ -1342,12 +1361,12 @@ class SynTest(unittest.TestCase):
             'nodes': [
                 [
                     [
-                        'teststr',
+                        'test:str',
                         'ohmy'
                     ],
                     {
                         'props': {
-                            'bar': ('testint', 137),
+                            'bar': ('test:int', 137),
                             'tick': '2001',
                         },
                         'tags': {
@@ -1358,7 +1377,7 @@ class SynTest(unittest.TestCase):
                 ],
                 [
                     [
-                        'testint',
+                        'test:int',
                         '8675309'
                     ],
                     {
@@ -1371,13 +1390,13 @@ class SynTest(unittest.TestCase):
             'edges': [
                 [
                     [
-                        'teststr',
+                        'test:str',
                         '1234'
                     ],
                     'refs',
                     [
                         [
-                            'testint',
+                            'test:int',
                             1234
                         ]
                     ]
@@ -1386,14 +1405,14 @@ class SynTest(unittest.TestCase):
             'time:edges': [
                 [
                     [
-                        'teststr',
+                        'test:str',
                         '1234'
                     ],
                     'wentto',
                     [
                         [
                             [
-                                'testint',
+                                'test:int',
                                 8675309
 
                             ],
@@ -1414,58 +1433,26 @@ class SynTest(unittest.TestCase):
         Args:
             core: Auth enabled cortex.
         '''
-        await core.addAuthRole('creator')
-        await core.addAuthRule('creator', (True, ('node:add',)))
-        await core.addAuthRule('creator', (True, ('prop:set',)))
-        await core.addAuthRule('creator', (True, ('tag:add',)))
+        creator = await core.auth.addRole('creator')
 
-        await core.addAuthRole('deleter')
-        await core.addAuthRule('deleter', (True, ('node:del',)))
-        await core.addAuthRule('deleter', (True, ('prop:del',)))
-        await core.addAuthRule('deleter', (True, ('tag:del',)))
+        await creator.setRules((
+            (True, ('node:add',)),
+            (True, ('prop:set',)),
+            (True, ('tag:add',)),
+            (True, ('feed:data',)),
+        ))
 
-    @contextlib.asynccontextmanager
-    async def getTestDmonCortexAxon(self, rootperms=True):
-        '''
-        Get a test Daemon with a Cortex and a Axon with a single BlobStor
-        enabled. The Cortex is an auth enabled cortex with the root username
-        and password as "root:root".
+        deleter = await core.auth.addRole('deleter')
+        await deleter.setRules((
+            (True, ('node:del',)),
+            (True, ('prop:del',)),
+            (True, ('tag:del',)),
+        ))
 
-        This environment can be used to run tests which require having both
-        an Cortex and a Axon readily available.
+        iadd = await core.auth.addUser('icanadd')
+        await iadd.grant('creator')
+        await iadd.setPasswd('secret')
 
-        Valid connection URLs for the Axon and Cortex are set in the local
-        scope as "axonurl" and "coreurl" respectively.
-
-        Args:
-            perms (bool): If true, grant the root user * permissions on the Cortex.
-
-        Returns:
-            s_daemon.Daemon: A configured Daemon.
-        '''
-        async with self.getTestDmon('axoncortexdmon') as dmon:
-
-            # Construct URLS for later use
-            blobstorurl = f'tcp://{dmon.addr[0]}:{dmon.addr[1]}/blobstor00'
-            axonurl = f'tcp://{dmon.addr[0]}:{dmon.addr[1]}/axon00'
-            coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
-
-            # register the blob with the Axon.
-            async with await self.agetTestProxy(dmon, 'axon00') as axon:
-                await axon.addBlobStor(blobstorurl)
-
-            # Add our helper URLs to scope so others don't
-            # have to construct them.
-            s_scope.set('axonurl', axonurl)
-            s_scope.set('coreurl', coreurl)
-
-            s_scope.set('blobstorurl', blobstorurl)
-
-            # grant the root user permissions
-            if rootperms:
-                async with await self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
-                    await self.addCreatorDeleterRoles(core)
-                    await core.addUserRole('root', 'creator')
-                    await core.addUserRole('root', 'deleter')
-
-            yield dmon
+        idel = await core.auth.addUser('icandel')
+        await idel.grant('deleter')
+        await idel.setPasswd('secret')

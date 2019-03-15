@@ -5,7 +5,6 @@ An RMI framework for synapse.
 import os
 import asyncio
 import logging
-import contextlib
 import collections
 
 import synapse.exc as s_exc
@@ -28,7 +27,7 @@ class Aware:
     The telepath.Aware mixin allows shared objects to
     handle individual links managed by the Daemon.
     '''
-    async def getTeleApi(self, link, mesg):
+    async def getTeleApi(self, link, mesg, path):
         '''
         Return a shared object for this link.
         Args:
@@ -40,12 +39,6 @@ class Aware:
 
     def onTeleShare(self, dmon, name):
         pass
-
-    def onTeleOpen(self, link, path):
-        '''
-        Allow a telepath share to create a new sub-share.
-        '''
-        return None
 
 class Task:
     '''
@@ -86,7 +79,8 @@ class Share(s_base.Base):
             return
 
         mesg = ('share:fini', {'share': self.iden})
-        await self.proxy.link.tx(mesg)
+        if not self.proxy.link.isfini:
+            await self.proxy.link.tx(mesg)
 
     def __getattr__(self, name):
         meth = Method(self.proxy, name, share=self.iden)
@@ -175,6 +169,31 @@ class Method:
         todo = (self.name, args, kwargs)
         return await self.proxy.task(todo, name=self.share)
 
+class GenrIter:
+    '''
+    An object to help delay a telepath call until iteration.
+    '''
+    def __init__(self, proxy, todo, share):
+        self.todo = todo
+        self.proxy = proxy
+        self.share = share
+
+    async def __aiter__(self):
+        genr = await self.proxy.task(self.todo, name=self.share)
+        async for item in genr:
+            yield item
+
+    def __iter__(self):
+        genr = s_glob.sync(self.proxy.task(self.todo, name=self.share))
+        for item in genr:
+            yield item
+
+class GenrMethod(Method):
+
+    def __call__(self, *args, **kwargs):
+        todo = (self.name, args, kwargs)
+        return GenrIter(self.proxy, todo, self.share)
+
 class Proxy(s_base.Base):
     '''
     A telepath Proxy is used to call remote APIs on a shared object.
@@ -209,16 +228,16 @@ class Proxy(s_base.Base):
         self.tasks = {}
         self.shares = {}
 
+        self.sharinfo = {}
+        self.methinfo = {}
+
         self.sess = None
         self.links = collections.deque()
 
         self.synack = None
         self.syndone = asyncio.Event()
 
-        self.timeout = None     # API call timeout default
-
         self.handlers = {
-            'tele:syn': self._onTeleSyn,
             'task:fini': self._onTaskFini,
             'share:data': self._onShareData,
             'share:fini': self._onShareFini,
@@ -259,12 +278,20 @@ class Proxy(s_base.Base):
 
     async def _initPoolLink(self):
 
-        ssl = self.link.get('ssl')
-        host = self.link.get('host')
-        port = self.link.get('port')
-
         # TODO loop / backoff
-        link = await s_link.connect(host, port, ssl=ssl)
+
+        if self.link.get('unix'):
+
+            path = self.link.get('path')
+            link = await s_link.unixconnect(path)
+
+        else:
+
+            ssl = self.link.get('ssl')
+            host = self.link.get('host')
+            port = self.link.get('port')
+
+            link = await s_link.connect(host, port, ssl=ssl)
 
         self.onfini(link)
 
@@ -440,6 +467,8 @@ class Proxy(s_base.Base):
             raise s_exc.LinkShutDown(mesg=mesg)
 
         self.sess = self.synack[1].get('sess')
+        self.sharinfo = self.synack[1].get('sharinfo', {})
+        self.methinfo = self.sharinfo.get('meths', {})
 
         vers = self.synack[1].get('vers')
         if vers[0] != televers[0]:
@@ -503,6 +532,13 @@ class Proxy(s_base.Base):
         return task.reply((True, item))
 
     def __getattr__(self, name):
+
+        info = self.methinfo.get(name)
+        if info is not None and info.get('genr'):
+            meth = GenrMethod(self, name)
+            setattr(self, name, meth)
+            return meth
+
         meth = Method(self, name)
         setattr(self, name, meth)
         return meth
@@ -586,7 +622,6 @@ async def openurl(url, **opts):
 
     host = info.get('host')
     port = info.get('port')
-    name = info.get('path')[1:]
 
     auth = None
 
@@ -595,13 +630,42 @@ async def openurl(url, **opts):
         passwd = info.get('passwd')
         auth = (user, {'passwd': passwd})
 
-    sslctx = None
-    if info.get('scheme') == 'ssl':
-        certpath = info.get('certdir')
-        certdir = s_certdir.CertDir(certpath)
-        sslctx = certdir.getClientSSLContext()
+    scheme = info.get('scheme')
 
-    link = await s_link.connect(host, port, ssl=sslctx)
+    if scheme == 'cell':
+        # cell:///path/to/celldir:share
+        # cell://rel/path/to/celldir:share
+        name = '*'
+        path = info.get('path')
+
+        # support cell://<relpath>/<to>/<cell>
+        # by detecting host...
+        host = info.get('host')
+        if host:
+            path = os.path.join(host, path)
+
+        if ':' in path:
+            path, name = path.split(':')
+
+        full = os.path.join(path, 'sock')
+        link = await s_link.unixconnect(full)
+
+    elif scheme == 'unix':
+        # unix:///path/to/sock:share
+        path, name = info.get('path').split(':')
+        link = await s_link.unixconnect(path)
+
+    else:
+
+        name = info.get('path')[1:]
+
+        sslctx = None
+        if scheme == 'ssl':
+            certpath = info.get('certdir')
+            certdir = s_certdir.CertDir(certpath)
+            sslctx = certdir.getClientSSLContext()
+
+        link = await s_link.connect(host, port, ssl=sslctx)
 
     prox = await Proxy.anit(link, name)
     prox.onfini(link)

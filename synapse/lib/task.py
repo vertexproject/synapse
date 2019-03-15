@@ -1,7 +1,6 @@
 import asyncio
 import logging
 
-import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
@@ -53,7 +52,7 @@ class Task(s_base.Base):
 
     def _onTaskDone(self, t):
         if not self.isfini:
-            self.boss.schedCoro(self.fini())
+            self.boss.schedCoroSafe(self.fini())
 
     async def _onTaskFini(self):
 
@@ -105,8 +104,6 @@ def loop():
     except Exception as e:
         return None
 
-#def fork(coro, name, user=None, info=None):
-
 def current():
     '''
     Return the current synapse task.
@@ -142,3 +139,77 @@ async def executor(func, *args, **kwargs):
 
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, syncfunc)
+
+# Task vars:  task-local variables
+
+_TaskDictCtors = {}  # type: ignore
+
+def varinit(task=None):
+    '''
+    Initializes (or re-initializes for testing purposes) all of a task's task-local variables
+
+    Precondition:
+        If task is None, this must be called from task context
+    '''
+    if task is None:
+        task = asyncio.current_task()
+    taskvars = {}
+    task._syn_taskvars = taskvars
+    return taskvars
+
+def _taskdict(task):
+    '''
+    Note: No locking is provided.  Under normal circumstances, like the other task is not running (e.g. this is running
+    from the same event loop as the task) or task is the current task, this is fine.
+    '''
+    if task is None:
+        task = asyncio.current_task()
+
+    assert task
+    taskvars = getattr(task, '_syn_taskvars', None)
+
+    if taskvars is None:
+        taskvars = varinit(task)
+
+    return taskvars
+
+def varget(name, defval=None, task=None):
+    '''
+    Access a task local variable by name
+
+    Precondition:
+        If task is None, this must be called from task context
+    '''
+    taskdict = _taskdict(task)
+    retn = taskdict.get(name, s_common.NoValu)
+    if retn is not s_common.NoValu:
+        return retn
+
+    func = _TaskDictCtors.get(name)
+    if func is None:
+        return defval
+
+    item = func()
+    taskdict[name] = item
+
+    return item
+
+def varset(name, valu, task=None):
+    '''
+    Set a task-local variable
+
+    Args:
+        task: If task is None, uses current task
+
+    Precondition:
+        If task is None, this must be called from task context
+    '''
+    _taskdict(task)[name] = valu
+
+def vardefault(name, func):
+    '''
+    Add a default constructor for a particular task-local variable
+
+    All future calls to taskVarGet with the same name will return the result of calling func
+    '''
+    _TaskDictCtors[name] = func

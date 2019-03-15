@@ -192,6 +192,31 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.get('broadcast'), 3232236031)  # 192.168.1.255
                 self.eq(node.get('mask'), 24)
 
+    async def test_cidr6(self):
+        formname = 'inet:cidr6'
+        async with self.getTestCore() as core:
+
+            # Type Tests ======================================================
+            t = core.model.type(formname)
+
+            valu = '::/0'
+            expected = ('::/0', {'subs': {
+                'broadcast': 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff',
+                'network': '::',
+                'mask': 0,
+            }})
+            self.eq(t.norm(valu), expected)
+
+            valu = '2001:db8::/59'
+            expected = ('2001:db8::/59', {'subs': {
+                'broadcast': '2001:db8:0:1f:ffff:ffff:ffff:ffff',
+                'network': '2001:db8::',
+                'mask': 59,
+            }})
+            self.eq(t.norm(valu), expected)
+
+            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/-1')
+
     async def test_client(self):
         formname = 'inet:client'
         data = (
@@ -358,14 +383,12 @@ class InetModelTest(s_t_utils.SynTest):
             # Demonstrate cascading formation
             # FIXME use checkNode
             async with await core.snap() as snap:
-                node = await snap.addNode(formname, valu, props={'created': 0, 'expires': 1, 'updated': 2})
+                node = await snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('domain'), 'vertex.link')
-                self.eq(node.get('expires'), 1)
                 self.eq(node.get('host'), 'api')
                 self.eq(node.get('issuffix'), 0)
                 self.eq(node.get('iszone'), 0)
-                self.eq(node.get('updated'), 2)
                 self.eq(node.get('zone'), 'vertex.link')
 
             async with await core.snap() as snap:
@@ -754,7 +777,15 @@ class InetModelTest(s_t_utils.SynTest):
             valu = '1.2.3.4-5.6.7.8'
             self.eq(t.norm(valu), expected)
 
-            self.raises(s_exc.BadTypeValu, t.norm, (valu[1], valu[0]))
+            valu = '1.2.3.0/24'
+            expected = ((0x01020300, 0x010203ff), {'subs': {'min': 0x01020300, 'max': 0x010203ff}})
+            self.eq(t.norm(valu), expected)
+
+            valu = '5.6.7.8-1.2.3.4'
+            self.raises(s_exc.BadTypeValu, t.norm, valu)
+
+            valu = ('1.2.3.4', '5.6.7.8', '7.8.9.10')
+            self.raises(s_exc.BadTypeValu, t.norm, valu)
 
     async def test_net6(self):
         tname = 'inet:net6'
@@ -769,12 +800,22 @@ class InetModelTest(s_t_utils.SynTest):
             valu = '0:0:0:0:0:0:0:0-::Ff'
             self.eq(t.norm(valu), expected)
 
-            self.raises(s_exc.BadTypeValu, t.norm, (valu[1], valu[0]))
-
             # Test case in which ipaddress ordering is not alphabetical
             valu = ('3300:100::', '3300:100:1::ffff')
             expected = (('3300:100::', '3300:100:1::ffff'), {'subs': {'min': '3300:100::', 'max': '3300:100:1::ffff'}})
             self.eq(t.norm(valu), expected)
+
+            valu = '2001:db8::/101'
+
+            expected = (('2001:db8::', '2001:db8::7ff:ffff'),
+                        {'subs': {'min': '2001:db8::', 'max': '2001:db8::7ff:ffff'}})
+            self.eq(t.norm(valu), expected)
+
+            valu = ('fe00::', 'fd00::')
+            self.raises(s_exc.BadTypeValu, t.norm, valu)
+
+            valu = ('fd00::', 'fe00::', 'ff00::')
+            self.raises(s_exc.BadTypeValu, t.norm, valu)
 
     async def test_passwd(self):
         async with self.getTestCore() as core:
@@ -1177,21 +1218,6 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    async def test_web_actref(self):
-        formname = 'inet:web:actref'
-        valu = (32 * 'a', ('inet:ipv4', '0.0.0.1'))
-        input_props = {}
-        expected_props = {
-            'act': 32 * 'a',
-            'node': ('inet:ipv4', 1),
-            'node:form': 'inet:ipv4',
-        }
-        expected_ndef = (formname, (32 * 'a', ('inet:ipv4', 1)))
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode(formname, valu, props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
     async def test_web_chprofile(self):
         formname = 'inet:web:chprofile'
         valu = 32 * 'a'
@@ -1382,21 +1408,6 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    async def test_web_postref(self):
-        formname = 'inet:web:postref'
-        valu = (32 * 'a', ('inet:ipv4', '0.0.0.1'))
-        input_props = {}
-        expected_props = {
-            'post': 32 * 'a',
-            'node': ('inet:ipv4', 1),
-            'node:form': 'inet:ipv4',
-        }
-        expected_ndef = (formname, (32 * 'a', ('inet:ipv4', 1)))
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode(formname, valu, props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
     async def test_whois_contact(self):
         formname = 'inet:whois:contact'
         valu = (('vertex.link', '@2015'), 'regiStrar')
@@ -1453,9 +1464,6 @@ class InetModelTest(s_t_utils.SynTest):
         valu = ('woot.com', '@20501217')
         input_props = {
             'text': 'YELLING AT pennywise@vertex.link LOUDLY',
-            'created': 0,
-            'updated': 1,
-            'expires': 2,
             'registrar': ' cool REGISTRAR ',
             'registrant': ' cool REGISTRANT ',
         }
@@ -1463,9 +1471,6 @@ class InetModelTest(s_t_utils.SynTest):
             'fqdn': 'woot.com',
             'asof': 2554848000000,
             'text': 'yelling at pennywise@vertex.link loudly',
-            'created': 0,
-            'updated': 1,
-            'expires': 2,
             'registrar': ' cool registrar ',
             'registrant': ' cool registrant ',
         }
@@ -1498,19 +1503,6 @@ class InetModelTest(s_t_utils.SynTest):
         valu = 'cool Registrant '
         expected_props = {}
         expected_ndef = (formname, 'cool registrant ')
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode(formname, valu)
-                self.checkNode(node, (expected_ndef, expected_props))
-
-    async def test_whois_regmail(self):
-        formname = 'inet:whois:regmail'
-        valu = ('wOOt.Com', 'visi@vertex.LINK')
-        expected_props = {
-            'fqdn': 'woot.com',
-            'email': 'visi@vertex.link',
-        }
-        expected_ndef = (formname, tuple(item.lower() for item in valu))
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, valu)

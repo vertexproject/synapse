@@ -6,7 +6,6 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
 import synapse.lib.cache as s_cache
-import synapse.lib.scrape as s_scrape
 
 '''
 This module implements syntax parsing for the storm runtime.
@@ -385,9 +384,13 @@ class Parser:
         self.stormcmds = set(parseinfo['stormcmds'])
         self.modelinfo = parseinfo['modelinfo']
 
-    def _raiseSyntaxError(self, mesg):
+    @property
+    def remaining_text(self):
+        return self.text[self.offs:]
+
+    def _raiseSyntaxError(self, mesg, **kwargs):
         at = self.text[self.offs:self.offs + 12]
-        raise s_exc.BadStormSyntax(mesg=mesg, at=at, text=self.text, offs=self.offs)
+        raise s_exc.BadStormSyntax(mesg=mesg, at=at, text=self.text, offs=self.offs, **kwargs)
 
     def _raiseSyntaxExpects(self, text):
         self._raiseSyntaxError(f'expected: {text}')
@@ -733,6 +736,9 @@ class Parser:
 
         self.nextmust('#')
 
+        if self.nextstr('$'):
+            return self.varvalu()
+
         text = self.noms(until=tagmatchterm)
 
         return s_ast.TagMatch(text)
@@ -953,17 +959,7 @@ class Parser:
 
             return s_ast.CmdOper(kids=(s_ast.Const(name), argv))
 
-        # rewind and noms until whitespace
-        self.offs = noff
-
-        tokn = self.noms(until=whitespace)
-
-        ndefs = list(s_scrape.scrape(tokn))
-        if ndefs:
-            return s_ast.LiftByScrape(ndefs)
-
-        self.offs = noff
-        raise s_exc.NoSuchProp(name=name)
+        self._raiseSyntaxError(mesg=f'No such property or command.', name=name)
 
     def casevalu(self):
 
@@ -1082,7 +1078,7 @@ class Parser:
 
         self.ignore(whitespace)
 
-        kids = [self.tagname(),]
+        kids = [self.tagname()]
 
         self.ignore(whitespace)
 
@@ -1098,7 +1094,7 @@ class Parser:
 
         self.nextmust('#')
 
-        kids = [self.tagname(),]
+        kids = [self.tagname()]
 
         if self.nextstr('@='):
             kids.append(self.cmpr())
@@ -1192,7 +1188,7 @@ class Parser:
 
         if self.nextstr('#'):
 
-            tag = self.tagname()
+            tag = self.tagmatch()
 
             self.ignore(whitespace)
 
@@ -1202,6 +1198,9 @@ class Parser:
             # Special case of pivot operations which ALSO start with cmprstart chars
             if self.nextstrs('<-', '<+-'):
                 return s_ast.TagCond(kids=(tag,))
+
+            if '*' in tag.value():
+                self._raiseSyntaxError('* globbing is not supported in tag/value combinations.')
 
             cmpr = self.cmpr()
             self.ignore(whitespace)

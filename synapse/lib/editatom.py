@@ -86,28 +86,36 @@ class EditAtom:
         '''
         Push the recorded changes to disk, notify all the listeners
         '''
+        if not self.npvs:  # nothing to do
+            return
+
         for node, prop, _, valu in self.npvs:
             node.props[prop.name] = valu
 
-        await snap.stor(self.sops)
+        splices = [snap.splice('node:add', ndef=node.ndef) for node in self.mybldgbuids.values()]
+        for node, prop, oldv, valu in self.npvs:
+            splices.append(snap.splice('prop:set', ndef=node.ndef, prop=prop.name, valu=valu, oldv=oldv))
+
+        await snap.stor(self.sops, splices)
 
         for node in self.mybldgbuids.values():
             snap.core.pokeFormCount(node.form.name, 1)
-            snap.buidcache.put(node.buid, node)
+            snap.buidcache.append(node)
+            snap.livenodes[node.buid] = node
 
         await self.rendevous()
 
         for node in self.mybldgbuids.values():
-            await snap.splice('node:add', ndef=node.ndef)
             await node.form.wasAdded(node)
 
         # fire all his prop sets
         for node, prop, oldv, valu in self.npvs:
-            await snap.splice('prop:set', ndef=node.ndef, prop=prop.name, valu=valu, oldv=oldv)
             await prop.wasSet(node, oldv)
 
             if prop.univ:
                 univ = snap.model.prop(prop.univ)
                 await univ.wasSet(node, oldv)
 
+        # Finally, fire all the triggers
+        for node, prop, oldv, _ in self.npvs:
             await snap.core.triggers.runPropSet(node, prop, oldv)

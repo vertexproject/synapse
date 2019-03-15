@@ -7,26 +7,28 @@ import synapse.tests.utils as s_t_utils
 class CmdTriggersTest(s_t_utils.SynTest):
 
     async def test_triggers(self):
-        async with self.getTestDmon('dmoncore') as dmon, await self.agetTestProxy(dmon, 'core') as core:
+
+        async with self.getTestCoreAndProxy() as (realcore, core):
+
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
 
-            await cmdr.runCmdLine('trigger add Node:add teststr {[ testint=1 ] }')
-            await s_common.aspin(await core.eval('[ teststr=foo ]'))
-            await self.agenlen(1, await core.eval('testint'))
+            await cmdr.runCmdLine('trigger add Node:add test:str {[ test:int=1 ] }')
+            await s_common.aspin(core.eval('[ test:str=foo ]'))
+            await self.agenlen(1, core.eval('test:int'))
 
-            await cmdr.runCmdLine('trigger add tag:add teststr #footag.* {[ +#count teststr=$tag ]}')
-            await s_common.aspin(await core.eval('[ teststr=bar +#footag.bar ]'))
-            await self.agenlen(1, await core.eval('#count'))
-            await self.agenlen(1, await core.eval('teststr=footag.bar'))
+            await cmdr.runCmdLine('trigger add tag:add test:str #footag.* {[ +#count test:str=$tag ]}')
+            await s_common.aspin(core.eval('[ test:str=bar +#footag.bar ]'))
+            await self.agenlen(1, core.eval('#count'))
+            await self.agenlen(1, core.eval('test:str=footag.bar'))
 
-            await cmdr.runCmdLine('trigger add prop:set testtype10:intprop {[ testint=6 ]}')
-            await s_common.aspin(await core.eval('[ testtype10=1 :intprop=25 ]'))
-            await self.agenlen(1, await core.eval('testint=6'))
+            await cmdr.runCmdLine('trigger add prop:set test:type10:intprop {[ test:int=6 ]}')
+            await s_common.aspin(core.eval('[ test:type10=1 :intprop=25 ]'))
+            await self.agenlen(1, core.eval('test:int=6'))
 
             await cmdr.runCmdLine('trigger list')
             self.true(outp.expect('user'))
-            self.true(outp.expect('<None>'))
+            self.true(outp.expect('root'))
             goodbuid = outp.mesgs[-2].split()[1][:6]
             goodbuid2 = outp.mesgs[-1].split()[1][:6]
 
@@ -36,7 +38,7 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await cmdr.runCmdLine(f'trigger del deadbeef12341234')
             self.true(outp.expect('does not match'))
 
-            await cmdr.runCmdLine(f'trigger mod {goodbuid2} {{[ teststr=different ]}}')
+            await cmdr.runCmdLine(f'trigger mod {goodbuid2} {{[ test:str=different ]}}')
             self.true(outp.expect('Modified trigger'))
 
             await cmdr.runCmdLine(f'trigger mod deadbeef12341234')
@@ -66,38 +68,38 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await cmdr.runCmdLine('trigger add tag:add #foo #bar')
             self.true(outp.expect('single tag'))
 
-            await cmdr.runCmdLine('trigger add tag:add {teststr} {teststr}')
+            await cmdr.runCmdLine('trigger add tag:add {test:str} {test:str}')
             self.true(outp.expect('single query'))
 
-            await cmdr.runCmdLine('trigger add node:add teststr #foo {teststr}')
+            await cmdr.runCmdLine('trigger add node:add test:str #foo {test:str}')
             self.true(outp.expect('node:* does not support'))
 
-            await cmdr.runCmdLine('trigger add prop:set #foo {teststr}')
+            await cmdr.runCmdLine('trigger add prop:set #foo {test:str}')
             self.true(outp.expect('Missing prop parameter'))
 
-            await cmdr.runCmdLine('trigger add prop:set testtype10.intprop #foo {teststr}')
+            await cmdr.runCmdLine('trigger add prop:set test:type10.intprop #foo {test:str}')
             self.true(outp.expect('prop:set does not support a tag'))
 
-            await cmdr.runCmdLine('trigger add node:add teststr testint {teststr}')
+            await cmdr.runCmdLine('trigger add node:add test:str test:int {test:str}')
             self.true(outp.expect('Only a single form'))
 
-            await cmdr.runCmdLine('trigger add prop:set testtype10.intprop teststr {teststr}')
+            await cmdr.runCmdLine('trigger add prop:set test:type10.intprop test:str {test:str}')
             self.true(outp.expect('single prop'))
 
-            await cmdr.runCmdLine('trigger add tag:add #tag testint')
+            await cmdr.runCmdLine('trigger add tag:add #tag test:int')
             self.true(outp.expect('Missing query'))
 
-            await cmdr.runCmdLine('trigger add node:add #tag1 {teststr}')
+            await cmdr.runCmdLine('trigger add node:add #tag1 {test:str}')
             self.true(outp.expect('Missing form'))
 
-            await cmdr.runCmdLine(f'trigger mod {goodbuid2} teststr')
+            await cmdr.runCmdLine(f'trigger mod {goodbuid2} test:str')
             self.true(outp.expect('start with {'))
 
             # Bad storm syntax
-            await cmdr.runCmdLine('trigger add node:add teststr {[ | | testint=1 ] }')
+            await cmdr.runCmdLine('trigger add node:add test:str {[ | | test:int=1 ] }')
             self.true(outp.expect('BadStormSyntax'))
 
             # (Regression) Just a command as the storm query
-            await cmdr.runCmdLine('trigger add Node:add teststr {[ testint=99 ] | spin }')
-            await s_common.aspin(await core.eval('[ teststr=foo4 ]'))
-            await self.agenlen(1, await core.eval('testint=99'))
+            await cmdr.runCmdLine('trigger add Node:add test:str {[ test:int=99 ] | spin }')
+            await s_common.aspin(core.eval('[ test:str=foo4 ]'))
+            await self.agenlen(1, core.eval('test:int=99'))

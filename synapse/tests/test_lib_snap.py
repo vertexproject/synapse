@@ -1,9 +1,8 @@
-import os
+import gc
 import random
 import asyncio
 import contextlib
-
-import synapse.common as s_common
+import collections
 
 import synapse.lib.coro as s_coro
 
@@ -18,45 +17,81 @@ class SnapTest(s_t_utils.SynTest):
 
             async with await core.snap() as snap:
 
-                await snap.addNode('teststr', 'hehe')
-                await snap.addNode('teststr', 'haha')
+                await snap.addNode('test:str', 'hehe')
+                await snap.addNode('test:str', 'haha')
 
-                self.len(2, await alist(snap.eval('teststr')))
+                self.len(2, await alist(snap.eval('test:str')))
 
-                await snap.addNode('teststr', 'hoho')
+                await snap.addNode('test:str', 'hoho')
 
-                self.len(3, await alist(snap.storm('teststr')))
-
-    async def test_stor(self):
-        async with self.getTestCore() as core:
-
-            # Bulk
-            async with await core.snap() as snap:
-                snap.bulk = True
-                self.eq(snap.bulksops, ())
-
-                self.none(await snap.stor((1,)))
-                self.eq(snap.bulksops, (1,))
-
-                self.none(await snap.stor((2,)))
-                self.eq(snap.bulksops, (1, 2,))
+                self.len(3, await alist(snap.storm('test:str')))
 
     async def test_snap_feed_genr(self):
 
         async def testGenrFunc(snap, items):
-            yield await snap.addNode('teststr', 'foo')
-            yield await snap.addNode('teststr', 'bar')
+            yield await snap.addNode('test:str', 'foo')
+            yield await snap.addNode('test:str', 'bar')
 
         async with self.getTestCore() as core:
 
             core.setFeedFunc('test.genr', testGenrFunc)
 
             await core.addFeedData('test.genr', [])
-            self.len(2, await alist(core.eval('teststr')))
+            self.len(2, await alist(core.eval('test:str')))
 
             async with await core.snap() as snap:
                 nodes = await alist(snap.addFeedNodes('test.genr', []))
                 self.len(2, nodes)
+
+    async def test_same_node_different_object(self):
+        '''
+        Test the problem in which a live node might be evicted out of the snap's buidcache causing two node
+        objects to be representing the same logical thing.
+
+        Also tests that creating a node then querying it back returns the same object
+        '''
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                nodebuid = None
+                snap.buidcache = collections.deque(maxlen=10)
+
+                async def doit():
+                    nonlocal nodebuid
+                    # Reduce the buid cache so we don't have to make 100K nodes
+
+                    node0 = await snap.addNode('test:int', 0)
+
+                    node = await snap.getNodeByNdef(('test:int', 0))
+
+                    # Test write then read coherency
+
+                    self.eq(node0.buid, node.buid)
+                    self.eq(id(node0), id(node))
+                    nodebuid = node.buid
+
+                    # Test read, then a bunch of reads, then read coherency
+
+                    await alist(snap.addNodes([(('test:int', x), {}) for x in range(1, 20)]))
+                    nodes = await alist(snap.getNodesBy('test:int'))
+
+                    self.eq(nodes[0].buid, node0.buid)
+                    self.eq(id(nodes[0]), id(node0))
+                    # Hang a attr off of the node
+                    setattr(node, '_test', True)
+
+                await doit()  # run in separate function so that objects are gc'd
+
+                gc.collect()
+
+                # Test that coherency goes away (and we don't store all nodes forever)
+                await alist(snap.addNodes([(('test:int', x), {}) for x in range(20, 30)]))
+
+                node = await snap.getNodeByNdef(('test:int', 0))
+                self.eq(nodebuid, node.buid)
+                # Ensure that the node is not the same object as we encountered earlier.
+                # We cannot check via id() since it is possible for a pyobject to be
+                # allocated at the same location as the old object.
+                self.false(hasattr(node, '_test'))
 
     async def test_addNodes(self):
         async with self.getTestCore() as core:
@@ -65,7 +100,7 @@ class SnapTest(s_t_utils.SynTest):
                 self.len(0, await alist(snap.addNodes(ndefs)))
 
                 ndefs = (
-                    (('teststr', 'hehe'), {'props': {'.created': 5, 'tick': 3}, 'tags': {'cool': (1, 2)}}, ),
+                    (('test:str', 'hehe'), {'props': {'.created': 5, 'tick': 3}, 'tags': {'cool': (1, 2)}}, ),
                 )
                 result = await alist(snap.addNodes(ndefs))
                 self.len(1, result)
@@ -75,7 +110,7 @@ class SnapTest(s_t_utils.SynTest):
                 self.ge(node.props.get('.created', 0), 5)
                 self.eq(node.tags.get('cool'), (1, 2))
 
-                nodes = await alist(snap.getNodesBy('teststr', 'hehe'))
+                nodes = await alist(snap.getNodesBy('test:str', 'hehe'))
                 self.len(1, nodes)
                 self.eq(nodes[0], node)
 
@@ -103,7 +138,7 @@ class SnapTest(s_t_utils.SynTest):
                     snap.on('node:add', waitabit)
 
                     for i in data:
-                        node = await snap.addNode('testint', i)
+                        node = await snap.addNode('test:int', i)
                         if node.props.get('.created') is None:
                             failed = True
                             done_event.set()
@@ -132,16 +167,18 @@ class SnapTest(s_t_utils.SynTest):
                 async with await core.snap() as snap:
                     call_count = 0
 
+                    origGetNodeByBuid = snap.getNodeByBuid
+
                     async def slowGetNodeByBuid(buid):
                         nonlocal call_count
                         call_count += 1
                         if call_count > 0:
                             await ab_middle_event.wait()
-                        return await snap.buidcache.aget(buid)
+                        return await origGetNodeByBuid(buid)
 
                     snap.getNodeByBuid = slowGetNodeByBuid
 
-                    await snap.addNode('pivcomp', ('woot', 'rofl'))
+                    await snap.addNode('test:pivcomp', ('woot', 'rofl'))
                 bc_done_event.set()
 
             core.schedCoro(bc_writer())
@@ -150,13 +187,15 @@ class SnapTest(s_t_utils.SynTest):
             async def ab_writer():
                 async with await core.snap() as snap:
 
+                    origGetNodeByBuid = snap.getNodeByBuid
+
                     async def slowGetNodeByBuid(buid):
                         ab_middle_event.set()
-                        return await snap.buidcache.aget(buid)
+                        return await origGetNodeByBuid(buid)
 
                     snap.getNodeByBuid = slowGetNodeByBuid
 
-                    await snap.addNode('haspivcomp', 42, props={'have': ('woot', 'rofl')})
+                    await snap.addNode('test:haspivcomp', 42, props={'have': ('woot', 'rofl')})
                 ab_done_event.set()
 
             core.schedCoro(ab_writer())
@@ -164,85 +203,50 @@ class SnapTest(s_t_utils.SynTest):
             self.true(await s_coro.event_wait(ab_done_event, 5))
 
     @contextlib.asynccontextmanager
-    async def _getTestCoreMultiLayer(self, first_dirn):
+    async def _getTestCoreMultiLayer(self):
         '''
         Custom logic to make a second cortex that puts another cortex's layer underneath.
 
         Notes:
             This method is broken out so subclasses can override.
         '''
-        tmp, self.alt_write_layer = self.alt_write_layer, None
-        layerfn = os.path.join(first_dirn, 'layers', '000-default')
-        async with self.getTestCore(extra_layers=[layerfn]) as core:
-            yield core
-        self.alt_write_layer = tmp
+        async with self.getTestCore() as core0:
+
+            async with self.getTestCore() as core1:
+
+                config = {'url': core0.getLocalUrl('*/layer')}
+                layr = await core1.addLayer(type='remote', config=config)
+
+                await core1.view.addLayer(layr)
+                yield core0, core1
 
     async def test_cortex_lift_layers_bad_filter(self):
         '''
         Test a two layer cortex where a lift operation gives the wrong result
         '''
-        async with self.getTestCore() as core1:
-            node = (('inet:ipv4', 1), {'props': {'asn': 42, '.seen': (1, 2)}, 'tags': {'woot': (1, 2)}})
-            nodes_core1 = await alist(core1.addNodes([node]))
-            await core1.fini()
+        async with self._getTestCoreMultiLayer() as (core0, core1):
 
-            async with self._getTestCoreMultiLayer(core1.dirn) as core, await core.snap() as snap:
-                # Basic sanity checks
+            self.len(1, await core0.eval('[ inet:ipv4=1.2.3.4 :asn=42 +#woot=(2014, 2015)]').list())
+            self.len(1, await core1.eval('inet:ipv4=1.2.3.4 [ :asn=31337 +#woot=2016 ]').list())
 
-                # Make sure only the top layer is writeable
-                self.true(core.layers[0].readonly)
-                self.true(core.layers[0].slab.readonly)
-                self.false(core.layers[1].readonly)
-                self.false(core.layers[1].slab.readonly)
+            self.len(0, await core0.eval('inet:ipv4:asn=31337').list())
+            self.len(1, await core1.eval('inet:ipv4:asn=31337').list())
 
-                nodes = await alist(snap.getNodesBy('inet:ipv4', 1))
-                self.len(1, nodes)
-                nodes = await alist(snap.getNodesBy('inet:ipv4.seen', 1))
-                self.len(1, nodes)
-                self.eq(nodes_core1[0].pack(), nodes[0].pack())
-                nodes = await alist(snap.getNodesBy('inet:ipv4#woot', 1))
-                self.len(1, nodes)
-                nodes = await alist(snap.getNodesBy('inet:ipv4#woot', 99))
-                self.len(0, nodes)
-
-                # Now change asn in the "higher" layer
-                changed_node = (('inet:ipv4', 1), {'props': {'asn': 43, '.seen': (3, 4)}, 'tags': {'woot': (3, 4)}})
-                nodes = await alist(snap.addNodes([changed_node]))
-                # Lookup by prop
-                nodes = await alist(snap.getNodesBy('inet:ipv4:asn', 42))
-                self.len(0, nodes)
-
-                # Lookup by univ prop
-                nodes = await alist(snap.getNodesBy('inet:ipv4.seen', 1))
-                self.len(0, nodes)
-
-                # Lookup by formtag
-                nodes = await alist(snap.getNodesBy('inet:ipv4#woot', 1))
-                self.len(0, nodes)
-
-                # Lookup by tag
-                nodes = await alist(snap.getNodesBy('#woot', 1))
-                self.len(0, nodes)
+            self.len(1, await core0.eval('inet:ipv4:asn=42').list())
+            self.len(0, await core1.eval('inet:ipv4:asn=42').list())
 
     async def test_cortex_lift_layers_dup(self):
         '''
         Test a two layer cortex where a lift operation might give the same node twice incorrectly
         '''
-        async with self.getTestCore() as core1:
-            node = (('inet:ipv4', 1), {'props': {'asn': 42}})
-            nodes_core1 = await alist(core1.addNodes([node]))
-            await core1.fini()
+        async with self._getTestCoreMultiLayer() as (core0, core1):
+            # add to core1 first so we can cause creation in both...
+            self.len(1, await core1.eval('[ inet:ipv4=1.2.3.4 :asn=42 ]').list())
+            self.len(1, await core0.eval('[ inet:ipv4=1.2.3.4 :asn=42 ]').list())
 
-            async with self._getTestCoreMultiLayer(core1.dirn) as core, await core.snap() as snap:
-                # Basic sanity check first
-                nodes = await alist(snap.getNodesBy('inet:ipv4', 1))
-                self.len(1, nodes)
-                self.eq(nodes_core1[0].pack(), nodes[0].pack())
+            # lift by secondary and ensure only one...
+            self.len(1, await core1.eval('inet:ipv4:asn=42').list())
 
-                # Now set asn in the "higher" layer to the same (by changing it, then changing it back)
-                changed_node = (('inet:ipv4', 1), {'props': {'asn': 43}})
-                await s_common.aspin(snap.addNodes([changed_node]))
-                changed_node = (('inet:ipv4', 1), {'props': {'asn': 42}})
-                nodes = await alist(snap.addNodes([changed_node]))
-                nodes = await alist(snap.getNodesBy('inet:ipv4:asn', 42))
-                self.len(1, nodes)
+            # now set one to a diff value that we will ask for but should be masked
+            self.len(1, await core0.eval('[ inet:ipv4=1.2.3.4 :asn=99 ]').list())
+            self.len(0, await core1.eval('inet:ipv4:asn=99').list())

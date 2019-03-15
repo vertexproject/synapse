@@ -12,7 +12,9 @@ from collections.abc import Iterable, Mapping
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
 import synapse.lib.base as s_base
+import synapse.lib.provenance as s_provenance
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
@@ -239,12 +241,12 @@ class _Appt:
     Each such entry has a list of ApptRecs.  Each time the appointment is scheduled, the nexttime of the appointment is
     the lowest nexttime of all its ApptRecs.
     '''
-    def __init__(self, iden, recur, indx, query, username, recs, nexttime=None):
+    def __init__(self, iden, recur, indx, query, useriden, recs, nexttime=None):
         self.iden = iden
         self.recur = recur # does this appointment repeat
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
         self.query = query  # query to run
-        self.username = username  # user to run query as
+        self.useriden = useriden # user iden to run query as
         self.recs = recs  # List[ApptRec]  list of the individual entries to calculate next time from
         self._recidxnexttime = None # index of rec who is up next
 
@@ -276,13 +278,13 @@ class _Appt:
 
     def pack(self):
         return {
-            'ver': 0,
+            'ver': 1,
             'enabled': self.enabled,
             'recur': self.recur,
             'iden': self.iden,
             'indx': self.indx,
             'query': self.query,
-            'username': self.username,
+            'useriden': self.useriden,
             'recs': [d.pack() for d in self.recs],
             'nexttime': self.nexttime,
             'startcount': self.startcount,
@@ -294,10 +296,10 @@ class _Appt:
 
     @classmethod
     def unpack(cls, val):
-        if val['ver'] != 0:
+        if val['ver'] != 1:
             raise s_exc.BadStorageVersion  # pragma: no cover
         recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
-        appt = cls(val['iden'], val['recur'], val['indx'], val['query'], val['username'], recs, val['nexttime'])
+        appt = cls(val['iden'], val['recur'], val['indx'], val['query'], val['useriden'], recs, val['nexttime'])
         appt.startcount = val['startcount']
         appt.laststarttime = val['laststarttime']
         appt.lastfinishtime = val['lastfinishtime']
@@ -349,7 +351,9 @@ class Agenda(s_base.Base):
     '''
 
     async def __anit__(self, core):
+
         await s_base.Base.__anit__(self)
+
         self.core = core
         self.apptheap = []  # Stores the appointments in a heap such that the first element is the next appt to run
         self.appts = {}  # Dict[bytes: Appt]
@@ -394,21 +398,21 @@ class Agenda(s_base.Base):
         Load all the appointments from persistent storage
         '''
         to_delete = []
-        for idenf, val in self._hivedict.items():
+        for iden, val in self._hivedict.items():
             try:
-                iden = s_common.uhex(idenf)
                 appt = _Appt.unpack(val)
                 if appt.iden != iden:
                     raise s_exc.InconsistentStorage(mesg='iden inconsistency')
                 self._addappt(iden, appt)
                 self._next_indx = max(self._next_indx, appt.indx + 1)
-            except (s_exc.InconsistentStorage, s_exc.BadTime, TypeError, KeyError) as e:
+            except (s_exc.InconsistentStorage, s_exc.BadStorageVersion, s_exc.BadTime, TypeError, KeyError,
+                    UnicodeDecodeError) as e:
                 logger.warning('Invalid appointment %r found in storage: %r.  Removing', iden, e)
                 to_delete.append(iden)
                 continue
 
         for iden in to_delete:
-            await self._hivedict.pop(s_common.ehex(iden))
+            await self._hivedict.pop(iden)
 
         # Make sure we don't assign the same index to 2 appointments
         if self.appts:
@@ -427,7 +431,7 @@ class Agenda(s_base.Base):
 
     async def _storeAppt(self, appt):
         ''' Store a single appointment '''
-        await self._hivedict.set(s_common.ehex(appt.iden), appt.pack())
+        await self._hivedict.set(appt.iden, appt.pack())
 
     @staticmethod
     def _dictproduct(rdict):
@@ -451,7 +455,7 @@ class Agenda(s_base.Base):
     def list(self):
         return [(iden, (appt.pack())) for (iden, appt) in self.appts.items()]
 
-    async def add(self, username, query: str, reqs, incunit=None, incvals=None):
+    async def add(self, useriden, query: str, reqs, incunit=None, incvals=None):
         '''
         Persistently adds an appointment
 
@@ -475,7 +479,7 @@ class Agenda(s_base.Base):
         Returns:
             iden of new appointment
         '''
-        iden = os.urandom(16)
+        iden = s_common.guid()
         recur = incunit is not None
         indx = self._next_indx
         self._next_indx += 1
@@ -504,7 +508,7 @@ class Agenda(s_base.Base):
                 incvals = (incvals, )
             recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
 
-        appt = _Appt(iden, recur, indx, query, username, recs)
+        appt = _Appt(iden, recur, indx, query, useriden, recs)
         self._addappt(iden, appt)
 
         await self._storeAppt(appt)
@@ -552,7 +556,7 @@ class Agenda(s_base.Base):
                 heapq.heapify(self.apptheap)
 
         del self.appts[iden]
-        await self._hivedict.pop(s_common.ehex(iden))
+        await self._hivedict.pop(iden)
 
     async def _scheduleLoop(self):
         '''
@@ -580,7 +584,7 @@ class Agenda(s_base.Base):
                 if appt.isrunning:
                     logger.warning(
                         'Appointment %s is still running from previous time when scheduled to run.  Skipping.',
-                        s_common.ehex(appt.iden))
+                        appt.iden)
                 else:
                     await self._execute(appt)
 
@@ -588,14 +592,20 @@ class Agenda(s_base.Base):
         '''
         Fire off the task to make the storm query
         '''
-        if appt.username is None or self.core.auth is None:
-            user = None
-        else:
-            user = self.core.auth.users.get(appt.username)
-            if user is None:
-                logger.warning('Unknown username %s in stored appointment', appt.username)
-                return
-        await self.core.boss.execute(self._runJob(user, appt), f'Agenda {s_common.ehex(appt.iden)}', user)
+        user = self.core.auth.user(appt.useriden)
+        if user is None:
+            logger.warning('Unknown user %s in stored appointment', appt.useriden)
+            await self._markfailed(appt)
+            return
+        await self.core.boss.execute(self._runJob(user, appt), f'Agenda {appt.iden}', user)
+
+    async def _markfailed(self, appt):
+        appt.lastfinishtime = appt.laststarttime = time.time()
+        appt.startcount += 1
+        appt.isrunning = False
+        appt.lastresult = 'Failed due to unknown user'
+        if not self.isfini:
+            await self._storeAppt(appt)
 
     async def _runJob(self, user, appt):
         '''
@@ -606,24 +616,27 @@ class Agenda(s_base.Base):
         appt.laststarttime = time.time()
         appt.startcount += 1
         await self._storeAppt(appt)
-        idenf = s_common.ehex(appt.iden)
-        logger.info(f'Agenda executing for iden={idenf}, user={user}: query={{appt.query}}')
-        try:
-            async for _ in self.core.eval(appt.query, user=user):  # NOQA
-                count += 1
-        except asyncio.CancelledError:
-            result = 'cancelled'
-            raise
-        except Exception as e:
-            result = f'raised exception {e}'
-            logger.exception('Agenda job %s raised exception', idenf)
-        else:
-            result = f'finished successfully with {count} nodes'
-        finally:
-            finishtime = time.time()
-            logger.info(f'Agenda completed query for iden={idenf} with result="{result}" took {finishtime:0.2}')
-            appt.lastfinishtime = finishtime
-            appt.isrunning = False
-            appt.lastresult = result
-            if not self.isfini:
-                await self._storeAppt(appt)
+
+        with s_provenance.claim('cron', iden=appt.iden):
+            logger.info('Agenda executing for iden=%s, user=%s, query={%s}', appt.iden, user.name, appt.query)
+            starttime = time.time()
+            try:
+                async for _ in self.core.eval(appt.query, user=user):  # NOQA
+                    count += 1
+            except asyncio.CancelledError:
+                result = 'cancelled'
+                raise
+            except Exception as e:
+                result = f'raised exception {e}'
+                logger.exception('Agenda job %s raised exception', iden)
+            else:
+                result = f'finished successfully with {count} nodes'
+            finally:
+                finishtime = time.time()
+                logger.info('Agenda completed query for iden=%s with result "%s" took %0.3fs',
+                            appt.iden, result, finishtime - starttime)
+                appt.lastfinishtime = finishtime
+                appt.isrunning = False
+                appt.lastresult = result
+                if not self.isfini:
+                    await self._storeAppt(appt)

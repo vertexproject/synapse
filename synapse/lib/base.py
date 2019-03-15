@@ -347,10 +347,11 @@ class Base:
         Returns:
             Remaining ref count
         '''
-        assert self.anitted, 'Base object initialized improperly.  Must use Base.anit class method.'
+        assert self.anitted, f'{self.__class__.__name__} initialized improperly.  Must use Base.anit class method.'
 
         if self.isfini:
             return
+
         if __debug__:
             import synapse.lib.threads as s_threads  # avoid import cycle
             assert s_threads.iden() == self.tid
@@ -419,12 +420,18 @@ class Base:
             An asyncio.Task
 
         '''
+        import synapse.lib.provenance as s_provenance  # avoid import cycle
+
         if __debug__:
             assert s_coro.iscoro(coro)
             import synapse.lib.threads as s_threads  # avoid import cycle
             assert s_threads.iden() == self.tid
 
         task = self.loop.create_task(coro)
+
+        # In rare cases, (Like this function being triggered from call_soon_threadsafe), there's no task context
+        if asyncio.current_task():
+            s_provenance.dupstack(task)
 
         def taskDone(task):
             self._active_tasks.remove(task)
@@ -543,38 +550,6 @@ class Base:
 
         '''
         return Waiter(self, count, self.loop, *names)
-
-    # async def log(self, level, mesg, **info):
-    #     '''
-    #     Implements the log event convention for a Base.
-
-    #     Args:
-    #         level (int):  A python logger level for the event
-    #         mesg (str):   A log message
-    #         **info:       Additional log metadata
-
-    #     '''
-    #     info['time'] = s_common.now()
-    #     info['host'] = s_thishost.get('hostname')
-
-    #     info['level'] = level
-    #     info['class'] = self.__class__.__name__
-
-    #     await self.fire('log', mesg=mesg, **info)
-
-    # async def exc(self, exc, **info):
-    #     '''
-    #     Implements the exception log convention for Base.
-    #     A caller is expected to be within the except frame.
-
-    #     Args:
-    #         exc (Exception):    The exception to log
-
-    #     Returns:
-    #         None
-    #     '''
-    #     info.update(s_common.excinfo(exc))
-    #     await self.log(logging.ERROR, str(exc), **info)
 
 class Waiter:
     '''

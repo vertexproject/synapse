@@ -1,6 +1,4 @@
-import os
 import ssl
-import shutil
 import socket
 import asyncio
 import logging
@@ -14,7 +12,6 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
 import synapse.lib.share as s_share
-import synapse.lib.certdir as s_certdir
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -64,6 +61,11 @@ class Foo:
         yield 10
         yield 20
         yield 30
+
+    def genrboom(self):
+        yield 10
+        yield 20
+        raise s_exc.SynErr(mesg='derp')
 
     def raze(self):
         # test that SynErr makes it through
@@ -127,15 +129,15 @@ class TeleAware(s_telepath.Aware):
         self.beeps[path] = beep
         return beep
 
-    def onTeleOpen(self, link, path):
-        return self._initBeep(path[1])
+    def getTeleApi(self, link, mesg, path):
+        if not path:
+            return TeleApi(self, link)
 
-    def getTeleApi(self, link, mesg):
-        return TeleApi(self, link)
+        return self._initBeep(path[0])
 
 class TeleAuth(s_telepath.Aware):
 
-    def getTeleApi(self, link, mesg):
+    def getTeleApi(self, link, mesg, path):
 
         auth = mesg[1].get('auth')
         if auth is None:
@@ -182,9 +184,13 @@ class TeleTest(s_t_utils.SynTest):
             self.true(isinstance(genr, s_coro.GenrHelp))
             self.eq((10, 20, 30), await genr.list())
 
+            # check generator explodes channel
+            genr = await prox.genrboom()
+            await self.asyncraises(s_exc.SynErr, genr.list())
+
             # check an async generator return channel
-            genr = await prox.corogenr(3)
-            self.true(isinstance(genr, s_coro.GenrHelp))
+            genr = prox.corogenr(3)
+            self.true(isinstance(genr, s_telepath.GenrIter))
             self.eq((0, 1, 2), await alist(genr))
 
             await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
@@ -197,6 +203,21 @@ class TeleTest(s_t_utils.SynTest):
         self.true(await s_coro.event_wait(evt, 2))
         self.true(prox.isfini)
         await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
+
+    async def test_telepath_sync_genr(self):
+
+        foo = Foo()
+
+        def sync():
+            return [x for x in prox.genr()]
+
+        async with self.getTestDmon() as dmon:
+
+            addr = await dmon.listen('tcp://127.0.0.1:0')
+            dmon.share('foo', foo)
+
+            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1]) as prox:
+                self.eq((10, 20, 30), await s_coro.executor(sync))
 
     async def test_telepath_no_sess(self):
 
@@ -228,7 +249,7 @@ class TeleTest(s_t_utils.SynTest):
                 self.eq((10, 20, 30), await alist(genr))
 
                 # check an async generator return channel
-                genr = await prox.corogenr(3)
+                genr = prox.corogenr(3)
                 self.eq((0, 1, 2), await alist(genr))
 
                 await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
@@ -269,12 +290,14 @@ class TeleTest(s_t_utils.SynTest):
             # being connected via TLS, make a certificate for whatever my hostname is and sign it with the test CA
             # key.
             hostname = socket.gethostname()
-            dmon.certdir.genHostCert(socket.gethostname(), signas='ca')
 
-            addr = await dmon.listen(f'ssl://{hostname}:0')
+            dmon.certdir.genHostCert(hostname, signas='ca')
+
+            host, port = await dmon.listen(f'ssl://{hostname}:0')
+
             dmon.share('foo', foo)
 
-            prox = await s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1])
+            prox = await s_telepath.openurl(f'ssl://{hostname}/foo', port=port)
 
             self.eq(30, await prox.bar(10, 20))
 
@@ -306,14 +329,14 @@ class TeleTest(s_t_utils.SynTest):
             async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1]) as prox:
 
                 genr = prox.corogenr(3)
-                self.eq([0, 1, 2], [x async for x in await genr])
+                self.eq([0, 1, 2], [x async for x in genr])
                 # To act the same as a local object, would be:
                 # self.eq([0, 1, 2], [x async for x in genr])
 
-                aitr = (await prox.corogenr('fred')).__aiter__()
+                aitr = prox.corogenr('fred').__aiter__()
                 await self.asyncraises(s_exc.SynErr, aitr.__anext__())
 
-                aitr = (await prox.corogenr(3)).__aiter__()
+                aitr = prox.corogenr(3).__aiter__()
                 await aitr.__anext__()
 
                 start_event = asyncio.Event()
@@ -423,7 +446,7 @@ class TeleTest(s_t_utils.SynTest):
 
         async with self.getTestDmon() as dmon:
 
-            addr = await dmon.listen('ltcp://127.0.0.1:0')
+            addr = await dmon.listen('tcp://127.0.0.1:0')
             dmon.share(name, item)
 
             with self.getTestDir() as dirn:
@@ -455,3 +478,13 @@ class TeleTest(s_t_utils.SynTest):
                     # with a dynamic share attached to it.
                     async with await s_telepath.openurl(f'{name}/bar') as prox:
                         self.eq('bar: beep', await prox.beep())
+
+    async def test_default_name(self):
+
+        async with self.getTestDmon() as dmon:
+
+            addr, port = await dmon.listen('tcp://127.0.0.1:0')
+            dmon.share('*', Foo())
+
+            async with await s_telepath.openurl(f'tcp://{addr}:{port}/') as prox:
+                self.eq('hiya', await prox.echo('hiya'))

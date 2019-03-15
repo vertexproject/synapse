@@ -3,7 +3,6 @@ import asyncio
 import threading
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.queue as s_queue
@@ -236,7 +235,7 @@ class AsyncQueueTest(s_t_utils.SynTest):
 
             await q.put(6)
 
-            self.lt(0.1, time.time() - before)
+            self.lt(0.09, time.time() - before)
             await asyncio.sleep(0.1)
             self.eq(last_msg, 2)
 

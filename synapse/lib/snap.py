@@ -1,7 +1,9 @@
 import types
 import asyncio
 import logging
+import weakref
 import contextlib
+import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -13,6 +15,7 @@ import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
 import synapse.lib.editatom as s_editatom
+import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
 
@@ -32,23 +35,30 @@ class Snap(s_base.Base):
     ('print', {}),
     '''
 
-    async def __anit__(self, core, layers, write=False):
+    async def __anit__(self, core, layers, user, emitprov=True):
+        '''
+        Args:
+            core (cortex):  the cortex
+            layers (List[Layer]): the list of layers to access, write layer last
+            emitprov (bool): whether the provenance stack will be emitted inside write events
+        '''
         await s_base.Base.__anit__(self)
 
         self.stack = contextlib.ExitStack()
 
-        self.user = None
+        assert user is not None
+
         self.strict = True
         self.elevated = False
         self.canceled = False
 
         self.core = core
+        self.user = user
         self.model = core.model
-        self.layers = layers
-        self.wlyr = self.layers[-1]
 
-        self.bulk = False
-        self.bulksops = []
+        # it is optimal for a snap to have layers in "bottom up" order
+        self.layers = list(reversed(layers))
+        self.wlyr = self.layers[-1]
 
         # variables used by the storm runtime
         self.vars = {}
@@ -56,33 +66,22 @@ class Snap(s_base.Base):
         self.runt = {}
 
         self.debug = False      # Set to true to enable debug output.
+        self.emitprov = emitprov  # Whether the provenance stack is on every event
         self.write = False      # True when the snap has a write lock on a layer.
 
         self.tagcache = s_cache.FixedCache(self._addTagNode, size=10000)
-        self.buidcache = s_cache.FixedCache(self._getNodeByBuid, size=100000)
+        self.buidcache = collections.deque(maxlen=100000)  # Keeps alive the most recently accessed node objects
+        self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
 
         self.onfini(self.stack.close)
         self.changelog = []
         self.tagtype = core.model.type('ival')
 
-        async def fini():
-
-            for layr in self.layers:
-                try:
-                    await layr.commit()
-
-                except asyncio.CancelledError:
-                    raise
-
-                except Exception:
-                    logger.exception('commit error for layer')
-
-            # N.B. don't fini the layers here since they are owned by the cortex
-
-        self.onfini(fini)
-
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):
+        if user is None:
+            user = self.user
+
         runt = s_storm.Runtime(self, opts=opts, user=user)
         self.core.stormrunts[runt.iden] = runt
         yield runt
@@ -92,6 +91,9 @@ class Snap(s_base.Base):
         '''
         Yield packed node tuples for the given storm query text.
         '''
+        if user is None:
+            user = self.user
+
         dorepr = False
         dopath = False
 
@@ -111,6 +113,9 @@ class Snap(s_base.Base):
         '''
         Execute a storm query and yield (Node(), Path()) tuples.
         '''
+        if user is None:
+            user = self.user
+
         query = self.core.getStormQuery(text)
         with self.getStormRuntime(opts=opts, user=user) as runt:
             async for x in runt.iterStormQuery(query):
@@ -121,6 +126,9 @@ class Snap(s_base.Base):
         '''
         Run a storm query and yield Node() objects.
         '''
+        if user is None:
+            user = self.user
+
         # maintained for backward compatibility
         query = self.core.getStormQuery(text)
         with self.getStormRuntime(opts=opts, user=user) as runt:
@@ -132,9 +140,6 @@ class Snap(s_base.Base):
 
     async def getOffset(self, iden, offs):
         return await self.wlyr.getOffset(iden, offs)
-
-    def setUser(self, user):
-        self.user = user
 
     async def printf(self, mesg):
         await self.fire('print', mesg=mesg)
@@ -154,7 +159,26 @@ class Snap(s_base.Base):
             Optional[s_node.Node]: The node object or None.
 
         '''
-        return await self.buidcache.aget(buid)
+        node = self.livenodes.get(buid)
+        if node is not None:
+            return node
+
+        props = {}
+        for layr in self.layers:
+            layerprops = await layr.getBuidProps(buid)
+            props.update(layerprops)
+
+        node = s_node.Node(self, buid, props.items())
+
+        # Give other tasks a chance to run
+        await asyncio.sleep(0)
+
+        if node.ndef is None:
+            return None
+
+        self.buidcache.append(node)
+        self.livenodes[buid] = node
+        return node
 
     async def getNodeByNdef(self, ndef):
         '''
@@ -468,22 +492,10 @@ class Snap(s_base.Base):
             raise ctor(mesg=mesg, **info)
         return False
 
-    async def splice(self, name, **info):
+    def splice(self, name, **info):
         '''
-        Construct and log a splice record to be saved on commit().
+        Construct a partial splice record for later feeding into Snap.stor method
         '''
-        user = '?'
-        if self.user is not None:
-            user = self.user.name
-
-        info['user'] = user
-        info['time'] = s_common.now()
-
-        await self.fire(name, **info)
-
-        mesg = (name, info)
-        await self.wlyr.splicelistAppend(mesg)
-
         return (name, info)
 
     #########################################################################
@@ -538,13 +550,26 @@ class Snap(s_base.Base):
 
             yield node
 
-    async def stor(self, sops):
+    async def stor(self, sops, splices=None):
+        now = s_common.now()
+        stackiden, provstack = s_provenance.get()
 
-        if self.bulk:
-            self.bulksops.extend(sops)
-            return
+        if splices is not None:
+            for splice in splices:
+                name, info = splice
+                info['user'] = self.user.iden
+                info['time'] = now
+                if self.emitprov:
+                    await self.fire(name, provstack=provstack, **info)
+                else:
+                    await self.fire(name, **info)
 
-        await self.wlyr.stor(sops)
+        newstackiden = await self.wlyr.stor(sops, stackiden if stackiden is not None else provstack, splices)
+
+        if newstackiden != stackiden:
+            # Save off the alias the write layer gave us so we can use that for future calls to avoid future DB
+            # accesses
+            s_provenance.setiden(newstackiden)
 
     async def getLiftNodes(self, lops, rawprop, cmpr=None):
         genr = self.getLiftRows(lops)
@@ -598,7 +623,7 @@ class Snap(s_base.Base):
                 await asyncio.sleep(0)  # give other tasks some time
             props = {}
             buid = row[0]
-            node = self.buidcache.cache.get(buid)
+            node = self.livenodes.get(buid)
             # Evaluate layers top-down to more quickly abort if we've found a higher layer with the property set
             for layeridx in range(len(self.layers) - 1, -1, -1):
                 layr = self.layers[layeridx]
@@ -614,35 +639,23 @@ class Snap(s_base.Base):
                             props[k] = v
             if props is None:
                 continue
+
             if node is None:
                 node = s_node.Node(self, buid, props.items())
-                if node and node.ndef is not None:
-                    self.buidcache.put(buid, node)
+                if node.ndef is None:
+                    continue
+                self.livenodes[buid] = node
 
-            if node.ndef is not None:
-                if cmpr:
-                    if rawprop == node.form.name:
-                        valu = node.ndef[1]
-                    else:
-                        valu = node.get(rawprop)
-                    if valu is None:
-                        # cmpr required to evaluate something; cannot know if this
-                        # node is valid or not without the prop being present.
-                        continue
-                    if not cmpr(valu):
-                        continue
+            if cmpr:
+                if rawprop == node.form.name:
+                    valu = node.ndef[1]
+                else:
+                    valu = node.get(rawprop)
+                if valu is None:
+                    # cmpr required to evaluate something; cannot know if this
+                    # node is valid or not without the prop being present.
+                    continue
+                if not cmpr(valu):
+                    continue
 
-                yield row, node
-
-    async def _getNodeByBuid(self, buid):
-        props = {}
-        for layr in self.layers:
-            layerprops = await layr.getBuidProps(buid)
-            props.update(layerprops)
-
-        node = s_node.Node(self, buid, props.items())
-
-        # Give other tasks a chance to run
-        await asyncio.sleep(0)
-
-        return None if node.ndef is None else node
+            yield row, node
