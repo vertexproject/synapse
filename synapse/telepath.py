@@ -61,13 +61,15 @@ class Share(s_base.Base):
     '''
     The telepath client side of a dynamically shared object.
     '''
-    async def __anit__(self, proxy, iden, sharinfo):
+    async def __anit__(self, proxy, iden, sharinfo=None):
         await s_base.Base.__anit__(self)
         self.iden = iden
         self.proxy = proxy
 
+        if sharinfo is None:
+            sharinfo = {}
         self.sharinfo = sharinfo
-        self.methinfo = sharinfo.get('meths')
+        self.methinfo = sharinfo.get('meths', {})
         self.proxy.shares[iden] = self
 
         self.txfini = True
@@ -117,7 +119,7 @@ class Share(s_base.Base):
 class Genr(Share):
 
     async def __anit__(self, proxy, iden):
-        await Share.__anit__(self, proxy, iden)
+        await Share.__anit__(self, proxy, iden, sharinfo={})
         self.queue = await s_queue.AQueue.anit()
         self.onfini(self.queue.fini)
 
