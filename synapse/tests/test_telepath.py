@@ -295,7 +295,7 @@ class TeleTest(s_t_utils.SynTest):
 
             dmon.certdir.genHostCert(hostname, signas='ca')
 
-            host, port = await dmon.listen(f'ssl://{hostname}:0')
+            addr = await dmon.listen(f'ssl://{hostname}:0')
 
             dmon.share('foo', foo)
 
