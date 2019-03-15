@@ -1389,23 +1389,22 @@ class Time(IntBase):
             vals (list): A pair of values to norm.
 
         Returns:
-            (int, int): A pair of integers, sorted so that it the first is less than or equal to the second int.
+            (int, int): A ordered pair of integers.
         '''
-        # FIXME Fix returns API doc
         val0, val1 = vals
 
         _tick = self._getLiftValu(val0)
 
-        nosort = True
+        sortval = False
         if isinstance(val1, str):
             if val1.startswith(('+-', '-+')):
-                nosort = False
+                sortval = True
                 delt = s_time.delta(val1[2:])
                 # order matters
                 _tock = _tick + delt
                 _tick = _tick - delt
             elif val1.startswith('-'):
-                nosort = False
+                sortval = True
                 _tock = self._getLiftValu(val1, relto=_tick)
             else:
                 _tock = self._getLiftValu(val1, relto=_tick)
@@ -1414,15 +1413,11 @@ class Time(IntBase):
 
         logger.info(f'Val: {vals}')
         logger.info(f'Pre: {_tick}, {_tock}')
-        if _tick >= _tock:
+        if sortval and _tick >= _tock:
             logger.error(f'OUT OF ORDER TICK TOCK!')
             tick = min(_tick, _tock)
             tock = max(_tick, _tock)
             logger.info(f'Ret: {tick}, {tock}')
-            if nosort:
-                raise s_exc.BadTypeValu(name=self.name, valu=vals,
-                                        mesg='kesha dont like what you got.')
-            logger.info('But its okay :)')
             return tick, tock
         logger.info(f'Ret: {_tick}, {_tock}')
         return _tick, _tock
@@ -1447,6 +1442,10 @@ class Time(IntBase):
 
         tick, tock = self.getTickTock(valu)
 
+        if tick >= tock:
+            # User input has requested a nullset
+            return ()
+
         return self._indxTimeRange(tick, tock)
 
     def _ctorCmprRange(self, vals):
@@ -1461,6 +1460,13 @@ class Time(IntBase):
             raise s_exc.BadCmprValu(valu=vals, cmpr='*range=')
 
         tick, tock = self.getTickTock(vals)
+
+        if tick >= tock:
+            # User input has requested a nullset
+            def cmpr(valu):
+                return False
+
+            return cmpr
 
         def cmpr(valu):
             return tick <= valu <= tock

@@ -846,6 +846,10 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await alist(core.getNodesBy('test:str:tick', ('-1 days', 'now', ),
                                                 cmpr='*range='))
             self.eq({node.ndef[1] for node in nodes}, {'d'})
+            # Equivalent lift
+            nodes = await alist(core.getNodesBy('test:str:tick', ('now', '-1 days'),
+                                                  cmpr='*range='))
+            self.eq({node.ndef[1] for node in nodes}, {'d'})
             # This is equivalent of the previous lift
 
             self.eq({node.ndef[1] for node in nodes}, {'d'})
@@ -871,12 +875,12 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('test:str +:tick*range=(now, "-+ 1day")'))
 
             await self.agenlen(1, core.eval('test:str +:tick*range=(2015, "+1 day")'))
-            # Fixme THESE ARE ALL INVALID!?!
             await self.agenlen(1, core.eval('test:str +:tick*range=(20150102, "-3 day")'))
             await self.agenlen(0, core.eval('test:str +:tick*range=(20150201, "+1 day")'))
             await self.agenlen(1, core.eval('test:str +:tick*range=(20150102, "+- 2day")'))
 
             await self.agenlen(2, core.eval('test:str:tick*range=(2015, 2016)'))
+            await self.agenlen(0, core.eval('test:str:tick*range=(2016, 2015)'))
 
             await self.agenlen(1, core.eval('test:str:tick*range=(2015, "+1 day")'))
             await self.agenlen(4, core.eval('test:str:tick*range=(2014, "now")'))
@@ -885,12 +889,6 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(0, core.eval('test:str:tick*range=(now, "+1 day")'))
 
             # Sad path for *range=
-            await self.agenraises(s_exc.BadTypeValu,
-                                  core.eval('test:str:tick*range=(2016, 2015)'))
-            await self.agenraises(s_exc.BadTypeValu,
-                                  core.getNodesBy('test:str:tick', ('now', '-1 days'),
-                                                  cmpr='*range='))
-
             await self.agenraises(s_exc.BadCmprValu,
                                   core.eval('test:str:tick*range=(2015)'))
             await self.agenraises(s_exc.BadCmprValu,
