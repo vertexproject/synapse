@@ -30,9 +30,9 @@ class LayerTest(s_t_utils.SynTest):
 
             async with await core.snap() as snap:
 
-                node = await snap.addNode('test:str', 'a', {'tick': '1970'})
-                node = await snap.addNode('test:str', 'b', {'tick': '19700101'})
-                node = await snap.addNode('test:str', 'c', {'tick': '1972'})
+                await snap.addNode('test:str', 'a', {'tick': '1970'})
+                await snap.addNode('test:str', 'b', {'tick': '19700101'})
+                await snap.addNode('test:str', 'c', {'tick': '1972'})
                 oper = ('test:str', 'tick', (0, 24 * 60 * 60 * 366))
 
                 async def liftByHandler(lopf, expt):
@@ -46,3 +46,9 @@ class LayerTest(s_t_utils.SynTest):
                     await liftByHandler('prop:ival', 1)
                     await liftByHandler('univ:ival', 1)
                     await liftByHandler('form:ival', 1)
+
+    async def test_splicemigration_pre010(self):
+        async with self.getRegrCore('pre-010') as core:
+            splices = await s_t_utils.alist(core.layer.splices(0, 1000))
+            self.gt(len(splices), 100)
+            self.false(core.layer.layrslab.dbexists('splices'))

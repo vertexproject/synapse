@@ -223,4 +223,10 @@ class InconsistentStorage(SynErr):
     '''
     pass
 
+class DataAlreadyExists(SynErr):
+    '''
+    Cannot copy data to a location that already contains data
+    '''
+    pass
+
 class BadTime(SynErr): pass
