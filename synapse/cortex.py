@@ -640,7 +640,7 @@ class Cortex(s_cell.Cell):
 
         self.provstor = await s_provenance.ProvStor.anit(self.dirn)
         self.onfini(self.provstor.fini)
-        self.provstor.migrate_pre010(self.layer)
+        self.provstor.migratePre010(self.layer)
 
         async def fini():
             await asyncio.gather(*[view.fini() for view in self.views.values()])

@@ -168,7 +168,7 @@ class Triggers:
 
     def migrate_v0_rules(self):
         '''
-        Remove any v0 rules from storage and replace them with v1 rules.
+        Remove any v0 (i.e. pre-010) rules from storage and replace them with v1 rules.
 
         Notes:
             v0 had two differences user was a username.  Replaced with iden of user as 'iden' field.

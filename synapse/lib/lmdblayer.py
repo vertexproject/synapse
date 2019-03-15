@@ -81,7 +81,6 @@ class LmdbLayer(s_layer.Layer):
         Once complete, drop the database from me with the name 'dbname'
 
         Returns (bool): True if a migration occurred, else False
-
         '''
         if not self.layrslab.dbexists(dbname):
             return False
@@ -108,7 +107,7 @@ class LmdbLayer(s_layer.Layer):
     def _migrate_splices_pre010(self):
         self._migrate_db_pre010('splices', self.spliceslab)
 
-    def migrate_provstack_pre010(self, newslab):
+    def migrateProvPre010(self, newslab):
         '''
         Check for any pre-010 provstacks and migrate those to the new slab.
         '''
