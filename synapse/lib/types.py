@@ -1396,21 +1396,36 @@ class Time(IntBase):
 
         _tick = self._getLiftValu(val0)
 
-        if isinstance(val1, str) and val1.startswith(('+-', '-+')):
-            delt = s_time.delta(val1[2:])
-            # order matters
-            _tock = _tick + delt
-            _tick = _tick - delt
+        nosort = True
+        if isinstance(val1, str):
+            if val1.startswith(('+-', '-+')):
+                nosort = False
+                delt = s_time.delta(val1[2:])
+                # order matters
+                _tock = _tick + delt
+                _tick = _tick - delt
+            elif val1.startswith('-'):
+                nosort = False
+                _tock = self._getLiftValu(val1, relto=_tick)
+            else:
+                _tock = self._getLiftValu(val1, relto=_tick)
         else:
             _tock = self._getLiftValu(val1, relto=_tick)
 
+        logger.info(f'Val: {vals}')
+        logger.info(f'Pre: {_tick}, {_tock}')
         if _tick >= _tock:
-            logger.error(f'OUT OF ORDER TICK TOCK: {vals}')
-
-        tick = min(_tick, _tock)
-        tock = max(_tick, _tock)
-
-        return tick, tock
+            logger.error(f'OUT OF ORDER TICK TOCK!')
+            tick = min(_tick, _tock)
+            tock = max(_tick, _tock)
+            logger.info(f'Ret: {tick}, {tock}')
+            if nosort:
+                raise s_exc.BadTypeValu(name=self.name, valu=vals,
+                                        mesg='kesha dont like what you got.')
+            logger.info('But its okay :)')
+            return tick, tock
+        logger.info(f'Ret: {_tick}, {_tock}')
+        return _tick, _tock
 
     def _indxTimeRange(self, mint, maxt):
         minv, _ = self.norm(mint)
@@ -1418,22 +1433,6 @@ class Time(IntBase):
         return (
             ('range', (self.indx(minv), self.indx(maxv))),
         )
-
-    def indxByEq(self, valu):
-
-        if isinstance(valu, str):
-
-            if valu.endswith('*'):
-                valu = s_chop.digits(valu)
-                maxv = str(int(valu) + 1)
-                return self._indxTimeRange(valu, maxv)
-
-            if valu and valu[0] == '-':
-                tock = s_common.now()
-                delt = s_time.delta(valu)
-                return self._indxTimeRange(tock + delt, tock)
-
-        return Type.indxByEq(self, valu)
 
     def indxByRange(self, valu):
         '''

@@ -587,15 +587,6 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('test:str', 'woot'))
 
-                # test a few time range syntax options...
-                nodes = await alist(snap.getNodesBy('test:str:tick', ('2016', '2017'), cmpr='*range='))
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('test:str', 'woot'))
-
-                nodes = await alist(snap.getNodesBy('test:str:tick', ('2016', '2017'), cmpr='*range='))
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('test:str', 'woot'))
-
                 self.nn(await snap.getNodeByNdef(('test:auto', 'autothis')))
 
                 # test lifting by prop without value
