@@ -1442,7 +1442,7 @@ class Time(IntBase):
 
         tick, tock = self.getTickTock(valu)
 
-        if tick >= tock:
+        if tick > tock:
             # User input has requested a nullset
             return ()
 
@@ -1461,7 +1461,7 @@ class Time(IntBase):
 
         tick, tock = self.getTickTock(vals)
 
-        if tick >= tock:
+        if tick > tock:
             # User input has requested a nullset
             def cmpr(valu):
                 return False
