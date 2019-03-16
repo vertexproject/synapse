@@ -74,8 +74,8 @@ class CellTest(s_t_utils.SynTest):
                     self.eq([], await proxy.listHiveKey(('foo', )))
 
     async def test_cell_unix_sock(self):
+
         async with self.getTestCore() as core:
-            self.true(core.insecure)  # No remote auth on this cortex is currently enabled
             # This directs the connection through the cell:// handler.
             async with core.getLocalProxy() as prox:
                 user = await prox.getCellUser()
