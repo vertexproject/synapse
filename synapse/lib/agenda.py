@@ -297,7 +297,7 @@ class _Appt:
     @classmethod
     def unpack(cls, val):
         if val['ver'] != 1:
-            raise s_exc.BadStorageVersion  # pragma: no cover
+            raise s_exc.BadStorageVersion(mesg=f"Found version {val['ver']}")  # pragma: no cover
         recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
         appt = cls(val['iden'], val['recur'], val['indx'], val['query'], val['useriden'], recs, val['nexttime'])
         appt.startcount = val['startcount']
@@ -407,7 +407,7 @@ class Agenda(s_base.Base):
                 self._next_indx = max(self._next_indx, appt.indx + 1)
             except (s_exc.InconsistentStorage, s_exc.BadStorageVersion, s_exc.BadTime, TypeError, KeyError,
                     UnicodeDecodeError) as e:
-                logger.warning('Invalid appointment %r found in storage: %r.  Removing', iden, e)
+                logger.warning('Invalid appointment %r found in storage: %r.  Removing.', iden, e)
                 to_delete.append(iden)
                 continue
 

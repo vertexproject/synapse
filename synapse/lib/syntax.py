@@ -32,22 +32,22 @@ mustquote = set(' \t\n),=]}|')
 # this may be used to meh() potentially unquoted values
 valmeh = whites.union({'(', ')', '=', ',', '[', ']', '{', '}'})
 
-scmdre = regex.compile('^[a-z][a-z0-9\.]+$')
-univre = regex.compile(r'^\.[a-z0-9]+(:[a-z0-9]+)*$')
-propre = regex.compile(r'^[a-z][a-z0-9]+(:[a-z0-9]+)+(\.[a-z][a-z0-9]+)*$')
-formre = regex.compile(r'^[a-z][a-z0-9]+(:[a-z0-9]+)+$')
+scmdre = regex.compile('[a-z][a-z0-9\.]+')
+univre = regex.compile(r'\.[a-z0-9]+(:[a-z0-9]+)*')
+propre = regex.compile(r'[a-z][a-z0-9]+(:[a-z0-9]+)+(\.[a-z][a-z0-9]+)*')
+formre = regex.compile(r'[a-z][a-z0-9]+(:[a-z0-9]+)+')
 
 def isPropName(name):
-    return propre.match(name) is not None
+    return propre.fullmatch(name) is not None
 
 def isCmdName(name):
-    return scmdre.match(name) is not None
+    return scmdre.fullmatch(name) is not None
 
 def isUnivName(name):
-    return univre.match(name) is not None
+    return univre.fullmatch(name) is not None
 
 def isFormName(name):
-    return formre.match(name) is not None
+    return formre.fullmatch(name) is not None
 
 def nom(txt, off, cset, trim=True):
     '''

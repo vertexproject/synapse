@@ -29,6 +29,7 @@ import synapse.lib.trigger as s_trigger
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
 import synapse.lib.modelrev as s_modelrev
+import synapse.lib.slabseqn as s_slabseqn
 import synapse.lib.lmdblayer as s_lmdblayer
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -80,6 +81,10 @@ class View(s_base.Base):
                 logger.warning('view %r has missing layer %r' % (self.iden, iden))
                 continue
 
+            if not self.layers and layr.readonly:
+                self.borked = iden
+                raise s_exc.ReadOnlyLayer(mesg=f'First layer {iden} must not be read-only')
+
             self.layers.append(layr)
 
     async def snap(self, user):
@@ -98,8 +103,12 @@ class View(s_base.Base):
 
     async def addLayer(self, layr, indx=None):
         if indx is None:
+            if not self.layers and layr.readonly:
+                raise s_exc.ReadOnlyLayer(mesg=f'First layer {layr.iden} must not be read-only')
             self.layers.append(layr)
         else:
+            if indx == 0 and layr.readonly:
+                raise s_exc.ReadOnlyLayer(mesg=f'First layer {layr.iden} must not be read-only')
             self.layers.insert(indx, layr)
         await self.info.set('layers', [l.iden for l in self.layers])
 
@@ -114,6 +123,8 @@ class View(s_base.Base):
             layr = self.core.layers.get(iden)
             if layr is None:
                 raise s_exc.NoSuchLayer(iden=iden)
+            if not layrs and layr.readonly:
+                raise s_exc.ReadOnlyLayer(mesg=f'First layer {layr.iden} must not be read-only')
 
             layrs.append(layr)
 
@@ -500,7 +511,7 @@ class CoreApi(s_cell.CellApi):
         Return stream of (iden, provenance stack) tuples at the given offset.
         '''
         count = 0
-        async for iden, stack in self.cell.layer.provStacks(offs, size):
+        for iden, stack in self.cell.provstor.provStacks(offs, size):
             count += 1
             if not count % 1000:
                 await asyncio.sleep(0)
@@ -516,7 +527,7 @@ class CoreApi(s_cell.CellApi):
 
         Note: the iden appears on each splice entry as the 'prov' property
         '''
-        return await self.cell.layer.getProvStack(s_common.uhex(iden))
+        return self.cell.provstor.getProvStack(s_common.uhex(iden))
 
 class Cortex(s_cell.Cell):
     '''
@@ -622,6 +633,10 @@ class Cortex(s_cell.Cell):
         await self._initCoreLayers()
         await self._checkLayerModels()
         await self._initCoreViews()
+
+        self.provstor = await s_provenance.ProvStor.anit(self.dirn)
+        self.onfini(self.provstor.fini)
+        self.provstor.migratePre010(self.layer)
 
         async def fini():
             await asyncio.gather(*[view.fini() for view in self.views.values()])

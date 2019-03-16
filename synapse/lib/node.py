@@ -285,7 +285,9 @@ class Node:
         return self.props.get(name)
 
     async def pop(self, name, init=False):
-
+        '''
+        Remove a property from a node and return the value
+        '''
         prop = self.form.prop(name)
         if prop is None:
             if self.snap.strict:

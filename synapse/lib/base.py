@@ -493,6 +493,9 @@ class Base:
         return task.result()
 
     async def addSignalHandlers(self):
+        '''
+        Register SIGTERM/SIGINT signal handlers with the ioloop to fini this object.
+        '''
 
         def sigterm():
             print('Caught SIGTERM, shutting down.')
@@ -506,11 +509,12 @@ class Base:
         loop.add_signal_handler(signal.SIGINT, sigint)
         loop.add_signal_handler(signal.SIGTERM, sigterm)
 
-
     async def main(self):
         '''
         Helper function to setup signal handlers for this base as the main object.
         ( use base.waitfini() to block )
+
+        NOTE: This API may only be used when the ioloop is *also* the main thread.
         '''
         await self.addSignalHandlers()
         return await self.waitfini()

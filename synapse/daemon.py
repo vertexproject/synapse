@@ -406,7 +406,8 @@ class Daemon(s_base.Base):
                 sess.onfini(valu)
                 iden = s_common.guid()
                 sess.setSessItem(iden, valu)
-                await link.tx(('t2:share', {'iden': iden}))
+                info = s_reflect.getShareInfo(valu)
+                await link.tx(('t2:share', {'iden': iden, 'sharinfo': info}))
                 return
 
             await link.tx(('t2:fini', {'retn': (True, valu)}))
