@@ -25,7 +25,6 @@ import shutil
 import asyncio
 import inspect
 import logging
-import pathlib
 import tempfile
 import unittest
 import threading
@@ -48,12 +47,10 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
-import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
-import synapse.lib.certdir as s_certdir
 import synapse.lib.thishost as s_thishost
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -208,10 +205,10 @@ testmodel = {
         )),
 
         ('test:edge', {}, (
-                    ('n1', ('ndef', {}), {'ro': 1}),
-                    ('n1:form', ('str', {}), {'ro': 1}),
-                    ('n2', ('ndef', {}), {'ro': 1}),
-                    ('n2:form', ('str', {}), {'ro': 1}),
+            ('n1', ('ndef', {}), {'ro': 1}),
+            ('n1:form', ('str', {}), {'ro': 1}),
+            ('n2', ('ndef', {}), {'ro': 1}),
+            ('n2:form', ('str', {}), {'ro': 1}),
         )),
 
         ('test:guid', {}, (
@@ -867,7 +864,7 @@ class SynTest(unittest.TestCase):
         passwd = opts.get('passwd')
 
         if user is not None and passwd is not None:
-            netlock = '%s:%s@%s' % (user, passwd, netloc)
+            netloc = '%s:%s@%s' % (user, passwd, netloc)
 
         return 'tcp://%s/%s' % (netloc, name)
 
@@ -1065,6 +1062,7 @@ class SynTest(unittest.TestCase):
 
     async def execToolMain(self, func, argv):
         outp = self.getTestOutp()
+
         def execmain():
             return func(argv, outp=outp)
         retn = await s_coro.executor(execmain)
