@@ -706,12 +706,12 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.BadOptValu, core.eval('%limit=asdf'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str +test:str@=2018'))
-            await self.agenraises(s_exc.BadStormSyntax, core.eval('test:str +#test*near=newp'))
+            await self.agenraises(s_exc.BadSyntax, core.eval('test:str +#test*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str +test:str:tick*near=newp'))
-            await self.agenraises(s_exc.BadStormSyntax, core.eval(' | | '))
-            await self.agenraises(s_exc.BadStormSyntax, core.eval('[-test:str]'))
+            await self.agenraises(s_exc.BadSyntax, core.eval(' | | '))
+            await self.agenraises(s_exc.BadSyntax, core.eval('[-test:str]'))
             # Scrape is not a default behavior
-            await self.agenraises(s_exc.BadStormSyntax, core.eval('pennywise@vertex.link'))
+            await self.agenraises(s_exc.BadSyntax, core.eval('pennywise@vertex.link'))
 
             await self.agenlen(2, core.eval(('[ test:str=foo test:str=bar ]')))
             await self.agenlen(1, core.eval(('test:str %limit=1')))
@@ -737,7 +737,7 @@ class CortexTest(s_t_utils.SynTest):
             mesgs = [mesg for mesg in mesgs if mesg[0] == 'err']
             self.len(1, mesgs)
             enfo = mesgs[0][1]
-            self.eq(enfo[0], 'BadStormSyntax')
+            self.eq(enfo[0], 'BadSyntax')
 
     async def test_feed_splice(self):
 
@@ -1195,7 +1195,7 @@ class CortexTest(s_t_utils.SynTest):
                       'test:pivcomp :lulz <- test:str',
                       'test:pivcomp :lulz <+- test:str',
                       ]:
-                await self.agenraises(s_exc.BadStormSyntax, core.eval(q))
+                await self.agenraises(s_exc.BadSyntax, core.eval(q))
 
     async def test_node_repr(self):
 
@@ -1283,7 +1283,7 @@ class CortexTest(s_t_utils.SynTest):
             async for node in core.eval('inet:dns:a=(woot.com,1.2.3.4) $seen=.seen :fqdn -> inet:fqdn [ .seen=$seen ]'):
                 self.eq(node.get('.seen'), (1420070400000, 1514764800000))
 
-            await self.agenraises(s_exc.BadStormSyntax, core.eval('inet:dns:a=(woot.com,1.2.3.4) $newp=.newp'))
+            await self.agenraises(s_exc.BadSyntax, core.eval('inet:dns:a=(woot.com,1.2.3.4) $newp=.newp'))
 
             # Vars can also be provided as tuple
             opts = {'vars': {'foo': ('hehe', 'haha')}}
@@ -1731,7 +1731,7 @@ class CortexTest(s_t_utils.SynTest):
             await core.eval('[ inet:ipv4=1.2.3.4 :asn=20 ]').list()
             self.len(1, await core.eval('inet:ipv4=1.2.3.4 +:asn').list())
 
-            with self.raises(s_exc.BadStormSyntax):
+            with self.raises(s_exc.BadSyntax):
                 await core.eval('[ inet:ipv4=1.2.3.4 +:foo ]').list()
 
     async def test_storm_cond_not(self):

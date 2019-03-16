@@ -147,7 +147,7 @@ class Cmd:
                     vals = swit[1].get('enum:vals')
                     valu, off = s_syntax.parse_cmd_string(text, off)
                     if valu not in vals:
-                        raise s_exc.BadSyntaxError(mesg='%s (%s)' % (swit[0], '|'.join(vals)),
+                        raise s_exc.BadSyntax(mesg='%s (%s)' % (swit[0], '|'.join(vals)),
                                                    text=text)
 
                     opts[snam] = valu
@@ -158,7 +158,7 @@ class Cmd:
                 continue
 
             if not args:
-                raise s_exc.BadSyntaxError(mesg='trailing text: [%s]' % (text[off:],),
+                raise s_exc.BadSyntax(mesg='trailing text: [%s]' % (text[off:],),
                                            text=text)
 
             synt = args.popleft()
