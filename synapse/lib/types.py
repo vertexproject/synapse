@@ -791,10 +791,6 @@ class Ival(Type):
             (tabl + ':ival', (form, prop, norm)),
         )
 
-    #def _normPyNone(self, valu):
-        # none is an ok interval (unknown...)
-        #return valu, {}
-
     def _normPyInt(self, valu):
         return (valu, valu + 1), {}
 
