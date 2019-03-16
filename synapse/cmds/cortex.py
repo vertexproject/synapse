@@ -5,7 +5,6 @@ import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.reactor as s_reactor
 
 import synapse.lib.cli as s_cli
 import synapse.lib.node as s_node
@@ -13,21 +12,6 @@ import synapse.lib.time as s_time
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
-
-
-reac = s_reactor.Reactor()
-
-def _reacJsonl(mesg):
-    s = json.dumps(mesg, sort_keys=True) + '\n'
-    buf = s.encode()
-    return buf
-
-def _reacMpk(mesg):
-    buf = s_msgpack.en(mesg)
-    return buf
-
-reac.act('mpk', _reacMpk)
-reac.act('jsonl', _reacJsonl)
 
 
 class Log(s_cli.Cmd):
@@ -121,8 +105,18 @@ class Log(s_cli.Cmd):
 
     def encodeMsg(self, mesg):
         '''Get byts for a message'''
+
         fmt = self.locs.get('log:fmt')
-        return reac.react(mesg, fmt)
+        if fmt == 'jsonl':
+            s = json.dumps(mesg, sort_keys=True) + '\n'
+            buf = s.encode()
+            return buf
+
+        elif fmt == 'mpk':
+            buf = s_msgpack.en(mesg)
+            return buf
+
+        raise Exception('Unknown encoding format %s', fmt)
 
     def closeLogFd(self):
         self._cmd_cli.off('storm:mesg', self.onStormMesg)
@@ -290,12 +284,13 @@ class StormCmd(s_cli.Cmd):
 
     def __init__(self, cli, **opts):
         s_cli.Cmd.__init__(self, cli, **opts)
-        self.reac = s_reactor.Reactor()
-        self.reac.act('node', self._onNode)
-        self.reac.act('init', self._onInit)
-        self.reac.act('fini', self._onFini)
-        self.reac.act('print', self._onPrint)
-        self.reac.act('warn', self._onWarn)
+        self.cmdmeths = {
+            'node': self._onNode,
+            'init': self._onInit,
+            'fini': self._onFini,
+            'print': self._onPrint,
+            'warn': self._onWarn,
+        }
 
     def _onNode(self, mesg):
 
@@ -384,11 +379,13 @@ class StormCmd(s_cli.Cmd):
                         # they control node metadata display
                         mesg[1][1]['_opts'] = opts
                     try:
-                        self.reac.react(mesg)
-                    except s_exc.NoSuchAct as e:
+                        func = self.cmdmeths[mesg[0]]
+                    except KeyError:
                         if hide_unknown:
                             continue
                         self.printf(repr(mesg))
+                    else:
+                        func(mesg)
 
         except s_exc.SynErr as e:
 
