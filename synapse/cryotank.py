@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 class TankApi(s_cell.CellApi):
 
-    async def slice(self, size, offs, iden=None):
-        async for item in self.cell.slice(size, offs, iden=iden):
+    async def slice(self, offs, size=None, iden=None):
+        async for item in self.cell.slice(offs, size=size, iden=iden):
             yield item
 
     async def puts(self, items, seqn=None):
@@ -208,9 +208,9 @@ class CryoApi(s_cell.CellApi):
         await self.cell.init(name, conf=conf)
         return True
 
-    async def slice(self, name, offs, size, iden=None):
+    async def slice(self, name, offs, size=None, iden=None):
         tank = await self.cell.init(name)
-        async for item in tank.slice(offs, size, iden=iden):
+        async for item in tank.slice(offs, size=size, iden=iden):
             yield item
 
     async def list(self):

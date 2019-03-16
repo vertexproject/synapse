@@ -21,6 +21,8 @@ class HttpApiTest(s_tests.SynTest):
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
+            core.insecure = True
+
             async with self.getHttpSess() as sess:
 
                 info = {'name': 'visi', 'passwd': 'secret', 'admin': True}
