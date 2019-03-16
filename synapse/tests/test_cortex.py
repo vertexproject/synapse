@@ -215,8 +215,7 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCryo() as cryo:
 
-            host, port = await cryo.dmon.listen('tcp://127.0.0.1:0/')
-            tank_addr = f'tcp://{host}:{port}/*/tank:blahblah'
+            tank_addr = cryo.getLocalUrl(share='cryotank/blahblah')
 
             # Spin up a source core configured to send splices to dst core
             with self.getTestDir() as dirn:
@@ -236,7 +235,7 @@ class CortexTest(s_t_utils.SynTest):
                     await src_core.waitfini()
 
             # Now that the src core is closed, make sure that the splice exists in the tank
-            tank = cryo.tanks.get('tank:blahblah')
+            tank = cryo.tanks.get('blahblah')
             slices = [x async for x in tank.slice(0, size=1000)]
             # # TestModule creates one node and 3 splices
             self.len(3 + 2, slices)
