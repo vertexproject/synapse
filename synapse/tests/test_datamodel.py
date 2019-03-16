@@ -6,6 +6,22 @@ import synapse.tests.utils as s_t_utils
 
 class DataModelTest(s_t_utils.SynTest):
 
+    async def test_datmodel_formname(self):
+        modl = s_datamodel.Model()
+        mods = (
+            ('hehe', {
+                'types': (
+                    ('derp', ('int', {}), {}),
+                ),
+                'forms': (
+                    ('derp', {}, ()),
+                ),
+            }),
+        )
+
+        with self.raises(s_exc.BadFormDef):
+            modl.addDataModels(mods)
+
     async def test_datamodel_getModelDef(self):
 
         async with self.getTestCore() as core:

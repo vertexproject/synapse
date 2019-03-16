@@ -12,11 +12,11 @@ import synapse.dyndeps as s_dyndeps
 
 import synapse.lib.types as s_types
 import synapse.lib.coro as s_coro
+import synapse.lib.syntax as s_syntax
 
 logger = logging.getLogger(__name__)
 
 hexre = regex.compile('^[0-9a-z]+$')
-propre = regex.compile('^[0-9a-z:_]+$')
 
 class PropBase:
 
@@ -115,6 +115,7 @@ class Prop(PropBase):
             self.full = '%s%s' % (form.name, name)
 
         self.utf8name = self.name.encode('utf8')
+        self.encname = self.utf8name + b'\x00'
 
         self.pref = self.form.utf8name + b'\x00' + self.utf8name + b'\x00'
 
@@ -622,6 +623,10 @@ class Model:
         for modlname, mdef in mods:
 
             for formname, forminfo, propdefs in mdef.get('forms', ()):
+
+                if not s_syntax.isFormName(formname):
+                    mesg = f'Invalid form name {formname}'
+                    raise s_exc.BadFormDef(name=formname, mesg=mesg)
 
                 _type = self.types.get(formname)
                 if _type is None:

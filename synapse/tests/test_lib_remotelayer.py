@@ -4,6 +4,7 @@ import contextlib
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.modelrev as s_modelrev
 import synapse.lib.remotelayer as s_remotelayer
 
 import synapse.tests.utils as s_t_utils
@@ -73,7 +74,7 @@ class RemoteLayerTest(s_t_utils.SynTest):
 
             self.ne((), tuple([x async for x in layr.splices(0, 200)]))
 
-            self.eq((0, 0, 0), await layr.getModelVers())
+            self.eq(s_modelrev.maxvers, await layr.getModelVers())
             await self.asyncraises(s_exc.SynErr, layr.setModelVers((9, 9, 9)))
 
     async def test_splice_generation(self):

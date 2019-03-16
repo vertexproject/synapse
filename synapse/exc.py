@@ -44,6 +44,7 @@ class AuthDeny(SynErr): pass
 
 class BadCmdName(SynErr): pass
 class BadTypeDef(SynErr): pass
+class BadFormDef(SynErr): pass
 class BadPropDef(SynErr): pass
 class BadThreadIden(SynErr): pass
 class BadLiftValu(SynErr): pass

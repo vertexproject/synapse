@@ -134,6 +134,7 @@ testmodel = {
 
         ('test:int', ('int', {}), {}),
         ('test:str', ('str', {}), {}),
+        ('test:migr', ('str', {}), {}),
         ('test:auto', ('str', {}), {}),
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
@@ -226,6 +227,12 @@ testmodel = {
             ('tick', ('test:time', {}), {}),
         )),
 
+        ('test:migr', {}, (
+            ('bar', ('ndef', {}), {}),
+            ('baz', ('nodeprop', {}), {}),
+            ('tick', ('test:time', {}), {}),
+        )),
+
         ('test:threetype', {}, (
             ('three', ('int', {}), {}),
         )),
@@ -288,7 +295,7 @@ class TestModule(s_module.CoreModule):
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
 
         async with await self.core.snap() as snap:
-            await snap.addNode('source', self.testguid, {'name': 'test'})
+            await snap.addNode('meta:source', self.testguid, {'name': 'test'})
 
         self.core.addStormLib(('test',), LibTst)
 
@@ -710,6 +717,7 @@ class SynTest(unittest.TestCase):
 
     @contextlib.contextmanager
     def getRegrDir(self, *path):
+
         regr = os.getenv('SYN_REGRESSION_REPO')
         if regr is None: # pragma: no cover
             raise unittest.SkipTest('SYN_REGRESSION_REPO is not set')
@@ -1393,7 +1401,7 @@ class SynTest(unittest.TestCase):
                         'test:str',
                         '1234'
                     ],
-                    'refs',
+                    'edge:refs',
                     [
                         [
                             'test:int',
@@ -1408,7 +1416,7 @@ class SynTest(unittest.TestCase):
                         'test:str',
                         '1234'
                     ],
-                    'wentto',
+                    'edge:wentto',
                     [
                         [
                             [

@@ -531,8 +531,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
         core = self.getCmdItem()
 
-        parseinfo = await s_syntax.getRemoteParseInfo(core)
-        argv = s_syntax.Parser(parseinfo, line).stormcmd()
+        argv = s_syntax.Parser(line).stormcmd()
         try:
             opts = self._make_argparser().parse_args(argv)
         except s_exc.ParserExit:
@@ -604,8 +603,7 @@ Examples:
 
         core = self.getCmdItem()
 
-        parseinfo = await s_syntax.getRemoteParseInfo(core)
-        argv = s_syntax.Parser(parseinfo, line).stormcmd()
+        argv = s_syntax.Parser(line).stormcmd()
         # Currently, using an argparser is overkill for this command.  Using for future extensibility (and help).
         try:
             opts = self._make_argparser().parse_args(argv)
