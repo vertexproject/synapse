@@ -863,7 +863,7 @@ class CortexTest(s_t_utils.SynTest):
             self.nn(core.getCoreMod('synapse.tests.utils.TestModule'))
 
             # Ensure that the module load creates a node.
-            await self.agenlen(1, core.eval('meta:source=8f1401de15918358d5247e21ca29a814 | uniq'))
+            await self.agenlen(1, core.eval('meta:source=8f1401de15918358d5247e21ca29a814'))
 
             mods = dict(await prox.getCoreMods())
 
