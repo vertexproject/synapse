@@ -43,7 +43,7 @@ class MigrTest(s_testutils.SynTest):
 
             self.len(1, await core.eval(f'edge:refs').list())
             self.len(1, await core.eval(f'edge:refs=((test:guid, {guid}), (test:comp, (1010, test10)))').list())
-            x = await core.eval(f'edge:refs=((test:guid, {guid}), (test:comp, (1010, test10)))').list()
+            await core.eval(f'edge:refs=((test:guid, {guid}), (test:comp, (1010, test10)))').list()
 
             refs = await core.eval('test:guid -> edge:refs +#baz').list()
 
