@@ -628,7 +628,7 @@ class Agenda(s_base.Base):
                 raise
             except Exception as e:
                 result = f'raised exception {e}'
-                logger.exception('Agenda job %s raised exception', iden)
+                logger.exception('Agenda job %s raised exception', appt.iden)
             else:
                 result = f'finished successfully with {count} nodes'
             finally:

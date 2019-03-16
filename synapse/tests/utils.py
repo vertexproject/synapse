@@ -714,15 +714,6 @@ class SynTest(unittest.TestCase):
 
         raise Exception('print output not found: %r' % (text,))
 
-    def getTestSteps(self, names):
-        '''
-        Return a TestSteps instance for the given step names.
-
-        Args:
-            names ([str]): The list of step names.
-        '''
-        return TestSteps(names)
-
     def skip(self, mesg):
         raise unittest.SkipTest(mesg)
 
