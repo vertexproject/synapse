@@ -401,7 +401,7 @@ class CortexTest(s_t_utils.SynTest):
             # test cmd as last text syntax
             await self.agenlen(1, core.eval('inet:user | limit 1'))
 
-            await self.agenlen(1, await core.eval('inet:user | limit 1      '))
+            await self.agenlen(1, core.eval('inet:user | limit 1      '))
 
             # test cmd and trailing pipe and whitespace syntax
             await self.agenlen(2, core.eval('inet:user | limit 10 | [ +#foo.bar ]'))

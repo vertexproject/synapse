@@ -85,7 +85,7 @@ class SlabSeqn:
         indx = self.indx
         lkey = s_common.int64en(indx)
 
-        self.lenv.put(lkey, byts, db=self.db)
+        self.slab.put(lkey, byts, db=self.db)
 
         self.indx += 1
         return indx
