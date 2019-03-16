@@ -59,7 +59,7 @@ class DataElem:
     def _elem_step(self, step):
         try:
             item = self._d_item[step]
-        except Exception as e:
+        except Exception:
             return None
         return initelem(item, name=step, parent=self)
 
@@ -73,7 +73,7 @@ class DataElem:
         # like XML/HTML ( See XmlDataElem )
         try:
             item = self._d_item[step]
-        except Exception as e:
+        except Exception:
             return
 
         yield initelem(item, name=step, parent=self)

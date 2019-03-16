@@ -157,7 +157,7 @@ class TestUtils(s_t_utils.SynTest):
             self.true(env.foo is foo)
 
             def blah():
-                blah = env.blah
+                env.blah
 
             self.raises(AttributeError, blah)
 

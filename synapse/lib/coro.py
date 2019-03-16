@@ -72,7 +72,7 @@ class GenrHelp:
                 item = s_glob.sync(self.genr.__anext__())
                 yield item
 
-        except StopAsyncIteration as e:
+        except StopAsyncIteration:
             return
 
     async def spin(self):

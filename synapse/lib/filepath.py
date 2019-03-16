@@ -112,7 +112,6 @@ class FpFile(object):
     def nexts(self):
         # pparts up to *our* index should be discrete, anything after may still be a glob
 
-        maxidx = self.idx
         spath = s_common.genpath(*self.pparts[:self.idx + 1])
 
         # if itsa regular file
@@ -124,8 +123,6 @@ class FpFile(object):
 
         spaths = [spath]
 
-        ends = []
-        nexts = []
         for idx in range(self.idx + 1, len(self.pparts)):
             cpaths = []
             for spath in spaths:
@@ -332,11 +329,9 @@ class FpTar(FpFile):
 
     def nexts(self):
         # pparts up to *our* index should be discrete, anything after may still be a glob
-        maxidx = self.idx
+        self.idx
         spaths = ['']
 
-        ends = []
-        nexts = []
         for idx in range(self.idx + 1, len(self.pparts)):
             cpaths = []
             for spath in spaths:
@@ -487,7 +482,7 @@ def _mimeFile(fd):
         fd.seek(0)
         tarfile.open(fileobj=fd)
         return 'fs.tar.file'
-    except Exception as e:
+    except Exception:
         pass
 
     # OMG order matters here, zipfile will return True on some tar files
@@ -598,7 +593,7 @@ def openfiles(*paths, **kwargs):
             fbuf = fd.read()
     '''
     reqd = kwargs.get('req', False)
-    mode = kwargs.get('mode', 'r')
+    kwargs.get('mode', 'r')
 
     nopaths = True
     for fpath in parsePaths(*paths):
@@ -629,7 +624,7 @@ def openfile(*paths, **kwargs):
         fd.close()
     '''
     reqd = kwargs.get('req', True)
-    mode = kwargs.get('mode', 'r')
+    kwargs.get('mode', 'r')
     fpath = parsePath(*paths)
     paths = [p for p in paths if p]
 

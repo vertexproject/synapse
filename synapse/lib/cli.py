@@ -385,7 +385,7 @@ class Cli(s_eventbus.EventBus):
 
                 task.result()
 
-            except KeyboardInterrupt as e:
+            except KeyboardInterrupt:
 
                 if self.isfini:
                     return
@@ -395,7 +395,7 @@ class Cli(s_eventbus.EventBus):
             except (s_exc.CliFini, EOFError) as e:
                 self.fini()
 
-            except Exception as e:
+            except Exception:
                 s = traceback.format_exc()
                 self.printf(s)
 

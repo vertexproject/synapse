@@ -279,4 +279,4 @@ class HiveTest(s_test.SynTest):
                 await s_hive.openurl(turl, user='root', passwd='newpnewp')
 
             async with await s_hive.openurl(turl, user='root', passwd='secret') as hive0:
-                node = await hive.open(('foo', 'bar'))
+                await hive.open(('foo', 'bar'))

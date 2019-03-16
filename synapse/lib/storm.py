@@ -793,7 +793,7 @@ class IdenCmd(Cmd):
         for iden in self.opts.iden:
             try:
                 buid = s_common.uhex(iden)
-            except Exception as e:
+            except Exception:
                 await runt.warn(f'Failed to decode iden: [{iden}]')
                 continue
             if len(buid) != 32:

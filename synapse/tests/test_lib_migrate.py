@@ -73,8 +73,6 @@ class MigrTest(s_testutils.SynTest):
 
     async def test_migr_formname(self):
 
-        sorc = s_common.guid()
-
         async with self.getTestCore() as core:
 
             self.len(4, await core.eval('[ test:str=asdf test:str=qwer :tick=2019 +#hehe edge:refs=((test:int, 20), $node) .seen=2015 ] { +edge:refs +#haha }').list())

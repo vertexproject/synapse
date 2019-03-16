@@ -58,7 +58,6 @@ class CryoCatTest(s_t_utils.SynTest):
             bad_encoding[2] = 0xff
             inp = Mock()
             inp.buffer = io.BytesIO(bad_encoding)
-            msg = 'UnpackValueError'
             with self.redirectStdin(inp):
                 with self.raises(msgpack.UnpackValueError):
                     retn, outp = await self.execToolMain(s_cryocat.main, argv)

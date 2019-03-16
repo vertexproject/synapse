@@ -232,7 +232,7 @@ class Fqdn(s_types.Type):
 
         try:
             valu = valu.encode('idna').decode('utf8').lower()
-        except UnicodeError as e:
+        except UnicodeError:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Failed to encode/decode the value with idna/utf8.')
 
@@ -275,7 +275,7 @@ class Fqdn(s_types.Type):
             if text != valu:
                 return text
 
-        except UnicodeError as e:
+        except UnicodeError:
             logger.exception('Failed to IDNA decode ACE prefixed inet:fqdn')
 
         return defval
@@ -542,7 +542,7 @@ class Url(s_types.StrBase):
             proto, valu = valu.split('://', 1)
             proto = proto.lower()
             subs['proto'] = proto
-        except Exception as e:
+        except Exception:
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='Invalid/Missing protocol')
 
@@ -590,7 +590,7 @@ class Url(s_types.StrBase):
                 if match:
                     host = f'[{host}]'
 
-            except Exception as e:
+            except Exception:
                 pass
 
         else:
@@ -606,7 +606,7 @@ class Url(s_types.StrBase):
                 ipv4 = self.modl.type('inet:ipv4').norm(part)[0]
                 host = self.modl.type('inet:ipv4').repr(ipv4)
                 subs['ipv4'] = ipv4
-            except Exception as e:
+            except Exception:
                 pass
 
             # FQDN
@@ -614,7 +614,7 @@ class Url(s_types.StrBase):
                 try:
                     host = self.modl.type('inet:fqdn').norm(part)[0]
                     subs['fqdn'] = host
-                except Exception as e:
+                except Exception:
                     pass
 
         # Raise exception if there was no FQDN, IPv4, or IPv6

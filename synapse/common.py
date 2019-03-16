@@ -141,7 +141,7 @@ def intify(x):
 
     try:
         return int(x, 0)
-    except (TypeError, ValueError) as e:
+    except (TypeError, ValueError):
         return None
 
 def addpref(pref, info):

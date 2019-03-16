@@ -34,7 +34,7 @@ def _fini_atexit(): # pragma: no cover
         try:
             item.fini()
 
-        except Exception as e:
+        except Exception:
             logger.exception('atexit fini fail: %r' % (item,))
 
 atexit.register(_fini_atexit)
@@ -200,13 +200,13 @@ class EventBus(object):
 
                 ret.append(func(mesg))
 
-            except Exception as e:
+            except Exception:
                 logger.exception('Ebus %s error with mesg %s', self, mesg)
 
         for func in self._syn_links:
             try:
                 ret.append(func(mesg))
-            except Exception as e:
+            except Exception:
                 logger.exception('Ebus %s error with mesg %s', self, mesg)
 
         return ret
@@ -235,7 +235,7 @@ class EventBus(object):
         for func in self._fini_funcs:
             try:
                 func()
-            except Exception as e:
+            except Exception:
                 logger.exception('Ebus %s error during fini function', self)
 
         # explicitly release the handlers
@@ -302,7 +302,7 @@ class EventBus(object):
         try:
             self.fire('ebus:main')
             self.waitfini()
-        except KeyboardInterrupt as e:
+        except KeyboardInterrupt:
             print('ctrl-c caught: shutting down')
             self.fini()
 

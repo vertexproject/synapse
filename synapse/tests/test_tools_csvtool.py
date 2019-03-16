@@ -39,7 +39,6 @@ class CsvToolTest(s_t_utils.SynTest):
             with s_common.genfile(stormpath) as fd:
                 fd.write(csvstorm)
 
-            podes = []
 
             argv = ['--csv-header', '--debug', '--cortex', url, '--logfile', logpath, stormpath, csvpath]
             outp = self.getTestOutp()

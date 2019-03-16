@@ -48,7 +48,7 @@ def _fini_atexit(): # pragma: no cover
                     continue
                 loop.create_task(rv)
 
-        except Exception as e:
+        except Exception:
             logger.exception('atexit fini fail: %r' % (item,))
 
 atexit.register(_fini_atexit)
@@ -92,7 +92,7 @@ class Base:
 
             await self.__anit__(*args, **kwargs)
 
-        except Exception as e:
+        except Exception:
 
             if self.anitted:
                 await self.fini()
@@ -282,7 +282,7 @@ class Base:
 
         try:
             funcs.remove(func)
-        except ValueError as e:
+        except ValueError:
             pass
 
     async def fire(self, evtname, **info):
@@ -323,17 +323,17 @@ class Base:
 
             try:
                 ret.append(await s_coro.ornot(func, mesg))
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except Exception:
                 logger.exception('base %s error with mesg %s', self, mesg)
 
         for func in self._syn_links:
             try:
                 ret.append(await func(mesg))
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except Exception:
                 logger.exception('base %s error with mesg %s', self, mesg)
 
         return ret
@@ -392,9 +392,9 @@ class Base:
         for fini in self._fini_funcs:
             try:
                 await s_coro.ornot(fini)
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except Exception:
                 logger.exception(f'{self} - fini function failed: {fini}')
 
         self._syn_funcs.clear()
