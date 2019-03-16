@@ -90,6 +90,9 @@ class Layer(s_base.Base):
     confdefs = ()
     readonly = False
 
+    def __repr__(self):
+        return f'Layer ({self.__class__.__name__}): {self.iden}'
+
     async def __anit__(self, core, node):
 
         await s_base.Base.__anit__(self)
@@ -143,6 +146,7 @@ class Layer(s_base.Base):
         self.onfini(self.spliced.set)
 
     async def getLiftRows(self, lops):
+
         for oper in lops:
 
             func = self._lift_funcs.get(oper[0])

@@ -640,9 +640,9 @@ class TypesTest(s_t_utils.SynTest):
                 node = await snap.addNode('test:str', 'm', {'bar': ('test:str', 'm'), 'tick': '20200101'})
                 node = await snap.addNode('test:guid', 'C' * 32)
                 node = await snap.addNode('test:guid', 'F' * 32)
-                node = await alist(core.eval('[refs=((test:comp, (2048, horton)), (test:comp, (4096, whoville)))]'))
-                node = await alist(core.eval('[refs=((test:comp, (9001, "A mean one")), (test:comp, (40000, greeneggs)))]'))
-                node = await alist(core.eval('[refs=((test:int, 16), (test:comp, (9999, greenham)))]'))
+                node = await alist(core.eval('[edge:refs=((test:comp, (2048, horton)), (test:comp, (4096, whoville)))]'))
+                node = await alist(core.eval('[edge:refs=((test:comp, (9001, "A mean one")), (test:comp, (40000, greeneggs)))]'))
+                node = await alist(core.eval('[edge:refs=((test:int, 16), (test:comp, (9999, greenham)))]'))
 
             nodes = await alist(core.eval('test:str=a +:tick*range=(20000101, 20101201)'))
             self.eq(0, len(nodes))
@@ -662,7 +662,7 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
             nodes = await alist(core.eval('test:int -> test:comp:hehe +test:comp*range=((1000, grinch), (4000, whoville))'))
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
-            nodes = await alist(core.eval('refs +:n1*range=((test:comp, (1000, green)), (test:comp, (3000, ham)))'))
+            nodes = await alist(core.eval('edge:refs +:n1*range=((test:comp, (1000, green)), (test:comp, (3000, ham)))'))
             self.eq({node.ndef[1] for node in nodes},
                     {(('test:comp', (2048, 'horton')), ('test:comp', (4096, 'whoville')))})
 

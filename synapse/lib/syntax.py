@@ -1,8 +1,8 @@
 import collections
 
+import regex
+
 import synapse.exc as s_exc
-import synapse.glob as s_glob
-import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
 import synapse.lib.cache as s_cache
@@ -29,6 +29,23 @@ mustquote = set(' \t\n),=]}|')
 
 # this may be used to meh() potentially unquoted values
 valmeh = whites.union({'(', ')', '=', ',', '[', ']', '{', '}'})
+
+scmdre = regex.compile('[a-z][a-z0-9.]+')
+univre = regex.compile(r'\.[a-z0-9]+(:[a-z0-9]+)*')
+propre = regex.compile(r'[a-z][a-z0-9]+(:[a-z0-9]+)+(\.[a-z][a-z0-9]+)*')
+formre = regex.compile(r'[a-z][a-z0-9]+(:[a-z0-9]+)+')
+
+def isPropName(name):
+    return propre.fullmatch(name) is not None
+
+def isCmdName(name):
+    return scmdre.fullmatch(name) is not None
+
+def isUnivName(name):
+    return univre.fullmatch(name) is not None
+
+def isFormName(name):
+    return formre.fullmatch(name) is not None
 
 def nom(txt, off, cset, trim=True):
     '''
@@ -348,22 +365,6 @@ optcast = {
     'graph': bool,
 }
 
-@s_glob.synchelp
-async def getRemoteParseInfo(proxy):
-    '''
-    Returns a parseinfo dict from a cortex proxy
-    '''
-    coreinfo = await proxy.getCoreInfo()
-    if 'stormcmds' not in coreinfo or 'modeldef' not in coreinfo:
-        raise s_exc.BadPropValu()
-    modelinfo = s_datamodel.ModelInfo()
-    modelinfo.addDataModels(coreinfo['modeldef'])
-    parseinfo = {
-        'stormcmds': coreinfo['stormcmds'],
-        'modelinfo': modelinfo
-    }
-    return parseinfo
-
 class Parser:
 
     '''
@@ -371,22 +372,15 @@ class Parser:
     must be quoted at beginning: . : # @ ( $ etc....
     '''
 
-    def __init__(self, parseinfo, text, offs=0):
+    def __init__(self, text, offs=0):
         '''
         Args:
-            parseinfo (dict): information about the cortex returned via getParseInfo
+            text (str): The query text to parse.
         '''
         self.offs = offs
         assert text is not None
         self.text = text.strip()
         self.size = len(self.text)
-
-        self.stormcmds = set(parseinfo['stormcmds'])
-        self.modelinfo = parseinfo['modelinfo']
-
-    @property
-    def remaining_text(self):
-        return self.text[self.offs:]
 
     def _raiseSyntaxError(self, mesg, **kwargs):
         at = self.text[self.offs:self.offs + 12]
@@ -418,37 +412,15 @@ class Parser:
 
             # | <command> syntax...
             if self.nextstr('|'):
-
                 self.offs += 1
 
                 # trailing | case...
                 self.ignore(whitespace)
-                if not self.more():
-                    break
 
-                # switch to command interpreter...
-                name = self.cmdname()
-                argv = self.cmdargv()
+                if self.nextchar() in (None, '}', '|'):
+                    self._raiseSyntaxError('Trailing | with no subsequent query/cmd.')
 
-                oper = s_ast.CmdOper(kids=(name, argv))
-                query.addKid(oper)
-
-                # command is last query text case...
-                if not self.more():
-                    break
-
-                self.ignorespace()
-
-                # End of subquery
-                if self.nextstr('}'):
-                    continue
-
-                # back to storm mode...
-                if self.nextstr('|'):
-                    self.offs += 1
-                    continue
-
-                self._raiseSyntaxError('expected | or end of input for cmd')
+                continue
 
             # parse a query option: %foo=10
             if self.nextstr('%'):
@@ -916,7 +888,7 @@ class Parser:
         if not name:
             self._raiseSyntaxError('unknown query syntax')
 
-        if self.modelinfo.isprop(name):
+        if isPropName(name) or isUnivName(name):
 
             # before ignoring more whitespace, check for form#tag[=time]
             if self.nextstr('#'):
@@ -936,30 +908,35 @@ class Parser:
 
             self.ignore(whitespace)
 
-            if self.nextchar() in cmprstart:
+            # we need pivots to take prec over cmpr
+            if not self.nextstrs('->', '<-', '-+>', '<+-'):
 
-                cmpr = self.cmpr()
-                valu = self.valu()
+                if self.nextchar() in cmprstart:
 
-                kids = (s_ast.Const(name), cmpr, valu)
-                return s_ast.LiftPropBy(kids=kids)
+                    cmpr = self.cmpr()
+                    valu = self.valu()
+
+                    kids = (s_ast.Const(name), cmpr, valu)
+                    return s_ast.LiftPropBy(kids=kids)
 
             # lift by prop only
             return s_ast.LiftProp(kids=(s_ast.Const(name),))
 
-        if name in self.stormcmds:
+        # If we get here it must be either <cmdname>[ <args...>]<|EOF>
+        if isCmdName(name):
 
             argv = self.cmdargv()
 
             self.ignore(whitespace)
 
-            # eat a trailing | from a command at the beginning
-            if self.nextstr('|'):
-                self.offs += 1
+            char = self.nextchar()
+            if char not in ('|', '}', None):
+                mesg = 'Expected | or end of input for cmd.'
+                self._raiseSyntaxError(mesg=mesg)
 
             return s_ast.CmdOper(kids=(s_ast.Const(name), argv))
 
-        self._raiseSyntaxError(mesg=f'No such property or command.', name=name)
+        self._raiseSyntaxError(mesg=f'Expected a property name or command.', name=name)
 
     def casevalu(self):
 
@@ -1290,8 +1267,12 @@ class Parser:
 
         name = self.noms(varset)
 
-        if not self.modelinfo.isprop(name):
-            self._raiseSyntaxError(f'no such property: {name!r}')
+        if not name:
+            mesg = 'Expected a form/prop name.'
+            self._raiseSyntaxError(mesg=mesg)
+
+        if not isPropName(name):
+            self._raiseSyntaxError(f'invalid property: {name!r}')
 
         return s_ast.AbsProp(name)
 
@@ -1319,8 +1300,11 @@ class Parser:
             self._raiseSyntaxError('universal property expected .')
 
         name = self.noms(varset)
+        if not name:
+            mesg = 'Expected a univeral property name.'
+            self._raiseSyntaxError(mesg=mesg)
 
-        if not self.modelinfo.isuniv(name):
+        if not isUnivName(name):
             self._raiseSyntaxError(f'no such universal property: {name!r}')
 
         return s_ast.UnivProp(name)
@@ -1459,11 +1443,17 @@ class Parser:
         return s_ast.Const(name)
 
     def cmdargv(self):
+        '''
+        cmdargv *must* have leading whitespace to prevent
+        foo@bar from becoming cmdname foo with argv=[@bar]
+        '''
 
         argv = []
         while self.more():
 
-            self.ignore(whitespace)
+            # cmdargv *requires* whitespace
+            if not self.ignore(whitespace):
+                break
 
             # if we hit a | or a } we're done
             if self.nextstr('|'):
@@ -1686,8 +1676,11 @@ class Parser:
         return self.text[self.offs]
 
     def ignore(self, charset):
+        size = 0
         while self.nextchar() in charset:
+            size += 1
             self.offs += 1
+        return size
 
     def eat(self, size, ignore=None):
         self.offs += size

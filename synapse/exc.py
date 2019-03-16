@@ -47,6 +47,7 @@ class BadCoreStore(SynErr):
     pass
 
 class BadCtorType(SynErr): pass
+class BadFormDef(SynErr): pass
 class BadLiftValu(SynErr): pass
 class BadPropDef(SynErr): pass
 class BadTypeDef(SynErr): pass

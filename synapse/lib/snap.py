@@ -293,14 +293,21 @@ class Snap(s_base.Base):
         prop = self.model.prop(full)
         if prop is None:
             raise s_exc.NoSuchProp(name=full)
+
+        # TODO OMG form optimization straight to buid!
+
         if prop.isrunt:
+
             async for node in self.getRuntNodes(full, valu, cmpr):
                 yield node
-        else:
-            lops = prop.getLiftOps(valu, cmpr=cmpr)
-            cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
-            async for row, node in self.getLiftNodes(lops, prop.name, cmpf):
-                yield node
+
+            return
+
+        lops = prop.getLiftOps(valu, cmpr=cmpr)
+        cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
+
+        async for row, node in self.getLiftNodes(lops, prop.name, cmpf):
+            yield node
 
     async def _getNodesByType(self, name, valu=None, addform=True):
 
