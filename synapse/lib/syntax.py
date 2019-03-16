@@ -3,8 +3,6 @@ import collections
 import regex
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
-import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
 import synapse.lib.cache as s_cache
@@ -32,7 +30,7 @@ mustquote = set(' \t\n),=]}|')
 # this may be used to meh() potentially unquoted values
 valmeh = whites.union({'(', ')', '=', ',', '[', ']', '{', '}'})
 
-scmdre = regex.compile('[a-z][a-z0-9\.]+')
+scmdre = regex.compile('[a-z][a-z0-9.]+')
 univre = regex.compile(r'\.[a-z0-9]+(:[a-z0-9]+)*')
 propre = regex.compile(r'[a-z][a-z0-9]+(:[a-z0-9]+)+(\.[a-z][a-z0-9]+)*')
 formre = regex.compile(r'[a-z][a-z0-9]+(:[a-z0-9]+)+')
@@ -108,20 +106,20 @@ def parse_int(text, off, trim=True):
     if nextstr(text, off, '0x'):
         valu, off = nom(text, off + 2, hexset)
         if not valu:
-            raise s_exc.BadSyntaxError(at=off, mesg='0x expected hex')
+            raise s_exc.BadSyntax(at=off, mesg='0x expected hex')
         valu = int(valu, 16)
 
     elif nextstr(text, off, '0b'):
         valu, off = nom(text, off + 2, binset)
         if not valu:
-            raise s_exc.BadSyntaxError(at=off, mesg='0b expected bits')
+            raise s_exc.BadSyntax(at=off, mesg='0b expected bits')
         valu = int(valu, 2)
 
     else:
 
         valu, off = nom(text, off, decset)
         if not valu:
-            raise s_exc.BadSyntaxError(at=off, mesg='expected digits')
+            raise s_exc.BadSyntax(at=off, mesg='expected digits')
 
         if not nextchar(text, off, '.'):
             valu = int(valu)
@@ -146,14 +144,14 @@ def parse_float(text, off, trim=True):
 
     digs, off = nom(text, off, decset)
     if not digs:
-        raise s_exc.BadSyntaxError(at=off, mesg='expected digits')
+        raise s_exc.BadSyntax(at=off, mesg='expected digits')
 
     valu += digs
 
     if nextchar(text, off, '.'):
         frac, off = nom(text, off + 1, decset)
         if not frac:
-            raise s_exc.BadSyntaxError(at=off, mesg='expected .<digits>')
+            raise s_exc.BadSyntax(at=off, mesg='expected .<digits>')
 
         valu = valu + '.' + frac
 
@@ -173,7 +171,7 @@ def parse_list(text, off=0, trim=True):
     '''
 
     if not nextchar(text, off, '('):
-        raise s_exc.BadSyntaxError(at=off, mesg='expected open paren for list')
+        raise s_exc.BadSyntax(at=off, mesg='expected open paren for list')
 
     off += 1
 
@@ -205,11 +203,11 @@ def parse_list(text, off=0, trim=True):
             return valus, off + 1
 
         if not nextchar(text, off, ','):
-            raise s_exc.BadSyntaxError(at=off, text=text, mesg='expected comma in list')
+            raise s_exc.BadSyntax(at=off, text=text, mesg='expected comma in list')
 
         off += 1
 
-    raise s_exc.BadSyntaxError(at=off, mesg='unexpected and of text during list')
+    raise s_exc.BadSyntax(at=off, mesg='unexpected and of text during list')
 
 def parse_cmd_string(text, off, trim=True):
     '''
@@ -229,7 +227,7 @@ def parse_cmd_string(text, off, trim=True):
 def parse_string(text, off, trim=True):
 
     if text[off] not in ('"', "'"): # lulz...
-        raise s_exc.BadSyntaxError(expected='String Literal', at=off)
+        raise s_exc.BadSyntax(expected='String Literal', at=off)
 
     quot = text[off]
 
@@ -317,7 +315,7 @@ def parse_cmd_kwarg(text, off=0):
     _, off = nom(text, off, whites)
 
     if not nextchar(text, off, '='):
-        raise s_exc.BadSyntaxError(expected='= for kwarg ' + prop, at=off)
+        raise s_exc.BadSyntax(expected='= for kwarg ' + prop, at=off)
 
     _, off = nom(text, off + 1, whites)
 
@@ -386,7 +384,7 @@ class Parser:
 
     def _raiseSyntaxError(self, mesg, **kwargs):
         at = self.text[self.offs:self.offs + 12]
-        raise s_exc.BadStormSyntax(mesg=mesg, at=at, text=self.text, offs=self.offs, **kwargs)
+        raise s_exc.BadSyntax(mesg=mesg, at=at, text=self.text, offs=self.offs, **kwargs)
 
     def _raiseSyntaxExpects(self, text):
         self._raiseSyntaxError(f'expected: {text}')

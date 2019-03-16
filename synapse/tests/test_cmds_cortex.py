@@ -99,7 +99,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --bad')
-            outp.expect('BadStormSyntax')
+            outp.expect('BadSyntax')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)

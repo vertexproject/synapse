@@ -385,7 +385,7 @@ class TypesTest(s_t_utils.SynTest):
                 node = (await alist(snap.getNodesBy('syn:tag', 'biz')))[0]
                 await node.addTag('vertex.project', valu=('now-5days', 'now'))
 
-            await self.agenraises(s_exc.BadStormSyntax, core.eval('test:str :tick=(20150102, "-4 day")'))
+            await self.agenraises(s_exc.BadSyntax, core.eval('test:str :tick=(20150102, "-4 day")'))
 
             await self.agenlen(1, core.eval('test:str +:tick@=("-1 day")'))
             await self.agenlen(1, core.eval('test:str +:tick@=(2015)'))
