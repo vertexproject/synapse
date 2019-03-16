@@ -1,6 +1,5 @@
 import contextlib
 
-import synapse.exc as s_exc
 import synapse.lib.coro as s_coro
 import synapse.tests.utils as s_t_utils
 

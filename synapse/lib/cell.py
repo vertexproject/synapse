@@ -7,8 +7,6 @@ import functools
 import contextlib
 
 import tornado.web as t_web
-import tornado.netutil as t_netutil
-import tornado.httpserver as t_httpserver
 
 import synapse.exc as s_exc
 

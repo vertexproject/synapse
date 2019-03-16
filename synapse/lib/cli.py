@@ -1,4 +1,3 @@
-import os
 import json
 import time
 import atexit
@@ -20,7 +19,6 @@ import synapse.eventbus as s_eventbus
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
 import synapse.lib.syntax as s_syntax
-import synapse.lib.reflect as s_reflect
 
 # Tell prompt_toolkit to use the asyncio event loop.
 use_asyncio_event_loop()

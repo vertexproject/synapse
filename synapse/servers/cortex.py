@@ -1,12 +1,10 @@
 import os
 import sys
 import json
-import socket
 import asyncio
 import logging
 import argparse
 
-import synapse.glob as s_glob
 
 import synapse.common as s_common
 import synapse.cortex as s_cortex

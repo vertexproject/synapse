@@ -9,12 +9,10 @@ import os
 import time
 import logging
 
-import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.output as s_output
-import synapse.lib.threads as s_threads
 
 import synapse.tests.utils as s_t_utils
 

@@ -5,7 +5,6 @@ import inspect
 import asyncio
 import logging
 import weakref
-import threading
 import collections
 
 if __debug__:

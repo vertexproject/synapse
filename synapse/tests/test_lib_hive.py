@@ -2,7 +2,6 @@ import asyncio
 import contextlib
 
 import synapse.exc as s_exc
-import synapse.daemon as s_daemon
 
 import synapse.tests.utils as s_test
 

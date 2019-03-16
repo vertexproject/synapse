@@ -29,7 +29,6 @@ import synapse.lib.trigger as s_trigger
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
 import synapse.lib.modelrev as s_modelrev
-import synapse.lib.slabseqn as s_slabseqn
 import synapse.lib.lmdblayer as s_lmdblayer
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes

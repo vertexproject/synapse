@@ -1,4 +1,3 @@
-import unittest
 
 import io
 import json
@@ -7,9 +6,7 @@ import msgpack
 
 from unittest.mock import Mock
 
-import synapse.cryotank as s_cryotank
 
-import synapse.lib.cell as s_cell
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.tools.cryo.cat as s_cryocat
