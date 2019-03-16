@@ -255,7 +255,7 @@ class EventBusTest(s_t_utils.SynTest):
             time.sleep(0.1)
             ebus.fini()
 
-        thr = s_threads.worker(callfini)
+        thr = self.worker(callfini)
         # actually wait...
         self.true(ebus.waitfini(timeout=0.3))
 

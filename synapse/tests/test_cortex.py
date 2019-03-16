@@ -124,7 +124,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await alist(core.eval('.favcolor~="^r"')))
 
     @s_glob.synchelp
-    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     async def test_feed_conf(self):
 
         async with self.getTestCryo() as cryo:
@@ -214,7 +213,6 @@ class CortexTest(s_t_utils.SynTest):
                     self.eq(idens, ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f', 'd7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849'))
 
     @s_glob.synchelp
-    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     async def test_splice_cryo(self):
 
         async with self.getTestCryo() as cryo:
@@ -403,7 +401,7 @@ class CortexTest(s_t_utils.SynTest):
             # test cmd as last text syntax
             await self.agenlen(1, core.eval('inet:user | limit 1'))
 
-            await self.agenlen(1, await core.eval('inet:user | limit 1      '))
+            await self.agenlen(1, core.eval('inet:user | limit 1      '))
 
             # test cmd and trailing pipe and whitespace syntax
             await self.agenlen(2, core.eval('inet:user | limit 10 | [ +#foo.bar ]'))
@@ -867,7 +865,7 @@ class CortexTest(s_t_utils.SynTest):
             self.nn(core.getCoreMod('synapse.tests.utils.TestModule'))
 
             # Ensure that the module load creates a node.
-            await self.agenlen(1, core.eval('meta:source=8f1401de15918358d5247e21ca29a814'))
+            await self.agenlen(1, core.eval('meta:source=8f1401de15918358d5247e21ca29a814 | uniq'))
 
             mods = dict(await prox.getCoreMods())
 

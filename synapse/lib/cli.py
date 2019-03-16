@@ -8,19 +8,24 @@ import threading
 import traceback
 import collections
 
+from prompt_toolkit import prompt
+from prompt_toolkit.patch_stdout import patch_stdout
+from prompt_toolkit.eventloop.defaults import use_asyncio_event_loop
+
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.base as s_base
-import synapse.lib.mixins as s_mixins
 import synapse.lib.output as s_output
 import synapse.lib.syntax as s_syntax
 import synapse.lib.reflect as s_reflect
 
+# Tell prompt_toolkit to use the asyncio event loop.
+use_asyncio_event_loop()
 
-def get_input(text):  # pragma: no cover
+async def get_input(text):  # pragma: no cover
     '''
     Get input from a user via stdin.
 
@@ -33,7 +38,9 @@ def get_input(text):  # pragma: no cover
     Returns:
         str: String of text from the user.
     '''
-    return input(text)
+    #return input(text)
+    with patch_stdout():
+        return await prompt(text, async_=True)
 
 class Cmd:
     '''

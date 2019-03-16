@@ -557,7 +557,7 @@ def setlogging(mlogger, defval=None):
     Returns:
         None
     '''
-    log_level = os.getenv('SYN_DMON_LOG_LEVEL',
+    log_level = os.getenv('SYN_LOG_LEVEL',
                           defval)
     if log_level:  # pragma: no cover
         log_level = log_level.upper()

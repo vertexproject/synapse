@@ -1,4 +1,5 @@
 import json
+import queue
 import pprint
 import logging
 
@@ -9,7 +10,6 @@ import synapse.reactor as s_reactor
 import synapse.lib.cli as s_cli
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
-import synapse.lib.queue as s_queue
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
@@ -91,16 +91,15 @@ class Log(s_cli.Cmd):
         self._cmd_cli.onfini(self.closeLogFd)
 
     def onStormMesg(self, mesg):
-        queue = self.locs.get('log:queue')
-        queue.put(mesg)
+        self.locs.get('log:queue').put(mesg)
 
     @s_common.firethread
     def queueLoop(self):
-        queue = self.locs.get('log:queue')
+        q = self.locs.get('log:queue')
         while not self._cmd_cli.isfini:
             try:
-                mesg = queue.get(timeout=2)
-            except s_exc.TimeOut:
+                mesg = q.get(timeout=2)
+            except queue.Empty:
                 continue
             except s_exc.IsFini:
                 break
@@ -127,10 +126,10 @@ class Log(s_cli.Cmd):
 
     def closeLogFd(self):
         self._cmd_cli.off('storm:mesg', self.onStormMesg)
-        queue = self.locs.pop('log:queue', None)
-        if queue is not None:
+        q = self.locs.pop('log:queue', None)
+        if q is not None:
             self.printf('Marking log queue done')
-            queue.done()
+            q.done()
         thr = self.locs.pop('log:thr', None)
         if thr:
             self.printf('Joining log thread.')
@@ -159,14 +158,14 @@ class Log(s_cli.Cmd):
             fn = f'storm_{ts}.{fmt}'
             path = s_common.getSynPath('stormlogs', fn)
         self.printf(f'Starting logfile at [{path}]')
-        queue = s_queue.Queue()
+        q = queue.Queue()
         fd = s_common.genfile(path)
         # Seek to the end of the file. Allows a user to append to a file.
         fd.seek(0, 2)
         self.locs['log:fp'] = path
         self.locs['log:fd'] = fd
         self.locs['log:fmt'] = fmt
-        self.locs['log:queue'] = queue
+        self.locs['log:queue'] = q
         self.locs['log:thr'] = self.queueLoop()
         self.locs['log:splicesonly'] = splice_only
         self._cmd_cli.on('storm:mesg', self.onStormMesg)

@@ -1034,7 +1034,7 @@ class Cortex(s_cell.Cell):
         node = await self.hive.open(('cortex', 'layers', iden))
 
         layrinfo = await node.dict()
-        layrconf = await (await node.open('config')).dict()
+        layrconf = await (await node.open(('config',))).dict()
 
         await layrinfo.set('type', info.get('type', 'lmdb'))
         await layrinfo.set('owner', info.get('owner', 'root'))

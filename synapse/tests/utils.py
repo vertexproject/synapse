@@ -694,6 +694,17 @@ class SynTest(unittest.TestCase):
     def getTestWait(self, bus, size, *evts):
         return s_eventbus.Waiter(bus, size, *evts)
 
+    def worker(func, *args, **kwargs):
+        '''
+        Fire a worker thread to run the given func(*args,**kwargs)
+        '''
+        def work():
+            return func(*args, **kwargs)
+
+        thr = threading.Thread(target=work)
+        thr.start()
+        return thr
+
     def printed(self, msgs, text):
         # a helper for testing storm print message output
         for mesg in msgs:

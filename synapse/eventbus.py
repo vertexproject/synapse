@@ -7,6 +7,9 @@ import threading
 import contextlib
 import collections
 
+'''
+This module is deprecated and will likely be removed in 0.2.0.
+'''
 
 import synapse.exc as s_exc
 import synapse.common as s_common
