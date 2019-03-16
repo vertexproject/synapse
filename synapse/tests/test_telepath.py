@@ -268,6 +268,7 @@ class TeleTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
 
     async def test_telepath_tls_bad_cert(self):
+        self.thisHostMustNot(platform='darwin')
 
         foo = Foo()
 
@@ -286,6 +287,7 @@ class TeleTest(s_t_utils.SynTest):
                                    s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]))
 
     async def test_telepath_tls(self):
+        self.thisHostMustNot(platform='darwin')
 
         foo = Foo()
 
@@ -297,13 +299,12 @@ class TeleTest(s_t_utils.SynTest):
 
             dmon.certdir.genHostCert(hostname, signas='ca')
 
-            host, port = await dmon.listen(f'ssl://{hostname}:0')
+            addr = await dmon.listen(f'ssl://{hostname}:0')
 
             dmon.share('foo', foo)
 
-            prox = await s_telepath.openurl(f'ssl://{hostname}/foo', port=port)
-
-            self.eq(30, await prox.bar(10, 20))
+            async with await s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]) as prox:
+                self.eq(30, await prox.bar(10, 20))
 
     async def test_telepath_surrogate(self):
 
