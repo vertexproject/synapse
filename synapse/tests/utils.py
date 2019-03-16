@@ -1062,7 +1062,6 @@ class SynTest(unittest.TestCase):
 
     async def execToolMain(self, func, argv):
         outp = self.getTestOutp()
-
         def execmain():
             return func(argv, outp=outp)
         retn = await s_coro.executor(execmain)
