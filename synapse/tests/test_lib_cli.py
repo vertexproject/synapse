@@ -1,6 +1,4 @@
 import asyncio
-import threading
-import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.lib.cli as s_cli

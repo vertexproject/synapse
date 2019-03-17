@@ -1,4 +1,3 @@
-import unittest.mock as mock
 
 import synapse.common as s_common
 

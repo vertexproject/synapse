@@ -43,7 +43,7 @@ async def main(argv, outp=s_output.stdout):
 
         return core
 
-    except Exception as e:
+    except Exception:
         await core.fini()
         raise
 

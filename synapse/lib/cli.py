@@ -1,9 +1,7 @@
 import json
 import time
 import atexit
-import signal
 import asyncio
-import threading
 import traceback
 import collections
 

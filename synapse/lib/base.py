@@ -5,6 +5,7 @@ import inspect
 import asyncio
 import logging
 import weakref
+import contextlib
 import collections
 
 if __debug__:
