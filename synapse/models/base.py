@@ -12,48 +12,58 @@ class BaseModule(s_module.CoreModule):
 
             'types': (
 
-                ('source', ('guid', {}), {
+                ('meta:source', ('guid', {}), {
                     'doc': 'A data source unique identifier.'}),
 
-                ('cluster', ('guid', {}), {
+                ('meta:seen', ('comp', {'fields': (('source', 'meta:source'), ('node', 'ndef'))}), {
+                    'doc': 'Annotates that the data in a node was obtained from or observed by a given source.'}),
+
+                ('graph:cluster', ('guid', {}), {
                     'doc': 'A generic node, used in conjunction with Edge types, to cluster arbitrary nodes to a '
                            'single node in the model.'}),
-
-                ('seen', ('comp', {'fields': (('source', 'source'), ('node', 'ndef'))}), {
-                    'doc': 'Annotates that the data in a node was obtained from or observed by a given source.'}),
 
                 ('graph:node', ('guid', {}), {
                     'doc': 'A generic node used to represent objects outside the model.'}),
 
-                ('event', ('guid', {}), {
+                ('graph:event', ('guid', {}), {
                     'doc': 'A generic event node to represent events outside the model.'}),
 
-                ('refs', ('edge', {}), {
+                ('edge:refs', ('edge', {}), {
                     'doc': 'A digraph edge which records that N1 refers to or contains N2.'}),
 
-                ('has', ('edge', {}), {
+                ('edge:has', ('edge', {}), {
                     'doc': 'A digraph edge which records that N1 has N2.'}),
 
-                ('wentto', ('timeedge', {}), {
+                ('edge:wentto', ('timeedge', {}), {
                     'doc': 'A digraph edge which records that N1 went to N2 at a specific time.'}),
 
-                ('graph:link', ('edge', {}), {
+                ('graph:edge', ('edge', {}), {
                     'doc': 'A generic digraph edge to show relationships outside the model.'}),
 
-                ('graph:timelink', ('timeedge', {}), {
+                ('graph:timeedge', ('timeedge', {}), {
                     'doc': 'A generic digraph time edge to show relationships outside the model.'}),
             ),
 
             'forms': (
 
-                ('source', {}, (
+                ('meta:source', {}, (
                     ('name', ('str', {'lower': True}), {
                         'doc': 'A human friendly name for the source.'}),
                     ('type', ('str', {'lower': True}), {
                         'doc': 'An optional type field used to group sources.'}),
                 )),
 
-                ('cluster', {}, (
+                ('meta:seen', {}, (
+
+                    ('source', ('meta:source', {}), {'ro': 1,
+                        'doc': 'The source which observed or provided the node.'}),
+
+                    ('node', ('ndef', {}), {'ro': 1,
+                        'doc': 'The node which was observed by or received from the source.'}),
+
+                )),
+
+                ('graph:cluster', {}, (
                     ('name', ('str', {'lower': True}), {
                         'doc': 'A human friendly name for the cluster.'}),
                     ('desc', ('str', {'lower': True}), {
@@ -62,32 +72,21 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'An optional type field used to group clusters.'}),
                 )),
 
-
-                ('seen', {}, (
-
-                    ('source', ('source', {}), {'ro': 1,
-                        'doc': 'The source which observed or provided the node.'}),
-
-                    ('node', ('ndef', {}), {'ro': 1,
-                        'doc': 'The node which was observed by or received from the source.'}),
-
-                )),
-
-                ('has', {}, (
+                ('edge:has', {}, (
                     ('n1', ('ndef', {}), {'ro': 1}),
                     ('n1:form', ('str', {}), {'ro': 1}),
                     ('n2', ('ndef', {}), {'ro': 1}),
                     ('n2:form', ('str', {}), {'ro': 1}),
                 )),
 
-                ('refs', {}, (
+                ('edge:refs', {}, (
                     ('n1', ('ndef', {}), {'ro': 1}),
                     ('n1:form', ('str', {}), {'ro': 1}),
                     ('n2', ('ndef', {}), {'ro': 1}),
                     ('n2:form', ('str', {}), {'ro': 1}),
                 )),
 
-                ('wentto', {}, (
+                ('edge:wentto', {}, (
                     ('n1', ('ndef', {}), {'ro': 1}),
                     ('n1:form', ('str', {}), {'ro': 1}),
                     ('n2', ('ndef', {}), {'ro': 1}),
@@ -109,14 +108,14 @@ class BaseModule(s_module.CoreModule):
 
                 )),
 
-                ('graph:link', {}, (
+                ('graph:edge', {}, (
                     ('n1', ('ndef', {}), {'ro': 1}),
                     ('n1:form', ('str', {}), {'ro': 1}),
                     ('n2', ('ndef', {}), {'ro': 1}),
                     ('n2:form', ('str', {}), {'ro': 1}),
                 )),
 
-                ('graph:timelink', {}, (
+                ('graph:timeedge', {}, (
                     ('time', ('time', {}), {'ro': 1}),
                     ('n1', ('ndef', {}), {'ro': 1}),
                     ('n1:form', ('str', {}), {'ro': 1}),
@@ -124,7 +123,7 @@ class BaseModule(s_module.CoreModule):
                     ('n2:form', ('str', {}), {'ro': 1}),
                 )),
 
-                ('event', {}, (
+                ('graph:event', {}, (
 
                     ('time', ('time', {}), {
                         'doc': 'The time of the event.'}),

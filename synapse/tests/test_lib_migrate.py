@@ -21,23 +21,17 @@ class MigrTest(s_testutils.SynTest):
             self.eq(100, nodes[0].get('posneg'))
             self.eq(0, nodes[0].get('posneg:isbig'))
 
-            await core.eval('[ refs=( (test:guid, $guid), (test:comp, (10, test10)) ) +#baz ]', opts=opts).list()
+            await core.eval('[ edge:refs=( (test:guid, $guid), (test:comp, (10, test10)) ) +#baz ]', opts=opts).list()
 
             self.len(1, await core.eval('test:int=10 [ +#foo ]').list())
             self.len(1, await core.eval('test:comp=(10, test10) [ +#bar ]').list())
             self.len(1, await core.eval('[ test:comp=(20, test20) ]').list())
 
-            async with await s_migrate.Migration.anit(core, s_common.guid()) as migr:
+            async with await s_migrate.Migration.anit(core) as migr:
 
-                async for layr, buid, valu in migr.getFormTodo('test:int'):
+                async for buid, valu in migr.getFormTodo('test:int'):
                     if valu == 10:
-                        await migr.setNodeForm(layr, buid, 'test:int', valu, valu + 1000)
-
-                # check sub sets via easy prop
-                norm, info = core.model.type('test:sub').norm(2000)
-                await migr.setPropsByType('test:sub', 100, norm, info)
-
-            self.len(1, await core.eval('test:guid:posneg=2000 +:posneg:isbig=1').list())
+                        await migr.editNodeNdef(('test:int', valu), ('test:int', valu + 1000))
 
             # check main node values *and* indexes
             self.len(0, await core.eval('test:int=10').list())
@@ -45,13 +39,20 @@ class MigrTest(s_testutils.SynTest):
             self.len(1, await core.eval('test:int=1010').list())
             self.len(1, await core.eval('test:int#foo').list())
 
-            self.len(1, await core.eval('refs#baz').list())
+            self.len(1, await core.eval('edge:refs#baz').list())
 
-            refs = await core.eval('test:guid -> refs +#baz').list()
+            self.len(1, await core.eval(f'edge:refs').list())
+            self.len(1, await core.eval(f'edge:refs=((test:guid, {guid}), (test:comp, (1010, test10)))').list())
+            await core.eval(f'edge:refs=((test:guid, {guid}), (test:comp, (1010, test10)))').list()
+
+            refs = await core.eval('test:guid -> edge:refs +#baz').list()
 
             self.len(1, refs)
+
             self.eq(refs[0].get('n2'), ('test:comp', (1010, 'test10')))
             self.eq(refs[0].ndef[1], (('test:guid', guid), ('test:comp', (1010, 'test10'))))
+
+            self.len(1, await core.eval('test:comp:hehe=1010').list())
 
             self.len(0, await core.eval('test:comp:hehe=10').list())
             self.len(0, await core.eval('test:comp=(10, test10)').list())
@@ -69,3 +70,49 @@ class MigrTest(s_testutils.SynTest):
             opts = {'vars': {'guid': guid}}
             self.len(1, await core.eval('test:guid=$guid +:size=1010', opts=opts).list())
             self.len(1, await core.eval('test:guid:size=1010', opts=opts).list())
+
+    async def test_migr_formname(self):
+
+        sorc = s_common.guid()
+
+        async with self.getTestCore() as core:
+
+            self.len(4, await core.eval('[ test:str=asdf test:str=qwer :tick=2019 +#hehe edge:refs=((test:int, 20), $node) .seen=2015 ] { +edge:refs +#haha }').list())
+
+            # rename all test:str nodes to test:migr
+            async with await s_migrate.Migration.anit(core) as migr:
+                await migr.setFormName('test:str', 'test:migr')
+
+            self.len(0, await core.eval('test:str').list())
+            self.len(2, await core.eval('test:migr').list())
+
+            self.len(0, await core.eval('test:str:tick').list())
+            self.len(2, await core.eval('test:migr:tick').list())
+
+            self.len(0, await core.eval('.created +test:str').list())
+            self.len(2, await core.eval('.created +test:migr').list())
+
+            self.len(0, await core.eval('#hehe +test:str').list())
+            self.len(2, await core.eval('#hehe +test:migr').list())
+
+            self.len(0, await core.eval('test:str.created').list())
+            self.len(2, await core.eval('test:migr.created').list())
+
+            self.len(0, await core.eval('test:str#hehe').list())
+            self.len(2, await core.eval('test:migr#hehe').list())
+
+            self.len(1, await core.eval('edge:refs=((test:int, 20),(test:migr, asdf))').list())
+            self.len(2, await core.eval('edge:refs:n2:form=test:migr').list())
+
+            self.len(1, await core.eval('test:migr^=as').list())
+            self.len(2, await core.eval('test:migr:tick=(2013, 2020)').list())
+
+            self.len(2, await core.eval('test:migr <- edge:refs').list())
+
+            # check some hand-jammed layer iterators...
+            layr = list(core.layers.values())[0]
+            await self.agenlen(0, layr.iterFormRows('test:str'))
+            await self.agenlen(0, layr.iterPropRows('test:str', 'tick'))
+
+            await self.agenlen(2, layr.iterFormRows('test:migr'))
+            await self.agenlen(2, layr.iterPropRows('test:migr', 'tick'))

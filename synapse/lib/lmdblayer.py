@@ -6,6 +6,7 @@ import os
 import logging
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -43,6 +44,7 @@ class LmdbLayer(s_layer.Layer):
         await s_layer.Layer.__anit__(self, core, node)
 
         path = os.path.join(self.dirn, 'layer.lmdb')
+        splicepath = os.path.join(self.dirn, 'splices.lmdb')
 
         self.fresh = not os.path.exists(path)
 
@@ -53,8 +55,13 @@ class LmdbLayer(s_layer.Layer):
 
         self.layrslab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, maxsize=maxsize,
                                                    growsize=growsize, writemap=True, readahead=readahead)
-
         self.onfini(self.layrslab.fini)
+
+        self.spliceslab = await s_lmdbslab.Slab.anit(splicepath, max_dbs=128, map_size=mapsize, maxsize=maxsize,
+                                                     growsize=growsize, writemap=True, readahead=readahead)
+        self.onfini(self.spliceslab.fini)
+
+        self._migrate_splices_pre010()
 
         self.dbs = {}
 
@@ -66,9 +73,50 @@ class LmdbLayer(s_layer.Layer):
         self.byuniv = await self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
         offsdb = await self.initdb('offsets')
         self.offs = s_slaboffs.SlabOffs(self.layrslab, offsdb)
-        self.splicelog = s_slabseqn.SlabSeqn(self.layrslab, 'splices')
-        self.provdb = await self.initdb('prov') # md5 -> provenance stack
-        self.provseq = s_slabseqn.SlabSeqn(self.layrslab, 'provs')
+        self.splicelog = s_slabseqn.SlabSeqn(self.spliceslab, 'splices')
+
+    def _migrate_db_pre010(self, dbname, newslab):
+        '''
+        Check for any pre-010 entries in 'dbname' in my slab and migrate those to the new slab.
+
+        Once complete, drop the database from me with the name 'dbname'
+
+        Returns (bool): True if a migration occurred, else False
+        '''
+        if not self.layrslab.dbexists(dbname):
+            return False
+
+        oldslab = self.layrslab
+        olddb = oldslab.initdb(dbname)
+
+        entries = oldslab.stat(olddb)['entries']
+        if not entries:
+            return False
+
+        logger.info('Pre-010 %s migration starting.  Total rows: %d...', dbname, entries)
+
+        def progfunc(count):
+            logger.info('Progress %d/%d (%2.2f%)', count, entries, count / entries * 100)
+
+        oldslab.copydb(olddb, newslab, destdbname=dbname, progresscb=progfunc)
+        logger.info('Pre-010 %s migration copying done.  Deleting from old location...', dbname)
+        oldslab.dropdb(olddb)
+        logger.info('Pre-010 %s migration completed.', dbname)
+
+        return True
+
+    def _migrate_splices_pre010(self):
+        self._migrate_db_pre010('splices', self.spliceslab)
+
+    def migrateProvPre010(self, newslab):
+        '''
+        Check for any pre-010 provstacks and migrate those to the new slab.
+        '''
+        did_migrate = self._migrate_db_pre010('prov', newslab)
+        if not did_migrate:
+            return
+
+        self._migrate_db_pre010('provs', newslab)
 
     async def getModelVers(self):
         byts = self.layrslab.get(b'layer:model:version')
@@ -96,7 +144,69 @@ class LmdbLayer(s_layer.Layer):
     async def getNodeNdef(self, buid):
         for lkey, lval in self.layrslab.scanByPref(buid + b'*', db=self.bybuid):
             valu, indx = s_msgpack.un(lval)
-            return lkey[33:].decode('utf'), valu
+            return lkey[33:].decode('utf8'), valu
+
+    async def getFormIndx(self, buid):
+        for lkey, lval in self.layrslab.scanByPref(buid + b'*', db=self.bybuid):
+            valu, indx = s_msgpack.un(lval)
+            return indx
+
+    async def editNodeNdef(self, oldv, newv):
+
+        oldb = s_common.buid(oldv)
+        newb = s_common.buid(newv)
+
+        pvoldval = s_msgpack.en((oldb,))
+        pvnewval = s_msgpack.en((newb,))
+
+        oldfenc = self.encoder[oldv[0]]
+        newfenc = self.encoder[newv[0]]
+
+        newprel = self.utf8['*' + newv[0]]
+
+        newnindx = self.core.model.prop(newv[0]).type.indx(newv[1])
+
+        # avoid any potential iter/edit issues...
+        todo = list(self.layrslab.scanByPref(oldb, db=self.bybuid))
+
+        for lkey, lval in todo:
+
+            proputf8 = lkey[32:]
+            valu, indx = s_msgpack.un(lval)
+
+            # for the *<form> prop, the byprop index has <form><00><00><indx>
+            if proputf8[0] == 42:
+
+                oldpropkey = oldfenc + b'\x00' + indx
+                newpropkey = newfenc + b'\x00' + newnindx
+
+                if not self.layrslab.delete(oldpropkey, pvoldval, db=self.byprop): # pragma: no cover
+                    logger.warning(f'editNodeNdef del byprop missing for {repr(oldv)} {repr(oldpropkey)}')
+
+                self.layrslab.put(newpropkey, pvnewval, dupdata=True, db=self.byprop)
+
+                byts = s_msgpack.en((newv[1], newnindx))
+                self.layrslab.put(newb + newprel, byts, db=self.bybuid)
+
+            else:
+
+                #<prop><00><indx>
+                propindx = proputf8 + b'\x00' + indx
+
+                if proputf8[0] in (46, 35): # ".univ" or "#tag"
+                    self.layrslab.put(propindx, pvnewval, dupdata=True, db=self.byuniv)
+                    self.layrslab.delete(propindx, pvoldval, db=self.byuniv)
+
+                oldpropkey = oldfenc + propindx
+                newpropkey = newfenc + propindx
+
+                if not self.layrslab.delete(oldpropkey, pvoldval, db=self.byprop): # pragma: no cover
+                    logger.warning(f'editNodeNdef del byprop missing for {repr(oldv)} {repr(oldpropkey)}')
+
+                self.layrslab.put(newpropkey, pvnewval, dupdata=True, db=self.byprop)
+                self.layrslab.put(newb + proputf8, lval, db=self.bybuid)
+
+            self.layrslab.delete(lkey, db=self.bybuid)
 
     async def _storBuidSet(self, oper):
 
@@ -171,6 +281,37 @@ class LmdbLayer(s_layer.Layer):
             if univ:
                 self.layrslab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
 
+    async def storPropSet(self, buid, prop, valu):
+
+        indx = prop.type.indx(valu)
+        if indx is not None and len(indx) > MAX_INDEX_LEN:
+            mesg = 'index bytes are too large'
+            raise s_exc.BadIndxValu(mesg=mesg, prop=prop, valu=valu)
+
+        univ = prop.utf8name[0] in (46, 35) # leading . or #
+
+        bpkey = buid + prop.utf8name
+        bpval = s_msgpack.en((valu, indx))
+
+        pvvalu = s_msgpack.en((buid,))
+
+        byts = self.layrslab.replace(bpkey, bpval, db=self.bybuid)
+        if byts is not None:
+
+            oldv, oldi = s_msgpack.un(byts)
+
+            self.layrslab.delete(prop.pref + oldi, pvvalu, db=self.byprop)
+
+            if univ:
+                self.layrslab.delete(prop.encname + oldi, pvvalu, db=self.byuniv)
+
+        if indx is not None:
+
+            self.layrslab.put(prop.pref + indx, pvvalu, dupdata=True, db=self.byprop)
+
+            if univ:
+                self.layrslab.put(prop.encname + indx, pvvalu, dupdata=True, db=self.byuniv)
+
     async def _storPropDel(self, oper):
 
         _, (buid, form, prop, info) = oper
@@ -202,32 +343,6 @@ class LmdbLayer(s_layer.Layer):
 
     async def _storSplices(self, splices):
         self.splicelog.save(splices)
-
-    async def _storProvStack(self, prov):
-        iden = self._providen(prov)
-        misc, frames = prov
-        # Convert each frame back from (k, v) tuples to a dict
-        dictframes = [(typ, {k: v for (k, v) in info}) for (typ, info) in frames]
-        bytz = s_msgpack.en((misc, dictframes))
-        didwrite = self.layrslab.put(iden, bytz, overwrite=False, db=self.provdb)
-        if didwrite:
-            self.provseq.save([iden])
-
-        return iden
-
-    async def getProvStack(self, iden: bytes):
-        retn = self.layrslab.get(iden, db=self.provdb)
-        if retn is None:
-            return None
-
-        return s_msgpack.un(retn)
-
-    async def provStacks(self, offs, size):
-        for _, iden in self.provseq.slice(offs, size):
-            stack = await self.getProvStack(iden)
-            if stack is None:
-                continue
-            yield (iden, stack)
 
     async def _liftByIndx(self, oper):
         # ('indx', (<dbname>, <prefix>, (<indxopers>...))
@@ -316,6 +431,25 @@ class LmdbLayer(s_layer.Layer):
         pref = self.encoder[prop]
 
         for _, pval in self.layrslab.scanByPref(pref, db=self.byuniv):
+            buid = s_msgpack.un(pval)[0]
+
+            byts = self.layrslab.get(buid + penc, db=self.bybuid)
+            if byts is None:
+                continue
+
+            valu, indx = s_msgpack.un(byts)
+
+            yield buid, valu
+
+    async def iterPropIndx(self, form, prop, indx):
+        '''
+        Yield (buid, valu) tuples for the given prop with the specified indx valu
+        '''
+        penc = self.utf8[prop]
+        pref = self.encoder[form] + self.encoder[prop] + indx
+
+        for _, pval in self.layrslab.scanByPref(pref, db=self.byprop):
+
             buid = s_msgpack.un(pval)[0]
 
             byts = self.layrslab.get(buid + penc, db=self.bybuid)

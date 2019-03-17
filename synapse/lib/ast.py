@@ -1486,8 +1486,12 @@ class PropValue(CompValue):
     async def getPropAndValu(self, path):
 
         if not self.ispiv:
-            valu = path.node.get(self.name)
+
             prop = path.node.form.props.get(self.name)
+            if prop is None:
+                raise s_exc.NoSuchProp(name=self.name)
+
+            valu = path.node.get(self.name)
             return prop, valu
 
         # handle implicit pivot properties
@@ -1503,6 +1507,8 @@ class PropValue(CompValue):
                 return None, None
 
             prop = node.form.props.get(name)
+            if prop is None:
+                raise s_exc.NoSuchProp(name=name)
 
             if i >= imax:
                 return prop, valu

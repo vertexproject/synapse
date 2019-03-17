@@ -27,6 +27,9 @@ class RemoteLayer(s_layer.Layer):
         ('readywait', {'type': 'int', 'defval': 30, 'doc': 'Max time to wait for layer ready.'}),
     )
 
+    # Remote layers can't be written to
+    readonly = True
+
     async def __anit__(self, core, node):
 
         await s_layer.Layer.__anit__(self, core, node)
@@ -75,9 +78,8 @@ class RemoteLayer(s_layer.Layer):
         timeout = self.conf.get('readywait')
         await asyncio.wait_for(self.ready.wait(), timeout=timeout)
 
-    async def stor(self, sops, prov=None, splices=None):
-        await self._readyPlayerOne()
-        return await self.proxy.stor(sops, prov, splices)
+    async def stor(self, sops, splices=None):
+        raise s_exc.ReadOnlyLayer(mesg='Remote layer does not support writing')
 
     # Hack to get around issue that telepath is not async-generator-transparent
     async def getBuidProps(self, buid):

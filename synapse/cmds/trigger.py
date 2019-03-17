@@ -240,8 +240,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
         core = self.getCmdItem()
 
-        parseinfo = await s_syntax.getRemoteParseInfo(core)
-        argv = s_syntax.Parser(parseinfo, line).stormcmd()
+        argv = s_syntax.Parser(line).stormcmd()
         try:
             opts = self._make_argparser().parse_args(argv)
         except s_exc.ParserExit:

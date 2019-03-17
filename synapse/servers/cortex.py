@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import socket
+import asyncio
 import logging
 import argparse
 
@@ -10,6 +11,7 @@ import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
+import synapse.lib.base as s_base
 import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
@@ -38,31 +40,34 @@ def parse(argv):
 
     return pars.parse_args(argv)
 
-def main(argv, outp=s_output.stdout): # pragma: no cover
+async def main(argv, outp=s_output.stdout):
 
     opts = parse(argv)
 
     s_common.setlogging(logger)
 
-    return s_glob.sync(mainopts(opts, outp=outp)).main()
-
-async def mainopts(opts, outp=s_output.stdout):
-
     lisn = f'tcp://{opts.host}:{opts.port}/cortex'
 
     core = await s_cortex.Cortex.anit(opts.coredir)
-    core.insecure = opts.insecure
 
-    if core.insecure:
-        logger.warning('INSECURE MODE ENABLED')
+    try:
 
-    outp.printf('starting cortex at: %s' % (lisn,))
+        core.insecure = opts.insecure
 
-    await core.dmon.listen(lisn)
+        if core.insecure:
+            logger.warning('INSECURE MODE ENABLED')
 
-    await core.addHttpsPort(opts.https_port)
+        outp.printf('starting cortex at: %s' % (lisn,))
 
-    return core
+        await core.dmon.listen(lisn)
+
+        await core.addHttpsPort(opts.https_port)
+
+        return core
+
+    except Exception as e:
+        await core.fini()
+        raise
 
 if __name__ == '__main__': # pragma: no cover
-    sys.exit(main(sys.argv[1:]))
+    asyncio.run(s_base.main(main(sys.argv[1:])))

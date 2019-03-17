@@ -1,7 +1,5 @@
-import copy
 import time
 import asyncio
-import unittest
 
 from unittest.mock import patch
 
@@ -71,13 +69,13 @@ class CortexTest(s_t_utils.SynTest):
                 await node.seen('now', source=sorc)
 
             opts = {'vars': {'sorc': sorc}}
-            nodes = [n.pack() async for n in core.eval('seen:source=$sorc -> *', opts=opts)]
+            nodes = [n.pack() async for n in core.eval('meta:seen:source=$sorc -> *', opts=opts)]
 
             self.len(2, nodes)
             self.true('inet:dns:a' in [n[0][0] for n in nodes])
 
             opts = {'vars': {'sorc': sorc}}
-            nodes = [n.pack() async for n in core.eval('seen:source=$sorc :node -> *', opts=opts)]
+            nodes = [n.pack() async for n in core.eval('meta:seen:source=$sorc :node -> *', opts=opts)]
 
             self.len(1, nodes)
             self.true('inet:dns:a' in [n[0][0] for n in nodes])
@@ -219,8 +217,7 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCryo() as cryo:
 
-            host, port = await cryo.dmon.listen('tcp://127.0.0.1:0/')
-            tank_addr = f'tcp://{host}:{port}/*/tank:blahblah'
+            tank_addr = cryo.getLocalUrl(share='cryotank/blahblah')
 
             # Spin up a source core configured to send splices to dst core
             with self.getTestDir() as dirn:
@@ -240,7 +237,7 @@ class CortexTest(s_t_utils.SynTest):
                     await src_core.waitfini()
 
             # Now that the src core is closed, make sure that the splice exists in the tank
-            tank = cryo.tanks.get('tank:blahblah')
+            tank = cryo.tanks.get('blahblah')
             slices = [x async for x in tank.slice(0, size=1000)]
             # # TestModule creates one node and 3 splices
             self.len(3 + 2, slices)
@@ -403,11 +400,7 @@ class CortexTest(s_t_utils.SynTest):
             # test cmd as last text syntax
             await self.agenlen(1, core.eval('inet:user | limit 1'))
 
-            # test cmd and trailing pipe syntax
-            await self.agenlen(1, core.eval('inet:user | limit 1|'))
-
-            # test cmd and trailing pipe and whitespace syntax
-            await self.agenlen(1, core.eval('inet:user | limit 1    |     '))
+            await self.agenlen(1, core.eval('inet:user | limit 1      '))
 
             # test cmd and trailing pipe and whitespace syntax
             await self.agenlen(2, core.eval('inet:user | limit 10 | [ +#foo.bar ]'))
@@ -509,6 +502,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(node.get('intprop'), 21)
 
     async def test_base_types2(self):
+
         async with self.getTestCore() as core:
 
             # Test some default values
@@ -708,12 +702,12 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.BadOptValu, core.eval('%limit=asdf'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str +test:str@=2018'))
-            await self.agenraises(s_exc.BadStormSyntax, core.eval('test:str +#test*near=newp'))
+            await self.agenraises(s_exc.BadSyntax, core.eval('test:str +#test*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str +test:str:tick*near=newp'))
-            await self.agenraises(s_exc.BadStormSyntax, core.eval(' | | '))
-            await self.agenraises(s_exc.BadStormSyntax, core.eval('[-test:str]'))
+            await self.agenraises(s_exc.BadSyntax, core.eval(' | | '))
+            await self.agenraises(s_exc.BadSyntax, core.eval('[-test:str]'))
             # Scrape is not a default behavior
-            await self.agenraises(s_exc.BadStormSyntax, core.eval('pennywise@vertex.link'))
+            await self.agenraises(s_exc.BadSyntax, core.eval('pennywise@vertex.link'))
 
             await self.agenlen(2, core.eval(('[ test:str=foo test:str=bar ]')))
             await self.agenlen(1, core.eval(('test:str %limit=1')))
@@ -739,7 +733,7 @@ class CortexTest(s_t_utils.SynTest):
             mesgs = [mesg for mesg in mesgs if mesg[0] == 'err']
             self.len(1, mesgs)
             enfo = mesgs[0][1]
-            self.eq(enfo[0], 'BadStormSyntax')
+            self.eq(enfo[0], 'BadSyntax')
 
     async def test_feed_splice(self):
 
@@ -817,7 +811,7 @@ class CortexTest(s_t_utils.SynTest):
             mesg = ('node:add', {'ndef': ('test:str', 'hello')})
             self.isin(mesg, splices)
 
-            mesg = ('prop:set', {'ndef': ('test:str', 'hello'), 'prop': 'tick', 'valu': 978307200000, 'oldv': None})
+            mesg = ('prop:set', {'ndef': ('test:str', 'hello'), 'prop': 'tick', 'valu': 978307200000})
             self.isin(mesg, splices)
 
             mesg = ('prop:set',
@@ -870,7 +864,7 @@ class CortexTest(s_t_utils.SynTest):
             self.nn(core.getCoreMod('synapse.tests.utils.TestModule'))
 
             # Ensure that the module load creates a node.
-            await self.agenlen(1, core.eval('source=8f1401de15918358d5247e21ca29a814 | uniq'))
+            await self.agenlen(1, core.eval('meta:source=8f1401de15918358d5247e21ca29a814'))
 
             mods = dict(await prox.getCoreMods())
 
@@ -1002,9 +996,9 @@ class CortexTest(s_t_utils.SynTest):
 
             # seed a node for pivoting
             await alist(core.eval('[ test:pivcomp=(foo,bar) :tick=2018 ]'))
-            await alist(core.eval('[ refs=((ou:org, "*"), (test:pivcomp,(foo,bar))) ]'))
+            await alist(core.eval('[ edge:refs=((ou:org, "*"), (test:pivcomp,(foo,bar))) ]'))
 
-            self.len(1, await core.eval('ou:org -> refs:n1').list())
+            self.len(1, await core.eval('ou:org -> edge:refs:n1').list())
 
             q = 'test:pivcomp=(foo,bar) -> test:pivtarg'
             nodes = await getPackNodes(core, q)
@@ -1082,40 +1076,40 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(nodes[1][0], ('test:str', 'bar'))
 
             # A simple edge for testing pivotinfrom with a edge to n2
-            await alist(core.eval('[has=((test:str, foobar), (test:str, foo))]'))
+            await alist(core.eval('[ edge:has=((test:str, foobar), (test:str, foo)) ]'))
 
-            q = 'test:str=foobar -+> has'
+            q = 'test:str=foobar -+> edge:has'
             nodes = await getPackNodes(core, q)
             self.len(2, nodes)
-            self.eq(nodes[0][0], ('has', (('test:str', 'foobar'), ('test:str', 'foo'))))
+            self.eq(nodes[0][0], ('edge:has', (('test:str', 'foobar'), ('test:str', 'foo'))))
             self.eq(nodes[1][0], ('test:str', 'foobar'))
 
             # traverse from node to edge:n1
-            q = 'test:str=foo <- has'
+            q = 'test:str=foo <- edge:has'
             nodes = await getPackNodes(core, q)
             self.len(1, nodes)
-            self.eq(nodes[0][0], ('has', (('test:str', 'foobar'), ('test:str', 'foo'))))
+            self.eq(nodes[0][0], ('edge:has', (('test:str', 'foobar'), ('test:str', 'foo'))))
 
             # traverse from node to edge:n1 with a join
-            q = 'test:str=foo <+- has'
+            q = 'test:str=foo <+- edge:has'
             nodes = await getPackNodes(core, q)
             self.len(2, nodes)
-            self.eq(nodes[0][0], ('has', (('test:str', 'foobar'), ('test:str', 'foo'))))
+            self.eq(nodes[0][0], ('edge:has', (('test:str', 'foobar'), ('test:str', 'foo'))))
             self.eq(nodes[1][0], ('test:str', 'foo'))
 
             # Traverse from a edge to :n2
             # (this is technically a circular query)
-            q = 'test:str=foobar -> has <- test:str'
+            q = 'test:str=foobar -> edge:has <- test:str'
             nodes = await getPackNodes(core, q)
             self.len(1, nodes)
             self.eq(nodes[0][0], ('test:str', 'foobar'))
 
             # Traverse from a edge to :n2 with a join
             # (this is technically a circular query)
-            q = 'test:str=foobar -> has <+- test:str'
+            q = 'test:str=foobar -> edge:has <+- test:str'
             nodes = await getPackNodes(core, q)
             self.len(2, nodes)
-            self.eq(nodes[0][0], ('has', (('test:str', 'foobar'), ('test:str', 'foo'))))
+            self.eq(nodes[0][0], ('edge:has', (('test:str', 'foobar'), ('test:str', 'foo'))))
             self.eq(nodes[1][0], ('test:str', 'foobar'))
 
             # Add tag
@@ -1197,7 +1191,7 @@ class CortexTest(s_t_utils.SynTest):
                       'test:pivcomp :lulz <- test:str',
                       'test:pivcomp :lulz <+- test:str',
                       ]:
-                await self.agenraises(s_exc.BadStormSyntax, core.eval(q))
+                await self.agenraises(s_exc.BadSyntax, core.eval(q))
 
     async def test_node_repr(self):
 
@@ -1285,7 +1279,7 @@ class CortexTest(s_t_utils.SynTest):
             async for node in core.eval('inet:dns:a=(woot.com,1.2.3.4) $seen=.seen :fqdn -> inet:fqdn [ .seen=$seen ]'):
                 self.eq(node.get('.seen'), (1420070400000, 1514764800000))
 
-            await self.agenraises(s_exc.BadStormSyntax, core.eval('inet:dns:a=(woot.com,1.2.3.4) $newp=.newp'))
+            await self.agenraises(s_exc.NoSuchProp, core.eval('inet:dns:a=(woot.com,1.2.3.4) $newp=.newp'))
 
             # Vars can also be provided as tuple
             opts = {'vars': {'foo': ('hehe', 'haha')}}
@@ -1392,7 +1386,7 @@ class CortexTest(s_t_utils.SynTest):
         self.isin('test.foo', node[1]['tags'])
 
         # Sources are made, as are seen nodes.
-        q = f'source={guid} -> seen:source'
+        q = f'meta:source={guid} -> meta:seen:source'
         nodes = await alist(await awaitagen(core.eval(q)))
         if pack:
             nodes = [node.pack() for node in nodes]
@@ -1411,8 +1405,8 @@ class CortexTest(s_t_utils.SynTest):
                 (1388534400000, 1420070400000))
 
         # Edges are made
-        await self.agenlen(1, await awaitagen(core.eval('refs')))
-        await self.agenlen(1, await awaitagen(core.eval('wentto')))
+        await self.agenlen(1, await awaitagen(core.eval('edge:refs')))
+        await self.agenlen(1, await awaitagen(core.eval('edge:wentto')))
 
     async def test_syn_ingest_remote(self):
         guid = s_common.guid()
@@ -1733,7 +1727,7 @@ class CortexTest(s_t_utils.SynTest):
             await core.eval('[ inet:ipv4=1.2.3.4 :asn=20 ]').list()
             self.len(1, await core.eval('inet:ipv4=1.2.3.4 +:asn').list())
 
-            with self.raises(s_exc.BadStormSyntax):
+            with self.raises(s_exc.BadSyntax):
                 await core.eval('[ inet:ipv4=1.2.3.4 +:foo ]').list()
 
     async def test_storm_cond_not(self):
@@ -2021,9 +2015,16 @@ class CortexTest(s_t_utils.SynTest):
         class Bork:
             name = 'foo:bar'
 
+        class Bawk:
+            name = '.foobar'
+
         async with self.getTestCore() as core:
+
             with self.raises(s_exc.BadCmdName):
                 core.addStormCmd(Bork)
+
+            with self.raises(s_exc.BadCmdName):
+                core.addStormCmd(Bawk)
 
     async def test_storm_comment(self):
 
@@ -2205,7 +2206,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 'degrees': 2,
 
-                'pivots': ['<- seen <- source'],
+                'pivots': ['<- meta:seen <- meta:source'],
 
                 'filters': ['-#nope'],
 
@@ -2256,7 +2257,7 @@ class CortexTest(s_t_utils.SynTest):
                 inet:fqdn | graph
                                 --degrees 2
                                 --filter { -#nope }
-                                --pivot { <- seen <- source }
+                                --pivot { <- meta:seen <- meta:source }
                                 --form-pivot inet:fqdn {<- * | limit 20}
                                 --form-pivot inet:fqdn {-> * | limit 20}
                                 --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
@@ -2325,11 +2326,11 @@ class CortexTest(s_t_utils.SynTest):
     async def test_storm_type_node(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.eval('[ ps:person="*" has=($node, (inet:fqdn,woot.com)) ]').list()
+            nodes = await core.eval('[ ps:person="*" edge:has=($node, (inet:fqdn,woot.com)) ]').list()
             self.len(2, nodes)
-            self.eq('has', nodes[1].ndef[0])
+            self.eq('edge:has', nodes[1].ndef[0])
 
-            nodes = await core.eval('[test:str=test] [refs=($node,(test:int, 1234))] -test:str').list()
+            nodes = await core.eval('[test:str=test] [ edge:refs=($node,(test:int, 1234)) ] -test:str').list()
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], (('test:str', 'test'), ('test:int', 1234)))
 
@@ -2544,3 +2545,10 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, await core.eval('test:str +#foo.**.baz').list())
             self.len(1, await core.eval('test:str +#**.bar.baz').list())
             self.len(2, await core.eval('test:str +#**.baz').list())
+
+    async def test_provstackmigration_pre010(self):
+        async with self.getRegrCore('pre-010') as core:
+            provstacks = list(core.provstor.provStacks(0, 1000))
+            self.gt(len(provstacks), 5)
+            self.false(core.layer.layrslab.dbexists('prov'))
+            self.false(core.layer.layrslab.dbexists('provs'))

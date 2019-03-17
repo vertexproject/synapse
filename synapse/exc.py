@@ -1,3 +1,7 @@
+'''
+Exceptions used by synapse, all inheriting from SynErr
+'''
+
 class SynErr(Exception):
 
     def __init__(self, *args, **info):
@@ -26,52 +30,10 @@ class SynErr(Exception):
         '''
         return self.errinfo.get(name)
 
-##########################################################################
-
-class CliFini(SynErr):
-    '''
-    Raised when the CLI is to exit.
-    '''
-    pass
-
-class LinkErr(SynErr): pass
-class LinkShutDown(LinkErr): pass
-
-class Retry(SynErr): pass
-class NotReady(Retry): pass
-
 class AuthDeny(SynErr): pass
 
 class BadCmdName(SynErr): pass
-class BadTypeDef(SynErr): pass
-class BadPropDef(SynErr): pass
-class BadThreadIden(SynErr): pass
-class BadLiftValu(SynErr): pass
 class BadCmprValu(SynErr): pass
-class BadTypeValu(SynErr): pass
-class BadIndxValu(SynErr): pass
-class BadFileExt(SynErr): pass
-class BadPropName(SynErr): pass
-class BadCoreName(SynErr): pass
-class BadCtorType(SynErr): pass
-class BadMesgVers(SynErr): pass
-class BadInfoValu(SynErr): pass
-class BadStorValu(SynErr): pass
-class BadOperArg(SynErr): pass
-class BadUrl(SynErr): pass
-class BadOptValu(SynErr): pass
-class BadPropValu(SynErr): pass
-class BadStormSyntax(SynErr): pass
-class BadSyntaxError(SynErr): pass
-class BadTag(SynErr): pass
-class BadPropConf(SynErr):
-    '''
-    The configuration for the property is invalid.
-    '''
-    pass
-class BadCoreStore(SynErr):
-    '''The storage layer has encountered an error'''
-    pass
 class BadConfValu(SynErr):
     '''
     The configuration value provided is not valid.
@@ -80,86 +42,46 @@ class BadConfValu(SynErr):
     '''
     pass
 
-class StormRuntimeError(SynErr): pass
-class StormVarListError(StormRuntimeError): pass
-
-class CantDelNode(SynErr): pass
-class CantDelProp(SynErr): pass
-
-class DupTypeName(SynErr): pass  # FIXME this is unused, but should we check for dup types like we check for dup props?
-class DupPropName(SynErr): pass
-class DupFileName(SynErr): pass
-class DupIndx (SynErr): pass
-class DupUserName(SynErr): pass
-class DupRoleName(SynErr): pass
-
-class IsRuntForm(SynErr): pass
-
-class MustBeLocal(SynErr): pass
-
-class NoModIden(SynErr): pass
-class NoSuchAct(SynErr): pass
-class NoSuchOpt(SynErr): pass
-class NoSuchDir(SynErr): pass
-class NoSuchDyn(SynErr): pass
-class NoSuchSeq(SynErr): pass
-class NoSuchVar(SynErr): pass
-class NoRevPath(SynErr): pass
-class NoSuchCond(SynErr): pass
-class NoSuchCtor(SynErr): pass
-class NoSuchPath(SynErr): pass
-class NoSuchImpl(SynErr): pass
-class NoSuchIden(SynErr): pass
-class NoSuchName(SynErr): pass
-class NoSuchOper(SynErr): pass
-class NoSuchCmpr(SynErr): pass
-class NoSuchRule(SynErr): pass
-class NoSuchDecoder(SynErr): pass
-class NoSuchEncoder(SynErr): pass
-class NoSuchType(SynErr): pass
-class NoSuchForm(SynErr): pass
-class NoSuchProp(SynErr): pass
-class NoSuchStor(SynErr): pass
-class NoSuchObj(SynErr): pass
-class NoSuchFile(SynErr): pass
-class NoSuchMeth(SynErr): pass
-class NoSuchLift(SynErr): pass
-class NoSuchFunc(SynErr): pass
-class NoSuchUser(SynErr): pass
-class NoSuchRole(SynErr): pass
-class NoSuchIndx(SynErr): pass
-class NoSuchView(SynErr): pass
-class NoSuchLayer(SynErr): pass
-
-class NoCurrTask(SynErr): pass
-class NoSuchPivot(SynErr): pass
-
-class ReadOnlyProp(SynErr): pass
-class ReadOnlyLayer(SynErr): pass
-
-class CantRevLayer(SynErr): pass
-
-class ReqConfOpt(SynErr): pass
-
-class AxonErr(SynErr): pass
-class AxonBadChunk(AxonErr): pass
-class AxonNoBlobStors(AxonErr): pass
-class AxonBlobStorBsidChanged(AxonErr): pass
-class AxonUnknownBsid(AxonErr): pass
-class AxonUploaderFinished(AxonErr): pass
-class AxonBlobStorDisagree(AxonErr): pass
-
-class FileExists(SynErr): pass
-class NoCertKey(SynErr):
-    '''
-    Raised when a Cert object requires a RSA Private Key
-    to perform an operation and the key is not present.
-    '''
+class BadCoreStore(SynErr):
+    '''The storage layer has encountered an error'''
     pass
 
-class IsFini(SynErr): pass
-class TimeOut(SynErr): pass
-class Canceled(SynErr): pass
+class BadCtorType(SynErr): pass
+class BadFormDef(SynErr): pass
+class BadLiftValu(SynErr): pass
+class BadPropDef(SynErr): pass
+class BadTypeDef(SynErr): pass
+class BadTypeValu(SynErr): pass
+
+class BadArg(SynErr):
+    ''' Improper function arguments '''
+    pass
+
+class BadFileExt(SynErr): pass
+class BadIndxValu(SynErr): pass
+class BadMesgVers(SynErr): pass
+class BadOperArg(SynErr):
+    ''' Improper storm function arguments '''
+    pass
+
+class BadOptValu(SynErr): pass
+class BadPropValu(SynErr): pass
+class BadStorageVersion(SynErr):
+    ''' Stored persistent data is incompatible with running software '''
+    pass
+
+class BadSyntax(SynErr): pass
+class BadTag(SynErr): pass
+class BadTime(SynErr): pass
+class BadUrl(SynErr): pass
+
+class CantDelNode(SynErr): pass
+class CantRevLayer(SynErr): pass
+class CliFini(SynErr):
+    '''
+    Raised when the CLI is to exit.
+    '''
+    pass
 
 class CryptoErr(SynErr):
     '''
@@ -168,54 +90,22 @@ class CryptoErr(SynErr):
     pass
 
 class BadEccExchange(CryptoErr):
-    '''
-    Raised when there is an issue doing a ECC Key Exchange
-    '''
+    ''' Raised when there is an issue doing a ECC Key Exchange '''
     pass
 
-class StepTimeout(SynErr):
+class DataAlreadyExists(SynErr):
     '''
-    Raised when a TestStep.wait() call times out.
-    '''
-    pass
-
-class JobErr(SynErr):
-    '''
-    Used for remote exception propagation.
-    '''
-    def __init__(self, job):
-        self.job = job
-
-        err = job[1].get('err')
-        errmsg = job[1].get('errmsg')
-        errfile = job[1].get('errfile')
-        errline = job[1].get('errline')
-
-        Exception.__init__(self, '%s: %s (%s:%s)' % (err, errmsg, errfile, errline))
-
-class CorruptDatabase(SynErr): pass
-
-class AlreadyInAsync(SynErr):
-    '''
-    Raised when an attempt to pend on getting the value back from a coroutine, when already in the event loop thread
+    Cannot copy data to a location that already contains data
     '''
     pass
 
 class DbOutOfSpace(SynErr): pass
+class DupFileName(SynErr): pass
+class DupPropName(SynErr): pass
+class DupRoleName(SynErr): pass
+class DupUserName(SynErr): pass
 
-class IsReadOnly(SynErr): pass
-class RecursionLimitHit(SynErr): pass
-class ParserExit(SynErr):
-    '''
-    Raised by synapse.lib.cmd.Parser on Parser exit()
-    '''
-    pass
-
-class BadStorageVersion(SynErr):
-    '''
-    Stored persistent data is incompatible with running software
-    '''
-    pass
+class FileExists(SynErr): pass
 
 class InconsistentStorage(SynErr):
     '''
@@ -223,4 +113,66 @@ class InconsistentStorage(SynErr):
     '''
     pass
 
-class BadTime(SynErr): pass
+class IsFini(SynErr): pass
+class IsReadOnly(SynErr): pass
+class IsRuntForm(SynErr): pass
+
+class LinkErr(SynErr): pass
+class LinkShutDown(LinkErr): pass
+
+class NoCertKey(SynErr):
+    ''' Raised when a Cert object requires a RSA Private Key to perform an operation and the key is not present.  '''
+    pass
+
+class NoSuchAct(SynErr): pass
+class NoSuchCmpr(SynErr): pass
+class NoSuchCond(SynErr): pass
+class NoSuchCtor(SynErr): pass
+class NoSuchDecoder(SynErr): pass
+class NoSuchDir(SynErr): pass
+class NoSuchDyn(SynErr): pass
+class NoSuchEncoder(SynErr): pass
+class NoSuchFile(SynErr): pass
+class NoSuchForm(SynErr): pass
+class NoSuchFunc(SynErr): pass
+class NoSuchIden(SynErr): pass
+class NoSuchImpl(SynErr): pass
+class NoSuchIndx(SynErr): pass
+class NoSuchLayer(SynErr): pass
+class NoSuchLift(SynErr): pass
+class NoSuchMeth(SynErr): pass
+class NoSuchName(SynErr): pass
+class NoSuchObj(SynErr): pass
+class NoSuchOpt(SynErr): pass
+class NoSuchPath(SynErr): pass
+class NoSuchPivot(SynErr): pass
+class NoSuchProp(SynErr): pass
+class NoSuchRole(SynErr): pass
+class NoSuchStor(SynErr): pass
+class NoSuchType(SynErr): pass
+class NoSuchUser(SynErr): pass
+class NoSuchVar(SynErr): pass
+class NoSuchView(SynErr): pass
+
+class ParserExit(SynErr):
+    ''' Raised by synapse.lib.cmd.Parser on Parser exit() '''
+    pass
+
+
+class ReadOnlyLayer(SynErr): pass
+class ReadOnlyProp(SynErr): pass
+class RecursionLimitHit(SynErr): pass
+
+class TimeOut(SynErr): pass
+
+class Retry(SynErr): pass
+class NotReady(Retry): pass
+
+class StepTimeout(SynErr):
+    '''
+    Raised when a TestStep.wait() call times out.
+    '''
+    pass
+
+class StormRuntimeError(SynErr): pass
+class StormVarListError(StormRuntimeError): pass

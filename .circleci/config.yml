@@ -111,53 +111,37 @@ osx_test_steps:  &osx_test_steps
 
       - restore_cache:
           keys:
-          - v3-osx-pyvenv-{{ .Environment.CIRCLE_STAGE }}-{{ checksum ".circleci/pyenv_osx.sh" }}
+          - v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - run:
-          name: pyenv install
+          name: setup venv
           command: |
-            . .circleci/pyenv_osx.sh
-
-      - save_cache:
-          paths:
-            - ~/.pyenv
-            - ~/.bash_profile
-          key: v3-osx-pyvenv-{{ .Environment.CIRCLE_STAGE }}-{{ checksum ".circleci/pyenv_osx.sh" }}
-
-      - restore_cache:
-          keys:
-          - v2-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}-{{ checksum ".circleci/venv_osx.sh" }}
-
-      - run:
-          name: venv setup
-          command: |
-            . .circleci/venv_osx.sh
+            python3 -m venv --copies venv
+            . venv/bin/activate
+            python3 -m pip install -U wheel pip pytest pytest-cov pycodestyle codecov
 
       - run:
           name: install synapse
           command: |
-            source ~/.bash_profile
-            pyenv shell syn36
+            . venv/bin/activate
             python3 -m pip install -e .
 
       - save_cache:
           paths:
-            - ~/.pyenv/versions
-          key: v2-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}-{{ checksum ".circleci/venv_osx.sh" }}
+            - ./venv
+          key: v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - run:
           name: run tests
           command: |
-            source ~/.bash_profile
-            pyenv shell syn36
+            . venv/bin/activate
             mkdir test-reports
             circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
       - run:
           name: report coverage
           command: |
-            source ~/.bash_profile
-            pyenv shell syn36
+            . venv/bin/activate
             if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${PYVERS}node${CIRCLE_NODE_INDEX} ${CODECOV_ARGS}; fi;
 
       - store_test_results:
@@ -168,14 +152,14 @@ osx_test_steps:  &osx_test_steps
 
 jobs:
 
-  osx36:
-    parallelism: 6
+  osx37:
+    parallelism: 2
     macos:
-      xcode: "9.3.0"
+      xcode: "10.2.0"
 
     environment:
       COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-      PYVERS: 3.6
+      PYVERS: 3.7
 
     working_directory: ~/repo
 
@@ -211,6 +195,6 @@ workflows:
   version: 2
   run_tests:
     jobs:
-#      - osx36
       - doctests
+      - osx37
       - python37

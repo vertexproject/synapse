@@ -26,7 +26,7 @@ class TrigTest(s_t_utils.SynTest):
                 self.eq(triggers[0][1].get('storm'), '[inet:user=2 .test:univ=4] | testcmd')
 
                 # Sad case
-                self.raises(s_exc.BadStormSyntax, core.triggers.mod, iden, ' | | badstorm ')
+                self.raises(s_exc.BadSyntax, core.triggers.mod, iden, ' | | badstorm ')
                 self.raises(s_exc.NoSuchIden, core.triggers.mod, 'deadb33f', 'inet:user')
 
                 # Manually store a v0 trigger
@@ -124,7 +124,7 @@ class TrigTest(s_t_utils.SynTest):
                 # Bad trigger parms
                 await self.asyncraises(s_exc.BadOptValu, core.addTrigger('nocond', 'test:int=4',
                                                                          info={'form': 'test:str'}))
-                await self.asyncraises(s_exc.BadStormSyntax,
+                await self.asyncraises(s_exc.BadSyntax,
                                        core.addTrigger('node:add', ' | | badstorm ', info={'form': 'test:str'}))
                 await self.asyncraises(s_exc.BadOptValu,
                                        core.addTrigger('node:add', 'test:int=4', info={'form': 'test:str', 'tag': 'foo'}))
