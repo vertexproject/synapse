@@ -1,12 +1,10 @@
 import os
 import sys
 import json
-import socket
 import asyncio
 import logging
 import argparse
 
-import synapse.glob as s_glob
 
 import synapse.common as s_common
 import synapse.cortex as s_cortex
@@ -65,7 +63,7 @@ async def main(argv, outp=s_output.stdout):
 
         return core
 
-    except Exception as e:
+    except Exception:
         await core.fini()
         raise
 

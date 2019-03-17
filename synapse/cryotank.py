@@ -1,6 +1,5 @@
 import os
 import shutil
-import struct
 import asyncio
 import logging
 

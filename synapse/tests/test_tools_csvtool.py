@@ -1,12 +1,8 @@
-import unittest.mock as mock
-
 import synapse.common as s_common
 
-import synapse.lib.coro as s_coro
+import synapse.tests.utils as s_t_utils
 
 import synapse.tools.csvtool as s_csvtool
-
-import synapse.tests.utils as s_t_utils
 
 csvfile = b'''ipv4,fqdn,notes
 1.2.3.4,vertex.link,malware
@@ -38,8 +34,6 @@ class CsvToolTest(s_t_utils.SynTest):
             stormpath = s_common.genpath(dirn, 'csvtest.storm')
             with s_common.genfile(stormpath) as fd:
                 fd.write(csvstorm)
-
-            podes = []
 
             argv = ['--csv-header', '--debug', '--cortex', url, '--logfile', logpath, stormpath, csvpath]
             outp = self.getTestOutp()

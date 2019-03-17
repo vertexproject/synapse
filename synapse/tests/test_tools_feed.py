@@ -1,8 +1,5 @@
-import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.telepath as s_telepath
 
-import synapse.lib.coro as s_coro
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.tools.feed as s_feed

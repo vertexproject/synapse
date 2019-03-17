@@ -9,11 +9,9 @@ import os
 import time
 import logging
 
-import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.output as s_output
-import synapse.lib.threads as s_threads
 
 import synapse.tests.utils as s_t_utils
 
@@ -156,7 +154,7 @@ class TestUtils(s_t_utils.SynTest):
             self.true(env.foo is foo)
 
             def blah():
-                blah = env.blah
+                env.blah
 
             self.raises(AttributeError, blah)
 

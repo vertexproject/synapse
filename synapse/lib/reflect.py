@@ -47,7 +47,7 @@ def getItemLocals(item):
         try:
             valu = getattr(item, name, None)
             yield name, valu
-        except Exception as e:
+        except Exception:
             pass # various legit reasons...
 
 def getShareInfo(item):

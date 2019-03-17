@@ -1,12 +1,10 @@
 import time
 import asyncio
 
-from unittest.mock import patch
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 

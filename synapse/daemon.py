@@ -188,7 +188,7 @@ class Daemon(s_base.Base):
 
             self.shared[name] = item
 
-        except Exception as e:
+        except Exception:
             logger.exception(f'onTeleShare() error for: {name}')
 
     async def _onDmonFini(self):
@@ -235,7 +235,7 @@ class Daemon(s_base.Base):
 
             await func(link, mesg)
 
-        except Exception as e:
+        except Exception:
             logger.exception('Dmon.onLinkMesg Handler: %.80r' % (mesg,))
 
     async def _onShareFini(self, link, mesg):

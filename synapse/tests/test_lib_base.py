@@ -2,11 +2,9 @@ import os
 import sys
 import signal
 import asyncio
-import unittest
 import multiprocessing
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 
 import synapse.lib.base as s_base
 

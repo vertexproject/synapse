@@ -349,8 +349,8 @@ class TypesTest(s_t_utils.SynTest):
 
             t = core.model.type('test:time')
 
-            tick = t.norm('2014')[0]
-            tock = t.norm('2015')[0]
+            t.norm('2014')[0]
+            t.norm('2015')[0]
 
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'a', {'tick': '2014', '.seen': ('2005', '2006')})

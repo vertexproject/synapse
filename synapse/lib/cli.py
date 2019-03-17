@@ -1,10 +1,6 @@
-import os
 import json
 import time
-import atexit
-import signal
 import asyncio
-import threading
 import traceback
 import collections
 
@@ -14,13 +10,11 @@ from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.eventloop.defaults import use_asyncio_event_loop
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
 import synapse.lib.syntax as s_syntax
-import synapse.lib.reflect as s_reflect
 
 # Tell prompt_toolkit to use the asyncio event loop.
 use_asyncio_event_loop()
@@ -323,7 +317,7 @@ class Cli(s_base.Base):
 
                 await self.runCmdLine(line)
 
-            except KeyboardInterrupt as e:
+            except KeyboardInterrupt:
 
                 if self.isfini:
                     return
@@ -333,7 +327,7 @@ class Cli(s_base.Base):
             except (s_exc.CliFini, EOFError) as e:
                 await self.fini()
 
-            except Exception as e:
+            except Exception:
                 s = traceback.format_exc()
                 self.printf(s)
 

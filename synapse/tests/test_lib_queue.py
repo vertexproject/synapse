@@ -1,12 +1,6 @@
-import time
-import asyncio
-import threading
 
-import synapse.exc as s_exc
-import synapse.common as s_common
 
 import synapse.lib.queue as s_queue
-import synapse.lib.threads as s_threads
 
 import synapse.tests.utils as s_t_utils
 
