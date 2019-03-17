@@ -15,7 +15,6 @@ import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
 import synapse.lib.editatom as s_editatom
-import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
 

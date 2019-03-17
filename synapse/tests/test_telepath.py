@@ -25,8 +25,8 @@ class CustomShare(s_share.Share):
     async def _runShareLoop(self):
         try:
             await asyncio.sleep(10)
-        except asyncio.CancelledError as e:
-            raise e
+        except asyncio.CancelledError:
+            raise
 
     def boo(self, x):
         return x
@@ -102,7 +102,7 @@ class Foo:
             yield 2000
             yield 3000
 
-        except GeneratorExit as e:
+        except GeneratorExit:
             self.genrexited = True
 
         finally:

@@ -74,7 +74,7 @@ class Latitude(s_types.Type):
     def _normIntStr(self, valu):
         try:
             valu = float(valu)
-        except Exception as e:
+        except Exception:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Invalid float format')
         return self._normFloat(valu)
@@ -157,7 +157,7 @@ class Longitude(s_types.Type):
     def _normIntStr(self, valu):
         try:
             valu = float(valu)
-        except Exception as e:
+        except Exception:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Invalid float format')
         return self._normFloat(valu)

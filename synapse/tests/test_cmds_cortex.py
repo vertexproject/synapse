@@ -224,7 +224,7 @@ class CmdCoreTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
 
-            user = await realcore.auth.addUser('test')
+            await realcore.auth.addUser('test')
 
             async with realcore.getLocalProxy(user='test') as tcore:
 

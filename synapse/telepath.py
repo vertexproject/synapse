@@ -423,7 +423,7 @@ class Proxy(s_base.Base):
 
                         yield s_common.result(retn)
 
-                except GeneratorExit as e:
+                except GeneratorExit:
                     # if they bail early on the genr, fini the link
                     await link.fini()
 
@@ -505,7 +505,7 @@ class Proxy(s_base.Base):
                 except asyncio.CancelledError:  # pragma: no cover
                     raise
 
-                except Exception as e:
+                except Exception:
                     logger.exception('Proxy.rxloop for %r' % (mesg,))
 
         retn = self.synack[1].get('retn')
@@ -684,7 +684,7 @@ async def openurl(url, **opts):
     try:
         await prox.handshake(auth=auth)
 
-    except Exception as e:
+    except Exception:
         await prox.fini()
         raise
 

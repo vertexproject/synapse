@@ -1,15 +1,8 @@
-import os
 import hashlib
-import asyncio
 import logging
-import contextlib
 
-import synapse.exc as s_exc
-import synapse.axon as s_axon
-import synapse.glob as s_glob
 import synapse.common as s_common
 
-from synapse.tests.utils import alist
 import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)

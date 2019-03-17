@@ -141,14 +141,8 @@ def intify(x):
 
     try:
         return int(x, 0)
-    except (TypeError, ValueError) as e:
+    except (TypeError, ValueError):
         return None
-
-def addpref(pref, info):
-    '''
-    Add the given prefix to all elements in the info dict.
-    '''
-    return {f'{pref}:{k}': v for (k, v) in info.items()}
 
 def vertup(vstr):
     '''
@@ -300,9 +294,6 @@ def jsload(*paths):
             return None
 
         return json.loads(byts.decode('utf8'))
-
-def gentask(func, *args, **kwargs):
-    return (func, args, kwargs)
 
 def jssave(js, *paths):
     path = genpath(*paths)
@@ -466,7 +457,7 @@ def iterfd(fd, size=10000000):
     fd.seek(0)
     byts = fd.read(size)
     # Fast path to yield b''
-    if len(byts) is 0:
+    if len(byts) == 0:
         yield byts
         return
     while byts:

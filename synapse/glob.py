@@ -48,7 +48,7 @@ def initloop():
             # if we get here, it's us!
             _glob_thrd = threading.currentThread()
 
-        except RuntimeError as e:
+        except RuntimeError:
 
             # otherwise, lets fire one...
             _glob_loop = asyncio.new_event_loop()

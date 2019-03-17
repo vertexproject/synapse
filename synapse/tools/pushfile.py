@@ -49,7 +49,7 @@ def main(argv, outp=None):
         sha256 = fhashes.get('sha256')
         bsha256 = s_common.uhex(sha256)
 
-        awants = axon.wants([bsha256])
+        axon.wants([bsha256])
 
         if not axon.has(bsha256):
 

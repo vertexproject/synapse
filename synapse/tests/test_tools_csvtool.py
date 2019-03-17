@@ -1,8 +1,6 @@
-import unittest.mock as mock
 
 import synapse.common as s_common
 
-import synapse.lib.coro as s_coro
 
 import synapse.tools.csvtool as s_csvtool
 
@@ -39,7 +37,6 @@ class CsvToolTest(s_t_utils.SynTest):
             with s_common.genfile(stormpath) as fd:
                 fd.write(csvstorm)
 
-            podes = []
 
             argv = ['--csv-header', '--debug', '--cortex', url, '--logfile', logpath, stormpath, csvpath]
             outp = self.getTestOutp()

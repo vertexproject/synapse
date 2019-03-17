@@ -1,4 +1,3 @@
-import synapse.glob as s_glob
 import synapse.lib.cli as s_cli
 import synapse.cmds.cron as s_cmds_cron
 import synapse.cmds.hive as s_cmds_hive

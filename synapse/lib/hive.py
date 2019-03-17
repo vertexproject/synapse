@@ -125,10 +125,10 @@ class Hive(s_base.Base, s_telepath.Aware):
             try:
                 await s_coro.ornot(meth, mesg)
 
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 raise
 
-            except Exception as e:
+            except Exception:
                 logger.exception('hive edit error with mesg %s', mesg)
 
     async def _onHiveFini(self):

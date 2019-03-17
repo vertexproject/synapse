@@ -24,5 +24,5 @@ class IvalTest(s_t_utils.SynTest):
         self.true(s_interval.overlap(ival2, ival3))
 
     def test_ival_parsetime(self):
-        ival = s_interval.parsetime('1970-1980')
+        s_interval.parsetime('1970-1980')
         self.eq(s_interval.parsetime('1970-1980'), (0, 315532800000))
