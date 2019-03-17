@@ -10,7 +10,6 @@ from collections.abc import Mapping
 import synapse
 import synapse.exc as s_exc
 import synapse.axon as s_axon
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath

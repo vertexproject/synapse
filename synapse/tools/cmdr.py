@@ -1,7 +1,6 @@
 import sys
 import asyncio
 
-import synapse.glob as s_glob
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr

@@ -1,7 +1,6 @@
 
 import synapse.common as s_common
 
-import synapse.lib.coro as s_coro
 
 import synapse.tools.csvtool as s_csvtool
 

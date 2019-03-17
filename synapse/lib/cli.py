@@ -1,6 +1,5 @@
 import json
 import time
-import atexit
 import asyncio
 import traceback
 import collections
@@ -11,7 +10,6 @@ from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.eventloop.defaults import use_asyncio_event_loop
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
