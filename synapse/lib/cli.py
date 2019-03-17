@@ -7,14 +7,14 @@ import threading
 import traceback
 import collections
 
-from prompt_toolkit import prompt
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.eventloop.defaults import use_asyncio_event_loop
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
@@ -22,23 +22,6 @@ import synapse.lib.syntax as s_syntax
 
 # Tell prompt_toolkit to use the asyncio event loop.
 use_asyncio_event_loop()
-
-async def get_input(text):  # pragma: no cover
-    '''
-    Get input from a user via stdin.
-
-    Notes:
-        This is just a wrapper for input() so mocking does not have to replace builtin functions for testing runCmdLoop.
-
-    Args:
-        text (str): Text displayed prior to the input prompt.
-
-    Returns:
-        str: String of text from the user.
-    '''
-    #return input(text)
-    with patch_stdout():
-        return await prompt(text, async_=True)
 
 class Cmd:
     '''
@@ -227,26 +210,30 @@ class Cmd:
                                name='runCmdOpts')
 
 
-class Cli(s_eventbus.EventBus):
+class Cli(s_base.Base):
     '''
     A modular / event-driven CLI base object.
     '''
-    def __init__(self, item, outp=None, **locs):
-        s_eventbus.EventBus.__init__(self)
+    async def __anit__(self, item, outp=None, **locs):
+
+        await s_base.Base.__anit__(self)
 
         if outp is None:
             outp = s_output.OutPut()
 
         self.outp = outp
         self.locs = locs
+
+        path = s_common.getSynPath('cmdr_history')
+
+        hist = FileHistory(path)
+        self.sess = PromptSession(history=hist)
+
         self.item = item    # whatever object we are commanding
 
         self.echoline = False
-        self.finikill = False
-        self.inithist = False
-        self.loopthread = None
 
-        if isinstance(item, (s_base.Base, s_eventbus.EventBus)):
+        if isinstance(self.item, s_base.Base):
             self.item.onfini(self._onItemFini)
 
         self.cmds = {}
@@ -256,51 +243,14 @@ class Cli(s_eventbus.EventBus):
         self.addCmdClass(CmdQuit)
         self.addCmdClass(CmdLocals)
 
-    def _onItemFini(self):
+    async def _onItemFini(self):
+
         if self.isfini:
             return
 
         self.printf('connection closed...')
 
-        self.fini()
-
-        if self.loopthread is not None and self.finikill:
-            signal.pthread_kill(self.loopthread, signal.SIGINT)
-
-    def _initReadline(self, readline):
-        try:
-            readline.read_init_file()
-        except OSError:  # pragma: no cover
-            # from cpython 3.6 site.py:
-            # An OSError here could have many causes, but the most likely one
-            # is that there's no .inputrc file (or .editrc file in the case of
-            # Mac OS X + libedit) in the expected location.  In that case, we
-            # want to ignore the exception.
-            pass
-
-        if not self.inithist:
-            return
-
-        if readline.get_current_history_length() == 0:  # pragma: no cover
-            history_path = s_common.getSynPath('cmdr_history')
-            # We have to ensure the file exists to use append mode
-            with s_common.genfile(history_path) as fd:
-                pass
-            try:
-                readline.read_history_file(history_path)
-            except IOError:
-                pass
-            h_len = readline.get_current_history_length()
-
-            # Allows for concurrent usage to only append the new items from
-            # a given cmdr session to the file.
-            # Recipe from cpython stdlib documentation for readline.
-            def save(prev_h_len, histfile):
-                new_h_len = readline.get_current_history_length()
-                readline.set_history_length(10000)
-                readline.append_history_file(new_h_len - prev_h_len, histfile)
-
-            atexit.register(save, h_len, history_path)
+        await self.fini()
 
     def get(self, name, defval=None):
         return self.locs.get(name, defval)
@@ -308,21 +258,15 @@ class Cli(s_eventbus.EventBus):
     def set(self, name, valu):
         self.locs[name] = valu
 
-    def get_input(self, prompt=None):
+    async def prompt(self, text=None):
         '''
-        Get the input string to parse.
-
-        Args:
-            prompt (str): Optional string to use as the prompt. Otherwise self.cmdprompt is used.
-
-        Returns:
-            str: A string to process.
+        Prompt for user input from stdin.
         '''
-        if not prompt:
-            prompt = self.cmdprompt
+        if text is None:
+            text = self.cmdprompt
 
-        self.fire('cli:getinput')
-        return get_input(prompt)
+        with patch_stdout():
+            return await self.sess.prompt(text, async_=True)
 
     def printf(self, mesg, addnl=True):
         return self.outp.printf(mesg, addnl=addnl)
@@ -356,15 +300,10 @@ class Cli(s_eventbus.EventBus):
         '''
         return self.cmdprompt
 
-    def runCmdLoop(self):
+    async def runCmdLoop(self):
         '''
         Run commands from a user in an interactive fashion until fini() or EOFError is raised.
         '''
-        self.loopthread = threading.currentThread().ident
-
-        import readline
-        self._initReadline(readline)
-
         while not self.isfini:
 
             # FIXME completion
@@ -372,7 +311,7 @@ class Cli(s_eventbus.EventBus):
             try:
                 task = None
 
-                line = self.get_input()
+                line = await self.prompt()
                 if not line:
                     continue
 
@@ -380,10 +319,7 @@ class Cli(s_eventbus.EventBus):
                 if not line:
                     continue
 
-                coro = self.runCmdLine(line)
-                task = s_glob.coroToTask(coro)
-
-                task.result()
+                await self.runCmdLine(line)
 
             except KeyboardInterrupt:
 
@@ -393,7 +329,7 @@ class Cli(s_eventbus.EventBus):
                 self.printf('<ctrl-c>')
 
             except (s_exc.CliFini, EOFError) as e:
-                self.fini()
+                await self.fini()
 
             except Exception:
                 s = traceback.format_exc()
@@ -437,14 +373,12 @@ class Cli(s_eventbus.EventBus):
             self.printf('cmd not found: %s' % (name,))
             return
 
-        self.fire('cli:cmd:run', line=line)
-
         try:
 
             ret = await cmdo.runCmdLine(line)
 
         except s_exc.CliFini as e:
-            self.fini()
+            await self.fini()
 
         except asyncio.CancelledError:
             self.printf('Cmd cancelled')

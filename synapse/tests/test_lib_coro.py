@@ -34,13 +34,3 @@ class CoroTest(s_t_utils.SynTest):
 
         self.none(await woot().spin())
         self.eq([1, 2, 3], await woot().list())
-
-    def test_asynctosynccmgr(self):
-
-        @contextlib.asynccontextmanager
-        async def testmgr():
-            yield 42
-
-        syncmgr = s_coro.AsyncToSyncCMgr(testmgr)
-        with syncmgr as foo:
-            self.eq(foo, 42)

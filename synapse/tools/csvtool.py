@@ -11,8 +11,10 @@ import synapse.lib.cmd as s_cmd
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.output as s_output
 
-def main(argv, outp=s_output.stdout):
+async def main(argv, outp=s_output.stdout):
+
     pars = makeargparser()
+
     try:
         opts = pars.parse_args(argv)
     except s_exc.ParserExit as e:
@@ -43,15 +45,17 @@ def main(argv, outp=s_output.stdout):
     if opts.logfile is not None:
         logfd = s_common.genfile(opts.logfile)
 
-    def addCsvData(core):
+    async def addCsvData(core):
+
         newcount, nodecount = 0, 0
+
         for rows in rowgenr:
 
             stormopts = {
                 'vars': {'rows': rows},
             }
 
-            for mesg in core.storm(text, opts=stormopts):
+            async for mesg in core.storm(text, opts=stormopts):
 
                 if mesg[0] == 'node:add':
                     newcount += 1
@@ -70,17 +74,17 @@ def main(argv, outp=s_output.stdout):
                     logfd.write(byts + b'\n')
 
         if opts.cli:
-            s_cmdr.runItemCmdr(core, outp)
+            await s_cmdr.runItemCmdr(core, outp)
 
         return newcount, nodecount
 
     if opts.test:
-        with s_cortex.getTempCortex() as core:
-            newcount, nodecount = addCsvData(core)
+        async with s_cortex.getTempCortex() as core:
+            newcount, nodecount = await addCsvData(core)
 
     else:
-        with s_telepath.openurl(opts.cortex) as core:
-            newcount, nodecount = addCsvData(core)
+        async with await s_telepath.openurl(opts.cortex) as core:
+            newcount, nodecount = await addCsvData(core)
 
     if logfd is not None:
         logfd.close()
@@ -142,5 +146,5 @@ def makeargparser():
     pars.add_argument('csvfiles', nargs='+', help='CSV files to load.')
     return pars
 
-if __name__ == '__main__':  # pragma: no cover
-    sys.exit(main(sys.argv[1:]))
+if __name__ == '__main__': # pragma: no cover
+    asyncio.run(s_base.main(main(sys.argv[1:])))

@@ -19,4 +19,3 @@ class QueueTest(s_t_utils.SynTest):
         queue.schedCoro(poke())
 
         self.eq(['bar'], await queue.slice())
-

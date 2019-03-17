@@ -1,4 +1,5 @@
 import sys
+import asyncio
 import logging
 import argparse
 
@@ -307,10 +308,11 @@ def processUnivs(rst, dochelp, univs):
             for k, v in uopt.items():
                 rst.addLines('  ' + f'* {k}: ``{v}``')
 
-def docModel(outp,
+async def docModel(outp,
              core):
-    coreinfo = core.getCoreInfo()
+    coreinfo = await core.getCoreInfo()
     _, model = coreinfo.get('modeldef')[0]
+
     ctors = model.get('ctors')
     types = model.get('types')
     forms = model.get('forms')
@@ -346,7 +348,7 @@ def docModel(outp,
     # outp.printf(rst2.getRstText())
     return rst, rst2
 
-def main(argv, outp=None):
+async def main(argv, outp=None):
 
     if outp is None:
         outp = s_output.OutPut()
@@ -356,12 +358,14 @@ def main(argv, outp=None):
     opts = pars.parse_args(argv)
 
     if opts.doc_model:
+
         if opts.cortex:
-            with s_telepath.openurl(opts.cortex) as core:
-                rsttypes, rstforms = docModel(outp, core)
+            async with await s_telepath.openurl(opts.cortex) as core:
+                rsttypes, rstforms = await docModel(outp, core)
+
         else:
-            with s_cortex.getTempCortex() as core:
-                rsttypes, rstforms = docModel(outp, core)
+            async with s_cortex.getTempCortex() as core:
+                rsttypes, rstforms = await docModel(outp, core)
 
         if opts.savedir:
             with open(s_common.genpath(opts.savedir, 'datamodel_types.rst'), 'wb') as fd:
@@ -383,9 +387,6 @@ def makeargparser():
                       help='Generate RST docs for the DataModel within a cortex')
     return pars
 
-def _main():  # pragma: no cover
-    s_common.setlogging(logger, 'DEBUG')
-    return main(sys.argv[1:])
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(_main())
+    s_common.setlogging(logger, 'DEBUG')
+    asyncio.run(main(sys.argv[1:]))

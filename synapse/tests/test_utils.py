@@ -10,7 +10,6 @@ import time
 import logging
 
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
 
 import synapse.lib.output as s_output
 
@@ -146,14 +145,12 @@ class TestUtils(s_t_utils.SynTest):
         self.raises(Exception, outp.expect, 'oh my')
 
     def test_testenv(self):
-        ebus = s_eventbus.EventBus()
 
         with s_t_utils.TstEnv() as env:
+
             foo = 'foo'
-            env.add('ebus', ebus, True)
             env.add('foo', foo)
 
-            self.true(env.ebus is ebus)
             self.true(env.foo is foo)
 
             def blah():
@@ -161,46 +158,24 @@ class TestUtils(s_t_utils.SynTest):
 
             self.raises(AttributeError, blah)
 
-        self.true(ebus.isfini)
-
-    def test_cmdg_simple_sequence(self):
+    async def test_cmdg_simple_sequence(self):
         cmdg = s_t_utils.CmdGenerator(['foo', 'bar'])
-        self.eq(cmdg(), 'foo')
-        self.eq(cmdg(), 'bar')
-        self.eq(cmdg(), 'quit')
-        self.eq(cmdg(), 'quit')
+        self.eq(await cmdg(), 'foo')
+        self.eq(await cmdg(), 'bar')
+        with self.raises(Exception):
+            await cmdg()
 
-    def test_cmdg_evnt(self):
-        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'], on_end='spam')
-        self.eq(cmdg(), 'foo')
-        self.eq(cmdg(), 'bar')
-        self.eq(cmdg(), 'spam')
-        cmdg.fire('syn:cmdg:add', cmd='hehe')
-        self.eq(cmdg(), 'hehe')
-        self.eq(cmdg(), 'spam')
+    async def test_cmdg_end_exception(self):
+        cmdg = s_t_utils.CmdGenerator(['foo', 'bar', EOFError()])
+        self.eq(await cmdg(), 'foo')
+        self.eq(await cmdg(), 'bar')
 
-    def test_cmdg_end_actions(self):
-        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'], on_end='spam')
-        self.eq(cmdg(), 'foo')
-        self.eq(cmdg(), 'bar')
-        self.eq(cmdg(), 'spam')
-        self.eq(cmdg(), 'spam')
+        with self.raises(EOFError):
+            await cmdg()
 
-    def test_cmdg_end_exception(self):
-        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'], on_end=EOFError)
-        self.eq(cmdg(), 'foo')
-        self.eq(cmdg(), 'bar')
-        with self.raises(EOFError) as cm:
-            cmdg()
-        self.assertIn('No further actions', str(cm.exception))
-
-    def test_cmdg_end_exception_unknown(self):
-        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'], on_end=1)
-        self.eq(cmdg(), 'foo')
-        self.eq(cmdg(), 'bar')
         with self.raises(Exception) as cm:
-            cmdg()
-        self.assertIn('Unhandled end action', str(cm.exception))
+            await cmdg()
+            self.assertIn('No further actions', str(cm.exception))
 
     def test_istufo(self):
         node = (None, {})

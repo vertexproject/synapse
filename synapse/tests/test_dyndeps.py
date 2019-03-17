@@ -31,5 +31,5 @@ class DynDepsTest(s_t_utils.SynTest):
         self.raises(s_exc.NoSuchDyn, s_dyndeps.tryDynLocal, 'sys.newpnewp')
 
     def test_dyndeps_meth(self):
-        self.nn(s_dyndeps.getDynMeth('synapse.eventbus.EventBus.fini'))
-        self.none(s_dyndeps.getDynMeth('synapse.eventbus.EventBus.newp'))
+        self.nn(s_dyndeps.getDynMeth('synapse.lib.base.Base.fini'))
+        self.none(s_dyndeps.getDynMeth('synapse.lib.base.Base.newp'))

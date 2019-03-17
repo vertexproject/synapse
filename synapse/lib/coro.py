@@ -87,16 +87,3 @@ def genrhelp(f):
     def func(*args, **kwargs):
         return GenrHelp(f(*args, **kwargs))
     return func
-
-class AsyncToSyncCMgr():
-    '''
-    Wraps an async context manager as a sync one
-    '''
-    def __init__(self, func, *args, **kwargs):
-        self.amgr = func(*args, **kwargs)
-
-    def __enter__(self):
-        return s_glob.sync(self.amgr.__aenter__())
-
-    def __exit__(self, *args):
-        return s_glob.sync(self.amgr.__aexit__(*args))

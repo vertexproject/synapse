@@ -1877,8 +1877,8 @@ class Cortex(s_cell.Cell):
         }
         return stats
 
-@contextlib.contextmanager
-def getTempCortex(mods=None):
+@contextlib.asynccontextmanager
+async def getTempCortex(mods=None):
     '''
     Get a proxy to a cortex backed by a temporary directory.
 
@@ -1893,9 +1893,10 @@ def getTempCortex(mods=None):
         Proxy to the cortex.
     '''
     with s_common.getTempDir() as dirn:
-        with s_coro.AsyncToSyncCMgr(s_glob.sync, Cortex.anit(dirn)) as core:
+
+        async with await Cortex.anit(dirn) as core:
             if mods:
                 for mod in mods:
-                    s_glob.sync(core.loadCoreModule(mod))
-            with s_coro.AsyncToSyncCMgr(core.getLocalProxy) as prox:
+                    await core.loadCoreModule(mod)
+            async with core.getLocalProxy() as prox:
                 yield prox
