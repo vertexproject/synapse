@@ -11,7 +11,6 @@ import synapse
 import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.common as s_common
-import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
@@ -24,6 +23,7 @@ import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.syntax as s_syntax
 import synapse.lib.agenda as s_agenda
+import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.trigger as s_trigger
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
