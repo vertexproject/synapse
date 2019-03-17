@@ -6,6 +6,7 @@ import asyncio
 import logging
 import weakref
 import threading
+import contextlib
 import collections
 
 if __debug__:
@@ -402,6 +403,24 @@ class Base:
         self._fini_funcs.clear()
         return 0
 
+    @contextlib.contextmanager
+    def onWith(self, evnt, func):
+        '''
+        A context manager which can be used to add a callback and remove it when
+        using a ``with`` statement.
+
+        Args:
+            evnt (str):         An event name
+            func (function):    A callback function to receive event tufo
+        '''
+        self.on(evnt, func)
+        # Allow exceptions to propagate during the context manager
+        # but ensure we cleanup our temporary callback
+        try:
+            yield self
+        finally:
+            self.off(evnt, func)
+
     async def waitfini(self, timeout=None):
         '''
         Wait for the base to fini()
@@ -693,5 +712,7 @@ class BaseRef(Base):
         return iter(list(self.base_by_name.values()))
 
 async def main(coro): # pragma: no cover
-    async with await coro as base:
-        await base.main()
+    base = await coro
+    if isinstance(base, Base):
+        async with base:
+            await base.main()

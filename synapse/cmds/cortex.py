@@ -129,7 +129,6 @@ class Log(s_cli.Cmd):
         q = self.locs.pop('log:queue', None)
         if q is not None:
             self.printf('Marking log queue done')
-            q.done()
         thr = self.locs.pop('log:thr', None)
         if thr:
             self.printf('Joining log thread.')
@@ -373,7 +372,7 @@ class StormCmd(s_cli.Cmd):
 
             async for mesg in core.storm(text, opts=stormopts):
 
-                self._cmd_cli.fire('storm:mesg', mesg=mesg)
+                await self._cmd_cli.fire('storm:mesg', mesg=mesg)
 
                 if opts.get('debug'):
                     self.printf(pprint.pformat(mesg))

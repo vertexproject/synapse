@@ -25,20 +25,3 @@ class QueueTest(s_t_utils.SynTest):
         queue.schedCoro(poke())
 
         self.eq(['bar'], await queue.slice())
-
-    async def test_queu_s2aqueue(self):
-
-        async with await s_queue.S2AQueue.anit(10) as q:
-
-            def sync():
-                for i in range(10):
-                    q.put(i)
-
-            task = asyncio.get_running_loop().run_in_executor(None, sync)
-
-            for i in range(10):
-                await q.get()
-
-            self.len(0, q)
-
-        await task

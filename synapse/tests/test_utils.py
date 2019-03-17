@@ -11,7 +11,6 @@ import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
 
 import synapse.lib.output as s_output
 import synapse.lib.threads as s_threads
@@ -148,14 +147,12 @@ class TestUtils(s_t_utils.SynTest):
         self.raises(Exception, outp.expect, 'oh my')
 
     def test_testenv(self):
-        ebus = s_eventbus.EventBus()
 
         with s_t_utils.TstEnv() as env:
+
             foo = 'foo'
-            env.add('ebus', ebus, True)
             env.add('foo', foo)
 
-            self.true(env.ebus is ebus)
             self.true(env.foo is foo)
 
             def blah():
@@ -163,88 +160,24 @@ class TestUtils(s_t_utils.SynTest):
 
             self.raises(AttributeError, blah)
 
-        self.true(ebus.isfini)
-
-    def test_cmdg_simple_sequence(self):
+    async def test_cmdg_simple_sequence(self):
         cmdg = s_t_utils.CmdGenerator(['foo', 'bar'])
-        self.eq(cmdg(), 'foo')
-        self.eq(cmdg(), 'bar')
-        self.eq(cmdg(), 'quit')
-        self.eq(cmdg(), 'quit')
+        self.eq(await cmdg(), 'foo')
+        self.eq(await cmdg(), 'bar')
+        with self.raises(Exception):
+            await cmdg()
 
-    def test_cmdg_evnt(self):
-        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'], on_end='spam')
-        self.eq(cmdg(), 'foo')
-        self.eq(cmdg(), 'bar')
-        self.eq(cmdg(), 'spam')
-        cmdg.fire('syn:cmdg:add', cmd='hehe')
-        self.eq(cmdg(), 'hehe')
-        self.eq(cmdg(), 'spam')
+    async def test_cmdg_end_exception(self):
+        cmdg = s_t_utils.CmdGenerator(['foo', 'bar', EOFError()])
+        self.eq(await cmdg(), 'foo')
+        self.eq(await cmdg(), 'bar')
 
-    def test_cmdg_end_actions(self):
-        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'], on_end='spam')
-        self.eq(cmdg(), 'foo')
-        self.eq(cmdg(), 'bar')
-        self.eq(cmdg(), 'spam')
-        self.eq(cmdg(), 'spam')
+        with self.raises(EOFError):
+            await cmdg()
 
-    def test_cmdg_end_exception(self):
-        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'], on_end=EOFError)
-        self.eq(cmdg(), 'foo')
-        self.eq(cmdg(), 'bar')
-        with self.raises(EOFError) as cm:
-            cmdg()
-        self.assertIn('No further actions', str(cm.exception))
-
-    def test_cmdg_end_exception_unknown(self):
-        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'], on_end=1)
-        self.eq(cmdg(), 'foo')
-        self.eq(cmdg(), 'bar')
         with self.raises(Exception) as cm:
-            cmdg()
-        self.assertIn('Unhandled end action', str(cm.exception))
-
-    def test_teststeps(self):
-
-        # Helper function - he is used a few times
-        def setStep(w, stepper, step):
-            time.sleep(w)
-            stepper.done(step)
-
-        with s_threads.Pool() as pool:
-
-            names = ['hehe', 'haha', 'ohmy']
-            tsteps = self.getTestSteps(names)
-            self.isinstance(tsteps, s_t_utils.TestSteps)
-
-            tsteps.done('hehe')
-            self.true(tsteps.wait('hehe', 1))
-
-            pool.call(setStep, 0.1, tsteps, 'haha')
-            self.true(tsteps.wait('haha', 1))
-
-            pool.call(setStep, 0.2, tsteps, 'ohmy')
-            self.raises(s_exc.StepTimeout, tsteps.wait, 'ohmy', 0.01)
-            self.true(tsteps.wait('ohmy', 1))
-
-            # use the waitall api
-            tsteps = self.getTestSteps(names)
-
-            pool.call(setStep, 0.01, tsteps, 'hehe')
-            pool.call(setStep, 0.10, tsteps, 'haha')
-            pool.call(setStep, 0.05, tsteps, 'ohmy')
-            self.true(tsteps.waitall(1))
-
-            tsteps = self.getTestSteps(names)
-            self.raises(s_exc.StepTimeout, tsteps.waitall, 0.1)
-
-            # Use the step() api
-            tsteps = self.getTestSteps(names)
-            pool.call(setStep, 0.1, tsteps, 'haha')
-            self.true(tsteps.step('hehe', 'haha', 1))
-
-            tsteps = self.getTestSteps(names)
-            self.raises(s_exc.StepTimeout, tsteps.step, 'hehe', 'haha', 0.01)
+            await cmdg()
+            self.assertIn('No further actions', str(cm.exception))
 
     def test_istufo(self):
         node = (None, {})
