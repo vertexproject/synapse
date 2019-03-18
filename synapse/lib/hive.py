@@ -61,7 +61,7 @@ class Node(s_base.Base):
         full = self.full + path
         return await self.hive.open(full)
 
-    async def pop(self, *path):
+    async def pop(self, path):
         full = self.full + path
         return await self.hive.pop(full)
 

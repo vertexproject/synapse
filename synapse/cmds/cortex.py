@@ -116,7 +116,8 @@ class Log(s_cli.Cmd):
             buf = s_msgpack.en(mesg)
             return buf
 
-        raise Exception('Unknown encoding format %s', fmt)
+        mesg = f'Unknown encoding format: {fmt}'
+        raise SynErr(mesg=mesg)
 
     def closeLogFd(self):
         self._cmd_cli.off('storm:mesg', self.onStormMesg)
