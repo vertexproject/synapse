@@ -1,10 +1,4 @@
 # vim:set ft=dockerfile:
-
-# Example Usage
-#
-# To Build:
-#   docker build -t vertexproject/synapse-axon -f docker/images/axon/Dockerfile .
-
 FROM vertexproject/synapse-base-image2:py37
 
 COPY synapse /build/synapse/synapse

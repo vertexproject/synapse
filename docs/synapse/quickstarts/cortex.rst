@@ -1,3 +1,0 @@
-Starting a Cortex Server
-########################
-

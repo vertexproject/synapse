@@ -88,7 +88,7 @@ To prepare for sharing a **Cortex** via **telepath** or HTTP, roles and users sh
     python -m synapse.tools.cellauth cell://cortex modify visi --addrule node:set
     python -m synapse.tools.cellauth cell://cortex modify visi --addrule node:set
 
-Additionally, users may be granted the ``storm.cmd.sudo`` permission to allow them to use the **Storm** "sudo" command to execute queries as a super-user.  Keep in mind that any user with access to the ``sudo`` command can bypass all **Storm** permissions.::
+Additionally, users may be granted the ``storm.cmd.sudo`` permission to allow them to use the **Storm** ``sudo`` command to execute queries as a super-user.  Keep in mind that any user with access to the ``sudo`` command can bypass all **Storm** permissions.::
 
     python -m synapse.tools.cellauth cell://cortex modify visi --addrule storm.cmd.sudo
 
