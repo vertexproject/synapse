@@ -1,6 +1,6 @@
 synapse
 =======
-Distributed Key-Value Hypergraph Analysis Framework
+Hypergraph Analysis Framework
 
 |codecov|_ |circleci|_ |dockerhub|_ |rtd|_
 
