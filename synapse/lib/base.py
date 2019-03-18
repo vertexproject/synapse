@@ -34,6 +34,7 @@ def _fini_atexit(): # pragma: no cover
         if not item._fini_atexit:
             if __debug__:
                 print(f'At exit: Missing fini for {item}')
+                breakpoint()
                 for depth, call in enumerate(item.call_stack[:-2]):
                     print(f'{depth+1:3}: {call.strip()}')
             continue

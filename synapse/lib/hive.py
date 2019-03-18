@@ -258,7 +258,9 @@ class Hive(s_base.Base, s_telepath.Aware):
         if node is None:
             return
 
-        return await self._popHiveNode(node)
+        valu = await self._popHiveNode(node)
+
+        return valu
 
     async def _popHiveNode(self, node):
         for kidn in list(node.kids.values()):
@@ -303,6 +305,9 @@ class Hive(s_base.Base, s_telepath.Aware):
 
     async def storNodeValu(self, full, valu):
         return valu
+
+    async def storNodeDele(self, path):
+        pass
 
 class SlabHive(Hive):
 
@@ -351,7 +356,7 @@ class HiveApi(s_base.Base):
         # register handlers...
         node.on('hive:add', self._onHiveEdit, base=self)
         node.on('hive:set', self._onHiveEdit, base=self)
-        node.on('hive:del', self._onHiveEdit, base=self)
+        node.on('hive:pop', self._onHiveEdit, base=self)
 
         # serialize the subtree into a message and return
         # via the mesg queue so there is no get/update race
@@ -385,6 +390,11 @@ class HiveApi(s_base.Base):
         await self.msgq.put(('hive:sync', {'iden': iden}))
         return valu
 
+    async def popAndSync(self, path, iden):
+        valu = await self.hive.pop(path)
+        await self.msgq.put(('hive:sync', {'iden': iden}))
+        return valu
+
     async def _onHapiFini(self):
         await self.msgq.put(None)
 
@@ -405,6 +415,9 @@ class HiveApi(s_base.Base):
             yield item
 
 class TeleHive(Hive):
+    '''
+    A Hive that acts as a consistent read cache for a telepath proxy Hive
+    '''
 
     async def __anit__(self, proxy):
 
@@ -420,9 +433,8 @@ class TeleHive(Hive):
         self.schedCoro(self._runHiveLoop())
 
         self.mesgbus = await s_base.Base.anit()
-        #self.mesgbus.on('hive:add', self._onHiveAdd)
         self.mesgbus.on('hive:set', self._onHiveSet)
-        #self.mesgbus.on('hive:del', self._onHiveDel)
+        self.mesgbus.on('hive:pop', self._onHivePop)
         self.mesgbus.on('hive:tree', self._onHiveTree)
         self.mesgbus.on('hive:sync', self._onHiveSync)
 
@@ -454,6 +466,10 @@ class TeleHive(Hive):
         path = mesg[1].get('path')
         valu = mesg[1].get('valu')
         await Hive.set(self, path, valu)
+
+    async def _onHivePop(self, mesg):
+        path = mesg[1].get('path')
+        await Hive.pop(self, path)
 
     async def _onHiveTree(self, mesg):
 
@@ -490,6 +506,12 @@ class TeleHive(Hive):
         await evnt.wait()
         return valu
 
+    async def pop(self, path):
+        iden, evnt = self._getSyncIden()
+        valu = await self.proxy.popAndSync(path, iden)
+        await evnt.wait()
+        return valu
+
     async def get(self, path):
         return await self.proxy.get(path)
 
@@ -515,8 +537,7 @@ class TeleHive(Hive):
 
             return self.nodes.get(path)
 
-    #async def pop(self, path):
-    #async def append(self, path, valu):
+    # TODO: async def append(self, path, valu):
 
 class HiveDict(s_base.Base):
     '''
@@ -675,6 +696,44 @@ class HiveAuth(s_base.Base):
         node = await self.node.hive.open(path)
         return await self._addRoleNode(node)
 
+    async def delUser(self, name):
+
+        if name == 'root':
+            raise s_exc.CantDelRootUser(mesg='user "root" may not be deleted')
+
+        user = self.usersbyname.get(name)
+        if user is None:
+            raise s_exc.NoSuchUser(name=name)
+
+        self.usersbyiden.pop(user.iden)
+        self.usersbyname.pop(user.name)
+
+        path = self.node.full + ('users', user.iden)
+
+        await self.node.hive.pop(path)
+
+    def _getUsersInRole(self, role):
+        for user in self.users():
+            if role.iden in user.roles:
+                yield user
+
+    async def delRole(self, name):
+
+        role = self.rolesbyname.get(name)
+        if role is None:
+            raise s_exc.NoSuchRole(name=name)
+
+        self.rolesbyiden.pop(role.iden)
+        self.rolesbyname.pop(role.name)
+
+        path = self.node.full + ('roles', role.iden)
+
+        for user in self._getUsersInRole(role):
+            await user.revokeRole(role)
+
+        # directly set the nodes value and let events prop
+        await self.node.hive.pop(path)
+
 class HiveIden(s_base.Base):
 
     async def __anit__(self, auth, node):
@@ -733,7 +792,7 @@ class HiveRole(HiveIden):
         for user in self.auth.usersbyiden.values():
 
             if self.iden in user.roles:
-                await user._initFullRules()
+                user._initFullRules()
 
     def pack(self):
         return {
