@@ -1,6 +1,7 @@
 import csv
 import sys
 import json
+import asyncio
 
 import synapse.exc as s_exc
 import synapse.cortex as s_cortex
@@ -8,6 +9,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
+import synapse.lib.base as s_base
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.output as s_output
 
@@ -133,7 +135,8 @@ def makeargparser():
     '''
     pars = s_cmd.Parser('synapse.tools.csvtool', description=desc)
     pars.add_argument('--logfile', help='Set a log file to get JSON lines from the server events.')
-    pars.add_argument('--csv-header', default=False, action='store_true', help='Skip the first line from each CSV file.')
+    pars.add_argument('--csv-header', default=False, action='store_true',
+                      help='Skip the first line from each CSV file.')
     pars.add_argument('--cli', default=False, action='store_true',
                       help='Drop into a cli session after loading data.')
     pars.add_argument('--debug', default=False, action='store_true', help='Enable verbose debug output.')
