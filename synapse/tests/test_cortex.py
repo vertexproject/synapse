@@ -694,8 +694,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, await alist(core.eval(q)))
             # TODO Add not tests
 
-            await self.agenraises(s_exc.NoSuchOpt, core.eval('%foo=asdf'))
-            await self.agenraises(s_exc.BadOptValu, core.eval('%limit=asdf'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str +test:str@=2018'))
             await self.agenraises(s_exc.BadSyntax, core.eval('test:str +#test*near=newp'))
@@ -706,7 +704,6 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.BadSyntax, core.eval('pennywise@vertex.link'))
 
             await self.agenlen(2, core.eval(('[ test:str=foo test:str=bar ]')))
-            await self.agenlen(1, core.eval(('test:str %limit=1')))
 
             opts = {'vars': {'foo': 'bar'}}
 
