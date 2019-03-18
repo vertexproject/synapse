@@ -190,7 +190,7 @@ class Parser(argparse.ArgumentParser):
         self.exited = True
         if message is not None:
             self.mesgs.extend(message.split('\n'))
-        raise s_exc.BadSyntaxError(mesg=message, prog=self.prog, status=status)
+        raise s_exc.BadSyntax(mesg=message, prog=self.prog, status=status)
 
     def add_subparsers(self, *args, **kwargs):
 
@@ -236,7 +236,7 @@ class Cmd:
         self.pars.printf = snap.printf
         try:
             self.opts = self.pars.parse_args(self.argv)
-        except s_exc.BadSyntaxError as e:
+        except s_exc.BadSyntax as e:
             pass
         for line in self.pars.mesgs:
             await snap.printf(line)
@@ -359,7 +359,7 @@ class MaxCmd(Cmd):
             if prop is None or prop.isform:
                 mesg = f'{self.name} argument requires a relative secondary ' \
                     f'property name or a full path to the secondary property.'
-                raise s_exc.BadSyntaxError(mesg=mesg, valu=pname)
+                raise s_exc.BadSyntax(mesg=mesg, valu=pname)
 
         if prop:
             name = prop.name
@@ -415,7 +415,7 @@ class MinCmd(Cmd):
             if prop is None or prop.isform:
                 mesg = f'{self.name} argument requires a relative secondary ' \
                     f'property name or a full path to the secondary property.'
-                raise s_exc.BadSyntaxError(mesg=mesg, valu=pname)
+                raise s_exc.BadSyntax(mesg=mesg, valu=pname)
 
         if prop:
             name = prop.name

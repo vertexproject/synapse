@@ -156,7 +156,7 @@ class CliTest(s_t_utils.SynTest):
             opts = quit.getCmdOpts('quit --bar woah')
             self.eq(opts.get('bar'), 'woah')
 
-            self.raises(s_exc.BadSyntaxError, quit.getCmdOpts, 'quit --bar woah this is too much text')
+            self.raises(s_exc.BadSyntax, quit.getCmdOpts, 'quit --bar woah this is too much text')
 
     async def test_cli_opts_parse_list(self):
 
@@ -194,8 +194,8 @@ class CliTest(s_t_utils.SynTest):
             self.eq(opts.get('bar'), 'foo')
             opts = quit.getCmdOpts('quit --bar baz')
             self.eq(opts.get('bar'), 'baz')
-            self.raises(s_exc.BadSyntaxError, quit.getCmdOpts, 'quit --bar')
-            self.raises(s_exc.BadSyntaxError, quit.getCmdOpts, 'quit --bar bar')
+            self.raises(s_exc.BadSyntax, quit.getCmdOpts, 'quit --bar')
+            self.raises(s_exc.BadSyntax, quit.getCmdOpts, 'quit --bar bar')
 
     async def test_cli_opts_parse_kwlist(self):
 

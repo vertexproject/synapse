@@ -97,7 +97,7 @@ class CmdTriggersTest(s_t_utils.SynTest):
 
             # Bad storm syntax
             await cmdr.runCmdLine('trigger add node:add test:str {[ | | test:int=1 ] }')
-            self.true(outp.expect('BadStormSyntax'))
+            self.true(outp.expect('BadSyntax'))
 
             # (Regression) Just a command as the storm query
             await cmdr.runCmdLine('trigger add Node:add test:str {[ test:int=99 ] | spin }')
