@@ -14,7 +14,7 @@ def getDynMod(name):
     '''
     try:
         return importlib.import_module(name)
-    except ImportError as e:
+    except ImportError:
         return None
 
 def getDynLocal(name):
@@ -55,7 +55,7 @@ def tryDynMod(name):
     '''
     try:
         return importlib.import_module(name)
-    except ModuleNotFoundError as e:
+    except ModuleNotFoundError:
         raise s_exc.NoSuchDyn(name=name)
 
 def tryDynLocal(name):

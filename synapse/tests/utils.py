@@ -25,7 +25,6 @@ import shutil
 import asyncio
 import inspect
 import logging
-import pathlib
 import tempfile
 import unittest
 import threading
@@ -43,17 +42,15 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.cryotank as s_cryotank
-import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
+import synapse.lib.cmdr as s_cmdr
 import synapse.lib.const as s_const
-import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
-import synapse.lib.certdir as s_certdir
 import synapse.lib.thishost as s_thishost
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -208,10 +205,10 @@ testmodel = {
         )),
 
         ('test:edge', {}, (
-                    ('n1', ('ndef', {}), {'ro': 1}),
-                    ('n1:form', ('str', {}), {'ro': 1}),
-                    ('n2', ('ndef', {}), {'ro': 1}),
-                    ('n2:form', ('str', {}), {'ro': 1}),
+            ('n1', ('ndef', {}), {'ro': 1}),
+            ('n1:form', ('str', {}), {'ro': 1}),
+            ('n2', ('ndef', {}), {'ro': 1}),
+            ('n2:form', ('str', {}), {'ro': 1}),
         )),
 
         ('test:guid', {}, (
@@ -540,44 +537,10 @@ class TestSteps:
         '''
         self.steps[step].clear()
 
-class CmdGenerator(s_eventbus.EventBus):
-    '''
-    Generates a callable object which can be used with unittest.mock.patch in
-    order to do CLI driven testing.
+class CmdGenerator:
 
-    Args:
-        cmds (list): List of commands to send to callers.
-        on_end (str, Exception): Either a string or a exception class that is
-        respectively returned or raised when all the provided commands have been consumed.
-
-    Examples:
-        Use the CmdGenerator to issue a series of commands to a Cli object during a test::
-
-            outp = self.getTestOutp()  # self is a SynTest instance
-            cmdg = CmdGenerator(['help', 'ask hehe:haha=1234', 'quit'])
-            # Patch the get_input command to call our CmdGenerator instance
-            with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
-                with s_cli.Cli(None, outp) as cli:
-                    await cli.runCmdLoop()
-                    self.eq(cli.isfini, True)
-
-    Notes:
-        This EventBus reacts to the event ``syn:cmdg:add`` to add additional
-        command strings after initialization. The value of the ``cmd`` argument
-        is appended to the list of commands returned by the CmdGenerator.
-    '''
-
-    def __init__(self, cmds, on_end='quit'):
-        s_eventbus.EventBus.__init__(self)
-        self.cmds = list(cmds)
-        self.cur_command = 0
-        self.end_action = on_end
-
-        self.on('syn:cmdg:add', self._onCmdAdd)
-
-    def _onCmdAdd(self, mesg):
-        cmd = mesg[1].get('cmd')
-        self.addCmd(cmd)
+    def __init__(self, cmds):
+        self.cmds = collections.deque(cmds)
 
     def addCmd(self, cmd):
         '''
@@ -589,21 +552,19 @@ class CmdGenerator(s_eventbus.EventBus):
         self.cmds.append(cmd)
 
     def __call__(self, *args, **kwargs):
-        try:
-            ret = self.cmds[self.cur_command]
-        except IndexError:
-            ret = self._on_end()
-            return ret
-        else:
-            self.cur_command = self.cur_command + 1
-            return ret
+        return self._corocall(*args, **kwargs)
 
-    def _on_end(self):
-        if isinstance(self.end_action, str):
-            return self.end_action
-        if callable(self.end_action) and issubclass(self.end_action, BaseException):
-            raise self.end_action('No further actions')
-        raise Exception('Unhandled end action')
+    async def _corocall(self, *args, **kwargs):
+
+        if not self.cmds:
+            raise Exception('No further actions.')
+
+        retn = self.cmds.popleft()
+
+        if isinstance(retn, (Exception, KeyboardInterrupt)):
+            raise retn
+
+        return retn
 
 class StreamEvent(io.StringIO, threading.Event):
     '''
@@ -691,8 +652,16 @@ class SynTest(unittest.TestCase):
         if diff:
             logger.warning('form(%s): untested properties: %s', node.form.name, diff)
 
-    def getTestWait(self, bus, size, *evts):
-        return s_eventbus.Waiter(bus, size, *evts)
+    def worker(func, *args, **kwargs):
+        '''
+        Fire a worker thread to run the given func(*args,**kwargs)
+        '''
+        def work():
+            return func(*args, **kwargs)
+
+        thr = threading.Thread(target=work)
+        thr.start()
+        return thr
 
     def printed(self, msgs, text):
         # a helper for testing storm print message output
@@ -702,15 +671,6 @@ class SynTest(unittest.TestCase):
                     return
 
         raise Exception('print output not found: %r' % (text,))
-
-    def getTestSteps(self, names):
-        '''
-        Return a TestSteps instance for the given step names.
-
-        Args:
-            names ([str]): The list of step names.
-        '''
-        return TestSteps(names)
 
     def skip(self, mesg):
         raise unittest.SkipTest(mesg)
@@ -802,6 +762,19 @@ class SynTest(unittest.TestCase):
             async with await s_axon.Axon.anit(dirn) as axon:
                 yield axon
 
+    @contextlib.contextmanager
+    def withTestCmdr(self, cmdg):
+
+        getItemCmdr = s_cmdr.getItemCmdr
+
+        async def getTestCmdr(*a, **k):
+            cli = await getItemCmdr(*a, **k)
+            cli.prompt = cmdg
+            return cli
+
+        with mock.patch('synapse.lib.cmdr.getItemCmdr', getTestCmdr):
+            yield
+
     @contextlib.asynccontextmanager
     async def getTestCore(self, conf=None, dirn=None):
         '''
@@ -865,7 +838,7 @@ class SynTest(unittest.TestCase):
         passwd = opts.get('passwd')
 
         if user is not None and passwd is not None:
-            netlock = '%s:%s@%s' % (user, passwd, netloc)
+            netloc = '%s:%s@%s' % (user, passwd, netloc)
 
         return 'tcp://%s/%s' % (netloc, name)
 

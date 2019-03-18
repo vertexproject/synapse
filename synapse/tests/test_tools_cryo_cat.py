@@ -1,4 +1,3 @@
-import unittest
 
 import io
 import json
@@ -7,9 +6,7 @@ import msgpack
 
 from unittest.mock import Mock
 
-import synapse.cryotank as s_cryotank
 
-import synapse.lib.cell as s_cell
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.tools.cryo.cat as s_cryocat
@@ -61,7 +58,6 @@ class CryoCatTest(s_t_utils.SynTest):
             bad_encoding[2] = 0xff
             inp = Mock()
             inp.buffer = io.BytesIO(bad_encoding)
-            msg = 'UnpackValueError'
             with self.redirectStdin(inp):
                 with self.raises(msgpack.UnpackValueError):
                     retn, outp = await self.execToolMain(s_cryocat.main, argv)

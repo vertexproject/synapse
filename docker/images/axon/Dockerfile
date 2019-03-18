@@ -6,7 +6,7 @@ COPY setup.py /build/synapse/setup.py
 COPY MANIFEST.in /build/synapse/MANIFEST.in
 
 COPY docker/bootstrap.sh /build/synapse/bootstrap.sh
-COPY docker/images/cortex/entrypoint.sh /vertex/synapse/entrypoint.sh
+COPY docker/images/axon/entrypoint.sh /vertex/synapse/entrypoint.sh
 
 RUN /build/synapse/bootstrap.sh
 

@@ -1,12 +1,10 @@
 import time
 import asyncio
 
-from unittest.mock import patch
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
@@ -122,7 +120,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await alist(core.eval('.favcolor~="^r"')))
 
     @s_glob.synchelp
-    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     async def test_feed_conf(self):
 
         async with self.getTestCryo() as cryo:
@@ -212,7 +209,6 @@ class CortexTest(s_t_utils.SynTest):
                     self.eq(idens, ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f', 'd7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849'))
 
     @s_glob.synchelp
-    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     async def test_splice_cryo(self):
 
         async with self.getTestCryo() as cryo:
@@ -698,8 +694,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, await alist(core.eval(q)))
             # TODO Add not tests
 
-            await self.agenraises(s_exc.NoSuchOpt, core.eval('%foo=asdf'))
-            await self.agenraises(s_exc.BadOptValu, core.eval('%limit=asdf'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str +test:str@=2018'))
             await self.agenraises(s_exc.BadSyntax, core.eval('test:str +#test*near=newp'))
@@ -710,7 +704,6 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.BadSyntax, core.eval('pennywise@vertex.link'))
 
             await self.agenlen(2, core.eval(('[ test:str=foo test:str=bar ]')))
-            await self.agenlen(1, core.eval(('test:str %limit=1')))
 
             opts = {'vars': {'foo': 'bar'}}
 

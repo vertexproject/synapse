@@ -142,9 +142,9 @@ class ItModule(s_module.CoreModule):
             await node.set('semver', valu)
             for k, v in subs.items():
                 await node.set(f'semver:{k}', v)
-        except asyncio.CancelledError as e:  # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover
             raise
-        except Exception as e:
+        except Exception:
             logger.exception('Failed to brute force version string [%s]', prop)
 
     def getModelDefs(self):

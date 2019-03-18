@@ -359,12 +359,6 @@ alphanum = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 
 varchars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_')
 
-optcast = {
-    'limit': int,
-    'uniq': bool,
-    'graph': bool,
-}
-
 class Parser:
 
     '''
@@ -419,32 +413,6 @@ class Parser:
 
                 if self.nextchar() in (None, '}', '|'):
                     self._raiseSyntaxError('Trailing | with no subsequent query/cmd.')
-
-                continue
-
-            # parse a query option: %foo=10
-            if self.nextstr('%'):
-
-                self.offs += 1
-
-                self.ignore(whitespace)
-                name = self.noms(optset)
-
-                self.ignore(whitespace)
-                self.nextmust('=')
-
-                valu = self.noms(alphanum)
-
-                cast = optcast.get(name)
-                if cast is None:
-                    raise s_exc.NoSuchOpt(name=name)
-
-                try:
-                    valu = cast(valu)
-                except Exception:
-                    raise s_exc.BadOptValu(name=name, valu=valu)
-
-                query.opts[name] = valu
 
                 continue
 
@@ -881,8 +849,6 @@ class Parser:
         if tokn == 'continue':
             self.offs += 8
             return s_ast.ContinueOper()
-
-        noff = self.offs
 
         name = self.noms(varset)
         if not name:
@@ -1468,7 +1434,7 @@ class Parser:
                 continue
 
             start = self.offs
-            query = self.subquery()
+            self.subquery()
 
             text = self.text[start:self.offs]
 

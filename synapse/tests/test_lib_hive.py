@@ -2,7 +2,6 @@ import asyncio
 import contextlib
 
 import synapse.exc as s_exc
-import synapse.daemon as s_daemon
 
 import synapse.tests.utils as s_test
 
@@ -298,4 +297,4 @@ class HiveTest(s_test.SynTest):
                 await s_hive.openurl(turl, user='root', passwd='newpnewp')
 
             async with await s_hive.openurl(turl, user='root', passwd='secret') as hive0:
-                node = await hive.open(('foo', 'bar'))
+                await hive.open(('foo', 'bar'))

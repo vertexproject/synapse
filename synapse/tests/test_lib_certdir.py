@@ -332,9 +332,9 @@ class CertDirTest(s_t_utils.SynTest):
             sans = 'DNS:vertex.link,DNS:visi.vertex.link,DNS:vertex.link'
             cdir.genHostCert(hostname, signas=caname, sans=sans)
 
-            cacert = cdir.getCaCert(caname)
+            cdir.getCaCert(caname)
             cert = cdir.getHostCert(hostname)
-            key = cdir.getHostKey(hostname)
+            cdir.getHostKey(hostname)
 
             self.eq(cert.get_extension_count(), 5)
             self.eq(cert.get_extension(4).get_short_name(), b'subjectAltName')
@@ -344,9 +344,9 @@ class CertDirTest(s_t_utils.SynTest):
             hostname = 'visi2.vertex.link'
             cdir.genHostCert(hostname, signas=caname)
 
-            cacert = cdir.getCaCert(caname)
+            cdir.getCaCert(caname)
             cert = cdir.getHostCert(hostname)
-            key = cdir.getHostKey(hostname)
+            cdir.getHostKey(hostname)
 
             self.eq(cert.get_extension_count(), 5)
             self.eq(cert.get_extension(4).get_short_name(), b'subjectAltName')
@@ -356,9 +356,9 @@ class CertDirTest(s_t_utils.SynTest):
             hostname = 'visi3.vertex.link'
             cdir.genHostCert(hostname)
 
-            cacert = cdir.getCaCert(caname)
+            cdir.getCaCert(caname)
             cert = cdir.getHostCert(hostname)
-            key = cdir.getHostKey(hostname)
+            cdir.getHostKey(hostname)
 
             self.eq(cert.get_extension_count(), 5)
             self.eq(cert.get_extension(4).get_short_name(), b'subjectAltName')
@@ -430,7 +430,6 @@ class CertDirTest(s_t_utils.SynTest):
                     ('users', 'cooluser.key'),
                     ('users', 'cooluser.p12'),
                 )
-                data = b'arbitrary data'
                 for ftype, fname in tests:
                     srcpath = s_common.genpath(testpath, fname)
                     dstpath = s_common.genpath(cdir.path, ftype, fname)
@@ -452,10 +451,10 @@ class CertDirTest(s_t_utils.SynTest):
 
     def test_certdir_valUserCert(self):
         with self.getCertDir() as cdir:  # type: s_certdir.CertDir
-            base = cdir._getPathJoin()
+            cdir._getPathJoin()
             cdir.genCaCert('syntest')
             cdir.genCaCert('newp')
-            cacerts = cdir.getCaCerts()
+            cdir.getCaCerts()
             syntestca = cdir.getCaCert('syntest')
             newpca = cdir.getCaCert('newp')
 

@@ -1,5 +1,0 @@
----
-auth:admin: root:root
-auth:en: true
-type: cortex
-...

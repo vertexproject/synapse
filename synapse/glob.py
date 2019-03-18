@@ -48,7 +48,7 @@ def initloop():
             # if we get here, it's us!
             _glob_thrd = threading.currentThread()
 
-        except RuntimeError as e:
+        except RuntimeError:
 
             # otherwise, lets fire one...
             _glob_loop = asyncio.new_event_loop()
@@ -78,22 +78,6 @@ def sync(coro, timeout=None):
     '''
     loop = initloop()
     return asyncio.run_coroutine_threadsafe(coro, loop).result(timeout)
-
-def coroToTask(coro):
-    '''
-    Schedule a coro to run on the global loop and return a task.
-
-    Args:
-        coro (coroutine): The coroutine instance.
-
-    Notes:
-        This API is thread safe.
-
-    Returns:
-        concurrent.futures.Future: A Future to wait on.
-    '''
-    loop = initloop()
-    return asyncio.run_coroutine_threadsafe(coro, loop)
 
 def synchelp(f):
     '''

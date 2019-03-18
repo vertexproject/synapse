@@ -5,7 +5,7 @@ import inspect
 import asyncio
 import logging
 import weakref
-import threading
+import contextlib
 import collections
 
 if __debug__:
@@ -50,7 +50,7 @@ def _fini_atexit(): # pragma: no cover
                     continue
                 loop.create_task(rv)
 
-        except Exception as e:
+        except Exception:
             logger.exception('atexit fini fail: %r' % (item,))
 
 atexit.register(_fini_atexit)
@@ -94,7 +94,7 @@ class Base:
 
             await self.__anit__(*args, **kwargs)
 
-        except Exception as e:
+        except Exception:
 
             if self.anitted:
                 await self.fini()
@@ -284,7 +284,7 @@ class Base:
 
         try:
             funcs.remove(func)
-        except ValueError as e:
+        except ValueError:
             pass
 
     async def fire(self, evtname, **info):
@@ -325,36 +325,34 @@ class Base:
 
             try:
                 ret.append(await s_coro.ornot(func, mesg))
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except Exception:
                 logger.exception('base %s error with mesg %s', self, mesg)
 
         for func in self._syn_links:
             try:
                 ret.append(await func(mesg))
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except Exception:
                 logger.exception('base %s error with mesg %s', self, mesg)
 
         return ret
 
     async def _kill_active_tasks(self):
-        # FIXME: distinguish between the CancelledError from task being cancelled and *running* task being cancelled
 
         if not self._active_tasks:
             return
 
         for task in self._active_tasks.copy():
+
             task.cancel()
             try:
                 await task
             except Exception:
                 # The taskDone callback will emit the exception.  No need to repeat
                 pass
-
-        await asyncio.sleep(0)
 
     async def fini(self):
         '''
@@ -394,14 +392,32 @@ class Base:
         for fini in self._fini_funcs:
             try:
                 await s_coro.ornot(fini)
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except Exception:
                 logger.exception(f'{self} - fini function failed: {fini}')
 
         self._syn_funcs.clear()
         self._fini_funcs.clear()
         return 0
+
+    @contextlib.contextmanager
+    def onWith(self, evnt, func):
+        '''
+        A context manager which can be used to add a callback and remove it when
+        using a ``with`` statement.
+
+        Args:
+            evnt (str):         An event name
+            func (function):    A callback function to receive event tufo
+        '''
+        self.on(evnt, func)
+        # Allow exceptions to propagate during the context manager
+        # but ensure we cleanup our temporary callback
+        try:
+            yield self
+        finally:
+            self.off(evnt, func)
 
     async def waitfini(self, timeout=None):
         '''
@@ -509,7 +525,6 @@ class Base:
         loop = asyncio.get_running_loop()
         loop.add_signal_handler(signal.SIGINT, sigint)
         loop.add_signal_handler(signal.SIGTERM, sigterm)
-
 
     async def main(self):
         '''
@@ -695,5 +710,7 @@ class BaseRef(Base):
         return iter(list(self.base_by_name.values()))
 
 async def main(coro): # pragma: no cover
-    async with await coro as base:
-        await base.main()
+    base = await coro
+    if isinstance(base, Base):
+        async with base:
+            await base.main()

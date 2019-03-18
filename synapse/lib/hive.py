@@ -57,9 +57,13 @@ class Node(s_base.Base):
         ''' Increments existing node valu '''
         return await self.hive.add(self.full, valu)
 
-    async def open(self, *path):
+    async def open(self, path):
         full = self.full + path
         return await self.hive.open(full)
+
+    async def pop(self, path):
+        full = self.full + path
+        return await self.hive.pop(full)
 
     async def dict(self):
         return await HiveDict.anit(self.hive, self)
@@ -121,10 +125,10 @@ class Hive(s_base.Base, s_telepath.Aware):
             try:
                 await s_coro.ornot(meth, mesg)
 
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 raise
 
-            except Exception as e:
+            except Exception:
                 logger.exception('hive edit error with mesg %s', mesg)
 
     async def _onHiveFini(self):
@@ -607,11 +611,11 @@ class HiveAuth(s_base.Base):
         self.usersbyname = {}
         self.rolesbyname = {}
 
-        roles = await self.node.open('roles')
+        roles = await self.node.open(('roles',))
         for iden, node in roles:
             await self._addRoleNode(node)
 
-        users = await self.node.open('users')
+        users = await self.node.open(('users',))
         for iden, node in users:
             await self._addUserNode(node)
 
@@ -819,7 +823,7 @@ class HiveUser(HiveIden):
         self.locked = self.info.get('locked', onedit=self._onLockedEdit)
 
         # arbitrary profile data for application layer use
-        prof = await self.node.open('profile')
+        prof = await self.node.open(('profile',))
         self.profile = await prof.dict()
 
         self.fullrules = []

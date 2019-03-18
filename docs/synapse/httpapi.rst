@@ -1,3 +1,6 @@
+
+.. _http-api:
+
 Synapse HTTP/REST API Documentation
 ===================================
 
