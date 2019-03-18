@@ -284,7 +284,7 @@ class Cli(s_base.Base):
             text = self.cmdprompt
 
         with patch_stdout():
-            retn = await self.sess.prompt(text, async_=True, vi_mode=self.vi_mode)
+            retn = await self.sess.prompt(text, async_=True, vi_mode=self.vi_mode, enable_open_in_editor=True)
             return retn
 
     def printf(self, mesg, addnl=True):
@@ -347,7 +347,7 @@ class Cli(s_base.Base):
 
                 self.printf('<ctrl-c>')
 
-            except (s_exc.CliFini, EOFError) as e:
+            except (s_exc.CliFini, EOFError):
                 await self.fini()
 
             except Exception:
@@ -396,7 +396,7 @@ class Cli(s_base.Base):
 
             ret = await cmdo.runCmdLine(line)
 
-        except s_exc.CliFini as e:
+        except s_exc.CliFini:
             await self.fini()
 
         except asyncio.CancelledError:
