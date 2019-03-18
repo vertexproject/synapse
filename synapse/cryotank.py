@@ -259,7 +259,9 @@ class CryoCell(s_cell.Cell):
         self.tanks = await s_base.BaseRef.anit()
         self.onfini(self.tanks.fini)
 
-        for name, (iden, conf) in self.names:
+        for name, node in self.names:
+
+            iden, conf = node.valu
 
             logger.info('Bringing tank [%s][%s] online', name, iden)
 

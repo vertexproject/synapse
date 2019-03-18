@@ -340,20 +340,18 @@ class Base:
         return ret
 
     async def _kill_active_tasks(self):
-        # FIXME: distinguish between the CancelledError from task being cancelled and *running* task being cancelled
 
         if not self._active_tasks:
             return
 
         for task in self._active_tasks.copy():
+
             task.cancel()
             try:
                 await task
             except Exception:
                 # The taskDone callback will emit the exception.  No need to repeat
                 pass
-
-        await asyncio.sleep(0)
 
     async def fini(self):
         '''

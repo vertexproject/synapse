@@ -6,7 +6,7 @@ import logging
 import argparse
 
 import synapse.common as s_common
-import synapse.cortex as s_cortex
+import synapse.cryotank as s_cryotank
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
@@ -15,13 +15,13 @@ logger = logging.getLogger(__name__)
 
 def parse(argv):
 
-    https = os.getenv('SYN_CORTEX_HTTPS', '56443')
-    telep = os.getenv('SYN_CORTEX_TELEPATH', 'tcp://127.0.0.1:27492/')
+    https = os.getenv('SYN_CRYOTANK_HTTPS', '56443')
+    telep = os.getenv('SYN_CRYOTANK_TELEPATH', 'tcp://127.0.0.1:27492/')
 
-    pars = argparse.ArgumentParser(prog='synapse.servers.cortex')
+    pars = argparse.ArgumentParser(prog='synapse.servers.cryotank')
     pars.add_argument('--telepath', default=telep, help='The telepath URL to listen on.')
     pars.add_argument('--https', default=https, dest='port', type=int, help='The port to bind for the HTTPS/REST API.')
-    pars.add_argument('coredir', help='The directory for the cortex to use for storage.')
+    pars.add_argument('cryodir', help='The directory for the cryotank server to use for storage.')
 
     return pars.parse_args(argv)
 
@@ -31,22 +31,22 @@ async def main(argv, outp=s_output.stdout):
 
     s_common.setlogging(logger)
 
-    outp.printf('starting cortex: %s' % (opts.coredir,))
+    outp.printf('starting cryotank server: %s' % (opts.cryodir,))
 
-    core = await s_cortex.Cortex.anit(opts.coredir)
+    cryo = await s_cryotank.CryoCell.anit(opts.cryodir)
 
     try:
 
-        outp.printf('...cortex API (telepath): %s' % (opts.telepath,))
-        await core.dmon.listen(opts.telepath)
+        outp.printf('...cryotank API (telepath): %s' % (opts.telepath,))
+        await cryo.dmon.listen(opts.telepath)
 
-        outp.printf('...cortex API (https): %s' % (opts.port,))
-        await core.addHttpsPort(opts.port)
+        outp.printf('...cryotank API (https): %s' % (opts.port,))
+        await cryo.addHttpsPort(opts.port)
 
-        return core
+        return cryo
 
     except Exception:
-        await core.fini()
+        await cryo.fini()
         raise
 
 if __name__ == '__main__': # pragma: no cover
