@@ -1,8 +1,11 @@
+import os
 import json
 import time
 import asyncio
 import traceback
 import collections
+
+import regex
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
@@ -15,9 +18,6 @@ import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
 import synapse.lib.syntax as s_syntax
-
-# Tell prompt_toolkit to use the asyncio event loop.
-use_asyncio_event_loop()
 
 class Cmd:
     '''
@@ -205,6 +205,24 @@ class Cmd:
         raise s_exc.NoSuchImpl(mesg='runCmdOpts must be implemented by subclasses.',
                                name='runCmdOpts')
 
+_setre = regex.compile(r'\s*set\s+editing-mode\s+vi\s*')
+
+def _inputrc_enables_vi_mode():
+    '''
+    Emulate a small bit of readline behavior.
+
+    Returns:
+        (bool) True if current user enabled vi mode ("set editing-mode vi") in .inputrc
+    '''
+    for filepath in (os.path.expanduser('~/.inputrc'), '/etc/inputrc'):
+        try:
+            with open(filepath) as f:
+                for line in f:
+                    if _setre.fullmatch(line):
+                        return True
+        except IOError:
+            continue
+    return False
 
 class Cli(s_base.Base):
     '''
@@ -213,6 +231,9 @@ class Cli(s_base.Base):
     async def __anit__(self, item, outp=None, **locs):
 
         await s_base.Base.__anit__(self)
+
+        # Tell prompt_toolkit to use the asyncio event loop.
+        use_asyncio_event_loop()
 
         if outp is None:
             outp = s_output.OutPut()
@@ -223,6 +244,7 @@ class Cli(s_base.Base):
         path = s_common.getSynPath('cmdr_history')
 
         hist = FileHistory(path)
+        self.vi_mode = _inputrc_enables_vi_mode()
         self.sess = PromptSession(history=hist)
 
         self.item = item    # whatever object we are commanding
@@ -262,7 +284,8 @@ class Cli(s_base.Base):
             text = self.cmdprompt
 
         with patch_stdout():
-            return await self.sess.prompt(text, async_=True)
+            retn = await self.sess.prompt(text, async_=True, vi_mode=self.vi_mode, enable_open_in_editor=True)
+            return retn
 
     def printf(self, mesg, addnl=True):
         return self.outp.printf(mesg, addnl=addnl)
@@ -324,7 +347,7 @@ class Cli(s_base.Base):
 
                 self.printf('<ctrl-c>')
 
-            except (s_exc.CliFini, EOFError) as e:
+            except (s_exc.CliFini, EOFError):
                 await self.fini()
 
             except Exception:
@@ -373,7 +396,7 @@ class Cli(s_base.Base):
 
             ret = await cmdo.runCmdLine(line)
 
-        except s_exc.CliFini as e:
+        except s_exc.CliFini:
             await self.fini()
 
         except asyncio.CancelledError:
