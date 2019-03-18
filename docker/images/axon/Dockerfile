@@ -3,7 +3,7 @@
 # Example Usage
 #
 # To Build:
-#   docker build -t vertexproject/synapse-cortex -f docker/images/cortex/Dockerfile .
+#   docker build -t vertexproject/synapse-axon -f docker/images/axon/Dockerfile .
 
 FROM vertexproject/synapse-base-image2:py37
 
@@ -12,7 +12,7 @@ COPY setup.py /build/synapse/setup.py
 COPY MANIFEST.in /build/synapse/MANIFEST.in
 
 COPY docker/bootstrap.sh /build/synapse/bootstrap.sh
-COPY docker/images/cortex/entrypoint.sh /vertex/synapse/entrypoint.sh
+COPY docker/images/axon/entrypoint.sh /vertex/synapse/entrypoint.sh
 
 RUN /build/synapse/bootstrap.sh
 

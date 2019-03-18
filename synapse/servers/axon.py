@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 def parse(argv):
 
-    https = os.getenv('SYN_AXON_HTTPS', '56443')
-    telep = os.getenv('SYN_AXON_TELEPATH', 'tcp://127.0.0.1:27492/')
+    https = os.getenv('SYN_AXON_HTTPS', '4443')
+    telep = os.getenv('SYN_AXON_TELEPATH', 'tcp://0.0.0.0:27492/')
 
     pars = argparse.ArgumentParser(prog='synapse.servers.axon')
     pars.add_argument('--telepath', default=telep, help='The telepath URL to listen on.')
