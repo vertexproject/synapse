@@ -11,7 +11,7 @@ This quick start will help you get a **Cortex** up and running, introduce a few 
 Installing Synapse
 ==================
 
-**Synapse** is a python 3.7 package with several dependencies such as msgpack and lmdb which are compiled python modules.  Synapse makes extensive use of the newest asynchronous design patterns in python and is not compatibile with python versions prior to 3.7.  To use Synapse in a production deployment or a multi-version python environment it may easiest to deploy the pre-built docker containers.
+**Synapse** is a python 3.7 package with several dependencies such as msgpack and lmdb which are compiled python modules.  Synapse makes extensive use of the newest asynchronous design patterns in python and is not compatible with python versions prior to 3.7.  To use Synapse in a production deployment or a multi-version python environment it may easiest to deploy the pre-built docker containers.
 
 Docker Containers
 -----------------
@@ -38,7 +38,7 @@ It is recommended that build scripts and automated installations specify an exac
 From Github
 -----------
 
-For development and tracking pre-release Synapse versions, use the Github repo (https://github.com/vertexproject/synapse) to checkout the Synapse source code.  Using a git checkout in production deployments is strongly discouraged.
+For development and tracking pre-release Synapse versions, use the Github repo (https://github.com/vertexproject/synapse) to checkout the Synapse source code.  Using a git checkout of the master branch in production deployments is strongly discouraged.
 
 Starting a Cortex
 =================
@@ -86,7 +86,7 @@ To prepare for sharing a Cortex via telepath or HTTP, roles and users should be 
     python -m synapse.tools.cellauth cell://cortex modify visi --adduser --passwd secretsauce
     python -m synapse.tools.cellauth cell://cortex modify visi --addrule node:add
     python -m synapse.tools.cellauth cell://cortex modify visi --addrule node:set
-    python -m synapse.tools.cellauth cell://cortex modify visi --addrule node:set
+    python -m synapse.tools.cellauth cell://cortex modify visi --addrule tag:add
 
 Additionally, users may be granted the ``storm.cmd.sudo`` permission to allow them to use the Storm ``sudo`` command to execute queries as a super-user.  Keep in mind that any user with access to the ``sudo`` command can bypass all Storm permissions.::
 
