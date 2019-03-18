@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='synapse',
-    version='0.1.0a9',
+    version='0.1.0a10',
     description='Synapse Distributed Key-Value Hypergraph Analysis Framework',
     author='The Vertex Project LLC',
     author_email='synapse@vertex.link',
