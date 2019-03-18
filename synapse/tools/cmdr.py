@@ -1,27 +1,20 @@
-import synapse.glob as s_glob
+import sys
+import asyncio
+
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr
 
-def main(argv):  # pragma: no cover
+async def main(argv):  # pragma: no cover
 
-    if len(argv) != 2:
+    if len(argv) != 1:
         print('usage: python -m synapse.tools.cmdr <url>')
         return -1
 
-    with s_telepath.openurl(argv[1]) as item:
+    async with await s_telepath.openurl(argv[0]) as item:
 
-        cmdr = s_glob.sync(s_cmdr.getItemCmdr(item))
-        # This causes a dropped connection to the cmdr'd item to
-        # cause cmdr to exit. We can't safely test this in CI since
-        # the fini handler sends a SIGINT to mainthread; which can
-        # be problematic for test runners.
-        cmdr.finikill = True
-        # Initialize history support
-        cmdr.inithist = True
-        cmdr.runCmdLoop()
-        cmdr.finikill = False
+        cmdr = await s_cmdr.getItemCmdr(item)
+        await cmdr.runCmdLoop()
 
-if __name__ == '__main__':  # pragma: no cover
-    import sys
-    sys.exit(main(sys.argv))
+if __name__ == '__main__': # pragma: no cover
+    asyncio.run(main(sys.argv[1:]))

@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import asyncio
 import logging
 import argparse
 
@@ -34,13 +35,16 @@ def getItems(*paths):
             logger.warning('Unsupported file path: [%s]', path)
     return items
 
-def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=1000, offset=0):
+async def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=1000, offset=0):
 
     items = getItems(*paths)
     for path, item in items:
+
         bname = os.path.basename(path)
+
         tick = time.time()
         outp.printf(f'Adding items from [{path}]')
+
         foff = 0
         for chunk in s_common.chunks(item, chunksize):
 
@@ -51,18 +55,20 @@ def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=1000, off
                 foff += clen
                 continue
 
-            core.addFeedData(feedformat, chunk)
+            await core.addFeedData(feedformat, chunk)
 
             foff += clen
             outp.printf(f'Added [{clen}] items from [{bname}] - offset [{foff}]')
 
         tock = time.time()
+
         outp.printf(f'Done consuming from [{bname}]')
         outp.printf(f'Took [{tock - tick}] seconds.')
-    if debug:
-        s_cmdr.runItemCmdr(core, outp)
 
-def main(argv, outp=None):
+    if debug:
+        await s_cmdr.runItemCmdr(core, outp)
+
+async def main(argv, outp=None):
 
     if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
@@ -79,15 +85,15 @@ def main(argv, outp=None):
                     f' to get to that location in the input file.')
 
     if opts.test:
-        with s_cortex.getTempCortex(opts.modules) as prox:
-            addFeedData(prox, outp, opts.format, opts.debug,
+        async with s_cortex.getTempCortex(mods=opts.modules) as prox:
+            await addFeedData(prox, outp, opts.format, opts.debug,
                         chunksize=opts.chunksize,
                         offset=opts.offset,
                         *opts.files)
 
     elif opts.cortex:
-        with s_telepath.openurl(opts.cortex) as core:
-            addFeedData(core, outp, opts.format, opts.debug,
+        async with await s_telepath.openurl(opts.cortex) as core:
+            await addFeedData(core, outp, opts.format, opts.debug,
                         chunksize=opts.chunksize,
                         offset=opts.offset,
                         *opts.files)
@@ -122,9 +128,6 @@ def makeargparser():
 
     return pars
 
-def _main():  # pragma: no cover
-    s_common.setlogging(logger, 'DEBUG')
-    return main(sys.argv[1:])
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(_main())
+    s_common.setlogging(logger, 'DEBUG')
+    asyncio.run(main(sys.argv[1:]))

@@ -123,7 +123,6 @@ class CoreModule:
         Returns:
             None
         '''
-        pass
 
     async def initCoreModule(self):
         '''
@@ -148,4 +147,3 @@ class CoreModule:
         Returns:
             None
         '''
-        pass

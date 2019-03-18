@@ -63,7 +63,7 @@ class Task(s_base.Base):
 
         try:
             await self.task
-        except Exception as e:
+        except Exception:
             pass
 
         if self.root is not None:
@@ -101,7 +101,7 @@ class Task(s_base.Base):
 def loop():
     try:
         return asyncio.get_running_loop()
-    except Exception as e:
+    except Exception:
         return None
 
 def current():

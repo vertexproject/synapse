@@ -24,6 +24,7 @@ setup(
         'regex>=2017.9.23',
         'PyYAML>=5.1,<6.0',
         'aiohttp>=3.5.4,<4.0',
+        'prompt-toolkit>=2.0.7,<2.1.0',
     ],
 
     extras_require={

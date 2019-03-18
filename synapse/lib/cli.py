@@ -1,39 +1,23 @@
 import os
 import json
 import time
-import atexit
-import signal
 import asyncio
-import threading
 import traceback
 import collections
 
+import regex
+
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.patch_stdout import patch_stdout
+from prompt_toolkit.eventloop.defaults import use_asyncio_event_loop
+
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
 
 import synapse.lib.base as s_base
-import synapse.lib.mixins as s_mixins
 import synapse.lib.output as s_output
 import synapse.lib.syntax as s_syntax
-import synapse.lib.reflect as s_reflect
-
-
-def get_input(text):  # pragma: no cover
-    '''
-    Get input from a user via stdin.
-
-    Notes:
-        This is just a wrapper for input() so mocking does not have to replace builtin functions for testing runCmdLoop.
-
-    Args:
-        text (str): Text displayed prior to the input prompt.
-
-    Returns:
-        str: String of text from the user.
-    '''
-    return input(text)
 
 class Cmd:
     '''
@@ -221,27 +205,50 @@ class Cmd:
         raise s_exc.NoSuchImpl(mesg='runCmdOpts must be implemented by subclasses.',
                                name='runCmdOpts')
 
+_setre = regex.compile(r'\s*set\s+editing-mode\s+vi\s*')
 
-class Cli(s_eventbus.EventBus):
+def _inputrc_enables_vi_mode():
+    '''
+    Emulate a small bit of readline behavior.
+
+    Returns:
+        (bool) True if current user enabled vi mode ("set editing-mode vi") in .inputrc
+    '''
+    for filepath in (os.path.expanduser('~/.inputrc'), '/etc/inputrc'):
+        try:
+            with open(filepath) as f:
+                for line in f:
+                    if _setre.fullmatch(line):
+                        return True
+        except IOError:
+            continue
+    return False
+
+class Cli(s_base.Base):
     '''
     A modular / event-driven CLI base object.
     '''
-    def __init__(self, item, outp=None, **locs):
-        s_eventbus.EventBus.__init__(self)
+    async def __anit__(self, item, outp=None, **locs):
+
+        await s_base.Base.__anit__(self)
+
+        # Tell prompt_toolkit to use the asyncio event loop.
+        use_asyncio_event_loop()
 
         if outp is None:
             outp = s_output.OutPut()
 
         self.outp = outp
         self.locs = locs
+
+        self.sess = None
+        self.vi_mode = _inputrc_enables_vi_mode()
+
         self.item = item    # whatever object we are commanding
 
         self.echoline = False
-        self.finikill = False
-        self.inithist = False
-        self.loopthread = None
 
-        if isinstance(item, (s_base.Base, s_eventbus.EventBus)):
+        if isinstance(self.item, s_base.Base):
             self.item.onfini(self._onItemFini)
 
         self.cmds = {}
@@ -251,51 +258,14 @@ class Cli(s_eventbus.EventBus):
         self.addCmdClass(CmdQuit)
         self.addCmdClass(CmdLocals)
 
-    def _onItemFini(self):
+    async def _onItemFini(self):
+
         if self.isfini:
             return
 
         self.printf('connection closed...')
 
-        self.fini()
-
-        if self.loopthread is not None and self.finikill:
-            signal.pthread_kill(self.loopthread, signal.SIGINT)
-
-    def _initReadline(self, readline):
-        try:
-            readline.read_init_file()
-        except OSError:  # pragma: no cover
-            # from cpython 3.6 site.py:
-            # An OSError here could have many causes, but the most likely one
-            # is that there's no .inputrc file (or .editrc file in the case of
-            # Mac OS X + libedit) in the expected location.  In that case, we
-            # want to ignore the exception.
-            pass
-
-        if not self.inithist:
-            return
-
-        if readline.get_current_history_length() == 0:  # pragma: no cover
-            history_path = s_common.getSynPath('cmdr_history')
-            # We have to ensure the file exists to use append mode
-            with s_common.genfile(history_path) as fd:
-                pass
-            try:
-                readline.read_history_file(history_path)
-            except IOError:
-                pass
-            h_len = readline.get_current_history_length()
-
-            # Allows for concurrent usage to only append the new items from
-            # a given cmdr session to the file.
-            # Recipe from cpython stdlib documentation for readline.
-            def save(prev_h_len, histfile):
-                new_h_len = readline.get_current_history_length()
-                readline.set_history_length(10000)
-                readline.append_history_file(new_h_len - prev_h_len, histfile)
-
-            atexit.register(save, h_len, history_path)
+        await self.fini()
 
     def get(self, name, defval=None):
         return self.locs.get(name, defval)
@@ -303,21 +273,20 @@ class Cli(s_eventbus.EventBus):
     def set(self, name, valu):
         self.locs[name] = valu
 
-    def get_input(self, prompt=None):
+    async def prompt(self, text=None):
         '''
-        Get the input string to parse.
-
-        Args:
-            prompt (str): Optional string to use as the prompt. Otherwise self.cmdprompt is used.
-
-        Returns:
-            str: A string to process.
+        Prompt for user input from stdin.
         '''
-        if not prompt:
-            prompt = self.cmdprompt
+        if self.sess is None:
+            hist = FileHistory(s_common.getSynPath('cmdr_history'))
+            self.sess = PromptSession(history=hist)
 
-        self.fire('cli:getinput')
-        return get_input(prompt)
+        if text is None:
+            text = self.cmdprompt
+
+        with patch_stdout():
+            retn = await self.sess.prompt(text, async_=True, vi_mode=self.vi_mode, enable_open_in_editor=True)
+            return retn
 
     def printf(self, mesg, addnl=True):
         return self.outp.printf(mesg, addnl=addnl)
@@ -351,15 +320,10 @@ class Cli(s_eventbus.EventBus):
         '''
         return self.cmdprompt
 
-    def runCmdLoop(self):
+    async def runCmdLoop(self):
         '''
         Run commands from a user in an interactive fashion until fini() or EOFError is raised.
         '''
-        self.loopthread = threading.currentThread().ident
-
-        import readline
-        self._initReadline(readline)
-
         while not self.isfini:
 
             # FIXME completion
@@ -367,7 +331,7 @@ class Cli(s_eventbus.EventBus):
             try:
                 task = None
 
-                line = self.get_input()
+                line = await self.prompt()
                 if not line:
                     continue
 
@@ -375,22 +339,19 @@ class Cli(s_eventbus.EventBus):
                 if not line:
                     continue
 
-                coro = self.runCmdLine(line)
-                task = s_glob.coroToTask(coro)
+                await self.runCmdLine(line)
 
-                task.result()
-
-            except KeyboardInterrupt as e:
+            except KeyboardInterrupt:
 
                 if self.isfini:
                     return
 
                 self.printf('<ctrl-c>')
 
-            except (s_exc.CliFini, EOFError) as e:
-                self.fini()
+            except (s_exc.CliFini, EOFError):
+                await self.fini()
 
-            except Exception as e:
+            except Exception:
                 s = traceback.format_exc()
                 self.printf(s)
 
@@ -432,14 +393,12 @@ class Cli(s_eventbus.EventBus):
             self.printf('cmd not found: %s' % (name,))
             return
 
-        self.fire('cli:cmd:run', line=line)
-
         try:
 
             ret = await cmdo.runCmdLine(line)
 
-        except s_exc.CliFini as e:
-            self.fini()
+        except s_exc.CliFini:
+            await self.fini()
 
         except asyncio.CancelledError:
             self.printf('Cmd cancelled')

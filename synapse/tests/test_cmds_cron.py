@@ -41,7 +41,7 @@ class CmdCronTest(s_t_utils.SynTest):
             async with self.getTestCoreAndProxy() as (realcore, core):
 
                 outp = self.getTestOutp()
-                with await s_cmdr.getItemCmdr(core, outp=outp) as cmdr:
+                async with await s_cmdr.getItemCmdr(core, outp=outp) as cmdr:
 
                     # Various silliness
 

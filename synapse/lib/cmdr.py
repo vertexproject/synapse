@@ -1,4 +1,3 @@
-import synapse.glob as s_glob
 import synapse.lib.cli as s_cli
 import synapse.cmds.cron as s_cmds_cron
 import synapse.cmds.hive as s_cmds_hive
@@ -31,7 +30,7 @@ async def getItemCmdr(cell, outp=None, **opts):
         cmdr = await getItemCmdr(foo)
 
     '''
-    cmdr = s_cli.Cli(cell, outp=outp)
+    cmdr = await s_cli.Cli.anit(cell, outp=outp)
     typename = await cell.getCellType()
 
     for ctor in cmdsbycell.get(typename, ()):
@@ -39,7 +38,7 @@ async def getItemCmdr(cell, outp=None, **opts):
 
     return cmdr
 
-def runItemCmdr(item, outp=None, **opts):
+async def runItemCmdr(item, outp=None, **opts):
     '''
     Create a cmdr for the given item and run the cmd loop.
 
@@ -48,5 +47,5 @@ def runItemCmdr(item, outp=None, **opts):
         runItemCmdr(foo)
 
     '''
-    cmdr = s_glob.sync(getItemCmdr(item, outp=outp, **opts))
-    cmdr.runCmdLoop()
+    cmdr = await getItemCmdr(item, outp=outp, **opts)
+    await cmdr.runCmdLoop()

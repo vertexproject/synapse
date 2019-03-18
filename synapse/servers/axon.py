@@ -5,8 +5,8 @@ import asyncio
 import logging
 import argparse
 
+import synapse.axon as s_axon
 import synapse.common as s_common
-import synapse.cortex as s_cortex
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
@@ -15,13 +15,13 @@ logger = logging.getLogger(__name__)
 
 def parse(argv):
 
-    https = os.getenv('SYN_CORTEX_HTTPS', '56443')
-    telep = os.getenv('SYN_CORTEX_TELEPATH', 'tcp://127.0.0.1:27492/')
+    https = os.getenv('SYN_AXON_HTTPS', '56443')
+    telep = os.getenv('SYN_AXON_TELEPATH', 'tcp://127.0.0.1:27492/')
 
-    pars = argparse.ArgumentParser(prog='synapse.servers.cortex')
+    pars = argparse.ArgumentParser(prog='synapse.servers.axon')
     pars.add_argument('--telepath', default=telep, help='The telepath URL to listen on.')
     pars.add_argument('--https', default=https, dest='port', type=int, help='The port to bind for the HTTPS/REST API.')
-    pars.add_argument('coredir', help='The directory for the cortex to use for storage.')
+    pars.add_argument('axondir', help='The directory for the axon to use for storage.')
 
     return pars.parse_args(argv)
 
@@ -31,22 +31,22 @@ async def main(argv, outp=s_output.stdout):
 
     s_common.setlogging(logger)
 
-    outp.printf('starting cortex: %s' % (opts.coredir,))
+    outp.printf('starting axon: %s' % (opts.axondir,))
 
-    core = await s_cortex.Cortex.anit(opts.coredir)
+    axon = await s_axon.Axon.anit(opts.axondir)
 
     try:
 
-        outp.printf('...cortex API (telepath): %s' % (opts.telepath,))
-        await core.dmon.listen(opts.telepath)
+        outp.printf('...axon API (telepath): %s' % (opts.telepath,))
+        await axon.dmon.listen(opts.telepath)
 
-        outp.printf('...cortex API (https): %s' % (opts.port,))
-        await core.addHttpsPort(opts.port)
+        outp.printf('...axon API (https): %s' % (opts.port,))
+        await axon.addHttpsPort(opts.port)
 
-        return core
+        return axon
 
     except Exception:
-        await core.fini()
+        await axon.fini()
         raise
 
 if __name__ == '__main__': # pragma: no cover

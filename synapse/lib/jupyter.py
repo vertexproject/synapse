@@ -208,7 +208,7 @@ class CmdrCore(s_base.Base):
         return nodes
 
     async def _onCmdrCoreFini(self):
-        self.cmdr.fini()
+        await self.cmdr.fini()
         # await self.core.fini()
         # If self.acm is set, acm.__aexit should handle the self.core fini.
         if self.acm:

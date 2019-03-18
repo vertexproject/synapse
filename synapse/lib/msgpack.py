@@ -38,7 +38,7 @@ def en(item):
         return msgpack.packb(item, use_bin_type=True, unicode_errors='surrogatepass')
     try:
         return pakr.pack(item)
-    except Exception as e:
+    except Exception:
         pakr.reset()
         raise
 

@@ -10,9 +10,7 @@ from collections.abc import Mapping
 import synapse
 import synapse.exc as s_exc
 import synapse.axon as s_axon
-import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
@@ -25,11 +23,11 @@ import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.syntax as s_syntax
 import synapse.lib.agenda as s_agenda
+import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.trigger as s_trigger
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
 import synapse.lib.modelrev as s_modelrev
-import synapse.lib.slabseqn as s_slabseqn
 import synapse.lib.lmdblayer as s_lmdblayer
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -940,9 +938,9 @@ class Cortex(s_cell.Cell):
         for func in funcs:
             try:
                 await s_coro.ornot(func, node, tag, valu)
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except Exception:
                 logger.exception('onTagAdd Error')
 
         # Run any trigger handlers
@@ -954,9 +952,9 @@ class Cortex(s_cell.Cell):
         for func in funcs:
             try:
                 await s_coro.ornot(func, node, tag, valu)
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except Exception:
                 logger.exception('onTagDel Error')
 
         await self.triggers.runTagDel(node, tag)
@@ -1049,7 +1047,7 @@ class Cortex(s_cell.Cell):
         node = await self.hive.open(('cortex', 'layers', iden))
 
         layrinfo = await node.dict()
-        layrconf = await (await node.open('config')).dict()
+        layrconf = await (await node.open(('config',))).dict()
 
         await layrinfo.set('type', info.get('type', 'lmdb'))
         await layrinfo.set('owner', info.get('owner', 'root'))
@@ -1354,7 +1352,7 @@ class Cortex(s_cell.Cell):
 
             try:
                 await func(snap, item)
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 raise
             except Exception as e:
                 logger.exception('splice error')
@@ -1435,9 +1433,9 @@ class Cortex(s_cell.Cell):
                 logger.info('Made [%s] nodes.', len(pnodes))
                 async for node in snap.addNodes(pnodes):
                     yield node
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except Exception:
                 logger.exception('Failed to process ingest [%r]', item)
                 continue
 
@@ -1787,7 +1785,7 @@ class Cortex(s_cell.Cell):
             await s_coro.ornot(modu.preCoreModule)
         except asyncio.CancelledError:  # pragma: no cover
             raise
-        except Exception as e:
+        except Exception:
             logger.exception(f'module preCoreModule failed: {ctor}')
             self.modules.pop(ctor, None)
             return
@@ -1802,7 +1800,7 @@ class Cortex(s_cell.Cell):
             await s_coro.ornot(modu.initCoreModule)
         except asyncio.CancelledError:  # pragma: no cover
             raise
-        except Exception as e:
+        except Exception:
             logger.exception(f'module initCoreModule failed: {ctor}')
             self.modules.pop(ctor, None)
             return
@@ -1836,7 +1834,7 @@ class Cortex(s_cell.Cell):
                 await s_coro.ornot(modu.preCoreModule)
             except asyncio.CancelledError:  # pragma: no cover
                 raise
-            except Exception as e:
+            except Exception:
                 logger.exception(f'module preCoreModule failed: {ctor}')
                 self.modules.pop(ctor, None)
                 continue
@@ -1855,7 +1853,7 @@ class Cortex(s_cell.Cell):
                 await s_coro.ornot(modu.initCoreModule)
             except asyncio.CancelledError:  # pragma: no cover
                 raise
-            except Exception as e:
+            except Exception:
                 logger.exception(f'module initCoreModule failed: {ctor}')
                 self.modules.pop(ctor, None)
 
@@ -1866,7 +1864,7 @@ class Cortex(s_cell.Cell):
             self.modules[ctor] = modu
             return modu
 
-        except Exception as e:
+        except Exception:
             logger.exception('mod load fail: %s' % (ctor,))
             return None
 
@@ -1878,8 +1876,8 @@ class Cortex(s_cell.Cell):
         }
         return stats
 
-@contextlib.contextmanager
-def getTempCortex(mods=None):
+@contextlib.asynccontextmanager
+async def getTempCortex(mods=None):
     '''
     Get a proxy to a cortex backed by a temporary directory.
 
@@ -1894,9 +1892,10 @@ def getTempCortex(mods=None):
         Proxy to the cortex.
     '''
     with s_common.getTempDir() as dirn:
-        with s_coro.AsyncToSyncCMgr(s_glob.sync, Cortex.anit(dirn)) as core:
+
+        async with await Cortex.anit(dirn) as core:
             if mods:
                 for mod in mods:
-                    s_glob.sync(core.loadCoreModule(mod))
-            with s_coro.AsyncToSyncCMgr(core.getLocalProxy) as prox:
+                    await core.loadCoreModule(mod)
+            async with core.getLocalProxy() as prox:
                 yield prox
