@@ -241,11 +241,8 @@ class Cli(s_base.Base):
         self.outp = outp
         self.locs = locs
 
-        path = s_common.getSynPath('cmdr_history')
-
-        hist = FileHistory(path)
+        self.sess = None
         self.vi_mode = _inputrc_enables_vi_mode()
-        self.sess = PromptSession(history=hist)
 
         self.item = item    # whatever object we are commanding
 
@@ -280,6 +277,10 @@ class Cli(s_base.Base):
         '''
         Prompt for user input from stdin.
         '''
+        if self.sess is None:
+            hist = FileHistory(s_common.getSynPath('cmdr_history'))
+            self.sess = PromptSession(history=hist)
+
         if text is None:
             text = self.cmdprompt
 
