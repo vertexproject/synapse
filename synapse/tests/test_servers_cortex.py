@@ -14,7 +14,7 @@ class CortexServerTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             guid = s_common.guid()
 
-            argv = [dirn, '--port', '0', '--https-port', '0']
+            argv = [dirn, '--telepath', 'tcp://127.0.0.1:0/', '--https', '0']
             async with await s_s_cortex.main(argv, outp=outp) as core:
 
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
