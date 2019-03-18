@@ -653,6 +653,7 @@ async def openurl(url, **opts):
         # by detecting host...
         host = info.get('host')
         if host:
+            path = path.strip('/')
             path = os.path.join(host, path)
 
         if ':' in path:
