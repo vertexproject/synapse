@@ -801,7 +801,6 @@ class Ival(Type):
     def _normRelStr(self, valu, relto=None):
         valu = valu.strip().lower()
         # assumes the relative string starts with a - or +
-        splitter = valu[0]
 
         delt = s_time.delta(valu)
         if not relto:
@@ -1023,7 +1022,7 @@ class Edge(Type):
             # need to change calling this ourselves.
             s = f'(({n1form}, "{s_chop.stormstring(n1repr)}"), ({n2form}, "{s_chop.stormstring(n2repr)}"))'
             return s
-        except Exception as e:
+        except Exception:
             logger.error(f'Edge repr issue: {norm}')
             return defval
 
@@ -1064,7 +1063,7 @@ class TimeEdge(Edge):
             s = f'(({n1form}, "{s_chop.stormstring(n1repr)}"), ({n2form}, "{s_chop.stormstring(n2repr)}"), ' \
                 f'"{s_chop.stormstring(trepr)}")'
             return s
-        except Exception as e:
+        except Exception:
             logger.error(f'TimeEdge repr issue: {norm}')
             return defval
 
@@ -1118,7 +1117,7 @@ class Range(Type):
 
         try:
             self.subtype = self.modl.type(subtype[0]).clone(subtype[1])
-        except Exception as e:
+        except Exception:
             logger.exception('subtype invalid or unavailable')
             raise s_exc.BadTypeDef(self.opts, name=self.name, mesg='subtype invalid or unavailable')
 

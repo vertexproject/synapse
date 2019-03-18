@@ -157,7 +157,7 @@ class PubKey:
                              c_ec.ECDSA(c_utils.Prehashed(chosen_hash))
                              )
             return True
-        except InvalidSignature as e:
+        except InvalidSignature:
             logger.exception('Error in publ.verify')
             return False
 

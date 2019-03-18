@@ -2,7 +2,7 @@ synapse
 =======
 Distributed Key-Value Hypergraph Analysis Framework
 
-|codecov|_ |circleci|_ |appveyor|_ |dockerhub|_ |rtd|_
+|codecov|_ |circleci|_ |dockerhub|_ |rtd|_
 
 Installation
 ------------
@@ -20,9 +20,6 @@ Join the Vertex Project on |slack|_!
 
 .. |circleci| image:: https://circleci.com/gh/vertexproject/synapse/tree/master.svg?style=svg
 ..  _circleci: https://circleci.com/gh/vertexproject/synapse/tree/master
-
-.. |appveyor| image:: https://ci.appveyor.com/api/projects/status/github/vertexproject/synapse?branch=master&svg=true
-.. _appveyor: https://ci.appveyor.com/project/invisig0th/synapse/
 
 .. |codecov| image:: https://codecov.io/gh/vertexproject/synapse/branch/master/graph/badge.svg?branch=master
 .. _codecov: https://codecov.io/gh/vertexproject/synapse

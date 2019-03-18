@@ -983,8 +983,6 @@ class FormPivot(PivotOper):
             names = getdst(node.form)
             if names:
                 for name in names:
-                    found = True
-
                     valu = node.ndef[1]
                     async for pivo in runt.snap.getNodesBy(name, valu):
                         yield pivo, path.fork(pivo)

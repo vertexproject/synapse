@@ -67,7 +67,6 @@ class Migration(s_base.Base):
     async def editNodeNdef(self, oldv, newv):
 
         oldb = s_common.buid(oldv)
-        newb = s_common.buid(newv)
 
         for layr in self.layers:
 
@@ -100,7 +99,6 @@ class Migration(s_base.Base):
         Change all props as a result of an ndef change.
         '''
         oldbuid = s_common.buid(oldndef)
-        newbuid = s_common.buid(newndef)
 
         oldname, oldvalu = oldndef
         newname, newvalu = newndef

@@ -9,7 +9,6 @@ import synapse.common as s_common
 import synapse.lib.ast as s_ast
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
-import synapse.lib.types as s_types
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -794,7 +793,7 @@ class IdenCmd(Cmd):
         for iden in self.opts.iden:
             try:
                 buid = s_common.uhex(iden)
-            except Exception as e:
+            except Exception:
                 await runt.warn(f'Failed to decode iden: [{iden}]')
                 continue
             if len(buid) != 32:

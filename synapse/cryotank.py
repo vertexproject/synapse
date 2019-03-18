@@ -1,13 +1,11 @@
 import os
 import shutil
-import struct
 import asyncio
 import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.kv as s_kv
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -256,23 +254,21 @@ class CryoCell(s_cell.Cell):
 
         path = s_common.gendir(self.dirn, 'cryo.lmdb')
 
-        self.kvstor = s_kv.KvStor(path)
-        self.onfini(self.kvstor.fini)
-
-        self.names = self.kvstor.getKvDict('cryo:names')
-        self.confs = self.kvstor.getKvDict('cryo:confs')
+        self.names = await self.hive.open(('cryo', 'names'))
 
         self.tanks = await s_base.BaseRef.anit()
         self.onfini(self.tanks.fini)
 
-        for name, iden in self.names.items():
+        for name, node in self.names:
+
+            iden, conf = node.valu
 
             logger.info('Bringing tank [%s][%s] online', name, iden)
 
             path = s_common.genpath(self.dirn, 'tanks', iden)
 
-            conf = self.confs.get(name)
             tank = await CryoTank.anit(path, conf)
+
             self.tanks.put(name, tank)
 
     async def getCellApi(self, link, user, path):
@@ -308,8 +304,9 @@ class CryoCell(s_cell.Cell):
 
         tank = await CryoTank.anit(path, conf)
 
-        self.names.set(name, iden)
-        self.confs.set(name, conf)
+        node = await self.names.open((name,))
+        await node.set((iden, conf))
+
         self.tanks.put(name, tank)
 
         return tank
@@ -323,13 +320,13 @@ class CryoCell(s_cell.Cell):
         '''
         return [(name, await tank.info()) for (name, tank) in self.tanks.items()]
 
-    def delete(self, name):
+    async def delete(self, name):
 
         tank = self.tanks.pop(name)
         if tank is None:
             return False
 
-        self.names.pop(name)
+        await self.names.pop(name)
 
         tank.fini()
         shutil.rmtree(tank.dirn, ignore_errors=True)

@@ -70,7 +70,7 @@ class RemoteLayer(s_layer.Layer):
             except asyncio.CancelledError:
                 raise
 
-            except Exception as e:
+            except Exception:
                 logger.exception('remote layer reconnect failure')
                 await asyncio.sleep(1)
 

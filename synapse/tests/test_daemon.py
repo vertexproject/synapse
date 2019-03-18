@@ -1,9 +1,6 @@
 import synapse.common as s_common
 import synapse.daemon as s_daemon
-import synapse.telepath as s_telepath
 
-import synapse.lib.cell as s_cell
-import synapse.lib.certdir as s_certdir
 
 import synapse.tests.utils as s_t_utils
 
