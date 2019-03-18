@@ -55,7 +55,6 @@ class HiveTest(s_test.SynTest):
 
                 path = ('foo', 'bar')
 
-                #node = await hive.open(path)
                 async with await hive.dict(path) as hivedict:
 
                     self.none(await hivedict.set('hehe', 200))
@@ -109,6 +108,7 @@ class HiveTest(s_test.SynTest):
                 path = ('foo', 'bar')
 
                 evnt = asyncio.Event()
+
                 def onedit(mesg):
                     evnt.set()
 
@@ -206,6 +206,24 @@ class HiveTest(s_test.SynTest):
 
                 self.true(user.allowed(('baz', 'faz'), elev=False))
                 self.true(user.allowed(('foo', 'bar'), elev=False))
+
+                await self.asyncraises(s_exc.NoSuchRole, user.revoke('accountants'))
+
+                await user.revoke('ninjas')
+                self.false(user.allowed(('baz', 'faz'), elev=False))
+
+                await user.grant('ninjas')
+                self.true(user.allowed(('baz', 'faz'), elev=False))
+
+                await self.asyncraises(s_exc.NoSuchRole, auth.delRole('accountants'))
+
+                await auth.delRole('ninjas')
+                self.false(user.allowed(('baz', 'faz'), elev=False))
+
+                await self.asyncraises(s_exc.NoSuchUser, auth.delUser('fred@accountancy.com'))
+
+                await auth.delUser('visi@vertex.link')
+                self.false(user.allowed(('baz', 'faz'), elev=False))
 
     async def test_hive_dir(self):
 
