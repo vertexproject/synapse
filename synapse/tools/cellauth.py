@@ -59,9 +59,17 @@ async def handleModify(opts):
                 outp.printf(f'adding user: {opts.name}')
                 user = await cell.addAuthUser(opts.name)
 
+            if opts.deluser:
+                outp.printf(f'deleting user: {opts.name}')
+                user = await cell.delAuthUser(opts.name)
+
             if opts.addrole:
                 outp.printf(f'adding role: {opts.name}')
                 user = await cell.addAuthRole(opts.name)
+
+            if opts.delrole:
+                outp.printf(f'deleting role: {opts.name}')
+                user = await cell.delAuthRole(opts.name)
 
             if opts.passwd:
                 outp.printf(f'setting passwd for: {opts.name}')
@@ -197,25 +205,26 @@ def makeargparser():
 
     # create / modify / delete
     pars_mod = subpars.add_parser('modify', help='Create, modify, delete the names user/role')
-    pars_mod.add_argument('--adduser', action='store_true', help='Add the named user to the cortex.')
-    pars_mod.add_argument('--addrole', action='store_true', help='Add the named role to the cortex.')
+    muxp = pars_mod.add_mutually_exclusive_group()
+    muxp.add_argument('--adduser', action='store_true', help='Add the named user to the cortex.')
+    muxp.add_argument('--addrole', action='store_true', help='Add the named role to the cortex.')
 
-    pars_mod.add_argument('--admin', action='store_true', help='Grant admin powers to the user/role.')
-    pars_mod.add_argument('--noadmin', action='store_true', help='Revoke admin powers from the user/role.')
+    muxp.add_argument('--deluser', action='store_true', help='Delete the named user to the cortex.')
+    muxp.add_argument('--delrole', action='store_true', help='Delete the named role to the cortex.')
 
-    pars_mod.add_argument('--lock', action='store_true', help='Lock the user account.')
-    pars_mod.add_argument('--unlock', action='store_true', help='Unlock the user account.')
+    muxp.add_argument('--admin', action='store_true', help='Grant admin powers to the user/role.')
+    muxp.add_argument('--noadmin', action='store_true', help='Revoke admin powers from the user/role.')
 
-    # pars_mod.add_argument('--deluser', action='store_true', help='Add the named user to the cortex.')
-    # pars_mod.add_argument('--delrole', action='store_true', help='Add the named role to the cortex.')
+    muxp.add_argument('--lock', action='store_true', help='Lock the user account.')
+    muxp.add_argument('--unlock', action='store_true', help='Unlock the user account.')
 
-    pars_mod.add_argument('--passwd', help='Set the user password.')
+    muxp.add_argument('--passwd', help='Set the user password.')
 
-    pars_mod.add_argument('--grant', help='Grant the specified role to the user.')
-    pars_mod.add_argument('--revoke', help='Grant the specified role to the user.')
+    muxp.add_argument('--grant', help='Grant the specified role to the user.')
+    muxp.add_argument('--revoke', help='Grant the specified role to the user.')
 
-    pars_mod.add_argument('--addrule', help='Add the given rule to the user/role.')
-    pars_mod.add_argument('--delrule', type=int, help='Delete the given rule number from the user/role.')
+    muxp.add_argument('--addrule', help='Add the given rule to the user/role.')
+    muxp.add_argument('--delrule', type=int, help='Delete the given rule number from the user/role.')
 
     pars_mod.add_argument('name', help='The user/role to modify.')
     pars_mod.set_defaults(func=handleModify)

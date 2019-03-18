@@ -76,6 +76,7 @@ class BadTime(SynErr): pass
 class BadUrl(SynErr): pass
 
 class CantDelNode(SynErr): pass
+class CantDelRootUser(SynErr): pass
 class CantRevLayer(SynErr): pass
 class CliFini(SynErr):
     '''
