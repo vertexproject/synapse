@@ -882,8 +882,6 @@ class Parser:
             self.offs += 8
             return s_ast.ContinueOper()
 
-        noff = self.offs
-
         name = self.noms(varset)
         if not name:
             self._raiseSyntaxError('unknown query syntax')
@@ -1468,7 +1466,7 @@ class Parser:
                 continue
 
             start = self.offs
-            query = self.subquery()
+            self.subquery()
 
             text = self.text[start:self.offs]
 

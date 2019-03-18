@@ -1,11 +1,7 @@
-from unittest.mock import patch
 
-import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.cryotank as s_cryotank
 
-import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist

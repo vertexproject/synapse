@@ -6,17 +6,18 @@ import synapse.tools.autodoc as s_autodoc
 
 class TestAutoDoc(s_t_utils.SynTest):
 
-    def test_tools_autodoc_docmodel(self):
+    async def test_tools_autodoc_docmodel(self):
 
         with self.getTestDir() as path:
 
             argv = ['--doc-model', '--savedir', path]
 
             outp = self.getTestOutp()
-            self.eq(s_autodoc.main(argv, outp=outp), 0)
+            self.eq(await s_autodoc.main(argv, outp=outp), 0)
 
             with s_common.genfile(path, 'datamodel_types.rst') as fd:
                 buf = fd.read()
+
             s = buf.decode()
             self.isin('Base types are defined via Python classes.', s)
             self.isin('synapse.models.inet.Addr', s)
@@ -25,6 +26,7 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             with s_common.genfile(path, 'datamodel_forms.rst') as fd:
                 buf = fd.read()
+
             s = buf.decode()
             self.isin('Forms are derived from types, or base types. Forms represent node types in the graph.', s)
             self.isin(r'inet\:ipv4', s)

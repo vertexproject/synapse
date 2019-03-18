@@ -101,7 +101,7 @@ class HandlerBase:
     def loadJsonMesg(self, byts):
         try:
             return json.loads(byts)
-        except Exception as e:
+        except Exception:
             self.sendRestErr('BadJson', 'Invalid JSON content.')
             return None
 

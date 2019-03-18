@@ -1,3 +1,0 @@
-type: cortex
-modules:
-    - synapse.tests.utils.TestModule

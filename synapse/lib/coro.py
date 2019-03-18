@@ -9,38 +9,9 @@ import functools
 logger = logging.getLogger(__name__)
 
 import synapse.glob as s_glob
-import synapse.common as s_common
 
 def iscoro(item):
     return inspect.iscoroutine(item)
-
-async def genr2agenr(func, *args, qsize=100, **kwargs):
-    '''
-    Returns an async generator that receives a stream of messages from a sync generator func(*args, **kwargs)
-    '''
-    sentinel = s_common.NoValu()
-
-    # Deferred import to avoid a import loop
-    import synapse.lib.queue as s_queue
-
-    async with await s_queue.S2AQueue.anit(qsize) as chan:
-
-        def sync():
-            try:
-                for msg in func(*args, **kwargs):
-                    chan.put(msg)
-            finally:
-                chan.put(sentinel)
-
-        task = asyncio.get_running_loop().run_in_executor(None, sync)
-
-        while True:
-            msg = await chan.get()
-            if msg is sentinel:
-                break
-            yield msg
-
-        await task
 
 def executor(func, *args, **kwargs):
 
@@ -101,7 +72,7 @@ class GenrHelp:
                 item = s_glob.sync(self.genr.__anext__())
                 yield item
 
-        except StopAsyncIteration as e:
+        except StopAsyncIteration:
             return
 
     async def spin(self):
@@ -116,16 +87,3 @@ def genrhelp(f):
     def func(*args, **kwargs):
         return GenrHelp(f(*args, **kwargs))
     return func
-
-class AsyncToSyncCMgr():
-    '''
-    Wraps an async context manager as a sync one
-    '''
-    def __init__(self, func, *args, **kwargs):
-        self.amgr = func(*args, **kwargs)
-
-    def __enter__(self):
-        return s_glob.sync(self.amgr.__aenter__())
-
-    def __exit__(self, *args):
-        return s_glob.sync(self.amgr.__aexit__(*args))

@@ -106,7 +106,7 @@ class Layer(s_base.Base):
 
         self.owner = self.info.get('owner')
 
-        self.conf = await (await node.open('config')).dict()
+        self.conf = await (await node.open(('config',))).dict()
 
         for name, info in self.confdefs:
 

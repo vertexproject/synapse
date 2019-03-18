@@ -1,11 +1,10 @@
-import synapse.eventbus as s_eventbus
-
 import synapse.lib.base as s_base
 import synapse.lib.reflect as s_reflect
 
 import synapse.tests.utils as s_t_utils
 
-class Foo(s_eventbus.EventBus): pass
+class Lol: pass
+class Foo(Lol): pass
 
 class Bar:
     def __init__(self):
@@ -27,7 +26,7 @@ class ReflectTest(s_t_utils.SynTest):
     def test_reflect_getClsNames(self):
         foo = Foo()
         names = s_reflect.getClsNames(foo)
-        self.isin('synapse.eventbus.EventBus', names)
+        self.isin('synapse.tests.test_lib_reflect.Lol', names)
         self.isin('synapse.tests.test_lib_reflect.Foo', names)
 
     async def test_telemeth(self):

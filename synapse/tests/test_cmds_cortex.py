@@ -141,7 +141,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 fp = cmdr.locs.get('log:fp')
                 await cmdr.runCmdLine('storm [test:str=hi :tick=2018 +#haha.hehe]')
                 await cmdr.runCmdLine('log --off')
-                cmdr.fini()
+                await cmdr.fini()
 
                 self.true(outp.expect('Starting logfile'))
                 self.true(outp.expect('Closing logfile'))
@@ -161,7 +161,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 fp = cmdr.locs.get('log:fp')
                 await cmdr.runCmdLine('storm [test:str="I am a message!" :tick=1999 +#oh.my] ')
                 await cmdr.runCmdLine('log --off')
-                cmdr.fini()
+                await cmdr.fini()
 
                 self.true(os.path.isfile(fp))
                 with s_common.genfile(fp) as fd:
@@ -172,13 +172,13 @@ class CmdCoreTest(s_t_utils.SynTest):
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 await cmdr.runCmdLine('log --on --off')
-                cmdr.fini()
+                await cmdr.fini()
                 self.true(outp.expect('Pick one'))
 
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 await cmdr.runCmdLine('log')
-                cmdr.fini()
+                await cmdr.fini()
                 self.true(outp.expect('Pick one'))
 
     async def test_ps_kill(self):
@@ -224,7 +224,7 @@ class CmdCoreTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
 
-            user = await realcore.auth.addUser('test')
+            await realcore.auth.addUser('test')
 
             async with realcore.getLocalProxy(user='test') as tcore:
 
