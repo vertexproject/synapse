@@ -134,7 +134,7 @@ class Node:
         await self.set('.seen', tick)
 
         if source is not None:
-            seen = await self.snap.addNode('seen', (source, self.ndef))
+            seen = await self.snap.addNode('meta:seen', (source, self.ndef))
             await seen.set('.seen', tick)
 
     def getNodeRefs(self):
@@ -285,7 +285,9 @@ class Node:
         return self.props.get(name)
 
     async def pop(self, name, init=False):
-
+        '''
+        Remove a property from a node and return the value
+        '''
         prop = self.form.prop(name)
         if prop is None:
             if self.snap.strict:

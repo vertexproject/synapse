@@ -896,10 +896,6 @@ class ItModule(s_module.CoreModule):
                     ('reg', ('it:dev:regval', {}), {
                         'doc': 'The registry key or value that was deleted.',
                     }),
-                    ('reg:key', ('it:dev:regkey', {}), {
-                        'ro': True,
-                        'doc': 'The registry key that was deleted (parsed from :reg).',
-                    }),
                 )),
 
                 ('it:app:snort:rule', {}, (

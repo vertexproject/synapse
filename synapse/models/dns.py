@@ -86,7 +86,7 @@ class DnsModule(s_module.CoreModule):
 
                 ('inet:dns:name', 'synapse.models.dns.DnsName', {}, {
                     'doc': 'A DNS query name string. Likely an FQDN but not always.',
-                    'ex': 'XXX'  # XXX Example!
+                    'ex': 'vertex.link',
                 }),
 
             ),

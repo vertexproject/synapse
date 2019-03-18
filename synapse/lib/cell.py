@@ -238,7 +238,7 @@ class PassThroughApi(CellApi):
 
 bootdefs = (
 
-    ('auth:en', {'defval': False, 'doc': 'Set to True to enable auth for this cortex.'}),
+    ('insecure', {'defval': False, 'doc': 'Disable all authentication checking. (INSECURE!)'}),
 
     ('auth:admin', {'defval': None, 'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
 
@@ -291,7 +291,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         self.conf = s_common.config(conf, self.confdefs + self.confbase)
 
         self.cmds = {}
-        self.insecure = False
+        self.insecure = self.boot.get('insecure', False)
 
         self.sessions = {}
         self.httpsonly = self.conf.get('https:only', False)
@@ -302,9 +302,6 @@ class Cell(s_base.Base, s_telepath.Aware):
         await self._initCellSlab(readonly=readonly)
 
         self.hive = await self._initCellHive()
-
-        self.insecure = not self.boot.get('auth:en')
-
         self.auth = await self._initCellAuth()
 
         # check and migrate old cell auth
@@ -448,7 +445,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except OSError as e:
-            logger.error(f'Failed to lissten on unix socket at: [{sockpath}][{e}]')
+            logger.error(f'Failed to listen on unix socket at: [{sockpath}][{e}]')
             logger.error('LOCAL UNIX SOCKET WILL BE UNAVAILABLE')
         except Exception as e:  # pragma: no cover
             logging.exception('Unknown dmon listen error.')

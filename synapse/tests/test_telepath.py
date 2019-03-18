@@ -31,6 +31,10 @@ class CustomShare(s_share.Share):
     def boo(self, x):
         return x
 
+    async def custgenr(self, n):
+        for i in range(n):
+            yield i
+
 class Beep:
     def __init__(self, path):
         self.path = path
@@ -264,6 +268,7 @@ class TeleTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
 
     async def test_telepath_tls_bad_cert(self):
+        self.thisHostMustNot(platform='darwin')
 
         foo = Foo()
 
@@ -282,6 +287,7 @@ class TeleTest(s_t_utils.SynTest):
                                    s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]))
 
     async def test_telepath_tls(self):
+        self.thisHostMustNot(platform='darwin')
 
         foo = Foo()
 
@@ -293,13 +299,12 @@ class TeleTest(s_t_utils.SynTest):
 
             dmon.certdir.genHostCert(hostname, signas='ca')
 
-            host, port = await dmon.listen(f'ssl://{hostname}:0')
+            addr = await dmon.listen(f'ssl://{hostname}:0')
 
             dmon.share('foo', foo)
 
-            prox = await s_telepath.openurl(f'ssl://{hostname}/foo', port=port)
-
-            self.eq(30, await prox.bar(10, 20))
+            async with await s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]) as prox:
+                self.eq(30, await prox.bar(10, 20))
 
     async def test_telepath_surrogate(self):
 
@@ -407,6 +412,9 @@ class TeleTest(s_t_utils.SynTest):
                 # check a custom share works
                 obj = await proxy.customshare()
                 self.eq(999, await obj.boo(999))
+
+                ret = await alist(obj.custgenr(3))
+                self.eq(ret, [0, 1, 2])
 
             # check that a dynamic share works
             async with await self.getTestProxy(dmon, 'woke/up') as proxy:

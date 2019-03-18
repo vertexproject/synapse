@@ -1594,7 +1594,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             {[ inet:email:message:attachment=($node, "*") ] -inet:email:message [ :name=sploit.exe ]}
 
-            {[ has=($node, ('inet:email:header', ('to', 'Visi Kensho <visi@vertex.link>'))) ]}
+            {[ edge:has=($node, ('inet:email:header', ('to', 'Visi Kensho <visi@vertex.link>'))) ]}
             '''
             nodes = await core.eval(q).list()
             self.len(1, nodes)
@@ -1605,7 +1605,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.eval('inet:email:message:subject="hi there"').list())
             self.len(1, await core.eval('inet:email:message:replyto=root@root.com').list())
 
-            self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> has -> inet:email:header +:name=to +:value="Visi Kensho <visi@vertex.link>"').list())
+            self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> edge:has -> inet:email:header +:name=to +:value="Visi Kensho <visi@vertex.link>"').list())
             self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> inet:email:message:link -> inet:url +inet:url=https://www.vertex.link').list())
             self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> inet:email:message:attachment +:name=sploit.exe -> file:bytes').list())
             self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> file:bytes').list())

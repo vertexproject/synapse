@@ -34,9 +34,9 @@ class CoroTest(s_t_utils.SynTest):
 
         def badgenr(n):
             yield 42
-            raise s_exc.MustBeLocal()
+            raise s_exc.BadTag()
 
-        await self.agenraises(s_exc.MustBeLocal, s_coro.genr2agenr(badgenr, 10))
+        await self.agenraises(s_exc.BadTag, s_coro.genr2agenr(badgenr, 10))
 
     async def test_coro_genrhelp(self):
 

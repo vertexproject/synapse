@@ -78,6 +78,18 @@ class SlabSeqn:
 
         return origindx
 
+    def append(self, item):
+
+        byts = s_msgpack.en(item)
+
+        indx = self.indx
+        lkey = s_common.int64en(indx)
+
+        self.slab.put(lkey, byts, db=self.db)
+
+        self.indx += 1
+        return indx
+
     def index(self):
         '''
         Return the current index to be used

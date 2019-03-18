@@ -3,14 +3,14 @@ import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.cortex as s_cortex
 
+import synapse.lib.modelrev as s_modelrev
 import synapse.lib.remotelayer as s_remotelayer
 
-import synapse.tests.utils as s_test
+import synapse.tests.utils as s_t_utils
 import synapse.tests.test_cortex as t_cortex
 
-class RemoteLayerTest(t_cortex.CortexTest):
+class RemoteLayerTest(s_t_utils.SynTest):
 
     @contextlib.asynccontextmanager
     async def getTestCore(self, conf=None, dirn=None):
@@ -25,20 +25,38 @@ class RemoteLayerTest(t_cortex.CortexTest):
 
     @contextlib.asynccontextmanager
     async def getRemoteCores(self, conf0=None, conf1=None, dirn0=None, dirn1=None):
+        '''
+        Returns a cortex and a second cortex that has a second remote layer pointing to the first cortex's layer
+        '''
         async with t_cortex.CortexTest.getTestCore(self, conf=conf0, dirn=dirn0) as core0:
             async with t_cortex.CortexTest.getTestCore(self, conf=conf1, dirn=dirn1) as core1:
                 conf = {'url': core0.getLocalUrl('*/layer')}
                 layr = await core1.addLayer(type='remote', config=conf)
-                await core1.view.addLayer(layr, indx=0)
+                await core1.view.addLayer(layr)
                 yield core0, core1
+
+    async def test_cortex_readonly_toplayer(self):
+        '''
+        Test the various ways to incorrectly put a remote layer as the write layer
+        '''
+        async with t_cortex.CortexTest.getTestCore(self) as core0:
+            async with t_cortex.CortexTest.getTestCore(self) as core1:
+                conf = {'url': core0.getLocalUrl('*/layer')}
+                layr = await core1.addLayer(type='remote', config=conf)
+                await self.asyncraises(s_exc.ReadOnlyLayer, core1.view.addLayer(layr, indx=0))
+                await self.asyncraises(s_exc.ReadOnlyLayer, core1.view.setLayers([layr.iden]))
+                await self.asyncraises(s_exc.ReadOnlyLayer, core1.addView(s_common.guid(), 'root', [layr.iden]))
+                view = await core1.addView(s_common.guid(), 'root', [])
+                await self.asyncraises(s_exc.ReadOnlyLayer, view.addLayer(layr))
 
     async def test_cortex_remote_layer(self):
 
-        async with self.getTestCore() as core:
+        async with self.getRemoteCores() as (directcore, core):
+            # We write to directcore and make sure we can read from core
 
-            await s_common.aspin(core.eval('[ test:str=woot :tick=2015 ]'))
+            await s_common.aspin(directcore.eval('[ test:str=woot :tick=2015 ]'))
 
-            layr = core.view.layers[0]
+            layr = core.view.layers[1]
             self.true(isinstance(layr, s_remotelayer.RemoteLayer))
 
             self.len(1, [x async for x in layr.iterFormRows('test:str')])
@@ -56,7 +74,7 @@ class RemoteLayerTest(t_cortex.CortexTest):
 
             self.ne((), tuple([x async for x in layr.splices(0, 200)]))
 
-            self.eq((0, 0, 0), await layr.getModelVers())
+            self.eq(s_modelrev.maxvers, await layr.getModelVers())
             await self.asyncraises(s_exc.SynErr, layr.setModelVers((9, 9, 9)))
 
     async def test_splice_generation(self):
@@ -76,16 +94,14 @@ class RemoteLayerTest(t_cortex.CortexTest):
             self.len(1, await core1.eval('test:str=woot').list())
 
             # hulk smash the proxy
-            await core1.view.layers[0].proxy.fini()
+            await core1.view.layers[1].proxy.fini()
 
             # cause a reconnect...
             self.len(1, await core1.eval('test:str=woot').list())
 
-class RemoteLayerConfigTest(s_test.SynTest):
+class RemoteLayerConfigTest(s_t_utils.SynTest):
 
     async def test_cortex_remote_config(self):
-        # Full telepath / auth stack
-        pconf = {'user': 'root', 'passwd': 'root'}
 
         # use the original API so we dont do yodawg layers remote layers
         async with self.getTestCoreAndProxy() as (core0, prox0):

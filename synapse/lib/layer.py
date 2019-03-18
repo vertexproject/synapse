@@ -3,7 +3,6 @@ The layer library contains the base Layer object and helpers used for
 cortex construction.
 '''
 import asyncio
-import hashlib
 import logging
 import collections
 
@@ -15,7 +14,6 @@ import synapse.exc as s_exc
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
-import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -63,9 +61,9 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.iterUnivRows(univ):
             yield item
 
-    async def stor(self, sops, prov=None, splices=None):
+    async def stor(self, sops, splices=None):
         self.allowed(self.storperm)
-        return await self.layr.stor(sops, prov, splices)
+        return await self.layr.stor(sops, splices=splices)
 
     async def getBuidProps(self, buid):
         self.allowed(self.liftperm)
@@ -90,6 +88,10 @@ class Layer(s_base.Base):
     The base class for a cortex layer.
     '''
     confdefs = ()
+    readonly = False
+
+    def __repr__(self):
+        return f'Layer ({self.__class__.__name__}): {self.iden}'
 
     async def __anit__(self, core, node):
 
@@ -144,6 +146,7 @@ class Layer(s_base.Base):
         self.onfini(self.spliced.set)
 
     async def getLiftRows(self, lops):
+
         for oper in lops:
 
             func = self._lift_funcs.get(oper[0])
@@ -153,7 +156,7 @@ class Layer(s_base.Base):
             async for row in func(oper):
                 yield row
 
-    async def stor(self, sops, prov=None, splices=None):
+    async def stor(self, sops, splices=None):
         '''
         Execute a series of storage operations.
         '''
@@ -163,43 +166,10 @@ class Layer(s_base.Base):
                 raise s_exc.NoSuchStor(name=oper[0])
             await func(oper)
 
-        if prov is None:
-            iden = None
-        elif isinstance(prov, bytes):
-            iden = prov
-        else:
-            iden = await self._storProvStack(prov)
-
-        if splices is not None:
-            if iden is not None:
-                istr = s_common.ehex(iden)
-                for splice in splices:
-                    splice[1]['prov'] = istr
-
+        if splices:
             await self._storSplices(splices)
             self.spliced.set()
             self.spliced.clear()
-
-        return iden
-
-    async def getProvStack(self, iden):  # pragma: no cover
-        '''
-        Returns the provenance stack given the iden to it
-        '''
-        raise NotImplementedError
-
-    async def provStacks(self, offs, size):  # pragma: no cover
-        '''
-        Returns a stream of provenance stacks at the given offset
-        '''
-        raise NotImplementedError
-
-    @staticmethod
-    def _providen(prov):
-        '''
-        Calculates a provenance iden from a provenance stack
-        '''
-        return hashlib.md5(s_msgpack.en(prov)).digest()
 
     async def _storSplices(splices):  # pragma: no cover
         raise NotImplementedError
@@ -412,4 +382,7 @@ class Layer(s_base.Base):
         raise NotImplementedError
 
     async def getNodeNdef(self, buid):  # pragma: no cover
+        raise NotImplementedError
+
+    def migrateProvPre010(self, slab):  # pragma: no cover
         raise NotImplementedError

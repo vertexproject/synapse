@@ -363,11 +363,11 @@ class StormTest(s_t_utils.SynTest):
             await self.agenlen(0, core.eval('test:guid | max :newp'))
             await self.agenlen(0, core.eval('test:guid | min :newp'))
             # Sad path for a form, not a property; and does not exist at all
-            await self.agenraises(s_exc.BadSyntaxError,
+            await self.agenraises(s_exc.BadSyntax,
                                   core.eval('test:guid | max test:guid'))
-            await self.agenraises(s_exc.BadSyntaxError,
+            await self.agenraises(s_exc.BadSyntax,
                                   core.eval('test:guid | min test:guid'))
-            await self.agenraises(s_exc.BadSyntaxError,
+            await self.agenraises(s_exc.BadSyntax,
                                   core.eval('test:guid | max test:newp'))
-            await self.agenraises(s_exc.BadSyntaxError,
+            await self.agenraises(s_exc.BadSyntax,
                                   core.eval('test:guid | min test:newp'))
