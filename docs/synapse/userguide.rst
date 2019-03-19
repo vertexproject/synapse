@@ -1,3 +1,5 @@
+.. _userguide:
+
 Synapse User Guide
 ##################
 
