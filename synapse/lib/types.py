@@ -769,6 +769,9 @@ class Ival(Type):
                 return False
             return cmpr
 
+        # Replace this blind norm call
+        norm = self.norm(valu)[0]
+
         def cmpr(item):
             if item is None:
                 return False
