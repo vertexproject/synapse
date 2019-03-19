@@ -938,7 +938,7 @@ class TypesTest(s_t_utils.SynTest):
 
             q = 'test:int $end=$node.value() test:str:tick*range=(2015, $end) -test:int'
             nodes = await alist(core.eval(q))
-            self.len(3, nodes)
+            self.len(6, nodes)
             self.eq({node.ndef[1] for node in nodes}, {'b', 'c', 'd'})
 
     def test_edges(self):
