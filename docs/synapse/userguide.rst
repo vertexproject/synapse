@@ -23,12 +23,13 @@ The User Guide is a living document and will continue to be updated and expanded
     userguides/design_forms_vs_tags
 
     userguides/syn_tools_cmdr
-    userguides/syn_ref_cmdr
-
+    
     userguides/syn_tools_pushfile
     userguides/syn_tools_pullfile
     userguides/syn_tools_feed
     userguides/syn_tools_csvtool
+
+    userguides/syn_ref_cmdr
 
     userguides/storm_ref_intro
     userguides/storm_ref_syntax
