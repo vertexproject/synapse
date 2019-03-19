@@ -842,8 +842,6 @@ class TypesTest(s_t_utils.SynTest):
 
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'a', {'tick': '2014'})
-                created = node.get('.created')
-                await asyncio.sleep(0.01)
                 node = await snap.addNode('test:str', 'b', {'tick': '2015'})
                 node = await snap.addNode('test:str', 'c', {'tick': '2016'})
                 node = await snap.addNode('test:str', 'd', {'tick': 'now'})
