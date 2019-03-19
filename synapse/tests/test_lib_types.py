@@ -487,8 +487,7 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('test:str#baz@=("now","-1 day")'))
             await self.agenlen(1, core.eval('test:str#baz@=("now-1day", "+1day")'))
             await self.agenlen(1, core.eval('test:str#biz@="now"'))
-            # Specify relative time and '?' on creation
-            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=("-1 day","?")]', (), {}),  # Repr issue b/c no gaurding
+
             await self.agenlen(0, core.eval('test:str +#foo@=("2013", "2015")'))
             await self.agenlen(0, core.eval('test:str +#foo@=("2018", "2019")'))
             await self.agenlen(1, core.eval('test:str +#foo@=("1999", "2002")'))
@@ -508,6 +507,8 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('##vert.proj@=("2016", "now+6days")'))
             await self.agenlen(1, core.eval('##vert.proj@=("1995", "now+6 days")'))
             await self.agenlen(1, core.eval('##vertex.project@=("now-9days", "now-3days")'))
+
+            await self.agenlen(0, core.eval('test:str +:tick@=(2020, 2000)'))
 
             now = s_common.now()
             nodes = await alist(core.eval('[test:guid="*" .seen=("-1 day","?")]'))
@@ -903,6 +904,8 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('test:str +:tick*range=(20150102, "-3 day")'))
             await self.agenlen(0, core.eval('test:str +:tick*range=(20150201, "+1 day")'))
             await self.agenlen(1, core.eval('test:str +:tick*range=(20150102, "+- 2day")'))
+            await self.agenlen(2, core.eval('test:str +:tick*range=(2015, 2016)'))
+            await self.agenlen(0, core.eval('test:str +:tick*range=(2016, 2015)'))
 
             await self.agenlen(2, core.eval('test:str:tick*range=(2015, 2016)'))
             await self.agenlen(0, core.eval('test:str:tick*range=(2016, 2015)'))
