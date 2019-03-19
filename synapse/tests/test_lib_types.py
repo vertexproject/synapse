@@ -1,9 +1,11 @@
+import asyncio
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.time as s_time
 import synapse.lib.types as s_types
+import synapse.lib.const as s_const
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -349,9 +351,6 @@ class TypesTest(s_t_utils.SynTest):
 
             t = core.model.type('test:time')
 
-            t.norm('2014')[0]
-            t.norm('2015')[0]
-
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'a', {'tick': '2014', '.seen': ('2005', '2006')})
                 await node.addTag('foo', valu=('2000', '2001'))
@@ -387,8 +386,8 @@ class TypesTest(s_t_utils.SynTest):
 
             await self.agenraises(s_exc.BadSyntax, core.eval('test:str :tick=(20150102, "-4 day")'))
 
-            await self.agenlen(1, core.eval('test:str +:tick@=("-1 day")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=(2015)'))
+            await self.agenlen(1, core.eval('test:str +:tick@=(now, "-1 day")'))
+            await self.agenlen(1, core.eval('test:str +:tick@=2015'))
             await self.agenlen(1, core.eval('test:str +:tick@=(2015, "+1 day")'))
             await self.agenlen(1, core.eval('test:str +:tick@=(20150102+1day, "-4 day")'))
             await self.agenlen(1, core.eval('test:str +:tick@=(20150102, "-4 day")'))
@@ -400,8 +399,8 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(0, core.eval('test:str +:tick@=("2011", "2014")'))
             await self.agenlen(1, core.eval('test:str +:tick@=("2014", "20140601")'))
 
-            await self.agenlen(1, core.eval('test:str:tick@=("-1 day")'))
-            await self.agenlen(1, core.eval('test:str:tick@=(2015)'))
+            await self.agenlen(1, core.eval('test:str:tick@=(now, "-1 day")'))
+            await self.agenlen(1, core.eval('test:str:tick@=2015'))
             await self.agenlen(1, core.eval('test:str:tick@=(2015, "+1 day")'))
             await self.agenlen(1, core.eval('test:str:tick@=(20150102+1day, "-4 day")'))
             await self.agenlen(1, core.eval('test:str:tick@=(20150102, "-4 day")'))
@@ -417,13 +416,13 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('.seen@=("9000", "9001")'))
 
             await self.agenlen(2, core.eval('.seen@=("now+6days", "?")'))
-            await self.agenlen(2, core.eval('.seen@=("-4 days")'))
+            await self.agenlen(2, core.eval('.seen@=(now, "-4 days")'))
             await self.agenlen(2, core.eval('.seen@=(8900, 9500)'))
             await self.agenlen(1, core.eval('.seen@=("2004", "20050201")'))
             await self.agenlen(2, core.eval('.seen@=("now", "-3 days")'))
 
             await self.agenlen(1, core.eval('test:ival@=1970'))
-            await self.agenlen(5, core.eval('test:ival@=("now+100days", 1970)'))
+            await self.agenlen(5, core.eval('test:ival@=(1970, "now+100days")'))
             await self.agenlen(1, core.eval('test:ival@="now"'))
             await self.agenlen(1, core.eval('test:ival@=("now+1day", "now+6days")'))
             await self.agenlen(1, core.eval('test:ival@=("now-9days", "now-1day")'))
@@ -508,6 +507,34 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('##vert.proj@=("2016", "now+6days")'))
             await self.agenlen(1, core.eval('##vert.proj@=("1995", "now+6 days")'))
             await self.agenlen(1, core.eval('##vertex.project@=("now-9days", "now-3days")'))
+
+            await self.agenlen(0, core.eval('test:str +:tick@=(2020, 2000)'))
+
+            now = s_common.now()
+            nodes = await alist(core.eval('[test:guid="*" .seen=("-1 day","?")]'))
+            node = nodes[0]
+            valu = node.get('.seen')
+            self.eq(valu[1], ival.futsize)
+            self.true(now - s_const.day <= valu[0] < now)
+
+            # Sad Paths
+            q = '[test:str=newp .seen=(2018/03/31,2018/03/30)]'
+            await self.agenraises(s_exc.BadPropValu, core.eval(q))
+            q = '[test:str=newp .seen=("+-1 day","+-1 day")]'
+            await self.agenraises(s_exc.BadPropValu, core.eval(q))
+            q = '[test:str=newp  .seen=("?","?")]'
+            await self.agenraises(s_exc.BadPropValu, core.eval(q))
+            q = '[test:str=newp  .seen=(2018/03/31,2018/03/31)]'
+            await self.agenraises(s_exc.BadPropValu, core.eval(q))
+            q = '[test:str=newp .seen=(2008, 2019, 2000)]'
+            await self.agenraises(s_exc.BadPropValu, core.eval(q))
+            q = '[test:str=newp .seen=("?","-1 day")]'
+            await self.agenraises(s_exc.BadPropValu, core.eval(q))
+            # *range= not supported for ival
+            q = 'test:str +:.seen*range=((20090601, 20090701), (20110905, 20110906,))'
+            await self.agenraises(s_exc.NoSuchCmpr, core.eval(q))
+            q = 'test:str.seen*range=((20090601, 20090701), (20110905, 20110906,))'
+            await self.agenraises(s_exc.NoSuchCmpr, core.eval(q))
 
     async def test_loc(self):
         model = s_datamodel.Model()
@@ -632,7 +659,6 @@ class TypesTest(s_t_utils.SynTest):
         self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': ('inet:ipv4', {})})  # inet is not loaded yet
 
     async def test_range_filter(self):
-
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'a', {'bar': ('test:str', 'a'), 'tick': '19990101'})
@@ -650,8 +676,6 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
             nodes = await alist(core.eval('test:comp +:haha*range=(grinch, meanone)'))
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
-            nodes = await alist(core.eval('test:str +:.seen*range=((20090601, 20090701), (20110905, 20110906,))'))
-            self.eq({node.ndef[1] for node in nodes}, {'b'})
             nodes = await alist(core.eval('test:str +:bar*range=((test:str, c), (test:str, q))'))
             self.eq({node.ndef[1] for node in nodes}, {'m'})
             nodes = await alist(core.eval('test:comp +test:comp*range=((1024, grinch), (4096, zemeanone))'))
@@ -818,34 +842,46 @@ class TypesTest(s_t_utils.SynTest):
 
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'a', {'tick': '2014'})
+                created = node.get('.created')
+                await asyncio.sleep(0.01)
                 node = await snap.addNode('test:str', 'b', {'tick': '2015'})
                 node = await snap.addNode('test:str', 'c', {'tick': '2016'})
                 node = await snap.addNode('test:str', 'd', {'tick': 'now'})
 
             nodes = await alist(core.getNodesBy('test:str:tick', '2014'))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
-            nodes = await alist(core.getNodesBy('test:str:tick', '2014*'))
+            nodes = await alist(core.getNodesBy('test:str:tick', ('2014', '2015'),
+                                                cmpr='*range='))
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
             nodes = await alist(core.getNodesBy('test:str:tick', '201401*'))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
-            nodes = await alist(core.getNodesBy('test:str:tick', '-3000 days'))
+            nodes = await alist(core.getNodesBy('test:str:tick', ('-3000 days', 'now'),
+                                                cmpr='*range='))
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b', 'c', 'd'})
-            nodes = await alist(core.getNodesBy('test:str:tick', (tick, tock)))
+            nodes = await alist(core.getNodesBy('test:str:tick', (tick, tock),
+                                                cmpr='*range='))
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
-            nodes = await alist(core.getNodesBy('test:str:tick', ('20131231', '+2 days')))
+            nodes = await alist(core.getNodesBy('test:str:tick', ('20131231', '+2 days'),
+                                                cmpr='*range='))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
-            nodes = await alist(core.eval('test:str:tick=(20131231, "+2 days")'))
+            nodes = await alist(core.eval('test:str:tick*range=(20131231, "+2 days")'))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
-            nodes = await alist(core.getNodesBy('test:str:tick', ('-1 day', '+1 day')))
+            nodes = await alist(core.getNodesBy('test:str:tick', ('-1 day', '+1 day'),
+                                                cmpr='*range='))
             self.eq({node.ndef[1] for node in nodes}, {'d'})
-            nodes = await alist(core.getNodesBy('test:str:tick', ('-1 days', 'now', )))
+            nodes = await alist(core.getNodesBy('test:str:tick', ('-1 days', 'now', ),
+                                                cmpr='*range='))
+            self.eq({node.ndef[1] for node in nodes}, {'d'})
+            # Equivalent lift
+            nodes = await alist(core.getNodesBy('test:str:tick', ('now', '-1 days'),
+                                                  cmpr='*range='))
             self.eq({node.ndef[1] for node in nodes}, {'d'})
             # This is equivalent of the previous lift
-            nodes = await alist(core.getNodesBy('test:str:tick', ('now', '-1 days')))
+
             self.eq({node.ndef[1] for node in nodes}, {'d'})
             # Sad path
-            self.raises(s_exc.BadTypeValu, t.indxByEq, ('', ''))
-            self.raises(s_exc.BadTypeValu, t.indxByEq, ('?', '-1 day'))
+            self.raises(s_exc.NoSuchFunc, t.indxByEq, ('', ''))
+            self.raises(s_exc.NoSuchFunc, t.indxByEq, ('?', '-1 day'))
 
             self.true(t.cmpr('2015', '>=', '20140202'))
             self.true(t.cmpr('2015', '>=', '2015'))
@@ -859,23 +895,21 @@ class TypesTest(s_t_utils.SynTest):
 
             await self.agenlen(1, core.eval('test:str +:tick=2015'))
 
-            await self.agenlen(1, core.eval('test:str +:tick=(2015, "+1 day")'))
-            await self.agenlen(1, core.eval('test:str +:tick=(20150102, "-3 day")'))
-            await self.agenlen(0, core.eval('test:str +:tick=(20150201, "+1 day")'))
-
-            await self.agenlen(1, core.eval('test:str +:tick=(20150102, "+- 2day")'))
-
-            await self.agenlen(1, core.eval('test:str +:tick=($test, "+- 2day")',
+            await self.agenlen(1, core.eval('test:str +:tick*range=($test, "+- 2day")',
                                             opts={'vars': {'test': '2015'}}))
 
-            await self.agenlen(1, core.eval('test:str +:tick=(now, "-+ 1day")'))
+            await self.agenlen(1, core.eval('test:str +:tick*range=(now, "-+ 1day")'))
 
             await self.agenlen(1, core.eval('test:str +:tick*range=(2015, "+1 day")'))
             await self.agenlen(1, core.eval('test:str +:tick*range=(20150102, "-3 day")'))
             await self.agenlen(0, core.eval('test:str +:tick*range=(20150201, "+1 day")'))
+            await self.agenlen(1, core.eval('test:str +:tick*range=(20150102, "+- 2day")'))
+            await self.agenlen(2, core.eval('test:str +:tick*range=(2015, 2016)'))
+            await self.agenlen(0, core.eval('test:str +:tick*range=(2016, 2015)'))
 
             await self.agenlen(2, core.eval('test:str:tick*range=(2015, 2016)'))
-            await self.agenlen(2, core.eval('test:str:tick*range=(2016, 2015)'))
+            await self.agenlen(0, core.eval('test:str:tick*range=(2016, 2015)'))
+
             await self.agenlen(1, core.eval('test:str:tick*range=(2015, "+1 day")'))
             await self.agenlen(4, core.eval('test:str:tick*range=(2014, "now")'))
             await self.agenlen(0, core.eval('test:str:tick*range=(20150201, "+1 day")'))
@@ -883,6 +917,12 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(0, core.eval('test:str:tick*range=(now, "+1 day")'))
 
             # Sad path for *range=
+            await self.agenraises(s_exc.BadTypeValu,
+                                  core.eval('test:str:tick*range=("+- 1day", "now")'))
+            await self.agenraises(s_exc.BadTypeValu,
+                                  core.eval('test:str:tick*range=("-+ 1day", "now")'))
+            await self.agenraises(s_exc.BadPropValu,
+                                  core.eval('[test:guid="*" :tick="+-1 day"]'))
             await self.agenraises(s_exc.BadCmprValu,
                                   core.eval('test:str:tick*range=(2015)'))
             await self.agenraises(s_exc.BadCmprValu,
@@ -913,6 +953,23 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(2, core.eval('test:str:tick*range=(2018/12/02, "+24 hours")'))
             await self.agenlen(3, core.eval('test:str:tick*range=(2018/12/02, "+86401 seconds")'))
             await self.agenlen(3, core.eval('test:str:tick*range=(2018/12/02, "+25 hours")'))
+
+        async with self.getTestCore() as core:
+
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'a', {'tick': '2014'})
+                node = await snap.addNode('test:int', node.get('tick') + 1)
+                node = await snap.addNode('test:str', 'b', {'tick': '2015'})
+                node = await snap.addNode('test:int', node.get('tick') + 1)
+                node = await snap.addNode('test:str', 'c', {'tick': '2016'})
+                node = await snap.addNode('test:int', node.get('tick') + 1)
+                node = await snap.addNode('test:str', 'd', {'tick': 'now'})
+                node = await snap.addNode('test:int', node.get('tick') + 1)
+
+            q = 'test:int $end=$node.value() test:str:tick*range=(2015, $end) -test:int'
+            nodes = await alist(core.eval(q))
+            self.len(6, nodes)
+            self.eq({node.ndef[1] for node in nodes}, {'b', 'c', 'd'})
 
     def test_edges(self):
         model = s_datamodel.Model()

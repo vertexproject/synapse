@@ -1452,7 +1452,7 @@ class Cortex(s_cell.Cell):
                 ndefs.append(ndef)
                 obj = [ndef, {'tags': tags}]
                 if seen:
-                    obj[1]['props'] = {'.seen': (seen, seen)}
+                    obj[1]['props'] = {'.seen': seen}
                 pnodes.append(obj)
 
         # Make the packed nodes
@@ -1466,7 +1466,7 @@ class Cortex(s_cell.Cell):
                 pnode[1]['tags'].setdefault(tag, valu)
             if seen:
                 pnode[1].setdefault('props', {})
-                pnode[1]['props'].setdefault('.seen', (seen, seen))
+                pnode[1]['props'].setdefault('.seen', seen)
             pnodes.append(pnode)
 
         # Make edges
@@ -1476,7 +1476,7 @@ class Cortex(s_cell.Cell):
                 ndefs.append(ndef)
                 obj = [ndef, {}]
                 if seen:
-                    obj[1]['props'] = {'.seen': (seen, seen)}
+                    obj[1]['props'] = {'.seen': seen}
                 if tags:
                     obj[1]['tags'] = tags.copy()
                 pnodes.append(obj)
@@ -1488,7 +1488,7 @@ class Cortex(s_cell.Cell):
                 ndefs.append(ndef)
                 obj = [ndef, {}]
                 if seen:
-                    obj[1]['props'] = {'.seen': (seen, seen)}
+                    obj[1]['props'] = {'.seen': seen}
                 if tags:
                     obj[1]['tags'] = tags.copy()
                 pnodes.append(obj)
@@ -1503,7 +1503,7 @@ class Cortex(s_cell.Cell):
             # Subsequent links
             for ndef in ndefs:
                 obj = [['meta:seen', (source, ndef)],
-                       {'props': {'.seen': (seen, seen)}}]
+                       {'props': {'.seen': seen}}]
                 pnodes.append(obj)
         return pnodes
 
