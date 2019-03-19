@@ -1,6 +1,7 @@
 synapse
 =======
-Hypergraph Analysis Framework
+
+Synapse is a "batteries included" intelligence analysis platform designed to help analysts and algorithms answer complex questions which require the fusion of data across different disciplines.
 
 |codecov|_ |circleci|_ |dockerhub|_ |rtd|_
 
