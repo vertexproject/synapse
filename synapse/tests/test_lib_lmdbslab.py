@@ -11,6 +11,7 @@ import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
+from synapse.tests.utils import alist
 
 class LmdbSlabTest(s_t_utils.SynTest):
 
@@ -334,3 +335,39 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             # If we got here we're good
             self.true(True)
+
+    async def test_slab_mapfull_runsyncloop(self):
+        '''
+        forcecommit in runSyncLoop can very occasionally trigger a mapfull
+        '''
+        fake_confdefs = (  # type: ignore
+            ('lmdb:mapsize', {'type': 'int', 'defval': s_const.mebibyte}),
+            ('lmdb:maxsize', {'type': 'int', 'defval': None}),
+            ('lmdb:growsize', {'type': 'int', 'defval': 128 * s_const.kibibyte}),
+            ('lmdb:readahead', {'type': 'bool', 'defval': True}),
+        )
+        with patch('synapse.lib.lmdblayer.LmdbLayer.confdefs', fake_confdefs):
+            batchsize = 1000
+            numbatches = 4
+            async with self.getTestCore() as core:
+                for i in range(numbatches):
+                    async with await core.snap() as snap:
+                        ips = ((('test:int', i * 1000000 + x), {'props': {'loc': 'us'}}) for x in range(batchsize))
+                        await alist(snap.addNodes(ips))
+
+                await alist(core.streamstorm('test:int:loc=us | delnode'))
+
+                async def lotsOfWrites():
+                    for i in range(numbatches):
+                        async with await core.snap() as snap:
+                            ips = ((('test:int', 20_000_000 + i * 1000000 + x), {'props': {'loc': 'cn'}})
+                                   for x in range(batchsize))
+                            await alist(snap.addNodes(ips))
+                        await asyncio.sleep(0.1)
+
+                task = core.schedCoro(lotsOfWrites())
+
+                nodes_left = await alist(core.eval('test:int:loc=us'))
+                self.len(0, nodes_left)
+
+                await task
