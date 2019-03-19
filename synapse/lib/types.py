@@ -834,7 +834,7 @@ class Ival(Type):
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='interval requires begin time')
 
         minv, _ = self.timetype.norm(valu)
-        # Norm is gauranteed to be a valid time value, but norm +1 may not be
+        # Norm is guaranteed to be a valid time value, but norm +1 may not be
         maxv, info = self.timetype._normPyInt(minv + 1)
         return (minv, maxv), info
 
