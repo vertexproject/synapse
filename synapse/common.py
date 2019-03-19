@@ -320,7 +320,7 @@ def yamlmod(obj, *paths):
     Combines/creates a yaml file and combines with obj.  obj and file must be maps/dict or empty.
     '''
     oldobj = yamlload(*paths)
-    if obj:
+    if obj is not None:
         if oldobj:
             yamlsave({**oldobj, **obj}, *paths)
         else:
