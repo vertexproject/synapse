@@ -538,11 +538,6 @@ class Cortex(s_cell.Cell):
     '''
     confdefs = (  # type: ignore
 
-        ('layer:lmdb:mapsize', {
-            'type': 'int', 'defval': None,
-            'doc': 'The default size for a new LMDB layer map.'
-        }),
-
         ('modules', {
             'type': 'list', 'defval': (),
             'doc': 'A list of module classes to load.'
