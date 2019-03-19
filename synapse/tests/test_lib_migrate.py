@@ -103,7 +103,7 @@ class MigrTest(s_testutils.SynTest):
             self.len(2, await core.eval('edge:refs:n2:form=test:migr').list())
 
             self.len(1, await core.eval('test:migr^=as').list())
-            self.len(2, await core.eval('test:migr:tick=(2013, 2020)').list())
+            self.len(2, await core.eval('test:migr:tick*range=(2013, 2020)').list())
 
             self.len(2, await core.eval('test:migr <- edge:refs').list())
 

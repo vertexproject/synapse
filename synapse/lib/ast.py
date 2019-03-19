@@ -1424,7 +1424,10 @@ class RelPropCond(Cond):
                 return False
 
             xval = await self.kids[2].compute(path)
-            func = prop.type.getCmprCtor(cmpr)(xval)
+            ctor = prop.type.getCmprCtor(cmpr)
+            if ctor is None:
+                raise s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name)
+            func = ctor(xval)
 
             return func(valu)
 
