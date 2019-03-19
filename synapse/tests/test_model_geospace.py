@@ -246,13 +246,13 @@ class GeoTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             # Storm variable use to lift nodes based on a given location.
-            q = f'geo:place={guid1} $latlong=:latlong $radius=:radius | spin | ' \
-                f'tel:mob:telem:latlong*near=($latlong, 3km)'
+            q = f'geo:place={guid1} $latlong=:latlong $radius=:radius ' \
+                f'tel:mob:telem:latlong*near=($latlong, 3km) +tel:mob:telem'
             nodes = await alist(core.eval(q))
             self.len(2, nodes)
 
-            q = f'geo:place={guid1} $latlong=:latlong $radius=:radius | spin | ' \
-                f'tel:mob:telem:latlong*near=($latlong, $radius)'
+            q = f'geo:place={guid1} $latlong=:latlong $radius=:radius ' \
+                f'tel:mob:telem:latlong*near=($latlong, $radius) +tel:mob:telem'
             nodes = await alist(core.eval(q))
             self.len(1, nodes)
 

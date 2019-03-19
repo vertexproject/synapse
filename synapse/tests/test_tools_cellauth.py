@@ -88,6 +88,18 @@ class CellAuthTest(s_t_utils.SynTest):
             # print(str(outp))
             outp.expect('admin: False')
 
+            outp = self.getTestOutp()
+            argv = [coreurl, 'modify', '--delrole', 'frole']
+            await s_cellauth.main(argv, outp)
+            # print(str(outp))
+            outp.expect('deleting role: frole')
+
+            outp = self.getTestOutp()
+            argv = [coreurl, 'modify', '--deluser', 'foo']
+            await s_cellauth.main(argv, outp)
+            # print(str(outp))
+            outp.expect('deleting user: foo')
+
     async def test_cellauth_lock(self):
 
         async with self.getTestCore() as core:

@@ -130,8 +130,16 @@ class CellApi(s_base.Base):
         await self.cell.auth.addUser(name)
 
     @adminapi
+    async def delAuthUser(self, name):
+        await self.cell.auth.delUser(name)
+
+    @adminapi
     async def addAuthRole(self, name):
         await self.cell.auth.addRole(name)
+
+    @adminapi
+    async def delAuthRole(self, name):
+        await self.cell.auth.delRole(name)
 
     @adminapi
     async def getAuthUsers(self):

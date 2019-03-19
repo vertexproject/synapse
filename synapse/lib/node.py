@@ -560,6 +560,7 @@ class Path:
 
         self.node = None
         self.runt = runt
+        self.snap = runt.snap
         self.nodes = nodes
 
         if len(nodes):
@@ -574,7 +575,7 @@ class Path:
 
         self.metadata = {}
 
-    def get(self, name, defv=s_common.novalu):
+    def getVar(self, name, defv=s_common.novalu):
 
         valu = self.vars.get(name, s_common.novalu)
         if valu is not s_common.novalu:
@@ -588,7 +589,7 @@ class Path:
 
         return self.runt.getVar(name, defv=defv)
 
-    def set(self, name, valu):
+    def setVar(self, name, valu):
         self.vars[name] = valu
 
     def meta(self, name, valu):
