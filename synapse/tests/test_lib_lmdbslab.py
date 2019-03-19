@@ -1,11 +1,13 @@
 import os
 import asyncio
+import pathlib
 import multiprocessing
 import synapse.exc as s_exc
 import synapse.common as s_common
 
 from unittest.mock import patch
 
+import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
@@ -105,9 +107,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             path = os.path.join(dirn, 'test.lmdb')
-            my_maxsize = 500000
+            my_maxsize = 400000
 
-            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=50000, maxsize=my_maxsize) as slab:
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000, maxsize=my_maxsize) as slab:
 
                 foo = slab.initdb('foo', dupsort=True)
                 foo2 = slab.initdb('foo2', dupsort=False)
@@ -168,10 +170,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             # lets ensure our mapsize / growsize persisted, and make sure readonly works
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, readonly=True) as newdb:
-
                 self.eq(my_maxsize, newdb.mapsize)
 
-                self.eq(50000, newdb.growsize)
+                self.eq(10000, newdb.growsize)
+                self.eq(my_maxsize, newdb.maxsize)
                 foo = newdb.initdb('foo', dupsort=True)
                 for _, _ in newdb.scanByRange(b'', db=foo):
                     count += 1
@@ -189,7 +191,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 def anotherproc(path):
                     async def lotsofwrites(path):
-                        async with await s_lmdbslab.Slab.anit(path) as slab:
+                        os.remove(pathlib.Path(path).with_suffix('.opts.yaml'))
+                        async with await s_lmdbslab.Slab.anit(path, map_size=100000) as slab:
                             foo = slab.initdb('foo', dupsort=True)
                             mapsize = slab.mapsize
                             while mapsize == slab.mapsize:
@@ -305,3 +308,29 @@ class LmdbSlabTest(s_t_utils.SynTest):
             path = os.path.join(dirn, 'slab.lmdb')
             async with await s_lmdbslab.Slab.anit(path, map_size=1024) as slab:
                 [slab.initdb(str(i)) for i in range(10)]
+
+    def test_slab_math(self):
+        self.eq(s_lmdbslab._mapsizeround(100), 128)
+        self.eq(s_lmdbslab._mapsizeround(s_const.mebibyte), s_const.mebibyte)
+        self.eq(s_lmdbslab._mapsizeround(s_const.mebibyte + 1), 2 * s_const.mebibyte)
+        self.eq(s_lmdbslab._mapsizeround(65 * s_const.gibibyte), 100 * s_const.gibibyte)
+        self.eq(s_lmdbslab._mapsizeround(472 * s_const.gibibyte), 500 * s_const.gibibyte)
+        self.eq(s_lmdbslab._mapsizeround(1000 * s_const.gibibyte), 1000 * s_const.gibibyte)
+
+    async def test_slab_infinite_loop(self):
+        '''
+        Trigger a map full when replaying the log from a prior map full.
+        '''
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            byts = b'\x00' * 256
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000) as slab:
+                foo = slab.initdb('foo')
+                slab.put(b'abcd', s_common.guid().encode('utf8') + byts, db=foo)
+                await asyncio.sleep(1.1)
+                slab.put(b'abcd', s_common.guid().encode('utf8') + byts, db=foo)
+
+            # If we got here we're good
+            self.true(True)
