@@ -971,3 +971,110 @@ class TypesTest(s_t_utils.SynTest):
             opts = {'vars': {'url': url}}
             self.len(1, await core.eval('[ it:exec:url="*" :url=$url ]', opts=opts).list())
             self.len(1, await core.eval('it:exec:url:url=$url', opts=opts).list())
+
+    async def test_thesilence(self):
+        queries = [
+            # Specify explicit time on creation
+            ('[inet:dns:request="*" :time=2018/03/30]', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=2018/03/30]', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=(2018/03/30,2018/03/31)]', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=(2018/03/31,2018/03/30)]', (),
+             {'props': {'.seen': (None, None)}}),
+            # Specify relative time on creation
+            ('[inet:dns:request="*" :time="+1 day"]', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen="-1 day"]', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=("-1 day","+1 day")]', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=("+1 day","-1 day")]', (), {}),
+            # Specify +- relative time on creation
+            ('[inet:dns:request="*" :time="+-1 day"]', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=("+-1 day")]', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=("+-1 day","+-1 day")]', (), {}),
+            ('', (), {}),
+            # Specify 'now' on creation
+            (' [inet:dns:request="*" :time="now"]', (), {}),
+            (' [inet:dns:a=(woot.com,1.2.3.4) .seen=("now")]', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=("now","now")]', (), {}),
+            ('', (), {}),
+            # Specify '?' on creation
+            ('[inet:dns:request="*" :time="?"]', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=("?")]', (), {}),  # XXX This is a gaurding issue
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=("?","?")]', (), {}),
+            ('', (), {}),
+            # Specify explicit time and relative time on creation
+            ('', (), {}),
+            ('', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=(20180330,"+1 day")]', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=("+1 day",20180330)]', (), {'errs': 1}),
+            # Specify explicit time and 'now' on creation
+            ('', (), {}),
+            ('', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=(20180330,"now")]', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=("now",20180330)]', (), {'errs': 1}),
+            # Specify explicit time and '?' on creation
+            ('', (), {}),
+            ('', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=(20180330,"?")]', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=("?", 20180330)]', (), {'errs': 1}),
+            # Specify relative time and 'now' on creation
+            ('', (), {}),
+            ('', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=("-1 day","now")]', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=("now","-1 day")]', (), {}),
+            # Specify relative time and '?' on creation
+            ('', (), {}),
+            ('', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=("-1 day","?")]', (), {}),  # Repr issue b/c no gaurding
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=("?","-1 day")]', (), {}),  # Repr issue b/c no gaurding
+            #
+            ('', (), {}),
+            ('', (), {}),
+            ('', (), {}),
+            ('', (), {}),
+            #
+            ('', (), {}),
+            ('', (), {}),
+            ('', (), {}),
+            ('', (), {}),
+            #
+            ('', (), {}),
+            ('', (), {}),
+            ('', (), {}),
+            ('', (), {}),
+            #
+            ('', (), {}),
+            ('', (), {}),
+            ('', (), {}),
+            ('', (), {}),
+        ]
+        import logging
+        from pprint import pprint
+        logger = logging.getLogger(__name__)
+
+        async def runquery(query, *args, **kwargs):
+            async with self.getTestCore() as core:
+                core.conf['storm:log'] = True
+                eerrs = kwargs.get('errs', 0)
+                nodes = []
+                errs = []
+                async for mesg in core.streamstorm(query, opts={'repr': True}):
+                    if mesg[0] in ('prop:set', 'node:add', 'prov:new', 'init', 'fini'):
+                        continue
+                    pprint(mesg, width=140)
+                    if mesg[0] == 'node':
+                        node = mesg[1]
+                        nodes.append(node)
+                    if mesg[0] == 'errs':
+                        errs.append(mesg[1])
+                props = kwargs.get('props', {})
+                for node in nodes:
+                    for prop, valu in props.items():
+                        pvalu = node[1]['props'].get(prop)
+                        if pvalu is not None and pvalu != valu:
+                            logger.error(f'WEIRD PROP: {pvalu} vs {valu}')
+                if eerrs and len(errs) != eerrs:
+                    logger.error(f'Expected {eerrs} error, got {len(errs)}')
+
+        for query, args, kwargs in queries:
+            if not query:
+                continue
+            await runquery(query, *args, **kwargs)

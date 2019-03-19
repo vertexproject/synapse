@@ -767,7 +767,10 @@ class Ival(Type):
         norm = self.norm(valu)[0]
 
         def cmpr(item):
-            if item is None or item == (None, None):
+            if item is None:
+                return False
+
+            if item == (None, None):
                 return False
 
             othr, info = self.norm(item)
