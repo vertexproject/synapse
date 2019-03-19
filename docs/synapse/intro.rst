@@ -65,8 +65,8 @@ Coming Soon
 FAQ
 ===
 
-What's the state of interface the stability contract for 0.1.0?
----------------------------------------------------------------
+What's the state of interface stability for 0.1.x?
+--------------------------------------------------
 
 With the release of Synapse 0.1.0, we are committed to maintaining a stable and backward-compatible release process.  Public-facing interfaces such as Storm, the HTTPS API, and the **Telepath** API will not be changed in any way that will break existing deployments.  The data model will only be updated with additions which do not change existing property names or relationships.
 
