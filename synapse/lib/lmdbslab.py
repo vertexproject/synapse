@@ -1,4 +1,5 @@
 import os
+import pathlib
 import functools
 import contextlib
 
@@ -17,6 +18,9 @@ import synapse.lib.msgpack as s_msgpack
 
 COPY_CHUNKSIZE = 512
 PROGRESS_PERIOD = COPY_CHUNKSIZE * 128
+
+# By default, double the map size each time we run out of space, until this amount, and then we only increase by that
+MAX_DOUBLE_SIZE = 100 * s_const.gibibyte
 
 class LmdbDatabase():
     def __init__(self, db, dupsort):
@@ -169,6 +173,39 @@ class GuidStor:
         bidn = s_common.uhex(iden)
         return SlabDict(self.slab, db=self.db, pref=bidn)
 
+def _ispo2(i):
+    return not (i & (i - 1)) and i
+
+def _florpo2(i):
+    '''
+    Return largest power of 2 equal to or less than i
+    '''
+    if _ispo2(i):
+        return i
+    return 1 << (i.bit_length() - 1)
+
+def _ceilpo2(i):
+    '''
+    Return smallest power of 2 equal to or greater than i
+    '''
+    if _ispo2(i):
+        return i
+    return 1 << i.bit_length()
+
+def _roundup(i, multiple):
+    return ((i + multiple - 1) // multiple) * multiple
+
+def _mapsizeround(size):
+    cutoff = _florpo2(MAX_DOUBLE_SIZE)
+
+    if size < cutoff:
+        return _ceilpo2(size)
+
+    if size == cutoff:  # We're already the largest power of 2
+        return size
+
+    return _roundup(size, MAX_DOUBLE_SIZE)
+
 class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
@@ -183,15 +220,22 @@ class Slab(s_base.Base):
 
         opts = kwargs
 
-        self.path = path
-        self.optspath = os.path.join(path, 'opts.yaml')
+        self.path = pathlib.Path(path)
 
-        if os.path.isfile(self.optspath):
+        self.optspath = self.path.with_suffix('.opts.yaml')
+
+        if self.optspath.exists():
             opts.update(s_common.yamlload(self.optspath))
 
-        self.mapsize = opts.get('map_size')
-        if self.mapsize is None:
-            raise Exception('Slab requires map_size!')
+        initial_mapsize = opts.get('map_size')
+        if initial_mapsize is None:
+            raise s_exc.BadArg('Slab requires map_size')
+
+        mdbpath = self.path / 'data.mdb'
+        if mdbpath.exists():
+            mapsize = max(initial_mapsize, os.path.getsize(mdbpath))
+        else:
+            mapsize = initial_mapsize
 
         # save the transaction deltas in case of error...
         self.xactops = []
@@ -200,11 +244,16 @@ class Slab(s_base.Base):
         opts.setdefault('max_dbs', 128)
         opts.setdefault('writemap', True)
 
-        # if growsize is not set, we double...
         self.maxsize = opts.pop('maxsize', None)
         self.growsize = opts.pop('growsize', None)
 
         self.readonly = opts.get('readonly', False)
+
+        self.mapsize = _mapsizeround(mapsize)
+        if self.maxsize is not None:
+            self.mapsize = min(self.mapsize, self.maxsize)
+
+        self._saveOptsFile()
 
         self.lenv = lmdb.open(path, **opts)
 
@@ -237,8 +286,12 @@ class Slab(s_base.Base):
             self._finiCoXact()
 
     def _saveOptsFile(self):
-        opts = {'map_size': self.mapsize, 'growsize': self.growsize}
-        s_common.jssave(opts, self.optspath)
+        opts = {}
+        if self.growsize is not None:
+            opts['growsize'] = self.growsize
+        if self.maxsize is not None:
+            opts['maxsize'] = self.maxsize
+        s_common.yamlmod(opts, self.optspath)
 
     async def _runSyncLoop(self):
         while not self.isfini:
@@ -288,7 +341,7 @@ class Slab(s_base.Base):
             mapsize += self.growsize
 
         else:
-            mapsize *= 2
+            mapsize = _mapsizeround(mapsize + 1)
 
         if self.maxsize is not None:
             mapsize = min(mapsize, self.maxsize)
@@ -296,11 +349,10 @@ class Slab(s_base.Base):
                 raise s_exc.DbOutOfSpace(
                     mesg=f'DB at {self.path} is at specified max capacity of {self.maxsize} and is out of space')
 
-        logger.warning('growing map size to: %d' % (mapsize,))
+        logger.warning('growing map size to: %d MiB', mapsize // s_const.mebibyte)
 
         self.lenv.set_mapsize(mapsize)
         self.mapsize = mapsize
-        self._saveOptsFile()
 
         return self.mapsize
 
@@ -434,30 +486,30 @@ class Slab(s_base.Base):
             retn = f(*a, **k)
         return retn
 
-    @contextlib.contextmanager
-    def aborted(self):
-
+    def _handle_mapfull(self):
         [scan.bump() for scan in self.scans]
 
-        self.xact.abort()
+        while True:
+            try:
+                self.xact.abort()
 
-        del self.xact
-        self.xact = None  # Note: it is possible for us to be fini'd in the following yield
+                del self.xact
+                self.xact = None  # Note: it is possible for us to be fini'd in _growMapSize
 
-        yield
+                self._growMapSize()
 
-        self.xact = self.lenv.begin(write=not self.readonly)
+                self.xact = self.lenv.begin(write=not self.readonly)
 
-        self.recovering = True
-        self.last_retn = self._runXactOpers()
-        self.recovering = False
-        return self.last_retn
+                self.recovering = True
+                self.last_retn = self._runXactOpers()
+                self.recovering = False
 
-    def _handle_mapfull(self):
-        with self.aborted():
-            self._growMapSize()
+                self.forcecommit()
 
-        self.forcecommit()
+            except lmdb.MapFullError:
+                continue
+
+            break
 
         retn, self.last_retn = self.last_retn, None
         return retn
