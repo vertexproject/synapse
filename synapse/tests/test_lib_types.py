@@ -350,9 +350,6 @@ class TypesTest(s_t_utils.SynTest):
 
             t = core.model.type('test:time')
 
-            t.norm('2014')[0]
-            t.norm('2015')[0]
-
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'a', {'tick': '2014', '.seen': ('2005', '2006')})
                 await node.addTag('foo', valu=('2000', '2001'))
@@ -388,8 +385,8 @@ class TypesTest(s_t_utils.SynTest):
 
             await self.agenraises(s_exc.BadSyntax, core.eval('test:str :tick=(20150102, "-4 day")'))
 
-            await self.agenlen(1, core.eval('test:str +:tick@=("-1 day")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=(2015)'))
+            await self.agenlen(1, core.eval('test:str +:tick@=(now, "-1 day")'))
+            await self.agenlen(1, core.eval('test:str +:tick@=2015'))
             await self.agenlen(1, core.eval('test:str +:tick@=(2015, "+1 day")'))
             await self.agenlen(1, core.eval('test:str +:tick@=(20150102+1day, "-4 day")'))
             await self.agenlen(1, core.eval('test:str +:tick@=(20150102, "-4 day")'))
@@ -401,8 +398,8 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(0, core.eval('test:str +:tick@=("2011", "2014")'))
             await self.agenlen(1, core.eval('test:str +:tick@=("2014", "20140601")'))
 
-            await self.agenlen(1, core.eval('test:str:tick@=("-1 day")'))
-            await self.agenlen(1, core.eval('test:str:tick@=(2015)'))
+            await self.agenlen(1, core.eval('test:str:tick@=(now, "-1 day")'))
+            await self.agenlen(1, core.eval('test:str:tick@=2015'))
             await self.agenlen(1, core.eval('test:str:tick@=(2015, "+1 day")'))
             await self.agenlen(1, core.eval('test:str:tick@=(20150102+1day, "-4 day")'))
             await self.agenlen(1, core.eval('test:str:tick@=(20150102, "-4 day")'))
@@ -418,13 +415,13 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('.seen@=("9000", "9001")'))
 
             await self.agenlen(2, core.eval('.seen@=("now+6days", "?")'))
-            await self.agenlen(2, core.eval('.seen@=("-4 days")'))
+            await self.agenlen(2, core.eval('.seen@=(now, "-4 days")'))
             await self.agenlen(2, core.eval('.seen@=(8900, 9500)'))
             await self.agenlen(1, core.eval('.seen@=("2004", "20050201")'))
             await self.agenlen(2, core.eval('.seen@=("now", "-3 days")'))
 
             await self.agenlen(1, core.eval('test:ival@=1970'))
-            await self.agenlen(5, core.eval('test:ival@=("now+100days", 1970)'))
+            await self.agenlen(5, core.eval('test:ival@=(1970, "now+100days")'))
             await self.agenlen(1, core.eval('test:ival@="now"'))
             await self.agenlen(1, core.eval('test:ival@=("now+1day", "now+6days")'))
             await self.agenlen(1, core.eval('test:ival@=("now-9days", "now-1day")'))
@@ -1030,9 +1027,10 @@ class TypesTest(s_t_utils.SynTest):
             ('', (), {}),
             ('', (), {}),
             ('', (), {}),
-            #
-            ('', (), {}),
-            ('', (), {}),
+            # # LOL WHAT
+            # ('[inet:dns:a=(woot.com,1.2.3.4) .seen=(2008, "+1 days", 2000)]', (), {}),
+            # ('[inet:dns:a=(woot.com,1.2.3.4) .seen=(2008, 2019, 2000)]', (), {}),
+            ('[inet:dns:a=(woot.com,1.2.3.4) .seen=(2018/03/31,2018/03/31)]', (), {}),
             ('', (), {}),
             ('', (), {}),
             #

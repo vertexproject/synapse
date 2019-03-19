@@ -746,8 +746,14 @@ class Ival(Type):
     '''
 
     def postTypeInit(self):
+        self.futsize = 0x7fffffffffffffff
+        self.maxsize = 253402300799999  # 9999/12/31 23:59:59.999
 
         self.timetype = self.modl.type('time')
+
+        # Range stuff with ival's don't make sense
+        self.indxcmpr.pop('*range=', None)
+        self._cmpr_ctors.pop('*range=', None)
 
         self.setCmprCtor('@=', self._ctorCmprAt)
 
@@ -755,7 +761,6 @@ class Ival(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyIter)
         self.setNormFunc(tuple, self._normPyIter)
-        #self.setNormFunc(None.__class__, self._normPyNone)
 
     def _ctorCmprAt(self, valu):
 
@@ -763,8 +768,6 @@ class Ival(Type):
             def cmpr(item):
                 return False
             return cmpr
-
-        norm = self.norm(valu)[0]
 
         def cmpr(item):
             if item is None:
@@ -795,7 +798,9 @@ class Ival(Type):
         )
 
     def _normPyInt(self, valu):
-        return (valu, valu + 1), {}
+        minv, _ = self.timetype._normPyInt(valu)
+        maxv, info = self.timetype._normPyInt(minv + 1)
+        return (minv, maxv), info
 
     def _normRelStr(self, valu, relto=None):
         valu = valu.strip().lower()
@@ -813,41 +818,28 @@ class Ival(Type):
         if valu == '?':
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='interval requires begin time')
 
-        norm, _ = self.timetype.norm(valu)
-
-        return (norm, norm + 1), {}
+        minv, _ = self.timetype.norm(valu)
+        # Norm is gauranteed to be a valid time value, but norm +1 may not be
+        maxv, info = self.timetype._normPyInt(minv + 1)
+        return (minv, maxv), info
 
     def _normPyIter(self, valu):
+        if len(valu) != 2:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='Ival _normPyIter requires 2 items')
 
-        # split self contained from relative values
-        vals = []
-        relvals = []
-        for val in valu:
-            if val is None:
-                continue
-            if val and isinstance(val, str) and val[0] in ('-', '+'):
-                relvals.append(val)
-                continue
-            vals.append(self.timetype.norm(val)[0])
+        tick, tock = self.timetype.getTickTock(valu)
 
-        # relative value with implicit "now"
-        if not len(vals) and len(relvals):
-            vals.append(s_common.now())
+        minv, _ = self.timetype._normPyInt(tick)
+        maxv, info = self.timetype._normPyInt(tock)
 
-        # interval as a point in time
-        if len(vals) + len(relvals) == 1:
-            vals.append(vals[0] + 1)
+        # Gaurding - this means that a 1 millisecond rnage must be produced
+        # and than minv must be less than maxv
+        if minv >= maxv:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='Ival range must in (min, max) format')
 
-        if len(vals) + len(relvals) != 2:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='interval requires 1 and at most 2 time arguments')
-        val = vals[0]
-
-        # make absolute vals assuming the current val
-        absvals = [self._normRelStr(r, relto=val) for r in relvals if r is not None]
-        vals += absvals
-
-        norm = (min(vals), max(vals))
-        return norm, {}
+        return (minv, maxv), info
 
     def merge(self, oldv, newv):
         mint = min(oldv[0], newv[0])
