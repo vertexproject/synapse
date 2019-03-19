@@ -1,12 +1,12 @@
 .. _quickstart:
 
+.. toctree::
+    :titlesonly:
+
 Getting Started
 ###############
 
 This quick start will help you get a **Cortex** up and running, introduce a few devops basics, and get you access to the **Storm** hypergraph query engine.
-
-.. toctree::
-    :titlesonly:
 
 Installing Synapse
 ==================
