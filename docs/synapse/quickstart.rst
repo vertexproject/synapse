@@ -83,7 +83,8 @@ Adding Initial Users/Roles/Rules
 
 To prepare for sharing a Cortex via telepath or HTTP, roles and users should be created with permissions to allow no more access than necessary.  The following commands create the user "visi" who can add nodes, set properties, and add tags::
 
-    python -m synapse.tools.cellauth cell://cortex modify visi --adduser --passwd secretsauce
+    python -m synapse.tools.cellauth cell://cortex modify visi --adduser
+    python -m synapse.tools.cellauth cell://cortex modify visi --passwd secretsauce
     python -m synapse.tools.cellauth cell://cortex modify visi --addrule node:add
     python -m synapse.tools.cellauth cell://cortex modify visi --addrule node:set
     python -m synapse.tools.cellauth cell://cortex modify visi --addrule tag:add
