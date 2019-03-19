@@ -10,11 +10,14 @@ Welcome to synapse's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   synapse/intro
    synapse/quickstart
+
    synapse/userguide
    synapse/devops
    synapse/contributing
    synapse/httpapi
+
    autodocs/datamodel_types
    autodocs/datamodel_forms
    autodocs/modules
