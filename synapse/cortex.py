@@ -1592,7 +1592,7 @@ class Cortex(s_cell.Cell):
                 raise
 
             except Exception as e:
-                logger.error(f'Error during storm execution: {e}')
+                logger.exception('Error during storm execution')
                 enfo = s_common.err(e)
                 enfo[1].pop('esrc', None)
                 enfo[1].pop('ename', None)
