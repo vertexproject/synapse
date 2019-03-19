@@ -1,5 +1,5 @@
 '''
-The synapse distributed key-value hypergraph analysis framework.
+The synapse intelligence analysis framework.
 '''
 
 import sys

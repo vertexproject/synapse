@@ -265,7 +265,7 @@ class Type:
         '''
         func = self._type_norms.get(type(valu))
         if func is None:
-            raise s_exc.NoSuchFunc(type=self.name, mesg='no norm for type: %r' % (type(valu),))
+            raise s_exc.NoSuchFunc(name=self.name, mesg='no norm for type: %r' % (type(valu),))
 
         return func(valu)
 
@@ -746,16 +746,21 @@ class Ival(Type):
     '''
 
     def postTypeInit(self):
+        self.futsize = 0x7fffffffffffffff
+        self.maxsize = 253402300799999  # 9999/12/31 23:59:59.999
 
         self.timetype = self.modl.type('time')
 
-        self.setCmprCtor('@=', self._ctorCmprAt)
+        # Range stuff with ival's don't make sense
+        self.indxcmpr.pop('*range=', None)
+        self._cmpr_ctors.pop('*range=', None)
 
+        self.setCmprCtor('@=', self._ctorCmprAt)
+        # _ctorCmprAt implements its own custom norm-style resolution
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyIter)
         self.setNormFunc(tuple, self._normPyIter)
-        #self.setNormFunc(None.__class__, self._normPyNone)
 
     def _ctorCmprAt(self, valu):
 
@@ -764,10 +769,26 @@ class Ival(Type):
                 return False
             return cmpr
 
-        norm = self.norm(valu)[0]
+        if isinstance(valu, (str, int)):
+            norm = self.norm(valu)[0]
+        elif isinstance(valu, (list, tuple)):
+            minv, maxv = self._normByTickTock(valu)[0]
+            # Use has input the nullset in a comparison operation.
+            if minv >= maxv:
+                def cmpr(item):
+                    return False
+                return cmpr
+            else:
+                norm = (minv, maxv)
+        else:
+            raise s_exc.NoSuchFunc(name=self.name,
+                                   mesg='no norm for @= operator: %r' % (type(valu),))
 
         def cmpr(item):
-            if item is None or item == (None, None):
+            if item is None:
+                return False
+
+            if item == (None, None):
                 return False
 
             othr, info = self.norm(item)
@@ -791,12 +812,10 @@ class Ival(Type):
             (tabl + ':ival', (form, prop, norm)),
         )
 
-    #def _normPyNone(self, valu):
-        # none is an ok interval (unknown...)
-        #return valu, {}
-
     def _normPyInt(self, valu):
-        return (valu, valu + 1), {}
+        minv, _ = self.timetype._normPyInt(valu)
+        maxv, info = self.timetype._normPyInt(minv + 1)
+        return (minv, maxv), info
 
     def _normRelStr(self, valu, relto=None):
         valu = valu.strip().lower()
@@ -814,41 +833,31 @@ class Ival(Type):
         if valu == '?':
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='interval requires begin time')
 
-        norm, _ = self.timetype.norm(valu)
-
-        return (norm, norm + 1), {}
+        minv, _ = self.timetype.norm(valu)
+        # Norm is guaranteed to be a valid time value, but norm +1 may not be
+        maxv, info = self.timetype._normPyInt(minv + 1)
+        return (minv, maxv), info
 
     def _normPyIter(self, valu):
+        (minv, maxv), info = self._normByTickTock(valu)
 
-        # split self contained from relative values
-        vals = []
-        relvals = []
-        for val in valu:
-            if val is None:
-                continue
-            if val and isinstance(val, str) and val[0] in ('-', '+'):
-                relvals.append(val)
-                continue
-            vals.append(self.timetype.norm(val)[0])
+        # Norm via iter must produce an actual range.
+        if minv >= maxv:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='Ival range must in (min, max) format')
 
-        # relative value with implicit "now"
-        if not len(vals) and len(relvals):
-            vals.append(s_common.now())
+        return (minv, maxv), info
 
-        # interval as a point in time
-        if len(vals) + len(relvals) == 1:
-            vals.append(vals[0] + 1)
+    def _normByTickTock(self, valu):
+        if len(valu) != 2:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='Ival _normPyIter requires 2 items')
 
-        if len(vals) + len(relvals) != 2:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='interval requires 1 and at most 2 time arguments')
-        val = vals[0]
+        tick, tock = self.timetype.getTickTock(valu)
 
-        # make absolute vals assuming the current val
-        absvals = [self._normRelStr(r, relto=val) for r in relvals if r is not None]
-        vals += absvals
-
-        norm = (min(vals), max(vals))
-        return norm, {}
+        minv, _ = self.timetype._normPyInt(tick)
+        maxv, _ = self.timetype._normPyInt(tock)
+        return (minv, maxv), {}
 
     def merge(self, oldv, newv):
         mint = min(oldv[0], newv[0])
@@ -1102,7 +1111,6 @@ class NodeProp(Type):
 
     def indx(self, norm):
         return s_common.buid(norm)
-
 
 class Range(Type):
 
@@ -1390,24 +1398,38 @@ class Time(IntBase):
             vals (list): A pair of values to norm.
 
         Returns:
-            (int, int): A pair of integers, sorted so that it the first is less than or equal to the second int.
+            (int, int): A ordered pair of integers.
         '''
         val0, val1 = vals
 
-        _tick = self._getLiftValu(val0)
+        try:
+            _tick = self._getLiftValu(val0)
+        except ValueError as e:
+            raise s_exc.BadTypeValu(name=self.name, valu=val0,
+                                    mesg='Unable to process the value for val0 in getTickTock.')
 
-        if isinstance(val1, str) and val1.startswith(('+-', '-+')):
-            delt = s_time.delta(val1[2:])
-            # order matters
-            _tock = _tick + delt
-            _tick = _tick - delt
+        sortval = False
+        if isinstance(val1, str):
+            if val1.startswith(('+-', '-+')):
+                sortval = True
+                delt = s_time.delta(val1[2:])
+                # order matters
+                _tock = _tick + delt
+                _tick = _tick - delt
+            elif val1.startswith('-'):
+                sortval = True
+                _tock = self._getLiftValu(val1, relto=_tick)
+            else:
+                _tock = self._getLiftValu(val1, relto=_tick)
         else:
             _tock = self._getLiftValu(val1, relto=_tick)
 
-        tick = min(_tick, _tock)
-        tock = max(_tick, _tock)
+        if sortval and _tick >= _tock:
+            tick = min(_tick, _tock)
+            tock = max(_tick, _tock)
+            return tick, tock
 
-        return tick, tock
+        return _tick, _tock
 
     def _indxTimeRange(self, mint, maxt):
         minv, _ = self.norm(mint)
@@ -1415,26 +1437,6 @@ class Time(IntBase):
         return (
             ('range', (self.indx(minv), self.indx(maxv))),
         )
-
-    def indxByEq(self, valu):
-
-        if isinstance(valu, str):
-
-            if valu.endswith('*'):
-                valu = s_chop.digits(valu)
-                maxv = str(int(valu) + 1)
-                return self._indxTimeRange(valu, maxv)
-
-            if valu and valu[0] == '-':
-                tock = s_common.now()
-                delt = s_time.delta(valu)
-                return self._indxTimeRange(tock + delt, tock)
-
-        if type(valu) in (tuple, list):
-            tick, tock = self.getTickTock(valu)
-            return self._indxTimeRange(tick, tock)
-
-        return Type.indxByEq(self, valu)
 
     def indxByRange(self, valu):
         '''
@@ -1448,6 +1450,10 @@ class Time(IntBase):
             raise s_exc.BadCmprValu(valu=valu, cmpr='*range=')
 
         tick, tock = self.getTickTock(valu)
+
+        if tick > tock:
+            # User input has requested a nullset
+            return ()
 
         return self._indxTimeRange(tick, tock)
 
@@ -1464,20 +1470,19 @@ class Time(IntBase):
 
         tick, tock = self.getTickTock(vals)
 
+        if tick > tock:
+            # User input has requested a nullset
+            def cmpr(valu):
+                return False
+
+            return cmpr
+
         def cmpr(valu):
             return tick <= valu <= tock
 
         return cmpr
 
     def _ctorCmprEq(self, text):
-
-        if isinstance(text, (tuple, list)):
-
-            tick, tock = self.getTickTock(text)
-
-            def cmpr(valu):
-                return tick <= valu < tock
-            return cmpr
 
         norm, info = self.norm(text)
 
