@@ -299,7 +299,13 @@ class Slab(s_base.Base):
             if self.isfini:
                 # There's no reason to forcecommit on fini, because there's a separate handler to already do that
                 break
-            self.forcecommit()
+
+            try:
+                self.forcecommit()
+
+            except lmdb.MapFullError:
+                self._handle_mapfull()
+                # There's no need to re-try self.forcecommit as _growMapSize does it
 
     async def _onCoFini(self):
         assert s_glob.iAmLoop()
@@ -349,7 +355,7 @@ class Slab(s_base.Base):
                 raise s_exc.DbOutOfSpace(
                     mesg=f'DB at {self.path} is at specified max capacity of {self.maxsize} and is out of space')
 
-        logger.warning('growing map size to: %d MiB', mapsize // s_const.mebibyte)
+        logger.warning('lmdbslab %s growing map size to: %d MiB', self.path, mapsize // s_const.mebibyte)
 
         self.lenv.set_mapsize(mapsize)
         self.mapsize = mapsize
@@ -551,9 +557,7 @@ class Slab(s_base.Base):
                 self._logXactOper(self.putmulti, kvpairs, dupdata=dupdata, append=append, db=db)
 
             with self.xact.cursor(db=db.db) as curs:
-                retn = curs.putmulti(kvpairs, dupdata=dupdata, append=append)
-
-            return retn
+                return curs.putmulti(kvpairs, dupdata=dupdata, append=append)
 
         except lmdb.MapFullError:
             return self._handle_mapfull()
@@ -619,6 +623,8 @@ class Slab(s_base.Base):
 
     def forcecommit(self):
         '''
+        Note:
+            This method may raise a MapFullError
         '''
         if not self.dirty:
             return False
