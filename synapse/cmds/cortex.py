@@ -263,7 +263,6 @@ class StormCmd(s_cli.Cmd):
         --debug: Display cmd debug information along with nodes in raw format
             (overrides --hide-tags, --hide-props and raw)
         --path: Get path information about returned nodes.
-        --graph: Get graph information about returned nodes.
 
     Examples:
         storm inet:ipv4=1.2.3.4
@@ -277,7 +276,6 @@ class StormCmd(s_cli.Cmd):
         ('--hide-unknown', {}),
         ('--raw', {}),
         ('--debug', {}),
-        ('--graph', {}),
         ('--path', {}),
         ('query', {'type': 'glob'}),
     )
@@ -361,7 +359,7 @@ class StormCmd(s_cli.Cmd):
         core = self.getCmdItem()
         stormopts = {'repr': True}
         stormopts.setdefault('path', opts.get('path', False))
-        stormopts.setdefault('graph', opts.get('graph', False))
+
         self.printf('')
 
         try:
