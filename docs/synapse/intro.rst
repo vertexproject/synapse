@@ -18,7 +18,6 @@ Features
 A Synapse Cortex uses the high-performance key-value store LMDB_ for indexing and storage.  Additionally, the **Storm** query engine is designed to produce results as a stream rather than a set.  This means a query will begin returning results as soon as they are available rather than waiting for the complete result set.  Streaming results means that even a complex multi-pivot query which will eventually return millions of nodes will begin producing results immediately.  API interfaces facilitate streaming "back-pressure" which allows a query consumer to incrementally read result sets no matter how large they are.
 
 *Rich Built-In/Extensible Data Model*
-=======
 
 The Synapse data model has been battle-hardened over 5 years through the lessons learned during intelligence analysis and production.  See (:ref:`userguide`) for extensive details.
 
