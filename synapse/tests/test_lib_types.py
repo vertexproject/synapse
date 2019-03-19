@@ -507,6 +507,14 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('##vert.proj@=("1995", "now+6 days")'))
             await self.agenlen(1, core.eval('##vertex.project@=("now-9days", "now-3days")'))
 
+            # Sad Paths
+
+            # *range= not supported for ival
+            q = 'test:str +:.seen*range=((20090601, 20090701), (20110905, 20110906,))'
+            await self.agenraises(s_exc.NoSuchCmpr, core.eval(q))
+            q = 'test:str.seen*range=((20090601, 20090701), (20110905, 20110906,))'
+            await self.agenraises(s_exc.NoSuchCmpr, core.eval(q))
+
     async def test_loc(self):
         model = s_datamodel.Model()
         loctype = model.types.get('loc')
@@ -630,7 +638,6 @@ class TypesTest(s_t_utils.SynTest):
         self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': ('inet:ipv4', {})})  # inet is not loaded yet
 
     async def test_range_filter(self):
-
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'a', {'bar': ('test:str', 'a'), 'tick': '19990101'})
@@ -648,8 +655,6 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
             nodes = await alist(core.eval('test:comp +:haha*range=(grinch, meanone)'))
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
-            nodes = await alist(core.eval('test:str +:.seen*range=((20090601, 20090701), (20110905, 20110906,))'))
-            self.eq({node.ndef[1] for node in nodes}, {'b'})
             nodes = await alist(core.eval('test:str +:bar*range=((test:str, c), (test:str, q))'))
             self.eq({node.ndef[1] for node in nodes}, {'m'})
             nodes = await alist(core.eval('test:comp +test:comp*range=((1024, grinch), (4096, zemeanone))'))

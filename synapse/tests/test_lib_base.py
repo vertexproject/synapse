@@ -331,3 +331,28 @@ class BaseTest(s_t_utils.SynTest):
 
         proc.join(timeout=10)
         self.eq(proc.exitcode, 137)
+
+    async def test_onwith(self):
+        base = await s_base.Base.anit()
+        l0 = []
+        l1 = []
+
+        def onHehe0(mesg):
+            l0.append(mesg)
+
+        def onHehe1(mesg):
+            l1.append(mesg)
+
+        base.on('hehe', onHehe0)
+
+        # Temporarily set the 'hehe' callback
+        with base.onWith('hehe', onHehe1) as e:
+            self.true(e is base)
+            await base.fire('hehe')
+            self.len(1, l0)
+            self.len(1, l1)
+
+        # subsequent fires do not call onHehe1
+        await base.fire('hehe')
+        self.len(2, l0)
+        self.len(1, l1)
