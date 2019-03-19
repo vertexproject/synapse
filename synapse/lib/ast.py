@@ -110,6 +110,9 @@ class AstNode:
             for name in kid.getRuntVars(runt):
                 yield name
 
+    def isRuntSafe(self, runt):
+        return all(k.isRuntSafe(runt) for k in self.kids)
+
 class Query(AstNode):
 
     def __init__(self, kids=()):
@@ -363,12 +366,12 @@ class ForLoop(Oper):
                         raise s_exc.StormVarListError(names=name, vals=item)
 
                     for x, y in itertools.zip_longest(name, item):
-                        path.set(x, y)
+                        path.setVar(x, y)
                         runt.setVar(x, y)
 
                 else:
                     # set both so inner subqueries have it in their runtime
-                    path.set(name, item)
+                    path.setVar(name, item)
                     runt.setVar(name, item)
 
                 try:
@@ -441,8 +444,8 @@ class VarSetOper(Oper):
 
         async for node, path in genr:
             valu = await vkid.compute(path)
-            path.set(name, valu)
-            runt.vars[name] = valu
+            path.setVar(name, valu)
+            runt.setVar(name, valu)
             yield node, path
 
         if vkid.isRuntSafe(runt):
@@ -468,7 +471,7 @@ class VarListSetOper(Oper):
                 raise s_exc.StormVarListError(names=names, vals=item)
 
             for name, valu in zip(names, item):
-                runt.vars[name] = valu
+                runt.setVar(name, valu)
 
             async for item in genr:
                 yield item
@@ -482,8 +485,8 @@ class VarListSetOper(Oper):
                 raise s_exc.StormVarListError(names=names, vals=item)
 
             for name, valu in zip(names, item):
-                runt.vars[name] = valu
-                path.set(name, valu)
+                runt.setVar(name, valu)
+                path.setVar(name, valu)
 
             yield node, path
 
@@ -536,21 +539,34 @@ class LiftOper(Oper):
 
     async def run(self, runt, genr):
 
-        async for item in genr:
-            yield item
+        if self.isRuntSafe(runt):
 
-        async for node in self.lift(runt):
-            yield node, runt.initPath(node)
+            # runtime safe lift operation
+            async for item in genr:
+                yield item
+
+            async for node in self.lift(runt):
+                yield node, runt.initPath(node)
+
+            return
+
+        # TODO unify runtval() / compute() methods
+        async for node, path in genr:
+
+            yield node, path
+
+            async for subn in self.lift(path):
+                yield subn, path.fork(subn)
 
 class LiftTag(LiftOper):
 
     async def lift(self, runt):
         cmpr = '='
         valu = None
-        tag = await self.kids[0].runtval(runt)
+        tag = await self.kids[0].compute(runt)
         if len(self.kids) == 3:
-            cmpr = await self.kids[1].runtval(runt)
-            valu = await self.kids[2].runtval(runt)
+            cmpr = await self.kids[1].compute(runt)
+            valu = await self.kids[2].compute(runt)
         async for node in runt.snap._getNodesByTag(tag, valu=valu, cmpr=cmpr):
             yield node
 
@@ -565,10 +581,10 @@ class LiftTagTag(LiftOper):
         cmpr = '='
         valu = None
 
-        tag = await self.kids[0].runtval(runt)
+        tag = await self.kids[0].compute(runt)
         if len(self.kids) == 3:
-            cmpr = await self.kids[1].runtval(runt)
-            valu = await self.kids[2].runtval(runt)
+            cmpr = await self.kids[1].compute(runt)
+            valu = await self.kids[2].compute(runt)
 
         node = await runt.snap.getNodeByNdef(('syn:tag', tag))
         if node is None:
@@ -600,14 +616,14 @@ class LiftFormTag(LiftOper):
     async def lift(self, runt):
 
         form = self.kids[0].value()
-        tag = await self.kids[1].runtval(runt)
+        tag = await self.kids[1].compute(runt)
 
         cmpr = None
         valu = None
 
         if len(self.kids) == 4:
             cmpr = self.kids[2].value()
-            valu = await self.kids[3].runtval(runt)
+            valu = await self.kids[3].compute(runt)
 
         async for node in runt.snap._getNodesByFormTag(form, tag, valu=valu, cmpr=cmpr):
             yield node
@@ -623,7 +639,7 @@ class LiftProp(LiftOper):
 
         if len(self.kids) == 3:
             cmpr = self.kids[1].value()
-            valu = await self.kids[2].runtval(runt)
+            valu = await self.kids[2].compute(runt)
 
         # If its a secondary prop, there's no optimization
         if runt.snap.model.forms.get(name) is None:
@@ -666,7 +682,7 @@ class LiftPropBy(LiftOper):
         name = self.kids[0].value()
         cmpr = self.kids[1].value()
 
-        valu = await self.kids[2].runtval(runt)
+        valu = await self.kids[2].compute(runt)
 
         async for node in runt.snap.getNodesBy(name, valu, cmpr=cmpr):
             yield node
@@ -1552,7 +1568,7 @@ class VarValue(RunValue):
 
     async def runtval(self, runt):
 
-        valu = runt.getVar(self.name, s_common.novalu)
+        valu = runt.getVar(self.name, defv=s_common.novalu)
         if valu is s_common.novalu:
             raise s_exc.NoSuchVar(name=self.name)
 
@@ -1560,7 +1576,7 @@ class VarValue(RunValue):
 
     async def compute(self, path):
 
-        valu = path.get(self.name, s_common.novalu)
+        valu = path.getVar(self.name, defv=s_common.novalu)
         if valu is s_common.novalu:
             raise s_exc.NoSuchVar(name=self.name)
 

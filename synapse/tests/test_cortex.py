@@ -2545,3 +2545,8 @@ class CortexTest(s_t_utils.SynTest):
             self.gt(len(provstacks), 5)
             self.false(core.layer.layrslab.dbexists('prov'))
             self.false(core.layer.layrslab.dbexists('provs'))
+
+    async def test_storm_lift_compute(self):
+        async with self.getTestCore() as core:
+            self.len(2, await core.nodes('[ inet:dns:a=(vertex.link,1.2.3.4) inet:dns:a=(woot.com,5.6.7.8)]'))
+            self.len(4, await core.nodes('inet:dns:a inet:fqdn=:fqdn'))
