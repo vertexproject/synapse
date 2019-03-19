@@ -265,7 +265,7 @@ class Type:
         '''
         func = self._type_norms.get(type(valu))
         if func is None:
-            raise s_exc.NoSuchFunc(type=self.name, mesg='no norm for type: %r' % (type(valu),))
+            raise s_exc.NoSuchFunc(name=self.name, mesg='no norm for type: %r' % (type(valu),))
 
         return func(valu)
 
@@ -756,7 +756,7 @@ class Ival(Type):
         self._cmpr_ctors.pop('*range=', None)
 
         self.setCmprCtor('@=', self._ctorCmprAt)
-
+        # _ctorCmprAt implements its own custom norm-style resolution
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyIter)
@@ -769,8 +769,20 @@ class Ival(Type):
                 return False
             return cmpr
 
-        # Replace this blind norm call
-        norm = self.norm(valu)[0]
+        if isinstance(valu, (str, int)):
+            norm = self.norm(valu)[0]
+        elif isinstance(valu, list):
+            minv, maxv = self._normByTickTock(valu)[0]
+            # Use has input the nullset in a comparison operation.
+            if minv >= maxv:
+                def cmpr(item):
+                    return False
+                return cmpr
+            else:
+                norm = (minv, maxv)
+        else:
+            raise s_exc.NoSuchFunc(name=self.name,
+                                   mesg='no norm for @= operator: %r' % (type(valu),))
 
         def cmpr(item):
             if item is None:
@@ -827,6 +839,16 @@ class Ival(Type):
         return (minv, maxv), info
 
     def _normPyIter(self, valu):
+        (minv, maxv), info = self._normByTickTock(valu)
+
+        # Norm via iter must produce an actual range.
+        if minv >= maxv:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='Ival range must in (min, max) format')
+
+        return (minv, maxv), info
+
+    def _normByTickTock(self, valu):
         if len(valu) != 2:
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
                                     mesg='Ival _normPyIter requires 2 items')
@@ -834,15 +856,8 @@ class Ival(Type):
         tick, tock = self.timetype.getTickTock(valu)
 
         minv, _ = self.timetype._normPyInt(tick)
-        maxv, info = self.timetype._normPyInt(tock)
-
-        # Gaurding - this means that a 1 millisecond rnage must be produced
-        # and than minv must be less than maxv
-        if minv >= maxv:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg='Ival range must in (min, max) format')
-
-        return (minv, maxv), info
+        maxv, _ = self.timetype._normPyInt(tock)
+        return (minv, maxv), {}
 
     def merge(self, oldv, newv):
         mint = min(oldv[0], newv[0])
