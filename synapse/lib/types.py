@@ -771,7 +771,7 @@ class Ival(Type):
 
         if isinstance(valu, (str, int)):
             norm = self.norm(valu)[0]
-        elif isinstance(valu, list):
+        elif isinstance(valu, (list, tuple)):
             minv, maxv = self._normByTickTock(valu)[0]
             # Use has input the nullset in a comparison operation.
             if minv >= maxv:

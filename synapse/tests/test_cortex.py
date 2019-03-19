@@ -1292,8 +1292,6 @@ class CortexTest(s_t_utils.SynTest):
 
             await self.agenlen(1, core.eval('inet:fqdn +#bad $fqdnbad=#bad -> inet:dns:a:fqdn +.seen@=$fqdnbad'))
 
-            # await self.agenlen(1, core.eval('[ test:str=woot +#foo=(2015,2018) .seen=(2014,2016) ]'))
-
     async def test_cortex_storm_tagform(self):
 
         async with self.getTestCore() as core:
