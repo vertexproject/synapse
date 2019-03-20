@@ -17,10 +17,12 @@ def parse(argv):
 
     https = os.getenv('SYN_CORTEX_HTTPS', '4443')
     telep = os.getenv('SYN_CORTEX_TELEPATH', 'tcp://0.0.0.0:27492/')
+    telen = os.getenv('SYN_CORTEX_NAME', None)
 
     pars = argparse.ArgumentParser(prog='synapse.servers.cortex')
     pars.add_argument('--telepath', default=telep, help='The telepath URL to listen on.')
     pars.add_argument('--https', default=https, dest='port', type=int, help='The port to bind for the HTTPS/REST API.')
+    pars.add_argument('--name', default=telen, help='The (optional) additional name to share the Cortex as.')
     pars.add_argument('coredir', help='The directory for the cortex to use for storage.')
 
     return pars.parse_args(argv)
@@ -42,6 +44,10 @@ async def main(argv, outp=s_output.stdout):
 
         outp.printf('...cortex API (https): %s' % (opts.port,))
         await core.addHttpsPort(opts.port)
+
+        if opts.name:
+            outp.printf(f'...cortex additional share name: {opts.name}')
+            core.dmon.share(opts.name, core)
 
         return core
 
