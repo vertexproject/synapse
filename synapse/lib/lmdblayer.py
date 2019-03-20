@@ -96,7 +96,7 @@ class LmdbLayer(s_layer.Layer):
         logger.info('Pre-010 %s migration starting.  Total rows: %d...', dbname, entries)
 
         def progfunc(count):
-            logger.info('Progress %d/%d (%2.2f%)', count, entries, count / entries * 100)
+            logger.info('Progress %d/%d (%2.2f%%)', count, entries, count / entries * 100)
 
         oldslab.copydb(olddb, newslab, destdbname=dbname, progresscb=progfunc)
         logger.info('Pre-010 %s migration copying done.  Deleting from old location...', dbname)
