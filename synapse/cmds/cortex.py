@@ -364,7 +364,7 @@ class StormCmd(s_cli.Cmd):
 
         try:
 
-            async for mesg in core.storm(text, opts=stormopts):
+            async for mesg in await core.storm(text, opts=stormopts):
 
                 await self._cmd_cli.fire('storm:mesg', mesg=mesg)
 
