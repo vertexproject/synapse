@@ -100,7 +100,7 @@ class LmdbLayer(s_layer.Layer):
 
         oldslab.copydb(olddb, newslab, destdbname=dbname, progresscb=progfunc)
         logger.info('Pre-010 %s migration copying done.  Deleting from old location...', dbname)
-        oldslab.dropdb(olddb)
+        oldslab.dropdb(dbname)
         logger.info('Pre-010 %s migration completed.', dbname)
 
         return True

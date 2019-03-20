@@ -21,6 +21,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             path = os.path.join(dirn, 'test.lmdb')
 
+            await self.asyncraises(s_exc.BadArg, s_lmdbslab.Slab.anit(path, map_size=None))
+
             slab = await s_lmdbslab.Slab.anit(path, map_size=1000000)
 
             foo = slab.initdb('foo')
@@ -87,13 +89,16 @@ class LmdbSlabTest(s_t_utils.SynTest):
             path2 = os.path.join(dirn, 'test2.lmdb')
             async with await s_lmdbslab.Slab.anit(path2, map_size=512 * 1024) as slab2:
                 with patch('synapse.lib.lmdbslab.PROGRESS_PERIOD', 2):
+
                     self.eq(4, slab.copydb(foo2, slab2, destdbname='foo2', progresscb=progfunc))
                     self.gt(vardict.get('prog', 0), 0)
 
             # Test slab.drop and slab.dbexists
             self.true(slab.dbexists('foo2'))
-            slab.dropdb(foo2)
+            slab.dropdb('foo2')
             self.false(slab.dbexists('foo2'))
+
+            self.none(slab.dropdb('notadb'))
 
             # start a scan and then fini the whole db...
             scan = slab.scanByPref(b'\x00', db=foo)
@@ -103,14 +108,38 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             self.raises(s_exc.IsFini, next, scan)
 
+    async def test_lmdbslab_maxsize(self):
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'test.lmdb')
+
+            my_maxsize = 400000
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, maxsize=my_maxsize) as slab:
+                foo = slab.initdb('foo', dupsort=True)
+                byts = b'\x00' * 256
+
+                # Trigger an out-of-space
+                try:
+                    for i in range(400):
+                        slab.put(b'\xff\xff\xff\xff' + s_common.guid().encode('utf8'), byts, db=foo)
+
+                    # Should have hit a DbOutOfSpace exception by now
+                    self.true(0)
+
+                except s_exc.DbOutOfSpace:
+                    pass
+
+            # lets ensure our maxsize persisted and it caps the mapsize
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, readonly=True) as newdb:
+                self.eq(my_maxsize, newdb.mapsize)
+                self.eq(my_maxsize, newdb.maxsize)
+
     async def test_lmdbslab_grow(self):
 
         with self.getTestDir() as dirn:
 
             path = os.path.join(dirn, 'test.lmdb')
-            my_maxsize = 400000
 
-            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000, maxsize=my_maxsize) as slab:
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
 
                 foo = slab.initdb('foo', dupsort=True)
                 foo2 = slab.initdb('foo2', dupsort=False)
@@ -158,29 +187,17 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(count - 1, sum(1 for _ in iter))
                 self.eq(99, sum(1 for _ in iter2))
 
-                # Trigger an out-of-space
-                try:
-                    for i in range(400):
-                        slab.put(b'\xff\xff\xff\xff' + s_common.guid().encode('utf8'), byts, db=foo)
-
-                    # Should have hit a DbOutOfSpace exception
-                    self.true(0)
-
-                except s_exc.DbOutOfSpace:
-                    pass
-
             # lets ensure our mapsize / growsize persisted, and make sure readonly works
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, readonly=True) as newdb:
-                self.eq(my_maxsize, newdb.mapsize)
 
                 self.eq(10000, newdb.growsize)
-                self.eq(my_maxsize, newdb.maxsize)
                 foo = newdb.initdb('foo', dupsort=True)
                 for _, _ in newdb.scanByRange(b'', db=foo):
                     count += 1
                 self.gt(count, 300)
 
                 # Make sure readonly is really readonly
+                self.raises(s_exc.IsReadOnly, newdb.dropdb, 'foo')
                 self.raises(s_exc.IsReadOnly, newdb.put, b'1234', b'3456')
                 self.raises(s_exc.IsReadOnly, newdb.replace, b'1234', b'3456')
                 self.raises(s_exc.IsReadOnly, newdb.pop, b'1234')
@@ -340,34 +357,40 @@ class LmdbSlabTest(s_t_utils.SynTest):
         '''
         forcecommit in runSyncLoop can very occasionally trigger a mapfull
         '''
-        fake_confdefs = (  # type: ignore
+        fake_confdefs = (
             ('lmdb:mapsize', {'type': 'int', 'defval': s_const.mebibyte}),
             ('lmdb:maxsize', {'type': 'int', 'defval': None}),
             ('lmdb:growsize', {'type': 'int', 'defval': 128 * s_const.kibibyte}),
             ('lmdb:readahead', {'type': 'bool', 'defval': True}),
         )
         with patch('synapse.lib.lmdblayer.LmdbLayer.confdefs', fake_confdefs):
-            batchsize = 1000
-            numbatches = 4
+            batchsize = 4000
+            numbatches = 2
             async with self.getTestCore() as core:
+                before_mapsize = core.layer.layrslab.mapsize
                 for i in range(numbatches):
                     async with await core.snap() as snap:
                         ips = ((('test:int', i * 1000000 + x), {'props': {'loc': 'us'}}) for x in range(batchsize))
                         await alist(snap.addNodes(ips))
+                        # Wait for the syncloop to run
+                        await asyncio.sleep(1.1)
 
-                await alist(core.streamstorm('test:int:loc=us | delnode'))
+                # Verify that it hit
+                self.gt(core.layer.layrslab.mapsize, before_mapsize)
 
-                async def lotsOfWrites():
-                    for i in range(numbatches):
-                        async with await core.snap() as snap:
-                            ips = ((('test:int', 20_000_000 + i * 1000000 + x), {'props': {'loc': 'cn'}})
-                                   for x in range(batchsize))
-                            await alist(snap.addNodes(ips))
-                        await asyncio.sleep(0.1)
+    async def test_slab_mapfull_drop(self):
+        '''
+        Test a mapfull in the middle of a dropdb
+        '''
+        with self.getTestDir() as dirn:
 
-                task = core.schedCoro(lotsOfWrites())
+            path = os.path.join(dirn, 'test.lmdb')
+            data = [i.to_bytes(4, 'little') for i in range(1000)]
 
-                nodes_left = await alist(core.eval('test:int:loc=us'))
-                self.len(0, nodes_left)
-
-                await task
+            async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000) as slab:
+                before_mapsize = slab.mapsize
+                kvpairs = [(x, x) for x in data]
+                slab.putmulti(kvpairs)
+                slab.dropdb('foo')
+                self.false(slab.dbexists('foo'))
+                self.gt(slab.mapsize, before_mapsize)
