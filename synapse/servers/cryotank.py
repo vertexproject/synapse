@@ -17,10 +17,12 @@ def parse(argv):
 
     https = os.getenv('SYN_CRYOTANK_HTTPS', '4443')
     telep = os.getenv('SYN_CRYOTANK_TELEPATH', 'tcp://0.0.0.0:27492/')
+    telen = os.getenv('SYN_CRYOTANK_NAME', None)
 
     pars = argparse.ArgumentParser(prog='synapse.servers.cryotank')
     pars.add_argument('--telepath', default=telep, help='The telepath URL to listen on.')
     pars.add_argument('--https', default=https, dest='port', type=int, help='The port to bind for the HTTPS/REST API.')
+    pars.add_argument('--name', default=telen, help='The (optional) additional name to share the Cryotank as.')
     pars.add_argument('cryodir', help='The directory for the cryotank server to use for storage.')
 
     return pars.parse_args(argv)
@@ -42,6 +44,10 @@ async def main(argv, outp=s_output.stdout):
 
         outp.printf('...cryotank API (https): %s' % (opts.port,))
         await cryo.addHttpsPort(opts.port)
+
+        if opts.name:
+            outp.printf(f'...cryotank additional share name: {opts.name}')
+            cryo.dmon.share(opts.name, cryo)
 
         return cryo
 
