@@ -1,3 +1,4 @@
+import os
 import ssl
 import socket
 import asyncio
@@ -10,6 +11,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.share as s_share
 
@@ -496,3 +498,19 @@ class TeleTest(s_t_utils.SynTest):
 
             async with await s_telepath.openurl(f'tcp://{addr}:{port}/') as prox:
                 self.eq('hiya', await prox.echo('hiya'))
+
+    async def test_url_cell(self):
+
+        with self.getTestDir(chdir=True) as dirn:
+
+            path = os.path.join(dirn, 'cell')
+
+            async with await s_cell.Cell.anit(path) as cell:
+
+                # test a relative cell:// url
+                async with await s_telepath.openurl('cell://cell') as prox:
+                    self.eq('cell', await prox.getCellType())
+
+                # test an absolute cell:// url
+                async with await s_telepath.openurl(f'cell://{path}') as prox:
+                    self.eq('cell', await prox.getCellType())

@@ -646,8 +646,8 @@ async def openurl(url, **opts):
     if scheme == 'cell':
         # cell:///path/to/celldir:share
         # cell://rel/path/to/celldir:share
-        name = '*'
         path = info.get('path')
+        name = info.get('name', '*')
 
         # support cell://<relpath>/<to>/<cell>
         # by detecting host...
@@ -669,7 +669,8 @@ async def openurl(url, **opts):
 
     else:
 
-        name = info.get('path')[1:]
+        path = info.get('path')
+        name = info.get('name', path[1:])
 
         sslctx = None
         if scheme == 'ssl':

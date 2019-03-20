@@ -853,7 +853,7 @@ class SynTest(unittest.TestCase):
         return await s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
     @contextlib.contextmanager
-    def getTestDir(self, mirror=None, copyfrom=None):
+    def getTestDir(self, mirror=None, copyfrom=None, chdir=False):
         '''
         Get a temporary directory for test purposes.
         This destroys the directory afterwards.
@@ -873,25 +873,32 @@ class SynTest(unittest.TestCase):
         Returns:
             str: The path to a temporary directory.
         '''
+        curd = os.getcwd()
         tempdir = tempfile.mkdtemp()
 
         try:
 
+            dstpath = tempdir
+
             if mirror is not None:
                 srcpath = self.getTestFilePath(mirror)
-                dstpath = os.path.join(tempdir, 'mirror')
+                dstpath = os.path.join(dstpath, 'mirror')
                 shutil.copytree(srcpath, dstpath)
-                yield dstpath
 
             elif copyfrom is not None:
-                dstpath = os.path.join(tempdir, 'mirror')
+                dstpath = os.path.join(dstpath, 'mirror')
                 shutil.copytree(copyfrom, dstpath)
-                yield dstpath
 
-            else:
-                yield tempdir
+            if chdir:
+                os.chdir(dstpath)
+
+            yield dstpath
 
         finally:
+
+            if chdir:
+                os.chdir(curd)
+
             shutil.rmtree(tempdir, ignore_errors=True)
 
     def getTestFilePath(self, *names):

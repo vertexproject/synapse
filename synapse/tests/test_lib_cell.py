@@ -131,3 +131,24 @@ class CellTest(s_t_utils.SynTest):
                 async with await s_cell.Cell.anit(longdirn) as cell:
                     self.none(cell.dmon.addr)
                 self.true(await stream.wait(1))
+
+    async def test_cell_setuser(self):
+
+        with self.getTestDir() as dirn:
+
+            async with await s_cell.Cell.anit(dirn) as cell:
+
+                async with cell.getLocalProxy() as prox:
+
+                    self.eq('root', (await prox.getCellUser())['name'])
+
+                    with self.raises(s_exc.NoSuchUser):
+                        await prox.setCellUser(s_common.guid())
+
+                    user = await prox.addAuthUser('visi')
+
+                    self.true(await prox.setCellUser(user['iden']))
+                    self.eq('visi', (await prox.getCellUser())['name'])
+
+                    with self.raises(s_exc.AuthDeny):
+                        await prox.setCellUser(s_common.guid())

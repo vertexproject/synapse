@@ -17,6 +17,7 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
+import synapse.lib.hive as s_hive
 import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
@@ -723,6 +724,11 @@ class Cortex(s_cell.Cell):
 
         if not path:
             return await CoreApi.anit(self, link, user)
+
+        # allow an admin to directly open the cortex hive
+        # (perhaps this should be a Cell() level pattern)
+        if path[0] == 'hive' and user.admin:
+            return await s_hive.HiveApi.anit(self.hive, user)
 
         if path[0] == 'layer':
 
