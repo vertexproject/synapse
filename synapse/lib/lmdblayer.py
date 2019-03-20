@@ -104,7 +104,7 @@ class LmdbLayer(s_layer.Layer):
             return False
 
         if newslab.dbexists(dbname):
-            logger.info('Incomplete migration detected.  Dropping new splices to restart...')
+            logger.warning('Incomplete migration detected.  Dropping new splices to restart.')
             newslab.dropdb(dbname)
             logger.info('New splice dropping complete.')
 

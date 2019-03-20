@@ -81,9 +81,6 @@ class LayerTest(s_t_utils.SynTest):
                     mesgs = stream.read()
                     self.isin('Incomplete migration', mesgs)
 
-                    # Make sure progress got printed out
-                    self.isin('Progress', mesgs)
-
             with self.getLoggerStream('synapse.lib.lmdblayer') as stream:
                 # Make sure the third time around we didn't migrate and we still have our splices
                 async with await s_cortex.Cortex.anit(dirn) as core:
@@ -91,8 +88,7 @@ class LayerTest(s_t_utils.SynTest):
 
                 self.eq(splices1, splices3)
 
-            # Test for no hint of migration happening
-            stream.seek(0)
-            mesgs = stream.read()
-            self.notin('migration', mesgs)
-
+                # Test for no hint of migration happening
+                stream.seek(0)
+                mesgs = stream.read()
+                self.notin('migration', mesgs)
