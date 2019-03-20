@@ -118,15 +118,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 byts = b'\x00' * 256
 
                 # Trigger an out-of-space
-                try:
+                with self.raises(s_exc.DbOutOfSpace):
+
                     for i in range(400):
                         slab.put(b'\xff\xff\xff\xff' + s_common.guid().encode('utf8'), byts, db=foo)
-
-                    # Should have hit a DbOutOfSpace exception by now
-                    self.true(0)
-
-                except s_exc.DbOutOfSpace:
-                    pass
 
             # lets ensure our maxsize persisted and it caps the mapsize
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, readonly=True) as newdb:
