@@ -25,9 +25,18 @@ class EconModule(s_module.CoreModule):
                 ('econ:purchase', ('guid', {}), {
                     'doc': 'A purchase event.'}),
 
+                ('econ:acct:bill', ('guid', {}), {
+                    'doc': 'A bill or payment request issued as part of a financial transaction.'}),
+
+                ('econ:acct:payment', ('guid', {}), {
+                    'doc': 'A payment moving currency from one monitary instrument to another.'}),
+
                 # TODO currency / monitary units / crypto currency
                 # econ:acct:bill econ:acct:payment
                 # econ:goods econ:services
+                # econ:bank:route
+                # econ:bank:acct
+                # econ:bank:account = (route, acct)
             ),
 
             'forms': (
@@ -82,18 +91,42 @@ class EconModule(s_module.CoreModule):
                     ('from:contact', ('ps:contact', {}), {
                         'doc': 'The contact information used to sell the item.'}),
 
-                    # TODO price
-                    ('pay:card', ('econ:pay:card', {}), {
-                        'doc': 'The payment card used for the purchase.'}),
-
                     ('time', ('time', {}), {
                         'doc': 'The time of the purchase.'}),
 
                     ('place', ('geo:place', {}), {
                         'doc': 'The place where the purchase took place.'}),
 
+                    # TODO price
                     ('item', ('ndef', {}), {
                         'doc': 'A node representing the purchased item.'}),
+                )),
+
+                ('econ:acct:payment', {}, (
+
+                    ('from:org', ('ou:org', {}), {
+                        'doc': 'The organization making the payment.'}),
+
+                    ('from:person', ('ps:person', {}), {
+                        'doc': 'The person making the payment.'}),
+
+                    ('from:pay:card', ('econ:pay:card', {}), {
+                        'doc': 'The payment card making the payment.'}),
+
+                    ('from:contact', ('ps:contact', {}), {
+                        'doc': 'Contact information for the person/org being paid.'}),
+
+                    ('to:org', ('ou:org', {}), {
+                        'doc': 'The organization being paid.'}),
+
+                    ('to:contact', ('ou:org', {}), {
+                        'doc': 'Contact information for the person/org being paid.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the payment was processed.'}),
+                    }),
+                    ('purchase', ('econ:purchase', {}), {
+                        'doc': 'The purchase which the payment was paying for.'}),
                 )),
             ),
         }),)
