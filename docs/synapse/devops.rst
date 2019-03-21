@@ -1,12 +1,12 @@
-.. _devopsguide:
-
 .. toctree::
     :titlesonly:
+
+.. _devopsguide:
 
 Synapse DevOps Guide
 ####################
 
-TBD - See (:ref:`quickstart`) for current docs.
+TBD - See :ref:`quickstart` for current docs.
 
 Cortex
 ======
