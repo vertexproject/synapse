@@ -88,11 +88,18 @@ class Migration(s_base.Base):
         '''
         Rename a form within all the layers.
         '''
+        logger.info(f'Migrating [{oldn}] to [{newn}]')
+
         async with self.getTempSlab() as slab:
 
+            i = 0
             async for buid, valu in self.getFormTodo(oldn):
 
                 await self.editNodeNdef((oldn, valu), (newn, valu))
+
+                i = i + 1
+                if i and i % 50000 == 0:
+                    logger.info('Migrated {i} nodes.')
 
     async def editNdefProps(self, oldndef, newndef):
         '''
