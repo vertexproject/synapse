@@ -53,14 +53,19 @@ What's New?
 
 The release of Synapse 0.1.0 represents a huge leap forward from the previous Synapse releases.  Rather than attempt to list them here, please see the (:ref:`userguide`) for details!
 
-Coming Soon
------------
+Next Release
+------------
 
-0.1.x
+Features
+~~~~~~~~
+
+*storm --show*
+    The ``storm`` command now supports the option ``--show <names>`` to limit the types of events sent from the server.
+
+Fixes
 ~~~~~
 
-- synapse.servers.cortex --mirror option to make mirror configuration easy
-- storm --interactive command in synapse.tools.cmdr to have storm specific sub-cli
+* Fix for rare startup-issue when migrating 0.1.0-pre splices to 0.1.x.
 
 FAQ
 ===
