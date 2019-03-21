@@ -31,8 +31,8 @@ mustquote = set(' \t\n),=]}|')
 valmeh = whites.union({'(', ')', '=', ',', '[', ']', '{', '}'})
 
 scmdre = regex.compile('[a-z][a-z0-9.]+')
-univre = regex.compile(r'\.[a-z0-9]+([:\.][a-z0-9]+)*')
-propre = regex.compile(r'[a-z][a-z0-9]+(:[a-z0-9]+)+([:\.][a-z][a-z0-9]+)*')
+univre = regex.compile(r'\.[a-z0-9]+([:.][a-z0-9]+)*')
+propre = regex.compile(r'[a-z][a-z0-9]+(:[a-z0-9]+)+([:.][a-z][a-z0-9]+)*')
 formre = regex.compile(r'[a-z][a-z0-9]+(:[a-z0-9]+)+')
 
 def isPropName(name):
