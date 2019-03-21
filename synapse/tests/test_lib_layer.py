@@ -1,5 +1,10 @@
 import contextlib
+from unittest.mock import patch
+
+import synapse.exc as s_exc
+import synapse.cortex as s_cortex
 import synapse.tests.utils as s_t_utils
+import synapse.lib.layer as s_layer
 
 
 async def iterPropForm(self, form=None, prop=None):
@@ -49,6 +54,41 @@ class LayerTest(s_t_utils.SynTest):
 
     async def test_splicemigration_pre010(self):
         async with self.getRegrCore('pre-010') as core:
-            splices = await s_t_utils.alist(core.layer.splices(0, 1000))
-            self.gt(len(splices), 100)
+            splices1 = await s_t_utils.alist(core.layer.splices(0, 1000))
+            self.gt(len(splices1), 100)
             self.false(core.layer.layrslab.dbexists('splices'))
+
+        def baddrop(self, name):
+            raise s_exc.DbOutOfSpace()
+
+        with self.getRegrDir('cortexes', 'pre-010') as dirn:
+            # Simulate a crash during recovery
+            with self.raises(s_exc.DbOutOfSpace):
+                with patch('synapse.lib.lmdbslab.Slab.dropdb', baddrop):
+                    async with await s_cortex.Cortex.anit(dirn) as core:
+                        pass
+
+            # Make sure when it comes back we're not stuck
+            with patch('synapse.lib.lmdbslab.PROGRESS_PERIOD', 50), patch('synapse.lib.lmdbslab.COPY_CHUNKSIZE', 50):
+                with self.getLoggerStream('synapse.lib.lmdblayer') as stream:
+                    async with await s_cortex.Cortex.anit(dirn) as core:
+                        splices2 = await s_t_utils.alist(core.layer.splices(0, 1000))
+                        self.false(core.layer.layrslab.dbexists('splices'))
+
+                    self.eq(splices1, splices2)
+
+                    stream.seek(0)
+                    mesgs = stream.read()
+                    self.isin('Incomplete migration', mesgs)
+
+            with self.getLoggerStream('synapse.lib.lmdblayer') as stream:
+                # Make sure the third time around we didn't migrate and we still have our splices
+                async with await s_cortex.Cortex.anit(dirn) as core:
+                    splices3 = await s_t_utils.alist(core.layer.splices(0, 1000))
+
+                self.eq(splices1, splices3)
+
+                # Test for no hint of migration happening
+                stream.seek(0)
+                mesgs = stream.read()
+                self.notin('migration', mesgs)

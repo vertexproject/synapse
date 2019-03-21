@@ -1,12 +1,12 @@
-.. _intro:
-
 .. toctree::
     :titlesonly:
+
+.. _intro:
 
 Introduction
 ############
 
-**Synapse** is a "batteries included" intelligence analysis platform designed to help analysts and algorithms answer complex questions which require the fusion of data across different disciplines.  It was developed as the successor to a proprietary graph-based analysis platform named **Nucleus** which was used within Mandiant_ to produce the APT1_Report_.  While Synapse was initially designed for use in the cyber threat intelligence discipline, the built-in data model has expanded into including a wide variety of subject matter areas such as geopolitical, geospatial, human behavior, and even the physical world.  For an analyst's perspective see the (:ref:`bkd-why-synapse`) section of the (:ref:`userguide`).
+**Synapse** is a "batteries included" intelligence analysis platform designed to help analysts and algorithms answer complex questions which require the fusion of data across different disciplines.  It was developed as the successor to a proprietary graph-based analysis platform named **Nucleus** which was used within Mandiant_ to produce the APT1_Report_.  While Synapse was initially designed for use in the cyber threat intelligence discipline, the built-in data model has expanded into including a wide variety of subject matter areas such as geopolitical, geospatial, human behavior, and even the physical world.  For an analyst's perspective see the :ref:`bkd-why-synapse` section of the :ref:`userguide`.
 
 Within a Synapse **Cortex**, knowledge is organized within a hypergraph_. Access to the unified Cortex data model allows subject matter experts to perform and record detailed analysis within their area of expertise and answer inter-disciplinary questions facilitated by other analyst's annotations.  Each assertion made by an analyst or algorithm may be recorded to build toward higher-level assertions, such as cyber threat actor attribution, which require extensive supporting evidence.  The "decomposability" of higher-level assertions allows peer review and decision-maker confirmation.  This helps to prevent analysis predicated on "because so-and-so said so" and helps analysts collaborate and learn from each other's work.
 
@@ -19,11 +19,11 @@ A Synapse Cortex uses the high-performance key-value store LMDB_ for indexing an
 
 *Rich Built-In/Extensible Data Model*
 
-The Synapse data model has been battle-hardened over 5 years through the lessons learned during intelligence analysis and production.  See (:ref:`userguide`) for extensive details.
+The Synapse data model has been battle-hardened over 5 years through the lessons learned during intelligence analysis and production.  See the :ref:`userguide` for extensive details.
 
 *Simple/Powerful Query Language*
 
-The Storm query language was designed with analysts in mind.  Storm seeks to strike a balance of simplicity and power to provide analysts a lightweight syntax to quickly express the desired data and relationships of interest while also making it possible to perform complex analysis.  Years of analyst use cases and observations have gone into creating an efficient way to not only perform analysis, but record the resulting assertions.  See (:ref:`userguide`) for details on the Storm query language and Cortex based analysis concepts.
+The Storm query language was designed with analysts in mind.  Storm seeks to strike a balance of simplicity and power to provide analysts a lightweight syntax to quickly express the desired data and relationships of interest while also making it possible to perform complex analysis.  Years of analyst use cases and observations have gone into creating an efficient way to not only perform analysis, but record the resulting assertions.  See the :ref:`userguide` for details on the Storm query language and Cortex-based analysis concepts.
 
 *HTTPS API*
 
@@ -51,7 +51,7 @@ What's New?
 0.1.0
 -----
 
-The release of Synapse 0.1.0 represents a huge leap forward from the previous Synapse releases.  Rather than attempt to list them here, please see the (:ref:`userguide`) for details!
+The release of Synapse 0.1.0 represents a huge leap forward from the previous Synapse releases.  Rather than attempt to list them here, please see the :ref:`userguide` for details!
 
 Next Release
 ------------
@@ -80,7 +80,7 @@ Performance, big-data, scalability, and best use?
 
 A Synapse Cortex is a knowledge system which must deconflict each new piece of information received to determine if the knowledge is already present.  This makes it ideal for creating a permanent record of relevant observations and analysis results.  However, the deconfliction required for a knowledge system is fundamentally at-odds with the idea of an infinitely scalable stream of instance/temporal data.  A Cortex may easily grow to billions of nodes, but is not designed for use cases involving billions of records per-day.  In a typical big-data/data-lake architecture, a Cortex is optimally used to analyze data resulting from queries to existing platforms and fuse data relevant to an analyst's investigation.
 
-We currently operate several Cortex instances in production use that contain on the order of billions of nodes on a single server.  Additionally, a Cortex may also be configured to fuse data from a remote Cortex into a single view.  This allows for simple sharding based on data ingest sources.  To parallelize read-performance and maximize availability, a Cortex may have one or more mirrors configured.  Additional information on advanced configurations will be available shortly in the (:ref:`devopsguide`)
+We currently operate several Cortex instances in production use that contain on the order of billions of nodes on a single server.  Additionally, a Cortex may also be configured to fuse data from a remote Cortex into a single view.  This allows for simple sharding based on data ingest sources.  To parallelize read-performance and maximize availability, a Cortex may have one or more mirrors configured.  Additional information on advanced configurations will be available shortly in the :ref:`devopsguide`.
 
 What kind of server(s) should I spec out?
 -----------------------------------------

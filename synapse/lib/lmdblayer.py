@@ -61,6 +61,9 @@ class LmdbLayer(s_layer.Layer):
                                                      growsize=growsize, writemap=True, readahead=readahead)
         self.onfini(self.spliceslab.fini)
 
+        metadb = self.layrslab.initdb('meta')
+        self.metadict = s_lmdbslab.SlabDict(self.layrslab, metadb)
+
         self._migrate_splices_pre010()
 
         self.dbs = {}
@@ -83,7 +86,13 @@ class LmdbLayer(s_layer.Layer):
 
         Returns (bool): True if a migration occurred, else False
         '''
+        donekey = f'migrdone:{dbname}'
+
+        if self.metadict.get(donekey, False):
+            return
+
         if not self.layrslab.dbexists(dbname):
+            self.metadict.set(donekey, True)
             return False
 
         oldslab = self.layrslab
@@ -91,17 +100,25 @@ class LmdbLayer(s_layer.Layer):
 
         entries = oldslab.stat(olddb)['entries']
         if not entries:
+            self.metadict.set(donekey, True)
             return False
+
+        if newslab.dbexists(dbname):
+            logger.warning('Incomplete migration detected.  Dropping new splices to restart.')
+            newslab.dropdb(dbname)
+            logger.info('New splice dropping complete.')
 
         logger.info('Pre-010 %s migration starting.  Total rows: %d...', dbname, entries)
 
         def progfunc(count):
-            logger.info('Progress %d/%d (%2.2f%)', count, entries, count / entries * 100)
+            logger.info('Progress %d/%d (%2.2f%%)', count, entries, count / entries * 100)
 
         oldslab.copydb(olddb, newslab, destdbname=dbname, progresscb=progfunc)
         logger.info('Pre-010 %s migration copying done.  Deleting from old location...', dbname)
-        oldslab.dropdb(olddb)
+        oldslab.dropdb(dbname)
         logger.info('Pre-010 %s migration completed.', dbname)
+
+        self.metadict.set(donekey, True)
 
         return True
 
