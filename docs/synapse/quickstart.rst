@@ -1,7 +1,7 @@
-.. _quickstart:
-
 .. toctree::
     :titlesonly:
+
+.. _quickstart:
 
 Getting Started
 ###############
@@ -77,6 +77,8 @@ The following docker-compose.yml file can be used to deploy a Cortex server usin
                 - "27492:27492"
 
 The server may then be started using typical docker-compose commands or more advanced orchestration.
+
+.. _initial-roles:
 
 Adding Initial Users/Roles/Rules
 ================================
