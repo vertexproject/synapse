@@ -1249,7 +1249,9 @@ class Str(StrBase):
             if match is None:
                 raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='regex does not match')
 
-            info['subs'] = match.groupdict()
+            subs = match.groupdict()
+            if subs:
+                info['subs'] = subs
 
         return norm, info
 
