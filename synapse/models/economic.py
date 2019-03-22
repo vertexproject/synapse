@@ -80,20 +80,8 @@ class EconModule(s_module.CoreModule):
 
                 ('econ:purchase', {}, (
 
-                    ('by:org', ('ou:org', {}), {
-                        'doc': 'The organization which made the purchase.'}),
-
-                    ('by:person', ('ps:person', {}), {
-                        'doc': 'The person who made the purchase.'}),
-
                     ('by:contact', ('ps:contact', {}), {
                         'doc': 'The contact information used to make the purchase.'}),
-
-                    ('from:org', ('ou:org', {}), {
-                        'doc': 'The organization which sold the item.'}),
-
-                    ('from:person', ('ps:person', {}), {
-                        'doc': 'The person who sold the item.'}),
 
                     ('from:contact', ('ps:contact', {}), {
                         'doc': 'The contact information used to sell the item.'}),
@@ -118,29 +106,19 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The purchase event which acquired an item.'}),
                     ('item', ('ndef', {}), {
                         'doc': 'A reference to the item that was acquired.'}),
+                    ('item:form', ('str', {}), {
+                        'doc': 'The form of item purchased.'}),
                 )),
 
                 ('econ:acct:payment', {}, (
 
-                    ('from:org', ('ou:org', {}), {
-                        'doc': 'The organization making the payment.'}),
-
-                    ('from:person', ('ps:person', {}), {
-                        'doc': 'The person making the payment.'}),
-
                     ('from:pay:card', ('econ:pay:card', {}), {
                         'doc': 'The payment card making the payment.'}),
 
-                    ('from:contact', ('ps:contact', {}), {
+                    ('to:contact', ('ps:contact', {}), {
                         'doc': 'Contact information for the person/org being paid.'}),
 
-                    ('to:org', ('ou:org', {}), {
-                        'doc': 'The organization being paid.'}),
-
-                    ('to:person', ('ps:person', {}), {
-                        'doc': 'The person being paid.'}),
-
-                    ('to:contact', ('ou:org', {}), {
+                    ('from:contact', ('ps:contact', {}), {
                         'doc': 'Contact information for the person/org being paid.'}),
 
                     ('time', ('time', {}), {

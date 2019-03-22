@@ -17,23 +17,13 @@ class EconTest(s_utils.SynTest):
             self.eq(402400, card.get('pan:iin'))
 
             place = s_common.guid()
-            byorg = s_common.guid()
-            fromorg = s_common.guid()
-
             bycont = s_common.guid()
             fromcont = s_common.guid()
 
-            byps = s_common.guid()
-            fromps = s_common.guid()
             text = f'''[
                 econ:purchase="*"
 
-                    :by:org={byorg}
-                    :by:person={byps}
                     :by:contact={bycont}
-
-                    :from:org={fromorg}
-                    :from:person={fromps}
                     :from:contact={fromcont}
 
                     :time=20180202
@@ -45,12 +35,7 @@ class EconTest(s_utils.SynTest):
 
             perc = (await core.nodes(text))[0]
 
-            self.eq(byorg, perc.get('by:org'))
-            self.eq(byps, perc.get('by:person'))
             self.eq(bycont, perc.get('by:contact'))
-
-            self.eq(fromorg, perc.get('from:org'))
-            self.eq(fromps, perc.get('from:person'))
             self.eq(fromcont, perc.get('from:contact'))
 
             self.eq(True, perc.get('paid'))
@@ -59,20 +44,20 @@ class EconTest(s_utils.SynTest):
             self.eq(1517529600000, perc.get('time'))
             self.eq(place, perc.get('place'))
 
-            self.len(2, await core.nodes('econ:purchase -> ou:org | uniq'))
-            self.len(2, await core.nodes('econ:purchase -> ps:person | uniq'))
+            self.len(1, await core.nodes('econ:purchase -> geo:place'))
             self.len(2, await core.nodes('econ:purchase -> ps:contact | uniq'))
-            self.len(1, await core.nodes('econ:purchase -> geo:place | uniq'))
 
             acqu = (await core.nodes(f'[ econ:acquired=({perc.ndef[1]}, (inet:fqdn,vertex.link)) ]'))[0]
             self.eq(perc.ndef[1], acqu.get('purchase'))
+
+            self.len(1, await core.nodes('econ:acquired:item:form=inet:fqdn'))
 
             self.eq(('inet:fqdn', 'vertex.link'), acqu.get('item'))
 
             text = f'''[
                 econ:acct:payment="*"
-                    :from:org={fromorg}
-                    :from:person={fromps}
+
+                    :to:contact={bycont}
                     :from:contact={fromcont}
 
                     :from:pay:card={card.ndef[1]}
@@ -80,5 +65,10 @@ class EconTest(s_utils.SynTest):
                     :time=20180202
                     :purchase={perc.ndef[1]}
             ]'''
-            paym = (await core.nodes(text))[0]
-            self.eq(card.ndef[1], paym.get('from:pay:card'))
+            await core.nodes(text)
+
+            self.len(1, await core.nodes('econ:acct:payment +:time@=(2017,2019) +{-> econ:pay:card +:name="bob smith"}'))
+
+            self.len(1, await core.nodes('econ:acct:payment -> econ:purchase'))
+            self.len(1, await core.nodes('econ:acct:payment -> econ:pay:card'))
+            self.len(2, await core.nodes('econ:acct:payment -> ps:contact | uniq'))
