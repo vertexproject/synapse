@@ -1401,7 +1401,7 @@ class Parser:
                 self.offs += 1
                 return args, kwargs
 
-            if self.nextre('^[a-zA-Z][a-zA-Z0-9_]+='):
+            if self.nextre('^[a-zA-Z][a-zA-Z0-9_]*='):
                 kwargs.append(self.kwarg())
             else:
                 args.append(self.valu())
