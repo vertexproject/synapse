@@ -24,11 +24,14 @@ propset = set(':abcdefghijklmnopqrstuvwxyz_0123456789')
 tagfilt = varset.union({'#', '*'})
 alphaset = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 
+
 cmdquote = set(' \t\n|}')
 mustquote = set(' \t\n),=]}|')
 
 # this may be used to meh() potentially unquoted values
 valmeh = whites.union({'(', ')', '=', ',', '[', ']', '{', '}'})
+
+recache = {}
 
 scmdre = regex.compile('[a-z][a-z0-9.]+')
 univre = regex.compile(r'\.[a-z][a-z0-9]+([:.][a-z0-9]+)*')
@@ -803,14 +806,21 @@ class Parser:
 
             self.ignore(whitespace)
 
-            self.nextmust('=')
+            if self.nextstr('='):
 
-            self.ignore(whitespace)
+                self.offs += 1
 
-            valu = self.valu()
+                self.ignore(whitespace)
 
-            kids = (varn, valu)
-            return s_ast.VarSetOper(kids=kids)
+                valu = self.valu()
+
+                kids = (varn, valu)
+                return s_ast.VarSetOper(kids=kids)
+
+            # we will allow a free-standing varvalu to be
+            # evaluated here to allow library calls...
+            valu = self.varvalu(varn=varn)
+            return s_ast.VarEvalOper(kids=(valu,))
 
         if char in ('+', '-'):
             return self.filtoper()
@@ -1363,10 +1373,48 @@ class Parser:
         return s_ast.VarDeref(kids=[varv, varn])
 
     def varcall(self, varv):
-        args = s_ast.CallArgs(kids=self.valulist())
-        return s_ast.FuncCall(kids=[varv, args])
+        args, kwargs = self.callargs()
 
-    def varvalu(self):
+        args = s_ast.CallArgs(kids=args)
+        kwargs = s_ast.CallKwargs(kids=kwargs)
+
+        return s_ast.FuncCall(kids=[varv, args, kwargs])
+
+    def kwarg(self):
+        name = s_ast.Const(self.noms(varchars))
+        self.nextmust('=')
+        valu = self.valu()
+        return s_ast.CallKwarg(kids=(name, valu))
+
+    def callargs(self):
+
+        self.nextmust('(')
+
+        args = []
+        kwargs = []
+
+        while True:
+
+            self.ignore(whitespace)
+
+            if self.nextstr(')'):
+                self.offs += 1
+                return args, kwargs
+
+            if self.nextre('^[a-zA-Z][a-zA-Z0-9_]*='):
+                kwargs.append(self.kwarg())
+            else:
+                args.append(self.valu())
+
+            self.ignore(whitespace)
+
+            if self.nextstr(')'):
+                self.offs += 1
+                return args, kwargs
+
+            self.nextmust(',')
+
+    def varvalu(self, varn=None):
         '''
         $foo
         $foo.bar
@@ -1377,7 +1425,9 @@ class Parser:
 
         self.ignore(whitespace)
 
-        varn = self.varname()
+        if varn is None:
+            varn = self.varname()
+
         varv = s_ast.VarValue(kids=[varn])
 
         # handle derefs and calls...
@@ -1608,6 +1658,13 @@ class Parser:
             tokn += char
 
         return tokn
+
+    def nextre(self, text):
+        regx = recache.get(text)
+        if regx is None:
+            recache[text] = regx = regex.compile(text)
+
+        return regx.match(self.text[self.offs:])
 
     def nextstr(self, text):
 
