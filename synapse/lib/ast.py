@@ -498,6 +498,25 @@ class VarListSetOper(Oper):
         for name in self.kids[0].value():
             yield name
 
+class VarEvalOper(Oper):
+    '''
+    Facilitate a stand-alone operator that evaluates a var.
+    $foo.bar("baz")
+    '''
+    async def run(self, runt, genr):
+
+        if self.isRuntSafe(runt):
+
+            async for item in genr:
+                yield item
+
+            await self.kids[0].runtval(runt)
+
+        else:
+            async for node, path in genr:
+                await self.kids[0].compute(path)
+                yield node, path
+
 class SwitchCase(Oper):
 
     def prepare(self):
@@ -1561,6 +1580,9 @@ class CallArgs(RunValue):
     async def runtval(self, runt):
         return [await k.runtval(runt) for k in self.kids]
 
+class CallKwarg(CallArgs): pass
+class CallKwargs(CallArgs): pass
+
 class VarValue(RunValue):
 
     def prepare(self):
@@ -1604,12 +1626,16 @@ class FuncCall(RunValue):
     async def compute(self, path):
         func = await self.kids[0].compute(path)
         argv = await self.kids[1].compute(path)
-        return await func(*argv)
+        kwlist = await self.kids[2].compute(path)
+        kwargs = dict(kwlist)
+        return await func(*argv, **kwargs)
 
     async def runtval(self, runt):
         func = await self.kids[0].runtval(runt)
         argv = await self.kids[1].runtval(runt)
-        return await func(*argv)
+        kwlist = await self.kids[2].compute(runt)
+        kwargs = dict(kwlist)
+        return await func(*argv, **kwargs)
 
 class VarList(Value):
     pass
