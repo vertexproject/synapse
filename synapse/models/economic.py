@@ -7,8 +7,11 @@ class EconModule(s_module.CoreModule):
 
             'types': (
 
-                ('econ:pay:cvv', ('int', {}), {
+                ('econ:pay:cvv', ('str', {'regex': '^[0-9]{1,6}$'}), {
                     'doc': 'A Card Verification Value (CVV).'}),
+
+                ('econ:pay:pin', ('str', {'regex': '^[0-9]{3,6}$'}), {
+                    'doc': 'A Personal Identification Number.'}),
 
                 ('econ:pay:mii', ('int', {}), {
                     'doc': 'A Major Industry Identifier (MII).'}),
@@ -25,14 +28,16 @@ class EconModule(s_module.CoreModule):
                 ('econ:purchase', ('guid', {}), {
                     'doc': 'A purchase event.'}),
 
-                ('econ:acct:bill', ('guid', {}), {
-                    'doc': 'A bill or payment request issued as part of a financial transaction.'}),
+                ('econ:acquired', ('comp', {'fields': (('purchase', 'econ:purchase'), ('item', 'ndef'))}), {
+                    'doc': 'A relationship between a purchase event and a purchased item.'}),
 
                 ('econ:acct:payment', ('guid', {}), {
                     'doc': 'A payment moving currency from one monitary instrument to another.'}),
 
+                #CID
                 # TODO currency / monitary units / crypto currency
-                # econ:acct:bill econ:acct:payment
+                #('econ:acct:bill', ('guid', {}), {
+                    #'doc': 'A bill or payment request issued as part of a financial transaction.'}),
                 # econ:goods econ:services
                 # econ:bank:route
                 # econ:bank:acct
@@ -69,6 +74,9 @@ class EconModule(s_module.CoreModule):
 
                     ('cvv', ('econ:pay:cvv', {}), {
                         'doc': 'The Card Verification Value on the card.'}),
+
+                    ('pin', ('econ:pay:pin', {}), {
+                        'doc': 'The Personal Identification Number on the card.'}),
                 )),
 
                 ('econ:purchase', {}, (
@@ -98,8 +106,13 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The place where the purchase took place.'}),
 
                     # TODO price
+                )),
+
+                ('econ:acquired', {}, (
+                    ('purchase', ('econ:purchase', {}), {
+                        'doc': 'The purchase event which acquired an item.'}),
                     ('item', ('ndef', {}), {
-                        'doc': 'A node representing the purchased item.'}),
+                        'doc': 'A reference to the item that was acquired.'}),
                 )),
 
                 ('econ:acct:payment', {}, (
@@ -124,7 +137,7 @@ class EconModule(s_module.CoreModule):
 
                     ('time', ('time', {}), {
                         'doc': 'The time the payment was processed.'}),
-                    }),
+
                     ('purchase', ('econ:purchase', {}), {
                         'doc': 'The purchase which the payment was paying for.'}),
                 )),
