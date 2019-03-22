@@ -5,9 +5,9 @@ import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 
 def intify(x):
-    if isinstance(x, int):
-        return x
-    return int(x, 0)
+    if isinstance(x, str):
+        return int(x, 0)
+    return int(x)
 
 class StormType:
     '''
