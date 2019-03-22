@@ -35,13 +35,13 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[ inet:asn=$lib.min(20, 30) ]')
+            nodes = await core.nodes('[ inet:asn=$lib.min(20, 0x30) ]')
             self.len(1, nodes)
             self.eq(20, nodes[0].ndef[1])
 
-            nodes = await core.nodes('[ inet:asn=$lib.max(20, 30) ]')
+            nodes = await core.nodes('[ inet:asn=$lib.max(20, 0x30) ]')
             self.len(1, nodes)
-            self.eq(30, nodes[0].ndef[1])
+            self.eq(0x30, nodes[0].ndef[1])
 
             nodes = await core.nodes('[ inet:asn=$lib.len(asdf) ]')
             self.len(1, nodes)

@@ -4,6 +4,11 @@ import synapse.common as s_common
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 
+def intify(x):
+    if isinstance(x, int):
+        return x
+    return int(x, 0)
+
 class StormType:
     '''
     The base type for storm runtime value objects.
@@ -67,11 +72,11 @@ class LibBase(Lib):
         return len(item)
 
     async def _min(self, *vals):
-        ints = [int(x) for x in vals]
+        ints = [intify(x) for x in vals]
         return min(*ints)
 
     async def _max(self, *vals):
-        ints = [int(x) for x in vals]
+        ints = [intify(x) for x in vals]
         return max(*ints)
 
     async def _print(self, mesg):
@@ -91,7 +96,8 @@ class LibStr(Lib):
         })
 
     async def concat(self, *args):
-        return ''.join(args)
+        strs = [str(a) for a in args]
+        return ''.join(strs)
 
     async def format(self, text, **kwargs):
 
