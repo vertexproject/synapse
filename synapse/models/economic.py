@@ -32,9 +32,9 @@ class EconModule(s_module.CoreModule):
                     'doc': 'A relationship between a purchase event and a purchased item.'}),
 
                 ('econ:acct:payment', ('guid', {}), {
-                    'doc': 'A payment moving currency from one monitary instrument to another.'}),
+                    'doc': 'A payment moving currency from one monetary instrument to another.'}),
 
-                # TODO currency / monitary units / crypto currency
+                # TODO currency / monetary units / crypto currency
                 # econ:acct:bill
                 # econ:goods econ:services
 
@@ -63,7 +63,7 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The payment card MII.'}),
 
                     ('pan:iin', ('econ:pay:iin', {}), {
-                        'doc': 'The payment card MII.'}),
+                        'doc': 'The payment card IIN.'}),
 
                     ('name', ('ps:name', {}), {
                         'doc': 'The name as it appears on the card.'}),
