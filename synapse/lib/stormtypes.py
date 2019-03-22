@@ -52,6 +52,55 @@ class Lib(StormType):
         ctor = slib[2].get('ctor', Lib)
         return ctor(self.runt, name=path)
 
+class LibBase(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'len': self._len,
+            'min': self._min,
+            'max': self._max,
+            'dict': self._dict,
+            'print': self._print,
+        })
+
+    async def _len(self, item):
+        return len(item)
+
+    async def _min(self, *vals):
+        ints = [int(x) for x in vals]
+        return min(*ints)
+
+    async def _max(self, *vals):
+        ints = [int(x) for x in vals]
+        return max(*ints)
+
+    async def _print(self, mesg):
+        if not isinstance(mesg, str):
+            mesg = repr(mesg)
+        await self.runt.printf(mesg)
+
+    async def _dict(self, **kwargs):
+        return kwargs
+
+class LibStr(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'concat': self.concat,
+            'format': self.format,
+        })
+
+    async def concat(self, *args):
+        return ''.join(args)
+
+    async def format(self, text, **kwargs):
+
+        for name, valu in kwargs.items():
+            temp = '{%s}' % (name,)
+            text = text.replace(temp, str(valu))
+
+        return text
+
 class LibTime(Lib):
 
     def addLibFuncs(self):
@@ -125,7 +174,7 @@ class Node(Prim):
         tags = list(self.valu.tags.keys())
         if glob is not None:
             regx = s_cache.getTagGlobRegx(glob)
-            tags = [ t for t in tags if regx.fullmatch(t) ]
+            tags = [t for t in tags if regx.fullmatch(t)]
         return tags
 
     async def _methNodeValue(self):
