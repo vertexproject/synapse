@@ -808,7 +808,7 @@ class Parser:
 
             if self.nextstr('='):
 
-                self.nextmust('=')
+                self.offs += 1
 
                 self.ignore(whitespace)
 
