@@ -34,14 +34,13 @@ class EconModule(s_module.CoreModule):
                 ('econ:acct:payment', ('guid', {}), {
                     'doc': 'A payment moving currency from one monitary instrument to another.'}),
 
-                #CID
                 # TODO currency / monitary units / crypto currency
-                #('econ:acct:bill', ('guid', {}), {
-                    #'doc': 'A bill or payment request issued as part of a financial transaction.'}),
+                # econ:acct:bill
                 # econ:goods econ:services
-                # econ:bank:route
-                # econ:bank:acct
-                # econ:bank:account = (route, acct)
+
+                # econ:bank:us:aba:rtn ( ABA Routing Number )
+                # econ:bank:us:account = (econ:bank:us:aba:rtn, acct)
+                # econ:bank:swift:...
             ),
 
             'forms': (
@@ -105,6 +104,12 @@ class EconModule(s_module.CoreModule):
                     ('place', ('geo:place', {}), {
                         'doc': 'The place where the purchase took place.'}),
 
+                    ('paid', ('bool', {}), {
+                        'doc': 'Set to True if the purchase has been paid in full.'}),
+
+                    ('paid:time', ('time', {}), {
+                        'doc': 'The point in time where the purchase was paid in full.'}),
+
                     # TODO price
                 )),
 
@@ -131,6 +136,9 @@ class EconModule(s_module.CoreModule):
 
                     ('to:org', ('ou:org', {}), {
                         'doc': 'The organization being paid.'}),
+
+                    ('to:person', ('ps:person', {}), {
+                        'doc': 'The person being paid.'}),
 
                     ('to:contact', ('ou:org', {}), {
                         'doc': 'Contact information for the person/org being paid.'}),
