@@ -13,13 +13,13 @@ class EconModule(s_module.CoreModule):
                 ('econ:pay:pin', ('str', {'regex': '^[0-9]{3,6}$'}), {
                     'doc': 'A Personal Identification Number.'}),
 
-                ('econ:pay:mii', ('int', {}), {
+                ('econ:pay:mii', ('int', {'min': 0, 'max': 9}), {
                     'doc': 'A Major Industry Identifier (MII).'}),
 
                 ('econ:pay:pan', ('str', {'regex': '^(?<iin>(?<mii>[0-9]{1})[0-9]{5})[0-9]{1,13}$'}), {
                     'doc': 'A Primary Account Number (PAN) or card number.'}),
 
-                ('econ:pay:iin', ('int', {}), {
+                ('econ:pay:iin', ('int', {'min': 0, 'max': 999999}), {
                     'doc': 'An Issuer Id Number (IIN).'}),
 
                 ('econ:pay:card', ('guid', {}), {
