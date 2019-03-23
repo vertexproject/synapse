@@ -25,7 +25,7 @@ class Runtime:
 
         self.vars = {}
         self.ctors = {
-            'lib': s_stormtypes.Lib,
+            'lib': s_stormtypes.LibBase,
         }
 
         self.opts = opts
