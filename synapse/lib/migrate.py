@@ -11,6 +11,8 @@ import synapse.lib.slabseqn as s_slabseqn
 
 logger = logging.getLogger(__name__)
 
+_progress = 25000
+
 class Migration(s_base.Base):
     '''
     A migration instance provides a resume-capable workspace for
@@ -60,9 +62,14 @@ class Migration(s_base.Base):
 
             self.ndefdelay = None
 
+            logger.info(f'Processing {seqn.index()} delayed values.')
+
             # process them all now...
             for i, (oldv, newv) in seqn.iter(0):
                 await self.editNdefProps(oldv, newv)
+
+                if i and i % _progress == 0:
+                    logger.info(f'Processed {i} delayed values.')
 
     async def editNodeNdef(self, oldv, newv):
 
@@ -88,11 +95,18 @@ class Migration(s_base.Base):
         '''
         Rename a form within all the layers.
         '''
+        logger.info(f'Migrating [{oldn}] to [{newn}]')
+
         async with self.getTempSlab() as slab:
 
+            i = 0
             async for buid, valu in self.getFormTodo(oldn):
 
                 await self.editNodeNdef((oldn, valu), (newn, valu))
+
+                i = i + 1
+                if i and i % _progress == 0:
+                    logger.info(f'Migrated {i} buids.')
 
     async def editNdefProps(self, oldndef, newndef):
         '''
