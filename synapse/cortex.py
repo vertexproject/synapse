@@ -676,6 +676,7 @@ class Cortex(s_cell.Cell):
         '''
         Registration for built-in Storm Libraries
         '''
+        self.addStormLib(('str',), s_stormtypes.LibStr)
         self.addStormLib(('time',), s_stormtypes.LibTime)
 
     def _initSplicers(self):
