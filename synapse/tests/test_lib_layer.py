@@ -54,7 +54,7 @@ class LayerTest(s_t_utils.SynTest):
 
     async def test_splicemigration_pre010(self):
         async with self.getRegrCore('pre-010') as core:
-            splices1 = await s_t_utils.alist(core.layer.splices(0, 1000))
+            splices1 = await s_t_utils.alist(core.view.layers[0].splices(0, 1000))
             self.gt(len(splices1), 100)
             self.false(core.layer.layrslab.dbexists('splices'))
 
