@@ -20,6 +20,7 @@ line to run a *single* async unit test.  pytest works fine though.
 import io
 import os
 import sys
+import copy
 import types
 import shutil
 import asyncio
@@ -640,9 +641,6 @@ class SynTest(unittest.TestCase):
             if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
                 setattr(self, s, s_glob.synchelp(attr))
 
-    def setUp(self):
-        self.alt_write_layer = None  # Subclass hook to override the top layer
-
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
         self.eq(node.ndef, ex_ndef)
@@ -782,6 +780,8 @@ class SynTest(unittest.TestCase):
         '''
         if conf is None:
             conf = {}
+
+        conf = copy.deepcopy(conf)
 
         mods = conf.get('modules')
 

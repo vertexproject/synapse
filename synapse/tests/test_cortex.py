@@ -17,6 +17,19 @@ from synapse.tests.utils import alist
 
 class CortexTest(s_t_utils.SynTest):
 
+    async def test_cortex_bad_config(self):
+        '''
+        Try to load the TestModule twice
+        '''
+        conf = {'modules': [('synapse.tests.utils.TestModule', {'key': 'valu'})]}
+        with self.raises(s_exc.ModAlreadyLoaded):
+            async with self.getTestCore(conf=conf):
+                pass
+
+        async with self.getTestCore() as core:
+            with self.raises(s_exc.ModAlreadyLoaded):
+                await core.loadCoreModule('synapse.tests.utils.TestModule')
+
     async def test_cortex_prop_pivot(self):
 
         async with self.getTestCore() as core:
@@ -206,9 +219,9 @@ class CortexTest(s_t_utils.SynTest):
                 if node[0][0] == 'inet:dns:a':
                     edges = node[1]['path']['edges']
                     idens = list(sorted(e[0] for e in edges))
-                    self.eq(idens, ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f', 'd7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849'))
+                    self.eq(idens, ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
+                                    'd7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849'))
 
-    @s_glob.synchelp
     async def test_splice_cryo(self):
 
         async with self.getTestCryo() as cryo:
@@ -228,7 +241,7 @@ class CortexTest(s_t_utils.SynTest):
                         await snap.addNode('test:str', 'teehee')
                         self.nn(await snap.getNodeByNdef(('test:str', 'teehee')))
 
-                    await waiter.wait(timeout=3)
+                    await waiter.wait(timeout=10)
                     await src_core.fini()
                     await src_core.waitfini()
 
@@ -236,8 +249,8 @@ class CortexTest(s_t_utils.SynTest):
             tank = cryo.tanks.get('blahblah')
             slices = [x async for x in tank.slice(0, size=1000)]
             # # TestModule creates one node and 3 splices
-            self.len(3 + 2, slices)
 
+            self.len(3 + 2, slices)
             slices = slices[3:]
             data = slices[0]
             self.isinstance(data[1], tuple)
@@ -260,8 +273,6 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_splice_sync(self):
 
-        # Save off the alternative write layer because we only want the source cortex to use that
-        #saved_alt, self.alt_write_layer = self.alt_write_layer, None
         async with self.getTestCore() as core0:
             evt = asyncio.Event()
 
@@ -1793,8 +1804,6 @@ class CortexTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
 
-                await core.loadCoreModule('synapse.tests.utils.TestModule')
-
                 await core.eval('[ test:str=foo test:str=bar test:int=42 ]').spin()
 
                 self.eq(1, core.counts['test:int'])
@@ -1809,8 +1818,6 @@ class CortexTest(s_t_utils.SynTest):
 
             # test that counts persist...
             async with self.getTestCore(dirn=dirn) as core:
-
-                await core.loadCoreModule('synapse.tests.utils.TestModule')
 
                 self.eq(1, core.counts['test:int'])
                 self.eq(2, core.counts['test:str'])
@@ -2523,8 +2530,8 @@ class CortexTest(s_t_utils.SynTest):
         async with self.getRegrCore('pre-010') as core:
             provstacks = list(core.provstor.provStacks(0, 1000))
             self.gt(len(provstacks), 5)
-            self.false(core.layer.layrslab.dbexists('prov'))
-            self.false(core.layer.layrslab.dbexists('provs'))
+            self.false(core.view.layers[0].layrslab.dbexists('prov'))
+            self.false(core.view.layers[0].layrslab.dbexists('provs'))
 
     async def test_storm_lift_compute(self):
         async with self.getTestCore() as core:
