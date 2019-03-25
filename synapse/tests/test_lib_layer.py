@@ -56,7 +56,7 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getRegrCore('pre-010') as core:
             splices1 = await s_t_utils.alist(core.view.layers[0].splices(0, 1000))
             self.gt(len(splices1), 100)
-            self.false(core.layer.layrslab.dbexists('splices'))
+            self.false(core.view.layers[0].layrslab.dbexists('splices'))
 
         def baddrop(self, name):
             raise s_exc.DbOutOfSpace()
@@ -72,8 +72,8 @@ class LayerTest(s_t_utils.SynTest):
             with patch('synapse.lib.lmdbslab.PROGRESS_PERIOD', 50), patch('synapse.lib.lmdbslab.COPY_CHUNKSIZE', 50):
                 with self.getLoggerStream('synapse.lib.lmdblayer') as stream:
                     async with await s_cortex.Cortex.anit(dirn) as core:
-                        splices2 = await s_t_utils.alist(core.layer.splices(0, 1000))
-                        self.false(core.layer.layrslab.dbexists('splices'))
+                        splices2 = await s_t_utils.alist(core.view.layers[0].splices(0, 1000))
+                        self.false(core.view.layers[0].layrslab.dbexists('splices'))
 
                     self.eq(splices1, splices2)
 
@@ -84,7 +84,7 @@ class LayerTest(s_t_utils.SynTest):
             with self.getLoggerStream('synapse.lib.lmdblayer') as stream:
                 # Make sure the third time around we didn't migrate and we still have our splices
                 async with await s_cortex.Cortex.anit(dirn) as core:
-                    splices3 = await s_t_utils.alist(core.layer.splices(0, 1000))
+                    splices3 = await s_t_utils.alist(core.view.layers[0].splices(0, 1000))
 
                 self.eq(splices1, splices3)
 
