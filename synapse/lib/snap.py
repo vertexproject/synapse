@@ -182,7 +182,8 @@ class Snap(s_base.Base):
         Return a single Node by (form,valu) tuple.
 
         Args:
-            ndef ((str,obj)): A (form,valu) ndef tuple.
+            ndef ((str,obj)): A (form,valu) ndef tuple.  valu must be
+            normalized.
 
         Returns:
             (synapse.lib.node.Node): The Node or None.
@@ -293,8 +294,6 @@ class Snap(s_base.Base):
         if prop is None:
             raise s_exc.NoSuchProp(name=full)
 
-        # TODO OMG form optimization straight to buid!
-
         if prop.isrunt:
 
             async for node in self.getRuntNodes(full, valu, cmpr):
@@ -303,6 +302,18 @@ class Snap(s_base.Base):
             return
 
         lops = prop.getLiftOps(valu, cmpr=cmpr)
+
+        if prop.isform and cmpr == '=' and valu is not None and lops[0][1][2][0][0] == 'eq':
+            # Shortcut to buid lookup if primary prop = valu
+            norm, _ = prop.type.norm(valu)
+            node = await self.getNodeByNdef((full, norm))
+            if node is None:
+                return
+
+            yield node
+
+            return
+
         cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
 
         async for row, node in self.getLiftNodes(lops, prop.name, cmpf):
