@@ -20,4 +20,5 @@ coremods = (
     'synapse.models.gov.cn.GovCnModule',
     'synapse.models.gov.us.GovUsModule',
     'synapse.models.gov.intl.GovIntlModule',
+    'synapse.models.economic.EconModule',
 )
