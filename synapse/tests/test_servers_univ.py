@@ -54,3 +54,11 @@ class UnivServerTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchCtor):
                 async with await s_s_univ.main(argu, outp=outp) as core:
                     pass
+
+            argu = [dirn,
+                    '--telepath', 'tcp://127.0.0.1:9999999/',
+                    '--https', '0',
+                    '--name', 'telecore']
+            # Coverage test, for a bad configuration
+            with self.raises(OverflowError):
+                obj = await s_s_univ.main(argu, outp=outp)
