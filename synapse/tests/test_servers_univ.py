@@ -38,11 +38,16 @@ class UnivServerTest(s_t_utils.SynTest):
                     self.len(1, podes)
 
             argu = list(argv)
-            argu.extend(['--cell', 'synapse.lib.cell.Cell', ])
             # Start a cortex as a regular Cell
             async with await s_s_univ.main(argu, outp=outp) as cell:
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                     self.eq('cell', await proxy.getCellType())
+
+            argu.extend(['--cell', 'synapse.tests.test_lib_cell.EchoAuth', ])
+            # Or start the Cortex off a a EchoAuth (don't do this in practice...)
+            async with await s_s_univ.main(argu, outp=outp) as cell:
+                async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
+                    self.eq('echoauth', await proxy.getCellType())
 
             argu = list(argv)
             argu.extend(['--cell', 'synapse.lib.newp.Newp', ])

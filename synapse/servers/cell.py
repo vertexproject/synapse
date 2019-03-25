@@ -57,11 +57,11 @@ def parse(argv):
 
     pars = argparse.ArgumentParser(prog='synapse.servers.cell',
                                    description='A universal Synapse Cell loader.')
-    pars.add_argument('--cell', default=cctor, dest='ctor', help='Python class path to use to load the Cell.')
+    pars.add_argument('--cell', default=cctor, help='Python class path to use to load the Cell.')
     pars.add_argument('--telepath', default=telep, help='The telepath URL to listen on.')
     pars.add_argument('--https', default=https, dest='port', type=int, help='The port to bind for the HTTPS/REST API.')
     pars.add_argument('--name', default=telen, help='The (optional) additional name to share the Cell as.')
-    pars.add_argument('celldir', help='The directory for the cortex to use for storage.')
+    pars.add_argument('celldir', help='The directory for the Cell to use for storage.')
 
     return pars.parse_args(argv)
 
@@ -73,7 +73,7 @@ async def main(argv, outp=s_output.stdout):
 
     cell = await getCell(outp,
                          opts.celldir,
-                         opts.ctor,
+                         opts.cell,
                          opts.port,
                          opts.telepath,
                          name=opts.name,
