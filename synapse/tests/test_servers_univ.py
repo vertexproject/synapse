@@ -27,11 +27,12 @@ class UnivServerTest(s_t_utils.SynTest):
 
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                     podes = await s_t_utils.alist(proxy.eval(f'[ou:org={guid}]'))
+                    self.len(1, podes)
                     self.eq('cortex', await proxy.getCellType())
 
                 self.true(core.dmon.shared.get('telecore') is core)
 
-            # And data persists... and can be seen with the regular synapse server
+            # And data persists... and can be seen with the regular synapse cortex server
             async with await s_s_cortex.main(argv, outp=outp) as core:
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                     podes = await s_t_utils.alist(proxy.eval(f'ou:org={guid}'))
@@ -43,6 +44,7 @@ class UnivServerTest(s_t_utils.SynTest):
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                     self.eq('cell', await proxy.getCellType())
 
+            argu = list(argv)
             argu.extend(['--cell', 'synapse.tests.test_lib_cell.EchoAuth', ])
             # Or start the Cortex off a a EchoAuth (don't do this in practice...)
             async with await s_s_univ.main(argu, outp=outp) as cell:
