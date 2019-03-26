@@ -1226,6 +1226,7 @@ class Str(StrBase):
 
     def _normPyStr(self, valu):
 
+        info = {}
         norm = str(valu)
 
         if self.opts['lower']:
@@ -1243,10 +1244,16 @@ class Str(StrBase):
                                         mesg='Value not in enums')
 
         if self.regex is not None:
-            if self.regex.match(norm) is None:
+
+            match = self.regex.match(norm)
+            if match is None:
                 raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='regex does not match')
 
-        return norm, {}
+            subs = match.groupdict()
+            if subs:
+                info['subs'] = subs
+
+        return norm, info
 
 class Tag(StrBase):
 

@@ -171,7 +171,7 @@ class Layer(s_base.Base):
             self.spliced.set()
             self.spliced.clear()
 
-    async def _storSplices(splices):  # pragma: no cover
+    async def _storSplices(self, splices):  # pragma: no cover
         raise NotImplementedError
 
     async def _liftByFormRe(self, oper):

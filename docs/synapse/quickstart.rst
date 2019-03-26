@@ -129,7 +129,7 @@ Granular permissions based on types of nodes and tags may be used to create role
       Remove any tag from a node.
 
 *tag:del.<tag>*
-     Remove a specific tag or subtag to a node. (ex. ``tag:add.foo.bar``)
+     Remove a specific tag or subtag to a node. (ex. ``tag:del.foo.bar``)
 
 Remote Access
 =============

@@ -74,7 +74,6 @@ class ModelRev:
 
     async def _addFormNameSpaces(self, layers):
 
-         # time to rename a bunch of forms...
         async with self.getCoreMigr(layers) as migr:
 
             # delay ndef prop cascade so we can rename everything first
