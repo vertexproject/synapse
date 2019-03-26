@@ -64,15 +64,13 @@ def getShareInfo(item):
     Returns:
         dict: A dictionary of methods requiring special handling by the proxy.
     '''
-    info = getattr(item, '_syn_sharinfo', None)
+    key = f'_syn_sharinfo_{item.__class__.__module__}_{item.__class__.__qualname__}'
+    info = getattr(item, key, None)
     if info is not None:
-        logger.error(f'Object {item} aready had {info}/{id(info)}')
         return info
 
     meths = {}
     info = {'meths': meths}
-
-    logger.error(f'Inspecting: {item}')
 
     for name in dir(item):
         if name.startswith('_'):
@@ -94,19 +92,13 @@ def getShareInfo(item):
             meths[name] = {'genr': True}
 
     try:
-        setattr(item, '_syn_sharinfo', info)
+        setattr(item, key, info)
     except Exception as e:  # pragma: no cover
         logger.exception(f'Failed to set magic on {item}')
-    else:
-        logger.error(f'Set _syn_sharinfo on {item}/{info}/{id(info)}')
 
     try:
-        setattr(item.__class__, '_syn_sharinfo', info)
+        setattr(item.__class__, key, info)
     except Exception as e:  # pragma: no cover
         logger.exception(f'Failed to set magic on {item.__class__}')
-    else:
-        logger.error(f'Set _syn_sharinfo on {item.__class__}/{info}/{id(info)}')
-
-    logger.error(f'Got {info}/{id(info)}')
 
     return info
