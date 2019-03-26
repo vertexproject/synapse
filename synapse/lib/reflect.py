@@ -71,6 +71,8 @@ def getShareInfo(item):
     meths = {}
     info = {'meths': meths}
 
+    logger.info(f'Inspecting: {item}')
+
     for name in dir(item):
         if name.startswith('_'):
             continue
@@ -99,5 +101,7 @@ def getShareInfo(item):
         setattr(item.__class__, '_syn_sharinfo', info)
     except Exception as e:  # pragma: no cover
         logger.exception(f'Failed to set magic on {item.__class__}')
+
+    logger.info(f'Got {info}')
 
     return info
