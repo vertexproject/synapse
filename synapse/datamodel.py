@@ -194,6 +194,7 @@ class Univ(PropBase):
         PropBase.__init__(self)
         self.modl = modl
         self.name = name
+        self.isform = False     # for quick Prop()/Form() detection
         self.type = modl.getTypeClone(typedef)
         self.info = propinfo
         self.pref = name.encode('utf8') + b'\x00'
