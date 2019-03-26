@@ -16,12 +16,13 @@ class UnivServerTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             guid = s_common.guid()
 
-            argv = [dirn,
-                    '--telepath', 'tcp://127.0.0.1:0/',
+            argv = ['--telepath', 'tcp://127.0.0.1:0/',
                     '--https', '0',
-                    '--name', 'telecore']
+                    '--name', 'telecore',
+                    dirn,
+                    ]
             argu = list(argv)
-            argu.extend(['--cell', 'synapse.cortex.Cortex', ])
+            argu.append('synapse.cortex.Cortex')
             # Start a cortex with the universal loader
             async with await s_s_univ.main(argu, outp=outp) as core:
 
@@ -39,25 +40,26 @@ class UnivServerTest(s_t_utils.SynTest):
                     self.len(1, podes)
 
             argu = list(argv)
+            argu.append('synapse.lib.cell.Cell')
             # Start a cortex as a regular Cell
             async with await s_s_univ.main(argu, outp=outp) as cell:
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                     self.eq('cell', await proxy.getCellType())
 
             argu = list(argv)
-            argu.extend(['--cell', 'synapse.tests.test_lib_cell.EchoAuth', ])
+            argu.append('synapse.tests.test_lib_cell.EchoAuth')
             # Or start the Cortex off a a EchoAuth (don't do this in practice...)
             async with await s_s_univ.main(argu, outp=outp) as cell:
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                     self.eq('echoauth', await proxy.getCellType())
 
             argu = list(argv)
-            argu.extend(['--cell', 'synapse.lib.newp.Newp', ])
+            argu.append('synapse.lib.newp.Newp')
             with self.raises(s_exc.NoSuchCtor):
                 async with await s_s_univ.main(argu, outp=outp) as core:
                     pass
 
-            argu = [dirn,
+            argu = [dirn, 'synapse.lib.cell.Cell',
                     '--telepath', 'tcp://127.0.0.1:9999999/',
                     '--https', '0',
                     '--name', 'telecore']
