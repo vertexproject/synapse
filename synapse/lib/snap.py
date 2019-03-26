@@ -303,7 +303,7 @@ class Snap(s_base.Base):
 
         lops = prop.getLiftOps(valu, cmpr=cmpr)
 
-        if prop.isform and cmpr == '=' and valu is not None and lops[0][1][2][0][0] == 'eq':
+        if prop.isform and cmpr == '=' and valu is not None and len(lops) == 1 and lops[0][1][2][0][0] == 'eq':
             # Shortcut to buid lookup if primary prop = valu
             norm, _ = prop.type.norm(valu)
             node = await self.getNodeByNdef((full, norm))
