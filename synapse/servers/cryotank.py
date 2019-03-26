@@ -5,11 +5,10 @@ import logging
 import argparse
 
 import synapse.common as s_common
+import synapse.cryotank as s_cryotank
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
-
-import synapse.servers.cell as s_s_cell
 
 logger = logging.getLogger(__name__)
 
@@ -33,16 +32,27 @@ async def main(argv, outp=s_output.stdout):
 
     s_common.setlogging(logger)
 
-    cryo = await s_s_cell.getCell(outp,
-                                  opts.cryodir,
-                                  'synapse.cryotank.CryoCell',
-                                  opts.port,
-                                  opts.telepath,
-                                  name=opts.name,
-                                  desc='cryotank'
-                                  )
+    outp.printf('starting cryotank server: %s' % (opts.cryodir,))
 
-    return cryo
+    cryo = await s_cryotank.CryoCell.anit(opts.cryodir)
+
+    try:
+
+        outp.printf('...cryotank API (telepath): %s' % (opts.telepath,))
+        await cryo.dmon.listen(opts.telepath)
+
+        outp.printf('...cryotank API (https): %s' % (opts.port,))
+        await cryo.addHttpsPort(opts.port)
+
+        if opts.name:
+            outp.printf(f'...cryotank additional share name: {opts.name}')
+            cryo.dmon.share(opts.name, cryo)
+
+        return cryo
+
+    except Exception:
+        await cryo.fini()
+        raise
 
 if __name__ == '__main__': # pragma: no cover
     asyncio.run(s_base.main(main(sys.argv[1:])))

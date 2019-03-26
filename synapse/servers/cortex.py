@@ -5,11 +5,10 @@ import logging
 import argparse
 
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
-
-import synapse.servers.cell as s_s_cell
 
 logger = logging.getLogger(__name__)
 
@@ -33,17 +32,27 @@ async def main(argv, outp=s_output.stdout):
 
     s_common.setlogging(logger)
 
-    core = await s_s_cell.getCell(outp,
-                                  opts.coredir,
-                                  'synapse.cortex.Cortex',
-                                  opts.port,
-                                  opts.telepath,
-                                  name=opts.name,
-                                  desc='cortex'
-                                  )
+    outp.printf('starting cortex: %s' % (opts.coredir,))
 
-    return core
+    core = await s_cortex.Cortex.anit(opts.coredir)
 
+    try:
+
+        outp.printf('...cortex API (telepath): %s' % (opts.telepath,))
+        await core.dmon.listen(opts.telepath)
+
+        outp.printf('...cortex API (https): %s' % (opts.port,))
+        await core.addHttpsPort(opts.port)
+
+        if opts.name:
+            outp.printf(f'...cortex additional share name: {opts.name}')
+            core.dmon.share(opts.name, core)
+
+        return core
+
+    except Exception:
+        await core.fini()
+        raise
 
 if __name__ == '__main__': # pragma: no cover
     asyncio.run(s_base.main(main(sys.argv[1:])))

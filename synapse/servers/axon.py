@@ -4,12 +4,11 @@ import asyncio
 import logging
 import argparse
 
+import synapse.axon as s_axon
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
-
-import synapse.servers.cell as s_s_cell
 
 logger = logging.getLogger(__name__)
 
@@ -33,16 +32,27 @@ async def main(argv, outp=s_output.stdout):
 
     s_common.setlogging(logger)
 
-    axon = await s_s_cell.getCell(outp,
-                                  opts.axondir,
-                                  'synapse.axon.Axon',
-                                  opts.port,
-                                  opts.telepath,
-                                  name=opts.name,
-                                  desc='axon'
-                                  )
+    outp.printf('starting axon: %s' % (opts.axondir,))
 
-    return axon
+    axon = await s_axon.Axon.anit(opts.axondir)
+
+    try:
+
+        outp.printf('...axon API (telepath): %s' % (opts.telepath,))
+        await axon.dmon.listen(opts.telepath)
+
+        outp.printf('...axon API (https): %s' % (opts.port,))
+        await axon.addHttpsPort(opts.port)
+
+        if opts.name:
+            outp.printf(f'...axon additional share name: {opts.name}')
+            axon.dmon.share(opts.name, axon)
+
+        return axon
+
+    except Exception:
+        await axon.fini()
+        raise
 
 if __name__ == '__main__': # pragma: no cover
     asyncio.run(s_base.main(main(sys.argv[1:])))
