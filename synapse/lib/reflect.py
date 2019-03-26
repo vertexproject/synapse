@@ -66,7 +66,7 @@ def getShareInfo(item):
     '''
     info = getattr(item, '_syn_sharinfo', None)
     if info is not None:
-        logger.error(f'Object {item} aready had {info}')
+        logger.error(f'Object {item} aready had {info}/{id(info)}')
         return info
 
     meths = {}
@@ -98,15 +98,15 @@ def getShareInfo(item):
     except Exception as e:  # pragma: no cover
         logger.exception(f'Failed to set magic on {item}')
     else:
-        logger.error(f'Set _syn_sharinfo on {item}')
+        logger.error(f'Set _syn_sharinfo on {item}/{info}/{id(info)}')
 
     try:
         setattr(item.__class__, '_syn_sharinfo', info)
     except Exception as e:  # pragma: no cover
         logger.exception(f'Failed to set magic on {item.__class__}')
     else:
-        logger.error(f'Set _syn_sharinfo on {item.__class__}')
+        logger.error(f'Set _syn_sharinfo on {item.__class__}/{info}/{id(info)}')
 
-    logger.error(f'Got {info}')
+    logger.error(f'Got {info}/{id(info)}')
 
     return info
