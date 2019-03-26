@@ -195,6 +195,6 @@ workflows:
   version: 2
   run_tests:
     jobs:
-#      - doctests
-#      - osx37
+      - doctests
+      - osx37
       - python37
