@@ -141,8 +141,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 byts = b'\x00' * 256
                 for i in range(100):
-                    slab.put(s_common.guid().encode('utf8'), byts, db=foo)
-                    slab.put(s_common.guid().encode('utf8'), byts, db=foo2)
+                    slab.put(s_common.guid(i).encode('utf8'), byts, db=foo)
+                    slab.put(s_common.guid(1000 + i).encode('utf8'), byts, db=foo2)
 
                 count = 0
                 for _, _ in slab.scanByRange(b'', db=foo):
@@ -154,14 +154,14 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 for i in range(50):
                     next(iter)
 
-                multikey = b'\xff\xff\xff\xfe' + s_common.guid().encode('utf8')
+                multikey = b'\xff\xff\xff\xfe' + s_common.guid(2000).encode('utf8')
                 mapsize = slab.mapsize
                 count = 0
 
                 # Write until we grow
                 while mapsize == slab.mapsize:
                     count += 1
-                    rv = slab.put(multikey, s_common.guid().encode('utf8') + byts, dupdata=True, db=foo)
+                    rv = slab.put(multikey, s_common.guid(count + 100000).encode('utf8') + byts, dupdata=True, db=foo)
                     self.true(rv)
 
                 self.eq(50 + count, sum(1 for _ in iter))
@@ -175,9 +175,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 iter2 = slab.scanByFull(db=foo2)
                 next(iter2)
 
-                multikey = b'\xff\xff\xff\xff' + s_common.guid().encode('utf8')
+                multikey = b'\xff\xff\xff\xff' + s_common.guid(i + 150000).encode('utf8')
                 for i in range(200):
-                    slab.put(multikey, s_common.guid().encode('utf8') + byts, dupdata=True, db=foo)
+                    slab.put(multikey, s_common.guid(i + 200000).encode('utf8') + byts, dupdata=True, db=foo)
 
                 self.eq(count - 1, sum(1 for _ in iter))
                 self.eq(99, sum(1 for _ in iter2))
@@ -189,7 +189,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 foo = newdb.initdb('foo', dupsort=True)
                 for _, _ in newdb.scanByRange(b'', db=foo):
                     count += 1
-                self.gt(count, 300)
+                self.gt(count, 200)
 
                 # Make sure readonly is really readonly
                 self.raises(s_exc.IsReadOnly, newdb.dropdb, 'foo')
