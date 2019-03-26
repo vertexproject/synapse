@@ -18,7 +18,7 @@ class UnivServerTest(s_t_utils.SynTest):
 
             argv = ['--telepath', 'tcp://127.0.0.1:0/',
                     '--https', '0',
-                    '--name', 'telecore',
+                    '--name', 'univtest',
                     dirn,
                     ]
             argu = list(argv)
@@ -31,7 +31,7 @@ class UnivServerTest(s_t_utils.SynTest):
                     self.len(1, podes)
                     self.eq('cortex', await proxy.getCellType())
 
-                self.true(core.dmon.shared.get('telecore') is core)
+                self.true(core.dmon.shared.get('univtest') is core)
 
             # And data persists... and can be seen with the regular synapse cortex server
             async with await s_s_cortex.main(argv, outp=outp) as core:
