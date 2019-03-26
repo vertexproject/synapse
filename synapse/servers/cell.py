@@ -62,8 +62,8 @@ def parse(argv):
     pars.add_argument('--telepath', default=telep, help='The telepath URL to listen on.')
     pars.add_argument('--https', default=https, dest='port', type=int, help='The port to bind for the HTTPS/REST API.')
     pars.add_argument('--name', default=telen, help='The (optional) additional name to share the Cell as.')
-    pars.add_argument('celldir', help='The directory for the Cell to use for storage.')
     pars.add_argument('cellctor', help='Python class path to use to load the Cell.')
+    pars.add_argument('celldir', help='The directory for the Cell to use for storage.')
 
     return pars.parse_args(argv)
 
