@@ -64,7 +64,8 @@ def getShareInfo(item):
     Returns:
         dict: A dictionary of methods requiring special handling by the proxy.
     '''
-    info = getattr(item, '_syn_sharinfo', None)
+    key = f'_syn_sharinfo_{item.__class__.__module__}_{item.__class__.__qualname__}'
+    info = getattr(item, key, None)
     if info is not None:
         return info
 
@@ -91,12 +92,12 @@ def getShareInfo(item):
             meths[name] = {'genr': True}
 
     try:
-        setattr(item, '_syn_sharinfo', info)
+        setattr(item, key, info)
     except Exception as e:  # pragma: no cover
         logger.exception(f'Failed to set magic on {item}')
 
     try:
-        setattr(item.__class__, '_syn_sharinfo', info)
+        setattr(item.__class__, key, info)
     except Exception as e:  # pragma: no cover
         logger.exception(f'Failed to set magic on {item.__class__}')
 
