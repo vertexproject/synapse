@@ -1,9 +1,26 @@
 #!/usr/bin/env python
+import os
+import sys
 from setuptools import setup, find_packages
+from setuptools.command.install import install
+
+VERSION = '0.1.0'
+
+class VerifyVersionCommand(install):
+    """Custom command to verify that the git tag matches our version"""
+    description = 'verify that the git tag matches our version'
+
+    def run(self):
+        tag = os.getenv('CIRCLE_TAG', '')
+        tag = tag.lstrip('v')
+
+        if tag != VERSION:
+            info = f"Git tag: {tag} does not match the version of this app: {VERSION}"
+            sys.exit(info)
 
 setup(
     name='synapse',
-    version='0.1.0',
+    version=VERSION,
     description='Synapse Intelligence Analysis Framework',
     author='The Vertex Project LLC',
     author_email='synapse@vertex.link',
@@ -55,4 +72,7 @@ setup(
 
         'Programming Language :: Python :: 3.7',
     ],
+    cmdclass={
+        'verify': VerifyVersionCommand,
+    },
 )
