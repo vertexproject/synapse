@@ -498,7 +498,7 @@ class CoreApi(s_cell.CellApi):
         Return the list of splices at the given offset.
         '''
         count = 0
-        async for mesg in self.cell.layer.splices(offs, size):
+        async for mesg in self.cell.view.layers[0].splices(offs, size):
             count += 1
             if not count % 1000:
                 await asyncio.sleep(0)
@@ -627,19 +627,18 @@ class Cortex(s_cell.Cell):
         await self._initCoreLayers()
         await self._checkLayerModels()
         await self._initCoreViews()
+        # our "main" view has the same iden as we do
+        self.view = self.views.get(self.iden)
 
         self.provstor = await s_provenance.ProvStor.anit(self.dirn)
         self.onfini(self.provstor.fini)
-        self.provstor.migratePre010(self.layer)
+        self.provstor.migratePre010(self.view.layers[0])
 
         async def fini():
             await asyncio.gather(*[view.fini() for view in self.views.values()])
             await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
 
         self.onfini(fini)
-
-        # our "main" view has the same iden as we do
-        self.view = self.views.get(self.iden)
 
         self.triggers = s_trigger.Triggers(self)
         self.agenda = await s_agenda.Agenda.anit(self)
@@ -1105,9 +1104,6 @@ class Cortex(s_cell.Cell):
             # we have no layers.  initialize the default layer.
             await self.addLayer(iden=self.iden)
 
-        # store our "main" layer as self.layer
-        self.layer = self.layers.get(self.iden)
-
     def _migrOrigLayer(self):
 
         oldpath = os.path.join(self.dirn, 'layers', '000-default')
@@ -1182,15 +1178,16 @@ class Cortex(s_cell.Cell):
                     offs = await core.getFeedOffs(iden)
 
                     while not self.isfini:
+                        layer = self.view.layers[0]
 
-                        items = [x async for x in self.layer.splices(offs, 10000)]
+                        items = [x async for x in layer.splices(offs, 10000)]
 
                         if not items:
                             await self.waitfini(timeout=1)
                             continue
 
                         size = len(items)
-                        indx = (await self.layer.stat())['splicelog_indx']
+                        indx = (await layer.stat())['splicelog_indx']
 
                         perc = float(offs) / float(indx) * 100.0
 
@@ -1252,9 +1249,11 @@ class Cortex(s_cell.Cell):
 
                 async with await s_telepath.openurl(url) as tank:
 
+                    layer = self.view.layers[0]
+
                     iden = await tank.iden()
 
-                    offs = await self.layer.getOffset(iden)
+                    offs = await layer.getOffset(iden)
 
                     while not self.isfini:
 
@@ -1284,8 +1283,10 @@ class Cortex(s_cell.Cell):
         online = False
         tankurl = self.conf.get('splice:cryotank')
 
+        # TODO:  what to do when write layer changes?
+
         # push splices for our main layer
-        layr = self.layers.get(self.iden)
+        layr = self.view.layers[0]
 
         while not self.isfini:
             timeout = 2
@@ -1751,7 +1752,7 @@ class Cortex(s_cell.Cell):
             return await snap.addFeedData(name, items, seqn=seqn)
 
     async def getFeedOffs(self, iden):
-        return await self.layer.getOffset(iden)
+        return await self.view.layers[0].getOffset(iden)
 
     async def setFeedOffs(self, iden, offs):
         if offs < 0:
@@ -1760,7 +1761,7 @@ class Cortex(s_cell.Cell):
         oldoffs = await self.getFeedOffs(iden)
         logger.info('Setting Feed offset for [%s] from [%s] to [%s]',
                     iden, oldoffs, offs)
-        return await self.layer.setOffset(iden, offs)
+        return await self.view.layers[0].setOffset(iden, offs)
 
     async def snap(self, user=None, view=None):
         '''
@@ -1876,6 +1877,8 @@ class Cortex(s_cell.Cell):
 
     def _loadCoreModule(self, ctor, conf=None):
 
+        if ctor in self.modules:
+            raise s_exc.ModAlreadyLoaded(mesg=f'{ctor} already loaded')
         try:
             modu = s_dyndeps.tryDynFunc(ctor, self, conf=conf)
             self.modules[ctor] = modu
@@ -1888,7 +1891,7 @@ class Cortex(s_cell.Cell):
     async def stat(self):
         stats = {
             'iden': self.iden,
-            'layer': await self.layer.stat(),
+            'layer': await self.view.layers[0].stat(),
             'formcounts': self.counts,
         }
         return stats

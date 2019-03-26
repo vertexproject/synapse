@@ -362,7 +362,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             batchsize = 4000
             numbatches = 2
             async with self.getTestCore() as core:
-                before_mapsize = core.layer.layrslab.mapsize
+                before_mapsize = core.view.layers[0].layrslab.mapsize
                 for i in range(numbatches):
                     async with await core.snap() as snap:
                         ips = ((('test:int', i * 1000000 + x), {'props': {'loc': 'us'}}) for x in range(batchsize))
@@ -371,7 +371,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                         await asyncio.sleep(1.1)
 
                 # Verify that it hit
-                self.gt(core.layer.layrslab.mapsize, before_mapsize)
+                self.gt(core.view.layers[0].layrslab.mapsize, before_mapsize)
 
     async def test_slab_mapfull_drop(self):
         '''
