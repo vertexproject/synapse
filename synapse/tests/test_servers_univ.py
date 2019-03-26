@@ -21,31 +21,6 @@ class UnivServerTest(s_t_utils.SynTest):
                     '--https', '0',
                     '--name', 'univtest',
                     ]
-
-            argu = list(argv)
-            argu.extend(['synapse.lib.cell.Cell', dirn])
-            # Start a cortex as a regular Cell
-            async with await s_s_univ.main(argu, outp=outp) as cell:
-                async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
-                    self.eq('cell', await proxy.getCellType())
-
-            argu = list(argv)
-            argu.extend(['synapse.tests.test_lib_cell.EchoAuth', dirn])
-            # Or start the Cortex off a a EchoAuth (don't do this in practice...)
-            async with await s_s_univ.main(argu, outp=outp) as cell:
-                async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
-                    self.eq('echoauth', await proxy.getCellType())
-
-    async def test_break(self):
-        with self.getTestDir() as dirn:
-
-            outp = self.getTestOutp()
-            guid = s_common.guid()
-
-            argv = ['--telepath', 'tcp://127.0.0.1:0/',
-                    '--https', '0',
-                    '--name', 'univtest',
-                    ]
             argu = list(argv)
             argu.extend(['synapse.cortex.Cortex', dirn])
             # Start a cortex with the universal loader
@@ -93,6 +68,31 @@ class UnivServerTest(s_t_utils.SynTest):
             # Coverage test, for a bad configuration
             with self.raises(OverflowError):
                 obj = await s_s_univ.main(argu, outp=outp)
+
+    async def test_break(self):
+        with self.getTestDir() as dirn:
+
+            outp = self.getTestOutp()
+            guid = s_common.guid()
+
+            argv = ['--telepath', 'tcp://127.0.0.1:0/',
+                    '--https', '0',
+                    '--name', 'univtest',
+                    ]
+
+            argu = list(argv)
+            argu.extend(['synapse.lib.cell.Cell', dirn])
+            # Start a cortex as a regular Cell
+            async with await s_s_univ.main(argu, outp=outp) as cell:
+                async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
+                    self.eq('cell', await proxy.getCellType())
+
+            argu = list(argv)
+            argu.extend(['synapse.tests.test_lib_cell.EchoAuth', dirn])
+            # Or start the Cortex off a a EchoAuth (don't do this in practice...)
+            async with await s_s_univ.main(argu, outp=outp) as cell:
+                async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
+                    self.eq('echoauth', await proxy.getCellType())
 
         recs = (
             ('hehe', {'haha': 1}),
