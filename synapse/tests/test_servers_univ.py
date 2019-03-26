@@ -21,25 +21,6 @@ class UnivServerTest(s_t_utils.SynTest):
                     '--https', '0',
                     '--name', 'univtest',
                     ]
-            argu = list(argv)
-            argu.extend(['synapse.cortex.Cortex', dirn])
-            # Start a cortex with the universal loader
-            async with await s_s_univ.main(argu, outp=outp) as core:
-
-                async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
-                    podes = await s_t_utils.alist(proxy.eval(f'[ou:org={guid}]'))
-                    self.len(1, podes)
-                    self.eq('cortex', await proxy.getCellType())
-
-                self.true(core.dmon.shared.get('univtest') is core)
-
-            # And data persists... and can be seen with the regular synapse cortex server
-            argu = list(argv)
-            argu.append(dirn)
-            async with await s_s_cortex.main(argu, outp=outp) as core:
-                async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
-                    podes = await s_t_utils.alist(proxy.eval(f'ou:org={guid}'))
-                    self.len(1, podes)
 
             argu = list(argv)
             argu.extend(['synapse.lib.cell.Cell', dirn])
@@ -54,20 +35,6 @@ class UnivServerTest(s_t_utils.SynTest):
             async with await s_s_univ.main(argu, outp=outp) as cell:
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                     self.eq('echoauth', await proxy.getCellType())
-
-            argu = list(argv)
-            argu.extend(['synapse.lib.newp.Newp', dirn])
-            with self.raises(s_exc.NoSuchCtor):
-                async with await s_s_univ.main(argu, outp=outp) as core:
-                    pass
-
-            argu = ['synapse.lib.cell.Cell', dirn,
-                    '--telepath', 'tcp://127.0.0.1:9999999/',
-                    '--https', '0',
-                    '--name', 'telecore']
-            # Coverage test, for a bad configuration
-            with self.raises(OverflowError):
-                obj = await s_s_univ.main(argu, outp=outp)
 
     async def test_break(self):
         with self.getTestDir() as dirn:
