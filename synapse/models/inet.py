@@ -4,9 +4,7 @@ import logging
 import ipaddress
 import email.utils
 
-
 import regex
-
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -309,28 +307,30 @@ class IPv4(s_types.Type):
 
         return s_types.Type._ctorCmprEq(self, valu)
 
-    def getTypeVals(self, text):
+    def getTypeVals(self, valu):
 
-        if text.find('/') != -1:
+        if isinstance(valu, str):
 
-            minv, maxv = self.getCidrRange(text)
-            while minv < maxv:
-                yield minv
-                minv += 1
+            if valu.find('/') != -1:
 
-            return
+                minv, maxv = self.getCidrRange(valu)
+                while minv < maxv:
+                    yield minv
+                    minv += 1
 
-        if text.find('-') != -1:
+                return
 
-            minv, maxv = self.getNetRange(text)
+            if valu.find('-') != -1:
 
-            while minv <= maxv:
-                yield minv
-                minv += 1
+                minv, maxv = self.getNetRange(valu)
 
-            return
+                while minv <= maxv:
+                    yield minv
+                    minv += 1
 
-        yield text
+                return
+
+        yield valu
 
     def _normPyInt(self, valu):
         norm = valu & 0xffffffff

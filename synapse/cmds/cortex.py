@@ -264,6 +264,8 @@ class StormCmd(s_cli.Cmd):
             (overrides --hide-tags, --hide-props and raw)
         --path: Get path information about returned nodes.
 
+        --show <names>: Limit storm events (server-side) to the comma sep list)
+
     Examples:
         storm inet:ipv4=1.2.3.4
         storm --debug inet:ipv4=1.2.3.4
@@ -272,6 +274,7 @@ class StormCmd(s_cli.Cmd):
     _cmd_name = 'storm'
     _cmd_syntax = (
         ('--hide-tags', {}),
+        ('--show', {'type': 'valu'}),
         ('--hide-props', {}),
         ('--hide-unknown', {}),
         ('--raw', {}),
@@ -359,6 +362,10 @@ class StormCmd(s_cli.Cmd):
         core = self.getCmdItem()
         stormopts = {'repr': True}
         stormopts.setdefault('path', opts.get('path', False))
+
+        showtext = opts.get('show')
+        if showtext is not None:
+            stormopts['show'] = showtext.split(',')
 
         self.printf('')
 
