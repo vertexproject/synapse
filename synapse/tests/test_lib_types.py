@@ -770,6 +770,10 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('zork', enums.norm('zork')[0])
         self.raises(s_exc.BadTypeValu, enums.norm, 'zing')
 
+        strsubs = model.type('str').clone({'regex': r'(?P<first>[ab]+)(?P<last>[zx]+)'})
+        norm, info = strsubs.norm('aabbzxxxxxz')
+        self.eq(info.get('subs'), {'first': 'aabb', 'last': 'zxxxxxz'})
+
     def test_syntag(self):
 
         model = s_datamodel.Model()
