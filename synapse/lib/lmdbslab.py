@@ -309,11 +309,21 @@ class Slab(s_base.Base):
 
     async def _onCoFini(self):
         assert s_glob.iAmLoop()
-        self._finiCoXact()
+        while True:
+            try:
+                self._finiCoXact()
+            except lmdb.MapFullError:
+                self._handle_mapfull()
+                continue
+            break
         self.lenv.close()
         del self.lenv
 
     def _finiCoXact(self):
+        '''
+        Note:
+            This method may raise a MapFullError
+        '''
 
         assert s_glob.iAmLoop()
 
@@ -329,13 +339,6 @@ class Slab(s_base.Base):
 
         del self.xact
         self.xact = None
-
-    def grow(self, size=None):
-        '''
-        Close out the current transaction and resize the memory map.
-        '''
-        with self._noCoXact():
-            self._growMapSize(size=size)
 
     def _growMapSize(self, size=None):
         mapsize = self.mapsize
@@ -398,14 +401,6 @@ class Slab(s_base.Base):
         '''
         valu = self.get(name.encode())
         return valu is not None
-
-    @contextlib.contextmanager
-    def _noCoXact(self):
-        if not self.readonly or self.txnrefcount:
-            self._finiCoXact()
-        yield None
-        if not self.readonly or self.txnrefcount:
-            self._initCoXact()
 
     def get(self, lkey, db=_DefaultDB):
         self._acqXactForReading()
