@@ -2537,3 +2537,9 @@ class CortexTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             self.len(2, await core.nodes('[ inet:dns:a=(vertex.link,1.2.3.4) inet:dns:a=(woot.com,5.6.7.8)]'))
             self.len(4, await core.nodes('inet:dns:a inet:fqdn=:fqdn'))
+
+    async def test_cortex_hive(self):
+        async with self.getTestCore() as core:
+            await core.hive.set(('visi',), 200)
+            async with core.getLocalProxy(share='cortex/hive') as hive:
+                self.eq(200, await hive.get(('visi',)))

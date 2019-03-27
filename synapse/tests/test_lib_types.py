@@ -996,10 +996,3 @@ class TypesTest(s_t_utils.SynTest):
             opts = {'vars': {'url': url}}
             self.len(1, await core.eval('[ it:exec:url="*" :url=$url ]', opts=opts).list())
             self.len(1, await core.eval('it:exec:url:url=$url', opts=opts).list())
-
-    async def test_types_str_regex_subs(self):
-        model = s_datamodel.Model()
-        strx = model.type('str').clone({'regex': '^(?<foo>[0-9]+)(?<bar>[a-z]{3})'})
-        valu, info = strx.norm('5656visi')
-        self.eq('5656', info['subs']['foo'])
-        self.eq('vis', info['subs']['bar'])
