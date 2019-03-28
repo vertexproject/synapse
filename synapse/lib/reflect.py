@@ -73,9 +73,11 @@ def getShareInfo(item):
     info = {'meths': meths}
 
     for name in dir(item):
+
         if name.startswith('_'):
             continue
-        attr = getattr(item, name)
+
+        attr = getattr(item, name, None)
         if not callable(attr):
             continue
 

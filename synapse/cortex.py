@@ -17,6 +17,7 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
+import synapse.lib.hive as s_hive
 import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
@@ -723,6 +724,11 @@ class Cortex(s_cell.Cell):
 
         if not path:
             return await CoreApi.anit(self, link, user)
+
+        # allow an admin to directly open the cortex hive
+        # (perhaps this should be a Cell() level pattern)
+        if path[0] == 'hive' and user.admin:
+            return await s_hive.HiveApi.anit(self.hive, user)
 
         if path[0] == 'layer':
 
@@ -1559,6 +1565,9 @@ class Cortex(s_cell.Cell):
         Yields:
             ((str,dict)): Storm messages.
         '''
+        if opts is None:
+            opts = {}
+
         MSG_QUEUE_SIZE = 1000
         chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
 
@@ -1567,6 +1576,8 @@ class Cortex(s_cell.Cell):
 
         # promote ourself to a synapse task
         synt = await self.boss.promote('storm', user=user, info={'query': text})
+
+        show = opts.get('show')
 
         async def runStorm():
             cancelled = False
@@ -1580,13 +1591,23 @@ class Cortex(s_cell.Cell):
 
                 await chan.put(('init', {'tick': tick, 'text': text, 'task': synt.iden}))
 
+                shownode = (show is None or 'node' in show)
                 async with await self.snap(user=user) as snap:
 
-                    snap.link(chan.put)
+                    if show is None:
+                        snap.link(chan.put)
 
-                    async for pode in snap.iterStormPodes(text, opts=opts, user=user):
-                        await chan.put(('node', pode))
-                        count += 1
+                    else:
+                        [snap.on(n, chan.put) for n in show]
+
+                    if shownode:
+                        async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                            await chan.put(('node', pode))
+                            count += 1
+
+                    else:
+                        async for item in snap.storm(text, opts=opts, user=user):
+                            count += 1
 
             except asyncio.CancelledError:
                 logger.warning('Storm runtime cancelled.')

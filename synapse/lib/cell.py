@@ -67,6 +67,25 @@ class CellApi(s_base.Base):
     def getCellUser(self):
         return self.user.pack()
 
+    def setCellUser(self, iden):
+        '''
+        Switch to another user (admin only).
+
+        This API allows remote admin/service accounts
+        to impersonate a user.  Used mostly by services
+        that manage their own authentication/sessions.
+        '''
+        if not self.user.admin:
+            mesg = 'setCellUser() caller must be admin.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        user = self.cell.auth.user(iden)
+        if user is None:
+            raise s_exc.NoSuchUser(iden=iden)
+
+        self.user = user
+        return True
+
     async def ps(self):
 
         retn = []
@@ -127,19 +146,23 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def addAuthUser(self, name):
-        await self.cell.auth.addUser(name)
+        user = await self.cell.auth.addUser(name)
+        return user.pack()
 
     @adminapi
     async def delAuthUser(self, name):
-        await self.cell.auth.delUser(name)
+        user = await self.cell.auth.delUser(name)
+        return user.pack()
 
     @adminapi
     async def addAuthRole(self, name):
-        await self.cell.auth.addRole(name)
+        role = await self.cell.auth.addRole(name)
+        return role.pack()
 
     @adminapi
     async def delAuthRole(self, name):
-        await self.cell.auth.delRole(name)
+        role = await self.cell.auth.delRole(name)
+        return role.pack()
 
     @adminapi
     async def getAuthUsers(self):
