@@ -261,38 +261,18 @@ class LmdbLayer(s_layer.Layer):
 
         fenc = form.encode() + b'\x00'
         penc = prop.encode() + b'\x00'
+        pvpref = fenc + penc
 
         univ = info.get('univ')
 
         if prop:
             bpkey = buid + prop.encode()
         else:
+            # special case for setting primary property
             assert not univ
             bpkey = buid + b'*' + form.encode()
 
-        bpval = s_msgpack.en((valu, indx))
-
-        pvpref = fenc + penc
-        pvvalu = s_msgpack.en((buid,))
-
-        byts = self.layrslab.replace(bpkey, bpval, db=self.bybuid)
-        if byts is not None:
-            assert prop
-
-            oldv, oldi = s_msgpack.un(byts)
-
-            self.layrslab.delete(pvpref + oldi, pvvalu, db=self.byprop)
-
-            if univ:
-                unkey = penc + oldi
-                self.layrslab.delete(unkey, pvvalu, db=self.byuniv)
-
-        if indx is not None:
-
-            self.layrslab.put(pvpref + indx, pvvalu, dupdata=True, db=self.byprop)
-
-            if univ:
-                self.layrslab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
+        self._storPropSetCommon(buid, penc, bpkey, pvpref, univ, valu, indx)
 
     async def storPropSet(self, buid, prop, valu):
 
@@ -302,10 +282,13 @@ class LmdbLayer(s_layer.Layer):
             raise s_exc.BadIndxValu(mesg=mesg, prop=prop, valu=valu)
 
         univ = prop.utf8name[0] in (46, 35) # leading . or #
-
         bpkey = buid + prop.utf8name
-        bpval = s_msgpack.en((valu, indx))
 
+        self._storPropSetCommon(buid, prop.utf8name, bpkey, prop.pref, univ, valu, indx)
+
+    def _storPropSetCommon(self, buid, penc, bpkey, pvpref, univ, valu, indx):
+
+        bpval = s_msgpack.en((valu, indx))
         pvvalu = s_msgpack.en((buid,))
 
         byts = self.layrslab.replace(bpkey, bpval, db=self.bybuid)
@@ -313,72 +296,17 @@ class LmdbLayer(s_layer.Layer):
 
             oldv, oldi = s_msgpack.un(byts)
 
-            self.layrslab.delete(prop.pref + oldi, pvvalu, db=self.byprop)
+            self.layrslab.delete(pvpref + oldi, pvvalu, db=self.byprop)
 
             if univ:
-                self.layrslab.delete(prop.encname + oldi, pvvalu, db=self.byuniv)
+                self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
 
         if indx is not None:
 
-            self.layrslab.put(prop.pref + indx, pvvalu, dupdata=True, db=self.byprop)
+            self.layrslab.put(pvpref + indx, pvvalu, dupdata=True, db=self.byprop)
 
             if univ:
-                self.layrslab.put(prop.encname + indx, pvvalu, dupdata=True, db=self.byuniv)
-
-    # async def _storPropSet(self, oper):
-
-    #     _, (buid, form, prop, valu, indx, info) = oper
-
-    #     if indx is not None and len(indx) > MAX_INDEX_LEN:
-    #         mesg = 'index bytes are too large'
-    #         raise s_exc.BadIndxValu(mesg=mesg, prop=prop, valu=valu)
-
-    #     fenc = form.encode() + b'\x00'
-    #     penc = prop.encode() + b'\x00'
-    #     pvpref = fenc + penc
-
-    #     univ = info.get('univ')
-    #     if prop is None:
-    #         # special case for setting primary property
-    #         bpkey = buid + b'*' + fenc
-    #     else:
-    #         bpkey = buid + penc
-
-    #     self._storPropSetCommon(buid, penc, bpkey, pvpref, univ, valu, indx)
-
-    # async def storPropSet(self, buid, prop, valu):
-
-    #     indx = prop.type.indx(valu)
-    #     if indx is not None and len(indx) > MAX_INDEX_LEN:
-    #         mesg = 'index bytes are too large'
-    #         raise s_exc.BadIndxValu(mesg=mesg, prop=prop, valu=valu)
-
-    #     univ = prop.utf8name[0] in (46, 35) # leading . or #
-    #     bpkey = buid + prop.utf8name
-
-    #     self._storPropSetCommon(buid, prop.utf8name, bpkey, univ, valu, indx)
-
-    # def _storPropSetCommon(self, buid, penc, bpkey, pvpref, univ, valu, indx):
-
-    #     bpval = s_msgpack.en((valu, indx))
-    #     pvvalu = s_msgpack.en((buid,))
-
-    #     byts = self.layrslab.replace(bpkey, bpval, db=self.bybuid)
-    #     if byts is not None:
-
-    #         oldv, oldi = s_msgpack.un(byts)
-
-    #         self.layrslab.delete(pvpref + oldi, pvvalu, db=self.byprop)
-
-    #         if univ:
-    #             self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
-
-    #     if indx is not None:
-
-    #         self.layrslab.put(pvpref + indx, pvvalu, dupdata=True, db=self.byprop)
-
-    #         if univ:
-    #             self.layrslab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
+                self.layrslab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
 
     async def _storPropDel(self, oper):
 
