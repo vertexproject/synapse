@@ -2,7 +2,7 @@
 #
 # Check https://circleci.com/docs/2.0/language-python/ for more details
 #
-version: 2
+version: 2.1
 
 doc_test_steps:  &doc_test_steps
   steps:
@@ -44,67 +44,69 @@ doc_test_steps:  &doc_test_steps
           ./scripts/doctests.py
 
 
-test_steps:  &test_steps
-  steps:
-    - checkout
+commands:
+  test_steps_python:
+    description: "Python test steps"
+    steps:
+      - checkout
 
-    - run:
-        name: checkout regression repo
-        command: |
-          git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
+      - run:
+          name: checkout regression repo
+          command: |
+            git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
 
-    - run:
-        name: install deps
-        command: |
-          sudo apt-get -y install cron
+      - run:
+          name: install deps
+          command: |
+            sudo apt-get -y install cron
 
-    - restore_cache:
-        keys:
-          - v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+      - restore_cache:
+          keys:
+            - v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
-    - run:
-        name: setup venv
-        command: |
-          python3 -m venv --copies venv
-          . venv/bin/activate
-          python3 -m pip install -U wheel pip pytest pytest-cov pycodestyle codecov
+      - run:
+          name: setup venv
+          command: |
+            python3 -m venv --copies venv
+            . venv/bin/activate
+            python3 -m pip install -U wheel pip pytest pytest-cov pycodestyle codecov
 
-    - run:
-        name: install synapse
-        command: |
-          . venv/bin/activate
-          python3 -m pip install -e .
+      - run:
+          name: install synapse
+          command: |
+            . venv/bin/activate
+            python3 -m pip install -e .
 
-    - save_cache:
-        paths:
-          - ./venv
-        key: v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+      - save_cache:
+          paths:
+            - ./venv
+          key: v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
-    - run:
-        name: syntax
-        command: |
-          . venv/bin/activate
-          pycodestyle --max-line-length=120 --select E111,E101,E201,E202,E203,E221,E222,E223,E224,E225,E226,E227,E228,E231,E241,E242,E251,E303,E304,E502,E711,E712,E713,E714,E721,E741,E742,E743,W191,W291,W293,W292,W391,W602,W603 synapse
-          pycodestyle --max-line-length=120 --select E111,E101,E201,E202,E203,E221,E222,E223,E224,E225,E226,E227,E228,E231,E241,E242,E251,E303,E304,E502,E711,E712,E713,E714,E721,E741,E742,E743,W191,W291,W293,W292,W391,W602,W603 scripts
+      - run:
+          name: syntax
+          command: |
+            . venv/bin/activate
+            pycodestyle --max-line-length=120 --select E111,E101,E201,E202,E203,E221,E222,E223,E224,E225,E226,E227,E228,E231,E241,E242,E251,E303,E304,E502,E711,E712,E713,E714,E721,E741,E742,E743,W191,W291,W293,W292,W391,W602,W603 synapse
+            pycodestyle --max-line-length=120 --select E111,E101,E201,E202,E203,E221,E222,E223,E224,E225,E226,E227,E228,E231,E241,E242,E251,E303,E304,E502,E711,E712,E713,E714,E721,E741,E742,E743,W191,W291,W293,W292,W391,W602,W603 scripts
 
-    - run:
-        name: run tests
-        command: |
-          . venv/bin/activate
-          mkdir test-reports
-          circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
+      - run:
+          name: run tests
+          command: |
+            . venv/bin/activate
+            mkdir test-reports
+            circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
-    - run:
-        name: report coverage
-        command: |
-          . venv/bin/activate
-          if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${PYVERS}node${CIRCLE_NODE_INDEX} ${CODECOV_ARGS}; fi;
+      - run:
+          name: report coverage
+          command: |
+            . venv/bin/activate
+            if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${PYVERS}node${CIRCLE_NODE_INDEX} ${CODECOV_ARGS}; fi;
 
-    - store_test_results:
-        path: test-reports
+      - store_test_results:
+          path: test-reports
 
-    - store_artifacts:
-        path: test-reports
+      - store_artifacts:
+          path: test-reports
 
 osx_test_steps:  &osx_test_steps
   steps:
@@ -178,7 +180,8 @@ jobs:
 
     working_directory: ~/repo
 
-    <<: *test_steps
+    steps:
+      - test_steps_python
 
   doctests:
     parallelism: 1
