@@ -68,9 +68,6 @@ class LmdbLayer(s_layer.Layer):
 
         self.dbs = {}
 
-        self.utf8 = s_layer.Utf8er()
-        self.encoder = s_layer.Encoder()
-
         self.bybuid = await self.initdb('bybuid') # <buid><prop>=<valu>
         self.byprop = await self.initdb('byprop', dupsort=True) # <form>00<prop>00<indx>=<buid>
         self.byuniv = await self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
@@ -176,10 +173,10 @@ class LmdbLayer(s_layer.Layer):
         pvoldval = s_msgpack.en((oldb,))
         pvnewval = s_msgpack.en((newb,))
 
-        oldfenc = self.encoder[oldv[0]]
-        newfenc = self.encoder[newv[0]]
+        oldfenc = oldv[0].encode() + b'\x00'
+        newfenc = newv[0].encode() + b'\x00'
 
-        newprel = self.utf8['*' + newv[0]]
+        newprel = b'*' + newv[0].encode()
 
         newnindx = self.core.model.prop(newv[0]).type.indx(newv[1])
 
@@ -207,7 +204,7 @@ class LmdbLayer(s_layer.Layer):
 
             else:
 
-                #<prop><00><indx>
+                # <prop><00><indx>
                 propindx = proputf8 + b'\x00' + indx
 
                 if proputf8[0] in (46, 35): # ".univ" or "#tag"
@@ -229,7 +226,7 @@ class LmdbLayer(s_layer.Layer):
 
         _, (form, oldb, newb) = oper
 
-        fenc = self.encoder[form]
+        fenc = form.encode() + b'\x00'
 
         pvoldval = s_msgpack.en((oldb,))
         pvnewval = s_msgpack.en((newb,))
@@ -239,7 +236,7 @@ class LmdbLayer(s_layer.Layer):
             proputf8 = lkey[32:]
             valu, indx = s_msgpack.un(lval)
 
-            #<prop><00><indx>
+            # <prop><00><indx>
             propindx = proputf8 + b'\x00' + indx
 
             if proputf8[0] in (46, 35): # ".univ" or "#tag"
@@ -262,18 +259,16 @@ class LmdbLayer(s_layer.Layer):
             mesg = 'index bytes are too large'
             raise s_exc.BadIndxValu(mesg=mesg, prop=prop, valu=valu)
 
-        fenc = self.encoder[form]
-        penc = self.encoder[prop]
+        fenc = form.encode() + b'\x00'
+        penc = prop.encode() + b'\x00'
 
         univ = info.get('univ')
 
-        # special case for setting primary property
-        if not prop:
-            prop = '*' + form
-
-        bpkey = buid + self.utf8[prop]
-
-        # FIXME:  might need to update any cortex buid cache
+        if prop:
+            bpkey = buid + prop.encode()
+        else:
+            assert not univ
+            bpkey = buid + b'*' + form.encode()
 
         bpval = s_msgpack.en((valu, indx))
 
@@ -282,6 +277,7 @@ class LmdbLayer(s_layer.Layer):
 
         byts = self.layrslab.replace(bpkey, bpval, db=self.bybuid)
         if byts is not None:
+            assert prop
 
             oldv, oldi = s_msgpack.un(byts)
 
@@ -329,6 +325,61 @@ class LmdbLayer(s_layer.Layer):
             if univ:
                 self.layrslab.put(prop.encname + indx, pvvalu, dupdata=True, db=self.byuniv)
 
+    # async def _storPropSet(self, oper):
+
+    #     _, (buid, form, prop, valu, indx, info) = oper
+
+    #     if indx is not None and len(indx) > MAX_INDEX_LEN:
+    #         mesg = 'index bytes are too large'
+    #         raise s_exc.BadIndxValu(mesg=mesg, prop=prop, valu=valu)
+
+    #     fenc = form.encode() + b'\x00'
+    #     penc = prop.encode() + b'\x00'
+    #     pvpref = fenc + penc
+
+    #     univ = info.get('univ')
+    #     if prop is None:
+    #         # special case for setting primary property
+    #         bpkey = buid + b'*' + fenc
+    #     else:
+    #         bpkey = buid + penc
+
+    #     self._storPropSetCommon(buid, penc, bpkey, pvpref, univ, valu, indx)
+
+    # async def storPropSet(self, buid, prop, valu):
+
+    #     indx = prop.type.indx(valu)
+    #     if indx is not None and len(indx) > MAX_INDEX_LEN:
+    #         mesg = 'index bytes are too large'
+    #         raise s_exc.BadIndxValu(mesg=mesg, prop=prop, valu=valu)
+
+    #     univ = prop.utf8name[0] in (46, 35) # leading . or #
+    #     bpkey = buid + prop.utf8name
+
+    #     self._storPropSetCommon(buid, prop.utf8name, bpkey, univ, valu, indx)
+
+    # def _storPropSetCommon(self, buid, penc, bpkey, pvpref, univ, valu, indx):
+
+    #     bpval = s_msgpack.en((valu, indx))
+    #     pvvalu = s_msgpack.en((buid,))
+
+    #     byts = self.layrslab.replace(bpkey, bpval, db=self.bybuid)
+    #     if byts is not None:
+
+    #         oldv, oldi = s_msgpack.un(byts)
+
+    #         self.layrslab.delete(pvpref + oldi, pvvalu, db=self.byprop)
+
+    #         if univ:
+    #             self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
+
+    #     if indx is not None:
+
+    #         self.layrslab.put(pvpref + indx, pvvalu, dupdata=True, db=self.byprop)
+
+    #         if univ:
+    #             self.layrslab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
+
     async def _storPropDel(self, oper):
 
         _, (buid, form, prop, info) = oper
@@ -336,13 +387,13 @@ class LmdbLayer(s_layer.Layer):
         # FIXME:  update any cortex-wide buid cache
         # FIXME:  this might not have the expected impact if
 
-        fenc = self.encoder[form]
-        penc = self.encoder[prop]
+        fenc = form.encode() + b'\x00'
+        penc = prop.encode() + b'\x00'
 
         if prop:
-            bpkey = buid + self.utf8[prop]
+            bpkey = buid + prop.encode()
         else:
-            bpkey = buid + b'*' + self.utf8[form]
+            bpkey = buid + b'*' + form.encode()
 
         univ = info.get('univ')
 
@@ -404,8 +455,8 @@ class LmdbLayer(s_layer.Layer):
         '''
 
         # <form> 00 00 (no prop...)
-        pref = self.encoder[form] + b'\x00'
-        penc = self.utf8['*' + form]
+        pref = form.encode() + b'\x00\x00'
+        penc = b'*' + form.encode()
 
         for _, pval in self.layrslab.scanByPref(pref, db=self.byprop):
 
@@ -425,8 +476,8 @@ class LmdbLayer(s_layer.Layer):
         '''
         # iterate byprop and join bybuid to get to value
 
-        penc = self.utf8[prop]
-        pref = self.encoder[form] + self.encoder[prop]
+        penc = prop.encode()
+        pref = form.encode() + b'\x00' + penc + b'\x00'
 
         for _, pval in self.layrslab.scanByPref(pref, db=self.byprop):
 
@@ -444,8 +495,8 @@ class LmdbLayer(s_layer.Layer):
         '''
         Iterate (buid, valu) rows for the given universal prop
         '''
-        penc = self.utf8[prop]
-        pref = self.encoder[prop]
+        penc = prop.encode()
+        pref = penc + b'\x00'
 
         for _, pval in self.layrslab.scanByPref(pref, db=self.byuniv):
             buid = s_msgpack.un(pval)[0]
@@ -462,8 +513,8 @@ class LmdbLayer(s_layer.Layer):
         '''
         Yield (buid, valu) tuples for the given prop with the specified indx valu
         '''
-        penc = self.utf8[prop]
-        pref = self.encoder[form] + self.encoder[prop] + indx
+        penc = prop.encode()
+        pref = form.encode() + b'\x00' + penc + b'\x00' + indx
 
         for _, pval in self.layrslab.scanByPref(pref, db=self.byprop):
 
