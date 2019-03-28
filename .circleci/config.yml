@@ -203,17 +203,20 @@ commands:
             . venv/bin/activate
             twine upload dist/*
 
-  deploy_docker_tags:
-    description: "Deploy current tag images to docker"
+  do_docker_login:
+    description: "Login to docker"
     steps:
-      - checkout
-      - setup_remote_docker
-
       - run:
           name: docker login
           command: |
             docker login --username "${DOCKER_USERNAME}" --password "${DOCKER_PASSWORD}"
 
+  deploy_docker_tags:
+    description: "Deploy current tag images to docker"
+    steps:
+      - checkout
+      - setup_remote_docker
+      - do_docker_login
       - run:
           name: build images
           command: |
@@ -234,10 +237,7 @@ commands:
     steps:
       - checkout
       - setup_remote_docker
-      - run:
-          name: docker login
-          command: |
-            docker login --username "${DOCKER_USERNAME}" --password "${DOCKER_PASSWORD}"
+      - do_docker_login
       - run:
           name: build image
           command: |
@@ -258,11 +258,7 @@ commands:
     steps:
       - checkout
       - setup_remote_docker
-      - run:
-          name: docker login
-          command: |
-            docker login --username "${DOCKER_USERNAME}" --password "${DOCKER_PASSWORD}"
-
+      - do_docker_login
       - run:
           name: build images
           command: |
@@ -270,7 +266,6 @@ commands:
             docker build -t vertexproject/synapse-axon:${CIRCLE_BRANCH} -f docker/images/axon/Dockerfile .
             docker build -t vertexproject/synapse-cortex:${CIRCLE_BRANCH} -f docker/images/cortex/Dockerfile .
             docker build -t vertexproject/synapse-cryotank:${CIRCLE_BRANCH} -f docker/images/coryotank/Dockerfile .
-
       - run:
           name: tag and push container
           command: |
