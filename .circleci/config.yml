@@ -223,7 +223,7 @@ commands:
             docker build -t vertexproject/synapse:${CIRCLE_TAG} -f Dockerfile .
             docker build -t vertexproject/synapse-axon:${CIRCLE_TAG} -f docker/images/axon/Dockerfile .
             docker build -t vertexproject/synapse-cortex:${CIRCLE_TAG} -f docker/images/cortex/Dockerfile .
-            docker build -t vertexproject/synapse-cryotank:${CIRCLE_TAG} -f docker/images/coryotank/Dockerfile .
+            docker build -t vertexproject/synapse-cryotank:${CIRCLE_TAG} -f docker/images/cryotank/Dockerfile .
       - run:
           name: tag and push container
           command: |
@@ -244,7 +244,7 @@ commands:
             docker build -t vertexproject/synapse:v0.1.x -f Dockerfile .
             docker build -t vertexproject/synapse-axon:v0.1.x -f docker/images/axon/Dockerfile .
             docker build -t vertexproject/synapse-cortex:v0.1.x -f docker/images/cortex/Dockerfile .
-            docker build -t vertexproject/synapse-cryotank:v0.1.x -f docker/images/coryotank/Dockerfile .
+            docker build -t vertexproject/synapse-cryotank:v0.1.x -f docker/images/cryotank/Dockerfile .
       - run:
           name: tag and push container
           command: |
@@ -265,7 +265,7 @@ commands:
             docker build -t vertexproject/synapse:${CIRCLE_BRANCH} -f Dockerfile .
             docker build -t vertexproject/synapse-axon:${CIRCLE_BRANCH} -f docker/images/axon/Dockerfile .
             docker build -t vertexproject/synapse-cortex:${CIRCLE_BRANCH} -f docker/images/cortex/Dockerfile .
-            docker build -t vertexproject/synapse-cryotank:${CIRCLE_BRANCH} -f docker/images/coryotank/Dockerfile .
+            docker build -t vertexproject/synapse-cryotank:${CIRCLE_BRANCH} -f docker/images/cryotank/Dockerfile .
       - run:
           name: tag and push container
           command: |
