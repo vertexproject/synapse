@@ -4,47 +4,47 @@
 #
 version: 2.1
 
-doc_test_steps:  &doc_test_steps
-  steps:
-    - checkout
-
-    - run:
-        name: install deps
-        command: |
-          sudo apt-get -y install pandoc
-
-    - restore_cache:
-        keys:
-          - v1-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
-
-    - run:
-        name: setup venv
-        command: |
-          python3 -m venv --copies venv
-          . venv/bin/activate
-          python3 -m pip install -U wheel pip
-
-    - run:
-        name: install synapse requirements
-        command: |
-          . venv/bin/activate
-          python3 setup.py egg_info
-          grep -v -E "^\[" synapse.egg-info/requires.txt > _requirements.txt
-          python3 -m pip install -r _requirements.txt
-
-    - save_cache:
-        paths:
-          - ./venv
-        key: v1-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
-
-    - run:
-        name: executing docs jupyter notebooks
-        command: |
-          . venv/bin/activate
-          ./scripts/doctests.py
-
-
 commands:
+  test_steps_doc:
+    description: "Documentation test steps"
+    steps:
+      - checkout
+
+      - run:
+          name: install deps
+          command: |
+            sudo apt-get -y install pandoc
+
+      - restore_cache:
+          keys:
+            - v1-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+
+      - run:
+          name: setup venv
+          command: |
+            python3 -m venv --copies venv
+            . venv/bin/activate
+            python3 -m pip install -U wheel pip
+
+      - run:
+          name: install synapse requirements
+          command: |
+            . venv/bin/activate
+            python3 setup.py egg_info
+            grep -v -E "^\[" synapse.egg-info/requires.txt > _requirements.txt
+            python3 -m pip install -r _requirements.txt
+
+      - save_cache:
+          paths:
+            - ./venv
+          key: v1-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+
+      - run:
+          name: executing docs jupyter notebooks
+          command: |
+            . venv/bin/activate
+            ./scripts/doctests.py
+
   test_steps_python:
     description: "Python test steps"
     steps:
@@ -108,50 +108,51 @@ commands:
       - store_artifacts:
           path: test-reports
 
-osx_test_steps:  &osx_test_steps
-  steps:
-    - checkout
+  test_steps_osx:
+    description: "OSX Test Steps"
+    steps:
+      - checkout
 
-    - restore_cache:
-        keys:
-          - v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+      - restore_cache:
+          keys:
+            - v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
-    - run:
-        name: setup venv
-        command: |
-          python3 -m venv --copies venv
-          . venv/bin/activate
-          python3 -m pip install -U wheel pip pytest pytest-cov pycodestyle codecov
+      - run:
+          name: setup venv
+          command: |
+            python3 -m venv --copies venv
+            . venv/bin/activate
+            python3 -m pip install -U wheel pip pytest pytest-cov pycodestyle codecov
 
-    - run:
-        name: install synapse
-        command: |
-          . venv/bin/activate
-          python3 -m pip install -e .
+      - run:
+          name: install synapse
+          command: |
+            . venv/bin/activate
+            python3 -m pip install -e .
 
-    - save_cache:
-        paths:
-          - ./venv
-        key: v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+      - save_cache:
+          paths:
+            - ./venv
+          key: v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
-    - run:
-        name: run tests
-        command: |
-          . venv/bin/activate
-          mkdir test-reports
-          circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
+      - run:
+          name: run tests
+          command: |
+            . venv/bin/activate
+            mkdir test-reports
+            circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
-    - run:
-        name: report coverage
-        command: |
-          . venv/bin/activate
-          if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${PYVERS}node${CIRCLE_NODE_INDEX} ${CODECOV_ARGS}; fi;
+      - run:
+          name: report coverage
+          command: |
+            . venv/bin/activate
+            if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${PYVERS}node${CIRCLE_NODE_INDEX} ${CODECOV_ARGS}; fi;
 
-    - store_test_results:
-        path: test-reports
+      - store_test_results:
+          path: test-reports
 
-    - store_artifacts:
-        path: test-reports
+      - store_artifacts:
+          path: test-reports
 
 jobs:
 
@@ -166,7 +167,8 @@ jobs:
 
     working_directory: ~/repo
 
-    <<: *osx_test_steps
+    steps:
+      - test_steps_osx
 
   python37:
     parallelism: 6
@@ -192,7 +194,8 @@ jobs:
 
     working_directory: ~/repo
 
-    <<: *doc_test_steps
+    steps:
+      - test_steps_doc
 
   deploy_pypi:
     docker:
