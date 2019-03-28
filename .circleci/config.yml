@@ -2,116 +2,120 @@
 #
 # Check https://circleci.com/docs/2.0/language-python/ for more details
 #
-version: 2
+version: 2.1
 
-doc_test_steps:  &doc_test_steps
-  steps:
-    - checkout
+commands:
+  test_steps_doc:
+    description: "Documentation test steps"
+    steps:
+      - checkout
 
-    - run:
-        name: install deps
-        command: |
-          sudo apt-get -y install pandoc
+      - run:
+          name: install deps
+          command: |
+            sudo apt-get -y install pandoc
 
-    - restore_cache:
-        keys:
-          - v1-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+      - restore_cache:
+          keys:
+            - v1-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
-    - run:
-        name: setup venv
-        command: |
-          python3 -m venv --copies venv
-          . venv/bin/activate
-          python3 -m pip install -U wheel pip
+      - run:
+          name: setup venv
+          command: |
+            python3 -m venv --copies venv
+            . venv/bin/activate
+            python3 -m pip install -U wheel pip
 
-    - run:
-        name: install synapse requirements
-        command: |
-          . venv/bin/activate
-          python3 setup.py egg_info
-          grep -v -E "^\[" synapse.egg-info/requires.txt > _requirements.txt
-          python3 -m pip install -r _requirements.txt
+      - run:
+          name: install synapse requirements
+          command: |
+            . venv/bin/activate
+            python3 setup.py egg_info
+            grep -v -E "^\[" synapse.egg-info/requires.txt > _requirements.txt
+            python3 -m pip install -r _requirements.txt
 
-    - save_cache:
-        paths:
-          - ./venv
-        key: v1-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+      - save_cache:
+          paths:
+            - ./venv
+          key: v1-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
-    - run:
-        name: executing docs jupyter notebooks
-        command: |
-          . venv/bin/activate
-          ./scripts/doctests.py
+      - run:
+          name: executing docs jupyter notebooks
+          command: |
+            . venv/bin/activate
+            ./scripts/doctests.py
 
-test_steps:  &test_steps
-  steps:
-    - checkout
+  test_steps_python:
+    description: "Python test steps"
+    steps:
+      - checkout
 
-    - run:
-        name: checkout regression repo
-        command: |
+      - run:
+          name: checkout regression repo
+          command: |
             git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
 
-    - run:
-        name: install deps
-        command: |
-          sudo apt-get -y install cron
+      - run:
+          name: install deps
+          command: |
+            sudo apt-get -y install cron
 
-    - restore_cache:
-        keys:
-        - v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+      - restore_cache:
+          keys:
+            - v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
-    - run:
-        name: setup venv
-        command: |
-          python3 -m venv --copies venv
-          . venv/bin/activate
-          python3 -m pip install -U wheel pip pytest pytest-cov pycodestyle codecov
+      - run:
+          name: setup venv
+          command: |
+            python3 -m venv --copies venv
+            . venv/bin/activate
+            python3 -m pip install -U wheel pip pytest pytest-cov pycodestyle codecov
 
-    - run:
-        name: install synapse
-        command: |
-          . venv/bin/activate
-          python3 -m pip install -e .
+      - run:
+          name: install synapse
+          command: |
+            . venv/bin/activate
+            python3 -m pip install -e .
 
-    - save_cache:
-        paths:
-          - ./venv
-        key: v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+      - save_cache:
+          paths:
+            - ./venv
+          key: v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
-    - run:
-        name: syntax
-        command: |
-          . venv/bin/activate
-          if [ -n "${RUN_SYNTAX}" ]; then pycodestyle --max-line-length=120 --select E111,E101,E201,E202,E203,E221,E222,E223,E224,E225,E226,E227,E228,E231,E241,E242,E251,E303,E304,E502,E711,E712,E713,E714,E721,E741,E742,E743,W191,W291,W293,W292,W391,W602,W603 synapse; fi;
-          if [ -n "${RUN_SYNTAX}" ]; then pycodestyle --max-line-length=120 --select E111,E101,E201,E202,E203,E221,E222,E223,E224,E225,E226,E227,E228,E231,E241,E242,E251,E303,E304,E502,E711,E712,E713,E714,E721,E741,E742,E743,W191,W291,W293,W292,W391,W602,W603 scripts; fi;
+      - run:
+          name: syntax
+          command: |
+            . venv/bin/activate
+            pycodestyle --max-line-length=120 --select E111,E101,E201,E202,E203,E221,E222,E223,E224,E225,E226,E227,E228,E231,E241,E242,E251,E303,E304,E502,E711,E712,E713,E714,E721,E741,E742,E743,W191,W291,W293,W292,W391,W602,W603 synapse
+            pycodestyle --max-line-length=120 --select E111,E101,E201,E202,E203,E221,E222,E223,E224,E225,E226,E227,E228,E231,E241,E242,E251,E303,E304,E502,E711,E712,E713,E714,E721,E741,E742,E743,W191,W291,W293,W292,W391,W602,W603 scripts
 
-    - run:
-        name: run tests
-        command: |
-          . venv/bin/activate
-          mkdir test-reports
-          circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
+      - run:
+          name: run tests
+          command: |
+            . venv/bin/activate
+            mkdir test-reports
+            circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
-    - run:
-        name: report coverage
-        command: |
-          . venv/bin/activate
-          if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${PYVERS}node${CIRCLE_NODE_INDEX} ${CODECOV_ARGS}; fi;
+      - run:
+          name: report coverage
+          command: |
+            . venv/bin/activate
+            if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${PYVERS}node${CIRCLE_NODE_INDEX} ${CODECOV_ARGS}; fi;
 
-    - store_test_results:
-        path: test-reports
+      - store_test_results:
+          path: test-reports
 
-    - store_artifacts:
-        path: test-reports
+      - store_artifacts:
+          path: test-reports
 
-osx_test_steps:  &osx_test_steps
-  steps:
+  test_steps_osx:
+    description: "OSX Test Steps"
+    steps:
       - checkout
 
       - restore_cache:
           keys:
-          - v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+            - v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - run:
           name: setup venv
@@ -150,6 +154,126 @@ osx_test_steps:  &osx_test_steps
       - store_artifacts:
           path: test-reports
 
+  deploy_to_pypi:
+    description: "Publish packages to pypi"
+    steps:
+      - checkout
+
+      - restore_cache:
+          keys:
+            - v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+
+      - run:
+          name: install python dependencies
+          command: |
+            python3 -m venv venv
+            . venv/bin/activate
+            python3 -m pip install -U wheel pip twine
+            python3 -m pip install -U -r requirements_dev.txt
+
+      - save_cache:
+          paths:
+            - ./venv
+          key: v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+
+      - run:
+          name: verify git tag vs. version
+          command: |
+            env | grep -i circle
+            . venv/bin/activate
+            python setup.py verify
+
+      - run:
+          name: init .pypirc
+          command: |
+            echo -e "[pypi]" >> ~/.pypirc
+            echo -e "username = $PYPI_USERNAME" >> ~/.pypirc
+            echo -e "password = $PYPI_PASSWORD" >> ~/.pypirc
+
+      - run:
+          name: create packages
+          command: |
+            . venv/bin/activate
+            python setup.py sdist
+            python setup.py bdist_wheel --python-tag=py37
+
+      - run:
+          name: upload to pypi
+          command: |
+            . venv/bin/activate
+            twine upload dist/*
+
+  do_docker_login:
+    description: "Login to docker"
+    steps:
+      - run:
+          name: docker login
+          command: |
+            docker login --username "${DOCKER_USERNAME}" --password "${DOCKER_PASSWORD}"
+
+  deploy_docker_tags:
+    description: "Deploy current tag images to docker"
+    steps:
+      - checkout
+      - setup_remote_docker
+      - do_docker_login
+      - run:
+          name: build images
+          command: |
+            docker build -t vertexproject/synapse:${CIRCLE_TAG} -f Dockerfile .
+            docker build -t vertexproject/synapse-axon:${CIRCLE_TAG} -f docker/images/axon/Dockerfile .
+            docker build -t vertexproject/synapse-cortex:${CIRCLE_TAG} -f docker/images/cortex/Dockerfile .
+            docker build -t vertexproject/synapse-cryotank:${CIRCLE_TAG} -f docker/images/coryotank/Dockerfile .
+      - run:
+          name: tag and push container
+          command: |
+            docker push vertexproject/synapse:${CIRCLE_TAG}
+            docker push vertexproject/synapse-axon:${CIRCLE_TAG}
+            docker push vertexproject/synapse-cortex:${CIRCLE_TAG}
+            docker push vertexproject/synapse-cryotank:${CIRCLE_TAG}
+
+  deploy_docker_01x:
+    description: "Deploy current tag to docker as v0.1.x"
+    steps:
+      - checkout
+      - setup_remote_docker
+      - do_docker_login
+      - run:
+          name: build image
+          command: |
+            docker build -t vertexproject/synapse:v0.1.x -f Dockerfile .
+            docker build -t vertexproject/synapse-axon:v0.1.x -f docker/images/axon/Dockerfile .
+            docker build -t vertexproject/synapse-cortex:v0.1.x -f docker/images/cortex/Dockerfile .
+            docker build -t vertexproject/synapse-cryotank:v0.1.x -f docker/images/coryotank/Dockerfile .
+      - run:
+          name: tag and push container
+          command: |
+            docker push vertexproject/synapse:v0.1.x
+            docker push vertexproject/synapse-axon:v0.1.x
+            docker push vertexproject/synapse-cortex:v0.1.x
+            docker push vertexproject/synapse-cryotank:v0.1.x
+
+  deploy_docker_branches:
+    description: "Deploy current branch images to docker"
+    steps:
+      - checkout
+      - setup_remote_docker
+      - do_docker_login
+      - run:
+          name: build images
+          command: |
+            docker build -t vertexproject/synapse:${CIRCLE_BRANCH} -f Dockerfile .
+            docker build -t vertexproject/synapse-axon:${CIRCLE_BRANCH} -f docker/images/axon/Dockerfile .
+            docker build -t vertexproject/synapse-cortex:${CIRCLE_BRANCH} -f docker/images/cortex/Dockerfile .
+            docker build -t vertexproject/synapse-cryotank:${CIRCLE_BRANCH} -f docker/images/coryotank/Dockerfile .
+      - run:
+          name: tag and push container
+          command: |
+            docker push vertexproject/synapse:${CIRCLE_BRANCH}
+            docker push vertexproject/synapse-axon:${CIRCLE_BRANCH}
+            docker push vertexproject/synapse-cortex:${CIRCLE_BRANCH}
+            docker push vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
+
 jobs:
 
   osx37:
@@ -163,7 +287,8 @@ jobs:
 
     working_directory: ~/repo
 
-    <<: *osx_test_steps
+    steps:
+      - test_steps_osx
 
   python37:
     parallelism: 6
@@ -177,7 +302,8 @@ jobs:
 
     working_directory: ~/repo
 
-    <<: *test_steps
+    steps:
+      - test_steps_python
 
   doctests:
     parallelism: 1
@@ -188,13 +314,94 @@ jobs:
 
     working_directory: ~/repo
 
-    <<: *doc_test_steps
+    steps:
+      - test_steps_doc
 
+  deploy_pypi:
+    docker:
+      - image: circleci/python:3.7
+
+    steps:
+      - deploy_to_pypi
+
+  docker_tags:
+    docker:
+      - image: docker:18.05.0-ce
+    steps:
+      - deploy_docker_tags
+
+  docker_branches:
+    docker:
+      - image: docker:18.05.0-ce
+    steps:
+      - deploy_docker_branches
+
+  docker_tags_01x:
+    docker:
+      - image: docker:18.05.0-ce
+    steps:
+      - deploy_docker_01x
 
 workflows:
   version: 2
   run_tests:
     jobs:
-      - doctests
-      - osx37
-      - python37
+      - doctests:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /.*/
+
+      - osx37:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /.*/
+
+      - python37:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /.*/
+
+      - deploy_pypi:
+          requires:
+            - doctests
+            - python37
+          filters:
+            tags:
+              only: /^v(0\.[0-9]+\.[0-9]+)$/
+            branches:
+              ignore: /.*/
+
+      - docker_branches:
+          requires:
+            - doctests
+            - python37
+          filters:
+            branches:
+              only:
+                - master
+
+      - docker_tags:
+          requires:
+            - doctests
+            - python37
+          filters:
+            tags:
+              only: /^v(0\.[0-9]+\.[0-9]+)$/
+            branches:
+              ignore: /.*/
+
+      - docker_tags_01x:
+          requires:
+            - doctests
+            - python37
+          filters:
+            tags:
+              only: /^v0\.1\.[0-9.]+$/
+            branches:
+              ignore: /.*/
