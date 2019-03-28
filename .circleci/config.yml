@@ -154,53 +154,8 @@ commands:
       - store_artifacts:
           path: test-reports
 
-
-jobs:
-
-  osx37:
-    parallelism: 2
-    macos:
-      xcode: "10.2.0"
-
-    environment:
-      COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-      PYVERS: 3.7
-
-    working_directory: ~/repo
-
-    steps:
-      - test_steps_osx
-
-  python37:
-    parallelism: 6
-    docker:
-      - image: circleci/python:3.7
-        environment:
-          CODECOV_ARGS: --required
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-          PYVERS: 3.7
-          SYN_REGRESSION_REPO: ~/git/synapse-regression
-
-    working_directory: ~/repo
-
-    steps:
-      - test_steps_python
-
-  doctests:
-    parallelism: 1
-    docker:
-      - image: circleci/python:3.7
-        environment:
-          PYVERS: 3.7
-
-    working_directory: ~/repo
-
-    steps:
-      - test_steps_doc
-
-  deploy_pypi:
-    docker:
-      - image: circleci/python:3.7
+  deploy_to_pypi:
+    description: "Publish packages to pypi"
     steps:
       - checkout
 
@@ -248,9 +203,8 @@ jobs:
             . venv/bin/activate
             twine upload dist/*
 
-  docker_tags:
-    docker:
-      - image: docker:18.05.0-ce
+  deploy_docker_tags:
+    description: "Deploy current tag images to docker"
     steps:
       - checkout
       - setup_remote_docker
@@ -275,9 +229,32 @@ jobs:
             docker push vertexproject/synapse-cortex:${CIRCLE_TAG}
             docker push vertexproject/synapse-cryotank:${CIRCLE_TAG}
 
-  docker_branches:
-    docker:
-      - image: docker:18.05.0-ce
+  deploy_docker_01x:
+    description: "Deploy current tag to docker as v0.1.x"
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: docker login
+          command: |
+            docker login --username "${DOCKER_USERNAME}" --password "${DOCKER_PASSWORD}"
+      - run:
+          name: build image
+          command: |
+            docker build -t vertexproject/synapse:v0.1.x -f Dockerfile .
+            docker build -t vertexproject/synapse-axon:v0.1.x -f docker/images/axon/Dockerfile .
+            docker build -t vertexproject/synapse-cortex:v0.1.x -f docker/images/cortex/Dockerfile .
+            docker build -t vertexproject/synapse-cryotank:v0.1.x -f docker/images/coryotank/Dockerfile .
+      - run:
+          name: tag and push container
+          command: |
+            docker push vertexproject/synapse:v0.1.x
+            docker push vertexproject/synapse-axon:v0.1.x
+            docker push vertexproject/synapse-cortex:v0.1.x
+            docker push vertexproject/synapse-cryotank:v0.1.x
+
+  deploy_docker_branches:
+    description: "Deploy current branch images to docker"
     steps:
       - checkout
       - setup_remote_docker
@@ -302,30 +279,73 @@ jobs:
             docker push vertexproject/synapse-cortex:${CIRCLE_BRANCH}
             docker push vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
 
+jobs:
+
+  osx37:
+    parallelism: 2
+    macos:
+      xcode: "10.2.0"
+
+    environment:
+      COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+      PYVERS: 3.7
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_osx
+
+  python37:
+    parallelism: 6
+    docker:
+      - image: circleci/python:3.7
+        environment:
+          CODECOV_ARGS: --required
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+          PYVERS: 3.7
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python
+
+  doctests:
+    parallelism: 1
+    docker:
+      - image: circleci/python:3.7
+        environment:
+          PYVERS: 3.7
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_doc
+
+  deploy_pypi:
+    docker:
+      - image: circleci/python:3.7
+
+    steps:
+      - deploy_to_pypi
+
+  docker_tags:
+    docker:
+      - image: docker:18.05.0-ce
+    steps:
+      - deploy_docker_tags
+
+  docker_branches:
+    docker:
+      - image: docker:18.05.0-ce
+    steps:
+      - deploy_docker_branches
+
   docker_tags_01x:
     docker:
       - image: docker:18.05.0-ce
     steps:
-      - checkout
-      - setup_remote_docker
-      - run:
-          name: docker login
-          command: |
-            docker login --username "${DOCKER_USERNAME}" --password "${DOCKER_PASSWORD}"
-      - run:
-          name: build image
-          command: |
-            docker build -t vertexproject/synapse:v0.1.x -f Dockerfile .
-            docker build -t vertexproject/synapse-axon:v0.1.x -f docker/images/axon/Dockerfile .
-            docker build -t vertexproject/synapse-cortex:v0.1.x -f docker/images/cortex/Dockerfile .
-            docker build -t vertexproject/synapse-cryotank:v0.1.x -f docker/images/coryotank/Dockerfile .
-      - run:
-          name: tag and push container
-          command: |
-            docker push vertexproject/synapse:v0.1.x
-            docker push vertexproject/synapse-axon:v0.1.x
-            docker push vertexproject/synapse-cortex:v0.1.x
-            docker push vertexproject/synapse-cryotank:v0.1.x
+      - deploy_docker_01x
 
 workflows:
   version: 2
