@@ -43,7 +43,8 @@ class CoroTest(s_t_utils.SynTest):
             tid = threading.get_ident()
             return tid, args, kwargs
 
-        tid, args, kwargs = await s_coro.executor(func, 1, key='valu')
+        future = s_coro.executor(func, 1, key='valu')
+        tid, args, kwargs = await future
         # Ensure that we were not executed on the ioloop thread
         self.ne(tid, s_glob._glob_thrd.ident)
         # Ensure that args are passed as expected
