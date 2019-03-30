@@ -1,10 +1,11 @@
 '''
 The layer library contains the base Layer object and helpers used for
 cortex construction.
+
+Note:  this interface is subject to change between minor revisions.
 '''
 import asyncio
 import logging
-import collections
 
 import regex
 
@@ -14,18 +15,12 @@ import synapse.exc as s_exc
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
+import synapse.lib.cache as s_cache
 
 logger = logging.getLogger(__name__)
 
 FAIR_ITERS = 10  # every this many rows, yield CPU to other tasks
-
-class Encoder(collections.defaultdict):
-    def __missing__(self, name):
-        return name.encode('utf8') + b'\x00'
-
-class Utf8er(collections.defaultdict):
-    def __missing__(self, name):
-        return name.encode('utf8')
+BUID_CACHE_SIZE = 10000
 
 class LayerApi(s_cell.CellApi):
 
@@ -100,6 +95,7 @@ class Layer(s_base.Base):
         self.core = core
         self.node = node
         self.iden = node.name()
+        self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
         self.info = await node.dict()
         self.info.setdefault('owner', 'root')

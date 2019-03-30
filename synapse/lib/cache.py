@@ -2,6 +2,7 @@
 A few speed optimized (lockless) cache helpers.  Use carefully.
 '''
 import asyncio
+import functools
 import collections
 
 import regex
@@ -10,22 +11,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 def memoize(size=10000):
-
-    def decor(f):
-
-        def callback(args):
-            return f(*args)
-
-        cache = FixedCache(callback, size=size)
-
-        def wrap(*args):
-            return cache.get(args)
-
-        wrap.cache = cache
-
-        return wrap
-
-    return decor
+    return functools.lru_cache(maxsize=size)
 
 class FixedCache:
 
@@ -97,6 +83,27 @@ class FixedCache:
     def clear(self):
         self.fifo.clear()
         self.cache.clear()
+
+class LruDict(collections.OrderedDict):
+    '''
+    Maintains the last n accessed keys
+    '''
+    def __init__(self, size=10000):
+        collections.OrderedDict(self)
+        self.maxsize = size
+
+    def __getitem__(self, key):
+        valu = super.__getitem__(key)
+        self.move_to_end(valu)
+        return valu
+
+    def __setitem__(self, key, valu):
+        if not self.maxsize:
+            return
+        super.__setitem__(valu)
+        self.move_to_end(key)
+        if len(self) > self.maxsize:
+            self.popitem(last=True)
 
 # Search for instances of escaped double or single asterisks
 # https://regex101.com/r/fOdmF2/1

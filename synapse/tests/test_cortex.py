@@ -132,7 +132,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await alist(core.eval('test:str~="zip"')))
             self.len(1, await alist(core.eval('.favcolor~="^r"')))
 
-    @s_glob.synchelp
     async def test_feed_conf(self):
 
         async with self.getTestCryo() as cryo:
