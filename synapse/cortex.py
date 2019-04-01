@@ -134,24 +134,25 @@ class View(s_base.Base):
 
 class CoreApi(s_cell.CellApi):
     '''
-    The CoreApi is exposed over telepath.
+    The CoreApi is exposed when connecting to a Cortex over Telepath.
 
     Many CoreApi methods operate on packed nodes consisting of primitive data structures
     which can be serialized with msgpack/json.
 
-    Example Node
+    An example of a packaged Node::
 
-    ( (<form>, <valu>), {
+        ( (<form>, <valu>), {
 
-        "props": {
-            <name>: <valu>,
-            ...
-        },
-        "tags": {
-            "foo": <time>,
-            "foo.bar": <time>,
-        },
-    })
+            "props": {
+                <name>: <valu>,
+                ...
+            },
+            "tags": {
+                "foo": <time>,
+                "foo.bar": <time>,
+            },
+        })
+
     '''
     @s_cell.adminapi
     def getCoreMods(self):
@@ -1034,12 +1035,19 @@ class Cortex(s_cell.Cell):
 
     async def addLayer(self, **info):
         '''
-        info = {
-            'iden': <str>, ( optional iden. default guid() )
-            'type': <str>, ( optional type. default lmdb )
-            'owner': <str>, ( optional owner. default root )
-            'config': {}, # type specific config options.
-        }
+        Add a Layer to the cortex.
+
+        Notes:
+
+            The addLayer ``**info`` arg is expected to be shaped like the following::
+
+                info = {
+                    'iden': <str>, ( optional iden. default guid() )
+                    'type': <str>, ( optional type. default lmdb )
+                    'owner': <str>, ( optional owner. default root )
+                    'config': {}, # type specific config options.
+                }
+
         '''
         iden = info.pop('iden', None)
         if iden is None:

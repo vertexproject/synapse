@@ -7,17 +7,17 @@ Github Milestone Management
 ---------------------------
 
 The current milestone and the next milestone should be created in github.  For example, if the current release is
-v0.0.20, we should have a v0.0.21 and v0.0.22 milestones created. When PRs are created or issues are addressed (via PR),
+v0.1.1, we should have a v0.1.2 and v0.1.3 milestones created. When PRs are created or issues are addressed (via PR),
 they should be added to the milestone.  This allows us to easily pull stories and PRs for release note generation.
 
 Release Notes
 -------------
 
 Release notes should be compiled from the issues and PRs assigned to the milestone being released. These can all be
-obtained via a issue search in github.  For example, if we're releasing v0.0.20, we can pull all the stories via the
+obtained via a issue search in github.  For example, if we're releasing v0.1.2, we can pull all the stories via the
 following query in github::
 
-    milestone:v0.0.20
+    milestone:v0.1.2
 
 Release notes should break things out by the following categories:
 
@@ -26,31 +26,27 @@ Release notes should break things out by the following categories:
     #. Bugfixes
     #. Major documentation updates
 
-Short text form is fine for describing these.  These notes will be posted up on github on the releases page for
-consumption.
+Short text form is fine for describing these.
 
-Markdown Template
+RST Template
 *****************
 
 The following can be used as a markdown template for Github release notes::
 
-    # Synapse <version number> Release Notes
+    Features and Enhancements
+    -------------------------
 
-    ## New Features
-    - item 1
-    - item 2
+    - Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
 
-    ## Enhancements
-    - item 1
-    - item 2
+    Bugfixes
+    --------
 
-    ## Bugs
-    - item 1
-    - item 2
+    - Fix old bugs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
 
-    ## Documentation
-    - item 1
-    - item 2
+    Improved Documentation
+    ----------------------
+
+    - Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
 
 Cutting the Release
 -------------------
@@ -59,36 +55,33 @@ This includes four parts:
 
     #. Preparing the release notes/changelog information.
     #. Tagging the release and pushing to github.
-    #. Publishing the release on pypi.
-    #. Publishing new docker images on dockerhub.
 
 Preparing The Release Notes
 ***************************
 
 Release notes are to be prepared as per the release notes format noted above.
 
-The markdown template also needs to be added to the top of the ``CHANGELOG.md`` file.  This allows us to keep the
+The Restructured Text template also needs to be added to the top of the ``CHANGELOG.rst`` file.  This allows us to keep the
 changes in repository as well. This file needs to be updated prior to the release tagging. The formatting for adding
 the content to the file is the following::
 
     <git tag> - YYYY-MM-DD
+    ======================
+
+    Features and Enhancements
+    -------------------------
+
+    - Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+    Bugfixes
+    --------
+
+    - Fix old bugs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+    Improved Documentation
     ----------------------
 
-    ## New Features
-    - item 1
-    - item 2
-
-    ## Enhancements
-    - item 1
-    - item 2
-
-    ## Bugs
-    - item 1
-    - item 2
-
-    ## Documentation
-    - item 1
-    - item
+    - Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
 
 This also allows for machine parseable notes so that ``pyup.io`` can show our changelogs.
 
@@ -115,15 +108,16 @@ remote is called 'upstream')::
     bumpversion --verbose patch
     # Push the new commit and tag up to github
     git push upstream
-    git push upstream --tags
+    # Push the new tag up explicitly. Do not use --tags
+    git push upstream <the new tag>
 
 Next, go to github at https://github.com/vertexproject/synapse/tags and edit the release notes for the tag that was
-pushed up.  Add the release notes compiled from the previous step.
+pushed up.  Add a link to the release notes from the readthedocs changelog page for the current release.
 
 Publishing on Pypi
 *******************
-Coming soon (this may be automated very soon)
+Publishing packages to PyPI is done via CircleCi configuration.
 
 Updating Docker images
 **********************
-Coming soon
+Publishing docker images to DockerHub is done via CircleCi configuration.

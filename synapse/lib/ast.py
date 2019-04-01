@@ -176,36 +176,42 @@ class SubGraph:
     '''
     An Oper like object which generates a subgraph.
 
-    rules = {
+    Notes:
 
-        'degrees': 1,
+        The rules format for the subgraph is shaped like the following::
 
-        'filters': [
-            '-(#foo or #bar)',
-            '-(foo:bar or baz:faz)',
-        ],
+                rules = {
 
-        'pivots': [
-            '-> * | limit 100',
-            '<- * | limit 100',
-        ]
+                    'degrees': 1,
 
-        'forms': {
+                    'filters': [
+                        '-(#foo or #bar)',
+                        '-(foo:bar or baz:faz)',
+                    ],
 
-            'inet:fqdn':{
-                'filters': [],
-                'pivots': [],
-            }
+                    'pivots': [
+                        '-> * | limit 100',
+                        '<- * | limit 100',
+                    ]
 
-            '*': {
-                'filters': [],
-                'pivots': [],
-            },
-        },
-    }
+                    'forms': {
 
-    # nodes which were original seeds have path.meta('graph:seed')
-    # all nodes have path.meta('edges') which is a list of (iden, info) tuples.
+                        'inet:fqdn':{
+                            'filters': [],
+                            'pivots': [],
+                        }
+
+                        '*': {
+                            'filters': [],
+                            'pivots': [],
+                        },
+                    },
+                }
+
+        Nodes which were original seeds have path.meta('graph:seed').
+
+        All nodes have path.meta('edges') which is a list of (iden, info) tuples.
+
     '''
 
     def __init__(self, rules):
