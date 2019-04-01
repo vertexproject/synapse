@@ -258,9 +258,8 @@ class StormCmd(s_cli.Cmd):
         --hide-tags: Do not print tags.
         --hide-props: Do not print secondary properties.
         --hide-unknown: Do not print messages which do not have known handlers.
-        --raw: Print the nodes in their raw format (overrides --hide-tags and --hide-props)
-        --debug: Display cmd debug information along with nodes in raw format
-                 (overrides --hide-tags, --hide-props and raw)
+        --raw: Print the nodes in their raw format. This overrides --hide-tags and --hide-props.
+        --debug: Display cmd debug information along with nodes in raw format. This overrides other display arguments.
         --path: Get path information about returned nodes.
         --show <names>: Limit storm events (server-side) to the comma sep list)
 
