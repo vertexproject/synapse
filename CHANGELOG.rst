@@ -47,8 +47,8 @@ Bugfixes
 - Fixes for lmdblab.dropdb and lmdbslab.initdb mapfull safety. (`#1174 <https://github.com/vertexproject/synapse/pull/1174>`_)
 - Graceful recovery for pre v0.1.0 database migrations for lmdbslab backed databases. (`#1175 <https://github.com/vertexproject/synapse/pull/1175>`_)
 - Syntax parser did not allow for multiple dot hierarchies in universal properties. (`#1178 <https://github.com/vertexproject/synapse/pull/1178>`_)
-- Fix for lmdbslabh mapfull error during shutdown (`#1184 <https://github.com/vertexproject/synapse/pull/1184>`_)
-- ``synapse.lib.reflect.getShareInfo()`` could return incorrect data depending on execution order and object type inherintance. (`#1186 <https://github.com/vertexproject/synapse/pull/1186>`_)
+- Fix for lmdbslab mapfull error during shutdown (`#1184 <https://github.com/vertexproject/synapse/pull/1184>`_)
+- ``synapse.lib.reflect.getShareInfo()`` could return incorrect data depending on execution order and object type inheritance. (`#1186 <https://github.com/vertexproject/synapse/pull/1186>`_)
 - Add missing test for Str types extracting named regular expression matches as subs. (`#1187 <https://github.com/vertexproject/synapse/pull/1187>`_)
 
 Improved Documentation
