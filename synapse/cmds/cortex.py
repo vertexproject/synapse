@@ -255,20 +255,19 @@ class StormCmd(s_cli.Cmd):
         query: The storm query
 
     Optional Arguments:
-        --hide-tags: Do not print tags
-        --hide-props: Do not print secondary properties
+        --hide-tags: Do not print tags.
+        --hide-props: Do not print secondary properties.
         --hide-unknown: Do not print messages which do not have known handlers.
-        --raw: Print the nodes in their raw format
-            (overrides --hide-tags and --hide-props)
+        --raw: Print the nodes in their raw format (overrides --hide-tags and --hide-props)
         --debug: Display cmd debug information along with nodes in raw format
-            (overrides --hide-tags, --hide-props and raw)
+                 (overrides --hide-tags, --hide-props and raw)
         --path: Get path information about returned nodes.
-
         --show <names>: Limit storm events (server-side) to the comma sep list)
 
     Examples:
         storm inet:ipv4=1.2.3.4
         storm --debug inet:ipv4=1.2.3.4
+
     '''
 
     _cmd_name = 'storm'
