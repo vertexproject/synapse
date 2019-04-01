@@ -1,8 +1,9 @@
-Changelog
-=========
+*****************
+Synapse Changelog
+*****************
 
 Developement
-------------
+============
 
 Features
 --------
@@ -12,7 +13,7 @@ Features
 Bugfixes
 --------
 
-- Fix old buds (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Fix old bugs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
 
 Improved Documentation
 ----------------------
@@ -35,7 +36,7 @@ Features
 - Remove references to ``Cortex.layer`` as a Cortex level attribute. There was no guarantee that this was the correct write layer for a arbitrary view and could lead to incorrect usage. (`#1181 <https://github.com/vertexproject/synapse/pull/1181>`_)
 - Optimize the ``snap.getNodesBy()`` API to shortcut true equality lift operations to become pure lifts by buid. (`#1183 <https://github.com/vertexproject/synapse/pull/1183>`_)
 - Add a generic Cell server, ``synapse.servers.cell`` that can be used to launch any Cell by python class path and file path.  This can be used to launch custom Cell objects. (`#1182 <https://github.com/vertexproject/synapse/pull/1182>`_)
-- Add server side remote event processing to `.storm()` API calls. (`#1171 <https://github.com/vertexproject/synapse/pull/1171>`_)
+- Add server side remote event processing to ``.storm()`` API calls. (`#1171 <https://github.com/vertexproject/synapse/pull/1171>`_)
 - Add Telepath user proxying. (`#1171 <https://github.com/vertexproject/synapse/pull/1171>`_)
 - Migrate Dockerhub docker container builds and pypi packaging and release processes to CircleCI. (`#1185 <https://github.com/vertexproject/synapse/pull/1185>`_)
 
