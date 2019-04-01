@@ -160,3 +160,26 @@ class CacheTest(s_t_utils.SynTest):
         self.len(1, glob.get('zip.hehe'))
         glob.rem('zip.*', 1)
         self.len(0, glob.get('zip.hehe'))
+
+    async def test_lrudict(self):
+        lru = s_cache.LruDict(3)
+        del lru['foo']
+        lru['foo'] = 42
+        self.eq(lru['foo'], 42)
+        del lru['foo']
+        self.none(lru.get('foo', None))
+        lru['foo2'] = 'yar'
+        lru['foo3'] = 100
+        lru['foo4'] = 'yop'
+        self.notin('foo', lru)
+
+        # Validate this is a LRU and not least-recently-added
+        self.eq(lru['foo3'], 100)
+        lru['foo5'] = 1
+        lru['foo6'] = True
+        self.isin('foo3', lru)
+
+        # Make sure that disabled dict still work
+        lru = s_cache.LruDict(0)
+        lru['nope'] = 42
+        self.none(lru.get('nope', None))

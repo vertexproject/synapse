@@ -95,7 +95,7 @@ class LruDict(collections.OrderedDict):
 
     def __getitem__(self, key):
         valu = super().__getitem__(key)
-        self.move_to_end(valu)
+        self.move_to_end(key)
         return valu
 
     def __setitem__(self, key, valu):
@@ -104,9 +104,16 @@ class LruDict(collections.OrderedDict):
         super().__setitem__(key, valu)
         self.move_to_end(key)
         if len(self) > self.maxsize:
-            self.popitem(last=True)
+            try:
+                # This actually calls __getitem__ above.  Ignore exception raised by move_to_end
+                self.popitem(last=False)
+            except KeyError:
+                pass
 
     def __delitem__(self, key):
+        '''
+        Ignore attempts to delete keys that may have already been flushed
+        '''
         try:
             super().__delitem__(key)
         except KeyError:
