@@ -53,7 +53,7 @@ Bugfixes
 Improved Documentation
 ----------------------
 
-- Minor documentation updates for permissions. (`#1172 <https://github.com/aio-libs/aiohttp/pull/1172>`_)
+- Minor documentation updates for permissions. (`#1172 <https://github.com/vertexproject/synapse/pull/1172>`_)
 - Added docstring and test for ``synapse.lib.coro.executor()``. (`#1189 <https://github.com/vertexproject/synapse/pull/1189>`_)
 
 
