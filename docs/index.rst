@@ -18,9 +18,12 @@ Welcome to synapse's documentation!
    synapse/contributing
    synapse/httpapi
 
+   synapse/changelog
+
    autodocs/datamodel_types
    autodocs/datamodel_forms
    autodocs/modules
+
 
 Indices and tables
 ==================

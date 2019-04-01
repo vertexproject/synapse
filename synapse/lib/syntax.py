@@ -704,7 +704,7 @@ class Parser:
 
     def ignorespace(self):
         '''
-        Ignore whitespace as well as comment syntax // and /* */
+        Ignore whitespace as well as comment syntax ``//`` and ``/* ... */``
         '''
 
         while True:
