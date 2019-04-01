@@ -14,6 +14,29 @@ def iscoro(item):
     return inspect.iscoroutine(item)
 
 def executor(func, *args, **kwargs):
+    '''
+    Execute a non-coroutine function in the ioloop executor pool.
+
+    Args:
+        func: Function to execute.
+        *args: Args for the function.
+        **kwargs: Kwargs for the function.
+
+    Examples:
+
+        Execute a blocking API call in the executor pool::
+
+            import requests
+
+            def block(url, params=None):
+                return requests.get(url, params=params).json()
+
+            fut = s_coro.executor(block, 'http://some.tld/thign')
+            resp = await fut
+
+    Returns:
+        asyncio.Future: An asyncio future.
+    '''
 
     def real():
         return func(*args, **kwargs)
