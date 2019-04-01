@@ -53,6 +53,9 @@ class LayerTest(s_t_utils.SynTest):
                     await liftByHandler('form:ival', 1)
 
     async def test_layer_buidcache(self):
+        '''
+        Make sure the layer buidcache isn't caching incorrectly
+        '''
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'a', {'tick': '1970'})
@@ -64,6 +67,11 @@ class LayerTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 node = nodes[0]
                 self.eq(node.tags, {'foo': (None, None)})
+                await node.delete()
+
+            async with await core.snap() as snap:
+                nodes = await alist(snap.getNodesBy('test:str'))
+                self.len(0, nodes)
 
     async def test_splicemigration_pre010(self):
         async with self.getRegrCore('pre-010') as core:

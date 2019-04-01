@@ -84,6 +84,8 @@ class LmdbLayer(s_layer.Layer):
     async def stor(self, sops, splices=None):
         '''
         Execute a series of storage operations.
+
+        Overrides implementation in layer.py to avoid unnecessary async calls.
         '''
         for oper in sops:
             func = self._stor_funcs.get(oper[0])
