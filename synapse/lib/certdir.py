@@ -35,7 +35,7 @@ class CertDir:
 
     Notes:
         * All certificates will be loaded from and written to ~/.syn/certs by default. Set the envvar SYN_CERT_DIR to
-        override.
+          override.
         * All certificate generation methods create 4096 bit RSA keypairs.
         * All certificate signing methods use sha256 as the signature algorithm.
         * CertDir does not currently support signing CA CSRs.

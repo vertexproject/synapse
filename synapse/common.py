@@ -232,7 +232,8 @@ def lockfile(path):
         path (str): A path to a lock file.
 
     Examples:
-        Get the lock on a file and dostuff while having the lock:
+
+        Get the lock on a file and dostuff while having the lock::
 
             path = '/hehe/haha.lock'
             with lockfile(path):

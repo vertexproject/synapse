@@ -1447,7 +1447,7 @@ class Time(IntBase):
 
     def indxByRange(self, valu):
         '''
-        Override default *range= handler to account for relative computation.
+        Override default ``*range=`` handler to account for relative computation.
         '''
 
         if not isinstance(valu, (list, tuple)):

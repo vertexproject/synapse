@@ -95,7 +95,7 @@ class CoreModule:
         Construct a path relative to this module's working directory.
 
         Args:
-            (*paths): A list of path strings
+            *paths: A list of path strings
 
         Notes:
             This creates the module specific directory if it does not exist.

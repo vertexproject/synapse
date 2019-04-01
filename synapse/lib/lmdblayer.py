@@ -26,10 +26,8 @@ LMDB_LAYER_DEFAULT_MAP_SIZE = 512 * s_const.mebibyte
 class LmdbLayer(s_layer.Layer):
     '''
     A layer implements btree indexed storage for a cortex.
-
-    TODO:
-        metadata for layer contents (only specific type / tag)
     '''
+    # TODO: metadata for layer contents (only specific type / tag)
 
     confdefs = (  # type: ignore
         ('lmdb:mapsize', {'type': 'int', 'defval': LMDB_LAYER_DEFAULT_MAP_SIZE}),

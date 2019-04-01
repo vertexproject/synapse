@@ -570,29 +570,33 @@ class Model:
         '''
         Add a list of (name, mdef) tuples.
 
-        A model definition (mdef) is structured as follows:
+        A model definition (mdef) is structured as follows::
 
-        {
-            "ctors":(
-                ('name', 'class.path.ctor', {}, {'doc': 'The foo thing.'}),
-            ),
+            {
+                "ctors":(
+                    ('name', 'class.path.ctor', {}, {'doc': 'The foo thing.'}),
+                ),
 
-            "types":(
-                ('name', ('basetype', {typeopts}), {info}),
-            ),
+                "types":(
+                    ('name', ('basetype', {typeopts}), {info}),
+                ),
 
-            "forms":(
-                (formname, (typename, typeopts), {info}, (
+                "forms":(
+                    (formname, (typename, typeopts), {info}, (
+                        (propname, (typename, typeopts), {info}),
+                    )),
+                ),
+                "univs":(
                     (propname, (typename, typeopts), {info}),
-                )),
-            ),
-            "univs":(
-                (propname, (typename, typeopts), {info}),
-            )
-        }
+                )
+            }
 
         Args:
-            mods (list);  The list of tuples.
+            mods (list):  The list of tuples.
+
+        Returns:
+            None
+
         '''
 
         # load all the base type ctors in order...
