@@ -75,6 +75,13 @@ class LmdbLayer(s_layer.Layer):
         self.offs = s_slaboffs.SlabOffs(self.layrslab, offsdb)
         self.splicelog = s_slabseqn.SlabSeqn(self.spliceslab, 'splices')
 
+        self.indxfunc = {
+            'eq': self._rowsByEq,
+            'pref': self._rowsByPref,
+            'range': self._rowsByRange,
+        }
+
+
     def _migrate_db_pre010(self, dbname, newslab):
         '''
         Check for any pre-010 entries in 'dbname' in my slab and migrate those to the new slab.
@@ -356,21 +363,21 @@ class LmdbLayer(s_layer.Layer):
                 mesg = 'unknown index operation'
                 raise s_exc.NoSuchName(name=name, mesg=mesg)
 
-            async for row in func(db, pref, valu):
+            for row in func(db, pref, valu):
 
                 yield row
 
-    async def _rowsByEq(self, db, pref, valu):
+    def _rowsByEq(self, db, pref, valu):
         lkey = pref + valu
         for _, byts in self.layrslab.scanByDups(lkey, db=db):
             yield s_msgpack.un(byts)
 
-    async def _rowsByPref(self, db, pref, valu):
+    def _rowsByPref(self, db, pref, valu):
         pref = pref + valu
         for _, byts in self.layrslab.scanByPref(pref, db=db):
             yield s_msgpack.un(byts)
 
-    async def _rowsByRange(self, db, pref, valu):
+    def _rowsByRange(self, db, pref, valu):
         lmin = pref + valu[0]
         lmax = pref + valu[1]
 

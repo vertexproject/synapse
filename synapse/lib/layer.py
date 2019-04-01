@@ -130,12 +130,6 @@ class Layer(s_base.Base):
             'buid:set': self._storBuidSet,
         }
 
-        self.indxfunc = {
-            'eq': self._rowsByEq,
-            'pref': self._rowsByPref,
-            'range': self._rowsByRange,
-        }
-
         self.fresh = False
         self.canrev = True
         self.spliced = asyncio.Event(loop=self.loop)
@@ -342,15 +336,6 @@ class Layer(s_base.Base):
         raise NotImplementedError
 
     async def _liftByIndx(self, oper):  # pragma: no cover
-        raise NotImplementedError
-
-    async def _rowsByEq(self, curs, pref, valu):  # pragma: no cover
-        raise NotImplementedError
-
-    async def _rowsByPref(self, curs, pref, valu):  # pragma: no cover
-        raise NotImplementedError
-
-    async def _rowsByRange(self, curs, pref, valu):  # pragma: no cover
         raise NotImplementedError
 
     async def iterFormRows(self, form):  # pragma: no cover
