@@ -33,8 +33,8 @@ RST Template
 
 The following can be used as a markdown template for Github release notes::
 
-    Features
-    --------
+    Features and Enhancements
+    -------------------------
 
     - Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
 
@@ -68,8 +68,8 @@ the content to the file is the following::
     <git tag> - YYYY-MM-DD
     ======================
 
-    Features
-    --------
+    Features and Enhancements
+    -------------------------
 
     - Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
 
@@ -112,7 +112,7 @@ remote is called 'upstream')::
     git push upstream <the new tag>
 
 Next, go to github at https://github.com/vertexproject/synapse/tags and edit the release notes for the tag that was
-pushed up.  Add the release notes compiled from the previous step.
+pushed up.  Add a link to the release notes from the readthedocs changelog page for the current release.
 
 Publishing on Pypi
 *******************

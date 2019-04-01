@@ -5,8 +5,8 @@ Synapse Changelog
 Developement
 ============
 
-Features
---------
+Features and Enhancements
+-------------------------
 
 - Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
 
@@ -25,8 +25,8 @@ v0.1.1 - 2018-04-03
 ===================
 
 
-Features
---------
+Features and Enhancements
+-------------------------
 
 - Allow ``synapse.servers`` tools to specify a custom Telepath share name. (`#1170 <https://github.com/vertexproject/synapse/pull/1170>`_)
 - Add ``$lib.print()``, ``$lib.len()``, ``$lib.min()``, ``$lib.max()``, and ``$lib.dict()`` Storm library functions. (`#1179 <https://github.com/vertexproject/synapse/pull/1179>`_)
@@ -39,7 +39,6 @@ Features
 - Add server side remote event processing to ``.storm()`` API calls. (`#1171 <https://github.com/vertexproject/synapse/pull/1171>`_)
 - Add Telepath user proxying. (`#1171 <https://github.com/vertexproject/synapse/pull/1171>`_)
 - Migrate Dockerhub docker container builds and pypi packaging and release processes to CircleCI. (`#1185 <https://github.com/vertexproject/synapse/pull/1185>`_)
-
 
 Bugfixes
 --------
@@ -55,6 +54,7 @@ Improved Documentation
 ----------------------
 
 - Minor documentation updates for permissions. (`#1172 <https://github.com/aio-libs/aiohttp/pull/1172>`_)
+- Added docstring and test for ``synapse.lib.coro.executor()``. (`#1189 <https://github.com/vertexproject/synapse/pull/1189>`_)
 
 
 v0.1.0 - 2018-03-19
