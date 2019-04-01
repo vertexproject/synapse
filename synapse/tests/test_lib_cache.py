@@ -129,32 +129,6 @@ class CacheTest(s_t_utils.SynTest):
         self.none(re.fullmatch('foo.a.barr'))
         self.nn(re.fullmatch('foo.a.a.a.bar'))
 
-    def test_lib_cache_memoize(self):
-
-        misses = 0
-
-        @s_cache.memoize(size=2)
-        def woot(x):
-            nonlocal misses
-            misses += 1
-            return x + 10
-
-        self.eq(20, woot(10))
-        self.eq(30, woot(20))
-
-        self.eq(misses, 2)
-
-        self.eq(30, woot(20))
-
-        self.eq(misses, 2)
-
-        self.eq(20, woot.cache.cache.get((10,)))
-        self.eq(30, woot.cache.cache.get((20,)))
-
-        woot.cache.put((40,), 99)
-        self.eq(99, woot(40))
-        self.eq(misses, 2)
-
     async def test_tag_globs(self):
 
         base = await s_base.Base.anit()

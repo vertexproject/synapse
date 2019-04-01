@@ -81,6 +81,20 @@ class LmdbLayer(s_layer.Layer):
             'range': self._rowsByRange,
         }
 
+    async def stor(self, sops, splices=None):
+        '''
+        Execute a series of storage operations.
+        '''
+        for oper in sops:
+            func = self._stor_funcs.get(oper[0])
+            if func is None:  # pragma: no cover
+                raise s_exc.NoSuchStor(name=oper[0])
+            func(oper)
+
+        if splices:
+            self._storSplicesSync(splices)
+            self.spliced.set()
+            self.spliced.clear()
 
     def _migrate_db_pre010(self, dbname, newslab):
         '''
@@ -152,13 +166,18 @@ class LmdbLayer(s_layer.Layer):
 
     async def getBuidProps(self, buid):
 
-        props = {}
+        props = self.buidcache.get(buid, {})
+
+        if props:
+            return props
 
         for lkey, lval in self.layrslab.scanByPref(buid, db=self.bybuid):
 
             prop = lkey[32:].decode('utf8')
             valu, indx = s_msgpack.un(lval)
             props[prop] = valu
+
+        self.buidcache[buid] = props
 
         return props
 
@@ -173,6 +192,13 @@ class LmdbLayer(s_layer.Layer):
             return indx
 
     async def editNodeNdef(self, oldv, newv):
+        '''
+        Migration-only method
+
+        Precondition:
+            buid cache must be disabled
+        '''
+        assert self.buidcache.disabled
 
         oldb = s_common.buid(oldv)
         newb = s_common.buid(newv)
@@ -230,6 +256,13 @@ class LmdbLayer(s_layer.Layer):
             self.layrslab.delete(lkey, db=self.bybuid)
 
     async def _storBuidSet(self, oper):
+        '''
+        Migration-only method
+
+        Precondition:
+            buid cache must be disabled
+        '''
+        assert self.buidcache.disabled
 
         _, (form, oldb, newb) = oper
 
@@ -258,7 +291,7 @@ class LmdbLayer(s_layer.Layer):
             self.layrslab.put(newb + proputf8, lval, db=self.bybuid)
             self.layrslab.delete(lkey, db=self.bybuid)
 
-    async def _storPropSet(self, oper):
+    def _storPropSet(self, oper):
 
         _, (buid, form, prop, valu, indx, info) = oper
 
@@ -282,6 +315,10 @@ class LmdbLayer(s_layer.Layer):
         self._storPropSetCommon(buid, penc, bpkey, pvpref, univ, valu, indx)
 
     async def storPropSet(self, buid, prop, valu):
+        '''
+        Migration-only function
+        '''
+        assert self.buidcache.disabled
 
         indx = prop.type.indx(valu)
         if indx is not None and len(indx) > MAX_INDEX_LEN:
@@ -297,6 +334,8 @@ class LmdbLayer(s_layer.Layer):
 
         bpval = s_msgpack.en((valu, indx))
         pvvalu = s_msgpack.en((buid,))
+
+        del self.buidcache[buid]
 
         byts = self.layrslab.replace(bpkey, bpval, db=self.bybuid)
         if byts is not None:
@@ -315,12 +354,9 @@ class LmdbLayer(s_layer.Layer):
             if univ:
                 self.layrslab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
 
-    async def _storPropDel(self, oper):
+    def _storPropDel(self, oper):
 
         _, (buid, form, prop, info) = oper
-
-        # FIXME:  update any cortex-wide buid cache
-        # FIXME:  this might not have the expected impact if
 
         fenc = form.encode() + b'\x00'
         penc = prop.encode() + b'\x00'
@@ -336,6 +372,8 @@ class LmdbLayer(s_layer.Layer):
         if byts is None:
             return
 
+        del self.buidcache[buid]
+
         oldv, oldi = s_msgpack.un(byts)
 
         pvvalu = s_msgpack.en((buid,))
@@ -344,7 +382,7 @@ class LmdbLayer(s_layer.Layer):
         if univ:
             self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
 
-    async def _storSplices(self, splices):
+    def _storSplicesSync(self, splices):
         self.splicelog.save(splices)
 
     async def _liftByIndx(self, oper):

@@ -6,6 +6,7 @@ Note:  this interface is subject to change between minor revisions.
 '''
 import asyncio
 import logging
+import contextlib
 
 import regex
 
@@ -134,6 +135,15 @@ class Layer(s_base.Base):
         self.canrev = True
         self.spliced = asyncio.Event(loop=self.loop)
         self.onfini(self.spliced.set)
+
+    @contextlib.contextmanager
+    def disablingBuidCache(self):
+        '''
+        Disable and invalidate the layer buid cache for migration
+        '''
+        self.buidcache = s_cache.LruDict(0)
+        yield
+        self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
     async def getLiftRows(self, lops):
 

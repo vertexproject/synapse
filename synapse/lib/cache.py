@@ -91,19 +91,26 @@ class LruDict(collections.OrderedDict):
     def __init__(self, size=10000):
         collections.OrderedDict(self)
         self.maxsize = size
+        self.disabled = not self.maxsize
 
     def __getitem__(self, key):
-        valu = super.__getitem__(key)
+        valu = super().__getitem__(key)
         self.move_to_end(valu)
         return valu
 
     def __setitem__(self, key, valu):
-        if not self.maxsize:
+        if self.disabled:
             return
-        super.__setitem__(valu)
+        super().__setitem__(key, valu)
         self.move_to_end(key)
         if len(self) > self.maxsize:
             self.popitem(last=True)
+
+    def __delitem__(self, key):
+        try:
+            super().__delitem__(key)
+        except KeyError:
+            pass
 
 # Search for instances of escaped double or single asterisks
 # https://regex101.com/r/fOdmF2/1
