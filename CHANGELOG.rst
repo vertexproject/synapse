@@ -2,7 +2,7 @@
 Synapse Changelog
 *****************
 
-Developement
+Development
 ============
 
 Features and Enhancements
