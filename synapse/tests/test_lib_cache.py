@@ -166,8 +166,11 @@ class CacheTest(s_t_utils.SynTest):
         del lru['foo']
         lru['foo'] = 42
         self.eq(lru['foo'], 42)
+        self.len(1, lru)
+        self.eq(list(lru), ['foo'])
         del lru['foo']
         self.none(lru.get('foo', None))
+        self.none(lru.get('newp', None))
         lru['foo2'] = 'yar'
         lru['foo3'] = 100
         lru['foo4'] = 'yop'

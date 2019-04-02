@@ -195,8 +195,8 @@ class LmdbLayer(s_layer.Layer):
         '''
         Migration-only method
 
-        Precondition:
-            buid cache must be disabled
+        Notes:
+            Precondition: buid cache must be disabled
         '''
         assert self.buidcache.disabled
 
@@ -259,8 +259,8 @@ class LmdbLayer(s_layer.Layer):
         '''
         Migration-only method
 
-        Precondition:
-            buid cache must be disabled
+        Notes:
+            Precondition: buid cache must be disabled
         '''
         assert self.buidcache.disabled
 

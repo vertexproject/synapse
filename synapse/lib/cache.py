@@ -84,40 +84,55 @@ class FixedCache:
         self.fifo.clear()
         self.cache.clear()
 
-class LruDict(collections.OrderedDict):
+class LruDict(collections.abc.MutableMapping):
     '''
     Maintains the last n accessed keys
     '''
     def __init__(self, size=10000):
-        collections.OrderedDict(self)
+        self.data = collections.OrderedDict()
         self.maxsize = size
         self.disabled = not self.maxsize
 
     def __getitem__(self, key):
-        valu = super().__getitem__(key)
-        self.move_to_end(key)
+        valu = self.data.__getitem__(key)
+        self.data.move_to_end(key)
+        return valu
+
+    def get(self, key, default=None):
+        '''
+        Note:  we override default impl from parent to avoid costly KeyError
+        '''
+        valu = self.data.get(key, default)
+        if key in self.data:
+            self.data.move_to_end(key)
         return valu
 
     def __setitem__(self, key, valu):
         if self.disabled:
             return
-        super().__setitem__(key, valu)
-        self.move_to_end(key)
-        if len(self) > self.maxsize:
-            try:
-                # This actually calls __getitem__ above.  Ignore exception raised by move_to_end
-                self.popitem(last=False)
-            except KeyError:
-                pass
+        self.data[key] = valu
+        self.data.move_to_end(key)
+        if len(self.data) > self.maxsize:
+            self.data.popitem(last=False)
 
     def __delitem__(self, key):
         '''
         Ignore attempts to delete keys that may have already been flushed
         '''
-        try:
-            super().__delitem__(key)
-        except KeyError:
-            pass
+        if key in self.data:
+            del self.data[key]
+
+    def __len__(self):
+        return len(self.data)
+
+    def __iter__(self):
+        return iter(self.data)
+
+    def __contains__(self, item):
+        '''
+        Note:  we override default impl from parent to avoid costly KeyError
+        '''
+        return item in self.data
 
 # Search for instances of escaped double or single asterisks
 # https://regex101.com/r/fOdmF2/1
