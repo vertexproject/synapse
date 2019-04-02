@@ -58,16 +58,14 @@ class LayerTest(s_t_utils.SynTest):
         '''
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'a', {'tick': '1970'})
+                node = await snap.addNode('test:str', 'a', {'tick': '2001'})
                 await node.addTag('foo')
-
-            self.eq(0, len(core.view.layers[0].buidcache))
 
             async with await core.snap() as snap:
                 nodes = await alist(snap.getNodesBy('test:str'))
                 self.len(1, nodes)
-
-            self.len(1, core.view.layers[0].buidcache)
+                node = nodes[0]
+                self.eq(node.props['tick'], 978307200000)
 
             # new snap -> no cached buids in snap
             async with await core.snap() as snap:
@@ -76,8 +74,6 @@ class LayerTest(s_t_utils.SynTest):
                 node = nodes[0]
                 self.eq(node.tags, {'foo': (None, None)})
                 await node.delete()
-
-            self.eq(0, len(core.view.layers[0].buidcache))
 
             async with await core.snap() as snap:
                 nodes = await alist(snap.getNodesBy('test:str'))

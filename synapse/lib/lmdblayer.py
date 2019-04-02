@@ -305,12 +305,16 @@ class LmdbLayer(s_layer.Layer):
 
         univ = info.get('univ')
 
-        if prop:
-            bpkey = buid + prop.encode()
-        else:
-            # special case for setting primary property
+        # special case for setting primary property
+        if not prop:
             assert not univ
-            bpkey = buid + b'*' + form.encode()
+            prop = '*' + form
+
+        bpkey = buid + prop.encode()
+
+        cacheval = self.buidcache.get(buid)
+        if cacheval is not None:
+            cacheval[prop] = valu
 
         self._storPropSetCommon(buid, penc, bpkey, pvpref, univ, valu, indx)
 
@@ -334,8 +338,6 @@ class LmdbLayer(s_layer.Layer):
 
         bpval = s_msgpack.en((valu, indx))
         pvvalu = s_msgpack.en((buid,))
-
-        del self.buidcache[buid]
 
         byts = self.layrslab.replace(bpkey, bpval, db=self.bybuid)
         if byts is not None:
