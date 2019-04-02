@@ -7,6 +7,7 @@ import logging
 import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
+import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,9 @@ class RemoteLayer(s_layer.Layer):
         # a remote layer may never be revd
         self.proxy = None
         self.canrev = False
+
+        # Disable buid caching
+        self.buidcache = s_cache.LruDict(size=0)
 
         self.ready = asyncio.Event()
         await self._fireTeleTask()

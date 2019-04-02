@@ -1,10 +1,12 @@
 '''
 The layer library contains the base Layer object and helpers used for
 cortex construction.
+
+Note:  this interface is subject to change between minor revisions.
 '''
 import asyncio
 import logging
-import collections
+import contextlib
 
 import regex
 
@@ -14,18 +16,12 @@ import synapse.exc as s_exc
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
+import synapse.lib.cache as s_cache
 
 logger = logging.getLogger(__name__)
 
 FAIR_ITERS = 10  # every this many rows, yield CPU to other tasks
-
-class Encoder(collections.defaultdict):
-    def __missing__(self, name):
-        return name.encode('utf8') + b'\x00'
-
-class Utf8er(collections.defaultdict):
-    def __missing__(self, name):
-        return name.encode('utf8')
+BUID_CACHE_SIZE = 10000
 
 class LayerApi(s_cell.CellApi):
 
@@ -100,6 +96,7 @@ class Layer(s_base.Base):
         self.core = core
         self.node = node
         self.iden = node.name()
+        self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
         self.info = await node.dict()
         self.info.setdefault('owner', 'root')
@@ -134,16 +131,19 @@ class Layer(s_base.Base):
             'buid:set': self._storBuidSet,
         }
 
-        self.indxfunc = {
-            'eq': self._rowsByEq,
-            'pref': self._rowsByPref,
-            'range': self._rowsByRange,
-        }
-
         self.fresh = False
         self.canrev = True
         self.spliced = asyncio.Event(loop=self.loop)
         self.onfini(self.spliced.set)
+
+    @contextlib.contextmanager
+    def disablingBuidCache(self):
+        '''
+        Disable and invalidate the layer buid cache for migration
+        '''
+        self.buidcache = s_cache.LruDict(0)
+        yield
+        self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
     async def getLiftRows(self, lops):
 
@@ -346,15 +346,6 @@ class Layer(s_base.Base):
         raise NotImplementedError
 
     async def _liftByIndx(self, oper):  # pragma: no cover
-        raise NotImplementedError
-
-    async def _rowsByEq(self, curs, pref, valu):  # pragma: no cover
-        raise NotImplementedError
-
-    async def _rowsByPref(self, curs, pref, valu):  # pragma: no cover
-        raise NotImplementedError
-
-    async def _rowsByRange(self, curs, pref, valu):  # pragma: no cover
         raise NotImplementedError
 
     async def iterFormRows(self, form):  # pragma: no cover

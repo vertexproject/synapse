@@ -39,6 +39,9 @@ class Migration(s_base.Base):
 
         self.ndefdelay = None
 
+        for layr in layers:
+            await self.enter_context(layr.disablingBuidCache())
+
     @contextlib.asynccontextmanager
     async def getTempSlab(self):
         with s_common.getTempDir() as dirn:
@@ -97,7 +100,7 @@ class Migration(s_base.Base):
         '''
         logger.info(f'Migrating [{oldn}] to [{newn}]')
 
-        async with self.getTempSlab() as slab:
+        async with self.getTempSlab():
 
             i = 0
             async for buid, valu in self.getFormTodo(oldn):

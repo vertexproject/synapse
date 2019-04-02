@@ -129,32 +129,6 @@ class CacheTest(s_t_utils.SynTest):
         self.none(re.fullmatch('foo.a.barr'))
         self.nn(re.fullmatch('foo.a.a.a.bar'))
 
-    def test_lib_cache_memoize(self):
-
-        misses = 0
-
-        @s_cache.memoize(size=2)
-        def woot(x):
-            nonlocal misses
-            misses += 1
-            return x + 10
-
-        self.eq(20, woot(10))
-        self.eq(30, woot(20))
-
-        self.eq(misses, 2)
-
-        self.eq(30, woot(20))
-
-        self.eq(misses, 2)
-
-        self.eq(20, woot.cache.cache.get((10,)))
-        self.eq(30, woot.cache.cache.get((20,)))
-
-        woot.cache.put((40,), 99)
-        self.eq(99, woot(40))
-        self.eq(misses, 2)
-
     async def test_tag_globs(self):
 
         base = await s_base.Base.anit()
@@ -186,3 +160,33 @@ class CacheTest(s_t_utils.SynTest):
         self.len(1, glob.get('zip.hehe'))
         glob.rem('zip.*', 1)
         self.len(0, glob.get('zip.hehe'))
+
+    async def test_lrudict(self):
+        lru = s_cache.LruDict(3)
+        del lru['foo']
+        lru['foo'] = 42
+        self.eq(lru['foo'], 42)
+        self.len(1, lru)
+        self.eq(list(lru), ['foo'])
+        del lru['foo']
+        self.none(lru.get('foo', None))
+        self.none(lru.get('newp', None))
+        lru['foo2'] = 'yar'
+        lru['foo3'] = 100
+        lru['foo4'] = 'yop'
+        self.notin('foo', lru)
+
+        # Validate this is a LRU and not least-recently-added
+        self.eq(lru['foo3'], 100)
+        lru['foo5'] = 1
+        lru['foo6'] = True
+        self.isin('foo3', lru)
+
+        self.eq(list(lru.items()), (('foo3', 100), ('foo5', 1), ('foo6', True)))
+        self.eq(list(lru.keys()), ('foo3', 'foo5', 'foo6'))
+        self.eq(list(lru.values()), (100, 1, True))
+
+        # Make sure that disabled dict still work
+        lru = s_cache.LruDict(0)
+        lru['nope'] = 42
+        self.none(lru.get('nope', None))
