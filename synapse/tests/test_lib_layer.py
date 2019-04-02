@@ -56,28 +56,47 @@ class LayerTest(s_t_utils.SynTest):
         '''
         Make sure the layer buidcache isn't caching incorrectly
         '''
+
         async with self.getTestCore() as core:
+            buidcache = core.view.layers[0].buidcache
+
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'a', {'tick': '2001'})
                 await node.addTag('foo')
+                testbuid = node.buid
+
+            self.isin(testbuid, buidcache)
+            propbag = buidcache.get(testbuid)
+            self.eq(propbag.get('*test:str'), 'a')
+            self.eq(propbag.get('tick'), 978307200000)
+            self.eq(propbag.get('#foo'), (None, None))
+            self.isin('.created', propbag)
 
             async with await core.snap() as snap:
                 nodes = await alist(snap.getNodesBy('test:str'))
                 self.len(1, nodes)
                 node = nodes[0]
                 self.eq(node.props['tick'], 978307200000)
+                await node.set('tick', '2002')
+
+            self.eq(buidcache.get(testbuid).get('tick'), 1009843200000)
 
             # new snap -> no cached buids in snap
             async with await core.snap() as snap:
                 nodes = await alist(snap.getNodesBy('test:str'))
                 self.len(1, nodes)
                 node = nodes[0]
+                self.eq(node.props['tick'], 1009843200000,)
                 self.eq(node.tags, {'foo': (None, None)})
                 await node.delete()
+
+            self.notin(testbuid, buidcache)
 
             async with await core.snap() as snap:
                 nodes = await alist(snap.getNodesBy('test:str'))
                 self.len(0, nodes)
+
+            self.notin(testbuid, buidcache)
 
     async def test_splicemigration_pre010(self):
         async with self.getRegrCore('pre-010') as core:
