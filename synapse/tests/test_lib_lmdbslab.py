@@ -121,7 +121,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 with self.raises(s_exc.DbOutOfSpace):
 
                     for i in range(400):
-                        slab.put(b'\xff\xff\xff\xff' + s_common.guid().encode('utf8'), byts, db=foo)
+                        slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
 
             # lets ensure our maxsize persisted and it caps the mapsize
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, readonly=True) as newdb:
@@ -208,8 +208,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
                         async with await s_lmdbslab.Slab.anit(path, map_size=100000) as slab:
                             foo = slab.initdb('foo', dupsort=True)
                             mapsize = slab.mapsize
+                            count = 0
                             while mapsize == slab.mapsize:
-                                slab.put(b'abcd', s_common.guid().encode('utf8') + byts, dupdata=True, db=foo)
+                                count += 1
+                                slab.put(b'abcd', s_common.guid(count).encode('utf8') + byts, dupdata=True, db=foo)
                     asyncio.run(lotsofwrites(path))
 
                 proc = multiprocessing.Process(target=anotherproc, args=(path, ))
@@ -263,7 +265,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 key = b'foo'
                 for i in range(100):
-                    slab.put(key, s_common.guid().encode('utf8'), db=foo)
+                    slab.put(key, s_common.guid(i).encode('utf8'), db=foo)
 
                 count = 0
                 for _, _ in slab.scanByRange(b'', db=foo):
@@ -276,10 +278,12 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     next(iter)
 
                 # Trigger a bump by writing a bunch; make sure we're not writing into the middle of the scan
-                multikey = b'\xff\xff\xff\xff' + s_common.guid().encode('utf8')
+                multikey = b'\xff\xff\xff\xff' + s_common.guid(200).encode('utf8')
                 mapsize = slab.mapsize
+                count = 0
                 while mapsize == slab.mapsize:
-                    slab.put(multikey, s_common.guid().encode('utf8') + b'0' * 256, dupdata=True, db=foo)
+                    count += 1
+                    slab.put(multikey, s_common.guid(count).encode('utf8') + b'0' * 256, dupdata=True, db=foo)
 
                 # we wrote 100, read 60.  We should read only another 40
                 self.len(40, list(iter))
@@ -339,11 +343,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
             path = os.path.join(dirn, 'test.lmdb')
             byts = b'\x00' * 256
 
+            count = 0
             async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000) as slab:
                 foo = slab.initdb('foo')
-                slab.put(b'abcd', s_common.guid().encode('utf8') + byts, db=foo)
+                slab.put(b'abcd', s_common.guid(count).encode('utf8') + byts, db=foo)
                 await asyncio.sleep(1.1)
-                slab.put(b'abcd', s_common.guid().encode('utf8') + byts, db=foo)
+                count += 1
+                slab.put(b'abcd', s_common.guid(count).encode('utf8') + byts, db=foo)
 
             # If we got here we're good
             self.true(True)
