@@ -182,6 +182,10 @@ class CacheTest(s_t_utils.SynTest):
         lru['foo6'] = True
         self.isin('foo3', lru)
 
+        self.eq(list(lru.items()), (('foo3', 100), ('foo5', 1), ('foo6', True)))
+        self.eq(list(lru.keys()), ('foo3', 'foo5', 'foo6'))
+        self.eq(list(lru.values()), (100, 1, True))
+
         # Make sure that disabled dict still work
         lru = s_cache.LruDict(0)
         lru['nope'] = 42

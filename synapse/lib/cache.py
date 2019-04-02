@@ -128,6 +128,12 @@ class LruDict(collections.abc.MutableMapping):
     def __iter__(self):
         return iter(self.data)
 
+    def items(self):
+        return self.data.items()
+
+    def values(self):
+        return self.data.values()
+
     def __contains__(self, item):
         '''
         Note:  we override default impl from parent to avoid costly KeyError
