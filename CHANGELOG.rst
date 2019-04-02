@@ -39,7 +39,7 @@ Features and Enhancements
 - Add server side remote event processing to ``.storm()`` API calls. (`#1171 <https://github.com/vertexproject/synapse/pull/1171>`_)
 - Add Telepath user proxying. (`#1171 <https://github.com/vertexproject/synapse/pull/1171>`_)
 - Migrate Dockerhub docker container builds and pypi packaging and release processes to CircleCI. (`#1185 <https://github.com/vertexproject/synapse/pull/1185>`_)
-- Improve performance.  Add a small layer-level cache.  Replace home-grown `synapse.lib.cache.memoize` implementation with standard one.  Make layer microoptimizations.
+- Improve performance.  Add a small layer-level cache.  Replace home-grown `synapse.lib.cache.memoize` implementation with standard one.  Make layer microoptimizations. (`#1185 <https://github.com/vertexproject/synapse/pull/1191>`_)
 
 Bugfixes
 --------
