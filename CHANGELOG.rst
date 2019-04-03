@@ -2,8 +2,9 @@
 Synapse Changelog
 *****************
 
-Development
-============
+
+v0.1.2 - TBD
+===================
 
 Features and Enhancements
 -------------------------
