@@ -405,3 +405,15 @@ workflows:
               only: /^v0\.1\.[0-9.]+$/
             branches:
               ignore: /.*/
+
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - doctests
+      - python37
