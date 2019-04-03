@@ -409,12 +409,11 @@ workflows:
   nightly:
     triggers:
       - schedule:
-          cron: "35 15 * * *"
+          cron: "0 12 * * *"
           filters:
             branches:
               only:
-#                - master
-                - circleci_nightlies
+                - master
     jobs:
       - doctests
       - python37
