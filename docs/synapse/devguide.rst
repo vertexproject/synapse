@@ -331,5 +331,5 @@ Once registered and loaded, the feed function may be called remotely using ``Cor
 
 .. _time_to_first_byte: https://en.wikipedia.org/wiki/Time_to_first_byte
 .. _back_pressure: https://en.wikipedia.org/wiki/Back_pressure#Backpressure_in_information_technology
-.. _CoreApi: ../autodocs/synapse.html#synapse.cortex.CoreApi
+.. _CoreApi: ./autodocs/synapse.html#synapse.cortex.CoreApi
 .. _Message_Pack: https://msgpack.org/index.html
