@@ -245,6 +245,8 @@ class Cmd:
     async def execStormCmd(self, runt, genr):
         ''' Abstract base method '''
         raise s_exc.NoSuchImpl('Subclass must implement execStormCmd')
+        for item in genr:
+            yield item
 
 class HelpCmd(Cmd):
     '''

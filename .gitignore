@@ -4,9 +4,7 @@ __pycache__/
 *.swp
 
 # sphinx API doc dir
-docs/api
-docs/synapse/datamodel.rst
-docs/synapse/configables.rst
+docs/synapse/autodocs
 
 # ipython checkpoints
 .ipynb_checkpoints

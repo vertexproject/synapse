@@ -19,7 +19,7 @@ Bugfixes
 Improved Documentation
 ----------------------
 
-- Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Add some example developer guide documentation. (`#1193 <https://github.com/vertexproject/synapse/pull/1193>`_)
 
 
 v0.1.1 - 2018-04-03
