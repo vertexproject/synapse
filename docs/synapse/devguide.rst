@@ -8,7 +8,7 @@ Synapse Developers Guide
 
 This guide is intended for developers looking to integrate Synapse components with other applications by using the Telepath API.  Additionally, this guide will introduce developers to writing custom Cortex modules in Python to allow custom data model extensions, storm commands, ingest functions, and change hooks.  This guide assumes familiarity with deploying Cortex servers and the Storm query syntax.  For help on getting started, see :ref:`quickstart`.
 
-For complete API documentation on all Synapse components see :ref:`_apidocs`.
+For complete API documentation on all Synapse components see :ref:`apidocs`.
 
 Remote Cortex Access
 ====================

@@ -21,8 +21,8 @@ Welcome to the Synapse documentation!
    synapse/apidocs
    synapse/httpapi
 
-   autodocs/datamodel_types
-   autodocs/datamodel_forms
+   synapse/autodocs/datamodel_types
+   synapse/autodocs/datamodel_forms
 
    synapse/changelog
 
