@@ -15,6 +15,7 @@ Welcome to synapse's documentation!
 
    synapse/userguide
    synapse/devops
+   synapse/devguide
    synapse/contributing
    synapse/httpapi
 
