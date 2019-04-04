@@ -8,7 +8,7 @@ Synapse Developers Guide
 
 This guide is intended for developers looking to integrate Synapse components with other applications by using the Telepath API.  Additionally, this guide will introduce developers to writing custom Cortex modules in Python to allow custom data model extensions, storm commands, ingest functions, and change hooks.  This guide assumes familiarity with deploying Cortex servers and the Storm query syntax.  For help on getting started, see :ref:`quickstart`.
 
-For complete API documentation on all Synapse components see :ref:`_apidocs`.
+For complete API documentation on all Synapse components see :ref:`apidocs`.
 
 Remote Cortex Access
 ====================
@@ -186,7 +186,7 @@ A ``CoreModule`` subclass may extend the commands available in the Storm query l
 
     It is extremely important that developers are familiar with the Python 3.7 asyncio programming paradigm when implementing ``Cmd`` subclasses!  Any blocking API calls made from within a ``Cmd`` extension will block *all* execution for the entire Cortex and Telepath multiplexor!
 
-A ``Cmd`` subclass implements several methods to facilitate both parsing and execution.  The Storm query runtime is essentially a pipeline of nodes being lifted, pivoted, and filtered.  A Storm operator or command may both receive and yield ``(synapse.lib.node.Node, synapse.lib.node.Path)`` tuples.  The main execution of a ``Cmd`` subclass is handled by the ``execStormCmd`` method which iterates over the ``(Node, Path)`` tuples it is given and yields ``(Node, Path)`` tuples as results.  This architecture allows Storm to chain commands and operations together in any way the analyst sees fit.::
+A ``Cmd`` subclass implements several methods to facilitate both parsing and execution.  The Storm query runtime is essentially a pipeline of nodes being lifted, pivoted, and filtered.  A Storm operator or command may both receive and yield ``(synapse.lib.node.Node, synapse.lib.node.Path)`` tuples.  The main execution of a ``Cmd`` subclass is handled by the ``execStormCmd`` method which iterates over the ``(Node, Path)`` tuples it is given and yields ``(Node, Path)`` tuples as results.  This architecture allows Storm to chain commands and operations together in any way the analyst sees fit.
 
 Using this pipeline, a command may (asynchronously) call external APIs and subsystems to:
 * Enrich nodes by adding properties or tags
@@ -331,5 +331,5 @@ Once registered and loaded, the feed function may be called remotely using ``Cor
 
 .. _time_to_first_byte: https://en.wikipedia.org/wiki/Time_to_first_byte
 .. _back_pressure: https://en.wikipedia.org/wiki/Back_pressure#Backpressure_in_information_technology
-.. _CoreApi: ../autodocs/synapse.html#synapse.cortex.CoreApi
+.. _CoreApi: ./autodocs/synapse.html#synapse.cortex.CoreApi
 .. _Message_Pack: https://msgpack.org/index.html
