@@ -1,8 +1,8 @@
 
 .. _http-api:
 
-Synapse HTTP/REST API Documentation
-===================================
+Synapse HTTP/REST API
+=====================
 
 Many components within the Synapse ecosystem provide HTTP/REST APIs to
 provide a portable interface.  Some of these APIs are RESTful, while other

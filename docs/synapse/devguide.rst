@@ -8,6 +8,8 @@ Synapse Developers Guide
 
 This guide is intended for developers looking to integrate Synapse components with other applications by using the Telepath API.  Additionally, this guide will introduce developers to writing custom Cortex modules in Python to allow custom data model extensions, storm commands, ingest functions, and change hooks.  This guide assumes familiarity with deploying Cortex servers and the Storm query syntax.  For help on getting started, see :ref:`quickstart`.
 
+For complete API documentation on all Synapse components see :ref:`_apidocs`.
+
 Remote Cortex Access
 ====================
 
@@ -41,7 +43,7 @@ Once a Telepath proxy is connected, most methods may simply be called as though 
 
 Like many objects in the Synapse ecosystem, a Telepath proxy inherits from ``synapse.lib.base.Base``.  This requires the ``fini`` method to be called to release resources and close sockets.  In the example above, we use the async context manager implemented by the ``Base`` class (``async with``) to ensure that the proxy is correctly shutdown.  However, Telepath is designed for long-lived Proxy objects to minimize API call delay by using existing sockets and sessions.  A typical app will create a telepath proxy during initialization and only create a new one in the event that the remote Telepath server is restarted.
 
-The above example also demonstrates that Telepath is designed for use with Python 3.7 asyncio.  However, it is possible to construct and use a Telepath proxy from non-async code.::
+The above example also demonstrates that Telepath is designed for use with Python 3.7 asyncio.  However, the Telepath proxy can also be constructed and used transparently from non-async code as seen below.::
 
     import synapse.telepath as s_telepath
 
@@ -81,7 +83,7 @@ Developing Cortex Modules
 Basics
 ------
 
-A Cortex allows developers to implement and load custom modules by extending the ``synapse.lib.module.CoreModule`` class.  These modules can be used to customize a Cortex in several ways:
+A Cortex allows developers to implement and load custom modules by extending the ``synapse.lib.module.CoreModule`` class.  A ``CoreModule`` can be used to customize a Cortex in many ways, including:
 
 * Data Model Extensions
 * Custom Storm Commands
@@ -120,7 +122,7 @@ Once configured, the module will be loaded whenever the Cortex is started.::
 Data Model Extensions
 ---------------------
 
-A ``CoreModule`` subclass may extend the Cortex data model by implementing the ``getModelDefs`` API.  This API allows the CoreModule to specify new types, forms, and properties within the data model.
+A ``CoreModule`` subclass may extend the Cortex data model by implementing the ``getModelDefs`` API.  This API allows the ``CoreModule`` to specify new types, forms, and properties within the data model.
 
 Developers are encouraged to give their own model extensions a namespace prefix that clearly indicates that they are custom or specific to a given organization.  The Vertex Project has reserved the namespace prefix ``x:`` for custom model extensions and will never create mainline Synapse model elements within that namespace.  For our example, we will assume that Foo Corp is creating a custom model extension and has decided to namespace their model elements within the ``x:foo:`` prefix.::
 
@@ -180,9 +182,11 @@ Custom Storm Commands
 
 A ``CoreModule`` subclass may extend the commands available in the Storm query language implementing the ``getStormCmds`` API to return ``synapse.lib.storm.Cmd`` subclasses.
 
-WARNING: It is extremely important that developers are familiar with the Python 3.7 asyncio programming paradigm when implementing ``Cmd`` subclasses!  Any blocking API calls made from within a ``Cmd`` extension will block *all* execution for the entire Cortex and Telepath multiplexor!
+.. warning::
 
-A ``Cmd`` subclass implements several methods to facilitate both parsing and execution.  The Storm query runtime is essentially a pipeline of nodes being lifted, pivoted, and filtered.  The main execution of a ``Cmd`` subclass is handled by the ``execStormCmd`` method which iterates over the nodes it is given and yield nodes which are the result.  This architecture allows Storm to chain commands and operations together in any way the analyst sees fit.::
+    It is extremely important that developers are familiar with the Python 3.7 asyncio programming paradigm when implementing ``Cmd`` subclasses!  Any blocking API calls made from within a ``Cmd`` extension will block *all* execution for the entire Cortex and Telepath multiplexor!
+
+A ``Cmd`` subclass implements several methods to facilitate both parsing and execution.  The Storm query runtime is essentially a pipeline of nodes being lifted, pivoted, and filtered.  A Storm operator or command may both receive and yield ``(synapse.lib.node.Node, synapse.lib.node.Path)`` tuples.  The main execution of a ``Cmd`` subclass is handled by the ``execStormCmd`` method which iterates over the ``(Node, Path)`` tuples it is given and yields ``(Node, Path)`` tuples as results.  This architecture allows Storm to chain commands and operations together in any way the analyst sees fit.::
 
 Using this pipeline, a command may (asynchronously) call external APIs and subsystems to:
 * Enrich nodes by adding properties or tags
@@ -327,5 +331,5 @@ Once registered and loaded, the feed function may be called remotely using ``Cor
 
 .. _time_to_first_byte: https://en.wikipedia.org/wiki/Time_to_first_byte
 .. _back_pressure: https://en.wikipedia.org/wiki/Back_pressure#Backpressure_in_information_technology
-.. _CoreApi: https://vertexprojectsynapse.readthedocs.io/en/latest/autodocs/synapse.html#synapse.cortex.CoreApi
+.. _CoreApi: ../autodocs/synapse.html#synapse.cortex.CoreApi
 .. _Message_Pack: https://msgpack.org/index.html

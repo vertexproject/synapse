@@ -3,8 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to synapse's documentation!
-===================================
+Welcome to the Synapse documentation!
+=====================================
 
 .. toctree::
    :maxdepth: 2
@@ -17,14 +17,14 @@ Welcome to synapse's documentation!
    synapse/devops
    synapse/devguide
    synapse/contributing
-   synapse/httpapi
 
-   synapse/changelog
+   synapse/apidocs
+   synapse/httpapi
 
    autodocs/datamodel_types
    autodocs/datamodel_forms
-   autodocs/modules
 
+   synapse/changelog
 
 Indices and tables
 ==================
