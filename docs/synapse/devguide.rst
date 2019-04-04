@@ -186,7 +186,7 @@ A ``CoreModule`` subclass may extend the commands available in the Storm query l
 
     It is extremely important that developers are familiar with the Python 3.7 asyncio programming paradigm when implementing ``Cmd`` subclasses!  Any blocking API calls made from within a ``Cmd`` extension will block *all* execution for the entire Cortex and Telepath multiplexor!
 
-A ``Cmd`` subclass implements several methods to facilitate both parsing and execution.  The Storm query runtime is essentially a pipeline of nodes being lifted, pivoted, and filtered.  A Storm operator or command may both receive and yield ``(synapse.lib.node.Node, synapse.lib.node.Path)`` tuples.  The main execution of a ``Cmd`` subclass is handled by the ``execStormCmd`` method which iterates over the ``(Node, Path)`` tuples it is given and yields ``(Node, Path)`` tuples as results.  This architecture allows Storm to chain commands and operations together in any way the analyst sees fit.::
+A ``Cmd`` subclass implements several methods to facilitate both parsing and execution.  The Storm query runtime is essentially a pipeline of nodes being lifted, pivoted, and filtered.  A Storm operator or command may both receive and yield ``(synapse.lib.node.Node, synapse.lib.node.Path)`` tuples.  The main execution of a ``Cmd`` subclass is handled by the ``execStormCmd`` method which iterates over the ``(Node, Path)`` tuples it is given and yields ``(Node, Path)`` tuples as results.  This architecture allows Storm to chain commands and operations together in any way the analyst sees fit.
 
 Using this pipeline, a command may (asynchronously) call external APIs and subsystems to:
 * Enrich nodes by adding properties or tags
