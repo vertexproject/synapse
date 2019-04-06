@@ -146,7 +146,10 @@ class Layer(s_base.Base):
         self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
     async def getLiftRows(self, lops):
-
+        '''
+        Returns:
+            Iterable[Tuple[bytes, Dict[str, Any]]]:  yield a stream of tuple of (buid, propdict)
+        '''
         for oper in lops:
 
             func = self._lift_funcs.get(oper[0])
@@ -154,7 +157,9 @@ class Layer(s_base.Base):
                 raise s_exc.NoSuchLift(name=oper[0])
 
             async for row in func(oper):
-                yield row
+                buid = row[0]
+                props = await self.getBuidProps(buid)
+                yield (buid, props)
 
     async def stor(self, sops, splices=None):
         '''

@@ -161,11 +161,13 @@ class Snap(s_base.Base):
             return node
 
         props = {}
+        proplayr = {}
         for layr in self.layers:
             layerprops = await layr.getBuidProps(buid)
             props.update(layerprops)
+            proplayr.update({k: layr for k in layerprops})
 
-        node = s_node.Node(self, buid, props.items())
+        node = s_node.Node(self, buid, props.items(), proplayr=proplayr)
 
         # Give other tasks a chance to run
         await asyncio.sleep(0)
@@ -173,6 +175,7 @@ class Snap(s_base.Base):
         if node.ndef is None:
             return None
 
+        # Add node to my buidcache
         self.buidcache.append(node)
         self.livenodes[buid] = node
         return node
@@ -209,7 +212,7 @@ class Snap(s_base.Base):
                 ('indx', ('byuniv', pref, iops)),
             )
 
-        async for row, node in self.getLiftNodes(lops, '#' + name, cmpr=cmpf):
+        async for row, node in self.getLiftNodes(lops, '#' + name, cmpf=cmpf):
             yield node
 
     async def _getNodesByFormTag(self, name, tag, valu=None, cmpr='='):
@@ -585,9 +588,9 @@ class Snap(s_base.Base):
 
         await self.wlyr.stor(sops, splices=splices)
 
-    async def getLiftNodes(self, lops, rawprop, cmpr=None):
+    async def getLiftNodes(self, lops, rawprop, cmpf=None):
         genr = self.getLiftRows(lops)
-        async for node in self.getRowNodes(genr, rawprop, cmpr):
+        async for node in self.getRowNodes(genr, rawprop, cmpf):
             yield node
 
     async def getRuntNodes(self, full, valu=None, cmpr='='):
@@ -610,23 +613,25 @@ class Snap(s_base.Base):
         Yields:
             (tuple): (layer_indx, (buid, ...)) rows.
         '''
-        for layer_idx, layr in enumerate(self.layers):
+        for layeridx, layr in enumerate(self.layers):
             async for x in layr.getLiftRows(lops):
-                yield layer_idx, x
+                yield layeridx, x
 
-    async def getRowNodes(self, rows, rawprop, cmpr=None):
+    async def getRowNodes(self, rows, rawprop, cmpf):
         '''
         Join a row generator into (row, Node()) tuples.
 
-        A row generator yields tuple rows where the first
-        valu is the buid of a node.
+        A row generator yields tuple rows where the first valu is a node buid,
+        then node rawprop dict
 
         Args:
             rows: A generator of (layer_idx, (buid, ...)) tuples.
-            rawprop(str):  "raw" propname i.e. if a tag, starts with "#".  Used for filtering so that we skip the props
-                for a buid if we're asking from a higher layer than the row was from (and hence, we'll presumable
-                get/have gotten the row when that layer is lifted.
-            cmpr (func): A secondary comparison function used to filter nodes.
+            rawprop(str):  "raw" propname e.g. if a tag, starts with "#".  Used
+                for filtering so that we skip the props for a buid if we're
+                asking from a higher layer than the row was from (and hence,
+                we'll presumable get/have gotten the row when that layer is
+                lifted.
+            cmpf (func): A comparison function used to filter nodes.
         Yields:
             (tuple): (row, node)
         '''
@@ -635,32 +640,37 @@ class Snap(s_base.Base):
             count += 1
             if not count % 5:
                 await asyncio.sleep(0)  # give other tasks some time
-            props = {}
-            buid = row[0]
+
+            buid, rawprops = row
             node = self.livenodes.get(buid)
-            # Evaluate layers top-down to more quickly abort if we've found a higher layer with the property set
-            for layeridx in range(len(self.layers) - 1, -1, -1):
-                layr = self.layers[layeridx]
-                layerprops = await layr.getBuidProps(buid)
-                # We mark this node to drop iff we see the prop set in this layer *and* we're looking at the props
-                # from a higher (i.e. closer to write, higher idx) layer.
-                if layeridx > origlayer and rawprop in layerprops:
-                    props = None
-                    break
-                if node is None:
-                    for k, v in layerprops.items():
-                        if k not in props:
-                            props[k] = v
-            if props is None:
-                continue
 
             if node is None:
-                node = s_node.Node(self, buid, props.items())
+                props = {}     # rawprop: valu
+                proplayr = {}  # rawprop: layr
+
+                for layeridx, layr in enumerate(self.layers):
+
+                    if layeridx == origlayer:
+                        layerprops = rawprops
+                    else:
+                        layerprops = await layr.getBuidProps(buid)
+
+                    props.update(layerprops)
+                    proplayr.update({k: layr for k in layerprops})
+
+                node = s_node.Node(self, buid, props.items(), proplayr=proplayr)
                 if node.ndef is None:
                     continue
+
+                # Add node to my buidcache
+                self.buidcache.append(node)
                 self.livenodes[buid] = node
 
-            if cmpr:
+            # If the node's prop I'm filtering on came from a different layer, skip it
+            if node.proplayr[rawprop] != self.layers[origlayer]:
+                continue
+
+            if cmpf:
                 if rawprop == node.form.name:
                     valu = node.ndef[1]
                 else:
@@ -669,7 +679,7 @@ class Snap(s_base.Base):
                     # cmpr required to evaluate something; cannot know if this
                     # node is valid or not without the prop being present.
                     continue
-                if not cmpr(valu):
+                if not cmpf(valu):
                     continue
 
             yield row, node
