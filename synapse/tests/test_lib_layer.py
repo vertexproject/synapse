@@ -8,8 +8,8 @@ from synapse.tests.utils import alist
 
 
 async def iterPropForm(self, form=None, prop=None):
-    bad_valu = [('foo', "bar"), ('bar', ('bar',)), ('biz', 4965), ('baz', (0, 56))]
-    bad_valu += [('boz', 'boz')] * 10
+    bad_valu = [(b'foo', "bar"), (b'bar', ('bar',)), (b'biz', 4965), (b'baz', (0, 56))]
+    bad_valu += [(b'boz', 'boz')] * 10
     for buid, valu in bad_valu:
         yield buid, valu
 

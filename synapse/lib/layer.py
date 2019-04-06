@@ -148,7 +148,7 @@ class Layer(s_base.Base):
     async def getLiftRows(self, lops):
         '''
         Returns:
-            Iterable[Tuple[bytes, Dict[str, Any]]]:  yield a stream of tuple of (buid, propdict)
+            Iterable[Tuple[bytes, Dict[str, Any]]]:  yield a stream of tuple (buid, propdict)
         '''
         for oper in lops:
 
