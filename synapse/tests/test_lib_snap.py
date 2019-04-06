@@ -235,7 +235,6 @@ class SnapTest(s_t_utils.SynTest):
             self.len(1, await core0.eval('inet:ipv4:asn=42').list())
             self.len(0, await core1.eval('inet:ipv4:asn=42').list())
 
-
     async def test_cortex_lift_layers_dup(self):
         '''
         Test a two layer cortex where a lift operation might give the same node twice incorrectly
