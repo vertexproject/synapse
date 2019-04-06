@@ -188,7 +188,7 @@ epub_exclude_files = ['search.html']
 def run_apidoc(_):
     from sphinx.ext.apidoc import main
 
-    args = ['-M', '-o', './autodocs', '../synapse', ]
+    args = ['-M', '--no-toc', '-o', './synapse/autodocs', '../synapse', ]
     ignores = ['../synapse/tests']
     args.extend(ignores)
     main(args)
@@ -200,7 +200,7 @@ def run_modeldoc(_):
     synbd = os.path.split(abssynf)[0]  # Split off __init__
     synpd = os.path.split(synbd)[0]  # split off the synapse module directory
     args = ['python', '-m', 'synapse.tools.autodoc', '--doc-model',
-            '--savedir', './docs/autodocs']
+            '--savedir', './docs/synapse/autodocs']
     subprocess.run(args, cwd=synpd)
 
 def convert_ipynb(_):

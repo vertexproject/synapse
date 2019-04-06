@@ -48,19 +48,9 @@ A Cortex produces a stream of potentially reversible changes called **splices** 
 What's New?
 ===========
 
-0.1.0
------
-
 The release of Synapse 0.1.0 represents a huge leap forward from the previous Synapse releases.  Rather than attempt to list them here, please see the :ref:`userguide` for details!
 
-Coming Soon
------------
-
-0.1.x
-~~~~~
-
-- synapse.servers.cortex --mirror option to make mirror configuration easy
-- storm --interactive command in synapse.tools.cmdr to have storm specific sub-cli
+Moving forward, subsequent ``0.1.x`` releases will be documented in the :ref:`changelog`.
 
 FAQ
 ===

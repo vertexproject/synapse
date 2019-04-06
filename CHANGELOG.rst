@@ -9,7 +9,9 @@ v0.1.2 - TBD
 Features and Enhancements
 -------------------------
 
-- Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Automatically run unit tests for the master every day. (`#1192 <https://github.com/vertexproject/synapse/pull/1192>`_)
+- Add test suite for ``synapse.lib.urlhelp``. (`#1195 <https://github.com/vertexproject/synapse/pull/1195>`_)
+
 
 Bugfixes
 --------
@@ -19,7 +21,7 @@ Bugfixes
 Improved Documentation
 ----------------------
 
-- Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Add some example developer guide documentation. (`#1193 <https://github.com/vertexproject/synapse/pull/1193>`_)
 
 
 v0.1.1 - 2018-04-03
