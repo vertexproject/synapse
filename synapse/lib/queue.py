@@ -1,4 +1,5 @@
 import asyncio
+import collections
 
 import synapse.lib.base as s_base
 
@@ -38,3 +39,45 @@ class AQueue(s_base.Base):
         self.fifo.clear()
         self.event.clear()
         return retn
+
+class Window(s_base.Base):
+    '''
+    A Queue like object which yields added items.  If the queue ever reaches
+    it's maxsize, it will be fini()d.  On fini(), the Window will continue to
+    yield results until empty and then return.
+    '''
+    async def __init__(self, maxsize=None):
+        s_base.Base.__anit__(self)
+        self.maxsize = maxsize
+        self.event = asyncio.Event()
+        self.linklist = collections.deque()
+
+    async def __aiter__(self):
+
+        while True:
+
+            if self.linklist:
+                yield self.linklist.popleft()
+                continue
+
+            if self.isfini:
+                return
+
+            self.event.clear()
+            await self.event.wait()
+
+    async def put(self, item):
+
+        self.linklist.append(item)
+        self.event.set()
+
+        if self.maxsize is not None and len(self.linklist) >= self.maxsize:
+            await self.fini()
+
+    async def puts(self, items):
+
+        self.linklist.extend(items)
+        self.event.set()
+
+        if self.maxsize is not None and len(self.linklist) >= self.maxsize:
+            await self.fini()

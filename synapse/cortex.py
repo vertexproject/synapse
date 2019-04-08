@@ -493,6 +493,21 @@ class CoreApi(s_cell.CellApi):
         async for mesg in self.cell.streamstorm(text, opts, user=self.user):
             yield mesg
 
+    async def splicer(self, iden, offs):
+        '''
+        Yield (indx, mesg) splices for the given layer beginning at offset.
+
+        Once caught up, this API will begin yielding splices in real-time.
+        The generator will only terminate on network disconnect or if the
+        consumer falls behind the max window size of 10,000 splice messages.
+        '''
+        if not self.user.admin:
+            mesg = 'User must be admin'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        async for item in self.cell.splicer(iden, offs):
+            yield item
+
     @s_cell.adminapi
     async def splices(self, offs, size):
         '''
@@ -654,6 +669,70 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    async def splicer(self, iden, offs):
+        '''
+        Yield (offs, mesg) tuples for splices in a layer.
+        '''
+        layr = await self.getLayer(iden)
+        if layr is None:
+            raise s_exc.NoSuchLayer(iden=iden)
+
+        async for item in layr.splicer(offs):
+            yield item
+
+    async def initCoreMirror(self, url):
+        '''
+        Initialize this cortex as a down-stream mirror from a telepath url.
+
+        NOTE: This cortex *must* be initialized from a backup of the target
+              cortex!
+        '''
+        self.schedCoro(self._initCoreMirror(url))
+
+    async def _initCoreMirror(self, url):
+
+        while not self.isfini:
+
+            try:
+
+                async with await s_telepath.openurl(url) as proxy:
+
+                    # if we really are a backup mirror, we have the same iden.
+                    if self.iden != await proxy.getCellIden():
+                        logger.warning('remote cortex has different iden! (aborting mirror).')
+                        return
+
+                    logger.warning(f'mirror loop connected ({url}')
+
+                    # assume only the main layer for now...
+                    layr = self.getLayer()
+
+                    offs = layr.getOffset(layr.iden)
+                    if offs is None:
+                        stat = await layr.stat()
+                        offs = stat.get('splicelog_indx', 0)
+                        await layr.setOffset(layr.iden, offs)
+
+                    while not self.isfini:
+
+                        # call the splicer API until isfini (or err)
+                        for offs, mesg in proxy.splicer(offs):
+                            await self.addFeedData('syn.splice', mesg)
+                            await layr.setOffset(layr.iden, offs)
+
+            except asyncio.CancelledError as e: # pragma: no cover
+                raise
+
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                logger.exception('error in initCoreMirror loop')
+                await asyncio.sleep(1)
+
+    async def _getWaitFor(self, name, valu):
+        form = self.model.form(name)
+        return form.getWaitFor(valu)
 
     def _initStormCmds(self):
         '''
@@ -1763,12 +1842,11 @@ class Cortex(s_cell.Cell):
         return await self.view.layers[0].getOffset(iden)
 
     async def setFeedOffs(self, iden, offs):
+
         if offs < 0:
-            raise s_exc.BadConfValu(mesg='Offset must be greater than or equal to zero.', offs=offs,
-                                    iden=iden)
-        oldoffs = await self.getFeedOffs(iden)
-        logger.info('Setting Feed offset for [%s] from [%s] to [%s]',
-                    iden, oldoffs, offs)
+            mesg = 'Offset must be >= 0.'
+            raise s_exc.BadConfValu(mesg=mesg, offs=offs, iden=iden)
+
         return await self.view.layers[0].setOffset(iden, offs)
 
     async def snap(self, user=None, view=None):

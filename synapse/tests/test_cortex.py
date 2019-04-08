@@ -10,6 +10,8 @@ import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.msgpack as s_msgpack
 
+import synapse.tools.backup as s_tools_backup
+
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
@@ -2540,3 +2542,41 @@ class CortexTest(s_t_utils.SynTest):
             await core.hive.set(('visi',), 200)
             async with core.getLocalProxy(share='cortex/hive') as hive:
                 self.eq(200, await hive.get(('visi',)))
+
+    async def test_cortex_waitfor(self):
+
+        async with self.getTestCore() as core:
+
+            evnt = await core._getWaitFor('inet:fqdn', 'vertex.link')
+            await core.nodes('[ inet:fqdn=vertex.link ]')
+            self.true(evnt.is_set())
+
+    async def test_cortex_mirror(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=path00) as core00:
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+            s_tools_backup.backup(path00, path01)
+
+            async with self.getTestCore(dirn=path00) as core00:
+
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+                url = core00.getLocalUrl()
+
+                async with self.getTestCore(dirn=path01) as core01:
+
+                    evnt = await core01._getWaitFor('inet:fqdn', 'vertex.link')
+
+                    await core01.initCoreMirror(url)
+
+                    await core00.nodes('[ inet:fqdn=vertex.link ]')
+
+                    print('ABOUT TO WAIT')
+                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
+                    print('DONE')

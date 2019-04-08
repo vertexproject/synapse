@@ -98,6 +98,9 @@ class Layer(s_base.Base):
         self.iden = node.name()
         self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
+        # splice windows...
+        self.windows = []
+
         self.info = await node.dict()
         self.info.setdefault('owner', 'root')
 
@@ -145,6 +148,21 @@ class Layer(s_base.Base):
         yield
         self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
+    @contextlib.asynccontextmanager
+    async def getSpliceWindow(self):
+
+        wind = s_queue.Window(maxsize=10000)
+
+        async def fini():
+            self.windows.remove(wind)
+
+        wind.onfini(fini)
+        self.windows.append(wind)
+
+        yield wind
+
+        await wind.fini()
+
     async def getLiftRows(self, lops):
 
         for oper in lops:
@@ -167,9 +185,14 @@ class Layer(s_base.Base):
             await func(oper)
 
         if splices:
+
             await self._storSplices(splices)
+
             self.spliced.set()
             self.spliced.clear()
+
+            # go fast and protect against edit-while-iter issues
+            [(await wind.puts(splices)) for wind in tuple(self.windows)]
 
     async def _storSplices(self, splices):  # pragma: no cover
         raise NotImplementedError
@@ -352,24 +375,37 @@ class Layer(s_base.Base):
         '''
         Iterate (buid, valu) rows for the given form in this layer.
         '''
+        for x in (): yield x
         raise NotImplementedError
 
     async def iterPropRows(self, form, prop):  # pragma: no cover
         '''
         Iterate (buid, valu) rows for the given form:prop in this layer.
         '''
+        for x in (): yield x
         raise NotImplementedError
 
     async def iterUnivRows(self, prop):  # pragma: no cover
         '''
         Iterate (buid, valu) rows for the given universal prop
         '''
+        for x in (): yield x
         raise NotImplementedError
 
     async def stat(self):  # pragma: no cover
         raise NotImplementedError
 
     async def splices(self, offs, size):  # pragma: no cover
+        for x in (): yield x
+        raise NotImplementedError
+
+    async def splicer(self, offs):  # pragma: no cover
+        '''
+        Yield (offs, mesg) tuples from the given offset.
+
+        Once caught up with storage, yield them in realtime.
+        '''
+        for x in (): yield x
         raise NotImplementedError
 
     async def getNodeNdef(self, buid):  # pragma: no cover
