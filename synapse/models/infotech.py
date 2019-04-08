@@ -302,12 +302,12 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An instance of a snort rule hit.',
                 }),
                 ('it:reveng:function', ('guid', {}), {
-                    'doc': 'A hash identifying a function',
+                    'doc': 'A function inside an executable',
                 }),
                 ('it:reveng:function:string', ('comp', {'fields': (('function', 'it:reveng:function'), ('string', 'str'))}), {
                     'doc': 'A reference to a string inside a function',
                 }),
-                ('it:reveng:function:file', ('comp', {'fields': (('function', 'it:reveng:function'), ('file', 'file:bytes'))}), {
+                ('it:reveng:function:file', ('comp', {'fields': (('file', 'file:bytes'), ('function', 'it:reveng:function'))}), {
                     'doc': 'An instance of a function in an executable',
                 }),
 
@@ -971,7 +971,7 @@ class ItModule(s_module.CoreModule):
                 ('it:reveng:function:file', {}, (
                     ('function', ('it:reveng:function', {}), {
                         'ro': True,
-                        'doc': 'The hash matching the function'}),
+                        'doc': 'The guid matching the function'}),
                     ('file', ('file:bytes', {}), {
                         'ro': True,
                         'doc': 'The file that contains the function.'}),
@@ -982,14 +982,10 @@ class ItModule(s_module.CoreModule):
                 ('it:reveng:function:string', {}, (
                     ('function', ('it:reveng:function', {}), {
                         'ro': True,
-                        'doc': 'The hash matching the function'}),
+                        'doc': 'The guid matching the function'}),
                     ('string', ('str', {}), {
                         'ro': True,
                         'doc': 'The string that the function references.'}),
-                    ('sva', ('int', {}), {
-                        'doc': 'The virtual address of the string'}),
-                    ('rva', ('int', {}), {
-                        'doc': 'The virtual address of the instruction that references the string'}),
                 )),
 
             ),
