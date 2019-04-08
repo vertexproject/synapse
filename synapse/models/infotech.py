@@ -301,6 +301,16 @@ class ItModule(s_module.CoreModule):
                 ('it:app:snort:hit', ('guid', {}), {
                     'doc': 'An instance of a snort rule hit.',
                 }),
+                ('it:reveng:function', ('guid', {}), {
+                    'doc': 'A hash identifying a function',
+                }),
+                ('it:reveng:function:string', ('comp', {'fields': (('function', 'it:reveng:function'), ('string', 'str'))}), {
+                    'doc': 'A reference to a string inside a function',
+                }),
+                ('it:reveng:function:file', ('comp', {'fields': (('function', 'it:reveng:function'), ('file', 'file:bytes'))}), {
+                    'doc': 'An instance of a function in an executable',
+                }),
+
             ),
             'forms': (
                 ('it:hostname', {}, ()),
@@ -954,6 +964,32 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file that matched the yara rule.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The most recent version of the rule evaluated as a match.'}),
+                )),
+
+                ('it:reveng:function', {}, ()),
+
+                ('it:reveng:function:file', {}, (
+                    ('function', ('it:reveng:function', {}), {
+                        'ro': True,
+                        'doc': 'The hash matching the function'}),
+                    ('file', ('file:bytes', {}), {
+                        'ro': True,
+                        'doc': 'The file that contains the function.'}),
+                    ('va', ('int', {}), {
+                        'doc': 'The virtual address of the first codeblock of the function'}),
+                )),
+
+                ('it:reveng:function:string', {}, (
+                    ('function', ('it:reveng:function', {}), {
+                        'ro': True,
+                        'doc': 'The hash matching the function'}),
+                    ('string', ('str', {}), {
+                        'ro': True,
+                        'doc': 'The string that the function references.'}),
+                    ('sva', ('int', {}), {
+                        'doc': 'The virtual address of the string'}),
+                    ('rva', ('int', {}), {
+                        'doc': 'The virtual address of the instruction that references the string'}),
                 )),
 
             ),

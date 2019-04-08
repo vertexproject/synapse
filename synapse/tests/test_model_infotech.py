@@ -1,3 +1,5 @@
+import hashlib
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -700,3 +702,35 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('::ffff:5.5.5.5', nodes[0].get('dst:ipv6'))
 
             self.eq(0x10000200003, nodes[0].get('version'))
+
+    async def test_it_reveng(self):
+
+        async with self.getTestCore() as core:
+
+            baseFile = hashlib.sha256(b'file').hexdigest()
+            fva = 0x404438
+            fopt = {'vars': {'file': baseFile,
+                             'func': s_common.guid(),
+                             'fva': fva}}
+            sva = 0x401012
+            rva = 0x4045a0
+            vstr = 'VertexBrandArtisanalBinaries'
+            sopt = {'vars': {'func': fopt['vars']['func'],
+                             'string': vstr,
+                             'sva': sva,
+                             'rva': rva}}
+            fnode = await core.eval('[it:reveng:function:file=($func, $file) :va=$fva]', opts=fopt).list()
+            snode = await core.eval('[it:reveng:function:string=($func, $string) :sva=$sva :rva=$rva]', opts=sopt).list()
+            self.len(1, fnode)
+            self.eq(f'sha256:{baseFile}', fnode[0].get('file'))
+            self.eq(fva, fnode[0].get('va'))
+
+            self.len(1, snode)
+            self.eq(fnode[0].get('function'), snode[0].get('function'))
+            self.eq(vstr, snode[0].get('string'))
+            self.eq(sva, snode[0].get('sva'))
+            self.eq(rva, snode[0].get('rva'))
+
+            nodes = await core.eval(f'file:bytes={baseFile} -> it:reveng:function:file :function -> it:reveng:function:string:function').list()
+            self.len(1, nodes)
+            self.eq(vstr, nodes[0].get('string'))
