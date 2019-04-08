@@ -307,7 +307,7 @@ class ItModule(s_module.CoreModule):
                 ('it:reveng:function:string', ('comp', {'fields': (('function', 'it:reveng:function'), ('string', 'str'))}), {
                     'doc': 'A reference to a string inside a function',
                 }),
-                ('it:reveng:function:file', ('comp', {'fields': (('file', 'file:bytes'), ('function', 'it:reveng:function'))}), {
+                ('it:reveng:file:function', ('comp', {'fields': (('file', 'file:bytes'), ('function', 'it:reveng:function'))}), {
                     'doc': 'An instance of a function in an executable',
                 }),
 
@@ -968,7 +968,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:reveng:function', {}, ()),
 
-                ('it:reveng:function:file', {}, (
+                ('it:reveng:file:function', {}, (
                     ('function', ('it:reveng:function', {}), {
                         'ro': True,
                         'doc': 'The guid matching the function'}),

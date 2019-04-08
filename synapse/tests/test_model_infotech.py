@@ -715,7 +715,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             vstr = 'VertexBrandArtisanalBinaries'
             sopt = {'vars': {'func': fopt['vars']['func'],
                              'string': vstr}}
-            fnode = await core.eval('[it:reveng:function:file=($file, $func) :va=$fva]', opts=fopt).list()
+            fnode = await core.eval('[it:reveng:file:function=($file, $func) :va=$fva]', opts=fopt).list()
             snode = await core.eval('[it:reveng:function:string=($func, $string)]', opts=sopt).list()
             self.len(1, fnode)
             self.eq(f'sha256:{baseFile}', fnode[0].get('file'))
@@ -725,6 +725,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(fnode[0].get('function'), snode[0].get('function'))
             self.eq(vstr, snode[0].get('string'))
 
-            nodes = await core.eval(f'file:bytes={baseFile} -> it:reveng:function:file :function -> it:reveng:function:string:function').list()
+            nodes = await core.eval(f'file:bytes={baseFile} -> it:reveng:file:function :function -> it:reveng:function:string:function').list()
             self.len(1, nodes)
             self.eq(vstr, nodes[0].get('string'))
