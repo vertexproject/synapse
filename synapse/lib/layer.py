@@ -17,6 +17,7 @@ import synapse.exc as s_exc
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.cache as s_cache
+import synapse.lib.queue as s_queue
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +140,11 @@ class Layer(s_base.Base):
         self.spliced = asyncio.Event(loop=self.loop)
         self.onfini(self.spliced.set)
 
+        self.onfini(self._onLayrFini)
+
+    async def _onLayrFini(self):
+        [(await wind.fini()) for wind in self.windows]
+
     @contextlib.contextmanager
     def disablingBuidCache(self):
         '''
@@ -151,17 +157,16 @@ class Layer(s_base.Base):
     @contextlib.asynccontextmanager
     async def getSpliceWindow(self):
 
-        wind = s_queue.Window(maxsize=10000)
+        async with await s_queue.Window.anit(maxsize=10000) as wind:
 
-        async def fini():
-            self.windows.remove(wind)
+            async def fini():
+                self.windows.remove(wind)
 
-        wind.onfini(fini)
-        self.windows.append(wind)
+            wind.onfini(fini)
 
-        yield wind
+            self.windows.append(wind)
 
-        await wind.fini()
+            yield wind
 
     async def getLiftRows(self, lops):
 
@@ -399,7 +404,7 @@ class Layer(s_base.Base):
         for x in (): yield x
         raise NotImplementedError
 
-    async def splicer(self, offs):  # pragma: no cover
+    async def syncSplices(self, offs):  # pragma: no cover
         '''
         Yield (offs, mesg) tuples from the given offset.
 

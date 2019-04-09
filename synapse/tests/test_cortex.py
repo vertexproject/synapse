@@ -2577,6 +2577,34 @@ class CortexTest(s_t_utils.SynTest):
 
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
 
-                    print('ABOUT TO WAIT')
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
-                    print('DONE')
+                    self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
+
+                await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
+
+                # test what happens when we go down and come up again...
+                async with self.getTestCore(dirn=path01) as core01:
+                    evnt = await core01._getWaitFor('inet:ipv4', '5.5.5.5')
+                    await core01.initCoreMirror(url)
+                    await evnt.wait()
+
+            # now lets start up in the opposite order...
+            async with self.getTestCore(dirn=path01) as core01:
+
+                await core01.initCoreMirror(url)
+
+                evnt = await core01._getWaitFor('inet:ipv4', '6.6.6.6')
+
+                async with self.getTestCore(dirn=path00) as core00:
+
+                    await core00.nodes('[ inet:ipv4=6.6.6.6 ]')
+
+                    await evnt.wait()
+                    self.len(1, (await core01.nodes('inet:ipv4=6.6.6.6')))
+
+                # what happens if *he* goes down and comes back up again?
+                evnt = await core01._getWaitFor('inet:ipv4', '7.7.7.7')
+                async with self.getTestCore(dirn=path00) as core00:
+                    await core00.nodes('[ inet:ipv4=7.7.7.7 ]')
+                    await evnt.wait()
+                    self.len(1, (await core01.nodes('inet:ipv4=7.7.7.7')))

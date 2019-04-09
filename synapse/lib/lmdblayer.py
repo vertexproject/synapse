@@ -521,7 +521,7 @@ class LmdbLayer(s_layer.Layer):
         for _, mesg in self.splicelog.slice(offs, size):
             yield mesg
 
-    async def splicer(self, offs):
+    async def syncSplices(self, offs):
 
         for item in self.splicelog.iter(offs):
             yield item

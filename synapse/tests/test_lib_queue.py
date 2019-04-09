@@ -19,3 +19,16 @@ class QueueTest(s_t_utils.SynTest):
         queue.schedCoro(poke())
 
         self.eq(['bar'], await queue.slice())
+
+    async def test_queue_window(self):
+
+        wind = await s_queue.Window.anit(maxsize=3)
+
+        await wind.put('asdf')
+        self.false(wind.isfini)
+
+        await wind.puts(('hehe', 'haha'))
+
+        self.true(wind.isfini)
+
+        self.eq(('asdf', 'hehe', 'haha'), [x async for x in wind])

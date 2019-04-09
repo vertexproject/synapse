@@ -493,7 +493,7 @@ class CoreApi(s_cell.CellApi):
         async for mesg in self.cell.streamstorm(text, opts, user=self.user):
             yield mesg
 
-    async def splicer(self, iden, offs):
+    async def syncLayerSplices(self, iden, offs):
         '''
         Yield (indx, mesg) splices for the given layer beginning at offset.
 
@@ -505,7 +505,7 @@ class CoreApi(s_cell.CellApi):
             mesg = 'User must be admin'
             raise s_exc.AuthDeny(mesg=mesg)
 
-        async for item in self.cell.splicer(iden, offs):
+        async for item in self.cell.syncLayerSplices(iden, offs):
             yield item
 
     @s_cell.adminapi
@@ -670,15 +670,15 @@ class Cortex(s_cell.Cell):
         self._initPushLoop()
         self._initFeedLoops()
 
-    async def splicer(self, iden, offs):
+    async def syncLayerSplices(self, iden, offs):
         '''
         Yield (offs, mesg) tuples for splices in a layer.
         '''
-        layr = await self.getLayer(iden)
+        layr = self.getLayer(iden)
         if layr is None:
             raise s_exc.NoSuchLayer(iden=iden)
 
-        async for item in layr.splicer(offs):
+        async for item in layr.syncSplices(offs):
             yield item
 
     async def initCoreMirror(self, url):
@@ -708,25 +708,58 @@ class Cortex(s_cell.Cell):
                     # assume only the main layer for now...
                     layr = self.getLayer()
 
-                    offs = layr.getOffset(layr.iden)
+                    offs = await layr.getOffset(layr.iden)
+
                     if offs is None:
                         stat = await layr.stat()
                         offs = stat.get('splicelog_indx', 0)
                         await layr.setOffset(layr.iden, offs)
 
-                    while not self.isfini:
+                    while not proxy.isfini:
 
-                        # call the splicer API until isfini (or err)
-                        for offs, mesg in proxy.splicer(offs):
-                            await self.addFeedData('syn.splice', mesg)
-                            await layr.setOffset(layr.iden, offs)
+                        # gotta do this in the loop as welll...
+                        offs = await layr.getOffset(layr.iden)
 
-            except asyncio.CancelledError as e: # pragma: no cover
+                        # pump them into a queue so we can consume them in chunks
+                        q = asyncio.Queue(maxsize=1000)
+
+                        async def consume(x):
+                            try:
+                                async for item in proxy.syncLayerSplices(layr.iden, x):
+                                    await q.put(item)
+                            finally:
+                                await q.put(None)
+
+                        proxy.schedCoro(consume(offs))
+
+                        done = False
+                        while not done:
+
+                            # get the next item so we maybe block...
+                            item = await q.get()
+                            if item is None:
+                                break
+
+                            items = [item]
+
+                            # check if there are more we can eat
+                            for i in range(q.qsize()):
+
+                                nexi = await q.get()
+                                if nexi is None:
+                                    done = True
+                                    break
+
+                                items.append(nexi)
+
+                            splices = [i[1] for i in items]
+                            await self.addFeedData('syn.splice', splices)
+                            await layr.setOffset(layr.iden, items[-1][0])
+
+            except asyncio.CancelledError: # pragma: no cover
                 raise
 
             except Exception as e:
-                import traceback
-                traceback.print_exc()
                 logger.exception('error in initCoreMirror loop')
                 await asyncio.sleep(1)
 
