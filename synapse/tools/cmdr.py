@@ -14,6 +14,7 @@ async def main(argv):  # pragma: no cover
     async with await s_telepath.openurl(argv[0]) as item:
 
         cmdr = await s_cmdr.getItemCmdr(item)
+        await cmdr.addSignalHandlers()
         await cmdr.runCmdLoop()
 
 if __name__ == '__main__': # pragma: no cover
