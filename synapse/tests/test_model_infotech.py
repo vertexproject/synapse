@@ -715,8 +715,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             vstr = 'VertexBrandArtisanalBinaries'
             sopt = {'vars': {'func': fopt['vars']['func'],
                              'string': vstr}}
-            fnode = await core.eval('[it:reveng:file:function=($file, $func) :va=$fva]', opts=fopt).list()
-            snode = await core.eval('[it:reveng:function:string=($func, $string)]', opts=sopt).list()
+            fnode = await core.eval('[it:reveng:filefunc=($file, $func) :va=$fva]', opts=fopt).list()
+            snode = await core.eval('[it:reveng:funcstr=($func, $string)]', opts=sopt).list()
             self.len(1, fnode)
             self.eq(f'sha256:{baseFile}', fnode[0].get('file'))
             self.eq(fva, fnode[0].get('va'))
@@ -730,6 +730,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq("FunkyFunction", funcnode[0].get('name'))
             self.eq("Test Function", funcnode[0].get('description'))
 
-            nodes = await core.eval(f'file:bytes={baseFile} -> it:reveng:file:function :function -> it:reveng:function:string:function').list()
+            nodes = await core.eval(f'file:bytes={baseFile} -> it:reveng:filefunc :function -> it:reveng:funcstr:function').list()
             self.len(1, nodes)
             self.eq(vstr, nodes[0].get('string'))
