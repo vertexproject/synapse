@@ -16,7 +16,7 @@ Features and Enhancements
 Bugfixes
 --------
 
-- Fix old bugs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- When using ``synapse.tools.cmdr``, issugin ctrl-c to cancel a running command in could result in the Telepath Proxy object being fini'd. This has been resovled by adding a signal handler to the ``synapse.lib.cli.Cli`` class which is registered by cmdr. (`#1199 <https://github.com/vertexproject/synapse/pull/1199>`_)
 
 Improved Documentation
 ----------------------
