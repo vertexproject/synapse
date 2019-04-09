@@ -966,7 +966,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The most recent version of the rule evaluated as a match.'}),
                 )),
 
-                ('it:reveng:function', {}, ()),
+                ('it:reveng:function', {}, (
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the function'}),
+                    ('description', ('str', {}), {
+                        'doc': 'Notes concerning the function'}),
+                )),
 
                 ('it:reveng:file:function', {}, (
                     ('function', ('it:reveng:function', {}), {

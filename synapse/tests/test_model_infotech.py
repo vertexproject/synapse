@@ -725,6 +725,11 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(fnode[0].get('function'), snode[0].get('function'))
             self.eq(vstr, snode[0].get('string'))
 
+            funcnode = await core.eval('it:reveng:function [ :name="FunkyFunction" :description="Test Function" ]').list()
+            self.len(1, funcnode)
+            self.eq("FunkyFunction", funcnode[0].get('name'))
+            self.eq("Test Function", funcnode[0].get('description'))
+
             nodes = await core.eval(f'file:bytes={baseFile} -> it:reveng:file:function :function -> it:reveng:function:string:function').list()
             self.len(1, nodes)
             self.eq(vstr, nodes[0].get('string'))

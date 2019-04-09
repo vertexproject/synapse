@@ -11,7 +11,7 @@ Features and Enhancements
 
 - Automatically run unit tests for the master every day. (`#1192 <https://github.com/vertexproject/synapse/pull/1192>`_)
 - Add test suite for ``synapse.lib.urlhelp``. (`#1195 <https://github.com/vertexproject/synapse/pull/1195>`_)
-
+- Add Skeleton for reverese engineering model
 
 Bugfixes
 --------
