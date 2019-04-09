@@ -57,6 +57,11 @@ class CliTest(s_t_utils.SynTest):
             await cli.runCmdLine('help')
         self.true(outp.expect('Quit the current command line interpreter.'))
 
+        outp = self.getTestOutp()
+        async with await s_cli.Cli.anit(None, outp=outp) as cli:
+            await cli.runCmdLine('help newp')
+        self.true(outp.expect('=== NOT FOUND: newp'))
+
     async def test_cli_notacommand(self):
         outp = self.getTestOutp()
         async with await s_cli.Cli.anit(None, outp=outp) as cli:
