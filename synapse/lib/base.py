@@ -1,6 +1,7 @@
 import gc
 import atexit
 import signal
+import asyncio
 import inspect
 import asyncio
 import logging
@@ -448,7 +449,7 @@ class Base:
             This function is *not* threadsafe and must be run on the Base's event loop
 
         Returns:
-            An asyncio.Task
+            asyncio.Task: An asyncio.Task object.
 
         '''
         import synapse.lib.provenance as s_provenance  # avoid import cycle

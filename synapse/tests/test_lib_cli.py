@@ -57,6 +57,11 @@ class CliTest(s_t_utils.SynTest):
             await cli.runCmdLine('help')
         self.true(outp.expect('Quit the current command line interpreter.'))
 
+        outp = self.getTestOutp()
+        async with await s_cli.Cli.anit(None, outp=outp) as cli:
+            await cli.runCmdLine('help newp')
+        self.true(outp.expect('=== NOT FOUND: newp'))
+
     async def test_cli_notacommand(self):
         outp = self.getTestOutp()
         async with await s_cli.Cli.anit(None, outp=outp) as cli:
@@ -274,16 +279,12 @@ class CliTest(s_t_utils.SynTest):
 
     async def test_cli_fini_disconnect(self):
 
-        #evt = threading.Event()
         outp = self.getTestOutp()
 
         async with self.getTestCoreAndProxy() as (core, prox):
             cli = await s_cli.Cli.anit(prox, outp=outp)
-            #cli.onfini(evt.set)
 
         self.true(prox.isfini)
         self.true(core.isfini)
-
-        #self.true(evt.wait(2))
-        #self.true(cli.isfini)
+        self.true(cli.isfini)
         self.true(outp.expect('connection closed...'))
