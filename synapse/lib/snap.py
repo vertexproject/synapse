@@ -617,12 +617,11 @@ class Snap(s_base.Base):
             async for x in layr.getLiftRows(lops):
                 yield layeridx, x
 
-    async def getRowNodes(self, rows, rawprop, cmpf):
+    async def getRowNodes(self, rows, rawprop, cmpf=None):
         '''
         Join a row generator into (row, Node()) tuples.
 
-        A row generator yields tuple rows where the first valu is a node buid,
-        then node rawprop dict
+        A row generator yields tuples of node buid, rawprop dict
 
         Args:
             rows: A generator of (layer_idx, (buid, ...)) tuples.
