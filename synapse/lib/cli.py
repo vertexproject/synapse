@@ -1,6 +1,6 @@
 import os
 import json
-import time
+import signal
 import asyncio
 import logging
 import traceback
@@ -14,7 +14,6 @@ from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.eventloop.defaults import use_asyncio_event_loop
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
@@ -234,8 +233,6 @@ class Cli(s_base.Base):
     '''
     async def __anit__(self, item, outp=None, **locs):
 
-        s_common.setlogging(logger, 'DEBUG')
-
         await s_base.Base.__anit__(self)
 
         # Tell prompt_toolkit to use the asyncio event loop.
@@ -246,7 +243,7 @@ class Cli(s_base.Base):
 
         self.outp = outp
         self.locs = locs
-        self.task = None
+        self.cmdtask = None  # type: asyncio.Task
 
         self.sess = None
         self.vi_mode = _inputrc_enables_vi_mode()
@@ -267,8 +264,6 @@ class Cli(s_base.Base):
 
     async def _onItemFini(self):
 
-        self.printf(f'item has been fini???? are we? {self.isfini}')
-        self.printf(repr(self.loop))
         if self.isfini:
             return
 
@@ -278,19 +273,15 @@ class Cli(s_base.Base):
 
     async def addSignalHandlers(self):
         '''
-        Register SIGTERM/SIGINT signal handlers with the ioloop to fini this object.
+        Register SIGINT signal handler with the ioloop to cancel the currently running cmdloop task.
         '''
 
-        import signal
-
         def sigint():
-            print('got sigint!')
-            if self.task is not None:
-                self.task.cancel()
-                print('cancelled task!')
+            self.printf('<ctrl-c>')
+            if self.cmdtask is not None:
+                self.cmdtask.cancel()
 
-        loop = asyncio.get_running_loop()
-        loop.add_signal_handler(signal.SIGINT, sigint)
+        self.loop.add_signal_handler(signal.SIGINT, sigint)
 
     def get(self, name, defval=None):
         return self.locs.get(name, defval)
@@ -353,7 +344,7 @@ class Cli(s_base.Base):
 
             # FIXME completion
 
-            self.task = None
+            self.cmdtask = None
 
             try:
 
@@ -366,8 +357,8 @@ class Cli(s_base.Base):
                     continue
 
                 coro = self.runCmdLine(line)
-                self.task = self.schedCoro(coro)
-                await self.task
+                self.cmdtask = self.schedCoro(coro)
+                await self.cmdtask
 
             except KeyboardInterrupt:
 
@@ -384,10 +375,10 @@ class Cli(s_base.Base):
                 self.printf(s)
 
             finally:
-                if self.task is not None:
-                    self.task.cancel()
+                if self.cmdtask is not None:
+                    self.cmdtask.cancel()
                     try:
-                        self.task.result(2)
+                        self.cmdtask.result()
                     except asyncio.CancelledError:
                         # Wait a beat to let any remaining nodes to print out before we print the prompt
                         await asyncio.sleep(1)
