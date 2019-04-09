@@ -304,11 +304,11 @@ class ItModule(s_module.CoreModule):
                 ('it:reveng:function', ('guid', {}), {
                     'doc': 'A function inside an executable',
                 }),
-                ('it:reveng:function:string', ('comp', {'fields': (('function', 'it:reveng:function'), ('string', 'str'))}), {
-                    'doc': 'A reference to a string inside a function',
-                }),
                 ('it:reveng:file:function', ('comp', {'fields': (('file', 'file:bytes'), ('function', 'it:reveng:function'))}), {
                     'doc': 'An instance of a function in an executable',
+                }),
+                ('it:reveng:function:string', ('comp', {'fields': (('function', 'it:reveng:function'), ('string', 'str'))}), {
+                    'doc': 'A reference to a string inside a function',
                 }),
 
             ),

@@ -707,7 +707,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            baseFile = hashlib.sha256(b'file').hexdigest()
+            baseFile = s_common.ehex(s_common.buid())
             fva = 0x404438
             fopt = {'vars': {'file': baseFile,
                              'func': s_common.guid(),
