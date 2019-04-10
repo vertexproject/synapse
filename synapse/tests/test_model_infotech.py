@@ -700,3 +700,34 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('::ffff:5.5.5.5', nodes[0].get('dst:ipv6'))
 
             self.eq(0x10000200003, nodes[0].get('version'))
+
+    async def test_it_reveng(self):
+
+        async with self.getTestCore() as core:
+
+            baseFile = s_common.ehex(s_common.buid())
+            fva = 0x404438
+            fopt = {'vars': {'file': baseFile,
+                             'func': s_common.guid(),
+                             'fva': fva}}
+            vstr = 'VertexBrandArtisanalBinaries'
+            sopt = {'vars': {'func': fopt['vars']['func'],
+                             'string': vstr}}
+            fnode = await core.eval('[it:reveng:filefunc=($file, $func) :va=$fva]', opts=fopt).list()
+            snode = await core.eval('[it:reveng:funcstr=($func, $string)]', opts=sopt).list()
+            self.len(1, fnode)
+            self.eq(f'sha256:{baseFile}', fnode[0].get('file'))
+            self.eq(fva, fnode[0].get('va'))
+
+            self.len(1, snode)
+            self.eq(fnode[0].get('function'), snode[0].get('function'))
+            self.eq(vstr, snode[0].get('string'))
+
+            funcnode = await core.eval('it:reveng:function [ :name="FunkyFunction" :description="Test Function" ]').list()
+            self.len(1, funcnode)
+            self.eq("FunkyFunction", funcnode[0].get('name'))
+            self.eq("Test Function", funcnode[0].get('description'))
+
+            nodes = await core.eval(f'file:bytes={baseFile} -> it:reveng:filefunc :function -> it:reveng:funcstr:function').list()
+            self.len(1, nodes)
+            self.eq(vstr, nodes[0].get('string'))
