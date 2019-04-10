@@ -91,6 +91,7 @@ class EditAtom:
 
         for node, prop, _, valu in self.npvs:
             node.props[prop.name] = valu
+            node.proplayr[prop.name] = snap.wlyr
 
         splices = [snap.splice('node:add', ndef=node.ndef) for node in self.mybldgbuids.values()]
         for node, prop, oldv, valu in self.npvs:
