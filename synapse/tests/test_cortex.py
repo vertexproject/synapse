@@ -2540,3 +2540,13 @@ class CortexTest(s_t_utils.SynTest):
             await core.hive.set(('visi',), 200)
             async with core.getLocalProxy(share='cortex/hive') as hive:
                 self.eq(200, await hive.get(('visi',)))
+
+    async def test_delevent(self):
+        ''' Tests deleting a node with a property without an index '''
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                evt_guid = s_common.guid('evt')
+                node = await snap.addNode('graph:event', evt_guid, {'name': 'an event', 'data': 'beep'})
+
+                await node.delete(force=True)
+
