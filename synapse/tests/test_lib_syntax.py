@@ -24,6 +24,8 @@ class SyntaxTest(s_t_utils.SynTest):
         self.false(s_syntax.isUnivName('test:str.hehe'))
         self.false(s_syntax.isUnivName('test:str.hehe:haha'))
         self.false(s_syntax.isUnivName('test:str.haha.hehe'))
+        self.true(s_syntax.isUnivName('.foo:x'))
+        self.true(s_syntax.isUnivName('.x:foo'))
 
         self.true(s_syntax.isFormName('test:str'))
         self.true(s_syntax.isFormName('t2:str'))
@@ -33,6 +35,8 @@ class SyntaxTest(s_t_utils.SynTest):
         self.false(s_syntax.isFormName('2t:str'))
         self.false(s_syntax.isFormName('.hehe'))
         self.false(s_syntax.isFormName('testcmd'))
+        self.true(s_syntax.isFormName('x:foo'))
+        self.true(s_syntax.isFormName('foo:x'))
 
         self.true(s_syntax.isPropName('test:str'))
         self.true(s_syntax.isPropName('test:str:tick'))
@@ -43,6 +47,8 @@ class SyntaxTest(s_t_utils.SynTest):
         self.true(s_syntax.isPropName('test:str.hehe'))
         self.true(s_syntax.isPropName('test:str.hehe.haha'))
         self.true(s_syntax.isPropName('test:str.hehe:haha'))
+        self.true(s_syntax.isPropName('test:x'))
+        self.true(s_syntax.isPropName('x:x'))
         self.false(s_syntax.isPropName('test'))
         self.false(s_syntax.isPropName('2t:str'))
         self.false(s_syntax.isPropName('.hehe'))
