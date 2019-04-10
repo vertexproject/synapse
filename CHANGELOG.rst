@@ -11,6 +11,9 @@ Features and Enhancements
 
 - Automatically run unit tests for the master every day. (`#1192 <https://github.com/vertexproject/synapse/pull/1192>`_)
 - Add test suite for ``synapse.lib.urlhelp``. (`#1195 <https://github.com/vertexproject/synapse/pull/1195>`_)
+- Improve multi-layer and single layer performance.   This is a backwards-incompatible API change in that 0.1.2 cortex
+  will not interoperate with 0.1.2 remote layers before version 0.1.2.  Persistent storage format has not changed.
+  (`#1196 <https://github.com/vertexproject/synapse/pull/1196>`_)
 - Add Skeleton for reverese engineering model
 
 Bugfixes
