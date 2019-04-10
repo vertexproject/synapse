@@ -2549,4 +2549,3 @@ class CortexTest(s_t_utils.SynTest):
                 node = await snap.addNode('graph:event', evt_guid, {'name': 'an event', 'data': 'beep'})
 
                 await node.delete(force=True)
-
