@@ -224,11 +224,12 @@ class LmdbLayer(s_layer.Layer):
             # for the *<form> prop, the byprop index has <form><00><00><indx>
             if proputf8[0] == 42:
 
-                oldpropkey = oldfenc + b'\x00' + indx
                 newpropkey = newfenc + b'\x00' + newnindx
 
-                if not self.layrslab.delete(oldpropkey, pvoldval, db=self.byprop): # pragma: no cover
-                    logger.warning(f'editNodeNdef del byprop missing for {repr(oldv)} {repr(oldpropkey)}')
+                if indx is not None:
+                    oldpropkey = oldfenc + b'\x00' + indx
+                    if not self.layrslab.delete(oldpropkey, pvoldval, db=self.byprop): # pragma: no cover
+                        logger.warning(f'editNodeNdef del byprop missing for {repr(oldv)} {repr(oldpropkey)}')
 
                 self.layrslab.put(newpropkey, pvnewval, dupdata=True, db=self.byprop)
 
@@ -276,17 +277,19 @@ class LmdbLayer(s_layer.Layer):
             proputf8 = lkey[32:]
             valu, indx = s_msgpack.un(lval)
 
-            # <prop><00><indx>
-            propindx = proputf8 + b'\x00' + indx
+            if indx is not None:
 
-            if proputf8[0] in (46, 35): # ".univ" or "#tag"
-                self.layrslab.put(propindx, pvnewval, dupdata=True, db=self.byuniv)
-                self.layrslab.delete(propindx, pvoldval, db=self.byuniv)
+                # <prop><00><indx>
+                propindx = proputf8 + b'\x00' + indx
 
-            bypropkey = fenc + propindx
+                if proputf8[0] in (46, 35): # ".univ" or "#tag"
+                    self.layrslab.put(propindx, pvnewval, dupdata=True, db=self.byuniv)
+                    self.layrslab.delete(propindx, pvoldval, db=self.byuniv)
 
-            self.layrslab.put(bypropkey, pvnewval, db=self.byprop)
-            self.layrslab.delete(bypropkey, pvoldval, db=self.byprop)
+                bypropkey = fenc + propindx
+
+                self.layrslab.put(bypropkey, pvnewval, db=self.byprop)
+                self.layrslab.delete(bypropkey, pvoldval, db=self.byprop)
 
             self.layrslab.put(newb + proputf8, lval, db=self.bybuid)
             self.layrslab.delete(lkey, db=self.bybuid)
@@ -343,11 +346,12 @@ class LmdbLayer(s_layer.Layer):
         if byts is not None:
 
             oldv, oldi = s_msgpack.un(byts)
+            if oldi is not None:
 
-            self.layrslab.delete(pvpref + oldi, pvvalu, db=self.byprop)
+                self.layrslab.delete(pvpref + oldi, pvvalu, db=self.byprop)
 
-            if univ:
-                self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
+                if univ:
+                    self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
 
         if indx is not None:
 
@@ -379,10 +383,12 @@ class LmdbLayer(s_layer.Layer):
         oldv, oldi = s_msgpack.un(byts)
 
         pvvalu = s_msgpack.en((buid,))
-        self.layrslab.delete(fenc + penc + oldi, pvvalu, db=self.byprop)
 
-        if univ:
-            self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
+        if oldi is not None:
+            self.layrslab.delete(fenc + penc + oldi, pvvalu, db=self.byprop)
+
+            if univ:
+                self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
 
     def _storSplicesSync(self, splices):
         self.splicelog.save(splices)
