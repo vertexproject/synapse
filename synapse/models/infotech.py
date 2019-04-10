@@ -301,6 +301,16 @@ class ItModule(s_module.CoreModule):
                 ('it:app:snort:hit', ('guid', {}), {
                     'doc': 'An instance of a snort rule hit.',
                 }),
+                ('it:reveng:function', ('guid', {}), {
+                    'doc': 'A function inside an executable.',
+                }),
+                ('it:reveng:filefunc', ('comp', {'fields': (('file', 'file:bytes'), ('function', 'it:reveng:function'))}), {
+                    'doc': 'An instance of a function in an executable.',
+                }),
+                ('it:reveng:funcstr', ('comp', {'fields': (('function', 'it:reveng:function'), ('string', 'str'))}), {
+                    'doc': 'A reference to a string inside a function.',
+                }),
+
             ),
             'forms': (
                 ('it:hostname', {}, ()),
@@ -954,6 +964,33 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file that matched the yara rule.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The most recent version of the rule evaluated as a match.'}),
+                )),
+
+                ('it:reveng:function', {}, (
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the function'}),
+                    ('description', ('str', {}), {
+                        'doc': 'Notes concerning the function'}),
+                )),
+
+                ('it:reveng:filefunc', {}, (
+                    ('function', ('it:reveng:function', {}), {
+                        'ro': True,
+                        'doc': 'The guid matching the function'}),
+                    ('file', ('file:bytes', {}), {
+                        'ro': True,
+                        'doc': 'The file that contains the function.'}),
+                    ('va', ('int', {}), {
+                        'doc': 'The virtual address of the first codeblock of the function'}),
+                )),
+
+                ('it:reveng:funcstr', {}, (
+                    ('function', ('it:reveng:function', {}), {
+                        'ro': True,
+                        'doc': 'The guid matching the function'}),
+                    ('string', ('str', {}), {
+                        'ro': True,
+                        'doc': 'The string that the function references.'}),
                 )),
 
             ),
