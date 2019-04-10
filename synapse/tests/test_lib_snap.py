@@ -244,6 +244,9 @@ class SnapTest(s_t_utils.SynTest):
             self.len(1, await core1.eval('[ inet:ipv4=1.2.3.4 :asn=42 ]').list())
             self.len(1, await core0.eval('[ inet:ipv4=1.2.3.4 :asn=42 ]').list())
 
+            # lift by primary and ensure only one...
+            self.len(1, await core1.eval('inet:ipv4').list())
+
             # lift by secondary and ensure only one...
             self.len(1, await core1.eval('inet:ipv4:asn=42').list())
 
