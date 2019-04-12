@@ -263,4 +263,3 @@ class SnapTest(s_t_utils.SynTest):
             # now set one to a diff value that we will ask for but should be masked
             self.len(1, await core0.eval('[ inet:ipv4=1.2.3.4 :asn=99 ]').list())
             self.len(0, await core1.eval('inet:ipv4:asn=99').list())
-
