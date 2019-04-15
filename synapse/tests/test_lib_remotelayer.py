@@ -86,7 +86,7 @@ class RemoteLayerTest(t_cortex.CortexTest):
             await self.asyncraises(s_exc.SynErr, layr.setModelVers((9, 9, 9)))
 
     async def test_cortex_iter_props(self):
-        self.skip('test_splice_generation directly uses layers')
+        self.skip('test_cortex_iter_props directly uses layers')
 
     async def test_cortex_remote_reconn(self):
 
