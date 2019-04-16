@@ -18,7 +18,7 @@ editpropset: RELPROP _WS? "=" _WS? _valu
 editpropdel: "-" RELPROP
 editunivset: UNIVPROP _WS? "=" _WS? _valu
 editnodeadd: ABSPROPNOUNIV _WS? "=" _WS? _valu
-ABSPROP: PROPNAME // must be a propname
+ABSPROP: PROPNAME
 ABSPROPNOUNIV: PROPS
 
 _oper: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | filtoper
@@ -111,17 +111,8 @@ _WSCOMM: (CCOMMENT | CPPCOMMENT | _WS)+
 CCOMMENT: /\/\*+[^*]*\*+([^\/*][^*]*\*+)*\//
 CPPCOMMENT: /\/\/[^\n]*/
 
-// TOOD:  fix all one-word propnames and define propname as word with a colon
-PROPS: "inet:fqdn" | "inet:dns:a" | "inet:dns:query" | "syn:tag" | "teststr:tick" | "teststr"
-    | "refs" | "testcomp:haha" | "testcomp" | "testint:loc" | "testint" | "wentto"
-    | "file:bytes:size" | "pivcomp:tick" | "pivcomp:lulz" | "pivcomp" | "pivtarg" | "inet:ipv4:loc"
-    | "inet:ipv4" | "seen:source" | "inet:user" | "media:news"
-    | "ps:person" | "geo:place:latlong" | "geo:place" | "cluster" | "testguid" | "inet:asn"
-    | "tel:mob:telem:latlong" | "source" | "has" // FIXME: all the props
-
+PROPS: /[a-z][a-z0-9]*(:[a-z0-9]+)+([:.][a-z][a-z0-9]+)*/
+UNIVNAME: /\.[a-z][a-z0-9]*([:.][a-z0-9]+)*/
 PROPNAME: PROPS | UNIVNAME
 
-UNIVNAME: ".seen" | ".created"
-
-CMDNAME: "help" | "iden" | "movetag" | "noderefs" | "sudo" | "limit" | "reindex" | "delnode" | "uniq" | "count"
-    | "spin" | "graph" | "max" | "min" | "sleep" // FIXME: all the commands
+CMDNAME: /[a-z][a-z0-9.]+/

@@ -1,4 +1,5 @@
 import lark
+import synapse.exc as s_exc
 
 import synapse.lib.ast as s_ast
 
@@ -172,14 +173,11 @@ class AstConverter(lark.Transformer):
         return s_ast.List(None, kids=kids)
 
 class Parser:
-    def __init__(self, parseinfo, text, offs=0):
+    def __init__(self, text, offs=0):
         self.offs = offs
         assert text is not None
         self.text = text.strip()
         self.size = len(self.text)
-
-        self.stormcmds = set(parseinfo['stormcmds'])
-        self.modelinfo = parseinfo['modelinfo']
 
         # FIXME:  insert propnames, stormcmds into grammar
         grammar = open('synapse/lib/storm.g').read()

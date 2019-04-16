@@ -22,6 +22,8 @@ import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
+# FIXME: remove this
+import synapse.lib.syntax as s_syntax
 import synapse.lib.syntax2 as s_syntax2
 import synapse.lib.agenda as s_agenda
 import synapse.lib.dyndeps as s_dyndeps

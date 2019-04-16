@@ -418,6 +418,13 @@ _Queries = [
     'teststr=pennywise | noderefs -d 3 --omit-traversal-tag=omit.nopiv --omit-traversal-tag=test',
     'geo:place=abcd $latlong=:latlong $radius=:radius | spin | tel:mob:telem:latlong*near=($latlong, 3km)',
     'inet:ipv4=12.34.56.78 inet:fqdn=woot.com [ inet:ipv4=1.2.3.4 :asn=10101 inet:fqdn=woowoo.com +#my.tag ]',
+    'test:str +#*',
+    'test:str -#*',
+    'test:str +#foo.*.baz',
+    'test:str +#*.bad',
+    'test:str +#foo.**.baz',
+    'test:str +#**.bar.baz',
+    'test:str +#**.baz',
     '''
         for $foo in $foos {
 
@@ -944,25 +951,19 @@ class GrammarTest(s_t_utils.SynTest):
 
     async def test_parser(self):
         self.maxDiff = None
-        async with self.getTestCore() as core:
+        # import IPython; IPython.embed()
+        for i, query in enumerate(_Queries):
+            # if i < 220:
+            #     continue
+            print(f'{i:3}: {{{query}}}: ', end='')
+            if i > 250:
+                # FIXME:  increase as we get more
+                break
+            parser = s_syntax2.Parser(query)
+            tree = parser.query()
 
-            parseinfo = {
-                'stormcmds': {cmd: {} for cmd in core.stormcmds.keys()},
-                'modelinfo': core.model.getModelInfo(),
-            }
-            # import IPython; IPython.embed()
-            for i, query in enumerate(_Queries):
-                if i < 220:
-                    continue
-                print(f'{i:3}: {{{query}}}: ', end='')
-                if i > 250:
-                    # FIXME:  increase as we get more
-                    break
-                parser = s_syntax2.Parser(parseinfo, query)
-                tree = parser.query()
-
-                print(str(tree))
-                self.eq(str(tree), _ParseResults[i])
+            print(str(tree))
+            self.eq(str(tree), _ParseResults[i])
 
 def gen_parse_list():
     import synapse.lib.syntax as s_syntax
