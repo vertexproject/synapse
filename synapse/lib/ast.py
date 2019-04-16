@@ -1536,7 +1536,10 @@ class Value(RunValue):
         self.valu = valu
 
     def repr(self):
-        return f'{self.__class__.__name__}: {self.valu}, kids={self.kids}'
+        if self.kids:
+            return f'{self.__class__.__name__}: {self.valu}, kids={self.kids}'
+        else:
+            return f'{self.__class__.__name__}: {self.valu}'
 
     def __repr__(self):
         return self.repr()
@@ -1692,7 +1695,7 @@ class Const(Value):
 class List(Value):
 
     def repr(self):
-        return 'List: %s' % (self.valu,)
+        return 'List: %s' % self.kids
 
     async def runtval(self, runt):
         return [await k.runtval(runt) for k in self.kids]

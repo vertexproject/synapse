@@ -51,7 +51,7 @@ formjoinin: "<+-" _WS? "*" -> formjoinin_pivotin
 opervarlist: varlist _WS? "=" _WS? _valu
 
 operrelprop: RELPROP _WS? "->" _WS? ("*" | ABSPROP) -> operrelprop_pivot
-           | RELPROP _WS? "-*>" _WS? ABSPROP -> operrelprop_join
+           | RELPROP _WS? "-+>" _WS? ABSPROP -> operrelprop_join
 
 valuvar: _varname _WS? "=" _WS? _valu
 
@@ -69,12 +69,9 @@ VARCHARS: (LETTER | DIGIT | "_")+
 stormcmd: CMDNAME (_WS cmdargv)* [_WS? "|"]
 cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
 
-// TODO: TAGMATCH and tagname/TAG are redundant
 // Note: deviates from syntax.py in that moved regexp up from ast into syntax
-// TAG: /[^#=)\]},@ \t\n][^=)\]},@ \t\n]*/
-//# TAGMATCH: /#[^=)\]},@ \t\n]*/
 TAG: /([\w]+\.)*[\w]+/
-TAGMATCH: "#" /([\w*]+\.)*[\w*]+/
+TAGMATCH: /#(([\w*]+\.)*[\w*]+)?/
 
 // https://regex101.com/r/l8hFq8/1
 CMPR: /[@!<>^~=][@!<>^~=]*|\*[^=\s]*?=/
@@ -93,6 +90,7 @@ FILTPREFIX: "+" | "-"
 
 cond: condexpr | condsubq | ("not" _WS? cond)
     | ((RELPROP | UNIVPROP | tagname | ABSPROPNOUNIV) [_WS? CMPR _WS? _valu])
+    | TAGMATCH
 condexpr: "(" _WS? cond (_WS? (("and" | "or") _WS? cond))* _WS? ")"
 condsubq: "{" _WSCOMM? query _WS? "}" [_WSCOMM? CMPR _valu]
 VARDEREF: "." VARTOKN
