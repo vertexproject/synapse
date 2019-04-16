@@ -20,7 +20,7 @@ Bugfixes
 Improved Documentation
 ----------------------
 
-- Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Fix error in the HTTP API documentation. (`#1204 <https://github.com/vertexproject/synapse/pull/1204>`_)
 
 
 v0.1.2 - 2018-04-03

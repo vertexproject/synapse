@@ -56,7 +56,7 @@ session may then be used to call other HTTP API endpoints as the authenticated u
 
         async with aiohttp.ClientSession() as sess:
 
-            info = {'name': 'visi', 'passwd': 'secret'}
+            info = {'user': 'visi', 'passwd': 'secret'}
             async with sess.post(f'https://localhost:56443/api/v1/login', json=info) as resp:
                 item = await resp.json()
                 if item.get('status') != 'ok':
