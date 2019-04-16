@@ -88,7 +88,7 @@ class AstConverter(lark.Transformer):
             prop = s_ast.RelPropValue(kids=(first, ))
             return s_ast.RelPropCond(kids=(prop, ) + tuple(cmprvalu))
 
-        elif isinstance(first, s_ast.TagName):
+        elif isinstance(first, s_ast.TagMatch):
             if not cmprvalu:
                 return s_ast.TagCond(kids=kids)
             return s_ast.TagValuCond(kids=kids)

@@ -4,11 +4,10 @@
 %import common.DIGIT
 %import common.ESCAPED_STRING
 
-query: _WSCOMM? ((_command | queryoption | _editopers | _oper) _WSCOMM?)*
+query: _WSCOMM? ((_command | _editopers | _oper) _WSCOMM?)*
 
 _command: "|" _WS? stormcmd _WSCOMM? ["|"]
 
-queryoption: "%" _WS? /[a-z]+/ _WS? "=" /\w+/
 _editopers: "[" _WS? (_editoper _WS?)* "]"
 _editoper: editpropset | editunivset | edittagadd | editpropdel | editunivdel | edittagdel | editnodeadd
 edittagadd: "+" tagname [_WS? "=" _valu]
@@ -35,7 +34,8 @@ CASEVALU: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | /[^:]+:/
 // Note: changed from syntax.py in that cannot start with ':' or '.'
 VARSETS: ("$" | "." | LETTER | DIGIT) ("$" | "." | ":" | LETTER | DIGIT)*
 
-_formpivot: formpivot_pivottotags | formpivot_pivotout | formpivot_
+// The .1 means give this priority over other matches, namely cmdname (because test:comp is ambiguous)
+_formpivot.1: formpivot_pivottotags | formpivot_pivotout | formpivot_
 formpivot_pivottotags: "->" _WS? TAGMATCH
 formpivot_pivotout:    "->" _WS? "*"
 formpivot_:            "->" _WS? ABSPROP
@@ -88,9 +88,9 @@ varcall: valulist
 filtoper: FILTPREFIX cond
 FILTPREFIX: "+" | "-"
 
+// FIXME:  (need to fix in ast.py) have separate tagmatch/tagname spots cuz tagmatch can't have cmpr
 cond: condexpr | condsubq | ("not" _WS? cond)
-    | ((RELPROP | UNIVPROP | tagname | ABSPROPNOUNIV) [_WS? CMPR _WS? _valu])
-    | TAGMATCH
+    | ((RELPROP | UNIVPROP | TAGMATCH | ABSPROPNOUNIV) [_WS? CMPR _WS? _valu])
 condexpr: "(" _WS? cond (_WS? (("and" | "or") _WS? cond))* _WS? ")"
 condsubq: "{" _WSCOMM? query _WS? "}" [_WSCOMM? CMPR _valu]
 VARDEREF: "." VARTOKN
