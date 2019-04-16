@@ -337,7 +337,7 @@ class Snap(s_base.Base):
 
         for prop in self.model.getPropsByType(name):
             lops = prop.getLiftOps(valu)
-            async for row, node in self.getLiftNodes(lops, prop):
+            async for row, node in self.getLiftNodes(lops, prop.name):
                 yield node
 
     async def addNode(self, name, valu, props=None):
@@ -666,7 +666,8 @@ class Snap(s_base.Base):
                 self.livenodes[buid] = node
 
             # If the node's prop I'm filtering on came from a different layer, skip it
-            if node.proplayr[rawprop] != self.layers[origlayer]:
+            rawrawprop = ('*' if rawprop == node.form.name else '') + rawprop
+            if node.proplayr[rawrawprop] != self.layers[origlayer]:
                 continue
 
             if cmpf:

@@ -220,6 +220,16 @@ class SnapTest(s_t_utils.SynTest):
                 await core1.view.addLayer(layr)
                 yield core0, core1
 
+    async def test_cortex_lift_layers_simple(self):
+        async with self._getTestCoreMultiLayer() as (core0, core1):
+            ''' Test that you can write to core0 and read it from core 1 '''
+            self.len(1, await core0.eval('[ inet:ipv4=1.2.3.4 :asn=42 +#woot=(2014, 2015)]').list())
+            self.len(1, await core1.eval('inet:ipv4').list())
+            self.len(1, await core1.eval('inet:ipv4=1.2.3.4').list())
+            self.len(1, await core1.eval('inet:ipv4:asn=42').list())
+            self.len(1, await core1.eval('inet:ipv4 +:asn=42').list())
+            self.len(1, await core1.eval('inet:ipv4 +#woot').list())
+
     async def test_cortex_lift_layers_bad_filter(self):
         '''
         Test a two layer cortex where a lift operation gives the wrong result

@@ -14,7 +14,8 @@ Features and Enhancements
 Bugfixes
 --------
 
-- Fix old bugs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Fix remote layer bug injected by previous optimization that would result in missing nodes from lifts when the node
+  only resides in the distant layer. (`#1203 <https://github.com/vertexproject/synapse/pull/1203>`_)
 
 Improved Documentation
 ----------------------
