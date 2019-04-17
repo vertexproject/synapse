@@ -120,6 +120,22 @@ session may then be used to call other HTTP API endpoints as the authenticated u
     *Returns*
         The newly created role dictionary.
 
+/api/v1/auth/delrole
+~~~~~~~~~~~~~~~~~~~~
+
+*Method*
+    POST
+
+    This API endpoint allows the caller to delete a role from the system.
+
+    *Input*
+        This API expects the following JSON body::
+
+            { "name": "myrole" }
+
+    *Returns*
+        null
+
 /api/v1/auth/user/<id>
 ~~~~~~~~~~~~~~~~~~~~~~
 
