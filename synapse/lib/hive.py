@@ -842,6 +842,7 @@ class HiveUser(HiveIden):
             'admin': self.admin,
             'email': self.info.get('email'),
             'locked': self.locked,
+            'archived': self.info.get('archived'),
         }
 
     def _calcPermAllow(self, perm):
