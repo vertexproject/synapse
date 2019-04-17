@@ -2,8 +2,27 @@
 Synapse Changelog
 *****************
 
+v0.1.4 - TBD
+===================
 
-v0.1.3 - TBD
+Features and Enhancements
+-------------------------
+
+
+- Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+Bugfixes
+--------
+
+- Fix old bugs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+Improved Documentation
+----------------------
+
+- Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+
+v0.1.3 - 2019-04-17
 ===================
 
 Features and Enhancements
@@ -24,7 +43,7 @@ Improved Documentation
 - Fix error in the HTTP API documentation. (`#1204 <https://github.com/vertexproject/synapse/pull/1204>`_)
 
 
-v0.1.2 - 2018-04-03
+v0.1.2 - 2019-04-10
 ===================
 
 Features and Enhancements
@@ -51,7 +70,7 @@ Improved Documentation
 - Add some example developer guide documentation. (`#1193 <https://github.com/vertexproject/synapse/pull/1193>`_)
 
 
-v0.1.1 - 2018-04-03
+v0.1.1 - 2019-04-03
 ===================
 
 
@@ -88,7 +107,7 @@ Improved Documentation
 - Added docstring and test for ``synapse.lib.coro.executor()``. (`#1189 <https://github.com/vertexproject/synapse/pull/1189>`_)
 
 
-v0.1.0 - 2018-03-19
+v0.1.0 - 2019-03-19
 ===================
 
 * Synapse version 0.1.0 released.
