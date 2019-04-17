@@ -817,6 +817,7 @@ class HiveUser(HiveIden):
         self.info.setdefault('admin', False)
         self.info.setdefault('passwd', None)
         self.info.setdefault('locked', False)
+        self.info.setdefault('archived', False)
 
         self.roles = self.info.get('roles', onedit=self._onRolesEdit)
         self.admin = self.info.get('admin', onedit=self._onAdminEdit)
@@ -939,6 +940,11 @@ class HiveUser(HiveIden):
 
     async def setLocked(self, locked):
         await self.info.set('locked', locked)
+
+    async def setArchived(self, archived):
+        await self.info.set('archived', archived)
+        if archived:
+            await self.setLocked(True)
 
     def tryPasswd(self, passwd):
 
