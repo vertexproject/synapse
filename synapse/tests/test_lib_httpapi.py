@@ -40,6 +40,11 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('err', item.get('status'))
                     self.eq('BadHttpParam', item.get('code'))
 
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users?archived=99') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('BadHttpParam', item.get('code'))
+
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users?archived=0') as resp:
                     item = await resp.json()
                     users = item.get('result')
