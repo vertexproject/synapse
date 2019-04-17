@@ -165,8 +165,10 @@ class CellApi(s_base.Base):
         return role.pack()
 
     @adminapi
-    async def getAuthUsers(self):
-        return [u.name for u in self.cell.auth.users()]
+    async def getAuthUsers(self, archived=False):
+        if archived:
+            return [u.name for u in self.cell.auth.users()]
+        return [u.name for u in self.cell.auth.users() if not u.info.get('archived')]
 
     @adminapi
     async def getAuthRoles(self):
@@ -205,6 +207,14 @@ class CellApi(s_base.Base):
             raise s_exc.NoSuchUser(user=name)
 
         await user.setLocked(locked)
+
+    @adminapi
+    async def setUserArchived(self, name, archived):
+        user = self.cell.auth.getUserByName(name)
+        if user is None:
+            raise s_exc.NoSuchUser(user=name)
+
+        await user.setArchived(archived)
 
     @adminapi
     async def addUserRole(self, username, rolename):

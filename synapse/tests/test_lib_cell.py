@@ -45,8 +45,8 @@ class CellTest(s_t_utils.SynTest):
                 url = f'tcp://root:newpnewp@127.0.0.1:{port}/echo00'
                 await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
 
-                url = f'tcp://root:secretsauce@127.0.0.1:{port}/echo00'
-                async with await s_telepath.openurl(url) as proxy:
+                root_url = f'tcp://root:secretsauce@127.0.0.1:{port}/echo00'
+                async with await s_telepath.openurl(root_url) as proxy:
                     self.true(await proxy.isadmin())
                     self.true(await proxy.allowed(('hehe', 'haha')))
 
@@ -54,11 +54,50 @@ class CellTest(s_t_utils.SynTest):
                 await user.setPasswd('foo')
                 await user.addRule((True, ('foo', 'bar')))
 
-                url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
-                async with await s_telepath.openurl(url) as proxy:
+                visi_url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
+                async with await s_telepath.openurl(visi_url) as proxy:
                     self.true(await proxy.allowed(('foo', 'bar')))
                     self.false(await proxy.isadmin())
                     self.false(await proxy.allowed(('hehe', 'haha')))
+
+                async with await s_telepath.openurl(root_url) as proxy:
+
+                    await proxy.setUserLocked('visi', True)
+                    info = await proxy.getAuthInfo('visi')
+                    self.true(info[1].get('locked'))
+                    await self.asyncraises(s_exc.AuthDeny,
+                                           s_telepath.openurl(visi_url))
+
+                    await proxy.setUserLocked('visi', False)
+                    info = await proxy.getAuthInfo('visi')
+                    self.false(info[1].get('locked'))
+                    async with await s_telepath.openurl(visi_url) as visi_proxy:
+                        self.false(await visi_proxy.isadmin())
+
+                async with await s_telepath.openurl(root_url) as proxy:
+
+                    await self.asyncraises(s_exc.NoSuchUser,
+                                           proxy.setUserArchived('newp', True))
+                    await proxy.setUserArchived('visi', True)
+                    info = await proxy.getAuthInfo('visi')
+                    self.true(info[1].get('archived'))
+                    self.true(info[1].get('locked'))
+                    users = await proxy.getAuthUsers()
+                    self.len(1, users)
+                    users = await proxy.getAuthUsers(archived=True)
+                    self.len(2, users)
+                    await self.asyncraises(s_exc.AuthDeny,
+                                           s_telepath.openurl(visi_url))
+
+                    await proxy.setUserArchived('visi', False)
+                    info = await proxy.getAuthInfo('visi')
+                    self.false(info[1].get('archived'))
+                    self.true(info[1].get('locked'))
+                    users = await proxy.getAuthUsers(archived=True)
+                    self.len(2, users)
+
+                    await self.asyncraises(s_exc.AuthDeny,
+                                           s_telepath.openurl(visi_url))
 
                 async with echo.getLocalProxy() as proxy:
 
