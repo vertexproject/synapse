@@ -28,6 +28,8 @@ class HttpApiTest(s_tests.SynTest):
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
 
+                self.true(newb.locked)
+
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
                     item = await resp.json()
                     users = item.get('result')

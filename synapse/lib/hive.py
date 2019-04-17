@@ -943,6 +943,8 @@ class HiveUser(HiveIden):
 
     async def setArchived(self, archived):
         await self.info.set('archived', archived)
+        if archived:
+            await self.setLocked(True)
 
     def tryPasswd(self, passwd):
 
