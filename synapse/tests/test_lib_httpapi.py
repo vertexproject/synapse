@@ -92,6 +92,17 @@ class HttpApiTest(s_tests.SynTest):
 
             async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
 
+                info = {}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/delrole', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('MissingField', item.get('code'))
+
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/delrole', data=b'asdf') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('BadJson', item.get('code'))
+
                 info = {'name': 'newp'}
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/delrole', json=info) as resp:
                     item = await resp.json()

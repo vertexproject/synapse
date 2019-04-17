@@ -998,7 +998,7 @@ class SynTest(unittest.TestCase):
 
             if auth is not None:
 
-                if port is None:
+                if port is None: # pragma: no cover
                     raise Exception('getHttpSess requires port for auth')
 
                 user, passwd = auth
