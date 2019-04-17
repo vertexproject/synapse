@@ -5,6 +5,107 @@ import synapse.tests.utils as s_tests
 
 class HttpApiTest(s_tests.SynTest):
 
+    async def test_http_user_archived(self):
+
+        async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            root = core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            newb = await core.auth.addUser('newb')
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
+                    item = await resp.json()
+                    users = item.get('result')
+                    self.isin('newb', [u.get('name') for u in users])
+
+                info = {'archived': True}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/user/{newb.iden}', json=info) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
+                    item = await resp.json()
+                    users = item.get('result')
+                    self.notin('newb', [u.get('name') for u in users])
+
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users?archived=asdf') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('BadHttpParam', item.get('code'))
+
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users?archived=0') as resp:
+                    item = await resp.json()
+                    users = item.get('result')
+                    self.notin('newb', [u.get('name') for u in users])
+
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users?archived=1') as resp:
+                    item = await resp.json()
+                    users = item.get('result')
+                    self.isin('newb', [u.get('name') for u in users])
+
+                info = {'archived': False}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/user/{newb.iden}', json=info) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
+                    item = await resp.json()
+                    users = item.get('result')
+                    self.isin('newb', [u.get('name') for u in users])
+
+    async def test_http_delrole(self):
+
+        async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            root = core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            newb = await core.auth.addUser('bob')
+            await newb.setPasswd('secret')
+
+            bobs = await core.auth.addRole('bobs')
+
+            await newb.grant('bobs')
+
+            async with self.getHttpSess() as sess:
+
+                info = {'name': 'bobs'}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/delrole', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NotAuthenticated', item.get('code'))
+
+            async with self.getHttpSess(auth=('bob', 'secret'), port=port) as sess:
+
+                info = {'name': 'bobs'}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/delrole', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('AuthDeny', item.get('code'))
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+
+                info = {'name': 'newp'}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/delrole', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NoSuchRole', item.get('code'))
+
+                info = {'name': 'bobs'}
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/delrole', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+
+            self.len(0, newb.getRoles())
+            self.none(core.auth.getRoleByName('bobs'))
+
     async def test_http_auth(self):
         '''
         Test the HTTP api for cell auth.
