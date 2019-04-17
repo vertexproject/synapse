@@ -76,6 +76,8 @@ class CellTest(s_t_utils.SynTest):
 
                 async with await s_telepath.openurl(root_url) as proxy:
 
+                    await self.asyncraises(s_exc.NoSuchUser,
+                                           proxy.setUserArchived('newp', True))
                     await proxy.setUserArchived('visi', True)
                     info = await proxy.getAuthInfo('visi')
                     self.true(info[1].get('archived'))
