@@ -9,7 +9,8 @@ v0.1.3 - TBD
 Features and Enhancements
 -------------------------
 
-- Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Add the ability to delete a role via HTTP API, as well as being able to mark a user as being archived. Archiving a user will also lock as user. (`#1205 <https://github.com/vertexproject/synapse/pull/1205>`_)
+- Add support to archiving a user to the CellApi for use via Telepath. (`#1206 <https://github.com/vertexproject/synapse/pull/1206>`_)
 
 Bugfixes
 --------
