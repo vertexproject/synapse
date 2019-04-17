@@ -1,7 +1,8 @@
 import os
 import json
-import time
+import signal
 import asyncio
+import logging
 import traceback
 import collections
 
@@ -18,6 +19,8 @@ import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
 import synapse.lib.syntax as s_syntax
+
+logger = logging.getLogger(__name__)
 
 class Cmd:
     '''
@@ -240,6 +243,7 @@ class Cli(s_base.Base):
 
         self.outp = outp
         self.locs = locs
+        self.cmdtask = None  # type: asyncio.Task
 
         self.sess = None
         self.vi_mode = _inputrc_enables_vi_mode()
@@ -266,6 +270,18 @@ class Cli(s_base.Base):
         self.printf('connection closed...')
 
         await self.fini()
+
+    async def addSignalHandlers(self):
+        '''
+        Register SIGINT signal handler with the ioloop to cancel the currently running cmdloop task.
+        '''
+
+        def sigint():
+            self.printf('<ctrl-c>')
+            if self.cmdtask is not None:
+                self.cmdtask.cancel()
+
+        self.loop.add_signal_handler(signal.SIGINT, sigint)
 
     def get(self, name, defval=None):
         return self.locs.get(name, defval)
@@ -328,8 +344,9 @@ class Cli(s_base.Base):
 
             # FIXME completion
 
+            self.cmdtask = None
+
             try:
-                task = None
 
                 line = await self.prompt()
                 if not line:
@@ -339,7 +356,9 @@ class Cli(s_base.Base):
                 if not line:
                     continue
 
-                await self.runCmdLine(line)
+                coro = self.runCmdLine(line)
+                self.cmdtask = self.schedCoro(coro)
+                await self.cmdtask
 
             except KeyboardInterrupt:
 
@@ -356,13 +375,13 @@ class Cli(s_base.Base):
                 self.printf(s)
 
             finally:
-                if task is not None:
-                    task.cancel()
+                if self.cmdtask is not None:
+                    self.cmdtask.cancel()
                     try:
-                        task.result(2)
+                        self.cmdtask.result()
                     except asyncio.CancelledError:
                         # Wait a beat to let any remaining nodes to print out before we print the prompt
-                        time.sleep(1)
+                        await asyncio.sleep(1)
                     except Exception:
                         pass
 

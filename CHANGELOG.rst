@@ -3,7 +3,27 @@ Synapse Changelog
 *****************
 
 
-v0.1.2 - TBD
+v0.1.3 - TBD
+===================
+
+Features and Enhancements
+-------------------------
+
+- Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+Bugfixes
+--------
+
+- Fix remote layer bug injected by previous optimization that would result in missing nodes from lifts when the node
+  only resides in the distant layer. (`#1203 <https://github.com/vertexproject/synapse/pull/1203>`_)
+
+Improved Documentation
+----------------------
+
+- Fix error in the HTTP API documentation. (`#1204 <https://github.com/vertexproject/synapse/pull/1204>`_)
+
+
+v0.1.2 - 2018-04-03
 ===================
 
 Features and Enhancements
@@ -11,12 +31,18 @@ Features and Enhancements
 
 - Automatically run unit tests for the master every day. (`#1192 <https://github.com/vertexproject/synapse/pull/1192>`_)
 - Add test suite for ``synapse.lib.urlhelp``. (`#1195 <https://github.com/vertexproject/synapse/pull/1195>`_)
-
+- Improve multi-layer and single layer performance. This is a backwards-incompatible API change in that 0.1.2 cortex
+  will not interoperate with 0.1.2 remote layers before version 0.1.2. Persistent storage format has not changed.
+  (`#1196 <https://github.com/vertexproject/synapse/pull/1196>`_)
+- Add skeleton for reverse engineering model. (`#1198 <https://github.com/vertexproject/synapse/pull/1198>`_)
 
 Bugfixes
 --------
 
-- Fix old bugs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- When using ``synapse.tools.cmdr``, issuing ctrl-c to cancel a running command in could result in the Telepath Proxy object being fini'd. This has been resolved by adding a signal handler to the ``synapse.lib.cli.Cli`` class which is registered by cmdr. (`#1199 <https://github.com/vertexproject/synapse/pull/1199>`_)
+- Fix an issue where deleting a property which has no index failed. (`#1200 <https://github.com/vertexproject/synapse/pull/1200>`_)
+- Single letter form and property names were improperly disallowed.  They are now allowed. (`#1201 <https://github.com/vertexproject/synapse/pull/1201>`_)
+
 
 Improved Documentation
 ----------------------

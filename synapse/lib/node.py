@@ -1,4 +1,5 @@
 import logging
+import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -17,7 +18,7 @@ class Node:
 
     NOTE: This object is for local Cortex use during a single Xact.
     '''
-    def __init__(self, snap, buid=None, rawprops=None):
+    def __init__(self, snap, buid=None, rawprops=None, proplayr=None):
 
         self.snap = snap
 
@@ -34,8 +35,10 @@ class Node:
         self.props = {}
         self.univs = {}
 
-        # self.buid may be None during
-        # initial node construction...
+        # raw prop -> layer it was set at
+        self.proplayr = collections.defaultdict(lambda: self.snap.wlyr, proplayr or {})
+
+        # self.buid may be None during initial node construction...
         if rawprops is not None:
             self._loadNodeData(rawprops)
 
@@ -423,6 +426,7 @@ class Node:
     async def _setTagProp(self, name, norm, indx, info):
         self.tags[name] = norm
         splice = self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
+        self.proplayr['#' + name] = self.snap.wlyr
         await self.snap.stor((('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),), [splice])
 
     async def _addTagRaw(self, name, norm):
