@@ -51,8 +51,13 @@ terminalClassMap = {
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # no quotes
     'UNIVPROP': s_ast.UnivProp,
     'TAGMATCH': lambda x: s_ast.TagMatch(x[1:]),  # no leading #
-    'VARDEREF': s_ast.VarDeref,
 }
+
+class TmpVarCall:
+    def __init__(self, kids):
+        self.kids = kids
+    def repr(self):
+        return f'{self.__class__.__name__}: {self.kids}'
 
 class AstConverter(lark.Transformer):
 
@@ -116,16 +121,29 @@ class AstConverter(lark.Transformer):
     #     breakpoint()
 
     def varvalu(self, kids):
-        kids = self._convert_children(kids)
+        # FIXME really should be restructured; emulating old code for now
+
+        varv = s_ast.VarValue(kids=self._convert_children([kids[0]]))
         for kid in kids[1:]:
-            breakpoint()
-        varv = s_ast.VarValue(kids=[kids[0]])
+            if isinstance(kid, lark.lexer.Token):
+                if kid.type == 'VARDEREF':
+                    varv = s_ast.VarDeref(kids=[varv, s_ast.Const(kid.value[1:])])
+                else:
+                    breakpoint()
+            elif isinstance (kid, TmpVarCall):
+                callkids = self._convert_children(kid.kids)
+                args = s_ast.CallArgs(kids=callkids)
+                # FIXME: kwargs
+                kwargs = s_ast.CallKwargs(kids=[])
+                varv = s_ast.FuncCall(kids=[varv, args, kwargs])
+            else:
+                breakpoint()
+
         return varv
 
     def varcall(self, kids):
-        assert len(kids) == 1
-        kids = self._convert_children(kids)
-        return s_ast.FuncCall(kids=kids)
+        # defer the conversion until the parent varvalu
+        return TmpVarCall(kids)
 
     def operrelprop_pivot(self, kids):
         kids = self._convert_children(kids)

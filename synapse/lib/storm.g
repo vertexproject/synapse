@@ -4,9 +4,13 @@
 %import common.DIGIT
 %import common.ESCAPED_STRING
 
-query: _WSCOMM? ((_command | _editopers | _oper) _WSCOMM?)*
+query: _querystartnon | _querystartcommand | _WSCOMM?
+_querystartcommand: _WSCOMM? stormcmd [ _WSCOMM? "|" _WSCOMM? (_querystartcommand |  _querystartnon) ]
+_querystartnon: _WSCOMM? _noncommands [ _WSCOMM? "|" _WSCOMM? _querystartcommand
+                                      | _WSCOMM? ["|" _WSCOMM?] _querystartnon ]
 
-_command: "|" _WS? stormcmd _WSCOMM? ["|"]
+_noncommand: _editopers | _oper
+_noncommands: _noncommand (_WSCOMM? ["|" _WSCOMM?] _noncommand)*
 
 _editopers: "[" _WS? (_editoper _WS?)* "]"
 _editoper: editpropset | editunivset | edittagadd | editpropdel | editunivdel | edittagdel | editnodeadd
@@ -21,7 +25,7 @@ ABSPROP: PROPNAME
 ABSPROPNOUNIV: PROPS
 
 _oper: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | filtoper
-    | liftbytag | operrelprop | forloop | switchcase | "break" | "continue" | _liftprop | stormcmd
+     | liftbytag | operrelprop | forloop | switchcase | "break" | "continue" | _liftprop
 
 forloop: "for" _WS? (_varname | varlist) _WS? "in" _WS? varvalu _WS? subquery
 subquery: "{" query "}"
@@ -29,13 +33,10 @@ switchcase: "switch" _WS? varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | 
 varlist: "(" [_WS? _varname (_WS? "," _WS? _varname)*] _WS? ["," _WS?] ")"
 CASEVALU: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | /[^:]+:/
 
-
-// FIXME:  reconsider this after prop redo
 // Note: changed from syntax.py in that cannot start with ':' or '.'
 VARSETS: ("$" | "." | LETTER | DIGIT) ("$" | "." | ":" | LETTER | DIGIT)*
 
-// The .1 means give this priority over other matches, namely cmdname (because test:comp is ambiguous)
-_formpivot.1: formpivot_pivottotags | formpivot_pivotout | formpivot_
+_formpivot: formpivot_pivottotags | formpivot_pivotout | formpivot_
 formpivot_pivottotags: "->" _WS? TAGMATCH
 formpivot_pivotout:    "->" _WS? "*"
 formpivot_:            "->" _WS? ABSPROP
@@ -66,7 +67,7 @@ tagname: "#" _WS? (_varname | TAG)
 _varname: "$" _WS? VARTOKN
 VARTOKN: VARCHARS
 VARCHARS: (LETTER | DIGIT | "_")+
-stormcmd: CMDNAME (_WS cmdargv)* [_WS? "|"]
+stormcmd: CMDNAME (_WS cmdargv)*
 cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
 
 // Note: deviates from syntax.py in that moved regexp up from ast into syntax
@@ -84,7 +85,9 @@ NONCMDQUOTE: /[^ \t\n|}]+/
 NONQUOTEWORD: (LETTER | DIGIT | "-" | "?") /[^ \t\n),=\]}|]*/
 
 varvalu:  _varname (VARDEREF | varcall)*
-varcall: valulist
+varcall: _callargs
+_callargs: "(" [_WS? (kwarg | _valu) (_WS? "," _WS? (kwarg | _valu))*] _WS? ["," _WS?] ")"
+kwarg: VARCHARS "=" _valu
 filtoper: FILTPREFIX cond
 FILTPREFIX: "+" | "-"
 
