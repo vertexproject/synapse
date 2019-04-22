@@ -8,8 +8,7 @@ v0.1.4 - TBD
 Features and Enhancements
 -------------------------
 
-
-- Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Add POST support to the ``/api/v1/model/norm`` HTTP API endpoint. (`#1207 <https://github.com/vertexproject/synapse/pull/1207>`_)
 
 Bugfixes
 --------
