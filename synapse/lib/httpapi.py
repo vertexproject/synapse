@@ -558,6 +558,9 @@ class AuthDelRoleV1(Handler):
 
 class ModelNormV1(Handler):
 
+    async def post(self):
+        await self.get()
+
     async def get(self):
 
         if not await self.reqAuthUser():
