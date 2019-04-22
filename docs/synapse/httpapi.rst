@@ -298,9 +298,10 @@ of results as the reader consumes them.
 ~~~~~~~~~~~~~~~~~~
 
 *Method*
-    GET
+    GET, POST
 
-    This API allows the caller to normalize a value based on the Cortex data model.
+    This API allows the caller to normalize a value based on the Cortex data model.  This may be called via a GET or
+    POST requests.
 
     *Input*
         The API expects the following JSON body::
