@@ -890,6 +890,7 @@ class Parser:
                 if self.nextchar() in cmprstart:
 
                     cmpr = self.cmpr()
+
                     valu = self.valu()
 
                     kids = (s_ast.Const(name), cmpr, valu)

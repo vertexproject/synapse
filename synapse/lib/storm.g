@@ -76,7 +76,7 @@ TAGMATCH: /#(([\w*]+\.)*[\w*]+)?/
 
 // https://regex101.com/r/l8hFq8/1
 CMPR: /[@!<>^~=][@!<>^~=]*|\*[^=\s]*?=/
-_valu: NONQUOTEWORD | valulist | varvalu | RELPROPVALU | UNIVPROPVALU | tagpropvalue | DOUBLEQUOTEDSTRING
+_valu: NONQUOTEWORD | valulist | varvalu | RELPROPVALU | univpropvalu | tagpropvalue | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING
 valulist: "(" [_WS? _valu (_WS? "," _WS? _valu)*] _WS? ["," _WS?] ")"
 tagpropvalue: tagname
@@ -92,15 +92,18 @@ filtoper: FILTPREFIX cond
 FILTPREFIX: "+" | "-"
 
 // FIXME:  (need to fix in ast.py) have separate tagmatch/tagname spots cuz tagmatch can't have cmpr
-cond: condexpr | condsubq | ("not" _WS? cond)
+cond: condexpr | condsubq | (NOT_ _WS? cond)
     | ((RELPROP | UNIVPROP | TAGMATCH | ABSPROPNOUNIV) [_WS? CMPR _WS? _valu])
-condexpr: "(" _WS? cond (_WS? (("and" | "or") _WS? cond))* _WS? ")"
+condexpr: "(" _WS? cond (_WS? ((AND_ | OR_) _WS? cond))* _WS? ")"
+NOT_: "not"
+OR_: "or"
+AND_: "and"
 condsubq: "{" _WSCOMM? query _WS? "}" [_WSCOMM? CMPR _valu]
 VARDEREF: "." VARTOKN
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
 SINGLEQUOTEDSTRING: "'" /[^']/ "'"
 UNIVPROP:  UNIVNAME
-UNIVPROPVALU: UNIVPROP
+univpropvalu: UNIVPROP
 
 RELPROP: ":" VARSETS
 RELPROPVALU: RELPROP

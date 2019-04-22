@@ -956,10 +956,10 @@ class GrammarTest(s_t_utils.SynTest):
         self.maxDiff = None
         # import IPython; IPython.embed()
         for i, query in enumerate(_Queries):
-            if i < 228:
+            if i < 320:
                 continue
             print(f'{i:3}: {{{query}}}: ', end='')
-            if i > 250:
+            if i > 400:
                 # FIXME:  increase as we get more
                 break
             parser = s_syntax2.Parser(query)

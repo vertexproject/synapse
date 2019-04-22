@@ -51,6 +51,7 @@ terminalClassMap = {
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # no quotes
     'UNIVPROP': s_ast.UnivProp,
     'TAGMATCH': lambda x: s_ast.TagMatch(x[1:]),  # no leading #
+    'NOT_': s_ast.Const,
 }
 
 class TmpVarCall:
@@ -93,9 +94,13 @@ class AstConverter(lark.Transformer):
             prop = s_ast.RelPropValue(kids=(first, ))
             return s_ast.RelPropCond(kids=(prop, ) + tuple(cmprvalu))
 
+        elif isinstance(first, s_ast.Const) and first.valu == 'not':
+            return s_ast.NotCond(kids=(cmprvalu))
+
         elif isinstance(first, s_ast.TagMatch):
             if not cmprvalu:
                 return s_ast.TagCond(kids=kids)
+
             return s_ast.TagValuCond(kids=kids)
 
         elif isinstance(first, s_ast.AbsProp):
@@ -111,6 +116,23 @@ class AstConverter(lark.Transformer):
             else:
                 return s_ast.RelPropCond(kids=(prop, ) + tuple(cmprvalu))
 
+        elif isinstance(first, (s_ast.OrCond, s_ast.AndCond, s_ast.HasRelPropCond, s_ast.NotCond)):
+            assert len(kids) == 1
+            return first
+
+        breakpoint()
+
+    def condexpr(self, kids):
+        if len(kids) == 1:
+            return kids[0]
+        assert len(kids) == 3
+        operand1, operand2 = kids[0], kids[2]
+        oper = kids[1].value
+
+        if oper == 'and':
+            return s_ast.AndCond(kids=[operand1, operand2])
+        if oper == 'or':
+            return s_ast.OrCond(kids=[operand1, operand2])
         breakpoint()
 
     # def formpivot(self, kids):
@@ -150,9 +172,17 @@ class AstConverter(lark.Transformer):
         relprop, rest = kids[0], kids[1:]
         if not rest:
             return s_ast.PropPivotOut(kids=kids)
-        breakpoint()
         pval = s_ast.RelPropValue(kids=(relprop,))
-        return s_ast.PropPivot(kids=(pval, *kids))
+        return s_ast.PropPivot(kids=(pval, *kids[1:]))
+
+    def operrelprop_join(self, kids):
+        # FIXME; refactor with above
+        kids = self._convert_children(kids)
+        relprop, rest = kids[0], kids[1:]
+        if not rest:
+            return s_ast.PropPivotOut(kids=kids, isjoin=True)
+        pval = s_ast.RelPropValue(kids=(relprop,))
+        return s_ast.PropPivot(kids=(pval, *kids[1:]), isjoin=True)
 
     def stormcmd(self, kids):
         kids = self._convert_children(kids)
@@ -189,6 +219,10 @@ class AstConverter(lark.Transformer):
         kids = self._convert_children(kids)
         assert kids
         return s_ast.List(None, kids=kids)
+
+    def univpropvalu(self, kids):
+        kids = self._convert_children(kids)
+        return s_ast.UnivPropValue(kids=kids)
 
 class Parser:
     def __init__(self, text, offs=0):
