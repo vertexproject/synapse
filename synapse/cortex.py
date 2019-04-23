@@ -548,7 +548,7 @@ class CoreApi(s_cell.CellApi):
 
     async def getTypeNorm(self, name, valu):
         '''
-        Get the normalized property value based on the Cortex data model.
+        Get the normalized type value based on the Cortex data model.
 
         Args:
             name (str): The type to normalize.
@@ -558,7 +558,7 @@ class CoreApi(s_cell.CellApi):
             (tuple): A two item tuple, containing the normed value and the info dictionary.
 
         Raises:
-            s_exc.NoSuchType: If the prop does not exist.
+            s_exc.NoSuchType: If the type does not exist.
             s_exc.BadTypeValu: If the value fails to normalize.
         '''
         return await self.cell.getTypeNorm(name, valu)
@@ -1962,7 +1962,7 @@ class Cortex(s_cell.Cell):
 
     async def getTypeNorm(self, name, valu):
         '''
-        Get the normalized property value based on the Cortex data model.
+        Get the normalized type value based on the Cortex data model.
 
         Args:
             name (str): The type to normalize.
@@ -1972,7 +1972,7 @@ class Cortex(s_cell.Cell):
             (tuple): A two item tuple, containing the normed value and the info dictionary.
 
         Raises:
-            s_exc.NoSuchType: If the prop does not exist.
+            s_exc.NoSuchType: If the type does not exist.
             s_exc.BadTypeValu: If the value fails to normalize.
         '''
         tobj = self.model.type(name)
