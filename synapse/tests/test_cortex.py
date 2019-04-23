@@ -2558,3 +2558,28 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             mesg = ('node:del', {'ndef': ('test:str', 'hello')})
             self.isin(mesg, splices)
+
+    async def test_norm(self):
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            norm, info = core.norm('test:str', 1234)
+            self.eq(norm, '1234')
+            self.eq(info, {})
+
+            norm, info = core.norm('test:comp', ('1234', '1234'))
+            self.eq(norm, (1234, '1234'))
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': []})
+
+            self.raises(s_exc.BadTypeValu, core.norm, 'test:int', 'newp')
+            self.raises(s_exc.NoSuchProp, core.norm, 'test:newp', 'newp')
+
+            norm, info = await prox.norm('test:str', 1234)
+            self.eq(norm, '1234')
+            self.eq(info, {})
+
+            norm, info = await prox.norm('test:comp', ('1234', '1234'))
+            self.eq(norm, (1234, '1234'))
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': ()})
+
+            await self.asyncraises(s_exc.BadTypeValu, prox.norm('test:int', 'newp'))
+            await self.asyncraises(s_exc.NoSuchProp, prox.norm('test:newp', 'newp'))
