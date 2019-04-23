@@ -529,7 +529,7 @@ class CoreApi(s_cell.CellApi):
         '''
         return self.cell.provstor.getProvStack(s_common.uhex(iden))
 
-    async def norm(self, prop, valu):
+    async def getPropNorm(self, prop, valu):
         '''
         Get the normalized property value based on the Cortex data model.
 
@@ -544,7 +544,24 @@ class CoreApi(s_cell.CellApi):
             s_exc.NoSuchProp: If the prop does not exist.
             s_exc.BadTypeValu: If the value fails to normalize.
         '''
-        return self.cell.norm(prop, valu)
+        return await self.cell.getPropNorm(prop, valu)
+
+    async def getTypeNorm(self, name, valu):
+        '''
+        Get the normalized property value based on the Cortex data model.
+
+        Args:
+            name (str): The type to normalize.
+            valu: The value to normalize.
+
+        Returns:
+            (tuple): A two item tuple, containing the normed value and the info dictionary.
+
+        Raises:
+            s_exc.NoSuchType: If the prop does not exist.
+            s_exc.BadTypeValu: If the value fails to normalize.
+        '''
+        return await self.cell.getTypeNorm(name, valu)
 
 class Cortex(s_cell.Cell):
     '''
@@ -1921,7 +1938,7 @@ class Cortex(s_cell.Cell):
         }
         return stats
 
-    def norm(self, prop, valu):
+    async def getPropNorm(self, prop, valu):
         '''
         Get the normalized property value based on the Cortex data model.
 
@@ -1941,6 +1958,28 @@ class Cortex(s_cell.Cell):
             raise s_exc.NoSuchProp(mesg=f'The property {prop} does not exist.',
                                    prop=prop)
         norm, info = pobj.type.norm(valu)
+        return norm, info
+
+    async def getTypeNorm(self, name, valu):
+        '''
+        Get the normalized property value based on the Cortex data model.
+
+        Args:
+            name (str): The type to normalize.
+            valu: The value to normalize.
+
+        Returns:
+            (tuple): A two item tuple, containing the normed value and the info dictionary.
+
+        Raises:
+            s_exc.NoSuchType: If the prop does not exist.
+            s_exc.BadTypeValu: If the value fails to normalize.
+        '''
+        tobj = self.model.type(name)
+        if tobj is None:
+            raise s_exc.NoSuchType(mesg=f'The type {name} does not exist.',
+                                   name=name)
+        norm, info = tobj.norm(valu)
         return norm, info
 
 @contextlib.asynccontextmanager
