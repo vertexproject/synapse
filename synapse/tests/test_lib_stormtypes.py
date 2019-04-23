@@ -72,3 +72,9 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('$v=vertex $l=link $fqdn=$lib.str.concat($v, ".", $l) [ inet:email=$lib.str.format("visi@{domain}", domain=$fqdn) ]')
             self.len(1, nodes)
             self.eq('visi@vertex.link', nodes[0].ndef[1])
+
+    async def test_storm_lib_list(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('$v=(foo,bar,baz) [ test:str=$v.index(1) test:int=$v.length() ]')
+            self.eq(nodes[0].ndef, ('test:str', 'bar'))
+            self.eq(nodes[1].ndef, ('test:int', 3))

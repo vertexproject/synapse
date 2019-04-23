@@ -163,6 +163,28 @@ class Dict(Prim):
     def deref(self, name):
         return self.valu.get(name)
 
+class List(Prim):
+
+    def __init__(self, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.locls.update({
+            'index': self._methListIndex,
+            'length': self._methListLength,
+        })
+
+    async def _methListIndex(self, valu):
+        '''
+        Return a single field from the list by index.
+        '''
+        indx = intify(valu)
+        return self.valu[indx]
+
+    async def _methListLength(self):
+        '''
+        Return the length of the list.
+        '''
+        return len(self.valu)
+
 class Node(Prim):
     '''
     Implements the STORM api for a node instance.
@@ -201,8 +223,8 @@ def fromprim(valu, path=None):
     if isinstance(valu, StormType):
         return valu
 
-    #if isinstance(valu, (tuple, list)):
-        #return List(valu, path=path)
+    if isinstance(valu, (tuple, list)):
+        return List(valu, path=path)
 
     if isinstance(valu, dict):
         return Dict(valu, path=path)
