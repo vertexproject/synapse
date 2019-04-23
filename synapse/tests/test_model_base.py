@@ -64,6 +64,7 @@ class BaseTest(s_t_utils.SynTest):
                 props = {
                     'type': 'HeHe HaHa',
                     'time': '2015',
+                    'name': 'Magic Pony',
                     'data': ('some', 'data', 'here'),
                 }
 
@@ -74,6 +75,7 @@ class BaseTest(s_t_utils.SynTest):
                 self.eq(node.get('type'), 'HeHe HaHa')
                 self.eq(node.get('time'), 1420070400000)
                 self.eq(node.get('data'), ('some', 'data', 'here'))
+                self.eq(node.get('name'), 'Magic Pony')
 
     async def test_model_base_edge(self):
 

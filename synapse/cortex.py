@@ -529,6 +529,40 @@ class CoreApi(s_cell.CellApi):
         '''
         return self.cell.provstor.getProvStack(s_common.uhex(iden))
 
+    async def getPropNorm(self, prop, valu):
+        '''
+        Get the normalized property value based on the Cortex data model.
+
+        Args:
+            prop (str): The property to normalize.
+            valu: The value to normalize.
+
+        Returns:
+            (tuple): A two item tuple, containing the normed value and the info dictionary.
+
+        Raises:
+            s_exc.NoSuchProp: If the prop does not exist.
+            s_exc.BadTypeValu: If the value fails to normalize.
+        '''
+        return await self.cell.getPropNorm(prop, valu)
+
+    async def getTypeNorm(self, name, valu):
+        '''
+        Get the normalized type value based on the Cortex data model.
+
+        Args:
+            name (str): The type to normalize.
+            valu: The value to normalize.
+
+        Returns:
+            (tuple): A two item tuple, containing the normed value and the info dictionary.
+
+        Raises:
+            s_exc.NoSuchType: If the type does not exist.
+            s_exc.BadTypeValu: If the value fails to normalize.
+        '''
+        return await self.cell.getTypeNorm(name, valu)
+
 class Cortex(s_cell.Cell):
     '''
     A Cortex implements the synapse hypergraph.
@@ -1903,6 +1937,50 @@ class Cortex(s_cell.Cell):
             'formcounts': self.counts,
         }
         return stats
+
+    async def getPropNorm(self, prop, valu):
+        '''
+        Get the normalized property value based on the Cortex data model.
+
+        Args:
+            prop (str): The property to normalize.
+            valu: The value to normalize.
+
+        Returns:
+            (tuple): A two item tuple, containing the normed value and the info dictionary.
+
+        Raises:
+            s_exc.NoSuchProp: If the prop does not exist.
+            s_exc.BadTypeValu: If the value fails to normalize.
+        '''
+        pobj = self.model.prop(prop)
+        if pobj is None:
+            raise s_exc.NoSuchProp(mesg=f'The property {prop} does not exist.',
+                                   prop=prop)
+        norm, info = pobj.type.norm(valu)
+        return norm, info
+
+    async def getTypeNorm(self, name, valu):
+        '''
+        Get the normalized type value based on the Cortex data model.
+
+        Args:
+            name (str): The type to normalize.
+            valu: The value to normalize.
+
+        Returns:
+            (tuple): A two item tuple, containing the normed value and the info dictionary.
+
+        Raises:
+            s_exc.NoSuchType: If the type does not exist.
+            s_exc.BadTypeValu: If the value fails to normalize.
+        '''
+        tobj = self.model.type(name)
+        if tobj is None:
+            raise s_exc.NoSuchType(mesg=f'The type {name} does not exist.',
+                                   name=name)
+        norm, info = tobj.norm(valu)
+        return norm, info
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):

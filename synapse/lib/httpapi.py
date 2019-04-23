@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 import tornado.web as t_web
 import tornado.websocket as t_websocket
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
@@ -558,6 +559,9 @@ class AuthDelRoleV1(Handler):
 
 class ModelNormV1(Handler):
 
+    async def post(self):
+        return await self.get()
+
     async def get(self):
 
         if not await self.reqAuthUser():
@@ -574,13 +578,11 @@ class ModelNormV1(Handler):
             self.sendRestErr('MissingField', 'The property normalization API requires a prop name.')
             return
 
-        prop = self.cell.model.props.get(propname)
-        if prop is None:
-            return self.sendRestErr('NoSuchProp', 'The property {propname} does not exist.')
-
         try:
-            valu, info = prop.type.norm(propvalu)
-            self.sendRestRetn({'norm': valu, 'info': info})
-
+            valu, info = await self.cell.getPropNorm(propname, propvalu)
+        except s_exc.NoSuchProp:
+            return self.sendRestErr('NoSuchProp', 'The property {propname} does not exist.')
         except Exception as e:
             return self.sendRestExc(e)
+        else:
+            self.sendRestRetn({'norm': valu, 'info': info})

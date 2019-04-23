@@ -444,6 +444,7 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('ok', retn.get('status'))
                     self.eq('visi', retn['result']['name'])
 
+                # Norm via GET
                 body = {'prop': 'inet:ipv4', 'value': '1.2.3.4'}
                 async with sess.get(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
                     retn = await resp.json()
@@ -460,6 +461,14 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.get(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
                     retn = await resp.json()
                     self.eq('MissingField', retn.get('code'))
+
+                # Norm via POST
+                body = {'prop': 'inet:ipv4', 'value': '1.2.3.4'}
+                async with sess.post(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq(0x01020304, retn['result']['norm'])
+                    self.eq('unicast', retn['result']['info']['subs']['type'])
 
     async def test_http_storm(self):
 
