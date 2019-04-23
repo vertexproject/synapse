@@ -193,9 +193,10 @@ class Node(Prim):
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update({
-            'value': self._methNodeValue,
             'form': self._methNodeForm,
+            'ndef': self._methNodeNdef,
             'tags': self._methNodeTags,
+            'value': self._methNodeValue,
         })
 
     async def _methNodeTags(self, glob=None):
@@ -210,6 +211,9 @@ class Node(Prim):
 
     async def _methNodeForm(self):
         return self.valu.ndef[0]
+
+    async def _methNodeNdef(self):
+        return self.valu.ndef
 
 def fromprim(valu, path=None):
 
