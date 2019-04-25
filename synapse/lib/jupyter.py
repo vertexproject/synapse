@@ -101,6 +101,8 @@ async def genTempCoreProxy(mods=None):
                 for mod in mods:
                     await core.loadCoreModule(mod)
             async with core.getLocalProxy() as prox:
+                # Use object.__setattr__ to hulk smash and avoid proxy getattr magick
+                object.__setattr__(prox, '_core', core)
                 yield prox
 
 async def getItemCmdr(prox, outp=None, locs=None):
@@ -228,13 +230,13 @@ async def getTempCoreProx(mods=None):
         s_telepath.Proxy
     '''
     acm = genTempCoreProxy(mods)
-    core = await acm.__aenter__()
+    prox = await acm.__aenter__()
     # Use object.__setattr__ to hulk smash and avoid proxy getattr magick
-    object.__setattr__(core, '_acm', acm)
+    object.__setattr__(prox, '_acm', acm)
     async def onfini():
-        await core._acm.__aexit__(None, None, None)
-    core.onfini(onfini)
-    return core
+        await prox._acm.__aexit__(None, None, None)
+    prox.onfini(onfini)
+    return prox
 
 async def getTempCoreCmdr(mods=None, outp=None):
     '''
