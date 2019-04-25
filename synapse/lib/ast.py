@@ -469,10 +469,23 @@ class VarListSetOper(Oper):
     async def run(self, runt, genr):
 
         names = self.kids[0].value()
+        vkid = self.kids[1]
 
-        if self.kids[1].isRuntSafe(runt):
+        async for node, path in genr:
 
-            item = await self.kids[1].runtval(runt)
+            item = await vkid.compute(path)
+            if len(item) < len(names):
+                raise s_exc.StormVarListError(names=names, vals=item)
+
+            for name, valu in zip(names, item):
+                runt.setVar(name, valu)
+                path.setVar(name, valu)
+
+            yield node, path
+
+        if vkid.isRuntSafe(runt):
+
+            item = await vkid.runtval(runt)
             if len(item) < len(names):
                 raise s_exc.StormVarListError(names=names, vals=item)
 
@@ -483,18 +496,6 @@ class VarListSetOper(Oper):
                 yield item
 
             return
-
-        async for node, path in genr:
-
-            item = await self.kids[1].compute(path)
-            if len(item) < len(names):
-                raise s_exc.StormVarListError(names=names, vals=item)
-
-            for name, valu in zip(names, item):
-                runt.setVar(name, valu)
-                path.setVar(name, valu)
-
-            yield node, path
 
     def getRuntVars(self, runt):
 
