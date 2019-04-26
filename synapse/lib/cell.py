@@ -404,12 +404,13 @@ class Cell(s_base.Base, s_telepath.Aware):
             sslctx = self.initSslCtx(certpath, pkeypath)
 
         serv = self.wapp.listen(port, address=addr, ssl_options=sslctx)
-
+        self.httpds.append(serv)
         return list(serv._sockets.values())[0].getsockname()
 
     async def addHttpPort(self, port, host='0.0.0.0'):
         addr = socket.gethostbyname(host)
         serv = self.wapp.listen(port, address=addr)
+        self.httpds.append(serv)
         return list(serv._sockets.values())[0].getsockname()
 
     def initSslCtx(self, certpath, keypath):
@@ -432,7 +433,7 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         async def fini():
             for http in self.httpds:
-                await http.stop()
+                http.stop()
 
         self.onfini(fini)
 

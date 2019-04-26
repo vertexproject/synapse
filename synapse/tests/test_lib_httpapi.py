@@ -5,6 +5,19 @@ import synapse.tests.utils as s_tests
 
 class HttpApiTest(s_tests.SynTest):
 
+    async def test_http_port(self):
+        async with self.getTestCore() as core:
+            # Run http instead of https for this test
+            host, port = await core.addHttpPort(0, host='127.0.0.1')
+
+            root = core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+            async with aiohttp.ClientSession() as sess:
+                async with sess.get(f'http://root:secret@localhost:{port}/api/v1/auth/users') as resp:
+                    item = await resp.json()
+                    users = item.get('result')
+                    self.isin('root', [u.get('name') for u in users])
+
     async def test_http_user_archived(self):
 
         async with self.getTestCore() as core:
