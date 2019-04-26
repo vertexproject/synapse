@@ -16,11 +16,13 @@ Bugfixes
 --------
 
 - Fix an error in PropPivotOut and FormPivot where a None object could be yielded in the Storm pipeline. (`#1210 <https://github.com/vertexproject/synapse/pull/1210>`_)
+- Shut down HTTP API servers on Cell ``fini()``.  (`#1211 <https://github.com/vertexproject/synapse/pull/1211>`_)
 
 Improved Documentation
 ----------------------
 
 - Convert developer guide from static RST to Jupyter Notebook.  (`#1209 <https://github.com/vertexproject/synapse/pull/1209>`_)
+- Convert HTTP API guide from static RST to Jupyter Notebook.  (`#1211 <https://github.com/vertexproject/synapse/pull/1211>`_)
 
 
 v0.1.3 - 2019-04-17
