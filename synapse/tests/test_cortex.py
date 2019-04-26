@@ -617,6 +617,20 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await getPackNodes(core, q)
             self.len(0, nodes)
 
+            # Do a PropPivotOut with a :prop value which is not a form.
+            tgud = s_common.guid()
+            tstr = 'boom'
+            async with await wcore.snap() as snap:
+                node = await snap.addNode('test:str', tstr)
+                node = await snap.addNode('test:guid', tgud)
+                node = await snap.addNode('test:edge', (('test:guid', tgud), ('test:str', tstr)))
+
+            q = f'test:str={tstr} <- test:edge :n1:form -> *'
+            mesgs = await alist(core.streamstorm(q))
+            self.stormIsInWarn('The source property "n1:form" type "str" is not a form. Cannot pivot.',
+                               mesgs)
+            self.len(0, [m for m in mesgs if m[0] == 'node'])
+
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
             await alist(wcore.eval('[ test:comp=(127,newp) ] [test:comp=(127,127)]'))
