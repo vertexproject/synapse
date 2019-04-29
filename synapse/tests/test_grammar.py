@@ -5,14 +5,16 @@ import lark
 
 _Queries = [
     '',
-    "[ test:str=abcd :tick=2015 +#cool ]"
-    "[test:comp=(123, test) test:comp=(123, duck) test:comp=(123, mode)]"
-    '{ # baz }'
+    "[ test:str=abcd :tick=2015 +#cool ]",
+    '{ #baz } test:str=foo',
     '##baz.faz',
     '#$tag [ -#$tag ]',
     '#$tag',
     '#foo',
+    ' #foo',
+    '#foo ',
     '#hehe.haha',
+    '$hehe.haha',
     '#test.bar +test:pivcomp -+> *',
     '#test.bar +test:pivcomp -> *',
     '#test.bar +test:str <+- *',
@@ -21,16 +23,15 @@ _Queries = [
     '#test.bar -#test -> *',
     '#test.bar -#test <+- *',
     '#test.bar -#test <- *',
-    '#test.baz',
     '$bar=5.5.5.5 [ inet:ipv4=$bar ]',
     '($tick, $tock) = .seen',
     '.created',
+    '.created<2010',
+    '.created>2010',
     '.created*range=("2010", "?")',
     '.created*range=(2010, 3001)',
-    '.created<2010',
     '.created="2001"',
     '.created="{created}"',
-    '.created>2010',
     '.seen [ -.seen ]',
     '.seen~="^r"',
     '[ geo:place="*" :latlong=(-30.0,20.22) ]',
@@ -38,19 +39,19 @@ _Queries = [
     '[ inet:dns:a = ( woot.com , 12.34.56.78 ) ]',
     '[ inet:dns:a=$blob.split("|") ]',
     '[ inet:dns:a=(vertex.link, 5.5.5.5) +#nope ]',
+    '[ inet:dns:a=(woot.com,1.2.3.4) ]',
     '[ inet:dns:a=(woot.com, 1.2.3.4) +#yepr ]',
     '[ inet:dns:a=(woot.com, 1.2.3.4) inet:dns:a=(vertex.link, 1.2.3.4) ]',
     '[ inet:dns:a=(woot.com,1.2.3.4) .seen=(2015,2016) ]',
-    '[ inet:dns:a=(woot.com,1.2.3.4) ]',
     '[ inet:fqdn = hehe.com inet:ipv4 = 127.0.0.1 hash:md5 = d41d8cd98f00b204e9800998ecf8427e]',
     '[ inet:fqdn = woot.com ]',
     '[ inet:fqdn=vertex.link inet:ipv4=1.2.3.4 ]',
     '[ inet:fqdn=woot.com +#bad=(2015,2016) ]',
     '[ inet:fqdn=woot.com ] -> *',
     '[ inet:fqdn=woot.com inet:fqdn=vertex.link ] [ inet:user = :zone ] +inet:user',
-    ' [ test:int=$hehe.haha ] ',
     '[ inet:ipv4 = 94.75.194.194 :loc = nl ]',
     '[ inet:ipv4=$foo ]',
+    '[ test:int=$hehe.haha ]',
     '[ inet:ipv4=1.2.3.0/30 inet:ipv4=5.5.5.5 ]',
     '[ inet:ipv4=1.2.3.4 :asn=200 ]',
     '[ inet:ipv4=1.2.3.4 :loc=us inet:dns:a=(vertex.link,1.2.3.4) ]',
@@ -60,6 +61,7 @@ _Queries = [
     '[ inet:user=visi inet:user=whippit ]',
     '[ test:comp=(10, haha) +#foo.bar -#foo.bar ]',
     '[ test:comp=(127,newp) ] [test:comp=(127,127)]',
+    "[test:comp=(123, test) test:comp=(123, duck) test:comp=(123, mode)]",
     '[ test:guid="*" :tick=2015 ]',
     '[ test:guid="*" :tick=2016 ]',
     '[ test:guid="*" :tick=2017 ]',
@@ -438,7 +440,10 @@ _Queries = [
 # Generated with gen_parse_list below
 _ParseResults = [
     'Query: []',
-    'Query: [EditNodeAdd: [AbsProp: test:str, Const: abcd], EditPropSet: [RelProp: tick, Const: 2015], EditTagAdd: [TagName: cool], EditNodeAdd: [AbsProp: test:comp, List: [Const: 123, Const: test]], EditNodeAdd: [AbsProp: test:comp, List: [Const: 123, Const: duck]], EditNodeAdd: [AbsProp: test:comp, List: [Const: 123, Const: mode]], SubQuery: [Query: [LiftTag: [TagName: baz]]], LiftTagTag: [TagName: baz.faz]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: abcd], EditPropSet: [RelProp: tick, Const: 2015], EditTagAdd: [TagName: cool]]',
+    'Query: [EditNodeAdd: [AbsProp: test:comp, List: [Const: 123, Const: test]], EditNodeAdd: [AbsProp: test:comp, List: [Const: 123, Const: duck]], EditNodeAdd: [AbsProp: test:comp, List: [Const: 123, Const: mode]]]',
+    'Query: [SubQuery: [Query: [LiftTag: [TagName: baz]]], LiftTagTag: [TagName: baz.faz]]',
+    'Query: [LiftTagTag: [TagName: baz.faz]]',
     'Query: [LiftTag: [VarValue: [Const: tag]], EditTagDel: [VarValue: [Const: tag]]]',
     'Query: [LiftTag: [VarValue: [Const: tag]]]',
     'Query: [LiftTag: [TagName: foo]]',
@@ -811,12 +816,13 @@ class GrammarTest(s_t_utils.SynTest):
         parser = lark.Lark(grammar, start='query', debug=True)
 
         for i, query in enumerate(_Queries):
+
             try:
 
                 parser.parse(query)
                 # print(f'{tree.pretty()}\n)')
             except (lark.ParseError, lark.UnexpectedCharacters):
-                # print(f'Failure on parsing {{{query}}}')
+                print(f'Failure on parsing #{i}:\n{{{query}}}')
                 raise
 
     async def test_parser(self):

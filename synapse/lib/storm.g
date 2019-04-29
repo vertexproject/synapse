@@ -4,7 +4,7 @@
 %import common.DIGIT
 %import common.ESCAPED_STRING
 
-query: _querystartnon | _querystartcommand | _WSCOMM?
+query: (_querystartnon | _querystartcommand)? _WSCOMM?
 _querystartcommand: _WSCOMM? stormcmd [ _WSCOMM? "|" _WSCOMM? (_querystartcommand |  _querystartnon) ]
 _querystartnon: _WSCOMM? _noncommands [ _WSCOMM? "|" _WSCOMM? _querystartcommand
                                       | _WSCOMM? ["|" _WSCOMM?] _querystartnon ]
@@ -24,11 +24,11 @@ editnodeadd: ABSPROPNOUNIV _WS? "=" _WS? _valu
 ABSPROP: PROPNAME
 ABSPROPNOUNIV: PROPS
 
-_oper: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | filtoper
-     | liftbytag | operrelprop | forloop | switchcase | "break" | "continue" | _liftprop
+_oper: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | varvalu
+     | filtoper | liftbytag | operrelprop | forloop | switchcase | "break" | "continue" | _liftprop
 
 forloop: "for" _WS? (_varname | varlist) _WS? "in" _WS? varvalu _WS? subquery
-subquery: "{" query "}"
+subquery: "{" query _WSCOMM? "}"
 switchcase: "switch" _WS? varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (CASEVALU _WSCOMM? subquery)) )* _WSCOMM? "}"
 varlist: "(" [_WS? _varname (_WS? "," _WS? _varname)*] _WS? ["," _WS?] ")"
 CASEVALU: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | /[^:]+:/
