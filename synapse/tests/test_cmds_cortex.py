@@ -177,15 +177,38 @@ class CmdCoreTest(s_t_utils.SynTest):
 
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+                # Our default format is mpk
+                fp = os.path.join(dirn, 'loggyMcNodeFace.mpk')
+                await cmdr.runCmdLine(f'log --on --nodes-only --path {fp}')
+                fp = cmdr.locs.get('log:fp')
+                await cmdr.runCmdLine('storm [test:str="I am a message!" :tick=1999 +#oh.my] ')
+                await cmdr.runCmdLine('log --off')
+                await cmdr.fini()
+
+                self.true(os.path.isfile(fp))
+                with s_common.genfile(fp) as fd:
+                    genr = s_encoding.iterdata(fd, close_fd=False, format='mpk')
+                    objs = list(genr)
+                self.eq(objs[0][0], ('test:str', 'I am a message!'))
+
+                outp = self.getTestOutp()
+                cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 await cmdr.runCmdLine('log --on --off')
                 await cmdr.fini()
-                self.true(outp.expect('Pick one'))
+                self.true(outp.expect('log: error: argument --off: not allowed with argument --on'))
 
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 await cmdr.runCmdLine('log')
                 await cmdr.fini()
-                self.true(outp.expect('Pick one'))
+                self.true(outp.expect('log: error: one of the arguments --on --off is required'))
+
+                outp = self.getTestOutp()
+                cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+                await cmdr.runCmdLine('log --on --splices-only --nodes-only')
+                await cmdr.fini()
+                e = 'log: error: argument --nodes-only: not allowed with argument --splices-only'
+                self.true(outp.expect(e))
 
     async def test_ps_kill(self):
 
