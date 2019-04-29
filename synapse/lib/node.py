@@ -734,9 +734,9 @@ def reprNdef(pode):
         pode (tuple): A packed node.
 
     Notes:
-        The human readable value is only available if the node came from
-        a storm query execution where the ``repr`` key was passed into
-        the ``opts`` argument with a True value.
+        The human readable value is only available if the node came from a
+        storm query execution where the ``repr`` key was passed into the
+        ``opts`` argument with a True value.
 
     Returns:
         (str, str): A tuple of form and the human readable value.
@@ -750,19 +750,28 @@ def reprNdef(pode):
 
 def reprProp(pode, prop):
     '''
+    Get the human readable value for a secondary property from the pode.
 
     Args:
         pode (tuple): A packed node.
         prop:
 
     Notes:
-        The human readable value is only available if the node came from
-        a storm query execution where the ``repr`` key was passed into
-        the ``opts`` argument with a True value.
+        The human readable value is only available if the node came from a
+        storm query execution where the ``repr`` key was passed into the
+        ``opts`` argument with a True value.
+
+        The prop argument may be the full property name (foo:bar:baz), relative
+        property name (:baz) , or the unadorned property name (baz).
 
     Returns:
         str: The human readable property value.  If the property is not present, returns None.
     '''
+    form = pode[0][0]
+    if prop.startswith(form):
+        prop = prop[len(form):]
+    if prop[0] == ':':
+        prop = prop[1:]
     opropvalu = pode[1].get('props').get(prop)
     if opropvalu is None:
         return None
@@ -773,18 +782,21 @@ def reprProp(pode, prop):
 
 def reprTag(pode, tag):
     '''
+    Get the human readable value for the tag timestamp from the pode.
 
     Args:
         pode (tuple): A packed node.
         tag (str): The tag to get the value for.
 
     Notes:
-        The human readable value is only available if the node came from
-        a storm query execution where the ``repr`` key was passed into
-        the ``opts`` argument with a True value.
+        The human readable value is only available if the node came from a
+        storm query execution where the ``repr`` key was passed into the
+        ``opts`` argument with a True value.
+
+        If the tag does not have a timestamp, this returns a empty string.
 
     Returns:
-        str: The human readable value for the tag.  If the tag is not present, returns None.
+        str: The human readable value for the tag. If the tag is not present, returns None.
     '''
     tag = tag.lstrip('#')
     valu = pode[1]['tags'].get(tag)
