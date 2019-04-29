@@ -630,7 +630,7 @@ def props(pode):
     '''
     return pode[1]['props'].copy()
 
-def prop(pode, prop):
+def prop(pode, prop, use_repr=False):
     '''
     Return the valu of a given property on the node.
 
@@ -704,7 +704,7 @@ def tagged(pode, tag):
 
 def ndef(pode):
     '''
-    Return a node definition (<form>,<valu> tuple from the node.
+    Return a node definition (<form>,<valu>) tuple from the node.
 
     Args:
         node (tuple): A packed node.
@@ -725,3 +725,31 @@ def iden(pode):
         str: The node iden.
     '''
     return pode[1].get('iden')
+
+def reprNdef(pode):
+    ((form, valu), info) = pode
+    formvalu = info.get('repr')
+    if formvalu is None:
+        formvalu = str(valu)
+    return form, formvalu
+
+def reprProp(pode, prop):
+    opropvalu = pode[1].get('props').get(prop)
+    if opropvalu is None:
+        return None
+    propvalu = pode[1].get('reprs', {}).get(prop)
+    if propvalu is None:
+        return str(opropvalu)
+    return propvalu
+
+def reprTag(pode, tag):
+    tag = tag.lstrip('#')
+    valu = pode[1]['tags'].get(tag)
+    if valu is None:
+        return None
+    if valu == (None, None):
+        return ''
+    mint = s_time.repr(valu[0])
+    maxt = s_time.repr(valu[1])
+    valu = f'({mint}, {maxt})'
+    return valu

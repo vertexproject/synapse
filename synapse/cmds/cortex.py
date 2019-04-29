@@ -295,23 +295,20 @@ class StormCmd(s_cli.Cmd):
 
         node = mesg[1]
         opts = node[1].pop('_opts', {})
-        formname = node[0][0]
-
-        formvalu = node[1].get('repr')
-        if formvalu is None:
-            formvalu = str(node[0][1])
 
         if opts.get('raw'):
             self.printf(repr(node))
             return
 
+        formname, formvalu = s_node.reprNdef(node)
+
         self.printf(f'{formname}={formvalu}')
 
         if not opts.get('hide-props'):
 
-            for name, valu in sorted(node[1]['props'].items()):
+            for name in sorted(node[1]['props'].keys()):
 
-                valu = node[1]['reprs'].get(name, valu)
+                valu = s_node.reprProp(node, name)
 
                 if name[0] != '.':
                     name = ':' + name
@@ -322,14 +319,11 @@ class StormCmd(s_cli.Cmd):
 
             for tag in sorted(s_node.tags(node, leaf=True)):
 
-                valu = node[1]['tags'].get(tag)
-                if valu == (None, None):
+                valu = s_node.reprTag(node, tag)
+                if valu:
+                    self.printf(f'        #{tag} = {valu}')
+                else:
                     self.printf(f'        #{tag}')
-                    continue
-
-                mint = s_time.repr(valu[0])
-                maxt = s_time.repr(valu[1])
-                self.printf(f'        #{tag} = ({mint}, {maxt})')
 
     def _onInit(self, mesg):
         pass
