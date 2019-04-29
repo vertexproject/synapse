@@ -38,6 +38,8 @@ Examples:
     # Enable logging, but log to a custom path:
     log --on --path /my/aweome/log/directory/storm20010203.mpk
 
+    # Log only the node messages which come back from a storm cmd execution.
+    log --on --nodes-only --path /my/awesome/log/directory/stormnodes20010203.mpk
     '''
     _cmd_name = 'log'
     _cmd_syntax = (  # type: ignore
@@ -65,8 +67,11 @@ Examples:
                             help='The format used to save messages to disk. Defaults to msgpack (mpk).')
         parser.add_argument('--path', type=str, default=None,
                             help='The path to the log file.  This will append messages to a existing file.')
-        parser.add_argument('--splices-only', action='store_true', default=False,
+        optmux = parser.add_mutually_exclusive_group()
+        optmux.add_argument('--splices-only', action='store_true', default=False,
                             help='Only records splices. Does not record any other messages.')
+        optmux.add_argument('--nodes-only', action='store_true', default=False,
+                            help='Only record the packed nodes returned by storm.')
         return parser
 
     def __init__(self, cli, **opts):
@@ -94,9 +99,14 @@ Examples:
     def save(self, mesg):
         fd = self.locs.get('log:fd')
         spliceonly = self.locs.get('log:splicesonly')
+        nodesonly = self.locs.get('log:nodesonly')
         if fd and not fd.closed:
             if spliceonly and mesg[0] not in self.splicetypes:
                 return
+            if nodesonly:
+                if mesg[0] != 'node':
+                    return
+                mesg = mesg[1]
             try:
                 buf = self.encodeMsg(mesg)
             except Exception as e:
@@ -147,6 +157,7 @@ Examples:
             return
         fmt = opts.format
         path = opts.path
+        nodes_only = opts.nodes_only
         splice_only = opts.splices_only
         if not path:
             ts = s_time.repr(s_common.now(), True)
@@ -162,6 +173,7 @@ Examples:
         self.locs['log:fmt'] = fmt
         self.locs['log:queue'] = q
         self.locs['log:thr'] = self.queueLoop()
+        self.locs['log:nodesonly'] = nodes_only
         self.locs['log:splicesonly'] = splice_only
         self._cmd_cli.on('storm:mesg', self.onStormMesg)
 
