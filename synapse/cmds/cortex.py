@@ -306,7 +306,7 @@ class StormCmd(s_cli.Cmd):
 
         if not opts.get('hide-props'):
 
-            for name in sorted(node[1]['props'].keys()):
+            for name in sorted(s_node.props(node).keys()):
 
                 valu = s_node.reprProp(node, name)
 

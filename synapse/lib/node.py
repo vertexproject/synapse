@@ -707,7 +707,7 @@ def ndef(pode):
     Return a node definition (<form>,<valu>) tuple from the node.
 
     Args:
-        node (tuple): A packed node.
+        pode (tuple): A packed node.
 
     Returns:
         ((str,obj)):    The (<form>,<valu>) tuple for the node
@@ -727,6 +727,21 @@ def iden(pode):
     return pode[1].get('iden')
 
 def reprNdef(pode):
+    '''
+    Get the ndef of the pode with a human readable value.
+
+    Args:
+        pode (tuple): A packed node.
+
+    Notes:
+        The human readable value is only available if the node came from
+        a storm query execution where the ``repr`` key was passed into
+        the ``opts`` argument with a True value.
+
+    Returns:
+        (str, str): A tuple of form and the human readable value.
+
+    '''
     ((form, valu), info) = pode
     formvalu = info.get('repr')
     if formvalu is None:
@@ -734,6 +749,20 @@ def reprNdef(pode):
     return form, formvalu
 
 def reprProp(pode, prop):
+    '''
+
+    Args:
+        pode (tuple): A packed node.
+        prop:
+
+    Notes:
+        The human readable value is only available if the node came from
+        a storm query execution where the ``repr`` key was passed into
+        the ``opts`` argument with a True value.
+
+    Returns:
+        str: The human readable property value.  If the property is not present, returns None.
+    '''
     opropvalu = pode[1].get('props').get(prop)
     if opropvalu is None:
         return None
@@ -743,6 +772,20 @@ def reprProp(pode, prop):
     return propvalu
 
 def reprTag(pode, tag):
+    '''
+
+    Args:
+        pode (tuple): A packed node.
+        tag (str): The tag to get the value for.
+
+    Notes:
+        The human readable value is only available if the node came from
+        a storm query execution where the ``repr`` key was passed into
+        the ``opts`` argument with a True value.
+
+    Returns:
+        str: The human readable value for the tag.  If the tag is not present, returns None.
+    '''
     tag = tag.lstrip('#')
     valu = pode[1]['tags'].get(tag)
     if valu is None:
