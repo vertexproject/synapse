@@ -630,7 +630,7 @@ def props(pode):
     '''
     return pode[1]['props'].copy()
 
-def prop(pode, prop, use_repr=False):
+def prop(pode, prop):
     '''
     Return the valu of a given property on the node.
 
