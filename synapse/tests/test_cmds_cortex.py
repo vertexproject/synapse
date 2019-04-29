@@ -179,13 +179,13 @@ class CmdCoreTest(s_t_utils.SynTest):
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 await cmdr.runCmdLine('log --on --off')
                 await cmdr.fini()
-                self.true(outp.expect('Pick one'))
+                self.true(outp.expect('log: error: argument --off: not allowed with argument --on'))
 
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 await cmdr.runCmdLine('log')
                 await cmdr.fini()
-                self.true(outp.expect('Pick one'))
+                self.true(outp.expect('log: error: one of the arguments --on --off is required'))
 
     async def test_ps_kill(self):
 

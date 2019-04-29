@@ -1,12 +1,15 @@
 import json
 import queue
+import shlex
 import pprint
 import logging
+
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cli as s_cli
+import synapse.lib.cmd as s_cmd
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.msgpack as s_msgpack
@@ -15,50 +18,32 @@ logger = logging.getLogger(__name__)
 
 
 class Log(s_cli.Cmd):
-    '''
-    Add a storm log to the local command session.
+    '''Add a storm log to the local command session.
 
-    Syntax:
-        log (--on|--off) [--splices-only] [--format (mpk|jsonl)] [--path /path/to/file]
+Notes:
+    By default, the log file contains all messages received from the execution of
+    a Storm query by the current CLI. By default, these messages are saved to a
+    file located in ~/.syn/stormlogs/storm_(date).(format).
 
-    Required Arguments:
-        --on: Enables logging of storm messages to a file.
-        --off: Disables message logging and closes the current storm file.
+Examples:
+    # Enable logging all messages to mpk files (default)
+    log --on
 
-    Optional Arguments:
-        --splices-only: Only records splices. Does not record any other messages.
-        --format: The format used to save messages to disk. Defaults to msgpack (mpk).
-        --path: The path to the log file.  This will append messages to a existing file.
+    # Disable logging and close the current file
+    log --off
 
-    Notes:
-        By default, the log file contains all messages received from the execution of
-        a Storm query by the current CLI. By default, these messages are saved to a
-        file located in ~/.syn/stormlogs/storm_(date).(format).
+    # Enable logging, but only log splices. Log them as jsonl instead of mpk.
+    log --on --splices-only --format jsonl
 
-    Examples:
-        # Enable logging all messages to mpk files (default)
-        log --on
-
-        # Disable logging and close the current file
-        log --off
-
-        # Enable logging, but only log splices. Log them as jsonl instead of mpk.
-        log --on --splices-only --format jsonl
-
-        # Enable logging, but log to a custom path:
-        log --on --path /my/aweome/log/directory/storm20010203.mpk
+    # Enable logging, but log to a custom path:
+    log --on --path /my/aweome/log/directory/storm20010203.mpk
 
     '''
     _cmd_name = 'log'
-    _cmd_syntax = (
-        ('--on', {'type': 'flag'}),
-        ('--off', {'type': 'flag'}),
-        ('--path', {'type': 'valu'}),
-        ('--format', {'type': 'enum',
-                      'defval': 'mpk',
-                      'enum:vals': ['mpk', 'jsonl']}),
-        ('--splices-only', {'defval': False})
+    _cmd_syntax = (  # type: ignore
+        ('line', {'type': 'glob'}),
     )
+
     splicetypes = (
         'tag:add',
         'tag:del',
@@ -67,6 +52,22 @@ class Log(s_cli.Cmd):
         'prop:set',
         'prop:del',
     )
+
+    def _make_argparser(self):
+
+        parser = s_cmd.Parser(prog='log', outp=self, description=self.__doc__)
+        muxp = parser.add_mutually_exclusive_group(required=True)
+        muxp.add_argument('--on', action='store_true', default=False,
+                          help='Enables logging of storm messages to a file.')
+        muxp.add_argument('--off', action='store_true', default=False,
+                          help='Disables message logging and closes the current storm file.')
+        parser.add_argument('--format', choices=('mpk', 'jsonl'), default='mpk', type=str.lower,
+                            help='The format used to save messages to disk. Defaults to msgpack (mpk).')
+        parser.add_argument('--path', type=str, default=None,
+                            help='The path to the log file.  This will append messages to a existing file.')
+        parser.add_argument('--splices-only', action='store_true', default=False,
+                            help='Only records splices. Does not record any other messages.')
+        return parser
 
     def __init__(self, cli, **opts):
         s_cli.Cmd.__init__(self, cli, **opts)
@@ -144,9 +145,9 @@ class Log(s_cli.Cmd):
         if opath:
             self.printf('Must call --off to disable current file before starting a new file.')
             return
-        fmt = opts.get('format')
-        path = opts.get('path')
-        splice_only = opts.get('splices-only')
+        fmt = opts.format
+        path = opts.path
+        splice_only = opts.splices_only
         if not path:
             ts = s_time.repr(s_common.now(), True)
             fn = f'storm_{ts}.{fmt}'
@@ -165,17 +166,18 @@ class Log(s_cli.Cmd):
         self._cmd_cli.on('storm:mesg', self.onStormMesg)
 
     async def runCmdOpts(self, opts):
-        on = opts.get('on')
-        off = opts.get('off')
 
-        if bool(on) == bool(off):
-            self.printf('Pick one of "--on" or "--off".')
+        line = opts.get('line', '')
+
+        try:
+            opts = self._make_argparser().parse_args(shlex.split(line))
+        except s_exc.ParserExit as e:
             return
 
-        if on:
+        if opts.on:
             return self.openLogFd(opts)
 
-        if off:
+        if opts.off:
             return self.closeLogFd()
 
 class PsCmd(s_cli.Cmd):
