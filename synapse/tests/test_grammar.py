@@ -26,6 +26,7 @@ _Queries = [
     '#test.bar -#test <+- *',
     '#test.bar -#test <- *',
     '$bar=5.5.5.5 [ inet:ipv4=$bar ]',
+    '$blah = $lib.dict(foo=vertex.link) [ inet:fqdn=$blah.foo ]',
     '($tick, $tock) = .seen',
     '.created',
     '.created<2010',
@@ -36,6 +37,7 @@ _Queries = [
     '.created="{created}"',
     '.seen [ -.seen ]',
     '.seen~="^r"',
+    "[graph:node='*' :type=m1]",
     '[ geo:place="*" :latlong=(-30.0,20.22) ]',
     '[ inet:asn=200 :name=visi ]',
     '[ inet:dns:a = ( woot.com , 12.34.56.78 ) ]',
@@ -225,6 +227,7 @@ _Queries = [
     'test:comp -> test:int',
     'test:comp:haha~="^lulz"',
     'test:comp:haha~="^zerg"',
+    'test:comp#bar +:hehe=1010 +:haha=test10 +#bar',
     'test:guid +test:guid*range=(abcd, dcbe)',
     'test:guid | max tick',
     'test:guid | min tick',
@@ -290,6 +293,7 @@ _Queries = [
     'test:str +#*.bad',
     'test:str +#foo.**.baz',
     'test:str +#foo.*.baz',
+    '#foo@=("2013", "2015")',
     'test:str +#foo@=(2014, 20141231)',
     'test:str +#foo@=(2015, 2018)',
     'test:str +#foo@=2016',
@@ -439,10 +443,28 @@ _Queries = [
         -> test:int [ -#$tag ]
     }
     ''',
+    '''
+    [
+    inet:email:message="*"
+        :to=woot@woot.com
+        :from=visi@vertex.link
+        :replyto=root@root.com
+        :subject="hi there"
+        :date=2015
+        :body="there are mad sploitz here!"
+        :bytes="*"
+    ]
+
+    {[ inet:email:message:link=($node, https://www.vertex.link) ]}
+
+    {[ inet:email:message:attachment=($node, "*") ] -inet:email:message [ :name=sploit.exe ]}
+
+    {[ edge:has=($node, ('inet:email:header', ('to', 'Visi Kensho <visi@vertex.link>'))) ]}
+    '''
 ]
 
 # Generated with print_parse_list below
-_ParseResults = [ # typing: noqa
+_ParseResults = [
     'Query: []',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: abcd], EditPropSet: [RelProp: tick, Const: 2015], EditTagAdd: [TagName: cool]]',
     'Query: [SubQuery: [Query: [LiftTag: [TagName: baz]]], LiftPropBy: [Const: test:str, Const: =, Const: foo]]',
@@ -463,6 +485,7 @@ _ParseResults = [ # typing: noqa
     'Query: [LiftTag: [TagName: test.bar], FiltOper: [Const: -, TagCond: [TagMatch: test]], PivotIn: [], isjoin=True]',
     'Query: [LiftTag: [TagName: test.bar], FiltOper: [Const: -, TagCond: [TagMatch: test]], PivotIn: [], isjoin=False]',
     'Query: [VarSetOper: [Const: bar, Const: 5.5.5.5], EditNodeAdd: [AbsProp: inet:ipv4, VarValue: [Const: bar]]]',
+    'Query: [VarSetOper: [Const: blah, FuncCall: [VarDeref: [VarValue: [Const: lib], Const: dict], CallArgs: [], CallKwargs: [CallKwarg: [Const: foo, Const: vertex.link]]]], EditNodeAdd: [AbsProp: inet:fqdn, VarDeref: [VarValue: [Const: blah], Const: foo]]]',
     "Query: [VarListSetOper: [VarList: ['tick', 'tock'], UnivPropValue: [UnivProp: .seen]]]",
     'Query: [LiftProp: [Const: .created]]',
     'Query: [LiftPropBy: [Const: .created, Const: <, Const: 2010]]',
@@ -473,6 +496,7 @@ _ParseResults = [ # typing: noqa
     'Query: [LiftPropBy: [Const: .created, Const: =, Const: {created}]]',
     'Query: [LiftProp: [Const: .seen], EditUnivDel: [UnivProp: .seen]]',
     'Query: [LiftPropBy: [Const: .seen, Const: ~=, Const: ^r]]',
+    'Query: [EditNodeAdd: [AbsProp: graph:node, Const: *], EditPropSet: [RelProp: type, Const: m1]]',
     'Query: [EditNodeAdd: [AbsProp: geo:place, Const: *], EditPropSet: [RelProp: latlong, List: [Const: -30.0, Const: 20.22]]]',
     'Query: [EditNodeAdd: [AbsProp: inet:asn, Const: 200], EditPropSet: [RelProp: name, Const: visi]]',
     'Query: [EditNodeAdd: [AbsProp: inet:dns:a, List: [Const: woot.com, Const: 12.34.56.78]]]',
@@ -662,6 +686,7 @@ _ParseResults = [ # typing: noqa
     'Query: [LiftProp: [Const: test:comp], FormPivot: [AbsProp: test:int], isjoin=False]',
     'Query: [LiftPropBy: [Const: test:comp:haha, Const: ~=, Const: ^lulz]]',
     'Query: [LiftPropBy: [Const: test:comp:haha, Const: ~=, Const: ^zerg]]',
+    'Query: [LiftFormTag: [Const: test:comp, TagName: bar], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: hehe], Const: =, Const: 1010]], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: haha], Const: =, Const: test10]], FiltOper: [Const: +, TagCond: [TagMatch: bar]]]',
     'Query: [LiftProp: [Const: test:guid], FiltOper: [Const: +, AbsPropCond: [AbsProp: test:guid, Const: *range=, List: [Const: abcd, Const: dcbe]]]]',
     "Query: [LiftProp: [Const: test:guid], CmdOper: [Const: max, Const: ('tick',)]]",
     "Query: [LiftProp: [Const: test:guid], CmdOper: [Const: min, Const: ('tick',)]]",
@@ -727,6 +752,7 @@ _ParseResults = [ # typing: noqa
     'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, TagCond: [TagMatch: *.bad]]]',
     'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, TagCond: [TagMatch: foo.**.baz]]]',
     'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, TagCond: [TagMatch: foo.*.baz]]]',
+    'Query: [LiftTag: [TagName: foo, Const: @=, List: [Const: 2013, Const: 2015]]]',
     'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, TagValuCond: [TagMatch: foo, Const: @=, List: [Const: 2014, Const: 20141231]]]]',
     'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, TagValuCond: [TagMatch: foo, Const: @=, List: [Const: 2015, Const: 2018]]]]',
     'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, TagValuCond: [TagMatch: foo, Const: @=, Const: 2016]]]',
@@ -814,6 +840,7 @@ _ParseResults = [ # typing: noqa
     "Query: [ForLoop: [Const: foo, VarValue: [Const: foos], SubQuery: [Query: [VarListSetOper: [VarList: ['fqdn', 'ipv4'], FuncCall: [VarDeref: [VarValue: [Const: foo], Const: split], CallArgs: [Const: |], CallKwargs: []]], EditNodeAdd: [AbsProp: inet:dns:a, List: [VarValue: [Const: fqdn], VarValue: [Const: ipv4]]]]]]]",
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [], CallKwargs: []], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False, EditTagAdd: [VarValue: [Const: tag]]]]]]',
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [Const: fo*], CallKwargs: []], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False, EditTagDel: [VarValue: [Const: tag]]]]]]',
+    'Query: [EditNodeAdd: [AbsProp: inet:email:message, Const: *], EditPropSet: [RelProp: to, Const: woot@woot.com], EditPropSet: [RelProp: from, Const: visi@vertex.link], EditPropSet: [RelProp: replyto, Const: root@root.com], EditPropSet: [RelProp: subject, Const: hi there], EditPropSet: [RelProp: date, Const: 2015], EditPropSet: [RelProp: body, Const: there are mad sploitz here!], EditPropSet: [RelProp: bytes, Const: *], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:email:message:link, List: [VarValue: [Const: node], Const: https://www.vertex.link]]]], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:email:message:attachment, List: [VarValue: [Const: node], Const: *]], FiltOper: [Const: -, HasAbsPropCond: [AbsProp: inet:email:message]], EditPropSet: [RelProp: name, Const: sploit.exe]]], SubQuery: [Query: [EditNodeAdd: [AbsProp: edge:has, List: [VarValue: [Const: node], List: [Const: inet:email:header, List: [Const: to, Const: Visi Kensho <visi@vertex.link>]]]]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):

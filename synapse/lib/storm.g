@@ -62,11 +62,11 @@ operrelprop: RELPROP _WS? "->" _WS? ("*" | ABSPROP) -> operrelprop_pivot
 valuvar: _varname _WS? "=" _WS? _valu
 
 _liftprop: liftformtag | liftpropby | liftprop
-liftformtag: PROPNAME tagname [_WS? CMPR _valu]
+liftformtag.1: PROPNAME tagname [_WS? CMPR _valu]
 liftpropby: PROPNAME _WS? CMPR _WS? _valu
 liftprop: PROPNAME
-lifttagtag: "#" tagname
-liftbytag: tagname
+lifttagtag: "#" tagname [_WS? CMPR _valu]
+liftbytag: tagname [_WS? CMPR _valu]
 tagname: "#" _WS? (_varname | TAG)
 
 _varname: "$" _WS? VARTOKN
@@ -106,7 +106,7 @@ AND_: "and"
 condsubq: "{" _WSCOMM? query _WS? "}" [_WSCOMM? CMPR _WSCOMM? _valu]
 VARDEREF: "." VARTOKN
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
-SINGLEQUOTEDSTRING: "'" /[^']/ "'"
+SINGLEQUOTEDSTRING: /'[^']*'/
 UNIVPROP:  UNIVNAME
 univpropvalu: UNIVPROP
 

@@ -33,7 +33,8 @@ ruleClassMap = {
     'opervarlist': s_ast.VarListSetOper,
     'relpropvalu': s_ast.RelPropValue,
     'forloop': s_ast.ForLoop,
-    'condsubq': s_ast.SubqCond
+    'condsubq': s_ast.SubqCond,
+    'kwarg': lambda kids: s_ast.CallKwarg(kids=tuple(kids))
 }
 
 terminalClassMap = {
@@ -48,11 +49,13 @@ terminalClassMap = {
     'NONCMDQUOTE': s_ast.Const,
     'FILTPREFIX': s_ast.Const,
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # no quotes
+    'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # no quotes
     'UNIVPROP': s_ast.UnivProp,
     'TAGMATCH': lambda x: s_ast.TagMatch(x[1:]),  # no leading #
     'NOT_': s_ast.Const,
     'BREAK': lambda x: s_ast.BreakOper(),
     'CONTINUE': lambda x: s_ast.ContinueOper(),
+    'VARCHARS': s_ast.Const
 }
 
 class TmpVarCall:
@@ -138,7 +141,6 @@ class AstConverter(lark.Transformer):
 
         breakpoint()
 
-
     def condexpr(self, kids, meta):
         if len(kids) == 1:
             return kids[0]
@@ -152,13 +154,6 @@ class AstConverter(lark.Transformer):
             return s_ast.OrCond(kids=[operand1, operand2])
         breakpoint()
 
-    # def formpivot(self, kids, meta):
-    #     kids = self._convert_children(kids)
-    #     if len(kids) == 0:
-    #         return s_ast.PivotOut()
-    #     # more to add
-    #     breakpoint()
-
     def varvalu(self, kids, meta):
         # FIXME really should be restructured; emulating old code for now
 
@@ -169,11 +164,13 @@ class AstConverter(lark.Transformer):
                     varv = s_ast.VarDeref(kids=[varv, s_ast.Const(kid.value[1:])])
                 else:
                     breakpoint()
-            elif isinstance (kid, TmpVarCall):
+            elif isinstance(kid, TmpVarCall):
                 callkids = self._convert_children(kid.kids)
-                args = s_ast.CallArgs(kids=callkids)
-                # FIXME: kwargs
-                kwargs = s_ast.CallKwargs(kids=[])
+                arglist = [k for k in callkids if not isinstance(k, s_ast.CallKwarg)]
+                args = s_ast.CallArgs(kids=arglist)
+
+                kwarglist = [k for k in callkids if isinstance(k, s_ast.CallKwarg)]
+                kwargs = s_ast.CallKwargs(kids=kwarglist)
                 varv = s_ast.FuncCall(kids=[varv, args, kwargs])
             else:
                 breakpoint()
@@ -276,4 +273,5 @@ class Parser:
         except lark.exceptions.LarkError as e:
             raise s_exc.BadSyntax() from e
         newtree = AstConverter(self.text).transform(tree)
+        newtree.text = self.text
         return newtree
