@@ -24,14 +24,16 @@ editnodeadd: ABSPROPNOUNIV _WS? "=" _WS? _valu
 ABSPROP: PROPNAME
 ABSPROPNOUNIV: PROPS
 
-_oper: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | varvalu
+_oper: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | vareval
      | filtoper | liftbytag | operrelprop | forloop | switchcase | "break" | "continue" | _liftprop
+
+vareval: varvalu
 
 forloop: "for" _WS? (_varname | varlist) _WS? "in" _WS? varvalu _WS? subquery
 subquery: "{" query _WSCOMM? "}"
-switchcase: "switch" _WS? varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (CASEVALU _WSCOMM? subquery)) )* _WSCOMM? "}"
+switchcase: "switch" _WS? varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (casevalu _WSCOMM? subquery)) )* _WSCOMM? "}"
 varlist: "(" [_WS? _varname (_WS? "," _WS? _varname)*] _WS? ["," _WS?] ")"
-CASEVALU: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | /[^:]+:/
+casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | /[^:\s][^:]*:/
 
 // Note: changed from syntax.py in that cannot start with ':' or '.'
 VARSETS: ("$" | "." | LETTER | DIGIT) ("$" | "." | ":" | LETTER | DIGIT)*
@@ -76,7 +78,7 @@ TAGMATCH: /#(([\w*]+\.)*[\w*]+)?/
 
 // https://regex101.com/r/l8hFq8/1
 CMPR: /[@!<>^~=][@!<>^~=]*|\*[^=\s]*?=/
-_valu: NONQUOTEWORD | valulist | varvalu | RELPROPVALU | univpropvalu | tagpropvalue | DOUBLEQUOTEDSTRING
+_valu: NONQUOTEWORD | valulist | varvalu | relpropvalu | univpropvalu | tagpropvalue | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING
 valulist: "(" [_WS? _valu (_WS? "," _WS? _valu)*] _WS? ["," _WS?] ")"
 tagpropvalue: tagname
@@ -106,7 +108,7 @@ UNIVPROP:  UNIVNAME
 univpropvalu: UNIVPROP
 
 RELPROP: ":" VARSETS
-RELPROPVALU: RELPROP
+relpropvalu: RELPROP
 
 // Whitespace or comments
 _WSCOMM: (CCOMMENT | CPPCOMMENT | _WS)+

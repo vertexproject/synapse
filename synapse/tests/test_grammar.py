@@ -165,6 +165,7 @@ _Queries = [
     'inet:fqdn=woot.com -> inet:dns:a -> inet:ipv4',
     'inet:fqdn=woot.com -> inet:dns:a',
     'inet:fqdn=woot.com | delnode',
+    'inet:fqdn | graph --filter { -#nope }',
     'inet:fqdn=woot.com',
     'inet:ipv4 +:asn::name=visi',
     'inet:ipv4 +inet:ipv4=1.2.3.0/30',
@@ -437,7 +438,7 @@ _Queries = [
     ''',
 ]
 
-# Generated with gen_parse_list below
+# Generated with print_parse_list below
 _ParseResults = [
     'Query: []',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: abcd], EditPropSet: [RelProp: tick, Const: 2015], EditTagAdd: [TagName: cool]]',
@@ -600,6 +601,7 @@ _ParseResults = [
     'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: woot.com], FormPivot: [AbsProp: inet:dns:a], isjoin=False, FormPivot: [AbsProp: inet:ipv4], isjoin=False]',
     'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: woot.com], FormPivot: [AbsProp: inet:dns:a], isjoin=False]',
     'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: woot.com], CmdOper: [Const: delnode, Const: ()]]',
+    "Query: [LiftProp: [Const: inet:fqdn], CmdOper: [Const: graph, Const: ('--filter', '{ -#nope }')]]",
     'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: woot.com]]',
     'Query: [LiftProp: [Const: inet:ipv4], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: asn::name], Const: =, Const: visi]]]',
     'Query: [LiftProp: [Const: inet:ipv4], FiltOper: [Const: +, AbsPropCond: [AbsProp: inet:ipv4, Const: =, Const: 1.2.3.0/30]]]',
@@ -831,8 +833,8 @@ class GrammarTest(s_t_utils.SynTest):
         self.maxDiff = None
         # import IPython; IPython.embed()
         for i, query in enumerate(_Queries):
-            # if i < 320:
-            #     continue
+            if i < 140:
+                continue
             print(f'{i:3}: {{{query}}}: ', end='')
             # if i > 400:
             #     # FIXME:  increase as we get more

@@ -3,12 +3,6 @@ import synapse.exc as s_exc
 
 import synapse.lib.ast as s_ast
 
-optcast = {
-    'limit': int,
-    'uniq': bool,
-    'graph': bool,
-}
-
 ruleClassMap = {
     'query': s_ast.Query,
     'liftbytag': s_ast.LiftTag,
@@ -35,6 +29,11 @@ ruleClassMap = {
     'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),
     'tagpropvalue': s_ast.TagPropValue,
     'valuvar': s_ast.VarSetOper,
+    'vareval': s_ast.VarEvalOper,
+    'opervarlist': s_ast.VarListSetOper,
+    'relpropvalu': s_ast.RelPropValue,
+    'forloop': s_ast.ForLoop,
+    'condsubq': s_ast.SubqCond
 }
 
 terminalClassMap = {
@@ -63,17 +62,16 @@ class TmpVarCall:
 class AstConverter(lark.Transformer):
 
     def _convert_children(self, children):
-        kids = []
-        for k in children:
-            if not isinstance(k, lark.lexer.Token):
-                kids.append(k)
-                continue
-            if k.type not in terminalClassMap:
-                breakpoint()
-            tokencls = terminalClassMap[k.type]
-            newkid = tokencls(k.value)
-            kids.append(newkid)
-        return kids
+        return [self._convert_child(k) for k in children]
+
+    def _convert_child(self, child):
+        if not isinstance(child, lark.lexer.Token):
+            return child
+        if child.type not in terminalClassMap:
+            breakpoint()
+        tokencls = terminalClassMap[child.type]
+        newkid = tokencls(child.value)
+        return newkid
 
     def __default__(self, treedata, children, treemeta):
         if treedata not in ruleClassMap:
@@ -81,6 +79,12 @@ class AstConverter(lark.Transformer):
         cls = ruleClassMap[treedata]
         newkids = self._convert_children(children)
         return cls(newkids)
+
+    def subquery(self, kids):
+        breakpoint()
+        assert len(kids) == 1
+        kids = self._convert_children(kids)
+        return s_ast.SubQuery(kids)
 
     def cmdargv(self, kids):
         kids = self._convert_children(kids)
@@ -116,11 +120,12 @@ class AstConverter(lark.Transformer):
             else:
                 return s_ast.RelPropCond(kids=(prop, ) + tuple(cmprvalu))
 
-        elif isinstance(first, (s_ast.OrCond, s_ast.AndCond, s_ast.HasRelPropCond, s_ast.NotCond)):
+        elif isinstance(first, (s_ast.OrCond, s_ast.AndCond, s_ast.HasRelPropCond, s_ast.NotCond, s_ast.SubqCond)):
             assert len(kids) == 1
             return first
 
         breakpoint()
+
 
     def condexpr(self, kids):
         if len(kids) == 1:
@@ -167,6 +172,10 @@ class AstConverter(lark.Transformer):
         # defer the conversion until the parent varvalu
         return TmpVarCall(kids)
 
+    def varlist(self, kids):
+        kids = self._convert_children(kids)
+        return s_ast.VarList([k.valu for k in kids])
+
     def operrelprop_pivot(self, kids):
         kids = self._convert_children(kids)
         relprop, rest = kids[0], kids[1:]
@@ -198,23 +207,6 @@ class AstConverter(lark.Transformer):
         assert kid.type == 'VARTOKN'
         return self.varvalu(kids)
 
-    def queryoption(self, kids):
-        opt = kids[0].value
-        valu = kids[1].value
-
-        cast = optcast.get(opt)
-        if cast is None:
-            raise s_exc.NoSuchOpt(name=opt)
-
-        try:
-            valu = cast(valu)
-        except Exception:
-            raise s_exc.BadOptValu(name=opt, valu=valu)
-
-        # FIXME:  need to plumb in some generic context or make a node for this
-        # query.opts[name] = valu
-        raise lark.Discard
-
     def valulist(self, kids):
         kids = self._convert_children(kids)
         assert kids
@@ -224,6 +216,36 @@ class AstConverter(lark.Transformer):
         kids = self._convert_children(kids)
         return s_ast.UnivPropValue(kids=kids)
 
+    def switchcase(self, kids):
+        newkids = []
+
+        it = iter(kids)
+
+        varvalu = next(it)
+        newkids.append(varvalu)
+        assert isinstance(varvalu, s_ast.VarValue)
+
+        for casekid, sqkid in zip(it, it):
+            subquery = self._convert_child(sqkid)
+            if casekid.valu == '*':
+                caseentry = s_ast.CaseEntry(kids=[subquery])
+            else:
+                casekid = self._convert_child(casekid)
+                caseentry = s_ast.CaseEntry(kids=[casekid, subquery])
+
+            newkids.append(caseentry)
+
+        return s_ast.SwitchCase(newkids)
+
+    def casevalu(self, kids):
+        assert len(kids) == 1
+        kid = kids[0]
+
+        if kid.type == 'DOUBLEQUOTEDSTRING':
+            return self._convert_child(kid)
+
+        return s_ast.Const(kid.value[:-1])  # drop the trailing ':'
+
 class Parser:
     def __init__(self, text, offs=0):
         self.offs = offs
@@ -231,11 +253,10 @@ class Parser:
         self.text = text.strip()
         self.size = len(self.text)
 
-        # FIXME:  insert propnames, stormcmds into grammar
         grammar = open('synapse/lib/storm.g').read()
 
         # FIXME:  memoize this
-        self.parser = lark.Lark(grammar, start='query')
+        self.parser = lark.Lark(grammar, start='query', debug=True)
 
     def query(self):
         tree = self.parser.parse(self.text)
