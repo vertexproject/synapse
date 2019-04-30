@@ -103,7 +103,7 @@ condexpr: "(" _WS? cond (_WS? ((AND_ | OR_) _WS? cond))* _WS? ")"
 NOT_: "not"
 OR_: "or"
 AND_: "and"
-condsubq: "{" _WSCOMM? query _WS? "}" [_WSCOMM? CMPR _valu]
+condsubq: "{" _WSCOMM? query _WS? "}" [_WSCOMM? CMPR _WSCOMM? _valu]
 VARDEREF: "." VARTOKN
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
 SINGLEQUOTEDSTRING: "'" /[^']/ "'"

@@ -104,6 +104,9 @@ class AstConverter(lark.Transformer):
         first, cmprvalu = kids[0], kids[1:]
 
         if isinstance(first, s_ast.RelProp):
+            if not cmprvalu:
+                return s_ast.HasRelPropCond(kids=kids)
+
             prop = s_ast.RelPropValue(kids=(first, ))
             return s_ast.RelPropCond(kids=(prop, ) + tuple(cmprvalu))
 
@@ -268,6 +271,9 @@ class Parser:
         self.size = len(self.text)
 
     def query(self):
-        tree = self.parser.parse(self.text)
+        try:
+            tree = self.parser.parse(self.text)
+        except lark.exceptions.LarkError as e:
+            raise s_exc.BadSyntax() from e
         newtree = AstConverter(self.text).transform(tree)
         return newtree

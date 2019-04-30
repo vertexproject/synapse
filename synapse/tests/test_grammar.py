@@ -1,7 +1,9 @@
 import synapse.lib.syntax2 as s_syntax2
 
 import synapse.tests.utils as s_t_utils
-import lark
+import lark  # type: ignore
+
+# flake8: noqa: E501
 
 _Queries = [
     '',
@@ -53,7 +55,7 @@ _Queries = [
     '[ inet:ipv4=$foo ]',
     '[ test:int=$hehe.haha ]',
     '[ inet:ipv4=1.2.3.0/30 inet:ipv4=5.5.5.5 ]',
-    '[ inet:ipv4=1.2.3.4 :asn=200 ]',
+    '[ inet:ipv4=1.2.3.4 :asn=2 ]',
     '[ inet:ipv4=1.2.3.4 :loc=us inet:dns:a=(vertex.link,1.2.3.4) ]',
     '[ inet:ipv4=1.2.3.4 ]',
     '[ inet:ipv4=192.168.1.0/24]',
@@ -176,12 +178,14 @@ _Queries = [
     'inet:ipv4:loc=us',
     'inet:ipv4:loc=zz',
     'inet:ipv4=1.2.3.1-1.2.3.3',
+    'inet:ipv4=192.168.1.0/24',
+    'inet:ipv4=1.2.3.4 +:asn',
+    'inet:ipv4=1.2.3.4 +{ -> inet:dns:a } < 2 ',
     'inet:ipv4=1.2.3.4 +( { -> inet:dns:a }<=1 )',
-    'inet:ipv4=1.2.3.4 +( { -> inet:dns:a }>=3 )',
+    'inet:ipv4=1.2.3.4 +( { -> inet:dns:a } !=2 )',
     'inet:ipv4=1.2.3.4|limit 20',
     'inet:ipv4=12.34.56.78 [ :loc = us.oh.wilmington ]',
     'inet:ipv4=12.34.56.78 inet:fqdn=woot.com [ inet:ipv4=1.2.3.4 :asn=10101 inet:fqdn=woowoo.com +#my.tag ]',
-    'inet:ipv4=192.168.1.0/24',
     'inet:user | limit --woot',
     'inet:user | limit 1',
     'inet:user | limit 10 | +inet:user=visi',
@@ -191,7 +195,6 @@ _Queries = [
     'meta:seen:meta:source=$sorc :node -> *',
     'meta:source=8f1401de15918358d5247e21ca29a814',
     'movetag #a.b #a.m',
-    'movetag #aaa.b #aaa.barbarella',
     'movetag #hehe #woot',
     'ps:person=$pers -> edge:has -> *',
     'ps:person=$pers -> edge:has -> geo:place',
@@ -439,7 +442,7 @@ _Queries = [
 ]
 
 # Generated with print_parse_list below
-_ParseResults = [
+_ParseResults = [ # typing: noqa
     'Query: []',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: abcd], EditPropSet: [RelProp: tick, Const: 2015], EditTagAdd: [TagName: cool]]',
     'Query: [SubQuery: [Query: [LiftTag: [TagName: baz]]], LiftPropBy: [Const: test:str, Const: =, Const: foo]]',
@@ -489,7 +492,7 @@ _ParseResults = [
     'Query: [EditNodeAdd: [AbsProp: inet:ipv4, VarValue: [Const: foo]]]',
     'Query: [EditNodeAdd: [AbsProp: test:int, VarDeref: [VarValue: [Const: hehe], Const: haha]]]',
     'Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: 1.2.3.0/30], EditNodeAdd: [AbsProp: inet:ipv4, Const: 5.5.5.5]]',
-    'Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: 1.2.3.4], EditPropSet: [RelProp: asn, Const: 200]]',
+    'Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: 1.2.3.4], EditPropSet: [RelProp: asn, Const: 2]]',
     'Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: 1.2.3.4], EditPropSet: [RelProp: loc, Const: us], EditNodeAdd: [AbsProp: inet:dns:a, List: [Const: vertex.link, Const: 1.2.3.4]]]',
     'Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: 1.2.3.4]]',
     'Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: 192.168.1.0/24]]',
@@ -612,12 +615,14 @@ _ParseResults = [
     'Query: [LiftPropBy: [Const: inet:ipv4:loc, Const: =, Const: us]]',
     'Query: [LiftPropBy: [Const: inet:ipv4:loc, Const: =, Const: zz]]',
     'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.1-1.2.3.3]]',
+    'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 192.168.1.0/24]]',
+    'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.4], FiltOper: [Const: +, HasRelPropCond: [RelProp: asn]]]',
+    'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.4], FiltOper: [Const: +, SubqCond: [Query: [FormPivot: [AbsProp: inet:dns:a], isjoin=False], Const: <, Const: 2]]]',
     'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.4], FiltOper: [Const: +, SubqCond: [Query: [FormPivot: [AbsProp: inet:dns:a], isjoin=False], Const: <=, Const: 1]]]',
-    'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.4], FiltOper: [Const: +, SubqCond: [Query: [FormPivot: [AbsProp: inet:dns:a], isjoin=False], Const: >=, Const: 3]]]',
+    'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.4], FiltOper: [Const: +, SubqCond: [Query: [FormPivot: [AbsProp: inet:dns:a], isjoin=False], Const: !=, Const: 2]]]',
     "Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.4], CmdOper: [Const: limit, Const: ('20',)]]",
     'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 12.34.56.78], EditPropSet: [RelProp: loc, Const: us.oh.wilmington]]',
     'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 12.34.56.78], LiftPropBy: [Const: inet:fqdn, Const: =, Const: woot.com], EditNodeAdd: [AbsProp: inet:ipv4, Const: 1.2.3.4], EditPropSet: [RelProp: asn, Const: 10101], EditNodeAdd: [AbsProp: inet:fqdn, Const: woowoo.com], EditTagAdd: [TagName: my.tag]]',
-    'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 192.168.1.0/24]]',
     "Query: [LiftProp: [Const: inet:user], CmdOper: [Const: limit, Const: ('--woot',)]]",
     "Query: [LiftProp: [Const: inet:user], CmdOper: [Const: limit, Const: ('1',)]]",
     "Query: [LiftProp: [Const: inet:user], CmdOper: [Const: limit, Const: ('10',)], FiltOper: [Const: +, AbsPropCond: [AbsProp: inet:user, Const: =, Const: visi]]]",
@@ -627,7 +632,6 @@ _ParseResults = [
     'Query: [LiftPropBy: [Const: meta:seen:meta:source, Const: =, VarValue: [Const: sorc]], PropPivotOut: [RelProp: node], isjoin=False]',
     'Query: [LiftPropBy: [Const: meta:source, Const: =, Const: 8f1401de15918358d5247e21ca29a814]]',
     "Query: [CmdOper: [Const: movetag, Const: ('#a.b', '#a.m')]]",
-    "Query: [CmdOper: [Const: movetag, Const: ('#aaa.b', '#aaa.barbarella')]]",
     "Query: [CmdOper: [Const: movetag, Const: ('#hehe', '#woot')]]",
     'Query: [LiftPropBy: [Const: ps:person, Const: =, VarValue: [Const: pers]], FormPivot: [AbsProp: edge:has], isjoin=False, PivotOut: [], isjoin=False]',
     'Query: [LiftPropBy: [Const: ps:person, Const: =, VarValue: [Const: pers]], FormPivot: [AbsProp: edge:has], isjoin=False, FormPivot: [AbsProp: geo:place], isjoin=False]',
@@ -834,6 +838,8 @@ class GrammarTest(s_t_utils.SynTest):
         # import IPython; IPython.embed()
         for i, query in enumerate(_Queries):
             # print(f'{i:3}: {{{query}}}: ', end='')
+            # if i < 172:
+            #     continue
             parser = s_syntax2.Parser(query)
             tree = parser.query()
 

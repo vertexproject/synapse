@@ -374,7 +374,7 @@ class CortexTest(s_t_utils.SynTest):
 
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str +test:str@=2018'))
-            await self.agenraises(s_exc.BadSyntax, core.eval('test:str +#test*near=newp'))
+            await self.agenraises(s_exc.BadTypeValu, core.eval('test:str +#test*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str +test:str:tick*near=newp'))
             await self.agenraises(s_exc.BadSyntax, core.eval(' | | '))
             await self.agenraises(s_exc.BadSyntax, core.eval('[-test:str]'))
@@ -1300,9 +1300,6 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_stormcmd(self):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
-
-            msgs = await alist(core.storm('|help'))
-            self.printed(msgs, 'help: List available commands and a brief description for each.')
 
             msgs = await alist(core.storm('help'))
             self.printed(msgs, 'help: List available commands and a brief description for each.')
