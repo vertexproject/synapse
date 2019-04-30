@@ -22,7 +22,7 @@ The Synapse release process creates several docker containers for use in product
     A Synapse Cortex server image which uses the volume /vertex/storage for storage.
 
 *vertexproject/synapse*
-    The Synapse base image with installed dependencies.  This image is mostly useful as a base image for custom entrypoints.
+    The Synapse base image with installed dependencies.  This image is mostly useful as a base image for custom entry points.
 
 Each Synapse release will build and upload tagged images to Docker Hub.  It is strongly recommended that docker based deployments specify specific version tags.
 
@@ -39,6 +39,8 @@ From Github
 -----------
 
 For development and tracking pre-release Synapse versions, use the Github repo (https://github.com/vertexproject/synapse) to checkout the Synapse source code.  Using a git checkout of the master branch in production deployments is strongly discouraged.
+
+.. _quick_start_cortex:
 
 Starting a Cortex
 =================
@@ -151,8 +153,17 @@ From here, the remote user is free to use the "storm" command to execute queries
 Cortex Backups
 ==============
 
-It is strongly recommended that you regularly backup production Cortex instances.  The Synapse backup tool (synapse.tools.backup) may be used to create a snapshot of a running Cortex without the need to bring the service down or interrupt availability.  It is important to avoid standard file copy operations on running LMDB files due to potentially causing sparse file expansion or producing a corrupt copy.  LMDB makes use of sparse files which allocate file block storage only when the blocks are written to.  This means a file copy tool which is not sparse-file aware can inadvertantly cause massive file expansion during copy.  Once a backup is created ( and has not been loaded by a Cortex ) it is safe to zip/copy the backup files normally.::
+It is strongly recommended that you regularly backup production Cortex instances.  The Synapse backup tool (synapse.tools.backup) may be used to create a snapshot of a running Cortex without the need to bring the service down or interrupt availability.  It is important to avoid standard file copy operations on running LMDB files due to potentially causing sparse file expansion or producing a corrupt copy.  LMDB makes use of sparse files which allocate file block storage only when the blocks are written to.  This means a file copy tool which is not sparse-file aware can inadvertently cause massive file expansion during copy.  Once a backup is created ( and has not been loaded by a Cortex ) it is safe to zip/copy the backup files normally.::
 
     python -m synapse.tools.backup /path/to/cortex /path/to/backup
+
+The newly created directory ``/path/to/backup`` is a full backup of the **Cortex** in ``/path/to/cortex``.  To restore from backup, replace the ``/path/to/cortex`` folder with the
+``/path/to/backup`` folder and start the server as normal.::
+
+    mv /path/to/cortex /path/to/cortex_old
+    mv /path/to/backup /path/to/cortex
+    python -m synapse.servers.cortex /path/to/cortex
+
+See :ref:`quick_start_cortex` for details on running a **Cortex** server.
 
 .. _Index:              ../index.html
