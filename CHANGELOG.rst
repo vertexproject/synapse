@@ -24,6 +24,7 @@ Improved Documentation
 
 - Convert developer guide from static RST to Jupyter Notebook.  (`#1209 <https://github.com/vertexproject/synapse/pull/1209>`_)
 - Convert HTTP API guide from static RST to Jupyter Notebook.  (`#1211 <https://github.com/vertexproject/synapse/pull/1211>`_)
+- Add a note about backing up and restoring a cortex to the quickstart guide.  (`#1214 <https://github.com/vertexproject/synapse/pull/1214>`_)
 
 
 v0.1.3 - 2019-04-17
