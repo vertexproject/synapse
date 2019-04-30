@@ -25,7 +25,10 @@ ABSPROP: PROPNAME
 ABSPROPNOUNIV: PROPS
 
 _oper: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | vareval
-     | filtoper | liftbytag | operrelprop | forloop | switchcase | "break" | "continue" | _liftprop
+     | filtoper | liftbytag | operrelprop | forloop | switchcase | BREAK | CONTINUE | _liftprop
+
+BREAK: "break"
+CONTINUE: "continue"
 
 vareval: varvalu
 
@@ -69,8 +72,8 @@ tagname: "#" _WS? (_varname | TAG)
 _varname: "$" _WS? VARTOKN
 VARTOKN: VARCHARS
 VARCHARS: (LETTER | DIGIT | "_")+
-stormcmd: CMDNAME (_WS cmdargv)*
-cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
+stormcmd: CMDNAME (_WS _cmdargv)*
+_cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
 
 // Note: deviates from syntax.py in that moved regexp up from ast into syntax
 TAG: /([\w]+\.)*[\w]+/

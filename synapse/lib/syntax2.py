@@ -51,15 +51,25 @@ terminalClassMap = {
     'UNIVPROP': s_ast.UnivProp,
     'TAGMATCH': lambda x: s_ast.TagMatch(x[1:]),  # no leading #
     'NOT_': s_ast.Const,
+    'BREAK': lambda x: s_ast.BreakOper(),
+    'CONTINUE': lambda x: s_ast.ContinueOper(),
 }
 
 class TmpVarCall:
-    def __init__(self, kids):
+    def __init__(self, kids, meta):
         self.kids = kids
+
     def repr(self):
         return f'{self.__class__.__name__}: {self.kids}'
 
+@lark.v_args(meta=True)
 class AstConverter(lark.Transformer):
+
+    def __init__(self, text):
+        lark.Transformer.__init__(self)
+
+        # Keep the text for error printing, weird subquery argv parsing
+        self.text = text
 
     def _convert_children(self, children):
         return [self._convert_child(k) for k in children]
@@ -80,17 +90,16 @@ class AstConverter(lark.Transformer):
         newkids = self._convert_children(children)
         return cls(newkids)
 
-    def subquery(self, kids):
-        breakpoint()
+    def subquery(self, kids, meta):
         assert len(kids) == 1
         kids = self._convert_children(kids)
-        return s_ast.SubQuery(kids)
+        ast = s_ast.SubQuery(kids)
 
-    def cmdargv(self, kids):
-        kids = self._convert_children(kids)
-        return kids[0].value()
+        # Keep the text of the subquery in case used by command
+        ast.text = self.text[meta.start_pos:meta.end_pos]
+        return ast
 
-    def cond(self, kids):
+    def cond(self, kids, meta):
         kids = self._convert_children(kids)
         first, cmprvalu = kids[0], kids[1:]
 
@@ -127,7 +136,7 @@ class AstConverter(lark.Transformer):
         breakpoint()
 
 
-    def condexpr(self, kids):
+    def condexpr(self, kids, meta):
         if len(kids) == 1:
             return kids[0]
         assert len(kids) == 3
@@ -140,14 +149,14 @@ class AstConverter(lark.Transformer):
             return s_ast.OrCond(kids=[operand1, operand2])
         breakpoint()
 
-    # def formpivot(self, kids):
+    # def formpivot(self, kids, meta):
     #     kids = self._convert_children(kids)
     #     if len(kids) == 0:
     #         return s_ast.PivotOut()
     #     # more to add
     #     breakpoint()
 
-    def varvalu(self, kids):
+    def varvalu(self, kids, meta):
         # FIXME really should be restructured; emulating old code for now
 
         varv = s_ast.VarValue(kids=self._convert_children([kids[0]]))
@@ -168,55 +177,56 @@ class AstConverter(lark.Transformer):
 
         return varv
 
-    def varcall(self, kids):
+    def varcall(self, kids, meta):
         # defer the conversion until the parent varvalu
-        return TmpVarCall(kids)
+        return TmpVarCall(kids, meta)
 
-    def varlist(self, kids):
+    def varlist(self, kids, meta):
         kids = self._convert_children(kids)
         return s_ast.VarList([k.valu for k in kids])
 
-    def operrelprop_pivot(self, kids):
+    def operrelprop_pivot(self, kids, meta, isjoin=False):
         kids = self._convert_children(kids)
         relprop, rest = kids[0], kids[1:]
         if not rest:
-            return s_ast.PropPivotOut(kids=kids)
+            return s_ast.PropPivotOut(kids=kids, isjoin=isjoin)
         pval = s_ast.RelPropValue(kids=(relprop,))
-        return s_ast.PropPivot(kids=(pval, *kids[1:]))
+        return s_ast.PropPivot(kids=(pval, *kids[1:]), isjoin=isjoin)
 
-    def operrelprop_join(self, kids):
-        # FIXME; refactor with above
+    def operrelprop_join(self, kids, meta):
+        return self.operrelprop_pivot(kids, meta, isjoin=True)
+
+    def stormcmd(self, kids, meta):
         kids = self._convert_children(kids)
-        relprop, rest = kids[0], kids[1:]
-        if not rest:
-            return s_ast.PropPivotOut(kids=kids, isjoin=True)
-        pval = s_ast.RelPropValue(kids=(relprop,))
-        return s_ast.PropPivot(kids=(pval, *kids[1:]), isjoin=True)
 
-    def stormcmd(self, kids):
-        kids = self._convert_children(kids)
-        assert kids
-        argv = s_ast.Const(tuple(kids[1:]))
-        return s_ast.CmdOper(kids=(kids[0], argv))
+        argv = []
 
-    def tagname(self, kids):
+        for kid in kids[1:]:
+            if isinstance(kid, s_ast.Const):
+                newkid = kid.valu
+            elif isinstance(kid, s_ast.SubQuery):
+                newkid = kid.text
+            argv.append(newkid)
+
+        return s_ast.CmdOper(kids=(kids[0], s_ast.Const(tuple(argv))))
+
+    def tagname(self, kids, meta):
         assert kids and len(kids) == 1
         kid = kids[0]
         if kid.type == 'TAG':
             return s_ast.TagName(kid.value)
         assert kid.type == 'VARTOKN'
-        return self.varvalu(kids)
+        return self.varvalu(kids, meta)
 
-    def valulist(self, kids):
+    def valulist(self, kids, meta):
         kids = self._convert_children(kids)
-        assert kids
         return s_ast.List(None, kids=kids)
 
-    def univpropvalu(self, kids):
+    def univpropvalu(self, kids, meta):
         kids = self._convert_children(kids)
         return s_ast.UnivPropValue(kids=kids)
 
-    def switchcase(self, kids):
+    def switchcase(self, kids, meta):
         newkids = []
 
         it = iter(kids)
@@ -237,7 +247,7 @@ class AstConverter(lark.Transformer):
 
         return s_ast.SwitchCase(newkids)
 
-    def casevalu(self, kids):
+    def casevalu(self, kids, meta):
         assert len(kids) == 1
         kid = kids[0]
 
@@ -247,18 +257,17 @@ class AstConverter(lark.Transformer):
         return s_ast.Const(kid.value[:-1])  # drop the trailing ':'
 
 class Parser:
+
+    with open('synapse/lib/storm.g') as grammar:
+        parser = lark.Lark(grammar, start='query', debug=True, propagate_positions=True)
+
     def __init__(self, text, offs=0):
         self.offs = offs
         assert text is not None
         self.text = text.strip()
         self.size = len(self.text)
 
-        grammar = open('synapse/lib/storm.g').read()
-
-        # FIXME:  memoize this
-        self.parser = lark.Lark(grammar, start='query', debug=True)
-
     def query(self):
         tree = self.parser.parse(self.text)
-        newtree = AstConverter().transform(tree)
+        newtree = AstConverter(self.text).transform(tree)
         return newtree

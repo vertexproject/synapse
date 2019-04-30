@@ -833,12 +833,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.maxDiff = None
         # import IPython; IPython.embed()
         for i, query in enumerate(_Queries):
-            if i < 140:
-                continue
-            print(f'{i:3}: {{{query}}}: ', end='')
-            # if i > 400:
-            #     # FIXME:  increase as we get more
-            #     break
+            # print(f'{i:3}: {{{query}}}: ', end='')
             parser = s_syntax2.Parser(query)
             tree = parser.query()
 
