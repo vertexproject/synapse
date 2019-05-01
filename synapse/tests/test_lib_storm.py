@@ -301,12 +301,15 @@ class StormTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 # Ensure each node we make has its own discrete created time.
                 await asyncio.sleep(0.01)
-                node = await snap.addNode('test:guid', '*', {'tick': '2015'})
+                node = await snap.addNode('test:guid', '*', {'tick': '2015',
+                                                             '.seen': '2015'})
                 minc = node.get('.created')
                 await asyncio.sleep(0.01)
-                node = await snap.addNode('test:guid', '*', {'tick': '2016'})
+                node = await snap.addNode('test:guid', '*', {'tick': '2016',
+                                                             '.seen': '2016'})
                 await asyncio.sleep(0.01)
-                node = await snap.addNode('test:guid', '*', {'tick': '2017'})
+                node = await snap.addNode('test:guid', '*', {'tick': '2017',
+                                                             '.seen': '2017'})
                 await asyncio.sleep(0.01)
                 node = await snap.addNode('test:str', '1', {'tick': '2016'})
 
@@ -359,15 +362,83 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), midval)
 
+            # Variables evaluated
+            nodes = await core.eval('test:guid ($tick, $tock) = .seen | min $tick').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), minval)
+
+            nodes = await core.eval('test:guid ($tick, $tock) = .seen | max $tock').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), maxval)
+
+            text = '''[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 ]
+                      { +inet:ipv4=1.2.3.4 [ :asn=10 ] }
+                      { +inet:ipv4=5.6.7.8 [ :asn=20 ] }
+                      $asn = :asn | min $asn'''
+
+            nodes = await core.nodes(text)
+            self.len(1, nodes)
+            self.eq(0x01020304, nodes[0].ndef[1])
+
+            text = '''[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 ]
+                      { +inet:ipv4=1.2.3.4 [ :asn=10 ] }
+                      { +inet:ipv4=5.6.7.8 [ :asn=20 ] }
+                      $asn = :asn | max $asn'''
+
+            nodes = await core.nodes(text)
+            self.len(1, nodes)
+            self.eq(0x05060708, nodes[0].ndef[1])
+
             # Sad paths where there are no nodes which match the specified values.
             await self.agenlen(0, core.eval('test:guid | max :newp'))
             await self.agenlen(0, core.eval('test:guid | min :newp'))
+
             # Sad path for a form, not a property; and does not exist at all
-            await self.agenraises(s_exc.BadSyntax,
-                                  core.eval('test:guid | max test:guid'))
-            await self.agenraises(s_exc.BadSyntax,
-                                  core.eval('test:guid | min test:guid'))
             await self.agenraises(s_exc.BadSyntax,
                                   core.eval('test:guid | max test:newp'))
             await self.agenraises(s_exc.BadSyntax,
                                   core.eval('test:guid | min test:newp'))
+
+    async def test_getstormeval(self):
+
+        # Use testechocmd to exercise all of Cmd.getStormEval
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'fancystr',
+                                          {'tick': 1234,
+                                           'hehe': 'haha',
+                                           '.seen': '3001'})
+
+            q = 'test:str $foo=:tick | testechocmd $foo'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[1234]', mesgs)
+
+            q = 'test:str| testechocmd :tick'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[1234]', mesgs)
+
+            q = 'test:str| testechocmd .seen'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[(32535216000000, 32535216000001)]', mesgs)
+
+            q = 'test:str| testechocmd test:str'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[fancystr]', mesgs)
+
+            q = 'test:str| testechocmd test:str:hehe'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[haha]', mesgs)
+
+            q = 'test:str| testechocmd test:int'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[None]', mesgs)
+
+            q = 'test:str| testechocmd test:int:loc'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[None]', mesgs)
+
+            q = 'test:str| testechocmd test:newp'
+            mesgs = await core.streamstorm(q).list()
+            errs = [m for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            self.eq(errs[0][1][0], 'BadSyntax')

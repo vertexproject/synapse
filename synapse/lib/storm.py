@@ -248,6 +248,47 @@ class Cmd:
         for item in genr:
             yield item
 
+    def getStormEval(self, runt, name):
+        '''
+        Construct an evaluator function that takes a path and returns a value.
+        This allows relative / absolute props and variables.
+        '''
+        if name.startswith('$'):
+            varn = name[1:]
+            def func(path):
+                return path.getVar(varn, defv=None)
+            return func
+
+        if name.startswith(':'):
+            prop = name[1:]
+            def func(path):
+                return path.node.get(prop)
+            return func
+
+        if name.startswith('.'):
+            def func(path):
+                return path.node.get(name)
+            return func
+
+        form = runt.snap.core.model.form(name)
+        if form is not None:
+            def func(path):
+                if path.node.form != form:
+                    return None
+                return path.node.ndef[1]
+            return func
+
+        prop = runt.snap.core.model.prop(name)
+        if prop is not None:
+            def func(path):
+                if path.node.form != prop.form:
+                    return None
+                return path.node.get(prop.name)
+            return func
+
+        mesg = 'Unknown prop/variable syntax'
+        raise s_exc.BadSyntax(mesg=mesg, valu=name)
+
 class HelpCmd(Cmd):
     '''
     List available commands and a brief description for each.
@@ -331,7 +372,7 @@ class UniqCmd(Cmd):
 
 class MaxCmd(Cmd):
     '''
-    Consume nodes and yield only the one node with the highest value for a property.
+    Consume nodes and yield only the one node with the highest value for a property or variable.
 
     Examples:
 
@@ -339,13 +380,15 @@ class MaxCmd(Cmd):
 
         file:bytes +#foo.bar | max file:bytes:size
 
+        file:bytes +#foo.bar +.seen ($tick, $tock) = .seen | max $tick
+
     '''
 
     name = 'max'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('propname')
+        pars.add_argument('name')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -353,29 +396,11 @@ class MaxCmd(Cmd):
         maxvalu = None
         maxitem = None
 
-        pname = self.opts.propname
-        prop = None
-        if not pname.startswith((':', '.')):
-            # Are we a full prop name?
-            prop = runt.snap.core.model.prop(pname)
-            if prop is None or prop.isform:
-                mesg = f'{self.name} argument requires a relative secondary ' \
-                    f'property name or a full path to the secondary property.'
-                raise s_exc.BadSyntax(mesg=mesg, valu=pname)
-
-        if prop:
-            name = prop.name
-            form = prop.form
-        else:
-            form = None
-            name = pname.strip(':')
+        func = self.getStormEval(runt, self.opts.name)
 
         async for node, path in genr:
 
-            if form and node.form is not form:
-                continue
-
-            valu = node.get(name)
+            valu = func(path)
             if valu is None:
                 continue
 
@@ -396,12 +421,13 @@ class MinCmd(Cmd):
 
         file:bytes +#foo.bar | min file:bytes:size
 
+        file:bytes +#foo.bar +.seen ($tick, $tock) = .seen | min $tick
     '''
     name = 'min'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('propname')
+        pars.add_argument('name')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -409,29 +435,11 @@ class MinCmd(Cmd):
         minvalu = None
         minitem = None
 
-        pname = self.opts.propname
-        prop = None
-        if not pname.startswith((':', '.')):
-            # Are we a full prop name?
-            prop = runt.snap.core.model.prop(pname)
-            if prop is None or prop.isform:
-                mesg = f'{self.name} argument requires a relative secondary ' \
-                    f'property name or a full path to the secondary property.'
-                raise s_exc.BadSyntax(mesg=mesg, valu=pname)
-
-        if prop:
-            name = prop.name
-            form = prop.form
-        else:
-            form = None
-            name = pname.strip(':')
+        func = self.getStormEval(runt, self.opts.name)
 
         async for node, path in genr:
 
-            if form and node.form is not form:
-                continue
-
-            valu = node.get(name)
+            valu = func(path)
             if valu is None:
                 continue
 

@@ -65,17 +65,40 @@ class LibBase(Lib):
             'min': self._min,
             'max': self._max,
             'dict': self._dict,
+            'guid': self._guid,
             'print': self._print,
         })
+
+    async def _guid(self, *args):
+        if args:
+            return s_common.guid(args)
+        return s_common.guid()
 
     async def _len(self, item):
         return len(item)
 
-    async def _min(self, *vals):
+    async def _min(self, *args):
+        # allow passing in a list of ints
+        vals = []
+        for arg in args:
+            if isinstance(arg, (list, tuple)):
+                vals.extend(arg)
+                continue
+            vals.append(arg)
+
         ints = [intify(x) for x in vals]
         return min(*ints)
 
-    async def _max(self, *vals):
+    async def _max(self, *args):
+
+        # allow passing in a list of ints
+        vals = []
+        for arg in args:
+            if isinstance(arg, (list, tuple)):
+                vals.extend(arg)
+                continue
+            vals.append(arg)
+
         ints = [intify(x) for x in vals]
         return max(*ints)
 

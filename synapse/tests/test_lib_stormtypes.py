@@ -1,3 +1,4 @@
+import synapse.common as s_common
 import synapse.tests.utils as s_test
 
 class StormTypesTest(s_test.SynTest):
@@ -39,13 +40,33 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(20, nodes[0].ndef[1])
 
+            nodes = await core.nodes('[ inet:asn=$lib.min(20, (10, 30)) ]')
+            self.len(1, nodes)
+            self.eq(10, nodes[0].ndef[1])
+
             nodes = await core.nodes('[ inet:asn=$lib.max(20, 0x30) ]')
             self.len(1, nodes)
             self.eq(0x30, nodes[0].ndef[1])
 
+            nodes = await core.nodes('[ inet:asn=$lib.max(20, (10, 30)) ]')
+            self.len(1, nodes)
+            self.eq(30, nodes[0].ndef[1])
+
             nodes = await core.nodes('[ inet:asn=$lib.len(asdf) ]')
             self.len(1, nodes)
             self.eq(4, nodes[0].ndef[1])
+
+            nodes = await core.nodes('[ test:str=$lib.guid() test:str=$lib.guid() ]')
+            self.len(2, nodes)
+            self.true(s_common.isguid(nodes[0].ndef[1]))
+            self.true(s_common.isguid(nodes[1].ndef[1]))
+            self.ne(nodes[0].ndef[1], nodes[1].ndef[1])
+
+            nodes = await core.nodes('[ test:str=$lib.guid(hehe,haha) test:str=$lib.guid(hehe,haha) ]')
+            self.len(2, nodes)
+            self.true(s_common.isguid(nodes[0].ndef[1]))
+            self.true(s_common.isguid(nodes[1].ndef[1]))
+            self.eq(nodes[0].ndef[1], nodes[1].ndef[1])
 
             async with core.getLocalProxy() as prox:
                 mesgs = [m async for m in prox.storm('$lib.print("hi there")')]
