@@ -1,3 +1,5 @@
+import unittest
+
 import synapse.lib.syntax2 as s_syntax2
 
 import synapse.tests.utils as s_t_utils
@@ -845,6 +847,7 @@ _ParseResults = [
 
 class GrammarTest(s_t_utils.SynTest):
 
+    @unittest.skip('Strict subset of test_parser.  Only useful for debugging grammar')
     def test_grammar(self):
         grammar = open('synapse/lib/storm.g').read()
 
@@ -862,11 +865,7 @@ class GrammarTest(s_t_utils.SynTest):
 
     async def test_parser(self):
         self.maxDiff = None
-        # import IPython; IPython.embed()
         for i, query in enumerate(_Queries):
-            # print(f'{i:3}: {{{query}}}: ', end='')
-            # if i < 172:
-            #     continue
             parser = s_syntax2.Parser(query)
             tree = parser.query()
 

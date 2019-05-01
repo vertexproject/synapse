@@ -3,6 +3,8 @@ import synapse.exc as s_exc
 
 import synapse.lib.ast as s_ast
 
+# TL;DR:  rules are the nodes of an abstract syntax tree (AST), terminals are the leaves
+
 # For AstConverter, one-to-one replacements from lark to synapse AST
 ruleClassMap = {
     'query': s_ast.Query,
@@ -53,15 +55,17 @@ terminalClassMap = {
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # no quotes
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # no quotes
     'UNIVPROP': s_ast.UnivProp,
-    'TAGMATCH': lambda x: s_ast.TagMatch(x[1:]),  # no leading #
+    'TAGMATCH': lambda x: s_ast.TagMatch(x[1:]),  # no leading '#'
     'NOT_': s_ast.Const,
     'BREAK': lambda x: s_ast.BreakOper(),
     'CONTINUE': lambda x: s_ast.ContinueOper(),
     'VARCHARS': s_ast.Const
 }
 
-# A temporary holder to collect varcall context
 class TmpVarCall:
+    '''
+    A temporary holder to collect varcall context
+    '''
     def __init__(self, kids, meta):
         self.kids = kids
 
@@ -70,11 +74,16 @@ class TmpVarCall:
 
 @lark.v_args(meta=True)
 class AstConverter(lark.Transformer):
+    '''
+    Convert AST from parser into synapse AST, depth first.
 
+    If a method with a name that matches the current rule exists, that will be called, otherwise __default__ will be
+    used
+    '''
     def __init__(self, text):
         lark.Transformer.__init__(self)
 
-        # Keep the text for error printing, weird subquery argv parsing
+        # Keep the text for error printing and weird subquery argv parsing
         self.text = text
 
     def _convert_children(self, children):
@@ -83,15 +92,13 @@ class AstConverter(lark.Transformer):
     def _convert_child(self, child):
         if not isinstance(child, lark.lexer.Token):
             return child
-        if child.type not in terminalClassMap:
-            breakpoint()
+        assert child.type in terminalClassMap, 'Unknown grammar terminal'
         tokencls = terminalClassMap[child.type]
         newkid = tokencls(child.value)
         return newkid
 
     def __default__(self, treedata, children, treemeta):
-        if treedata not in ruleClassMap:
-            breakpoint()
+        assert treedata in ruleClassMap, 'Unknown grammar rule'
         cls = ruleClassMap[treedata]
         newkids = self._convert_children(children)
         return cls(newkids)
@@ -142,7 +149,7 @@ class AstConverter(lark.Transformer):
             assert len(kids) == 1
             return first
 
-        breakpoint()
+        assert False, 'Unknown first child of cond'
 
     def condexpr(self, kids, meta):
         if len(kids) == 1:
@@ -155,7 +162,8 @@ class AstConverter(lark.Transformer):
             return s_ast.AndCond(kids=[operand1, operand2])
         if oper == 'or':
             return s_ast.OrCond(kids=[operand1, operand2])
-        breakpoint()
+
+        assert False, 'Unknown condexpr operator'
 
     def varvalu(self, kids, meta):
         # FIXME really should be restructured; emulating old code for now
@@ -163,10 +171,8 @@ class AstConverter(lark.Transformer):
         varv = s_ast.VarValue(kids=self._convert_children([kids[0]]))
         for kid in kids[1:]:
             if isinstance(kid, lark.lexer.Token):
-                if kid.type == 'VARDEREF':
-                    varv = s_ast.VarDeref(kids=[varv, s_ast.Const(kid.value[1:])])
-                else:
-                    breakpoint()
+                assert kid.type == 'VARDEREF'
+                varv = s_ast.VarDeref(kids=[varv, s_ast.Const(kid.value[1:])])
             elif isinstance(kid, TmpVarCall):
                 callkids = self._convert_children(kid.kids)
                 arglist = [k for k in callkids if not isinstance(k, s_ast.CallKwarg)]
@@ -176,12 +182,14 @@ class AstConverter(lark.Transformer):
                 kwargs = s_ast.CallKwargs(kids=kwarglist)
                 varv = s_ast.FuncCall(kids=[varv, args, kwargs])
             else:
-                breakpoint()
+                assert False, 'Unexpected rule'
 
         return varv
 
     def varcall(self, kids, meta):
-        # defer the conversion until the parent varvalu
+        '''
+        Defer the conversion until the parent varvalu
+        '''
         return TmpVarCall(kids, meta)
 
     def varlist(self, kids, meta):
@@ -209,6 +217,8 @@ class AstConverter(lark.Transformer):
                 newkid = kid.valu
             elif isinstance(kid, s_ast.SubQuery):
                 newkid = kid.text
+            else:
+                assert False, 'Unexpected rule'
             argv.append(newkid)
 
         return s_ast.CmdOper(kids=(kids[0], s_ast.Const(tuple(argv))))
