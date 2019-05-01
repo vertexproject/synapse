@@ -60,3 +60,29 @@ class CortexServerTest(s_t_utils.SynTest):
                     await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
                     await evnt.wait()
                     self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
+
+    async def test_server_mirror_badiden(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            argv0 = ['--telepath', 'tcp://127.0.0.1:0/',
+                     '--https', '0',
+                     '--name', 'srccore',
+                     path00,
+                     ]
+            out0 = self.getTestOutp()
+            async with await s_s_cortex.main(argv0, outp=out0) as core00:
+
+                out1 = self.getTestOutp()
+                argv1 = ['--telepath', 'tcp://127.0.0.1:0/',
+                         '--https', '0',
+                         '--mirror', core00.getLocalUrl(),
+                         path01,
+                         ]
+
+                async with await s_s_cortex.main(argv1, outp=out1) as core01:
+                    await core01.waitfini(6)
+                    self.true(core01.isfini)

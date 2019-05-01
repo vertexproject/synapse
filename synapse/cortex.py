@@ -734,7 +734,8 @@ class Cortex(s_cell.Cell):
 
                     # if we really are a backup mirror, we have the same iden.
                     if self.iden != await proxy.getCellIden():
-                        logger.warning('remote cortex has different iden! (aborting mirror).')
+                        logger.error('remote cortex has different iden! (aborting mirror, shutting down cortex.).')
+                        await self.fini()
                         return
 
                     logger.warning(f'mirror loop connected ({url}')
