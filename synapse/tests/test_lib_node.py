@@ -173,7 +173,9 @@ class NodeTest(s_t_utils.SynTest):
     async def test_helpers(self):
         form = 'test:str'
         valu = 'cool'
-        props = {'tick': 12345}
+        props = {'tick': 12345,
+                 'hehe': 'hehe',
+                 }
         tval = (None, None)
 
         async with self.getTestCore() as core:
@@ -181,9 +183,16 @@ class NodeTest(s_t_utils.SynTest):
                 node = await snap.addNode(form, valu, props=props)
                 await node.addTag('test.foo.bar.duck', tval)
                 await node.addTag('test.foo.baz', tval)
+                await node.addTag('test.foo.time', ('2016', '2019'))
                 pode = node.pack(dorepr=True)
 
+                node2 = await snap.addNode('test:int', '1234')
+                pode2 = node2.pack(dorepr=True)
+
         self.eq(s_node.ndef(pode), ('test:str', 'cool'))
+        self.eq(s_node.reprNdef(pode), ('test:str', 'cool'))
+        self.eq(s_node.ndef(pode2), ('test:int', 1234))
+        self.eq(s_node.reprNdef(pode2), ('test:int', '1234'))
 
         e = 'bf1198c5f28dae61d595434b0788dd6f7206b1e62d06b0798e012685f1abc85d'
         self.eq(s_node.iden(pode), e)
@@ -193,13 +202,23 @@ class NodeTest(s_t_utils.SynTest):
         self.true(s_node.tagged(pode, 'test.foo.bar.duck'))
         self.false(s_node.tagged(pode, 'test.foo.bar.newp'))
 
-        self.len(2, s_node.tags(pode, leaf=True))
-        self.len(5, s_node.tags(pode))
+        self.len(3, s_node.tags(pode, leaf=True))
+        self.len(6, s_node.tags(pode))
+        self.eq(s_node.reprTag(pode, '#test.foo.bar'), '')
+        self.eq(s_node.reprTag(pode, '#test.foo.time'), '(2016/01/01 00:00:00.000, 2019/01/01 00:00:00.000)')
+        self.none(s_node.reprTag(pode, 'test.foo.newp'))
 
+        self.eq(s_node.prop(pode, 'hehe'), 'hehe')
         self.eq(s_node.prop(pode, 'tick'), 12345)
         self.eq(s_node.prop(pode, ':tick'), 12345)
         self.eq(s_node.prop(pode, 'test:str:tick'), 12345)
         self.none(s_node.prop(pode, 'newp'))
+
+        self.eq(s_node.reprProp(pode, 'hehe'), 'hehe')
+        self.eq(s_node.reprProp(pode, 'tick'), '1970/01/01 00:00:12.345')
+        self.eq(s_node.reprProp(pode, ':tick'), '1970/01/01 00:00:12.345')
+        self.eq(s_node.reprProp(pode, 'test:str:tick'), '1970/01/01 00:00:12.345')
+        self.none(s_node.reprProp(pode, 'newp'))
 
         props = s_node.props(pode)
         self.isin('.created', props)

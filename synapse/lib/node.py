@@ -704,10 +704,10 @@ def tagged(pode, tag):
 
 def ndef(pode):
     '''
-    Return a node definition (<form>,<valu> tuple from the node.
+    Return a node definition (<form>,<valu>) tuple from the node.
 
     Args:
-        node (tuple): A packed node.
+        pode (tuple): A packed node.
 
     Returns:
         ((str,obj)):    The (<form>,<valu>) tuple for the node
@@ -725,3 +725,86 @@ def iden(pode):
         str: The node iden.
     '''
     return pode[1].get('iden')
+
+def reprNdef(pode):
+    '''
+    Get the ndef of the pode with a human readable value.
+
+    Args:
+        pode (tuple): A packed node.
+
+    Notes:
+        The human readable value is only available if the node came from a
+        storm query execution where the ``repr`` key was passed into the
+        ``opts`` argument with a True value.
+
+    Returns:
+        (str, str): A tuple of form and the human readable value.
+
+    '''
+    ((form, valu), info) = pode
+    formvalu = info.get('repr')
+    if formvalu is None:
+        formvalu = str(valu)
+    return form, formvalu
+
+def reprProp(pode, prop):
+    '''
+    Get the human readable value for a secondary property from the pode.
+
+    Args:
+        pode (tuple): A packed node.
+        prop:
+
+    Notes:
+        The human readable value is only available if the node came from a
+        storm query execution where the ``repr`` key was passed into the
+        ``opts`` argument with a True value.
+
+        The prop argument may be the full property name (foo:bar:baz), relative
+        property name (:baz) , or the unadorned property name (baz).
+
+    Returns:
+        str: The human readable property value.  If the property is not present, returns None.
+    '''
+    form = pode[0][0]
+    if prop.startswith(form):
+        prop = prop[len(form):]
+    if prop[0] == ':':
+        prop = prop[1:]
+    opropvalu = pode[1].get('props').get(prop)
+    if opropvalu is None:
+        return None
+    propvalu = pode[1].get('reprs', {}).get(prop)
+    if propvalu is None:
+        return str(opropvalu)
+    return propvalu
+
+def reprTag(pode, tag):
+    '''
+    Get the human readable value for the tag timestamp from the pode.
+
+    Args:
+        pode (tuple): A packed node.
+        tag (str): The tag to get the value for.
+
+    Notes:
+        The human readable value is only available if the node came from a
+        storm query execution where the ``repr`` key was passed into the
+        ``opts`` argument with a True value.
+
+        If the tag does not have a timestamp, this returns a empty string.
+
+    Returns:
+        str: The human readable value for the tag. If the tag is not present, returns None.
+    '''
+    tag = tag.lstrip('#')
+    valu = pode[1]['tags'].get(tag)
+    if valu is None:
+        return None
+    if valu == (None, None):
+        return ''
+    mint = s_time.repr(valu[0])
+    maxt = s_time.repr(valu[1])
+    valu = f'({mint}, {maxt})'
+    return valu
