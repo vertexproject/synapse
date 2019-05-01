@@ -223,6 +223,7 @@ testmodel = {
             ('bar', ('ndef', {}), {}),
             ('baz', ('nodeprop', {}), {}),
             ('tick', ('test:time', {}), {}),
+            ('hehe', ('str', {}), {}),
         )),
 
         ('test:migr', {}, (
