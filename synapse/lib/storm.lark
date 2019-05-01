@@ -13,7 +13,7 @@ _noncommand: _editopers | _oper
 
 _editopers: "[" _WS? (_editoper _WS?)* "]"
 _editoper: editpropset | editunivset | edittagadd | editpropdel | editunivdel | edittagdel | editnodeadd
-edittagadd: "+" tagname [_WS? "=" _valu]
+edittagadd: "+" tagname [_WS? "=" _WS? _valu]
 editunivdel: "-" UNIVPROP
 edittagdel: "-" tagname
 editpropset: RELPROP _WS? "=" _WS? _valu
