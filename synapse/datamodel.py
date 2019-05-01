@@ -11,7 +11,7 @@ import synapse.exc as s_exc
 
 import synapse.lib.coro as s_coro
 import synapse.lib.types as s_types
-import synapse.lib.syntax as s_syntax
+import synapse.lib.syntax2 as s_syntax
 import synapse.lib.dyndeps as s_dyndeps
 
 logger = logging.getLogger(__name__)

@@ -872,8 +872,28 @@ class GrammarTest(s_t_utils.SynTest):
             parser = s_syntax2.Parser(query)
             tree = parser.query()
 
-            print(str(tree))
+            # print(str(tree))
             self.eq(str(tree), _ParseResults[i])
+
+    def test_stormcmdargs(self):
+        q = '''add {inet:fqdn | graph 2 --filter { -#nope } } inet:f-M +1 { [ graph:node='*' :type=m1]}'''
+        correct = (
+            'add',
+            '{inet:fqdn | graph 2 --filter { -#nope } }',
+            'inet:f-M',
+            '+1',
+            "{ [ graph:node='*' :type=m1]}"
+            )
+        parser = s_syntax2.Parser(q)
+        args = parser.stormcmdargs()
+        self.eq(args, correct)
+
+
+    def test_parse_float(self):
+        self.eq((4.2, 3), s_syntax2.parse_float('4.2', 0))
+        self.eq((-4.2, 4), s_syntax2.parse_float('-4.2', 0))
+        self.eq((-4.2, 8), s_syntax2.parse_float('    -4.2', 0))
+        self.eq((-4.2, 8), s_syntax2.parse_float('    -4.2', 2))
 
 def gen_parse_list():
     import synapse.lib.syntax as s_syntax

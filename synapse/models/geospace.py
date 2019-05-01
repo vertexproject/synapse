@@ -3,7 +3,7 @@ import synapse.exc as s_exc
 import synapse.lib.gis as s_gis
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
-import synapse.lib.syntax as s_syntax
+import synapse.lib.syntax2 as s_syntax
 
 units = {
     'mm': 1,

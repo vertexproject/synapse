@@ -1,4 +1,6 @@
-import lark
+import lark  # type: ignore
+import regex  # type: ignore
+
 import synapse.exc as s_exc
 
 import synapse.lib.ast as s_ast
@@ -41,7 +43,8 @@ ruleClassMap = {
     'relpropvalu': s_ast.RelPropValue,
     'forloop': s_ast.ForLoop,
     'condsubq': s_ast.SubqCond,
-    'kwarg': lambda kids: s_ast.CallKwarg(kids=tuple(kids))
+    'kwarg': lambda kids: s_ast.CallKwarg(kids=tuple(kids)),
+    'stormcmd': lambda kids: s_ast.CmdOper(kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(tuple())))
 }
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
@@ -211,12 +214,28 @@ class AstConverter(lark.Transformer):
     def operrelprop_join(self, kids, meta):
         return self.operrelprop_pivot(kids, meta, isjoin=True)
 
-    def stormcmd(self, kids, meta):
-        kids = self._convert_children(kids)
+    # def stormcmd(self, kids, meta):
+    #     kids = self._convert_children(kids)
+    #     breakpoint()
 
+    #     argv = []
+
+    #     for kid in kids[1:]:
+    #         if isinstance(kid, s_ast.Const):
+    #             newkid = kid.valu
+    #         elif isinstance(kid, s_ast.SubQuery):
+    #             newkid = kid.text
+    #         else:
+    #             assert False, 'Unexpected rule'
+    #         argv.append(newkid)
+
+    #     return s_ast.CmdOper(kids=(kids[0], s_ast.Const(tuple(argv))))
+
+    def stormcmdargs(self, kids, meta):
+        kids = self._convert_children(kids)
         argv = []
 
-        for kid in kids[1:]:
+        for kid in kids:
             if isinstance(kid, s_ast.Const):
                 newkid = kid.valu
             elif isinstance(kid, s_ast.SubQuery):
@@ -225,7 +244,7 @@ class AstConverter(lark.Transformer):
                 assert False, 'Unexpected rule'
             argv.append(newkid)
 
-        return s_ast.CmdOper(kids=(kids[0], s_ast.Const(tuple(argv))))
+        return s_ast.Const(tuple(argv))
 
     def tagname(self, kids, meta):
         assert kids and len(kids) == 1
@@ -275,7 +294,8 @@ class AstConverter(lark.Transformer):
 
 
 # A cached lark parser so we don't have to parse the grammar file for every instance
-LarkParser = None
+LarkQueryParser = None
+LarkStormCmdParser = None
 
 class Parser:
     '''
@@ -284,14 +304,18 @@ class Parser:
 
     def __init__(self, text, offs=0):
 
-        global LarkParser
-        if LarkParser is None:
+        global LarkQueryParser
+        global LarkStormCmdParser
+
+        if LarkQueryParser is None:
             with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
                 grammar = larkf.read().decode()
 
-            LarkParser = lark.Lark(grammar, start='query', debug=True, propagate_positions=True)
+            LarkQueryParser = lark.Lark(grammar, start='query', propagate_positions=True)
+            LarkStormCmdParser = lark.Lark(grammar, start='stormcmdargs', propagate_positions=True)
 
-        self.parser = LarkParser
+        self.queryparser = LarkQueryParser
+        self.stormcmdparser = LarkStormCmdParser
 
         self.offs = offs
         assert text is not None
@@ -303,9 +327,89 @@ class Parser:
         Parse the storm query
         '''
         try:
-            tree = self.parser.parse(self.text)
+            tree = self.queryparser.parse(self.text)
         except lark.exceptions.LarkError as e:
             raise s_exc.BadSyntax() from e
         newtree = AstConverter(self.text).transform(tree)
         newtree.text = self.text
         return newtree
+
+    def stormcmdargs(self):
+        '''
+        Parse command args that might have storm queries as arguments
+        '''
+        try:
+            tree = self.stormcmdparser.parse(self.text)
+        except lark.exceptions.LarkError as e:
+            raise s_exc.BadSyntax() from e
+        newtree = AstConverter(self.text).transform(tree)
+        assert isinstance(newtree, s_ast.Const)
+        return newtree.valu
+
+
+# TODO:  commonize with grammar
+scmdre = regex.compile('[a-z][a-z0-9.]+')
+univre = regex.compile(r'\.[a-z][a-z0-9]*([:.][a-z0-9]+)*')
+propre = regex.compile(r'[a-z][a-z0-9]*(:[a-z0-9]+)+([:.][a-z][a-z0-9]+)*')
+formre = regex.compile(r'[a-z][a-z0-9]*(:[a-z0-9]+)+')
+
+def isPropName(name):
+    return propre.fullmatch(name) is not None
+
+def isCmdName(name):
+    return scmdre.fullmatch(name) is not None
+
+def isUnivName(name):
+    return univre.fullmatch(name) is not None
+
+def isFormName(name):
+    return formre.fullmatch(name) is not None
+
+floatre = regex.compile(r'\s*-?\d+(\.\d+)?')
+def parse_float(text, off):
+    match = floatre.match(text[off:])
+    if match is None:
+        raise s_exc.BadSyntax(at=off, mesg='Invalid float')
+
+    s = match.group(0)
+
+    return float(s), len(s) + off
+
+def nom(txt, off, cset, trim=True):
+    '''
+    Consume chars in set from the string and return (subtxt,offset).
+
+    Example:
+
+        text = "foo(bar)"
+        chars = set('abcdefghijklmnopqrstuvwxyz')
+
+        name,off = nom(text,0,chars)
+
+    '''
+    if trim:
+        while len(txt) > off and txt[off] in whites:
+            off += 1
+
+    r = ''
+    while len(txt) > off and txt[off] in cset:
+        r += txt[off]
+        off += 1
+
+    if trim:
+        while len(txt) > off and txt[off] in whites:
+            off += 1
+
+    return r, off
+
+def meh(txt, off, cset):
+    r = ''
+    while len(txt) > off and txt[off] not in cset:
+        r += txt[off]
+        off += 1
+    return r, off
+
+whites = set(' \t\n')
+alphaset = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+
+# TODO:  remove

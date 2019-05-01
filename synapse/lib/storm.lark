@@ -71,7 +71,8 @@ tagname: "#" _WS? (_varname | TAG)
 _varname: "$" _WS? VARTOKN
 VARTOKN: VARCHARS
 VARCHARS: (LETTER | DIGIT | "_")+
-stormcmd: CMDNAME (_WS _cmdargv)*
+stormcmd: CMDNAME [_WS stormcmdargs]
+stormcmdargs: [_WS? _cmdargv (_WS _cmdargv)*]
 _cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
 
 // Note: deviates from syntax.py in that moved regexp up from ast into syntax
@@ -119,8 +120,8 @@ _WSCOMM: (CCOMMENT | CPPCOMMENT | _WS)+
 CCOMMENT: /\/\*+[^*]*\*+([^\/*][^*]*\*+)*\//
 CPPCOMMENT: /\/\/[^\n]*/
 
+// Must be kept consistent with same regexes in syntax2.py
 PROPS: /[a-z][a-z0-9]*(:[a-z0-9]+)+([:.][a-z][a-z0-9]+)*/
 UNIVNAME: /\.[a-z][a-z0-9]*([:.][a-z0-9]+)*/
 PROPNAME: PROPS | UNIVNAME
-
 CMDNAME: /[a-z][a-z0-9.]+/

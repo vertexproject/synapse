@@ -1,4 +1,4 @@
-import synapse.lib.syntax as s_syntax
+import synapse.lib.syntax2 as s_syntax
 
 import synapse.tests.utils as s_t_utils
 
