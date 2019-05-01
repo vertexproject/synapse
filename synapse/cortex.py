@@ -745,7 +745,7 @@ class Cortex(s_cell.Cell):
 
                     offs = await layr.getOffset(layr.iden)
 
-                    if offs is None:
+                    if offs == 0:
                         stat = await layr.stat()
                         offs = stat.get('splicelog_indx', 0)
                         await layr.setOffset(layr.iden, offs)
