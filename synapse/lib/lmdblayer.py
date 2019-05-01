@@ -527,6 +527,15 @@ class LmdbLayer(s_layer.Layer):
         for _, mesg in self.splicelog.slice(offs, size):
             yield mesg
 
+    async def syncSplices(self, offs):
+
+        for item in self.splicelog.iter(offs):
+            yield item
+
+        async with self.getSpliceWindow() as wind:
+            async for item in wind:
+                yield item
+
     async def stat(self):
         return {
             'splicelog_indx': self.splicelog.index(),
