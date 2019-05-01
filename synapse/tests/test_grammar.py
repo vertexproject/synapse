@@ -849,7 +849,8 @@ class GrammarTest(s_t_utils.SynTest):
 
     @unittest.skip('Strict subset of test_parser.  Only useful for debugging grammar')
     def test_grammar(self):
-        grammar = open('synapse/lib/storm.g').read()
+        with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
+            grammar = larkf.read().decode()
 
         parser = lark.Lark(grammar, start='query', debug=True)
 

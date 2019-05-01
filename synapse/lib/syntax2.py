@@ -2,8 +2,12 @@ import lark
 import synapse.exc as s_exc
 
 import synapse.lib.ast as s_ast
+import synapse.lib.datfile as s_datfile
 
-# TL;DR:  rules are the nodes of an abstract syntax tree (AST), terminals are the leaves
+# TL;DR:  rules are the internal nodes of an abstract syntax tree (AST), terminals are the leaves
+
+# Note: this file is coupled strongly to synapse/lib/storm.lark.  Any changes to that file will probably require
+# changes here
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
 ruleClassMap = {
@@ -45,20 +49,20 @@ terminalClassMap = {
     'PROPNAME': s_ast.Const,
     'CMPR': s_ast.Const,
     'NONQUOTEWORD': s_ast.Const,
-    'RELPROP': lambda x: s_ast.RelProp(x[1:]),  # no leading :
+    'RELPROP': lambda x: s_ast.RelProp(x[1:]),  # drop leading :
     'CMDNAME': s_ast.Const,
     'VARTOKN': s_ast.Const,
     'ABSPROP': s_ast.AbsProp,
     'ABSPROPNOUNIV': s_ast.AbsProp,
     'NONCMDQUOTE': s_ast.Const,
     'FILTPREFIX': s_ast.Const,
-    'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # no quotes
-    'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # no quotes
+    'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
+    'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'UNIVPROP': s_ast.UnivProp,
-    'TAGMATCH': lambda x: s_ast.TagMatch(x[1:]),  # no leading '#'
+    'TAGMATCH': lambda x: s_ast.TagMatch(x[1:]),  # drop leading '#'
     'NOT_': s_ast.Const,
-    'BREAK': lambda x: s_ast.BreakOper(),
-    'CONTINUE': lambda x: s_ast.ContinueOper(),
+    'BREAK': lambda _: s_ast.BreakOper(),
+    'CONTINUE': lambda _: s_ast.ContinueOper(),
     'VARCHARS': s_ast.Const
 }
 
@@ -83,7 +87,7 @@ class AstConverter(lark.Transformer):
     def __init__(self, text):
         lark.Transformer.__init__(self)
 
-        # Keep the text for error printing and weird subquery argv parsing
+        # Keep the original text for error printing and weird subquery argv parsing
         self.text = text
 
     def _convert_children(self, children):
@@ -269,18 +273,35 @@ class AstConverter(lark.Transformer):
 
         return s_ast.Const(kid.value[:-1])  # drop the trailing ':'
 
-class Parser:
 
-    with open('synapse/lib/storm.g') as grammar:
-        parser = lark.Lark(grammar, start='query', debug=True, propagate_positions=True)
+# A cached lark parser so we don't have to parse the grammar file for every instance
+LarkParser = None
+
+class Parser:
+    '''
+    Storm query parser
+    '''
 
     def __init__(self, text, offs=0):
+
+        global LarkParser
+        if LarkParser is None:
+            with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
+                grammar = larkf.read().decode()
+
+            LarkParser = lark.Lark(grammar, start='query', debug=True, propagate_positions=True)
+
+        self.parser = LarkParser
+
         self.offs = offs
         assert text is not None
         self.text = text.strip()
         self.size = len(self.text)
 
     def query(self):
+        '''
+        Parse the storm query
+        '''
         try:
             tree = self.parser.parse(self.text)
         except lark.exceptions.LarkError as e:
