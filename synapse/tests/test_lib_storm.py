@@ -301,12 +301,15 @@ class StormTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 # Ensure each node we make has its own discrete created time.
                 await asyncio.sleep(0.01)
-                node = await snap.addNode('test:guid', '*', {'tick': '2015'})
+                node = await snap.addNode('test:guid', '*', {'tick': '2015',
+                                                             '.seen': '2015'})
                 minc = node.get('.created')
                 await asyncio.sleep(0.01)
-                node = await snap.addNode('test:guid', '*', {'tick': '2016'})
+                node = await snap.addNode('test:guid', '*', {'tick': '2016',
+                                                             '.seen': '2016'})
                 await asyncio.sleep(0.01)
-                node = await snap.addNode('test:guid', '*', {'tick': '2017'})
+                node = await snap.addNode('test:guid', '*', {'tick': '2017',
+                                                             '.seen': '2017'})
                 await asyncio.sleep(0.01)
                 node = await snap.addNode('test:str', '1', {'tick': '2016'})
 
@@ -360,6 +363,14 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('tick'), midval)
 
             # Variables evaluated
+            nodes = await core.eval('test:guid ($tick, $tock) = .seen | min $tick').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), minval)
+
+            nodes = await core.eval('test:guid ($tick, $tock) = .seen | max $tock').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), maxval)
+
             text = '''[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 ]
                       { +inet:ipv4=1.2.3.4 [ :asn=10 ] }
                       { +inet:ipv4=5.6.7.8 [ :asn=20 ] }
