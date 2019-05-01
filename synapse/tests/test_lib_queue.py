@@ -24,11 +24,14 @@ class QueueTest(s_t_utils.SynTest):
 
         wind = await s_queue.Window.anit(maxsize=3)
 
-        await wind.put('asdf')
+        self.true(await wind.put('asdf'))
         self.false(wind.isfini)
 
-        await wind.puts(('hehe', 'haha'))
+        self.true(await wind.puts(('hehe', 'haha')))
 
         self.true(wind.isfini)
+
+        self.false(await wind.put('asdf'))
+        self.false(await wind.puts(('hehe', 'haha')))
 
         self.eq(('asdf', 'hehe', 'haha'), [x async for x in wind])

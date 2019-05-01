@@ -51,16 +51,12 @@ class Window(s_base.Base):
         self.maxsize = maxsize
         self.event = asyncio.Event()
 
-        self.isdone = False
         self.linklist = collections.deque()
 
         async def fini():
             self.event.set()
 
         self.onfini(fini)
-
-    def done(self):
-        self.isdone = True
 
     async def __aiter__(self):
 
@@ -70,7 +66,7 @@ class Window(s_base.Base):
                 yield self.linklist.popleft()
                 continue
 
-            if self.isdone:
+            if self.isfini:
                 return
 
             self.event.clear()
@@ -80,18 +76,28 @@ class Window(s_base.Base):
         '''
         Add a single item to the Window.
         '''
+        if self.isfini:
+            return False
+
         self.linklist.append(item)
         self.event.set()
 
         if self.maxsize is not None and len(self.linklist) >= self.maxsize:
-            self.done()
+            await self.fini()
+
+        return True
 
     async def puts(self, items):
         '''
         Add multiple items to the window.
         '''
+        if self.isfini:
+            return False
+
         self.linklist.extend(items)
         self.event.set()
 
         if self.maxsize is not None and len(self.linklist) >= self.maxsize:
-            self.done()
+            await self.fini()
+
+        return True

@@ -501,9 +501,9 @@ class CoreApi(s_cell.CellApi):
         The generator will only terminate on network disconnect or if the
         consumer falls behind the max window size of 10,000 splice messages.
         '''
-        if not self.user.admin:
-            mesg = 'User must be admin'
-            raise s_exc.AuthDeny(mesg=mesg)
+        if not self.allowed('layer:sync', iden):
+            mesg = f'User must have permission layer:sync.{iden}.'
+            raise s_exc.AuthDeny(mesg=mesg, perm=('layer:sync', iden))
 
         async for item in self.cell.syncLayerSplices(iden, offs):
             yield item
