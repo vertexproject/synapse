@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 import tornado.web as t_web
 import tornado.websocket as t_websocket
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
@@ -280,7 +281,21 @@ class AuthUsersV1(Handler):
         if not await self.reqAuthUser():
             return
 
-        self.sendRestRetn([u.pack() for u in self.cell.auth.users()])
+        try:
+
+            archived = int(self.get_argument('archived', default='0'))
+            if archived not in (0, 1):
+                return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.')
+
+        except Exception as e:
+            return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.')
+
+        if archived:
+            self.sendRestRetn([u.pack() for u in self.cell.auth.users()])
+            return
+
+        self.sendRestRetn([u.pack() for u in self.cell.auth.users() if not u.info.get('archived')])
+        return
 
 class AuthRolesV1(Handler):
 
@@ -339,6 +354,10 @@ class AuthUserV1(Handler):
         admin = body.get('admin')
         if admin is not None:
             await user.setAdmin(bool(admin))
+
+        archived = body.get('archived')
+        if archived is not None:
+            await user.setArchived(bool(archived))
 
         self.sendRestRetn(user.pack())
 
@@ -513,7 +532,35 @@ class AuthAddRoleV1(Handler):
         self.sendRestRetn(role.pack())
         return
 
+class AuthDelRoleV1(Handler):
+
+    async def post(self):
+
+        if not await self.reqAuthAdmin():
+            return
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        name = body.get('name')
+        if name is None:
+            self.sendRestErr('MissingField', 'The delrole API requires a "name" argument.')
+            return
+
+        role = self.cell.auth.getRoleByName(name)
+        if role is None:
+            return self.sendRestErr('NoSuchRole', f'The role {name} does not exist!')
+
+        await self.cell.auth.delRole(name)
+
+        self.sendRestRetn(None)
+        return
+
 class ModelNormV1(Handler):
+
+    async def post(self):
+        return await self.get()
 
     async def get(self):
 
@@ -531,16 +578,11 @@ class ModelNormV1(Handler):
             self.sendRestErr('MissingField', 'The property normalization API requires a prop name.')
             return
 
-        prop = self.cell.model.props.get(propname)
-        if prop is None:
-            return self.sendRestErr('NoSuchProp', 'The property {propname} does not exist.')
-
         try:
-            valu, info = prop.type.norm(propvalu)
-            self.sendRestRetn({'norm': valu, 'info': info})
-
-        except asyncio.CancelledError:
-            raise
-
+            valu, info = await self.cell.getPropNorm(propname, propvalu)
+        except s_exc.NoSuchProp:
+            return self.sendRestErr('NoSuchProp', 'The property {propname} does not exist.')
         except Exception as e:
             return self.sendRestExc(e)
+        else:
+            self.sendRestRetn({'norm': valu, 'info': info})

@@ -619,6 +619,20 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await getPackNodes(core, q)
             self.len(0, nodes)
 
+            # Do a PropPivotOut with a :prop value which is not a form.
+            tgud = s_common.guid()
+            tstr = 'boom'
+            async with await wcore.snap() as snap:
+                node = await snap.addNode('test:str', tstr)
+                node = await snap.addNode('test:guid', tgud)
+                node = await snap.addNode('test:edge', (('test:guid', tgud), ('test:str', tstr)))
+
+            q = f'test:str={tstr} <- test:edge :n1:form -> *'
+            mesgs = await alist(core.streamstorm(q))
+            self.stormIsInWarn('The source property "n1:form" type "str" is not a form. Cannot pivot.',
+                               mesgs)
+            self.len(0, [m for m in mesgs if m[0] == 'node'])
+
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
             await alist(wcore.eval('[ test:comp=(127,newp) ] [test:comp=(127,127)]'))
@@ -2632,3 +2646,64 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core00.nodes('[ inet:ipv4=7.7.7.7 ]')
                     await evnt.wait()
                     self.len(1, (await core01.nodes('inet:ipv4=7.7.7.7')))
+
+    async def test_norms(self):
+        async with self.getTestCoreAndProxy() as (core, prox):
+            # getPropNorm base tests
+            norm, info = await core.getPropNorm('test:str', 1234)
+            self.eq(norm, '1234')
+            self.eq(info, {})
+
+            norm, info = await core.getPropNorm('test:comp', ('1234', '1234'))
+            self.eq(norm, (1234, '1234'))
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': []})
+
+            await self.asyncraises(s_exc.BadTypeValu, core.getPropNorm('test:int', 'newp'))
+            await self.asyncraises(s_exc.NoSuchProp, core.getPropNorm('test:newp', 'newp'))
+
+            norm, info = await prox.getPropNorm('test:str', 1234)
+            self.eq(norm, '1234')
+            self.eq(info, {})
+
+            norm, info = await prox.getPropNorm('test:comp', ('1234', '1234'))
+            self.eq(norm, (1234, '1234'))
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': ()})
+
+            await self.asyncraises(s_exc.BadTypeValu, prox.getPropNorm('test:int', 'newp'))
+            await self.asyncraises(s_exc.NoSuchProp, prox.getPropNorm('test:newp', 'newp'))
+
+            # getTypeNorm base tests
+            norm, info = await core.getTypeNorm('test:str', 1234)
+            self.eq(norm, '1234')
+            self.eq(info, {})
+
+            norm, info = await core.getTypeNorm('test:comp', ('1234', '1234'))
+            self.eq(norm, (1234, '1234'))
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': []})
+
+            await self.asyncraises(s_exc.BadTypeValu, core.getTypeNorm('test:int', 'newp'))
+            await self.asyncraises(s_exc.NoSuchType, core.getTypeNorm('test:newp', 'newp'))
+
+            norm, info = await prox.getTypeNorm('test:str', 1234)
+            self.eq(norm, '1234')
+            self.eq(info, {})
+
+            norm, info = await prox.getTypeNorm('test:comp', ('1234', '1234'))
+            self.eq(norm, (1234, '1234'))
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': ()})
+
+            await self.asyncraises(s_exc.BadTypeValu, prox.getTypeNorm('test:int', 'newp'))
+            await self.asyncraises(s_exc.NoSuchType, prox.getTypeNorm('test:newp', 'newp'))
+
+            # getPropNorm can norm sub props
+            norm, info = await core.getPropNorm('test:str:tick', '3001')
+            self.eq(norm, 32535216000000)
+            self.eq(info, {})
+            # but getTypeNorm won't handle that
+            await self.asyncraises(s_exc.NoSuchType, core.getTypeNorm('test:str:tick', '3001'))
+
+            # getTypeNorm can norm types which aren't defined as forms/props
+            norm, info = await core.getTypeNorm('test:lower', 'ASDF')
+            self.eq(norm, 'asdf')
+            # but getPropNorm won't handle that
+            await self.asyncraises(s_exc.NoSuchProp, core.getPropNorm('test:lower', 'ASDF'))

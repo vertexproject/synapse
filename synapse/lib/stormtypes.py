@@ -163,6 +163,28 @@ class Dict(Prim):
     def deref(self, name):
         return self.valu.get(name)
 
+class List(Prim):
+
+    def __init__(self, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.locls.update({
+            'index': self._methListIndex,
+            'length': self._methListLength,
+        })
+
+    async def _methListIndex(self, valu):
+        '''
+        Return a single field from the list by index.
+        '''
+        indx = intify(valu)
+        return self.valu[indx]
+
+    async def _methListLength(self):
+        '''
+        Return the length of the list.
+        '''
+        return len(self.valu)
+
 class Node(Prim):
     '''
     Implements the STORM api for a node instance.
@@ -171,9 +193,10 @@ class Node(Prim):
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update({
-            'value': self._methNodeValue,
             'form': self._methNodeForm,
+            'ndef': self._methNodeNdef,
             'tags': self._methNodeTags,
+            'value': self._methNodeValue,
         })
 
     async def _methNodeTags(self, glob=None):
@@ -189,6 +212,9 @@ class Node(Prim):
     async def _methNodeForm(self):
         return self.valu.ndef[0]
 
+    async def _methNodeNdef(self):
+        return self.valu.ndef
+
 def fromprim(valu, path=None):
 
     if isinstance(valu, str):
@@ -201,8 +227,8 @@ def fromprim(valu, path=None):
     if isinstance(valu, StormType):
         return valu
 
-    #if isinstance(valu, (tuple, list)):
-        #return List(valu, path=path)
+    if isinstance(valu, (tuple, list)):
+        return List(valu, path=path)
 
     if isinstance(valu, dict):
         return Dict(valu, path=path)

@@ -989,10 +989,24 @@ class SynTest(unittest.TestCase):
             slogger.removeHandler(handler)
 
     @contextlib.asynccontextmanager
-    async def getHttpSess(self):
+    async def getHttpSess(self, auth=None, port=None):
+
         jar = aiohttp.CookieJar(unsafe=True)
         conn = aiohttp.TCPConnector(ssl=False)
+
         async with aiohttp.ClientSession(cookie_jar=jar, connector=conn) as sess:
+
+            if auth is not None:
+
+                if port is None: # pragma: no cover
+                    raise Exception('getHttpSess requires port for auth')
+
+                user, passwd = auth
+                async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': user, 'passwd': passwd}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq(user, retn['result']['name'])
+
             yield sess
 
     @contextlib.contextmanager

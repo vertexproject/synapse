@@ -2,14 +2,39 @@
 Synapse Changelog
 *****************
 
-
-v0.1.3 - TBD
+v0.1.4 - TBD
 ===================
 
 Features and Enhancements
 -------------------------
 
-- Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Add POST support to the ``/api/v1/model/norm`` HTTP API endpoint. (`#1207 <https://github.com/vertexproject/synapse/pull/1207>`_)
+- Add ``getPropNorm()`` and ``getTypeNorm()`` Telepath API endpoints to the Cortex and CoreApi. (`#1207 <https://github.com/vertexproject/synapse/pull/1207>`_)
+- Add list ``length()`` and ``index()`` methods to Storm types. (`#1208 <https://github.com/vertexproject/synapse/pull/1208>`_)
+- Add ``--nodes-only`` to the Cmdr ``log`` command to only record raw nodes. (`#1213 <https://github.com/vertexproject/synapse/pull/1213>`_)
+
+Bugfixes
+--------
+
+- Fix an error in PropPivotOut and FormPivot where a None object could be yielded in the Storm pipeline. (`#1210 <https://github.com/vertexproject/synapse/pull/1210>`_)
+- Shut down HTTP API servers on Cell ``fini()``.  (`#1211 <https://github.com/vertexproject/synapse/pull/1211>`_)
+
+Improved Documentation
+----------------------
+
+- Convert developer guide from static RST to Jupyter Notebook.  (`#1209 <https://github.com/vertexproject/synapse/pull/1209>`_)
+- Convert HTTP API guide from static RST to Jupyter Notebook.  (`#1211 <https://github.com/vertexproject/synapse/pull/1211>`_)
+- Add a note about backing up and restoring a cortex to the quickstart guide.  (`#1214 <https://github.com/vertexproject/synapse/pull/1214>`_)
+
+
+v0.1.3 - 2019-04-17
+===================
+
+Features and Enhancements
+-------------------------
+
+- Add the ability to delete a role via HTTP API, as well as being able to mark a user as being archived. Archiving a user will also lock a user. (`#1205 <https://github.com/vertexproject/synapse/pull/1205>`_)
+- Add support to archiving for user to the CellApi for use via Telepath. (`#1206 <https://github.com/vertexproject/synapse/pull/1206>`_)
 
 Bugfixes
 --------
@@ -23,7 +48,7 @@ Improved Documentation
 - Fix error in the HTTP API documentation. (`#1204 <https://github.com/vertexproject/synapse/pull/1204>`_)
 
 
-v0.1.2 - 2018-04-03
+v0.1.2 - 2019-04-10
 ===================
 
 Features and Enhancements
@@ -50,7 +75,7 @@ Improved Documentation
 - Add some example developer guide documentation. (`#1193 <https://github.com/vertexproject/synapse/pull/1193>`_)
 
 
-v0.1.1 - 2018-04-03
+v0.1.1 - 2019-04-03
 ===================
 
 
@@ -87,7 +112,7 @@ Improved Documentation
 - Added docstring and test for ``synapse.lib.coro.executor()``. (`#1189 <https://github.com/vertexproject/synapse/pull/1189>`_)
 
 
-v0.1.0 - 2018-03-19
+v0.1.0 - 2019-03-19
 ===================
 
 * Synapse version 0.1.0 released.

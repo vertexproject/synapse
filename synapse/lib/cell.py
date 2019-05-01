@@ -165,8 +165,10 @@ class CellApi(s_base.Base):
         return role.pack()
 
     @adminapi
-    async def getAuthUsers(self):
-        return [u.name for u in self.cell.auth.users()]
+    async def getAuthUsers(self, archived=False):
+        if archived:
+            return [u.name for u in self.cell.auth.users()]
+        return [u.name for u in self.cell.auth.users() if not u.info.get('archived')]
 
     @adminapi
     async def getAuthRoles(self):
@@ -205,6 +207,14 @@ class CellApi(s_base.Base):
             raise s_exc.NoSuchUser(user=name)
 
         await user.setLocked(locked)
+
+    @adminapi
+    async def setUserArchived(self, name, archived):
+        user = self.cell.auth.getUserByName(name)
+        if user is None:
+            raise s_exc.NoSuchUser(user=name)
+
+        await user.setArchived(archived)
 
     @adminapi
     async def addUserRole(self, username, rolename):
@@ -394,12 +404,13 @@ class Cell(s_base.Base, s_telepath.Aware):
             sslctx = self.initSslCtx(certpath, pkeypath)
 
         serv = self.wapp.listen(port, address=addr, ssl_options=sslctx)
-
+        self.httpds.append(serv)
         return list(serv._sockets.values())[0].getsockname()
 
     async def addHttpPort(self, port, host='0.0.0.0'):
         addr = socket.gethostbyname(host)
         serv = self.wapp.listen(port, address=addr)
+        self.httpds.append(serv)
         return list(serv._sockets.values())[0].getsockname()
 
     def initSslCtx(self, certpath, keypath):
@@ -422,7 +433,7 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         async def fini():
             for http in self.httpds:
-                await http.stop()
+                http.stop()
 
         self.onfini(fini)
 
@@ -449,6 +460,8 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         self.addHttpApi('/api/v1/auth/adduser', s_httpapi.AuthAddUserV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/addrole', s_httpapi.AuthAddRoleV1, {'cell': self})
+
+        self.addHttpApi('/api/v1/auth/delrole', s_httpapi.AuthDelRoleV1, {'cell': self})
 
         self.addHttpApi('/api/v1/auth/user/(.*)', s_httpapi.AuthUserV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/role/(.*)', s_httpapi.AuthRoleV1, {'cell': self})

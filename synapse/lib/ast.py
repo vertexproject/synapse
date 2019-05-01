@@ -469,10 +469,23 @@ class VarListSetOper(Oper):
     async def run(self, runt, genr):
 
         names = self.kids[0].value()
+        vkid = self.kids[1]
 
-        if self.kids[1].isRuntSafe(runt):
+        async for node, path in genr:
 
-            item = await self.kids[1].runtval(runt)
+            item = await vkid.compute(path)
+            if len(item) < len(names):
+                raise s_exc.StormVarListError(names=names, vals=item)
+
+            for name, valu in zip(names, item):
+                runt.setVar(name, valu)
+                path.setVar(name, valu)
+
+            yield node, path
+
+        if vkid.isRuntSafe(runt):
+
+            item = await vkid.runtval(runt)
             if len(item) < len(names):
                 raise s_exc.StormVarListError(names=names, vals=item)
 
@@ -483,18 +496,6 @@ class VarListSetOper(Oper):
                 yield item
 
             return
-
-        async for node, path in genr:
-
-            item = await self.kids[1].compute(path)
-            if len(item) < len(names):
-                raise s_exc.StormVarListError(names=names, vals=item)
-
-            for name, valu in zip(names, item):
-                runt.setVar(name, valu)
-                path.setVar(name, valu)
-
-            yield node, path
 
     def getRuntVars(self, runt):
 
@@ -1004,7 +1005,8 @@ class FormPivot(PivotOper):
                     continue
 
                 pivo = await runt.snap.getNodeByNdef(node.get('n2'))
-                yield pivo, path.fork(pivo)
+                if pivo:
+                    yield pivo, path.fork(pivo)
 
                 continue
 
@@ -1037,7 +1039,7 @@ class PropPivotOut(PivotOper):
     async def run(self, runt, genr):
 
         name = self.kids[0].value()
-
+        warned = False
         async for node, path in genr:
 
             prop = node.form.props.get(name)
@@ -1058,10 +1060,21 @@ class PropPivotOut(PivotOper):
                 yield pivo, path.fork(pivo)
                 continue
 
-            # :ipv4 -> *
-            ndef = (prop.type.name, valu)
+            # :prop -> *
+            fname = prop.type.name
+            if prop.modl.form(fname) is None:
+                if warned is False:
+                    await runt.snap.warn(f'The source property "{name}" type "{fname}" is not a form. Cannot pivot.')
+                    warned = True
+                continue
+
+            ndef = (fname, valu)
             pivo = await runt.snap.getNodeByNdef(ndef)
-            yield pivo, path.fork(pivo)
+            # A node explicitly deleted in the graph or missing from a underlying layer
+            # could cause this lift to return None.
+            if pivo:
+                yield pivo, path.fork(pivo)
+
 
 class PropPivot(PivotOper):
 
