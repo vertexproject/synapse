@@ -389,6 +389,8 @@ class StormTest(s_t_utils.SynTest):
                                   core.eval('test:guid | min test:newp'))
 
     async def test_getstormeval(self):
+
+        # Use testechocmd to exercise all of Cmd.getStormEval
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'fancystr',
