@@ -15,6 +15,7 @@ Features and Enhancements
 - Add ``--nodes-only`` to the Cmdr ``log`` command to only record raw nodes. (`#1213 <https://github.com/vertexproject/synapse/pull/1213>`_)
 - Add ``guid()``, ``min()``, ``max()`` functions to Storm types.  (`#1215 <https://github.com/vertexproject/synapse/pull/1215>`_)
 - Add ``getStormEval()`` to the ``synapse.lib.storm.Cmd`` class. This helper can be used by Storm command implementers in resolving variables, full property, and relative property values off of the Storm runtime.  (`#1215 <https://github.com/vertexproject/synapse/pull/1215>`_)
+- The Storm ``min`` and ``max`` commands may now accept a relative property path, a full property path, or a variable.  (`#1215 <https://github.com/vertexproject/synapse/pull/1215>`_)
 
 Bugfixes
 --------
