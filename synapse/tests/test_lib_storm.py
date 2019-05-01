@@ -387,3 +387,45 @@ class StormTest(s_t_utils.SynTest):
                                   core.eval('test:guid | max test:newp'))
             await self.agenraises(s_exc.BadSyntax,
                                   core.eval('test:guid | min test:newp'))
+
+    async def test_getstormeval(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'fancystr',
+                                          {'tick': 1234,
+                                           'hehe': 'haha',
+                                           '.seen': '3001'})
+
+            q = 'test:str $foo=:tick | testechocmd $foo'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[1234]', mesgs)
+
+            q = 'test:str| testechocmd :tick'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[1234]', mesgs)
+
+            q = 'test:str| testechocmd .seen'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[(32535216000000, 32535216000001)]', mesgs)
+
+            q = 'test:str| testechocmd test:str'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[fancystr]', mesgs)
+
+            q = 'test:str| testechocmd test:str:hehe'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[haha]', mesgs)
+
+            q = 'test:str| testechocmd test:int'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[None]', mesgs)
+
+            q = 'test:str| testechocmd test:int:loc'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[None]', mesgs)
+
+            q = 'test:str| testechocmd test:newp'
+            mesgs = await core.streamstorm(q).list()
+            errs = [m for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            self.eq(errs[0][1][0], 'BadSyntax')

@@ -285,6 +285,22 @@ class TestCmd(s_storm.Cmd):
         async for node, path in genr:
             yield node, path
 
+class TestEchoCmd(s_storm.Cmd):
+    '''A command to echo a using getStormEval'''
+    name = 'testechocmd'
+
+    def getArgParser(self):
+        pars = s_storm.Cmd.getArgParser(self)
+        pars.add_argument('valu', help='valu to echo')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+        func = self.getStormEval(runt, self.opts.valu)
+
+        async for node, path in genr:
+            ret = func(path)
+            await runt.snap.printf(f'Echo: [{ret}]')
+            yield node, path
 
 class TestModule(s_module.CoreModule):
     testguid = '8f1401de15918358d5247e21ca29a814'
@@ -408,7 +424,9 @@ class TestModule(s_module.CoreModule):
         )
 
     def getStormCmds(self):
-        return (TestCmd,)
+        return (TestCmd,
+                TestEchoCmd,
+                )
 
 class TstEnv:
 
