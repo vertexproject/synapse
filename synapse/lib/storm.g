@@ -6,11 +6,10 @@
 
 query: (_querystartnon | _querystartcommand)? _WSCOMM?
 _querystartcommand: _WSCOMM? stormcmd [ _WSCOMM? "|" _WSCOMM? (_querystartcommand |  _querystartnon) ]
-_querystartnon: _WSCOMM? _noncommands [ _WSCOMM? "|" _WSCOMM? _querystartcommand
-                                      | _WSCOMM? ["|" _WSCOMM?] _querystartnon ]
+_querystartnon: _WSCOMM? _noncommand [ _WSCOMM? "|" _WSCOMM? _querystartcommand
+                                      | _WSCOMM? ("|" | _WSCOMM) _querystartnon ]
 
 _noncommand: _editopers | _oper
-_noncommands: _noncommand (_WSCOMM? ["|" _WSCOMM?] _noncommand)*
 
 _editopers: "[" _WS? (_editoper _WS?)* "]"
 _editoper: editpropset | editunivset | edittagadd | editpropdel | editunivdel | edittagdel | editnodeadd
@@ -32,9 +31,9 @@ CONTINUE: "continue"
 
 vareval: varvalu
 
-forloop: "for" _WS? (_varname | varlist) _WS? "in" _WS? varvalu _WS? subquery
+forloop.1: "for" _WS? (_varname | varlist) _WS? "in" _WS? varvalu _WS? subquery
 subquery: "{" query _WSCOMM? "}"
-switchcase: "switch" _WS? varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (casevalu _WSCOMM? subquery)) )* _WSCOMM? "}"
+switchcase.1: "switch" _WS? varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (casevalu _WSCOMM? subquery)) )* _WSCOMM? "}"
 varlist: "(" [_WS? _varname (_WS? "," _WS? _varname)*] _WS? ["," _WS?] ")"
 casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | /[^:\s][^:]*:/
 

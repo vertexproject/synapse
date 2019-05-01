@@ -3,6 +3,7 @@ import synapse.exc as s_exc
 
 import synapse.lib.ast as s_ast
 
+# For AstConverter, one-to-one replacements from lark to synapse AST
 ruleClassMap = {
     'query': s_ast.Query,
     'liftbytag': s_ast.LiftTag,
@@ -37,6 +38,7 @@ ruleClassMap = {
     'kwarg': lambda kids: s_ast.CallKwarg(kids=tuple(kids))
 }
 
+# For AstConverter, one-to-one replacements from lark to synapse AST
 terminalClassMap = {
     'PROPNAME': s_ast.Const,
     'CMPR': s_ast.Const,
@@ -58,6 +60,7 @@ terminalClassMap = {
     'VARCHARS': s_ast.Const
 }
 
+# A temporary holder to collect varcall context
 class TmpVarCall:
     def __init__(self, kids, meta):
         self.kids = kids
