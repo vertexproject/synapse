@@ -359,14 +359,30 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), midval)
 
+            # Variables evaluated
+            text = '''[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 ]
+                      { +inet:ipv4=1.2.3.4 [ :asn=10 ] }
+                      { +inet:ipv4=5.6.7.8 [ :asn=20 ] }
+                      $asn = :asn | min $asn'''
+
+            nodes = await core.nodes(text)
+            self.len(1, nodes)
+            self.eq(0x01020304, nodes[0].ndef[1])
+
+            text = '''[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 ]
+                      { +inet:ipv4=1.2.3.4 [ :asn=10 ] }
+                      { +inet:ipv4=5.6.7.8 [ :asn=20 ] }
+                      $asn = :asn | max $asn'''
+
+            nodes = await core.nodes(text)
+            self.len(1, nodes)
+            self.eq(0x05060708, nodes[0].ndef[1])
+
             # Sad paths where there are no nodes which match the specified values.
             await self.agenlen(0, core.eval('test:guid | max :newp'))
             await self.agenlen(0, core.eval('test:guid | min :newp'))
+
             # Sad path for a form, not a property; and does not exist at all
-            await self.agenraises(s_exc.BadSyntax,
-                                  core.eval('test:guid | max test:guid'))
-            await self.agenraises(s_exc.BadSyntax,
-                                  core.eval('test:guid | min test:guid'))
             await self.agenraises(s_exc.BadSyntax,
                                   core.eval('test:guid | max test:newp'))
             await self.agenraises(s_exc.BadSyntax,
