@@ -237,12 +237,3 @@ class NodeTest(s_t_utils.SynTest):
                                                path=path))
                 self.eq(nodes[0][0].props.get('loc'), 'ca')
                 self.eq(path.vars.get('bar'), 'ru')
-
-    async def test_node_path_eval(self):
-
-        async with self.getTestCore() as core:
-            async for node, path in core.storm('$foo=foo [ test:str=asdf :tick=2019 .seen=(2018, 2019) ] $tick = :tick'):
-                self.eq('foo', path.eval('$foo'))
-                self.eq(1546300800000, path.eval('$tick'))
-                self.eq((1514764800000, 1546300800000), path.eval('.seen'))
-                self.eq(1546300800000, path.eval(':tick'))
