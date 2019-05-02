@@ -3,6 +3,8 @@ import lark
 import pygments.lexer
 import pygments.token as p_t
 
+import synapse.lib.datfile as s_datfile
+
 TerminalPygMap = {
     'HASH': p_t.Punctuation,
     'MINUS': p_t.Punctuation,
@@ -43,11 +45,12 @@ def highlight_storm(parser, text):
     print(highlight(text, StormLexer(parser), Terminal256Formatter()), end='')
 
 def tst_highlight_storm():
-    from synapse.tests.test_grammar import _Queries
+    from synapse.tests.test_lib_syntax2 import _Queries
 
-    grammar = open('synapse/lib/storm.g').read()
+    with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
+        grammar = larkf.read().decode()
 
-    parser = lark.Lark(grammar, start='query', keep_all_tokens=True)
+    parser = lark.Lark(grammar, start='query', propagate_positions=True, keep_all_tokens=True)
 
     for i, query in enumerate(_Queries):
         if i == 0:
