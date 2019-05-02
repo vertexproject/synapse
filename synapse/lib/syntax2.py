@@ -305,6 +305,15 @@ class Parser:
         self.text = text.strip()
         self.size = len(self.text)
 
+    def _larkToSynExc(self, e):
+        mesg = regex.split('[\n!]', e.args[0])[0]
+        at = len(self.text)
+        if isinstance(e, lark.exceptions.UnexpectedCharacters):
+            mesg += f'.  Expecting one of: {", ".join(t.name for t in e.allowed)}'
+            at = e.pos_in_stream
+
+        return s_exc.BadSyntax(at=at, text=self.text, mesg=mesg)
+
     def query(self):
         '''
         Parse the storm query
@@ -312,7 +321,7 @@ class Parser:
         try:
             tree = self.queryparser.parse(self.text)
         except lark.exceptions.LarkError as e:
-            raise s_exc.BadSyntax() from e
+            raise self._larkToSynExc(e)
         newtree = AstConverter(self.text).transform(tree)
         newtree.text = self.text
         return newtree
@@ -324,7 +333,7 @@ class Parser:
         try:
             tree = self.stormcmdparser.parse(self.text)
         except lark.exceptions.LarkError as e:
-            raise s_exc.BadSyntax() from e
+            raise self._larkToSynExc(e)
         newtree = AstConverter(self.text).transform(tree)
         assert isinstance(newtree, s_ast.Const)
         return newtree.valu

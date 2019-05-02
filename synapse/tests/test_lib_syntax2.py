@@ -1,5 +1,7 @@
 import unittest
 
+import synapse.exc as s_exc
+
 import synapse.lib.syntax2 as s_syntax2
 
 import synapse.tests.utils as s_t_utils
@@ -847,9 +849,6 @@ _ParseResults = [
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [], CallKwargs: []], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False, EditTagAdd: [VarValue: [Const: tag]]]]]]',
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [Const: fo*], CallKwargs: []], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False, EditTagDel: [VarValue: [Const: tag]]]]]]',
     'Query: [EditNodeAdd: [AbsProp: inet:email:message, Const: *], EditPropSet: [RelProp: to, Const: woot@woot.com], EditPropSet: [RelProp: from, Const: visi@vertex.link], EditPropSet: [RelProp: replyto, Const: root@root.com], EditPropSet: [RelProp: subject, Const: hi there], EditPropSet: [RelProp: date, Const: 2015], EditPropSet: [RelProp: body, Const: there are mad sploitz here!], EditPropSet: [RelProp: bytes, Const: *], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:email:message:link, List: [VarValue: [Const: node], Const: https://www.vertex.link]]]], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:email:message:attachment, List: [VarValue: [Const: node], Const: *]], FiltOper: [Const: -, HasAbsPropCond: [AbsProp: inet:email:message]], EditPropSet: [RelProp: name, Const: sploit.exe]]], SubQuery: [Query: [EditNodeAdd: [AbsProp: edge:has, List: [VarValue: [Const: node], List: [Const: inet:email:header, List: [Const: to, Const: Visi Kensho <visi@vertex.link>]]]]]]]',
-
-
-
 ]
 
 class GrammarTest(s_t_utils.SynTest):
@@ -877,7 +876,6 @@ class GrammarTest(s_t_utils.SynTest):
             parser = s_syntax2.Parser(query)
             tree = parser.query()
 
-            # print(str(tree))
             self.eq(str(tree), _ParseResults[i])
 
     def test_stormcmdargs(self):
@@ -902,9 +900,13 @@ class GrammarTest(s_t_utils.SynTest):
     def test_parse_cmd_string(self):
         self.eq(('newp', 9), s_syntax2.parse_cmd_string('help newp', 5))
 
+    def test_syntax_error(self):
+        query = 'test:str --> *'
+        parser = s_syntax2.Parser(query)
+        self.raises(s_exc.BadSyntax, parser.query)
 
 def gen_parse_list():
-    import synapse.lib.syntax as s_syntax
+    import synapse.lib.syntax as s_syntax  # type: ignore
 
     retn = []
     for i, query in enumerate(_Queries):
