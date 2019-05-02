@@ -653,7 +653,6 @@ class SynTest(unittest.TestCase):
         This precludes running a single unit test via path using the unittest module.
     '''
     def __init__(self, *args, **kwargs):
-        self.alt_write_layer = None  # Subclass hook to override the top layer
         unittest.TestCase.__init__(self, *args, **kwargs)
         for s in dir(self):
             attr = getattr(self, s, None)
