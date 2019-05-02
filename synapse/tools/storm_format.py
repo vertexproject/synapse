@@ -1,3 +1,5 @@
+# pragma: no cover
+
 import lark
 
 import pygments.lexer
