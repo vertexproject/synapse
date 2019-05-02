@@ -23,6 +23,7 @@ _Queries = [
     '#test.bar +test:pivcomp -> *',
     '#test.bar +test:str <+- *',
     '#test.bar +test:str <- *',
+    'test:migr <- edge:refs',
     '#test.bar -#test -+> *',
     '#test.bar -#test -> *',
     '#test.bar -#test <+- *',
@@ -483,6 +484,7 @@ _ParseResults = [
     'Query: [LiftTag: [TagName: test.bar], FiltOper: [Const: +, HasAbsPropCond: [AbsProp: test:pivcomp]], PivotOut: [], isjoin=False]',
     'Query: [LiftTag: [TagName: test.bar], FiltOper: [Const: +, HasAbsPropCond: [AbsProp: test:str]], PivotIn: [], isjoin=True]',
     'Query: [LiftTag: [TagName: test.bar], FiltOper: [Const: +, HasAbsPropCond: [AbsProp: test:str]], PivotIn: [], isjoin=False]',
+    'Query: [LiftProp: [Const: test:migr], PivotInFrom: [AbsProp: edge:refs], isjoin=False]',
     'Query: [LiftTag: [TagName: test.bar], FiltOper: [Const: -, TagCond: [TagMatch: test]], PivotOut: [], isjoin=True]',
     'Query: [LiftTag: [TagName: test.bar], FiltOper: [Const: -, TagCond: [TagMatch: test]], PivotOut: [], isjoin=False]',
     'Query: [LiftTag: [TagName: test.bar], FiltOper: [Const: -, TagCond: [TagMatch: test]], PivotIn: [], isjoin=True]',
@@ -845,6 +847,9 @@ _ParseResults = [
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [], CallKwargs: []], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False, EditTagAdd: [VarValue: [Const: tag]]]]]]',
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [Const: fo*], CallKwargs: []], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False, EditTagDel: [VarValue: [Const: tag]]]]]]',
     'Query: [EditNodeAdd: [AbsProp: inet:email:message, Const: *], EditPropSet: [RelProp: to, Const: woot@woot.com], EditPropSet: [RelProp: from, Const: visi@vertex.link], EditPropSet: [RelProp: replyto, Const: root@root.com], EditPropSet: [RelProp: subject, Const: hi there], EditPropSet: [RelProp: date, Const: 2015], EditPropSet: [RelProp: body, Const: there are mad sploitz here!], EditPropSet: [RelProp: bytes, Const: *], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:email:message:link, List: [VarValue: [Const: node], Const: https://www.vertex.link]]]], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:email:message:attachment, List: [VarValue: [Const: node], Const: *]], FiltOper: [Const: -, HasAbsPropCond: [AbsProp: inet:email:message]], EditPropSet: [RelProp: name, Const: sploit.exe]]], SubQuery: [Query: [EditNodeAdd: [AbsProp: edge:has, List: [VarValue: [Const: node], List: [Const: inet:email:header, List: [Const: to, Const: Visi Kensho <visi@vertex.link>]]]]]]]',
+
+
+
 ]
 
 class GrammarTest(s_t_utils.SynTest):
@@ -888,12 +893,15 @@ class GrammarTest(s_t_utils.SynTest):
         args = parser.stormcmdargs()
         self.eq(args, correct)
 
-
     def test_parse_float(self):
         self.eq((4.2, 3), s_syntax2.parse_float('4.2', 0))
         self.eq((-4.2, 4), s_syntax2.parse_float('-4.2', 0))
         self.eq((-4.2, 8), s_syntax2.parse_float('    -4.2', 0))
         self.eq((-4.2, 8), s_syntax2.parse_float('    -4.2', 2))
+
+    def test_parse_cmd_string(self):
+        self.eq(('newp', 9), s_syntax2.parse_cmd_string('help newp', 5))
+
 
 def gen_parse_list():
     import synapse.lib.syntax as s_syntax

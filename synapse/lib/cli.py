@@ -18,7 +18,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
-import synapse.lib.syntax as s_syntax
+import synapse.lib.syntax2 as s_syntax
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +94,7 @@ class Cmd:
             if defval is not None:
                 opts[snam] = defval
 
-            if synt[1].get('type') in ('list', 'kwlist'):
+            if synt[1].get('type') == 'list':
                 opts[snam] = []
 
         def atswitch(t, o):
@@ -165,11 +165,6 @@ class Cmd:
                     valu.append(item)
 
                 opts[synt[0]] = valu
-                break
-
-            if styp == 'kwlist':
-                kwlist, off = s_syntax.parse_cmd_kwlist(text, off)
-                opts[snam] = kwlist
                 break
 
             valu, off = s_syntax.parse_cmd_string(text, off)

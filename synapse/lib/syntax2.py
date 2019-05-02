@@ -214,23 +214,6 @@ class AstConverter(lark.Transformer):
     def operrelprop_join(self, kids, meta):
         return self.operrelprop_pivot(kids, meta, isjoin=True)
 
-    # def stormcmd(self, kids, meta):
-    #     kids = self._convert_children(kids)
-    #     breakpoint()
-
-    #     argv = []
-
-    #     for kid in kids[1:]:
-    #         if isinstance(kid, s_ast.Const):
-    #             newkid = kid.valu
-    #         elif isinstance(kid, s_ast.SubQuery):
-    #             newkid = kid.text
-    #         else:
-    #             assert False, 'Unexpected rule'
-    #         argv.append(newkid)
-
-    #     return s_ast.CmdOper(kids=(kids[0], s_ast.Const(tuple(argv))))
-
     def stormcmdargs(self, kids, meta):
         kids = self._convert_children(kids)
         argv = []
@@ -412,4 +395,56 @@ def meh(txt, off, cset):
 whites = set(' \t\n')
 alphaset = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 
-# TODO:  remove
+
+CmdStringGrammar = r'''
+%import common.WS -> _WS
+%import common.ESCAPED_STRING
+
+cmdstring: _WS? valu [/.+/]
+valu: alist | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | JUSTCHARS
+DOUBLEQUOTEDSTRING: ESCAPED_STRING
+SINGLEQUOTEDSTRING: /'[^']*'/
+alist: "(" _WS? valu (_WS? "," _WS? valu)* _WS? ")"
+// Disallow trailing comma
+JUSTCHARS: /[^()=\[\]{}'"\s]*[^,()=\[\]{}'"\s]/
+'''
+
+@lark.v_args(meta=True)
+class CmdStringer(lark.Transformer):
+
+    def valu(self, kids, meta):
+        assert len(kids) == 1
+        kid = kids[0]
+        if isinstance(kid, lark.lexer.Token):
+            if kid.type in ('DOUBLEQUOTEDSTRING', 'SINGLEQUOTEDSTRING'):
+                valu = kid.value[1:-1]
+            else:
+                valu = kid.value
+                try:
+                    intval = int(valu)
+                    valu = intval
+                except Exception:
+                    pass
+        else:
+            valu = kid[0]
+
+        return valu, meta.end_pos
+
+    def cmdstring(self, kids, meta):
+        return kids[0]
+
+    def alist(self, kids, meta):
+        return [k[0] for k in kids], meta.end_pos
+
+CmdStringParser = lark.Lark(CmdStringGrammar,
+                            start='cmdstring',
+                            propagate_positions=True)
+
+def parse_cmd_string(text, off):
+    '''
+    Parse in a command line string which may be quoted.
+    '''
+    tree = CmdStringParser.parse(text[off:])
+    valu, newoff = CmdStringer().transform(tree)
+    return valu, off + newoff
+

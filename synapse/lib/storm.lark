@@ -48,7 +48,7 @@ formpivot_:            "->" _WS? ABSPROP
 formjoin: "-+>" _WS? "*" -> formjoin_pivotout
         | "-+>" _WS? ABSPROP -> formjoin_formpivot
 
-formpivotin: "<-" _WS? "*" -> formpivotin_
+formpivotin.1: "<-" _WS? "*" -> formpivotin_
            | "<-" _WS? ABSPROP -> formpivotin_pivotinfrom
 
 formjoinin: "<+-" _WS? "*" -> formjoinin_pivotin
