@@ -156,7 +156,7 @@ class AstConverter(lark.Transformer):
             assert len(kids) == 1
             return first
 
-        assert False, 'Unknown first child of cond'
+        assert False, 'Unknown first child of cond'  # pragma: no cover
 
     def condexpr(self, kids, meta):
         if len(kids) == 1:
@@ -170,7 +170,7 @@ class AstConverter(lark.Transformer):
         if oper == 'or':
             return s_ast.OrCond(kids=[operand1, operand2])
 
-        assert False, 'Unknown condexpr operator'
+        assert False, 'Unknown condexpr operator'  # pragma: no cover
 
     def varvalu(self, kids, meta):
         # FIXME really should be restructured; emulating old code for now
@@ -189,7 +189,7 @@ class AstConverter(lark.Transformer):
                 kwargs = s_ast.CallKwargs(kids=kwarglist)
                 varv = s_ast.FuncCall(kids=[varv, args, kwargs])
             else:
-                assert False, 'Unexpected rule'
+                assert False, 'Unexpected rule'  # pragma: no cover
 
         return varv
 
@@ -224,7 +224,7 @@ class AstConverter(lark.Transformer):
             elif isinstance(kid, s_ast.SubQuery):
                 newkid = kid.text
             else:
-                assert False, 'Unexpected rule'
+                assert False, 'Unexpected rule'  # pragma: no cover
             argv.append(newkid)
 
         return s_ast.Const(tuple(argv))
@@ -447,4 +447,3 @@ def parse_cmd_string(text, off):
     tree = CmdStringParser.parse(text[off:])
     valu, newoff = CmdStringer().transform(tree)
     return valu, off + newoff
-
