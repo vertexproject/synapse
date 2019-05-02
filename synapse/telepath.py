@@ -189,7 +189,11 @@ class GenrIter:
         self.share = share
 
     async def __aiter__(self):
+
         genr = await self.proxy.task(self.todo, name=self.share)
+        if genr is None:
+            return
+
         async for item in genr:
             yield item
 

@@ -2,7 +2,26 @@
 Synapse Changelog
 *****************
 
-v0.1.4 - TBD
+v0.1.5 - TBD
+===================
+
+Features and Enhancements
+-------------------------
+
+- Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+Bugfixes
+--------
+
+- Fix old bugs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+Improved Documentation
+----------------------
+
+- Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+
+v0.1.4 - 2019-05-01
 ===================
 
 Features and Enhancements
@@ -16,6 +35,7 @@ Features and Enhancements
 - Add ``guid()``, ``min()``, ``max()`` functions to Storm types.  (`#1215 <https://github.com/vertexproject/synapse/pull/1215>`_)
 - Add ``getStormEval()`` to the ``synapse.lib.storm.Cmd`` class. This helper can be used by Storm command implementers in resolving variables, full property, and relative property values off of the Storm runtime.  (`#1215 <https://github.com/vertexproject/synapse/pull/1215>`_)
 - The Storm ``min`` and ``max`` commands may now accept a relative property path, a full property path, or a variable.  (`#1215 <https://github.com/vertexproject/synapse/pull/1215>`_)
+- Add a ``--mirror`` to ``synapse.servers.cortex`` to allow easier mirroring of a backup Cortex from its source Cortex.  (`#1197 <https://github.com/vertexproject/synapse/pull/1197>`_)
 
 Bugfixes
 --------

@@ -8,6 +8,7 @@ import collections
 import regex
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.types as s_types
@@ -236,6 +237,8 @@ class Form:
         self.full = name    # so a Form() can act like a Prop().
         self.info = info
 
+        self.waits = collections.defaultdict(list)
+
         self.isform = True
         self.isrunt = bool(info.get('runt', False))
 
@@ -254,6 +257,13 @@ class Form:
 
         self.props = {}     # name: Prop()
         self.defvals = {}   # name: valu
+
+    def getWaitFor(self, valu):
+        norm, info = self.type.norm(valu)
+        buid = s_common.buid((self.name, norm))
+        evnt = asyncio.Event()
+        self.waits[buid].append(evnt)
+        return evnt
 
     def onAdd(self, func):
         '''
@@ -290,6 +300,10 @@ class Form:
         '''
         Fire the onAdd() callbacks for node creation.
         '''
+        waits = self.waits.pop(node.buid, None)
+        if waits is not None:
+            [e.set() for e in waits]
+
         for func in self.onadds:
             try:
                 retn = func(node)
