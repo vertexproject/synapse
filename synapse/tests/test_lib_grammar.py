@@ -2,7 +2,7 @@ import unittest
 
 import synapse.exc as s_exc
 
-import synapse.lib.syntax2 as s_syntax2
+import synapse.lib.grammar as s_grammar
 
 import synapse.tests.utils as s_t_utils
 import lark  # type: ignore
@@ -873,7 +873,7 @@ class GrammarTest(s_t_utils.SynTest):
     async def test_parser(self):
         self.maxDiff = None
         for i, query in enumerate(_Queries):
-            parser = s_syntax2.Parser(query)
+            parser = s_grammar.Parser(query)
             tree = parser.query()
 
             self.eq(str(tree), _ParseResults[i])
@@ -887,30 +887,30 @@ class GrammarTest(s_t_utils.SynTest):
             '+1',
             "{ [ graph:node='*' :type=m1]}"
             )
-        parser = s_syntax2.Parser(q)
+        parser = s_grammar.Parser(q)
         args = parser.stormcmdargs()
         self.eq(args, correct)
 
     def test_parse_float(self):
-        self.eq((4.2, 3), s_syntax2.parse_float('4.2', 0))
-        self.eq((-4.2, 4), s_syntax2.parse_float('-4.2', 0))
-        self.eq((-4.2, 8), s_syntax2.parse_float('    -4.2', 0))
-        self.eq((-4.2, 8), s_syntax2.parse_float('    -4.2', 2))
+        self.eq((4.2, 3), s_grammar.parse_float('4.2', 0))
+        self.eq((-4.2, 4), s_grammar.parse_float('-4.2', 0))
+        self.eq((-4.2, 8), s_grammar.parse_float('    -4.2', 0))
+        self.eq((-4.2, 8), s_grammar.parse_float('    -4.2', 2))
 
     def test_parse_cmd_string(self):
-        self.eq(('newp', 9), s_syntax2.parse_cmd_string('help newp', 5))
+        self.eq(('newp', 9), s_grammar.parse_cmd_string('help newp', 5))
 
     def test_syntax_error(self):
         query = 'test:str --> *'
-        parser = s_syntax2.Parser(query)
+        parser = s_grammar.Parser(query)
         self.raises(s_exc.BadSyntax, parser.query)
 
 def gen_parse_list():
-    import synapse.lib.syntax as s_syntax  # type: ignore
+    import synapse.lib.syntax as s_grammar  # type: ignore
 
     retn = []
     for i, query in enumerate(_Queries):
-        parser = s_syntax.Parser(query)
+        parser = s_grammar.Parser(query)
         tree = parser.query()
         retn.append(str(tree))
     return retn
@@ -918,3 +918,55 @@ def gen_parse_list():
 def print_parse_list():
     for i in gen_parse_list():
         print(f'    {repr(i)},')
+
+class SyntaxTest(s_t_utils.SynTest):
+
+    def test_isre_funcs(self):
+
+        self.true(s_grammar.isCmdName('testcmd'))
+        self.true(s_grammar.isCmdName('testcmd2'))
+        self.true(s_grammar.isCmdName('testcmd.yup'))
+        self.false(s_grammar.isCmdName('2testcmd'))
+        self.false(s_grammar.isCmdName('testcmd:newp'))
+        self.false(s_grammar.isCmdName('.hehe'))
+
+        self.true(s_grammar.isUnivName('.hehe'))
+        self.true(s_grammar.isUnivName('.hehe:haha'))
+        self.true(s_grammar.isUnivName('.hehe.haha'))
+        self.true(s_grammar.isUnivName('.hehe4'))
+        self.true(s_grammar.isUnivName('.hehe.4haha'))
+        self.true(s_grammar.isUnivName('.hehe:4haha'))
+        self.false(s_grammar.isUnivName('.4hehe'))
+        self.false(s_grammar.isUnivName('test:str'))
+        self.false(s_grammar.isUnivName('test:str.hehe'))
+        self.false(s_grammar.isUnivName('test:str.hehe:haha'))
+        self.false(s_grammar.isUnivName('test:str.haha.hehe'))
+        self.true(s_grammar.isUnivName('.foo:x'))
+        self.true(s_grammar.isUnivName('.x:foo'))
+
+        self.true(s_grammar.isFormName('test:str'))
+        self.true(s_grammar.isFormName('t2:str'))
+        self.true(s_grammar.isFormName('test:str:yup'))
+        self.true(s_grammar.isFormName('test:str123'))
+        self.false(s_grammar.isFormName('test'))
+        self.false(s_grammar.isFormName('2t:str'))
+        self.false(s_grammar.isFormName('.hehe'))
+        self.false(s_grammar.isFormName('testcmd'))
+        self.true(s_grammar.isFormName('x:foo'))
+        self.true(s_grammar.isFormName('foo:x'))
+
+        self.true(s_grammar.isPropName('test:str'))
+        self.true(s_grammar.isPropName('test:str:tick'))
+        self.true(s_grammar.isPropName('test:str:str123'))
+        self.true(s_grammar.isPropName('test:str:123str'))
+        self.true(s_grammar.isPropName('test:str:123:456'))
+        self.true(s_grammar.isPropName('test:str.hehe'))
+        self.true(s_grammar.isPropName('test:str.hehe'))
+        self.true(s_grammar.isPropName('test:str.hehe.haha'))
+        self.true(s_grammar.isPropName('test:str.hehe:haha'))
+        self.true(s_grammar.isPropName('test:x'))
+        self.true(s_grammar.isPropName('x:x'))
+        self.false(s_grammar.isPropName('test'))
+        self.false(s_grammar.isPropName('2t:str'))
+        self.false(s_grammar.isPropName('.hehe'))
+        self.false(s_grammar.isPropName('testcmd'))

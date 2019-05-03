@@ -3,7 +3,7 @@ import synapse.lib.datfile as s_datfile
 import synapse.tools.storm_format as st_storm_format
 
 def test_highlight_storm():
-    from synapse.tests.test_lib_syntax2 import _Queries
+    from synapse.tests.test_lib_grammar import _Queries
 
     with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
         grammar = larkf.read().decode()

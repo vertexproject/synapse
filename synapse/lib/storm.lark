@@ -120,7 +120,7 @@ _WSCOMM: (CCOMMENT | CPPCOMMENT | _WS)+
 CCOMMENT: /\/\*+[^*]*\*+([^\/*][^*]*\*+)*\//
 CPPCOMMENT: /\/\/[^\n]*/
 
-// Must be kept consistent with same regexes in syntax2.py
+// Must be kept consistent with same regexes in synapse/lib/grammar.py
 PROPS: /[a-z][a-z0-9]*(:[a-z0-9]+)+([:.][a-z][a-z0-9]+)*/
 UNIVNAME: /\.[a-z][a-z0-9]*([:.][a-z0-9]+)*/
 PROPNAME: PROPS | UNIVNAME
