@@ -621,6 +621,7 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(rval, ('test:int', '1234'))
 
         self.raises(s_exc.NoSuchForm, t.norm, ('test:newp', 'newp'))
+        self.raises(s_exc.NoSuchForm, t.repr, ('test:newp', 'newp'))
         self.raises(s_exc.BadTypeValu, t.norm, ('newp',))
 
     def test_nodeprop(self):
