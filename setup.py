@@ -43,6 +43,7 @@ setup(
         'aiohttp>=3.5.4,<4.0',
         'prompt-toolkit>=2.0.7,<2.1.0',
         'lark-parser>=0.7.0,<0.8.0',
+        'Pygments>=2.3.0,<2.4.0',
     ],
 
     extras_require={

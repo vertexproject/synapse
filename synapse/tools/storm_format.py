@@ -1,24 +1,43 @@
 # pragma: no cover
 
-import lark
+import lark  # type: ignore
 
-import pygments.lexer
-import pygments.token as p_t
-
-import synapse.lib.datfile as s_datfile
+import pygments.lexer   # type: ignore
+import pygments.token as p_t  # type: ignore
 
 TerminalPygMap = {
+    'ABSPROP': p_t.Name,
+    'ABSPROPNOUNIV': p_t.Name,
+    'AND_': p_t.Operator.Word,
+    'BREAK': p_t.Keyword,
+    'CCOMMENT': p_t.Comment,
+    'CMDNAME': p_t.Keyword,
+    'CMPR': p_t.Operator,
+    'CONTINUE': p_t.Keyword,
+    'CPPCOMMENT': p_t.Comment,
+    'DOUBLEQUOTEDSTRING': p_t.Literal.String,
+    'FILTPREFIX': p_t.Operator,
     'HASH': p_t.Punctuation,
-    'MINUS': p_t.Punctuation,
     'LSQB': p_t.Punctuation,
+    'MINUS': p_t.Punctuation,
+    'NONCMDQUOTE': p_t.Literal,
+    'NONQUOTEWORD': p_t.Literal,
+    'NOT_': p_t.Operator.Word,
+    'OR_': p_t.Operator.Word,
+    'PROPNAME': p_t.Name,
+    'PROPS': p_t.Name,
+    'RELPROP': p_t.Name,
     'RSQB': p_t.Punctuation,
     'TAG': p_t.Name,
-    '_WSCOMM': p_t.Comment,
-    '_WS': p_t.Comment,
-    'PROPNAME': p_t.Name,
-    'CMPR': p_t.Operator,
-    'NONQUOTEWORD': p_t.Literal,
-    'VARTOKN': p_t.Name
+    'TAGMATCH': p_t.Name,
+    'UNIVNAME': p_t.Name,
+    'UNIVPROP': p_t.Name,
+    'VARCHARS': p_t.Name.Variable,
+    'VARDEREF': p_t.Name.Variable,
+    'VARSETS': p_t.Name.Variable,
+    'VARTOKN': p_t.Name.Variable,
+    '_WS': p_t.Whitespace,
+    '_WSCOMM': p_t.Whitespace
 }
 
 class StormLexer(pygments.lexer.Lexer):
@@ -37,26 +56,10 @@ class StormLexer(pygments.lexer.Lexer):
         tree = self.parser.parse(text)
         for ltoken in self._yield_tree(tree):
             typ = TerminalPygMap.get(ltoken.type, p_t.Text)
-            # yield ltoken.pos_in_stream, typ, f'({typ}:{ltoken.type}:{ltoken.value})'
             yield ltoken.pos_in_stream, typ, ltoken.value
 
 def highlight_storm(parser, text):
     from pygments import highlight
-    from pygments.formatters import Terminal256Formatter
+    from pygments.formatters import Terminal256Formatter  # type: ignore
 
     print(highlight(text, StormLexer(parser), Terminal256Formatter()), end='')
-
-def tst_highlight_storm():
-    from synapse.tests.test_lib_syntax2 import _Queries
-
-    with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
-        grammar = larkf.read().decode()
-
-    parser = lark.Lark(grammar, start='query', propagate_positions=True, keep_all_tokens=True)
-
-    for i, query in enumerate(_Queries):
-        if i == 0:
-            continue
-        if i > 25:
-            break
-        highlight_storm(parser, query)
