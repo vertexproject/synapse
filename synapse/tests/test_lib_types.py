@@ -1012,6 +1012,9 @@ class TypesTest(s_t_utils.SynTest):
             rval = e.repr((('test:int', 4321), ('test:int', 1234)))
             self.eq(rval, (('test:int', '4321'), ('test:int', '1234')))
 
+            rval = e.repr((('test:int', 4321), ('test:comp', (1234, 'hehe'))))
+            self.eq(rval, (('test:int', '4321'), ('test:comp', ('1234', 'hehe'))))
+
             tv = 5356800000
             tr = '1970/03/04 00:00:00.000'
 
