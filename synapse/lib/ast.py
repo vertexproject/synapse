@@ -1690,67 +1690,25 @@ class DollarExpr(RunValue):
         assert len(self.kids) == 1
         return await self.kids[0].runtval(runt)
 
-class ExprProduct(RunValue):
-    '''
-    Node for expr * or / expr
-    '''
-    def prepare(self):
-        # TODO: constant folding
-        assert len(self.kids) == 3
-        assert isinstance(self.kids[1], Const)
-        oper = self.kids[1].value()
+_ExprFuncMap = {
+    '*': lambda x, y: int(x) * int(y),
+    '/': lambda x, y: int(x) / int(y),
+    '+': lambda x, y: int(x) + int(y),
+    '-': lambda x, y: int(x) - int(y),
+    '>': lambda x, y: int(int(x) > int(y)),
+    '<': lambda x, y: int(int(x) < int(y)),
+    '>=': lambda x, y: int(int(x) >= int(y)),
+    '<=': lambda x, y: int(int(x) <= int(y)),
+}
 
-        if oper == '*':
-            self._operfunc = lambda x, y: int(x) * int(y)
-        else:
-            assert oper == '/'
-            self._operfunc = lambda x, y: int(x) / int(y)
-
-    async def compute(self, path):
-        return self._operfunc(await self.kids[0].compute(path), await self.kids[2].compute(path))
-
-    async def runtval(self, runt):
-        return self._operfunc(await self.kids[0].runtval(runt), await self.kids[2].runtval(runt))
-
-class ExprSum(RunValue):
-    '''
-    Node for expr + or - expr
-    '''
-    def prepare(self):
-        # TODO: constant folding
-        assert len(self.kids) == 3
-        assert isinstance(self.kids[1], Const)
-        oper = self.kids[1].value()
-
-        if oper == '+':
-            self._operfunc = lambda x, y: int(x) + int(y)
-        else:
-            assert oper == '-'
-            self._operfunc = lambda x, y: int(x) - int(y)
-
-    async def compute(self, path):
-        return self._operfunc(await self.kids[0].compute(path), await self.kids[2].compute(path))
-
-    async def runtval(self, runt):
-        return self._operfunc(await self.kids[0].runtval(runt), await self.kids[2].runtval(runt))
-
-class ExprCmpr(RunValue):
-    '''
-    Node for expr <, <=, >, >= expr
-    '''
-    _ExprCmprMap = {
-        '>': lambda x, y: int(int(x) > int(y)),
-        '<': lambda x, y: int(int(x) < int(y)),
-        '>=': lambda x, y: int(int(x) >= int(y)),
-        '<=': lambda x, y: int(int(x) <= int(y)),
-    }
+class ExprNode(RunValue):
 
     def prepare(self):
         # TODO: constant folding
         assert len(self.kids) == 3
         assert isinstance(self.kids[1], Const)
         oper = self.kids[1].value()
-        self._operfunc = self._ExprCmprMap[oper]
+        self._operfunc = _ExprFuncMap[oper]
 
     async def compute(self, path):
         return self._operfunc(await self.kids[0].compute(path), await self.kids[2].compute(path))

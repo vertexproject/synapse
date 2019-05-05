@@ -865,21 +865,21 @@ _ParseResults = [
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [], CallKwargs: []], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False, EditTagAdd: [VarValue: [Const: tag]]]]]]',
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [Const: fo*], CallKwargs: []], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False, EditTagDel: [VarValue: [Const: tag]]]]]]',
     'Query: [EditNodeAdd: [AbsProp: inet:email:message, Const: *], EditPropSet: [RelProp: to, Const: woot@woot.com], EditPropSet: [RelProp: from, Const: visi@vertex.link], EditPropSet: [RelProp: replyto, Const: root@root.com], EditPropSet: [RelProp: subject, Const: hi there], EditPropSet: [RelProp: date, Const: 2015], EditPropSet: [RelProp: body, Const: there are mad sploitz here!], EditPropSet: [RelProp: bytes, Const: *], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:email:message:link, List: [VarValue: [Const: node], Const: https://www.vertex.link]]]], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:email:message:attachment, List: [VarValue: [Const: node], Const: *]], FiltOper: [Const: -, HasAbsPropCond: [AbsProp: inet:email:message]], EditPropSet: [RelProp: name, Const: sploit.exe]]], SubQuery: [Query: [EditNodeAdd: [AbsProp: edge:has, List: [VarValue: [Const: node], List: [Const: inet:email:header, List: [Const: to, Const: Visi Kensho <visi@vertex.link>]]]]]]]',
-    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprProduct: [Const: 1, Const: /, Const: 3]]]]',
-    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprProduct: [Const: 1, Const: *, Const: 3]]]]',
-    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprSum: [ExprProduct: [Const: 1, Const: *, Const: 3], Const: +, Const: 2]]]]',
-    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprSum: [Const: 1, Const: -, ExprProduct: [Const: 3.2, Const: /, Const: -3.2]]]]]',
-    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprSum: [Const: 1, Const: +, ExprProduct: [Const: 3, Const: /, Const: 2]]]]]',
-    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprProduct: [ExprSum: [Const: 1, Const: +, Const: 3], Const: /, Const: 2]]]]',
-    'Query: [VarSetOper: [Const: foo, Const: 42], VarSetOper: [Const: foo2, Const: 43], VarSetOper: [Const: x, DollarExpr: [ExprProduct: [VarValue: [Const: foo], Const: *, VarValue: [Const: foo2]]]]]',
-    'Query: [VarSetOper: [Const: yep, DollarExpr: [ExprCmpr: [Const: 42, Const: <, Const: 43]]]]',
-    'Query: [VarSetOper: [Const: yep, DollarExpr: [ExprCmpr: [Const: 42, Const: >, Const: 43]]]]',
-    'Query: [VarSetOper: [Const: yep, DollarExpr: [ExprCmpr: [Const: 42, Const: >=, Const: 43]]]]',
-    'Query: [VarSetOper: [Const: yep, DollarExpr: [ExprCmpr: [ExprSum: [Const: 42, Const: +, Const: 4], Const: <=, ExprProduct: [Const: 43, Const: *, Const: 43]]]]]',
-    'Query: [VarSetOper: [Const: foo, Const: 4.3], VarSetOper: [Const: bar, Const: 4.2], VarSetOper: [Const: baz, DollarExpr: [ExprSum: [VarValue: [Const: foo], Const: +, VarValue: [Const: bar]]]]]',
-    'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1], VarSetOper: [Const: foo, UnivPropValue: [UnivProp: .created]], VarSetOper: [Const: bar, DollarExpr: [ExprSum: [VarValue: [Const: foo], Const: +, Const: 1]]]]',
+    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprNode: [Const: 1, Const: /, Const: 3]]]]',
+    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprNode: [Const: 1, Const: *, Const: 3]]]]',
+    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 1, Const: *, Const: 3], Const: +, Const: 2]]]]',
+    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprNode: [Const: 1, Const: -, ExprNode: [Const: 3.2, Const: /, Const: -3.2]]]]]',
+    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprNode: [Const: 1, Const: +, ExprNode: [Const: 3, Const: /, Const: 2]]]]]',
+    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 1, Const: +, Const: 3], Const: /, Const: 2]]]]',
+    'Query: [VarSetOper: [Const: foo, Const: 42], VarSetOper: [Const: foo2, Const: 43], VarSetOper: [Const: x, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: *, VarValue: [Const: foo2]]]]]',
+    'Query: [VarSetOper: [Const: yep, DollarExpr: [ExprNode: [Const: 42, Const: <, Const: 43]]]]',
+    'Query: [VarSetOper: [Const: yep, DollarExpr: [ExprNode: [Const: 42, Const: >, Const: 43]]]]',
+    'Query: [VarSetOper: [Const: yep, DollarExpr: [ExprNode: [Const: 42, Const: >=, Const: 43]]]]',
+    'Query: [VarSetOper: [Const: yep, DollarExpr: [ExprNode: [ExprNode: [Const: 42, Const: +, Const: 4], Const: <=, ExprNode: [Const: 43, Const: *, Const: 43]]]]]',
+    'Query: [VarSetOper: [Const: foo, Const: 4.3], VarSetOper: [Const: bar, Const: 4.2], VarSetOper: [Const: baz, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: +, VarValue: [Const: bar]]]]]',
+    'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1], VarSetOper: [Const: foo, UnivPropValue: [UnivProp: .created]], VarSetOper: [Const: bar, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: +, Const: 1]]]]',
     'Query: [VarSetOper: [Const: x, DollarExpr: [FuncCall: [VarDeref: [VarDeref: [VarValue: [Const: lib], Const: time], Const: offset], CallArgs: [Const: 2 days], CallKwargs: []]]]]',
-    'Query: [VarSetOper: [Const: foo, Const: 1], VarSetOper: [Const: bar, Const: 2], LiftPropBy: [Const: inet:ipv4, Const: =, DollarExpr: [ExprSum: [VarValue: [Const: foo], Const: +, VarValue: [Const: bar]]]]]',
+    'Query: [VarSetOper: [Const: foo, Const: 1], VarSetOper: [Const: bar, Const: 2], LiftPropBy: [Const: inet:ipv4, Const: =, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: +, VarValue: [Const: bar]]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
@@ -1002,4 +1002,3 @@ def gen_parse_list():
 def print_parse_list():
     for i in gen_parse_list():
         print(f'    {repr(i)},')
-
