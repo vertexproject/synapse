@@ -321,7 +321,7 @@ class Parser:
         mesg = regex.split('[\n!]', e.args[0])[0]
         at = len(self.text)
         if isinstance(e, lark.exceptions.UnexpectedCharacters):
-            mesg += f'.  Expecting one of: {", ".join(t.name for t in e.allowed)}'
+            mesg += f'.  Expecting one of: {", ".join(t for t in e.allowed)}'
             at = e.pos_in_stream
 
         return s_exc.BadSyntax(at=at, text=self.text, mesg=mesg)
