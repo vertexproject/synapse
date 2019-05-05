@@ -2,6 +2,7 @@ import unittest
 
 import synapse.exc as s_exc
 
+import synapse.lib.datfile as s_datfile
 import synapse.lib.grammar as s_grammar
 
 import synapse.tests.utils as s_t_utils
@@ -466,7 +467,22 @@ _Queries = [
     {[ inet:email:message:attachment=($node, "*") ] -inet:email:message [ :name=sploit.exe ]}
 
     {[ edge:has=($node, ('inet:email:header', ('to', 'Visi Kensho <visi@vertex.link>'))) ]}
-    '''
+    ''',
+    '$x = $(1 / 3)',
+    '$x = $(1 * 3)',
+    '$x = $(1 * 3 + 2)',
+    '$x = $(1 -3.2 / -3.2)',
+    '$x = $(1 + 3 / 2    )',
+    '$x = $((1 + 3)/ 2)',
+    '$foo=42 $foo2=43 $x = $($foo * $foo2)',
+    '$yep=$(42 < 43)',
+    '$yep=$(42 > 43)',
+    '$yep=$(42 >= 43)',
+    '$yep=$(42 + 4 <= 43 * 43)',
+    '$foo=4.3 $bar=4.2 $baz=$($foo + $bar)',
+    'inet:ipv4=1 $foo=.created $bar=$($foo +1 )',
+    "$x=$($lib.time.offset('2 days'))",
+    '$foo = 1 $bar = 2 inet:ipv4=$($foo + $bar)'
 ]
 
 # Generated with print_parse_list below
@@ -849,6 +865,21 @@ _ParseResults = [
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [], CallKwargs: []], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False, EditTagAdd: [VarValue: [Const: tag]]]]]]',
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [Const: fo*], CallKwargs: []], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False, EditTagDel: [VarValue: [Const: tag]]]]]]',
     'Query: [EditNodeAdd: [AbsProp: inet:email:message, Const: *], EditPropSet: [RelProp: to, Const: woot@woot.com], EditPropSet: [RelProp: from, Const: visi@vertex.link], EditPropSet: [RelProp: replyto, Const: root@root.com], EditPropSet: [RelProp: subject, Const: hi there], EditPropSet: [RelProp: date, Const: 2015], EditPropSet: [RelProp: body, Const: there are mad sploitz here!], EditPropSet: [RelProp: bytes, Const: *], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:email:message:link, List: [VarValue: [Const: node], Const: https://www.vertex.link]]]], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:email:message:attachment, List: [VarValue: [Const: node], Const: *]], FiltOper: [Const: -, HasAbsPropCond: [AbsProp: inet:email:message]], EditPropSet: [RelProp: name, Const: sploit.exe]]], SubQuery: [Query: [EditNodeAdd: [AbsProp: edge:has, List: [VarValue: [Const: node], List: [Const: inet:email:header, List: [Const: to, Const: Visi Kensho <visi@vertex.link>]]]]]]]',
+    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprProduct: [Const: 1, Const: /, Const: 3]]]]',
+    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprProduct: [Const: 1, Const: *, Const: 3]]]]',
+    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprSum: [ExprProduct: [Const: 1, Const: *, Const: 3], Const: +, Const: 2]]]]',
+    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprSum: [Const: 1, Const: -, ExprProduct: [Const: 3.2, Const: /, Const: -3.2]]]]]',
+    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprSum: [Const: 1, Const: +, ExprProduct: [Const: 3, Const: /, Const: 2]]]]]',
+    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprProduct: [ExprSum: [Const: 1, Const: +, Const: 3], Const: /, Const: 2]]]]',
+    'Query: [VarSetOper: [Const: foo, Const: 42], VarSetOper: [Const: foo2, Const: 43], VarSetOper: [Const: x, DollarExpr: [ExprProduct: [VarValue: [Const: foo], Const: *, VarValue: [Const: foo2]]]]]',
+    'Query: [VarSetOper: [Const: yep, DollarExpr: [ExprCmpr: [Const: 42, Const: <, Const: 43]]]]',
+    'Query: [VarSetOper: [Const: yep, DollarExpr: [ExprCmpr: [Const: 42, Const: >, Const: 43]]]]',
+    'Query: [VarSetOper: [Const: yep, DollarExpr: [ExprCmpr: [Const: 42, Const: >=, Const: 43]]]]',
+    'Query: [VarSetOper: [Const: yep, DollarExpr: [ExprCmpr: [ExprSum: [Const: 42, Const: +, Const: 4], Const: <=, ExprProduct: [Const: 43, Const: *, Const: 43]]]]]',
+    'Query: [VarSetOper: [Const: foo, Const: 4.3], VarSetOper: [Const: bar, Const: 4.2], VarSetOper: [Const: baz, DollarExpr: [ExprSum: [VarValue: [Const: foo], Const: +, VarValue: [Const: bar]]]]]',
+    'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1], VarSetOper: [Const: foo, UnivPropValue: [UnivProp: .created]], VarSetOper: [Const: bar, DollarExpr: [ExprSum: [VarValue: [Const: foo], Const: +, Const: 1]]]]',
+    'Query: [VarSetOper: [Const: x, DollarExpr: [FuncCall: [VarDeref: [VarDeref: [VarValue: [Const: lib], Const: time], Const: offset], CallArgs: [Const: 2 days], CallKwargs: []]]]]',
+    'Query: [VarSetOper: [Const: foo, Const: 1], VarSetOper: [Const: bar, Const: 2], LiftPropBy: [Const: inet:ipv4, Const: =, DollarExpr: [ExprSum: [VarValue: [Const: foo], Const: +, VarValue: [Const: bar]]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
@@ -861,11 +892,11 @@ class GrammarTest(s_t_utils.SynTest):
         parser = lark.Lark(grammar, start='query', debug=True)
 
         for i, query in enumerate(_Queries):
-
             try:
 
-                parser.parse(query)
-                # print(f'{tree.pretty()}\n)')
+                tree = parser.parse(query)
+                # print(f'#{i}: {query}')
+                # print(tree.pretty(), '\n')
             except (lark.ParseError, lark.UnexpectedCharacters):
                 print(f'Failure on parsing #{i}:\n{{{query}}}')
                 raise
@@ -904,22 +935,6 @@ class GrammarTest(s_t_utils.SynTest):
         query = 'test:str --> *'
         parser = s_grammar.Parser(query)
         self.raises(s_exc.BadSyntax, parser.query)
-
-def gen_parse_list():
-    import synapse.lib.syntax as s_grammar  # type: ignore
-
-    retn = []
-    for i, query in enumerate(_Queries):
-        parser = s_grammar.Parser(query)
-        tree = parser.query()
-        retn.append(str(tree))
-    return retn
-
-def print_parse_list():
-    for i in gen_parse_list():
-        print(f'    {repr(i)},')
-
-class SyntaxTest(s_t_utils.SynTest):
 
     def test_isre_funcs(self):
 
@@ -970,3 +985,21 @@ class SyntaxTest(s_t_utils.SynTest):
         self.false(s_grammar.isPropName('2t:str'))
         self.false(s_grammar.isPropName('.hehe'))
         self.false(s_grammar.isPropName('testcmd'))
+
+def gen_parse_list():
+    '''
+    Prints out the Asts for a list of queries in order to compare ASTs between versions of parsers
+    '''
+    import synapse.lib.grammar as s_grammar  # type: ignore
+
+    retn = []
+    for i, query in enumerate(_Queries):
+        parser = s_grammar.Parser(query)
+        tree = parser.query()
+        retn.append(str(tree))
+    return retn
+
+def print_parse_list():
+    for i in gen_parse_list():
+        print(f'    {repr(i)},')
+
