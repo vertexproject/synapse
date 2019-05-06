@@ -22,12 +22,12 @@ import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
-import synapse.lib.grammar as s_syntax
 import synapse.lib.agenda as s_agenda
 import synapse.lib.dyndeps as s_dyndeps
-import synapse.lib.trigger as s_trigger
+import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
+import synapse.lib.trigger as s_trigger
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.lmdblayer as s_lmdblayer
 import synapse.lib.provenance as s_provenance
@@ -1272,7 +1272,7 @@ class Cortex(s_cell.Cell):
         '''
         Add a synapse.lib.storm.Cmd class to the cortex.
         '''
-        if not s_syntax.isCmdName(ctor.name):
+        if not s_grammar.isCmdName(ctor.name):
             raise s_exc.BadCmdName(name=ctor.name)
 
         self.stormcmds[ctor.name] = ctor
@@ -1809,7 +1809,7 @@ class Cortex(s_cell.Cell):
         '''
         Parse storm query text and return a Query object.
         '''
-        query = s_syntax.Parser(text).query()
+        query = s_grammar.Parser(text).query()
         query.init(self)
         return query
 

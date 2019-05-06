@@ -12,8 +12,8 @@ import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.types as s_types
-import synapse.lib.grammar as s_grammar
 import synapse.lib.dyndeps as s_dyndeps
+import synapse.lib.grammar as s_grammar
 
 logger = logging.getLogger(__name__)
 

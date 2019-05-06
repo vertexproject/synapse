@@ -1,12 +1,14 @@
 import unittest
 
+import lark  # type: ignore
+
+
 import synapse.exc as s_exc
 
 import synapse.lib.datfile as s_datfile
 import synapse.lib.grammar as s_grammar
 
 import synapse.tests.utils as s_t_utils
-import lark  # type: ignore
 
 # flake8: noqa: E501
 
