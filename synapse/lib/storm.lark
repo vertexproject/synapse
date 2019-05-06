@@ -1,7 +1,4 @@
 %import common.WS -> _WS
-%import common.LCASE_LETTER
-%import common.LETTER
-%import common.DIGIT
 %import common.ESCAPED_STRING
 
 query: (_querystartnon | _querystartcommand)? _WSCOMM?
@@ -29,15 +26,15 @@ _oper: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag 
 BREAK: "break"
 CONTINUE: "continue"
 
-vareval: varvalu
+vareval: _varvalu
 
-forloop.1: "for" _WS? (_varname | varlist) _WS? "in" _WS? varvalu _WS? subquery
+forloop.1: "for" _WS? (_varname | varlist) _WS? "in" _WS? _varvalu _WS? subquery
 subquery: "{" query _WSCOMM? "}"
-switchcase.1: "switch" _WS? varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (casevalu _WSCOMM? subquery)) )* _WSCOMM? "}"
+switchcase.1: "switch" _WS? _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (casevalu _WSCOMM? subquery)) )* _WSCOMM? "}"
 varlist: "(" [_WS? _varname (_WS? "," _WS? _varname)*] _WS? ["," _WS?] ")"
 casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | /[^:\s][^:]*:/
 
-VARSETS: ("$" | "." | LETTER | DIGIT) ("$" | "." | ":" | LETTER | DIGIT)*
+VARSETS: /[$.\w][$.\w:]*/
 
 _formpivot: formpivot_pivottotags | formpivot_pivotout | formpivot_
 formpivot_pivottotags: "->" _WS? TAGMATCH
@@ -68,8 +65,7 @@ liftbytag: tagname [_WS? CMPR _valu]
 tagname: "#" _WS? (_varname | TAG)
 
 _varname: "$" _WS? VARTOKN
-VARTOKN: VARCHARS
-VARCHARS: (LETTER | DIGIT | "_")+
+VARTOKN: /\w+/
 stormcmd: CMDNAME [_WS stormcmdargs]
 stormcmdargs: [_WS? _cmdargv (_WS _cmdargv)*]
 _cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
@@ -79,21 +75,22 @@ TAGMATCH: /#(([\w*]+\.)*[\w*]+)?/
 
 // https://regex101.com/r/l8hFq8/1
 CMPR: /[@!<>^~=][@!<>^~=]*|\*[^=\s]*?=/
-_valu: NONQUOTEWORD | valulist | varvalu | relpropvalu | univpropvalu | tagpropvalue | DOUBLEQUOTEDSTRING
+_valu: NONQUOTEWORD | valulist | _varvalu | relpropvalu | univpropvalu | tagpropvalue | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING | dollarexpr
 valulist: "(" [_WS? _valu (_WS? "," _WS? _valu)*] _WS? ["," _WS?] ")"
 tagpropvalue: tagname
 
 NONCMDQUOTE: /[^ \t\n|}]+/
-NONQUOTEWORD: (LETTER | DIGIT | "-" | "?") /[^ \t\n),=\]}|]*/
+NONQUOTEWORD: /[\w\-?][^ \t\n),=\]}|]*/
 
-varvalu:  _varname (VARDEREF | varcall)*
-VARDEREF: "." VARTOKN
-varcall: _callargs
-
-// varvalu: VARTOKN | varvalu "." VARTOKN | varvalu _callargs
+_varvalu: "$" _varvaluatom
+_varvaluatom: varvalue | varderef | funccall
+varvalue: VARTOKN
+varderef: _varvaluatom "." VARTOKN
+funccall: _varvaluatom _callargs
 _callargs: "(" [_WS? (kwarg | _valu) (_WS? "," _WS? (kwarg | _valu))*] _WS? ["," _WS?] ")"
-kwarg: VARCHARS "=" _valu
+kwarg: VARTOKN "=" _valu
+
 filtoper: FILTPREFIX cond
 FILTPREFIX: "+" | "-"
 

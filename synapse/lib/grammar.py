@@ -48,7 +48,9 @@ ruleClassMap = {
     'stormcmd': lambda kids: s_ast.CmdOper(kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(tuple()))),
     'tagpropvalue': s_ast.TagPropValue,
     'valuvar': s_ast.VarSetOper,
+    'varderef': s_ast.VarDeref,
     'vareval': s_ast.VarEvalOper,
+    'varvalue': s_ast.VarValue,
 }
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
@@ -77,16 +79,6 @@ terminalClassMap = {
     'VARCHARS': s_ast.Const,
     'VARTOKN': s_ast.Const,
 }
-
-class TmpVarCall:
-    '''
-    A temporary holder to collect varcall context
-    '''
-    def __init__(self, kids):
-        self.kids = kids
-
-    def repr(self):
-        return f'{self.__class__.__name__}: {self.kids}'
 
 class AstConverter(lark.Transformer):
     '''
@@ -181,32 +173,14 @@ class AstConverter(lark.Transformer):
 
         assert False, 'Unknown condexpr operator'  # pragma: no cover
 
-    def varvalu(self, kids):
-        # FIXME really should be restructured; emulating old code for now
+    def funccall(self, kids):
+        kids = self._convert_children(kids)
+        arglist = [k for k in kids[1:] if not isinstance(k, s_ast.CallKwarg)]
+        args = s_ast.CallArgs(kids=arglist)
 
-        varv = s_ast.VarValue(kids=self._convert_children([kids[0]]))
-        for kid in kids[1:]:
-            if isinstance(kid, lark.lexer.Token):
-                assert kid.type == 'VARDEREF'
-                varv = s_ast.VarDeref(kids=[varv, s_ast.Const(kid.value[1:])])
-            elif isinstance(kid, TmpVarCall):
-                callkids = self._convert_children(kid.kids)
-                arglist = [k for k in callkids if not isinstance(k, s_ast.CallKwarg)]
-                args = s_ast.CallArgs(kids=arglist)
-
-                kwarglist = [k for k in callkids if isinstance(k, s_ast.CallKwarg)]
-                kwargs = s_ast.CallKwargs(kids=kwarglist)
-                varv = s_ast.FuncCall(kids=[varv, args, kwargs])
-            else:
-                assert False, 'Unexpected rule'  # pragma: no cover
-
-        return varv
-
-    def varcall(self, kids):
-        '''
-        Defer the conversion until the parent varvalu
-        '''
-        return TmpVarCall(kids)
+        kwarglist = [k for k in kids[1:] if isinstance(k, s_ast.CallKwarg)]
+        kwargs = s_ast.CallKwargs(kids=kwarglist)
+        return s_ast.FuncCall(kids=[kids[0], args, kwargs])
 
     def varlist(self, kids):
         kids = self._convert_children(kids)
@@ -243,8 +217,10 @@ class AstConverter(lark.Transformer):
         kid = kids[0]
         if kid.type == 'TAG':
             return s_ast.TagName(kid.value)
+
         assert kid.type == 'VARTOKN'
-        return self.varvalu(kids)
+        kids = self._convert_children(kids)
+        return s_ast.VarValue(kids)
 
     def valulist(self, kids):
         kids = self._convert_children(kids)
@@ -422,7 +398,7 @@ def meh(txt, off, cset):
 whites = set(' \t\n')
 alphaset = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 
-
+# TODO: use existing storm parser and remove this
 CmdStringGrammar = r'''
 %import common.WS -> _WS
 %import common.ESCAPED_STRING
