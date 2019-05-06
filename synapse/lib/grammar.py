@@ -82,13 +82,12 @@ class TmpVarCall:
     '''
     A temporary holder to collect varcall context
     '''
-    def __init__(self, kids, meta):
+    def __init__(self, kids):
         self.kids = kids
 
     def repr(self):
         return f'{self.__class__.__name__}: {self.kids}'
 
-@lark.v_args(meta=True)
 class AstConverter(lark.Transformer):
     '''
     Convert AST from parser into synapse AST, depth first.
@@ -119,6 +118,7 @@ class AstConverter(lark.Transformer):
         newkids = self._convert_children(children)
         return cls(newkids)
 
+    @lark.v_args(meta=True)
     def subquery(self, kids, meta):
         assert len(kids) == 1
         kids = self._convert_children(kids)
@@ -128,7 +128,7 @@ class AstConverter(lark.Transformer):
         ast.text = self.text[meta.start_pos:meta.end_pos]
         return ast
 
-    def cond(self, kids, meta):
+    def cond(self, kids):
         kids = self._convert_children(kids)
         first, cmprvalu = kids[0], kids[1:]
 
@@ -167,7 +167,7 @@ class AstConverter(lark.Transformer):
 
         assert False, 'Unknown first child of cond'  # pragma: no cover
 
-    def condexpr(self, kids, meta):
+    def condexpr(self, kids):
         if len(kids) == 1:
             return kids[0]
         assert len(kids) == 3
@@ -181,7 +181,7 @@ class AstConverter(lark.Transformer):
 
         assert False, 'Unknown condexpr operator'  # pragma: no cover
 
-    def varvalu(self, kids, meta):
+    def varvalu(self, kids):
         # FIXME really should be restructured; emulating old code for now
 
         varv = s_ast.VarValue(kids=self._convert_children([kids[0]]))
@@ -202,17 +202,17 @@ class AstConverter(lark.Transformer):
 
         return varv
 
-    def varcall(self, kids, meta):
+    def varcall(self, kids):
         '''
         Defer the conversion until the parent varvalu
         '''
-        return TmpVarCall(kids, meta)
+        return TmpVarCall(kids)
 
-    def varlist(self, kids, meta):
+    def varlist(self, kids):
         kids = self._convert_children(kids)
         return s_ast.VarList([k.valu for k in kids])
 
-    def operrelprop_pivot(self, kids, meta, isjoin=False):
+    def operrelprop_pivot(self, kids, isjoin=False):
         kids = self._convert_children(kids)
         relprop, rest = kids[0], kids[1:]
         if not rest:
@@ -220,10 +220,10 @@ class AstConverter(lark.Transformer):
         pval = s_ast.RelPropValue(kids=(relprop,))
         return s_ast.PropPivot(kids=(pval, *kids[1:]), isjoin=isjoin)
 
-    def operrelprop_join(self, kids, meta):
-        return self.operrelprop_pivot(kids, meta, isjoin=True)
+    def operrelprop_join(self, kids):
+        return self.operrelprop_pivot(kids, isjoin=True)
 
-    def stormcmdargs(self, kids, meta):
+    def stormcmdargs(self, kids):
         kids = self._convert_children(kids)
         argv = []
 
@@ -238,23 +238,23 @@ class AstConverter(lark.Transformer):
 
         return s_ast.Const(tuple(argv))
 
-    def tagname(self, kids, meta):
+    def tagname(self, kids):
         assert kids and len(kids) == 1
         kid = kids[0]
         if kid.type == 'TAG':
             return s_ast.TagName(kid.value)
         assert kid.type == 'VARTOKN'
-        return self.varvalu(kids, meta)
+        return self.varvalu(kids)
 
-    def valulist(self, kids, meta):
+    def valulist(self, kids):
         kids = self._convert_children(kids)
         return s_ast.List(None, kids=kids)
 
-    def univpropvalu(self, kids, meta):
+    def univpropvalu(self, kids):
         kids = self._convert_children(kids)
         return s_ast.UnivPropValue(kids=kids)
 
-    def switchcase(self, kids, meta):
+    def switchcase(self, kids):
         newkids = []
 
         it = iter(kids)
@@ -275,7 +275,7 @@ class AstConverter(lark.Transformer):
 
         return s_ast.SwitchCase(newkids)
 
-    def casevalu(self, kids, meta):
+    def casevalu(self, kids):
         assert len(kids) == 1
         kid = kids[0]
 
@@ -436,10 +436,9 @@ alist: "(" _WS? valu (_WS? "," _WS? valu)* _WS? ")"
 JUSTCHARS: /[^()=\[\]{}'"\s]*[^,()=\[\]{}'"\s]/
 '''
 
-@lark.v_args(meta=True)
 class CmdStringer(lark.Transformer):
 
-    def valu(self, kids, meta):
+    def valu(self, kids):
         assert len(kids) == 1
         kid = kids[0]
         if isinstance(kid, lark.lexer.Token):
@@ -455,13 +454,13 @@ class CmdStringer(lark.Transformer):
         else:
             valu = kid[0]
 
-        return valu, meta.end_pos
+        return valu.end_pos
 
-    def cmdstring(self, kids, meta):
+    def cmdstring(self, kids):
         return kids[0]
 
-    def alist(self, kids, meta):
-        return [k[0] for k in kids], meta.end_pos
+    def alist(self, kids):
+        return [k[0] for k in kids].end_pos
 
 CmdStringParser = lark.Lark(CmdStringGrammar,
                             start='cmdstring',
