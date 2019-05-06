@@ -37,7 +37,6 @@ switchcase.1: "switch" _WS? varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) 
 varlist: "(" [_WS? _varname (_WS? "," _WS? _varname)*] _WS? ["," _WS?] ")"
 casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | /[^:\s][^:]*:/
 
-// Note: changed from syntax.py in that cannot start with ':' or '.'
 VARSETS: ("$" | "." | LETTER | DIGIT) ("$" | "." | ":" | LETTER | DIGIT)*
 
 _formpivot: formpivot_pivottotags | formpivot_pivotout | formpivot_
@@ -75,14 +74,13 @@ stormcmd: CMDNAME [_WS stormcmdargs]
 stormcmdargs: [_WS? _cmdargv (_WS _cmdargv)*]
 _cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
 
-// Note: deviates from syntax.py in that moved regexp up from ast into syntax
 TAG: /([\w]+\.)*[\w]+/
 TAGMATCH: /#(([\w*]+\.)*[\w*]+)?/
 
 // https://regex101.com/r/l8hFq8/1
 CMPR: /[@!<>^~=][@!<>^~=]*|\*[^=\s]*?=/
 _valu: NONQUOTEWORD | valulist | varvalu | relpropvalu | univpropvalu | tagpropvalue | DOUBLEQUOTEDSTRING
-    | SINGLEQUOTEDSTRING
+    | SINGLEQUOTEDSTRING | dollarexpr
 valulist: "(" [_WS? _valu (_WS? "," _WS? _valu)*] _WS? ["," _WS?] ")"
 tagpropvalue: tagname
 
@@ -125,3 +123,16 @@ PROPS: /[a-z][a-z0-9]*(:[a-z0-9]+)+([:.][a-z][a-z0-9]+)*/
 UNIVNAME: /\.[a-z][a-z0-9]*([:.][a-z0-9]+)*/
 PROPNAME: PROPS | UNIVNAME
 CMDNAME: /[a-z][a-z0-9.]+/
+
+dollarexpr: "$(" _WSCOMM? exprcmp _WSCOMM? ")"
+EXPRCMPR: /<=|>=|<|>/
+EXPRPLUS: "+"
+EXPRMINUS: "-"
+EXPRTIMES: "*"
+EXPRDIVIDE: "/"
+
+// Expression rules in increasing order of precedence
+?exprcmp: exprsum | exprsum _WSCOMM? (EXPRCMPR) _WSCOMM? exprsum
+?exprsum: exprproduct | exprproduct _WSCOMM? (EXPRPLUS | EXPRMINUS) _WSCOMM? exprsum
+?exprproduct: _expratom | _expratom _WSCOMM? (EXPRTIMES | EXPRDIVIDE) _WSCOMM? exprproduct
+_expratom: _valu | "(" exprsum ")"

@@ -1243,6 +1243,7 @@ class SubqCond(Cond):
             return ctor(runt)
 
         subq = self.kids[0]
+
         async def cond(node, path):
             genr = agen((node, path))
             async for _ in subq.run(runt, genr):
@@ -1676,6 +1677,44 @@ class FuncCall(RunValue):
         kwlist = await self.kids[2].compute(runt)
         kwargs = dict(kwlist)
         return await func(*argv, **kwargs)
+
+class DollarExpr(RunValue):
+    '''
+    Top level node for $(...) expressions
+    '''
+    async def compute(self, path):
+        assert len(self.kids) == 1
+        return await self.kids[0].compute(path)
+
+    async def runtval(self, runt):
+        assert len(self.kids) == 1
+        return await self.kids[0].runtval(runt)
+
+_ExprFuncMap = {
+    '*': lambda x, y: int(x) * int(y),
+    '/': lambda x, y: int(x) / int(y),
+    '+': lambda x, y: int(x) + int(y),
+    '-': lambda x, y: int(x) - int(y),
+    '>': lambda x, y: int(int(x) > int(y)),
+    '<': lambda x, y: int(int(x) < int(y)),
+    '>=': lambda x, y: int(int(x) >= int(y)),
+    '<=': lambda x, y: int(int(x) <= int(y)),
+}
+
+class ExprNode(RunValue):
+
+    def prepare(self):
+        # TODO: constant folding
+        assert len(self.kids) == 3
+        assert isinstance(self.kids[1], Const)
+        oper = self.kids[1].value()
+        self._operfunc = _ExprFuncMap[oper]
+
+    async def compute(self, path):
+        return self._operfunc(await self.kids[0].compute(path), await self.kids[2].compute(path))
+
+    async def runtval(self, runt):
+        return self._operfunc(await self.kids[0].runtval(runt), await self.kids[2].runtval(runt))
 
 class VarList(Value):
     pass

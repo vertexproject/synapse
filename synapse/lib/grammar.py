@@ -6,67 +6,76 @@ import synapse.exc as s_exc
 import synapse.lib.ast as s_ast
 import synapse.lib.datfile as s_datfile
 
-# TL;DR:  rules are the internal nodes of an abstract syntax tree (AST), terminals are the leaves
+# TL;DR:  *rules* are the internal nodes of an abstract syntax tree (AST), *terminals* are the leaves
 
 # Note: this file is coupled strongly to synapse/lib/storm.lark.  Any changes to that file will probably require
 # changes here
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
 ruleClassMap = {
-    'query': s_ast.Query,
-    'liftbytag': s_ast.LiftTag,
-    'liftprop': s_ast.LiftProp,
-    'liftpropby': s_ast.LiftPropBy,
-    'liftformtag': s_ast.LiftFormTag,
-    'editpropdel': s_ast.EditPropDel,
-    'edittagdel': s_ast.EditTagDel,
-    'lifttagtag': s_ast.LiftTagTag,
+    'condsubq': s_ast.SubqCond,
+    'dollarexpr': s_ast.DollarExpr,
     'editnodeadd': s_ast.EditNodeAdd,
+    'editpropdel': s_ast.EditPropDel,
     'editpropset': s_ast.EditPropSet,
     'edittagadd': s_ast.EditTagAdd,
+    'edittagdel': s_ast.EditTagDel,
     'editunivdel': s_ast.EditUnivDel,
     'editunivset': s_ast.EditPropSet,
+    'exprcmp': s_ast.ExprNode,
+    'exprproduct': s_ast.ExprNode,
+    'exprsum': s_ast.ExprNode,
     'filtoper': s_ast.FiltOper,
-    'formpivot_pivottotags': s_ast.PivotToTags,
-    'formpivot_pivotout': s_ast.PivotOut,
+    'forloop': s_ast.ForLoop,
+    'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),
+    'formjoin_pivotout': lambda _: s_ast.PivotOut(isjoin=True),
+    'formjoinin_pivotin': lambda kids: s_ast.PivotIn(kids, isjoin=True),
+    'formjoinin_pivotinfrom': lambda kids: s_ast.PivotInFrom(kids, isjoin=True),
     'formpivot_': s_ast.FormPivot,
+    'formpivot_pivotout': s_ast.PivotOut,
+    'formpivot_pivottotags': s_ast.PivotToTags,
     'formpivotin_': s_ast.PivotIn,
     'formpivotin_pivotinfrom': s_ast.PivotInFrom,
-    'formjoinin_pivotinfrom': lambda kids: s_ast.PivotInFrom(kids, isjoin=True),
-    'formjoinin_pivotin': lambda kids: s_ast.PivotIn(kids, isjoin=True),
-    'formjoin_pivotout': lambda _: s_ast.PivotOut(isjoin=True),
-    'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),
+    'kwarg': lambda kids: s_ast.CallKwarg(kids=tuple(kids)),
+    'liftbytag': s_ast.LiftTag,
+    'liftformtag': s_ast.LiftFormTag,
+    'liftprop': s_ast.LiftProp,
+    'liftpropby': s_ast.LiftPropBy,
+    'lifttagtag': s_ast.LiftTagTag,
+    'opervarlist': s_ast.VarListSetOper,
+    'query': s_ast.Query,
+    'relpropvalu': s_ast.RelPropValue,
+    'stormcmd': lambda kids: s_ast.CmdOper(kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(tuple()))),
     'tagpropvalue': s_ast.TagPropValue,
     'valuvar': s_ast.VarSetOper,
     'vareval': s_ast.VarEvalOper,
-    'opervarlist': s_ast.VarListSetOper,
-    'relpropvalu': s_ast.RelPropValue,
-    'forloop': s_ast.ForLoop,
-    'condsubq': s_ast.SubqCond,
-    'kwarg': lambda kids: s_ast.CallKwarg(kids=tuple(kids)),
-    'stormcmd': lambda kids: s_ast.CmdOper(kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(tuple())))
 }
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
 terminalClassMap = {
-    'PROPNAME': s_ast.Const,
-    'CMPR': s_ast.Const,
-    'NONQUOTEWORD': s_ast.Const,
-    'RELPROP': lambda x: s_ast.RelProp(x[1:]),  # drop leading :
-    'CMDNAME': s_ast.Const,
-    'VARTOKN': s_ast.Const,
     'ABSPROP': s_ast.AbsProp,
     'ABSPROPNOUNIV': s_ast.AbsProp,
-    'NONCMDQUOTE': s_ast.Const,
-    'FILTPREFIX': s_ast.Const,
-    'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
-    'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
-    'UNIVPROP': s_ast.UnivProp,
-    'TAGMATCH': lambda x: s_ast.TagMatch(x[1:]),  # drop leading '#'
-    'NOT_': s_ast.Const,
     'BREAK': lambda _: s_ast.BreakOper(),
+    'CMDNAME': s_ast.Const,
+    'CMPR': s_ast.Const,
     'CONTINUE': lambda _: s_ast.ContinueOper(),
-    'VARCHARS': s_ast.Const
+    'EXPRCMPR': s_ast.Const,
+    'EXPRDIVIDE': s_ast.Const,
+    'EXPRMINUS': s_ast.Const,
+    'EXPRPLUS': s_ast.Const,
+    'EXPRTIMES': s_ast.Const,
+    'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
+    'FILTPREFIX': s_ast.Const,
+    'NONCMDQUOTE': s_ast.Const,
+    'NONQUOTEWORD': s_ast.Const,
+    'NOT_': s_ast.Const,
+    'PROPNAME': s_ast.Const,
+    'RELPROP': lambda x: s_ast.RelProp(x[1:]),  # drop leading :
+    'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
+    'TAGMATCH': lambda x: s_ast.TagMatch(x[1:]),  # drop leading '#'
+    'UNIVPROP': s_ast.UnivProp,
+    'VARCHARS': s_ast.Const,
+    'VARTOKN': s_ast.Const,
 }
 
 class TmpVarCall:
@@ -99,13 +108,13 @@ class AstConverter(lark.Transformer):
     def _convert_child(self, child):
         if not isinstance(child, lark.lexer.Token):
             return child
-        assert child.type in terminalClassMap, 'Unknown grammar terminal'
+        assert child.type in terminalClassMap, f'Unknown grammar terminal: {child.type}'
         tokencls = terminalClassMap[child.type]
         newkid = tokencls(child.value)
         return newkid
 
     def __default__(self, treedata, children, treemeta):
-        assert treedata in ruleClassMap, 'Unknown grammar rule'
+        assert treedata in ruleClassMap, f'Unknown grammar rule: {treedata}'
         cls = ruleClassMap[treedata]
         newkids = self._convert_children(children)
         return cls(newkids)
@@ -276,7 +285,7 @@ class AstConverter(lark.Transformer):
         return s_ast.Const(kid.value[:-1])  # drop the trailing ':'
 
 
-# A cached lark parser so we don't have to parse the grammar file for every instance
+# Cached lark parsers so lark doesn't re-parse the grammar file for every instance
 LarkQueryParser = None
 LarkStormCmdParser = None
 
@@ -306,10 +315,13 @@ class Parser:
         self.size = len(self.text)
 
     def _larkToSynExc(self, e):
+        '''
+        Convert lark exception to synapse badGrammar exception
+        '''
         mesg = regex.split('[\n!]', e.args[0])[0]
         at = len(self.text)
         if isinstance(e, lark.exceptions.UnexpectedCharacters):
-            mesg += f'.  Expecting one of: {", ".join(t.name for t in e.allowed)}'
+            mesg += f'.  Expecting one of: {", ".join(t for t in e.allowed)}'
             at = e.pos_in_stream
 
         return s_exc.BadSyntax(at=at, text=self.text, mesg=mesg)
@@ -317,6 +329,8 @@ class Parser:
     def query(self):
         '''
         Parse the storm query
+
+        Returns (s_ast.Query):  instance of parsed query
         '''
         try:
             tree = self.queryparser.parse(self.text)
@@ -339,7 +353,7 @@ class Parser:
         return newtree.valu
 
 
-# TODO:  commonize with grammar
+# TODO:  commonize with storm.lark
 scmdre = regex.compile('[a-z][a-z0-9.]+')
 univre = regex.compile(r'\.[a-z][a-z0-9]*([:.][a-z0-9]+)*')
 propre = regex.compile(r'[a-z][a-z0-9]*(:[a-z0-9]+)+([:.][a-z][a-z0-9]+)*')
@@ -358,6 +372,7 @@ def isFormName(name):
     return formre.fullmatch(name) is not None
 
 floatre = regex.compile(r'\s*-?\d+(\.\d+)?')
+
 def parse_float(text, off):
     match = floatre.match(text[off:])
     if match is None:
@@ -378,6 +393,9 @@ def nom(txt, off, cset, trim=True):
 
         name,off = nom(text,0,chars)
 
+    Note:
+
+    This really shouldn't be used for new code
     '''
     if trim:
         while len(txt) > off and txt[off] in whites:
