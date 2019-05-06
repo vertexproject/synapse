@@ -923,10 +923,14 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(args, correct)
 
     def test_parse_float(self):
+        self.raises(s_exc.BadSyntax, s_grammar.parse_float, 'visi', 0)
         self.eq((4.2, 3), s_grammar.parse_float('4.2', 0))
         self.eq((-4.2, 4), s_grammar.parse_float('-4.2', 0))
         self.eq((-4.2, 8), s_grammar.parse_float('    -4.2', 0))
         self.eq((-4.2, 8), s_grammar.parse_float('    -4.2', 2))
+
+    def test_nom(self):
+        self.eq(('xyz', 10), s_grammar.nom('   xyz    ', 0, 'wxyz', trim=True))
 
     def test_parse_cmd_string(self):
         self.eq(('newp', 9), s_grammar.parse_cmd_string('help newp', 5))
