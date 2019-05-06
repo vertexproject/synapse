@@ -3,8 +3,7 @@
 
 query: (_querystartnon | _querystartcommand)? _WSCOMM?
 _querystartcommand: _WSCOMM? stormcmd [ _WSCOMM? "|" _WSCOMM? (_querystartcommand |  _querystartnon) ]
-_querystartnon: _WSCOMM? _noncommand [ _WSCOMM? "|" _WSCOMM? _querystartcommand
-                                      | _WSCOMM? ("|" | _WSCOMM) _querystartnon ]
+_querystartnon: _WSCOMM? _noncommand [ _WSCOMM? ("|" | _WSCOMM) (_querystartcommand | _querystartnon) ]
 
 _noncommand: _editopers | _oper
 
@@ -20,7 +19,7 @@ editnodeadd: ABSPROPNOUNIV _WS? "=" _WS? _valu
 ABSPROP: PROPNAME
 ABSPROPNOUNIV: PROPS
 
-_oper: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | vareval
+_oper.1: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | vareval
      | filtoper | liftbytag | operrelprop | forloop | switchcase | BREAK | CONTINUE | _liftprop
 
 BREAK: "break"
