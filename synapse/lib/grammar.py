@@ -261,29 +261,17 @@ class AstConverter(lark.Transformer):
         return s_ast.Const(kid.value[:-1])  # drop the trailing ':'
 
 
-# Cached lark parsers so lark doesn't re-parse the grammar file for every instance
-LarkQueryParser = None
-LarkStormCmdParser = None
+with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
+    _grammar = larkf.read().decode()
+
+QueryParser = lark.Lark(_grammar, start='query', propagate_positions=True)
+StormCmdParser = lark.Lark(_grammar, start='stormcmdargs', propagate_positions=True)
 
 class Parser:
     '''
     Storm query parser
     '''
-
     def __init__(self, text, offs=0):
-
-        global LarkQueryParser
-        global LarkStormCmdParser
-
-        if LarkQueryParser is None:
-            with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
-                grammar = larkf.read().decode()
-
-            LarkQueryParser = lark.Lark(grammar, start='query', propagate_positions=True)
-            LarkStormCmdParser = lark.Lark(grammar, start='stormcmdargs', propagate_positions=True)
-
-        self.queryparser = LarkQueryParser
-        self.stormcmdparser = LarkStormCmdParser
 
         self.offs = offs
         assert text is not None
@@ -309,7 +297,7 @@ class Parser:
         Returns (s_ast.Query):  instance of parsed query
         '''
         try:
-            tree = self.queryparser.parse(self.text)
+            tree = QueryParser.parse(self.text)
         except lark.exceptions.LarkError as e:
             raise self._larkToSynExc(e)
         newtree = AstConverter(self.text).transform(tree)
@@ -321,7 +309,7 @@ class Parser:
         Parse command args that might have storm queries as arguments
         '''
         try:
-            tree = self.stormcmdparser.parse(self.text)
+            tree = StormCmdParser.parse(self.text)
         except lark.exceptions.LarkError as e:
             raise self._larkToSynExc(e)
         newtree = AstConverter(self.text).transform(tree)
