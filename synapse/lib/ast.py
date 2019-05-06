@@ -1692,7 +1692,7 @@ class DollarExpr(RunValue):
 
 _ExprFuncMap = {
     '*': lambda x, y: int(x) * int(y),
-    '/': lambda x, y: int(x) / int(y),
+    '/': lambda x, y: int(x) // int(y),
     '+': lambda x, y: int(x) + int(y),
     '-': lambda x, y: int(x) - int(y),
     '>': lambda x, y: int(int(x) > int(y)),

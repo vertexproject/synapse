@@ -88,7 +88,10 @@ NONCMDQUOTE: /[^ \t\n|}]+/
 NONQUOTEWORD: (LETTER | DIGIT | "-" | "?") /[^ \t\n),=\]}|]*/
 
 varvalu:  _varname (VARDEREF | varcall)*
+VARDEREF: "." VARTOKN
 varcall: _callargs
+
+// varvalu: VARTOKN | varvalu "." VARTOKN | varvalu _callargs
 _callargs: "(" [_WS? (kwarg | _valu) (_WS? "," _WS? (kwarg | _valu))*] _WS? ["," _WS?] ")"
 kwarg: VARCHARS "=" _valu
 filtoper: FILTPREFIX cond
@@ -102,7 +105,6 @@ NOT_: "not"
 OR_: "or"
 AND_: "and"
 condsubq: "{" _WSCOMM? query _WS? "}" [_WSCOMM? CMPR _WSCOMM? _valu]
-VARDEREF: "." VARTOKN
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
 SINGLEQUOTEDSTRING: /'[^']*'/
 UNIVPROP:  UNIVNAME
@@ -133,6 +135,6 @@ EXPRDIVIDE: "/"
 
 // Expression rules in increasing order of precedence
 ?exprcmp: exprsum | exprsum _WSCOMM? (EXPRCMPR) _WSCOMM? exprsum
-?exprsum: exprproduct | exprproduct _WSCOMM? (EXPRPLUS | EXPRMINUS) _WSCOMM? exprsum
-?exprproduct: _expratom | _expratom _WSCOMM? (EXPRTIMES | EXPRDIVIDE) _WSCOMM? exprproduct
+?exprsum: exprproduct | exprsum _WSCOMM? (EXPRPLUS | EXPRMINUS) _WSCOMM? exprproduct
+?exprproduct: _expratom | exprproduct _WSCOMM? (EXPRTIMES | EXPRDIVIDE) _WSCOMM? _expratom
 _expratom: _valu | "(" exprsum ")"

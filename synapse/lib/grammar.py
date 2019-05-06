@@ -436,9 +436,10 @@ alist: "(" _WS? valu (_WS? "," _WS? valu)* _WS? ")"
 JUSTCHARS: /[^()=\[\]{}'"\s]*[^,()=\[\]{}'"\s]/
 '''
 
+@lark.v_args(meta=True)
 class CmdStringer(lark.Transformer):
 
-    def valu(self, kids):
+    def valu(self, kids, meta):
         assert len(kids) == 1
         kid = kids[0]
         if isinstance(kid, lark.lexer.Token):
@@ -454,13 +455,13 @@ class CmdStringer(lark.Transformer):
         else:
             valu = kid[0]
 
-        return valu.end_pos
+        return valu, meta.end_pos
 
-    def cmdstring(self, kids):
+    def cmdstring(self, kids, meta):
         return kids[0]
 
-    def alist(self, kids):
-        return [k[0] for k in kids].end_pos
+    def alist(self, kids, meta):
+        return [k[0] for k in kids], meta.end_pos
 
 CmdStringParser = lark.Lark(CmdStringGrammar,
                             start='cmdstring',
