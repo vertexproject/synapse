@@ -2,10 +2,10 @@
 %import common.ESCAPED_STRING
 
 query: [_WSCOMM? "|"] (_querystartnon | _querystartedit | _querystartcommand)? _WSCOMM?
-_querystartcommand: _WSCOMM? stormcmd [ _WSCOMM? "|" _WSCOMM? (_querystartcommand |  _querystartnon | _querystartedit) ]
+_querystartcommand: _WSCOMM? stormcmd [ _WSCOMM? "|" (_querystartcommand |  _querystartnon | _querystartedit) ]
 _querystartnon: _WSCOMM? _oper _morenons?
 _querystartedit: _WSCOMM? _editopers _morenons?
-_morenons: _WSCOMM? (("|" | _WSCOMM) (_querystartcommand | _querystartnon) | ( ["|" _WSCOMM?] _querystartedit) )
+_morenons: _WSCOMM? (("|" | _WSCOMM) (_querystartcommand | _querystartnon) | ( "|"? _querystartedit) )
 
 _editopers: "[" _WS? (_editoper _WS?)* "]"
 _editoper: editpropset | editunivset | edittagadd | editpropdel | editunivdel | edittagdel | editnodeadd
