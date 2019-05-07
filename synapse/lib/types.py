@@ -272,11 +272,13 @@ class Type:
     def repr(self, norm, defval=None):
         '''
         Return a printable representation for the value.  For types which need no
-        display processing, the normalized value should be returned.
+        display processing, the defval should be returned.
+
+        This may return a string or a tuple of values for display purposes.
         '''
         return defval
 
-    def indx(self, norm):
+    def indx(self, norm):  # pragma: no cover
         '''
         Return the property index bytes for the given *normalized* value.
         '''
@@ -965,6 +967,17 @@ class Ndef(Type):
     def indx(self, norm):
         return s_common.buid(norm)
 
+    def repr(self, norm, defval=None):
+        formname, formvalu = norm
+        form = self.modl.form(formname)
+        if form is None:
+            raise s_exc.NoSuchForm(name=self.name, form=formname)
+
+        repv = form.type.repr(formvalu)
+        if repv is None:
+            return defval
+        return (formname, repv)
+
 class Edge(Type):
 
     def getCompOffs(self, name):
@@ -974,7 +987,7 @@ class Edge(Type):
 
         self.fieldoffs = {'n1': 0, 'n2': 1}
 
-        self.ndeftype = self.modl.types.get('ndef')
+        self.ndeftype = self.modl.types.get('ndef')  # type: Ndef
 
         self.n1forms = None
         self.n2forms = None
@@ -1022,16 +1035,18 @@ class Edge(Type):
         return s_common.buid(norm)
 
     def repr(self, norm, defval=None):
-        (n1form, n1valu), (n2form, n2valu) = norm
+        n1, n2 = norm
         try:
-            n1repr = self.modl.type(n1form).repr(n1valu, n1valu)
-            n2repr = self.modl.type(n2form).repr(n2valu, n2valu)
-            # We are doing some arbitrary storm escaping here to make things safe.
-            # If we ever make repr behavior more universally storm safe, we will
-            # need to change calling this ourselves.
-            s = f'(({n1form}, "{s_chop.stormstring(n1repr)}"), ({n2form}, "{s_chop.stormstring(n2repr)}"))'
-            return s
-        except Exception:
+            n1repr = self.ndeftype.repr(n1)
+            n2repr = self.ndeftype.repr(n2)
+            if n1repr and n2repr:
+                return (n1repr, n2repr)
+            elif n1repr and n2repr is None:
+                return (n1repr, n2)
+            elif n1repr is None and n2repr:
+                return (n1, n2repr)
+            return defval
+        except Exception:  # pragma: no cover
             logger.error(f'Edge repr issue: {norm}')
             return defval
 
@@ -1061,19 +1076,14 @@ class TimeEdge(Edge):
         return (n1, n2, tick), info
 
     def repr(self, norm, defval=None):
-        (n1form, n1valu), (n2form, n2valu), tick = norm
+        n1, n2, tick = norm
         try:
-            n1repr = self.modl.type(n1form).repr(n1valu, n1valu)
-            n2repr = self.modl.type(n2form).repr(n2valu, n2valu)
+            n1repr = self.ndeftype.repr(n1, n1)
+            n2repr = self.ndeftype.repr(n2, n2)
             trepr = self.modl.type('time').repr(tick)
-            # We are doing some arbitrary storm escaping here to make things safe.
-            # If we ever make repr behavior more universally storm safe, we will
-            # need to change calling this ourselves.
-            s = f'(({n1form}, "{s_chop.stormstring(n1repr)}"), ({n2form}, "{s_chop.stormstring(n2repr)}"), ' \
-                f'"{s_chop.stormstring(trepr)}")'
-            return s
-        except Exception:
-            logger.error(f'TimeEdge repr issue: {norm}')
+            return (n1repr, n2repr, trepr)
+        except Exception as e:  # pragma: no cover
+            logger.error(f'Edge repr issue: {norm}')
             return defval
 
 class Data(Type):
