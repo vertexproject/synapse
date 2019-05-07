@@ -74,10 +74,11 @@ terminalClassMap = {
     'PROPNAME': s_ast.Const,
     'RELPROP': lambda x: s_ast.RelProp(x[1:]),  # drop leading :
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
-    'TAGMATCH': lambda x: s_ast.TagMatch(x[1:]),  # drop leading '#'
+    'TAGMATCH': s_ast.TagMatch,
     'UNIVPROP': s_ast.UnivProp,
     'VARCHARS': s_ast.Const,
     'VARTOKN': s_ast.Const,
+    'ALLTAGS': lambda _: s_ast.TagMatch('')
 }
 
 class AstConverter(lark.Transformer):
@@ -134,7 +135,7 @@ class AstConverter(lark.Transformer):
         elif isinstance(first, s_ast.Const) and first.valu == 'not':
             return s_ast.NotCond(kids=(cmprvalu))
 
-        elif isinstance(first, s_ast.TagMatch):
+        elif isinstance(first, (s_ast.TagMatch, s_ast.VarValue)):
             if not cmprvalu:
                 return s_ast.TagCond(kids=kids)
 
@@ -156,6 +157,8 @@ class AstConverter(lark.Transformer):
         elif isinstance(first, (s_ast.OrCond, s_ast.AndCond, s_ast.HasRelPropCond, s_ast.NotCond, s_ast.SubqCond)):
             assert len(kids) == 1
             return first
+
+        breakpoint()
 
         assert False, 'Unknown first child of cond'  # pragma: no cover
 

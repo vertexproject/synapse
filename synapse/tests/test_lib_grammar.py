@@ -85,6 +85,7 @@ _Queries = [
     '[ test:str="foo bar" :tick=2018]',
     '[ test:str=bar +#baz ]',
     '[ test:str=foo +#$tag ]',
+    'test:str=foo +#$tag',
     '[ test:str=foo +#bar ] +(#baz or not .seen)',
     '[ test:str=foo +#bar ] +(not .seen)',
     '[ test:str=foo +#bar ] { [ +#baz ] -#bar }',
@@ -561,6 +562,7 @@ _ParseResults = [
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: foo bar], EditPropSet: [RelProp: tick, Const: 2018]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: bar], EditTagAdd: [TagName: baz]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: foo], EditTagAdd: [VarValue: [Const: tag]]]',
+    'Query: [LiftPropBy: [Const: test:str, Const: =, Const: foo], FiltOper: [Const: +, TagCond: [VarValue: [Const: tag]]]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: foo], EditTagAdd: [TagName: bar], FiltOper: [Const: +, OrCond: [TagCond: [TagMatch: baz], NotCond: [HasRelPropCond: [UnivProp: .seen]]]]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: foo], EditTagAdd: [TagName: bar], FiltOper: [Const: +, NotCond: [HasRelPropCond: [UnivProp: .seen]]]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: foo], EditTagAdd: [TagName: bar], SubQuery: [Query: [EditTagAdd: [TagName: baz], FiltOper: [Const: -, TagCond: [TagMatch: bar]]]]]',
@@ -996,11 +998,11 @@ def gen_parse_list():
     '''
     Prints out the Asts for a list of queries in order to compare ASTs between versions of parsers
     '''
-    import synapse.lib.grammar as s_grammar  # type: ignore
+    import synapse.lib.syntax as s_syntax  # type: ignore
 
     retn = []
     for i, query in enumerate(_Queries):
-        parser = s_grammar.Parser(query)
+        parser = s_syntax.Parser(query)
         tree = parser.query()
         retn.append(str(tree))
     return retn

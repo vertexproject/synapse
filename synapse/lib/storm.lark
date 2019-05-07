@@ -36,7 +36,8 @@ casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | /[^:\s][^:]*:/
 VARSETS: /[$.\w][$.\w:]*/
 
 _formpivot: formpivot_pivottotags | formpivot_pivotout | formpivot_
-formpivot_pivottotags: "->" _WS? TAGMATCH
+formpivot_pivottotags: "->" _WS? (ALLTAGS | _tagmatch)
+ALLTAGS: "#"
 formpivot_pivotout:    "->" _WS? "*"
 formpivot_:            "->" _WS? ABSPROP
 
@@ -70,7 +71,10 @@ stormcmdargs: [_WS? _cmdargv (_WS _cmdargv)*]
 _cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
 
 TAG: /([\w]+\.)*[\w]+/
-TAGMATCH: /#(([\w*]+\.)*[\w*]+)?/
+
+_tagmatch: "#" (_varvalu | TAGMATCH)
+// A tag name with asterisks
+TAGMATCH:  /([\w*]+\.)*[\w*]+/
 
 // https://regex101.com/r/l8hFq8/1
 CMPR: /[@!<>^~=][@!<>^~=]*|\*[^=\s]*?=/
@@ -93,9 +97,9 @@ kwarg: VARTOKN "=" _valu
 filtoper: FILTPREFIX cond
 FILTPREFIX: "+" | "-"
 
-// FIXME:  (need to fix in ast.py) have separate tagmatch/tagname spots cuz tagmatch can't have cmpr
+// FIXME:  (need to fix in ast.py) have separate _tagmatch/tagname spots cuz _tagmatch can't have cmpr
 cond: condexpr | condsubq | (NOT_ _WS? cond)
-    | ((RELPROP | UNIVPROP | TAGMATCH | ABSPROPNOUNIV) [_WS? CMPR _WS? _valu])
+    | ((RELPROP | UNIVPROP | _tagmatch | ABSPROPNOUNIV) [_WS? CMPR _WS? _valu])
 condexpr: "(" _WS? cond (_WS? ((AND_ | OR_) _WS? cond))* _WS? ")"
 NOT_: "not"
 OR_: "or"
