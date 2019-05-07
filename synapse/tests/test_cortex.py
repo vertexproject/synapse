@@ -378,6 +378,8 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str +test:str@=2018'))
             await self.agenraises(s_exc.BadTypeValu, core.eval('test:str +#test*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str +test:str:tick*near=newp'))
+            await self.agenraises(s_exc.BadSyntax, core.eval('test:str -> # } limit 10'))
+            await self.agenraises(s_exc.BadSyntax, core.eval('test:str -> # { limit 10'))
             await self.agenraises(s_exc.BadSyntax, core.eval(' | | '))
             await self.agenraises(s_exc.BadSyntax, core.eval('[-test:str]'))
             # Scrape is not a default behavior
