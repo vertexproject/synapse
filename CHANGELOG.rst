@@ -8,7 +8,7 @@ v0.1.5 - TBD
 Features and Enhancements
 -------------------------
 
-- Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Make Ndef, Edge and TimeEdge repr implementations consistent. (`#1217 <https://github.com/vertexproject/synapse/pull/1217>`_)
 
 Bugfixes
 --------

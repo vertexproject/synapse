@@ -107,10 +107,6 @@ class BaseTest(s_t_utils.SynTest):
                 self.eq(node.get('n2'), n2def)
                 self.eq(node.get('n2:form'), 'geo:place')
 
-                # repr test
-                pode = node.pack(dorepr=True)
-                self.isin('"2016/', pode[1].get('repr', ''))
-
             opts = {'vars': {'pers': pers}}
 
             await self.agenlen(1, core.eval('ps:person=$pers -> edge:has -> *', opts=opts))
@@ -144,13 +140,6 @@ class BaseTest(s_t_utils.SynTest):
             # Make sure we don't return None nodes on a PropPivotOut
             opts = {'vars': {'pers': pers}}
             await self.agenlen(0, core.eval('ps:person=$pers -> edge:wentto :n2 -> *', opts=opts))
-
-            # repr test
-            async with await core.snap() as snap:
-                node = await snap.addNode('edge:refs', (('inet:ipv4', 0x08080808),
-                                                   ('test:str', 'beep')))
-                pode = node.pack(dorepr=True)
-                self.isin('8.8.8.8', pode[1].get('repr', ''))
 
     async def test_model_base_source(self):
 
