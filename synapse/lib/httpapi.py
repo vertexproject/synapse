@@ -586,3 +586,13 @@ class ModelNormV1(Handler):
             return self.sendRestExc(e)
         else:
             self.sendRestRetn({'norm': valu, 'info': info})
+
+class ModelV1(Handler):
+
+    async def get(self):
+
+        if not await self.reqAuthUser():
+            return
+
+        resp = await self.cell.getModelDict()
+        return self.sendRestRetn(resp)
