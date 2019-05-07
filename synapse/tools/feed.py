@@ -12,6 +12,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.encoding as s_encoding
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,10 @@ def getItems(*paths):
             if not isinstance(item, list):
                 item = [item]
             items.append((path, item))
+        elif path.endswith('.jsonl'):
+            with s_common.genfile(path) as fd:
+                item = list(s_encoding.iterdata(fd, False, format='jsonl'))
+                items.append((path, item))
         elif path.endswith(('.yaml', '.yml')):
             item = s_common.yamlload(path)
             if not isinstance(item, list):
