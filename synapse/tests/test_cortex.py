@@ -2398,6 +2398,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], 'foo')
                 self.nn(node.getTag('hehe.haha'))
 
+            nodes = await core.nodes('$tag=hehe.haha test:str=foo +#$tag')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], 'foo')
+            self.nn(node.getTag('hehe.haha'))
+
             async for node in core.eval('#$tag', opts=opts):
                 self.eq(node.ndef[1], 'foo')
                 self.nn(node.getTag('hehe.haha'))
