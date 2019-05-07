@@ -302,7 +302,7 @@ class Parser:
         try:
             tree = QueryParser.parse(self.text)
         except lark.exceptions.LarkError as e:
-            raise self._larkToSynExc(e)
+            raise self._larkToSynExc(e) from e
         newtree = AstConverter(self.text).transform(tree)
         newtree.text = self.text
         return newtree

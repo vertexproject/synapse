@@ -2497,7 +2497,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             await _test('$(1 - 1 - 1)', -1)
             await _test('$(4 / 2 / 2)', 1)
             await _test('$(1 / 2)', 0)
-            await _test('$(1 / 0)', 0)
+
+            # TODO:  implement move-along mechanism
+            # await _test('$(1 / 0)', 0)
 
             # Test non-runtsafe
             q = '[test:type10=1 :intprop=24] $val=:intprop [test:int=$(1 + $val)]'
