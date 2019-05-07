@@ -13,7 +13,8 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 _Queries = [
-    '',
+    '[test:str=foo][test:int=42]',
+    '|help',
     "[ test:str=abcd :tick=2015 +#cool ]",
     '{ #baz } test:str=foo',
     '##baz.faz',
@@ -485,12 +486,14 @@ _Queries = [
     '$foo=4.3 $bar=4.2 $baz=$($foo + $bar)',
     'inet:ipv4=1 $foo=.created $bar=$($foo +1 )',
     "$x=$($lib.time.offset('2 days'))",
-    '$foo = 1 $bar = 2 inet:ipv4=$($foo + $bar)'
+    '$foo = 1 $bar = 2 inet:ipv4=$($foo + $bar)',
+    '',
 ]
 
 # Generated with print_parse_list below
 _ParseResults = [
-    'Query: []',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: foo], EditNodeAdd: [AbsProp: test:int, Const: 42]]',
+    'Query: [CmdOper: [Const: help, Const: ()]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: abcd], EditPropSet: [RelProp: tick, Const: 2015], EditTagAdd: [TagName: cool]]',
     'Query: [SubQuery: [Query: [LiftTag: [TagName: baz]]], LiftPropBy: [Const: test:str, Const: =, Const: foo]]',
     'Query: [LiftTagTag: [TagName: baz.faz]]',
@@ -884,6 +887,7 @@ _ParseResults = [
     'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1], VarSetOper: [Const: foo, UnivPropValue: [UnivProp: .created]], VarSetOper: [Const: bar, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: +, Const: 1]]]]',
     'Query: [VarSetOper: [Const: x, DollarExpr: [FuncCall: [VarDeref: [VarDeref: [VarValue: [Const: lib], Const: time], Const: offset], CallArgs: [Const: 2 days], CallKwargs: []]]]]',
     'Query: [VarSetOper: [Const: foo, Const: 1], VarSetOper: [Const: bar, Const: 2], LiftPropBy: [Const: inet:ipv4, Const: =, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: +, VarValue: [Const: bar]]]]]',
+    'Query: []',
 ]
 
 class GrammarTest(s_t_utils.SynTest):

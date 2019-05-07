@@ -158,8 +158,6 @@ class AstConverter(lark.Transformer):
             assert len(kids) == 1
             return first
 
-        breakpoint()
-
         assert False, 'Unknown first child of cond'  # pragma: no cover
 
     def condexpr(self, kids):
@@ -302,7 +300,7 @@ class Parser:
         try:
             tree = QueryParser.parse(self.text)
         except lark.exceptions.LarkError as e:
-            raise self._larkToSynExc(e) from e
+            raise self._larkToSynExc(e) from None
         newtree = AstConverter(self.text).transform(tree)
         newtree.text = self.text
         return newtree
