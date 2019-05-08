@@ -1246,8 +1246,8 @@ class OrCond(Cond):
     '''
     async def getCondEval(self, runt):
 
-        cond0 = self.kids[0].getCondEval(runt)
-        cond1 = self.kids[1].getCondEval(runt)
+        cond0 = await self.kids[0].getCondEval(runt)
+        cond1 = await self.kids[1].getCondEval(runt)
 
         async def cond(node, path):
 
@@ -1269,8 +1269,8 @@ class AndCond(Cond):
 
     async def getCondEval(self, runt):
 
-        cond0 = self.kids[0].getCondEval(runt)
-        cond1 = self.kids[1].getCondEval(runt)
+        cond0 = await self.kids[0].getCondEval(runt)
+        cond1 = await self.kids[1].getCondEval(runt)
 
         async def cond(node, path):
 
@@ -1288,7 +1288,7 @@ class NotCond(Cond):
 
     async def getCondEval(self, runt):
 
-        kidcond = self.kids[0].getCondEval(runt)
+        kidcond = await self.kids[0].getCondEval(runt)
 
         async def cond(node, path):
             return not await kidcond(node, path)
