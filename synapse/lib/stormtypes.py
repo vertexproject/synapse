@@ -66,6 +66,7 @@ class LibBase(Lib):
             'max': self._max,
             'dict': self._dict,
             'guid': self._guid,
+            'fire': self._fire,
             'print': self._print,
         })
 
@@ -109,6 +110,9 @@ class LibBase(Lib):
 
     async def _dict(self, **kwargs):
         return kwargs
+
+    async def _fire(self, name, **info):
+        await self.runt.snap.fire('storm:fire', type=name, data=info)
 
 class LibStr(Lib):
 
