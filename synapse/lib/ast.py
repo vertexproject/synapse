@@ -1321,12 +1321,10 @@ class TagCond(Cond):
         if isinstance(kid, TagMatch):
             name = self.kids[0].value()
         else:
-            if kid.isRuntSafe(runt):
-                # FIXME:  enable runtval calc here (variable nodes haven't been evaluated yet)
-                # name = await kid.runtval(runt)
-                name = None
-            else:
-                name = None
+            # TODO:  enable runtval calc here (variable nodes haven't been evaluated yet)
+            # if kid.isRuntSafe(runt):
+            #     name = await kid.runtval(runt)
+            name = None
 
         if name is not None:
 
