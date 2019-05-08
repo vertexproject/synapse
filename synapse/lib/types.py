@@ -937,6 +937,9 @@ class Loc(Type):
 
         return cmpr
 
+    def repr(self, norm, defval=None):
+        return norm
+
 class Ndef(Type):
 
     def postTypeInit(self):
