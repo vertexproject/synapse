@@ -269,7 +269,7 @@ class Parser:
         try:
             tree = StormCmdParser.parse(self.text)
         except lark.exceptions.LarkError as e:
-            raise self._larkToSynExc(e)
+            raise self._larkToSynExc(e) from None
         newtree = AstConverter(self.text).transform(tree)
         assert isinstance(newtree, s_ast.Const)
         return newtree.valu
