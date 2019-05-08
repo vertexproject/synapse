@@ -13,6 +13,7 @@ import synapse.lib.datfile as s_datfile
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
 ruleClassMap = {
+    'abspropcond': s_ast.AbsPropCond,
     'condsubq': s_ast.SubqCond,
     'dollarexpr': s_ast.DollarExpr,
     'editnodeadd': s_ast.EditNodeAdd,
@@ -36,21 +37,30 @@ ruleClassMap = {
     'formpivot_pivottotags': s_ast.PivotToTags,
     'formpivotin_': s_ast.PivotIn,
     'formpivotin_pivotinfrom': s_ast.PivotInFrom,
+    'hasabspropcond': s_ast.HasAbsPropCond,
+    'hasrelpropcond': s_ast.HasRelPropCond,
     'kwarg': lambda kids: s_ast.CallKwarg(kids=tuple(kids)),
     'liftbytag': s_ast.LiftTag,
     'liftformtag': s_ast.LiftFormTag,
     'liftprop': s_ast.LiftProp,
     'liftpropby': s_ast.LiftPropBy,
     'lifttagtag': s_ast.LiftTagTag,
+    'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'query': s_ast.Query,
+    'relpropcond': s_ast.RelPropCond,
     'relpropvalu': s_ast.RelPropValue,
+    'relpropvalue': s_ast.RelPropValue,
     'stormcmd': lambda kids: s_ast.CmdOper(kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(tuple()))),
+    'tagcond': s_ast.TagCond,
     'tagpropvalue': s_ast.TagPropValue,
+    'tagvalucond': s_ast.TagValuCond,
     'valuvar': s_ast.VarSetOper,
     'varderef': s_ast.VarDeref,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
+    'orexpr': s_ast.OrCond,
+    'andexpr': s_ast.AndCond
 }
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
@@ -120,59 +130,6 @@ class AstConverter(lark.Transformer):
         # Keep the text of the subquery in case used by command
         ast.text = self.text[meta.start_pos:meta.end_pos]
         return ast
-
-    def cond(self, kids):
-        kids = self._convert_children(kids)
-        first, cmprvalu = kids[0], kids[1:]
-
-        if isinstance(first, s_ast.RelProp):
-            if not cmprvalu:
-                return s_ast.HasRelPropCond(kids=kids)
-
-            prop = s_ast.RelPropValue(kids=(first, ))
-            return s_ast.RelPropCond(kids=(prop, ) + tuple(cmprvalu))
-
-        elif isinstance(first, s_ast.Const) and first.valu == 'not':
-            return s_ast.NotCond(kids=(cmprvalu))
-
-        elif isinstance(first, (s_ast.TagMatch, s_ast.VarValue)):
-            if not cmprvalu:
-                return s_ast.TagCond(kids=kids)
-
-            return s_ast.TagValuCond(kids=kids)
-
-        elif isinstance(first, s_ast.AbsProp):
-            if not cmprvalu:
-                return s_ast.HasAbsPropCond(kids=kids)
-            else:
-                return s_ast.AbsPropCond(kids=kids)
-
-        elif isinstance(first, s_ast.UnivProp):
-            prop = s_ast.RelPropValue(kids=(first, ))
-            if not cmprvalu:
-                return s_ast.HasRelPropCond(kids=prop)
-            else:
-                return s_ast.RelPropCond(kids=(prop, ) + tuple(cmprvalu))
-
-        elif isinstance(first, (s_ast.OrCond, s_ast.AndCond, s_ast.HasRelPropCond, s_ast.NotCond, s_ast.SubqCond)):
-            assert len(kids) == 1
-            return first
-
-        assert False, 'Unknown first child of cond'  # pragma: no cover
-
-    def condexpr(self, kids):
-        if len(kids) == 1:
-            return kids[0]
-        assert len(kids) == 3
-        operand1, operand2 = kids[0], kids[2]
-        oper = kids[1].value
-
-        if oper == 'and':
-            return s_ast.AndCond(kids=[operand1, operand2])
-        if oper == 'or':
-            return s_ast.OrCond(kids=[operand1, operand2])
-
-        assert False, 'Unknown condexpr operator'  # pragma: no cover
 
     def funccall(self, kids):
         kids = self._convert_children(kids)

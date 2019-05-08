@@ -13,6 +13,8 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 _Queries = [
+    ' +(syn:tag~=aka.*.mal.*)',
+    '+(syn:tag^=aka or syn:tag^=cno or syn:tag^=rep)',
     '[test:str=foo][test:int=42]',
     '|help',
     "[ test:str=abcd :tick=2015 +#cool ]",
@@ -492,6 +494,8 @@ _Queries = [
 
 # Generated with print_parse_list below
 _ParseResults = [
+    'Query: [FiltOper: [Const: +, AbsPropCond: [AbsProp: syn:tag, Const: ~=, Const: aka.*.mal.*]]]',
+    'Query: [FiltOper: [Const: +, OrCond: [OrCond: [AbsPropCond: [AbsProp: syn:tag, Const: ^=, Const: aka], AbsPropCond: [AbsProp: syn:tag, Const: ^=, Const: cno]], AbsPropCond: [AbsProp: syn:tag, Const: ^=, Const: rep]]]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: foo], EditNodeAdd: [AbsProp: test:int, Const: 42]]',
     'Query: [CmdOper: [Const: help, Const: ()]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: abcd], EditPropSet: [RelProp: tick, Const: 2015], EditTagAdd: [TagName: cool]]',
@@ -901,7 +905,6 @@ class GrammarTest(s_t_utils.SynTest):
 
         for i, query in enumerate(_Queries):
             try:
-
                 tree = parser.parse(query)
                 # print(f'#{i}: {query}')
                 # print(tree.pretty(), '\n')

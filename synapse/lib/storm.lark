@@ -94,17 +94,32 @@ funccall: _varvaluatom _callargs
 _callargs: "(" [_WS? (kwarg | _valu) (_WS? "," _WS? (kwarg | _valu))*] _WS? ["," _WS?] ")"
 kwarg: VARTOKN "=" _valu
 
-filtoper: FILTPREFIX cond
+filtoper: FILTPREFIX _cond
 FILTPREFIX: "+" | "-"
 
-// FIXME:  (need to fix in ast.py) have separate _tagmatch/tagname spots cuz _tagmatch can't have cmpr
-cond: condexpr | condsubq | (NOT_ _WS? cond)
-    | ((RELPROP | UNIVPROP | _tagmatch | ABSPROPNOUNIV) [_WS? CMPR _WS? _valu])
-condexpr: "(" _WS? cond (_WS? ((AND_ | OR_) _WS? cond))* _WS? ")"
-NOT_: "not"
-OR_: "or"
-AND_: "and"
+_cond: notcond | "(" _WS? _condexpr _WS? ")"
+    | hasrelpropcond | relpropcond
+    | abspropcond | hasabspropcond
+    | tagcond | tagvalucond | condsubq
+
+notcond: "not" _WS? _cond
+
+hasrelpropcond: RELPROP | UNIVPROP
+relpropcond.1: relpropvalue _WS? CMPR _WS? _valu
+relpropvalue: RELPROP | UNIVPROP
+
+abspropcond.1: ABSPROPNOUNIV _WS? CMPR _WS? _valu
+hasabspropcond: ABSPROPNOUNIV
+
+tagvalucond.1:  _tagmatch _WS? CMPR _WS? _valu
+tagcond: _tagmatch
+
 condsubq: "{" _WSCOMM? query _WS? "}" [_WSCOMM? CMPR _WSCOMM? _valu]
+
+_condexpr: _cond | orexpr | andexpr
+orexpr: _condexpr _WS? "or" _WS? _cond
+andexpr: _condexpr _WS? "and" _WS? _cond
+
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
 SINGLEQUOTEDSTRING: /'[^']*'/
 UNIVPROP:  UNIVNAME
