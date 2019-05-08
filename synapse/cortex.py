@@ -30,6 +30,7 @@ import synapse.lib.modules as s_modules
 import synapse.lib.trigger as s_trigger
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.lmdblayer as s_lmdblayer
+import synapse.lib.stormhttp as s_stormhttp
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 import synapse.lib.remotelayer as s_remotelayer
@@ -182,14 +183,14 @@ class CoreApi(s_cell.CellApi):
             perm = '.'.join(path)
             raise s_exc.AuthDeny(perm=perm, user=self.user.name)
 
-    def getModelDict(self):
+    async def getModelDict(self):
         '''
         Return a dictionary which describes the data model.
 
         Returns:
             (dict): A model description dictionary.
         '''
-        return self.cell.model.getModelDict()
+        return await self.cell.getModelDict()
 
     def axon(self):
         '''
@@ -827,6 +828,7 @@ class Cortex(s_cell.Cell):
         '''
         self.addStormLib(('str',), s_stormtypes.LibStr)
         self.addStormLib(('time',), s_stormtypes.LibTime)
+        self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
 
     def _initSplicers(self):
         '''
@@ -866,6 +868,8 @@ class Cortex(s_cell.Cell):
         '''
         self.addHttpApi('/api/v1/storm', s_httpapi.StormV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
+
+        self.addHttpApi('/api/v1/model', s_httpapi.ModelV1, {'cell': self})
         self.addHttpApi('/api/v1/model/norm', s_httpapi.ModelNormV1, {'cell': self})
 
     async def getCellApi(self, link, user, path):
@@ -893,6 +897,9 @@ class Cortex(s_cell.Cell):
                 return await s_layer.LayerApi.anit(self, link, user, layr)
 
         raise s_exc.NoSuchPath(path=path)
+
+    async def getModelDict(self):
+        return self.model.getModelDict()
 
     def _initFormCounts(self):
 

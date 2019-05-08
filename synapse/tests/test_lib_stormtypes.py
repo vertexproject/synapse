@@ -102,3 +102,15 @@ class StormTypesTest(s_test.SynTest):
 
             nodes = await core.nodes('[ test:comp=(10,lol) ] $x=$node.ndef().index(1).index(1) [ test:str=$x ]')
             self.eq(nodes[1].ndef, ('test:str', 'lol'))
+
+    async def test_storm_lib_fire(self):
+
+        async with self.getTestCore() as core:
+            text = '$lib.fire(foo:bar, baz=faz)'
+
+            gotn = [mesg async for mesg in core.streamstorm(text) if mesg[0] == 'storm:fire']
+
+            self.len(1, gotn)
+
+            self.eq(gotn[0][1]['type'], 'foo:bar')
+            self.eq(gotn[0][1]['data']['baz'], 'faz')

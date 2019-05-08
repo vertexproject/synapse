@@ -615,7 +615,13 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(info, {'adds': (('test:str', 'Foobar!'),),
                        'subs': {'form': 'test:str'}})
 
+        rval = t.repr(('test:str', 'Foobar!'))
+        self.none(rval)
+        rval = t.repr(('test:int', '1234'))
+        self.eq(rval, ('test:int', '1234'))
+
         self.raises(s_exc.NoSuchForm, t.norm, ('test:newp', 'newp'))
+        self.raises(s_exc.NoSuchForm, t.repr, ('test:newp', 'newp'))
         self.raises(s_exc.BadTypeValu, t.norm, ('newp',))
 
     def test_nodeprop(self):
@@ -973,7 +979,7 @@ class TypesTest(s_t_utils.SynTest):
             self.len(6, nodes)
             self.eq({node.ndef[1] for node in nodes}, {'b', 'c', 'd'})
 
-    def test_edges(self):
+    async def test_edges(self):
         model = s_datamodel.Model()
         e = model.type('edge')
         t = model.type('timeedge')
@@ -990,6 +996,37 @@ class TypesTest(s_t_utils.SynTest):
         # Sad path testing
         self.raises(s_exc.BadTypeValu, e.norm, ('newp',))
         self.raises(s_exc.BadTypeValu, t.norm, ('newp',))
+
+        # Repr testing with the test model
+        async with self.getTestCore() as core:
+            e = core.model.type('edge')
+            t = core.model.type('timeedge')
+            rval = e.repr((('test:str', '1234'), ('test:str', 'hehe')))
+            self.none(rval)
+
+            rval = e.repr((('test:int', 1234), ('test:str', 'hehe')))
+            self.eq(rval, (('test:int', '1234'), ('test:str', 'hehe')))
+
+            rval = e.repr((('test:str', 'hehe'), ('test:int', 1234)))
+            self.eq(rval, (('test:str', 'hehe'), ('test:int', '1234')))
+
+            rval = e.repr((('test:int', 4321), ('test:int', 1234)))
+            self.eq(rval, (('test:int', '4321'), ('test:int', '1234')))
+
+            rval = e.repr((('test:int', 4321), ('test:comp', (1234, 'hehe'))))
+            self.eq(rval, (('test:int', '4321'), ('test:comp', ('1234', 'hehe'))))
+
+            tv = 5356800000
+            tr = '1970/03/04 00:00:00.000'
+
+            rval = t.repr((('test:str', '1234'), ('test:str', 'hehe'), tv))
+            self.eq(rval, (('test:str', '1234'), ('test:str', 'hehe'), tr))
+
+            rval = t.repr((('test:int', 1234), ('test:str', 'hehe'), tv))
+            self.eq(rval, (('test:int', '1234'), ('test:str', 'hehe'), tr))
+
+            rval = t.repr((('test:str', 'hehe'), ('test:int', 1234), tv))
+            self.eq(rval, (('test:str', 'hehe'), ('test:int', '1234'), tr))
 
     async def test_types_long_indx(self):
 

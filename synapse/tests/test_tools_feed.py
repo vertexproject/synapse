@@ -1,3 +1,5 @@
+import json
+
 import synapse.common as s_common
 
 import synapse.lib.msgpack as s_msgpack
@@ -108,17 +110,17 @@ class FeedTest(s_t_utils.SynTest):
 
             with self.getTestDir() as dirn:
 
-                mpkfp = s_common.genpath(dirn, 'podes.mpk')
-                with s_common.genfile(mpkfp) as fd:
+                jsonlfp = s_common.genpath(dirn, 'podes.jsonl')
+                with s_common.genfile(jsonlfp) as fd:
                     for i in range(20):
                         pode = (('test:int', i), {})
-                        fd.write(s_msgpack.en(pode))
+                        _ = fd.write(json.dumps(pode).encode() + b'\n')
 
                 argv = ['--cortex', curl,
                         '--format', 'syn.nodes',
                         '--modules', 'synapse.tests.utils.TestModule',
                         '--chunksize', '3',
-                        mpkfp]
+                        jsonlfp]
 
                 outp = self.getTestOutp()
                 self.eq(await s_feed.main(argv, outp=outp), 0)

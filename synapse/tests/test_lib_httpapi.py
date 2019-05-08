@@ -457,6 +457,13 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('ok', retn.get('status'))
                     self.eq('visi', retn['result']['name'])
 
+                # Get a copy of the data model
+                async with sess.get(f'https://localhost:{port}/api/v1/model') as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.isin('types', retn['result'])
+                    self.isin('forms', retn['result'])
+
                 # Norm via GET
                 body = {'prop': 'inet:ipv4', 'value': '1.2.3.4'}
                 async with sess.get(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
@@ -482,6 +489,18 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('ok', retn.get('status'))
                     self.eq(0x01020304, retn['result']['norm'])
                     self.eq('unicast', retn['result']['info']['subs']['type'])
+
+            # Auth failures
+            conn = aiohttp.TCPConnector(ssl=False)
+            async with aiohttp.ClientSession(connector=conn) as sess:
+                async with sess.get(f'https://visi:newp@localhost:{port}/api/v1/model') as resp:
+                    retn = await resp.json()
+                    self.eq('err', retn.get('status'))
+
+                body = {'prop': 'inet:ipv4', 'value': '1.2.3.4'}
+                async with sess.get(f'https://visi:newp@localhost:{port}/api/v1/model/norm', json=body) as resp:
+                    retn = await resp.json()
+                    self.eq('err', retn.get('status'))
 
     async def test_http_storm(self):
 
