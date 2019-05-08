@@ -1115,7 +1115,7 @@ class Cond(AstNode):
     def getLiftHints(self):
         return ()
 
-    def getCondEval(self, runt): # pragma: no cover
+    async def getCondEval(self, runt): # pragma: no cover
         raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.evaluate()')
 
 class SubqCond(Cond):
@@ -1220,7 +1220,7 @@ class SubqCond(Cond):
 
         return cond
 
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
         if len(self.kids) == 3:
             cmpr = self.kids[1].value()
@@ -1231,6 +1231,7 @@ class SubqCond(Cond):
             return ctor(runt)
 
         subq = self.kids[0]
+
         async def cond(node, path):
             genr = agen((node, path))
             async for _ in subq.run(runt, genr):
@@ -1243,7 +1244,7 @@ class OrCond(Cond):
     '''
     <cond> or <cond>
     '''
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
         cond0 = self.kids[0].getCondEval(runt)
         cond1 = self.kids[1].getCondEval(runt)
@@ -1266,7 +1267,7 @@ class AndCond(Cond):
         h1 = self.kids[1].getLiftHints()
         return h0 + h1
 
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
         cond0 = self.kids[0].getCondEval(runt)
         cond1 = self.kids[1].getCondEval(runt)
@@ -1285,7 +1286,7 @@ class NotCond(Cond):
     not <cond>
     '''
 
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
         kidcond = self.kids[0].getCondEval(runt)
 
@@ -1299,50 +1300,84 @@ class TagCond(Cond):
     #foo.bar
     '''
     def getLiftHints(self):
-        name = self.kids[0].value()
+
+        kid = self.kids[0]
+
+        if not isinstance(kid, TagMatch):
+            # TODO:  we might hint based on variable value
+            return ()
+
+        name = kid.value()
         if '*' in name:
             return ()
         return (
             ('tag', {'name': name}),
         )
 
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
-        name = self.kids[0].value()
+        assert len(self.kids) == 1
+        kid = self.kids[0]
+        if isinstance(kid, TagMatch):
+            name = self.kids[0].value()
+        else:
+            if kid.isRuntSafe(runt):
+                # FIXME:  enable runtval calc here (variable nodes haven't been evaluated yet)
+                # name = await kid.runtval(runt)
+                name = None
+            else:
+                name = None
 
-        # Allow for a user to ask for #* to signify "any tags on this node"
-        if name == '*':
+        if name is not None:
+
+            # Allow for a user to ask for #* to signify "any tags on this node"
+            if name == '*':
+                async def cond(node, path):
+                    # Check if the tags dictionary has any members
+                    if node.tags:
+                        return True
+                    return False
+                return cond
+
+            # Allow a user to use tag globbing to do regex matching of a node.
+            if '*' in name:
+                reobj = s_cache.getTagGlobRegx(name)
+
+                def getIsHit(tag):
+                    return reobj.fullmatch(tag)
+
+                # This cache persists per-query
+                cache = s_cache.FixedCache(getIsHit)
+
+                async def cond(node, path):
+                    return any((cache.get(p) for p in node.tags))
+
+                return cond
+
+            # Default exact match
             async def cond(node, path):
-                # Check if the tags dictionary has any members
-                if node.tags:
-                    return True
-                return False
+                return node.tags.get(name) is not None
+
             return cond
 
-        # Allow a user to use tag globbing to do regex matching of a node.
-        if '*' in name:
-            reobj = s_cache.getTagGlobRegx(name)
-
-            def getIsHit(tag):
-                return reobj.fullmatch(tag)
-
-            # This cache persists per-query
-            cache = s_cache.FixedCache(getIsHit)
-
-            async def cond(node, path):
-                return any((cache.get(p) for p in node.tags))
-
-            return cond
-
-        # Default exact match
+        # kid is a non-runtsafe VarValue: dynamically evaluate value of variable for each node
         async def cond(node, path):
+            name = await kid.compute(path)
+
+            if name == '*':
+                return bool(node.tags)
+
+            if '*' in name:
+                reobj = s_cache.getTagGlobRegx(name)
+                return any(reobj.fullmatch(p) for p in node.tags)
+
             return node.tags.get(name) is not None
 
         return cond
 
 class HasRelPropCond(Cond):
 
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
         name = self.kids[0].value()
 
@@ -1353,7 +1388,7 @@ class HasRelPropCond(Cond):
 
 class HasAbsPropCond(Cond):
 
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
         name = self.kids[0].value()
 
@@ -1379,7 +1414,7 @@ class HasAbsPropCond(Cond):
 
 class AbsPropCond(Cond):
 
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
         name = self.kids[0].value()
         cmpr = self.kids[1].value()
@@ -1418,7 +1453,7 @@ class AbsPropCond(Cond):
 
 class TagValuCond(Cond):
 
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
         name = self.kids[0].value()
         cmpr = self.kids[1].value()
@@ -1451,7 +1486,7 @@ class RelPropCond(Cond):
     '''
     :foo:bar <cmpr> <value>
     '''
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
         cmpr = self.kids[1].value()
 
@@ -1483,7 +1518,7 @@ class FiltOper(Oper):
     async def run(self, runt, genr):
 
         must = self.kids[0].value() == '+'
-        cond = self.kids[1].getCondEval(runt)
+        cond = await self.kids[1].getCondEval(runt)
 
         async for node, path in genr:
             answ = await cond(node, path)
