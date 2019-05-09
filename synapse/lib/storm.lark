@@ -211,3 +211,6 @@ _expratom: _exprvalu | "(" exprsum ")"
 // Just like _valu, but doesn't allow unquoted string constants
 _exprvalu: NUMBER | valulist | _varvalu | relpropvalu | univpropvalu | tagpropvalue | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING | dollarexpr
+
+// Expression rule for processing a storm query prepended with storm.
+cmdrline: "storm" _WS? query
