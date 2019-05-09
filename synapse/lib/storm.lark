@@ -1,0 +1,161 @@
+%import common.WS -> _WS
+%import common.ESCAPED_STRING
+
+query: [_WSCOMM? "|"] (_querystartnon | _querystartedit | _querystartcommand)? _WSCOMM?
+_querystartcommand: _WSCOMM? stormcmd [ _WSCOMM? "|" (_querystartcommand |  _querystartnon | _querystartedit) ]
+_querystartnon: _WSCOMM? _oper _morenons?
+_querystartedit: _WSCOMM? _editopers _morenons?
+_morenons: _WSCOMM? (("|" | _WSCOMM) (_querystartcommand | _querystartnon) | ( "|"? _querystartedit) )
+
+_editopers: "[" _WS? (_editoper _WS?)* "]"
+_editoper: editpropset | editunivset | edittagadd | editpropdel | editunivdel | edittagdel | editnodeadd
+edittagadd: "+" tagname [_WS? "=" _WS? _valu]
+editunivdel: "-" UNIVPROP
+edittagdel: "-" tagname
+editpropset: RELPROP _WS? "=" _WS? _valu
+editpropdel: "-" RELPROP
+editunivset: UNIVPROP _WS? "=" _WS? _valu
+editnodeadd: ABSPROPNOUNIV _WS? "=" _WS? _valu
+ABSPROP: PROPNAME
+ABSPROPNOUNIV: PROPS
+
+_oper.1: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | vareval
+     | filtoper | liftbytag | operrelprop | forloop | switchcase | BREAK | CONTINUE | _liftprop
+
+BREAK: "break"
+CONTINUE: "continue"
+
+vareval: _varvalu
+
+forloop.1: "for" _WS? (_varname | varlist) _WS? "in" _WS? _varvalu _WS? subquery
+subquery: "{" query _WSCOMM? "}"
+switchcase.1: "switch" _WS? _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (casevalu _WSCOMM? subquery)) )* _WSCOMM? "}"
+varlist: "(" [_WS? _varname (_WS? "," _WS? _varname)*] _WS? ["," _WS?] ")"
+casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | CASEVALU
+CASEVALU: /[^:\s][^:]*:/
+
+VARSETS: /[$.\w][$.\w:]*/
+
+_formpivot: formpivot_pivottotags | formpivot_pivotout | formpivot_
+formpivot_pivottotags: _RIGHTPIVOT _WS? (ALLTAGS | _tagmatch)
+ALLTAGS: "#"
+formpivot_pivotout:    _RIGHTPIVOT _WS? "*"
+formpivot_:            _RIGHTPIVOT _WS? ABSPROP
+
+formjoin: _RIGHTJOIN _WS? "*" -> formjoin_pivotout
+        | _RIGHTJOIN _WS? ABSPROP -> formjoin_formpivot
+_RIGHTJOIN: "-+>"
+_RIGHTPIVOT: "->"
+_LEFTPIVOT: "<-"
+_LEFTJOIN: "<+-"
+
+formpivotin.1: _LEFTPIVOT _WS? "*" -> formpivotin_
+           | _LEFTPIVOT _WS? ABSPROP -> formpivotin_pivotinfrom
+
+formjoinin: _LEFTJOIN _WS? "*" -> formjoinin_pivotin
+          | _LEFTJOIN _WS? ABSPROP -> formjoinin_pivotinfrom
+opervarlist: varlist _WS? "=" _WS? _valu
+
+operrelprop: RELPROP _WS? _RIGHTPIVOT _WS? ("*" | ABSPROP) -> operrelprop_pivot
+           | RELPROP _WS? _RIGHTJOIN _WS? ABSPROP -> operrelprop_join
+
+valuvar: _varname _WS? "=" _WS? _valu
+
+_liftprop: liftformtag | liftpropby | liftprop
+liftformtag.1: PROPNAME tagname [_WS? CMPR _valu]
+liftpropby: PROPNAME _WS? CMPR _WS? _valu
+liftprop: PROPNAME
+lifttagtag: "#" tagname [_WS? CMPR _valu]
+liftbytag: tagname [_WS? CMPR _valu]
+tagname: "#" _WS? (_varname | TAG)
+
+_varname: "$" _WS? VARTOKN
+VARTOKN: /\w+/
+stormcmd: CMDNAME [_WS stormcmdargs]
+stormcmdargs: [_WS? _cmdargv (_WS _cmdargv)*]
+_cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
+
+TAG: /([\w]+\.)*[\w]+/
+
+_tagmatch: "#" (_varvalu | TAGMATCH)
+// A tag name with asterisks
+TAGMATCH:  /([\w*]+\.)*[\w*]+/
+
+// https://regex101.com/r/l8hFq8/1
+CMPR: /[@!<>^~=][@!<>^~=]*|\*[^=\s]*?=/
+_valu: NONQUOTEWORD | valulist | _varvalu | relpropvalu | univpropvalu | tagpropvalue | DOUBLEQUOTEDSTRING
+    | SINGLEQUOTEDSTRING | dollarexpr
+valulist: "(" [_WS? _valu (_WS? "," _WS? _valu)*] _WS? ["," _WS?] ")"
+tagpropvalue: tagname
+
+NONCMDQUOTE: /[^ \t\n|}]+/
+NONQUOTEWORD: /[\w\-?][^ \t\n),=\]}|]*/
+
+_varvalu: "$" _varvaluatom
+_varvaluatom: varvalue | varderef | funccall
+varvalue: VARTOKN
+varderef: _varvaluatom "." VARTOKN
+funccall: _varvaluatom _callargs
+_callargs: "(" [_WS? (kwarg | _valu) (_WS? "," _WS? (kwarg | _valu))*] _WS? ["," _WS?] ")"
+kwarg: VARTOKN "=" _valu
+
+filtoper: FILTPREFIX _cond
+FILTPREFIX: "+" | "-"
+
+_cond: notcond | "(" _WS? _condexpr _WS? ")"
+    | hasrelpropcond | relpropcond
+    | abspropcond | hasabspropcond
+    | tagcond | tagvalucond | condsubq
+
+notcond: "not" _WS? _cond
+
+hasrelpropcond: RELPROP | UNIVPROP
+relpropcond.1: relpropvalue _WS? CMPR _WS? _valu
+relpropvalue:   RELPROP | UNIVPROP
+
+abspropcond.1:  ABSPROPNOUNIV _WS? CMPR _WS? _valu
+hasabspropcond: ABSPROPNOUNIV
+
+tagvalucond.1:  _tagmatch _WS? CMPR _WS? _valu
+tagcond: _tagmatch
+
+condsubq: "{" _WSCOMM? query _WS? "}" [_WSCOMM? CMPR _WSCOMM? _valu]
+
+_condexpr: _cond | orexpr | andexpr
+orexpr: _condexpr _WS? "or" _WS? _cond
+andexpr: _condexpr _WS? "and" _WS? _cond
+
+DOUBLEQUOTEDSTRING: ESCAPED_STRING
+SINGLEQUOTEDSTRING: /'[^']*'/
+UNIVPROP:  UNIVNAME
+univpropvalu: UNIVPROP
+
+RELPROP: ":" VARSETS
+relpropvalu: RELPROP
+
+// Whitespace or comments
+_WSCOMM: (CCOMMENT | CPPCOMMENT | _WS)+
+
+// From https://stackoverflow.com/a/36328890/6518334
+CCOMMENT: /\/\*+[^*]*\*+([^\/*][^*]*\*+)*\//
+CPPCOMMENT: /\/\/[^\n]*/
+
+// Must be kept consistent with same regexes in synapse/lib/grammar.py
+PROPS: /[a-z][a-z0-9]*(:[a-z0-9]+)+([:.][a-z][a-z0-9]+)*/
+UNIVNAME: /\.[a-z][a-z0-9]*([:.][a-z0-9]+)*/
+PROPNAME: PROPS | UNIVNAME
+CMDNAME: /[a-z][a-z0-9.]+/
+
+dollarexpr: _EXPRSTART _WSCOMM? exprcmp _WSCOMM? ")"
+_EXPRSTART: "$("
+EXPRCMPR: /<=|>=|<|>/
+EXPRPLUS: "+"
+EXPRMINUS: "-"
+EXPRTIMES: "*"
+EXPRDIVIDE: "/"
+
+// Expression rules in increasing order of precedence
+?exprcmp: exprsum | exprsum _WSCOMM? (EXPRCMPR) _WSCOMM? exprsum
+?exprsum: exprproduct | exprsum _WSCOMM? (EXPRPLUS | EXPRMINUS) _WSCOMM? exprproduct
+?exprproduct: _expratom | exprproduct _WSCOMM? (EXPRTIMES | EXPRDIVIDE) _WSCOMM? _expratom
+_expratom: _valu | "(" exprsum ")"

@@ -96,7 +96,7 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     outp.clear()
                     await cmdr.runCmdLine('cron add }')
-                    self.true(outp.expect('query parameter must start with {'))
+                    self.true(outp.expect('BadSyntax'))
 
                     ##################
                     oldsplices = len(await alist(core.splices(0, 1000)))
