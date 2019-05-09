@@ -31,28 +31,33 @@ forloop.1: "for" _WS? (_varname | varlist) _WS? "in" _WS? _varvalu _WS? subquery
 subquery: "{" query _WSCOMM? "}"
 switchcase.1: "switch" _WS? _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (casevalu _WSCOMM? subquery)) )* _WSCOMM? "}"
 varlist: "(" [_WS? _varname (_WS? "," _WS? _varname)*] _WS? ["," _WS?] ")"
-casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | /[^:\s][^:]*:/
+casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | CASEVALU
+CASEVALU: /[^:\s][^:]*:/
 
 VARSETS: /[$.\w][$.\w:]*/
 
 _formpivot: formpivot_pivottotags | formpivot_pivotout | formpivot_
-formpivot_pivottotags: "->" _WS? (ALLTAGS | _tagmatch)
+formpivot_pivottotags: _RIGHTPIVOT _WS? (ALLTAGS | _tagmatch)
 ALLTAGS: "#"
-formpivot_pivotout:    "->" _WS? "*"
-formpivot_:            "->" _WS? ABSPROP
+formpivot_pivotout:    _RIGHTPIVOT _WS? "*"
+formpivot_:            _RIGHTPIVOT _WS? ABSPROP
 
-formjoin: "-+>" _WS? "*" -> formjoin_pivotout
-        | "-+>" _WS? ABSPROP -> formjoin_formpivot
+formjoin: _RIGHTJOIN _WS? "*" -> formjoin_pivotout
+        | _RIGHTJOIN _WS? ABSPROP -> formjoin_formpivot
+_RIGHTJOIN: "-+>"
+_RIGHTPIVOT: "->"
+_LEFTPIVOT: "<-"
+_LEFTJOIN: "<+-"
 
-formpivotin.1: "<-" _WS? "*" -> formpivotin_
-           | "<-" _WS? ABSPROP -> formpivotin_pivotinfrom
+formpivotin.1: _LEFTPIVOT _WS? "*" -> formpivotin_
+           | _LEFTPIVOT _WS? ABSPROP -> formpivotin_pivotinfrom
 
-formjoinin: "<+-" _WS? "*" -> formjoinin_pivotin
-          | "<+-" _WS? ABSPROP -> formjoinin_pivotinfrom
+formjoinin: _LEFTJOIN _WS? "*" -> formjoinin_pivotin
+          | _LEFTJOIN _WS? ABSPROP -> formjoinin_pivotinfrom
 opervarlist: varlist _WS? "=" _WS? _valu
 
-operrelprop: RELPROP _WS? "->" _WS? ("*" | ABSPROP) -> operrelprop_pivot
-           | RELPROP _WS? "-+>" _WS? ABSPROP -> operrelprop_join
+operrelprop: RELPROP _WS? _RIGHTPIVOT _WS? ("*" | ABSPROP) -> operrelprop_pivot
+           | RELPROP _WS? _RIGHTJOIN _WS? ABSPROP -> operrelprop_join
 
 valuvar: _varname _WS? "=" _WS? _valu
 
@@ -106,9 +111,9 @@ notcond: "not" _WS? _cond
 
 hasrelpropcond: RELPROP | UNIVPROP
 relpropcond.1: relpropvalue _WS? CMPR _WS? _valu
-relpropvalue: RELPROP | UNIVPROP
+relpropvalue:   RELPROP | UNIVPROP
 
-abspropcond.1: ABSPROPNOUNIV _WS? CMPR _WS? _valu
+abspropcond.1:  ABSPROPNOUNIV _WS? CMPR _WS? _valu
 hasabspropcond: ABSPROPNOUNIV
 
 tagvalucond.1:  _tagmatch _WS? CMPR _WS? _valu
@@ -141,7 +146,8 @@ UNIVNAME: /\.[a-z][a-z0-9]*([:.][a-z0-9]+)*/
 PROPNAME: PROPS | UNIVNAME
 CMDNAME: /[a-z][a-z0-9.]+/
 
-dollarexpr: "$(" _WSCOMM? exprcmp _WSCOMM? ")"
+dollarexpr: _EXPRSTART _WSCOMM? exprcmp _WSCOMM? ")"
+_EXPRSTART: "$("
 EXPRCMPR: /<=|>=|<|>/
 EXPRPLUS: "+"
 EXPRMINUS: "-"

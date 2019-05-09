@@ -223,6 +223,7 @@ with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
 QueryParser = lark.Lark(_grammar, start='query', propagate_positions=True)
+CmdrParser = lark.Lark(_grammar, start='query', propagate_positions=True, keep_all_tokens=True)
 StormCmdParser = lark.Lark(_grammar, start='stormcmdargs', propagate_positions=True)
 
 class Parser:
