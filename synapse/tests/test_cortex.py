@@ -376,8 +376,10 @@ class CortexTest(s_t_utils.SynTest):
 
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str +test:str@=2018'))
-            await self.agenraises(s_exc.BadSyntax, core.eval('test:str +#test*near=newp'))
+            await self.agenraises(s_exc.BadTypeValu, core.eval('test:str +#test*near=newp'))
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str +test:str:tick*near=newp'))
+            await self.agenraises(s_exc.BadSyntax, core.eval('test:str -> # } limit 10'))
+            await self.agenraises(s_exc.BadSyntax, core.eval('test:str -> # { limit 10'))
             await self.agenraises(s_exc.BadSyntax, core.eval(' | | '))
             await self.agenraises(s_exc.BadSyntax, core.eval('[-test:str]'))
             # Scrape is not a default behavior
@@ -623,9 +625,9 @@ class CortexTest(s_t_utils.SynTest):
             tgud = s_common.guid()
             tstr = 'boom'
             async with await wcore.snap() as snap:
-                node = await snap.addNode('test:str', tstr)
-                node = await snap.addNode('test:guid', tgud)
-                node = await snap.addNode('test:edge', (('test:guid', tgud), ('test:str', tstr)))
+                await snap.addNode('test:str', tstr)
+                await snap.addNode('test:guid', tgud)
+                await snap.addNode('test:edge', (('test:guid', tgud), ('test:str', tstr)))
 
             q = f'test:str={tstr} <- test:edge :n1:form -> *'
             mesgs = await alist(core.streamstorm(q))
@@ -2137,7 +2139,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('[ test:pivcomp=(hehe,haha) :tick=2015 +#foo=(2014,2016) ]'))
             await self.agenlen(1, core.eval('test:pivtarg=hehe [ .seen=2015 ]'))
 
-            await self.agenlen(1, core.eval('test:pivcomp=(hehe,haha) $ticktock=#foo -> test:pivtarg +.seen@=$ticktock'))
+            await self.agenlen(1,
+                               core.eval('test:pivcomp=(hehe,haha) $ticktock=#foo -> test:pivtarg +.seen@=$ticktock'))
 
             await self.agenlen(1, core.eval('inet:dns:a=(woot.com,1.2.3.4) [ .seen=(2015,2018) ]'))
 
@@ -2429,13 +2432,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormVarListError):
                 await core.eval('for ($fqdn,$ipv4,$boom) in $dnsa { [ inet:dns:a=($fqdn,$ipv4) ] }', opts=opts).list()
 
+            q = '[ inet:ipv4=1.2.3.4 +#hehe +#haha ] for ($foo,$bar,$baz) in $node.tags() {[+#$foo]}'
             with self.raises(s_exc.StormVarListError):
-                await core.eval('[ inet:ipv4=1.2.3.4 +#hehe +#haha ] for ($foo,$bar,$baz) in $node.tags() {[+#$foo]}').list()
+                await core.eval(q).list()
 
-            await core.eval('inet:ipv4=1.2.3.4 for $tag in $node.tags() { [ +#hoho ] { [inet:ipv4=5.5.5.5 +#$tag] } continue [ +#visi ] }').list()
+            await core.eval('inet:ipv4=1.2.3.4 for $tag in $node.tags() { [ +#hoho ] { [inet:ipv4=5.5.5.5 +#$tag] } continue [ +#visi ] }').list()  # noqa: E501
             self.len(1, await core.eval('inet:ipv4=5.5.5.5 +#hehe +#haha -#visi').list())
 
-            await core.eval('inet:ipv4=1.2.3.4 for $tag in $node.tags() { [ +#hoho ] { [inet:ipv4=6.6.6.6 +#$tag] } break [ +#visi ]}').list()
+            await core.eval('inet:ipv4=1.2.3.4 for $tag in $node.tags() { [ +#hoho ] { [inet:ipv4=6.6.6.6 +#$tag] } break [ +#visi ]}').list()  # noqa: E501
             self.len(1, await core.eval('inet:ipv4=6.6.6.6 +(#hehe or #haha) -(#hehe and #haha) -#visi').list())
 
     async def test_storm_varmeth(self):
@@ -2470,6 +2474,41 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchPivot):
                 nodes = await alist(core.eval('inet:ipv4 -> test:str'))
+
+    async def test_storm_expressions(self):
+        async with self.getTestCore() as core:
+
+            async def _test(q, ansr):
+                nodes = await core.eval(f'[test:int={q}]').list()
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('test:int', ansr))
+
+            await _test('$(42)', 42)
+            await _test('$(2 + 4)', 6)
+            await _test('$(4 - 2)', 2)
+            await _test('$(4 -2)', 2)
+            await _test('$(2 * 4)', 8)
+            await _test('$(1 + 2 * 4)', 9)
+            await _test('$(1 + 2 * 4)', 9)
+            await _test('$((1 + 2) * 4)', 12)
+            await _test('$(1 < 1)', 0)
+            await _test('$(1 <= 1)', 1)
+            await _test('$(1 > 1)', 0)
+            await _test('$(1 >= 1)', 1)
+            await _test('$(1 >= 1 + 1)', 0)
+            await _test('$(1 >= 1 + 1 * -2)', 1)
+            await _test('$(1 - 1 - 1)', -1)
+            await _test('$(4 / 2 / 2)', 1)
+            await _test('$(1 / 2)', 0)
+
+            # TODO:  implement move-along mechanism
+            # await _test('$(1 / 0)', 0)
+
+            # Test non-runtsafe
+            q = '[test:type10=1 :intprop=24] $val=:intprop [test:int=$(1 + $val)]'
+            nodes = await core.eval(q).list()
+            self.len(2, nodes)
+            self.eq(nodes[1].ndef, ('test:int', 25))
 
     async def test_feed_splice(self):
 
@@ -2574,12 +2613,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             mesg = ('node:del', {'ndef': ('test:str', 'hello')})
             self.isin(mesg, splices)
-
-    async def test_cortex_hive(self):
-        async with self.getTestCore() as core:
-            await core.hive.set(('visi',), 200)
-            async with core.getLocalProxy(share='cortex/hive') as hive:
-                self.eq(200, await hive.get(('visi',)))
 
     async def test_cortex_waitfor(self):
 

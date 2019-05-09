@@ -18,7 +18,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
-import synapse.lib.syntax as s_syntax
+import synapse.lib.grammar as s_grammar
 
 logger = logging.getLogger(__name__)
 
@@ -74,11 +74,11 @@ class Cmd:
         '''
         off = 0
 
-        _, off = s_syntax.nom(text, off, s_syntax.whites)
+        _, off = s_grammar.nom(text, off, s_grammar.whites)
 
-        name, off = s_syntax.meh(text, off, s_syntax.whites)
+        name, off = s_grammar.meh(text, off, s_grammar.whites)
 
-        _, off = s_syntax.nom(text, off, s_syntax.whites)
+        _, off = s_grammar.nom(text, off, s_grammar.whites)
 
         opts = {}
 
@@ -94,7 +94,7 @@ class Cmd:
             if defval is not None:
                 opts[snam] = defval
 
-            if synt[1].get('type') in ('list', 'kwlist'):
+            if synt[1].get('type') == 'list':
                 opts[snam] = []
 
         def atswitch(t, o):
@@ -103,7 +103,7 @@ class Cmd:
             if not text.startswith('-', o):
                 return None, o
 
-            name, x = s_syntax.meh(t, o, s_syntax.whites)
+            name, x = s_grammar.meh(t, o, s_grammar.whites)
             swit = switches.get(name)
             if swit is None:
                 return None, o
@@ -112,7 +112,7 @@ class Cmd:
 
         while off < len(text):
 
-            _, off = s_syntax.nom(text, off, s_syntax.whites)
+            _, off = s_grammar.nom(text, off, s_grammar.whites)
 
             swit, off = atswitch(text, off)
             if swit is not None:
@@ -121,18 +121,18 @@ class Cmd:
                 snam = swit[0].strip('-')
 
                 if styp == 'valu':
-                    valu, off = s_syntax.parse_cmd_string(text, off)
+                    valu, off = s_grammar.parse_cmd_string(text, off)
                     opts[snam] = valu
 
                 elif styp == 'list':
-                    valu, off = s_syntax.parse_cmd_string(text, off)
+                    valu, off = s_grammar.parse_cmd_string(text, off)
                     if not isinstance(valu, list):
                         valu = valu.split(',')
                     opts[snam].extend(valu)
 
                 elif styp == 'enum':
                     vals = swit[1].get('enum:vals')
-                    valu, off = s_syntax.parse_cmd_string(text, off)
+                    valu, off = s_grammar.parse_cmd_string(text, off)
                     if valu not in vals:
                         raise s_exc.BadSyntax(mesg='%s (%s)' % (swit[0], '|'.join(vals)),
                                                    text=text)
@@ -161,18 +161,13 @@ class Cmd:
                 valu = []
 
                 while off < len(text):
-                    item, off = s_syntax.parse_cmd_string(text, off)
+                    item, off = s_grammar.parse_cmd_string(text, off)
                     valu.append(item)
 
                 opts[synt[0]] = valu
                 break
 
-            if styp == 'kwlist':
-                kwlist, off = s_syntax.parse_cmd_kwlist(text, off)
-                opts[snam] = kwlist
-                break
-
-            valu, off = s_syntax.parse_cmd_string(text, off)
+            valu, off = s_grammar.parse_cmd_string(text, off)
             opts[synt[0]] = valu
 
         return opts
