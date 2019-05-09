@@ -135,7 +135,7 @@ class LatLong(s_types.Type):
             lonv = self.modl.type('geo:longitude').norm(valu[1])[0]
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg=e)
+                                    mesg=str(e)) from None
 
         return (latv, lonv), {'subs': {'lat': latv, 'lon': lonv}}
 
