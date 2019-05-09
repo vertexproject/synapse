@@ -80,7 +80,7 @@ terminalClassMap = {
     'FILTPREFIX': s_ast.Const,
     'NONCMDQUOTE': s_ast.Const,
     'NONQUOTEWORD': s_ast.Const,
-    'NOT_': s_ast.Const,
+    'NUMBER': s_ast.Const,
     'PROPNAME': s_ast.Const,
     'RELPROP': lambda x: s_ast.RelProp(x[1:]),  # drop leading :
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
