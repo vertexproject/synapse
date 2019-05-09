@@ -12,6 +12,7 @@ Features and Enhancements
 - Add jsonl support the ``synapse.tools.feed`` tool. (`#1220 <https://github.com/vertexproject/synapse/pull/1220>`_)
 - Add ``/api/v1/model`` API route for the Cortex HTTPAPI to expose the data model for a running Cortex. (`#1221 <https://github.com/vertexproject/synapse/pull/1221>`_)
 - Add ``fire()`` function to Storm types to fire ``storm:fire`` messages during Storm command execution. (`#1221 <https://github.com/vertexproject/synapse/pull/1221>`_)
+- Add ``$()`` expression syntax to Storm for mathematical operations, along with a new parsing engine built around Lark.  (`#1216 <https://github.com/vertexproject/synapse/pull/1216>`_)
 
 Bugfixes
 --------
