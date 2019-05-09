@@ -2487,6 +2487,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             await _test('$(2 + 4)', 6)
             await _test('$(4 - 2)', 2)
             await _test('$(4 -2)', 2)
+            await _test('$(4- 2)', 2)
+            await _test('$(4-2)', 2)
             await _test('$(2 * 4)', 8)
             await _test('$(1 + 2 * 4)', 9)
             await _test('$(1 + 2 * 4)', 9)

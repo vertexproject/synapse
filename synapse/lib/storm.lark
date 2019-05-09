@@ -158,4 +158,7 @@ EXPRDIVIDE: "/"
 ?exprcmp: exprsum | exprsum _WSCOMM? (EXPRCMPR) _WSCOMM? exprsum
 ?exprsum: exprproduct | exprsum _WSCOMM? (EXPRPLUS | EXPRMINUS) _WSCOMM? exprproduct
 ?exprproduct: _expratom | exprproduct _WSCOMM? (EXPRTIMES | EXPRDIVIDE) _WSCOMM? _expratom
-_expratom: _valu | "(" exprsum ")"
+_expratom: _exprvalu | "(" exprsum ")"
+_exprvalu: NUMBER | valulist | _varvalu | relpropvalu | univpropvalu | tagpropvalue | DOUBLEQUOTEDSTRING
+    | SINGLEQUOTEDSTRING | dollarexpr
+NUMBER: /-?\d+(\.\d*)?/
