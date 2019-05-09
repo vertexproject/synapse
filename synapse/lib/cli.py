@@ -293,8 +293,6 @@ class Cli(s_base.Base):
         if self.sess is None:
             hist = FileHistory(s_common.getSynPath('cmdr_history'))
             lexer = PygmentsLexer(s_storm_format.StormLexer)
-            # from pygments.lexers.html import HtmlLexer
-            # lexer = PygmentsLexer(HtmlLexer)
             self.sess = PromptSession(history=hist, lexer=lexer)
 
         if text is None:
