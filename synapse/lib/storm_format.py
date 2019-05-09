@@ -1,7 +1,10 @@
 import lark  # type: ignore
+import lark.exceptions
 
 import pygments.lexer   # type: ignore
 import pygments.token as p_t  # type: ignore
+
+import synapse.lib.grammar as s_grammar
 
 TerminalPygMap = {
     'ABSPROP': p_t.Name,
@@ -61,9 +64,11 @@ TerminalPygMap = {
 }
 
 class StormLexer(pygments.lexer.Lexer):
-    def __init__(self, parser):
-        super().__init__()
-        self.parser = parser
+
+    def __init__(self, *args, **argv):
+        pygments.lexer.Lexer.__init__(self, *args, **argv)
+        self.last_tokens = []
+        self.last_text = None
 
     def _yield_tree(self, tree):
         for node in tree.children:
@@ -72,11 +77,36 @@ class StormLexer(pygments.lexer.Lexer):
             else:
                 yield node
 
-    def get_tokens_unprocessed(self, text):
-        tree = self.parser.parse(text)
+    def tokens_from_tree(self, tree):
         for ltoken in self._yield_tree(tree):
             typ = TerminalPygMap.get(ltoken.type, p_t.Text)
             yield ltoken.pos_in_stream, typ, ltoken.value
+
+    def get_tokens_unprocessed(self, text):
+        try:
+            tree = s_grammar.CmdrParser.parse(text)
+        except lark.exceptions.LarkError:
+            # print(f'x text={text} {e}')
+            if self.last_tokens and text.startswith(self.last_text):
+                yield from self.last_tokens
+                yield len(text) - len(self.last_text), p_t.Text, text[len(self.last_text):]
+                return
+            else:
+                if len(self.last_tokens) > 1:
+                    # lop off the last token and use formatting from that
+                    last_token_pos = self.last_tokens[-1][0]
+                    last_text = self.last_text[:last_token_pos]
+                    if text.startswith(last_text):
+                        yield from self.last_tokens[:-1]
+                        yield len(text) - len(last_text), p_t.Text, text[len(last_text):]
+                        return
+
+            yield len(text), p_t.Text, text
+            return
+        self.last_tokens = list(self.tokens_from_tree(tree))
+        self.last_text = text
+
+        yield from self.last_tokens
 
 def highlight_storm(parser, text):  # pragma: no cover
     '''
@@ -85,4 +115,4 @@ def highlight_storm(parser, text):  # pragma: no cover
     from pygments import highlight
     from pygments.formatters import Terminal256Formatter  # type: ignore
 
-    print(highlight(text, StormLexer(parser), Terminal256Formatter()), end='')
+    print(highlight(text, StormLexer(), Terminal256Formatter()), end='')

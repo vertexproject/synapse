@@ -10,6 +10,7 @@ import regex
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
+from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.eventloop.defaults import use_asyncio_event_loop
 
@@ -19,6 +20,7 @@ import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
 import synapse.lib.grammar as s_grammar
+import synapse.lib.storm_format as s_storm_format
 
 logger = logging.getLogger(__name__)
 
@@ -290,7 +292,10 @@ class Cli(s_base.Base):
         '''
         if self.sess is None:
             hist = FileHistory(s_common.getSynPath('cmdr_history'))
-            self.sess = PromptSession(history=hist)
+            lexer = PygmentsLexer(s_storm_format.StormLexer)
+            # from pygments.lexers.html import HtmlLexer
+            # lexer = PygmentsLexer(HtmlLexer)
+            self.sess = PromptSession(history=hist, lexer=lexer)
 
         if text is None:
             text = self.cmdprompt

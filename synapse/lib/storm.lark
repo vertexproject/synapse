@@ -159,3 +159,5 @@ EXPRDIVIDE: "/"
 ?exprsum: exprproduct | exprsum _WSCOMM? (EXPRPLUS | EXPRMINUS) _WSCOMM? exprproduct
 ?exprproduct: _expratom | exprproduct _WSCOMM? (EXPRTIMES | EXPRDIVIDE) _WSCOMM? _expratom
 _expratom: _valu | "(" exprsum ")"
+
+cmdrline: "storm" _WS? query
