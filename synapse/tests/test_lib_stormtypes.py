@@ -80,6 +80,11 @@ class StormTypesTest(s_test.SynTest):
                 self.eq('vertex.link', mesgs[0][1]['mesg'])
                 self.eq('woot.com', mesgs[1][1]['mesg'])
 
+                mesgs = [m async for m in prox.storm("$lib.print('woot at: {s} {num}', s=hello, num=$(42+43))")]
+                mesgs = [m for m in mesgs if m[0] == 'print']
+                self.len(1, mesgs)
+                self.eq('woot at: hello 85', mesgs[0][1]['mesg'])
+
     async def test_storm_lib_dict(self):
 
         async with self.getTestCore() as core:

@@ -103,9 +103,13 @@ class LibBase(Lib):
         ints = [intify(x) for x in vals]
         return max(*ints)
 
-    async def _print(self, mesg):
+    async def _print(self, mesg, **kwargs):
         if not isinstance(mesg, str):
             mesg = repr(mesg)
+        elif kwargs:
+            for name, valu in kwargs.items():
+                temp = '{%s}' % (name,)
+                mesg = mesg.replace(temp, str(valu))
         await self.runt.printf(mesg)
 
     async def _dict(self, **kwargs):
