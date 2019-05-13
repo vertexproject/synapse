@@ -10,6 +10,15 @@ if (sys.version_info.major, sys.version_info.minor) < (3, 7):  # pragma: no cove
 if sys.maxsize < 9223372036854775807:  # pragma: no cover
     raise Exception('synapse is only supported on 64 bit architectures')
 
+# Checking if the interpreter is running with -OO - if so, this breaks
+# behavior which relies on __doc__ being set.  Warn the user of this
+# degraded behavior.  Could affect Cli, Cmdr, Cortex, and other components.
+if sys.flags.optimize >= 2:
+    import warnings
+    mesg = '''Synapse components may experience degraded capabilities with sys.flags.optimize >=2.'''
+    warnings.warn(mesg, RuntimeWarning)
+    # raise Exception('synapse is not supported with sys.flags.optimize >= 2')
+
 import lmdb
 if tuple([int(x) for x in lmdb.__version__.split('.')]) < (0, 94): # pragma: no cover
     raise Exception('synapse is only supported on version >= 0.94 of the lmdb python module')
