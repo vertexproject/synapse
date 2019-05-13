@@ -35,7 +35,7 @@ class Phone(s_types.Type):
             info = s_l_phone.getPhoneInfo(int(digs))
         except Exception as e:  # pragma: no cover
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Failed to get phone info')
+                                    mesg='Failed to get phone info') from None
         cc = info.get('cc')
         if cc is not None:
             subs['loc'] = cc

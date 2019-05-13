@@ -634,6 +634,7 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(t.norm(('test:str', 'This is a sTring')), expected)
 
         self.raises(s_exc.NoSuchProp, t.norm, ('test:str:newp', 'newp'))
+        self.raises(s_exc.BadTypeValu, t.norm, ('test:str:tick', '2020', 'a wild argument appears'))
 
     def test_range(self):
         model = s_datamodel.Model()
@@ -1001,6 +1002,13 @@ class TypesTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             e = core.model.type('edge')
             t = core.model.type('timeedge')
+
+            norm, _ = e.norm((('test:str', '1234'), ('test:int', '1234')))
+            self.eq(norm, (('test:str', '1234'), ('test:int', 1234)))
+
+            norm, _ = t.norm((('test:str', '1234'), ('test:int', '1234'), '2001'))
+            self.eq(norm, (('test:str', '1234'), ('test:int', 1234), 978307200000))
+
             rval = e.repr((('test:str', '1234'), ('test:str', 'hehe')))
             self.none(rval)
 
