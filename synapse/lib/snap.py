@@ -528,6 +528,9 @@ class Snap(s_base.Base):
 
         try:
             norm, info = form.type.norm(valu)
+        except s_exc.BadTypeValu as e:
+            raise s_exc.BadPropValu(prop=form.name, valu=valu, mesg=e.get('mesg'),
+                                    name=e.get('name')) from None
         except Exception as e:
             raise s_exc.BadPropValu(prop=form.name, valu=valu, mesg=str(e))
 

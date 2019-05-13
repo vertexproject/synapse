@@ -2397,17 +2397,46 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             opts = {'vars': {'tag': 'hehe.haha'}}
 
-            async for node in core.eval('[ test:str=foo +#$tag ]', opts=opts):
-                self.eq(node.ndef[1], 'foo')
-                self.nn(node.getTag('hehe.haha'))
+            nodes = await core.nodes('[ test:str=foo +#$tag ]', opts=opts)
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], 'foo')
+            self.nn(node.getTag('hehe.haha'))
 
-            async for node in core.eval('#$tag', opts=opts):
-                self.eq(node.ndef[1], 'foo')
-                self.nn(node.getTag('hehe.haha'))
+            nodes = await core.nodes('#$tag', opts=opts)
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], 'foo')
+            self.nn(node.getTag('hehe.haha'))
 
-            async for node in core.eval('#$tag [ -#$tag ]', opts=opts):
-                self.eq(node.ndef[1], 'foo')
-                self.none(node.getTag('hehe.haha'))
+            nodes = await core.nodes('$tag=hehe.haha test:str=foo +#$tag')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], 'foo')
+            self.nn(node.getTag('hehe.haha'))
+
+            nodes = await core.nodes('[test:str=foo2] $tag="*" test:str +#$tag')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], 'foo')
+            self.nn(node.getTag('hehe.haha'))
+
+            nodes = await core.nodes('$tag=hehe.* test:str +#$tag')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], 'foo')
+
+            nodes = await core.nodes('[test:str=foo :hehe=newtag] $tag=:hehe [+#$tag]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], 'foo')
+            self.nn(node.getTag('newtag'))
+
+            nodes = await core.nodes('#$tag [ -#$tag ]', opts=opts)
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], 'foo')
+            self.none(node.getTag('hehe.haha'))
 
     async def test_storm_forloop(self):
 
