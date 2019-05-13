@@ -21,8 +21,11 @@ class StormCtrlFlow(Exception):
     def __init__(self, item=None):
         self.item = item
 
-class StormBreak(StormCtrlFlow): pass
-class StormContinue(StormCtrlFlow): pass
+class StormBreak(StormCtrlFlow):
+    pass
+
+class StormContinue(StormCtrlFlow):
+    pass
 
 class AstNode:
     '''
@@ -32,6 +35,12 @@ class AstNode:
     def __init__(self, kids=()):
         self.kids = []
         [self.addKid(k) for k in kids]
+
+    def repr(self):
+        return f'{self.__class__.__name__}: {self.kids}'
+
+    def __repr__(self):
+        return self.repr()
 
     def addKid(self, astn):
 
@@ -86,9 +95,6 @@ class AstNode:
         for kid in self.kids:
             for item in kid.format(depth=depth + 1):
                 yield item
-
-    def repr(self):
-        return self.__class__.__name__
 
     def init(self, core):
         self.core = core
@@ -718,6 +724,12 @@ class PivotOper(Oper):
     def __init__(self, kids=(), isjoin=False):
         Oper.__init__(self, kids=kids)
         self.isjoin = isjoin
+
+    def repr(self):
+        return f'{self.__class__.__name__}: {self.kids}, isjoin={self.isjoin}'
+
+    def __repr__(self):
+        return self.repr()
 
 class PivotOut(PivotOper):
     '''
@@ -1556,6 +1568,15 @@ class Value(RunValue):
         RunValue.__init__(self, kids=kids)
         self.valu = valu
 
+    def repr(self):
+        if self.kids:
+            return f'{self.__class__.__name__}: {self.valu}, kids={self.kids}'
+        else:
+            return f'{self.__class__.__name__}: {self.valu}'
+
+    def __repr__(self):
+        return self.repr()
+
     async def runtval(self, runt):
         return self.value()
 
@@ -1689,6 +1710,44 @@ class FuncCall(RunValue):
         kwargs = dict(kwlist)
         return await func(*argv, **kwargs)
 
+class DollarExpr(RunValue):
+    '''
+    Top level node for $(...) expressions
+    '''
+    async def compute(self, path):
+        assert len(self.kids) == 1
+        return await self.kids[0].compute(path)
+
+    async def runtval(self, runt):
+        assert len(self.kids) == 1
+        return await self.kids[0].runtval(runt)
+
+_ExprFuncMap = {
+    '*': lambda x, y: int(x) * int(y),
+    '/': lambda x, y: int(x) // int(y),
+    '+': lambda x, y: int(x) + int(y),
+    '-': lambda x, y: int(x) - int(y),
+    '>': lambda x, y: int(int(x) > int(y)),
+    '<': lambda x, y: int(int(x) < int(y)),
+    '>=': lambda x, y: int(int(x) >= int(y)),
+    '<=': lambda x, y: int(int(x) <= int(y)),
+}
+
+class ExprNode(RunValue):
+
+    def prepare(self):
+        # TODO: constant folding
+        assert len(self.kids) == 3
+        assert isinstance(self.kids[1], Const)
+        oper = self.kids[1].value()
+        self._operfunc = _ExprFuncMap[oper]
+
+    async def compute(self, path):
+        return self._operfunc(await self.kids[0].compute(path), await self.kids[2].compute(path))
+
+    async def runtval(self, runt):
+        return self._operfunc(await self.kids[0].runtval(runt), await self.kids[2].runtval(runt))
+
 class VarList(Value):
     pass
 
@@ -1699,19 +1758,15 @@ class TagMatch(Value):
     pass
 
 class Cmpr(Value):
-
-    def repr(self):
-        return 'Cmpr: %r' % (self.text,)
+    pass
 
 class Const(Value):
-
-    def repr(self):
-        return 'Const: %s' % (self.valu,)
+    pass
 
 class List(Value):
 
     def repr(self):
-        return 'List: %s' % (self.valu,)
+        return 'List: %s' % self.kids
 
     async def runtval(self, runt):
         return [await k.runtval(runt) for k in self.kids]
@@ -1723,19 +1778,13 @@ class List(Value):
         return [k.value() for k in self.kids]
 
 class RelProp(Value):
-
-    def repr(self):
-        return 'RelProp: %r' % (self.valu,)
+    pass
 
 class UnivProp(Value):
-
-    def repr(self):
-        return 'UnivProp: %r' % (self.valu,)
+    pass
 
 class AbsProp(Value):
-
-    def repr(self):
-        return f'AbsProp: {self.valu}'
+    pass
 
 class Edit(Oper):
     pass
