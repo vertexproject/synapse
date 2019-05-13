@@ -13,11 +13,13 @@ Features and Enhancements
 - Add ``/api/v1/model`` API route for the Cortex HTTPAPI to expose the data model for a running Cortex. (`#1221 <https://github.com/vertexproject/synapse/pull/1221>`_)
 - Add ``fire()`` function to Storm types to fire ``storm:fire`` messages during Storm command execution. (`#1221 <https://github.com/vertexproject/synapse/pull/1221>`_)
 - Add ``$()`` expression syntax to Storm for mathematical operations, along with a new parsing engine built around Lark.  (`#1216 <https://github.com/vertexproject/synapse/pull/1216>`_)
+- Add a warning when Synapse is imported if the user is running Python with ``-OO`` optimizations, since that can degrade the library capabilities. (`#1219 <https://github.com/vertexproject/synapse/pull/1219>`_)
+- Cleanup some exception chains so that type normalization errors do not result in large tracebacks on the server. (`#1224 <https://github.com/vertexproject/synapse/pull/1224>`_)
 
 Bugfixes
 --------
 
-- Fix old bugs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Fix an issue in Storm with lifting or filtering nodes by tags when the tag value is a variable. (`#1223 <https://github.com/vertexproject/synapse/pull/1223>`_)
 
 Improved Documentation
 ----------------------
