@@ -1344,9 +1344,7 @@ class TagCond(Cond):
             if name == '*':
                 async def cond(node, path):
                     # Check if the tags dictionary has any members
-                    if node.tags:
-                        return True
-                    return False
+                    return bool(node.tags)
                 return cond
 
             # Allow a user to use tag globbing to do regex matching of a node.
