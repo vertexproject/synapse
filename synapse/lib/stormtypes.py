@@ -9,6 +9,17 @@ def intify(x):
         return int(x, 0)
     return int(x)
 
+def kwarg_format(text, **kwargs):
+    '''
+    Replaces instances curly-braced argument names in text with their values
+    '''
+    for name, valu in kwargs.items():
+        temp = '{%s}' % (name,)
+        text = text.replace(temp, str(valu))
+
+    return text
+
+
 class StormType:
     '''
     The base type for storm runtime value objects.
@@ -45,7 +56,7 @@ class Lib(StormType):
     def deref(self, name):
         try:
             return StormType.deref(self, name)
-        except s_exc.NoSuchName as e:
+        except s_exc.NoSuchName:
             pass
 
         path = self.name + (name,)
@@ -107,9 +118,7 @@ class LibBase(Lib):
         if not isinstance(mesg, str):
             mesg = repr(mesg)
         elif kwargs:
-            for name, valu in kwargs.items():
-                temp = '{%s}' % (name,)
-                mesg = mesg.replace(temp, str(valu))
+            mesg = kwarg_format(mesg, **kwargs)
         await self.runt.printf(mesg)
 
     async def _dict(self, **kwargs):
@@ -132,9 +141,7 @@ class LibStr(Lib):
 
     async def format(self, text, **kwargs):
 
-        for name, valu in kwargs.items():
-            temp = '{%s}' % (name,)
-            text = text.replace(temp, str(valu))
+        text = kwarg_format(text, **kwargs)
 
         return text
 
@@ -145,7 +152,7 @@ class LibTime(Lib):
             'fromunix': self.fromunix,
         })
 
-    #TODO from other iso formats!
+    # TODO from other iso formats!
 
     async def fromunix(self, secs):
         '''

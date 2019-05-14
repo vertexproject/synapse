@@ -69,10 +69,9 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].ndef[1], nodes[1].ndef[1])
 
             async with core.getLocalProxy() as prox:
-                mesgs = [m async for m in prox.storm('$lib.print("hi there")')]
-                mesgs = [m for m in mesgs if m[0] == 'print']
+                mesgs = [m async for m in prox.storm('$lib.print("hi there")') if m[0] == 'print']
                 self.len(1, mesgs)
-                self.eq('hi there', mesgs[0][1]['mesg'])
+                self.stormIsInPrint('hi there', mesgs)
 
                 mesgs = [m async for m in prox.storm('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] $lib.print(:zone)')]
                 mesgs = [m for m in mesgs if m[0] == 'print']
@@ -81,9 +80,7 @@ class StormTypesTest(s_test.SynTest):
                 self.eq('woot.com', mesgs[1][1]['mesg'])
 
                 mesgs = [m async for m in prox.storm("$lib.print('woot at: {s} {num}', s=hello, num=$(42+43))")]
-                mesgs = [m for m in mesgs if m[0] == 'print']
-                self.len(1, mesgs)
-                self.eq('woot at: hello 85', mesgs[0][1]['mesg'])
+                self.stormIsInPrint('woot at: hello 85', mesgs)
 
     async def test_storm_lib_dict(self):
 
@@ -92,6 +89,7 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('vertex.link', nodes[0].ndef[1])
 
+    # flake8: noqa: E501
     async def test_storm_lib_str(self):
 
         async with self.getTestCore() as core:
