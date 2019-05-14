@@ -2438,6 +2438,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(node.ndef[1], 'foo')
             self.none(node.getTag('hehe.haha'))
 
+            mesgs = await core.streamstorm('$var=timetag test:str=foo [+#$var=2019] $lib.print(#$var)').list()
+            self.stormIsInPrint('(1546300800000, 1546300800001)', mesgs)
+
     async def test_storm_forloop(self):
 
         async with self.getTestCore() as core:
