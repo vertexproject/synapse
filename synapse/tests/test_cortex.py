@@ -1,4 +1,6 @@
+import os
 import time
+import shutil
 import asyncio
 
 import synapse.exc as s_exc
@@ -2792,3 +2794,31 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(norm, 'asdf')
             # but getPropNorm won't handle that
             await self.asyncraises(s_exc.NoSuchProp, core.getPropNorm('test:lower', 'ASDF'))
+
+    async def test_view_setlayers(self):
+
+        with self.getTestDir() as dirn:
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=path00) as core00:
+                self.len(1, await core00.eval('[ test:str=core00 ]').list())
+
+                iden00 = core00.getCellIden()
+
+            async with self.getTestCore(dirn=path01) as core01:
+
+                self.len(1, await core01.eval('[ test:str=core01 ]').list())
+                await core01.addLayer(iden=iden00,
+                                      )
+                iden01 = core01.getCellIden()
+                await core01.setViewLayers((iden01, iden00))
+
+            src = s_common.gendir(path00, 'layers', iden00)
+            dst = s_common.gendir(path01, 'layers', iden00)
+            shutil.rmtree(dst)
+            shutil.copytree(src, dst,
+                            )
+
+            async with self.getTestCore(dirn=path01) as core01:
+                self.len(2, await core01.eval('test:str*in=(core00, core01) | uniq').list())
