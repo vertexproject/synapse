@@ -26,7 +26,7 @@ Bugfixes
 Improved Documentation
 ----------------------
 
-- Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Fix some docstrings related to test code helpers. (`#1230 <https://github.com/vertexproject/synapse/pull/1230>`_)
 
 
 v0.1.4 - 2019-05-01
