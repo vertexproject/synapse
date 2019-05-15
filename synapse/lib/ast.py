@@ -1727,6 +1727,8 @@ _ExprFuncMap = {
     '<': lambda x, y: int(int(x) < int(y)),
     '>=': lambda x, y: int(int(x) >= int(y)),
     '<=': lambda x, y: int(int(x) <= int(y)),
+    '==': lambda x, y: int(x == y),
+    '!=': lambda x, y: int(x != y),
 }
 
 class ExprNode(RunValue):

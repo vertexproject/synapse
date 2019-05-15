@@ -195,7 +195,7 @@ CMDNAME: /[a-z][a-z0-9.]+/
 // The entry point for a $(...) expression
 dollarexpr: _EXPRSTART _WSCOMM? exprcmp _WSCOMM? ")"
 _EXPRSTART: "$("
-EXPRCMPR: /<=|>=|<|>/
+EXPRCMPR: /<=|>=|<|>|==|!=/
 EXPRPLUS: "+"
 EXPRMINUS: "-"
 EXPRTIMES: "*"
