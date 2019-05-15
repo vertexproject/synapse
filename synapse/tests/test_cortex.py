@@ -2438,6 +2438,19 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(node.ndef[1], 'foo')
             self.none(node.getTag('hehe.haha'))
 
+            mesgs = await core.streamstorm('$var=timetag test:str=foo [+#$var=2019] $lib.print(#$var)').list()
+            podes = [m[1] for m in mesgs if m[0] == 'node']
+            self.len(1, podes)
+            pode = podes[0]
+            self.true(s_node.tagged(pode, '#timetag'))
+
+            mesgs = await core.streamstorm('test:str=foo $var=$node.value() [+#$var=2019] $lib.print(#$var)').list()
+            self.stormIsInPrint('(1546300800000, 1546300800001)', mesgs)
+            podes = [m[1] for m in mesgs if m[0] == 'node']
+            self.len(1, podes)
+            pode = podes[0]
+            self.true(s_node.tagged(pode, '#foo'))
+
     async def test_storm_forloop(self):
 
         async with self.getTestCore() as core:
