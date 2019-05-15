@@ -1637,11 +1637,9 @@ class UnivPropValue(PropValue): pass
 
 class TagPropValue(CompValue):
 
-    def prepare(self):
-        self.name = self.kids[0].value()
-
     async def compute(self, path):
-        return path.node.getTag(self.name)
+        valu = await self.kids[0].compute(path)
+        return path.node.getTag(valu)
 
 class CallArgs(RunValue):
 
