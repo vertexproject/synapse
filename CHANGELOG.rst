@@ -22,6 +22,7 @@ Bugfixes
 
 - Fix an issue in Storm with lifting or filtering nodes by tags when the tag value is a variable. (`#1223 <https://github.com/vertexproject/synapse/pull/1223>`_)
 - Fix an issue which was preventing a tag variable value reference in Storm from behaving correctly. (`#1228 <https://github.com/vertexproject/synapse/pull/1228>`_)
+- Fix a missing await statement which prevented properly setting layers for a Cortex View object. (`#1231 <https://github.com/vertexproject/synapse/pull/1231>`_)
 
 Improved Documentation
 ----------------------
