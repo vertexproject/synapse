@@ -1175,7 +1175,7 @@ class Cortex(s_cell.Cell):
         if view is None:
             raise s_exc.NoSuchView(iden=iden)
 
-        view.setLayers(layers)
+        await view.setLayers(layers)
 
     def getLayer(self, iden=None):
         if iden is None:
