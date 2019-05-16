@@ -616,8 +616,8 @@ class TypesTest(s_t_utils.SynTest):
                        'subs': {'form': 'test:str'}})
 
         rval = t.repr(('test:str', 'Foobar!'))
-        self.none(rval)
-        rval = t.repr(('test:int', '1234'))
+        self.eq(rval, ('test:str', 'Foobar!'))
+        rval = t.repr(('test:int', 1234))
         self.eq(rval, ('test:int', '1234'))
 
         self.raises(s_exc.NoSuchForm, t.norm, ('test:newp', 'newp'))
@@ -1002,7 +1002,7 @@ class TypesTest(s_t_utils.SynTest):
             e = core.model.type('edge')
             t = core.model.type('timeedge')
             rval = e.repr((('test:str', '1234'), ('test:str', 'hehe')))
-            self.none(rval)
+            self.eq(rval, (('test:str', '1234'), ('test:str', 'hehe')))
 
             rval = e.repr((('test:int', 1234), ('test:str', 'hehe')))
             self.eq(rval, (('test:int', '1234'), ('test:str', 'hehe')))

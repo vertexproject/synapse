@@ -265,19 +265,11 @@ class Fqdn(s_types.Type):
 
         return s_types.Type.indxByEq(self, valu)
 
-    def repr(self, valu, defval=None):
-
+    def repr(self, valu):
         try:
-
-            text = valu.encode('utf8').decode('idna')
-            if text != valu:
-                return text
-
+            return valu.encode('utf8').decode('idna')
         except UnicodeError:
-            logger.exception('Failed to IDNA decode ACE prefixed inet:fqdn')
-
-        return defval
-
+            return valu
 
 class IPv4(s_types.Type):
     '''
@@ -357,7 +349,7 @@ class IPv4(s_types.Type):
     def indx(self, norm):
         return norm.to_bytes(4, 'big')
 
-    def repr(self, norm, defval=None):
+    def repr(self, norm):
         return socket.inet_ntoa(self.indx(norm))
 
     def getNetRange(self, text):
