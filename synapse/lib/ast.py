@@ -1732,6 +1732,8 @@ _ExprFuncMap = {
     '<=': lambda x, y: int(x) <= int(y),
     'and': lambda x, y: int(x) and int(y),
     'or': lambda x, y: int(x) or int(y),
+    '==': lambda x, y: x == y,
+    '!=': lambda x, y: x != y,
 }
 
 _UnaryExprFuncMap = {
@@ -1998,11 +2000,6 @@ class IfStmt(Oper):
             self.elsequery = self.kids[-1]
             self.clauses = self.kids[:-1]
 
-        # TODO: partial runtsafe: if all clause's exprs are runtsafe, can chop off
-
-    async def compute(self, path):
-        breakpoint()
-
     async def _precalc_winner(self, runt):
         '''
         All conditions are runtsafe: determine which of several if branches wins and make that the only clause
@@ -2027,14 +2024,13 @@ class IfStmt(Oper):
         async for node, path in genr:
             count += 1
 
-            if allcondsafe:
+            if allcondsafe and count == 1:
                 # All conditions are runtsafe: determine which clause wins up front
                 await self._precalc_winner(runt)
 
             for clause in self.clauses:
                 expr, subq = clause.kids
 
-                # Evaluate the expression for 'if' or 'elif'
                 exprvalu = await expr.compute(path)
                 if exprvalu:
                     break

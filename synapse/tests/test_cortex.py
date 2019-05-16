@@ -2566,66 +2566,86 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_storm_ifstmt(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[test:str=yep] $foo=1 if $foo {[+#woot]}')
+            nodes = await core.nodes('[test:type10=1 :strprop=1] if :strprop {[+#woot]}')
             self.true(nodes[0].hasTag('woot'))
-            nodes = await core.nodes('[test:str=yep] $foo=$(0) if $foo {[+#woot2]}')
+            nodes = await core.nodes('[test:type10=1 :strprop=0] if $(:strprop) {[+#woot2]}')
             self.false(nodes[0].hasTag('woot2'))
 
-            nodes = await core.nodes('[test:str=yep] $foo=1 if $foo {[+#woot3]} else {[+#nowoot3]}')
+            nodes = await core.nodes('[test:type10=1 :strprop=1] if $(:strprop) {[+#woot3]} else {[+#nowoot3]}')
             self.true(nodes[0].hasTag('woot3'))
             self.false(nodes[0].hasTag('nowoot3'))
 
-            nodes = await core.nodes('[test:str=yep] $foo=$(0) $bar=$(0) if $foo {[+#woot41]} elif $bar {[+#woot42]}')
+            nodes = await core.nodes('[test:type10=2 :strprop=0] if $(:strprop) {[+#woot3]} else {[+#nowoot3]}')
+            self.false(nodes[0].hasTag('woot3'))
+            self.true(nodes[0].hasTag('nowoot3'))
+
+            q = '[test:type10=0 :strprop=0] if $(:strprop) {[+#woot41]} elif $($node.value()) {[+#woot42]}'
+            nodes = await core.nodes(q)
             self.false(nodes[0].hasTag('woot41'))
             self.false(nodes[0].hasTag('woot42'))
 
-            nodes = await core.nodes('[test:str=yep] $foo=1 $bar=$(0) if $foo {[+#woot51]} elif $bar {[+#woot52]}')
+            q = '[test:type10=0 :strprop=1] if $(:strprop) {[+#woot51]} elif $($node.value()) {[+#woot52]}'
+            nodes = await core.nodes(q)
             self.true(nodes[0].hasTag('woot51'))
             self.false(nodes[0].hasTag('woot52'))
 
-            nodes = await core.nodes('[test:str=yep] $foo=1 $bar=1 if $foo {[+#woot61]} elif $bar {[+#woot62]}')
+            q = '[test:type10=1 :strprop=1] if $(:strprop) {[+#woot61]} elif $($node.value()) {[+#woot62]}'
+            nodes = await core.nodes(q)
             self.true(nodes[0].hasTag('woot61'))
             self.false(nodes[0].hasTag('woot62'))
 
-            nodes = await core.nodes('[test:str=yep] $foo=$(0) $bar=1 if $foo {[+#woot71]} elif $bar {[+#woot72]}')
+            q = '[test:type10=2 :strprop=0] if $(:strprop) {[+#woot71]} elif $($node.value()) {[+#woot72]}'
+            nodes = await core.nodes(q)
             self.false(nodes[0].hasTag('woot71'))
             self.true(nodes[0].hasTag('woot72'))
 
-            q = '[test:str=yep] $foo=$(0) $bar=$(0) if $foo {[+#woot81]} elif $bar {[+#woot82]} else {[+#woot83]}'
+            q = ('[test:type10=0 :strprop=0] if $(:strprop) {[+#woot81]} '
+                 'elif $($node.value()) {[+#woot82]} else {[+#woot83]}')
             nodes = await core.nodes(q)
             self.false(nodes[0].hasTag('woot81'))
             self.false(nodes[0].hasTag('woot82'))
             self.true(nodes[0].hasTag('woot83'))
 
-            q = '[test:str=yep] $foo=1 $bar=$(0) if $foo {[+#woot91]} elif $bar{[+#woot92]} else {[+#woot93]}'
+            q = ('[test:type10=0 :strprop=42] if $(:strprop) {[+#woot91]} '
+                 'elif $($node.value()){[+#woot92]}else {[+#woot93]}')
             nodes = await core.nodes(q)
             self.true(nodes[0].hasTag('woot91'))
             self.false(nodes[0].hasTag('woot92'))
             self.false(nodes[0].hasTag('woot93'))
 
-            q = '[test:str=yep] $foo=$(0) $bar=1 if $foo{[+#woota1]} elif $bar {[+#woota2]} else {[+#woota3]}'
+            q = ('[test:type10=1 :strprop=0] if $(:strprop){[+#woota1]} '
+                 'elif $($node.value()) {[+#woota2]} else {[+#woota3]}')
             nodes = await core.nodes(q)
             self.false(nodes[0].hasTag('woota1'))
             self.true(nodes[0].hasTag('woota2'))
             self.false(nodes[0].hasTag('woota3'))
 
-            q = '[test:str=yep] $foo=1 $bar=1 if $foo {[+#wootb1]} elif $bar {[+#wootb2]} else{[+#wootb3]}'
+            q = ('[test:type10=1 :strprop=1] if $(:strprop) {[+#wootb1]} '
+                 'elif $($node.value()) {[+#wootb2]} else{[+#wootb3]}')
             nodes = await core.nodes(q)
             self.true(nodes[0].hasTag('wootb1'))
             self.false(nodes[0].hasTag('wootb2'))
             self.false(nodes[0].hasTag('wootb3'))
 
             # Runtsafe condition with nodes
-            nodes = await core.nodes('[test:str=yep2 :hehe=foo] if :hehe {[+#woot]}')
+            nodes = await core.nodes('[test:str=yep2] if $(1) {[+#woot]}')
             self.true(nodes[0].hasTag('woot'))
 
             # Runtsafe condition with nodes: false
-            nodes = await core.nodes('[test:str=yep2 :hehe=""] if :hehe {[+#woot2]}')
+            nodes = await core.nodes('[test:str=yep2] if $(0) {[+#woot2]}')
             self.false(nodes[0].hasTag('woot2'))
 
-            # Completely runtsafe
-            q = '$foo=yawp if $foo {$bar=lol} else {$bar=rofl} $lib.print($bar)'
+            # Completely runtsafe: true
+            q = '$foo=yawp if $foo {$bar=lol} else {$bar=rofl} [test:str=yep3 +#$bar]'
             nodes = await core.nodes(q)
+            self.true(nodes[0].hasTag('lol'))
+            self.false(nodes[0].hasTag('rofl'))
+
+            # Completely runtsafe: false
+            q = '$foo=0 if $($foo) {$bar=lol} else {$bar=rofl} [test:str=yep4 +#$bar]'
+            nodes = await core.nodes(q)
+            self.false(nodes[0].hasTag('lol'))
+            self.true(nodes[0].hasTag('rofl'))
 
     async def test_feed_splice(self):
 
