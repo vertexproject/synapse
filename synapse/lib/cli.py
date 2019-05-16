@@ -15,6 +15,7 @@ from prompt_toolkit.eventloop.defaults import use_asyncio_event_loop
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
@@ -249,6 +250,13 @@ class Cli(s_base.Base):
 
         if isinstance(self.item, s_base.Base):
             self.item.onfini(self._onItemFini)
+
+        if isinstance(self.item, s_telepath.Proxy):
+            version = self.item._getSynVers()
+            if version is None:  # pragma: no cover
+                self.locs['syn:version'] = 'Synapse version unavailable'
+            else:
+                self.locs['syn:version'] = '.'.join([str(v) for v in version])
 
         self.cmds = {}
         self.cmdprompt = 'cli> '
@@ -491,6 +499,9 @@ class CmdLocals(Cmd):
     async def runCmdOpts(self, opts):
         ret = {}
         for k, v in self._cmd_cli.locs.items():
-            ret[k] = repr(v)
+            if isinstance(v, (int, str)):
+                ret[k] = v
+            else:
+                ret[k] = repr(v)
         mesg = json.dumps(ret, indent=2, sort_keys=True)
         self.printf(mesg)
