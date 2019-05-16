@@ -14,6 +14,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.share as s_share
+import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -175,6 +176,9 @@ class TeleTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadUrl, s_telepath.openurl('noscheme/foo'))
 
             prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
+
+            # Prox exposes remote synapse version
+            self.eq(prox._getSynVers(), s_version.version)
 
             # Add an additional prox.fini handler.
             prox.onfini(evt.set)
