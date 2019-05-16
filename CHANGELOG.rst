@@ -2,7 +2,7 @@
 Synapse Changelog
 *****************
 
-v0.1.6 - TBD
+v0.1.7 - TBD
 ===================
 
 Features and Enhancements
@@ -19,6 +19,15 @@ Improved Documentation
 ----------------------
 
 - Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+
+v0.1.6 - 2019-05-15
+===================
+
+Bugfixes
+--------
+
+- Fix an ambuguity in the Storm grammer regarding quoted command arguments. (`#1234 <https://github.com/vertexproject/synapse/pull/1234>`_)
 
 
 v0.1.5 - 2019-05-15
