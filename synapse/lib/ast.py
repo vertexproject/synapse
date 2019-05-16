@@ -1748,7 +1748,7 @@ class UnaryExprNode(RunValue):
         assert len(self.kids) == 2
         assert isinstance(self.kids[0], Const)
         oper = self.kids[0].value()
-        self._operfunc = _ExprFuncMap[oper]
+        self._operfunc = _UnaryExprFuncMap[oper]
 
     async def compute(self, path):
         return self._operfunc(await self.kids[1].compute(path))

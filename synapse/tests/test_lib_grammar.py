@@ -495,6 +495,9 @@ _Queries = [
     'if $foo {[+#woot]} else {[+#nowoot]}',
     'if $foo {[+#woot]} elif $(1-1) {[+#nowoot]}',
     'if $foo {[+#woot]} elif $(1-1) {[+#nowoot]} else {[+#nonowoot] }',
+    '$foo=$(1 or 0 and 0)',
+    '$foo=$(not 1 and 1)',
+    '$foo=$(not 1 > 1)'
 ]
 
 # Generated with print_parse_list below
@@ -902,6 +905,9 @@ _ParseResults = [
     'Query: [IfStmt: [IfClause: [VarValue: [Const: foo], SubQuery: [Query: [EditTagAdd: [TagName: woot]]]], SubQuery: [Query: [EditTagAdd: [TagName: nowoot]]]]]',
     'Query: [IfStmt: [IfClause: [VarValue: [Const: foo], SubQuery: [Query: [EditTagAdd: [TagName: woot]]]], IfClause: [DollarExpr: [ExprNode: [Const: 1, Const: -, Const: 1]], SubQuery: [Query: [EditTagAdd: [TagName: nowoot]]]]]]',
     'Query: [IfStmt: [IfClause: [VarValue: [Const: foo], SubQuery: [Query: [EditTagAdd: [TagName: woot]]]], IfClause: [DollarExpr: [ExprNode: [Const: 1, Const: -, Const: 1]], SubQuery: [Query: [EditTagAdd: [TagName: nowoot]]]], SubQuery: [Query: [EditTagAdd: [TagName: nonowoot]]]]]',
+    'Query: [VarSetOper: [Const: foo, DollarExpr: [ExprNode: [Const: 1, Const: or, ExprNode: [Const: 0, Const: and, Const: 0]]]]]',
+    'Query: [VarSetOper: [Const: foo, DollarExpr: [ExprNode: [UnaryExprNode: [Const: not, Const: 1], Const: and, Const: 1]]]]',
+    'Query: [VarSetOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, ExprNode: [Const: 1, Const: >, Const: 1]]]]]',
 ]
 
 

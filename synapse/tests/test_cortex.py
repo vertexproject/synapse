@@ -2553,6 +2553,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             await _test('$("foo" != "foo")', 0)
             await _test('$("foo2" == "foo")', 0)
             await _test('$("foo2" != "foo")', 1)
+            await _test('$(0 and 1)', 0)
+            await _test('$(1 and 1)', 1)
+            await _test('$(1 or 1)', 1)
+            await _test('$(0 or 0)', 0)
+            await _test('$(1 or 0)', 1)
+            await _test('$(not 0)', 1)
+            await _test('$(not 1)', 0)
+            await _test('$(1 or 0 and 0)', 1)  # and > or
+            await _test('$(not 1 and 1)', 0)  # not > and
+            await _test('$(not 1 > 1)', 1)  # cmp > not
 
             # TODO:  implement move-along mechanism
             # await _test('$(1 / 0)', 0)

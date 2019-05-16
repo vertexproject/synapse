@@ -26,7 +26,7 @@ ruleClassMap = {
     'editunivset': s_ast.EditPropSet,
     'expror': s_ast.ExprNode,
     'exprand': s_ast.ExprNode,
-    'exprnot': s_ast.ExprNode,
+    'exprnot': s_ast.UnaryExprNode,
     'exprcmp': s_ast.ExprNode,
     'exprproduct': s_ast.ExprNode,
     'exprsum': s_ast.ExprNode,

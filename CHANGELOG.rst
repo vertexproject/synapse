@@ -2,13 +2,32 @@
 Synapse Changelog
 *****************
 
-v0.1.7 - TBD
+v0.1.8 - TBD
 ===================
 
 Features and Enhancements
 -------------------------
 
 - Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+Bugfixes
+--------
+
+- Fix old bugs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+Improved Documentation
+----------------------
+
+- Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+
+v0.1.8 - TBD
+===================
+
+Features and Enhancements
+-------------------------
+
+- Add if/elif/else statement.  Add and/or/not inside dollar expressions.  Have expressions always return an int. (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
 
 Bugfixes
 --------
