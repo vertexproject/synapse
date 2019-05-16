@@ -252,9 +252,7 @@ class Cli(s_base.Base):
             self.item.onfini(self._onItemFini)
 
         if isinstance(self.item, s_telepath.Proxy):
-            # Technically, the :version is a tuple and :verstring is a string
-            # but for human UX the verstring is easier to read at first glance.
-            version = self.item.sharinfo.get('syn:version')
+            version = self.item._getSynVers()
             if version is None:  # pragma: no cover
                 self.locs['syn:version'] = 'Synapse version unavailable'
             else:
