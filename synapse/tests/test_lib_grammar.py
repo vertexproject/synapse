@@ -490,6 +490,11 @@ _Queries = [
     "$x=$($lib.time.offset('2 days'))",
     '$foo = 1 $bar = 2 inet:ipv4=$($foo + $bar)',
     '',
+    'if $foo {[+#woot]}',
+    'if $foo {[+#woot]} else {[+#nowoot]}',
+    'if $foo {[+#woot]} elif $(1-1) {[+#nowoot]}',
+    'if $foo {[+#woot]} elif $(1-1) {[+#nowoot]} else {[+#nonowoot] }',
+    'hehe.haha --size 10 --query "foo_bar.stuff:baz"',
 ]
 
 # Generated with print_parse_list below
@@ -892,7 +897,13 @@ _ParseResults = [
     'Query: [VarSetOper: [Const: x, DollarExpr: [FuncCall: [VarDeref: [VarDeref: [VarValue: [Const: lib], Const: time], Const: offset], CallArgs: [Const: 2 days], CallKwargs: []]]]]',
     'Query: [VarSetOper: [Const: foo, Const: 1], VarSetOper: [Const: bar, Const: 2], LiftPropBy: [Const: inet:ipv4, Const: =, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: +, VarValue: [Const: bar]]]]]',
     'Query: []',
+    'Query: [IfStmt: [IfClause: [VarValue: [Const: foo], SubQuery: [Query: [EditTagAdd: [TagName: woot]]]]]]',
+    'Query: [IfStmt: [IfClause: [VarValue: [Const: foo], SubQuery: [Query: [EditTagAdd: [TagName: woot]]]], SubQuery: [Query: [EditTagAdd: [TagName: nowoot]]]]]',
+    'Query: [IfStmt: [IfClause: [VarValue: [Const: foo], SubQuery: [Query: [EditTagAdd: [TagName: woot]]]], IfClause: [DollarExpr: [ExprNode: [Const: 1, Const: -, Const: 1]], SubQuery: [Query: [EditTagAdd: [TagName: nowoot]]]]]]',
+    'Query: [IfStmt: [IfClause: [VarValue: [Const: foo], SubQuery: [Query: [EditTagAdd: [TagName: woot]]]], IfClause: [DollarExpr: [ExprNode: [Const: 1, Const: -, Const: 1]], SubQuery: [Query: [EditTagAdd: [TagName: nowoot]]]], SubQuery: [Query: [EditTagAdd: [TagName: nonowoot]]]]]',
+    "Query: [CmdOper: [Const: hehe.haha, Const: ('--size', '10', '--query', 'foo_bar.stuff:baz')]]",
 ]
+
 
 class GrammarTest(s_t_utils.SynTest):
 
@@ -906,8 +917,9 @@ class GrammarTest(s_t_utils.SynTest):
         for i, query in enumerate(_Queries):
             try:
                 tree = parser.parse(query)
-                # print(f'#{i}: {query}')
-                # print(tree.pretty(), '\n')
+                print(f'#{i}: {query}')
+                print(tree, '\n')
+                break
             except (lark.ParseError, lark.UnexpectedCharacters):
                 print(f'Failure on parsing #{i}:\n{{{query}}}')
                 raise

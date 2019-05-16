@@ -14,6 +14,7 @@ import synapse.lib.datfile as s_datfile
 # For AstConverter, one-to-one replacements from lark to synapse AST
 ruleClassMap = {
     'abspropcond': s_ast.AbsPropCond,
+    'andexpr': s_ast.AndCond,
     'condsubq': s_ast.SubqCond,
     'dollarexpr': s_ast.DollarExpr,
     'editnodeadd': s_ast.EditNodeAdd,
@@ -23,6 +24,9 @@ ruleClassMap = {
     'edittagdel': s_ast.EditTagDel,
     'editunivdel': s_ast.EditUnivDel,
     'editunivset': s_ast.EditPropSet,
+    'expror': s_ast.ExprNode,
+    'exprand': s_ast.ExprNode,
+    'exprnot': s_ast.ExprNode,
     'exprcmp': s_ast.ExprNode,
     'exprproduct': s_ast.ExprNode,
     'exprsum': s_ast.ExprNode,
@@ -39,6 +43,8 @@ ruleClassMap = {
     'formpivotin_pivotinfrom': s_ast.PivotInFrom,
     'hasabspropcond': s_ast.HasAbsPropCond,
     'hasrelpropcond': s_ast.HasRelPropCond,
+    'ifstmt': s_ast.IfStmt,
+    'ifclause': s_ast.IfClause,
     'kwarg': lambda kids: s_ast.CallKwarg(kids=tuple(kids)),
     'liftbytag': s_ast.LiftTag,
     'liftformtag': s_ast.LiftFormTag,
@@ -47,6 +53,7 @@ ruleClassMap = {
     'lifttagtag': s_ast.LiftTagTag,
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
+    'orexpr': s_ast.OrCond,
     'query': s_ast.Query,
     'relpropcond': s_ast.RelPropCond,
     'relpropvalu': s_ast.RelPropValue,
@@ -59,36 +66,20 @@ ruleClassMap = {
     'varderef': s_ast.VarDeref,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
-    'orexpr': s_ast.OrCond,
-    'andexpr': s_ast.AndCond
 }
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
 terminalClassMap = {
     'ABSPROP': s_ast.AbsProp,
     'ABSPROPNOUNIV': s_ast.AbsProp,
+    'ALLTAGS': lambda _: s_ast.TagMatch(''),
     'BREAK': lambda _: s_ast.BreakOper(),
-    'CMDNAME': s_ast.Const,
-    'CMPR': s_ast.Const,
     'CONTINUE': lambda _: s_ast.ContinueOper(),
-    'EXPRCMPR': s_ast.Const,
-    'EXPRDIVIDE': s_ast.Const,
-    'EXPRMINUS': s_ast.Const,
-    'EXPRPLUS': s_ast.Const,
-    'EXPRTIMES': s_ast.Const,
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
-    'FILTPREFIX': s_ast.Const,
-    'NONCMDQUOTE': s_ast.Const,
-    'NONQUOTEWORD': s_ast.Const,
-    'NUMBER': s_ast.Const,
-    'PROPNAME': s_ast.Const,
     'RELPROP': lambda x: s_ast.RelProp(x[1:]),  # drop leading :
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': s_ast.TagMatch,
     'UNIVPROP': s_ast.UnivProp,
-    'VARCHARS': s_ast.Const,
-    'VARTOKN': s_ast.Const,
-    'ALLTAGS': lambda _: s_ast.TagMatch('')
 }
 
 class AstConverter(lark.Transformer):
@@ -110,8 +101,7 @@ class AstConverter(lark.Transformer):
     def _convert_child(self, child):
         if not isinstance(child, lark.lexer.Token):
             return child
-        assert child.type in terminalClassMap, f'Unknown grammar terminal: {child.type}'
-        tokencls = terminalClassMap[child.type]
+        tokencls = terminalClassMap.get(child.type, s_ast.Const)
         newkid = tokencls(child.value)
         return newkid
 
