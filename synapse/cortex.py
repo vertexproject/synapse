@@ -1175,7 +1175,7 @@ class Cortex(s_cell.Cell):
         if view is None:
             raise s_exc.NoSuchView(iden=iden)
 
-        view.setLayers(layers)
+        await view.setLayers(layers)
 
     def getLayer(self, iden=None):
         if iden is None:
@@ -1929,12 +1929,14 @@ class Cortex(s_cell.Cell):
         Return a transaction object for the default view.
 
         Args:
-            write (bool): Set to True for a write transaction.
+            user (str): The user to get the snap for.
+            view (View): View object to use when making the snap.
+
+        Notes:
+            This must be used as an asynchronous context manager.
 
         Returns:
-            (synapse.lib.snap.Snap)
-
-        NOTE: This must be used in a with block.
+            s_snap.Snap: A Snap object for the view.
         '''
 
         if view is None:

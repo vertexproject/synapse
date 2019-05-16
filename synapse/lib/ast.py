@@ -1640,11 +1640,9 @@ class UnivPropValue(PropValue): pass
 
 class TagPropValue(CompValue):
 
-    def prepare(self):
-        self.name = self.kids[0].value()
-
     async def compute(self, path):
-        return path.node.getTag(self.name)
+        valu = await self.kids[0].compute(path)
+        return path.node.getTag(valu)
 
 class CallArgs(RunValue):
 
@@ -1734,8 +1732,8 @@ _ExprFuncMap = {
     '<=': lambda x, y: int(x) <= int(y),
     'and': lambda x, y: int(x) and int(y),
     'or': lambda x, y: int(x) or int(y),
-    'not': lambda x: not int(x),
 }
+
 _UnaryExprFuncMap = {
     'not': lambda x: not int(x),
 }

@@ -2,7 +2,35 @@
 Synapse Changelog
 *****************
 
-v0.1.5 - TBD
+v0.1.7 - TBD
+===================
+
+Features and Enhancements
+-------------------------
+
+- Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+Bugfixes
+--------
+
+- Fix old bugs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+Improved Documentation
+----------------------
+
+- Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+
+v0.1.6 - 2019-05-15
+===================
+
+Bugfixes
+--------
+
+- Fix an ambuguity in the Storm grammer regarding quoted command arguments. (`#1234 <https://github.com/vertexproject/synapse/pull/1234>`_)
+
+
+v0.1.5 - 2019-05-15
 ===================
 
 Features and Enhancements
@@ -15,16 +43,19 @@ Features and Enhancements
 - Add ``$()`` expression syntax to Storm for mathematical operations, along with a new parsing engine built around Lark.  (`#1216 <https://github.com/vertexproject/synapse/pull/1216>`_)
 - Add a warning when Synapse is imported if the user is running Python with ``-OO`` optimizations, since that can degrade the library capabilities. (`#1219 <https://github.com/vertexproject/synapse/pull/1219>`_)
 - Cleanup some exception chains so that type normalization errors do not result in large tracebacks on the server. (`#1224 <https://github.com/vertexproject/synapse/pull/1224>`_)
+- Allow ``$lib.print()`` to accept curly brace ``{}`` formatted strings for using variable substitution when printing values in Storm. (`#1227 <https://github.com/vertexproject/synapse/pull/1227>`_)
 
 Bugfixes
 --------
 
 - Fix an issue in Storm with lifting or filtering nodes by tags when the tag value is a variable. (`#1223 <https://github.com/vertexproject/synapse/pull/1223>`_)
+- Fix an issue which was preventing a tag variable value reference in Storm from behaving correctly. (`#1228 <https://github.com/vertexproject/synapse/pull/1228>`_)
+- Fix a missing await statement which prevented properly setting layers for a Cortex View object. (`#1231 <https://github.com/vertexproject/synapse/pull/1231>`_)
 
 Improved Documentation
 ----------------------
 
-- Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Fix some docstrings related to test code helpers. (`#1230 <https://github.com/vertexproject/synapse/pull/1230>`_)
 
 
 v0.1.4 - 2019-05-01

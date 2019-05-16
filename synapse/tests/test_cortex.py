@@ -1,4 +1,5 @@
 import time
+import shutil
 import asyncio
 
 import synapse.exc as s_exc
@@ -2438,6 +2439,19 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(node.ndef[1], 'foo')
             self.none(node.getTag('hehe.haha'))
 
+            mesgs = await core.streamstorm('$var=timetag test:str=foo [+#$var=2019] $lib.print(#$var)').list()
+            podes = [m[1] for m in mesgs if m[0] == 'node']
+            self.len(1, podes)
+            pode = podes[0]
+            self.true(s_node.tagged(pode, '#timetag'))
+
+            mesgs = await core.streamstorm('test:str=foo $var=$node.value() [+#$var=2019] $lib.print(#$var)').list()
+            self.stormIsInPrint('(1546300800000, 1546300800001)', mesgs)
+            podes = [m[1] for m in mesgs if m[0] == 'node']
+            self.len(1, podes)
+            pode = podes[0]
+            self.true(s_node.tagged(pode, '#foo'))
+
     async def test_storm_forloop(self):
 
         async with self.getTestCore() as core:
@@ -2531,6 +2545,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             await _test('$(1 - 1 - 1)', -1)
             await _test('$(4 / 2 / 2)', 1)
             await _test('$(1 / 2)', 0)
+            await _test('$(1 != 1)', 0)
+            await _test('$(2 != 1)', 1)
+            await _test('$(2 == 1)', 0)
+            await _test('$(2 == 2)', 1)
+            await _test('$("foo" == "foo")', 1)
+            await _test('$("foo" != "foo")', 0)
+            await _test('$("foo2" == "foo")', 0)
+            await _test('$("foo2" != "foo")', 1)
 
             # TODO:  implement move-along mechanism
             # await _test('$(1 / 0)', 0)
@@ -2835,3 +2857,35 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(norm, 'asdf')
             # but getPropNorm won't handle that
             await self.asyncraises(s_exc.NoSuchProp, core.getPropNorm('test:lower', 'ASDF'))
+
+    async def test_view_setlayers(self):
+
+        with self.getTestDir() as dirn:
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=path00) as core00:
+                self.len(1, await core00.eval('[ test:str=core00 ]').list())
+
+                iden00 = core00.getCellIden()
+
+            async with self.getTestCore(dirn=path01) as core01:
+
+                self.len(1, await core01.eval('[ test:str=core01 ]').list())
+                # Add a lmdb layer with core00's iden
+                await core01.addLayer(iden=iden00)
+                iden01 = core01.getCellIden()
+                # Set the default view for core01 to have a read layer with
+                # the iden from core00.
+                await core01.setViewLayers((iden01, iden00))
+
+            src = s_common.gendir(path00, 'layers', iden00)
+            dst = s_common.gendir(path01, 'layers', iden00)
+            # Blow away the old layer at the destination and replace it
+            # with our layer from core00
+            shutil.rmtree(dst)
+            shutil.copytree(src, dst)
+
+            # Ensure data from both layers is present in the cortex
+            async with self.getTestCore(dirn=path01) as core01:
+                self.len(2, await core01.eval('test:str*in=(core00, core01) | uniq').list())
