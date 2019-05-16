@@ -8,7 +8,7 @@ v0.1.7 - TBD
 Features and Enhancements
 -------------------------
 
-- Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Add the Synapse version information in the Telepath handshake.  Expose this with the ``Proxy._getSynVers()`` API and in the Cmdr CLI via the ``locs`` command.  (`#1238 <https://github.com/vertexproject/synapse/pull/1238>`_)
 
 Bugfixes
 --------
