@@ -925,7 +925,6 @@ class GrammarTest(s_t_utils.SynTest):
                 tree = parser.parse(query)
                 print(f'#{i}: {query}')
                 print(tree, '\n')
-                break
             except (lark.ParseError, lark.UnexpectedCharacters):
                 print(f'Failure on parsing #{i}:\n{{{query}}}')
                 raise
