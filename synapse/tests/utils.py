@@ -794,13 +794,27 @@ class SynTest(unittest.TestCase):
 
     @contextlib.asynccontextmanager
     async def getTestReadWriteCores(self, conf=None, dirn=None):
+        '''
+        Get a read/write core pair.
+
+        Notes:
+            By default, this returns the same cortex.  It is expected that
+            a test which needs two distinct Cortexes implements the bridge
+            themselves.
+
+        Returns:
+            (s_cortex.Cortex, s_cortex.Cortex): A tuple of Cortex objects.
+        '''
         async with self.getTestCore(conf=conf, dirn=dirn) as core:
             yield core, core
 
     @contextlib.asynccontextmanager
     async def getTestCore(self, conf=None, dirn=None):
         '''
-        Return a simple test Cortex.
+        Get a simple test Cortex as an async context manager.
+
+        Returns:
+            s_cortex.Cortex: A Cortex object.
         '''
         if conf is None:
             conf = {}
@@ -828,6 +842,12 @@ class SynTest(unittest.TestCase):
 
     @contextlib.asynccontextmanager
     async def getTestCoreAndProxy(self, conf=None, dirn=None):
+        '''
+        Get a test Cortex and the Telepath Proxy to it.
+
+        Returns:
+            (s_cortex.Cortex, s_cortex.CoreApi): The Cortex and a Proxy representing a CoreApi object.
+        '''
         async with self.getTestCore(conf=conf, dirn=dirn) as core:
             core.conf['storm:log'] = True
             async with core.getLocalProxy() as prox:

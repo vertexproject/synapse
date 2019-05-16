@@ -12,8 +12,8 @@ import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.types as s_types
-import synapse.lib.syntax as s_syntax
 import synapse.lib.dyndeps as s_dyndeps
+import synapse.lib.grammar as s_grammar
 
 logger = logging.getLogger(__name__)
 
@@ -643,7 +643,7 @@ class Model:
 
             for formname, forminfo, propdefs in mdef.get('forms', ()):
 
-                if not s_syntax.isFormName(formname):
+                if not s_grammar.isFormName(formname):
                     mesg = f'Invalid form name {formname}'
                     raise s_exc.BadFormDef(name=formname, mesg=mesg)
 

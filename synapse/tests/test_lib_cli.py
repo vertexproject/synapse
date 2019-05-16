@@ -185,36 +185,6 @@ class CliTest(s_t_utils.SynTest):
             opts = quit.getCmdOpts('quit --bar woah')
             self.eq(opts.get('bar'), ['woah'])
 
-    async def test_cli_opts_parse_enums(self):
-
-        async with await s_cli.Cli.anit(None) as cli:
-
-            quit = cli.getCmdByName('quit')
-
-            quit._cmd_syntax = (
-                ('--bar', {'type': 'enum', 'enum:vals': ('foo', 'baz')}),
-            )
-
-            opts = quit.getCmdOpts('quit --bar foo')
-            self.eq(opts.get('bar'), 'foo')
-            opts = quit.getCmdOpts('quit --bar baz')
-            self.eq(opts.get('bar'), 'baz')
-            self.raises(s_exc.BadSyntax, quit.getCmdOpts, 'quit --bar')
-            self.raises(s_exc.BadSyntax, quit.getCmdOpts, 'quit --bar bar')
-
-    async def test_cli_opts_parse_kwlist(self):
-
-        async with await s_cli.Cli.anit(None) as cli:
-
-            quit = cli.getCmdByName('quit')
-
-            quit._cmd_syntax = (
-                ('bar', {'type': 'kwlist'}),
-            )
-
-            opts = quit.getCmdOpts('quit hehe=haha')
-            self.eq(opts.get('bar'), [('hehe', 'haha')])
-
     async def test_cli_cmd_loop_quit(self):
         outp = self.getTestOutp()
         cmdg = s_t_utils.CmdGenerator(['help', 'quit'])

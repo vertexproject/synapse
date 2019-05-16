@@ -1,2 +1,3 @@
 include synapse/data/*.mpk
+include synapse/lib/storm.lark
 graft synapse/tests/files

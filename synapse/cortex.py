@@ -22,12 +22,12 @@ import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
-import synapse.lib.syntax as s_syntax
 import synapse.lib.agenda as s_agenda
 import synapse.lib.dyndeps as s_dyndeps
-import synapse.lib.trigger as s_trigger
+import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
+import synapse.lib.trigger as s_trigger
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.lmdblayer as s_lmdblayer
 import synapse.lib.stormhttp as s_stormhttp
@@ -1175,7 +1175,7 @@ class Cortex(s_cell.Cell):
         if view is None:
             raise s_exc.NoSuchView(iden=iden)
 
-        view.setLayers(layers)
+        await view.setLayers(layers)
 
     def getLayer(self, iden=None):
         if iden is None:
@@ -1279,7 +1279,7 @@ class Cortex(s_cell.Cell):
         '''
         Add a synapse.lib.storm.Cmd class to the cortex.
         '''
-        if not s_syntax.isCmdName(ctor.name):
+        if not s_grammar.isCmdName(ctor.name):
             raise s_exc.BadCmdName(name=ctor.name)
 
         self.stormcmds[ctor.name] = ctor
@@ -1816,7 +1816,7 @@ class Cortex(s_cell.Cell):
         '''
         Parse storm query text and return a Query object.
         '''
-        query = s_syntax.Parser(text).query()
+        query = s_grammar.Parser(text).query()
         query.init(self)
         return query
 
@@ -1929,12 +1929,14 @@ class Cortex(s_cell.Cell):
         Return a transaction object for the default view.
 
         Args:
-            write (bool): Set to True for a write transaction.
+            user (str): The user to get the snap for.
+            view (View): View object to use when making the snap.
+
+        Notes:
+            This must be used as an asynchronous context manager.
 
         Returns:
-            (synapse.lib.snap.Snap)
-
-        NOTE: This must be used in a with block.
+            s_snap.Snap: A Snap object for the view.
         '''
 
         if view is None:

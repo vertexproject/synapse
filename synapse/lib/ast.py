@@ -21,8 +21,11 @@ class StormCtrlFlow(Exception):
     def __init__(self, item=None):
         self.item = item
 
-class StormBreak(StormCtrlFlow): pass
-class StormContinue(StormCtrlFlow): pass
+class StormBreak(StormCtrlFlow):
+    pass
+
+class StormContinue(StormCtrlFlow):
+    pass
 
 class AstNode:
     '''
@@ -32,6 +35,12 @@ class AstNode:
     def __init__(self, kids=()):
         self.kids = []
         [self.addKid(k) for k in kids]
+
+    def repr(self):
+        return f'{self.__class__.__name__}: {self.kids}'
+
+    def __repr__(self):
+        return self.repr()
 
     def addKid(self, astn):
 
@@ -86,9 +95,6 @@ class AstNode:
         for kid in self.kids:
             for item in kid.format(depth=depth + 1):
                 yield item
-
-    def repr(self):
-        return self.__class__.__name__
 
     def init(self, core):
         self.core = core
@@ -719,6 +725,12 @@ class PivotOper(Oper):
         Oper.__init__(self, kids=kids)
         self.isjoin = isjoin
 
+    def repr(self):
+        return f'{self.__class__.__name__}: {self.kids}, isjoin={self.isjoin}'
+
+    def __repr__(self):
+        return self.repr()
+
 class PivotOut(PivotOper):
     '''
     -> *
@@ -1115,7 +1127,7 @@ class Cond(AstNode):
     def getLiftHints(self):
         return ()
 
-    def getCondEval(self, runt): # pragma: no cover
+    async def getCondEval(self, runt): # pragma: no cover
         raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.evaluate()')
 
 class SubqCond(Cond):
@@ -1220,7 +1232,7 @@ class SubqCond(Cond):
 
         return cond
 
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
         if len(self.kids) == 3:
             cmpr = self.kids[1].value()
@@ -1231,6 +1243,7 @@ class SubqCond(Cond):
             return ctor(runt)
 
         subq = self.kids[0]
+
         async def cond(node, path):
             genr = agen((node, path))
             async for _ in subq.run(runt, genr):
@@ -1243,10 +1256,10 @@ class OrCond(Cond):
     '''
     <cond> or <cond>
     '''
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
-        cond0 = self.kids[0].getCondEval(runt)
-        cond1 = self.kids[1].getCondEval(runt)
+        cond0 = await self.kids[0].getCondEval(runt)
+        cond1 = await self.kids[1].getCondEval(runt)
 
         async def cond(node, path):
 
@@ -1266,10 +1279,10 @@ class AndCond(Cond):
         h1 = self.kids[1].getLiftHints()
         return h0 + h1
 
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
-        cond0 = self.kids[0].getCondEval(runt)
-        cond1 = self.kids[1].getCondEval(runt)
+        cond0 = await self.kids[0].getCondEval(runt)
+        cond1 = await self.kids[1].getCondEval(runt)
 
         async def cond(node, path):
 
@@ -1285,9 +1298,9 @@ class NotCond(Cond):
     not <cond>
     '''
 
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
-        kidcond = self.kids[0].getCondEval(runt)
+        kidcond = await self.kids[0].getCondEval(runt)
 
         async def cond(node, path):
             return not await kidcond(node, path)
@@ -1299,50 +1312,80 @@ class TagCond(Cond):
     #foo.bar
     '''
     def getLiftHints(self):
-        name = self.kids[0].value()
+
+        kid = self.kids[0]
+
+        if not isinstance(kid, TagMatch):
+            # TODO:  we might hint based on variable value
+            return ()
+
+        name = kid.value()
         if '*' in name:
             return ()
         return (
             ('tag', {'name': name}),
         )
 
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
-        name = self.kids[0].value()
+        assert len(self.kids) == 1
+        kid = self.kids[0]
+        if isinstance(kid, TagMatch):
+            name = self.kids[0].value()
+        else:
+            # TODO:  enable runtval calc here (variable nodes haven't been evaluated yet)
+            # if kid.isRuntSafe(runt):
+            #     name = await kid.runtval(runt)
+            name = None
 
-        # Allow for a user to ask for #* to signify "any tags on this node"
-        if name == '*':
+        if name is not None:
+
+            # Allow for a user to ask for #* to signify "any tags on this node"
+            if name == '*':
+                async def cond(node, path):
+                    # Check if the tags dictionary has any members
+                    return bool(node.tags)
+                return cond
+
+            # Allow a user to use tag globbing to do regex matching of a node.
+            if '*' in name:
+                reobj = s_cache.getTagGlobRegx(name)
+
+                def getIsHit(tag):
+                    return reobj.fullmatch(tag)
+
+                # This cache persists per-query
+                cache = s_cache.FixedCache(getIsHit)
+
+                async def cond(node, path):
+                    return any((cache.get(p) for p in node.tags))
+
+                return cond
+
+            # Default exact match
             async def cond(node, path):
-                # Check if the tags dictionary has any members
-                if node.tags:
-                    return True
-                return False
+                return node.tags.get(name) is not None
+
             return cond
 
-        # Allow a user to use tag globbing to do regex matching of a node.
-        if '*' in name:
-            reobj = s_cache.getTagGlobRegx(name)
-
-            def getIsHit(tag):
-                return reobj.fullmatch(tag)
-
-            # This cache persists per-query
-            cache = s_cache.FixedCache(getIsHit)
-
-            async def cond(node, path):
-                return any((cache.get(p) for p in node.tags))
-
-            return cond
-
-        # Default exact match
+        # kid is a non-runtsafe VarValue: dynamically evaluate value of variable for each node
         async def cond(node, path):
+            name = await kid.compute(path)
+
+            if name == '*':
+                return bool(node.tags)
+
+            if '*' in name:
+                reobj = s_cache.getTagGlobRegx(name)
+                return any(reobj.fullmatch(p) for p in node.tags)
+
             return node.tags.get(name) is not None
 
         return cond
 
 class HasRelPropCond(Cond):
 
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
         name = self.kids[0].value()
 
@@ -1353,7 +1396,7 @@ class HasRelPropCond(Cond):
 
 class HasAbsPropCond(Cond):
 
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
         name = self.kids[0].value()
 
@@ -1379,7 +1422,7 @@ class HasAbsPropCond(Cond):
 
 class AbsPropCond(Cond):
 
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
         name = self.kids[0].value()
         cmpr = self.kids[1].value()
@@ -1418,7 +1461,7 @@ class AbsPropCond(Cond):
 
 class TagValuCond(Cond):
 
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
         name = self.kids[0].value()
         cmpr = self.kids[1].value()
@@ -1451,7 +1494,7 @@ class RelPropCond(Cond):
     '''
     :foo:bar <cmpr> <value>
     '''
-    def getCondEval(self, runt):
+    async def getCondEval(self, runt):
 
         cmpr = self.kids[1].value()
 
@@ -1483,7 +1526,7 @@ class FiltOper(Oper):
     async def run(self, runt, genr):
 
         must = self.kids[0].value() == '+'
-        cond = self.kids[1].getCondEval(runt)
+        cond = await self.kids[1].getCondEval(runt)
 
         async for node, path in genr:
             answ = await cond(node, path)
@@ -1522,6 +1565,15 @@ class Value(RunValue):
     def __init__(self, valu, kids=()):
         RunValue.__init__(self, kids=kids)
         self.valu = valu
+
+    def repr(self):
+        if self.kids:
+            return f'{self.__class__.__name__}: {self.valu}, kids={self.kids}'
+        else:
+            return f'{self.__class__.__name__}: {self.valu}'
+
+    def __repr__(self):
+        return self.repr()
 
     async def runtval(self, runt):
         return self.value()
@@ -1585,11 +1637,9 @@ class UnivPropValue(PropValue): pass
 
 class TagPropValue(CompValue):
 
-    def prepare(self):
-        self.name = self.kids[0].value()
-
     async def compute(self, path):
-        return path.node.getTag(self.name)
+        valu = await self.kids[0].compute(path)
+        return path.node.getTag(valu)
 
 class CallArgs(RunValue):
 
@@ -1656,6 +1706,46 @@ class FuncCall(RunValue):
         kwargs = dict(kwlist)
         return await func(*argv, **kwargs)
 
+class DollarExpr(RunValue):
+    '''
+    Top level node for $(...) expressions
+    '''
+    async def compute(self, path):
+        assert len(self.kids) == 1
+        return await self.kids[0].compute(path)
+
+    async def runtval(self, runt):
+        assert len(self.kids) == 1
+        return await self.kids[0].runtval(runt)
+
+_ExprFuncMap = {
+    '*': lambda x, y: int(x) * int(y),
+    '/': lambda x, y: int(x) // int(y),
+    '+': lambda x, y: int(x) + int(y),
+    '-': lambda x, y: int(x) - int(y),
+    '>': lambda x, y: int(int(x) > int(y)),
+    '<': lambda x, y: int(int(x) < int(y)),
+    '>=': lambda x, y: int(int(x) >= int(y)),
+    '<=': lambda x, y: int(int(x) <= int(y)),
+    '==': lambda x, y: int(x == y),
+    '!=': lambda x, y: int(x != y),
+}
+
+class ExprNode(RunValue):
+
+    def prepare(self):
+        # TODO: constant folding
+        assert len(self.kids) == 3
+        assert isinstance(self.kids[1], Const)
+        oper = self.kids[1].value()
+        self._operfunc = _ExprFuncMap[oper]
+
+    async def compute(self, path):
+        return self._operfunc(await self.kids[0].compute(path), await self.kids[2].compute(path))
+
+    async def runtval(self, runt):
+        return self._operfunc(await self.kids[0].runtval(runt), await self.kids[2].runtval(runt))
+
 class VarList(Value):
     pass
 
@@ -1666,19 +1756,15 @@ class TagMatch(Value):
     pass
 
 class Cmpr(Value):
-
-    def repr(self):
-        return 'Cmpr: %r' % (self.text,)
+    pass
 
 class Const(Value):
-
-    def repr(self):
-        return 'Const: %s' % (self.valu,)
+    pass
 
 class List(Value):
 
     def repr(self):
-        return 'List: %s' % (self.valu,)
+        return 'List: %s' % self.kids
 
     async def runtval(self, runt):
         return [await k.runtval(runt) for k in self.kids]
@@ -1690,19 +1776,13 @@ class List(Value):
         return [k.value() for k in self.kids]
 
 class RelProp(Value):
-
-    def repr(self):
-        return 'RelProp: %r' % (self.valu,)
+    pass
 
 class UnivProp(Value):
-
-    def repr(self):
-        return 'UnivProp: %r' % (self.valu,)
+    pass
 
 class AbsProp(Value):
-
-    def repr(self):
-        return f'AbsProp: {self.valu}'
+    pass
 
 class Edit(Oper):
     pass

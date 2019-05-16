@@ -710,7 +710,7 @@ class Int(IntBase):
             valu = int(valu, 0)
         except ValueError as e:
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg=str(e))
+                                    mesg=str(e)) from None
         return self._normPyInt(valu)
 
     def _normPyInt(self, valu):
@@ -951,7 +951,7 @@ class Ndef(Type):
         try:
             formname, formvalu = valu
         except Exception as e:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e))
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e)) from None
 
         form = self.modl.form(formname)
         if form is None:
@@ -1098,7 +1098,7 @@ class NodeProp(Type):
         try:
             propname, propvalu = valu
         except Exception as e:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e))
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e)) from None
 
         prop = self.modl.prop(propname)
         if prop is None:
@@ -1408,8 +1408,9 @@ class Time(IntBase):
         try:
             _tick = self._getLiftValu(val0)
         except ValueError as e:
+            mesg = 'Unable to process the value for val0 in _getLiftValu.'
             raise s_exc.BadTypeValu(name=self.name, valu=val0,
-                                    mesg='Unable to process the value for val0 in getTickTock.')
+                                    mesg=mesg) from None
 
         sortval = False
         if isinstance(val1, str):

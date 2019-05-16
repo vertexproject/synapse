@@ -3,7 +3,7 @@ import synapse.exc as s_exc
 import synapse.lib.gis as s_gis
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
-import synapse.lib.syntax as s_syntax
+import synapse.lib.grammar as s_grammar
 
 units = {
     'mm': 1,
@@ -31,8 +31,8 @@ class Dist(s_types.Type):
         return valu, {}
 
     def _normPyStr(self, text):
-        valu, off = s_syntax.parse_float(text, 0)
-        unit, off = s_syntax.nom(text, off, s_syntax.alphaset)
+        valu, off = s_grammar.parse_float(text, 0)
+        unit, off = s_grammar.nom(text, off, s_grammar.alphaset)
 
         mult = units.get(unit.lower())
         if mult is None:
@@ -135,7 +135,7 @@ class LatLong(s_types.Type):
             lonv = self.modl.type('geo:longitude').norm(valu[1])[0]
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg=e)
+                                    mesg=str(e)) from None
 
         return (latv, lonv), {'subs': {'lat': latv, 'lon': lonv}}
 

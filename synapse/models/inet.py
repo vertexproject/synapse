@@ -166,7 +166,7 @@ class Cidr6(s_types.StrBase):
         try:
             network = ipaddress.IPv6Network(valu)
         except Exception as e:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=e)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
         norm = str(network)
         info = {
@@ -192,7 +192,7 @@ class Email(s_types.StrBase):
             fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
             usernorm, userinfo = self.modl.type('inet:user').norm(user)
         except Exception as e:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=e)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
         norm = f'{usernorm}@{fqdnnorm}'
         info = {
@@ -231,8 +231,9 @@ class Fqdn(s_types.Type):
         try:
             valu = valu.encode('idna').decode('utf8').lower()
         except UnicodeError:
+            mesg = 'Failed to encode/decode the value with idna/utf8.'
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Failed to encode/decode the value with idna/utf8.')
+                                    mesg=mesg) from None
 
         parts = valu.split('.', 1)
         subs = {'host': parts[0]}
@@ -341,7 +342,7 @@ class IPv4(s_types.Type):
             byts = socket.inet_aton(valu)
         except OSError as e:
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg=str(e))
+                                    mesg=str(e)) from None
 
         norm = int.from_bytes(byts, 'big')
         return self._normPyInt(norm)
@@ -418,7 +419,7 @@ class IPv6(s_types.Type):
             return ipaddress.IPv6Address(valu).compressed, {'subs': subs}
 
         except Exception as e:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e))
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
 class IPv4Range(s_types.Range):
 
@@ -492,8 +493,9 @@ class Rfc2822Addr(s_types.StrBase):
             name, addr = email.utils.parseaddr(valu)
         except Exception as e:  # pragma: no cover
             # not sure we can ever really trigger this with a string as input
+            mesg = f'email.utils.parsaddr failed: {str(e)}'
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='email.utils.parsaddr failed: %s' % (e,))
+                                    mesg=mesg) from None
 
         subs = {}
         if name:
@@ -536,7 +538,7 @@ class Url(s_types.StrBase):
             subs['proto'] = proto
         except Exception:
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                    mesg='Invalid/Missing protocol')
+                                    mesg='Invalid/Missing protocol') from None
 
         # Query params first
         queryrem = ''
