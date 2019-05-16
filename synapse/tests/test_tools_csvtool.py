@@ -18,7 +18,7 @@ csvstorm = b'''
 '''
 
 csvstorm_export = b'''
-inet:dns:a $lib.csv.emit(:fqdn, :ipv4)
+test:int $lib.csv.emit($node, :loc)
 '''
 
 class CsvToolTest(s_t_utils.SynTest):
@@ -97,7 +97,8 @@ class CsvToolTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.nodes('[ inet:dns:a=(woot.com,1.2.3.4) inet:dns:a=(vertex.link,1.2.3.4) ]')
+            await core.nodes('[ test:int=20 :loc=us ]')
+            await core.nodes('[ test:int=30 :loc=cn ]')
 
             url = core.getLocalUrl()
 
@@ -129,4 +130,4 @@ class CsvToolTest(s_t_utils.SynTest):
 
             with open(csvpath, 'r') as fd:
                 rows = [row for row in csv.reader(fd)]
-                self.eq(rows, (['vertex.link', '16909060'], ['woot.com', '16909060']))
+                self.eq(rows, (['20', 'us'], ['30', 'cn']))

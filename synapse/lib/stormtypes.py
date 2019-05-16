@@ -276,8 +276,11 @@ def toprim(valu, path=None):
     if isinstance(valu, (str, tuple, list, dict, int)):
         return valu
 
-    if isinstance(Prim):
+    if isinstance(valu, Prim):
         return valu.value()
+
+    if isinstance(valu, s_node.Node):
+        return valu.ndef[1]
 
     raise s_exc.NoSuchType(name=valu.__class__.__name__)
 
