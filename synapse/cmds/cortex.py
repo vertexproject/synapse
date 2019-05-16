@@ -291,6 +291,7 @@ class StormCmd(s_cli.Cmd):
         ('--raw', {}),
         ('--debug', {}),
         ('--path', {}),
+        ('--save-nodes', {'type': 'valu'}),
         ('query', {'type': 'glob'}),
     )
 
@@ -374,6 +375,10 @@ class StormCmd(s_cli.Cmd):
 
         self.printf('')
 
+        nodesfd = None
+        if opts.get('save-nodes'):
+            nodesfd = s_common.genfile(opts.get('save-nodes'))
+
         try:
 
             async for mesg in core.storm(text, opts=stormopts):
@@ -384,7 +389,13 @@ class StormCmd(s_cli.Cmd):
                     self.printf(pprint.pformat(mesg))
 
                 else:
+
                     if mesg[0] == 'node':
+
+                        if nodesfd is not None:
+                            byts = json.dumps(mesg[1]).encode('utf8')
+                            nodesfd.write(byts + b'\n')
+
                         # Tuck the opts into the node dictionary since
                         # they control node metadata display
                         mesg[1][1]['_opts'] = opts
@@ -404,3 +415,8 @@ class StormCmd(s_cli.Cmd):
                 return
 
             raise
+
+        finally:
+
+            if nodesfd is not None:
+                nodesfd.close()

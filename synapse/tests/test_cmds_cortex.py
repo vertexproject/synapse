@@ -210,6 +210,24 @@ class CmdCoreTest(s_t_utils.SynTest):
                 e = 'log: error: argument --nodes-only: not allowed with argument --splices-only'
                 self.true(outp.expect(e))
 
+    async def test_storm_save_nodes(self):
+
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            dirn = s_common.gendir(core.dirn, 'junk')
+            path = os.path.join(dirn, 'nodes.jsonl')
+
+            await core.nodes('[ test:int=20 test:int=30 ]')
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
+            await cmdr.runCmdLine(f'storm --save-nodes {path} test:int')
+            outp.expect('2 nodes')
+
+            jsdata = [item for item in s_common.jslines(path)]
+            self.len(2, jsdata)
+            self.eq(jsdata[0][0], ('test:int', 20))
+
     async def test_ps_kill(self):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
