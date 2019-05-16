@@ -425,22 +425,10 @@ class Comp(Type):
         vals = []
         fields = self.opts.get('fields')
 
-        hit = False
         for valu, (name, typename) in zip(valu, fields):
-
-            # if any of our comp fields need repr we do too...
             rval = self.tcache[name].repr(valu)
-
-            if rval is not None:
-                hit = True
-                vals.append(rval)
-            else:
-                vals.append(valu)
-
-        if hit:
-            return tuple(vals)
-
-        return str(valu)
+            vals.append(rval)
+        return tuple(vals)
 
     def indx(self, norm):
         return s_common.buid(norm)
