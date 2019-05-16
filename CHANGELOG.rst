@@ -13,7 +13,7 @@ Features and Enhancements
 Bugfixes
 --------
 
-- Fix old bugs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Resolve grammar ambiguity between tag condition filters with value and left join (`#1237 <https://github.com/vertexproject/synapse/pull/1237>`_)
 
 Improved Documentation
 ----------------------

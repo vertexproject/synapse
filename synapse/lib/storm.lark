@@ -77,10 +77,10 @@ formpivot_:            _RIGHTPIVOT _WS? ABSPROP
 formjoin: _RIGHTJOIN _WS? "*"     -> formjoin_pivotout
         | _RIGHTJOIN _WS? ABSPROP -> formjoin_formpivot
 
-formpivotin.1: _LEFTPIVOT _WS? "*" -> formpivotin_
+formpivotin.2: _LEFTPIVOT _WS? "*" -> formpivotin_
            | _LEFTPIVOT _WS? ABSPROP -> formpivotin_pivotinfrom
 
-formjoinin: _LEFTJOIN _WS? "*" -> formjoinin_pivotin
+formjoinin.2: _LEFTJOIN _WS? "*" -> formjoinin_pivotin
           | _LEFTJOIN _WS? ABSPROP -> formjoinin_pivotinfrom
 
 operrelprop: RELPROP _WS? _RIGHTPIVOT _WS? ("*" | ABSPROP) -> operrelprop_pivot
