@@ -254,7 +254,11 @@ class Cli(s_base.Base):
         if isinstance(self.item, s_telepath.Proxy):
             # Technically, the :version is a tuple and :verstring is a string
             # but for human UX the verstring is easier to read at first glance.
-            self.locs['syn:version'] = self.item.sharinfo.get('syn:verstring', 'Synapse version unavailable')
+            version = self.item.sharinfo.get('syn:version')
+            if version is None:  # pragma: no cover
+                self.locs['syn:version'] = 'Synapse version unavailable'
+            else:
+                self.locs['syn:version'] = '.'.join([str(v) for v in version])
 
         self.cmds = {}
         self.cmdprompt = 'cli> '
