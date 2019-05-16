@@ -20,6 +20,8 @@ TerminalPygMap = {
     'DOLLAR': p_t.Punctuation,
     'DOT': p_t.Punctuation,
     'DOUBLEQUOTEDSTRING': p_t.Literal.String,
+    'ELIF': p_t.Keyword,
+    'ELSE': p_t.Keyword,
     'EQUAL': p_t.Punctuation,
     'EXPRCMPR': p_t.Operator,
     'EXPRDIVIDE': p_t.Operator,
@@ -28,6 +30,7 @@ TerminalPygMap = {
     'EXPRTIMES': p_t.Operator,
     'FILTPREFIX': p_t.Operator,
     'FOR': p_t.Keyword,
+    'IF': p_t.Keyword,
     'IN': p_t.Keyword,
     'LBRACE': p_t.Punctuation,
     'LPAR': p_t.Punctuation,
@@ -76,7 +79,7 @@ class StormLexer(pygments.lexer.Lexer):
     def get_tokens_unprocessed(self, text):
         tree = self.parser.parse(text)
         for ltoken in self._yield_tree(tree):
-            typ = TerminalPygMap.get(ltoken.type, p_t.Text)
+            typ = TerminalPygMap[ltoken.type]
             yield ltoken.pos_in_stream, typ, ltoken.value
 
 def highlight_storm(parser, text):  # pragma: no cover

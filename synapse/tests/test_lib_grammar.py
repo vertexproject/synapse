@@ -13,6 +13,7 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 _Queries = [
+    'inet:fqdn#xxx.xxxxxx.xxxx.xx for $tag in $node.tags(xxx.xxxxxx.*.xx) { <- edge:refs +#xx <- graph:cluster [ +#foo]  ->edge:refs }',
     ' +(syn:tag~=aka.*.mal.*)',
     '+(syn:tag^=aka or syn:tag^=cno or syn:tag^=rep)',
     '[test:str=foo][test:int=42]',
@@ -491,10 +492,18 @@ _Queries = [
     '$foo = 1 $bar = 2 inet:ipv4=$($foo + $bar)',
     '',
     'hehe.haha --size 10 --query "foo_bar.stuff:baz"',
+    'if $foo {[+#woot]}',
+    'if $foo {[+#woot]} else {[+#nowoot]}',
+    'if $foo {[+#woot]} elif $(1-1) {[+#nowoot]}',
+    'if $foo {[+#woot]} elif $(1-1) {[+#nowoot]} else {[+#nonowoot] }',
+    '$foo=$(1 or 0 and 0)',
+    '$foo=$(not 1 and 1)',
+    '$foo=$(not 1 > 1)'
 ]
 
 # Generated with print_parse_list below
 _ParseResults = [
+    'Query: [LiftFormTag: [Const: inet:fqdn, TagName: xxx.xxxxxx.xxxx.xx], ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [Const: xxx.xxxxxx.*.xx], CallKwargs: []], SubQuery: [Query: [PivotInFrom: [AbsProp: edge:refs], isjoin=False, FiltOper: [Const: +, TagCond: [TagMatch: xx]], PivotInFrom: [AbsProp: graph:cluster], isjoin=False, EditTagAdd: [TagName: foo], FormPivot: [AbsProp: edge:refs], isjoin=False]]]]',
     'Query: [FiltOper: [Const: +, AbsPropCond: [AbsProp: syn:tag, Const: ~=, Const: aka.*.mal.*]]]',
     'Query: [FiltOper: [Const: +, OrCond: [OrCond: [AbsPropCond: [AbsProp: syn:tag, Const: ^=, Const: aka], AbsPropCond: [AbsProp: syn:tag, Const: ^=, Const: cno]], AbsPropCond: [AbsProp: syn:tag, Const: ^=, Const: rep]]]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: foo], EditNodeAdd: [AbsProp: test:int, Const: 42]]',
@@ -894,22 +903,36 @@ _ParseResults = [
     'Query: [VarSetOper: [Const: foo, Const: 1], VarSetOper: [Const: bar, Const: 2], LiftPropBy: [Const: inet:ipv4, Const: =, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: +, VarValue: [Const: bar]]]]]',
     'Query: []',
     "Query: [CmdOper: [Const: hehe.haha, Const: ('--size', '10', '--query', 'foo_bar.stuff:baz')]]",
+    'Query: [IfStmt: [IfClause: [VarValue: [Const: foo], SubQuery: [Query: [EditTagAdd: [TagName: woot]]]]]]',
+    'Query: [IfStmt: [IfClause: [VarValue: [Const: foo], SubQuery: [Query: [EditTagAdd: [TagName: woot]]]], SubQuery: [Query: [EditTagAdd: [TagName: nowoot]]]]]',
+    'Query: [IfStmt: [IfClause: [VarValue: [Const: foo], SubQuery: [Query: [EditTagAdd: [TagName: woot]]]], IfClause: [DollarExpr: [ExprNode: [Const: 1, Const: -, Const: 1]], SubQuery: [Query: [EditTagAdd: [TagName: nowoot]]]]]]',
+    'Query: [IfStmt: [IfClause: [VarValue: [Const: foo], SubQuery: [Query: [EditTagAdd: [TagName: woot]]]], IfClause: [DollarExpr: [ExprNode: [Const: 1, Const: -, Const: 1]], SubQuery: [Query: [EditTagAdd: [TagName: nowoot]]]], SubQuery: [Query: [EditTagAdd: [TagName: nonowoot]]]]]',
+    'Query: [VarSetOper: [Const: foo, DollarExpr: [ExprNode: [Const: 1, Const: or, ExprNode: [Const: 0, Const: and, Const: 0]]]]]',
+    'Query: [VarSetOper: [Const: foo, DollarExpr: [ExprNode: [UnaryExprNode: [Const: not, Const: 1], Const: and, Const: 1]]]]',
+    'Query: [VarSetOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, ExprNode: [Const: 1, Const: >, Const: 1]]]]]',
 ]
+
 
 class GrammarTest(s_t_utils.SynTest):
 
-    @unittest.skip('Strict subset of test_parser.  Only useful for debugging grammar')
+    # @unittest.skip('Strict subset of test_parser.  Only useful for debugging grammar')
     def test_grammar(self):
         with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
             grammar = larkf.read().decode()
 
-        parser = lark.Lark(grammar, start='query', debug=True)
+        parser = lark.Lark(grammar, start='query', debug=True, ambiguity='explicit', keep_all_tokens=True)
 
         for i, query in enumerate(_Queries):
             try:
                 tree = parser.parse(query)
-                # print(f'#{i}: {query}')
-                # print(tree.pretty(), '\n')
+                print(f'#{i}: {query}')
+                print(tree, '\n')
+                print(tree.pretty(), '\n')
+                if 'ambig' in str(tree):
+                    from IPython import embed; embed()
+                    pass
+
+>>>>>>> Stashed changes
             except (lark.ParseError, lark.UnexpectedCharacters):
                 print(f'Failure on parsing #{i}:\n{{{query}}}')
                 raise

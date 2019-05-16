@@ -340,6 +340,9 @@ class SubQuery(Oper):
             yield item
 
     async def inline(self, runt, genr):
+        '''
+        Operate subquery as if it were inlined
+        '''
         async for item in self.kids[0].run(runt, genr):
             yield item
 
@@ -1712,27 +1715,51 @@ class DollarExpr(RunValue):
     '''
     async def compute(self, path):
         assert len(self.kids) == 1
-        return await self.kids[0].compute(path)
+        return int(await self.kids[0].compute(path))
 
     async def runtval(self, runt):
         assert len(self.kids) == 1
-        return await self.kids[0].runtval(runt)
+        return int(await self.kids[0].runtval(runt))
 
 _ExprFuncMap = {
     '*': lambda x, y: int(x) * int(y),
     '/': lambda x, y: int(x) // int(y),
     '+': lambda x, y: int(x) + int(y),
     '-': lambda x, y: int(x) - int(y),
-    '>': lambda x, y: int(int(x) > int(y)),
-    '<': lambda x, y: int(int(x) < int(y)),
-    '>=': lambda x, y: int(int(x) >= int(y)),
-    '<=': lambda x, y: int(int(x) <= int(y)),
-    '==': lambda x, y: int(x == y),
-    '!=': lambda x, y: int(x != y),
+    '>': lambda x, y: int(x) > int(y),
+    '<': lambda x, y: int(x) < int(y),
+    '>=': lambda x, y: int(x) >= int(y),
+    '<=': lambda x, y: int(x) <= int(y),
+    'and': lambda x, y: int(x) and int(y),
+    'or': lambda x, y: int(x) or int(y),
+    '==': lambda x, y: x == y,
+    '!=': lambda x, y: x != y,
 }
 
-class ExprNode(RunValue):
+_UnaryExprFuncMap = {
+    'not': lambda x: not int(x),
+}
 
+class UnaryExprNode(RunValue):
+    '''
+    A unary (i.e. single-argument) expression node
+    '''
+    def prepare(self):
+        assert len(self.kids) == 2
+        assert isinstance(self.kids[0], Const)
+        oper = self.kids[0].value()
+        self._operfunc = _UnaryExprFuncMap[oper]
+
+    async def compute(self, path):
+        return self._operfunc(await self.kids[1].compute(path))
+
+    async def runtval(self, runt):
+        return self._operfunc(await self.kids[1].runtval(runt))
+
+class ExprNode(RunValue):
+    '''
+    A binary (i.e. two argument) expression node
+    '''
     def prepare(self):
         # TODO: constant folding
         assert len(self.kids) == 3
@@ -1741,10 +1768,10 @@ class ExprNode(RunValue):
         self._operfunc = _ExprFuncMap[oper]
 
     async def compute(self, path):
-        return self._operfunc(await self.kids[0].compute(path), await self.kids[2].compute(path))
+        return int(self._operfunc(await self.kids[0].compute(path), await self.kids[2].compute(path)))
 
     async def runtval(self, runt):
-        return self._operfunc(await self.kids[0].runtval(runt), await self.kids[2].runtval(runt))
+        return int(self._operfunc(await self.kids[0].runtval(runt), await self.kids[2].runtval(runt)))
 
 class VarList(Value):
     pass
@@ -1959,3 +1986,71 @@ class ContinueOper(AstNode):
             raise StormContinue(item=(node, path))
 
         raise StormContinue()
+
+class IfClause(AstNode):
+    pass
+
+class IfStmt(Oper):
+
+    def prepare(self):
+        if isinstance(self.kids[-1], IfClause):
+            self.elsequery = None
+            self.clauses = self.kids
+        else:
+            self.elsequery = self.kids[-1]
+            self.clauses = self.kids[:-1]
+
+    async def _precalc_winner(self, runt):
+        '''
+        All conditions are runtsafe: determine which of several if branches wins and make that the only clause
+        '''
+        for clause in self.clauses:
+            expr, subq = clause.kids
+
+            exprvalu = await expr.runtval(runt)
+            if exprvalu:
+                # Make it look like there are no clauses and the winner is in the else clause
+                self.clauses = []
+                self.elsequery = subq
+                break
+        else:
+            self.clauses = []
+
+    async def run(self, runt, genr):
+        count = 0
+
+        allcondsafe = all(clause.kids[0].isRuntSafe(runt) for clause in self.clauses)
+
+        async for node, path in genr:
+            count += 1
+
+            if allcondsafe and count == 1:
+                # All conditions are runtsafe: determine which clause wins up front
+                await self._precalc_winner(runt)
+
+            for clause in self.clauses:
+                expr, subq = clause.kids
+
+                exprvalu = await expr.compute(path)
+                if exprvalu:
+                    break
+            else:
+                subq = self.elsequery
+
+            if subq:
+                assert isinstance(subq, SubQuery)
+
+                async for item in subq.inline(runt, agen((node, path))):
+                    yield item
+            else:
+                # If none of the if branches were executed and no else present, pass the stream through unaltered
+                yield node, path
+
+        if count != 0 or not allcondsafe:
+            return
+        # no nodes and a runt safe value should execute the winning clause once
+        await self._precalc_winner(runt)
+
+        if self.elsequery:
+            async for item in self.elsequery.inline(runt, agen()):
+                yield item
