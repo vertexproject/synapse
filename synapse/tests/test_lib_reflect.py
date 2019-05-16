@@ -44,3 +44,4 @@ class ReflectTest(s_t_utils.SynTest):
 
             sharinfo = getattr(echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo')
             self.eq(sharinfo.get('syn:version'), s_version.version)
+            self.eq(sharinfo.get('syn:verstring'), s_version.verstring)

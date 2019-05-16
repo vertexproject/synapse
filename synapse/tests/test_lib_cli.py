@@ -1,7 +1,10 @@
 import asyncio
 
 import synapse.exc as s_exc
+
 import synapse.lib.cli as s_cli
+import synapse.lib.version as s_version
+
 import synapse.tests.utils as s_t_utils
 
 class TstThrowCmd(s_cli.Cmd):
@@ -44,6 +47,13 @@ class CliTest(s_t_utils.SynTest):
             self.true(outp.expect('haha'))
             self.true(outp.expect('foo'))
             self.true(outp.expect('bar'))
+
+        outp = self.getTestOutp()
+        async with self.getTestCoreAndProxy() as (core, proxy):
+            async with await s_cli.Cli.anit(proxy, outp=outp) as cli:
+                cli.echoline = True
+                await cli.runCmdLine('locs')
+                self.true(outp.expect(s_version.verstring))
 
     async def test_cli_quit(self):
         outp = self.getTestOutp()
