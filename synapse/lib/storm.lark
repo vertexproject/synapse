@@ -99,7 +99,7 @@ stormcmd: CMDNAME [_WS stormcmdargs]
 stormcmdargs: [_WS? _cmdargv (_WS _cmdargv)*]
 _cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
 // An unquoted string that's a command argument
-NONCMDQUOTE: /[^ \t\n|}]+/
+NONCMDQUOTE: /(?!['\"])[^\s|}]+/
 
 // A tag with either a variable reference or a tag name potentially with asterisks
 _tagmatch: "#" (_varvalu | TAGMATCH)

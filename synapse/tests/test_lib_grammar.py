@@ -490,6 +490,7 @@ _Queries = [
     "$x=$($lib.time.offset('2 days'))",
     '$foo = 1 $bar = 2 inet:ipv4=$($foo + $bar)',
     '',
+    'hehe.haha --size 10 --query "foo_bar.stuff:baz"',
 ]
 
 # Generated with print_parse_list below
@@ -892,6 +893,7 @@ _ParseResults = [
     'Query: [VarSetOper: [Const: x, DollarExpr: [FuncCall: [VarDeref: [VarDeref: [VarValue: [Const: lib], Const: time], Const: offset], CallArgs: [Const: 2 days], CallKwargs: []]]]]',
     'Query: [VarSetOper: [Const: foo, Const: 1], VarSetOper: [Const: bar, Const: 2], LiftPropBy: [Const: inet:ipv4, Const: =, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: +, VarValue: [Const: bar]]]]]',
     'Query: []',
+    "Query: [CmdOper: [Const: hehe.haha, Const: ('--size', '10', '--query', 'foo_bar.stuff:baz')]]",
 ]
 
 class GrammarTest(s_t_utils.SynTest):
