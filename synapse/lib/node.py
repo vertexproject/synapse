@@ -125,7 +125,11 @@ class Node:
         })
 
         if dorepr:
-            node[1]['repr'] = self.repr()
+
+            rval = self.repr()
+            if rval is not None and rval != self.ndef[1]:
+                node[1]['repr'] = self.repr()
+
             node[1]['reprs'] = self.reprs()
 
         return node
@@ -327,21 +331,32 @@ class Node:
         if name is None:
             return self.form.type.repr(self.ndef[1])
 
+        prop = self.form.props.get(name)
+        if prop is None:
+            raise s_exc.NoSuchProp(form=self.form.name, prop=name)
+
         valu = self.props.get(name)
-        return self.form.props[name].type.repr(valu)
+        if valu is None:
+            raise s_exc.NoPropValu(prop=name, form=self.form.name)
+
+        return prop.type.repr(valu)
 
     def reprs(self):
-
+        '''
+        Return a dictionary of repr values for props whose repr is different than
+        the system mode value.
+        '''
         reps = {}
 
         for name, valu in self.props.items():
 
-            try:
-                rval = self.form.props[name].type.repr(valu)
-                if rval is None:
-                    continue
-            except KeyError:
-                rval = repr(valu)
+            prop = self.form.prop(name)
+            if prop is None:
+                continue
+
+            rval = prop.type.repr(valu)
+            if rval is None or rval == valu:
+                continue
 
             reps[name] = rval
 

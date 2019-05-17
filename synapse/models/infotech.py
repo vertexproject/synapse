@@ -54,7 +54,7 @@ class SemVer(s_types.Type):
                 'patch': patch}
         return valu, {'subs': subs}
 
-    def repr(self, valu, defval=None):
+    def repr(self, valu):
         major, minor, patch = s_version.unpackVersion(valu)
         valu = s_version.fmtVersion(major, minor, patch)
         return valu
