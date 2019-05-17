@@ -166,6 +166,20 @@ class LibTime(Lib):
         secs = float(secs)
         return int(secs * 1000)
 
+class LibCsv(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'emit': self._libCsvEmit,
+        })
+
+    async def _libCsvEmit(self, *args, table=None):
+        '''
+        Emit a csv:row event for the given args.
+        '''
+        row = [toprim(a) for a in args]
+        await self.runt.snap.fire('csv:row', row=row, table=table)
+
 class Prim(StormType):
     '''
     The base type for all STORM primitive values.
@@ -234,6 +248,7 @@ class Node(Prim):
             'form': self._methNodeForm,
             'ndef': self._methNodeNdef,
             'tags': self._methNodeTags,
+            'repr': self._methNodeRepr,
             'value': self._methNodeValue,
         })
 
@@ -252,6 +267,23 @@ class Node(Prim):
 
     async def _methNodeNdef(self):
         return self.valu.ndef
+
+    async def _methNodeRepr(self, name=None):
+        return self.valu.repr(name=name)
+
+# These will go away once we have value objects in storm runtime
+def toprim(valu, path=None):
+
+    if isinstance(valu, (str, tuple, list, dict, int)):
+        return valu
+
+    if isinstance(valu, Prim):
+        return valu.value()
+
+    if isinstance(valu, s_node.Node):
+        return valu.ndef[1]
+
+    raise s_exc.NoSuchType(name=valu.__class__.__name__)
 
 def fromprim(valu, path=None):
 

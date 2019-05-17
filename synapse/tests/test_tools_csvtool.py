@@ -1,3 +1,5 @@
+import csv
+
 import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
@@ -13,6 +15,11 @@ csvstorm = b'''
     for ($ipv4, $fqdn, $note) in $rows {
         [ inet:dns:a=($fqdn,$ipv4) ]
     }
+'''
+
+# count is used for test coverage.
+csvstorm_export = b'''
+test:int $lib.csv.emit($node, :loc) | count
 '''
 
 class CsvToolTest(s_t_utils.SynTest):
@@ -86,3 +93,43 @@ class CsvToolTest(s_t_utils.SynTest):
 
             outp.expect('inet:fqdn=google.com')
             outp.expect('2 nodes (9 created)')
+
+    async def test_csvtool_export(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:int=20 :loc=us ]')
+            await core.nodes('[ test:int=30 :loc=cn ]')
+
+            url = core.getLocalUrl()
+
+            dirn = s_common.gendir(core.dirn, 'junk')
+
+            csvpath = s_common.genpath(dirn, 'csvtest.csv')
+
+            stormpath = s_common.genpath(dirn, 'csvtest.storm')
+            with s_common.genfile(stormpath) as fd:
+                fd.write(csvstorm_export)
+
+            # test a few no-no cases
+            argv = ['--test', '--export', stormpath, csvpath]
+            outp = self.getTestOutp()
+            await s_csvtool.main(argv, outp=outp)
+            outp.expect('--export requires --cortex')
+
+            argv = ['--cortex', url, '--export', stormpath, csvpath, 'lol.csv']
+            outp = self.getTestOutp()
+            await s_csvtool.main(argv, outp=outp)
+            outp.expect('--export requires exactly 1 csvfile')
+
+            argv = ['--cortex', url, '--export', stormpath, csvpath]
+            outp = self.getTestOutp()
+
+            await s_csvtool.main(argv, outp=outp)
+
+            outp.expect('Counted 2 nodes.')
+            outp.expect('2 csv rows')
+
+            with open(csvpath, 'r') as fd:
+                rows = [row for row in csv.reader(fd)]
+                self.eq(rows, (['20', 'us'], ['30', 'cn']))

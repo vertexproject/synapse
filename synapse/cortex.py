@@ -826,6 +826,7 @@ class Cortex(s_cell.Cell):
         '''
         Registration for built-in Storm Libraries
         '''
+        self.addStormLib(('csv',), s_stormtypes.LibCsv)
         self.addStormLib(('str',), s_stormtypes.LibStr)
         self.addStormLib(('time',), s_stormtypes.LibTime)
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
