@@ -2601,9 +2601,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             # expression filter, non-runtsafe, true path
-            q = '[test:type10=2 :strprop=1] test:type10 +$(:strprop)'
+            q = '[test:type10=2 :strprop=1] spin | test:type10 +$(:strprop)'
             nodes = await core.nodes(q)
-            self.len(1, nodes)
+            self.len(2, nodes)
 
             # expression filter, non-runtsafe, false path
             q = '[test:type10=1 :strprop=1] -$(:strprop + 0)'
