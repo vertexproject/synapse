@@ -296,6 +296,11 @@ def jsload(*paths):
 
         return json.loads(byts.decode('utf8'))
 
+def jslines(*paths):
+    with genfile(*paths) as fd:
+        for line in fd:
+            yield json.loads(line)
+
 def jssave(js, *paths):
     path = genpath(*paths)
     with io.open(path, 'wb') as fd:

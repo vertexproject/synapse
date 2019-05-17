@@ -89,11 +89,12 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('vertex.link', nodes[0].ndef[1])
 
-    # flake8: noqa: E501
     async def test_storm_lib_str(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('$v=vertex $l=link $fqdn=$lib.str.concat($v, ".", $l) [ inet:email=$lib.str.format("visi@{domain}", domain=$fqdn) ]')
+            q = '$v=vertex $l=link $fqdn=$lib.str.concat($v, ".", $l)' \
+                ' [ inet:email=$lib.str.format("visi@{domain}", domain=$fqdn) ]'
+            nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq('visi@vertex.link', nodes[0].ndef[1])
 
@@ -117,3 +118,39 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq(gotn[0][1]['type'], 'foo:bar')
             self.eq(gotn[0][1]['data']['baz'], 'faz')
+
+    async def test_storm_node_repr(self):
+
+        text = '''
+            [ inet:ipv4=1.2.3.4 :loc=us]
+            $ipv4 = $node.repr()
+            $loc = $node.repr(loc)
+            $valu = $lib.str.format("{ipv4} in {loc}", ipv4=$ipv4, loc=$loc)
+            [ test:str=$valu ]
+            +test:str
+        '''
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes(text)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], '1.2.3.4 in us')
+
+    async def test_storm_csv(self):
+        async with self.getTestCore() as core:
+            nodes = await core.eval('[test:str=1234 :tick=2001]').list()
+            nodes = await core.eval('[test:str=9876 :tick=3001]').list()
+
+            q = "test:str " \
+                "$tick=$node.repr(tick) " \
+                "$lib.csv.emit($node.form(), $node.value(), $tick, table=mytable)"
+
+            mesgs = await core.streamstorm(q, {'show': ('err', 'csv:row')}).list()
+            csv_rows = [m for m in mesgs if m[0] == 'csv:row']
+            self.len(2, csv_rows)
+            csv_rows.sort(key=lambda x: x[1].get('row')[1])
+            self.eq(csv_rows[0],
+                    ('csv:row', {'row': ['test:str', '1234', '2001/01/01 00:00:00.000'],
+                                 'table': 'mytable'}))
+            self.eq(csv_rows[1],
+                    ('csv:row', {'row': ['test:str', '9876', '3001/01/01 00:00:00.000'],
+                                 'table': 'mytable'}))
