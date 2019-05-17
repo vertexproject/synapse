@@ -933,7 +933,6 @@ class GrammarTest(s_t_utils.SynTest):
                 print(tree.pretty(), '\n')
                 if 'ambig' in str(tree)  and tree.children[0] != tree.children[1]:
                     from IPython import embed; embed()
-                    pass
 
             except (lark.ParseError, lark.UnexpectedCharacters):
                 print(f'Failure on parsing #{i}:\n{{{query}}}')

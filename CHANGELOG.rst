@@ -8,7 +8,7 @@ v0.1.8 - TBD
 Features and Enhancements
 -------------------------
 
-- Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Add if/elif/else statement.  Add and/or/not inside dollar expressions.  Have expressions always return an int. (`#1235 <https://github.com/vertexproject/synapse/pull/1235>`_)
 
 Bugfixes
 --------
