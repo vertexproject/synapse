@@ -2,7 +2,26 @@
 Synapse Changelog
 *****************
 
-v0.1.7 - TBD
+v0.1.8 - TBD
+===================
+
+Features and Enhancements
+-------------------------
+
+- Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+Bugfixes
+--------
+
+- Fix old bugs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+Improved Documentation
+----------------------
+
+- Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+
+v0.1.7 - 2019-05-17
 ===================
 
 Features and Enhancements
@@ -20,11 +39,6 @@ Bugfixes
 
 - Resolve Storm grammar ambiguity between tag condition filters with value and left join. (`#1237 <https://github.com/vertexproject/synapse/pull/1237>`_)
 - Resolve Storm grammar ambiguity to prevent reserved words from being identified as a Storm command. (`#1240 <https://github.com/vertexproject/synapse/pull/1240>`_)
-
-Improved Documentation
-----------------------
-
-- Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
 
 
 v0.1.6 - 2019-05-15
