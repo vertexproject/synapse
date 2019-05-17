@@ -190,7 +190,7 @@ ABSPROPNOUNIV: PROPS
 RELPROP: /:[$.\w][$.\w:]*/
 
 // The name of a storm command
-CMDNAME: /[a-z][a-z0-9.]+/
+CMDNAME: /\b(?!(break|continue|for|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/
 
 // The entry point for a $(...) expression
 dollarexpr: _EXPRSTART _WSCOMM? exprcmp _WSCOMM? ")"
