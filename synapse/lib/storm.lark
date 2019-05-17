@@ -36,7 +36,7 @@ editnodeadd: ABSPROPNOUNIV _WS? "=" _WS? _valu
 
 // The set of non-edit non-commands in storm
 _oper.1: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | vareval
-     | filtoper | liftbytag | operrelprop | forloop | switchcase | BREAK | CONTINUE | _liftprop
+     | filtoper | liftbytag | operrelprop | forloop | switchcase | BREAK | CONTINUE | _liftprop | ifstmt
 
 BREAK: "break"
 CONTINUE: "continue"
@@ -48,12 +48,16 @@ vareval: _varvalu
 valuvar: _varname _WS? "=" _WS? _valu
 
 // We prioritize because 'for' looks like a command
-forloop.1: "for" _WS? (_varname | varlist) _WS? "in" _WS? _varvalu _WS? subquery
+forloop.1: "for" _WS (_varname | varlist) _WS? "in" _WS? _varvalu _WS? subquery
 
 subquery: "{" query _WSCOMM? "}"
-switchcase.1: "switch" _WS? _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (casevalu _WSCOMM? subquery)) )* _WSCOMM? "}"
+switchcase.1: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (casevalu _WSCOMM? subquery)) )* _WSCOMM? "}"
 casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | CASEVALU
 CASEVALU: /[^:\s][^:]*:/
+
+ifstmt.1: "if" ifclause (_WSCOMM? "elif" ifclause)* [_WSCOMM? "else" _WSCOMM? subquery]
+// The stuff inside an if or elif
+ifclause: _WS _valu _WSCOMM? subquery
 
 // A bare variable list
 varlist: "(" [_WS? _varname (_WS? "," _WS? _varname)*] _WS? ["," _WS?] ")"
@@ -193,7 +197,7 @@ RELPROP: /:[$.\w][$.\w:]*/
 CMDNAME: /\b(?!(break|continue|for|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/
 
 // The entry point for a $(...) expression
-dollarexpr: _EXPRSTART _WSCOMM? exprcmp _WSCOMM? ")"
+dollarexpr: _EXPRSTART _WSCOMM? expror _WSCOMM? ")"
 _EXPRSTART: "$("
 EXPRCMPR: /<=|>=|<|>|==|!=/
 EXPRPLUS: "+"
@@ -201,13 +205,19 @@ EXPRMINUS: "-"
 EXPRTIMES: "*"
 EXPRDIVIDE: "/"
 NUMBER: /-?\d+(\.\d*)?/
+NOT: "not"
+OR: "or"
+AND: "and"
 
-// Expression rules in increasing order of precedence
+// Expression rules in increasing order of precedence (modeled on Python's order)
+?expror: exprand | exprand _WSCOMM? OR _WSCOMM? exprand
+?exprand: exprnot | exprnot _WSCOMM? AND _WSCOMM? exprnot
+?exprnot: exprcmp | NOT _WSCOMM? exprcmp
 ?exprcmp: exprsum | exprsum _WSCOMM? (EXPRCMPR) _WSCOMM? exprsum
 ?exprsum: exprproduct | exprsum _WSCOMM? (EXPRPLUS | EXPRMINUS) _WSCOMM? exprproduct
 ?exprproduct: _expratom | exprproduct _WSCOMM? (EXPRTIMES | EXPRDIVIDE) _WSCOMM? _expratom
 _expratom: _exprvalu | "(" exprsum ")"
 
-// Just like _valu, but doesn't allow unquoted string constants
-_exprvalu: NUMBER | valulist | _varvalu | relpropvalu | univpropvalu | tagpropvalue | DOUBLEQUOTEDSTRING
+// Just like _valu, but doesn't allow valu lists or unquoted strings
+_exprvalu: NUMBER | _varvalu | relpropvalu | univpropvalu | tagpropvalue | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING | dollarexpr
