@@ -2,6 +2,8 @@ import inspect
 
 import logging
 
+import synapse.lib.version as s_version
+
 logger = logging.getLogger(__name__)
 
 clsskip = set([object])
@@ -70,7 +72,9 @@ def getShareInfo(item):
         return info
 
     meths = {}
-    info = {'meths': meths}
+    info = {'meths': meths,
+            'syn:version': s_version.version,
+            }
 
     for name in dir(item):
 

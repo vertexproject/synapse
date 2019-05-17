@@ -117,3 +117,19 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq(gotn[0][1]['type'], 'foo:bar')
             self.eq(gotn[0][1]['data']['baz'], 'faz')
+
+    async def test_storm_node_repr(self):
+
+        text = '''
+            [ inet:ipv4=1.2.3.4 :loc=us]
+            $ipv4 = $node.repr()
+            $loc = $node.repr(loc)
+            $valu = $lib.str.format("{ipv4} in {loc}", ipv4=$ipv4, loc=$loc)
+            [ test:str=$valu ]
+            +test:str
+        '''
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes(text)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], '1.2.3.4 in us')

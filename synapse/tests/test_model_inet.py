@@ -369,7 +369,7 @@ class InetModelTest(s_t_utils.SynTest):
             fqdn = 'xn--lskfjaslkdfjaslfj.link'
             expected = (fqdn, {'subs': {'host': fqdn.split('.')[0], 'domain': 'link'}})
             self.eq(t.norm(fqdn), expected)
-            self.none(t.repr(fqdn))  # UnicodeError raised and caught and fallback to norm
+            self.eq(fqdn, t.repr(fqdn))  # UnicodeError raised and caught and fallback to norm
 
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com')
 
@@ -986,7 +986,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             host = 'Vertex.Link'
             norm_host = core.model.type('inet:fqdn').norm(host)[0]
-            repr_host = core.model.type('inet:fqdn').repr(norm_host, defval=norm_host)
+            repr_host = core.model.type('inet:fqdn').repr(norm_host)
 
             self.eq(norm_host, 'vertex.link')
             self.eq(repr_host, 'vertex.link')
@@ -999,7 +999,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             host = '192[.]168.1[.]1'
             norm_host = core.model.type('inet:ipv4').norm(host)[0]
-            repr_host = core.model.type('inet:ipv4').repr(norm_host, defval=norm_host)
+            repr_host = core.model.type('inet:ipv4').repr(norm_host)
             self.eq(norm_host, 3232235777)
             self.eq(repr_host, '192.168.1.1')
 
@@ -1011,7 +1011,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             host = '::1'
             norm_host = core.model.type('inet:ipv6').norm(host)[0]
-            repr_host = core.model.type('inet:ipv6').repr(norm_host, defval=norm_host)
+            repr_host = core.model.type('inet:ipv6').repr(norm_host)
             self.eq(norm_host, '::1')
             self.eq(repr_host, '::1')
 

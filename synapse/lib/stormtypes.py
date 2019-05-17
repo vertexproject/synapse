@@ -248,6 +248,7 @@ class Node(Prim):
             'form': self._methNodeForm,
             'ndef': self._methNodeNdef,
             'tags': self._methNodeTags,
+            'repr': self._methNodeRepr,
             'value': self._methNodeValue,
         })
 
@@ -266,6 +267,9 @@ class Node(Prim):
 
     async def _methNodeNdef(self):
         return self.valu.ndef
+
+    async def _methNodeRepr(self, name=None):
+        return self.valu.repr(name=name)
 
     def value(self):
         return self.valu.ndef[1]

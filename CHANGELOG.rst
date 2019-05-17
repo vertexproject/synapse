@@ -8,7 +8,10 @@ v0.1.7 - TBD
 Features and Enhancements
 -------------------------
 
-- Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Add the Synapse version information in the Telepath handshake.  Expose this with the ``Proxy._getSynVers()`` API and in the Cmdr CLI via the ``locs`` command.  (`#1238 <https://github.com/vertexproject/synapse/pull/1238>`_)
+- Add a ``--save-nodes`` argument to the Storm command in Cmdr to do a one-shot record of nodes returned by a Storm query.  (`#1239 <https://github.com/vertexproject/synapse/pull/1239>`_)
+- Allow ``synapse.tools.cmdr`` to take a second argument and run that argument as a Cmdr command.  (`#1239 <https://github.com/vertexproject/synapse/pull/1239>`_)
+- Add ``$node.repr()`` to Storm types.  This allows the user to get the repr of the primary property, or a secondary property, and assign it to a variable in storm.  (`#1222 <https://github.com/vertexproject/synapse/pull/1222>`_)
 
 Bugfixes
 --------

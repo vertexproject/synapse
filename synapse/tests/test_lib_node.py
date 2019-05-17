@@ -42,8 +42,11 @@ class NodeTest(s_t_utils.SynTest):
                 props, reprs = info.get('props'), info.get('reprs')
                 self.eq(props.get('.newp'), 1)
                 self.eq(props.get('newp'), (2, 3))
-                self.eq(reprs.get('.newp'), '1')
-                self.eq(reprs.get('newp'), '(2, 3)')
+
+                # without model knowledge it is impossible to repr a value so it should
+                # *not* be in the repr dict
+                self.none(reprs.get('newp'))
+                self.none(reprs.get('.newp'))
 
     async def test_set(self):
         form = 'test:str'
@@ -124,7 +127,7 @@ class NodeTest(s_t_utils.SynTest):
                 valu = 'cool'
                 props = {'tick': 12345}
                 node = await snap.addNode(form, valu, props=props)
-                self.none(node.repr())
+                self.eq('cool', node.repr())
                 self.eq(node.repr('tick'), '1970/01/01 00:00:12.345')
 
                 form = 'test:threetype'
@@ -256,3 +259,22 @@ class NodeTest(s_t_utils.SynTest):
                                                path=path))
                 self.eq(nodes[0][0].props.get('loc'), 'ca')
                 self.eq(path.vars.get('bar'), 'ru')
+
+    async def test_node_repr(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
+            self.len(1, nodes)
+
+            node = nodes[0]
+
+            self.eq('1.2.3.4', nodes[0].repr())
+
+            self.eq('us', node.repr('loc'))
+
+            with self.raises(s_exc.NoSuchProp):
+                node.repr('newp')
+
+            with self.raises(s_exc.NoPropValu):
+                node.repr('dns:rev')

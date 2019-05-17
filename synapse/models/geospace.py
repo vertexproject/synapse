@@ -142,7 +142,7 @@ class LatLong(s_types.Type):
     def indx(self, valu):
         return self.modl.type('geo:latitude').indx(valu[0]) + self.modl.type('geo:longitude').indx(valu[1])
 
-    def repr(self, norm, defval=None):
+    def repr(self, norm):
         return f'{norm[0]},{norm[1]}'
 
 class Longitude(s_types.Type):
