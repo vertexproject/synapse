@@ -915,12 +915,13 @@ _ParseResults = [
 
 class GrammarTest(s_t_utils.SynTest):
 
-    # @unittest.skip('Strict subset of test_parser.  Only useful for debugging grammar')
+    @unittest.skip('Strict subset of test_parser.  Only useful for debugging grammar')
     def test_grammar(self):
         with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
             grammar = larkf.read().decode()
 
-        parser = lark.Lark(grammar, start='query', debug=True, ambiguity='explicit', keep_all_tokens=True)
+        parser = lark.Lark(grammar, start='query', debug=True, ambiguity='explicit', keep_all_tokens=True,
+                           propagate_positions=True)
 
         for i, query in enumerate(_Queries):
             try:
@@ -928,11 +929,10 @@ class GrammarTest(s_t_utils.SynTest):
                 print(f'#{i}: {query}')
                 print(tree, '\n')
                 print(tree.pretty(), '\n')
-                if 'ambig' in str(tree):
+                if 'ambig' in str(tree)  and tree.children[0] != tree.children[1]:
                     from IPython import embed; embed()
                     pass
 
->>>>>>> Stashed changes
             except (lark.ParseError, lark.UnexpectedCharacters):
                 print(f'Failure on parsing #{i}:\n{{{query}}}')
                 raise

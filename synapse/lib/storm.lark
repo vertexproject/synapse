@@ -47,14 +47,13 @@ vareval: _varvalu
 // A variable assignment
 valuvar: _varname _WS? "=" _WS? _valu
 
-// We prioritize because 'for' looks like a command
-forloop.1: "for" _WS (_varname | varlist) _WS? "in" _WS? _varvalu _WS? subquery
-
+forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _varvalu _WS? subquery
+subquery: "{" query "}"
 switchcase.1: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (casevalu _WSCOMM? subquery)) )* _WSCOMM? "}"
 casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | CASEVALU
 CASEVALU: /[^:\s][^:]*:/
 
-ifstmt.1: "if" ifclause (_WSCOMM? "elif" ifclause)* [_WSCOMM? "else" _WSCOMM? subquery]
+ifstmt: "if" ifclause (_WSCOMM? "elif" ifclause)* [_WSCOMM? "else" _WSCOMM? subquery]
 // The stuff inside an if or elif
 ifclause: _WS _valu _WSCOMM? subquery
 
@@ -99,7 +98,7 @@ liftbytag: tagname [_WS? CMPR _valu]
 tagname: "#" _WS? (_varname | TAG)
 
 stormcmd: CMDNAME [_WS stormcmdargs]
-stormcmdargs: [_WS? _cmdargv (_WS _cmdargv)*]
+stormcmdargs: _WS? _cmdargv (_WS _cmdargv)*
 _cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
 // An unquoted string that's a command argument
 NONCMDQUOTE: /(?!['\"])[^\s|}]+/
@@ -160,7 +159,7 @@ hasabspropcond: ABSPROPNOUNIV
 tagvalucond.1:  _tagmatch _WS? CMPR _WS? _valu
 tagcond: _tagmatch
 
-condsubq: "{" _WSCOMM? query _WS? "}" [_WSCOMM? CMPR _WSCOMM? _valu]
+condsubq: "{" query "}" [_WSCOMM? CMPR _WSCOMM? _valu]
 
 _condexpr: _cond | orexpr | andexpr
 orexpr: _condexpr _WS? "or" _WS? _cond
