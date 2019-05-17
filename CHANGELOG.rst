@@ -12,6 +12,8 @@ Features and Enhancements
 - Add a ``--save-nodes`` argument to the Storm command in Cmdr to do a one-shot record of nodes returned by a Storm query.  (`#1239 <https://github.com/vertexproject/synapse/pull/1239>`_)
 - Allow ``synapse.tools.cmdr`` to take a second argument and run that argument as a Cmdr command.  (`#1239 <https://github.com/vertexproject/synapse/pull/1239>`_)
 - Add ``$node.repr()`` to Storm types.  This allows the user to get the repr of the primary property, or a secondary property, and assign it to a variable in storm.  (`#1222 <https://github.com/vertexproject/synapse/pull/1222>`_)
+- Add ``lib.csv.emit()`` to Storm types.  This allows the user to emit a message during a Storm query which can easily be joined into a CSV.  (`#1236 <https://github.com/vertexproject/synapse/pull/1236>`_)
+- Add a ``--export`` option to ``synapse.tools.csvtool``.  This allows the user to create a CSV file from a query that uses the ``$lib.csv.emit()`` Storm function.  (`#1236 <https://github.com/vertexproject/synapse/pull/1236>`_)
 
 Bugfixes
 --------
