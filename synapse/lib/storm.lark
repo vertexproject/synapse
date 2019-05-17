@@ -49,7 +49,7 @@ valuvar: _varname _WS? "=" _WS? _valu
 
 forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _varvalu _WS? subquery
 subquery: "{" query "}"
-switchcase.1: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (casevalu _WSCOMM? subquery)) )* _WSCOMM? "}"
+switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (casevalu _WSCOMM? subquery)) )* _WSCOMM? "}"
 casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | CASEVALU
 CASEVALU: /[^:\s][^:]*:/
 
@@ -146,6 +146,7 @@ _cond: notcond | "(" _WS? _condexpr _WS? ")"
     | abspropcond | hasabspropcond
     | tagcond | tagvalucond
     | condsubq
+    | _varvalu | dollarexpr
 
 notcond: "not" _WS? _cond
 
@@ -197,7 +198,7 @@ CMDNAME: /\b(?!(break|continue|for|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-
 // The entry point for a $(...) expression
 dollarexpr: _EXPRSTART _WSCOMM? expror _WSCOMM? ")"
 _EXPRSTART: "$("
-EXPRCMPR: /<=|>=|<|>|==|!=/
+EXPRCMPR: /<=|>=|<|>|=|!=/
 EXPRPLUS: "+"
 EXPRMINUS: "-"
 EXPRTIMES: "*"

@@ -1732,7 +1732,7 @@ _ExprFuncMap = {
     '<=': lambda x, y: int(x) <= int(y),
     'and': lambda x, y: int(x) and int(y),
     'or': lambda x, y: int(x) or int(y),
-    '==': lambda x, y: x == y,
+    '=': lambda x, y: x == y,
     '!=': lambda x, y: x != y,
 }
 
