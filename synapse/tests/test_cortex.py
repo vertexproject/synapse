@@ -2641,17 +2641,17 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes('[test:str=yep2] if $(1) {[+#woot]}')
             self.true(nodes[0].hasTag('woot'))
 
-            # Runtsafe condition with nodes: false
+            # Runtsafe condition with nodes, condition is false
             nodes = await core.nodes('[test:str=yep2] if $(0) {[+#woot2]}')
             self.false(nodes[0].hasTag('woot2'))
 
-            # Completely runtsafe: true
+            # Completely runtsafe, condition is true
             q = '$foo=yawp if $foo {$bar=lol} else {$bar=rofl} [test:str=yep3 +#$bar]'
             nodes = await core.nodes(q)
             self.true(nodes[0].hasTag('lol'))
             self.false(nodes[0].hasTag('rofl'))
 
-            # Completely runtsafe: false
+            # Completely runtsafe, condition is false
             q = '$foo=0 if $($foo) {$bar=lol} else {$bar=rofl} [test:str=yep4 +#$bar]'
             nodes = await core.nodes(q)
             self.false(nodes[0].hasTag('lol'))
