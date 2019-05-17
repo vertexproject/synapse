@@ -89,11 +89,12 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('vertex.link', nodes[0].ndef[1])
 
-    # flake8: noqa: E501
     async def test_storm_lib_str(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('$v=vertex $l=link $fqdn=$lib.str.concat($v, ".", $l) [ inet:email=$lib.str.format("visi@{domain}", domain=$fqdn) ]')
+            q = '$v=vertex $l=link $fqdn=$lib.str.concat($v, ".", $l)' \
+                ' [ inet:email=$lib.str.format("visi@{domain}", domain=$fqdn) ]'
+            nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq('visi@vertex.link', nodes[0].ndef[1])
 

@@ -271,9 +271,6 @@ class Node(Prim):
     async def _methNodeRepr(self, name=None):
         return self.valu.repr(name=name)
 
-    def value(self):
-        return self.valu.ndef[1]
-
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):
 
