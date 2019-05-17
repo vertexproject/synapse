@@ -18,7 +18,8 @@ Features and Enhancements
 Bugfixes
 --------
 
-- Resolve grammar ambiguity between tag condition filters with value and left join (`#1237 <https://github.com/vertexproject/synapse/pull/1237>`_)
+- Resolve Storm grammar ambiguity between tag condition filters with value and left join. (`#1237 <https://github.com/vertexproject/synapse/pull/1237>`_)
+- Resolve Storm grammar ambiguity to prevent reserved words from being identified as a Storm command. (`#1240 <https://github.com/vertexproject/synapse/pull/1240>`_)
 
 Improved Documentation
 ----------------------
