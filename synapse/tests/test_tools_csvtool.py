@@ -17,8 +17,9 @@ csvstorm = b'''
     }
 '''
 
+# count is used for test coverage.
 csvstorm_export = b'''
-test:int $lib.csv.emit($node, :loc)
+test:int $lib.csv.emit($node, :loc) | count
 '''
 
 class CsvToolTest(s_t_utils.SynTest):
@@ -126,6 +127,7 @@ class CsvToolTest(s_t_utils.SynTest):
 
             await s_csvtool.main(argv, outp=outp)
 
+            outp.expect('Counted 2 nodes.')
             outp.expect('2 csv rows')
 
             with open(csvpath, 'r') as fd:
