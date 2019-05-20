@@ -11,16 +11,17 @@
 // * Rules starting with a ? have their parse tree node replaced by their children if they have exactly 1 child.
 
 // Entry point for an unadorned storm query
-query: [_WSCOMM? "|"] (_querystartnon | _querystartedit | _querystartcommand)? _WSCOMM?
+query: [_WSCOMM? "|"] _WSCOMM? (_querystartnon | _querystartedit | _querystartcommand)? _WSCOMM?
 
 // A query that starts with a command
-_querystartcommand: _WSCOMM? stormcmd [ _WSCOMM? "|" (_querystartcommand |  _querystartnon | _querystartedit) ]
+_querystartcommand: stormcmd [ _WSCOMM? "|" _WSCOMM? (_querystartcommand |  _querystartnon | _querystartedit) ]
 // A query that starts with non-edit non-command
-_querystartnon: _WSCOMM? _oper _morenons?
+_querystartnon: _oper _morenons?
 // A query that starts with an edit
-_querystartedit: _WSCOMM? _editopers _morenons?
+_querystartedit: _editopers _morenons?
 // The common bits that continue a query after _querystartnon or _querystart edit
-_morenons: _WSCOMM? (("|" | _WSCOMM) (_querystartcommand | _querystartnon) | ( "|"? _querystartedit) )
+_morenons: ( _WSCOMM? "|" _WSCOMM? | _WSCOMM) (_querystartcommand | _querystartnon)
+    | ( _WSCOMM? "|" _WSCOMM? | _WSCOMM?) _querystartedit
 
 // Zero or more edit operations inside a single set of square brackets
 _editopers: "[" _WS? (_editoper _WS?)* "]"

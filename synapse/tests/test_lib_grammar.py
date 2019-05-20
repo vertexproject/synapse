@@ -917,8 +917,10 @@ _ParseResults = [
 
 class GrammarTest(s_t_utils.SynTest):
 
-    @unittest.skip('Strict subset of test_parser.  Only useful for debugging grammar')
     def test_grammar(self):
+        '''
+        Validates that we have no grammar ambiguities
+        '''
         with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
             grammar = larkf.read().decode()
 
@@ -928,11 +930,9 @@ class GrammarTest(s_t_utils.SynTest):
         for i, query in enumerate(_Queries):
             try:
                 tree = parser.parse(query)
-                print(f'#{i}: {query}')
-                print(tree, '\n')
-                print(tree.pretty(), '\n')
-                if 'ambig' in str(tree)  and tree.children[0] != tree.children[1]:
-                    from IPython import embed; embed()
+                # print(f'#{i}: {query}')
+                # print(tree, '\n')
+                assert '_ambig' not in str(tree)
 
             except (lark.ParseError, lark.UnexpectedCharacters):
                 print(f'Failure on parsing #{i}:\n{{{query}}}')
