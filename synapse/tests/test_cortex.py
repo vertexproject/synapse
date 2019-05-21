@@ -2620,6 +2620,20 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
+    async def test_storm_filter(self):
+        async with self.getTestCore() as core:
+            q = '[test:str=test +#test=(2018,2019)]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'test:str=test $foo=test $bar=(2018,2019) +#$foo=$bar'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'test:str=test $foo=$node.value() $bar=(2018,2019) +#$foo=$bar'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
     async def test_storm_ifstmt(self):
 
         async with self.getTestCore() as core:

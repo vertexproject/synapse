@@ -1466,18 +1466,28 @@ class TagValuCond(Cond):
 
     async def getCondEval(self, runt):
 
-        name = self.kids[0].value()
-        cmpr = self.kids[1].value()
+        lnode, cnode, rnode = self.kids
 
         ival = runt.snap.model.type('ival')
 
+        cmpr = cnode.value()
         cmprctor = ival.getCmprCtor(cmpr)
         if cmprctor is None:
             raise s_exc.NoSuchCmpr(cmpr=cmpr, name=ival.name)
 
-        if isinstance(self.kids[2], Const):
+        if isinstance(lnode, VarValue):
+            async def cond(node, path):
+                name = await lnode.compute(path)
+                valu = await rnode.compute(path)
+                return cmprctor(valu)(node.tags.get(name))
 
-            valu = self.kids[2].value()
+            return cond
+
+        name = lnode.value()
+
+        if isinstance(rnode, Const):
+
+            valu = rnode.value()
 
             cmpr = cmprctor(valu)
 
