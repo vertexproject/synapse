@@ -2713,6 +2713,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             await alist(core.eval('test:str [+#foo.bar]'))
             await alist(core.eval('test:str [+#foo.bar=(2000,2002)]'))
             await alist(core.eval('test:str [+#foo.bar=(2000,20020601)]'))
+            # Add a tag inside the time window of the previously added tag
+            await alist(core.eval('test:str [+#foo.bar=(2000,20020501)]'))
             await alist(core.eval('test:str [-#foo]'))
             await alist(core.eval('test:str [-:tick]'))
             await alist(core.eval('test:str | delnode --force'))
@@ -2751,6 +2753,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1022889600000)})
             self.isin(mesg, splices)
+
+            # Ensure our inside-window tag add did not generate a splice.
+            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1020211200000)})
+            self.notin(mesg, splices)
 
             mesg = ('tag:del', {'ndef': ('test:str', 'hello'), 'tag': 'foo', 'valu': (None, None)})
             self.isin(mesg, splices)
