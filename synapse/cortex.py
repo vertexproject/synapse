@@ -213,7 +213,8 @@ class CoreApi(s_cell.CellApi):
     def _trig_auth_check(self, useriden):
         ''' Check that, as a non-admin, may only manipulate resources created by you. '''
         if not self.user.admin and useriden != self.user.iden:
-            raise s_exc.AuthDeny(user=self.user.name, mesg='As non-admin, may only manipulate triggers created by you')
+            mesg = 'As non-admin, may only manipulate triggers or cron jobs created by you'
+            raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
 
     async def delTrigger(self, iden):
         '''
@@ -319,6 +320,32 @@ class CoreApi(s_cell.CellApi):
             raise s_exc.NoSuchIden()
         self._trig_auth_check(cron.useriden)
         await self.cell.agenda.mod(iden, query)
+
+    async def enableCronJob(self, iden):
+        '''
+        Enable a cron job
+
+        Args:
+            iden (bytes):  The iden of the cron job to be changed
+        '''
+        cron = self.cell.agenda.appts.get(iden)
+        if cron is None:
+            raise s_exc.NoSuchIden()
+        self._trig_auth_check(cron.useriden)
+        await self.cell.agenda.enable(iden)
+
+    async def disableCronJob(self, iden):
+        '''
+        Enable a cron job
+
+        Args:
+            iden (bytes):  The iden of the cron job to be changed
+        '''
+        cron = self.cell.agenda.appts.get(iden)
+        if cron is None:
+            raise s_exc.NoSuchIden()
+        self._trig_auth_check(cron.useriden)
+        await self.cell.agenda.disable(iden)
 
     async def listCronJobs(self):
         '''
@@ -696,7 +723,7 @@ class Cortex(s_cell.Cell):
         self.onfini(self.agenda)
 
         if self.conf.get('cron:enable'):
-            await self.agenda.enable()
+            await self.agenda.start()
 
         await self._initCoreMods()
 
@@ -795,7 +822,7 @@ class Cortex(s_cell.Cell):
             except asyncio.CancelledError: # pragma: no cover
                 raise
 
-            except Exception as e:
+            except Exception:
                 logger.exception('error in initCoreMirror loop')
                 await asyncio.sleep(1)
 
