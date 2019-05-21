@@ -96,8 +96,11 @@ bumpversion is a python application, and can be installed via pip::
 
     python -m pip install bumpversion
 
-Bumpversion is designed for projects which do semantic versioning. Since synapse is not yet in that state, we'll be
-using bumpversion to do patch releases.  This can be done via the following (assuming the vertexproject/synapse
+.. warning::
+    Do *not* use ``bump2version``, the API compatible fork of bumpversion. It changed how tags are made which are
+    incompatible with our current CircleCI based workflows.
+
+Bumpversion is designed for projects which do semantic versioning. This can be done via the following (assuming the vertexproject/synapse
 remote is called 'upstream')::
 
     # Ensure we're on master with the latest version
@@ -106,6 +109,8 @@ remote is called 'upstream')::
     bumpversion --dry-run --verbose patch
     # Bump the patch version
     bumpversion --verbose patch
+    # Ensure that no erroneous changes were introduced by bumvpersion
+    git show HEAD
     # Push the new commit and tag up to github
     git push upstream
     # Push the new tag up explicitly. Do not use --tags
