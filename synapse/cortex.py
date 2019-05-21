@@ -203,11 +203,13 @@ class CoreApi(s_cell.CellApi):
         '''
         return self.cell.getCoreInfo()
 
-    async def addTrigger(self, condition, query, info):
+    async def addTrigger(self, condition, query, info, disabled=False):
         '''
         Adds a trigger to the cortex
         '''
         iden = self.cell.triggers.add(self.user.iden, condition, query, info=info)
+        if disabled:
+            self.cell.triggers.disable(iden)
         return iden
 
     def _trig_auth_check(self, useriden):
@@ -231,6 +233,22 @@ class CoreApi(s_cell.CellApi):
         trig = self.cell.triggers.get(iden)
         self._trig_auth_check(trig.get('useriden'))
         self.cell.triggers.mod(iden, query)
+
+    async def enableTrigger(self, iden):
+        '''
+        Change an existing trigger's query
+        '''
+        trig = self.cell.triggers.get(iden)
+        self._trig_auth_check(trig.get('useriden'))
+        self.cell.triggers.enable(iden)
+
+    async def disableTrigger(self, iden):
+        '''
+        Change an existing trigger's query
+        '''
+        trig = self.cell.triggers.get(iden)
+        self._trig_auth_check(trig.get('useriden'))
+        self.cell.triggers.disable(iden)
 
     async def listTriggers(self):
         '''

@@ -54,7 +54,7 @@ Notes:
 '''
 
 EnableHelp = '''
-Enable an existing cron job's query.
+Enable an existing cron job.
 
 Syntax:
     cron enable <iden prefix>
@@ -64,7 +64,7 @@ Notes:
 '''
 
 DisableHelp = '''
-Enable an existing cron job's query.
+Disable an existing cron job.
 
 Syntax:
     cron disable <iden prefix>
@@ -213,8 +213,8 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         parser_del = subparsers.add_parser('del', help='delete a cron job', usage=DelHelp)
         parser_del.add_argument('prefix', help='Cron job iden prefix')
 
-        parser_del = subparsers.add_parser('stat', help='details a cron job', usage=StatHelp)
-        parser_del.add_argument('prefix', help='Cron job iden prefix')
+        parser_stat = subparsers.add_parser('stat', help='details a cron job', usage=StatHelp)
+        parser_stat.add_argument('prefix', help='Cron job iden prefix')
 
         parser_mod = subparsers.add_parser('mod', help='change an existing cron job', usage=ModHelp)
         parser_mod.add_argument('prefix', help='Cron job iden prefix')

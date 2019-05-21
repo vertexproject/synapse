@@ -849,7 +849,7 @@ class PivotIn(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            # if it's a graph edge, use :n2
+            # if it's a graph edge, use :n1
             if isinstance(node.form.type, s_types.Edge):
 
                 ndef = node.get('n1')
