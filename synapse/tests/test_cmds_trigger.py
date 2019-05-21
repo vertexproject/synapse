@@ -16,9 +16,6 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await cmdr.runCmdLine('trigger list')
             self.true(outp.expect('No triggers found'))
 
-            await cmdr.runCmdLine('trigger add Node:add test:str #foo ')
-            self.true(outp.expect('must start with'))
-
             await cmdr.runCmdLine('trigger add Node:add test:str {[ test:int=1 ] }')
             await s_common.aspin(core.eval('[ test:str=foo ]'))
             await self.agenlen(1, core.eval('test:int'))
