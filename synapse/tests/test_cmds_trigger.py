@@ -13,6 +13,9 @@ class CmdTriggersTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
 
+            await cmdr.runCmdLine('trigger list')
+            self.true(outp.expect('No triggers found'))
+
             await cmdr.runCmdLine('trigger add Node:add test:str {[ test:int=1 ] }')
             await s_common.aspin(core.eval('[ test:str=foo ]'))
             await self.agenlen(1, core.eval('test:int'))
@@ -22,15 +25,19 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('#count'))
             await self.agenlen(1, core.eval('test:str=footag.bar'))
 
-            await cmdr.runCmdLine('trigger add prop:set test:type10:intprop {[ test:int=6 ]}')
-            await s_common.aspin(core.eval('[ test:type10=1 :intprop=25 ]'))
-            await self.agenlen(1, core.eval('test:int=6'))
-
+            await cmdr.runCmdLine('trigger add prop:set --disabled test:type10:intprop {[ test:int=6 ]}')
             await cmdr.runCmdLine('trigger list')
             self.true(outp.expect('user'))
             self.true(outp.expect('root'))
             goodbuid = outp.mesgs[-2].split()[1][:6]
             goodbuid2 = outp.mesgs[-1].split()[1][:6]
+
+            # Trigger is created disabled, so no nodes yet
+            await self.agenlen(0, core.eval('test:int=6'))
+            await cmdr.runCmdLine(f'trigger enable {goodbuid2}')
+            # Trigger is enabled, so it should fire
+            await s_common.aspin(core.eval('[ test:type10=1 :intprop=25 ]'))
+            await self.agenlen(1, core.eval('test:int=6'))
 
             await cmdr.runCmdLine(f'trigger del {goodbuid}')
             self.true(outp.expect('Deleted trigger'))
@@ -38,10 +45,25 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await cmdr.runCmdLine(f'trigger del deadbeef12341234')
             self.true(outp.expect('does not match'))
 
+            outp.clear()
+            await cmdr.runCmdLine(f'trigger enable deadbeef12341234')
+            self.true(outp.expect('does not match'))
+
+            outp.clear()
+            await cmdr.runCmdLine(f'trigger disable deadbeef12341234')
+            self.true(outp.expect('does not match'))
+
+            await cmdr.runCmdLine(f'trigger disable {goodbuid2}')
+            self.true(outp.expect('Disabled trigger'))
+
+            await cmdr.runCmdLine(f'trigger enable {goodbuid2}')
+            self.true(outp.expect('Enabled trigger'))
+
             await cmdr.runCmdLine(f'trigger mod {goodbuid2} {{[ test:str=different ]}}')
             self.true(outp.expect('Modified trigger'))
 
-            await cmdr.runCmdLine(f'trigger mod deadbeef12341234')
+            outp.clear()
+            await cmdr.runCmdLine('trigger mod deadbeef12341234 {#foo}')
             self.true(outp.expect('does not match'))
 
             await cmdr.runCmdLine('trigger add tag:add #another {[ +#count2 ]}')

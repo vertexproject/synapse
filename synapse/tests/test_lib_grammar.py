@@ -13,6 +13,7 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 _Queries = [
+    '[test:type10=2 :strprop=1] spin | test:type10 +$(:strprop) $foo=1 +$foo',
     'inet:fqdn#xxx.xxxxxx.xxxx.xx for $tag in $node.tags(xxx.xxxxxx.*.xx) { <- edge:refs +#xx <- graph:cluster [ +#foo]  ->edge:refs }',
     ' +(syn:tag~=aka.*.mal.*)',
     '+(syn:tag^=aka or syn:tag^=cno or syn:tag^=rep)',
@@ -503,6 +504,7 @@ _Queries = [
 
 # Generated with print_parse_list below
 _ParseResults = [
+    'Query: [EditNodeAdd: [AbsProp: test:type10, Const: 2], EditPropSet: [RelProp: strprop, Const: 1], CmdOper: [Const: spin, Const: ()], LiftProp: [Const: test:type10], FiltOper: [Const: +, DollarExpr: [RelPropValue: [RelProp: strprop]]], VarSetOper: [Const: foo, Const: 1], FiltOper: [Const: +, VarValue: [Const: foo]]]',
     'Query: [LiftFormTag: [Const: inet:fqdn, TagName: xxx.xxxxxx.xxxx.xx], ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [Const: xxx.xxxxxx.*.xx], CallKwargs: []], SubQuery: [Query: [PivotInFrom: [AbsProp: edge:refs], isjoin=False, FiltOper: [Const: +, TagCond: [TagMatch: xx]], PivotInFrom: [AbsProp: graph:cluster], isjoin=False, EditTagAdd: [TagName: foo], FormPivot: [AbsProp: edge:refs], isjoin=False]]]]',
     'Query: [FiltOper: [Const: +, AbsPropCond: [AbsProp: syn:tag, Const: ~=, Const: aka.*.mal.*]]]',
     'Query: [FiltOper: [Const: +, OrCond: [OrCond: [AbsPropCond: [AbsProp: syn:tag, Const: ^=, Const: aka], AbsPropCond: [AbsProp: syn:tag, Const: ^=, Const: cno]], AbsPropCond: [AbsProp: syn:tag, Const: ^=, Const: rep]]]]',
@@ -915,18 +917,23 @@ _ParseResults = [
 
 class GrammarTest(s_t_utils.SynTest):
 
-    @unittest.skip('Strict subset of test_parser.  Only useful for debugging grammar')
     def test_grammar(self):
+        '''
+        Validates that we have no grammar ambiguities
+        '''
         with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
             grammar = larkf.read().decode()
 
-        parser = lark.Lark(grammar, start='query', debug=True)
+        parser = lark.Lark(grammar, start='query', debug=True, ambiguity='explicit', keep_all_tokens=True,
+                           propagate_positions=True)
 
         for i, query in enumerate(_Queries):
             try:
                 tree = parser.parse(query)
-                print(f'#{i}: {query}')
-                print(tree, '\n')
+                # print(f'#{i}: {query}')
+                # print(tree, '\n')
+                self.notin('_ambig', str(tree))
+
             except (lark.ParseError, lark.UnexpectedCharacters):
                 print(f'Failure on parsing #{i}:\n{{{query}}}')
                 raise
