@@ -179,8 +179,8 @@ class AgendaTest(s_t_utils.SynTest):
                 agenda.onfini(core.slab)
                 agenda.onfini(core.boss)
 
-                await agenda.enable()
-                await agenda.enable()  # make sure it doesn't blow up
+                await agenda.start()
+                await agenda.start()  # make sure it doesn't blow up
                 self.eq([], agenda.list())
 
                 rootiden = 'aaaaa'

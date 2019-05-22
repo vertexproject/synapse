@@ -35,6 +35,7 @@ class Triggers:
         cond: str  # condition from above list
         useriden: str
         storm: str  # storm query
+        enabled: bool = True
         form: Optional[str] = dataclasses.field(default=None) # form name
         tag: Optional[str] = dataclasses.field(default=None) # tag name
         prop: Optional[str] = dataclasses.field(default=None) # property name
@@ -67,6 +68,10 @@ class Triggers:
             Actually execute the query
             '''
             opts = {}
+
+            if not self.enabled:
+                return
+
             if vars is not None:
                 opts['vars'] = vars
 
@@ -205,13 +210,14 @@ class Triggers:
                 cond = ruledict.pop('cond')
                 user = ruledict.pop('useriden')
                 query = ruledict.pop('storm')
-                self._load_rule(iden.decode(), ver, cond, user, query, info=ruledict)
+                enabled = ruledict.pop('enabled', True)
+                self._load_rule(iden.decode(), ver, cond, user, query, enabled, info=ruledict)
             except (KeyError, s_exc.SynErr) as e:
                 logger.warning('Invalid rule %r found in storage: %r', iden, e)
                 continue
 
-    def _load_rule(self, iden, ver, cond, user, query, info):
-        rule = Triggers.Rule(ver, cond, user, query, **info)
+    def _load_rule(self, iden, ver, cond, user, query, enabled, info):
+        rule = Triggers.Rule(ver, cond, user, query, enabled, **info)
 
         # Make sure the query parses
         self.core.getStormQuery(rule.storm)
@@ -264,6 +270,22 @@ class Triggers:
         rule.storm = query
         self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
 
+    def enable(self, iden):
+        rule = self._rules.get(iden)
+        if rule is None:
+            raise s_exc.NoSuchIden()
+
+        rule.enabled = True
+        self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
+
+    def disable(self, iden):
+        rule = self._rules.get(iden)
+        if rule is None:
+            raise s_exc.NoSuchIden()
+
+        rule.enabled = False
+        self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
+
     @contextlib.contextmanager
     def _recursion_check(self):
 
@@ -287,7 +309,7 @@ class Triggers:
 
         self.core.getStormQuery(query)
 
-        rule = self._load_rule(iden, 1, condition, useriden, query, info=info)
+        rule = self._load_rule(iden, 1, condition, useriden, query, True, info=info)
         self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
         return iden
 
