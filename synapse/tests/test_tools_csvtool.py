@@ -13,6 +13,7 @@ csvfile = b'''ipv4,fqdn,notes
 
 csvstorm = b'''
     for ($ipv4, $fqdn, $note) in $rows {
+        $lib.print("oh hai")
         [ inet:dns:a=($fqdn,$ipv4) ]
     }
 '''
@@ -90,6 +91,8 @@ class CsvToolTest(s_t_utils.SynTest):
 
             with self.withTestCmdr(cmdg):
                 await s_csvtool.main(argv, outp=outp)
+
+            outp.expect('oh hai')
 
             outp.expect('inet:fqdn=google.com')
             outp.expect('2 nodes (9 created)')
