@@ -433,6 +433,8 @@ class Node:
 
         # merge values into one interval
         valu = s_time.ival(*valu, *curv)
+        if valu == curv:
+            return
 
         indx = self.snap.model.types['ival'].indx(valu)
         info = {'univ': True}

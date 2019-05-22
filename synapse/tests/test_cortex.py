@@ -2547,11 +2547,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             await _test('$(1 / 2)', 0)
             await _test('$(1 != 1)', 0)
             await _test('$(2 != 1)', 1)
-            await _test('$(2 == 1)', 0)
-            await _test('$(2 == 2)', 1)
-            await _test('$("foo" == "foo")', 1)
+            await _test('$(2 = 1)', 0)
+            await _test('$(2 = 2)', 1)
+            await _test('$("foo" = "foo")', 1)
             await _test('$("foo" != "foo")', 0)
-            await _test('$("foo2" == "foo")', 0)
+            await _test('$("foo2" = "foo")', 0)
             await _test('$("foo2" != "foo")', 1)
             await _test('$(0 and 1)', 0)
             await _test('$(1 and 1)', 1)
@@ -2572,6 +2572,67 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.eval(q).list()
             self.len(2, nodes)
             self.eq(nodes[1].ndef, ('test:int', 25))
+
+    async def test_storm_filter_vars(self):
+        '''
+        Test variable filters (e.g. +$foo) and expression filters (e.g. +$(:hehe < 4))
+
+        '''
+        async with self.getTestCore() as core:
+
+            # variable filter, non-runtsafe, true path
+            q = '[test:type10=1 :strprop=1] $foo=:strprop +$foo'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # variable filter, non-runtsafe, false path
+            q = '[test:type10=1 :strprop=1] $foo=:strprop -$foo'
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
+
+            # variable filter, runtsafe, true path
+            q = '[test:type10=1 :strprop=1] $foo=1 +$foo'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # variable filter, runtsafe, false path
+            q = '[test:type10=1 :strprop=1] $foo=$(0) -$foo'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # expression filter, non-runtsafe, true path
+            q = '[test:type10=2 :strprop=1] spin | test:type10 +$(:strprop)'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+
+            # expression filter, non-runtsafe, false path
+            q = '[test:type10=1 :strprop=1] -$(:strprop + 0)'
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
+
+            # expression filter, runtsafe, true path
+            q = '[test:type10=1 :strprop=1] +$(1)'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # expression filter, runtsafe, false path
+            q = '[test:type10=1 :strprop=1] -$(0)'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+    async def test_storm_filter(self):
+        async with self.getTestCore() as core:
+            q = '[test:str=test +#test=(2018,2019)]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'test:str=test $foo=test $bar=(2018,2019) +#$foo=$bar'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'test:str=test $foo=$node.value() $bar=(2018,2019) +#$foo=$bar'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
 
     async def test_storm_ifstmt(self):
 
@@ -2713,6 +2774,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             await alist(core.eval('test:str [+#foo.bar]'))
             await alist(core.eval('test:str [+#foo.bar=(2000,2002)]'))
             await alist(core.eval('test:str [+#foo.bar=(2000,20020601)]'))
+            # Add a tag inside the time window of the previously added tag
+            await alist(core.eval('test:str [+#foo.bar=(2000,20020501)]'))
             await alist(core.eval('test:str [-#foo]'))
             await alist(core.eval('test:str [-:tick]'))
             await alist(core.eval('test:str | delnode --force'))
@@ -2751,6 +2814,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1022889600000)})
             self.isin(mesg, splices)
+
+            # Ensure our inside-window tag add did not generate a splice.
+            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1020211200000)})
+            self.notin(mesg, splices)
 
             mesg = ('tag:del', {'ndef': ('test:str', 'hello'), 'tag': 'foo', 'valu': (None, None)})
             self.isin(mesg, splices)
