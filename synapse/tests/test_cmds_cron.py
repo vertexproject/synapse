@@ -294,10 +294,11 @@ class CmdCronTest(s_t_utils.SynTest):
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
                     await cmdr.runCmdLine('cron list')
                     await self.agenlen(1, core.eval('graph:node:type=at3'))
+                    outp.clear()
+
                     ##################
 
                     # Test 'stat' command
-
                     await cmdr.runCmdLine(f'cron stat xxx')
                     self.true(outp.expect('provided iden does not match any'))
 
@@ -306,8 +307,29 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(outp.expect('entries:         <None>'))
                     await cmdr.runCmdLine(f'cron stat {guid2[:6]}')
                     self.true(outp.expect("{'month': 1, 'hour': 0, 'minute': 0, 'dayofmonth': 1}"))
+                    outp.clear()
 
                     ##################
+
+                    # Test 'enable' 'disable' commands
+                    await cmdr.runCmdLine(f'cron enable xxx')
+                    self.true(outp.expect('provided iden does not match any'))
+                    outp.clear()
+
+                    await cmdr.runCmdLine(f'cron disable xxx')
+                    self.true(outp.expect('provided iden does not match any'))
+                    outp.clear()
+
+                    await cmdr.runCmdLine(f'cron disable {guid[:6]}')
+                    await cmdr.runCmdLine(f'cron stat {guid[:6]}')
+                    self.true(outp.expect(f'enabled:         N'))
+                    outp.clear()
+                    await cmdr.runCmdLine(f'cron enable {guid[:6]}')
+                    await cmdr.runCmdLine(f'cron stat {guid[:6]}')
+                    self.true(outp.expect(f'enabled:         Y'))
+                    outp.clear()
+
+                    ###################
 
                     # Delete an expired at job
                     outp.clear()

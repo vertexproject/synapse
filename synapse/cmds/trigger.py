@@ -74,6 +74,26 @@ Notes:
     Any prefix that matches exactly one valid trigger iden is accepted.
 '''
 
+EnableHelp = '''
+Enable an existing trigger.
+
+Syntax:
+    cron enable <iden prefix>
+
+Notes:
+    Any prefix that matches exactly one valid trigger iden is accepted.
+'''
+
+DisableHelp = '''
+Disable an existing trigger.
+
+Syntax:
+    cron disable <iden prefix>
+
+Notes:
+    Any prefix that matches exactly one valid trigger is accepted.
+'''
+
 class Trigger(s_cli.Cmd):
     '''
 Manipulate triggers in a cortex.
@@ -85,7 +105,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 '''
     _cmd_name = 'trigger'
 
-    _cmd_syntax = (
+    _cmd_syntax = (  # type: ignore
         ('line', {'type': 'glob'}),
     )
 
@@ -116,6 +136,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         parser_add = subparsers.add_parser('add', help='add a trigger', usage=AddHelp)
         parser_add.add_argument('condition', choices=s_trigger.Conditions, type=str.lower,
                                 help='Condition on which to trigger')
+        parser_add.add_argument('--disabled', action='store_true', help='Create the trigger in disabled state')
         parser_add.add_argument('args', metavar='arguments', nargs='+', help='[form] [#tag] [prop] {query}')
 
         parser_del = subparsers.add_parser('del', help='delete a trigger', usage=DelHelp)
@@ -124,6 +145,13 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         parser_mod = subparsers.add_parser('mod', help='change an existing trigger query', usage=ModHelp)
         parser_mod.add_argument('prefix', help='Trigger iden prefix')
         parser_mod.add_argument('query', help='Storm query in curly braces')
+
+        parser_en = subparsers.add_parser('enable', help='enable an existing trigger', usage=EnableHelp)
+        parser_en.add_argument('prefix', help='trigger iden prefix')
+
+        parser_dis = subparsers.add_parser('disable', help='disable an existing trigger', usage=DisableHelp)
+        parser_dis.add_argument('prefix', help='trigger iden prefix')
+
         return parser
 
     async def _handle_add(self, core, opts):
@@ -183,7 +211,8 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         # Remove the curly braces
         query = query[1:-1]
 
-        iden = await core.addTrigger(cond, query, info={'form': form, 'tag': tag, 'prop': prop})
+        iden = await core.addTrigger(cond, query, info={'form': form, 'tag': tag, 'prop': prop},
+                                     disabled=opts.disabled)
         self.printf(f'Added trigger {iden}')
 
     async def _handle_list(self, core, opts):
@@ -193,13 +222,14 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
             self.printf('No triggers found')
             return
 
-        self.printf(f'{"user":10} {"iden":12} {"cond":9} {"object":14} {"":10} {"storm query"}')
+        self.printf(f'{"user":10} {"iden":12} {"en?":3} {"cond":9} {"object":14} {"":10} {"storm query"}')
 
         for iden, trig in triglist:
             idenf = iden[:8] + '..'
             user = trig.get('username') or '<None>'
             query = trig.get('storm') or '<missing>'
             cond = trig.get('cond') or '<missing'
+            enabled = 'Y' if trig.get('enabled', True) else 'N'
             if cond.startswith('tag:'):
                 tag = '#' + (trig.get('tag') or '<missing>')
                 form = trig.get('form') or ''
@@ -207,7 +237,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
             else:
                 obj, obj2 = trig.get('prop') or trig.get('form') or '<missing>', ''
 
-            self.printf(f'{user:10} {idenf:12} {cond:9} {obj:14} {obj2:10} {query}')
+            self.printf(f'{user:10} {idenf:12} {enabled:3} {cond:9} {obj:14} {obj2:10} {query}')
 
     async def _handle_mod(self, core, opts):
         prefix = opts.prefix
@@ -231,6 +261,22 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         await core.delTrigger(iden)
         self.printf(f'Deleted trigger {iden}')
 
+    async def _handle_enable(self, core, opts):
+        prefix = opts.prefix
+        iden = await self._match_idens(core, prefix)
+        if iden is None:
+            return
+        await core.enableTrigger(iden)
+        self.printf(f'Enabled trigger {iden}')
+
+    async def _handle_disable(self, core, opts):
+        prefix = opts.prefix
+        iden = await self._match_idens(core, prefix)
+        if iden is None:
+            return
+        await core.disableTrigger(iden)
+        self.printf(f'Disabled trigger {iden}')
+
     async def runCmdOpts(self, opts):
         line = opts.get('line')
         if line is None:
@@ -247,8 +293,10 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
         handlers = {
             'add': self._handle_add,
+            'del': self._handle_del,
+            'disable': self._handle_disable,
+            'enable': self._handle_enable,
             'list': self._handle_list,
             'mod': self._handle_mod,
-            'del': self._handle_del,
         }
         await handlers[opts.cmd](core, opts)
