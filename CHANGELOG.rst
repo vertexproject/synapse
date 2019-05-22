@@ -14,6 +14,7 @@ Features and Enhancements
 
 Bugfixes
 --------
+
 - Fix a bug where a tag addition could cause a splice to be generated if the tag window being added was inside of the existing tag window. (`#1243 <https://github.com/vertexproject/synapse/pull/1243>`_)
 
 Improved Documentation
