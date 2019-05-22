@@ -8,11 +8,12 @@ v0.1.8 - TBD
 Features and Enhancements
 -------------------------
 
-- Add if/elif/else statement.  Add and/or/not inside dollar expressions.  Have expressions always return an int. (`#1235 <https://github.com/vertexproject/synapse/pull/1235>`_)
+- Add if/elif/else statement.  Add and/or/not inside dollar expressions.  Have expressions always return an int.  (`#1235 <https://github.com/vertexproject/synapse/pull/1235>`_)
+- Add variable and expression filters.  Test for and correct all known grammar ambiguities.  Tag filters with a comparison, e.g. ``+#$foo=$bar``, now don't raise an exception (`#1241 <https://github.com/vertexproject/synapse/pull/1235>`_)
+- Add ability to enable and disable cron jobs and triggers.  (`#1242 <https://github.com/vertexproject/synapse/pull/1242>`_)
 
 Bugfixes
 --------
-
 - Fix a bug where a tag addition could cause a splice to be generated if the tag window being added was inside of the existing tag window. (`#1243 <https://github.com/vertexproject/synapse/pull/1243>`_)
 
 Improved Documentation
