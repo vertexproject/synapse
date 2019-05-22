@@ -2,7 +2,7 @@
 Synapse Changelog
 *****************
 
-v0.1.8 - TBD
+v0.1.8 - 2019-05-22
 ===================
 
 Features and Enhancements
@@ -16,6 +16,7 @@ Bugfixes
 --------
 
 - Fix a bug where a tag addition could cause a splice to be generated if the tag window being added was inside of the existing tag window. (`#1243 <https://github.com/vertexproject/synapse/pull/1243>`_)
+- csvtool now correctly handles print events (`#1245 <https://github.com/vertexproject/synapse/pull/1245>`_)
 
 Improved Documentation
 ----------------------
