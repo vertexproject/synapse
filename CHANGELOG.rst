@@ -20,7 +20,7 @@ Bugfixes
 Improved Documentation
 ----------------------
 
-- Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Update release process documentation. (`#1244 <https://github.com/vertexproject/synapse/pull/1244>`_)
 
 
 v0.1.7 - 2019-05-17
