@@ -1131,7 +1131,7 @@ class Cond(AstNode):
         return ()
 
     async def getCondEval(self, runt): # pragma: no cover
-        raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.evaluate()')
+        raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.getCondEval()')
 
 class SubqCond(Cond):
 
@@ -1466,18 +1466,28 @@ class TagValuCond(Cond):
 
     async def getCondEval(self, runt):
 
-        name = self.kids[0].value()
-        cmpr = self.kids[1].value()
+        lnode, cnode, rnode = self.kids
 
         ival = runt.snap.model.type('ival')
 
+        cmpr = cnode.value()
         cmprctor = ival.getCmprCtor(cmpr)
         if cmprctor is None:
             raise s_exc.NoSuchCmpr(cmpr=cmpr, name=ival.name)
 
-        if isinstance(self.kids[2], Const):
+        if isinstance(lnode, VarValue):
+            async def cond(node, path):
+                name = await lnode.compute(path)
+                valu = await rnode.compute(path)
+                return cmprctor(valu)(node.tags.get(name))
 
-            valu = self.kids[2].value()
+            return cond
+
+        name = lnode.value()
+
+        if isinstance(rnode, Const):
+
+            valu = rnode.value()
 
             cmpr = cmprctor(valu)
 
@@ -1655,7 +1665,14 @@ class CallArgs(RunValue):
 class CallKwarg(CallArgs): pass
 class CallKwargs(CallArgs): pass
 
-class VarValue(RunValue):
+class VarValue(RunValue, Cond):
+
+    async def getCondEval(self, runt):
+
+        async def cond(node, path):
+            return await self.compute(path)
+
+        return cond
 
     def prepare(self):
         self.name = self.kids[0].value()
@@ -1709,7 +1726,7 @@ class FuncCall(RunValue):
         kwargs = dict(kwlist)
         return await func(*argv, **kwargs)
 
-class DollarExpr(RunValue):
+class DollarExpr(RunValue, Cond):
     '''
     Top level node for $(...) expressions
     '''
@@ -1720,6 +1737,14 @@ class DollarExpr(RunValue):
     async def runtval(self, runt):
         assert len(self.kids) == 1
         return int(await self.kids[0].runtval(runt))
+
+    async def getCondEval(self, runt):
+
+        async def cond(node, path):
+            return await self.compute(path)
+
+        return cond
+
 
 _ExprFuncMap = {
     '*': lambda x, y: int(x) * int(y),
@@ -1732,7 +1757,7 @@ _ExprFuncMap = {
     '<=': lambda x, y: int(x) <= int(y),
     'and': lambda x, y: int(x) and int(y),
     'or': lambda x, y: int(x) or int(y),
-    '==': lambda x, y: x == y,
+    '=': lambda x, y: x == y,
     '!=': lambda x, y: x != y,
 }
 

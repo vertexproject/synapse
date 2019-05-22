@@ -2547,11 +2547,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             await _test('$(1 / 2)', 0)
             await _test('$(1 != 1)', 0)
             await _test('$(2 != 1)', 1)
-            await _test('$(2 == 1)', 0)
-            await _test('$(2 == 2)', 1)
-            await _test('$("foo" == "foo")', 1)
+            await _test('$(2 = 1)', 0)
+            await _test('$(2 = 2)', 1)
+            await _test('$("foo" = "foo")', 1)
             await _test('$("foo" != "foo")', 0)
-            await _test('$("foo2" == "foo")', 0)
+            await _test('$("foo2" = "foo")', 0)
             await _test('$("foo2" != "foo")', 1)
             await _test('$(0 and 1)', 0)
             await _test('$(1 and 1)', 1)
@@ -2572,6 +2572,67 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.eval(q).list()
             self.len(2, nodes)
             self.eq(nodes[1].ndef, ('test:int', 25))
+
+    async def test_storm_filter_vars(self):
+        '''
+        Test variable filters (e.g. +$foo) and expression filters (e.g. +$(:hehe < 4))
+
+        '''
+        async with self.getTestCore() as core:
+
+            # variable filter, non-runtsafe, true path
+            q = '[test:type10=1 :strprop=1] $foo=:strprop +$foo'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # variable filter, non-runtsafe, false path
+            q = '[test:type10=1 :strprop=1] $foo=:strprop -$foo'
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
+
+            # variable filter, runtsafe, true path
+            q = '[test:type10=1 :strprop=1] $foo=1 +$foo'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # variable filter, runtsafe, false path
+            q = '[test:type10=1 :strprop=1] $foo=$(0) -$foo'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # expression filter, non-runtsafe, true path
+            q = '[test:type10=2 :strprop=1] spin | test:type10 +$(:strprop)'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+
+            # expression filter, non-runtsafe, false path
+            q = '[test:type10=1 :strprop=1] -$(:strprop + 0)'
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
+
+            # expression filter, runtsafe, true path
+            q = '[test:type10=1 :strprop=1] +$(1)'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # expression filter, runtsafe, false path
+            q = '[test:type10=1 :strprop=1] -$(0)'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+    async def test_storm_filter(self):
+        async with self.getTestCore() as core:
+            q = '[test:str=test +#test=(2018,2019)]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'test:str=test $foo=test $bar=(2018,2019) +#$foo=$bar'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'test:str=test $foo=$node.value() $bar=(2018,2019) +#$foo=$bar'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
 
     async def test_storm_ifstmt(self):
 
