@@ -2,6 +2,24 @@
 Synapse Changelog
 *****************
 
+<git tag> - YYYY-MM-DD
+======================
+
+Features and Enhancements
+-------------------------
+
+- Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+Bugfixes
+--------
+
+- Fix old bugs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
+Improved Documentation
+----------------------
+
+- Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+
 v0.1.8 - 2019-05-22
 ===================
 
