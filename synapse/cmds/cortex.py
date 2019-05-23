@@ -366,14 +366,18 @@ class StormCmd(s_cli.Cmd):
         if err[0] == 'BadSyntax':
             pos = err[1].get('at', None)
             text = err[1].get('text', None)
+            tlen = len(text)
             mesg = err[1].get('mesg', None)
             if pos is not None and text is not None and mesg is not None:
                 text = text.replace('\n', ' ')
                 # Handle too-long text
-                if len(text) > 60:
+                if tlen > 60:
                     text = text[pos - 30:pos + 30]
+                    if pos < tlen - 30:
+                        text += '...'
                     if pos > 30:
-                        pos = 30
+                        text = '...' + text
+                        pos = 33
 
                 self.printf(text, color=BLUE)
                 self.printf(f'{" "*pos}^', color=BLUE)
