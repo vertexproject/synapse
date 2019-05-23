@@ -105,12 +105,11 @@ class CmdCoreTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --bad')
-            outp.expect('BadSyntax')
+            outp.expect('Syntax Error')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm newpz')
-            outp.expect('err')
             outp.expect('NoSuchName')
 
             outp = self.getTestOutp()

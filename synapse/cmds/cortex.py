@@ -15,6 +15,9 @@ import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
+RED = '#ff0066'
+YELLOW = '#f4e842'
+BLUE = '#6faef2'
 
 class Log(s_cli.Cmd):
     '''Add a storm log to the local command session.
@@ -303,6 +306,7 @@ class StormCmd(s_cli.Cmd):
             'fini': self._onFini,
             'print': self._onPrint,
             'warn': self._onWarn,
+            'err': self._onErr
         }
 
     def _onNode(self, mesg):
@@ -355,7 +359,28 @@ class StormCmd(s_cli.Cmd):
 
     def _onWarn(self, mesg):
         warn = mesg[1].get('mesg')
-        self.printf(f'WARNING: {warn}')
+        self.printf(f'WARNING: {warn}', color=YELLOW)
+
+    def _onErr(self, mesg):
+        err = mesg[1]
+        if err[0] == 'BadSyntax':
+            pos = err[1].get('at', None)
+            text = err[1].get('text', None)
+            mesg = err[1].get('mesg', None)
+            if pos is not None and text is not None and mesg is not None:
+                text = text.replace('\n', ' ')
+                # Handle too-long text
+                if len(text) > 60:
+                    text = text[pos - 30:pos + 30]
+                    if pos > 30:
+                        pos = 30
+
+                self.printf(text, color=BLUE)
+                self.printf(f'{" "*pos}^', color=BLUE)
+                self.printf(f'Syntax Error: {mesg}', color=RED)
+                return
+
+        self.printf(f'ERROR: {err}', color=RED)
 
     async def runCmdOpts(self, opts):
 

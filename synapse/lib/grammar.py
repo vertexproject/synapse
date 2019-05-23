@@ -274,6 +274,7 @@ with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
 
 QueryParser = lark.Lark(_grammar, start='query', propagate_positions=True)
 CmdrParser = lark.Lark(_grammar, start='query', propagate_positions=True, keep_all_tokens=True)
+StormCmdParser = lark.Lark(_grammar, start='stormcmdargs', propagate_positions=True)
 
 _eofre = regex.compile(r'''Terminal\('(\w+)'\)''')
 
@@ -329,7 +330,7 @@ class Parser:
         Parse command args that might have storm queries as arguments
         '''
         try:
-            tree = QueryParser.parse(self.text, start='stormcmdargs')
+            tree = StormCmdParser.parse(self.text)
         except lark.exceptions.LarkError as e:
             raise self._larkToSynExc(e) from None
         newtree = AstConverter(self.text).transform(tree)

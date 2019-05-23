@@ -46,6 +46,7 @@ import synapse.cryotank as s_cryotank
 import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
+import synapse.lib.cli as s_cli
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.const as s_const
 import synapse.lib.storm as s_storm
@@ -654,6 +655,7 @@ class SynTest(unittest.TestCase):
     '''
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
+        s_cli.ColorsEnabled = False
         for s in dir(self):
             attr = getattr(self, s, None)
             # If s is an instance method and starts with 'test_', synchelp wrap it
