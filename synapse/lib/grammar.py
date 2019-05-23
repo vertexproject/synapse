@@ -292,7 +292,7 @@ class Parser:
     def _eofParse(self, mesg):
         '''
         Takes a string like "Unexpected end of input! Expecting a terminal of: [Terminal('FOR'), ...] and returns
-        the unique set of terminal names.
+        a unique'd set of terminal names.
         '''
         return sorted(set(_eofre.findall(mesg)))
 
