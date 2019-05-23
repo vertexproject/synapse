@@ -146,7 +146,6 @@ class CmdCoreTest(s_t_utils.SynTest):
             outp.clear()
             s_cli.ColorsEnabled = True
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-            breakpoint()
             await cmdr.runCmdLine('storm [#foo]')
             await cmdr.runCmdLine('storm test:str ->')
             # TODO: figure out how to evaluate whether these made it to the screen
