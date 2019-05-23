@@ -138,8 +138,15 @@ class CmdCoreTest(s_t_utils.SynTest):
             outp.expect('complete. 1 nodes')
 
             outp.clear()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine(f'storm test:{"x"*50} -> * -> $')
+            outp.expect('-> *')
+            outp.expect('Syntax Error')
+
+            outp.clear()
             s_cli.ColorsEnabled = True
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            breakpoint()
             await cmdr.runCmdLine('storm [#foo]')
             await cmdr.runCmdLine('storm test:str ->')
             # TODO: figure out how to evaluate whether these made it to the screen
