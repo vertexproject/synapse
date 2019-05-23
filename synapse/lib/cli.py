@@ -8,7 +8,8 @@ import collections
 
 import regex
 
-from prompt_toolkit import PromptSession
+from prompt_toolkit import PromptSession, print_formatted_text
+from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.eventloop.defaults import use_asyncio_event_loop
@@ -22,6 +23,9 @@ import synapse.lib.output as s_output
 import synapse.lib.grammar as s_grammar
 
 logger = logging.getLogger(__name__)
+
+# Set to False for testing or unsupported terminals
+ColorsEnabled = True
 
 class Cmd:
     '''
@@ -190,8 +194,8 @@ class Cmd:
             return ''
         return self.__doc__
 
-    def printf(self, mesg, addnl=True):
-        return self._cmd_cli.printf(mesg, addnl=addnl)
+    def printf(self, mesg, addnl=True, color=None):
+        return self._cmd_cli.printf(mesg, addnl=addnl, color=color)
 
     async def runCmdOpts(self, opts):
         '''
@@ -307,8 +311,13 @@ class Cli(s_base.Base):
             retn = await self.sess.prompt(text, async_=True, vi_mode=self.vi_mode, enable_open_in_editor=True)
             return retn
 
-    def printf(self, mesg, addnl=True):
-        return self.outp.printf(mesg, addnl=addnl)
+    def printf(self, mesg, addnl=True, color=None):
+        if not ColorsEnabled:
+            return self.outp.printf(mesg, addnl=addnl)
+
+        if color is not None:
+            mesg = FormattedText([(color, mesg)])
+        return print_formatted_text(mesg)
 
     def addCmdClass(self, ctor, **opts):
         '''

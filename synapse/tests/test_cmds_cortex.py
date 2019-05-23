@@ -1,10 +1,13 @@
 import os
 import regex
 import asyncio
+import prompt_toolkit
+from unittest.mock import patch
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.cli as s_cli
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.encoding as s_encoding
 
@@ -105,12 +108,11 @@ class CmdCoreTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --bad')
-            outp.expect('BadSyntax')
+            outp.expect('Syntax Error')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm newpz')
-            outp.expect('err')
             outp.expect('NoSuchName')
 
             outp = self.getTestOutp()
@@ -134,6 +136,19 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.true(outp.expect('#bar.baz = (2015/01/01 00:00:00.000, ?)', throw=False))
             self.false(outp.expect('#bar ', throw=False))
             outp.expect('complete. 1 nodes')
+
+            outp.clear()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine(f'storm test:{"x"*50} -> * -> $')
+            outp.expect('-> *')
+            outp.expect('Syntax Error')
+
+            outp.clear()
+            s_cli.ColorsEnabled = True
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine('storm [#foo]')
+            await cmdr.runCmdLine('storm test:str ->')
+            # TODO: figure out how to evaluate whether these made it to the screen
 
     async def test_log(self):
 

@@ -82,6 +82,66 @@ terminalClassMap = {
     'UNIVPROP': s_ast.UnivProp,
 }
 
+terminalEnglishMap = {
+    'ABSPROP': 'absolute or universal property',
+    'ABSPROPNOUNIV': 'absolute property',
+    'ALLTAGS': '#',
+    'AND': 'and',
+    'BREAK': 'break',
+    'CASEVALU': 'case value',
+    'CCOMMENT': 'C comment',
+    'CMDNAME': 'command name',
+    'CMPR': 'comparison operator',
+    'COLON': ':',
+    'COMMA': ',',
+    'CONTINUE': 'continue',
+    'CPPCOMMENT': 'c++ comment',
+    'DOLLAR': '$',
+    'DOT': '.',
+    'DOUBLEQUOTEDSTRING': 'double-quoted string',
+    'ELIF': 'elif',
+    'ELSE': 'else',
+    'EQUAL': '=',
+    'EXPRCMPR': 'expression comparison operator',
+    'EXPRDIVIDE': '/',
+    'EXPRMINUS': '-',
+    'EXPRPLUS': '+',
+    'EXPRTIMES': '*',
+    'FILTPREFIX': '+ or -',
+    'FOR': 'for',
+    'IF': 'if',
+    'IN': 'in',
+    'LBRACE': '[',
+    'LPAR': '(',
+    'LSQB': '{',
+    'NONCMDQUOTE': 'unquoted command argument',
+    'NONQUOTEWORD': 'unquoted value',
+    'NOT': 'not',
+    'NUMBER': 'number',
+    'OR': 'or',
+    'PROPNAME': 'property name',
+    'PROPS': 'absolute property name',
+    'RBRACE': ']',
+    'RELPROP': 'relative property',
+    'RPAR': ')',
+    'RSQB': '}',
+    'SINGLEQUOTEDSTRING': 'single-quoted string',
+    'SWITCH': 'switch',
+    'TAG': 'plain tag name',
+    'TAGMATCH': 'tag name with asterisks',
+    'UNIVNAME': 'universal property',
+    'UNIVPROP': 'universal property',
+    'VARTOKN': 'variable',
+    'VBAR': '|',
+    '_EXPRSTART': '$(',
+    '_LEFTJOIN': '<+-',
+    '_LEFTPIVOT': '<-',
+    '_RIGHTJOIN': '-+>',
+    '_RIGHTPIVOT': '->',
+    '_WS': 'whitespace',
+    '_WSCOMM': 'whitespace or comment'
+}
+
 class AstConverter(lark.Transformer):
     '''
     Convert AST from parser into synapse AST, depth first.
@@ -216,6 +276,8 @@ QueryParser = lark.Lark(_grammar, start='query', propagate_positions=True)
 CmdrParser = lark.Lark(_grammar, start='query', propagate_positions=True, keep_all_tokens=True)
 StormCmdParser = lark.Lark(_grammar, start='stormcmdargs', propagate_positions=True)
 
+_eofre = regex.compile(r'''Terminal\('(\w+)'\)''')
+
 class Parser:
     '''
     Storm query parser
@@ -227,6 +289,13 @@ class Parser:
         self.text = text.strip()
         self.size = len(self.text)
 
+    def _eofParse(self, mesg):
+        '''
+        Takes a string like "Unexpected end of input! Expecting a terminal of: [Terminal('FOR'), ...] and returns
+        a unique'd set of terminal names.
+        '''
+        return sorted(set(_eofre.findall(mesg)))
+
     def _larkToSynExc(self, e):
         '''
         Convert lark exception to synapse badGrammar exception
@@ -234,8 +303,11 @@ class Parser:
         mesg = regex.split('[\n!]', e.args[0])[0]
         at = len(self.text)
         if isinstance(e, lark.exceptions.UnexpectedCharacters):
-            mesg += f'.  Expecting one of: {", ".join(t for t in e.allowed)}'
+            mesg += f'.  Expecting one of: {", ".join(terminalEnglishMap[t] for t in sorted(set(e.allowed)))}'
             at = e.pos_in_stream
+        elif isinstance(e, lark.exceptions.ParseError):
+            if mesg == 'Unexpected end of input':
+                mesg += f'.  Expecting one of: {", ".join(terminalEnglishMap[t] for t in self._eofParse(e.args[0]))}'
 
         return s_exc.BadSyntax(at=at, text=self.text, mesg=mesg)
 
