@@ -275,6 +275,7 @@ class StormCmd(s_cli.Cmd):
         --debug: Display cmd debug information along with nodes in raw format. This overrides other display arguments.
         --path: Get path information about returned nodes.
         --show <names>: Limit storm events (server-side) to the comma sep list)
+        --file <path>: Run the storm query specified in the given file path.
 
     Examples:
         storm inet:ipv4=1.2.3.4
@@ -286,6 +287,7 @@ class StormCmd(s_cli.Cmd):
     _cmd_syntax = (
         ('--hide-tags', {}),
         ('--show', {'type': 'valu'}),
+        ('--file', {}),
         ('--hide-props', {}),
         ('--hide-unknown', {}),
         ('--raw', {}),
@@ -363,6 +365,16 @@ class StormCmd(s_cli.Cmd):
         if text is None:
             self.printf(self.__doc__)
             return
+
+        if opts.get('file') is not None:
+            try:
+
+                with open(text, 'r') as fd:
+                    text = fd.read()
+
+            except FileNotFoundError as e:
+                self.printf('file not found: %s' % (text,))
+                return
 
         hide_unknown = opts.get('hide-unknown', self._cmd_cli.locs.get('storm:hide-unknown'))
         core = self.getCmdItem()
