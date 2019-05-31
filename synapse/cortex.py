@@ -672,7 +672,7 @@ class Cortex(s_cell.Cell):
         }),
         ('nomnommem', {
             'type': 'bool', 'defval': False,
-            'doc': 'TThe cortex is free to use most of the resources of the system'
+            'doc': 'The cortex is free to use most of the resources of the system'
         })
     )
 

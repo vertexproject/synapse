@@ -401,12 +401,14 @@ class Slab(s_base.Base):
 
         logger.debug('lmdbslab: memory locking thread started')
 
+        # Note:  available might be larger than max_total in a container
         max_total = s_thisplat.getTotalMemory()
         available = s_thisplat.getAvailableMemory()
 
-        max_to_lock = min(locked_ulimit,
-                          int(max_total * MAX_TOTAL_PERCENT),
-                          int(available * MAX_TOTAL_PERCENT)) // 4096 * 4096
+        PAGESIZE = 4096
+        max_to_lock = (min(locked_ulimit,
+                           int(max_total * MAX_TOTAL_PERCENT),
+                           int(available * MAX_TOTAL_PERCENT)) // PAGESIZE) * PAGESIZE
 
         path = self.path.absolute() / 'data.mdb'  # Path to the file that gets mapped
         fh = open(path, 'r+b')
