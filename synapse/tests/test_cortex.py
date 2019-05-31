@@ -2353,6 +2353,51 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            # non-runtsafe switch value
+            text = '[inet:ipv4=1 :asn=22] $asn=:asn switch $asn {42: {[+#foo42]} 22: {[+#foo22]}}'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('foo22'))
+            self.none(nodes[0].getTag('foo42'))
+
+            text = '[inet:ipv4=2 :asn=42] $asn=:asn switch $asn {42: {[+#foo42]} 22: {[+#foo22]}}'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.none(nodes[0].getTag('foo22'))
+            self.nn(nodes[0].getTag('foo42'))
+
+            text = '[inet:ipv4=3 :asn=0] $asn=:asn switch $asn {42: {[+#foo42]} 22: {[+#foo22]}}'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.none(nodes[0].getTag('foo22'))
+            self.none(nodes[0].getTag('foo42'))
+
+            # completely runsafe switch
+
+            text = '$foo=foo switch $foo {foo: {$result=bar} nop: {$result=baz}} [test:str=$result]'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'bar')
+
+            text = '$foo=nop switch $foo {foo: {$result=bar} nop: {$result=baz}} [test:str=$result]'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'baz')
+
+            text = '$foo=nop switch $foo {foo: {$result=bar} *: {$result=baz}} [test:str=$result]'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'baz')
+
+            text = '$foo=xxx $result=xxx switch $foo {foo: {$result=bar} nop: {$result=baz}} [test:str=$result]'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'xxx')
+
+            text = '$foo=foo switch $foo {foo: {test:str=bar}}'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+
             opts = {'vars': {'woot': 'hehe'}}
             text = '[test:str=a] switch $woot { hehe: {[+#baz]} }'
             nodes = await core.eval(text, opts=opts).list()
