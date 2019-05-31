@@ -279,6 +279,7 @@ class StormCmd(s_cli.Cmd):
         --path: Get path information about returned nodes.
         --show <names>: Limit storm events (server-side) to the comma sep list)
         --file <path>: Run the storm query specified in the given file path.
+        --optsfile <path>: Run the query with the given options from a JSON file.
 
     Examples:
         storm inet:ipv4=1.2.3.4
@@ -291,6 +292,7 @@ class StormCmd(s_cli.Cmd):
         ('--hide-tags', {}),
         ('--show', {'type': 'valu'}),
         ('--file', {}),
+        ('--optsfile', {'type': 'valu'}),
         ('--hide-props', {}),
         ('--hide-unknown', {}),
         ('--raw', {}),
@@ -395,6 +397,7 @@ class StormCmd(s_cli.Cmd):
             self.printf(self.__doc__)
             return
 
+        filename = opts.get('file')
         if opts.get('file') is not None:
             try:
 
@@ -405,9 +408,16 @@ class StormCmd(s_cli.Cmd):
                 self.printf('file not found: %s' % (text,))
                 return
 
+        stormopts = {}
+        optsfile = opts.get('optsfile')
+        if optsfile is not None:
+            with open(optsfile) as fd:
+                stormopts = json.loads(fd.read())
+
         hide_unknown = opts.get('hide-unknown', self._cmd_cli.locs.get('storm:hide-unknown'))
         core = self.getCmdItem()
-        stormopts = {'repr': True}
+
+        stormopts.setdefault('repr', True)
         stormopts.setdefault('path', opts.get('path', False))
 
         showtext = opts.get('show')

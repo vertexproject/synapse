@@ -243,6 +243,28 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.len(2, jsdata)
             self.eq(jsdata[0][0], ('test:int', 20))
 
+    async def test_storm_file_optfile(self):
+
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            dirn = s_common.gendir(core.dirn, 'junk')
+
+            optsfile = os.path.join(dirn, 'woot.json')
+            stormfile = os.path.join(dirn, 'woot.storm')
+
+            with s_common.genfile(stormfile) as fd:
+                fd.write(b'[ inet:fqdn=$hehe ]')
+
+            with s_common.genfile(optsfile) as fd:
+                fd.write(b'{"vars": {"hehe": "woot.com"}}')
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
+
+            await cmdr.runCmdLine(f'storm --optsfile {optsfile} --file {stormfile}')
+
+            self.true(outp.expect('inet:fqdn=woot.com'))
+
     async def test_ps_kill(self):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
