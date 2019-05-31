@@ -9,6 +9,8 @@ Features and Enhancements
 -------------------------
 
 - Add colored error reporting in Cmdr when a BadSyntax exception is sent to the user. (`#1248 <https://github.com/vertexproject/synapse/pull/1248>`_)
+- Expose the local Synapse version information in Cmdr via the ``locs`` command. (`#1250 <https://github.com/vertexproject/synapse/pull/1250>`_)
+- Add reflected class names to the Telepath shareinfo. Expose this with the ``Proxy._getClasses:|()`` API. (`#1250 <https://github.com/vertexproject/synapse/pull/1250>`_)
 
 Bugfixes
 --------

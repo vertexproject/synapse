@@ -180,6 +180,10 @@ class TeleTest(s_t_utils.SynTest):
             # Prox exposes remote synapse version
             self.eq(prox._getSynVers(), s_version.version)
 
+            # Prox exposes reflected classes
+            self.eq(prox._getClasses(),
+                    ('synapse.tests.test_telepath.Foo',))
+
             # Add an additional prox.fini handler.
             prox.onfini(evt.set)
 
