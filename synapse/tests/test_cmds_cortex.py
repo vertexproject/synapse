@@ -273,12 +273,22 @@ class CmdCoreTest(s_t_utils.SynTest):
             await cmdr.runCmdLine(f'storm --optsfile {optsfile} --file {stormfile}')
             self.true(outp.expect('inet:fqdn=woot.com'))
 
-            # Sad path case
+            # Sad path cases
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
             await cmdr.runCmdLine(f'storm --file {stormfile} --optsfile {optsfile} .created')
             self.true(outp.expect('Cannot use a storm file and manual query together.'))
             self.false(outp.expect('inet:fqdn=woot.com', throw=False))
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
+            await cmdr.runCmdLine(f'storm --file {stormfile} --optsfile newp')
+            self.true(outp.expect('optsfile not found'))
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
+            await cmdr.runCmdLine(f'storm --file newp --optsfile {optsfile}')
+            self.true(outp.expect('file not found'))
 
     async def test_ps_kill(self):
 

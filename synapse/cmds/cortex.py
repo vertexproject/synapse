@@ -407,14 +407,19 @@ class StormCmd(s_cli.Cmd):
                     text = fd.read()
 
             except FileNotFoundError as e:
-                self.printf('file not found: %s' % (text,))
+                self.printf('file not found: %s' % (filename,))
                 return
 
         stormopts = {}
         optsfile = opts.get('optsfile')
         if optsfile is not None:
-            with open(optsfile) as fd:
-                stormopts = json.loads(fd.read())
+            try:
+                with open(optsfile) as fd:
+                    stormopts = json.loads(fd.read())
+
+            except FileNotFoundError as e:
+                self.printf('optsfile not found: %s' % (optsfile,))
+                return
 
         hide_unknown = opts.get('hide-unknown', self._cmd_cli.locs.get('storm:hide-unknown'))
         core = self.getCmdItem()
