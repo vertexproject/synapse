@@ -550,22 +550,39 @@ class SwitchCase(Oper):
             self.cases[valu] = cent.kids[1]
 
     async def run(self, runt, genr):
+        count = 0
+        async for node, path in genr:
+            count += 1
 
-        varv = await self.kids[0].runtval(runt)
-        if varv is None:
-            raise s_exc.NoSuchVar()
+            varv = await self.kids[0].compute(path)
 
-        subq = self.cases.get(varv)
-        if subq is None and self.defcase is not None:
-            subq = self.defcase
+            # TODO:  when we have var type system, do type-aware comparison
+            subq = self.cases.get(str(varv))
+            if subq is None and self.defcase is not None:
+                subq = self.defcase
 
-        if subq is None:
-            async for item in genr:
+            if subq is None:
+                yield (node, path)
+            else:
+                async for item in subq.inline(runt, agen((node, path))):
+                    yield item
+
+        if count == 0 and self.kids[0].isRuntSafe(runt):
+            # no nodes and a runt safe value should execute
+            varv = await self.kids[0].runtval(runt)
+            if varv is None:
+                raise s_exc.NoSuchVar()
+
+            subq = self.cases.get(str(varv))
+            if subq is None and self.defcase is not None:
+                subq = self.defcase
+
+            if subq is None:
+                return
+
+            async for item in subq.inline(runt, agen((node, path))):
                 yield item
-            return
 
-        async for item in subq.inline(runt, genr):
-            yield item
 
 class CaseEntry(AstNode):
     pass
