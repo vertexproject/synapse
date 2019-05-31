@@ -292,7 +292,7 @@ class StormCmd(s_cli.Cmd):
     _cmd_syntax = (
         ('--hide-tags', {}),
         ('--show', {'type': 'valu'}),
-        ('--file', {}),
+        ('--file', {'type': 'valu'}),
         ('--optsfile', {'type': 'valu'}),
         ('--hide-props', {}),
         ('--hide-unknown', {}),
@@ -394,15 +394,16 @@ class StormCmd(s_cli.Cmd):
     async def runCmdOpts(self, opts):
 
         text = opts.get('query')
-        if text is None:
+        filename = opts.get('file')
+
+        if bool(text) == bool(filename):
+            self.printf('Cannot use a storm file and manual query together.')
             self.printf(self.__doc__)
             return
 
-        filename = opts.get('file')
-        if opts.get('file') is not None:
+        if filename is not None:
             try:
-
-                with open(text, 'r') as fd:
+                with open(filename, 'r') as fd:
                     text = fd.read()
 
             except FileNotFoundError as e:
