@@ -931,8 +931,9 @@ class Cortex(s_cell.Cell):
         if path[0] == 'layer':
 
             if len(path) == 1:
-                # get the main layer...
-                layr = self.layers.get(self.iden)
+                # get the top layer for the default view
+                view = self.getView(self.iden)  # type: View
+                layr = view.layers[0]
                 return await s_layer.LayerApi.anit(self, link, user, layr)
 
             if len(path) == 2:
