@@ -143,8 +143,9 @@ Examples:
             thr.join(2)
         fp = self.locs.pop('log:fp', None)
         fd = self.locs.pop('log:fd', None)
-        self.locs.pop('log:fmt', None)
-        self.locs.pop('log:splicesonly', None)
+        for key in list(self.locs.keys()):
+            if key.startswith('log:'):
+                self.locs.pop(key, None)
         if fd:
             try:
                 self.printf(f'Closing logfile: [{fp}]')
