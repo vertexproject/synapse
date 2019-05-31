@@ -2040,21 +2040,18 @@ class IfStmt(Oper):
             self.elsequery = self.kids[-1]
             self.clauses = self.kids[:-1]
 
-    async def _precalc_winner(self, runt):
+    async def _runtsafe_calc(self, runt):
         '''
-        All conditions are runtsafe: determine which of several if branches wins and make that the only clause
+        All conditions are runtsafe: figure out which clause wins
         '''
         for clause in self.clauses:
             expr, subq = clause.kids
 
             exprvalu = await expr.runtval(runt)
             if exprvalu:
-                # Make it look like there are no clauses and the winner is in the else clause
-                self.clauses = []
-                self.elsequery = subq
-                break
+                return subq
         else:
-            self.clauses = []
+            return self.elsequery
 
     async def run(self, runt, genr):
         count = 0
@@ -2064,18 +2061,19 @@ class IfStmt(Oper):
         async for node, path in genr:
             count += 1
 
-            if allcondsafe and count == 1:
-                # All conditions are runtsafe: determine which clause wins up front
-                await self._precalc_winner(runt)
-
-            for clause in self.clauses:
-                expr, subq = clause.kids
-
-                exprvalu = await expr.compute(path)
-                if exprvalu:
-                    break
+            if allcondsafe:
+                if count == 1:
+                    subq = await self._runtsafe_calc(runt)
             else:
-                subq = self.elsequery
+
+                for clause in self.clauses:
+                    expr, subq = clause.kids
+
+                    exprvalu = await expr.compute(path)
+                    if exprvalu:
+                        break
+                else:
+                    subq = self.elsequery
 
             if subq:
                 assert isinstance(subq, SubQuery)
@@ -2089,8 +2087,8 @@ class IfStmt(Oper):
         if count != 0 or not allcondsafe:
             return
         # no nodes and a runt safe value should execute the winning clause once
-        await self._precalc_winner(runt)
+        subq = await self._runtsafe_calc(runt)
 
-        if self.elsequery:
-            async for item in self.elsequery.inline(runt, agen()):
+        if subq:
+            async for item in subq.inline(runt, agen()):
                 yield item
