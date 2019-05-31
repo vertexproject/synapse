@@ -670,6 +670,10 @@ class Cortex(s_cell.Cell):
             'type': 'bool', 'defval': True,
             'doc': 'Enable cron jobs running.'
         }),
+        ('nomnommem', {
+            'type': 'bool', 'defval': False,
+            'doc': 'TThe cortex is free to use most of the resources of the system'
+        })
     )
 
     cellapi = CoreApi
@@ -1287,13 +1291,18 @@ class Cortex(s_cell.Cell):
     async def _layrFromNode(self, node):
 
         info = await node.dict()
+        ltyp = info.get('type')
 
-        ctor = self.layrctors.get(info.get('type'))
+        ctor = self.layrctors.get(ltyp)
         if ctor is None:
-            logger.warning('layer has invalid type: %r %r' % (node.name(), info.get('type')))
+            logger.warning('layer has invalid type: %r %r' % (node.name(), ltyp))
             return None
 
-        layr = await ctor.anit(self, node)
+        if ltyp == 'lmdb' and self.conf.get('nomnommem'):
+            layr = await ctor.anit(self, node, lockmemory=True)
+        else:
+            layr = await ctor.anit(self, node)
+
         self.layers[layr.iden] = layr
 
         return layr

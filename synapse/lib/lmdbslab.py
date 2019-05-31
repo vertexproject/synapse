@@ -1,7 +1,7 @@
 import os
 import pathlib
 import functools
-import contextlib
+import threading
 
 import logging
 logger = logging.getLogger(__name__)
@@ -13,8 +13,11 @@ import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.thishost as s_thishost
+import synapse.lib.thisplat as s_thisplat
 
 COPY_CHUNKSIZE = 512
 PROGRESS_PERIOD = COPY_CHUNKSIZE * 1024
@@ -217,6 +220,7 @@ class Slab(s_base.Base):
         await s_base.Base.__anit__(self)
 
         kwargs.setdefault('map_size', s_const.gibibyte)
+        kwargs.setdefault('lockmemory', False)
 
         opts = kwargs
 
@@ -248,6 +252,7 @@ class Slab(s_base.Base):
         self.growsize = opts.pop('growsize', None)
 
         self.readonly = opts.get('readonly', False)
+        self.lockmemory = opts.pop('lockmemory', False)
 
         self.mapsize = _mapsizeround(mapsize)
         if self.maxsize is not None:
@@ -265,6 +270,14 @@ class Slab(s_base.Base):
             self.txnrefcount = 0
         else:
             self._initCoXact()
+
+        self.resizeevent = threading.Event()
+        if self.lockmemory:
+            async def memlockfini():
+                self.resizeevent.set()
+                await self.memlocktask
+            self.memlocktask = s_coro.executor(self._memorylockloop)
+            self.onfini(memlockfini)
 
         self.onfini(self._onCoFini)
         self.schedCoro(self._runSyncLoop())
@@ -363,7 +376,97 @@ class Slab(s_base.Base):
         self.lenv.set_mapsize(mapsize)
         self.mapsize = mapsize
 
+        self.resizeevent.set()
+
         return self.mapsize
+
+    def _memorylockloop(self):
+        '''
+        Separate thread loop that manages the prefaulting and locking of the memory backing the data file
+        '''
+        if not s_thishost.get('hasmemlocking'):
+            return
+        MAX_TOTAL_PERCENT = .90  # how much of all the RAM to take
+        MAX_LOCK_AT_ONCE = s_const.gibibyte
+
+        # Calculate a reasonable maximum amount of memory to lock
+
+        s_thisplat.maximizeMaxLockedMemory()
+        locked_ulimit = s_thisplat.getMaxLockedMemory()
+        if locked_ulimit < s_const.gibibyte // 2:
+            logger.warning(
+                'lmdbslab: Operating system limit of maximum amount of locked memory (currently %d) is \n'
+                'too low for optimal performance.', locked_ulimit)
+            return
+
+        logger.debug('lmdbslab: memory locking thread started')
+
+        max_total = s_thisplat.getTotalMemory()
+        available = s_thisplat.getAvailableMemory()
+
+        max_to_lock = min(locked_ulimit,
+                          int(max_total * MAX_TOTAL_PERCENT),
+                          int(available * MAX_TOTAL_PERCENT)) // 4096 * 4096
+
+
+        path = self.path.absolute() / 'data.mdb'  # Path to the file that gets mapped
+        fh = open(path, 'r+b')
+        fileno = fh.fileno()
+
+        prev_memstart = 0  # The last start of file mapping, used to keep track when the mapping moves
+        prev_memend = 0  # The last end of the file mapping, so we can start from there
+
+        first_start = True
+        first_end = True
+
+        limit_warned = False  # Avoid spamming warnings
+
+        while not self.isfini:
+            if first_start:
+                first_start = False
+            else:
+                self.resizeevent.wait()
+                if self.isfini:
+                    break
+
+            self.resizeevent.clear()
+
+            memstart, memlen = s_thisplat.getFileMappedRegion(path)
+            if memlen > max_to_lock:
+                memlen = max_to_lock
+                if not limit_warned:
+                    logger.warning('lmdbslab:  memory locking limit exceeded')
+                    limit_warned = True
+                # Even in the event that we've hit our limit we still have to loop because further mmaps may cause
+                # the base address to change, necessitating relocking what we can
+
+            # The file might be a little bit smaller than the map because rounding (and mmap fails if you give it a
+            # too-long length)
+            filesize = os.fstat(fileno).st_size
+            goal_end = memstart + min(memlen, filesize)
+
+            # If we just started or we evidently got a new base address, restart mapping from the beginning
+            if not prev_memstart or prev_memstart != memstart:
+                prev_memend = prev_memstart = memstart
+
+            assert goal_end >= prev_memend
+
+            # Actually do the prefaulting and locking.  Only do it a chunk at a time to maintain responsiveness.
+            while prev_memend < goal_end:
+                new_memend = min(prev_memend + MAX_LOCK_AT_ONCE, goal_end)
+                memlen = new_memend - prev_memend
+                PROT = 1 # PROT_READ
+                FLAGS = 0x8001  # MAP_POPULATE | MAP_SHARED (Linux only)  (for fast prefaulting)
+                with s_thisplat.mmap(0, length=new_memend - prev_memend, prot=PROT, flags=FLAGS, fd=fileno,
+                                     offset=prev_memend - memstart):
+                    s_thisplat.mlock(prev_memend, memlen)
+                prev_memend = new_memend
+
+            if first_end:
+                first_end = False
+                logger.info('lmdbslab: completed prefaulting and locking slab')
+
+        logger.debug('lmdbslab: memory locking thread ended')
 
     def initdb(self, name, dupsort=False):
         while True:

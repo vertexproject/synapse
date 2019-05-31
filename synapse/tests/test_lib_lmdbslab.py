@@ -9,6 +9,8 @@ from unittest.mock import patch
 
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.thishost as s_thishost
+import synapse.lib.thisplat as s_thisplat
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -23,7 +25,15 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             await self.asyncraises(s_exc.BadArg, s_lmdbslab.Slab.anit(path, map_size=None))
 
-            slab = await s_lmdbslab.Slab.anit(path, map_size=1000000)
+            slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
+
+            if s_thishost.get('hasmemlocking'):
+                for _ in range(3):
+                    lockmem = s_thisplat.getCurrentLockedMemory()
+                    if lockmem:
+                        break
+                    await asyncio.sleep(0.4)
+                self.ge(lockmem, 100000)
 
             foo = slab.initdb('foo')
             bar = slab.initdb('bar', dupsort=True)
@@ -323,7 +333,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
     async def test_slab_initdb_grow(self):
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'slab.lmdb')
-            async with await s_lmdbslab.Slab.anit(path, map_size=1024) as slab:
+            async with await s_lmdbslab.Slab.anit(path, map_size=1024, lockmemory=True) as slab:
                 [slab.initdb(str(i)) for i in range(10)]
 
     def test_slab_math(self):
@@ -344,7 +354,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             byts = b'\x00' * 256
 
             count = 0
-            async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000) as slab:
+            async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000, lockmemory=True) as slab:
                 foo = slab.initdb('foo')
                 slab.put(b'abcd', s_common.guid(count).encode('utf8') + byts, db=foo)
                 await asyncio.sleep(1.1)

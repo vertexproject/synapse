@@ -2986,3 +2986,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Ensure data from both layers is present in the cortex
             async with self.getTestCore(dirn=path01) as core01:
                 self.len(2, await core01.eval('test:str*in=(core00, core01) | uniq').list())
+
+    async def test_cortex_nomnommem(self):
+        '''
+        Verify that nomnommem configuration setting impacts the layer
+        '''
+        async with self.getTestCore() as core:
+            layr = core.view.layers[0]
+            self.false(layr.lockmemory)
+
+        conf = {'nomnommem': True}
+        async with self.getTestCore(conf=conf) as core:
+            layr = core.view.layers[0]
+            self.true(layr.lockmemory)
