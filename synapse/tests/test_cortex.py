@@ -2763,6 +2763,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.false(nodes[0].hasTag('lol'))
             self.true(nodes[0].hasTag('rofl'))
 
+            # Non-constant runtsafe
+            q = '$vals=(1,2,3,4) for $i in $vals {if $($i=1) {[test:int=$i]}}'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
     async def test_feed_splice(self):
 
         iden = s_common.guid()
