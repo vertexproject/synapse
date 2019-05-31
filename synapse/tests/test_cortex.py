@@ -2389,6 +2389,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'baz')
 
+            text = '$foo=xxx $result=xxx switch $foo {foo: {$result=bar} nop: {$result=baz}} [test:str=$result]'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'xxx')
+
+            text = '$foo=foo switch $foo {foo: {test:str=bar}}'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+
             opts = {'vars': {'woot': 'hehe'}}
             text = '[test:str=a] switch $woot { hehe: {[+#baz]} }'
             nodes = await core.eval(text, opts=opts).list()
