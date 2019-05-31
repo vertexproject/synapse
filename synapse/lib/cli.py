@@ -21,6 +21,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
 import synapse.lib.grammar as s_grammar
+import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
@@ -255,12 +256,14 @@ class Cli(s_base.Base):
         if isinstance(self.item, s_base.Base):
             self.item.onfini(self._onItemFini)
 
+        self.locs['syn:local:version'] = s_version.verstring
+
         if isinstance(self.item, s_telepath.Proxy):
             version = self.item._getSynVers()
             if version is None:  # pragma: no cover
-                self.locs['syn:version'] = 'Synapse version unavailable'
+                self.locs['syn:remote:version'] = 'Remote Synapse version unavailable'
             else:
-                self.locs['syn:version'] = '.'.join([str(v) for v in version])
+                self.locs['syn:remote:version'] = '.'.join([str(v) for v in version])
 
         self.cmds = {}
         self.cmdprompt = 'cli> '
