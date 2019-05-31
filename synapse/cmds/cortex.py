@@ -279,6 +279,8 @@ class StormCmd(s_cli.Cmd):
         --debug: Display cmd debug information along with nodes in raw format. This overrides other display arguments.
         --path: Get path information about returned nodes.
         --show <names>: Limit storm events (server-side) to the comma sep list)
+        --file <path>: Run the storm query specified in the given file path.
+        --optsfile <path>: Run the query with the given options from a JSON file.
 
     Examples:
         storm inet:ipv4=1.2.3.4
@@ -290,6 +292,8 @@ class StormCmd(s_cli.Cmd):
     _cmd_syntax = (
         ('--hide-tags', {}),
         ('--show', {'type': 'valu'}),
+        ('--file', {'type': 'valu'}),
+        ('--optsfile', {'type': 'valu'}),
         ('--hide-props', {}),
         ('--hide-unknown', {}),
         ('--raw', {}),
@@ -390,13 +394,37 @@ class StormCmd(s_cli.Cmd):
     async def runCmdOpts(self, opts):
 
         text = opts.get('query')
-        if text is None:
+        filename = opts.get('file')
+
+        if bool(text) == bool(filename):
+            self.printf('Cannot use a storm file and manual query together.')
             self.printf(self.__doc__)
             return
 
+        if filename is not None:
+            try:
+                with open(filename, 'r') as fd:
+                    text = fd.read()
+
+            except FileNotFoundError as e:
+                self.printf('file not found: %s' % (filename,))
+                return
+
+        stormopts = {}
+        optsfile = opts.get('optsfile')
+        if optsfile is not None:
+            try:
+                with open(optsfile) as fd:
+                    stormopts = json.loads(fd.read())
+
+            except FileNotFoundError as e:
+                self.printf('optsfile not found: %s' % (optsfile,))
+                return
+
         hide_unknown = opts.get('hide-unknown', self._cmd_cli.locs.get('storm:hide-unknown'))
         core = self.getCmdItem()
-        stormopts = {'repr': True}
+
+        stormopts.setdefault('repr', True)
         stormopts.setdefault('path', opts.get('path', False))
 
         showtext = opts.get('show')
