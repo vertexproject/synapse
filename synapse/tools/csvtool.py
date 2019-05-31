@@ -107,6 +107,9 @@ async def main(argv, outp=s_output.stdout):
                 elif mesg[0] == 'err' and not opts.debug:
                     outp.printf(repr(mesg))
 
+                elif mesg[0] == 'print':
+                    outp.printf(mesg[1].get('mesg'))
+
                 if opts.debug:
                     outp.printf(repr(mesg))
 

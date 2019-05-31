@@ -52,7 +52,6 @@ TerminalPygMap = {
     'TAGMATCH': p_t.Name,
     'UNIVNAME': p_t.Name,
     'UNIVPROP': p_t.Name,
-    'VARSETS': p_t.Name.Variable,
     'VARTOKN': p_t.Name.Variable,
     'VBAR': p_t.Punctuation,
     '_EXPRSTART': p_t.Punctuation,

@@ -303,6 +303,7 @@ class _Appt:
         appt.laststarttime = val['laststarttime']
         appt.lastfinishtime = val['lastfinishtime']
         appt.lastresult = val['lastresult']
+        appt.enabled = val['enabled']
 
         return appt
 
@@ -368,7 +369,7 @@ class Agenda(s_base.Base):
         self._schedtask = None  # The task of the scheduler loop.  Doesn't run until we're enabled
         await self._load_all()
 
-    async def enable(self):
+    async def start(self):
         '''
         Enable cron jobs to start running, start the scheduler loop
 
@@ -378,16 +379,12 @@ class Agenda(s_base.Base):
         if self.enabled:
             return
 
-        to_delete = []
         for iden, appt in self.appts.items():
             try:
                 self.core.getStormQuery(appt.query)
             except Exception as e:
                 logger.warning('Invalid appointment %r found in storage: %r.  Disabling.', iden, e)
                 appt.enabled = False
-
-        for iden in to_delete:
-            await self.delete(iden)
 
         self._schedtask = self.schedCoro(self._scheduleLoop())
         self.enabled = True
@@ -513,6 +510,21 @@ class Agenda(s_base.Base):
         await self._storeAppt(appt)
 
         return iden
+
+    async def enable(self, iden):
+        appt = self.appts.get(iden)
+        if appt is None:
+            raise s_exc.NoSuchIden()
+
+        await self.mod(iden, appt.query)
+
+    async def disable(self, iden):
+        appt = self.appts.get(iden)
+        if appt is None:
+            raise s_exc.NoSuchIden()
+
+        appt.enabled = False
+        await self._storeAppt(appt)
 
     async def mod(self, iden, query):
         '''
