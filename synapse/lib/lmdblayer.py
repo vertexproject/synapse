@@ -53,7 +53,7 @@ class LmdbLayer(s_layer.Layer):
         maxsize = self.conf.get('lmdb:maxsize')
         growsize = self.conf.get('lmdb:growsize')
 
-        # First check hive configuration.  If not set, use passed-in value
+        # First check hive configuration.  If not set, use passed-in parameter (that defaults to False)
         lockmemoryconf = self.conf.get('lmdb:lockmemory')
         if lockmemoryconf is not None:
             lockmemory = lockmemoryconf
