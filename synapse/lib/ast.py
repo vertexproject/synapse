@@ -570,8 +570,6 @@ class SwitchCase(Oper):
         if count == 0 and self.kids[0].isRuntSafe(runt):
             # no nodes and a runt safe value should execute
             varv = await self.kids[0].runtval(runt)
-            if varv is None:
-                raise s_exc.NoSuchVar()
 
             subq = self.cases.get(str(varv))
             if subq is None and self.defcase is not None:
@@ -580,7 +578,7 @@ class SwitchCase(Oper):
             if subq is None:
                 return
 
-            async for item in subq.inline(runt, agen((node, path))):
+            async for item in subq.inline(runt, agen()):
                 yield item
 
 

@@ -2372,7 +2372,22 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(nodes[0].getTag('foo22'))
             self.none(nodes[0].getTag('foo42'))
 
-            # Various runtsafe switch values
+            # completely runsafe switch
+
+            text = '$foo=foo switch $foo {foo: {$result=bar} nop: {$result=baz}} [test:str=$result]'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'bar')
+
+            text = '$foo=nop switch $foo {foo: {$result=bar} nop: {$result=baz}} [test:str=$result]'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'baz')
+
+            text = '$foo=nop switch $foo {foo: {$result=bar} *: {$result=baz}} [test:str=$result]'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'baz')
 
             opts = {'vars': {'woot': 'hehe'}}
             text = '[test:str=a] switch $woot { hehe: {[+#baz]} }'
