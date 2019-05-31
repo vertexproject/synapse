@@ -2,8 +2,8 @@
 Synapse Changelog
 *****************
 
-v0.1.9 - TDB
-======================
+v0.1.9 - 2019-05-31
+===================
 
 Features and Enhancements
 -------------------------
@@ -17,7 +17,8 @@ Bugfixes
 --------
 
 - Fix an issue where the Cmdr ``log`` command did not clean up all of its settings. (`#1249 <https://github.com/vertexproject/synapse/pull/1249>`_)
-- Fix an issue wtih the Storm ``switch`` statements handling of non-runtsafe values. (`#1251 <https://github.com/vertexproject/synapse/pull/1251>`_)
+- Fix an issue with the Storm ``switch`` statement handling of non-runtsafe values. (`#1251 <https://github.com/vertexproject/synapse/pull/1251>`_)
+- Fix an issue with the Storm ``if`` statement handling of non-runtsafe values. (`#1253 <https://github.com/vertexproject/synapse/pull/1253>`_)
 
 Improved Documentation
 ----------------------
