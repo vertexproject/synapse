@@ -2,18 +2,18 @@
 Synapse Changelog
 *****************
 
-<git tag> - YYYY-MM-DD
+v0.1.9 - TDB
 ======================
 
 Features and Enhancements
 -------------------------
 
-- Add new features (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Add colored error reporting in Cmdr when a BadSyntax exception is sent to the user. (`#1248 <https://github.com/vertexproject/synapse/pull/1248>`_)
 
 Bugfixes
 --------
 
-- Fix old bugs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
+- Fix an issue where the Cmdr ``log`` command did not clean up all of its settings. (`#1249 <https://github.com/vertexproject/synapse/pull/1249>`_)
 
 Improved Documentation
 ----------------------
