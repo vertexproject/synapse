@@ -416,18 +416,17 @@ class Slab(s_base.Base):
         prev_memstart = 0  # The last start of file mapping, used to keep track when the mapping moves
         prev_memend = 0  # The last end of the file mapping, so we can start from there
 
-        first_start = True
         first_end = True
 
         limit_warned = False  # Avoid spamming warnings
 
+        self.resizeevent.set()
+
         while not self.isfini:
-            if first_start:
-                first_start = False
-            else:
-                self.resizeevent.wait()
-                if self.isfini:
-                    break
+
+            self.resizeevent.wait()
+            if self.isfini:
+                break
 
             self.resizeevent.clear()
 

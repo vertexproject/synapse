@@ -101,7 +101,7 @@ _mlock.argtypes = [c.c_void_p, c.c_size_t]
 
 def mlock(address, length):
     '''
-    Lock a chunk of memory to prevent it from being swapped out
+    Lock a chunk of memory to prevent it from being swapped out, raising an OSError on error
     '''
     retn = _mlock(address, length)
     if not retn:
@@ -116,9 +116,7 @@ _munlock.argtypes = [c.c_void_p, c.c_size_t]
 
 def munlock(address, length):
     '''
-    Unlock a chunk of memory.
-
-    Returns:  0 on success, the errno value on failure
+    Unlock a chunk of memory, raising an OSError on error
     '''
     retn = _munlock(address, length)
     if not retn:
@@ -139,7 +137,7 @@ _munmap.argtypes = [c.c_void_p, c.c_size_t]
 @contextlib.contextmanager
 def mmap(address, length, prot, flags, fd, offset):
     '''
-    A simple mmap context manager that releases the GIL while mapping and unmapping
+    A simple mmap context manager that releases the GIL while mapping and unmapping.  It raises an OSError on error
     '''
     baseaddr = _mmap(address, length, prot, flags, fd, offset)
     if baseaddr == -1:
