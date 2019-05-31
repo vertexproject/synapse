@@ -74,6 +74,7 @@ def getShareInfo(item):
     meths = {}
     info = {'meths': meths,
             'syn:version': s_version.version,
+            'classes': getClsNames(item),
             }
 
     for name in dir(item):

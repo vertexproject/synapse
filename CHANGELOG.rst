@@ -9,11 +9,15 @@ Features and Enhancements
 -------------------------
 
 - Add colored error reporting in Cmdr when a BadSyntax exception is sent to the user. (`#1248 <https://github.com/vertexproject/synapse/pull/1248>`_)
+- Expose the local Synapse version information in Cmdr via the ``locs`` command. (`#1250 <https://github.com/vertexproject/synapse/pull/1250>`_)
+- Add reflected class names to the Telepath shareinfo. Expose this with the ``Proxy._getClasses:|()`` API. (`#1250 <https://github.com/vertexproject/synapse/pull/1250>`_)
+- Add ``--file`` and ``--optsfile`` arguments to the Cmdr ``storm`` command.  These, respectively, allow a user to provide a file containing a raw Storm query and variable arguments as a json file. (`#1252 <https://github.com/vertexproject/synapse/pull/1252>`_)
 
 Bugfixes
 --------
 
 - Fix an issue where the Cmdr ``log`` command did not clean up all of its settings. (`#1249 <https://github.com/vertexproject/synapse/pull/1249>`_)
+- Fix an issue wtih the Storm ``switch`` statements handling of non-runtsafe values. (`#1251 <https://github.com/vertexproject/synapse/pull/1251>`_)
 
 Improved Documentation
 ----------------------
