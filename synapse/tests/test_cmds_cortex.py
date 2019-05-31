@@ -152,6 +152,12 @@ class CmdCoreTest(s_t_utils.SynTest):
 
     async def test_log(self):
 
+        def check_locs_cleanup(cobj):
+            keys = list(cobj.locs.keys())
+            for key in keys:
+                if key.startswith('log:'):
+                    self.fail(f'Key with "log:" prefix found. [{key}]')
+
         async with self.getTestCoreAndProxy() as (realcore, core):
 
             with self.getTestSynDir() as dirn:
@@ -163,6 +169,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('storm [test:str=hi :tick=2018 +#haha.hehe]')
                 await cmdr.runCmdLine('log --off')
                 await cmdr.fini()
+                check_locs_cleanup(cmdr)
 
                 self.true(outp.expect('Starting logfile'))
                 self.true(outp.expect('Closing logfile'))
@@ -183,6 +190,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('storm [test:str="I am a message!" :tick=1999 +#oh.my] ')
                 await cmdr.runCmdLine('log --off')
                 await cmdr.fini()
+                check_locs_cleanup(cmdr)
 
                 self.true(os.path.isfile(fp))
                 with s_common.genfile(fp) as fd:
@@ -199,6 +207,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('storm [test:str="I am a message!" :tick=1999 +#oh.my] ')
                 await cmdr.runCmdLine('log --off')
                 await cmdr.fini()
+                check_locs_cleanup(cmdr)
 
                 self.true(os.path.isfile(fp))
                 with s_common.genfile(fp) as fd:
