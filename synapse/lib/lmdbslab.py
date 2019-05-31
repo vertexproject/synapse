@@ -408,7 +408,6 @@ class Slab(s_base.Base):
                           int(max_total * MAX_TOTAL_PERCENT),
                           int(available * MAX_TOTAL_PERCENT)) // 4096 * 4096
 
-
         path = self.path.absolute() / 'data.mdb'  # Path to the file that gets mapped
         fh = open(path, 'r+b')
         fileno = fh.fileno()
