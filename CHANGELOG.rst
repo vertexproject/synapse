@@ -17,6 +17,7 @@ Bugfixes
 --------
 
 - Fix an issue where the Cmdr ``log`` command did not clean up all of its settings. (`#1249 <https://github.com/vertexproject/synapse/pull/1249>`_)
+- Fix an issue wtih the Storm ``switch`` statements handling of non-runtsafe values. (`#1251 <https://github.com/vertexproject/synapse/pull/1251>`_)
 
 Improved Documentation
 ----------------------
