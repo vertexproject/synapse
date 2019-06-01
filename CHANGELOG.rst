@@ -21,10 +21,6 @@ Bugfixes
 - Fix an issue with the Storm ``if`` statement handling of non-runtsafe values. (`#1253 <https://github.com/vertexproject/synapse/pull/1253>`_)
 - Fix an issue with when connecting to a Cortex via Telepath for the default remote layer, which previously could have pointed to a layer which was not the correct layer for the default view. (`#1255 <https://github.com/vertexproject/synapse/pull/1255>`_)
 
-Improved Documentation
-----------------------
-
-- Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
 
 v0.1.8 - 2019-05-22
 ===================
