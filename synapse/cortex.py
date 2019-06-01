@@ -931,8 +931,9 @@ class Cortex(s_cell.Cell):
         if path[0] == 'layer':
 
             if len(path) == 1:
-                # get the main layer...
-                layr = self.layers.get(self.iden)
+                # get the top layer for the default view
+                view = self.getView()
+                layr = view.layers[0]
                 return await s_layer.LayerApi.anit(self, link, user, layr)
 
             if len(path) == 2:
@@ -1229,6 +1230,15 @@ class Cortex(s_cell.Cell):
         return self.layers.get(iden)
 
     def getView(self, iden=None):
+        '''
+        Get a View object.
+
+        Args:
+            iden (str): The View iden to retrieve.
+
+        Returns:
+            View: A View object.
+        '''
         if iden is None:
             iden = self.iden
         return self.views.get(iden)
