@@ -197,6 +197,18 @@ class CmdCoreTest(s_t_utils.SynTest):
             await cmdr.runCmdLine('storm test:str ->')
             # TODO: figure out how to evaluate whether these made it to the screen
 
+            # No more color related testing after this block
+            s_cli.ColorsEnabled = False
+
+        # Attempt to use a closed proxy - this fails as soon
+        # as we try to execut the command
+        await asyncio.sleep(0.5)
+        outp = self.getTestOutp()
+        cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+        await cmdr.runCmdLine('storm .created')
+        self.true(outp.expect('error: IsFini'))
+        await cmdr.fini()
+
     async def test_log(self):
 
         def check_locs_cleanup(cobj):
