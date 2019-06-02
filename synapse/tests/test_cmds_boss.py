@@ -1,18 +1,13 @@
-import os
 import regex
 import asyncio
 
 import synapse.exc as s_exc
-import synapse.common as s_common
-
-import synapse.lib.cli as s_cli
 import synapse.lib.cmdr as s_cmdr
-import synapse.lib.encoding as s_encoding
 
 import synapse.tests.utils as s_t_utils
 
 
-class CmdCoreTest(s_t_utils.SynTest):
+class CmdBossTest(s_t_utils.SynTest):
 
     async def test_ps_kill(self):
 
