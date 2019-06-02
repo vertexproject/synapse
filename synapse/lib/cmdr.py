@@ -32,16 +32,16 @@ cmdsbycell = {
 cmdsbyclass = {
 
     'synapse.lib.cell.CellApi': (
-        s_cmds_hive.HiveCmd,
         s_cmds_boss.PsCmd,
         s_cmds_boss.KillCmd,
+        s_cmds_hive.HiveCmd,
     ),
 
     'synapse.cortex.CoreApi': (
-        s_cmds_cortex.Log,
-        s_cmds_cortex.StormCmd,
         s_cmds_cron.At,
         s_cmds_cron.Cron,
+        s_cmds_cortex.Log,
+        s_cmds_cortex.StormCmd,
         s_cmds_trigger.Trigger,
     ),
 
