@@ -93,8 +93,6 @@ Examples:
                 mesg = q.get(timeout=2)
             except queue.Empty:
                 continue
-            except s_exc.IsFini:
-                break
             smesg = mesg[1].get('mesg')
             self.save(smesg)
 
@@ -111,7 +109,7 @@ Examples:
                 mesg = mesg[1]
             try:
                 buf = self.encodeMsg(mesg)
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.error('Failed to serialize message: [%s]', str(e))
                 return
             fd.write(buf)

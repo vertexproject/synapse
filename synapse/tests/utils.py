@@ -1017,6 +1017,35 @@ class SynTest(unittest.TestCase):
 
     @contextlib.contextmanager
     def getAsyncLoggerStream(self, logname, mesg=''):
+        '''
+        Async version of getLoggerStream.
+
+        Args:
+            logname (str): Name of the logger to get.
+            mesg (str): A string which, if provided, sets the StreamEvent event if a message
+            containing the string is written to the log.
+
+        Notes:
+            The event object mixed in for the AsyncStreamEvent is a asyncio.Event object.
+            This requires the user to await the Event specific calls as neccesary.
+
+        Examples:
+            Do an action and wait for a specific log message to be written::
+
+                with self.getAsyncLoggerStream('synapse.foo.bar',
+                                               'big badda boom happened') as stream:
+                    # Do something that triggers a log message
+                    await doSomthing()
+                    # Wait for the mesg to be written to the stream
+                    await stream.wait(timeout=10)
+
+                stream.seek(0)
+                mesgs = stream.read()
+                # Do something with messages
+
+        Returns:
+            AsyncStreamEvent: An AsyncStreamEvent object.
+        '''
         stream = AsyncStreamEvent()
         stream.setMesg(mesg)
         handler = logging.StreamHandler(stream)

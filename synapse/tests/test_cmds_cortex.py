@@ -167,11 +167,18 @@ class CmdCoreTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('log --on --format jsonl')
                 fp = cmdr.locs.get('log:fp')
                 await cmdr.runCmdLine('storm [test:str=hi :tick=2018 +#haha.hehe]')
+
+                # Try calling on a second time - this has no effect on the
+                # state of cmdr, but prints a warning
+                await cmdr.runCmdLine('log --on --format jsonl')
+
                 await cmdr.runCmdLine('log --off')
                 await cmdr.fini()
                 check_locs_cleanup(cmdr)
 
                 self.true(outp.expect('Starting logfile'))
+                e = 'Must call --off to disable current file before starting a new file.'
+                self.true(outp.expect(e))
                 self.true(outp.expect('Closing logfile'))
                 self.true(os.path.isfile(fp))
 
@@ -233,6 +240,18 @@ class CmdCoreTest(s_t_utils.SynTest):
                 await cmdr.fini()
                 e = 'log: error: argument --nodes-only: not allowed with argument --splices-only'
                 self.true(outp.expect(e))
+
+                # Bad internal state
+                outp = self.getTestOutp()
+                cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+                await cmdr.runCmdLine('log --on --nodes-only')
+                cmdr.locs['log:fmt'] = 'newp'
+                with self.getAsyncLoggerStream('synapse.cmds.cortex',
+                                                     'Unknown encoding format: newp') as stream:
+                    await cmdr.runCmdLine('storm test:str')
+                    self.true(await stream.wait(2))
+
+                await cmdr.fini()
 
     async def test_storm_save_nodes(self):
 
