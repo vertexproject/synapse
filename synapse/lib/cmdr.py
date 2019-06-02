@@ -64,7 +64,11 @@ async def getItemCmdr(item, outp=None, **opts):
 
     classes = item._getClasses()
 
-    if classes is None:
+    if classes is None:  # pragma: no cover
+        # This path exists to support clients to older
+        # servers (primarily Cortexes). This allows the
+        # client to load their commands via the Cell type
+        # instead of class reflection.
 
         typename = await item.getCellType()
 
