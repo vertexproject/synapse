@@ -46,6 +46,10 @@ class CmdCoreTest(s_t_utils.SynTest):
             iden = match.groups()[0]
 
             outp.clear()
+            await cmdr.runCmdLine('kill')
+            outp.expect('no iden given to kill')
+
+            outp.clear()
             await cmdr.runCmdLine('kill %s' % (iden,))
 
             outp.expect('kill status: True')
