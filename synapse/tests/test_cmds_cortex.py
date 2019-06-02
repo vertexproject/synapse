@@ -13,6 +13,8 @@ import synapse.lib.encoding as s_encoding
 
 import synapse.tests.utils as s_t_utils
 
+from synapse.tests.utils import alist
+
 
 class CmdCoreTest(s_t_utils.SynTest):
 
@@ -137,6 +139,19 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.false(outp.expect('#bar ', throw=False))
             outp.expect('complete. 1 nodes')
 
+            # Warning test
+            guid = s_common.guid()
+            podes = await alist(core.eval(f'[test:guid={guid}]'))
+            podes = await alist(core.eval(f'[test:edge=(("test:guid", {guid}), ("test:str", abcd))]'))
+
+            q = 'storm test:str=abcd <- test:edge :n1:form -> *'
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine(q)
+            e = 'WARNING: The source property "n1:form" type "str" is not a form. Cannot pivot.'
+            self.true(outp.expect(e))
+
+            # Color test
             outp.clear()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine(f'storm test:{"x"*50} -> * -> $')
