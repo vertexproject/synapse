@@ -151,6 +151,38 @@ class CmdCoreTest(s_t_utils.SynTest):
             e = 'WARNING: The source property "n1:form" type "str" is not a form. Cannot pivot.'
             self.true(outp.expect(e))
 
+            # Err case
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine('storm test:str -> test:newp')
+            self.true(outp.expect('ERROR'))
+            self.true(outp.expect('NoSuchProp'))
+            self.true(outp.expect('test:newp'))
+
+            # Cancelled case
+            evnt = asyncio.Event()
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+
+            def setEvt(event):
+                smsg = event[1].get('mesg')
+                if smsg[0] == 'node':
+                    evnt.set()
+
+            async def runLongStorm():
+                with cmdr.onWith('storm:mesg', setEvt):
+                    await cmdr.runCmdLine('storm .created | sleep 10')
+
+            task = realcore.schedCoro(runLongStorm())
+            self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+            ps = await core.ps()
+            self.len(1, ps)
+            iden = ps[0].get('iden')
+            await core.kill(iden)
+            await asyncio.sleep(0)
+            self.true(outp.expect('query canceled.'))
+            self.true(task.done())
+
             # Color test
             outp.clear()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
