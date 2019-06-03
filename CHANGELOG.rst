@@ -2,6 +2,15 @@
 Synapse Changelog
 *****************
 
+v0.1.10 - TBD
+===================
+
+Features and Enhancements
+-------------------------
+
+- Add ``$node.iden()`` method in Storm to expose the iden of a node. (`#1257 <https://github.com/vertexproject/synapse/pull/1257>`_)
+
+
 v0.1.9 - 2019-05-31
 ===================
 
