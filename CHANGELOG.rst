@@ -2,23 +2,25 @@
 Synapse Changelog
 *****************
 
-v0.1.9 - TDB
-======================
+v0.1.9 - 2019-05-31
+===================
 
 Features and Enhancements
 -------------------------
 
 - Add colored error reporting in Cmdr when a BadSyntax exception is sent to the user. (`#1248 <https://github.com/vertexproject/synapse/pull/1248>`_)
+- Expose the local Synapse version information in Cmdr via the ``locs`` command. (`#1250 <https://github.com/vertexproject/synapse/pull/1250>`_)
+- Add reflected class names to the Telepath shareinfo. Expose this with the ``Proxy._getClasses()`` API. (`#1250 <https://github.com/vertexproject/synapse/pull/1250>`_)
+- Add ``--file`` and ``--optsfile`` arguments to the Cmdr ``storm`` command.  These, respectively, allow a user to provide a file containing a raw Storm query and variable arguments as a json file. (`#1252 <https://github.com/vertexproject/synapse/pull/1252>`_)
 
 Bugfixes
 --------
 
 - Fix an issue where the Cmdr ``log`` command did not clean up all of its settings. (`#1249 <https://github.com/vertexproject/synapse/pull/1249>`_)
+- Fix an issue with the Storm ``switch`` statement handling of non-runtsafe values. (`#1251 <https://github.com/vertexproject/synapse/pull/1251>`_)
+- Fix an issue with the Storm ``if`` statement handling of non-runtsafe values. (`#1253 <https://github.com/vertexproject/synapse/pull/1253>`_)
+- Fix an issue with when connecting to a Cortex via Telepath for the default remote layer, which previously could have pointed to a layer which was not the correct layer for the default view. (`#1255 <https://github.com/vertexproject/synapse/pull/1255>`_)
 
-Improved Documentation
-----------------------
-
-- Write awesome docs (`#XXX <https://github.com/vertexproject/synapse/pull/XXX>`_)
 
 v0.1.8 - 2019-05-22
 ===================
