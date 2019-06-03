@@ -245,7 +245,6 @@ class AstConverter(lark.Transformer):
 
         varvalu = next(it)
         newkids.append(varvalu)
-        assert isinstance(varvalu, s_ast.VarValue)
 
         for casekid, sqkid in zip(it, it):
             subquery = self._convert_child(sqkid)

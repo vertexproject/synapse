@@ -13,6 +13,7 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 _Queries = [
+    '[test:str=a] switch $node.form() { hehe: {[+#baz]} }',
     '[test:type10=2 :strprop=1] spin | test:type10 +$(:strprop) $foo=1 +$foo',
     'inet:fqdn#xxx.xxxxxx.xxxx.xx for $tag in $node.tags(xxx.xxxxxx.*.xx) { <- edge:refs +#xx <- graph:cluster [ +#foo]  ->edge:refs }',
     ' +(syn:tag~=aka.*.mal.*)',
@@ -504,6 +505,7 @@ _Queries = [
 
 # Generated with print_parse_list below
 _ParseResults = [
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: a], SwitchCase: [FuncCall: [VarDeref: [VarValue: [Const: node], Const: form], CallArgs: [], CallKwargs: []], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: baz]]]]]]',
     'Query: [EditNodeAdd: [AbsProp: test:type10, Const: 2], EditPropSet: [RelProp: strprop, Const: 1], CmdOper: [Const: spin, Const: ()], LiftProp: [Const: test:type10], FiltOper: [Const: +, DollarExpr: [RelPropValue: [RelProp: strprop]]], VarSetOper: [Const: foo, Const: 1], FiltOper: [Const: +, VarValue: [Const: foo]]]',
     'Query: [LiftFormTag: [Const: inet:fqdn, TagName: xxx.xxxxxx.xxxx.xx], ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [Const: xxx.xxxxxx.*.xx], CallKwargs: []], SubQuery: [Query: [PivotInFrom: [AbsProp: edge:refs], isjoin=False, FiltOper: [Const: +, TagCond: [TagMatch: xx]], PivotInFrom: [AbsProp: graph:cluster], isjoin=False, EditTagAdd: [TagName: foo], FormPivot: [AbsProp: edge:refs], isjoin=False]]]]',
     'Query: [FiltOper: [Const: +, AbsPropCond: [AbsProp: syn:tag, Const: ~=, Const: aka.*.mal.*]]]',
