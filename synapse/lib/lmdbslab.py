@@ -397,7 +397,6 @@ class Slab(s_base.Base):
             logger.warning(
                 'lmdbslab: Operating system limit of maximum amount of locked memory (currently %d) is \n'
                 'too low for optimal performance.', locked_ulimit)
-            return
 
         logger.debug('lmdbslab: memory locking thread started')
 
@@ -417,9 +416,9 @@ class Slab(s_base.Base):
         prev_memstart = 0  # The last start of file mapping, used to keep track when the mapping moves
         prev_memend = 0  # The last end of the file mapping, so we can start from there
 
+        # Avoid spamming messages
         first_end = True
-
-        limit_warned = False  # Avoid spamming warnings
+        limit_warned = False
 
         self.resizeevent.set()
 
@@ -435,7 +434,7 @@ class Slab(s_base.Base):
             if memlen > max_to_lock:
                 memlen = max_to_lock
                 if not limit_warned:
-                    logger.warning('lmdbslab:  memory locking limit exceeded')
+                    logger.warning('lmdbslab:  memory locking limit reached')
                     limit_warned = True
                 # Even in the event that we've hit our limit we still have to loop because further mmaps may cause
                 # the base address to change, necessitating relocking what we can

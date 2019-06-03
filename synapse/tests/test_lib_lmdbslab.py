@@ -27,14 +27,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
 
-            if s_thishost.get('hasmemlocking'):
-                for _ in range(3):
-                    lockmem = s_thisplat.getCurrentLockedMemory()
-                    if lockmem:
-                        break
-                    await asyncio.sleep(0.4)
-                self.ge(lockmem, 100000)
-
             foo = slab.initdb('foo')
             bar = slab.initdb('bar', dupsort=True)
 
@@ -407,3 +399,23 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab.dropdb('foo')
                 self.false(slab.dbexists('foo'))
                 self.gt(slab.mapsize, before_mapsize)
+
+class LmdbSlabMemLockTest(s_t_utils.SynTest):
+
+    async def test_lmdbslabmemlock(self):
+        self.thisHostMust(hasmemlocking=True)
+
+        beforelockmem = s_thisplat.getCurrentLockedMemory()
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True):
+
+                if s_thishost.get('hasmemlocking'):
+                    for _ in range(3):
+                        lockmem = s_thisplat.getCurrentLockedMemory()
+                        if lockmem != beforelockmem:
+                            break
+                        await asyncio.sleep(1)
+                    self.ge(lockmem - beforelockmem, 4000)
