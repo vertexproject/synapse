@@ -9,6 +9,7 @@ Features and Enhancements
 -------------------------
 
 - Add ``$node.iden()`` method in Storm to expose the iden of a node. (`#1257 <https://github.com/vertexproject/synapse/pull/1257>`_)
+- Add ``$lib.text()`` method in Storm Lib to add a mutable string formatting object. (`#1258 <https://github.com/vertexproject/synapse/pull/1258>`_)
 
 
 v0.1.9 - 2019-05-31

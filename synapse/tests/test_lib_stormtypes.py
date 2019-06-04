@@ -161,3 +161,10 @@ class StormTypesTest(s_test.SynTest):
             iden = s_common.ehex(s_common.buid(('test:int', 10)))
             self.eq(nodes[0].ndef, ('test:str', iden))
             self.len(1, nodes)
+
+    async def test_storm_text_add(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ test:int=10 ] $text=$lib.text(hehe) { +test:int>=10 $text.add(haha) } [ test:str=$text.str() ] +test:str')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'hehehaha'))
