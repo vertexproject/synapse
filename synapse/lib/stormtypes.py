@@ -78,8 +78,13 @@ class LibBase(Lib):
             'dict': self._dict,
             'guid': self._guid,
             'fire': self._fire,
+            'text': self._text,
             'print': self._print,
         })
+
+    async def _text(self, *args):
+        valu = ''.join(args)
+        return Text(valu)
 
     async def _guid(self, *args):
         if args:
@@ -274,6 +279,24 @@ class Node(Prim):
 
     async def _methNodeIden(self):
         return self.valu.iden()
+
+class Text(Prim):
+    '''
+    A mutable text type for simple text construction.
+    '''
+    def __init__(self, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.locls.update({
+            'add': self._methTextAdd,
+            'str': self._methTextStr,
+        })
+
+    async def _methTextAdd(self, text, **kwargs):
+        text = kwarg_format(text, **kwargs)
+        self.valu += text
+
+    async def _methTextStr(self):
+        return self.valu
 
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):
