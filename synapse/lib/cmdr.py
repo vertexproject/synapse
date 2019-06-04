@@ -31,13 +31,13 @@ cmdsbycell = {
 
 cmdsbyclass = {
 
-    'synapse.lib.cell.CellApi': (
+    'CellApi': (
         s_cmds_boss.PsCmd,
         s_cmds_boss.KillCmd,
         s_cmds_hive.HiveCmd,
     ),
 
-    'synapse.cortex.CoreApi': (
+    'CoreApi': (
         s_cmds_cron.At,
         s_cmds_cron.Cron,
         s_cmds_cortex.Log,
@@ -76,7 +76,8 @@ async def getItemCmdr(item, outp=None, **opts):
             cmdr.addCmdClass(ctor)
 
     else:
-        for clsname in classes:
+        for clspath in classes:
+            _, clsname = clspath.rsplit('.', 1)
             for ctor in cmdsbyclass.get(clsname, ()):
                 cmdr.addCmdClass(ctor)
 

@@ -201,8 +201,8 @@ class CmdCoreTest(s_t_utils.SynTest):
             s_cli.ColorsEnabled = False
 
         # Attempt to use a closed proxy - this fails as soon
-        # as we try to execut the command
-        await asyncio.sleep(0.5)
+        # as we try to execute the command
+        self.true(core.isfini)
         outp = self.getTestOutp()
         cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
         await cmdr.runCmdLine('storm .created')
