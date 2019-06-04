@@ -670,7 +670,7 @@ class Cortex(s_cell.Cell):
             'type': 'bool', 'defval': True,
             'doc': 'Enable cron jobs running.'
         }),
-        ('nomnommem', {
+        ('dedicated', {
             'type': 'bool', 'defval': False,
             'doc': 'The cortex is free to use most of the resources of the system'
         })
@@ -1308,11 +1308,7 @@ class Cortex(s_cell.Cell):
             logger.warning('layer has invalid type: %r %r' % (node.name(), ltyp))
             return None
 
-        if ltyp == 'lmdb' and self.conf.get('nomnommem'):
-            layr = await ctor.anit(self, node, lockmemory=True)
-        else:
-            layr = await ctor.anit(self, node)
-
+        layr = await ctor.anit(self, node)
         self.layers[layr.iden] = layr
 
         return layr

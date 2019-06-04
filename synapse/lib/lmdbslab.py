@@ -272,6 +272,14 @@ class Slab(s_base.Base):
             self._initCoXact()
 
         self.resizeevent = threading.Event()
+
+        # LMDB layer uses these for status reporting
+        self.locking_memory = False
+        self.prefaulting = False
+        self.max_could_lock = 0
+        self.lock_progress = 0
+        self.lock_goal = 0
+
         if self.lockmemory:
             async def memlockfini():
                 self.resizeevent.set()
@@ -281,6 +289,15 @@ class Slab(s_base.Base):
 
         self.onfini(self._onCoFini)
         self.schedCoro(self._runSyncLoop())
+
+    def statinfo(self):
+        return {
+            'locking_memory': self.locking_memory,  # whether the memory lock loop was started and hasn't ended
+            'max_could_lock': self.max_could_lock,  # the maximum this system could lock
+            'lock_progress': self.lock_progress,  # how much we've locked so far
+            'lock_goal': self.lock_goal,  # how much we want to lock
+            'prefaulting': self.prefaulting  # whether we are right meow prefaulting
+        }
 
     def _acqXactForReading(self):
         if not self.readonly:
@@ -395,10 +412,10 @@ class Slab(s_base.Base):
         locked_ulimit = s_thisplat.getMaxLockedMemory()
         if locked_ulimit < s_const.gibibyte // 2:
             logger.warning(
-                'lmdbslab: Operating system limit of maximum amount of locked memory (currently %d) is \n'
+                'Operating system limit of maximum amount of locked memory (currently %d) is \n'
                 'too low for optimal performance.', locked_ulimit)
 
-        logger.debug('lmdbslab: memory locking thread started')
+        logger.debug('memory locking thread started')
 
         # Note:  available might be larger than max_total in a container
         max_total = s_thisplat.getTotalMemory()
@@ -408,6 +425,8 @@ class Slab(s_base.Base):
         max_to_lock = (min(locked_ulimit,
                            int(max_total * MAX_TOTAL_PERCENT),
                            int(available * MAX_TOTAL_PERCENT)) // PAGESIZE) * PAGESIZE
+
+        self.max_could_lock = max_to_lock
 
         path = self.path.absolute() / 'data.mdb'  # Path to the file that gets mapped
         fh = open(path, 'r+b')
@@ -419,6 +438,7 @@ class Slab(s_base.Base):
         # Avoid spamming messages
         first_end = True
         limit_warned = False
+        self.locking_memory = True
 
         self.resizeevent.set()
 
@@ -434,7 +454,7 @@ class Slab(s_base.Base):
             if memlen > max_to_lock:
                 memlen = max_to_lock
                 if not limit_warned:
-                    logger.warning('lmdbslab:  memory locking limit reached')
+                    logger.warning('memory locking limit reached')
                     limit_warned = True
                 # Even in the event that we've hit our limit we still have to loop because further mmaps may cause
                 # the base address to change, necessitating relocking what we can
@@ -443,9 +463,11 @@ class Slab(s_base.Base):
             # too-long length)
             filesize = os.fstat(fileno).st_size
             goal_end = memstart + min(memlen, filesize)
+            self.lock_goal = goal_end
 
             # If we just started or we evidently got a new base address, restart mapping from the beginning
             if not prev_memstart or prev_memstart != memstart:
+                self.lock_progress = 0
                 prev_memend = prev_memstart = memstart
 
             assert goal_end >= prev_memend
@@ -456,16 +478,23 @@ class Slab(s_base.Base):
                 memlen = new_memend - prev_memend
                 PROT = 1 # PROT_READ
                 FLAGS = 0x8001  # MAP_POPULATE | MAP_SHARED (Linux only)  (for fast prefaulting)
-                with s_thisplat.mmap(0, length=new_memend - prev_memend, prot=PROT, flags=FLAGS, fd=fileno,
-                                     offset=prev_memend - memstart):
-                    s_thisplat.mlock(prev_memend, memlen)
+                try:
+                    self.prefaulting = True
+                    with s_thisplat.mmap(0, length=new_memend - prev_memend, prot=PROT, flags=FLAGS, fd=fileno,
+                                         offset=prev_memend - memstart):
+                        s_thisplat.mlock(prev_memend, memlen)
+                finally:
+                    self.prefaulting = False
+
                 prev_memend = new_memend
+                self.lock_progress = prev_memend - memstart
 
             if first_end:
                 first_end = False
-                logger.info('lmdbslab: completed prefaulting and locking slab')
+                logger.info('completed prefaulting and locking slab')
 
-        logger.debug('lmdbslab: memory locking thread ended')
+        self.locking_memory = False
+        logger.debug('memory locking thread ended')
 
     def initdb(self, name, dupsort=False):
         while True:

@@ -3037,15 +3037,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=path01) as core01:
                 self.len(2, await core01.eval('test:str*in=(core00, core01) | uniq').list())
 
-    async def test_cortex_nomnommem(self):
+    async def test_cortex_dedicated(self):
         '''
-        Verify that nomnommem configuration setting impacts the layer
+        Verify that dedicated configuration setting impacts the layer
         '''
         async with self.getTestCore() as core:
             layr = core.view.layers[0]
             self.false(layr.lockmemory)
 
-        conf = {'nomnommem': True}
+        conf = {'dedicated': True}
         async with self.getTestCore(conf=conf) as core:
             layr = core.view.layers[0]
             self.true(layr.lockmemory)

@@ -39,7 +39,7 @@ class LmdbLayer(s_layer.Layer):
                              'doc': 'Whether to prefault and lock the data into memory'}),
     )
 
-    async def __anit__(self, core, node, lockmemory=False):
+    async def __anit__(self, core, node):
 
         await s_layer.Layer.__anit__(self, core, node)
 
@@ -52,12 +52,10 @@ class LmdbLayer(s_layer.Layer):
         readahead = self.conf.get('lmdb:readahead')
         maxsize = self.conf.get('lmdb:maxsize')
         growsize = self.conf.get('lmdb:growsize')
-
         # First check hive configuration.  If not set, use passed-in parameter (that defaults to False)
-        lockmemoryconf = self.conf.get('lmdb:lockmemory')
-        if lockmemoryconf is not None:
-            lockmemory = lockmemoryconf
-        self.lockmemory = lockmemory
+        self.lockmemory = self.conf.get('lmdb:lockmemory')
+        if self.lockmemory is None:
+            self.lockmemory = core.conf.get('dedicated')
 
         self.layrslab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, maxsize=maxsize,
                                                    growsize=growsize, writemap=True, readahead=readahead,
@@ -548,6 +546,7 @@ class LmdbLayer(s_layer.Layer):
     async def stat(self):
         return {
             'splicelog_indx': self.splicelog.index(),
+            **self.layrslab.statinfo()
         }
 
     async def initdb(self, name, dupsort=False):
