@@ -410,12 +410,8 @@ class LmdbSlabMemLockTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             path = os.path.join(dirn, 'test.lmdb')
-            async with await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True):
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True) as lmdbslab:
 
-                if s_thishost.get('hasmemlocking'):
-                    for _ in range(3):
-                        lockmem = s_thisplat.getCurrentLockedMemory()
-                        if lockmem != beforelockmem:
-                            break
-                        await asyncio.sleep(1)
-                    self.ge(lockmem - beforelockmem, 4000)
+                await lmdbslab.lockdoneevent.wait()
+                lockmem = s_thisplat.getCurrentLockedMemory()
+                self.ge(lockmem - beforelockmem, 4000)

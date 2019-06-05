@@ -1,4 +1,5 @@
 import os
+import asyncio
 import pathlib
 import functools
 import threading
@@ -271,7 +272,8 @@ class Slab(s_base.Base):
         else:
             self._initCoXact()
 
-        self.resizeevent = threading.Event()
+        self.resizeevent = threading.Event()  # triggered when a resize event occurred
+        self.lockdoneevent = asyncio.Event()  # triggered when a memory locking finished
 
         # LMDB layer uses these for status reporting
         self.locking_memory = False
@@ -487,6 +489,8 @@ class Slab(s_base.Base):
             if first_end:
                 first_end = False
                 logger.info('completed prefaulting and locking slab')
+
+            self.schedCallSafe(self.lockdoneevent.set)
 
         self.locking_memory = False
         logger.debug('memory locking thread ended')
