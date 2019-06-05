@@ -449,6 +449,7 @@ class Slab(s_base.Base):
             if self.isfini:
                 break
 
+            self.schedCallSafe(self.lockdoneevent.clear)
             self.resizeevent.clear()
 
             memstart, memlen = s_thisplat.getFileMappedRegion(path)
