@@ -457,14 +457,15 @@ class VarSetOper(Oper):
         name = self.kids[0].value()
         vkid = self.kids[1]
 
+        count = 0
         async for node, path in genr:
+            count += 1
             valu = await vkid.compute(path)
             path.setVar(name, valu)
             runt.setVar(name, valu)
             yield node, path
 
-        if vkid.isRuntSafe(runt):
-
+        if count == 0 and vkid.isRuntSafe(runt):
             valu = await vkid.runtval(runt)
             runt.setVar(name, valu)
 
