@@ -1,4 +1,7 @@
 import pathlib
+
+import synapse.exc as s_exc
+
 import synapse.tests.utils as s_t_utils
 import synapse.lib.thisplat as s_thisplat
 
@@ -30,3 +33,18 @@ class LinuxTest(s_t_utils.SynTest):
                     s_thisplat.munlock(addr, size)
                     locktotal = s_thisplat.getCurrentLockedMemory()
                     self.eq(locktotal, beforelock)
+
+            # Sad tests
+            bfn = pathlib.Path(dirn) / 'mapfile.newp'
+            self.raises(s_exc.NoSuchFile, s_thisplat.getFileMappedRegion, bfn)
+
+        # Sad tests
+        with self.raises(OSError) as cm:
+            s_thisplat.mlock(0x01, 16)
+        # Cannot allocate memory to lock
+        self.eq(cm.exception.errno, 12)
+
+        with self.raises(OSError) as cm:
+            s_thisplat.munlock(0xFF, 16)
+        # Cannot allocate memory to unlock
+        self.eq(cm.exception.errno, 12)
