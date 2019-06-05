@@ -3037,6 +3037,29 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=path01) as core01:
                 self.len(2, await core01.eval('test:str*in=(core00, core01) | uniq').list())
 
+    async def test_layers_missing_ctor(self):
+        with self.getTestDir() as dirn:
+            iden = s_common.guid()
+            async with self.getTestCore(dirn=dirn) as core:
+
+                nodes = await core.nodes('[test:str=woot]')
+                self.len(1, nodes)
+
+                cell_iden = core.getCellIden()
+                # Add the layer to the cortex and insert it into the default view stack
+                await core.addLayer(iden=iden)
+                await core.setViewLayers((cell_iden, iden))
+
+                # Modify the layer type
+                await core.hive.set(('cortex', 'layers', iden, 'type'), 'newp')
+
+            with self.getAsyncLoggerStream('synapse.cortex',
+                                           'layer has invalid type') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    self.true(await stream.wait(3))
+                    # And the default view is borked
+                    self.true(core.view.borked)
+
     async def test_cortex_dedicated(self):
         '''
         Verify that dedicated configuration setting impacts the layer
