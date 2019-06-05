@@ -1,12 +1,12 @@
 # .readthedocs.yml
 
-conda:
-    file: environment_docs.yml
+#conda:
+#    file: environment_docs.yml
 
 # Replace the build process with native cpython 3.7
 # once is is available from RTD
-#python:
-#  version: 3.7
-#  pip_install: true
-#  extra_requirements:
-#    - docs
+python:
+  version: 3.7
+  pip_install: true
+  extra_requirements:
+    - docs
