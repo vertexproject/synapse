@@ -412,6 +412,6 @@ class LmdbSlabMemLockTest(s_t_utils.SynTest):
             path = os.path.join(dirn, 'test.lmdb')
             async with await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True) as lmdbslab:
 
-                await lmdbslab.lockdoneevent.wait()
+                self.true(await asyncio.wait_for(lmdbslab.lockdoneevent.wait(), 8))
                 lockmem = s_thisplat.getCurrentLockedMemory()
                 self.ge(lockmem - beforelockmem, 4000)
