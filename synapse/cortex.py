@@ -175,14 +175,6 @@ class CoreApi(s_cell.CellApi):
         async for node in self.cell.getNodesBy(full, valu, cmpr=cmpr):
             yield node.pack()
 
-    def allowed(self, *path):
-        return self.user.allowed(path)
-
-    def _reqUserAllowed(self, *path):
-        if not self.allowed(*path):
-            perm = '.'.join(path)
-            raise s_exc.AuthDeny(perm=perm, user=self.user.name)
-
     async def getModelDict(self):
         '''
         Return a dictionary which describes the data model.

@@ -58,6 +58,14 @@ class CellApi(s_base.Base):
         assert user
         self.user = user
 
+    def allowed(self, *path):
+        return self.user.allowed(path)
+
+    def _reqUserAllowed(self, *path):
+        if not self.allowed(*path):
+            perm = '.'.join(path)
+            raise s_exc.AuthDeny(perm=perm, user=self.user.name)
+
     def getCellType(self):
         return self.cell.getCellType()
 
