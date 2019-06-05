@@ -432,7 +432,6 @@ class Slab(s_base.Base):
         fh = open(path, 'r+b')
         fileno = fh.fileno()
 
-        prev_memstart = 0  # The last start of file mapping, used to keep track when the mapping moves
         prev_memend = 0  # The last end of the file mapping, so we can start from there
 
         # Avoid spamming messages
@@ -465,12 +464,8 @@ class Slab(s_base.Base):
             goal_end = memstart + min(memlen, filesize)
             self.lock_goal = goal_end
 
-            # If we just started or we evidently got a new base address, restart mapping from the beginning
-            if not prev_memstart or prev_memstart != memstart:
-                self.lock_progress = 0
-                prev_memend = prev_memstart = memstart
-
-            assert goal_end >= prev_memend
+            self.lock_progress = 0
+            prev_memend = memstart
 
             # Actually do the prefaulting and locking.  Only do it a chunk at a time to maintain responsiveness.
             while prev_memend < goal_end:
