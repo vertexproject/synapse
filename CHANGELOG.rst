@@ -14,6 +14,7 @@ Bugfixes
 --------
 
 - Fix an issue where the Cmdr color awareness for error highlighting was preventing documentation from building properly. (`#1261 <https://github.com/vertexproject/synapse/pull/1261>`_)
+- Fix an issue where the ``synapse.servers.cortex`` ``--mirror`` option was not properly mirroring realtime splices. (`#1264 <https://github.com/vertexproject/synapse/pull/1264>`_)
 
 
 v0.1.10 - 2019-06-04
