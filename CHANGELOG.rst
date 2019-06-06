@@ -17,6 +17,12 @@ Bugfixes
 - Fix an issue where the ``synapse.servers.cortex`` ``--mirror`` option was not properly mirroring realtime splices. (`#1264 <https://github.com/vertexproject/synapse/pull/1264>`_)
 
 
+Improved Documentation
+----------------------
+
+- Update Storm lift documentation to include lifting by time intervals. (`#1260 <https://github.com/vertexproject/synapse/pull/1260>`_)
+
+
 v0.1.10 - 2019-06-04
 ====================
 
