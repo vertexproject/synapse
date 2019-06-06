@@ -55,11 +55,21 @@ class CortexServerTest(s_t_utils.SynTest):
                         '--mirror', core00.getLocalUrl(),
                         path01]
 
+                # add a node for core01 to sync before window
+                await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
+
                 async with await s_s_cortex.main(argv, outp=outp) as core01:
-                    evnt = await core01._getWaitFor('inet:ipv4', '5.5.5.5')
-                    await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
-                    await evnt.wait()
+
+                    evnt00 = await core01._getWaitFor('inet:ipv4', '5.5.5.5')
+                    await evnt00.wait()
                     self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
+
+                    # add a node for core01 to sync via window
+                    evnt01 = await core01._getWaitFor('inet:ipv4', '6.6.6.6')
+                    self.len(1, await core00.nodes('[ inet:ipv4=6.6.6.6 ]'))
+
+                    await evnt01.wait()
+                    self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
 
     async def test_server_mirror_badiden(self):
 
