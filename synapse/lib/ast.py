@@ -521,7 +521,6 @@ class VarEvalOper(Oper):
     $foo.bar("baz")
     '''
     async def run(self, runt, genr):
-        id = s_common.guid(str(self))[:4]
 
         anynodes = False
         async for node, path in genr:
