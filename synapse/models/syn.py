@@ -17,20 +17,40 @@ class SynModule(s_module.CoreModule):
         self._modelRuntsByBuid = {}
         self._modelRuntsByPropValu = collections.defaultdict(list)
 
+        # Static runt data for triggers
+        self._triggerRuntsByBuid = {}
+        self._triggerRuntsByPropValu = collections.defaultdict(list)
+
         # Add runt lift helpers
-        for form in ('syn:type', 'syn:form', 'syn:prop'):
+        for form, lifter in (('syn:type', self._synModelLift),
+                             ('syn:form', self._synModelLift),
+                             ('syn:prop', self._synModelLift),
+                             ('syn:trigger', self._synTriggerLift),
+                             ):
             form = self.model.form(form)
-            self.core.addRuntLift(form.full, self._synModelLift)
+            self.core.addRuntLift(form.full, lifter)
             for name, prop in form.props.items():
                 pfull = prop.full
-                self.core.addRuntLift(pfull, self._synModelLift)
+                self.core.addRuntLift(pfull, lifter)
 
         # add event registration for model changes to allow for new models to reset the runtime model data
         self.core.on('core:module:load', self._onCoreModuleLoad)
+        self.core.on('core:trigger:mod', self._onCoreTriggerMod)
+
+    def _onCoreTriggerMod(self, event):
+        '''
+        Clear the cached trigger rows.
+        '''
+        if not self._triggerRuntsByBuid:
+            return
+        # Discard previously cached data. It will be computed upon the next
+        # lift that needs it.
+        self._triggerRuntsByBuid = {}
+        self._triggerRuntsByPropValu = collections.defaultdict(list)
 
     def _onCoreModuleLoad(self, event):
         '''
-        Clear the cached model rows and rebuild them only if they have been loaded already.
+        Clear the cached model rows.
         '''
         if not self._modelRuntsByBuid:
             return
@@ -38,6 +58,27 @@ class SynModule(s_module.CoreModule):
         # lift that needs it.
         self._modelRuntsByBuid = {}
         self._modelRuntsByPropValu = collections.defaultdict(list)
+
+    async def _synTriggerLift(self, full, valu=None, cmpr=None):
+        if not self._modelRuntsByBuid:
+            self._initTriggerRunts()
+
+        # runt lift helpers must decide what comparators they support
+        if cmpr is not None and cmpr != '=':
+            raise s_exc.BadCmprValu(mesg='Trigger runtime nodes only support equality comparator.',
+                                    cmpr=cmpr)
+        if valu is not None:
+            prop = self.model.prop(full)
+            valu, _ = prop.type.norm(valu)
+
+        if valu is None:
+            buids = self._triggerRuntsByPropValu.get(full, ())
+        else:
+            buids = self._triggerRuntsByPropValu.get((full, valu), ())
+
+        rowsets = [(buid, self._triggerRuntsByBuid.get(buid, ())) for buid in buids]
+        for buid, rows in rowsets:
+            yield buid, rows
 
     async def _synModelLift(self, full, valu=None, cmpr=None):
         if not self._modelRuntsByBuid:
