@@ -155,18 +155,16 @@ class CmdCoreTest(s_t_utils.SynTest):
             call_args = [args[0][0] for args in p.call_args_list if isinstance(args[0][0], FormattedText)]
             unpacked_args = []
             for arg in call_args:
-                unpacked_args.append(*arg)
+                (color, text) = arg[0]
+                if text.startswith('Syntax Error:'):
+                    text = 'Syntax Error'
+                unpacked_args.append((color, text))
             self.isin(('#6faef2', '[#foo]'), unpacked_args)
             self.isin(('#6faef2', ' ^'), unpacked_args)
-            self.isin(('#ff0066', "Syntax Error: No terminal defined for '#' at line 1 col 2.  Expecting one of: "
-                                  "absolute property, -, +, relative property, }, universal property, whitespace"),
-                      unpacked_args)
+            self.isin(('#ff0066', 'Syntax Error'), unpacked_args)
             self.isin(('#6faef2', 'test:str ->'), unpacked_args)
             self.isin(('#6faef2', '           ^'), unpacked_args)
-            self.isin(('#ff0066', 'Syntax Error: Unexpected end of input.  Expecting one of: '
-                                  '#, break, continue, $, + or -, for, if, [, (, {, relative '
-                                  'property, switch, |, <+-, <-, -+>, ->, whitespace or comment'),
-                      unpacked_args)
+            self.isin(('#ff0066', 'Syntax Error'), unpacked_args)
 
     async def test_log(self):
 
