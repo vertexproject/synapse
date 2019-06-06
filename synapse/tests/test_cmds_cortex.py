@@ -164,7 +164,6 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.isin(('#ff0066', 'Syntax Error'), unpacked_args)
             self.isin(('#6faef2', 'test:str ->'), unpacked_args)
             self.isin(('#6faef2', '           ^'), unpacked_args)
-            self.isin(('#ff0066', 'Syntax Error'), unpacked_args)
 
     async def test_log(self):
 
