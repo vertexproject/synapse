@@ -212,9 +212,6 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.isin(('#6faef2', 'test:str ->'), unpacked_args)
             self.isin(('#6faef2', '           ^'), unpacked_args)
 
-            # No more color related testing after this block
-            s_cli.ColorsEnabled = False
-
         # Attempt to use a closed proxy - this fails as soon
         # as we try to execute the command
         self.true(core.isfini)
