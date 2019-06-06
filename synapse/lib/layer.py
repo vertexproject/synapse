@@ -195,16 +195,26 @@ class Layer(s_base.Base):
             await func(oper)
 
         if splices:
+            await self._storFireSplices(splices)
 
-            await self._storSplices(splices)
+    async def _storFireSplices(self, splices):
+        '''
+        Fire events, windows, etc for splices.
+        '''
+        indx = await self._storSplices(splices)
 
-            self.spliced.set()
-            self.spliced.clear()
+        self.spliced.set()
+        self.spliced.clear()
 
-            # go fast and protect against edit-while-iter issues
-            [(await wind.puts(splices)) for wind in tuple(self.windows)]
+        items = [(indx + i, s) for (i, s) in enumerate(splices)]
+        # go fast and protect against edit-while-iter issues
+        [(await wind.puts(items)) for wind in tuple(self.windows)]
 
     async def _storSplices(self, splices):  # pragma: no cover
+        '''
+        Store the splices into a sequentially accessible storage structure.
+        Returns the indx of the first splice stored.
+        '''
         raise NotImplementedError
 
     async def _liftByFormRe(self, oper):
