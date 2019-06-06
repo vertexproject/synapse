@@ -377,7 +377,7 @@ class StormCmd(s_cli.Cmd):
                 text = text.replace('\n', ' ')
                 # Handle too-long text
                 if tlen > 60:
-                    text = text[pos - 30:pos + 30]
+                    text = text[max(0, pos - 30):pos + 30]
                     if pos < tlen - 30:
                         text += '...'
                     if pos > 30:
