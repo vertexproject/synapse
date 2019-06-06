@@ -35,7 +35,7 @@ class SynModule(s_module.CoreModule):
 
         # add event registration for model changes to allow for new models to reset the runtime model data
         self.core.on('core:module:load', self._onCoreModuleLoad)
-        self.core.on('core:trigger:mod', self._onCoreTriggerMod)
+        self.core.on('core:trigger:change', self._onCoreTriggerMod)
 
     def _onCoreTriggerMod(self, event):
         '''
@@ -104,6 +104,7 @@ class SynModule(s_module.CoreModule):
         for buid, rows in rowsets:
             yield buid, rows
 
+    # TODO This is generic and can be parameterized and reused by all runt loaders
     def _addModelRuntRows(self, form, valu, props):
         buid = s_common.buid((form, valu))
         if buid in self._modelRuntsByBuid:
@@ -127,6 +128,10 @@ class SynModule(s_module.CoreModule):
             # Can the secondary property be indexed for lift?
             if self.model.prop(prop).type.indx(propvalu):
                 self._modelRuntsByPropValu[(prop, propvalu)].append(buid)
+
+    def _initTriggerRunts(self):
+        # TODO IMPLEMENT ME
+        pass
 
     def _initModelRunts(self):
 
@@ -246,7 +251,7 @@ class SynModule(s_module.CoreModule):
                 ('syn:prop', ('str', {'strip': True}), {
                     'doc': 'A Synapse property.'
                 }),
-                ('syn:trigger', ('str', {'strip': True, 'lower': True}), {
+                ('syn:trigger', ('guid', {}), {
                     'doc': 'A Synapse trigger.'
                 }),
             ),
