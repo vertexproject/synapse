@@ -2768,6 +2768,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
+    async def test_storm_order(self):
+        q = '''[test:str=foo :hehe=bar] $tvar=$lib.text('') $tvar.add(1) $tvar.add(:hehe) $lib.print($tvar.str()) '''
+        async with self.getTestCore() as core:
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('1bar', mesgs)
+
     async def test_feed_splice(self):
 
         iden = s_common.guid()
