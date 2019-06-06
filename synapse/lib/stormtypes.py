@@ -75,12 +75,20 @@ class LibBase(Lib):
             'len': self._len,
             'min': self._min,
             'max': self._max,
+            'set': self._set,
             'dict': self._dict,
             'guid': self._guid,
             'fire': self._fire,
             'text': self._text,
+            'list': self._list,
             'print': self._print,
         })
+
+    async def _set(self, *vals):
+        return Set(set(vals))
+
+    async def _list(self, *vals):
+        return List(list(vals))
 
     async def _text(self, *args):
         valu = ''.join(args)
@@ -196,6 +204,12 @@ class Prim(StormType):
     def value(self):
         return self.valu
 
+    def pack(self):
+        '''
+        Return a msgpack serializable data structure.
+        '''
+        return self.valu
+
 class Str(Prim):
 
     def __init__(self, valu, path=None):
@@ -220,6 +234,32 @@ class Dict(Prim):
     def deref(self, name):
         return self.valu.get(name)
 
+    async def __iter__(self):
+        for item in list(self.valu.items()):
+            yield item
+
+class Set(Prim):
+
+    def __init__(self, valu, path=None):
+        Prim.__init__(self, set(valu), path=path)
+        self.locls.update({
+            'add': self._methSetAdd,
+            'rem': self._methSetRem,
+        })
+
+    async def _methSetAdd(self, *items):
+        [self.valu.add(i) for i in items]
+
+    async def _methSetRem(self, *items):
+        [self.valu.discard(i) for i in items]
+
+    async def __iter__(self):
+        for item in list(self.valu):
+            yield item
+
+    def pack(self):
+        return list(self.valu)
+
 class List(Prim):
 
     def __init__(self, valu, path=None):
@@ -241,6 +281,9 @@ class List(Prim):
         Return the length of the list.
         '''
         return len(self.valu)
+
+    async def _methListAdd(self, *vals):
+        self.valu.extend(vals)
 
 class Node(Prim):
     '''
