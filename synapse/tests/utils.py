@@ -807,7 +807,7 @@ class SynTest(unittest.TestCase):
             This extends the outp with the lines AFTER the context manager has exited.
 
         Returns:
-            mock.MagickMock: Yields a mock.MagickMock object.
+            mock.MagicMock: Yields a mock.MagicMock object.
         '''
         with self.withCliPromptMock() as patch:
             yield patch
@@ -819,7 +819,7 @@ class SynTest(unittest.TestCase):
         Context manager to mock our use of Prompt Toolkit's print_formatted_text function.
 
         Returns:
-            mock.MagickMock: Yields a mock.MagickMock object.
+            mock.MagicMock: Yields a mock.MagikMock object.
         '''
         with mock.patch('synapse.lib.cli.print_formatted_text',
                         mock.MagicMock(return_value=None)) as patch:  # type: mock.MagicMock
@@ -827,9 +827,10 @@ class SynTest(unittest.TestCase):
 
     def getMagicPromptLines(self, patch):
         '''
+        Get the text lines from a MagicMock object from withCliPromptMock.
 
         Args:
-            patch (mock.MagickMock): The MagickMock object from withCliPromptMock.
+            patch (mock.MagicMock): The MagicMock object from withCliPromptMock.
 
         Returns:
             list: A list of lines.
@@ -850,11 +851,13 @@ class SynTest(unittest.TestCase):
 
     def getMagicPromptColors(self, patch):
         '''
+        Get the colored lines from a MagicMock object from withCliPromptMock.
+
         Args:
-            patch (mock.MagickMock): The MagickMock object from withCliPromptMock.
+            patch (mock.MagicMock): The MagicMock object from withCliPromptMock.
 
         Returns:
-            list: A list of lines.
+            list: A list of tuples, containing color and line data.
         '''
         self.true(patch.called, 'Assert prompt was called')
         lines = []
@@ -871,7 +874,7 @@ class SynTest(unittest.TestCase):
 
     def extendOutpFromPatch(self, outp, patch):
         '''
-        Extend an Outp with lines from a MagickMock object from withCliPromptMock.
+        Extend an Outp with lines from a magicMock object from withCliPromptMock.
 
         Args:
             outp (TstOutPut): The outp to extend.
