@@ -1,8 +1,9 @@
 import os
 import regex
 import asyncio
-import prompt_toolkit
-from unittest.mock import patch
+import unittest.mock as mock
+
+from prompt_toolkit.formatted_text import FormattedText
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -144,11 +145,25 @@ class CmdCoreTest(s_t_utils.SynTest):
             outp.expect('Syntax Error')
 
             outp.clear()
-            s_cli.ColorsEnabled = True
-            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-            await cmdr.runCmdLine('storm [#foo]')
-            await cmdr.runCmdLine('storm test:str ->')
-            # TODO: figure out how to evaluate whether these made it to the screen
+            with mock.patch('synapse.lib.cli.print_formatted_text',
+                            mock.MagicMock(return_value=None)) as p:  # type: mock.MagicMock
+                cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+                cmdr.colorsenabled = True
+                await cmdr.runCmdLine('storm [#foo]')
+                await cmdr.runCmdLine('storm test:str ->')
+            self.true(p.called)
+            call_args = [args[0][0] for args in p.call_args_list if isinstance(args[0][0], FormattedText)]
+            unpacked_args = []
+            for arg in call_args:
+                (color, text) = arg[0]
+                if text.startswith('Syntax Error:'):
+                    text = 'Syntax Error'
+                unpacked_args.append((color, text))
+            self.isin(('#6faef2', '[#foo]'), unpacked_args)
+            self.isin(('#6faef2', ' ^'), unpacked_args)
+            self.isin(('#ff0066', 'Syntax Error'), unpacked_args)
+            self.isin(('#6faef2', 'test:str ->'), unpacked_args)
+            self.isin(('#6faef2', '           ^'), unpacked_args)
 
     async def test_log(self):
 
