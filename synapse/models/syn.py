@@ -204,7 +204,10 @@ class SynModule(s_module.CoreModule):
                 }),
                 ('syn:prop', ('str', {'strip': True}), {
                     'doc': 'A Synapse property.'
-                })
+                }),
+                ('syn:trigger', ('str', {'strip': True, 'lower': True}), {
+                    'doc': 'A Synapse trigger.'
+                }),
             ),
 
             'forms': (
@@ -264,6 +267,32 @@ class SynModule(s_module.CoreModule):
                         'doc': 'Base name of the property', 'ro': True}),
                     ('ro', ('bool', {}), {
                         'doc': 'If the property is read-only after being set.', 'ro': True}),
+                )),
+                ('syn:trigger', {'runt': True}, (
+                    ('vers', ('int', {}), {
+                        'doc': 'Trigger version', 'ro': True,
+                    }),
+                    ('cond', ('str', {'strip': True, 'lower': True}), {
+                        'doc': 'The trigger condition', 'ro': True,
+                    }),
+                    ('user', ('str', {}), {
+                        'doc': 'User who owns the trigger', 'ro': True,
+                    }),
+                    ('storm', ('str', {}), {
+                        'doc': 'The Storm query for the trigger.', 'ro': True,
+                    }),
+                    ('enabled', ('bool', {}), {
+                        'doc': 'Trigger enabled status', 'ro': True,
+                    }),
+                    ('form', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'Form the trigger is watching for.'
+                    }),
+                    ('prop', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'Property the trigger is watching for.'
+                    }),
+                    ('tag', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'Tag the trigger is watching for.'
+                    }),
                 )),
 
             ),
