@@ -784,12 +784,11 @@ class Cortex(s_cell.Cell):
                         await self.fini()
                         return
 
-                    logger.warning(f'mirror loop connected ({url}')
-
                     # assume only the main layer for now...
                     layr = self.getLayer()
 
                     offs = await layr.getOffset(layr.iden)
+                    logger.warning(f'mirror loop connected ({url} offset={offs})')
 
                     if offs == 0:
                         stat = await layr.stat()
