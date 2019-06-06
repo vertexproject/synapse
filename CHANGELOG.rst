@@ -16,6 +16,12 @@ Bugfixes
 - Fix an issue where the Cmdr color awareness for error highlighting was preventing documentation from building properly. (`#1261 <https://github.com/vertexproject/synapse/pull/1261>`_)
 
 
+Improved Documentation
+----------------------
+
+- Update Storm lift documentation to include lifting by time intervals. (`#1260 <https://github.com/vertexproject/synapse/pull/1260>`_)
+
+
 v0.1.10 - 2019-06-04
 ====================
 
