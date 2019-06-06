@@ -837,7 +837,7 @@ class Cortex(s_cell.Cell):
                             await layr.setOffset(layr.iden, items[-1][0])
 
             except asyncio.CancelledError: # pragma: no cover
-                raise
+                return
 
             except Exception:
                 logger.exception('error in initCoreMirror loop')
