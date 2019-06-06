@@ -317,6 +317,9 @@ class Cli(s_base.Base):
         if not self.colorsenabled:
             return self.outp.printf(mesg, addnl=addnl)
 
+        # print_formatted_text can't handle \r
+        mesg = mesg.replace('\r', '')
+
         if color is not None:
             mesg = FormattedText([(color, mesg)])
         return print_formatted_text(mesg)
