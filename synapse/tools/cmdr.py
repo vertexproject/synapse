@@ -21,6 +21,8 @@ async def main(argv):  # pragma: no cover
 
         cmdr = await s_cmdr.getItemCmdr(item)
         await cmdr.addSignalHandlers()
+        # Enable colors for users
+        cmdr.colorsenabled = True
 
         if len(argv) == 2:
             await cmdr.runCmdLine(argv[1])

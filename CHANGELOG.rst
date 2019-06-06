@@ -2,6 +2,20 @@
 Synapse Changelog
 *****************
 
+v0.1.11 - TBD
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add an optional facility to lmdbslab to prevent its data from being swapped out of memory. Add a Cortex configuration option (in the cell.yaml file) named ``dedicated`` to enable this for the lmdb slabs that store the graph data in a Cortex. This is currently only supported on Linux. (`#1254 <https://github.com/vertexproject/synapse/pull/1254>`_)
+
+Bugfixes
+--------
+
+- Fix an issue where the Cmdr color awareness for error highlighting was preventing documentation from building properly. (`#1261 <https://github.com/vertexproject/synapse/pull/1261>`_)
+
+
 v0.1.10 - 2019-06-04
 ====================
 
