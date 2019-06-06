@@ -165,6 +165,11 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.isin(('#6faef2', 'test:str ->'), unpacked_args)
             self.isin(('#6faef2', '           ^'), unpacked_args)
 
+            # Test that trying to print an \r doesn't assert (prompt_toolkit bug)
+            await core.addNode('test:str', 'foo', props={'hehe': 'windows\r\nwindows\r\n'})
+            await cmdr.runCmdLine('storm test:str=foo')
+            self.true(1)
+
     async def test_log(self):
 
         def check_locs_cleanup(cobj):
