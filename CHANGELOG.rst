@@ -2,6 +2,25 @@
 Synapse Changelog
 *****************
 
+v0.1.12 - TBD
+====================
+
+Features and Enhancements
+-------------------------
+
+- Centralize the ``allowed()`` and ``_reqUserAllowed()`` function from the CoreApi class to the CellApi, making permission checking easier for CellApi implementers. (`#1268 <https://github.com/vertexproject/synapse/pull/1268>`_)
+
+Bugfixes
+--------
+
+- Fix an issue where the Base ``link()`` API required the linking function to be a coroutine. (`#1261 <https://github.com/vertexproject/synapse/pull/1261>`_)
+
+Improved Documentation
+----------------------
+
+- Improve inline API help for a few functions. (`#1268 <https://github.com/vertexproject/synapse/pull/1268>`_)
+
+
 v0.1.11 - 2019-06-06
 ====================
 

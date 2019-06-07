@@ -12,8 +12,9 @@ class EchoAuthApi(s_cell.CellApi):
     def isadmin(self):
         return self.user.admin
 
-    def allowed(self, perm):
-        return self.user.allowed(perm)
+    async def icando(self, *path):
+        await self._reqUserAllowed(*path)
+        return True
 
 class EchoAuth(s_cell.Cell):
     cellapi = EchoAuthApi
@@ -48,7 +49,7 @@ class CellTest(s_t_utils.SynTest):
                 root_url = f'tcp://root:secretsauce@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(root_url) as proxy:
                     self.true(await proxy.isadmin())
-                    self.true(await proxy.allowed(('hehe', 'haha')))
+                    self.true(await proxy.allowed('hehe', 'haha'))
 
                 user = await echo.auth.addUser('visi')
                 await user.setPasswd('foo')
@@ -56,9 +57,12 @@ class CellTest(s_t_utils.SynTest):
 
                 visi_url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(visi_url) as proxy:
-                    self.true(await proxy.allowed(('foo', 'bar')))
+                    self.true(await proxy.allowed('foo', 'bar'))
                     self.false(await proxy.isadmin())
-                    self.false(await proxy.allowed(('hehe', 'haha')))
+                    self.false(await proxy.allowed('hehe', 'haha'))
+
+                    self.true(await proxy.icando('foo', 'bar'))
+                    await self.asyncraises(s_exc.AuthDeny, proxy.icando('foo', 'newp'))
 
                 async with await s_telepath.openurl(root_url) as proxy:
 
@@ -148,7 +152,7 @@ class CellTest(s_t_utils.SynTest):
                 async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}/', **pconf) as proxy:
 
                     self.true(await proxy.isadmin())
-                    self.true(await proxy.allowed(('hehe', 'haha')))
+                    self.true(await proxy.allowed('hehe', 'haha'))
 
                 url = f'tcp://root@127.0.0.1:{port}/'
                 await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))

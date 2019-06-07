@@ -174,6 +174,14 @@ class BaseTest(s_t_utils.SynTest):
         evts = await wait1.wait(timeout=0.1)
         self.none(evts)
 
+        # Bare waiter test - uses the link() method on the Base
+        # to receive all of the events from the Base.
+        wait2 = s_base.Waiter(base0, 2)
+        await base0.fire('hehe')
+        await base0.fire('haha')
+        evts = await wait2.wait(1)
+        self.len(2, evts)
+
     async def test_baseref(self):
 
         bref = await s_base.BaseRef.anit()

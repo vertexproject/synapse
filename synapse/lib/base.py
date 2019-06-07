@@ -333,7 +333,7 @@ class Base:
 
         for func in self._syn_links:
             try:
-                ret.append(await func(mesg))
+                ret.append(await s_coro.ornot(func, mesg))
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -492,7 +492,7 @@ class Base:
             **kwargs:
 
         Notes:
-            This method may called from outsode of the event loop on a different thread.
+            This method may called from outside of the event loop on a different thread.
 
         Returns:
             concurrent.futures.Future: A Future representing the eventual function execution.
