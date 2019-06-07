@@ -69,6 +69,7 @@ class RemoteLayerTest(t_cortex.CortexTest):
 
             self.len(1, [x async for x in layr.iterFormRows('test:str')])
             self.len(1, [x async for x in layr.iterPropRows('test:str', 'tick')])
+            self.len(2, [x async for x in layr.iterUnivRows('.created')])
 
             iden = s_common.guid()
 
