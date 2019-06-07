@@ -118,7 +118,7 @@ async def main(argv, outp=s_output.stdout):
                     logfd.write(byts + b'\n')
 
         if opts.cli:
-            await s_cmdr.runItemCmdr(core, outp)
+            await s_cmdr.runItemCmdr(core, outp, True)
 
         return newcount, nodecount
 

@@ -74,9 +74,8 @@ class SlabSeqn:
 
         origindx = self.indx
         self.indx = indx
-        return {'indx': indx, 'size': size, 'count': len(items), 'time': tick, 'took': took}
 
-        return origindx
+        return {'indx': indx, 'size': size, 'count': len(items), 'time': tick, 'took': took, 'orig': origindx}
 
     def append(self, item):
 

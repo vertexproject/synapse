@@ -48,20 +48,29 @@ cmdsbyclass = {
 }
 
 
-async def getItemCmdr(item, outp=None, **opts):
+async def getItemCmdr(item, outp=None, color=False, **opts):
     '''
     Construct and return a cmdr for the given remote item.
 
-    Example:
+    Args:
+        cell: Cell proxy being commanded.
+        outp: Output helper object.
+        color (bool): If true, enable colorized output.
+        **opts: Additional options pushed into the Cmdr locs.
 
-        cmdr = await getItemCmdr(foo)
+    Examples:
+
+        Get the cmdr for a proxy::
+
+            cmdr = await getItemCmdr(foo)
 
     Returns:
         s_cli.Cli: A CLI object with object specific commands loaded.
 
     '''
     cmdr = await s_cli.Cli.anit(item, outp=outp)
-
+    if color:
+        cmdr.colorsenabled = True
     classes = item._getClasses()
 
     if classes is None:  # pragma: no cover
@@ -83,14 +92,27 @@ async def getItemCmdr(item, outp=None, **opts):
 
     return cmdr
 
-async def runItemCmdr(item, outp=None, **opts):
+async def runItemCmdr(item, outp=None, color=False, **opts):
     '''
     Create a cmdr for the given item and run the cmd loop.
 
-    Example:
+    Args:
+        item: Cell proxy being commanded.
+        outp: Output helper object.
+        color (bool): If true, enable colorized output.
+        **opts: Additional options pushed into the Cmdr locs.
 
-        runItemCmdr(foo)
+    Notes:
+        This function does not return while the command loop is run.
 
+    Examples:
+
+        Run the Cmdr for a proxy::
+
+            await runItemCmdr(foo)
+
+    Returns:
+        None: This function returns None.
     '''
-    cmdr = await getItemCmdr(item, outp=outp, **opts)
+    cmdr = await getItemCmdr(item, outp=outp, color=color, **opts)
     await cmdr.runCmdLoop()
