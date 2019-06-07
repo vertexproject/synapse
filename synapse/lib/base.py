@@ -333,7 +333,7 @@ class Base:
 
         for func in self._syn_links:
             try:
-                ret.append(await func(mesg))
+                ret.append(await s_coro.ornot(func, mesg))
             except asyncio.CancelledError:
                 raise
             except Exception:

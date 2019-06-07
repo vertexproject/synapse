@@ -174,6 +174,17 @@ class BaseTest(s_t_utils.SynTest):
         evts = await wait1.wait(timeout=0.1)
         self.none(evts)
 
+        wait2 = s_base.Waiter(base0, 2)
+
+        async def fire():
+            await base0.fire('hehe')
+            await base0.fire('haha')
+            await asyncio.sleep(0)
+
+        base0.schedCoro(fire())
+        evts = await wait2.wait(1)
+        self.len(2, evts)
+
     async def test_baseref(self):
 
         bref = await s_base.BaseRef.anit()
