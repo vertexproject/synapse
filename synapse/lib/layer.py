@@ -34,36 +34,36 @@ class LayerApi(s_cell.CellApi):
         self.liftperm = ('layer:lift', self.layr.iden)
         self.storperm = ('layer:stor', self.layr.iden)
 
-    def allowed(self, perm):
-        if not self.user.allowed(perm):
-            raise s_exc.AuthDeny(user=self.user.name, perm=perm)
+    # def allowed(self, perm):
+    #     if not self.user.allowed(perm):
+    #         raise s_exc.AuthDeny(user=self.user.name, perm=perm)
 
     async def getLiftRows(self, lops):
-        self.allowed(self.liftperm)
+        await self._reqUserAllowed(*self.liftperm)
         async for item in self.layr.getLiftRows(lops):
             yield item
 
     async def iterFormRows(self, form):
-        self.allowed(self.liftperm)
+        await self._reqUserAllowed(*self.liftperm)
         async for item in self.layr.iterFormRows(form):
             yield item
 
     async def iterPropRows(self, form, prop):
-        self.allowed(self.liftperm)
+        await self._reqUserAllowed(*self.liftperm)
         async for item in self.layr.iterPropRows(form, prop):
             yield item
 
     async def iterUnivRows(self, univ):
-        self.allowed(self.liftperm)
+        await self._reqUserAllowed(*self.liftperm)
         async for item in self.layr.iterUnivRows(univ):
             yield item
 
     async def stor(self, sops, splices=None):
-        self.allowed(self.storperm)
+        await self._reqUserAllowed(*self.storperm)
         return await self.layr.stor(sops, splices=splices)
 
     async def getBuidProps(self, buid):
-        self.allowed(self.liftperm)
+        await self._reqUserAllowed(*self.liftperm)
         return await self.layr.getBuidProps(buid)
 
     async def getModelVers(self):
@@ -76,7 +76,7 @@ class LayerApi(s_cell.CellApi):
         return await self.layr.setOffset(iden, valu)
 
     async def splices(self, offs, size):
-        self.allowed(self.liftperm)
+        sawait self._reqUserAllowed(*self.liftperm)
         async for item in self.layr.splices(offs, size):
             yield item
 

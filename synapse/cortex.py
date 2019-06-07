@@ -384,7 +384,7 @@ class CoreApi(s_cell.CellApi):
         buid = s_common.uhex(iden)
 
         parts = tag.split('.')
-        self._reqUserAllowed('tag:add', *parts)
+        await self._reqUserAllowed('tag:add', *parts)
 
         async with await self.cell.snap(user=self.user) as snap:
             with s_provenance.claim('coreapi', meth='tag:add', user=snap.user.iden):
@@ -407,7 +407,7 @@ class CoreApi(s_cell.CellApi):
         buid = s_common.uhex(iden)
 
         parts = tag.split('.')
-        self._reqUserAllowed('tag:del', *parts)
+        await self._reqUserAllowed('tag:del', *parts)
 
         async with await self.cell.snap(user=self.user) as snap:
             with s_provenance.claim('coreapi', meth='tag:del', user=snap.user.iden):
@@ -431,14 +431,14 @@ class CoreApi(s_cell.CellApi):
                     raise s_exc.NoSuchIden(iden=iden)
 
                 prop = node.form.props.get(name)
-                self._reqUserAllowed('prop:set', prop.full)
+                await self._reqUserAllowed('prop:set', prop.full)
 
                 await node.set(name, valu)
                 return node.pack()
 
     async def addNode(self, form, valu, props=None):
 
-        self._reqUserAllowed('node:add', form)
+        await self._reqUserAllowed('node:add', form)
 
         async with await self.cell.snap(user=self.user) as snap:
             with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
@@ -467,7 +467,7 @@ class CoreApi(s_cell.CellApi):
             if done.get(formname):
                 continue
 
-            self._reqUserAllowed('node:add', formname)
+            await self._reqUserAllowed('node:add', formname)
             done[formname] = True
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -484,7 +484,7 @@ class CoreApi(s_cell.CellApi):
 
     async def addFeedData(self, name, items, seqn=None):
 
-        self._reqUserAllowed('feed:data', *name.split('.'))
+        await self._reqUserAllowed('feed:data', *name.split('.'))
 
         with s_provenance.claim('feed:data', name=name):
 
@@ -539,7 +539,7 @@ class CoreApi(s_cell.CellApi):
         The generator will only terminate on network disconnect or if the
         consumer falls behind the max window size of 10,000 splice messages.
         '''
-        if not self.allowed('layer:sync', iden):
+        if not await self.allowed('layer:sync', iden):
             mesg = f'User must have permission layer:sync.{iden}.'
             raise s_exc.AuthDeny(mesg=mesg, perm=('layer:sync', iden))
 
