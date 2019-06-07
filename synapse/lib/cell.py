@@ -599,9 +599,3 @@ class Cell(s_base.Base, s_telepath.Aware):
             raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
 
         return user
-
-    def addCellCmd(self, name, func):
-        '''
-        Add a Cmdr() command to the cell.
-        '''
-        self.cmds[name] = func
