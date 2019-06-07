@@ -107,7 +107,8 @@ class CellApi(s_base.Base):
         '''
         if not await self.allowed(*path):
             perm = '.'.join(path)
-            raise s_exc.AuthDeny(perm=perm, user=self.user.name)
+            mesg = f'User must have permission {perm}'
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
 
     def getCellType(self):
         return self.cell.getCellType()
