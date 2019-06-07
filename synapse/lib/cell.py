@@ -99,7 +99,7 @@ class CellApi(s_base.Base):
                     return await self.cell.makeWidget(wvalu, wtype)
 
         Returns:
-            True: If the permission is allowed.
+            None: This API does not return anything. It only throws an exception on failure.
 
         Raises:
             s_exc.AuthDeny: If the permission is not allowed.
