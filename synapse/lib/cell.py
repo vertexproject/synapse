@@ -58,7 +58,7 @@ class CellApi(s_base.Base):
         assert user
         self.user = user
 
-    def allowed(self, *path):
+    async def allowed(self, *path):
         '''
         Check if the user has the requested permission.
 
@@ -79,7 +79,7 @@ class CellApi(s_base.Base):
         '''
         return self.user.allowed(path)
 
-    def _reqUserAllowed(self, *path):
+    async def _reqUserAllowed(self, *path):
         '''
         Helper method that subclasses can use for user permission checking.
 
@@ -95,7 +95,7 @@ class CellApi(s_base.Base):
 
                 async def makeWidget(wvalu, wtype):
                     # This will throw if the user doesn't have the appropriate widget permission
-                    self._reqUserAllowed('widget', wtype)
+                    await self._reqUserAllowed('widget', wtype)
                     return await self.cell.makeWidget(wvalu, wtype)
 
         Returns:
@@ -105,7 +105,7 @@ class CellApi(s_base.Base):
             s_exc.AuthDeny: If the permission is not allowed.
 
         '''
-        if not self.allowed(*path):
+        if not await self.allowed(*path):
             perm = '.'.join(path)
             raise s_exc.AuthDeny(perm=perm, user=self.user.name)
 

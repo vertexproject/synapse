@@ -12,8 +12,8 @@ class EchoAuthApi(s_cell.CellApi):
     def isadmin(self):
         return self.user.admin
 
-    def icando(self, *path):
-        self._reqUserAllowed(*path)
+    async def icando(self, *path):
+        await self._reqUserAllowed(*path)
         return True
 
 class EchoAuth(s_cell.Cell):
