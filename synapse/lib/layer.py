@@ -34,10 +34,6 @@ class LayerApi(s_cell.CellApi):
         self.liftperm = ('layer:lift', self.layr.iden)
         self.storperm = ('layer:stor', self.layr.iden)
 
-    # def allowed(self, perm):
-    #     if not self.user.allowed(perm):
-    #         raise s_exc.AuthDeny(user=self.user.name, perm=perm)
-
     async def getLiftRows(self, lops):
         await self._reqUserAllowed(*self.liftperm)
         async for item in self.layr.getLiftRows(lops):
@@ -76,7 +72,7 @@ class LayerApi(s_cell.CellApi):
         return await self.layr.setOffset(iden, valu)
 
     async def splices(self, offs, size):
-        sawait self._reqUserAllowed(*self.liftperm)
+        await self._reqUserAllowed(*self.liftperm)
         async for item in self.layr.splices(offs, size):
             yield item
 
