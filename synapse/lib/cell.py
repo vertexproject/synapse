@@ -59,9 +59,52 @@ class CellApi(s_base.Base):
         self.user = user
 
     def allowed(self, *path):
+        '''
+        Check if the user has the requested permission.
+
+        Args:
+            *path: Permission path components to check.
+
+        Examples:
+
+            Form a path and check the permission from a remote proxy::
+
+                perm = ('node:add', 'inet:ipv4')
+                allowed = await prox.allowed(*perm)
+                if allowed:
+                    dostuff()
+
+        Returns:
+            bool: True if the user has permission, False otherwise.
+        '''
         return self.user.allowed(path)
 
     def _reqUserAllowed(self, *path):
+        '''
+        Helper method that subclasses can use for user permission checking.
+
+        Args:
+            *path: Permission path components to check.
+
+        Notes:
+            This can be used to require a permission; and will throw an exception if the permission is not allowed.
+
+        Examples:
+
+            Implement an API that requires a user to have a specific permission in order to execute it::
+
+                async def makeWidget(wvalu, wtype):
+                    # This will throw if the user doesn't have the appropriate widget permission
+                    self._reqUserAllowed('widget', wtype)
+                    return await self.cell.makeWidget(wvalu, wtype)
+
+        Returns:
+            True: If the permission is allowed.
+
+        Raises:
+            s_exc.AuthDeny: If the permission is not allowed.
+
+        '''
         if not self.allowed(*path):
             perm = '.'.join(path)
             raise s_exc.AuthDeny(perm=perm, user=self.user.name)
