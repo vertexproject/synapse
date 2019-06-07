@@ -2,13 +2,28 @@
 Synapse Changelog
 *****************
 
-v0.1.11 - TBD
+v0.1.11 - 2019-06-06
 ====================
 
 Features and Enhancements
 -------------------------
 
 - Add an optional facility to lmdbslab to prevent its data from being swapped out of memory. Add a Cortex configuration option (in the cell.yaml file) named ``dedicated`` to enable this for the lmdb slabs that store the graph data in a Cortex. This is currently only supported on Linux. (`#1254 <https://github.com/vertexproject/synapse/pull/1254>`_)
+
+Bugfixes
+--------
+
+- Fix an issue where the Cmdr color awareness for error highlighting was preventing documentation from building properly. (`#1261 <https://github.com/vertexproject/synapse/pull/1261>`_)
+- Fix an issue where the ``synapse.servers.cortex`` ``--mirror`` option was not properly mirroring realtime splices. (`#1264 <https://github.com/vertexproject/synapse/pull/1264>`_)
+- Fix a runtsafe variable order bug in Storm. (`#1265 <https://github.com/vertexproject/synapse/pull/1265>`_)
+- Work around an issue in prompt-toolkit's ``print_formatted_text`` function. (`#1266 <https://github.com/vertexproject/synapse/pull/1266>`_)
+- Fix an issue where color awareness was not available for Cmdr sessions launched via ``synapse.tools.csvtool`` and ``synapse.tools.feed``.  (`#1267 <https://github.com/vertexproject/synapse/pull/1267>`_)
+
+Improved Documentation
+----------------------
+
+- Update Storm lift documentation to include lifting by time intervals. (`#1260 <https://github.com/vertexproject/synapse/pull/1260>`_)
+- Update ReadTheDocs build configuration to utilize a Docker container, instead of a conda environment. (`#1262 <https://github.com/vertexproject/synapse/pull/1262>`_)
 
 
 v0.1.10 - 2019-06-04

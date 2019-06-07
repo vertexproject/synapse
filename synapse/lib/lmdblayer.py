@@ -99,9 +99,7 @@ class LmdbLayer(s_layer.Layer):
             func(oper)
 
         if splices:
-            self._storSplicesSync(splices)
-            self.spliced.set()
-            self.spliced.clear()
+            await self._storFireSplices(splices)
 
     def _migrate_db_pre010(self, dbname, newslab):
         '''
@@ -397,8 +395,9 @@ class LmdbLayer(s_layer.Layer):
             if univ:
                 self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
 
-    def _storSplicesSync(self, splices):
-        self.splicelog.save(splices)
+    async def _storSplices(self, splices):
+        info = self.splicelog.save(splices)
+        return info.get('orig')
 
     async def _liftByIndx(self, oper):
         # ('indx', (<dbname>, <prefix>, (<indxopers>...))

@@ -1,8 +1,9 @@
 import os
 import regex
 import asyncio
-import prompt_toolkit
-from unittest.mock import patch
+import unittest.mock as mock
+
+from prompt_toolkit.formatted_text import FormattedText
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -144,11 +145,27 @@ class CmdCoreTest(s_t_utils.SynTest):
             outp.expect('Syntax Error')
 
             outp.clear()
-            s_cli.ColorsEnabled = True
-            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-            await cmdr.runCmdLine('storm [#foo]')
-            await cmdr.runCmdLine('storm test:str ->')
-            # TODO: figure out how to evaluate whether these made it to the screen
+            with self.withCliPromptMock() as patch:
+                cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+                cmdr.colorsenabled = True
+                await cmdr.runCmdLine('storm [#foo]')
+                await cmdr.runCmdLine('storm test:str ->')
+            lines = self.getMagicPromptColors(patch)
+            clines = []
+            for (color, text) in lines:
+                if text.startswith('Syntax Error:'):
+                    text = 'Syntax Error'
+                clines.append((color, text))
+            self.isin(('#6faef2', '[#foo]'), clines)
+            self.isin(('#6faef2', ' ^'), clines)
+            self.isin(('#ff0066', 'Syntax Error'), clines)
+            self.isin(('#6faef2', 'test:str ->'), clines)
+            self.isin(('#6faef2', '           ^'), clines)
+
+            # Test that trying to print an \r doesn't assert (prompt_toolkit bug)
+            await core.addNode('test:str', 'foo', props={'hehe': 'windows\r\nwindows\r\n'})
+            await cmdr.runCmdLine('storm test:str=foo')
+            self.true(1)
 
     async def test_log(self):
 

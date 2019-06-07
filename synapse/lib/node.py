@@ -229,7 +229,6 @@ class Node:
                     raise s_exc.ReadOnlyProp(name=prop.full)
 
                 # not setting a set-once prop unless we are init...
-                await self.snap.warn(f'ReadOnlyProp: name={prop.full}')
                 return False
 
             # check for type specific merging...

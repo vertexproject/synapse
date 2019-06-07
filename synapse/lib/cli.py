@@ -25,8 +25,6 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-# Set to False for testing or unsupported terminals
-ColorsEnabled = True
 
 class Cmd:
     '''
@@ -252,6 +250,7 @@ class Cli(s_base.Base):
         self.item = item    # whatever object we are commanding
 
         self.echoline = False
+        self.colorsenabled = False
 
         if isinstance(self.item, s_base.Base):
             self.item.onfini(self._onItemFini)
@@ -315,8 +314,11 @@ class Cli(s_base.Base):
             return retn
 
     def printf(self, mesg, addnl=True, color=None):
-        if not ColorsEnabled:
+        if not self.colorsenabled:
             return self.outp.printf(mesg, addnl=addnl)
+
+        # print_formatted_text can't handle \r
+        mesg = mesg.replace('\r', '')
 
         if color is not None:
             mesg = FormattedText([(color, mesg)])
