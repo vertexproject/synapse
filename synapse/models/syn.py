@@ -145,8 +145,6 @@ class SynModule(s_module.CoreModule):
                 if valu is not None:
                     props[key] = valu
 
-            for k, v in info.items():
-                print(k, v)
             self._addRuntRows('syn:trigger', tnorm, props,
                               self._triggerRuntsByBuid, self._triggerRuntsByPropValu)
 

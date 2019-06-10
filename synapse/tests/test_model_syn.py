@@ -260,3 +260,6 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             nodes = await core.nodes('syn:trigger:tag=hehe.haha')
             self.len(1, nodes)
+
+            # Sad path lifts
+            await self.asyncraises(s_exc.BadCmprValu, core.nodes('syn:trigger:storm~="beep"'))
