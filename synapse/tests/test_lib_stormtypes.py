@@ -232,3 +232,28 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(tuple(sorted(nodes[0].get('data'))), idens)
+
+    async def test_storm_trace(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
+
+            q = '''
+                inet:fqdn=vertex.link
+
+                $trace=$path.trace()
+
+                -> inet:dns:a -> inet:ipv4
+                [ graph:node="*" ] +graph:node [ :data=$trace.idens() ]
+                '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            idens = (
+                '02488bc284ffd0f60f474d5af66a8c0cf89789f766b51fde1d3da9b227005f47',
+                '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
+                '3ecd51e142a5acfcde42c02ff5c68378bfaf1eaf49fe9721550b6e7d6013b699',
+            )
+
+            self.eq(tuple(sorted(nodes[0].get('data'))), idens)

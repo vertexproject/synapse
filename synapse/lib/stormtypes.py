@@ -327,9 +327,27 @@ class Path(Prim):
         Prim.__init__(self, node, path=path)
         self.locls.update({
             'idens': self._methPathIdens,
+            'trace': self._methPathTrace,
         })
 
     async def _methPathIdens(self):
+        return [n.iden() for n in self.valu.nodes]
+
+    async def _methPathTrace(self):
+        trace = self.valu.trace()
+        return Trace(trace)
+
+class Trace(Prim):
+    '''
+    Storm API wrapper for the Path Trace object.
+    '''
+    def __init__(self, trace, path=None):
+        Prim.__init__(self, trace, path=path)
+        self.locls.update({
+            'idens': self._methTraceIdens,
+        })
+
+    async def _methTraceIdens(self):
         return [n.iden() for n in self.valu.nodes]
 
 class Text(Prim):
