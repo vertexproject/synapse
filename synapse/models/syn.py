@@ -35,7 +35,7 @@ class SynModule(s_module.CoreModule):
 
         # add event registration for model changes to allow for new models to reset the runtime model data
         self.core.on('core:module:load', self._onCoreModuleLoad)
-        self.core.on('core:trigger:change', self._onCoreTriggerMod)
+        self.core.on('core:trigger:action', self._onCoreTriggerMod)
 
     def _onCoreTriggerMod(self, event):
         '''
@@ -60,7 +60,7 @@ class SynModule(s_module.CoreModule):
         self._modelRuntsByPropValu = collections.defaultdict(list)
 
     async def _synTriggerLift(self, full, valu=None, cmpr=None):
-        if not self._modelRuntsByBuid:
+        if not self._triggerRuntsByBuid:
             self._initTriggerRunts()
 
         # runt lift helpers must decide what comparators they support
@@ -119,9 +119,7 @@ class SynModule(s_module.CoreModule):
         propcache[form].append(buid)
         propcache[(form, valu)].append(buid)
 
-        print(f'setting propvalues: {props}')
         for k, propvalu in props.items():
-            print(k, propvalu)
             prop = form + ':' + k
             if k.startswith('.'):
                 prop = form + k

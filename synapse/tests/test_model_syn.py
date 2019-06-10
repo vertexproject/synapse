@@ -199,9 +199,17 @@ class SynModelTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
                 rootiden = core.auth.getUserByName('root').iden
 
+                nodes = await core.nodes('syn:trigger')
+                self.len(0, nodes)
+
+                waiter = core.waiter(1, 'core:trigger:action')
                 core.triggers.add('root', 'node:add', '[inet:user=1] | testcmd', info={'form': 'inet:ipv4'})
+                evnts = await waiter.wait(3)
+                self.len(1, evnts)
+
                 triggers = core.triggers.list()
                 print(triggers)
+                iden = triggers[0][0]
                 self.len(1, triggers)
 
                 nodes = await core.nodes('syn:trigger')
@@ -209,4 +217,35 @@ class SynModelTest(s_t_utils.SynTest):
                 pode = nodes[0].pack()
                 from pprint import pprint
                 pprint(nodes[0].pack())
-                self.eq(pode[0][1], triggers[0][0])
+                self.eq(pode[0][1], iden)
+
+                # lift by iden
+                nodes = await core.nodes(f'syn:trigger={iden}')
+                self.len(1, nodes)
+
+                # Trigger reloads and make some more triggers to play with
+                waiter = core.waiter(2, 'core:trigger:action')
+                core.triggers.add('root', 'prop:set', '[inet:user=1] | testcmd', info={'prop': 'inet:ipv4:asn'})
+                core.triggers.add('root', 'tag:add', '[inet:user=1] | testcmd', info={'tag': 'hehe.haha'})
+                evnts = await waiter.wait(3)
+                self.len(2, evnts)
+
+                # lift by all props
+                nodes = await core.nodes('syn:trigger')
+                self.len(3, nodes)
+                nodes = await core.nodes('syn:trigger:vers')
+                self.len(3, nodes)
+                nodes = await core.nodes('syn:trigger:cond')
+                self.len(3, nodes)
+                nodes = await core.nodes('syn:trigger:user')
+                self.len(3, nodes)
+                nodes = await core.nodes('syn:trigger:storm')
+                self.len(3, nodes)
+                nodes = await core.nodes('syn:trigger:enabled')
+                self.len(3, nodes)
+                nodes = await core.nodes('syn:trigger:form')
+                self.len(1, nodes)
+                nodes = await core.nodes('syn:trigger:prop')
+                self.len(1, nodes)
+                nodes = await core.nodes('syn:trigger:tag')
+                self.len(1, nodes)
