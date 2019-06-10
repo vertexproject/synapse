@@ -205,15 +205,12 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, evnts)
 
             triggers = core.triggers.list()
-            print(triggers)
             iden = triggers[0][0]
             self.len(1, triggers)
 
             nodes = await core.nodes('syn:trigger')
             self.len(1, nodes)
             pode = nodes[0].pack()
-            from pprint import pprint
-            pprint(nodes[0].pack())
             self.eq(pode[0][1], iden)
 
             # lift by iden
@@ -227,7 +224,7 @@ class SynModelTest(s_t_utils.SynTest):
             evnts = await waiter.wait(3)
             self.len(2, evnts)
 
-            # lift by all props
+            # lift by all props and valus
             nodes = await core.nodes('syn:trigger')
             self.len(3, nodes)
             nodes = await core.nodes('syn:trigger:vers')
@@ -245,4 +242,21 @@ class SynModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('syn:trigger:prop')
             self.len(1, nodes)
             nodes = await core.nodes('syn:trigger:tag')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('syn:trigger:vers=1')
+            self.len(3, nodes)
+            nodes = await core.nodes('syn:trigger:cond=node:add')
+            self.len(1, nodes)
+            nodes = await core.nodes('syn:trigger:user=root')
+            self.len(3, nodes)
+            nodes = await core.nodes('syn:trigger:storm="[inet:user=1] | testcmd"')
+            self.len(3, nodes)
+            nodes = await core.nodes('syn:trigger:enabled=True')
+            self.len(3, nodes)
+            nodes = await core.nodes('syn:trigger:form=inet:ipv4')
+            self.len(1, nodes)
+            nodes = await core.nodes('syn:trigger:prop=inet:ipv4:asn')
+            self.len(1, nodes)
+            nodes = await core.nodes('syn:trigger:tag=hehe.haha')
             self.len(1, nodes)
