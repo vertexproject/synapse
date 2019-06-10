@@ -45,8 +45,8 @@ class SynModule(s_module.CoreModule):
             return
         # Discard previously cached data. It will be computed upon the next
         # lift that needs it.
-        self._triggerRuntsByBuid = {}
-        self._triggerRuntsByPropValu = collections.defaultdict(list)
+        self._triggerRuntsByBuid.clear()
+        self._triggerRuntsByPropValu.clear()
 
     def _onCoreModuleLoad(self, event):
         '''
@@ -56,24 +56,22 @@ class SynModule(s_module.CoreModule):
             return
         # Discard previously cached data. It will be computed upon the next
         # lift that needs it.
-        self._modelRuntsByBuid = {}
-        self._modelRuntsByPropValu = collections.defaultdict(list)
+        self._modelRuntsByBuid.clear()
+        self._modelRuntsByPropValu.clear()
 
     async def _synTriggerLift(self, full, valu=None, cmpr=None):
         if not self._triggerRuntsByBuid:
             self._initTriggerRunts()
 
-        # runt lift helpers must decide what comparators they support
         if cmpr is not None and cmpr != '=':
             raise s_exc.BadCmprValu(mesg='Trigger runtime nodes only support equality comparator.',
                                     cmpr=cmpr)
-        if valu is not None:
-            prop = self.model.prop(full)
-            valu, _ = prop.type.norm(valu)
 
         if valu is None:
             buids = self._triggerRuntsByPropValu.get(full, ())
         else:
+            prop = self.model.prop(full)
+            valu, _ = prop.type.norm(valu)
             buids = self._triggerRuntsByPropValu.get((full, valu), ())
 
         rowsets = [(buid, self._triggerRuntsByBuid.get(buid, ())) for buid in buids]
@@ -84,20 +82,15 @@ class SynModule(s_module.CoreModule):
         if not self._modelRuntsByBuid:
             self._initModelRunts()
 
-        # runt lift helpers must decide what comparators they support
         if cmpr is not None and cmpr != '=':
             raise s_exc.BadCmprValu(mesg='Model runtime nodes only support equality comparator.',
                                     cmpr=cmpr)
 
-        # Runt lift helpers must support their own normalization for data retrieval
-        if valu is not None:
-            prop = self.model.prop(full)
-            valu, _ = prop.type.norm(valu)
-
-        # runt lift helpers must then yield buid/rows pairs for Node object creation.
         if valu is None:
             buids = self._modelRuntsByPropValu.get(full, ())
         else:
+            prop = self.model.prop(full)
+            valu, _ = prop.type.norm(valu)
             buids = self._modelRuntsByPropValu.get((full, valu), ())
 
         rowsets = [(buid, self._modelRuntsByBuid.get(buid, ())) for buid in buids]
