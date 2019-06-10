@@ -104,10 +104,9 @@ class SynModule(s_module.CoreModule):
         for buid, rows in rowsets:
             yield buid, rows
 
-    # TODO This is generic and can be parameterized and reused by all runt loaders
-    def _addModelRuntRows(self, form, valu, props):
+    def _addRuntRows(self, form, valu, props, buidcache, propcache):
         buid = s_common.buid((form, valu))
-        if buid in self._modelRuntsByBuid:
+        if buid in buidcache:
             return
 
         rows = [('*' + form, valu)]
@@ -115,23 +114,43 @@ class SynModule(s_module.CoreModule):
         for k, v in props.items():
             rows.append((k, v))
 
-        self._modelRuntsByBuid[buid] = rows
+        buidcache[buid] = rows
 
-        self._modelRuntsByPropValu[form].append(buid)
-        self._modelRuntsByPropValu[(form, valu)].append(buid)
+        propcache[form].append(buid)
+        propcache[(form, valu)].append(buid)
 
+        print(f'setting propvalues: {props}')
         for k, propvalu in props.items():
+            print(k, propvalu)
             prop = form + ':' + k
             if k.startswith('.'):
                 prop = form + k
-            self._modelRuntsByPropValu[prop].append(buid)
+            propcache[prop].append(buid)
             # Can the secondary property be indexed for lift?
             if self.model.prop(prop).type.indx(propvalu):
-                self._modelRuntsByPropValu[(prop, propvalu)].append(buid)
+                propcache[(prop, propvalu)].append(buid)
 
     def _initTriggerRunts(self):
-        # TODO IMPLEMENT ME
-        pass
+        now = s_common.now()
+        typeform = self.model.form('syn:trigger')
+        for iden, info in self.core.triggers.list():
+            tnorm, _ = typeform.type.norm(iden)
+            props = {'.created': now,
+                     'vers': info.pop('ver'),
+                     'cond': info.pop('cond'),
+                     'storm': info.pop('storm'),
+                     'enabled': info.pop('enabled'),
+                     'user': info.pop('useriden'),
+                     }
+            for key in ('form', 'tag', 'prop'):
+                valu = info.pop(key, None)
+                if valu is not None:
+                    props[key] = valu
+
+            for k, v in info.items():
+                print(k, v)
+            self._addRuntRows('syn:trigger', tnorm, props,
+                              self._triggerRuntsByBuid, self._triggerRuntsByPropValu)
 
     def _initModelRunts(self):
 
@@ -159,7 +178,8 @@ class SynModule(s_module.CoreModule):
             if subof is not None:
                 subof, _ = self.model.prop('syn:type:subof').type.norm(subof)
                 props['subof'] = subof
-            self._addModelRuntRows('syn:type', tnorm, props)
+            self._addRuntRows('syn:type', tnorm, props,
+                              self._modelRuntsByBuid, self._modelRuntsByPropValu)
 
         formform = self.model.form('syn:form')
         for fname, fobj in self.model.forms.items():
@@ -179,7 +199,8 @@ class SynModule(s_module.CoreModule):
                      '.created': now,
                      }
 
-            self._addModelRuntRows('syn:form', fnorm, props)
+            self._addRuntRows('syn:form', fnorm, props,
+                              self._modelRuntsByBuid, self._modelRuntsByPropValu)
 
         propform = self.model.form('syn:prop')
 
@@ -235,7 +256,8 @@ class SynModule(s_module.CoreModule):
             univ, _ = self.model.prop('syn:prop:univ').type.norm(univ)
             props['univ'] = univ
 
-            self._addModelRuntRows('syn:prop', pnorm, props)
+            self._addRuntRows('syn:prop', pnorm, props,
+                              self._modelRuntsByBuid, self._modelRuntsByPropValu)
 
     def getModelDefs(self):
 

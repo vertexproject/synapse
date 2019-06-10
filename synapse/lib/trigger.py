@@ -269,7 +269,7 @@ class Triggers:
 
         rule.storm = query
         self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
-        await self.core.fire('core:trigger:change', iden=iden)
+        self.core.schedCoroSafe(self.core.fire('core:trigger:change', iden=iden))
 
     def enable(self, iden):
         rule = self._rules.get(iden)
@@ -278,7 +278,7 @@ class Triggers:
 
         rule.enabled = True
         self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
-        await self.core.fire('core:trigger:change', iden=iden)
+        self.core.schedCoroSafe(self.core.fire('core:trigger:change', iden=iden))
 
     def disable(self, iden):
         rule = self._rules.get(iden)
@@ -287,7 +287,7 @@ class Triggers:
 
         rule.enabled = False
         self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
-        await self.core.fire('core:trigger:change', iden=iden)
+        self.core.schedCoroSafe(self.core.fire('core:trigger:change', iden=iden))
 
     @contextlib.contextmanager
     def _recursion_check(self):
@@ -314,7 +314,7 @@ class Triggers:
 
         rule = self._load_rule(iden, 1, condition, useriden, query, True, info=info)
         self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
-        await self.core.fire('core:trigger:change', iden=iden)
+        self.core.schedCoroSafe(self.core.fire('core:trigger:change', iden=iden))
         return iden
 
     def delete(self, iden):
@@ -324,7 +324,7 @@ class Triggers:
             raise s_exc.NoSuchIden()
 
         self.core.slab.delete(iden.encode(), db=self.trigdb)
-        await self.core.fire('core:trigger:change', iden=iden)
+        self.core.schedCoroSafe(self.core.fire('core:trigger:change', iden=iden))
 
         if rule.cond == 'node:add':
             self.nodeadd[rule.form].remove(rule)

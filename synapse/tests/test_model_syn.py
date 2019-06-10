@@ -5,7 +5,7 @@ import synapse.tests.utils as s_t_utils
 
 class SynModelTest(s_t_utils.SynTest):
 
-    async def test_model_syn_tag(self):
+    async def test_syn_tag(self):
 
         async with self.getTestCore() as core:
 
@@ -23,7 +23,7 @@ class SynModelTest(s_t_utils.SynTest):
                 node = await snap.getNodeByNdef(('syn:tag', 'foo'))
                 self.nn(node)
 
-    async def test_model_syn_runts(self):
+    async def test_syn_model_runts(self):
 
         async with self.getTestCore() as core:
 
@@ -193,3 +193,20 @@ class SynModelTest(s_t_utils.SynTest):
 
                 nodes = await core.eval('syn:form=test:runt').list()
                 self.len(1, nodes)
+
+    async def test_syn_trigger_runts(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                rootiden = core.auth.getUserByName('root').iden
+
+                core.triggers.add('root', 'node:add', '[inet:user=1] | testcmd', info={'form': 'inet:ipv4'})
+                triggers = core.triggers.list()
+                print(triggers)
+                self.len(1, triggers)
+
+                nodes = await core.nodes('syn:trigger')
+                self.len(1, nodes)
+                pode = nodes[0].pack()
+                from pprint import pprint
+                pprint(nodes[0].pack())
+                self.eq(pode[0][1], triggers[0][0])
