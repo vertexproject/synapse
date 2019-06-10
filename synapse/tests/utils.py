@@ -36,6 +36,8 @@ import unittest.mock as mock
 
 import aiohttp
 
+from prompt_toolkit.formatted_text import FormattedText
+
 import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.glob as s_glob
@@ -791,6 +793,98 @@ class SynTest(unittest.TestCase):
 
         with mock.patch('synapse.lib.cmdr.getItemCmdr', getTestCmdr):
             yield
+
+    @contextlib.contextmanager
+    def withCliPromptMockExtendOutp(self, outp):
+        '''
+        Context manager to mock our use of Prompt Toolkit's print_formatted_text function and
+        extend the lines to an an output object.
+
+        Args:
+            outp (TstOutPut): The outp to extend.
+
+        Notes:
+            This extends the outp with the lines AFTER the context manager has exited.
+
+        Returns:
+            mock.MagicMock: Yields a mock.MagicMock object.
+        '''
+        with self.withCliPromptMock() as patch:
+            yield patch
+        self.extendOutpFromPatch(outp, patch)
+
+    @contextlib.contextmanager
+    def withCliPromptMock(self):
+        '''
+        Context manager to mock our use of Prompt Toolkit's print_formatted_text function.
+
+        Returns:
+            mock.MagicMock: Yields a mock.MagikMock object.
+        '''
+        with mock.patch('synapse.lib.cli.print_formatted_text',
+                        mock.MagicMock(return_value=None)) as patch:  # type: mock.MagicMock
+            yield patch
+
+    def getMagicPromptLines(self, patch):
+        '''
+        Get the text lines from a MagicMock object from withCliPromptMock.
+
+        Args:
+            patch (mock.MagicMock): The MagicMock object from withCliPromptMock.
+
+        Returns:
+            list: A list of lines.
+        '''
+        self.true(patch.called, 'Assert prompt was called')
+        lines = []
+        for args in patch.call_args_list:
+            arg = args[0][0]
+            if isinstance(arg, str):
+                lines.append(arg)
+                continue
+            if isinstance(arg, FormattedText):
+                color, text = arg[0]
+                lines.append(text)
+                continue
+            raise ValueError(f'Unknown arg: {type(arg)}/{arg}')
+        return lines
+
+    def getMagicPromptColors(self, patch):
+        '''
+        Get the colored lines from a MagicMock object from withCliPromptMock.
+
+        Args:
+            patch (mock.MagicMock): The MagicMock object from withCliPromptMock.
+
+        Returns:
+            list: A list of tuples, containing color and line data.
+        '''
+        self.true(patch.called, 'Assert prompt was called')
+        lines = []
+        for args in patch.call_args_list:
+            arg = args[0][0]
+            if isinstance(arg, str):
+                continue
+            if isinstance(arg, FormattedText):
+                color, text = arg[0]
+                lines.append((color, text))
+                continue
+            raise ValueError(f'Unknown arg: {type(arg)}/{arg}')
+        return lines
+
+    def extendOutpFromPatch(self, outp, patch):
+        '''
+        Extend an Outp with lines from a magicMock object from withCliPromptMock.
+
+        Args:
+            outp (TstOutPut): The outp to extend.
+            patch (mock.MagicMock): The patch object.
+
+        Returns:
+            None: Returns none.
+        '''
+        lines = self.getMagicPromptLines(patch)
+        [outp.printf(line) for line in lines]
 
     @contextlib.asynccontextmanager
     async def getTestReadWriteCores(self, conf=None, dirn=None):

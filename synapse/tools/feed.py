@@ -71,7 +71,7 @@ async def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=100
         outp.printf(f'Took [{tock - tick}] seconds.')
 
     if debug:
-        await s_cmdr.runItemCmdr(core, outp)
+        await s_cmdr.runItemCmdr(core, outp, True)
 
 async def main(argv, outp=None):
 

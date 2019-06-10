@@ -25,8 +25,10 @@ class FeedTest(s_t_utils.SynTest):
 
             outp = self.getTestOutp()
             cmdg = s_t_utils.CmdGenerator(['storm test:pivcomp -> *', EOFError()])
-            with self.withTestCmdr(cmdg):
-                self.eq(await s_feed.main(argv, outp=outp), 0)
+            with self.withCliPromptMockExtendOutp(outp):
+                with self.withTestCmdr(cmdg):
+                    self.eq(await s_feed.main(argv, outp=outp), 0)
+
             self.true(outp.expect('test:str=haha', throw=False))
             self.true(outp.expect('test:pivtarg=hehe', throw=False))
 
@@ -67,8 +69,9 @@ class FeedTest(s_t_utils.SynTest):
 
                 outp = self.getTestOutp()
                 cmdg = s_t_utils.CmdGenerator(['storm test:pivcomp -> *', EOFError()])
-                with self.withTestCmdr(cmdg):
-                    self.eq(await s_feed.main(argv, outp=outp), 0)
+                with self.withCliPromptMockExtendOutp(outp):
+                    with self.withTestCmdr(cmdg):
+                        self.eq(await s_feed.main(argv, outp=outp), 0)
                 self.true(outp.expect('test:str=haha', throw=False))
                 self.true(outp.expect('test:pivtarg=hehe', throw=False))
 

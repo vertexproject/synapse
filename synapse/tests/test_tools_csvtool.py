@@ -47,7 +47,7 @@ class CsvToolTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
 
             await s_csvtool.main(argv, outp=outp)
-
+            outp.expect('oh hai')
             outp.expect('2 nodes (9 created)')
 
     async def test_csvtool_local(self):
@@ -87,12 +87,13 @@ class CsvToolTest(s_t_utils.SynTest):
             argv = ['--csv-header', '--debug', '--cli', '--test', '--logfile', logpath, stormpath, csvpath]
             outp = self.getTestOutp()
 
-            cmdg = s_t_utils.CmdGenerator(['storm --hide-props inet:fqdn', EOFError()])
+            cmdg = s_t_utils.CmdGenerator(['storm --hide-props inet:fqdn',
+                                           EOFError(),
+                                           ])
 
-            with self.withTestCmdr(cmdg):
-                await s_csvtool.main(argv, outp=outp)
-
-            outp.expect('oh hai')
+            with self.withCliPromptMockExtendOutp(outp):
+                with self.withTestCmdr(cmdg):
+                    await s_csvtool.main(argv, outp=outp)
 
             outp.expect('inet:fqdn=google.com')
             outp.expect('2 nodes (9 created)')

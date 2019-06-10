@@ -58,6 +58,58 @@ class CellApi(s_base.Base):
         assert user
         self.user = user
 
+    async def allowed(self, *path):
+        '''
+        Check if the user has the requested permission.
+
+        Args:
+            *path: Permission path components to check.
+
+        Examples:
+
+            Form a path and check the permission from a remote proxy::
+
+                perm = ('node:add', 'inet:ipv4')
+                allowed = await prox.allowed(*perm)
+                if allowed:
+                    dostuff()
+
+        Returns:
+            bool: True if the user has permission, False otherwise.
+        '''
+        return self.user.allowed(path)
+
+    async def _reqUserAllowed(self, *path):
+        '''
+        Helper method that subclasses can use for user permission checking.
+
+        Args:
+            *path: Permission path components to check.
+
+        Notes:
+            This can be used to require a permission; and will throw an exception if the permission is not allowed.
+
+        Examples:
+
+            Implement an API that requires a user to have a specific permission in order to execute it::
+
+                async def makeWidget(wvalu, wtype):
+                    # This will throw if the user doesn't have the appropriate widget permission
+                    await self._reqUserAllowed('widget', wtype)
+                    return await self.cell.makeWidget(wvalu, wtype)
+
+        Returns:
+            None: This API does not return anything. It only throws an exception on failure.
+
+        Raises:
+            s_exc.AuthDeny: If the permission is not allowed.
+
+        '''
+        if not await self.allowed(*path):
+            perm = '.'.join(path)
+            mesg = f'User must have permission {perm}'
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
+
     def getCellType(self):
         return self.cell.getCellType()
 
@@ -591,9 +643,3 @@ class Cell(s_base.Base, s_telepath.Aware):
             raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
 
         return user
-
-    def addCellCmd(self, name, func):
-        '''
-        Add a Cmdr() command to the cell.
-        '''
-        self.cmds[name] = func
