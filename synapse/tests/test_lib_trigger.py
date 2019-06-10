@@ -53,9 +53,12 @@ class TrigTest(s_t_utils.SynTest):
             async with real.getLocalProxy() as core:
 
                 # node:add case
+                waiter = real.waiter(1, 'core:trigger:action')
                 await core.addTrigger('node:add', '[ test:int=1 ]', info={'form': 'test:str'})
                 await s_common.aspin(core.eval('[ test:str=foo ]'))
                 await self.agenlen(1, core.eval('test:int'))
+                evnts = await waiter.wait(1)
+                self.eq(evnts[0][1].get('action'), 'add')
 
                 # node:del case
                 await core.addTrigger('node:del', '[ test:int=2 ]', info={'form': 'test:str'})
@@ -144,9 +147,13 @@ class TrigTest(s_t_utils.SynTest):
                 self.len(10, triglist)
 
                 # Delete trigger
+                waiter = real.waiter(1, 'core:trigger:action')
                 buid = [b for b, r in triglist if r['cond'] == 'prop:set'][0]
                 await s_common.aspin(core.eval('test:int=6 | delnode'))
                 await core.delTrigger(buid)
+                evnts = await waiter.wait(1)
+                self.eq(evnts[0][1].get('action'), 'delete')
+
                 # Make sure it didn't fire
                 await s_common.aspin(core.eval('[ test:type10=3 :intprop=25 ]'))
                 await self.agenlen(0, core.eval('test:int=6'))
@@ -154,13 +161,19 @@ class TrigTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.NoSuchIden, core.delTrigger(b'badbuid'))
 
                 # Mod trigger
+
                 buid = [b for b, r in triglist if r['cond'] == 'tag:add' and r.get('form') == 'test:str'][0]
-                buid2 = [b for b, r in triglist if r['cond'] == 'tag:add' and r.get('form') is None][0]
+
+                waiter = real.waiter(1, 'core:trigger:action')
                 await core.updateTrigger(buid, '[ test:int=42 ]')
+                evnts = await waiter.wait(1)
+                self.eq(evnts[0][1].get('action'), 'mod')
+
                 await s_common.aspin(core.eval('[ test:str=foo4 +#bartag ]'))
                 await self.agenlen(1, core.eval('test:int=42'))
 
                 # Delete a tag:add
+                buid2 = [b for b, r in triglist if r['cond'] == 'tag:add' and r.get('form') is None][0]
                 await core.delTrigger(buid2)
 
                 await core.addAuthUser('fred')
