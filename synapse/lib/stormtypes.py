@@ -224,10 +224,6 @@ class Dict(Prim):
     def deref(self, name):
         return self.valu.get(name)
 
-    async def __iter__(self):
-        for item in list(self.valu.items()):
-            yield item
-
 class Set(Prim):
 
     def __init__(self, valu, path=None):
@@ -256,10 +252,6 @@ class Set(Prim):
 
     async def _methSetList(self):
         return list(self.valu)
-
-    async def __iter__(self):
-        for item in list(self.valu):
-            yield item
 
 class List(Prim):
 
