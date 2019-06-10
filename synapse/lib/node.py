@@ -683,7 +683,7 @@ class Trace:
         for i in range(len(path.nodes[:-1])):
             n1 = path.nodes[i]
             n2 = path.nodes[i + 1]
-            self.edges.add((n1.n2))
+            self.edges.add((n1, n2))
 
     def addFork(self, path):
         self.nodes.add(path.node)
