@@ -80,15 +80,11 @@ class LibBase(Lib):
             'guid': self._guid,
             'fire': self._fire,
             'text': self._text,
-            'list': self._list,
             'print': self._print,
         })
 
     async def _set(self, *vals):
         return Set(set(vals))
-
-    async def _list(self, *vals):
-        return List(list(vals))
 
     async def _text(self, *args):
         valu = ''.join(args)
