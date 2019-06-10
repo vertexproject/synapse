@@ -229,7 +229,6 @@ class Node:
                     raise s_exc.ReadOnlyProp(name=prop.full)
 
                 # not setting a set-once prop unless we are init...
-                await self.snap.warn(f'ReadOnlyProp: name={prop.full}')
                 return False
 
             # check for type specific merging...
@@ -390,6 +389,17 @@ class Node:
         return retn
 
     async def addTag(self, tag, valu=(None, None)):
+        '''
+        Add a tag to a node.
+
+        Args:
+            tag (str): The tag to add to the node.
+            valu: The optional tag value.  If specified, this must be a value that
+                  norms as a valid time interval as an ival.
+
+        Returns:
+            None: This returns None.
+        '''
 
         if self.isrunt:
             raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.',

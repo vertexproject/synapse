@@ -175,14 +175,6 @@ class CoreApi(s_cell.CellApi):
         async for node in self.cell.getNodesBy(full, valu, cmpr=cmpr):
             yield node.pack()
 
-    def allowed(self, *path):
-        return self.user.allowed(path)
-
-    def _reqUserAllowed(self, *path):
-        if not self.allowed(*path):
-            perm = '.'.join(path)
-            raise s_exc.AuthDeny(perm=perm, user=self.user.name)
-
     async def getModelDict(self):
         '''
         Return a dictionary which describes the data model.
@@ -392,7 +384,7 @@ class CoreApi(s_cell.CellApi):
         buid = s_common.uhex(iden)
 
         parts = tag.split('.')
-        self._reqUserAllowed('tag:add', *parts)
+        await self._reqUserAllowed('tag:add', *parts)
 
         async with await self.cell.snap(user=self.user) as snap:
             with s_provenance.claim('coreapi', meth='tag:add', user=snap.user.iden):
@@ -415,7 +407,7 @@ class CoreApi(s_cell.CellApi):
         buid = s_common.uhex(iden)
 
         parts = tag.split('.')
-        self._reqUserAllowed('tag:del', *parts)
+        await self._reqUserAllowed('tag:del', *parts)
 
         async with await self.cell.snap(user=self.user) as snap:
             with s_provenance.claim('coreapi', meth='tag:del', user=snap.user.iden):
@@ -439,14 +431,14 @@ class CoreApi(s_cell.CellApi):
                     raise s_exc.NoSuchIden(iden=iden)
 
                 prop = node.form.props.get(name)
-                self._reqUserAllowed('prop:set', prop.full)
+                await self._reqUserAllowed('prop:set', prop.full)
 
                 await node.set(name, valu)
                 return node.pack()
 
     async def addNode(self, form, valu, props=None):
 
-        self._reqUserAllowed('node:add', form)
+        await self._reqUserAllowed('node:add', form)
 
         async with await self.cell.snap(user=self.user) as snap:
             with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
@@ -475,7 +467,7 @@ class CoreApi(s_cell.CellApi):
             if done.get(formname):
                 continue
 
-            self._reqUserAllowed('node:add', formname)
+            await self._reqUserAllowed('node:add', formname)
             done[formname] = True
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -492,7 +484,7 @@ class CoreApi(s_cell.CellApi):
 
     async def addFeedData(self, name, items, seqn=None):
 
-        self._reqUserAllowed('feed:data', *name.split('.'))
+        await self._reqUserAllowed('feed:data', *name.split('.'))
 
         with s_provenance.claim('feed:data', name=name):
 
@@ -547,10 +539,7 @@ class CoreApi(s_cell.CellApi):
         The generator will only terminate on network disconnect or if the
         consumer falls behind the max window size of 10,000 splice messages.
         '''
-        if not self.allowed('layer:sync', iden):
-            mesg = f'User must have permission layer:sync.{iden}.'
-            raise s_exc.AuthDeny(mesg=mesg, perm=('layer:sync', iden))
-
+        await self._reqUserAllowed('layer:sync', iden)
         async for item in self.cell.syncLayerSplices(iden, offs):
             yield item
 
@@ -788,12 +777,11 @@ class Cortex(s_cell.Cell):
                         await self.fini()
                         return
 
-                    logger.warning(f'mirror loop connected ({url}')
-
                     # assume only the main layer for now...
                     layr = self.getLayer()
 
                     offs = await layr.getOffset(layr.iden)
+                    logger.warning(f'mirror loop connected ({url} offset={offs})')
 
                     if offs == 0:
                         stat = await layr.stat()
@@ -842,7 +830,7 @@ class Cortex(s_cell.Cell):
                             await layr.setOffset(layr.iden, items[-1][0])
 
             except asyncio.CancelledError: # pragma: no cover
-                raise
+                return
 
             except Exception:
                 logger.exception('error in initCoreMirror loop')

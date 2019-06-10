@@ -2,7 +2,26 @@
 Synapse Changelog
 *****************
 
-v0.1.11 - TBD
+v0.1.12 - TBD
+====================
+
+Features and Enhancements
+-------------------------
+
+- Centralize the ``allowed()`` and ``_reqUserAllowed()`` function from the CoreApi class to the CellApi, making permission checking easier for CellApi implementers. (`#1268 <https://github.com/vertexproject/synapse/pull/1268>`_)
+
+Bugfixes
+--------
+
+- Fix an issue where the Base ``link()`` API required the linking function to be a coroutine. (`#1261 <https://github.com/vertexproject/synapse/pull/1261>`_)
+
+Improved Documentation
+----------------------
+
+- Improve inline API help for a few functions. (`#1268 <https://github.com/vertexproject/synapse/pull/1268>`_)
+
+
+v0.1.11 - 2019-06-06
 ====================
 
 Features and Enhancements
@@ -14,6 +33,16 @@ Bugfixes
 --------
 
 - Fix an issue where the Cmdr color awareness for error highlighting was preventing documentation from building properly. (`#1261 <https://github.com/vertexproject/synapse/pull/1261>`_)
+- Fix an issue where the ``synapse.servers.cortex`` ``--mirror`` option was not properly mirroring realtime splices. (`#1264 <https://github.com/vertexproject/synapse/pull/1264>`_)
+- Fix a runtsafe variable order bug in Storm. (`#1265 <https://github.com/vertexproject/synapse/pull/1265>`_)
+- Work around an issue in prompt-toolkit's ``print_formatted_text`` function. (`#1266 <https://github.com/vertexproject/synapse/pull/1266>`_)
+- Fix an issue where color awareness was not available for Cmdr sessions launched via ``synapse.tools.csvtool`` and ``synapse.tools.feed``.  (`#1267 <https://github.com/vertexproject/synapse/pull/1267>`_)
+
+Improved Documentation
+----------------------
+
+- Update Storm lift documentation to include lifting by time intervals. (`#1260 <https://github.com/vertexproject/synapse/pull/1260>`_)
+- Update ReadTheDocs build configuration to utilize a Docker container, instead of a conda environment. (`#1262 <https://github.com/vertexproject/synapse/pull/1262>`_)
 
 
 v0.1.10 - 2019-06-04

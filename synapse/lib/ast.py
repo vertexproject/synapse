@@ -522,17 +522,14 @@ class VarEvalOper(Oper):
     '''
     async def run(self, runt, genr):
 
-        if self.isRuntSafe(runt):
+        anynodes = False
+        async for node, path in genr:
+            anynodes = True
+            await self.kids[0].compute(path)
+            yield node, path
 
-            async for item in genr:
-                yield item
-
+        if not anynodes and self.isRuntSafe(runt):
             await self.kids[0].runtval(runt)
-
-        else:
-            async for node, path in genr:
-                await self.kids[0].compute(path)
-                yield node, path
 
 class SwitchCase(Oper):
 
