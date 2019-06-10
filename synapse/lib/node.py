@@ -589,15 +589,24 @@ class Path:
         self.vars = vars
         self.ctors = {}
 
-        self.vars.update({
+        # "builtins" which are *not* vars
+        # ( this allows copying variable context )
+        self.builtins = {
+            'path': self,
             'node': self.node,
-        })
+        }
 
         self.metadata = {}
 
     def getVar(self, name, defv=s_common.novalu):
 
+        # check if the name is in our variables
         valu = self.vars.get(name, s_common.novalu)
+        if valu is not s_common.novalu:
+            return valu
+
+        # check if it's in builtins
+        valu = self.builtins.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
 

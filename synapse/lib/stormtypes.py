@@ -204,12 +204,6 @@ class Prim(StormType):
     def value(self):
         return self.valu
 
-    def pack(self):
-        '''
-        Return a msgpack serializable data structure.
-        '''
-        return self.valu
-
 class Str(Prim):
 
     def __init__(self, valu, path=None):
@@ -244,21 +238,32 @@ class Set(Prim):
         Prim.__init__(self, set(valu), path=path)
         self.locls.update({
             'add': self._methSetAdd,
+            'adds': self._methSetAdds,
             'rem': self._methSetRem,
+            'rems': self._methSetRems,
+            'list': self._methSetList,
         })
 
     async def _methSetAdd(self, *items):
         [self.valu.add(i) for i in items]
 
+    async def _methSetAdds(self, *items):
+        for item in items:
+            [self.valu.add(i) for i in item]
+
     async def _methSetRem(self, *items):
         [self.valu.discard(i) for i in items]
+
+    async def _methSetRems(self, *items):
+        for item in items:
+            [self.valu.discard(i) for i in item]
+
+    async def _methSetList(self):
+        return list(self.valu)
 
     async def __iter__(self):
         for item in list(self.valu):
             yield item
-
-    def pack(self):
-        return list(self.valu)
 
 class List(Prim):
 
@@ -281,9 +286,6 @@ class List(Prim):
         Return the length of the list.
         '''
         return len(self.valu)
-
-    async def _methListAdd(self, *vals):
-        self.valu.extend(vals)
 
 class Node(Prim):
     '''
@@ -322,6 +324,17 @@ class Node(Prim):
 
     async def _methNodeIden(self):
         return self.valu.iden()
+
+class Path(Prim):
+
+    def __init__(self, node, path=None):
+        Prim.__init__(self, node, path=path)
+        self.locls.update({
+            'idens': self._methPathIdens,
+        })
+
+    async def _methPathIdens(self):
+        return [n.iden() for n in self.valu.nodes]
 
 class Text(Prim):
     '''
@@ -363,6 +376,9 @@ def fromprim(valu, path=None):
     # TODO: make s_node.Node a storm type itself?
     if isinstance(valu, s_node.Node):
         return Node(valu, path=path)
+
+    if isinstance(valu, s_node.Path):
+        return Path(valu, path=path)
 
     if isinstance(valu, StormType):
         return valu
