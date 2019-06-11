@@ -187,6 +187,7 @@ class NodeTest(s_t_utils.SynTest):
                 await node.addTag('test.foo.bar.duck', tval)
                 await node.addTag('test.foo.baz', tval)
                 await node.addTag('test.foo.time', ('2016', '2019'))
+                await node.addTag('test.foo', ('2015', '2017'))
                 pode = node.pack(dorepr=True)
 
                 node2 = await snap.addNode('test:int', '1234')
@@ -206,6 +207,7 @@ class NodeTest(s_t_utils.SynTest):
         self.false(s_node.tagged(pode, 'test.foo.bar.newp'))
 
         self.len(3, s_node.tags(pode, leaf=True))
+        self.len(4, s_node.tagsnice(pode))
         self.len(6, s_node.tags(pode))
         self.eq(s_node.reprTag(pode, '#test.foo.bar'), '')
         self.eq(s_node.reprTag(pode, '#test.foo.time'), '(2016/01/01 00:00:00.000, 2019/01/01 00:00:00.000)')
