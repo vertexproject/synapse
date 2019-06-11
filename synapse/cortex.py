@@ -2192,7 +2192,7 @@ class Cortex(s_cell.Cell):
         Change an existing trigger's query
         '''
         self.triggers.disable(iden)
-        await self.fire('core:trigger:action', iden=iden, action='enable')
+        await self.fire('core:trigger:action', iden=iden, action='disable')
 
     async def listTriggers(self):
         '''

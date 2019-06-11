@@ -61,7 +61,7 @@ class SynModule(s_module.CoreModule):
 
     async def _synTriggerLift(self, full, valu=None, cmpr=None):
         if not self._triggerRuntsByBuid:
-            self._initTriggerRunts()
+            await self._initTriggerRunts()
 
         if cmpr is not None and cmpr != '=':
             raise s_exc.BadCmprValu(mesg='Trigger runtime nodes only support equality comparator.',
@@ -121,17 +121,18 @@ class SynModule(s_module.CoreModule):
             if self.model.prop(prop).type.indx(propvalu):
                 propcache[(prop, propvalu)].append(buid)
 
-    def _initTriggerRunts(self):
+    async def _initTriggerRunts(self):
         now = s_common.now()
         typeform = self.model.form('syn:trigger')
-        for iden, info in self.core.triggers.list():
+        _trigs = await self.core.listTriggers()
+        for iden, info in _trigs:
             tnorm, _ = typeform.type.norm(iden)
             props = {'.created': now,
                      'vers': info.pop('ver'),
                      'cond': info.pop('cond'),
                      'storm': info.pop('storm'),
+                     'user': info.pop('username'),
                      'enabled': info.pop('enabled'),
-                     'user': info.pop('useriden'),
                      }
             for key in ('form', 'tag', 'prop'):
                 valu = info.pop(key, None)
