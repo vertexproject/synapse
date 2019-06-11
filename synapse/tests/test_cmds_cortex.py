@@ -210,18 +210,10 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.isin(('#6faef2', '           ^'), clines)
 
             # Test that trying to print an \r doesn't assert (prompt_toolkit bug)
+            # https://github.com/prompt-toolkit/python-prompt-toolkit/issues/915
             await core.addNode('test:str', 'foo', props={'hehe': 'windows\r\nwindows\r\n'})
             await cmdr.runCmdLine('storm test:str=foo')
             self.true(1)
-
-        # Attempt to use a closed proxy - this fails as soon
-        # as we try to execute the command
-        self.true(core.isfini)
-        outp = self.getTestOutp()
-        cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-        await cmdr.runCmdLine('storm .created')
-        self.true(outp.expect('error: IsFini'))
-        await cmdr.fini()
 
     async def test_log(self):
 
