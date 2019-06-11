@@ -245,10 +245,19 @@ class StormTypesTest(s_test.SynTest):
                 $trace=$path.trace()
 
                 -> inet:dns:a -> inet:ipv4
+
+                /* Make a trace object from a path which already has nodes */
+                $trace2=$path.trace()
+
                 [ graph:node="*" ] +graph:node [ :data=$trace.idens() ]
+
+                /* Print the contents of the second trace */
+                $lib.print($trace2.idens())
                 '''
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
+            mesgs = await core.streamstorm(q).list()
+            podes = [m[1] for m in mesgs if m[0] == 'node']
+            self.len(1, podes)
+            pode = podes[0]
 
             idens = (
                 '02488bc284ffd0f60f474d5af66a8c0cf89789f766b51fde1d3da9b227005f47',
@@ -256,4 +265,7 @@ class StormTypesTest(s_test.SynTest):
                 '3ecd51e142a5acfcde42c02ff5c68378bfaf1eaf49fe9721550b6e7d6013b699',
             )
 
-            self.eq(tuple(sorted(nodes[0].get('data'))), idens)
+            self.eq(tuple(sorted(pode[1]['props'].get('data'))), idens)
+
+            for iden in idens:
+                self.stormIsInPrint(iden, mesgs)
