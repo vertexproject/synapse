@@ -752,7 +752,6 @@ def tagsnice(pode):
         list: A list of tag strings.
     '''
     tags = pode[1]['tags']
-    fulltags = list(tags.keys())
     return _tagscommon(pode, False)
 
 def _tagscommon(pode, leafonly):
