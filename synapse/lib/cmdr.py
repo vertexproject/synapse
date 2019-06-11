@@ -9,6 +9,8 @@ import synapse.cmds.trigger as s_cmds_trigger
 cmdsbycell = {
     'cell': (
         s_cmds_hive.HiveCmd,
+        s_cmds_boss.PsCmd,
+        s_cmds_boss.KillCmd,
     ),
 
     'cortex': (
