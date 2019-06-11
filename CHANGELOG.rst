@@ -2,6 +2,15 @@
 Synapse Changelog
 *****************
 
+v0.1.13 - TBD
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add ``syn:trigger`` runtime only nodes to the Cortex. These represent triggers which have been configured on a Cortex. (`#1270 <https://github.com/vertexproject/synapse/pull/1270>`_)
+
+
 v0.1.12 - 2019-06-12
 ====================
 
