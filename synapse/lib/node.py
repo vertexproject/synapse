@@ -594,21 +594,40 @@ class Path:
         self.snap = runt.snap
         self.nodes = nodes
 
+        self.traces = []
+
         if len(nodes):
             self.node = nodes[-1]
 
         self.vars = vars
         self.ctors = {}
 
-        self.vars.update({
+        # "builtins" which are *not* vars
+        # ( this allows copying variable context )
+        self.builtins = {
+            'path': self,
             'node': self.node,
-        })
+        }
 
         self.metadata = {}
 
+    def trace(self):
+        '''
+        Construct and return a Trace object for this path.
+        '''
+        trace = Trace(self)
+        self.traces.append(trace)
+        return trace
+
     def getVar(self, name, defv=s_common.novalu):
 
+        # check if the name is in our variables
         valu = self.vars.get(name, s_common.novalu)
+        if valu is not s_common.novalu:
+            return valu
+
+        # check if it's in builtins
+        valu = self.builtins.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
 
@@ -640,7 +659,35 @@ class Path:
         nodes = list(self.nodes)
         nodes.append(node)
 
-        return Path(self.runt, dict(self.vars), nodes)
+        path = Path(self.runt, dict(self.vars), nodes)
+        path.traces.extend(self.traces)
+
+        [t.addFork(path) for t in self.traces]
+
+        return path
+
+class Trace:
+    '''
+    A trace for pivots taken and nodes involved from a given path's subsequent forks.
+    '''
+    def __init__(self, path):
+        self.edges = set()
+        self.nodes = set()
+
+        self.addPath(path)
+
+    def addPath(self, path):
+
+        [self.nodes.add(n) for n in path.nodes]
+
+        for i in range(len(path.nodes[:-1])):
+            n1 = path.nodes[i]
+            n2 = path.nodes[i + 1]
+            self.edges.add((n1, n2))
+
+    def addFork(self, path):
+        self.nodes.add(path.node)
+        self.edges.add((path.nodes[-2], path.nodes[-1]))
 
 def props(pode):
     '''

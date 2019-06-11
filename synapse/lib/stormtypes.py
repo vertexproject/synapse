@@ -75,12 +75,16 @@ class LibBase(Lib):
             'len': self._len,
             'min': self._min,
             'max': self._max,
+            'set': self._set,
             'dict': self._dict,
             'guid': self._guid,
             'fire': self._fire,
             'text': self._text,
             'print': self._print,
         })
+
+    async def _set(self, *vals):
+        return Set(set(vals))
 
     async def _text(self, *args):
         valu = ''.join(args)
@@ -220,6 +224,35 @@ class Dict(Prim):
     def deref(self, name):
         return self.valu.get(name)
 
+class Set(Prim):
+
+    def __init__(self, valu, path=None):
+        Prim.__init__(self, set(valu), path=path)
+        self.locls.update({
+            'add': self._methSetAdd,
+            'adds': self._methSetAdds,
+            'rem': self._methSetRem,
+            'rems': self._methSetRems,
+            'list': self._methSetList,
+        })
+
+    async def _methSetAdd(self, *items):
+        [self.valu.add(i) for i in items]
+
+    async def _methSetAdds(self, *items):
+        for item in items:
+            [self.valu.add(i) for i in item]
+
+    async def _methSetRem(self, *items):
+        [self.valu.discard(i) for i in items]
+
+    async def _methSetRems(self, *items):
+        for item in items:
+            [self.valu.discard(i) for i in item]
+
+    async def _methSetList(self):
+        return list(self.valu)
+
 class List(Prim):
 
     def __init__(self, valu, path=None):
@@ -280,6 +313,35 @@ class Node(Prim):
     async def _methNodeIden(self):
         return self.valu.iden()
 
+class Path(Prim):
+
+    def __init__(self, node, path=None):
+        Prim.__init__(self, node, path=path)
+        self.locls.update({
+            'idens': self._methPathIdens,
+            'trace': self._methPathTrace,
+        })
+
+    async def _methPathIdens(self):
+        return [n.iden() for n in self.valu.nodes]
+
+    async def _methPathTrace(self):
+        trace = self.valu.trace()
+        return Trace(trace)
+
+class Trace(Prim):
+    '''
+    Storm API wrapper for the Path Trace object.
+    '''
+    def __init__(self, trace, path=None):
+        Prim.__init__(self, trace, path=path)
+        self.locls.update({
+            'idens': self._methTraceIdens,
+        })
+
+    async def _methTraceIdens(self):
+        return [n.iden() for n in self.valu.nodes]
+
 class Text(Prim):
     '''
     A mutable text type for simple text construction.
@@ -320,6 +382,9 @@ def fromprim(valu, path=None):
     # TODO: make s_node.Node a storm type itself?
     if isinstance(valu, s_node.Node):
         return Node(valu, path=path)
+
+    if isinstance(valu, s_node.Path):
+        return Path(valu, path=path)
 
     if isinstance(valu, StormType):
         return valu
