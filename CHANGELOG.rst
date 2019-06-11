@@ -9,6 +9,9 @@ Features and Enhancements
 -------------------------
 
 - Centralize the ``allowed()`` and ``_reqUserAllowed()`` function from the CoreApi class to the CellApi, making permission checking easier for CellApi implementers. (`#1268 <https://github.com/vertexproject/synapse/pull/1268>`_)
+- Add the ``$path`` built-in Storm variable to the default variables populated in the Storm pipeline. (`#1269 <https://github.com/vertexproject/synapse/pull/1269>`_)
+- Add a ``$path.trace()`` method to get a object which traces the pivots from a given Path object.  The path idens can be obtained via ``trace.iden()``. (`#1269 <https://github.com/vertexproject/synapse/pull/1269>`_)
+- Add ``$lib.set()`` to Storm Types.  This can be used to get a mutable set object. (`#1269 <https://github.com/vertexproject/synapse/pull/1269>`_)
 
 Bugfixes
 --------
