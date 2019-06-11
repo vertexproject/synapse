@@ -206,7 +206,8 @@ class NodeTest(s_t_utils.SynTest):
         self.true(s_node.tagged(pode, 'test.foo.bar.duck'))
         self.false(s_node.tagged(pode, 'test.foo.bar.newp'))
 
-        self.len(4, s_node.tags(pode, leaf=True))
+        self.len(3, s_node.tags(pode, leaf=True))
+        self.len(4, s_node.tagsnice(pode))
         self.len(6, s_node.tags(pode))
         self.eq(s_node.reprTag(pode, '#test.foo.bar'), '')
         self.eq(s_node.reprTag(pode, '#test.foo.time'), '(2016/01/01 00:00:00.000, 2019/01/01 00:00:00.000)')

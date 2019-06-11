@@ -732,23 +732,39 @@ def tags(pode, leaf=False):
 
     Args:
         pode (tuple): A packed node.
-        leaf (bool): If True, only return leaf tags and tags that have values
+        leaf (bool): If True, only return leaf tags
+
+    Returns:
+        list: A list of tag strings.
+    '''
+    if not leaf:
+        return list(pode[1]['tags'].keys())
+    return _tagscommon(pode, True)
+
+def tagsnice(pode):
+    '''
+    Get all the leaf tags and the tags that have values
+
+    Args:
+        pode (tuple): A packed node.
 
     Returns:
         list: A list of tag strings.
     '''
     tags = pode[1]['tags']
     fulltags = list(tags.keys())
-    if not leaf:
-        return fulltags
+    return _tagscommon(pode, False)
 
-    # longest first
+def _tagscommon(pode, leafonly):
+    '''
+    Return either all the leaf tags or all the leaf tags and all the internal tags with values
+    '''
     retn = []
 
     # brute force rather than build a tree.  faster in small sets.
-    for size, tag in sorted([(len(t), t) for t in fulltags], reverse=True):
+    for tag, val in sorted((t for t in pode[1]['tags'].items()), reverse=True, key=lambda x: len(x[0])):
         look = tag + '.'
-        if tags[tag] == (None, None) and any([r.startswith(look) for r in retn]):
+        if (leafonly or val == (None, None)) and any([r.startswith(look) for r in retn]):
             continue
         retn.append(tag)
     return retn
