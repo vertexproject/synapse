@@ -263,20 +263,17 @@ class Triggers:
     def mod(self, iden, query):
         rule = self._rules.get(iden)
         if rule is None:
-            raise s_exc.NoSuchIden()
+            raise s_exc.NoSuchIden(iden=iden)
 
         self.core.getStormQuery(query)
 
         rule.storm = query
         self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
-        self.core.schedCoroSafe(self.core.fire('core:trigger:action',
-                                               iden=iden, action='mod',
-                                               ))
 
     def enable(self, iden):
         rule = self._rules.get(iden)
         if rule is None:
-            raise s_exc.NoSuchIden()
+            raise s_exc.NoSuchIden(iden=iden)
 
         rule.enabled = True
         self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
@@ -287,7 +284,7 @@ class Triggers:
     def disable(self, iden):
         rule = self._rules.get(iden)
         if rule is None:
-            raise s_exc.NoSuchIden()
+            raise s_exc.NoSuchIden(iden=iden)
 
         rule.enabled = False
         self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
@@ -320,21 +317,15 @@ class Triggers:
 
         rule = self._load_rule(iden, 1, condition, useriden, query, True, info=info)
         self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
-        self.core.schedCoroSafe(self.core.fire('core:trigger:action',
-                                               iden=iden, action='add',
-                                               ))
         return iden
 
     def delete(self, iden):
 
         rule = self._rules.pop(iden, None)
         if rule is None:
-            raise s_exc.NoSuchIden()
+            raise s_exc.NoSuchIden(iden=iden)
 
         self.core.slab.delete(iden.encode(), db=self.trigdb)
-        self.core.schedCoroSafe(self.core.fire('core:trigger:action',
-                                               iden=iden, action='delete',
-                                               ))
 
         if rule.cond == 'node:add':
             self.nodeadd[rule.form].remove(rule)
@@ -371,5 +362,5 @@ class Triggers:
     def get(self, iden):
         rule = self._rules.get(iden)
         if rule is None:
-            raise s_exc.NoSuchIden()
+            raise s_exc.NoSuchIden(iden=iden)
         return dataclasses.asdict(rule)

@@ -200,7 +200,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(0, nodes)
 
             waiter = core.waiter(1, 'core:trigger:action')
-            core.triggers.add('root', 'node:add', '[inet:user=1] | testcmd', info={'form': 'inet:ipv4'})
+            await core.addTrigger('node:add', '[inet:user=1] | testcmd', info={'form': 'inet:ipv4'})
             evnts = await waiter.wait(3)
             self.len(1, evnts)
 
@@ -219,8 +219,8 @@ class SynModelTest(s_t_utils.SynTest):
 
             # Trigger reloads and make some more triggers to play with
             waiter = core.waiter(2, 'core:trigger:action')
-            core.triggers.add('root', 'prop:set', '[inet:user=1] | testcmd', info={'prop': 'inet:ipv4:asn'})
-            core.triggers.add('root', 'tag:add', '[inet:user=1] | testcmd', info={'tag': 'hehe.haha'})
+            await core.addTrigger('prop:set', '[inet:user=1] | testcmd', info={'prop': 'inet:ipv4:asn'})
+            await core.addTrigger('tag:add', '[inet:user=1] | testcmd', info={'tag': 'hehe.haha'})
             evnts = await waiter.wait(3)
             self.len(2, evnts)
 
