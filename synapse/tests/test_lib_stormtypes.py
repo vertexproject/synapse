@@ -168,3 +168,104 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('[ test:int=10 ] $text=$lib.text(hehe) { +test:int>=10 $text.add(haha) } [ test:str=$text.str() ] +test:str')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'hehehaha'))
+
+    async def test_storm_set(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[inet:ipv4=1.2.3.4 :asn=20]')
+            await core.nodes('[inet:ipv4=5.6.7.8 :asn=30]')
+
+            q = '''
+                $set = $lib.set()
+                inet:ipv4 $set.add(:asn)
+                [ graph:node="*" ] +graph:node [ :data=$set.list() ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(tuple(sorted(nodes[0].get('data'))), (20, 30))
+
+            q = '''
+                $set = $lib.set()
+                inet:ipv4 $set.adds((:asn,:asn))
+                [ graph:node="*" ] +graph:node [ :data=$set.list() ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(tuple(sorted(nodes[0].get('data'))), (20, 30))
+
+            q = '''
+                $set = $lib.set()
+                inet:ipv4 $set.adds((:asn,:asn))
+                { +:asn=20 $set.rem(:asn) }
+                [ graph:node="*" ] +graph:node [ :data=$set.list() ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(tuple(sorted(nodes[0].get('data'))), (30,))
+
+            q = '''
+                $set = $lib.set()
+                inet:ipv4 $set.add(:asn)
+                $set.rems((:asn,:asn))
+                [ graph:node="*" ] +graph:node [ :data=$set.list() ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(tuple(sorted(nodes[0].get('data'))), ())
+
+    async def test_storm_path(self):
+        async with self.getTestCore() as core:
+            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
+            q = '''
+                inet:fqdn=vertex.link -> inet:dns:a -> inet:ipv4
+                $idens = $path.idens()
+                [ graph:node="*" ] +graph:node [ :data=$idens ]
+            '''
+
+            idens = (
+                '02488bc284ffd0f60f474d5af66a8c0cf89789f766b51fde1d3da9b227005f47',
+                '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
+                '3ecd51e142a5acfcde42c02ff5c68378bfaf1eaf49fe9721550b6e7d6013b699',
+            )
+
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(tuple(sorted(nodes[0].get('data'))), idens)
+
+    async def test_storm_trace(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
+
+            q = '''
+                inet:fqdn=vertex.link
+
+                $trace=$path.trace()
+
+                -> inet:dns:a -> inet:ipv4
+
+                /* Make a trace object from a path which already has nodes */
+                $trace2=$path.trace()
+
+                [ graph:node="*" ] +graph:node [ :data=$trace.idens() ]
+
+                /* Print the contents of the second trace */
+                $lib.print($trace2.idens())
+                '''
+            mesgs = await core.streamstorm(q).list()
+            podes = [m[1] for m in mesgs if m[0] == 'node']
+            self.len(1, podes)
+            pode = podes[0]
+
+            idens = (
+                '02488bc284ffd0f60f474d5af66a8c0cf89789f766b51fde1d3da9b227005f47',
+                '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
+                '3ecd51e142a5acfcde42c02ff5c68378bfaf1eaf49fe9721550b6e7d6013b699',
+            )
+
+            self.eq(tuple(sorted(pode[1]['props'].get('data'))), idens)
+
+            for iden in idens:
+                self.stormIsInPrint(iden, mesgs)
