@@ -732,12 +732,13 @@ def tags(pode, leaf=False):
 
     Args:
         pode (tuple): A packed node.
-        leaf (bool): If True, only return the full tags.
+        leaf (bool): If True, only return leaf tags and tags that have values
 
     Returns:
         list: A list of tag strings.
     '''
-    fulltags = [tag for tag in pode[1]['tags']]
+    tags = pode[1]['tags']
+    fulltags = list(tags.keys())
     if not leaf:
         return fulltags
 
@@ -747,7 +748,7 @@ def tags(pode, leaf=False):
     # brute force rather than build a tree.  faster in small sets.
     for size, tag in sorted([(len(t), t) for t in fulltags], reverse=True):
         look = tag + '.'
-        if any([r.startswith(look) for r in retn]):
+        if tags[tag] == (None, None) and any([r.startswith(look) for r in retn]):
             continue
         retn.append(tag)
     return retn
