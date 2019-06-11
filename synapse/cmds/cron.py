@@ -37,10 +37,9 @@ Syntax:
     cron list
 
 Example:
-    cli> cron list
-    user       iden       recurs? now? # start last start       last end         query
-    <None>     4ad2218a.. N       N          1 2018-12-14T15:53 2018-12-14T15:53 #foo
-    <None>     f6b6aebd.. Y       N          3 2018-12-14T16:25 2018-12-14T16:25 #foo
+    user       iden       en? rpt? now? # start last start       last end         query
+    root       029ce7bd.. Y   Y    N      17809 2019-06-11T19:59 2019-06-11T19:59  exec foo
+    root       06b46533.. Y   Y    N      18086 2019-06-11T20:00 2019-06-11T20:00  exec foo2
 '''
 
 ModHelp = '''
@@ -464,7 +463,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             self.printf('No cron jobs found')
             return
         self.printf(
-            f'{"user":10} {"iden":10} {"en?":3} {"rpt?":4} {"now?":4} '
+                f'{"user":10} {"iden":10} {"en?":3} {"rpt?":4} {"now?":4} {"err?":4} '
             f'{"# start":7} {"last start":16} {"last end":16} {"query"}')
 
         for iden, cron in cronlist:
@@ -479,9 +478,11 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             laststart = 'Never' if laststart is None else self._format_timestamp(laststart)
             lastend = cron.get('lastfinishtime')
             lastend = 'Never' if lastend is None else self._format_timestamp(lastend)
+            result = cron.get('lastresult')
+            iserr = 'X' if result is not None and not result.startswith('finished successfully') else ' '
 
             self.printf(
-                f'{user:10} {idenf:10} {enabled:3} {isrecur:4} {isrunning:4} '
+                f'{user:10} {idenf:10} {enabled:3} {isrecur:4} {isrunning:4} {iserr:4} '
                 f'{startcount:7} {laststart:16} {lastend:16} {query}')
 
     async def _handle_mod(self, core, opts):
