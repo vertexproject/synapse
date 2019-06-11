@@ -2196,7 +2196,7 @@ class Cortex(s_cell.Cell):
 
     async def listTriggers(self):
         '''
-        Lists all the triggers that the current user is authorized to access
+        Lists all the triggers in the Cortex.
         '''
         trigs = []
         for (iden, trig) in self.triggers.list():
