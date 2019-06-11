@@ -192,6 +192,11 @@ class TrigTest(s_t_utils.SynTest):
                     # Mod trigger auth failure
                     await self.asyncraises(s_exc.AuthDeny, fred.updateTrigger(buid, '[ test:str=44 ]'))
 
+                # additional NoSuchIden failures
+                self.raises(s_exc.NoSuchIden, real.getTrigger, 'newp')
+                await self.asyncraises(s_exc.NoSuchIden, real.enableTrigger('newp'))
+                await self.asyncraises(s_exc.NoSuchIden, real.disableTrigger('newp'))
+
     async def test_trigger_delete(self):
 
         async with self.getTestCore() as core:
