@@ -194,6 +194,7 @@ class TrigTest(s_t_utils.SynTest):
 
                 # additional NoSuchIden failures
                 self.raises(s_exc.NoSuchIden, real.getTrigger, 'newp')
+                await self.asyncraises(s_exc.NoSuchIden, real.delTrigger('newp'))
                 await self.asyncraises(s_exc.NoSuchIden, real.enableTrigger('newp'))
                 await self.asyncraises(s_exc.NoSuchIden, real.disableTrigger('newp'))
 
