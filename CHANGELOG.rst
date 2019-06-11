@@ -2,7 +2,7 @@
 Synapse Changelog
 *****************
 
-v0.1.12 - TBD
+v0.1.12 - 2019-06-12
 ====================
 
 Features and Enhancements
