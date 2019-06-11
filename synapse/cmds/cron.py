@@ -37,9 +37,9 @@ Syntax:
     cron list
 
 Example:
-    user       iden       en? rpt? now? # start last start       last end         query
-    root       029ce7bd.. Y   Y    N      17809 2019-06-11T19:59 2019-06-11T19:59  exec foo
-    root       06b46533.. Y   Y    N      18086 2019-06-11T20:00 2019-06-11T20:00  exec foo2
+    user       iden       en? rpt? now? err? # start last start       last end         query
+    root       029ce7bd.. Y   Y    N           17863 2019-06-11T21:47 2019-06-11T21:47 exec foo
+    root       06b46533.. Y   Y    N           18140 2019-06-11T21:48 2019-06-11T21:48 exec bar
 '''
 
 ModHelp = '''
