@@ -277,9 +277,6 @@ class Triggers:
 
         rule.enabled = True
         self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
-        self.core.schedCoroSafe(self.core.fire('core:trigger:action',
-                                               iden=iden, action='enable',
-                                               ))
 
     def disable(self, iden):
         rule = self._rules.get(iden)
@@ -288,9 +285,6 @@ class Triggers:
 
         rule.enabled = False
         self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
-        self.core.schedCoroSafe(self.core.fire('core:trigger:action',
-                                               iden=iden, action='disable',
-                                               ))
 
     @contextlib.contextmanager
     def _recursion_check(self):
