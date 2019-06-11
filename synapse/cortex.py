@@ -199,9 +199,8 @@ class CoreApi(s_cell.CellApi):
         '''
         Adds a trigger to the cortex
         '''
-        iden = self.cell.triggers.add(self.user.iden, condition, query, info=info)
-        if disabled:
-            self.cell.triggers.disable(iden)
+        iden = await self.cell.addTrigger(condition, query, info, disabled,
+                                          user=self.user)
         return iden
 
     def _trig_auth_check(self, useriden):
@@ -214,45 +213,44 @@ class CoreApi(s_cell.CellApi):
         '''
         Deletes a trigger from the cortex
         '''
-        trig = self.cell.triggers.get(iden)
+        trig = self.cell.getTrigger(iden)
         self._trig_auth_check(trig.get('useriden'))
-        self.cell.triggers.delete(iden)
+        await self.cell.delTrigger(iden)
 
     async def updateTrigger(self, iden, query):
         '''
         Change an existing trigger's query
         '''
-        trig = self.cell.triggers.get(iden)
+        trig = self.cell.getTrigger(iden)
         self._trig_auth_check(trig.get('useriden'))
-        self.cell.triggers.mod(iden, query)
+        await self.cell.updateTrigger(iden, query)
 
     async def enableTrigger(self, iden):
         '''
         Change an existing trigger's query
         '''
-        trig = self.cell.triggers.get(iden)
+        trig = self.cell.getTrigger(iden)
         self._trig_auth_check(trig.get('useriden'))
-        self.cell.triggers.enable(iden)
+        await self.cell.enableTrigger(iden)
 
     async def disableTrigger(self, iden):
         '''
         Change an existing trigger's query
         '''
-        trig = self.cell.triggers.get(iden)
+        trig = self.cell.getTrigger(iden)
         self._trig_auth_check(trig.get('useriden'))
-        self.cell.triggers.disable(iden)
+        await self.cell.disableTrigger(iden)
 
     async def listTriggers(self):
         '''
         Lists all the triggers that the current user is authorized to access
         '''
         trigs = []
-        for (iden, trig) in self.cell.triggers.list():
+        _trigs = await self.cell.listTriggers()
+        for (iden, trig) in _trigs:
             useriden = trig['useriden']
             if not (self.user.admin or useriden == self.user.iden):
                 continue
-            user = self.cell.auth.user(useriden)
-            trig['username'] = '<unknown>' if user is None else user.name
             trigs.append((iden, trig))
 
         return trigs
@@ -2151,6 +2149,63 @@ class Cortex(s_cell.Cell):
                                    name=name)
         norm, info = tobj.norm(valu)
         return norm, info
+
+    async def addTrigger(self, condition, query, info, disabled=False, user=None):
+        '''
+        Adds a trigger to the cortex
+        '''
+        if user is None:
+            user = self.auth.getUserByName('root')
+
+        iden = self.triggers.add(user.iden, condition, query, info=info)
+        if disabled:
+            self.triggers.disable(iden)
+        await self.fire('core:trigger:action', iden=iden, action='add')
+        return iden
+
+    def getTrigger(self, iden):
+        return self.triggers.get(iden)
+
+    async def delTrigger(self, iden):
+        '''
+        Deletes a trigger from the cortex
+        '''
+        self.triggers.delete(iden)
+        await self.fire('core:trigger:action', iden=iden, action='delete')
+
+    async def updateTrigger(self, iden, query):
+        '''
+        Change an existing trigger's query
+        '''
+        self.triggers.mod(iden, query)
+        await self.fire('core:trigger:action', iden=iden, action='mod')
+
+    async def enableTrigger(self, iden):
+        '''
+        Change an existing trigger's query
+        '''
+        self.triggers.enable(iden)
+        await self.fire('core:trigger:action', iden=iden, action='enable')
+
+    async def disableTrigger(self, iden):
+        '''
+        Change an existing trigger's query
+        '''
+        self.triggers.disable(iden)
+        await self.fire('core:trigger:action', iden=iden, action='disable')
+
+    async def listTriggers(self):
+        '''
+        Lists all the triggers in the Cortex.
+        '''
+        trigs = []
+        for (iden, trig) in self.triggers.list():
+            useriden = trig['useriden']
+            user = self.auth.user(useriden)
+            trig['username'] = '<unknown>' if user is None else user.name
+            trigs.append((iden, trig))
+
+        return trigs
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):

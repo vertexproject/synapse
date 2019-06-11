@@ -272,7 +272,7 @@ class StormCmd(s_cli.Cmd):
 
         if not opts.get('hide-tags'):
 
-            for tag in sorted(s_node.tags(node, leaf=True)):
+            for tag in sorted(s_node.tagsnice(node)):
 
                 valu = s_node.reprTag(node, tag)
                 if valu:

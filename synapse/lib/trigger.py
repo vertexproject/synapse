@@ -263,7 +263,7 @@ class Triggers:
     def mod(self, iden, query):
         rule = self._rules.get(iden)
         if rule is None:
-            raise s_exc.NoSuchIden()
+            raise s_exc.NoSuchIden(iden=iden)
 
         self.core.getStormQuery(query)
 
@@ -273,7 +273,7 @@ class Triggers:
     def enable(self, iden):
         rule = self._rules.get(iden)
         if rule is None:
-            raise s_exc.NoSuchIden()
+            raise s_exc.NoSuchIden(iden=iden)
 
         rule.enabled = True
         self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
@@ -281,7 +281,7 @@ class Triggers:
     def disable(self, iden):
         rule = self._rules.get(iden)
         if rule is None:
-            raise s_exc.NoSuchIden()
+            raise s_exc.NoSuchIden(iden=iden)
 
         rule.enabled = False
         self.core.slab.put(iden.encode(), rule.en(), db=self.trigdb)
@@ -317,7 +317,7 @@ class Triggers:
 
         rule = self._rules.pop(iden, None)
         if rule is None:
-            raise s_exc.NoSuchIden()
+            raise s_exc.NoSuchIden(iden=iden)
 
         self.core.slab.delete(iden.encode(), db=self.trigdb)
 
@@ -356,5 +356,5 @@ class Triggers:
     def get(self, iden):
         rule = self._rules.get(iden)
         if rule is None:
-            raise s_exc.NoSuchIden()
+            raise s_exc.NoSuchIden(iden=iden)
         return dataclasses.asdict(rule)
