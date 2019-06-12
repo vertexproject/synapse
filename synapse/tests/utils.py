@@ -1059,7 +1059,7 @@ class SynTest(unittest.TestCase):
 
                 with self.getLoggerStream('synapse.foo.bar') as stream:
                     # Do something that triggers a log message
-                    doSomthing()
+                    doSomething()
 
                 stream.seek(0)
                 mesgs = stream.read()
@@ -1069,7 +1069,7 @@ class SynTest(unittest.TestCase):
 
                 with self.getLoggerStream('synapse.foo.bar', 'big badda boom happened') as stream:
                     # Do something that triggers a log message
-                    doSomthing()
+                    doSomething()
                     stream.wait(timeout=10)  # Wait for the mesg to be written to the stream
 
                 stream.seek(0)
@@ -1080,7 +1080,7 @@ class SynTest(unittest.TestCase):
 
                 with self.getLoggerStream('synapse.foo.bar', 'big badda boom happened') as stream:
                     # Do something that triggers a log message
-                    doSomthing()
+                    doSomething()
                     stream.wait(timeout=10)
                     stream.setMesg('yo dawg')  # This will now wait for the 'yo dawg' string to be written.
                     stream.wait(timeout=10)
@@ -1109,6 +1109,35 @@ class SynTest(unittest.TestCase):
 
     @contextlib.contextmanager
     def getAsyncLoggerStream(self, logname, mesg=''):
+        '''
+        Async version of getLoggerStream.
+
+        Args:
+            logname (str): Name of the logger to get.
+            mesg (str): A string which, if provided, sets the StreamEvent event if a message
+            containing the string is written to the log.
+
+        Notes:
+            The event object mixed in for the AsyncStreamEvent is a asyncio.Event object.
+            This requires the user to await the Event specific calls as neccesary.
+
+        Examples:
+            Do an action and wait for a specific log message to be written::
+
+                with self.getAsyncLoggerStream('synapse.foo.bar',
+                                               'big badda boom happened') as stream:
+                    # Do something that triggers a log message
+                    await doSomething()
+                    # Wait for the mesg to be written to the stream
+                    await stream.wait(timeout=10)
+
+                stream.seek(0)
+                mesgs = stream.read()
+                # Do something with messages
+
+        Returns:
+            AsyncStreamEvent: An AsyncStreamEvent object.
+        '''
         stream = AsyncStreamEvent()
         stream.setMesg(mesg)
         handler = logging.StreamHandler(stream)
@@ -1123,6 +1152,20 @@ class SynTest(unittest.TestCase):
 
     @contextlib.asynccontextmanager
     async def getHttpSess(self, auth=None, port=None):
+        '''
+        Get an aiohttp ClientSession with a CookieJar.
+
+        Args:
+            auth (str, str): A tuple of username and password information for http auth.
+            port (int): Port number to connect to.
+
+        Notes:
+            If auth and port are provided, the session will login to a Synapse cell
+            hosted at localhost:port.
+
+        Returns:
+            aiohttp.ClientSession: An aiohttp.ClientSession object.
+        '''
 
         jar = aiohttp.CookieJar(unsafe=True)
         conn = aiohttp.TCPConnector(ssl=False)
@@ -1135,7 +1178,8 @@ class SynTest(unittest.TestCase):
                     raise Exception('getHttpSess requires port for auth')
 
                 user, passwd = auth
-                async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': user, 'passwd': passwd}) as resp:
+                async with sess.post(f'https://localhost:{port}/api/v1/login',
+                                     json={'user': user, 'passwd': passwd}) as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
                     self.eq(user, retn['result']['name'])
