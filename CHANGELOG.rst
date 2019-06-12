@@ -9,6 +9,14 @@ Features and Enhancements
 -------------------------
 
 - Add ``syn:trigger`` runtime only nodes to the Cortex. These represent triggers which have been configured on a Cortex. (`#1270 <https://github.com/vertexproject/synapse/pull/1270>`_)
+- Add a new packed node helper, ``synapse.lib.nodes.tagsnice()``, to get all the leaf tags on a node and any tags which have a time interval associated with them. (`#1271 <https://github.com/vertexproject/synapse/pull/1271>`_)
+- Add a ``err?`` column to the output of the ``cron list``.  This includes an ``X`` character in the column if the last execution of that Cron task encountered an error. (`#1272 <https://github.com/vertexproject/synapse/pull/1272>`_)
+- Refactor the Boss commands in cmdr to their own file and improve test coverage for the Cortex ``storm`` command in Cmdr. (`#1273 <https://github.com/vertexproject/synapse/pull/1273>`_)
+
+Improved Documentation
+----------------------
+
+- Improve inline API help for a few test helper functions. (`#1273 <https://github.com/vertexproject/synapse/pull/1273>`_)
 
 
 v0.1.12 - 2019-06-12
