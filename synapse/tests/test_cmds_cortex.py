@@ -210,6 +210,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.isin(('#6faef2', '           ^'), clines)
 
             # Test that trying to print an \r doesn't assert (prompt_toolkit bug)
+            # https://github.com/prompt-toolkit/python-prompt-toolkit/issues/915
             await core.addNode('test:str', 'foo', props={'hehe': 'windows\r\nwindows\r\n'})
             await cmdr.runCmdLine('storm test:str=foo')
             self.true(1)
