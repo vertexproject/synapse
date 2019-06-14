@@ -64,6 +64,11 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await proxy.icando('foo', 'bar'))
                     await self.asyncraises(s_exc.AuthDeny, proxy.icando('foo', 'newp'))
 
+                    await self.asyncraises(s_exc.AuthDeny, proxy.listHiveKey(('foo',)))
+                    await self.asyncraises(s_exc.AuthDeny, proxy.getHiveKey(('foo',)))
+                    await self.asyncraises(s_exc.AuthDeny, proxy.setHiveKey(('foo',), 'bar'))
+                    await self.asyncraises(s_exc.AuthDeny, proxy.popHiveKey(('foo',)))
+
                 async with await s_telepath.openurl(root_url) as proxy:
 
                     await proxy.setUserLocked('visi', True)
