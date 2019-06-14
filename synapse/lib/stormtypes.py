@@ -270,7 +270,7 @@ class List(Prim):
         try:
             return self.valu[indx]
         except IndexError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e),
+            raise s_exc.StormRuntimeError(mesg=str(e), valurepr=repr(self.valu),
                                           len=len(self.valu), indx=indx) from None
 
     async def _methListLength(self):
@@ -295,11 +295,25 @@ class Node(Prim):
             'value': self._methNodeValue,
         })
 
-    async def _methNodeTags(self, glob=None):
+    async def _methNodeTags(self, glob=None, index=None):
         tags = list(self.valu.tags.keys())
+        tags.sort()
         if glob is not None:
             regx = s_cache.getTagGlobRegx(glob)
             tags = [t for t in tags if regx.fullmatch(t)]
+            if index is not None:
+                ret = []
+                indx = intify(index)
+                for tag in tags:
+                    parts = tag.split('.')
+                    try:
+                        ret.append(parts[indx])
+                    except IndexError as e:
+                        raise s_exc.StormRuntimeError(mesg=str(e),
+                                                      valurepr=repr(parts),
+                                                      len=len(parts),
+                                                      indx=indx) from None
+                tags = ret
         return tags
 
     async def _methNodeValue(self):

@@ -32,6 +32,24 @@ class StormTypesTest(s_test.SynTest):
             self.len(0, await core.eval('test:int#foo').list())
             self.len(1, await core.eval('test:int#bar').list())
 
+            q = '''[test:str=woot
+                    +#foo.bar.baz.faz
+                    +#foo.bar.jaz.faz
+                    +#foo.knight.day.faz]'''
+            nodes = await core.eval(q).list()
+            self.len(1, nodes)
+
+            q = 'test:str=woot $foo=$node.tags("foo.*.*.faz", index=2) $lib.print($foo)'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint("['baz', 'jaz', 'day']", mesgs)
+
+            # Sad case - index out of range
+            q = 'test:str=woot $foo=$node.tags("foo.*.*.faz", index=10) $lib.print($foo)'
+            mesgs = await core.streamstorm(q, {'path': True}).list()
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            self.eq(errs[0][0], 'StormRuntimeError')
+
     async def test_storm_lib_base(self):
 
         async with self.getTestCore() as core:
@@ -106,6 +124,12 @@ class StormTypesTest(s_test.SynTest):
 
             nodes = await core.nodes('[ test:comp=(10,lol) ] $x=$node.ndef().index(1).index(1) [ test:str=$x ]')
             self.eq(nodes[1].ndef, ('test:str', 'lol'))
+
+            # sad case - index out of bounds.
+            mesgs = await core.streamstorm('test:comp=(10,lol) $x=$node.ndef().index(2)').list()
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            self.eq(errs[0][0], 'StormRuntimeError')
 
     async def test_storm_lib_fire(self):
 
