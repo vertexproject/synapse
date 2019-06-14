@@ -310,6 +310,15 @@ class CellApi(s_base.Base):
 
         raise s_exc.NoSuchName(name=name)
 
+    async def getCellCmdTypes(self):
+        '''
+        Get the Cmdr command types this cell implements.
+
+        Returns:
+            list: A list of cmd types as strings.
+        '''
+        return self.cell.cmdtypes
+
 class PassThroughApi(CellApi):
     '''
     Class that passes through methods made on it to its cell.
@@ -381,7 +390,8 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         self.conf = s_common.config(conf, self.confdefs + self.confbase)
 
-        self.cmds = {}
+        self.cmdtypes = []
+        self._initCellApiCmds()
         self.insecure = self.boot.get('insecure', False)
 
         self.sessions = {}
@@ -578,6 +588,13 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         self.onfini(auth.fini)
         return auth
+
+    def _initCellApiCmds(self):
+        self.addCellCmdType('hive')
+        self.addCellCmdType('boss')
+
+    def addCellCmdType(self, cmdtype):
+        self.cmdtypes.append(cmdtype)
 
     @contextlib.asynccontextmanager
     async def getLocalProxy(self, share='*', user='root'):

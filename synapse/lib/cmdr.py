@@ -1,3 +1,5 @@
+import synapse.exc as s_exc
+
 import synapse.lib.cli as s_cli
 
 import synapse.cmds.boss as s_cmds_boss
@@ -5,6 +7,18 @@ import synapse.cmds.cron as s_cmds_cron
 import synapse.cmds.hive as s_cmds_hive
 import synapse.cmds.cortex as s_cmds_cortex
 import synapse.cmds.trigger as s_cmds_trigger
+
+cmdsbytype = {
+    'hive': (s_cmds_hive.HiveCmd,),
+    'boss': (s_cmds_boss.PsCmd,
+             s_cmds_boss.KillCmd),
+    'cron': (s_cmds_cron.At,
+               s_cmds_cron.Cron,
+               ),
+    'cortex': (s_cmds_cortex.Log,
+               s_cmds_cortex.StormCmd,
+               s_cmds_trigger.Trigger),
+}
 
 cmdsbycell = {
     'cell': (
@@ -24,6 +38,7 @@ cmdsbycell = {
         s_cmds_trigger.Trigger,
     ),
 }
+
 
 async def getItemCmdr(cell, outp=None, color=False, **opts):
     '''
@@ -48,10 +63,20 @@ async def getItemCmdr(cell, outp=None, color=False, **opts):
     cmdr = await s_cli.Cli.anit(cell, outp=outp)
     if color:
         cmdr.colorsenabled = True
-    typename = await cell.getCellType()
 
-    for ctor in cmdsbycell.get(typename, ()):
-        cmdr.addCmdClass(ctor)
+    try:
+        cmdtypes = await cell.getCellCmdTypes()
+
+        for ctype in cmdtypes:
+            for ctor in cmdsbytype.get(ctype, ()):
+                cmdr.addCmdClass(ctor)
+
+    except s_exc.NoSuchMeth as e:  # pragma: no cover
+        # This is fallback code
+        typename = await cell.getCellType()
+
+        for ctor in cmdsbycell.get(typename, ()):
+            cmdr.addCmdClass(ctor)
 
     return cmdr
 

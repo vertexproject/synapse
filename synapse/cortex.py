@@ -736,6 +736,8 @@ class Cortex(s_cell.Cell):
 
         await self._initCoreMods()
 
+        self._initCoreApiCmds()
+
         # Initialize free-running tasks.
         self._initCryoLoop()
         self._initPushLoop()
@@ -837,6 +839,13 @@ class Cortex(s_cell.Cell):
     async def _getWaitFor(self, name, valu):
         form = self.model.form(name)
         return form.getWaitFor(valu)
+
+    def _initCoreApiCmds(self):
+        '''
+        Registration for cmds types that cmdr is aware of
+        '''
+        self.addCellCmdType('cron')
+        self.addCellCmdType('cortex')
 
     def _initStormCmds(self):
         '''
