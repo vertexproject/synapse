@@ -267,7 +267,11 @@ class List(Prim):
         Return a single field from the list by index.
         '''
         indx = intify(valu)
-        return self.valu[indx]
+        try:
+            return self.valu[indx]
+        except IndexError as e:
+            raise s_exc.StormRuntimeError(mesg=str(e),
+                                          len=len(self.valu), indx=indx) from None
 
     async def _methListLength(self):
         '''
