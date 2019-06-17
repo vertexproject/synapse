@@ -36,7 +36,8 @@ class StormTypesTest(s_test.SynTest):
         def check_fire_mesgs(storm_mesgs, expected_data):
             tmesgs = [m[1] for m in storm_mesgs if m[0] == 'storm:fire']
             self.len(1, tmesgs)
-            self.eq(tmesgs[0].get('data', {}).get('globs'), expected_data)
+            test_data = set(tmesgs[0].get('data', {}).get('globs'))
+            self.eq(test_data, expected_data)
 
         async with self.getTestCore() as core:
             q = '''[test:str=woot
@@ -49,27 +50,27 @@ class StormTypesTest(s_test.SynTest):
             # explicit behavior tests
             q = 'test:str=woot $globs=$node.globtags("foo.*.*.faz") $lib.fire(test, globs=$globs) -test:str'
             mesgs = await core.streamstorm(q).list()
-            e = [('bar', 'baz'), ('bar', 'jaz'), ('knight', 'day')]
+            e = {('bar', 'baz'), ('bar', 'jaz'), ('knight', 'day')}
             check_fire_mesgs(mesgs, e)
 
             q = 'test:str=woot $globs=$node.globtags("foo.bar.*") $lib.fire(test, globs=$globs) -test:str'
             mesgs = await core.streamstorm(q).list()
-            e = ['baz', 'jaz']
+            e = {'baz', 'jaz'}
             check_fire_mesgs(mesgs, e)
 
             q = 'test:str=woot $globs=$node.globtags("foo.bar.*.*") $lib.fire(test, globs=$globs) -test:str'
             mesgs = await core.streamstorm(q).list()
-            e = [('baz', 'faz'), ('jaz', 'faz')]
+            e = {('baz', 'faz'), ('jaz', 'faz')}
             check_fire_mesgs(mesgs, e)
 
             q = 'test:str=woot $globs=$node.globtags("foo.bar.**") $lib.fire(test, globs=$globs) -test:str'
             mesgs = await core.streamstorm(q).list()
-            e = ['baz', 'baz.faz', 'jaz', 'jaz.faz']
+            e = {'baz', 'baz.faz', 'jaz', 'jaz.faz'}
             check_fire_mesgs(mesgs, e)
 
             q = 'test:str=woot $globs=$node.globtags("foo.bar.*.*.*") $lib.fire(test, globs=$globs) -test:str'
             mesgs = await core.streamstorm(q).list()
-            e = []
+            e = set()
             check_fire_mesgs(mesgs, e)
 
             # For loop example for a single-match case

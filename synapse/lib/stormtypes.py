@@ -298,7 +298,6 @@ class Node(Prim):
 
     async def _methNodeTags(self, glob=None):
         tags = list(self.valu.tags.keys())
-        tags.sort()
         if glob is not None:
             regx = s_cache.getTagGlobRegx(glob)
             tags = [t for t in tags if regx.fullmatch(t)]
@@ -306,7 +305,6 @@ class Node(Prim):
 
     async def _methNodeGlobTags(self, glob):
         tags = list(self.valu.tags.keys())
-        tags.sort()
         regx = s_cache.getTagGlobRegx(glob)
         ret = []
         for tag in tags:
