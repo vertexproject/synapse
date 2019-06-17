@@ -98,6 +98,12 @@ class GenrHelp:
         except StopAsyncIteration:
             return
 
+        except GeneratorExit:
+            # Raised if a synchronous consumer exiting a iterator early,
+            # we need to signal the generator to close down.
+            s_glob.sync(self.genr.aclose())
+            raise
+
     async def spin(self):
         async for x in self.genr:
             pass

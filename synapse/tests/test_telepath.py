@@ -243,26 +243,31 @@ class TeleTest(s_t_utils.SynTest):
             acm = self.getTestCoreAndProxy()
             core, proxy = s_glob.sync(acm.__aenter__())
 
-            logger.info(core)
-            logger.info(proxy)
-
             form = 'test:int'
 
-            q = '[' + ' '.join([f'{form}={i}' for i in range(20)]) + ' ]'
-            logger.info(q)
+            q = '[' + ' '.join([f'{form}={i}' for i in range(10)]) + ' ]'
 
+            # This puts a link into the link pool
             podes = list(proxy.eval(q))
-            self.len(20, podes)
+            self.len(10, podes)
 
             evt = threading.Event()
-            evt.clear()
 
-            q = f'{form} | sleep 1'
+            # Get the link from the pool, add the fini callback and put it back
+            link = s_glob.sync(proxy.getPoolLink())
+            link.onfini(evt.set)
+            s_glob.sync(proxy._putPoolLink(link))
 
+            q = f'{form} | sleep 0.1'
+
+            # Break from the generator right away, causing a
+            # GeneratorExit in the GenrHelp object __iter__ method.
             for pode in proxy.eval(q):
-                print(pode)
                 break
-            time.sleep(0.1)
+
+            # Ensure the link we have a reference too was torn down
+            self.true(evt.wait(4))
+            self.true(link.isfini)
 
         finally:
             s_glob.sync(acm.__aexit__(None, None, None))
