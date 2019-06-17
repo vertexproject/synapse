@@ -17,6 +17,7 @@ Improved Documentation
 ----------------------
 
 - Improve inline API help for a few test helper functions. (`#1273 <https://github.com/vertexproject/synapse/pull/1273>`_)
+- Update Cmdr reference documentation for trigger and cron updates. (`#1277 <https://github.com/vertexproject/synapse/pull/1277>`_)
 
 
 v0.1.12 - 2019-06-12
