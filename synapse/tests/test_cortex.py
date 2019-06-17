@@ -1286,6 +1286,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, await alist(proxy.eval('test:str#foo.bar')))
             self.len(1, await alist(proxy.eval('test:str:tick=2015')))
 
+            pack = await proxy.delNodeProp(node[1].get('iden'), 'tick')
+            self.none(pack[1]['props'].get('tick'))
+
             await proxy.delNodeTag(node[1].get('iden'), '#foo.bar')
             self.len(0, await alist(proxy.eval('test:str#foo.bar')))
 

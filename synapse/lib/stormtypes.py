@@ -19,7 +19,6 @@ def kwarg_format(text, **kwargs):
 
     return text
 
-
 class StormType:
     '''
     The base type for storm runtime value objects.
