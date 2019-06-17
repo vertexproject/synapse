@@ -8,6 +8,7 @@ import threading
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -232,6 +233,44 @@ class TeleTest(s_t_utils.SynTest):
 
             async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1]) as prox:
                 self.eq((10, 20, 30), await s_coro.executor(sync))
+
+    def test_telepath_sync_genr_break(self):
+
+        try:
+            acm = self.getTestCoreAndProxy()
+            core, proxy = s_glob.sync(acm.__aenter__())
+
+            form = 'test:int'
+
+            q = '[' + ' '.join([f'{form}={i}' for i in range(10)]) + ' ]'
+
+            # This puts a link into the link pool
+            podes = list(proxy.eval(q))
+            self.len(10, podes)
+
+            evt = threading.Event()
+
+            # Get the link from the pool, add the fini callback and put it back
+            link = s_glob.sync(proxy.getPoolLink())
+            link.onfini(evt.set)
+            s_glob.sync(proxy._putPoolLink(link))
+
+            q = f'{form} | sleep 0.1'
+
+            # Break from the generator right away, causing a
+            # GeneratorExit in the GenrHelp object __iter__ method.
+            pode = None
+            for pode in proxy.eval(q):
+                break
+            # Ensure the query did yield an object
+            self.nn(pode)
+
+            # Ensure the link we have a reference too was torn down
+            self.true(evt.wait(4))
+            self.true(link.isfini)
+
+        finally:
+            s_glob.sync(acm.__aexit__(None, None, None))
 
     async def test_telepath_no_sess(self):
 
