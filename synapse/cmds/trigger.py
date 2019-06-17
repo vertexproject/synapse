@@ -50,8 +50,9 @@ Syntax:
 
 Example:
     cli> trigger list
-    user       iden         cond      object                    storm query
-    <None>     739719ff..   prop:set  test:type10.intprop            [ test:int=6 ]
+    user       iden         en? cond      object                    storm query
+    root       607e9d97..   Y   prop:set  test:type10.intprop            [test:int=6]
+
 '''
 
 DelHelp = '''
@@ -78,7 +79,7 @@ EnableHelp = '''
 Enable an existing trigger.
 
 Syntax:
-    cron enable <iden prefix>
+    trigger enable <iden prefix>
 
 Notes:
     Any prefix that matches exactly one valid trigger iden is accepted.
@@ -88,7 +89,7 @@ DisableHelp = '''
 Disable an existing trigger.
 
 Syntax:
-    cron disable <iden prefix>
+    trigger disable <iden prefix>
 
 Notes:
     Any prefix that matches exactly one valid trigger is accepted.
