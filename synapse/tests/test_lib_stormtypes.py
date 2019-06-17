@@ -1,12 +1,11 @@
 import synapse.common as s_common
 import synapse.tests.utils as s_test
 
+
 class StormTypesTest(s_test.SynTest):
 
     async def test_storm_node_tags(self):
-
         async with self.getTestCore() as core:
-
             await core.eval('[ test:comp=(20, haha) +#foo +#bar test:comp=(30, hoho) ]').list()
 
             q = '''
@@ -32,6 +31,14 @@ class StormTypesTest(s_test.SynTest):
             self.len(0, await core.eval('test:int#foo').list())
             self.len(1, await core.eval('test:int#bar').list())
 
+    async def test_node_globtags(self):
+
+        def check_fire_mesgs(storm_mesgs, expected_data):
+            tmesgs = [m[1] for m in storm_mesgs if m[0] == 'storm:fire']
+            self.len(1, tmesgs)
+            self.eq(tmesgs[0].get('data', {}).get('globs'), expected_data)
+
+        async with self.getTestCore() as core:
             q = '''[test:str=woot
                     +#foo.bar.baz.faz
                     +#foo.bar.jaz.faz
@@ -39,21 +46,54 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.eval(q).list()
             self.len(1, nodes)
 
-            q = 'test:str=woot $foo=$node.tags("foo.*.*.faz", index=2) $lib.print($foo)'
+            # explicit behavior tests
+            q = 'test:str=woot $globs=$node.globtags("foo.*.*.faz") $lib.fire(test, globs=$globs) -test:str'
             mesgs = await core.streamstorm(q).list()
-            self.stormIsInPrint("['baz', 'jaz', 'day']", mesgs)
+            e = [('bar', 'baz'), ('bar', 'jaz'), ('knight', 'day')]
+            check_fire_mesgs(mesgs, e)
 
-            # Sad case - index out of range
-            q = 'test:str=woot $foo=$node.tags("foo.*.*.faz", index=10) $lib.print($foo)'
-            mesgs = await core.streamstorm(q, {'path': True}).list()
-            errs = [m[1] for m in mesgs if m[0] == 'err']
-            self.len(1, errs)
-            self.eq(errs[0][0], 'StormRuntimeError')
+            q = 'test:str=woot $globs=$node.globtags("foo.bar.*") $lib.fire(test, globs=$globs) -test:str'
+            mesgs = await core.streamstorm(q).list()
+            e = ['baz', 'jaz']
+            check_fire_mesgs(mesgs, e)
+
+            q = 'test:str=woot $globs=$node.globtags("foo.bar.*.*") $lib.fire(test, globs=$globs) -test:str'
+            mesgs = await core.streamstorm(q).list()
+            e = [('baz', 'faz'), ('jaz', 'faz')]
+            check_fire_mesgs(mesgs, e)
+
+            q = 'test:str=woot $globs=$node.globtags("foo.bar.**") $lib.fire(test, globs=$globs) -test:str'
+            mesgs = await core.streamstorm(q).list()
+            e = ['baz', 'baz.faz', 'jaz', 'jaz.faz']
+            check_fire_mesgs(mesgs, e)
+
+            q = 'test:str=woot $globs=$node.globtags("foo.bar.*.*.*") $lib.fire(test, globs=$globs) -test:str'
+            mesgs = await core.streamstorm(q).list()
+            e = []
+            check_fire_mesgs(mesgs, e)
+
+            # For loop example for a single-match case
+            q = '''test:str=woot
+            for $part in $node.globtags("foo.bar.*") {
+                [test:str=$part]
+            }'''
+            mesgs = await core.streamstorm(q).list()
+            self.len(1, await core.nodes('test:str=baz'))
+            self.len(1, await core.nodes('test:str=jaz'))
+
+            # For loop example for a multi-match case
+            q = '''test:str=woot
+                for ($part1, $part2, $part3) in $node.globtags("foo.*.*.*") {
+                    -test:str=woot
+                    [test:str=$part1 +#$part3]
+                }'''
+            mesgs = await core.streamstorm(q).list()
+            self.len(1, await core.nodes('test:str=bar'))
+            self.len(1, await core.nodes('test:str=knight'))
+            self.len(2, await core.nodes('#faz'))
 
     async def test_storm_lib_base(self):
-
         async with self.getTestCore() as core:
-
             nodes = await core.nodes('[ inet:asn=$lib.min(20, 0x30) ]')
             self.len(1, nodes)
             self.eq(20, nodes[0].ndef[1])
@@ -101,14 +141,12 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInPrint('woot at: hello 85', mesgs)
 
     async def test_storm_lib_dict(self):
-
         async with self.getTestCore() as core:
             nodes = await core.nodes('$blah = $lib.dict(foo=vertex.link) [ inet:fqdn=$blah.foo ]')
             self.len(1, nodes)
             self.eq('vertex.link', nodes[0].ndef[1])
 
     async def test_storm_lib_str(self):
-
         async with self.getTestCore() as core:
             q = '$v=vertex $l=link $fqdn=$lib.str.concat($v, ".", $l)' \
                 ' [ inet:email=$lib.str.format("visi@{domain}", domain=$fqdn) ]'
@@ -132,7 +170,6 @@ class StormTypesTest(s_test.SynTest):
             self.eq(errs[0][0], 'StormRuntimeError')
 
     async def test_storm_lib_fire(self):
-
         async with self.getTestCore() as core:
             text = '$lib.fire(foo:bar, baz=faz)'
 
@@ -144,7 +181,6 @@ class StormTypesTest(s_test.SynTest):
             self.eq(gotn[0][1]['data']['baz'], 'faz')
 
     async def test_storm_node_repr(self):
-
         text = '''
             [ inet:ipv4=1.2.3.4 :loc=us]
             $ipv4 = $node.repr()
@@ -187,16 +223,14 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
 
     async def test_storm_text_add(self):
-
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ test:int=10 ] $text=$lib.text(hehe) { +test:int>=10 $text.add(haha) } [ test:str=$text.str() ] +test:str')
+            nodes = await core.nodes(
+                '[ test:int=10 ] $text=$lib.text(hehe) { +test:int>=10 $text.add(haha) } [ test:str=$text.str() ] +test:str')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'hehehaha'))
 
     async def test_storm_set(self):
-
         async with self.getTestCore() as core:
-
             await core.nodes('[inet:ipv4=1.2.3.4 :asn=20]')
             await core.nodes('[inet:ipv4=5.6.7.8 :asn=30]')
 
@@ -258,9 +292,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(tuple(sorted(nodes[0].get('data'))), idens)
 
     async def test_storm_trace(self):
-
         async with self.getTestCore() as core:
-
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
 
             q = '''

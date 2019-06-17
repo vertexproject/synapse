@@ -293,28 +293,35 @@ class Node(Prim):
             'repr': self._methNodeRepr,
             'iden': self._methNodeIden,
             'value': self._methNodeValue,
+            'globtags': self._methNodeGlobTags,
         })
 
-    async def _methNodeTags(self, glob=None, index=None):
+    async def _methNodeTags(self, glob=None):
         tags = list(self.valu.tags.keys())
         tags.sort()
         if glob is not None:
             regx = s_cache.getTagGlobRegx(glob)
             tags = [t for t in tags if regx.fullmatch(t)]
-            if index is not None:
-                ret = []
-                indx = intify(index)
-                for tag in tags:
-                    parts = tag.split('.')
-                    try:
-                        ret.append(parts[indx])
-                    except IndexError as e:
-                        raise s_exc.StormRuntimeError(mesg=str(e),
-                                                      valurepr=repr(parts),
-                                                      len=len(parts),
-                                                      indx=indx) from None
-                tags = ret
         return tags
+
+    async def _methNodeGlobTags(self, glob):
+        tags = list(self.valu.tags.keys())
+        tags.sort()
+        regx = s_cache.getTagGlobRegx(glob)
+        ret = []
+        for tag in tags:
+            match = regx.fullmatch(tag)
+            if match is not None:
+                groups = match.groups()
+                # Per discussion: The simple use case of a single match is
+                # intuitive for a user to simply loop over as a raw list.
+                # In contrast, a glob match which yields multiple matching
+                # values would have to be unpacked.
+                if len(groups) == 1:
+                    ret.append(groups[0])
+                else:
+                    ret.append(groups)
+        return ret
 
     async def _methNodeValue(self):
         return self.valu.ndef[1]
