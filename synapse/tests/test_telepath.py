@@ -8,6 +8,7 @@ import threading
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -235,10 +236,6 @@ class TeleTest(s_t_utils.SynTest):
 
     def test_telepath_sync_genr_break(self):
 
-        import time
-        import threading
-        import synapse.glob as s_glob
-
         try:
             acm = self.getTestCoreAndProxy()
             core, proxy = s_glob.sync(acm.__aenter__())
@@ -262,8 +259,11 @@ class TeleTest(s_t_utils.SynTest):
 
             # Break from the generator right away, causing a
             # GeneratorExit in the GenrHelp object __iter__ method.
+            pode = None
             for pode in proxy.eval(q):
                 break
+            # Ensure the query did yield an object
+            self.nn(pode)
 
             # Ensure the link we have a reference too was torn down
             self.true(evt.wait(4))
