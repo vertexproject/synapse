@@ -64,6 +64,36 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await proxy.icando('foo', 'bar'))
                     await self.asyncraises(s_exc.AuthDeny, proxy.icando('foo', 'newp'))
 
+                    await self.asyncraises(s_exc.AuthDeny, proxy.listHiveKey(('faz',)))
+                    await self.asyncraises(s_exc.AuthDeny, proxy.getHiveKey(('faz',)))
+                    await self.asyncraises(s_exc.AuthDeny, proxy.setHiveKey(('faz',), 'bar'))
+                    await self.asyncraises(s_exc.AuthDeny, proxy.popHiveKey(('faz',)))
+
+                    # happy path perms
+                    await user.addRule((True, ('hive:set', 'foo', 'bar')))
+                    await user.addRule((True, ('hive:get', 'foo', 'bar')))
+                    await user.addRule((True, ('hive:list', 'foo', 'bar')))
+                    await user.addRule((True, ('hive:pop', 'foo', 'bar')))
+
+                    val = await proxy.setHiveKey(('foo', 'bar'), 'thefirstval')
+                    self.eq(None, val)
+
+                    # check that we get the old val back
+                    val = await proxy.setHiveKey(('foo', 'bar'), 'wootisetit')
+                    self.eq('thefirstval', val)
+
+                    val = await proxy.getHiveKey(('foo', 'bar'))
+                    self.eq('wootisetit', val)
+
+                    val = await proxy.popHiveKey(('foo', 'bar'))
+                    self.eq('wootisetit', val)
+
+                    val = await proxy.setHiveKey(('foo', 'bar', 'baz'), 'a')
+                    val = await proxy.setHiveKey(('foo', 'bar', 'faz'), 'b')
+                    val = await proxy.setHiveKey(('foo', 'bar', 'haz'), 'c')
+                    val = await proxy.listHiveKey(('foo', 'bar'))
+                    self.eq(('baz', 'faz', 'haz'), val)
+
                 async with await s_telepath.openurl(root_url) as proxy:
 
                     await proxy.setUserLocked('visi', True)
