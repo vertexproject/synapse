@@ -1289,6 +1289,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             pack = await proxy.delNodeProp(node[1].get('iden'), 'tick')
             self.none(pack[1]['props'].get('tick'))
 
+            iden = s_common.ehex(s_common.buid('newp'))
+            await self.asyncraises(s_exc.NoSuchIden, proxy.delNodeProp(iden, 'tick'))
+
             await proxy.delNodeTag(node[1].get('iden'), '#foo.bar')
             self.len(0, await alist(proxy.eval('test:str#foo.bar')))
 

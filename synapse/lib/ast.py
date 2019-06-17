@@ -337,7 +337,7 @@ class SubQuery(Oper):
 
             subp = None
             async for subp in subq.run(runt, agen(item)):
-                pass
+                pass  # pragma: no cover
 
             # dup any path variables from the last yielded
             if subp is not None:
