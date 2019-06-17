@@ -233,6 +233,40 @@ class TeleTest(s_t_utils.SynTest):
             async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1]) as prox:
                 self.eq((10, 20, 30), await s_coro.executor(sync))
 
+    def test_telepath_sync_genr_break(self):
+
+        import time
+        import threading
+        import synapse.glob as s_glob
+
+        try:
+            acm = self.getTestCoreAndProxy()
+            core, proxy = s_glob.sync(acm.__aenter__())
+
+            logger.info(core)
+            logger.info(proxy)
+
+            form = 'test:int'
+
+            q = '[' + ' '.join([f'{form}={i}' for i in range(20)]) + ' ]'
+            logger.info(q)
+
+            podes = list(proxy.eval(q))
+            self.len(20, podes)
+
+            evt = threading.Event()
+            evt.clear()
+
+            q = f'{form} | sleep 1'
+
+            for pode in proxy.eval(q):
+                print(pode)
+                break
+            time.sleep(0.1)
+
+        finally:
+            s_glob.sync(acm.__aexit__(None, None, None))
+
     async def test_telepath_no_sess(self):
 
         foo = Foo()

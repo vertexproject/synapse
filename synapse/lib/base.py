@@ -369,6 +369,11 @@ class Base:
 
         if __debug__:
             import synapse.lib.threads as s_threads  # avoid import cycle
+            if s_threads.iden() != self.tid:
+                thr = s_threads.current()
+                m = f'Fini called on {self} outside the loop thread!: {self.tid} / {s_threads.iden()} is {thr.name}'
+                logger.error(m)
+                # print(m)
             assert s_threads.iden() == self.tid
 
         self._syn_refs -= 1
