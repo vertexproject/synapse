@@ -266,7 +266,11 @@ class List(Prim):
         Return a single field from the list by index.
         '''
         indx = intify(valu)
-        return self.valu[indx]
+        try:
+            return self.valu[indx]
+        except IndexError as e:
+            raise s_exc.StormRuntimeError(mesg=str(e), valurepr=repr(self.valu),
+                                          len=len(self.valu), indx=indx) from None
 
     async def _methListLength(self):
         '''
@@ -288,6 +292,7 @@ class Node(Prim):
             'repr': self._methNodeRepr,
             'iden': self._methNodeIden,
             'value': self._methNodeValue,
+            'globtags': self._methNodeGlobTags,
         })
 
     async def _methNodeTags(self, glob=None):
@@ -296,6 +301,24 @@ class Node(Prim):
             regx = s_cache.getTagGlobRegx(glob)
             tags = [t for t in tags if regx.fullmatch(t)]
         return tags
+
+    async def _methNodeGlobTags(self, glob):
+        tags = list(self.valu.tags.keys())
+        regx = s_cache.getTagGlobRegx(glob)
+        ret = []
+        for tag in tags:
+            match = regx.fullmatch(tag)
+            if match is not None:
+                groups = match.groups()
+                # Per discussion: The simple use case of a single match is
+                # intuitive for a user to simply loop over as a raw list.
+                # In contrast, a glob match which yields multiple matching
+                # values would have to be unpacked.
+                if len(groups) == 1:
+                    ret.append(groups[0])
+                else:
+                    ret.append(groups)
+        return ret
 
     async def _methNodeValue(self):
         return self.valu.ndef[1]

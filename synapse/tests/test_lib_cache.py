@@ -38,21 +38,21 @@ class CacheTest(s_t_utils.SynTest):
 
     def test_regexize(self):
         restr = s_cache.regexizeTagGlob('foo*')
-        self.eq(restr, r'foo[^.]+?')
+        self.eq(restr, r'foo([^.]+?)')
         re = regex.compile(restr)
         self.nn(re.fullmatch('foot'))
         self.none(re.fullmatch('foo'))
         self.none(re.fullmatch('foo.bar'))
 
         restr = s_cache.regexizeTagGlob('foo**')
-        self.eq(restr, r'foo.+')
+        self.eq(restr, r'foo(.+)')
         re = regex.compile(restr)
         self.nn(re.fullmatch('foot'))
         self.none(re.fullmatch('foo'))
         self.nn(re.fullmatch('foo.bar'))
 
         restr = s_cache.regexizeTagGlob('foo.b*.b**z')
-        self.eq(restr, r'foo\.b[^.]+?\.b.+z')
+        self.eq(restr, r'foo\.b([^.]+?)\.b(.+)z')
         re = regex.compile(restr)
         self.none(re.fullmatch('foot'))
         self.none(re.fullmatch('foo'))
@@ -64,7 +64,7 @@ class CacheTest(s_t_utils.SynTest):
         self.nn(re.fullmatch('foo.bar.burma.shave.workz'))
 
         restr = s_cache.regexizeTagGlob('*.bar')
-        self.eq(restr, r'[^.]+?\.bar')
+        self.eq(restr, r'([^.]+?)\.bar')
         re = regex.compile(restr)
         self.none(re.fullmatch('foo'))
         self.none(re.fullmatch('.bar'))
@@ -73,7 +73,7 @@ class CacheTest(s_t_utils.SynTest):
         self.none(re.fullmatch('foo.bar.blah'))
 
         restr = s_cache.regexizeTagGlob('*bar')
-        self.eq(restr, r'[^.]+?bar')
+        self.eq(restr, r'([^.]+?)bar')
         re = regex.compile(restr)
         self.nn(re.fullmatch('bbar'))
         self.none(re.fullmatch('foo'))
@@ -83,7 +83,7 @@ class CacheTest(s_t_utils.SynTest):
         self.none(re.fullmatch('foo.bart'))
 
         restr = s_cache.regexizeTagGlob('**.bar')
-        self.eq(restr, r'.+\.bar')
+        self.eq(restr, r'(.+)\.bar')
         re = regex.compile(restr)
         self.none(re.fullmatch('foo'))
         self.none(re.fullmatch('.bar'))
@@ -93,7 +93,7 @@ class CacheTest(s_t_utils.SynTest):
         self.none(re.fullmatch('foo.duck.zanzibar'))
 
         restr = s_cache.regexizeTagGlob('**bar')
-        self.eq(restr, r'.+bar')
+        self.eq(restr, r'(.+)bar')
         re = regex.compile(restr)
         self.nn(re.fullmatch('.bar'))
         self.none(re.fullmatch('foo'))
@@ -103,7 +103,7 @@ class CacheTest(s_t_utils.SynTest):
         self.nn(re.fullmatch('foo.duck.zanzibar'))
 
         restr = s_cache.regexizeTagGlob('foo.b*b')
-        self.eq(restr, r'foo\.b[^.]+?b')
+        self.eq(restr, r'foo\.b([^.]+?)b')
         re = regex.compile(restr)
         self.none(re.fullmatch('foo.bb'))
         self.none(re.fullmatch('foo.bar'))
@@ -111,7 +111,7 @@ class CacheTest(s_t_utils.SynTest):
         self.none(re.fullmatch('foo.bar.rab'))
 
         restr = s_cache.regexizeTagGlob('foo.b**b')
-        self.eq(restr, r'foo\.b.+b')
+        self.eq(restr, r'foo\.b(.+)b')
         re = regex.compile(restr)
         self.none(re.fullmatch('foo.bb'))
         self.none(re.fullmatch('foo.bar'))
@@ -121,7 +121,7 @@ class CacheTest(s_t_utils.SynTest):
         self.none(re.fullmatch('foo.baaaaab.baaad'))
 
         restr = s_cache.regexizeTagGlob('foo.**.bar')
-        self.eq(restr, r'foo\..+\.bar')
+        self.eq(restr, r'foo\.(.+)\.bar')
         re = regex.compile(restr)
         self.none(re.fullmatch('foo.bar'))
         self.nn(re.fullmatch('foo.a.bar'))
