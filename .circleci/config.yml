@@ -102,7 +102,7 @@ commands:
             ls -ltha coverage
 
       -  codecov/upload:
-           file: /home/circleci/repo/coverage.xml
+           file: /home/circleci/repo/.coverage
 
       - store_test_results:
           path: test-reports
