@@ -83,7 +83,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
         parser_get = subparsers.add_parser('get', help="Get any entry in the hive", usage=GetHelp)
         parser_get.add_argument('path', help='Hive path')
         parser_get.add_argument('-f', '--file', default=False, action='store',
-                                help='Save the data to a file. Only works for str values.')
+                                help='Save the data to a file.')
         parser_get.add_argument('--json', default=False, action='store_true', help='Emit output as json')
 
         parser_rm = subparsers.add_parser('rm', help='Delete a key in the hive', usage=DelHelp)
@@ -144,17 +144,26 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
             return
 
         if opts.json:
-            rend = json.dumps(valu, indent=2)
+            prend = json.dumps(valu, indent=2)
+            rend = prend.encode()
         elif isinstance(valu, str):
+            rend = valu.encode()
+            prend = valu
+        elif isinstance(valu, bytes):
             rend = valu
-            if opts.file:
-                with s_common.genfile(opts.file) as fd:
-                    fd.write(valu.encode())
-                self.printf(f'Saved the hive entry [{opts.path}] to {opts.file}')
-                return
+            prend = pprint.pformat(valu)
         else:
-            rend = pprint.pformat(valu)
-        self.printf(f'{opts.path}:\n{rend}')
+            rend = json.dumps(valu, indent=2).encode()
+            prend = pprint.pformat(valu)
+
+        if opts.file:
+            with s_common.genfile(opts.file) as fd:
+                fd.truncate(0)
+                fd.write(rend)
+            self.printf(f'Saved the hive entry [{opts.path}] to {opts.file}')
+            return
+
+        self.printf(f'{opts.path}:\n{prend}')
 
     async def _handle_rm(self, core, opts):
         path = self.parsepath(opts.path)
@@ -164,7 +173,10 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
         path = self.parsepath(opts.path)
 
         if opts.value is not None:
-            data = json.loads(opts.value)
+            if opts.value[0] not in '([{"':
+                data = opts.value
+            else:
+                data = json.loads(opts.value)
             await core.setHiveKey(path, data)
             return
         elif opts.file is not None:
