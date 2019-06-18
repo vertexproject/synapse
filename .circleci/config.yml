@@ -100,11 +100,7 @@ commands:
             circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
       -  codecov/upload:
-
-          name: report coverage
-          command: |
-            . venv/bin/activate
-            if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${PYVERS}node${CIRCLE_NODE_INDEX} ${CODECOV_ARGS}; fi;
+           file: /home/circleci/repo/coverage.xml
 
       - store_test_results:
           path: test-reports
