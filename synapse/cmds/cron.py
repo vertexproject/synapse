@@ -24,7 +24,7 @@ DelHelp = '''
 Deletes a single cron job.
 
 Syntax:
-    cron del <iden prefix>
+    cron del|rm <iden prefix>
 
 Notes:
     Any prefix that matches exactly one valid cron job iden is accepted.
@@ -34,7 +34,7 @@ ListHelp = '''
 List existing cron jobs in a cortex.
 
 Syntax:
-    cron list
+    cron list|ls
 
 Example:
     user       iden       en? rpt? now? err? # start last start       last end         query
@@ -46,7 +46,7 @@ ModHelp = '''
 Changes an existing cron job's query.
 
 Syntax:
-    cron mod <iden prefix> <new query>
+    cron mod|edit <iden prefix> <new query>
 
 Notes:
     Any prefix that matches exactly one valid cron iden is accepted.
@@ -194,7 +194,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         subparsers = parser.add_subparsers(title='subcommands', required=True, dest='cmd',
                                            parser_class=functools.partial(s_cmd.Parser, outp=self))
 
-        subparsers.add_parser('list', help="List cron jobs you're allowed to manipulate", usage=ListHelp)
+        subparsers.add_parser('list', aliases=['ls'], help="List cron jobs you're allowed to manipulate", usage=ListHelp)
 
         parser_add = subparsers.add_parser('add', help='add a cron job', usage=AddHelp)
         parser_add.add_argument('--minute', '-M')
@@ -209,13 +209,13 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         group.add_argument('--yearly')
         parser_add.add_argument('query', help='Storm query in curly braces')
 
-        parser_del = subparsers.add_parser('del', help='delete a cron job', usage=DelHelp)
+        parser_del = subparsers.add_parser('del', aliases=['rm'], help='delete a cron job', usage=DelHelp)
         parser_del.add_argument('prefix', help='Cron job iden prefix')
 
         parser_stat = subparsers.add_parser('stat', help='details a cron job', usage=StatHelp)
         parser_stat.add_argument('prefix', help='Cron job iden prefix')
 
-        parser_mod = subparsers.add_parser('mod', help='change an existing cron job', usage=ModHelp)
+        parser_mod = subparsers.add_parser('mod', aliases=['edit'], help='change an existing cron job', usage=ModHelp)
         parser_mod.add_argument('prefix', help='Cron job iden prefix')
         parser_mod.add_argument('query', help='New Storm query in curly braces')
 
@@ -587,10 +587,13 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         handlers = {
             'add': self._handle_add,
             'del': self._handle_del,
+            'rm': self._handle_del,
             'disable': self._handle_disable,
             'enable': self._handle_enable,
             'list': self._handle_list,
+            'ls': self._handle_list,
             'mod': self._handle_mod,
+            'edit': self._handle_mod,
             'stat': self._handle_stat,
         }
         await handlers[opts.cmd](core, opts)
