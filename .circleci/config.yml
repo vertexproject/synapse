@@ -98,11 +98,9 @@ commands:
             . venv/bin/activate
             mkdir test-reports
             circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
-            ls -ltha .
-            ls -ltha test-reports
 
       -  codecov/upload:
-           file: /home/circleci/repo/.coverage
+           file: /home/circleci/repo/coverage.xml
 
       - store_test_results:
           path: test-reports
@@ -298,7 +296,7 @@ jobs:
       - image: circleci/python:3.7
         environment:
           CODECOV_ARGS: --required
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail --cov-report=xml
           PYVERS: 3.7
           SYN_REGRESSION_REPO: ~/git/synapse-regression
 
