@@ -17,7 +17,7 @@ ListHelp = '''
 Lists all the keys underneath a particular key in the hive.
 
 Syntax:
-    hive ls [path]
+    hive ls|list [path]
 
 Notes:
     If path is not specified, the root is listed.
@@ -34,7 +34,7 @@ DelHelp = '''
 Deletes a key in the cell's hive.
 
 Syntax:
-    hive rm {path}
+    hive rm|del {path}
 
 Notes:
     Delete will recursively delete all subkeys underneath path if they exist.
@@ -44,7 +44,7 @@ EditHelp = '''
 Edits or creates a key in the cell's hive.
 
 Syntax:
-    hive edit {path} [--string] ({value} | --editor | -f {filename})
+    hive edit|mod {path} [--string] ({value} | --editor | -f {filename})
 
 Notes:
     One may specify the value directly on the command line, from a file, or use an editor.  For the --editor option,
@@ -77,7 +77,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
         subparsers = parser.add_subparsers(title='subcommands', required=True, dest='cmd',
                                            parser_class=functools.partial(s_cmd.Parser, outp=self))
 
-        parser_ls = subparsers.add_parser('ls', help="List entries in the hive", usage=ListHelp)
+        parser_ls = subparsers.add_parser('list', aliases=['ls'], help="List entries in the hive", usage=ListHelp)
         parser_ls .add_argument('path', nargs='?', help='Hive path')
 
         parser_get = subparsers.add_parser('get', help="Get any entry in the hive", usage=GetHelp)
@@ -86,10 +86,10 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                                 help='Save the data to a file.')
         parser_get.add_argument('--json', default=False, action='store_true', help='Emit output as json')
 
-        parser_rm = subparsers.add_parser('rm', help='Delete a key in the hive', usage=DelHelp)
+        parser_rm = subparsers.add_parser('del', aliases=['rm'], help='Delete a key in the hive', usage=DelHelp)
         parser_rm.add_argument('path', help='Hive path')
 
-        parser_edit = subparsers.add_parser('edit', help='Sets/creates a key', usage=EditHelp)
+        parser_edit = subparsers.add_parser('edit', aliases=['mod'], help='Sets/creates a key', usage=EditHelp)
         parser_edit.add_argument('--string', action='store_true', help="Edit value as a single string")
         parser_edit.add_argument('path', help='Hive path')
         group = parser_edit.add_mutually_exclusive_group(required=True)
@@ -114,10 +114,13 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
             return
 
         handlers = {
+            'list': self._handle_ls,
             'ls': self._handle_ls,
+            'del': self._handle_rm,
             'rm': self._handle_rm,
             'get': self._handle_get,
             'edit': self._handle_edit,
+            'mod': self._handle_edit,
         }
         await handlers[opts.cmd](core, opts)
 

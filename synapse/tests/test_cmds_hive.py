@@ -25,8 +25,10 @@ class CmdHiveTest(s_t_utils.SynTest):
                 self.true(outp.expect('Path not found'))
 
                 outp.clear()
-                await cmdr.runCmdLine('hive edit foo/bar [1,2,3,4]')
+                await cmdr.runCmdLine('hive mod foo/bar [1,2,3,4]')
                 await cmdr.runCmdLine('hive ls')
+                self.true(outp.expect('foo'))
+                await cmdr.runCmdLine('hive list')
                 self.true(outp.expect('foo'))
 
                 outp.clear()
@@ -41,6 +43,12 @@ class CmdHiveTest(s_t_utils.SynTest):
                 self.true(outp.expect('bar'))
 
                 await cmdr.runCmdLine('hive rm foo')
+                outp.clear()
+                await cmdr.runCmdLine('hive ls foo')
+                self.true(outp.expect('Path not found'))
+
+                await cmdr.runCmdLine('hive edit foo/bar [1,2,3,4]')
+                await cmdr.runCmdLine('hive del foo')
                 outp.clear()
                 await cmdr.runCmdLine('hive ls foo')
                 self.true(outp.expect('Path not found'))
