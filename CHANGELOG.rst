@@ -2,7 +2,7 @@
 Synapse Changelog
 *****************
 
-v0.1.13 - TBD
+v0.1.13 - 2019-06-18
 ====================
 
 Features and Enhancements
@@ -15,11 +15,12 @@ Features and Enhancements
 - Add ``$node.globtags()`` method to Storm which accepts a tag glob, and returns a list of the matching glob values. (`#1275 <https://github.com/vertexproject/synapse/pull/1275>`_)
 - Add there remote Cortex API ``CoreApi.delNodeProp()`` to allow property deletion from a single node. (`#1279 <https://github.com/vertexproject/synapse/pull/1279>`_)
 
-Bugs
-----
+Bugfixes
+--------
 
 - Update CellApi Hive functions to properly check permissions. (`#1274 <https://github.com/vertexproject/synapse/pull/1274>`_)
 - Ensure that tearing down a Telepath generator via GeneratorExit from non-async code properly signals the generator to teardown on the ioloop. (`#1278 <https://github.com/vertexproject/synapse/pull/1278>`_)
+- Fix an issue where Storm subquery variable assignments were being pushed to the global runtime, but were not properly available to the Path objects associated with inbound nodes. (`#1280 <https://github.com/vertexproject/synapse/pull/1280>`_)
 
 Improved Documentation
 ----------------------

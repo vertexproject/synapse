@@ -335,7 +335,13 @@ class SubQuery(Oper):
 
         async for item in genr:
 
-            await s_common.aspin(subq.run(runt, agen(item)))
+            subp = None
+            async for subp in subq.run(runt, agen(item)):
+                pass  # pragma: no cover
+
+            # dup any path variables from the last yielded
+            if subp is not None:
+                item[1].vars.update(subp[1].vars)
 
             yield item
 
