@@ -4,6 +4,9 @@
 #
 version: 2.1
 
+orbs:
+  codecov: codecov/codecov@1.0.2
+
 commands:
   test_steps_doc:
     description: "Documentation test steps"
@@ -96,7 +99,8 @@ commands:
             mkdir test-reports
             circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
-      - run:
+      -  codecov/upload:
+
           name: report coverage
           command: |
             . venv/bin/activate
