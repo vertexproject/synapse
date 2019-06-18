@@ -1161,8 +1161,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     waiter = src_core.waiter(1, 'core:splice:cryotank:sent')
                     # Form a node and make sure that it exists
                     async with await src_core.snap() as snap:
-                        await snap.addNode('test:str', 'teehee')
-                        # self.nn(await snap.getNodeByNdef(('test:str', 'teehee')))
+                        self.nn(await snap.addNode('test:str', 'teehee'))
 
                     self.true(await waiter.wait(timeout=10))
                 await src_core.waitfini()
