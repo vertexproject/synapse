@@ -12,6 +12,14 @@ Features and Enhancements
 - Add a new packed node helper, ``synapse.lib.nodes.tagsnice()``, to get all the leaf tags on a node and any tags which have a time interval associated with them. (`#1271 <https://github.com/vertexproject/synapse/pull/1271>`_)
 - Add a ``err?`` column to the output of the ``cron list``.  This includes an ``X`` character in the column if the last execution of that Cron task encountered an error. (`#1272 <https://github.com/vertexproject/synapse/pull/1272>`_)
 - Refactor the Boss commands in cmdr to their own file and improve test coverage for the Cortex ``storm`` command in Cmdr. (`#1273 <https://github.com/vertexproject/synapse/pull/1273>`_)
+- Add ``$node.globtags()`` method to Storm which accepts a tag glob, and returns a list of the matching glob values. (`#1275 <https://github.com/vertexproject/synapse/pull/1275>`_)
+- Add there remote Cortex API ``CoreApi.delNodeProp()`` to allow property deletion from a single node. (`#1279 <https://github.com/vertexproject/synapse/pull/1279>`_)
+
+Bugs
+----
+
+- Update CellApi Hive functions to properly check permissions. (`#1274 <https://github.com/vertexproject/synapse/pull/1274>`_)
+- Ensure that tearing down a Telepath generator via GeneratorExit from non-async code properly signals the generator to teardown on the ioloop. (`#1278 <https://github.com/vertexproject/synapse/pull/1278>`_)
 
 Improved Documentation
 ----------------------
