@@ -358,7 +358,8 @@ workflows:
             tags:
               only: /.*/
             branches:
-              only: /.*/
+              only:
+                - master
 
       - python37:
           filters:
