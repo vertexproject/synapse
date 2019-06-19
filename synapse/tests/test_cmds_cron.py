@@ -53,6 +53,9 @@ class CmdCronTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine('cron list')
                     self.true(outp.expect('No cron jobs found'))
 
+                    await cmdr.runCmdLine('cron ls')
+                    self.true(outp.expect('No cron jobs found'))
+
                     outp.clear()
 
                     await cmdr.runCmdLine("cron add -M+1,beeroclock {[graph:node='*' :type=m1]}")
@@ -128,7 +131,7 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     await cmdr.runCmdLine(f"cron mod {guid[:6]} {{[graph:node='*' :type=m2]}}")
                     self.true(outp.expect('Modified cron job'))
-                    await cmdr.runCmdLine(f"cron mod xxx {{[graph:node='*' :type=m2]}}")
+                    await cmdr.runCmdLine(f"cron edit xxx {{[graph:node='*' :type=m2]}}")
                     self.true(outp.expect('does not match'))
                     await cmdr.runCmdLine(f"cron mod xxx yyy")
                     self.true(outp.expect('expected second argument to start with {'))
@@ -144,6 +147,8 @@ class CmdCronTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine(f"cron del {guid}")
                     self.true(outp.expect('Deleted cron job'))
                     await cmdr.runCmdLine(f"cron del xxx")
+                    self.true(outp.expect('does not match'))
+                    await cmdr.runCmdLine(f"cron rm xxx")
                     self.true(outp.expect('does not match'))
 
                     # Make sure deleted job didn't run
