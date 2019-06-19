@@ -144,7 +144,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
             return
 
         if opts.json:
-            prend = json.dumps(valu, indent=2)
+            prend = json.dumps(valu, indent=4, sort_keys=True)
             rend = prend.encode()
         elif isinstance(valu, str):
             rend = valu.encode()
@@ -153,7 +153,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
             rend = valu
             prend = pprint.pformat(valu)
         else:
-            rend = json.dumps(valu, indent=2).encode()
+            rend = json.dumps(valu, indent=4, sort_keys=True).encode()
             prend = pprint.pformat(valu)
 
         if opts.file:
@@ -205,7 +205,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                         data = old_valu
                     else:
                         try:
-                            data = json.dumps(old_valu, indent=4)
+                            data = json.dumps(old_valu, indent=4, sort_keys=True)
                         except (ValueError, TypeError):
                             self.printf('Value is not JSON-encodable, therefore not editable.')
                             return
