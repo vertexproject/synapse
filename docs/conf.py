@@ -218,7 +218,7 @@ def convert_ipynb(_):
                 nba.main(args)
                 tock = s_common.now()
                 took = (tock - tick) / 1000
-                print(f'convert_ipynb: Notebook execution took {took} seconds.')
+                print(f'convert_ipynb: Notebook {fn} execution took {took} seconds.')
 
 def setup(app):
     # app.add_stylesheet('theme_overrides.css')

@@ -2,6 +2,25 @@
 Synapse Changelog
 *****************
 
+v0.1.14 - TBD
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add sub-command aliases for the Cmdr ``hive`` and ``cron`` commands, so that similar subcommands like ``list`` and ``ls`` work across both commands. (`#1281 <https://github.com/vertexproject/synapse/pull/1281>`_)
+- Simplify adding structured data to the cell Hive via Cmdr. (`#1282 <https://github.com/vertexproject/synapse/pull/1282>`_)
+
+Bugfixes
+--------
+- Fix an issue in Cmdr for ``hive get`` which could result in failing to properly overwrite files when saving a Hive value to disk. (`#1282 <https://github.com/vertexproject/synapse/pull/1282>`_)
+
+Improved Documentation
+----------------------
+
+- Add additional logging for ReadTheDocs documentation builds. (`#1284 <https://github.com/vertexproject/synapse/pull/1284>`_)
+
+
 v0.1.13 - 2019-06-18
 ====================
 
