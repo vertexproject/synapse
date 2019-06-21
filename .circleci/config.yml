@@ -143,7 +143,7 @@ commands:
             circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
       -  codecov/upload:
-           file: /home/circleci/repo/coverage.xml
+           file: ~/repo/coverage.xml
 
       - store_test_results:
           path: test-reports
