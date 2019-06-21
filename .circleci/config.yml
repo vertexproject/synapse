@@ -282,7 +282,7 @@ jobs:
       COVERAGE_ARGS: --cov synapse --no-cov-on-fail --cov-report=xml
       PYVERS: 3.7
 
-    working_directory: /Users/disiller/repo
+    working_directory: /Users/distiller/repo
 
     steps:
       - test_steps_osx
