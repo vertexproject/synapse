@@ -2,7 +2,7 @@
 Synapse Changelog
 *****************
 
-v0.1.14 - TBD
+v0.1.14 - 2019-06-21
 ====================
 
 Features and Enhancements
@@ -19,6 +19,7 @@ Improved Documentation
 ----------------------
 
 - Add additional logging for ReadTheDocs documentation builds. (`#1284 <https://github.com/vertexproject/synapse/pull/1284>`_)
+- Add additional Hive API docstrings. (`#1285 <https://github.com/vertexproject/synapse/pull/1285>`_)
 
 
 v0.1.13 - 2019-06-18
