@@ -143,7 +143,7 @@ commands:
             circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
       -  codecov/upload:
-           file: /home/circleci/repo/coverage.xml
+           file: /Users/distiller/repo/coverage.xml
 
       - store_test_results:
           path: test-reports
@@ -282,7 +282,7 @@ jobs:
       COVERAGE_ARGS: --cov synapse --no-cov-on-fail --cov-report=xml
       PYVERS: 3.7
 
-    working_directory: ~/repo
+    working_directory: /Users/distiller/repo
 
     steps:
       - test_steps_osx
