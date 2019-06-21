@@ -144,6 +144,15 @@ class Hive(s_base.Base, s_telepath.Aware):
         self.editsbypath[path].add(func)
 
     async def get(self, full):
+        '''
+        Get the value of a node at a given path.
+
+        Args:
+            full (tuple): A full path tuple.
+
+        Returns:
+            Arbitrary node value.
+        '''
 
         node = self.nodes.get(full)
         if node is None:
@@ -152,6 +161,18 @@ class Hive(s_base.Base, s_telepath.Aware):
         return node.valu
 
     def dir(self, full):
+        '''
+        List subnodes of the given Hive path.
+
+        Args:
+            full (tuple): A full path tuple.
+
+        Notes:
+            This returns None if there is not a node at the path.
+
+        Returns:
+            list: A list of tuples. Each tuple contains the name, node value, and the number of children nodes.
+        '''
         node = self.nodes.get(full)
         if node is None:
             return None
@@ -161,6 +182,12 @@ class Hive(s_base.Base, s_telepath.Aware):
     async def dict(self, full):
         '''
         Open a HiveDict at the given full path.
+
+        Args:
+            full (tuple): A full path tuple.
+
+        Returns:
+            HiveDict: A HiveDict for the full path.
         '''
         node = await self.open(full)
         return await HiveDict.anit(self, node)
@@ -199,6 +226,12 @@ class Hive(s_base.Base, s_telepath.Aware):
     async def open(self, full):
         '''
         Open and return a hive Node().
+
+        Args:
+            full (tuple): A full path tuple.
+
+        Returns:
+            Node: A Hive node.
         '''
         return await self._getHiveNode(full)
 

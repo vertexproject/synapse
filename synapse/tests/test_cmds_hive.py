@@ -5,10 +5,10 @@ import synapse.lib.cmdr as s_cmdr
 import synapse.tests.utils as s_t_utils
 
 _json_output = '''[
-  1,
-  2,
-  3,
-  4
+    1,
+    2,
+    3,
+    4
 ]'''
 
 class CmdHiveTest(s_t_utils.SynTest):
@@ -21,21 +21,38 @@ class CmdHiveTest(s_t_utils.SynTest):
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
 
+                await cmdr.runCmdLine('hive')
+                self.true(outp.expect('Manipulates values'))
+
+                await cmdr.runCmdLine('hive notacmd')
+                self.true(outp.expect('invalid choice'))
+
                 await cmdr.runCmdLine('hive ls notadir')
                 self.true(outp.expect('Path not found'))
 
                 outp.clear()
-                await cmdr.runCmdLine('hive edit foo/bar [1,2,3,4]')
+                await cmdr.runCmdLine('hive mod foo/bar [1,2,3,4]')
                 await cmdr.runCmdLine('hive ls')
                 self.true(outp.expect('foo'))
+                await cmdr.runCmdLine('hive list')
+                self.true(outp.expect('foo'))
+
+                outp.clear()
+                await cmdr.runCmdLine('hive get notakey')
+                self.true(outp.expect('not present'))
 
                 outp.clear()
                 await cmdr.runCmdLine('hive get foo/bar')
                 self.true(outp.expect('foo/bar:\n(1, 2, 3, 4)'))
-                outp.clear()
 
+                outp.clear()
                 await cmdr.runCmdLine('hive get --json foo/bar')
                 self.true(outp.expect('foo/bar:\n' + _json_output))
+
+                outp.clear()
+                await core.setHiveKey(('bin', ), b'1234')
+                await cmdr.runCmdLine('hive get bin')
+                self.true(outp.expect("bin:\nb'1234'"))
 
                 await cmdr.runCmdLine('hive ls foo')
                 self.true(outp.expect('bar'))
@@ -45,10 +62,21 @@ class CmdHiveTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('hive ls foo')
                 self.true(outp.expect('Path not found'))
 
+                await cmdr.runCmdLine('hive edit foo/bar [1,2,3,4]')
+                await cmdr.runCmdLine('hive del foo')
+                outp.clear()
+                await cmdr.runCmdLine('hive ls foo')
+                self.true(outp.expect('Path not found'))
+
                 fn = os.path.join(dirn, 'test.json')
 
                 with open(fn, 'w') as fh:
                     fh.write('{"foo": 123}')
+
+                outp.clear()
+                await cmdr.runCmdLine(f'hive edit foo/foo asimplestring')
+                await cmdr.runCmdLine('hive get foo/foo')
+                self.true(outp.expect('foo/foo:\nasimplestring'))
 
                 outp.clear()
                 await cmdr.runCmdLine(f'hive edit foo/bar2 -f {fn}')
@@ -83,11 +111,11 @@ class CmdHiveTest(s_t_utils.SynTest):
                     self.true(outp.expect('Environment variable VISUAL or EDITOR must be set for --editor'))
 
                 outp.clear()
-                with self.setTstEnvars(EDITOR='echo [1,2,3] > '):
+                with self.setTstEnvars(EDITOR='echo \'{"foo": 42}\' > '):
 
                     await cmdr.runCmdLine(f'hive edit foo/bar3 --editor')
                     await cmdr.runCmdLine('hive get foo/bar3')
-                    self.true(outp.expect('foo/bar3:\n(1, 2, 3)'))
+                    self.true(outp.expect("foo/bar3:\n{'foo': 42}"))
 
                 outp.clear()
                 with self.setTstEnvars(VISUAL='echo [1,2,3] > '):

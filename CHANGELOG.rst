@@ -2,7 +2,27 @@
 Synapse Changelog
 *****************
 
-v0.1.13 - TBD
+v0.1.14 - 2019-06-21
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add sub-command aliases for the Cmdr ``hive`` and ``cron`` commands, so that similar subcommands like ``list`` and ``ls`` work across both commands. (`#1281 <https://github.com/vertexproject/synapse/pull/1281>`_)
+- Simplify adding structured data to the cell Hive via Cmdr. (`#1282 <https://github.com/vertexproject/synapse/pull/1282>`_)
+
+Bugfixes
+--------
+- Fix an issue in Cmdr for ``hive get`` which could result in failing to properly overwrite files when saving a Hive value to disk. (`#1282 <https://github.com/vertexproject/synapse/pull/1282>`_)
+
+Improved Documentation
+----------------------
+
+- Add additional logging for ReadTheDocs documentation builds. (`#1284 <https://github.com/vertexproject/synapse/pull/1284>`_)
+- Add additional Hive API docstrings. (`#1285 <https://github.com/vertexproject/synapse/pull/1285>`_)
+
+
+v0.1.13 - 2019-06-18
 ====================
 
 Features and Enhancements
@@ -12,11 +32,21 @@ Features and Enhancements
 - Add a new packed node helper, ``synapse.lib.nodes.tagsnice()``, to get all the leaf tags on a node and any tags which have a time interval associated with them. (`#1271 <https://github.com/vertexproject/synapse/pull/1271>`_)
 - Add a ``err?`` column to the output of the ``cron list``.  This includes an ``X`` character in the column if the last execution of that Cron task encountered an error. (`#1272 <https://github.com/vertexproject/synapse/pull/1272>`_)
 - Refactor the Boss commands in cmdr to their own file and improve test coverage for the Cortex ``storm`` command in Cmdr. (`#1273 <https://github.com/vertexproject/synapse/pull/1273>`_)
+- Add ``$node.globtags()`` method to Storm which accepts a tag glob, and returns a list of the matching glob values. (`#1275 <https://github.com/vertexproject/synapse/pull/1275>`_)
+- Add there remote Cortex API ``CoreApi.delNodeProp()`` to allow property deletion from a single node. (`#1279 <https://github.com/vertexproject/synapse/pull/1279>`_)
+
+Bugfixes
+--------
+
+- Update CellApi Hive functions to properly check permissions. (`#1274 <https://github.com/vertexproject/synapse/pull/1274>`_)
+- Ensure that tearing down a Telepath generator via GeneratorExit from non-async code properly signals the generator to teardown on the ioloop. (`#1278 <https://github.com/vertexproject/synapse/pull/1278>`_)
+- Fix an issue where Storm subquery variable assignments were being pushed to the global runtime, but were not properly available to the Path objects associated with inbound nodes. (`#1280 <https://github.com/vertexproject/synapse/pull/1280>`_)
 
 Improved Documentation
 ----------------------
 
 - Improve inline API help for a few test helper functions. (`#1273 <https://github.com/vertexproject/synapse/pull/1273>`_)
+- Update Cmdr reference documentation for trigger and cron updates. (`#1277 <https://github.com/vertexproject/synapse/pull/1277>`_)
 
 
 v0.1.12 - 2019-06-12

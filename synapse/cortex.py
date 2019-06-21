@@ -418,10 +418,13 @@ class CoreApi(s_cell.CellApi):
                 return node.pack()
 
     async def setNodeProp(self, iden, name, valu):
-
+        '''
+        Set a property on a single node.
+        '''
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
+
             with s_provenance.claim('coreapi', meth='prop:set', user=snap.user.iden):
 
                 node = await snap.getNodeByBuid(buid)
@@ -432,6 +435,27 @@ class CoreApi(s_cell.CellApi):
                 await self._reqUserAllowed('prop:set', prop.full)
 
                 await node.set(name, valu)
+                return node.pack()
+
+    async def delNodeProp(self, iden, name):
+        '''
+        Delete a property from a single node.
+        '''
+
+        buid = s_common.uhex(iden)
+
+        async with await self.cell.snap(user=self.user) as snap:
+
+            with s_provenance.claim('coreapi', meth='prop:del', user=snap.user.iden):
+
+                node = await snap.getNodeByBuid(buid)
+                if node is None:
+                    raise s_exc.NoSuchIden(iden=iden)
+
+                prop = node.form.props.get(name)
+                await self._reqUserAllowed('prop:del', prop.full)
+
+                await node.pop(name)
                 return node.pack()
 
     async def addNode(self, form, valu, props=None):

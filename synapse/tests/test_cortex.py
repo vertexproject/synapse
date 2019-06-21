@@ -1158,15 +1158,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                 }
                 async with self.getTestCore(dirn=dirn, conf=conf) as src_core:
 
-                    waiter = src_core.waiter(2, 'core:splice:cryotank:sent')
+                    waiter = src_core.waiter(1, 'core:splice:cryotank:sent')
                     # Form a node and make sure that it exists
                     async with await src_core.snap() as snap:
-                        await snap.addNode('test:str', 'teehee')
-                        self.nn(await snap.getNodeByNdef(('test:str', 'teehee')))
+                        self.nn(await snap.addNode('test:str', 'teehee'))
 
-                    await waiter.wait(timeout=10)
-                    await src_core.fini()
-                    await src_core.waitfini()
+                    self.true(await waiter.wait(timeout=10))
+                await src_core.waitfini()
 
             # Now that the src core is closed, make sure that the splice exists in the tank
             tank = cryo.tanks.get('blahblah')
@@ -1285,6 +1283,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.len(1, await alist(proxy.eval('test:str#foo.bar')))
             self.len(1, await alist(proxy.eval('test:str:tick=2015')))
+
+            pack = await proxy.delNodeProp(node[1].get('iden'), 'tick')
+            self.none(pack[1]['props'].get('tick'))
+
+            iden = s_common.ehex(s_common.buid('newp'))
+            await self.asyncraises(s_exc.NoSuchIden, proxy.delNodeProp(iden, 'tick'))
 
             await proxy.delNodeTag(node[1].get('iden'), '#foo.bar')
             self.len(0, await alist(proxy.eval('test:str#foo.bar')))
