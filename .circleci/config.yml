@@ -141,11 +141,9 @@ commands:
             . venv/bin/activate
             mkdir test-reports
             circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
-            pwd
-            ls -ltha
 
       -  codecov/upload:
-           file: ~/repo/coverage.xml
+           file: /Users/distiller/repo/coverage.xml
 
       - store_test_results:
           path: test-reports
@@ -284,7 +282,7 @@ jobs:
       COVERAGE_ARGS: --cov synapse --no-cov-on-fail --cov-report=xml
       PYVERS: 3.7
 
-    working_directory: ~/repo
+    working_directory: /Users/disiller/repo
 
     steps:
       - test_steps_osx
