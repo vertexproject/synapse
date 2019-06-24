@@ -491,3 +491,13 @@ class StormTypesTest(s_test.SynTest):
                     '''
                     mesgs = await s_test.alist(uprox.storm(q))
                     self.stormIsInPrint('lessThanSekrit', mesgs)
+
+                    # The StormHiveDict is safe when computing things
+                    q = '''[test:int=1234]
+                    $lib.user.vars.set(someint, $node.value())
+                    [test:str=$lib.user.vars.get(someint)]
+                    '''
+                    podes = await s_test.alist(uprox.eval(q))
+                    self.len(2, podes)
+                    self.eq({('test:str', '1234'), ('test:int', 1234)},
+                            {pode[0] for pode in podes})
