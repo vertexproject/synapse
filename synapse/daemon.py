@@ -35,7 +35,7 @@ class DaemonSess(s_base.Base):
     def popSessItem(self, name):
         return self.items.pop(name, None)
 
-class Genr(s_share.ServerShare):
+class DaemonGenr(s_share.ServerShare):
 
     typename = 'genr'
 
@@ -96,7 +96,7 @@ class AsyncGenr(s_share.ServerShare):
 dmonwrap = (
     (s_coro.GenrHelp, AsyncGenr),
     (types.AsyncGeneratorType, AsyncGenr),
-    (types.GeneratorType, Genr),
+    (types.GeneratorType, DaemonGenr),
 )
 
 class Daemon(s_base.Base):

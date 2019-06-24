@@ -199,7 +199,7 @@ class Prim(StormType):
     def value(self):
         return self.valu
 
-class Str(Prim):
+class StormStr(Prim):
 
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
@@ -399,7 +399,7 @@ def toprim(valu, path=None):
 def fromprim(valu, path=None):
 
     if isinstance(valu, str):
-        return Str(valu, path=path)
+        return StormStr(valu, path=path)
 
     # TODO: make s_node.Node a storm type itself?
     if isinstance(valu, s_node.Node):
