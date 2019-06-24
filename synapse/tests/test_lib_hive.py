@@ -154,7 +154,8 @@ class HiveTest(s_test.SynTest):
                 self.nn(user)
 
                 self.false(user.admin)
-                self.len(0, user.rules)
+                # User has rules to access their persistent data store
+                self.len(3, user.rules)
                 self.len(0, user.roles)
 
                 await user.info.set('admin', True)
