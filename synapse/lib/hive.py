@@ -16,7 +16,7 @@ import synapse.lib.lmdbslab as s_slab
 
 logger = logging.getLogger(__name__)
 
-class Node(s_base.Base):
+class HiveNode(s_base.Base):
     '''
     A single node within the Hive tree.
     '''
@@ -58,6 +58,14 @@ class Node(s_base.Base):
         return await self.hive.add(self.full, valu)
 
     async def open(self, path):
+        '''
+
+        Args:
+            path:
+
+        Returns:
+
+        '''
         full = self.full + path
         return await self.hive.open(full)
 
@@ -66,6 +74,12 @@ class Node(s_base.Base):
         return await self.hive.pop(full)
 
     async def dict(self):
+        '''
+        Get a HiveDict for this HiveNode.
+
+        Returns:
+            HiveDict: A HiveDict for the current HiveNode.
+        '''
         return await HiveDict.anit(self.hive, self)
 
     def __iter__(self):
@@ -94,7 +108,7 @@ class Hive(s_base.Base, s_telepath.Aware):
         # event dist by path
         self.editsbypath = collections.defaultdict(set)
 
-        self.root = await Node.anit(self, (), None)
+        self.root = await HiveNode.anit(self, (), None)
         self.nodes[()] = self.root
 
         self.root.link(self._onNodeEdit)
@@ -194,7 +208,7 @@ class Hive(s_base.Base, s_telepath.Aware):
 
     async def _initNodePath(self, base, path, valu):
 
-        node = await Node.anit(self, path, valu)
+        node = await HiveNode.anit(self, path, valu)
 
         # all node events dist up the tree
         node.link(base.dist)
@@ -231,7 +245,7 @@ class Hive(s_base.Base, s_telepath.Aware):
             full (tuple): A full path tuple.
 
         Returns:
-            Node: A Hive node.
+            HiveNode: A Hive node.
         '''
         return await self._getHiveNode(full)
 
