@@ -72,10 +72,10 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
 
     def _make_argparser(self):
 
-        parser = s_cmd.Parser(prog='hive', outp=self, description=self.__doc__)
+        parser = s_cmd.CmdParser(prog='hive', outp=self, description=self.__doc__)
 
         subparsers = parser.add_subparsers(title='subcommands', required=True, dest='cmd',
-                                           parser_class=functools.partial(s_cmd.Parser, outp=self))
+                                           parser_class=functools.partial(s_cmd.CmdParser, outp=self))
 
         parser_ls = subparsers.add_parser('list', aliases=['ls'], help="List entries in the hive", usage=ListHelp)
         parser_ls .add_argument('path', nargs='?', help='Hive path')

@@ -59,12 +59,13 @@ class HiveNode(s_base.Base):
 
     async def open(self, path):
         '''
+        Open a child HiveNode of this node.
 
         Args:
-            path:
+            path (tuple): A child path of the current node.
 
         Returns:
-
+            HiveNode: A HiveNode at the child parth.
         '''
         full = self.full + path
         return await self.hive.open(full)

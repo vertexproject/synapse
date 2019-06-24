@@ -188,7 +188,7 @@ async def main(argv, outprint=None):
 
 def makeargparser():
     global outp
-    pars = s_cmd.Parser('synapse.tools.cellauth', outp=outp, description=desc)
+    pars = s_cmd.CmdParser('synapse.tools.cellauth', outp=outp, description=desc)
 
     pars.add_argument('--debug', action='store_true', help='Show debug traceback on error.')
     pars.add_argument('cellurl', help='The telepath URL to connect to a cell.')
@@ -196,7 +196,7 @@ def makeargparser():
     subpars = pars.add_subparsers(required=True,
                                   title='subcommands',
                                   dest='cmd',
-                                  parser_class=functools.partial(s_cmd.Parser, outp=outp))
+                                  parser_class=functools.partial(s_cmd.CmdParser, outp=outp))
 
     # list
     pars_list = subpars.add_parser('list', help='List users/roles')

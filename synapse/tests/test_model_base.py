@@ -3,7 +3,7 @@ import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
 
-class BaseTest(s_t_utils.SynTest):
+class BaseModelTest(s_t_utils.SynTest):
 
     async def test_model_base_node(self):
 

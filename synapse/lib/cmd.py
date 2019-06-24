@@ -3,7 +3,7 @@ import argparse
 import synapse.exc as s_exc
 import synapse.lib.output as s_output
 
-class Parser(argparse.ArgumentParser):
+class CmdParser(argparse.ArgumentParser):
 
     def __init__(self, prog=None, outp=s_output.stdout, **kwargs):
 

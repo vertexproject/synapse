@@ -127,10 +127,10 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
     def _make_argparser(self):
 
-        parser = s_cmd.Parser(prog='trigger', outp=self, description=self.__doc__)
+        parser = s_cmd.CmdParser(prog='trigger', outp=self, description=self.__doc__)
 
         subparsers = parser.add_subparsers(title='subcommands', required=True, dest='cmd',
-                                           parser_class=functools.partial(s_cmd.Parser, outp=self))
+                                           parser_class=functools.partial(s_cmd.CmdParser, outp=self))
 
         subparsers.add_parser('list', help="List triggers you're allowed to manipulate", usage=ListHelp)
 

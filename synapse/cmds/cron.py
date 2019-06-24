@@ -189,10 +189,10 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
     def _make_argparser(self):
 
-        parser = s_cmd.Parser(prog='cron', outp=self, description=self.__doc__)
+        parser = s_cmd.CmdParser(prog='cron', outp=self, description=self.__doc__)
 
         subparsers = parser.add_subparsers(title='subcommands', required=True, dest='cmd',
-                                           parser_class=functools.partial(s_cmd.Parser, outp=self))
+                                           parser_class=functools.partial(s_cmd.CmdParser, outp=self))
 
         subparsers.add_parser('list', aliases=['ls'], help="List cron jobs you're allowed to manipulate", usage=ListHelp)
 
@@ -643,7 +643,7 @@ Examples:
     )
 
     def _make_argparser(self):
-        parser = s_cmd.Parser(prog='at', outp=self, description=self.__doc__)
+        parser = s_cmd.CmdParser(prog='at', outp=self, description=self.__doc__)
         parser.add_argument('args', nargs='+', help='date | delta| {query})')
         return parser
 

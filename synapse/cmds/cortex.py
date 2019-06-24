@@ -59,7 +59,7 @@ Examples:
 
     def _make_argparser(self):
 
-        parser = s_cmd.Parser(prog='log', outp=self, description=self.__doc__)
+        parser = s_cmd.CmdParser(prog='log', outp=self, description=self.__doc__)
         muxp = parser.add_mutually_exclusive_group(required=True)
         muxp.add_argument('--on', action='store_true', default=False,
                           help='Enables logging of storm messages to a file.')
