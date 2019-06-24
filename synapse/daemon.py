@@ -36,7 +36,7 @@ class Sess(s_base.Base):
     def popSessItem(self, name):
         return self.items.pop(name, None)
 
-class Genr(s_share.Share):
+class Genr(s_share.ServerShare):
 
     typename = 'genr'
 
@@ -66,7 +66,7 @@ class Genr(s_share.Share):
             await self.fini()
 
 
-class AsyncGenr(s_share.Share):
+class AsyncGenr(s_share.ServerShare):
 
     typename = 'genr'
 
@@ -324,7 +324,7 @@ class Daemon(s_base.Base):
 
     def _getTaskFiniMesg(self, task, valu):
 
-        if not isinstance(valu, s_share.Share):
+        if not isinstance(valu, s_share.ServerShare):
             retn = (True, valu)
             return ('task:fini', {'task': task, 'retn': retn})
 
@@ -402,7 +402,7 @@ class Daemon(s_base.Base):
 
                 return
 
-            if isinstance(valu, s_share.Share):
+            if isinstance(valu, s_share.ServerShare):
                 sess.onfini(valu)
                 iden = s_common.guid()
                 sess.setSessItem(iden, valu)
@@ -452,7 +452,7 @@ class Daemon(s_base.Base):
             await link.tx(mesg)
 
             # if it's a Share(), spin off the share loop
-            if isinstance(valu, s_share.Share):
+            if isinstance(valu, s_share.ServerShare):
 
                 if isinstance(item, s_base.Base):
                     item.onfini(valu)

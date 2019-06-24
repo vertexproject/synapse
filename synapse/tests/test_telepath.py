@@ -23,7 +23,7 @@ from synapse.tests.utils import alist
 class Boom:
     pass
 
-class CustomShare(s_share.Share):
+class CustomShare(s_share.ServerShare):
     typename = 'customshare'
 
     async def _runShareLoop(self):

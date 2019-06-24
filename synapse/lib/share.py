@@ -2,7 +2,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 
-class Share(s_base.Base):
+class ServerShare(s_base.Base):
     '''
     Class to wrap a dynamically shared object.
     '''

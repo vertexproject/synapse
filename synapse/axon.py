@@ -62,17 +62,17 @@ class UpLoad(s_base.Base):
 
         return self.size, sha256
 
-class UpLoadShare(UpLoad, s_share.Share):
+class UpLoadShare(UpLoad, s_share.ServerShare):
     typename = 'upload'
     async def __anit__(self, axon, link):
         await UpLoad.__anit__(self, axon)
-        await s_share.Share.__anit__(self, link, None)
+        await s_share.ServerShare.__anit__(self, link, None)
 
-class AxonApi(s_cell.CellApi, s_share.Share):
+class AxonApi(s_cell.CellApi, s_share.ServerShare):
 
     async def __anit__(self, cell, link, user):
         await s_cell.CellApi.__anit__(self, cell, link, user)
-        await s_share.Share.__anit__(self, link, None)
+        await s_share.ServerShare.__anit__(self, link, None)
 
     async def get(self, sha256):
         self.user.allowed(('axon:get',))
