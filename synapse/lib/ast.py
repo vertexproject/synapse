@@ -1832,7 +1832,7 @@ class Cmpr(Value):
 class Const(Value):
     pass
 
-class List(Value):
+class ListValu(Value):
 
     def repr(self):
         return 'List: %s' % self.kids

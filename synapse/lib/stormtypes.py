@@ -83,7 +83,7 @@ class LibBase(Lib):
         })
 
     async def _set(self, *vals):
-        return Set(set(vals))
+        return StormSet(set(vals))
 
     async def _text(self, *args):
         valu = ''.join(args)
@@ -218,12 +218,12 @@ class Str(Prim):
         '''
         return self.valu.split(text)
 
-class Dict(Prim):
+class StormDict(Prim):
 
     def deref(self, name):
         return self.valu.get(name)
 
-class Set(Prim):
+class StormSet(Prim):
 
     def __init__(self, valu, path=None):
         Prim.__init__(self, set(valu), path=path)
@@ -252,7 +252,7 @@ class Set(Prim):
     async def _methSetList(self):
         return list(self.valu)
 
-class List(Prim):
+class StormList(Prim):
 
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
@@ -278,7 +278,7 @@ class List(Prim):
         '''
         return len(self.valu)
 
-class Node(Prim):
+class StormNode(Prim):
     '''
     Implements the STORM api for a node instance.
     '''
@@ -335,7 +335,7 @@ class Node(Prim):
     async def _methNodeIden(self):
         return self.valu.iden()
 
-class Path(Prim):
+class StormPath(Prim):
 
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
@@ -403,18 +403,18 @@ def fromprim(valu, path=None):
 
     # TODO: make s_node.Node a storm type itself?
     if isinstance(valu, s_node.Node):
-        return Node(valu, path=path)
+        return StormNode(valu, path=path)
 
     if isinstance(valu, s_node.Path):
-        return Path(valu, path=path)
+        return StormPath(valu, path=path)
 
     if isinstance(valu, StormType):
         return valu
 
     if isinstance(valu, (tuple, list)):
-        return List(valu, path=path)
+        return StormList(valu, path=path)
 
     if isinstance(valu, dict):
-        return Dict(valu, path=path)
+        return StormDict(valu, path=path)
 
     raise s_exc.NoSuchType(name=valu.__class__.__name__)

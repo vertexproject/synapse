@@ -232,7 +232,7 @@ class AstConverter(lark.Transformer):
 
     def valulist(self, kids):
         kids = self._convert_children(kids)
-        return s_ast.List(None, kids=kids)
+        return s_ast.ListValu(None, kids=kids)
 
     def univpropvalu(self, kids):
         kids = self._convert_children(kids)
