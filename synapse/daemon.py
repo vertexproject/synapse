@@ -17,8 +17,7 @@ import synapse.lib.certdir as s_certdir
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.reflect as s_reflect
 
-class Sess(s_base.Base):
-
+class DaemonSess(s_base.Base):
     async def __anit__(self):
 
         await s_base.Base.__anit__(self)
@@ -282,7 +281,7 @@ class Daemon(s_base.Base):
             if item is None:
                 raise s_exc.NoSuchName(name=name)
 
-            sess = await Sess.anit()
+            sess = await DaemonSess.anit()
             async def sessfini():
                 self.sessions.pop(sess.iden, None)
 
