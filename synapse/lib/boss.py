@@ -41,11 +41,11 @@ class Boss(s_base.Base):
             synt.root = None
             return synt
 
-        return await s_task.Task.anit(self, task, name, user, info=info)
+        return await s_task.SynTask.anit(self, task, name, user, info=info)
 
     async def execute(self, coro, name, user, info=None):
         '''
         Create a synapse task from the given coroutine.
         '''
         task = self.schedCoro(coro)
-        return await s_task.Task.anit(self, task, name, user, info=info)
+        return await s_task.SynTask.anit(self, task, name, user, info=info)

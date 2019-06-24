@@ -349,9 +349,9 @@ class StormPath(Prim):
 
     async def _methPathTrace(self):
         trace = self.valu.trace()
-        return Trace(trace)
+        return StormTrace(trace)
 
-class Trace(Prim):
+class StormTrace(Prim):
     '''
     Storm API wrapper for the Path Trace object.
     '''

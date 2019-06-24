@@ -7,7 +7,7 @@ import synapse.lib.base as s_base
 
 logger = logging.getLogger(__name__)
 
-class Task(s_base.Base):
+class SynTask(s_base.Base):
     '''
     The synapse Task object implements concepts similar to process trees
     for asyncio.Task instances.
@@ -74,7 +74,7 @@ class Task(s_base.Base):
     async def worker(self, coro, name='worker'):
 
         task = self.boss.schedCoro(coro)
-        synt = await Task.anit(self.boss, task, name, self.user, root=self)
+        synt = await SynTask.anit(self.boss, task, name, self.user, root=self)
 
         self.kids[synt.iden] = synt
 
