@@ -286,7 +286,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
         core = self.getCmdItem()
 
-        argv = s_grammar.Parser(line).stormcmdargs()
+        argv = s_grammar.SyntaxParser(line).stormcmdargs()
         try:
             opts = self._make_argparser().parse_args(argv)
         except s_exc.ParserExit:

@@ -277,7 +277,7 @@ StormCmdParser = lark.Lark(_grammar, start='stormcmdargs', propagate_positions=T
 
 _eofre = regex.compile(r'''Terminal\('(\w+)'\)''')
 
-class Parser:
+class SyntaxParser:
     '''
     Storm query parser
     '''

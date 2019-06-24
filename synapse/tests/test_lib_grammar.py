@@ -943,7 +943,7 @@ class GrammarTest(s_t_utils.SynTest):
     async def test_parser(self):
         self.maxDiff = None
         for i, query in enumerate(_Queries):
-            parser = s_grammar.Parser(query)
+            parser = s_grammar.SyntaxParser(query)
             tree = parser.query()
 
             self.eq(str(tree), _ParseResults[i])
@@ -957,7 +957,7 @@ class GrammarTest(s_t_utils.SynTest):
             '+1',
             "{ [ graph:node='*' :type=m1]}"
             )
-        parser = s_grammar.Parser(q)
+        parser = s_grammar.SyntaxParser(q)
         args = parser.stormcmdargs()
         self.eq(args, correct)
 
@@ -976,7 +976,7 @@ class GrammarTest(s_t_utils.SynTest):
 
     def test_syntax_error(self):
         query = 'test:str --> *'
-        parser = s_grammar.Parser(query)
+        parser = s_grammar.SyntaxParser(query)
         self.raises(s_exc.BadSyntax, parser.query)
 
     def test_isre_funcs(self):

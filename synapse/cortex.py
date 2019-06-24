@@ -1887,7 +1887,7 @@ class Cortex(s_cell.Cell):
         '''
         Parse storm query text and return a Query object.
         '''
-        query = s_grammar.Parser(text).query()
+        query = s_grammar.SyntaxParser(text).query()
         query.init(self)
         return query
 

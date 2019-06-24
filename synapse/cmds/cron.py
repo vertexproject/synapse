@@ -578,7 +578,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
         core = self.getCmdItem()
 
-        argv = s_grammar.Parser(line).stormcmdargs()
+        argv = s_grammar.SyntaxParser(line).stormcmdargs()
         try:
             opts = self._make_argparser().parse_args(argv)
         except s_exc.ParserExit:
@@ -655,7 +655,7 @@ Examples:
 
         core = self.getCmdItem()
 
-        argv = s_grammar.Parser(line).stormcmdargs()
+        argv = s_grammar.SyntaxParser(line).stormcmdargs()
         # Currently, using an argparser is overkill for this command.  Using for future extensibility (and help).
         try:
             opts = self._make_argparser().parse_args(argv)
