@@ -170,6 +170,7 @@ class LibTime(Lib):
 
             <query> [ :time = $lib.time.fromunix($epoch) ]
 
+
         '''
         secs = float(secs)
         return int(secs * 1000)
@@ -277,6 +278,63 @@ class List(Prim):
         Return the length of the list.
         '''
         return len(self.valu)
+
+class StormHiveDict(Prim):
+    # A Storm API for a HiveDict which enforces
+    # hive:get, hive:set, and hive:pop permissions
+    def __init__(self, valu, runt, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.runt = runt
+        self.locls.update({
+            'get': self._methGet,
+            'pop': self._methPop,
+            'set': self._methSet,
+            'list': self._methList,
+        })
+
+    def _reqAllowed(self, act, name):
+        self.runt.allowed(act, *self.valu.node.full, name)
+
+    async def _methGet(self, name):
+        self._reqAllowed('hive:get', name)
+        return self.valu.get(name)
+
+    async def _methPop(self, name):
+        self._reqAllowed('hive:pop', name)
+        return await self.valu.pop(name)
+
+    async def _methSet(self, name, valu):
+        self._reqAllowed('hive:set', name)
+        await self.valu.set(name, valu)
+
+    async def _methList(self):
+        ret = []
+        for key, valu in list(self.valu.items()):
+            try:
+                self._reqAllowed('hive:get', key)
+            except s_exc.AuthDeny as e:
+                continue
+            else:
+                ret.append((key, valu))
+        return ret
+
+class LibUser(Lib):
+    def addLibFuncs(self):
+        hivedict = StormHiveDict(self.runt.user.pvars, self.runt)
+        self.locls.update({
+            'name': self._libUserName,
+            'vars': hivedict,
+        })
+
+    async def _libUserName(self, path=None):
+        return self.runt.user.name
+
+class LibCore(Lib):
+    def addLibFuncs(self):
+        hivedict = StormHiveDict(self.runt.snap.core.stormvars, self.runt)
+        self.locls.update({
+            'vars': hivedict,
+        })
 
 class Node(Prim):
     '''

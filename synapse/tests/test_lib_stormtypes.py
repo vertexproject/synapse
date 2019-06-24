@@ -1,4 +1,7 @@
+import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.cortex as s_cortex
+
 import synapse.tests.utils as s_test
 
 
@@ -326,3 +329,165 @@ class StormTypesTest(s_test.SynTest):
 
             for iden in idens:
                 self.stormIsInPrint(iden, mesgs)
+
+    async def test_stormuser(self):
+        # Do not include persistent vars support in this test see
+        # test_persistent_vars for that behavior.
+        async with self.getTestCore() as core:
+            # TODO: Should this be a straight dereference to a string
+            # constant? or a call?
+            q = '$lib.print($lib.user.name())'
+            mesgs = await s_test.alist(core.streamstorm(q))
+            self.stormIsInPrint('root', mesgs)
+
+    async def test_persistent_vars(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                async with core.getLocalProxy() as prox:  # type: s_cortex.CoreApi
+                    # User setup for $lib.user.vars() tests
+                    ret1 = await prox.addAuthUser('user1')
+                    iden1 = ret1.get('iden')
+                    await prox.setUserPasswd('user1', 'secret')
+                    await prox.addAuthRule('user1', (True, ('node:add',)))
+                    await prox.addAuthRule('user1', (True, ('prop:set',)))
+                    await prox.addAuthRule('user1', (True,
+                                                     ('hive:get', 'cortex', 'storm',
+                                                      'vars', 'userkey')))
+
+                    # Basic tests as root for $lib.core.vars
+
+                    q = '''$lib.core.vars.set(adminkey, sekrit)
+                    $lib.core.vars.set(userkey, lessThanSekrit)
+                    $lib.core.vars.set(throwaway, beep)
+                    $valu=$lib.core.vars.get(adminkey)
+                    $lib.print($valu)
+                    '''
+                    mesgs = await s_test.alist(prox.storm(q))
+                    self.stormIsInPrint('sekrit', mesgs)
+
+                    popq = '''$valu = $lib.core.vars.pop(throwaway)
+                    $lib.print("pop valu is {valu}", valu=$valu)
+                    '''
+                    mesgs = await s_test.alist(prox.storm(popq))
+                    self.stormIsInPrint('pop valu is beep', mesgs)
+
+                    listq = '''for ($key, $valu) in $lib.core.vars.list() {
+                    $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
+                    $lib.print($string)
+                    }
+                    '''
+                    mesgs = await s_test.alist(prox.storm(listq))
+                    self.len(2, [m for m in mesgs if m[0] == 'print'])
+                    self.stormIsInPrint('adminkey is sekrit', mesgs)
+                    self.stormIsInPrint('userkey is lessThanSekrit', mesgs)
+
+                    # Sadpath - storing a valu into the hive that can't be
+                    # msgpacked will fail
+                    q = '[test:str=test] $lib.user.vars.set(mynode, $node)'
+                    mesgs = await s_test.alist(prox.storm(q))
+                    err = "can not serialize 'Node' object"
+                    errs = [m for m in mesgs if m[0] == 'err']
+                    self.len(1, errs)
+                    self.eq(errs[0][1][1].get('mesg'), err)
+
+                async with core.getLocalProxy() as uprox:  # type: s_cortex.CoreApi
+                    self.true(await uprox.setCellUser(iden1))
+
+                    q = '''$lib.user.vars.set(somekey, hehe)
+                    $valu=$lib.user.vars.get(somekey)
+                    $lib.print($valu)
+                    '''
+                    mesgs = await s_test.alist(uprox.storm(q))
+                    self.stormIsInPrint('hehe', mesgs)
+
+                    q = '''$lib.user.vars.set(somekey, hehe)
+                    $lib.user.vars.set(anotherkey, weee)
+                    [test:str=$lib.user.vars.get(somekey)]
+                    '''
+                    mesgs = await s_test.alist(uprox.storm(q))
+                    self.len(1, await core.nodes('test:str=hehe'))
+
+                    listq = '''for ($key, $valu) in $lib.user.vars.list() {
+                        $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
+                        $lib.print($string)
+                    }
+                    '''
+                    mesgs = await s_test.alist(uprox.storm(listq))
+                    self.stormIsInPrint('somekey is hehe', mesgs)
+                    self.stormIsInPrint('anotherkey is weee', mesgs)
+
+                    popq = '''$valu = $lib.user.vars.pop(anotherkey)
+                    $lib.print("pop valu is {valu}", valu=$valu)
+                    '''
+                    mesgs = await s_test.alist(uprox.storm(popq))
+                    self.stormIsInPrint('pop valu is weee', mesgs)
+
+                    mesgs = await s_test.alist(uprox.storm(listq))
+                    self.len(1, [m for m in mesgs if m[0] == 'print'])
+                    self.stormIsInPrint('somekey is hehe', mesgs)
+
+                    # the user can access the specific core.vars key
+                    # that they have access too but not the admin key
+                    q = '''$valu=$lib.core.vars.get(userkey)
+                        $lib.print($valu)
+                        '''
+                    mesgs = await s_test.alist(uprox.storm(q))
+                    self.stormIsInPrint('lessThanSekrit', mesgs)
+
+                    # While the user has get perm, they do not have set or pop
+                    # permission
+                    q = '''$valu=$lib.core.vars.pop(userkey)
+                    $lib.print($valu)
+                    '''
+                    mesgs = await s_test.alist(uprox.storm(q))
+                    self.len(0, [m for m in mesgs if m[0] == 'print'])
+                    errs = [m for m in mesgs if m[0] == 'err']
+                    self.len(1, errs)
+                    self.eq(errs[0][1][0], 'AuthDeny')
+
+                    q = '''$valu=$lib.core.vars.set(userkey, newSekritValu)
+                    $lib.print($valu)
+                    '''
+                    mesgs = await s_test.alist(uprox.storm(q))
+                    self.len(0, [m for m in mesgs if m[0] == 'print'])
+                    errs = [m for m in mesgs if m[0] == 'err']
+                    self.len(1, errs)
+                    self.eq(errs[0][1][0], 'AuthDeny')
+
+                    # Attempting to access the adminkey fails
+                    q = '''$valu=$lib.core.vars.get(adminkey)
+                    $lib.print($valu)
+                    '''
+                    mesgs = await s_test.alist(uprox.storm(q))
+                    self.len(0, [m for m in mesgs if m[0] == 'print'])
+                    errs = [m for m in mesgs if m[0] == 'err']
+                    self.len(1, errs)
+                    self.eq(errs[0][1][0], 'AuthDeny')
+
+                    # if the user attempts to list the values in
+                    # core.vars, they only get the values they can read.
+                    corelistq = '''
+                    for ($key, $valu) in $lib.core.vars.list() {
+                        $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
+                        $lib.print($string)
+                    }
+                    '''
+                    mesgs = await s_test.alist(uprox.storm(corelistq))
+                    self.len(1, [m for m in mesgs if m[0] == 'print'])
+                    self.stormIsInPrint('userkey is lessThanSekrit', mesgs)
+
+            async with self.getTestCore(dirn=dirn) as core:
+                # And our variables do persist AFTER restarting the cortex,
+                # so they are persistent via the hive.
+                async with core.getLocalProxy() as uprox:  # type: s_cortex.CoreApi
+                    self.true(await uprox.setCellUser(iden1))
+
+                    mesgs = await s_test.alist(uprox.storm(listq))
+                    self.len(1, [m for m in mesgs if m[0] == 'print'])
+                    self.stormIsInPrint('somekey is hehe', mesgs)
+
+                    q = '''$valu=$lib.core.vars.get(userkey)
+                    $lib.print($valu)
+                    '''
+                    mesgs = await s_test.alist(uprox.storm(q))
+                    self.stormIsInPrint('lessThanSekrit', mesgs)

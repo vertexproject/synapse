@@ -48,15 +48,18 @@ class CellTest(s_t_utils.SynTest):
 
                 root_url = f'tcp://root:secretsauce@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(root_url) as proxy:
+                    root_user = await proxy.getCellUser()
+                    root_iden = root_user.get('iden')
                     self.true(await proxy.isadmin())
                     self.true(await proxy.allowed('hehe', 'haha'))
 
                 user = await echo.auth.addUser('visi')
                 await user.setPasswd('foo')
                 await user.addRule((True, ('foo', 'bar')))
+                visi_iden = user.iden
 
                 visi_url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
-                async with await s_telepath.openurl(visi_url) as proxy:
+                async with await s_telepath.openurl(visi_url) as proxy:  # type: EchoAuthApi
                     self.true(await proxy.allowed('foo', 'bar'))
                     self.false(await proxy.isadmin())
                     self.false(await proxy.allowed('hehe', 'haha'))
@@ -72,7 +75,7 @@ class CellTest(s_t_utils.SynTest):
                     # happy path perms
                     await user.addRule((True, ('hive:set', 'foo', 'bar')))
                     await user.addRule((True, ('hive:get', 'foo', 'bar')))
-                    await user.addRule((True, ('hive:list', 'foo', 'bar')))
+                    # await user.addRule((True, ('hive:list', 'foo', 'bar')))
                     await user.addRule((True, ('hive:pop', 'foo', 'bar')))
 
                     val = await proxy.setHiveKey(('foo', 'bar'), 'thefirstval')
@@ -94,7 +97,24 @@ class CellTest(s_t_utils.SynTest):
                     val = await proxy.listHiveKey(('foo', 'bar'))
                     self.eq(('baz', 'faz', 'haz'), val)
 
-                async with await s_telepath.openurl(root_url) as proxy:
+                    # The default persistent user-specific hive storage is accessible
+                    # to the user and they can list/add/pop data from it.
+                    path = ('auth', 'users', visi_iden, 'vars')
+                    self.eq(await proxy.listHiveKey(path), ())
+                    self.eq(await proxy.setHiveKey(path + ('hehe',), 'haha'), None)
+                    self.eq(await proxy.listHiveKey(path), ('hehe',))
+                    self.eq(await proxy.getHiveKey(path + ('hehe',)), 'haha')
+                    self.eq(await proxy.popHiveKey(path + ('hehe',)), 'haha')
+                    self.eq(await proxy.listHiveKey(path), ())
+
+                    # Default perm does not give access to arbitrary hive keys :)
+                    _path = ('auth', 'users')
+                    await self.asyncraises(s_exc.AuthDeny, proxy.listHiveKey(_path))
+                    # Can't cross over to other users storage
+                    _path = ('auth', 'users', root_iden, 'vars')
+                    await self.asyncraises(s_exc.AuthDeny, proxy.listHiveKey(_path))
+
+                async with await s_telepath.openurl(root_url) as proxy:  # type: EchoAuthApi
 
                     await proxy.setUserLocked('visi', True)
                     info = await proxy.getAuthInfo('visi')
@@ -108,7 +128,13 @@ class CellTest(s_t_utils.SynTest):
                     async with await s_telepath.openurl(visi_url) as visi_proxy:
                         self.false(await visi_proxy.isadmin())
 
-                async with await s_telepath.openurl(root_url) as proxy:
+                    # Admin user, as expected, can acess all user persistent storage
+                    _path = ('auth', 'users', root_iden, 'vars')
+                    self.eq(await proxy.listHiveKey(_path), ())
+                    _path = ('auth', 'users', visi_iden, 'vars')
+                    self.eq(await proxy.listHiveKey(_path), ())
+
+                async with await s_telepath.openurl(root_url) as proxy:  # type: EchoAuthApi
 
                     await self.asyncraises(s_exc.NoSuchUser,
                                            proxy.setUserArchived('newp', True))
@@ -133,7 +159,7 @@ class CellTest(s_t_utils.SynTest):
                     await self.asyncraises(s_exc.AuthDeny,
                                            s_telepath.openurl(visi_url))
 
-                async with echo.getLocalProxy() as proxy:
+                async with echo.getLocalProxy() as proxy:  # type: EchoAuthApi
 
                     await proxy.setHiveKey(('foo', 'bar'), [1, 2, 3, 4])
                     self.eq([1, 2, 3, 4], await proxy.getHiveKey(('foo', 'bar')))

@@ -788,6 +788,10 @@ class HiveIden(s_base.Base):
         self.info.setdefault('rules', ())
         self.rules = self.info.get('rules', onedit=self._onRulesEdit)
 
+    async def _onRulesEdit(self, mesg):  # pragma: no cover
+        raise s_exc.NoSuchImpl(mesg='HiveIden subclasses must implement _onRulesEdit',
+                               name='_onRulesEdit')
+
     async def setName(self, name):
         self.name = name
         await self.node.set(name)
@@ -860,10 +864,21 @@ class HiveUser(HiveIden):
         prof = await self.node.open(('profile',))
         self.profile = await prof.dict()
 
+        # vars cache for persistent user level data storage
+        # TODO: max size check?
+        pvars = await self.node.open(('vars',))
+        self.pvars = await pvars.dict()
+
         self.fullrules = []
         self.permcache = s_cache.FixedCache(self._calcPermAllow)
 
         self._initFullRules()
+
+        # user needs to get hive:get / hive:set / hive:pop permissions to their stormvars tree
+        for baseperm in ('hive:get', 'hive:set', 'hive:pop'):
+            rule = (True, (baseperm,) + pvars.full)
+            if rule not in self.fullrules:
+                await self.addRule(rule)
 
     def pack(self):
         return {
