@@ -95,7 +95,7 @@ Notes:
     Any prefix that matches exactly one valid trigger is accepted.
 '''
 
-class Trigger(s_cli.Cmd):
+class Trigger(s_cli.CliCmd):
     '''
 Manipulate triggers in a cortex.
 

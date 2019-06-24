@@ -1,7 +1,7 @@
 import synapse.lib.cli as s_cli
 import synapse.lib.time as s_time
 
-class PsCmd(s_cli.Cmd):
+class PsCmd(s_cli.CliCmd):
 
     '''
     List running tasks in the cortex.
@@ -26,7 +26,7 @@ class PsCmd(s_cli.Cmd):
 
         self.printf('%d tasks found.' % (len(tasks,)))
 
-class KillCmd(s_cli.Cmd):
+class KillCmd(s_cli.CliCmd):
     '''
     Kill a running task/query within the cortex.
 

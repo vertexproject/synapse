@@ -7,7 +7,7 @@ import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
 
-class TstThrowCmd(s_cli.Cmd):
+class TstThrowCmd(s_cli.CliCmd):
     '''
     Throw an exception.
     '''
@@ -16,7 +16,7 @@ class TstThrowCmd(s_cli.Cmd):
     async def runCmdOpts(self, opts):
         1 / 0
 
-class TstThrowKeyboard(s_cli.Cmd):
+class TstThrowKeyboard(s_cli.CliCmd):
     '''
     Throw an exception.
     '''
@@ -82,7 +82,7 @@ class CliTest(s_t_utils.SynTest):
 
     async def test_cli_cmdret(self):
 
-        class WootCmd(s_cli.Cmd):
+        class WootCmd(s_cli.CliCmd):
             _cmd_name = 'woot'
 
             async def runCmdOpts(self, opts):

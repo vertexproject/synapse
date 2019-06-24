@@ -19,7 +19,7 @@ RED = '#ff0066'
 YELLOW = '#f4e842'
 BLUE = '#6faef2'
 
-class Log(s_cli.Cmd):
+class Log(s_cli.CliCmd):
     '''Add a storm log to the local command session.
 
 Notes:
@@ -77,7 +77,7 @@ Examples:
         return parser
 
     def __init__(self, cli, **opts):
-        s_cli.Cmd.__init__(self, cli, **opts)
+        s_cli.CliCmd.__init__(self, cli, **opts)
         # Give ourselves a local ref to locs since we're stateful.
         self.locs = self._cmd_cli.locs
         self._cmd_cli.onfini(self.closeLogFd)
@@ -193,7 +193,7 @@ Examples:
         if opts.off:
             return self.closeLogFd()
 
-class StormCmd(s_cli.Cmd):
+class StormCmd(s_cli.CliCmd):
     '''
     Execute a storm query.
 
@@ -236,7 +236,7 @@ class StormCmd(s_cli.Cmd):
     )
 
     def __init__(self, cli, **opts):
-        s_cli.Cmd.__init__(self, cli, **opts)
+        s_cli.CliCmd.__init__(self, cli, **opts)
         self.cmdmeths = {
             'node': self._onNode,
             'init': self._onInit,

@@ -155,7 +155,7 @@ Examples:
     cron add -d +2 -M 57 -H 15 {#foo}
 '''
 
-class Cron(s_cli.Cmd):
+class Cron(s_cli.CliCmd):
     '''
 Manages cron jobs in a cortex.
 
@@ -598,7 +598,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         }
         await handlers[opts.cmd](core, opts)
 
-class At(s_cli.Cmd):
+class At(s_cli.CliCmd):
     '''
 Adds a non-recurring cron job.
 

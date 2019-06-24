@@ -26,7 +26,7 @@ import synapse.lib.version as s_version
 logger = logging.getLogger(__name__)
 
 
-class Cmd:
+class CliCmd:
     '''
     Base class for modular commands in the synapse CLI.
 
@@ -446,7 +446,7 @@ class Cli(s_base.Base):
 
         return ret
 
-class CmdQuit(Cmd):
+class CmdQuit(CliCmd):
     '''
     Quit the current command line interpreter.
 
@@ -461,7 +461,7 @@ class CmdQuit(Cmd):
         self.printf('o/')
         raise s_exc.CliFini()
 
-class CmdHelp(Cmd):
+class CmdHelp(CliCmd):
     '''
     List commands and display help output.
 
@@ -504,7 +504,7 @@ class CmdHelp(Cmd):
 
         return
 
-class CmdLocals(Cmd):
+class CmdLocals(CliCmd):
     '''
     List the current locals for a given CLI object.
     '''

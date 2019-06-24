@@ -58,7 +58,7 @@ def tuplify(obj):
         return {k: tuplify(v) for k, v in obj.items()}
     return obj
 
-class HiveCmd(s_cli.Cmd):
+class HiveCmd(s_cli.CliCmd):
     '''
 Manipulates values in a cell's Hive.
 
