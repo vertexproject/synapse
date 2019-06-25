@@ -145,7 +145,8 @@ class Runtime:
 
         # fails will not be cached...
         perm = '.'.join(args)
-        raise s_exc.AuthDeny(perm=perm, user=self.user.name)
+        mesg = f'User must have permission {perm}'
+        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
 
     async def iterStormQuery(self, query):
 
