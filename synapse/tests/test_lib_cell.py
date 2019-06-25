@@ -48,15 +48,12 @@ class CellTest(s_t_utils.SynTest):
 
                 root_url = f'tcp://root:secretsauce@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(root_url) as proxy:
-                    root_user = await proxy.getCellUser()
-                    root_iden = root_user.get('iden')
                     self.true(await proxy.isadmin())
                     self.true(await proxy.allowed('hehe', 'haha'))
 
                 user = await echo.auth.addUser('visi')
                 await user.setPasswd('foo')
                 await user.addRule((True, ('foo', 'bar')))
-                visi_iden = user.iden
 
                 visi_url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(visi_url) as proxy:  # type: EchoAuthApi
@@ -75,7 +72,6 @@ class CellTest(s_t_utils.SynTest):
                     # happy path perms
                     await user.addRule((True, ('hive:set', 'foo', 'bar')))
                     await user.addRule((True, ('hive:get', 'foo', 'bar')))
-                    # await user.addRule((True, ('hive:list', 'foo', 'bar')))
                     await user.addRule((True, ('hive:pop', 'foo', 'bar')))
 
                     val = await proxy.setHiveKey(('foo', 'bar'), 'thefirstval')
@@ -110,12 +106,6 @@ class CellTest(s_t_utils.SynTest):
                     self.false(info[1].get('locked'))
                     async with await s_telepath.openurl(visi_url) as visi_proxy:
                         self.false(await visi_proxy.isadmin())
-
-                    # Admin user, as expected, can acess all user persistent storage
-                    _path = ('auth', 'users', root_iden, 'vars')
-                    self.eq(await proxy.listHiveKey(_path), ())
-                    _path = ('auth', 'users', visi_iden, 'vars')
-                    self.eq(await proxy.listHiveKey(_path), ())
 
                 async with await s_telepath.openurl(root_url) as proxy:  # type: EchoAuthApi
 
