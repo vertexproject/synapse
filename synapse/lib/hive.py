@@ -590,7 +590,7 @@ class HiveDict(s_base.Base):
 
         self.node.onfini(self)
 
-    def get(self, name, onedit=None):
+    def get(self, name, onedit=None, default=None):
 
         # use hive.onedit() here to register for
         # paths which potentially dont exist yet
@@ -600,7 +600,7 @@ class HiveDict(s_base.Base):
 
         node = self.node.get(name)
         if node is None:
-            return self.defs.get(name)
+            return self.defs.get(name, default)
 
         return node.valu
 
