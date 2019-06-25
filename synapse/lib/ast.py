@@ -1,3 +1,4 @@
+import asyncio
 import fnmatch
 import logging
 import itertools
@@ -373,11 +374,9 @@ class ForLoop(Oper):
 
         subq = self.kids[2]
         name = self.kids[0].value()
+        node = None
 
-        count = 0
         async for node, path in genr:
-
-            count += 1
 
             for item in await self.kids[1].compute(path):
 
@@ -409,7 +408,7 @@ class ForLoop(Oper):
             yield node, path
 
         # no nodes and a runt safe value should execute once
-        if count == 0 and self.kids[1].isRuntSafe(runt):
+        if node is None and self.kids[1].isRuntSafe(runt):
 
             for item in await self.kids[1].runtval(runt):
 
@@ -433,6 +432,46 @@ class ForLoop(Oper):
 
                 except StormContinue:
                     continue
+
+class WhileLoop(Oper):
+    async def run(self, runt, genr):
+        subq = self.kids[1]
+        node = None
+
+        async for node, path in genr:
+
+            while await self.kids[0].compute(path):
+                try:
+
+                    newg = agen((node, path))
+                    await s_common.aspin(subq.inline(runt, newg))
+
+                except StormBreak:
+                    break
+
+                except StormContinue:
+                    continue
+
+        # no nodes and a runt safe value should execute once
+        if node is None and self.kids[0].isRuntSafe(runt):
+            count = 0
+
+            while await self.kids[0].runtval(runt):
+                count += 1
+
+                try:
+                    async for jtem in subq.inline(runt, agen()):
+                        yield jtem
+
+                except StormBreak:
+                    break
+
+                except StormContinue:
+                    continue
+
+                if count >= 1000:
+                    await asyncio.sleep(0)  # give other tasks some CPU
+                    count = 0
 
 class CmdOper(Oper):
 
