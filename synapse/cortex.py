@@ -705,6 +705,7 @@ class Cortex(s_cell.Cell):
         self.layrctors = {}
         self.feedfuncs = {}
         self.stormcmds = {}
+        self.stormvars = None  # type: s_hive.HiveDict
         self.stormrunts = {}
 
         self._runtLiftFuncs = {}
@@ -719,6 +720,10 @@ class Cortex(s_cell.Cell):
         self.libroot = (None, {}, {})
         self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
 
+        # async inits
+        await self._initCoreHive()
+
+        # sync inits
         self._initSplicers()
         self._initStormCmds()
         self._initStormLibs()
@@ -862,6 +867,10 @@ class Cortex(s_cell.Cell):
         form = self.model.form(name)
         return form.getWaitFor(valu)
 
+    async def _initCoreHive(self):
+        stormvars = await self.hive.open(('cortex', 'storm', 'vars'))
+        self.stormvars = await stormvars.dict()
+
     def _initStormCmds(self):
         '''
         Registration for built-in Storm commands.
@@ -888,6 +897,8 @@ class Cortex(s_cell.Cell):
         self.addStormLib(('csv',), s_stormtypes.LibCsv)
         self.addStormLib(('str',), s_stormtypes.LibStr)
         self.addStormLib(('time',), s_stormtypes.LibTime)
+        self.addStormLib(('user',), s_stormtypes.LibUser)
+        self.addStormLib(('globals',), s_stormtypes.LibGlobals)
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
 
     def _initSplicers(self):
