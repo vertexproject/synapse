@@ -334,8 +334,6 @@ class StormTypesTest(s_test.SynTest):
         # Do not include persistent vars support in this test see
         # test_persistent_vars for that behavior.
         async with self.getTestCore() as core:
-            # TODO: Should this be a straight dereference to a string
-            # constant? or a call?
             q = '$lib.print($lib.user.name())'
             mesgs = await s_test.alist(core.streamstorm(q))
             self.stormIsInPrint('root', mesgs)
