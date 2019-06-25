@@ -896,9 +896,9 @@ class Cortex(s_cell.Cell):
         '''
         self.addStormLib(('csv',), s_stormtypes.LibCsv)
         self.addStormLib(('str',), s_stormtypes.LibStr)
-        self.addStormLib(('core',), s_stormtypes.LibCore)
         self.addStormLib(('time',), s_stormtypes.LibTime)
         self.addStormLib(('user',), s_stormtypes.LibUser)
+        self.addStormLib(('globals',), s_stormtypes.LibGlobals)
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
 
     def _initSplicers(self):

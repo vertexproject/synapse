@@ -351,26 +351,26 @@ class StormTypesTest(s_test.SynTest):
                     await prox.addAuthRule('user1', (True, ('node:add',)))
                     await prox.addAuthRule('user1', (True, ('prop:set',)))
                     await prox.addAuthRule('user1', (True,
-                                                     ('storm:globals', 'get', 'userkey',)))
+                                                     ('storm:globals:get', 'userkey',)))
 
-                    # Basic tests as root for $lib.core.vars
+                    # Basic tests as root for $lib.globals
 
-                    q = '''$lib.core.vars.set(adminkey, sekrit)
-                    $lib.core.vars.set(userkey, lessThanSekrit)
-                    $lib.core.vars.set(throwaway, beep)
-                    $valu=$lib.core.vars.get(adminkey)
+                    q = '''$lib.globals.set(adminkey, sekrit)
+                    $lib.globals.set(userkey, lessThanSekrit)
+                    $lib.globals.set(throwaway, beep)
+                    $valu=$lib.globals.get(adminkey)
                     $lib.print($valu)
                     '''
                     mesgs = await s_test.alist(prox.storm(q))
                     self.stormIsInPrint('sekrit', mesgs)
 
-                    popq = '''$valu = $lib.core.vars.pop(throwaway)
+                    popq = '''$valu = $lib.globals.pop(throwaway)
                     $lib.print("pop valu is {valu}", valu=$valu)
                     '''
                     mesgs = await s_test.alist(prox.storm(popq))
                     self.stormIsInPrint('pop valu is beep', mesgs)
 
-                    listq = '''for ($key, $valu) in $lib.core.vars.list() {
+                    listq = '''for ($key, $valu) in $lib.globals.list() {
                     $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
                     $lib.print($string)
                     }
@@ -427,7 +427,7 @@ class StormTypesTest(s_test.SynTest):
 
                     # the user can access the specific core.vars key
                     # that they have access too but not the admin key
-                    q = '''$valu=$lib.core.vars.get(userkey)
+                    q = '''$valu=$lib.globals.get(userkey)
                         $lib.print($valu)
                         '''
                     mesgs = await s_test.alist(uprox.storm(q))
@@ -435,7 +435,7 @@ class StormTypesTest(s_test.SynTest):
 
                     # While the user has get perm, they do not have set or pop
                     # permission
-                    q = '''$valu=$lib.core.vars.pop(userkey)
+                    q = '''$valu=$lib.globals.pop(userkey)
                     $lib.print($valu)
                     '''
                     mesgs = await s_test.alist(uprox.storm(q))
@@ -444,7 +444,7 @@ class StormTypesTest(s_test.SynTest):
                     self.len(1, errs)
                     self.eq(errs[0][1][0], 'AuthDeny')
 
-                    q = '''$valu=$lib.core.vars.set(userkey, newSekritValu)
+                    q = '''$valu=$lib.globals.set(userkey, newSekritValu)
                     $lib.print($valu)
                     '''
                     mesgs = await s_test.alist(uprox.storm(q))
@@ -454,7 +454,7 @@ class StormTypesTest(s_test.SynTest):
                     self.eq(errs[0][1][0], 'AuthDeny')
 
                     # Attempting to access the adminkey fails
-                    q = '''$valu=$lib.core.vars.get(adminkey)
+                    q = '''$valu=$lib.globals.get(adminkey)
                     $lib.print($valu)
                     '''
                     mesgs = await s_test.alist(uprox.storm(q))
@@ -466,7 +466,7 @@ class StormTypesTest(s_test.SynTest):
                     # if the user attempts to list the values in
                     # core.vars, they only get the values they can read.
                     corelistq = '''
-                    for ($key, $valu) in $lib.core.vars.list() {
+                    for ($key, $valu) in $lib.globals.list() {
                         $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
                         $lib.print($string)
                     }
@@ -485,7 +485,7 @@ class StormTypesTest(s_test.SynTest):
                     self.len(1, [m for m in mesgs if m[0] == 'print'])
                     self.stormIsInPrint('somekey is hehe', mesgs)
 
-                    q = '''$valu=$lib.core.vars.get(userkey)
+                    q = '''$valu=$lib.globals.get(userkey)
                     $lib.print($valu)
                     '''
                     mesgs = await s_test.alist(uprox.storm(q))

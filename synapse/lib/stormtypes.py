@@ -280,12 +280,9 @@ class List(Prim):
         return len(self.valu)
 
 class StormHiveDict(Prim):
-    # A Storm API for a HiveDict which optionally enforces
-    # permission checks with the provided permission
-    def __init__(self, valu, runt, perm=None, path=None):
+    # A Storm API for a HiveDict
+    def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
-        self.runt = runt
-        self.perm = perm
         self.locls.update({
             'get': self._methGet,
             'pop': self._methPop,
@@ -293,38 +290,22 @@ class StormHiveDict(Prim):
             'list': self._methList,
         })
 
-    def _reqAllowed(self, act, name):
-        if not self.perm:
-            return
-        self.runt.allowed(self.perm, act, name)
-
     async def _methGet(self, name):
-        self._reqAllowed('get', name)
         return self.valu.get(name)
 
     async def _methPop(self, name):
-        self._reqAllowed('pop', name)
         return await self.valu.pop(name)
 
     async def _methSet(self, name, valu):
         # prevent nest key/hive node creation here
-        self._reqAllowed('set', name)
         await self.valu.set(name, valu)
 
     async def _methList(self):
-        ret = []
-        for key, valu in list(self.valu.items()):
-            try:
-                self._reqAllowed('get', key)
-            except s_exc.AuthDeny as e:
-                continue
-            else:
-                ret.append((key, valu))
-        return ret
+        return list(self.valu.items())
 
 class LibUser(Lib):
     def addLibFuncs(self):
-        hivedict = StormHiveDict(self.runt.user.pvars, self.runt)
+        hivedict = StormHiveDict(self.runt.user.pvars)
         self.locls.update({
             'name': self._libUserName,
             'vars': hivedict,
@@ -333,14 +314,48 @@ class LibUser(Lib):
     async def _libUserName(self, path=None):
         return self.runt.user.name
 
-class LibCore(Lib):
+class LibGlobals(Lib):
+    '''
+    Global persistent Storm variables
+    '''
+    def __init__(self, runt, name):
+        self._stormvars = runt.snap.core.stormvars
+        Lib.__init__(self, runt, name)
+
     def addLibFuncs(self):
-        hivedict = StormHiveDict(self.runt.snap.core.stormvars,
-                                 self.runt,
-                                 perm='storm:globals')
         self.locls.update({
-            'vars': hivedict,
+            'get': self._methGet,
+            'pop': self._methPop,
+            'set': self._methSet,
+            'list': self._methList,
         })
+
+    def _reqAllowed(self, perm, name):
+        self.runt.allowed(perm, name)
+
+    async def _methGet(self, name):
+        self._reqAllowed('storm:globals:get', name)
+        return self._stormvars.get(name)
+
+    async def _methPop(self, name):
+        self._reqAllowed('storm:globals:pop', name)
+        return await self._stormvars.pop(name)
+
+    async def _methSet(self, name, valu):
+        self._reqAllowed('storm:globals:set', name)
+        # prevent nest key/hive node creation here
+        await self._stormvars.set(name, valu)
+
+    async def _methList(self):
+        ret = []
+        for key, valu in list(self._stormvars.items()):
+            try:
+                self._reqAllowed('storm:globals:get', key)
+            except s_exc.AuthDeny as e:
+                continue
+            else:
+                ret.append((key, valu))
+        return ret
 
 class Node(Prim):
     '''
