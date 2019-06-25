@@ -290,14 +290,21 @@ class StormHiveDict(Prim):
             'list': self._methList,
         })
 
+    def _reqStr(self, name):
+        if not isinstance(name, str):
+            mesg = 'The name of a persistent variable must be a string.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
     async def _methGet(self, name):
+        self._reqStr(name)
         return self.valu.get(name)
 
     async def _methPop(self, name):
+        self._reqStr(name)
         return await self.valu.pop(name)
 
     async def _methSet(self, name, valu):
-        # prevent nest key/hive node creation here
+        self._reqStr(name)
         await self.valu.set(name, valu)
 
     async def _methList(self):
@@ -333,17 +340,24 @@ class LibGlobals(Lib):
     def _reqAllowed(self, perm, name):
         self.runt.allowed(perm, name)
 
+    def _reqStr(self, name):
+        if not isinstance(name, str):
+            mesg = 'The name of a persistent variable must be a string.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
     async def _methGet(self, name):
+        self._reqStr(name)
         self._reqAllowed('storm:globals:get', name)
         return self._stormvars.get(name)
 
     async def _methPop(self, name):
+        self._reqStr(name)
         self._reqAllowed('storm:globals:pop', name)
         return await self._stormvars.pop(name)
 
     async def _methSet(self, name, valu):
+        self._reqStr(name)
         self._reqAllowed('storm:globals:set', name)
-        # prevent nest key/hive node creation here
         await self._stormvars.set(name, valu)
 
     async def _methList(self):

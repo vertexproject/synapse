@@ -389,6 +389,22 @@ class StormTypesTest(s_test.SynTest):
                     self.len(1, errs)
                     self.eq(errs[0][1][1].get('mesg'), err)
 
+                    # Sad path - names must be strings.
+                    q = '$lib.user.vars.set((my, nested, valu), haha)'
+                    mesgs = await s_test.alist(prox.storm(q))
+                    err = 'The name of a persistent variable must be a string.'
+                    errs = [m for m in mesgs if m[0] == 'err']
+                    self.len(1, errs)
+                    self.eq(errs[0][1][1].get('mesg'), err)
+
+                    # Sad path - names must be strings.
+                    q = '$lib.globals.set((my, nested, valu), haha)'
+                    mesgs = await s_test.alist(prox.storm(q))
+                    err = 'The name of a persistent variable must be a string.'
+                    errs = [m for m in mesgs if m[0] == 'err']
+                    self.len(1, errs)
+                    self.eq(errs[0][1][1].get('mesg'), err)
+
                 async with core.getLocalProxy() as uprox:  # type: s_cortex.CoreApi
                     self.true(await uprox.setCellUser(iden1))
 
