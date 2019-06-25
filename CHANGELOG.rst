@@ -2,7 +2,181 @@
 Synapse Changelog
 *****************
 
-v0.1.5 - TBD
+v0.1.14 - 2019-06-21
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add sub-command aliases for the Cmdr ``hive`` and ``cron`` commands, so that similar subcommands like ``list`` and ``ls`` work across both commands. (`#1281 <https://github.com/vertexproject/synapse/pull/1281>`_)
+- Simplify adding structured data to the cell Hive via Cmdr. (`#1282 <https://github.com/vertexproject/synapse/pull/1282>`_)
+
+Bugfixes
+--------
+- Fix an issue in Cmdr for ``hive get`` which could result in failing to properly overwrite files when saving a Hive value to disk. (`#1282 <https://github.com/vertexproject/synapse/pull/1282>`_)
+
+Improved Documentation
+----------------------
+
+- Add additional logging for ReadTheDocs documentation builds. (`#1284 <https://github.com/vertexproject/synapse/pull/1284>`_)
+- Add additional Hive API docstrings. (`#1285 <https://github.com/vertexproject/synapse/pull/1285>`_)
+
+
+v0.1.13 - 2019-06-18
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add ``syn:trigger`` runtime only nodes to the Cortex. These represent triggers which have been configured on a Cortex. (`#1270 <https://github.com/vertexproject/synapse/pull/1270>`_)
+- Add a new packed node helper, ``synapse.lib.nodes.tagsnice()``, to get all the leaf tags on a node and any tags which have a time interval associated with them. (`#1271 <https://github.com/vertexproject/synapse/pull/1271>`_)
+- Add a ``err?`` column to the output of the ``cron list``.  This includes an ``X`` character in the column if the last execution of that Cron task encountered an error. (`#1272 <https://github.com/vertexproject/synapse/pull/1272>`_)
+- Refactor the Boss commands in cmdr to their own file and improve test coverage for the Cortex ``storm`` command in Cmdr. (`#1273 <https://github.com/vertexproject/synapse/pull/1273>`_)
+- Add ``$node.globtags()`` method to Storm which accepts a tag glob, and returns a list of the matching glob values. (`#1275 <https://github.com/vertexproject/synapse/pull/1275>`_)
+- Add there remote Cortex API ``CoreApi.delNodeProp()`` to allow property deletion from a single node. (`#1279 <https://github.com/vertexproject/synapse/pull/1279>`_)
+
+Bugfixes
+--------
+
+- Update CellApi Hive functions to properly check permissions. (`#1274 <https://github.com/vertexproject/synapse/pull/1274>`_)
+- Ensure that tearing down a Telepath generator via GeneratorExit from non-async code properly signals the generator to teardown on the ioloop. (`#1278 <https://github.com/vertexproject/synapse/pull/1278>`_)
+- Fix an issue where Storm subquery variable assignments were being pushed to the global runtime, but were not properly available to the Path objects associated with inbound nodes. (`#1280 <https://github.com/vertexproject/synapse/pull/1280>`_)
+
+Improved Documentation
+----------------------
+
+- Improve inline API help for a few test helper functions. (`#1273 <https://github.com/vertexproject/synapse/pull/1273>`_)
+- Update Cmdr reference documentation for trigger and cron updates. (`#1277 <https://github.com/vertexproject/synapse/pull/1277>`_)
+
+
+v0.1.12 - 2019-06-12
+====================
+
+Features and Enhancements
+-------------------------
+
+- Centralize the ``allowed()`` and ``_reqUserAllowed()`` function from the CoreApi class to the CellApi, making permission checking easier for CellApi implementers. (`#1268 <https://github.com/vertexproject/synapse/pull/1268>`_)
+- Add the ``$path`` built-in Storm variable to the default variables populated in the Storm pipeline. (`#1269 <https://github.com/vertexproject/synapse/pull/1269>`_)
+- Add a ``$path.trace()`` method to get a object which traces the pivots from a given Path object.  The path idens can be obtained via ``trace.iden()``. (`#1269 <https://github.com/vertexproject/synapse/pull/1269>`_)
+- Add ``$lib.set()`` to Storm Types.  This can be used to get a mutable set object. (`#1269 <https://github.com/vertexproject/synapse/pull/1269>`_)
+
+Bugfixes
+--------
+
+- Fix an issue where the Base ``link()`` API required the linking function to be a coroutine. (`#1261 <https://github.com/vertexproject/synapse/pull/1261>`_)
+
+Improved Documentation
+----------------------
+
+- Improve inline API help for a few functions. (`#1268 <https://github.com/vertexproject/synapse/pull/1268>`_)
+
+
+v0.1.11 - 2019-06-06
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add an optional facility to lmdbslab to prevent its data from being swapped out of memory. Add a Cortex configuration option (in the cell.yaml file) named ``dedicated`` to enable this for the lmdb slabs that store the graph data in a Cortex. This is currently only supported on Linux. (`#1254 <https://github.com/vertexproject/synapse/pull/1254>`_)
+
+Bugfixes
+--------
+
+- Fix an issue where the Cmdr color awareness for error highlighting was preventing documentation from building properly. (`#1261 <https://github.com/vertexproject/synapse/pull/1261>`_)
+- Fix an issue where the ``synapse.servers.cortex`` ``--mirror`` option was not properly mirroring realtime splices. (`#1264 <https://github.com/vertexproject/synapse/pull/1264>`_)
+- Fix a runtsafe variable order bug in Storm. (`#1265 <https://github.com/vertexproject/synapse/pull/1265>`_)
+- Work around an issue in prompt-toolkit's ``print_formatted_text`` function. (`#1266 <https://github.com/vertexproject/synapse/pull/1266>`_)
+- Fix an issue where color awareness was not available for Cmdr sessions launched via ``synapse.tools.csvtool`` and ``synapse.tools.feed``.  (`#1267 <https://github.com/vertexproject/synapse/pull/1267>`_)
+
+Improved Documentation
+----------------------
+
+- Update Storm lift documentation to include lifting by time intervals. (`#1260 <https://github.com/vertexproject/synapse/pull/1260>`_)
+- Update ReadTheDocs build configuration to utilize a Docker container, instead of a conda environment. (`#1262 <https://github.com/vertexproject/synapse/pull/1262>`_)
+
+
+v0.1.10 - 2019-06-04
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add ``$node.iden()`` method in Storm to expose the iden of a node. (`#1257 <https://github.com/vertexproject/synapse/pull/1257>`_)
+- Add ``$lib.text()`` method in Storm Lib to add a mutable string formatting object. (`#1258 <https://github.com/vertexproject/synapse/pull/1258>`_)
+
+
+v0.1.9 - 2019-05-31
+===================
+
+Features and Enhancements
+-------------------------
+
+- Add colored error reporting in Cmdr when a BadSyntax exception is sent to the user. (`#1248 <https://github.com/vertexproject/synapse/pull/1248>`_)
+- Expose the local Synapse version information in Cmdr via the ``locs`` command. (`#1250 <https://github.com/vertexproject/synapse/pull/1250>`_)
+- Add reflected class names to the Telepath shareinfo. Expose this with the ``Proxy._getClasses()`` API. (`#1250 <https://github.com/vertexproject/synapse/pull/1250>`_)
+- Add ``--file`` and ``--optsfile`` arguments to the Cmdr ``storm`` command.  These, respectively, allow a user to provide a file containing a raw Storm query and variable arguments as a json file. (`#1252 <https://github.com/vertexproject/synapse/pull/1252>`_)
+
+Bugfixes
+--------
+
+- Fix an issue where the Cmdr ``log`` command did not clean up all of its settings. (`#1249 <https://github.com/vertexproject/synapse/pull/1249>`_)
+- Fix an issue with the Storm ``switch`` statement handling of non-runtsafe values. (`#1251 <https://github.com/vertexproject/synapse/pull/1251>`_)
+- Fix an issue with the Storm ``if`` statement handling of non-runtsafe values. (`#1253 <https://github.com/vertexproject/synapse/pull/1253>`_)
+- Fix an issue with when connecting to a Cortex via Telepath for the default remote layer, which previously could have pointed to a layer which was not the correct layer for the default view. (`#1255 <https://github.com/vertexproject/synapse/pull/1255>`_)
+
+
+v0.1.8 - 2019-05-22
+===================
+
+Features and Enhancements
+-------------------------
+
+- Add if/elif/else statement.  Add and/or/not inside dollar expressions.  Have expressions always return an int.  (`#1235 <https://github.com/vertexproject/synapse/pull/1235>`_)
+- Add variable and expression filters.  Test for and correct all known grammar ambiguities.  Tag filters with a comparison, e.g. ``+#$foo=$bar``, now don't raise an exception (`#1241 <https://github.com/vertexproject/synapse/pull/1235>`_)
+- Add ability to enable and disable cron jobs and triggers.  (`#1242 <https://github.com/vertexproject/synapse/pull/1242>`_)
+
+Bugfixes
+--------
+
+- Fix a bug where a tag addition could cause a splice to be generated if the tag window being added was inside of the existing tag window. (`#1243 <https://github.com/vertexproject/synapse/pull/1243>`_)
+- csvtool now correctly handles print events (`#1245 <https://github.com/vertexproject/synapse/pull/1245>`_)
+
+Improved Documentation
+----------------------
+
+- Update release process documentation. (`#1244 <https://github.com/vertexproject/synapse/pull/1244>`_)
+
+
+v0.1.7 - 2019-05-17
+===================
+
+Features and Enhancements
+-------------------------
+
+- Add the Synapse version information in the Telepath handshake.  Expose this with the ``Proxy._getSynVers()`` API and in the Cmdr CLI via the ``locs`` command.  (`#1238 <https://github.com/vertexproject/synapse/pull/1238>`_)
+- Add a ``--save-nodes`` argument to the Storm command in Cmdr to do a one-shot record of nodes returned by a Storm query.  (`#1239 <https://github.com/vertexproject/synapse/pull/1239>`_)
+- Allow ``synapse.tools.cmdr`` to take a second argument and run that argument as a Cmdr command.  (`#1239 <https://github.com/vertexproject/synapse/pull/1239>`_)
+- Add ``$node.repr()`` to Storm types.  This allows the user to get the repr of the primary property, or a secondary property, and assign it to a variable in storm.  (`#1222 <https://github.com/vertexproject/synapse/pull/1222>`_)
+- Add ``lib.csv.emit()`` to Storm types.  This allows the user to emit a message during a Storm query which can easily be joined into a CSV.  (`#1236 <https://github.com/vertexproject/synapse/pull/1236>`_)
+- Add a ``--export`` option to ``synapse.tools.csvtool``.  This allows the user to create a CSV file from a query that uses the ``$lib.csv.emit()`` Storm function.  (`#1236 <https://github.com/vertexproject/synapse/pull/1236>`_)
+
+Bugfixes
+--------
+
+- Resolve Storm grammar ambiguity between tag condition filters with value and left join. (`#1237 <https://github.com/vertexproject/synapse/pull/1237>`_)
+- Resolve Storm grammar ambiguity to prevent reserved words from being identified as a Storm command. (`#1240 <https://github.com/vertexproject/synapse/pull/1240>`_)
+
+
+v0.1.6 - 2019-05-15
+===================
+
+Bugfixes
+--------
+
+- Fix an ambuguity in the Storm grammer regarding quoted command arguments. (`#1234 <https://github.com/vertexproject/synapse/pull/1234>`_)
+
+
+v0.1.5 - 2019-05-15
 ===================
 
 Features and Enhancements

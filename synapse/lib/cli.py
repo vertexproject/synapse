@@ -8,7 +8,8 @@ import collections
 
 import regex
 
-from prompt_toolkit import PromptSession
+from prompt_toolkit import PromptSession, print_formatted_text
+from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.patch_stdout import patch_stdout
@@ -16,13 +17,16 @@ from prompt_toolkit.eventloop.defaults import use_asyncio_event_loop
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
 import synapse.lib.grammar as s_grammar
+import synapse.lib.version as s_version
 import synapse.lib.storm_format as s_storm_format
 
 logger = logging.getLogger(__name__)
+
 
 class Cmd:
     '''
@@ -191,8 +195,8 @@ class Cmd:
             return ''
         return self.__doc__
 
-    def printf(self, mesg, addnl=True):
-        return self._cmd_cli.printf(mesg, addnl=addnl)
+    def printf(self, mesg, addnl=True, color=None):
+        return self._cmd_cli.printf(mesg, addnl=addnl, color=color)
 
     async def runCmdOpts(self, opts):
         '''
@@ -248,9 +252,19 @@ class Cli(s_base.Base):
         self.item = item    # whatever object we are commanding
 
         self.echoline = False
+        self.colorsenabled = False
 
         if isinstance(self.item, s_base.Base):
             self.item.onfini(self._onItemFini)
+
+        self.locs['syn:local:version'] = s_version.verstring
+
+        if isinstance(self.item, s_telepath.Proxy):
+            version = self.item._getSynVers()
+            if version is None:  # pragma: no cover
+                self.locs['syn:remote:version'] = 'Remote Synapse version unavailable'
+            else:
+                self.locs['syn:remote:version'] = '.'.join([str(v) for v in version])
 
         self.cmds = {}
         self.cmdprompt = 'cli> '
@@ -302,8 +316,16 @@ class Cli(s_base.Base):
             retn = await self.sess.prompt(text, async_=True, vi_mode=self.vi_mode, enable_open_in_editor=True)
             return retn
 
-    def printf(self, mesg, addnl=True):
-        return self.outp.printf(mesg, addnl=addnl)
+    def printf(self, mesg, addnl=True, color=None):
+        if not self.colorsenabled:
+            return self.outp.printf(mesg, addnl=addnl)
+
+        # print_formatted_text can't handle \r
+        mesg = mesg.replace('\r', '')
+
+        if color is not None:
+            mesg = FormattedText([(color, mesg)])
+        return print_formatted_text(mesg)
 
     def addCmdClass(self, ctor, **opts):
         '''
@@ -494,6 +516,9 @@ class CmdLocals(Cmd):
     async def runCmdOpts(self, opts):
         ret = {}
         for k, v in self._cmd_cli.locs.items():
-            ret[k] = repr(v)
+            if isinstance(v, (int, str)):
+                ret[k] = v
+            else:
+                ret[k] = repr(v)
         mesg = json.dumps(ret, indent=2, sort_keys=True)
         self.printf(mesg)

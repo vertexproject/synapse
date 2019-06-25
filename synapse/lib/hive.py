@@ -144,6 +144,15 @@ class Hive(s_base.Base, s_telepath.Aware):
         self.editsbypath[path].add(func)
 
     async def get(self, full):
+        '''
+        Get the value of a node at a given path.
+
+        Args:
+            full (tuple): A full path tuple.
+
+        Returns:
+            Arbitrary node value.
+        '''
 
         node = self.nodes.get(full)
         if node is None:
@@ -152,6 +161,18 @@ class Hive(s_base.Base, s_telepath.Aware):
         return node.valu
 
     def dir(self, full):
+        '''
+        List subnodes of the given Hive path.
+
+        Args:
+            full (tuple): A full path tuple.
+
+        Notes:
+            This returns None if there is not a node at the path.
+
+        Returns:
+            list: A list of tuples. Each tuple contains the name, node value, and the number of children nodes.
+        '''
         node = self.nodes.get(full)
         if node is None:
             return None
@@ -161,6 +182,12 @@ class Hive(s_base.Base, s_telepath.Aware):
     async def dict(self, full):
         '''
         Open a HiveDict at the given full path.
+
+        Args:
+            full (tuple): A full path tuple.
+
+        Returns:
+            HiveDict: A HiveDict for the full path.
         '''
         node = await self.open(full)
         return await HiveDict.anit(self, node)
@@ -199,6 +226,12 @@ class Hive(s_base.Base, s_telepath.Aware):
     async def open(self, full):
         '''
         Open and return a hive Node().
+
+        Args:
+            full (tuple): A full path tuple.
+
+        Returns:
+            Node: A Hive node.
         '''
         return await self._getHiveNode(full)
 
@@ -557,7 +590,7 @@ class HiveDict(s_base.Base):
 
         self.node.onfini(self)
 
-    def get(self, name, onedit=None):
+    def get(self, name, onedit=None, default=None):
 
         # use hive.onedit() here to register for
         # paths which potentially dont exist yet
@@ -567,7 +600,7 @@ class HiveDict(s_base.Base):
 
         node = self.node.get(name)
         if node is None:
-            return self.defs.get(name)
+            return self.defs.get(name, default)
 
         return node.valu
 
@@ -755,6 +788,10 @@ class HiveIden(s_base.Base):
         self.info.setdefault('rules', ())
         self.rules = self.info.get('rules', onedit=self._onRulesEdit)
 
+    async def _onRulesEdit(self, mesg):  # pragma: no cover
+        raise s_exc.NoSuchImpl(mesg='HiveIden subclasses must implement _onRulesEdit',
+                               name='_onRulesEdit')
+
     async def setName(self, name):
         self.name = name
         await self.node.set(name)
@@ -826,6 +863,11 @@ class HiveUser(HiveIden):
         # arbitrary profile data for application layer use
         prof = await self.node.open(('profile',))
         self.profile = await prof.dict()
+
+        # vars cache for persistent user level data storage
+        # TODO: max size check / max count check?
+        pvars = await self.node.open(('vars',))
+        self.pvars = await pvars.dict()
 
         self.fullrules = []
         self.permcache = s_cache.FixedCache(self._calcPermAllow)

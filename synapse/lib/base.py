@@ -8,6 +8,7 @@ import logging
 import weakref
 import contextlib
 import collections
+import concurrent.futures
 
 if __debug__:
     import traceback
@@ -332,7 +333,7 @@ class Base:
 
         for func in self._syn_links:
             try:
-                ret.append(await func(mesg))
+                ret.append(await s_coro.ornot(func, mesg))
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -480,18 +481,37 @@ class Base:
         return task
 
     def schedCallSafe(self, func, *args, **kwargs):
+        '''
+        Schedule a function to run as soon as possible on the same event loop that this Base is running on.
+
+        This function does *not* pend on the function completion.
+
+        Args:
+            func:
+            *args:
+            **kwargs:
+
+        Notes:
+            This method may called from outside of the event loop on a different thread.
+
+        Returns:
+            concurrent.futures.Future: A Future representing the eventual function execution.
+        '''
         def real():
             return func(*args, **kwargs)
         return self.loop.call_soon_threadsafe(real)
 
     def schedCoroSafe(self, coro):
         '''
-        Schedules a coroutine to run as soon as possible on the same event loop that this Base is running on
+        Schedules a coroutine to run as soon as possible on the same event loop that this Base is running on.
 
         This function does *not* pend on coroutine completion.
 
-        Note:
+        Notes:
             This method may be run outside the event loop on a different thread.
+
+        Returns:
+            concurrent.futures.Future: A Future representing the eventual coroutine execution.
         '''
         return self.loop.call_soon_threadsafe(self.schedCoro, coro)
 

@@ -276,6 +276,34 @@ class Proxy(s_base.Base):
         self.onfini(fini)
         self.link.onfini(self.fini)
 
+    def _getSynVers(self):
+        '''
+        Helper method to retrieve the remote Synapse version from Proxy.
+
+        Notes:
+            This will return None if the synapse version was not supplied
+            during the Telepath handshake.
+
+        Returns:
+            tuple: A tuple of major, minor, patch information as integers.
+        '''
+        version = self.sharinfo.get('syn:version')
+        return version
+
+    def _getClasses(self):
+        '''
+        Helper method to retrieve the classes that comprise the remote object.
+
+        Notes:
+            This will return None if the class version was not supplied
+            during the Telepath handshake.
+
+        Returns:
+            tuple: A tuple of strings containing the class paths for the remote object.
+        '''
+        classes = self.sharinfo.get('classes')
+        return classes
+
     async def getPoolLink(self):
 
         while self.links and not self.isfini:

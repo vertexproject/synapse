@@ -23,6 +23,8 @@ TerminalPygMap = {
     'DOLLAR': p_t.Punctuation,
     'DOT': p_t.Punctuation,
     'DOUBLEQUOTEDSTRING': p_t.Literal.String,
+    'ELIF': p_t.Keyword,
+    'ELSE': p_t.Keyword,
     'EQUAL': p_t.Punctuation,
     'EXPRCMPR': p_t.Operator,
     'EXPRDIVIDE': p_t.Operator,
@@ -31,6 +33,7 @@ TerminalPygMap = {
     'EXPRTIMES': p_t.Operator,
     'FILTPREFIX': p_t.Operator,
     'FOR': p_t.Keyword,
+    'IF': p_t.Keyword,
     'IN': p_t.Keyword,
     'LBRACE': p_t.Punctuation,
     'LPAR': p_t.Punctuation,
@@ -46,13 +49,13 @@ TerminalPygMap = {
     'RELPROP': p_t.Name,
     'RPAR': p_t.Punctuation,
     'RSQB': p_t.Punctuation,
+    'SETOPER': p_t.Operator,
     'SINGLEQUOTEDSTRING': p_t.Literal.String,
     'SWITCH': p_t.Keyword,
     'TAG': p_t.Name,
     'TAGMATCH': p_t.Name,
     'UNIVNAME': p_t.Name,
     'UNIVPROP': p_t.Name,
-    'VARSETS': p_t.Name.Variable,
     'VARTOKN': p_t.Name.Variable,
     'VBAR': p_t.Punctuation,
     '_EXPRSTART': p_t.Punctuation,
@@ -80,7 +83,7 @@ class StormLexer(pygments.lexer.Lexer):
 
     def tokens_from_tree(self, tree):
         for ltoken in self._yield_tree(tree):
-            typ = TerminalPygMap.get(ltoken.type, p_t.Text)
+            typ = TerminalPygMap[ltoken.type]
             yield ltoken.pos_in_stream, typ, ltoken.value
 
     def get_tokens_unprocessed(self, text):

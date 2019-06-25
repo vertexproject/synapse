@@ -25,6 +25,45 @@ async def main(argv, outp=s_output.stdout):
     with open(opts.stormfile, 'r', encoding='utf8') as fd:
         text = fd.read()
 
+    if opts.export:
+
+        if not opts.cortex:
+            outp.printf('--export requires --cortex')
+            return -1
+
+        if len(opts.csvfiles) != 1:
+            outp.printf('--export requires exactly 1 csvfile')
+            return -1
+
+        path = s_common.genpath(opts.csvfiles[0])
+        outp.printf(f'Exporting CSV rows to: {path}')
+
+        async with await s_telepath.openurl(opts.cortex) as core:
+
+            with open(path, 'w') as fd:
+
+                wcsv = csv.writer(fd)
+
+                # prevent streaming nodes by limiting shown events
+                opts = {'show': ('csv:row', 'print', 'warn', 'err')}
+
+                count = 0
+                async for name, info in core.storm(text, opts=opts):
+
+                    if name == 'csv:row':
+                        count += 1
+                        wcsv.writerow(info['row'])
+                        continue
+
+                    if name in ('init', 'fini'):
+                        continue
+
+                    outp.printf('%s: %r' % (name, info))
+
+                outp.printf(f'exported {count} csv rows.')
+
+        return
+
     def iterrows():
         for path in opts.csvfiles:
 
@@ -68,6 +107,9 @@ async def main(argv, outp=s_output.stdout):
                 elif mesg[0] == 'err' and not opts.debug:
                     outp.printf(repr(mesg))
 
+                elif mesg[0] == 'print':
+                    outp.printf(mesg[1].get('mesg'))
+
                 if opts.debug:
                     outp.printf(repr(mesg))
 
@@ -76,7 +118,7 @@ async def main(argv, outp=s_output.stdout):
                     logfd.write(byts + b'\n')
 
         if opts.cli:
-            await s_cmdr.runItemCmdr(core, outp)
+            await s_cmdr.runItemCmdr(core, outp, True)
 
         return newcount, nodecount
 
@@ -145,6 +187,8 @@ def makeargparser():
                       help='The telepath URL for the cortex ( or alias from ~/.syn/aliases ).')
     muxp.add_argument('--test', '-t', default=False, action='store_true',
                       help='Perform a local CSV ingest against a temporary cortex.')
+    pars.add_argument('--export', default=False, action='store_true',
+                      help='Export CSV data to file from storm using $lib.fire(csv:row, data=()) events.')
     pars.add_argument('stormfile', help='A STORM script describing how to create nodes from rows.')
     pars.add_argument('csvfiles', nargs='+', help='CSV files to load.')
     return pars

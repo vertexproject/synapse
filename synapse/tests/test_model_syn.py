@@ -5,7 +5,7 @@ import synapse.tests.utils as s_t_utils
 
 class SynModelTest(s_t_utils.SynTest):
 
-    async def test_model_syn_tag(self):
+    async def test_syn_tag(self):
 
         async with self.getTestCore() as core:
 
@@ -23,7 +23,7 @@ class SynModelTest(s_t_utils.SynTest):
                 node = await snap.getNodeByNdef(('syn:tag', 'foo'))
                 self.nn(node)
 
-    async def test_model_syn_runts(self):
+    async def test_syn_model_runts(self):
 
         async with self.getTestCore() as core:
 
@@ -193,3 +193,73 @@ class SynModelTest(s_t_utils.SynTest):
 
                 nodes = await core.eval('syn:form=test:runt').list()
                 self.len(1, nodes)
+
+    async def test_syn_trigger_runts(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('syn:trigger')
+            self.len(0, nodes)
+
+            waiter = core.waiter(1, 'core:trigger:action')
+            await core.addTrigger('node:add', '[inet:user=1] | testcmd', info={'form': 'inet:ipv4'})
+            evnts = await waiter.wait(3)
+            self.len(1, evnts)
+
+            triggers = core.triggers.list()
+            iden = triggers[0][0]
+            self.len(1, triggers)
+
+            nodes = await core.nodes('syn:trigger')
+            self.len(1, nodes)
+            pode = nodes[0].pack()
+            self.eq(pode[0][1], iden)
+
+            # lift by iden
+            nodes = await core.nodes(f'syn:trigger={iden}')
+            self.len(1, nodes)
+
+            # Trigger reloads and make some more triggers to play with
+            waiter = core.waiter(2, 'core:trigger:action')
+            await core.addTrigger('prop:set', '[inet:user=1] | testcmd', info={'prop': 'inet:ipv4:asn'})
+            await core.addTrigger('tag:add', '[inet:user=1] | testcmd', info={'tag': 'hehe.haha'})
+            evnts = await waiter.wait(3)
+            self.len(2, evnts)
+
+            # lift by all props and valus
+            nodes = await core.nodes('syn:trigger')
+            self.len(3, nodes)
+            nodes = await core.nodes('syn:trigger:vers')
+            self.len(3, nodes)
+            nodes = await core.nodes('syn:trigger:cond')
+            self.len(3, nodes)
+            nodes = await core.nodes('syn:trigger:user')
+            self.len(3, nodes)
+            nodes = await core.nodes('syn:trigger:storm')
+            self.len(3, nodes)
+            nodes = await core.nodes('syn:trigger:enabled')
+            self.len(3, nodes)
+            nodes = await core.nodes('syn:trigger:form')
+            self.len(1, nodes)
+            nodes = await core.nodes('syn:trigger:prop')
+            self.len(1, nodes)
+            nodes = await core.nodes('syn:trigger:tag')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('syn:trigger:vers=1')
+            self.len(3, nodes)
+            nodes = await core.nodes('syn:trigger:cond=node:add')
+            self.len(1, nodes)
+            nodes = await core.nodes('syn:trigger:user=root')
+            self.len(3, nodes)
+            nodes = await core.nodes('syn:trigger:storm="[inet:user=1] | testcmd"')
+            self.len(3, nodes)
+            nodes = await core.nodes('syn:trigger:enabled=True')
+            self.len(3, nodes)
+            nodes = await core.nodes('syn:trigger:form=inet:ipv4')
+            self.len(1, nodes)
+            nodes = await core.nodes('syn:trigger:prop=inet:ipv4:asn')
+            self.len(1, nodes)
+            nodes = await core.nodes('syn:trigger:tag=hehe.haha')
+            self.len(1, nodes)
+
+            # Sad path lifts
+            await self.asyncraises(s_exc.BadCmprValu, core.nodes('syn:trigger:storm~="beep"'))

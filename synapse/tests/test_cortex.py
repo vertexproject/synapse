@@ -1158,15 +1158,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                 }
                 async with self.getTestCore(dirn=dirn, conf=conf) as src_core:
 
-                    waiter = src_core.waiter(2, 'core:splice:cryotank:sent')
+                    waiter = src_core.waiter(1, 'core:splice:cryotank:sent')
                     # Form a node and make sure that it exists
                     async with await src_core.snap() as snap:
-                        await snap.addNode('test:str', 'teehee')
-                        self.nn(await snap.getNodeByNdef(('test:str', 'teehee')))
+                        self.nn(await snap.addNode('test:str', 'teehee'))
 
-                    await waiter.wait(timeout=10)
-                    await src_core.fini()
-                    await src_core.waitfini()
+                    self.true(await waiter.wait(timeout=10))
+                await src_core.waitfini()
 
             # Now that the src core is closed, make sure that the splice exists in the tank
             tank = cryo.tanks.get('blahblah')
@@ -1285,6 +1283,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.len(1, await alist(proxy.eval('test:str#foo.bar')))
             self.len(1, await alist(proxy.eval('test:str:tick=2015')))
+
+            pack = await proxy.delNodeProp(node[1].get('iden'), 'tick')
+            self.none(pack[1]['props'].get('tick'))
+
+            iden = s_common.ehex(s_common.buid('newp'))
+            await self.asyncraises(s_exc.NoSuchIden, proxy.delNodeProp(iden, 'tick'))
 
             await proxy.delNodeTag(node[1].get('iden'), '#foo.bar')
             self.len(0, await alist(proxy.eval('test:str#foo.bar')))
@@ -2353,6 +2357,51 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            # non-runtsafe switch value
+            text = '[inet:ipv4=1 :asn=22] $asn=:asn switch $asn {42: {[+#foo42]} 22: {[+#foo22]}}'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('foo22'))
+            self.none(nodes[0].getTag('foo42'))
+
+            text = '[inet:ipv4=2 :asn=42] $asn=:asn switch $asn {42: {[+#foo42]} 22: {[+#foo22]}}'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.none(nodes[0].getTag('foo22'))
+            self.nn(nodes[0].getTag('foo42'))
+
+            text = '[inet:ipv4=3 :asn=0] $asn=:asn switch $asn {42: {[+#foo42]} 22: {[+#foo22]}}'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.none(nodes[0].getTag('foo22'))
+            self.none(nodes[0].getTag('foo42'))
+
+            # completely runsafe switch
+
+            text = '$foo=foo switch $foo {foo: {$result=bar} nop: {$result=baz}} [test:str=$result]'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'bar')
+
+            text = '$foo=nop switch $foo {foo: {$result=bar} nop: {$result=baz}} [test:str=$result]'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'baz')
+
+            text = '$foo=nop switch $foo {foo: {$result=bar} *: {$result=baz}} [test:str=$result]'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'baz')
+
+            text = '$foo=xxx $result=xxx switch $foo {foo: {$result=bar} nop: {$result=baz}} [test:str=$result]'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'xxx')
+
+            text = '$foo=foo switch $foo {foo: {test:str=bar}}'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+
             opts = {'vars': {'woot': 'hehe'}}
             text = '[test:str=a] switch $woot { hehe: {[+#baz]} }'
             nodes = await core.eval(text, opts=opts).list()
@@ -2547,12 +2596,22 @@ class CortexBasicTest(s_t_utils.SynTest):
             await _test('$(1 / 2)', 0)
             await _test('$(1 != 1)', 0)
             await _test('$(2 != 1)', 1)
-            await _test('$(2 == 1)', 0)
-            await _test('$(2 == 2)', 1)
-            await _test('$("foo" == "foo")', 1)
+            await _test('$(2 = 1)', 0)
+            await _test('$(2 = 2)', 1)
+            await _test('$("foo" = "foo")', 1)
             await _test('$("foo" != "foo")', 0)
-            await _test('$("foo2" == "foo")', 0)
+            await _test('$("foo2" = "foo")', 0)
             await _test('$("foo2" != "foo")', 1)
+            await _test('$(0 and 1)', 0)
+            await _test('$(1 and 1)', 1)
+            await _test('$(1 or 1)', 1)
+            await _test('$(0 or 0)', 0)
+            await _test('$(1 or 0)', 1)
+            await _test('$(not 0)', 1)
+            await _test('$(not 1)', 0)
+            await _test('$(1 or 0 and 0)', 1)  # and > or
+            await _test('$(not 1 and 1)', 0)  # not > and
+            await _test('$(not 1 > 1)', 1)  # cmp > not
 
             # TODO:  implement move-along mechanism
             # await _test('$(1 / 0)', 0)
@@ -2562,6 +2621,162 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.eval(q).list()
             self.len(2, nodes)
             self.eq(nodes[1].ndef, ('test:int', 25))
+
+    async def test_storm_filter_vars(self):
+        '''
+        Test variable filters (e.g. +$foo) and expression filters (e.g. +$(:hehe < 4))
+
+        '''
+        async with self.getTestCore() as core:
+
+            # variable filter, non-runtsafe, true path
+            q = '[test:type10=1 :strprop=1] $foo=:strprop +$foo'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # variable filter, non-runtsafe, false path
+            q = '[test:type10=1 :strprop=1] $foo=:strprop -$foo'
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
+
+            # variable filter, runtsafe, true path
+            q = '[test:type10=1 :strprop=1] $foo=1 +$foo'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # variable filter, runtsafe, false path
+            q = '[test:type10=1 :strprop=1] $foo=$(0) -$foo'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # expression filter, non-runtsafe, true path
+            q = '[test:type10=2 :strprop=1] spin | test:type10 +$(:strprop)'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+
+            # expression filter, non-runtsafe, false path
+            q = '[test:type10=1 :strprop=1] -$(:strprop + 0)'
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
+
+            # expression filter, runtsafe, true path
+            q = '[test:type10=1 :strprop=1] +$(1)'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # expression filter, runtsafe, false path
+            q = '[test:type10=1 :strprop=1] -$(0)'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+    async def test_storm_filter(self):
+        async with self.getTestCore() as core:
+            q = '[test:str=test +#test=(2018,2019)]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'test:str=test $foo=test $bar=(2018,2019) +#$foo=$bar'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'test:str=test $foo=$node.value() $bar=(2018,2019) +#$foo=$bar'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+    async def test_storm_ifstmt(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:type10=1 :strprop=1] if :strprop {[+#woot]}')
+            self.true(nodes[0].hasTag('woot'))
+            nodes = await core.nodes('[test:type10=1 :strprop=0] if $(:strprop) {[+#woot2]}')
+            self.false(nodes[0].hasTag('woot2'))
+
+            nodes = await core.nodes('[test:type10=1 :strprop=1] if $(:strprop) {[+#woot3]} else {[+#nowoot3]}')
+            self.true(nodes[0].hasTag('woot3'))
+            self.false(nodes[0].hasTag('nowoot3'))
+
+            nodes = await core.nodes('[test:type10=2 :strprop=0] if $(:strprop) {[+#woot3]} else {[+#nowoot3]}')
+            self.false(nodes[0].hasTag('woot3'))
+            self.true(nodes[0].hasTag('nowoot3'))
+
+            q = '[test:type10=0 :strprop=0] if $(:strprop) {[+#woot41]} elif $($node.value()) {[+#woot42]}'
+            nodes = await core.nodes(q)
+            self.false(nodes[0].hasTag('woot41'))
+            self.false(nodes[0].hasTag('woot42'))
+
+            q = '[test:type10=0 :strprop=1] if $(:strprop) {[+#woot51]} elif $($node.value()) {[+#woot52]}'
+            nodes = await core.nodes(q)
+            self.true(nodes[0].hasTag('woot51'))
+            self.false(nodes[0].hasTag('woot52'))
+
+            q = '[test:type10=1 :strprop=1] if $(:strprop) {[+#woot61]} elif $($node.value()) {[+#woot62]}'
+            nodes = await core.nodes(q)
+            self.true(nodes[0].hasTag('woot61'))
+            self.false(nodes[0].hasTag('woot62'))
+
+            q = '[test:type10=2 :strprop=0] if $(:strprop) {[+#woot71]} elif $($node.value()) {[+#woot72]}'
+            nodes = await core.nodes(q)
+            self.false(nodes[0].hasTag('woot71'))
+            self.true(nodes[0].hasTag('woot72'))
+
+            q = ('[test:type10=0 :strprop=0] if $(:strprop) {[+#woot81]} '
+                 'elif $($node.value()) {[+#woot82]} else {[+#woot83]}')
+            nodes = await core.nodes(q)
+            self.false(nodes[0].hasTag('woot81'))
+            self.false(nodes[0].hasTag('woot82'))
+            self.true(nodes[0].hasTag('woot83'))
+
+            q = ('[test:type10=0 :strprop=42] if $(:strprop) {[+#woot91]} '
+                 'elif $($node.value()){[+#woot92]}else {[+#woot93]}')
+            nodes = await core.nodes(q)
+            self.true(nodes[0].hasTag('woot91'))
+            self.false(nodes[0].hasTag('woot92'))
+            self.false(nodes[0].hasTag('woot93'))
+
+            q = ('[test:type10=1 :strprop=0] if $(:strprop){[+#woota1]} '
+                 'elif $($node.value()) {[+#woota2]} else {[+#woota3]}')
+            nodes = await core.nodes(q)
+            self.false(nodes[0].hasTag('woota1'))
+            self.true(nodes[0].hasTag('woota2'))
+            self.false(nodes[0].hasTag('woota3'))
+
+            q = ('[test:type10=1 :strprop=1] if $(:strprop) {[+#wootb1]} '
+                 'elif $($node.value()) {[+#wootb2]} else{[+#wootb3]}')
+            nodes = await core.nodes(q)
+            self.true(nodes[0].hasTag('wootb1'))
+            self.false(nodes[0].hasTag('wootb2'))
+            self.false(nodes[0].hasTag('wootb3'))
+
+            # Runtsafe condition with nodes
+            nodes = await core.nodes('[test:str=yep2] if $(1) {[+#woot]}')
+            self.true(nodes[0].hasTag('woot'))
+
+            # Runtsafe condition with nodes, condition is false
+            nodes = await core.nodes('[test:str=yep2] if $(0) {[+#woot2]}')
+            self.false(nodes[0].hasTag('woot2'))
+
+            # Completely runtsafe, condition is true
+            q = '$foo=yawp if $foo {$bar=lol} else {$bar=rofl} [test:str=yep3 +#$bar]'
+            nodes = await core.nodes(q)
+            self.true(nodes[0].hasTag('lol'))
+            self.false(nodes[0].hasTag('rofl'))
+
+            # Completely runtsafe, condition is false
+            q = '$foo=0 if $($foo) {$bar=lol} else {$bar=rofl} [test:str=yep4 +#$bar]'
+            nodes = await core.nodes(q)
+            self.false(nodes[0].hasTag('lol'))
+            self.true(nodes[0].hasTag('rofl'))
+
+            # Non-constant runtsafe
+            q = '$vals=(1,2,3,4) for $i in $vals {if $($i=1) {[test:int=$i]}}'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+    async def test_storm_order(self):
+        q = '''[test:str=foo :hehe=bar] $tvar=$lib.text() $tvar.add(1) $tvar.add(:hehe) $lib.print($tvar.str()) '''
+        async with self.getTestCore() as core:
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('1bar', mesgs)
 
     async def test_feed_splice(self):
 
@@ -2619,6 +2834,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             await alist(core.eval('test:str [+#foo.bar]'))
             await alist(core.eval('test:str [+#foo.bar=(2000,2002)]'))
             await alist(core.eval('test:str [+#foo.bar=(2000,20020601)]'))
+            # Add a tag inside the time window of the previously added tag
+            await alist(core.eval('test:str [+#foo.bar=(2000,20020501)]'))
             await alist(core.eval('test:str [-#foo]'))
             await alist(core.eval('test:str [-:tick]'))
             await alist(core.eval('test:str | delnode --force'))
@@ -2657,6 +2874,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1022889600000)})
             self.isin(mesg, splices)
+
+            # Ensure our inside-window tag add did not generate a splice.
+            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1020211200000)})
+            self.notin(mesg, splices)
 
             mesg = ('tag:del', {'ndef': ('test:str', 'hello'), 'tag': 'foo', 'valu': (None, None)})
             self.isin(mesg, splices)
@@ -2825,3 +3046,39 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Ensure data from both layers is present in the cortex
             async with self.getTestCore(dirn=path01) as core01:
                 self.len(2, await core01.eval('test:str*in=(core00, core01) | uniq').list())
+
+    async def test_layers_missing_ctor(self):
+        with self.getTestDir() as dirn:
+            iden = s_common.guid()
+            async with self.getTestCore(dirn=dirn) as core:
+
+                nodes = await core.nodes('[test:str=woot]')
+                self.len(1, nodes)
+
+                cell_iden = core.getCellIden()
+                # Add the layer to the cortex and insert it into the default view stack
+                await core.addLayer(iden=iden)
+                await core.setViewLayers((cell_iden, iden))
+
+                # Modify the layer type
+                await core.hive.set(('cortex', 'layers', iden, 'type'), 'newp')
+
+            with self.getAsyncLoggerStream('synapse.cortex',
+                                           'layer has invalid type') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    self.true(await stream.wait(3))
+                    # And the default view is borked
+                    self.true(core.view.borked)
+
+    async def test_cortex_dedicated(self):
+        '''
+        Verify that dedicated configuration setting impacts the layer
+        '''
+        async with self.getTestCore() as core:
+            layr = core.view.layers[0]
+            self.false(layr.lockmemory)
+
+        conf = {'dedicated': True}
+        async with self.getTestCore(conf=conf) as core:
+            layr = core.view.layers[0]
+            self.true(layr.lockmemory)

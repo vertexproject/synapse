@@ -15,6 +15,9 @@ import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
+RED = '#ff0066'
+YELLOW = '#f4e842'
+BLUE = '#6faef2'
 
 class Log(s_cli.Cmd):
     '''Add a storm log to the local command session.
@@ -90,8 +93,6 @@ Examples:
                 mesg = q.get(timeout=2)
             except queue.Empty:
                 continue
-            except s_exc.IsFini:
-                break
             smesg = mesg[1].get('mesg')
             self.save(smesg)
 
@@ -108,7 +109,7 @@ Examples:
                 mesg = mesg[1]
             try:
                 buf = self.encodeMsg(mesg)
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.error('Failed to serialize message: [%s]', str(e))
                 return
             fd.write(buf)
@@ -140,8 +141,9 @@ Examples:
             thr.join(2)
         fp = self.locs.pop('log:fp', None)
         fd = self.locs.pop('log:fd', None)
-        self.locs.pop('log:fmt', None)
-        self.locs.pop('log:splicesonly', None)
+        for key in list(self.locs.keys()):
+            if key.startswith('log:'):
+                self.locs.pop(key, None)
         if fd:
             try:
                 self.printf(f'Closing logfile: [{fp}]')
@@ -191,72 +193,6 @@ Examples:
         if opts.off:
             return self.closeLogFd()
 
-class PsCmd(s_cli.Cmd):
-
-    '''
-    List running tasks in the cortex.
-    '''
-
-    _cmd_name = 'ps'
-    _cmd_syntax = ()
-
-    async def runCmdOpts(self, opts):
-
-        core = self.getCmdItem()
-        tasks = await core.ps()
-
-        for task in tasks:
-
-            self.printf('task iden: %s' % (task.get('iden'),))
-            self.printf('    name: %s' % (task.get('name'),))
-            self.printf('    user: %r' % (task.get('user'),))
-            self.printf('    status: %r' % (task.get('status'),))
-            self.printf('    metadata: %r' % (task.get('info'),))
-            self.printf('    start time: %s' % (s_time.repr(task.get('tick', 0)),))
-
-        self.printf('%d tasks found.' % (len(tasks,)))
-
-class KillCmd(s_cli.Cmd):
-    '''
-    Kill a running task/query within the cortex.
-
-    Syntax:
-        kill <iden>
-
-    Users may specify a partial iden GUID in order to kill
-    exactly one matching process based on the partial guid.
-    '''
-    _cmd_name = 'kill'
-    _cmd_syntax = (
-        ('iden', {}),
-    )
-
-    async def runCmdOpts(self, opts):
-
-        core = self.getCmdItem()
-
-        match = opts.get('iden')
-        if not match:
-            self.printf('no iden given to kill.')
-            return
-
-        idens = []
-        for task in await core.ps():
-            iden = task.get('iden')
-            if iden.startswith(match):
-                idens.append(iden)
-
-        if len(idens) == 0:
-            self.printf('no matching process found. aborting.')
-            return
-
-        if len(idens) > 1:
-            self.printf('multiple matching process found. aborting.')
-            return
-
-        kild = await core.kill(idens[0])
-        self.printf('kill status: %r' % (kild,))
-
 class StormCmd(s_cli.Cmd):
     '''
     Execute a storm query.
@@ -275,6 +211,8 @@ class StormCmd(s_cli.Cmd):
         --debug: Display cmd debug information along with nodes in raw format. This overrides other display arguments.
         --path: Get path information about returned nodes.
         --show <names>: Limit storm events (server-side) to the comma sep list)
+        --file <path>: Run the storm query specified in the given file path.
+        --optsfile <path>: Run the query with the given options from a JSON file.
 
     Examples:
         storm inet:ipv4=1.2.3.4
@@ -286,11 +224,14 @@ class StormCmd(s_cli.Cmd):
     _cmd_syntax = (
         ('--hide-tags', {}),
         ('--show', {'type': 'valu'}),
+        ('--file', {'type': 'valu'}),
+        ('--optsfile', {'type': 'valu'}),
         ('--hide-props', {}),
         ('--hide-unknown', {}),
         ('--raw', {}),
         ('--debug', {}),
         ('--path', {}),
+        ('--save-nodes', {'type': 'valu'}),
         ('query', {'type': 'glob'}),
     )
 
@@ -302,6 +243,7 @@ class StormCmd(s_cli.Cmd):
             'fini': self._onFini,
             'print': self._onPrint,
             'warn': self._onWarn,
+            'err': self._onErr
         }
 
     def _onNode(self, mesg):
@@ -330,7 +272,7 @@ class StormCmd(s_cli.Cmd):
 
         if not opts.get('hide-tags'):
 
-            for tag in sorted(s_node.tags(node, leaf=True)):
+            for tag in sorted(s_node.tagsnice(node)):
 
                 valu = s_node.reprTag(node, tag)
                 if valu:
@@ -354,18 +296,67 @@ class StormCmd(s_cli.Cmd):
 
     def _onWarn(self, mesg):
         warn = mesg[1].get('mesg')
-        self.printf(f'WARNING: {warn}')
+        self.printf(f'WARNING: {warn}', color=YELLOW)
+
+    def _onErr(self, mesg):
+        err = mesg[1]
+        if err[0] == 'BadSyntax':
+            pos = err[1].get('at', None)
+            text = err[1].get('text', None)
+            tlen = len(text)
+            mesg = err[1].get('mesg', None)
+            if pos is not None and text is not None and mesg is not None:
+                text = text.replace('\n', ' ')
+                # Handle too-long text
+                if tlen > 60:
+                    text = text[max(0, pos - 30):pos + 30]
+                    if pos < tlen - 30:
+                        text += '...'
+                    if pos > 30:
+                        text = '...' + text
+                        pos = 33
+
+                self.printf(text, color=BLUE)
+                self.printf(f'{" "*pos}^', color=BLUE)
+                self.printf(f'Syntax Error: {mesg}', color=RED)
+                return
+
+        self.printf(f'ERROR: {err}', color=RED)
 
     async def runCmdOpts(self, opts):
 
         text = opts.get('query')
-        if text is None:
+        filename = opts.get('file')
+
+        if bool(text) == bool(filename):
+            self.printf('Cannot use a storm file and manual query together.')
             self.printf(self.__doc__)
             return
 
+        if filename is not None:
+            try:
+                with open(filename, 'r') as fd:
+                    text = fd.read()
+
+            except FileNotFoundError as e:
+                self.printf('file not found: %s' % (filename,))
+                return
+
+        stormopts = {}
+        optsfile = opts.get('optsfile')
+        if optsfile is not None:
+            try:
+                with open(optsfile) as fd:
+                    stormopts = json.loads(fd.read())
+
+            except FileNotFoundError as e:
+                self.printf('optsfile not found: %s' % (optsfile,))
+                return
+
         hide_unknown = opts.get('hide-unknown', self._cmd_cli.locs.get('storm:hide-unknown'))
         core = self.getCmdItem()
-        stormopts = {'repr': True}
+
+        stormopts.setdefault('repr', True)
         stormopts.setdefault('path', opts.get('path', False))
 
         showtext = opts.get('show')
@@ -373,6 +364,10 @@ class StormCmd(s_cli.Cmd):
             stormopts['show'] = showtext.split(',')
 
         self.printf('')
+
+        nodesfd = None
+        if opts.get('save-nodes'):
+            nodesfd = s_common.genfile(opts.get('save-nodes'))
 
         try:
 
@@ -384,7 +379,13 @@ class StormCmd(s_cli.Cmd):
                     self.printf(pprint.pformat(mesg))
 
                 else:
+
                     if mesg[0] == 'node':
+
+                        if nodesfd is not None:
+                            byts = json.dumps(mesg[1]).encode('utf8')
+                            nodesfd.write(byts + b'\n')
+
                         # Tuck the opts into the node dictionary since
                         # they control node metadata display
                         mesg[1][1]['_opts'] = opts
@@ -404,3 +405,8 @@ class StormCmd(s_cli.Cmd):
                 return
 
             raise
+
+        finally:
+
+            if nodesfd is not None:
+                nodesfd.close()

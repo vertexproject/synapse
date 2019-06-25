@@ -175,14 +175,6 @@ class CoreApi(s_cell.CellApi):
         async for node in self.cell.getNodesBy(full, valu, cmpr=cmpr):
             yield node.pack()
 
-    def allowed(self, *path):
-        return self.user.allowed(path)
-
-    def _reqUserAllowed(self, *path):
-        if not self.allowed(*path):
-            perm = '.'.join(path)
-            raise s_exc.AuthDeny(perm=perm, user=self.user.name)
-
     async def getModelDict(self):
         '''
         Return a dictionary which describes the data model.
@@ -203,45 +195,62 @@ class CoreApi(s_cell.CellApi):
         '''
         return self.cell.getCoreInfo()
 
-    async def addTrigger(self, condition, query, info):
+    async def addTrigger(self, condition, query, info, disabled=False):
         '''
         Adds a trigger to the cortex
         '''
-        iden = self.cell.triggers.add(self.user.iden, condition, query, info=info)
+        iden = await self.cell.addTrigger(condition, query, info, disabled,
+                                          user=self.user)
         return iden
 
     def _trig_auth_check(self, useriden):
         ''' Check that, as a non-admin, may only manipulate resources created by you. '''
         if not self.user.admin and useriden != self.user.iden:
-            raise s_exc.AuthDeny(user=self.user.name, mesg='As non-admin, may only manipulate triggers created by you')
+            mesg = 'As non-admin, may only manipulate triggers or cron jobs created by you'
+            raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
 
     async def delTrigger(self, iden):
         '''
         Deletes a trigger from the cortex
         '''
-        trig = self.cell.triggers.get(iden)
+        trig = self.cell.getTrigger(iden)
         self._trig_auth_check(trig.get('useriden'))
-        self.cell.triggers.delete(iden)
+        await self.cell.delTrigger(iden)
 
     async def updateTrigger(self, iden, query):
         '''
         Change an existing trigger's query
         '''
-        trig = self.cell.triggers.get(iden)
+        trig = self.cell.getTrigger(iden)
         self._trig_auth_check(trig.get('useriden'))
-        self.cell.triggers.mod(iden, query)
+        await self.cell.updateTrigger(iden, query)
+
+    async def enableTrigger(self, iden):
+        '''
+        Change an existing trigger's query
+        '''
+        trig = self.cell.getTrigger(iden)
+        self._trig_auth_check(trig.get('useriden'))
+        await self.cell.enableTrigger(iden)
+
+    async def disableTrigger(self, iden):
+        '''
+        Change an existing trigger's query
+        '''
+        trig = self.cell.getTrigger(iden)
+        self._trig_auth_check(trig.get('useriden'))
+        await self.cell.disableTrigger(iden)
 
     async def listTriggers(self):
         '''
         Lists all the triggers that the current user is authorized to access
         '''
         trigs = []
-        for (iden, trig) in self.cell.triggers.list():
+        _trigs = await self.cell.listTriggers()
+        for (iden, trig) in _trigs:
             useriden = trig['useriden']
             if not (self.user.admin or useriden == self.user.iden):
                 continue
-            user = self.cell.auth.user(useriden)
-            trig['username'] = '<unknown>' if user is None else user.name
             trigs.append((iden, trig))
 
         return trigs
@@ -320,6 +329,32 @@ class CoreApi(s_cell.CellApi):
         self._trig_auth_check(cron.useriden)
         await self.cell.agenda.mod(iden, query)
 
+    async def enableCronJob(self, iden):
+        '''
+        Enable a cron job
+
+        Args:
+            iden (bytes):  The iden of the cron job to be changed
+        '''
+        cron = self.cell.agenda.appts.get(iden)
+        if cron is None:
+            raise s_exc.NoSuchIden()
+        self._trig_auth_check(cron.useriden)
+        await self.cell.agenda.enable(iden)
+
+    async def disableCronJob(self, iden):
+        '''
+        Enable a cron job
+
+        Args:
+            iden (bytes):  The iden of the cron job to be changed
+        '''
+        cron = self.cell.agenda.appts.get(iden)
+        if cron is None:
+            raise s_exc.NoSuchIden()
+        self._trig_auth_check(cron.useriden)
+        await self.cell.agenda.disable(iden)
+
     async def listCronJobs(self):
         '''
         Get information about all the cron jobs accessible to the current user
@@ -347,7 +382,7 @@ class CoreApi(s_cell.CellApi):
         buid = s_common.uhex(iden)
 
         parts = tag.split('.')
-        self._reqUserAllowed('tag:add', *parts)
+        await self._reqUserAllowed('tag:add', *parts)
 
         async with await self.cell.snap(user=self.user) as snap:
             with s_provenance.claim('coreapi', meth='tag:add', user=snap.user.iden):
@@ -370,7 +405,7 @@ class CoreApi(s_cell.CellApi):
         buid = s_common.uhex(iden)
 
         parts = tag.split('.')
-        self._reqUserAllowed('tag:del', *parts)
+        await self._reqUserAllowed('tag:del', *parts)
 
         async with await self.cell.snap(user=self.user) as snap:
             with s_provenance.claim('coreapi', meth='tag:del', user=snap.user.iden):
@@ -383,10 +418,13 @@ class CoreApi(s_cell.CellApi):
                 return node.pack()
 
     async def setNodeProp(self, iden, name, valu):
-
+        '''
+        Set a property on a single node.
+        '''
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
+
             with s_provenance.claim('coreapi', meth='prop:set', user=snap.user.iden):
 
                 node = await snap.getNodeByBuid(buid)
@@ -394,14 +432,35 @@ class CoreApi(s_cell.CellApi):
                     raise s_exc.NoSuchIden(iden=iden)
 
                 prop = node.form.props.get(name)
-                self._reqUserAllowed('prop:set', prop.full)
+                await self._reqUserAllowed('prop:set', prop.full)
 
                 await node.set(name, valu)
                 return node.pack()
 
+    async def delNodeProp(self, iden, name):
+        '''
+        Delete a property from a single node.
+        '''
+
+        buid = s_common.uhex(iden)
+
+        async with await self.cell.snap(user=self.user) as snap:
+
+            with s_provenance.claim('coreapi', meth='prop:del', user=snap.user.iden):
+
+                node = await snap.getNodeByBuid(buid)
+                if node is None:
+                    raise s_exc.NoSuchIden(iden=iden)
+
+                prop = node.form.props.get(name)
+                await self._reqUserAllowed('prop:del', prop.full)
+
+                await node.pop(name)
+                return node.pack()
+
     async def addNode(self, form, valu, props=None):
 
-        self._reqUserAllowed('node:add', form)
+        await self._reqUserAllowed('node:add', form)
 
         async with await self.cell.snap(user=self.user) as snap:
             with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
@@ -430,7 +489,7 @@ class CoreApi(s_cell.CellApi):
             if done.get(formname):
                 continue
 
-            self._reqUserAllowed('node:add', formname)
+            await self._reqUserAllowed('node:add', formname)
             done[formname] = True
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -447,7 +506,7 @@ class CoreApi(s_cell.CellApi):
 
     async def addFeedData(self, name, items, seqn=None):
 
-        self._reqUserAllowed('feed:data', *name.split('.'))
+        await self._reqUserAllowed('feed:data', *name.split('.'))
 
         with s_provenance.claim('feed:data', name=name):
 
@@ -502,10 +561,7 @@ class CoreApi(s_cell.CellApi):
         The generator will only terminate on network disconnect or if the
         consumer falls behind the max window size of 10,000 splice messages.
         '''
-        if not self.allowed('layer:sync', iden):
-            mesg = f'User must have permission layer:sync.{iden}.'
-            raise s_exc.AuthDeny(mesg=mesg, perm=('layer:sync', iden))
-
+        await self._reqUserAllowed('layer:sync', iden)
         async for item in self.cell.syncLayerSplices(iden, offs):
             yield item
 
@@ -625,6 +681,10 @@ class Cortex(s_cell.Cell):
             'type': 'bool', 'defval': True,
             'doc': 'Enable cron jobs running.'
         }),
+        ('dedicated', {
+            'type': 'bool', 'defval': False,
+            'doc': 'The cortex is free to use most of the resources of the system'
+        })
     )
 
     cellapi = CoreApi
@@ -645,6 +705,7 @@ class Cortex(s_cell.Cell):
         self.layrctors = {}
         self.feedfuncs = {}
         self.stormcmds = {}
+        self.stormvars = None  # type: s_hive.HiveDict
         self.stormrunts = {}
 
         self._runtLiftFuncs = {}
@@ -659,6 +720,10 @@ class Cortex(s_cell.Cell):
         self.libroot = (None, {}, {})
         self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
 
+        # async inits
+        await self._initCoreHive()
+
+        # sync inits
         self._initSplicers()
         self._initStormCmds()
         self._initStormLibs()
@@ -696,7 +761,7 @@ class Cortex(s_cell.Cell):
         self.onfini(self.agenda)
 
         if self.conf.get('cron:enable'):
-            await self.agenda.enable()
+            await self.agenda.start()
 
         await self._initCoreMods()
 
@@ -739,12 +804,11 @@ class Cortex(s_cell.Cell):
                         await self.fini()
                         return
 
-                    logger.warning(f'mirror loop connected ({url}')
-
                     # assume only the main layer for now...
                     layr = self.getLayer()
 
                     offs = await layr.getOffset(layr.iden)
+                    logger.warning(f'mirror loop connected ({url} offset={offs})')
 
                     if offs == 0:
                         stat = await layr.stat()
@@ -793,15 +857,19 @@ class Cortex(s_cell.Cell):
                             await layr.setOffset(layr.iden, items[-1][0])
 
             except asyncio.CancelledError: # pragma: no cover
-                raise
+                return
 
-            except Exception as e:
+            except Exception:
                 logger.exception('error in initCoreMirror loop')
                 await asyncio.sleep(1)
 
     async def _getWaitFor(self, name, valu):
         form = self.model.form(name)
         return form.getWaitFor(valu)
+
+    async def _initCoreHive(self):
+        stormvars = await self.hive.open(('cortex', 'storm', 'vars'))
+        self.stormvars = await stormvars.dict()
 
     def _initStormCmds(self):
         '''
@@ -826,8 +894,11 @@ class Cortex(s_cell.Cell):
         '''
         Registration for built-in Storm Libraries
         '''
+        self.addStormLib(('csv',), s_stormtypes.LibCsv)
         self.addStormLib(('str',), s_stormtypes.LibStr)
         self.addStormLib(('time',), s_stormtypes.LibTime)
+        self.addStormLib(('user',), s_stormtypes.LibUser)
+        self.addStormLib(('globals',), s_stormtypes.LibGlobals)
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
 
     def _initSplicers(self):
@@ -885,8 +956,9 @@ class Cortex(s_cell.Cell):
         if path[0] == 'layer':
 
             if len(path) == 1:
-                # get the main layer...
-                layr = self.layers.get(self.iden)
+                # get the top layer for the default view
+                view = self.getView()
+                layr = view.layers[0]
                 return await s_layer.LayerApi.anit(self, link, user, layr)
 
             if len(path) == 2:
@@ -1183,6 +1255,15 @@ class Cortex(s_cell.Cell):
         return self.layers.get(iden)
 
     def getView(self, iden=None):
+        '''
+        Get a View object.
+
+        Args:
+            iden (str): The View iden to retrieve.
+
+        Returns:
+            View: A View object.
+        '''
         if iden is None:
             iden = self.iden
         return self.views.get(iden)
@@ -1241,10 +1322,11 @@ class Cortex(s_cell.Cell):
     async def _layrFromNode(self, node):
 
         info = await node.dict()
+        ltyp = info.get('type')
 
-        ctor = self.layrctors.get(info.get('type'))
+        ctor = self.layrctors.get(ltyp)
         if ctor is None:
-            logger.warning('layer has invalid type: %r %r' % (node.name(), info.get('type')))
+            logger.warning('layer has invalid type: %r %r' % (node.name(), ltyp))
             return None
 
         layr = await ctor.anit(self, node)
@@ -2102,6 +2184,63 @@ class Cortex(s_cell.Cell):
                                    name=name)
         norm, info = tobj.norm(valu)
         return norm, info
+
+    async def addTrigger(self, condition, query, info, disabled=False, user=None):
+        '''
+        Adds a trigger to the cortex
+        '''
+        if user is None:
+            user = self.auth.getUserByName('root')
+
+        iden = self.triggers.add(user.iden, condition, query, info=info)
+        if disabled:
+            self.triggers.disable(iden)
+        await self.fire('core:trigger:action', iden=iden, action='add')
+        return iden
+
+    def getTrigger(self, iden):
+        return self.triggers.get(iden)
+
+    async def delTrigger(self, iden):
+        '''
+        Deletes a trigger from the cortex
+        '''
+        self.triggers.delete(iden)
+        await self.fire('core:trigger:action', iden=iden, action='delete')
+
+    async def updateTrigger(self, iden, query):
+        '''
+        Change an existing trigger's query
+        '''
+        self.triggers.mod(iden, query)
+        await self.fire('core:trigger:action', iden=iden, action='mod')
+
+    async def enableTrigger(self, iden):
+        '''
+        Change an existing trigger's query
+        '''
+        self.triggers.enable(iden)
+        await self.fire('core:trigger:action', iden=iden, action='enable')
+
+    async def disableTrigger(self, iden):
+        '''
+        Change an existing trigger's query
+        '''
+        self.triggers.disable(iden)
+        await self.fire('core:trigger:action', iden=iden, action='disable')
+
+    async def listTriggers(self):
+        '''
+        Lists all the triggers in the Cortex.
+        '''
+        trigs = []
+        for (iden, trig) in self.triggers.list():
+            useriden = trig['useriden']
+            user = self.auth.user(useriden)
+            trig['username'] = '<unknown>' if user is None else user.name
+            trigs.append((iden, trig))
+
+        return trigs
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):

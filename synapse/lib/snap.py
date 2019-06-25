@@ -348,6 +348,12 @@ class Snap(s_base.Base):
             name (str): The form of node to add.
             valu (obj): The value for the node.
             props (dict): Optional secondary properties for the node.
+
+        Notes:
+            If a props dictionary is provided, it may be mutated during node construction.
+
+        Returns:
+            s_node.Node: A Node object. It may return None if the snap is unable to add or lift the node.
         '''
 
         try:

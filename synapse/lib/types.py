@@ -160,7 +160,7 @@ class Type:
         text = str(valu)
 
         def cmpr(valu):
-            vtxt = self.repr(valu, defval=valu)
+            vtxt = self.repr(valu)
             return vtxt.startswith(text)
 
         return cmpr
@@ -169,7 +169,7 @@ class Type:
         regx = regex.compile(text)
 
         def cmpr(valu):
-            vtxt = self.repr(valu, defval=valu)
+            vtxt = self.repr(valu)
             return regx.search(vtxt) is not None
 
         return cmpr
@@ -269,14 +269,12 @@ class Type:
 
         return func(valu)
 
-    def repr(self, norm, defval=None):
+    def repr(self, norm):
         '''
-        Return a printable representation for the value.  For types which need no
-        display processing, the defval should be returned.
-
+        Return a printable representation for the value.
         This may return a string or a tuple of values for display purposes.
         '''
-        return defval
+        return str(norm)
 
     def indx(self, norm):  # pragma: no cover
         '''
@@ -376,7 +374,7 @@ class Bool(Type):
     def _normPyInt(self, valu):
         return int(bool(valu)), {}
 
-    def repr(self, valu, defval=None):
+    def repr(self, valu):
         return repr(bool(valu))
 
 class Comp(Type):
@@ -422,27 +420,15 @@ class Comp(Type):
         norm = tuple(norms)
         return norm, {'subs': subs, 'adds': adds}
 
-    def repr(self, valu, defval=None):
+    def repr(self, valu):
 
         vals = []
         fields = self.opts.get('fields')
 
-        hit = False
         for valu, (name, typename) in zip(valu, fields):
-
-            # if any of our comp fields need repr we do too...
             rval = self.tcache[name].repr(valu)
-
-            if rval is not None:
-                hit = True
-                vals.append(rval)
-            else:
-                vals.append(valu)
-
-        if hit:
-            return tuple(vals)
-
-        return defval
+            vals.append(rval)
+        return tuple(vals)
 
     def indx(self, norm):
         return s_common.buid(norm)
@@ -734,7 +720,7 @@ class Int(IntBase):
     def indx(self, valu):
         return (valu + self._indx_offset).to_bytes(self.size, 'big')
 
-    def repr(self, norm, defval=None):
+    def repr(self, norm):
 
         text = self.enumrepr.get(norm)
         if text is not None:
@@ -876,7 +862,7 @@ class Ival(Type):
 
         return indx
 
-    def repr(self, norm, defval=None):
+    def repr(self, norm):
         mint = self.timetype.repr(norm[0])
         maxt = self.timetype.repr(norm[1])
         return (mint, maxt)
@@ -937,6 +923,9 @@ class Loc(Type):
 
         return cmpr
 
+    def repr(self, norm):
+        return norm
+
 class Ndef(Type):
 
     def postTypeInit(self):
@@ -967,15 +956,13 @@ class Ndef(Type):
     def indx(self, norm):
         return s_common.buid(norm)
 
-    def repr(self, norm, defval=None):
+    def repr(self, norm):
         formname, formvalu = norm
         form = self.modl.form(formname)
         if form is None:
             raise s_exc.NoSuchForm(name=self.name, form=formname)
 
         repv = form.type.repr(formvalu)
-        if repv is None:
-            return defval
         return (formname, repv)
 
 class Edge(Type):
@@ -1034,21 +1021,11 @@ class Edge(Type):
     def indx(self, norm):
         return s_common.buid(norm)
 
-    def repr(self, norm, defval=None):
+    def repr(self, norm):
         n1, n2 = norm
-        try:
-            n1repr = self.ndeftype.repr(n1)
-            n2repr = self.ndeftype.repr(n2)
-            if n1repr and n2repr:
-                return (n1repr, n2repr)
-            elif n1repr and n2repr is None:
-                return (n1repr, n2)
-            elif n1repr is None and n2repr:
-                return (n1, n2repr)
-            return defval
-        except Exception:  # pragma: no cover
-            logger.error(f'Edge repr issue: {norm}')
-            return defval
+        n1repr = self.ndeftype.repr(n1)
+        n2repr = self.ndeftype.repr(n2)
+        return (n1repr, n2repr)
 
 class TimeEdge(Edge):
 
@@ -1075,16 +1052,15 @@ class TimeEdge(Edge):
 
         return (n1, n2, tick), info
 
-    def repr(self, norm, defval=None):
+    def repr(self, norm):
+
         n1, n2, tick = norm
-        try:
-            n1repr = self.ndeftype.repr(n1, n1)
-            n2repr = self.ndeftype.repr(n2, n2)
-            trepr = self.modl.type('time').repr(tick)
-            return (n1repr, n2repr, trepr)
-        except Exception as e:  # pragma: no cover
-            logger.error(f'Edge repr issue: {norm}')
-            return defval
+
+        n1repr = self.ndeftype.repr(n1)
+        n2repr = self.ndeftype.repr(n2)
+        trepr = self.modl.type('time').repr(tick)
+
+        return (n1repr, n2repr, trepr)
 
 class Data(Type):
 
@@ -1164,15 +1140,10 @@ class Range(Type):
     def indx(self, norm):
         return self.subtype.indx(norm[0]) + self.subtype.indx(norm[1])
 
-    def repr(self, norm, defval=None):
-
+    def repr(self, norm):
         subx = self.subtype.repr(norm[0])
         suby = self.subtype.repr(norm[1])
-
-        if subx is not None:
-            return (subx, suby)
-
-        return defval
+        return (subx, suby)
 
 class StrBase(Type):
     '''
@@ -1191,6 +1162,9 @@ class StrBase(Type):
 
     def indx(self, norm):
         return self._getIndxChop(norm.encode('utf8', 'surrogatepass'))
+
+    def repr(self, norm):
+        return norm
 
 class Str(StrBase):
 
@@ -1374,7 +1348,7 @@ class Time(IntBase):
 
         return newv
 
-    def repr(self, valu, defval=None):
+    def repr(self, valu):
 
         if valu == self.futsize:
             return '?'

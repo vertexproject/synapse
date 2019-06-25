@@ -204,6 +204,7 @@ def run_modeldoc(_):
     subprocess.run(args, cwd=synpd)
 
 def convert_ipynb(_):
+    import synapse.common as s_common
     import nbconvert.nbconvertapp as nba
     cwd = os.getcwd()
     for fdir, dirs, fns in os.walk(cwd):
@@ -211,9 +212,13 @@ def convert_ipynb(_):
             dirs.remove('.ipynb_checkpoints')
         for fn in fns:
             if fn.endswith('.ipynb'):
+                tick = s_common.now()
                 fp = os.path.join(fdir, fn)
                 args = ['--execute', '--template', './vertex.tpl', '--to', 'rst', fp]
                 nba.main(args)
+                tock = s_common.now()
+                took = (tock - tick) / 1000
+                print(f'convert_ipynb: Notebook {fn} execution took {took} seconds.')
 
 def setup(app):
     # app.add_stylesheet('theme_overrides.css')

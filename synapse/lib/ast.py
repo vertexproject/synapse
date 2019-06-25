@@ -335,11 +335,20 @@ class SubQuery(Oper):
 
         async for item in genr:
 
-            await s_common.aspin(subq.run(runt, agen(item)))
+            subp = None
+            async for subp in subq.run(runt, agen(item)):
+                pass  # pragma: no cover
+
+            # dup any path variables from the last yielded
+            if subp is not None:
+                item[1].vars.update(subp[1].vars)
 
             yield item
 
     async def inline(self, runt, genr):
+        '''
+        Operate subquery as if it were inlined
+        '''
         async for item in self.kids[0].run(runt, genr):
             yield item
 
@@ -454,14 +463,15 @@ class VarSetOper(Oper):
         name = self.kids[0].value()
         vkid = self.kids[1]
 
+        count = 0
         async for node, path in genr:
+            count += 1
             valu = await vkid.compute(path)
             path.setVar(name, valu)
             runt.setVar(name, valu)
             yield node, path
 
-        if vkid.isRuntSafe(runt):
-
+        if count == 0 and vkid.isRuntSafe(runt):
             valu = await vkid.runtval(runt)
             runt.setVar(name, valu)
 
@@ -518,17 +528,14 @@ class VarEvalOper(Oper):
     '''
     async def run(self, runt, genr):
 
-        if self.isRuntSafe(runt):
+        anynodes = False
+        async for node, path in genr:
+            anynodes = True
+            await self.kids[0].compute(path)
+            yield node, path
 
-            async for item in genr:
-                yield item
-
+        if not anynodes and self.isRuntSafe(runt):
             await self.kids[0].runtval(runt)
-
-        else:
-            async for node, path in genr:
-                await self.kids[0].compute(path)
-                yield node, path
 
 class SwitchCase(Oper):
 
@@ -547,22 +554,37 @@ class SwitchCase(Oper):
             self.cases[valu] = cent.kids[1]
 
     async def run(self, runt, genr):
+        count = 0
+        async for node, path in genr:
+            count += 1
 
-        varv = await self.kids[0].runtval(runt)
-        if varv is None:
-            raise s_exc.NoSuchVar()
+            varv = await self.kids[0].compute(path)
 
-        subq = self.cases.get(varv)
-        if subq is None and self.defcase is not None:
-            subq = self.defcase
+            # TODO:  when we have var type system, do type-aware comparison
+            subq = self.cases.get(str(varv))
+            if subq is None and self.defcase is not None:
+                subq = self.defcase
 
-        if subq is None:
-            async for item in genr:
+            if subq is None:
+                yield (node, path)
+            else:
+                async for item in subq.inline(runt, agen((node, path))):
+                    yield item
+
+        if count == 0 and self.kids[0].isRuntSafe(runt):
+            # no nodes and a runt safe value should execute
+            varv = await self.kids[0].runtval(runt)
+
+            subq = self.cases.get(str(varv))
+            if subq is None and self.defcase is not None:
+                subq = self.defcase
+
+            if subq is None:
+                return
+
+            async for item in subq.inline(runt, agen()):
                 yield item
-            return
 
-        async for item in subq.inline(runt, genr):
-            yield item
 
 class CaseEntry(AstNode):
     pass
@@ -846,7 +868,7 @@ class PivotIn(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            # if it's a graph edge, use :n2
+            # if it's a graph edge, use :n1
             if isinstance(node.form.type, s_types.Edge):
 
                 ndef = node.get('n1')
@@ -1128,7 +1150,7 @@ class Cond(AstNode):
         return ()
 
     async def getCondEval(self, runt): # pragma: no cover
-        raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.evaluate()')
+        raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.getCondEval()')
 
 class SubqCond(Cond):
 
@@ -1463,18 +1485,28 @@ class TagValuCond(Cond):
 
     async def getCondEval(self, runt):
 
-        name = self.kids[0].value()
-        cmpr = self.kids[1].value()
+        lnode, cnode, rnode = self.kids
 
         ival = runt.snap.model.type('ival')
 
+        cmpr = cnode.value()
         cmprctor = ival.getCmprCtor(cmpr)
         if cmprctor is None:
             raise s_exc.NoSuchCmpr(cmpr=cmpr, name=ival.name)
 
-        if isinstance(self.kids[2], Const):
+        if isinstance(lnode, VarValue):
+            async def cond(node, path):
+                name = await lnode.compute(path)
+                valu = await rnode.compute(path)
+                return cmprctor(valu)(node.tags.get(name))
 
-            valu = self.kids[2].value()
+            return cond
+
+        name = lnode.value()
+
+        if isinstance(rnode, Const):
+
+            valu = rnode.value()
 
             cmpr = cmprctor(valu)
 
@@ -1652,7 +1684,14 @@ class CallArgs(RunValue):
 class CallKwarg(CallArgs): pass
 class CallKwargs(CallArgs): pass
 
-class VarValue(RunValue):
+class VarValue(RunValue, Cond):
+
+    async def getCondEval(self, runt):
+
+        async def cond(node, path):
+            return await self.compute(path)
+
+        return cond
 
     def prepare(self):
         self.name = self.kids[0].value()
@@ -1706,33 +1745,65 @@ class FuncCall(RunValue):
         kwargs = dict(kwlist)
         return await func(*argv, **kwargs)
 
-class DollarExpr(RunValue):
+class DollarExpr(RunValue, Cond):
     '''
     Top level node for $(...) expressions
     '''
     async def compute(self, path):
         assert len(self.kids) == 1
-        return await self.kids[0].compute(path)
+        return int(await self.kids[0].compute(path))
 
     async def runtval(self, runt):
         assert len(self.kids) == 1
-        return await self.kids[0].runtval(runt)
+        return int(await self.kids[0].runtval(runt))
+
+    async def getCondEval(self, runt):
+
+        async def cond(node, path):
+            return await self.compute(path)
+
+        return cond
+
 
 _ExprFuncMap = {
     '*': lambda x, y: int(x) * int(y),
     '/': lambda x, y: int(x) // int(y),
     '+': lambda x, y: int(x) + int(y),
     '-': lambda x, y: int(x) - int(y),
-    '>': lambda x, y: int(int(x) > int(y)),
-    '<': lambda x, y: int(int(x) < int(y)),
-    '>=': lambda x, y: int(int(x) >= int(y)),
-    '<=': lambda x, y: int(int(x) <= int(y)),
-    '==': lambda x, y: int(x == y),
-    '!=': lambda x, y: int(x != y),
+    '>': lambda x, y: int(x) > int(y),
+    '<': lambda x, y: int(x) < int(y),
+    '>=': lambda x, y: int(x) >= int(y),
+    '<=': lambda x, y: int(x) <= int(y),
+    'and': lambda x, y: int(x) and int(y),
+    'or': lambda x, y: int(x) or int(y),
+    '=': lambda x, y: x == y,
+    '!=': lambda x, y: x != y,
 }
 
-class ExprNode(RunValue):
+_UnaryExprFuncMap = {
+    'not': lambda x: not int(x),
+}
 
+class UnaryExprNode(RunValue):
+    '''
+    A unary (i.e. single-argument) expression node
+    '''
+    def prepare(self):
+        assert len(self.kids) == 2
+        assert isinstance(self.kids[0], Const)
+        oper = self.kids[0].value()
+        self._operfunc = _UnaryExprFuncMap[oper]
+
+    async def compute(self, path):
+        return self._operfunc(await self.kids[1].compute(path))
+
+    async def runtval(self, runt):
+        return self._operfunc(await self.kids[1].runtval(runt))
+
+class ExprNode(RunValue):
+    '''
+    A binary (i.e. two argument) expression node
+    '''
     def prepare(self):
         # TODO: constant folding
         assert len(self.kids) == 3
@@ -1741,10 +1812,10 @@ class ExprNode(RunValue):
         self._operfunc = _ExprFuncMap[oper]
 
     async def compute(self, path):
-        return self._operfunc(await self.kids[0].compute(path), await self.kids[2].compute(path))
+        return int(self._operfunc(await self.kids[0].compute(path), await self.kids[2].compute(path)))
 
     async def runtval(self, runt):
-        return self._operfunc(await self.kids[0].runtval(runt), await self.kids[2].runtval(runt))
+        return int(self._operfunc(await self.kids[0].runtval(runt), await self.kids[2].runtval(runt)))
 
 class VarList(Value):
     pass
@@ -1792,6 +1863,8 @@ class EditNodeAdd(Edit):
     async def run(self, runt, genr):
 
         name = self.kids[0].value()
+        oper = self.kids[1].value()
+        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
 
         form = runt.snap.model.forms.get(name)
         if form is None:
@@ -1811,7 +1884,7 @@ class EditNodeAdd(Edit):
         # case 2: <query> [ foo:bar=($node, 20) ]
         # case 2: <query> $blah=:baz [ foo:bar=($blah, 20) ]
 
-        if not self.kids[1].isRuntSafe(runt):
+        if not self.kids[2].isRuntSafe(runt):
 
             first = True
             async for node, path in genr:
@@ -1823,23 +1896,29 @@ class EditNodeAdd(Edit):
 
                 yield node, path
 
-                valu = await self.kids[1].compute(path)
+                valu = await self.kids[2].compute(path)
 
                 for valu in form.type.getTypeVals(valu):
-                    newn = await runt.snap.addNode(name, valu)
-                    yield newn, runt.initPath(newn)
+                    try:
+                        newn = await runt.snap.addNode(name, valu)
+                    except excignore:
+                        pass
+                    else:
+                        yield newn, runt.initPath(newn)
 
         else:
-
             async for node, path in genr:
                 yield node, path
 
             runt.allowed('node:add', name)
 
-            valu = await self.kids[1].runtval(runt)
+            valu = await self.kids[2].runtval(runt)
 
             for valu in form.type.getTypeVals(valu):
-                node = await runt.snap.addNode(name, valu)
+                try:
+                    node = await runt.snap.addNode(name, valu)
+                except excignore:
+                    continue
                 yield node, runt.initPath(node)
 
 class EditPropSet(Edit):
@@ -1847,10 +1926,12 @@ class EditPropSet(Edit):
     async def run(self, runt, genr):
 
         name = self.kids[0].value()
+        oper = self.kids[1].value()
+        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
 
         async for node, path in genr:
 
-            valu = await self.kids[1].compute(path)
+            valu = await self.kids[2].compute(path)
 
             prop = node.form.props.get(name)
             if prop is None:
@@ -1858,7 +1939,10 @@ class EditPropSet(Edit):
 
             runt.allowed('prop:set', prop.full)
 
-            await node.set(name, valu)
+            try:
+                await node.set(name, valu)
+            except excignore:
+                pass
 
             yield node, path
 
@@ -1959,3 +2043,69 @@ class ContinueOper(AstNode):
             raise StormContinue(item=(node, path))
 
         raise StormContinue()
+
+class IfClause(AstNode):
+    pass
+
+class IfStmt(Oper):
+
+    def prepare(self):
+        if isinstance(self.kids[-1], IfClause):
+            self.elsequery = None
+            self.clauses = self.kids
+        else:
+            self.elsequery = self.kids[-1]
+            self.clauses = self.kids[:-1]
+
+    async def _runtsafe_calc(self, runt):
+        '''
+        All conditions are runtsafe: figure out which clause wins
+        '''
+        for clause in self.clauses:
+            expr, subq = clause.kids
+
+            exprvalu = await expr.runtval(runt)
+            if exprvalu:
+                return subq
+        else:
+            return self.elsequery
+
+    async def run(self, runt, genr):
+        count = 0
+
+        allcondsafe = all(clause.kids[0].isRuntSafe(runt) for clause in self.clauses)
+
+        async for node, path in genr:
+            count += 1
+
+            if allcondsafe:
+                if count == 1:
+                    subq = await self._runtsafe_calc(runt)
+            else:
+
+                for clause in self.clauses:
+                    expr, subq = clause.kids
+
+                    exprvalu = await expr.compute(path)
+                    if exprvalu:
+                        break
+                else:
+                    subq = self.elsequery
+
+            if subq:
+                assert isinstance(subq, SubQuery)
+
+                async for item in subq.inline(runt, agen((node, path))):
+                    yield item
+            else:
+                # If none of the if branches were executed and no else present, pass the stream through unaltered
+                yield node, path
+
+        if count != 0 or not allcondsafe:
+            return
+        # no nodes and a runt safe value should execute the winning clause once
+        subq = await self._runtsafe_calc(runt)
+
+        if subq:
+            async for item in subq.inline(runt, agen()):
+                yield item

@@ -12,8 +12,9 @@ class EchoAuthApi(s_cell.CellApi):
     def isadmin(self):
         return self.user.admin
 
-    def allowed(self, perm):
-        return self.user.allowed(perm)
+    async def icando(self, *path):
+        await self._reqUserAllowed(*path)
+        return True
 
 class EchoAuth(s_cell.Cell):
     cellapi = EchoAuthApi
@@ -48,19 +49,51 @@ class CellTest(s_t_utils.SynTest):
                 root_url = f'tcp://root:secretsauce@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(root_url) as proxy:
                     self.true(await proxy.isadmin())
-                    self.true(await proxy.allowed(('hehe', 'haha')))
+                    self.true(await proxy.allowed('hehe', 'haha'))
 
                 user = await echo.auth.addUser('visi')
                 await user.setPasswd('foo')
                 await user.addRule((True, ('foo', 'bar')))
 
                 visi_url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
-                async with await s_telepath.openurl(visi_url) as proxy:
-                    self.true(await proxy.allowed(('foo', 'bar')))
+                async with await s_telepath.openurl(visi_url) as proxy:  # type: EchoAuthApi
+                    self.true(await proxy.allowed('foo', 'bar'))
                     self.false(await proxy.isadmin())
-                    self.false(await proxy.allowed(('hehe', 'haha')))
+                    self.false(await proxy.allowed('hehe', 'haha'))
 
-                async with await s_telepath.openurl(root_url) as proxy:
+                    self.true(await proxy.icando('foo', 'bar'))
+                    await self.asyncraises(s_exc.AuthDeny, proxy.icando('foo', 'newp'))
+
+                    await self.asyncraises(s_exc.AuthDeny, proxy.listHiveKey(('faz',)))
+                    await self.asyncraises(s_exc.AuthDeny, proxy.getHiveKey(('faz',)))
+                    await self.asyncraises(s_exc.AuthDeny, proxy.setHiveKey(('faz',), 'bar'))
+                    await self.asyncraises(s_exc.AuthDeny, proxy.popHiveKey(('faz',)))
+
+                    # happy path perms
+                    await user.addRule((True, ('hive:set', 'foo', 'bar')))
+                    await user.addRule((True, ('hive:get', 'foo', 'bar')))
+                    await user.addRule((True, ('hive:pop', 'foo', 'bar')))
+
+                    val = await proxy.setHiveKey(('foo', 'bar'), 'thefirstval')
+                    self.eq(None, val)
+
+                    # check that we get the old val back
+                    val = await proxy.setHiveKey(('foo', 'bar'), 'wootisetit')
+                    self.eq('thefirstval', val)
+
+                    val = await proxy.getHiveKey(('foo', 'bar'))
+                    self.eq('wootisetit', val)
+
+                    val = await proxy.popHiveKey(('foo', 'bar'))
+                    self.eq('wootisetit', val)
+
+                    val = await proxy.setHiveKey(('foo', 'bar', 'baz'), 'a')
+                    val = await proxy.setHiveKey(('foo', 'bar', 'faz'), 'b')
+                    val = await proxy.setHiveKey(('foo', 'bar', 'haz'), 'c')
+                    val = await proxy.listHiveKey(('foo', 'bar'))
+                    self.eq(('baz', 'faz', 'haz'), val)
+
+                async with await s_telepath.openurl(root_url) as proxy:  # type: EchoAuthApi
 
                     await proxy.setUserLocked('visi', True)
                     info = await proxy.getAuthInfo('visi')
@@ -74,7 +107,7 @@ class CellTest(s_t_utils.SynTest):
                     async with await s_telepath.openurl(visi_url) as visi_proxy:
                         self.false(await visi_proxy.isadmin())
 
-                async with await s_telepath.openurl(root_url) as proxy:
+                async with await s_telepath.openurl(root_url) as proxy:  # type: EchoAuthApi
 
                     await self.asyncraises(s_exc.NoSuchUser,
                                            proxy.setUserArchived('newp', True))
@@ -99,7 +132,7 @@ class CellTest(s_t_utils.SynTest):
                     await self.asyncraises(s_exc.AuthDeny,
                                            s_telepath.openurl(visi_url))
 
-                async with echo.getLocalProxy() as proxy:
+                async with echo.getLocalProxy() as proxy:  # type: EchoAuthApi
 
                     await proxy.setHiveKey(('foo', 'bar'), [1, 2, 3, 4])
                     self.eq([1, 2, 3, 4], await proxy.getHiveKey(('foo', 'bar')))
@@ -148,7 +181,7 @@ class CellTest(s_t_utils.SynTest):
                 async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}/', **pconf) as proxy:
 
                     self.true(await proxy.isadmin())
-                    self.true(await proxy.allowed(('hehe', 'haha')))
+                    self.true(await proxy.allowed('hehe', 'haha'))
 
                 url = f'tcp://root@127.0.0.1:{port}/'
                 await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))

@@ -53,6 +53,9 @@ class CmdCronTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine('cron list')
                     self.true(outp.expect('No cron jobs found'))
 
+                    await cmdr.runCmdLine('cron ls')
+                    self.true(outp.expect('No cron jobs found'))
+
                     outp.clear()
 
                     await cmdr.runCmdLine("cron add -M+1,beeroclock {[graph:node='*' :type=m1]}")
@@ -128,7 +131,7 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     await cmdr.runCmdLine(f"cron mod {guid[:6]} {{[graph:node='*' :type=m2]}}")
                     self.true(outp.expect('Modified cron job'))
-                    await cmdr.runCmdLine(f"cron mod xxx {{[graph:node='*' :type=m2]}}")
+                    await cmdr.runCmdLine(f"cron edit xxx {{[graph:node='*' :type=m2]}}")
                     self.true(outp.expect('does not match'))
                     await cmdr.runCmdLine(f"cron mod xxx yyy")
                     self.true(outp.expect('expected second argument to start with {'))
@@ -144,6 +147,8 @@ class CmdCronTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine(f"cron del {guid}")
                     self.true(outp.expect('Deleted cron job'))
                     await cmdr.runCmdLine(f"cron del xxx")
+                    self.true(outp.expect('does not match'))
+                    await cmdr.runCmdLine(f"cron rm xxx")
                     self.true(outp.expect('does not match'))
 
                     # Make sure deleted job didn't run
@@ -294,10 +299,11 @@ class CmdCronTest(s_t_utils.SynTest):
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
                     await cmdr.runCmdLine('cron list')
                     await self.agenlen(1, core.eval('graph:node:type=at3'))
+                    outp.clear()
+
                     ##################
 
                     # Test 'stat' command
-
                     await cmdr.runCmdLine(f'cron stat xxx')
                     self.true(outp.expect('provided iden does not match any'))
 
@@ -306,8 +312,29 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(outp.expect('entries:         <None>'))
                     await cmdr.runCmdLine(f'cron stat {guid2[:6]}')
                     self.true(outp.expect("{'month': 1, 'hour': 0, 'minute': 0, 'dayofmonth': 1}"))
+                    outp.clear()
 
                     ##################
+
+                    # Test 'enable' 'disable' commands
+                    await cmdr.runCmdLine(f'cron enable xxx')
+                    self.true(outp.expect('provided iden does not match any'))
+                    outp.clear()
+
+                    await cmdr.runCmdLine(f'cron disable xxx')
+                    self.true(outp.expect('provided iden does not match any'))
+                    outp.clear()
+
+                    await cmdr.runCmdLine(f'cron disable {guid[:6]}')
+                    await cmdr.runCmdLine(f'cron stat {guid[:6]}')
+                    self.true(outp.expect(f'enabled:         N'))
+                    outp.clear()
+                    await cmdr.runCmdLine(f'cron enable {guid[:6]}')
+                    await cmdr.runCmdLine(f'cron stat {guid[:6]}')
+                    self.true(outp.expect(f'enabled:         Y'))
+                    outp.clear()
+
+                    ###################
 
                     # Delete an expired at job
                     outp.clear()

@@ -36,6 +36,8 @@ import unittest.mock as mock
 
 import aiohttp
 
+from prompt_toolkit.formatted_text import FormattedText
+
 import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.glob as s_glob
@@ -792,6 +794,98 @@ class SynTest(unittest.TestCase):
         with mock.patch('synapse.lib.cmdr.getItemCmdr', getTestCmdr):
             yield
 
+    @contextlib.contextmanager
+    def withCliPromptMockExtendOutp(self, outp):
+        '''
+        Context manager to mock our use of Prompt Toolkit's print_formatted_text function and
+        extend the lines to an an output object.
+
+        Args:
+            outp (TstOutPut): The outp to extend.
+
+        Notes:
+            This extends the outp with the lines AFTER the context manager has exited.
+
+        Returns:
+            mock.MagicMock: Yields a mock.MagicMock object.
+        '''
+        with self.withCliPromptMock() as patch:
+            yield patch
+        self.extendOutpFromPatch(outp, patch)
+
+    @contextlib.contextmanager
+    def withCliPromptMock(self):
+        '''
+        Context manager to mock our use of Prompt Toolkit's print_formatted_text function.
+
+        Returns:
+            mock.MagicMock: Yields a mock.MagikMock object.
+        '''
+        with mock.patch('synapse.lib.cli.print_formatted_text',
+                        mock.MagicMock(return_value=None)) as patch:  # type: mock.MagicMock
+            yield patch
+
+    def getMagicPromptLines(self, patch):
+        '''
+        Get the text lines from a MagicMock object from withCliPromptMock.
+
+        Args:
+            patch (mock.MagicMock): The MagicMock object from withCliPromptMock.
+
+        Returns:
+            list: A list of lines.
+        '''
+        self.true(patch.called, 'Assert prompt was called')
+        lines = []
+        for args in patch.call_args_list:
+            arg = args[0][0]
+            if isinstance(arg, str):
+                lines.append(arg)
+                continue
+            if isinstance(arg, FormattedText):
+                color, text = arg[0]
+                lines.append(text)
+                continue
+            raise ValueError(f'Unknown arg: {type(arg)}/{arg}')
+        return lines
+
+    def getMagicPromptColors(self, patch):
+        '''
+        Get the colored lines from a MagicMock object from withCliPromptMock.
+
+        Args:
+            patch (mock.MagicMock): The MagicMock object from withCliPromptMock.
+
+        Returns:
+            list: A list of tuples, containing color and line data.
+        '''
+        self.true(patch.called, 'Assert prompt was called')
+        lines = []
+        for args in patch.call_args_list:
+            arg = args[0][0]
+            if isinstance(arg, str):
+                continue
+            if isinstance(arg, FormattedText):
+                color, text = arg[0]
+                lines.append((color, text))
+                continue
+            raise ValueError(f'Unknown arg: {type(arg)}/{arg}')
+        return lines
+
+    def extendOutpFromPatch(self, outp, patch):
+        '''
+        Extend an Outp with lines from a magicMock object from withCliPromptMock.
+
+        Args:
+            outp (TstOutPut): The outp to extend.
+            patch (mock.MagicMock): The patch object.
+
+        Returns:
+            None: Returns none.
+        '''
+        lines = self.getMagicPromptLines(patch)
+        [outp.printf(line) for line in lines]
+
     @contextlib.asynccontextmanager
     async def getTestReadWriteCores(self, conf=None, dirn=None):
         '''
@@ -965,7 +1059,7 @@ class SynTest(unittest.TestCase):
 
                 with self.getLoggerStream('synapse.foo.bar') as stream:
                     # Do something that triggers a log message
-                    doSomthing()
+                    doSomething()
 
                 stream.seek(0)
                 mesgs = stream.read()
@@ -975,7 +1069,7 @@ class SynTest(unittest.TestCase):
 
                 with self.getLoggerStream('synapse.foo.bar', 'big badda boom happened') as stream:
                     # Do something that triggers a log message
-                    doSomthing()
+                    doSomething()
                     stream.wait(timeout=10)  # Wait for the mesg to be written to the stream
 
                 stream.seek(0)
@@ -986,7 +1080,7 @@ class SynTest(unittest.TestCase):
 
                 with self.getLoggerStream('synapse.foo.bar', 'big badda boom happened') as stream:
                     # Do something that triggers a log message
-                    doSomthing()
+                    doSomething()
                     stream.wait(timeout=10)
                     stream.setMesg('yo dawg')  # This will now wait for the 'yo dawg' string to be written.
                     stream.wait(timeout=10)
@@ -1015,6 +1109,35 @@ class SynTest(unittest.TestCase):
 
     @contextlib.contextmanager
     def getAsyncLoggerStream(self, logname, mesg=''):
+        '''
+        Async version of getLoggerStream.
+
+        Args:
+            logname (str): Name of the logger to get.
+            mesg (str): A string which, if provided, sets the StreamEvent event if a message
+            containing the string is written to the log.
+
+        Notes:
+            The event object mixed in for the AsyncStreamEvent is a asyncio.Event object.
+            This requires the user to await the Event specific calls as neccesary.
+
+        Examples:
+            Do an action and wait for a specific log message to be written::
+
+                with self.getAsyncLoggerStream('synapse.foo.bar',
+                                               'big badda boom happened') as stream:
+                    # Do something that triggers a log message
+                    await doSomething()
+                    # Wait for the mesg to be written to the stream
+                    await stream.wait(timeout=10)
+
+                stream.seek(0)
+                mesgs = stream.read()
+                # Do something with messages
+
+        Returns:
+            AsyncStreamEvent: An AsyncStreamEvent object.
+        '''
         stream = AsyncStreamEvent()
         stream.setMesg(mesg)
         handler = logging.StreamHandler(stream)
@@ -1029,6 +1152,20 @@ class SynTest(unittest.TestCase):
 
     @contextlib.asynccontextmanager
     async def getHttpSess(self, auth=None, port=None):
+        '''
+        Get an aiohttp ClientSession with a CookieJar.
+
+        Args:
+            auth (str, str): A tuple of username and password information for http auth.
+            port (int): Port number to connect to.
+
+        Notes:
+            If auth and port are provided, the session will login to a Synapse cell
+            hosted at localhost:port.
+
+        Returns:
+            aiohttp.ClientSession: An aiohttp.ClientSession object.
+        '''
 
         jar = aiohttp.CookieJar(unsafe=True)
         conn = aiohttp.TCPConnector(ssl=False)
@@ -1041,7 +1178,8 @@ class SynTest(unittest.TestCase):
                     raise Exception('getHttpSess requires port for auth')
 
                 user, passwd = auth
-                async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': user, 'passwd': passwd}) as resp:
+                async with sess.post(f'https://localhost:{port}/api/v1/login',
+                                     json={'user': user, 'passwd': passwd}) as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
                     self.eq(user, retn['result']['name'])

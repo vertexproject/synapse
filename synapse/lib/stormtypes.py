@@ -19,7 +19,6 @@ def kwarg_format(text, **kwargs):
 
     return text
 
-
 class StormType:
     '''
     The base type for storm runtime value objects.
@@ -75,11 +74,20 @@ class LibBase(Lib):
             'len': self._len,
             'min': self._min,
             'max': self._max,
+            'set': self._set,
             'dict': self._dict,
             'guid': self._guid,
             'fire': self._fire,
+            'text': self._text,
             'print': self._print,
         })
+
+    async def _set(self, *vals):
+        return Set(set(vals))
+
+    async def _text(self, *args):
+        valu = ''.join(args)
+        return Text(valu)
 
     async def _guid(self, *args):
         if args:
@@ -162,9 +170,24 @@ class LibTime(Lib):
 
             <query> [ :time = $lib.time.fromunix($epoch) ]
 
+
         '''
         secs = float(secs)
         return int(secs * 1000)
+
+class LibCsv(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'emit': self._libCsvEmit,
+        })
+
+    async def _libCsvEmit(self, *args, table=None):
+        '''
+        Emit a csv:row event for the given args.
+        '''
+        row = [toprim(a) for a in args]
+        await self.runt.snap.fire('csv:row', row=row, table=table)
 
 class Prim(StormType):
     '''
@@ -201,6 +224,35 @@ class Dict(Prim):
     def deref(self, name):
         return self.valu.get(name)
 
+class Set(Prim):
+
+    def __init__(self, valu, path=None):
+        Prim.__init__(self, set(valu), path=path)
+        self.locls.update({
+            'add': self._methSetAdd,
+            'adds': self._methSetAdds,
+            'rem': self._methSetRem,
+            'rems': self._methSetRems,
+            'list': self._methSetList,
+        })
+
+    async def _methSetAdd(self, *items):
+        [self.valu.add(i) for i in items]
+
+    async def _methSetAdds(self, *items):
+        for item in items:
+            [self.valu.add(i) for i in item]
+
+    async def _methSetRem(self, *items):
+        [self.valu.discard(i) for i in items]
+
+    async def _methSetRems(self, *items):
+        for item in items:
+            [self.valu.discard(i) for i in item]
+
+    async def _methSetList(self):
+        return list(self.valu)
+
 class List(Prim):
 
     def __init__(self, valu, path=None):
@@ -215,13 +267,109 @@ class List(Prim):
         Return a single field from the list by index.
         '''
         indx = intify(valu)
-        return self.valu[indx]
+        try:
+            return self.valu[indx]
+        except IndexError as e:
+            raise s_exc.StormRuntimeError(mesg=str(e), valurepr=repr(self.valu),
+                                          len=len(self.valu), indx=indx) from None
 
     async def _methListLength(self):
         '''
         Return the length of the list.
         '''
         return len(self.valu)
+
+class StormHiveDict(Prim):
+    # A Storm API for a HiveDict
+    def __init__(self, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.locls.update({
+            'get': self._methGet,
+            'pop': self._methPop,
+            'set': self._methSet,
+            'list': self._methList,
+        })
+
+    def _reqStr(self, name):
+        if not isinstance(name, str):
+            mesg = 'The name of a persistent variable must be a string.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+    async def _methGet(self, name):
+        self._reqStr(name)
+        return self.valu.get(name)
+
+    async def _methPop(self, name):
+        self._reqStr(name)
+        return await self.valu.pop(name)
+
+    async def _methSet(self, name, valu):
+        self._reqStr(name)
+        await self.valu.set(name, valu)
+
+    async def _methList(self):
+        return list(self.valu.items())
+
+class LibUser(Lib):
+    def addLibFuncs(self):
+        hivedict = StormHiveDict(self.runt.user.pvars)
+        self.locls.update({
+            'name': self._libUserName,
+            'vars': hivedict,
+        })
+
+    async def _libUserName(self, path=None):
+        return self.runt.user.name
+
+class LibGlobals(Lib):
+    '''
+    Global persistent Storm variables
+    '''
+    def __init__(self, runt, name):
+        self._stormvars = runt.snap.core.stormvars
+        Lib.__init__(self, runt, name)
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'get': self._methGet,
+            'pop': self._methPop,
+            'set': self._methSet,
+            'list': self._methList,
+        })
+
+    def _reqAllowed(self, perm, name):
+        self.runt.allowed(perm, name)
+
+    def _reqStr(self, name):
+        if not isinstance(name, str):
+            mesg = 'The name of a persistent variable must be a string.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+    async def _methGet(self, name):
+        self._reqStr(name)
+        self._reqAllowed('storm:globals:get', name)
+        return self._stormvars.get(name)
+
+    async def _methPop(self, name):
+        self._reqStr(name)
+        self._reqAllowed('storm:globals:pop', name)
+        return await self._stormvars.pop(name)
+
+    async def _methSet(self, name, valu):
+        self._reqStr(name)
+        self._reqAllowed('storm:globals:set', name)
+        await self._stormvars.set(name, valu)
+
+    async def _methList(self):
+        ret = []
+        for key, valu in list(self._stormvars.items()):
+            try:
+                self._reqAllowed('storm:globals:get', key)
+            except s_exc.AuthDeny as e:
+                continue
+            else:
+                ret.append((key, valu))
+        return ret
 
 class Node(Prim):
     '''
@@ -234,7 +382,10 @@ class Node(Prim):
             'form': self._methNodeForm,
             'ndef': self._methNodeNdef,
             'tags': self._methNodeTags,
+            'repr': self._methNodeRepr,
+            'iden': self._methNodeIden,
             'value': self._methNodeValue,
+            'globtags': self._methNodeGlobTags,
         })
 
     async def _methNodeTags(self, glob=None):
@@ -243,6 +394,24 @@ class Node(Prim):
             regx = s_cache.getTagGlobRegx(glob)
             tags = [t for t in tags if regx.fullmatch(t)]
         return tags
+
+    async def _methNodeGlobTags(self, glob):
+        tags = list(self.valu.tags.keys())
+        regx = s_cache.getTagGlobRegx(glob)
+        ret = []
+        for tag in tags:
+            match = regx.fullmatch(tag)
+            if match is not None:
+                groups = match.groups()
+                # Per discussion: The simple use case of a single match is
+                # intuitive for a user to simply loop over as a raw list.
+                # In contrast, a glob match which yields multiple matching
+                # values would have to be unpacked.
+                if len(groups) == 1:
+                    ret.append(groups[0])
+                else:
+                    ret.append(groups)
+        return ret
 
     async def _methNodeValue(self):
         return self.valu.ndef[1]
@@ -253,6 +422,73 @@ class Node(Prim):
     async def _methNodeNdef(self):
         return self.valu.ndef
 
+    async def _methNodeRepr(self, name=None):
+        return self.valu.repr(name=name)
+
+    async def _methNodeIden(self):
+        return self.valu.iden()
+
+class Path(Prim):
+
+    def __init__(self, node, path=None):
+        Prim.__init__(self, node, path=path)
+        self.locls.update({
+            'idens': self._methPathIdens,
+            'trace': self._methPathTrace,
+        })
+
+    async def _methPathIdens(self):
+        return [n.iden() for n in self.valu.nodes]
+
+    async def _methPathTrace(self):
+        trace = self.valu.trace()
+        return Trace(trace)
+
+class Trace(Prim):
+    '''
+    Storm API wrapper for the Path Trace object.
+    '''
+    def __init__(self, trace, path=None):
+        Prim.__init__(self, trace, path=path)
+        self.locls.update({
+            'idens': self._methTraceIdens,
+        })
+
+    async def _methTraceIdens(self):
+        return [n.iden() for n in self.valu.nodes]
+
+class Text(Prim):
+    '''
+    A mutable text type for simple text construction.
+    '''
+    def __init__(self, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.locls.update({
+            'add': self._methTextAdd,
+            'str': self._methTextStr,
+        })
+
+    async def _methTextAdd(self, text, **kwargs):
+        text = kwarg_format(text, **kwargs)
+        self.valu += text
+
+    async def _methTextStr(self):
+        return self.valu
+
+# These will go away once we have value objects in storm runtime
+def toprim(valu, path=None):
+
+    if isinstance(valu, (str, tuple, list, dict, int)):
+        return valu
+
+    if isinstance(valu, Prim):
+        return valu.value()
+
+    if isinstance(valu, s_node.Node):
+        return valu.ndef[1]
+
+    raise s_exc.NoSuchType(name=valu.__class__.__name__)
+
 def fromprim(valu, path=None):
 
     if isinstance(valu, str):
@@ -261,6 +497,9 @@ def fromprim(valu, path=None):
     # TODO: make s_node.Node a storm type itself?
     if isinstance(valu, s_node.Node):
         return Node(valu, path=path)
+
+    if isinstance(valu, s_node.Path):
+        return Path(valu, path=path)
 
     if isinstance(valu, StormType):
         return valu

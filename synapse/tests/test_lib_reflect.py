@@ -1,5 +1,6 @@
 import synapse.lib.base as s_base
 import synapse.lib.reflect as s_reflect
+import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
 
@@ -40,3 +41,8 @@ class ReflectTest(s_t_utils.SynTest):
                 pass
             self.isinstance(getattr(echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None), dict)
             self.isinstance(getattr(Echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None), dict)
+
+            sharinfo = getattr(echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo')
+            self.eq(sharinfo.get('syn:version'), s_version.version)
+            self.eq(sharinfo.get('classes'),
+                    ['synapse.tests.test_lib_reflect.Echo', 'synapse.lib.base.Base'])

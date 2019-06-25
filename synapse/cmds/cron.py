@@ -24,7 +24,7 @@ DelHelp = '''
 Deletes a single cron job.
 
 Syntax:
-    cron del <iden prefix>
+    cron del|rm <iden prefix>
 
 Notes:
     Any prefix that matches exactly one valid cron job iden is accepted.
@@ -34,20 +34,39 @@ ListHelp = '''
 List existing cron jobs in a cortex.
 
 Syntax:
-    cron list
+    cron list|ls
 
 Example:
-    cli> cron list
-    user       iden       recurs? now? # start last start       last end         query
-    <None>     4ad2218a.. N       N          1 2018-12-14T15:53 2018-12-14T15:53 #foo
-    <None>     f6b6aebd.. Y       N          3 2018-12-14T16:25 2018-12-14T16:25 #foo
+    user       iden       en? rpt? now? err? # start last start       last end         query
+    root       029ce7bd.. Y   Y    N           17863 2019-06-11T21:47 2019-06-11T21:47 exec foo
+    root       06b46533.. Y   Y    N           18140 2019-06-11T21:48 2019-06-11T21:48 exec bar
 '''
 
 ModHelp = '''
 Changes an existing cron job's query.
 
 Syntax:
-    cron mod <iden prefix> <new query>
+    cron mod|edit <iden prefix> <new query>
+
+Notes:
+    Any prefix that matches exactly one valid cron iden is accepted.
+'''
+
+EnableHelp = '''
+Enable an existing cron job.
+
+Syntax:
+    cron enable <iden prefix>
+
+Notes:
+    Any prefix that matches exactly one valid cron iden is accepted.
+'''
+
+DisableHelp = '''
+Disable an existing cron job.
+
+Syntax:
+    cron disable <iden prefix>
 
 Notes:
     Any prefix that matches exactly one valid cron iden is accepted.
@@ -175,7 +194,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         subparsers = parser.add_subparsers(title='subcommands', required=True, dest='cmd',
                                            parser_class=functools.partial(s_cmd.Parser, outp=self))
 
-        subparsers.add_parser('list', help="List cron jobs you're allowed to manipulate", usage=ListHelp)
+        subparsers.add_parser('list', aliases=['ls'], help="List cron jobs you're allowed to manipulate", usage=ListHelp)
 
         parser_add = subparsers.add_parser('add', help='add a cron job', usage=AddHelp)
         parser_add.add_argument('--minute', '-M')
@@ -190,15 +209,21 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         group.add_argument('--yearly')
         parser_add.add_argument('query', help='Storm query in curly braces')
 
-        parser_del = subparsers.add_parser('del', help='delete a cron job', usage=DelHelp)
+        parser_del = subparsers.add_parser('del', aliases=['rm'], help='delete a cron job', usage=DelHelp)
         parser_del.add_argument('prefix', help='Cron job iden prefix')
 
-        parser_del = subparsers.add_parser('stat', help='details a cron job', usage=StatHelp)
-        parser_del.add_argument('prefix', help='Cron job iden prefix')
+        parser_stat = subparsers.add_parser('stat', help='details a cron job', usage=StatHelp)
+        parser_stat.add_argument('prefix', help='Cron job iden prefix')
 
-        parser_mod = subparsers.add_parser('mod', help='change an existing cron jobquery', usage=ModHelp)
+        parser_mod = subparsers.add_parser('mod', aliases=['edit'], help='change an existing cron job', usage=ModHelp)
         parser_mod.add_argument('prefix', help='Cron job iden prefix')
         parser_mod.add_argument('query', help='New Storm query in curly braces')
+
+        parser_en = subparsers.add_parser('enable', help='enable an existing cron job', usage=EnableHelp)
+        parser_en.add_argument('prefix', help='Cron job iden prefix')
+
+        parser_dis = subparsers.add_parser('disable', help='disable an existing cron job', usage=DisableHelp)
+        parser_dis.add_argument('prefix', help='Cron job iden prefix')
 
         return parser
 
@@ -438,7 +463,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             self.printf('No cron jobs found')
             return
         self.printf(
-            f'{"user":10} {"iden":10} {"recurs?":7} {"now?":4} '
+                f'{"user":10} {"iden":10} {"en?":3} {"rpt?":4} {"now?":4} {"err?":4} '
             f'{"# start":7} {"last start":16} {"last end":16} {"query"}')
 
         for iden, cron in cronlist:
@@ -447,14 +472,18 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             query = cron.get('query') or '<missing>'
             isrecur = 'Y' if cron.get('recur') else 'N'
             isrunning = 'Y' if cron.get('isrunning') else 'N'
+            enabled = 'Y' if cron.get('enabled') else 'N'
             startcount = cron.get('startcount') or 0
             laststart = cron.get('laststarttime')
             laststart = 'Never' if laststart is None else self._format_timestamp(laststart)
             lastend = cron.get('lastfinishtime')
             lastend = 'Never' if lastend is None else self._format_timestamp(lastend)
+            result = cron.get('lastresult')
+            iserr = 'X' if result is not None and not result.startswith('finished successfully') else ' '
 
             self.printf(
-                f'{user:10} {idenf:10} {isrecur:7} {isrunning:4} {startcount:7} {laststart:16} {lastend:16} {query}')
+                f'{user:10} {idenf:10} {enabled:3} {isrecur:4} {isrunning:4} {iserr:4} '
+                f'{startcount:7} {laststart:16} {lastend:16} {query}')
 
     async def _handle_mod(self, core, opts):
         prefix = opts.prefix
@@ -469,6 +498,22 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             return
         await core.updateCronJob(iden, query)
         self.printf(f'Modified cron job {iden}')
+
+    async def _handle_enable(self, core, opts):
+        prefix = opts.prefix
+        iden = await self._match_idens(core, prefix)
+        if iden is None:
+            return
+        await core.enableCronJob(iden)
+        self.printf(f'Enabled cron job {iden}')
+
+    async def _handle_disable(self, core, opts):
+        prefix = opts.prefix
+        iden = await self._match_idens(core, prefix)
+        if iden is None:
+            return
+        await core.disableCronJob(iden)
+        self.printf(f'Disabled cron job {iden}')
 
     async def _handle_del(self, core, opts):
         prefix = opts.prefix
@@ -497,6 +542,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         user = cron.get('username') or '<None>'
         query = cron.get('query') or '<missing>'
         isrecur = 'Yes' if cron.get('recur') else 'No'
+        enabled = 'Yes' if cron.get('enabled') else 'No'
         startcount = cron.get('startcount') or 0
         recs = cron.get('recs', [])
         laststart = cron.get('laststarttime')
@@ -507,6 +553,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
         self.printf(f'iden:            {iden}')
         self.printf(f'user:            {user}')
+        self.printf(f'enabled:         {enabled}')
         self.printf(f'recurring:       {isrecur}')
         self.printf(f'# starts:        {startcount}')
         self.printf(f'last start time: {laststart}')
@@ -539,10 +586,15 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
         handlers = {
             'add': self._handle_add,
-            'list': self._handle_list,
-            'mod': self._handle_mod,
             'del': self._handle_del,
-            'stat': self._handle_stat
+            'rm': self._handle_del,
+            'disable': self._handle_disable,
+            'enable': self._handle_enable,
+            'list': self._handle_list,
+            'ls': self._handle_list,
+            'mod': self._handle_mod,
+            'edit': self._handle_mod,
+            'stat': self._handle_stat,
         }
         await handlers[opts.cmd](core, opts)
 

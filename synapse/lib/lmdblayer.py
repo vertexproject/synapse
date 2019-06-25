@@ -35,6 +35,8 @@ class LmdbLayer(s_layer.Layer):
         ('lmdb:growsize', {'type': 'int', 'defval': None,
                            'doc': 'The amount in bytes to grow the DB file when full.  Defaults to doubling'}),
         ('lmdb:readahead', {'type': 'bool', 'defval': True}),
+        ('lmdb:lockmemory', {'type': 'bool', 'defval': None,
+                             'doc': 'Whether to prefault and lock the data into memory'}),
     )
 
     async def __anit__(self, core, node):
@@ -50,9 +52,14 @@ class LmdbLayer(s_layer.Layer):
         readahead = self.conf.get('lmdb:readahead')
         maxsize = self.conf.get('lmdb:maxsize')
         growsize = self.conf.get('lmdb:growsize')
+        # First check hive configuration.  If not set, use passed-in parameter (that defaults to False)
+        self.lockmemory = self.conf.get('lmdb:lockmemory')
+        if self.lockmemory is None:
+            self.lockmemory = core.conf.get('dedicated')
 
         self.layrslab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, maxsize=maxsize,
-                                                   growsize=growsize, writemap=True, readahead=readahead)
+                                                   growsize=growsize, writemap=True, readahead=readahead,
+                                                   lockmemory=self.lockmemory)
         self.onfini(self.layrslab.fini)
 
         self.spliceslab = await s_lmdbslab.Slab.anit(splicepath, max_dbs=128, map_size=mapsize, maxsize=maxsize,
@@ -92,9 +99,7 @@ class LmdbLayer(s_layer.Layer):
             func(oper)
 
         if splices:
-            self._storSplicesSync(splices)
-            self.spliced.set()
-            self.spliced.clear()
+            await self._storFireSplices(splices)
 
     def _migrate_db_pre010(self, dbname, newslab):
         '''
@@ -390,8 +395,9 @@ class LmdbLayer(s_layer.Layer):
             if univ:
                 self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
 
-    def _storSplicesSync(self, splices):
-        self.splicelog.save(splices)
+    async def _storSplices(self, splices):
+        info = self.splicelog.save(splices)
+        return info.get('orig')
 
     async def _liftByIndx(self, oper):
         # ('indx', (<dbname>, <prefix>, (<indxopers>...))
@@ -539,6 +545,7 @@ class LmdbLayer(s_layer.Layer):
     async def stat(self):
         return {
             'splicelog_indx': self.splicelog.index(),
+            **self.layrslab.statinfo()
         }
 
     async def initdb(self, name, dupsort=False):

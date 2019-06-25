@@ -125,7 +125,11 @@ class Node:
         })
 
         if dorepr:
-            node[1]['repr'] = self.repr()
+
+            rval = self.repr()
+            if rval is not None and rval != self.ndef[1]:
+                node[1]['repr'] = self.repr()
+
             node[1]['reprs'] = self.reprs()
 
         return node
@@ -225,7 +229,6 @@ class Node:
                     raise s_exc.ReadOnlyProp(name=prop.full)
 
                 # not setting a set-once prop unless we are init...
-                await self.snap.warn(f'ReadOnlyProp: name={prop.full}')
                 return False
 
             # check for type specific merging...
@@ -327,21 +330,32 @@ class Node:
         if name is None:
             return self.form.type.repr(self.ndef[1])
 
+        prop = self.form.props.get(name)
+        if prop is None:
+            raise s_exc.NoSuchProp(form=self.form.name, prop=name)
+
         valu = self.props.get(name)
-        return self.form.props[name].type.repr(valu)
+        if valu is None:
+            raise s_exc.NoPropValu(prop=name, form=self.form.name)
+
+        return prop.type.repr(valu)
 
     def reprs(self):
-
+        '''
+        Return a dictionary of repr values for props whose repr is different than
+        the system mode value.
+        '''
         reps = {}
 
         for name, valu in self.props.items():
 
-            try:
-                rval = self.form.props[name].type.repr(valu)
-                if rval is None:
-                    continue
-            except KeyError:
-                rval = repr(valu)
+            prop = self.form.prop(name)
+            if prop is None:
+                continue
+
+            rval = prop.type.repr(valu)
+            if rval is None or rval == valu:
+                continue
 
             reps[name] = rval
 
@@ -375,6 +389,17 @@ class Node:
         return retn
 
     async def addTag(self, tag, valu=(None, None)):
+        '''
+        Add a tag to a node.
+
+        Args:
+            tag (str): The tag to add to the node.
+            valu: The optional tag value.  If specified, this must be a value that
+                  norms as a valid time interval as an ival.
+
+        Returns:
+            None: This returns None.
+        '''
 
         if self.isrunt:
             raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.',
@@ -418,6 +443,8 @@ class Node:
 
         # merge values into one interval
         valu = s_time.ival(*valu, *curv)
+        if valu == curv:
+            return
 
         indx = self.snap.model.types['ival'].indx(valu)
         info = {'univ': True}
@@ -567,21 +594,40 @@ class Path:
         self.snap = runt.snap
         self.nodes = nodes
 
+        self.traces = []
+
         if len(nodes):
             self.node = nodes[-1]
 
         self.vars = vars
         self.ctors = {}
 
-        self.vars.update({
+        # "builtins" which are *not* vars
+        # ( this allows copying variable context )
+        self.builtins = {
+            'path': self,
             'node': self.node,
-        })
+        }
 
         self.metadata = {}
 
+    def trace(self):
+        '''
+        Construct and return a Trace object for this path.
+        '''
+        trace = Trace(self)
+        self.traces.append(trace)
+        return trace
+
     def getVar(self, name, defv=s_common.novalu):
 
+        # check if the name is in our variables
         valu = self.vars.get(name, s_common.novalu)
+        if valu is not s_common.novalu:
+            return valu
+
+        # check if it's in builtins
+        valu = self.builtins.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
 
@@ -613,7 +659,35 @@ class Path:
         nodes = list(self.nodes)
         nodes.append(node)
 
-        return Path(self.runt, dict(self.vars), nodes)
+        path = Path(self.runt, dict(self.vars), nodes)
+        path.traces.extend(self.traces)
+
+        [t.addFork(path) for t in self.traces]
+
+        return path
+
+class Trace:
+    '''
+    A trace for pivots taken and nodes involved from a given path's subsequent forks.
+    '''
+    def __init__(self, path):
+        self.edges = set()
+        self.nodes = set()
+
+        self.addPath(path)
+
+    def addPath(self, path):
+
+        [self.nodes.add(n) for n in path.nodes]
+
+        for i in range(len(path.nodes[:-1])):
+            n1 = path.nodes[i]
+            n2 = path.nodes[i + 1]
+            self.edges.add((n1, n2))
+
+    def addFork(self, path):
+        self.nodes.add(path.node)
+        self.edges.add((path.nodes[-2], path.nodes[-1]))
 
 def props(pode):
     '''
@@ -658,22 +732,38 @@ def tags(pode, leaf=False):
 
     Args:
         pode (tuple): A packed node.
-        leaf (bool): If True, only return the full tags.
+        leaf (bool): If True, only return leaf tags
 
     Returns:
         list: A list of tag strings.
     '''
-    fulltags = [tag for tag in pode[1]['tags']]
     if not leaf:
-        return fulltags
+        return list(pode[1]['tags'].keys())
+    return _tagscommon(pode, True)
 
-    # longest first
+def tagsnice(pode):
+    '''
+    Get all the leaf tags and the tags that have values
+
+    Args:
+        pode (tuple): A packed node.
+
+    Returns:
+        list: A list of tag strings.
+    '''
+    tags = pode[1]['tags']
+    return _tagscommon(pode, False)
+
+def _tagscommon(pode, leafonly):
+    '''
+    Return either all the leaf tags or all the leaf tags and all the internal tags with values
+    '''
     retn = []
 
     # brute force rather than build a tree.  faster in small sets.
-    for size, tag in sorted([(len(t), t) for t in fulltags], reverse=True):
+    for tag, val in sorted((t for t in pode[1]['tags'].items()), reverse=True, key=lambda x: len(x[0])):
         look = tag + '.'
-        if any([r.startswith(look) for r in retn]):
+        if (leafonly or val == (None, None)) and any([r.startswith(look) for r in retn]):
             continue
         retn.append(tag)
     return retn
