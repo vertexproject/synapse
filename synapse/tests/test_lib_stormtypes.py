@@ -368,6 +368,19 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await s_test.alist(prox.storm(popq))
                     self.stormIsInPrint('pop valu is beep', mesgs)
 
+                    # get and pop take a secondary default value which may be returned
+                    q = '''$valu = $lib.globals.get(throwaway, $(0))
+                    $lib.print("get valu is {valu}", valu=$valu)
+                    '''
+                    mesgs = await s_test.alist(prox.storm(q))
+                    self.stormIsInPrint('get valu is 0', mesgs)
+
+                    q = '''$valu = $lib.globals.pop(throwaway, $(0))
+                    $lib.print("pop valu is {valu}", valu=$valu)
+                    '''
+                    mesgs = await s_test.alist(prox.storm(q))
+                    self.stormIsInPrint('pop valu is 0', mesgs)
+
                     listq = '''for ($key, $valu) in $lib.globals.list() {
                     $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
                     $lib.print($string)
@@ -438,6 +451,19 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await s_test.alist(uprox.storm(listq))
                     self.len(1, [m for m in mesgs if m[0] == 'print'])
                     self.stormIsInPrint('somekey is hehe', mesgs)
+
+                    # get and pop take a secondary default value which may be returned
+                    q = '''$valu = $lib.user.vars.get(newp, $(0))
+                    $lib.print("get valu is {valu}", valu=$valu)
+                    '''
+                    mesgs = await s_test.alist(prox.storm(q))
+                    self.stormIsInPrint('get valu is 0', mesgs)
+
+                    q = '''$valu = $lib.user.vars.pop(newp, $(0))
+                    $lib.print("pop valu is {valu}", valu=$valu)
+                    '''
+                    mesgs = await s_test.alist(prox.storm(q))
+                    self.stormIsInPrint('pop valu is 0', mesgs)
 
                     # the user can access the specific core.vars key
                     # that they have access too but not the admin key
