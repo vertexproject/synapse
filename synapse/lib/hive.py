@@ -865,7 +865,7 @@ class HiveUser(HiveIden):
         self.profile = await prof.dict()
 
         # vars cache for persistent user level data storage
-        # TODO: max size check?
+        # TODO: max size check / max count check?
         pvars = await self.node.open(('vars',))
         self.pvars = await pvars.dict()
 
@@ -873,12 +873,6 @@ class HiveUser(HiveIden):
         self.permcache = s_cache.FixedCache(self._calcPermAllow)
 
         self._initFullRules()
-
-        # user needs to get hive:get / hive:set / hive:pop permissions to their stormvars tree
-        for baseperm in ('hive:get', 'hive:set', 'hive:pop'):
-            rule = (True, (baseperm,) + pvars.full)
-            if rule not in self.fullrules:
-                await self.addRule(rule)
 
     def pack(self):
         return {

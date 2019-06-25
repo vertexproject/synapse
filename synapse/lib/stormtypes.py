@@ -280,11 +280,12 @@ class List(Prim):
         return len(self.valu)
 
 class StormHiveDict(Prim):
-    # A Storm API for a HiveDict which enforces
-    # hive:get, hive:set, and hive:pop permissions
-    def __init__(self, valu, runt, path=None):
+    # A Storm API for a HiveDict which optionally enforces
+    # permission checks with the provided permission
+    def __init__(self, valu, runt, perm=None, path=None):
         Prim.__init__(self, valu, path=path)
         self.runt = runt
+        self.perm = perm
         self.locls.update({
             'get': self._methGet,
             'pop': self._methPop,
@@ -293,25 +294,28 @@ class StormHiveDict(Prim):
         })
 
     def _reqAllowed(self, act, name):
-        self.runt.allowed(act, *self.valu.node.full, name)
+        if not self.perm:
+            return
+        self.runt.allowed(self.perm, act, name)
 
     async def _methGet(self, name):
-        self._reqAllowed('hive:get', name)
+        self._reqAllowed('get', name)
         return self.valu.get(name)
 
     async def _methPop(self, name):
-        self._reqAllowed('hive:pop', name)
+        self._reqAllowed('pop', name)
         return await self.valu.pop(name)
 
     async def _methSet(self, name, valu):
-        self._reqAllowed('hive:set', name)
+        # prevent nest key/hive node creation here
+        self._reqAllowed('set', name)
         await self.valu.set(name, valu)
 
     async def _methList(self):
         ret = []
         for key, valu in list(self.valu.items()):
             try:
-                self._reqAllowed('hive:get', key)
+                self._reqAllowed('get', key)
             except s_exc.AuthDeny as e:
                 continue
             else:
@@ -331,7 +335,9 @@ class LibUser(Lib):
 
 class LibCore(Lib):
     def addLibFuncs(self):
-        hivedict = StormHiveDict(self.runt.snap.core.stormvars, self.runt)
+        hivedict = StormHiveDict(self.runt.snap.core.stormvars,
+                                 self.runt,
+                                 perm='storm:globals')
         self.locls.update({
             'vars': hivedict,
         })

@@ -351,8 +351,7 @@ class StormTypesTest(s_test.SynTest):
                     await prox.addAuthRule('user1', (True, ('node:add',)))
                     await prox.addAuthRule('user1', (True, ('prop:set',)))
                     await prox.addAuthRule('user1', (True,
-                                                     ('hive:get', 'cortex', 'storm',
-                                                      'vars', 'userkey')))
+                                                     ('storm:globals', 'get', 'userkey',)))
 
                     # Basic tests as root for $lib.core.vars
 

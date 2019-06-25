@@ -97,23 +97,6 @@ class CellTest(s_t_utils.SynTest):
                     val = await proxy.listHiveKey(('foo', 'bar'))
                     self.eq(('baz', 'faz', 'haz'), val)
 
-                    # The default persistent user-specific hive storage is accessible
-                    # to the user and they can list/add/pop data from it.
-                    path = ('auth', 'users', visi_iden, 'vars')
-                    self.eq(await proxy.listHiveKey(path), ())
-                    self.eq(await proxy.setHiveKey(path + ('hehe',), 'haha'), None)
-                    self.eq(await proxy.listHiveKey(path), ('hehe',))
-                    self.eq(await proxy.getHiveKey(path + ('hehe',)), 'haha')
-                    self.eq(await proxy.popHiveKey(path + ('hehe',)), 'haha')
-                    self.eq(await proxy.listHiveKey(path), ())
-
-                    # Default perm does not give access to arbitrary hive keys :)
-                    _path = ('auth', 'users')
-                    await self.asyncraises(s_exc.AuthDeny, proxy.listHiveKey(_path))
-                    # Can't cross over to other users storage
-                    _path = ('auth', 'users', root_iden, 'vars')
-                    await self.asyncraises(s_exc.AuthDeny, proxy.listHiveKey(_path))
-
                 async with await s_telepath.openurl(root_url) as proxy:  # type: EchoAuthApi
 
                     await proxy.setUserLocked('visi', True)
