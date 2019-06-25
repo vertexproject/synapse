@@ -295,13 +295,13 @@ class StormHiveDict(Prim):
             mesg = 'The name of a persistent variable must be a string.'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name)
 
-    async def _methGet(self, name):
+    async def _methGet(self, name, default=None):
         self._reqStr(name)
-        return self.valu.get(name)
+        return self.valu.get(name, default=default)
 
-    async def _methPop(self, name):
+    async def _methPop(self, name, default=None):
         self._reqStr(name)
-        return await self.valu.pop(name)
+        return await self.valu.pop(name, default=default)
 
     async def _methSet(self, name, valu):
         self._reqStr(name)
@@ -345,15 +345,15 @@ class LibGlobals(Lib):
             mesg = 'The name of a persistent variable must be a string.'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name)
 
-    async def _methGet(self, name):
+    async def _methGet(self, name, default=None):
         self._reqStr(name)
         self._reqAllowed('storm:globals:get', name)
-        return self._stormvars.get(name)
+        return self._stormvars.get(name, default=default)
 
-    async def _methPop(self, name):
+    async def _methPop(self, name, default=None):
         self._reqStr(name)
         self._reqAllowed('storm:globals:pop', name)
-        return await self._stormvars.pop(name)
+        return await self._stormvars.pop(name, default=default)
 
     async def _methSet(self, name, valu):
         self._reqStr(name)
