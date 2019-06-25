@@ -1863,6 +1863,8 @@ class EditNodeAdd(Edit):
     async def run(self, runt, genr):
 
         name = self.kids[0].value()
+        oper = self.kids[1].value()
+        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
 
         form = runt.snap.model.forms.get(name)
         if form is None:
@@ -1882,7 +1884,7 @@ class EditNodeAdd(Edit):
         # case 2: <query> [ foo:bar=($node, 20) ]
         # case 2: <query> $blah=:baz [ foo:bar=($blah, 20) ]
 
-        if not self.kids[1].isRuntSafe(runt):
+        if not self.kids[2].isRuntSafe(runt):
 
             first = True
             async for node, path in genr:
@@ -1894,23 +1896,29 @@ class EditNodeAdd(Edit):
 
                 yield node, path
 
-                valu = await self.kids[1].compute(path)
+                valu = await self.kids[2].compute(path)
 
                 for valu in form.type.getTypeVals(valu):
-                    newn = await runt.snap.addNode(name, valu)
-                    yield newn, runt.initPath(newn)
+                    try:
+                        newn = await runt.snap.addNode(name, valu)
+                    except excignore:
+                        pass
+                    else:
+                        yield newn, runt.initPath(newn)
 
         else:
-
             async for node, path in genr:
                 yield node, path
 
             runt.allowed('node:add', name)
 
-            valu = await self.kids[1].runtval(runt)
+            valu = await self.kids[2].runtval(runt)
 
             for valu in form.type.getTypeVals(valu):
-                node = await runt.snap.addNode(name, valu)
+                try:
+                    node = await runt.snap.addNode(name, valu)
+                except excignore:
+                    continue
                 yield node, runt.initPath(node)
 
 class EditPropSet(Edit):
@@ -1918,10 +1926,12 @@ class EditPropSet(Edit):
     async def run(self, runt, genr):
 
         name = self.kids[0].value()
+        oper = self.kids[1].value()
+        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
 
         async for node, path in genr:
 
-            valu = await self.kids[1].compute(path)
+            valu = await self.kids[2].compute(path)
 
             prop = node.form.props.get(name)
             if prop is None:
@@ -1929,7 +1939,10 @@ class EditPropSet(Edit):
 
             runt.allowed('prop:set', prop.full)
 
-            await node.set(name, valu)
+            try:
+                await node.set(name, valu)
+            except excignore:
+                pass
 
             yield node, path
 
