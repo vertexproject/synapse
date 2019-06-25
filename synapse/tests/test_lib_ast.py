@@ -15,6 +15,9 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[test:comp?=(yoh,nope)]')
             self.len(0, nodes)
 
+            nodes = await core.nodes('[test:str=foo :hehe=no42] [test:int?=:hehe]')
+            self.len(1, nodes)
+
             nodes = await core.nodes('[ test:str=foo :tick?=2019 ]')
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), 1546300800000)
