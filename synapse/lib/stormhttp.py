@@ -1,5 +1,6 @@
 import json
 import asyncio
+import gzip
 
 import aiohttp
 
@@ -34,8 +35,18 @@ class HttpResp(s_stormtypes.StormType):
         self.locls.update(locls)
         self.locls.update({
             'json': self._httpRespJson,
+            'gunzip': self._httpRespGunzip,
         })
 
     async def _httpRespJson(self):
         body = self.locls.get('body')
         return json.loads(body)
+
+    async def _httpRespGunzip(self):
+        body = gzip.decompress(self.locls.get('body'))
+
+        info = {
+            'code': self.locls.get('code'),
+            'body': body,
+        }
+        return HttpResp(info)
