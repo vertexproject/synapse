@@ -605,7 +605,7 @@ class HiveDict(s_base.Base):
 
         self.node.onfini(self)
 
-    def get(self, name, onedit=None):
+    def get(self, name, onedit=None, default=None):
 
         # use hive.onedit() here to register for
         # paths which potentially dont exist yet
@@ -615,7 +615,7 @@ class HiveDict(s_base.Base):
 
         node = self.node.get(name)
         if node is None:
-            return self.defs.get(name)
+            return self.defs.get(name, default)
 
         return node.valu
 
@@ -630,10 +630,10 @@ class HiveDict(s_base.Base):
         for key, node in iter(self.node):
             yield key, node.valu
 
-    async def pop(self, name):
+    async def pop(self, name, default=None):
         node = self.node.get(name)
         if node is None:
-            return self.defs.get(name)
+            return self.defs.get(name, default)
 
         retn = node.valu
 
@@ -803,6 +803,10 @@ class HiveIden(s_base.Base):
         self.info.setdefault('rules', ())
         self.rules = self.info.get('rules', onedit=self._onRulesEdit)
 
+    async def _onRulesEdit(self, mesg):  # pragma: no cover
+        raise s_exc.NoSuchImpl(mesg='HiveIden subclasses must implement _onRulesEdit',
+                               name='_onRulesEdit')
+
     async def setName(self, name):
         self.name = name
         await self.node.set(name)
@@ -874,6 +878,11 @@ class HiveUser(HiveIden):
         # arbitrary profile data for application layer use
         prof = await self.node.open(('profile',))
         self.profile = await prof.dict()
+
+        # vars cache for persistent user level data storage
+        # TODO: max size check / max count check?
+        pvars = await self.node.open(('vars',))
+        self.pvars = await pvars.dict()
 
         self.fullrules = []
         self.permcache = s_cache.FixedCache(self._calcPermAllow)

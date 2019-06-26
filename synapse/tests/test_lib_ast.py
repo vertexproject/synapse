@@ -1,7 +1,29 @@
-import synapse.common as s_common
 import synapse.tests.utils as s_test
 
 class AstTest(s_test.SynTest):
+
+    async def test_try_set(self):
+        '''
+        Test ?= assignment
+        '''
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ test:str?=(1,2,3,4) ]')
+            self.len(0, nodes)
+            nodes = await core.nodes('[test:int?=4] [ test:int?=nonono ]')
+            self.len(1, nodes)
+            nodes = await core.nodes('[test:comp?=(yoh,nope)]')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('[test:str=foo :hehe=no42] [test:int?=:hehe]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('[ test:str=foo :tick?=2019 ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), 1546300800000)
+            nodes = await core.nodes('[ test:str=foo :tick?=notatime ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), 1546300800000)
 
     async def test_ast_subq_vars(self):
 
