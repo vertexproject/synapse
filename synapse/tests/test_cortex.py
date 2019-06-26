@@ -2598,6 +2598,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             await _test('$(2 != 1)', 1)
             await _test('$(2 = 1)', 0)
             await _test('$(2 = 2)', 1)
+            await _test('$(02 = 2)', 1)
+            await _test('$(2 = 02)', 1)
+            await _test('$(2 = 2.0)', 1)
             await _test('$("foo" = "foo")', 1)
             await _test('$("foo" != "foo")', 0)
             await _test('$("foo2" = "foo")', 0)
@@ -2768,7 +2771,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(nodes[0].hasTag('rofl'))
 
             # Non-constant runtsafe
-            q = '$vals=(1,2,3,4) for $i in $vals {if $($i=1) {[test:int=$i]}}'
+            q = '$vals=(1,2,3,4) for $i in $vals {if $($i="1") {[test:int=$i]}}'
             nodes = await core.nodes(q)
             self.len(1, nodes)
 

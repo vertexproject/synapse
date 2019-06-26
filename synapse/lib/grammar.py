@@ -80,6 +80,7 @@ terminalClassMap = {
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': s_ast.TagMatch,
     'UNIVPROP': s_ast.UnivProp,
+    'NUMBER': lambda x: s_ast.Const(float(x) if '.' in x else int(x))
 }
 
 terminalEnglishMap = {
