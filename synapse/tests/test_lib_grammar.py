@@ -13,6 +13,9 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 _Queries = [
+    '$x = 0 while $($x < 10) { $x=$($x+1) [test:int=$x] }',
+    '[test:int?=4] [ test:int?=nonono ]',
+    '[test:str=foo :tick?=2019 ]',
     '[test:str=a] switch $node.form() { hehe: {[+#baz]} }',
     '[test:type10=2 :strprop=1] spin | test:type10 +$(:strprop) $foo=1 +$foo',
     'inet:fqdn#xxx.xxxxxx.xxxx.xx for $tag in $node.tags(xxx.xxxxxx.*.xx) { <- edge:refs +#xx <- graph:cluster [ +#foo]  ->edge:refs }',
@@ -505,6 +508,9 @@ _Queries = [
 
 # Generated with print_parse_list below
 _ParseResults = [
+    'Query: [VarSetOper: [Const: x, Const: 0], WhileLoop: [DollarExpr: [ExprNode: [VarValue: [Const: x], Const: <, Const: 10]], SubQuery: [Query: [VarSetOper: [Const: x, DollarExpr: [ExprNode: [VarValue: [Const: x], Const: +, Const: 1]]], EditNodeAdd: [AbsProp: test:int, Const: =, VarValue: [Const: x]]]]]]',
+    'Query: [EditNodeAdd: [AbsProp: test:int, Const: ?=, Const: 4], EditNodeAdd: [AbsProp: test:int, Const: ?=, Const: nonono]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: foo], EditPropSet: [RelProp: tick, Const: ?=, Const: 2019]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: a], SwitchCase: [FuncCall: [VarDeref: [VarValue: [Const: node], Const: form], CallArgs: [], CallKwargs: []], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: baz]]]]]]',
     'Query: [EditNodeAdd: [AbsProp: test:type10, Const: =, Const: 2], EditPropSet: [RelProp: strprop, Const: =, Const: 1], CmdOper: [Const: spin, Const: ()], LiftProp: [Const: test:type10], FiltOper: [Const: +, DollarExpr: [RelPropValue: [RelProp: strprop]]], VarSetOper: [Const: foo, Const: 1], FiltOper: [Const: +, VarValue: [Const: foo]]]',
     'Query: [LiftFormTag: [Const: inet:fqdn, TagName: xxx.xxxxxx.xxxx.xx], ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [Const: xxx.xxxxxx.*.xx], CallKwargs: []], SubQuery: [Query: [PivotInFrom: [AbsProp: edge:refs], isjoin=False, FiltOper: [Const: +, TagCond: [TagMatch: xx]], PivotInFrom: [AbsProp: graph:cluster], isjoin=False, EditTagAdd: [TagName: foo], FormPivot: [AbsProp: edge:refs], isjoin=False]]]]',
