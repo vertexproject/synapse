@@ -3,6 +3,8 @@ import regex  # type: ignore
 
 import synapse.exc as s_exc
 
+import synapse.lib.stormtypes as s_stormtypes
+
 import synapse.lib.ast as s_ast
 import synapse.lib.datfile as s_datfile
 
@@ -81,7 +83,7 @@ terminalClassMap = {
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': s_ast.TagMatch,
     'UNIVPROP': s_ast.UnivProp,
-    'NUMBER': lambda x: s_ast.Const(float(x) if '.' in x else int(x))
+    'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x))
 }
 
 terminalEnglishMap = {

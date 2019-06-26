@@ -2596,7 +2596,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             async def _test(q, ansr):
-                nodes = await core.eval(f'[test:int={q}]').list()
+                nodes = await core.nodes(f'[test:int={q}]')
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('test:int', ansr))
 
@@ -2623,8 +2623,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             await _test('$(2 != 1)', 1)
             await _test('$(2 = 1)', 0)
             await _test('$(2 = 2)', 1)
-            await _test('$(02 = 2)', 1)
-            await _test('$(2 = 02)', 1)
             await _test('$(2 = 2.0)', 1)
             await _test('$("foo" = "foo")', 1)
             await _test('$("foo" != "foo")', 0)
