@@ -434,6 +434,7 @@ class ForLoop(Oper):
                     continue
 
 class WhileLoop(Oper):
+
     async def run(self, runt, genr):
         subq = self.kids[1]
         node = None
@@ -452,12 +453,12 @@ class WhileLoop(Oper):
                 except StormContinue:
                     continue
 
+            yield node, path
+
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[0].isRuntSafe(runt):
-            count = 0
 
             while await self.kids[0].runtval(runt):
-                count += 1
 
                 try:
                     async for jtem in subq.inline(runt, agen()):
@@ -469,9 +470,7 @@ class WhileLoop(Oper):
                 except StormContinue:
                     continue
 
-                if count >= 1000:
-                    await asyncio.sleep(0)  # give other tasks some CPU
-                    count = 0
+                await asyncio.sleep(0)  # give other tasks some CPU
 
 class CmdOper(Oper):
 
