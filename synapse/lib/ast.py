@@ -1854,15 +1854,20 @@ class ExprNode(RunValue):
 
     def _coerce(self, parm1, parm2):
         '''
-        If one parameter is a string and the other is not, convert the string parameter to a number
+        If one parameter is a string and the other is a number, convert the string parameter to a number
         '''
         if isinstance(parm1, str):
             if isinstance(parm2, str):
                 return parm1, parm2
+            if not isinstance(parm2, (int, float)):
+                raise s_exc.BadCmprType(type1=type(parm1).__name__, type2=type(parm2).__name__)
+
             return parseNumber(parm1), parm2
 
         if isinstance(parm2, str):
             assert not isinstance(parm1, str)
+            if not isinstance(parm1, (int, float)):
+                raise s_exc.BadCmprType(type1=type(parm1).__name__, type2=type(parm2).__name__)
             return parm1, parseNumber(parm2)
 
         return parm1, parm2

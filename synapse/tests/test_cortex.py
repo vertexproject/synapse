@@ -2644,9 +2644,26 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Test non-runtsafe
             q = '[test:type10=1 :intprop=24] $val=:intprop [test:int=$(1 + $val)]'
-            nodes = await core.eval(q).list()
+            nodes = await core.nodes(q)
             self.len(2, nodes)
             self.eq(nodes[1].ndef, ('test:int', 25))
+
+            # Test invalid comparisons
+            q = '$val=(1,2,3) [test:str=$("foo" = $val)]'
+            await self.asyncraises(s_exc.BadCmprType, core.nodes(q))
+
+            q = '$val=(1,2,3) [test:str=$($val = "foo")]'
+            await self.asyncraises(s_exc.BadCmprType, core.nodes(q))
+
+            q = '$val=42 [test:str=$(42<$val)]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', '0'))
+
+            q = '[test:str=foo :hehe=42] [test:str=$(not :hehe<42)]'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[1].ndef, ('test:str', '1'))
 
     async def test_storm_filter_vars(self):
         '''
