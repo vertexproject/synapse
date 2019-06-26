@@ -20,6 +20,7 @@ import synapse.lib.hive as s_hive
 import synapse.lib.compat as s_compat
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.version as s_version
 
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -310,14 +311,14 @@ class CellApi(s_base.Base):
 
         raise s_exc.NoSuchName(name=name)
 
-    async def getCellCmdTypes(self):
+    async def getCellInterfaces(self):
         '''
-        Get the Cmdr command types this cell implements.
+        Get the interface types this cell implements.
 
         Returns:
-            list: A list of cmd types as strings.
+            list: A list of interface types and version tuples.
         '''
-        return self.cell.cmdtypes
+        return self.cell.interfaces
 
 class PassThroughApi(CellApi):
     '''
@@ -390,8 +391,8 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         self.conf = s_common.config(conf, self.confdefs + self.confbase)
 
-        self.cmdtypes = []
-        self._initCellApiCmds()
+        self.interfaces = []
+        self._initCellInterfaces()
         self.insecure = self.boot.get('insecure', False)
 
         self.sessions = {}
@@ -589,12 +590,24 @@ class Cell(s_base.Base, s_telepath.Aware):
         self.onfini(auth.fini)
         return auth
 
-    def _initCellApiCmds(self):
-        self.addCellCmdType('hive')
-        self.addCellCmdType('boss')
+    def _initCellInterfaces(self):
+        self.addCellInterface('cell', s_version.version)
 
-    def addCellCmdType(self, cmdtype):
-        self.cmdtypes.append(cmdtype)
+    def addCellInterface(self, cmdtype, version):
+        '''
+        Register an interface for the Cell.
+
+        Args:
+            cmdtype (str): The name of the interface the cell is registering.
+            version (tuple): A tuple of three integers, representing a major, minor, and patch value for the interface.
+
+        Notes:
+            synapse.lib.cmdr will lookup registered interfaces in order to load CLI commands at runtime.
+
+        Returns:
+            None
+        '''
+        self.interfaces.append((cmdtype, version))
 
     @contextlib.asynccontextmanager
     async def getLocalProxy(self, share='*', user='root'):

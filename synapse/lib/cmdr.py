@@ -8,16 +8,19 @@ import synapse.cmds.hive as s_cmds_hive
 import synapse.cmds.cortex as s_cmds_cortex
 import synapse.cmds.trigger as s_cmds_trigger
 
-cmdsbytype = {
-    'hive': (s_cmds_hive.HiveCmd,),
-    'boss': (s_cmds_boss.PsCmd,
-             s_cmds_boss.KillCmd),
-    'cron': (s_cmds_cron.At,
-               s_cmds_cron.Cron,
-               ),
-    'cortex': (s_cmds_cortex.Log,
-               s_cmds_cortex.StormCmd,
-               s_cmds_trigger.Trigger),
+cmdsbyinterface = {
+    'cell': (s_cmds_boss.PsCmd,
+             s_cmds_boss.KillCmd,
+             s_cmds_hive.HiveCmd,
+             ),
+
+    'cortex':
+        (s_cmds_cron.At,
+         s_cmds_cron.Cron,
+         s_cmds_cortex.Log,
+         s_cmds_cortex.StormCmd,
+         s_cmds_trigger.Trigger,
+         ),
 }
 
 cmdsbycell = {
@@ -39,6 +42,22 @@ cmdsbycell = {
     ),
 }
 
+def addInterface(interface, ctor):
+    '''
+    Add a CLI Cmd for a given interface.
+
+    Args:
+        interface (str): Name of the interface.
+        ctor: The ctor for the command.
+
+    Returns:
+        None
+    '''
+    ctors = cmdsbyinterface.get(interface)
+    if ctors is None:
+        cmdsbyinterface[interface] = (ctor,)
+    else:
+        cmdsbyinterface[interface] = ctors + (ctor,)
 
 async def getItemCmdr(cell, outp=None, color=False, **opts):
     '''
@@ -65,10 +84,10 @@ async def getItemCmdr(cell, outp=None, color=False, **opts):
         cmdr.colorsenabled = True
 
     try:
-        cmdtypes = await cell.getCellCmdTypes()
+        interfaces = await cell.getCellInterfaces()
 
-        for ctype in cmdtypes:
-            for ctor in cmdsbytype.get(ctype, ()):
+        for itype, version in interfaces:
+            for ctor in cmdsbyinterface.get(itype, ()):
                 cmdr.addCmdClass(ctor)
 
     except s_exc.NoSuchMeth as e:  # pragma: no cover

@@ -26,6 +26,7 @@ import synapse.lib.agenda as s_agenda
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.version as s_version
 import synapse.lib.modules as s_modules
 import synapse.lib.trigger as s_trigger
 import synapse.lib.modelrev as s_modelrev
@@ -726,6 +727,7 @@ class Cortex(s_cell.Cell):
         self._initFormCounts()
         self._initLayerCtors()
         self._initCortexHttpApi()
+        self._initCoreInterfaces()
 
         self.model = s_datamodel.Model()
 
@@ -759,8 +761,6 @@ class Cortex(s_cell.Cell):
             await self.agenda.start()
 
         await self._initCoreMods()
-
-        self._initCoreApiCmds()
 
         # Initialize free-running tasks.
         self._initCryoLoop()
@@ -864,12 +864,11 @@ class Cortex(s_cell.Cell):
         form = self.model.form(name)
         return form.getWaitFor(valu)
 
-    def _initCoreApiCmds(self):
+    def _initCoreInterfaces(self):
         '''
-        Registration for cmds types that cmdr is aware of
+        Registration for cortex interfaces
         '''
-        self.addCellCmdType('cron')
-        self.addCellCmdType('cortex')
+        self.addCellInterface('cortex', s_version.version)
 
     def _initStormCmds(self):
         '''
