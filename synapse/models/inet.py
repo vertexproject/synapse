@@ -208,6 +208,23 @@ class Fqdn(s_types.Type):
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
 
+    def _ctorCmprEq(self, text):
+        if text == '':
+            raise s_exc.BadCmprValu(valu=text, name=self.name, cmpr='=',
+                                    mesg='Cannot generate fqdn comparator for a empty string')
+
+        if text[0] == '*':
+            cval = text[1:]
+            def cmpr(valu):
+                return valu.endswith(cval)
+            return cmpr
+
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return norm == valu
+        return cmpr
+
     def _normPyStr(self, valu):
 
         valu = valu.replace('[.]', '.')
