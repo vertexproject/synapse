@@ -2542,8 +2542,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(10, nodes)
 
             # Non Runtsafe test
-            q = '''test:int=4 test:int=5 $x=$node.value()
-                while 1 { $x=$($x-1) if $($x=$(2)) {continue} elif $($x=$(1)) {break} $lib.print($x)} '''
+            q = '''
+            test:int=4 test:int=5 $x=$node.value()
+            while 1 {
+                $x=$($x-1)
+                if $($x=$(2)) {continue}
+                elif $($x=$(1)) {break}
+                $lib.print($x)
+            } '''
             msgs = await core.streamstorm(q).list()
             prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
             self.eq(['3', '4', '3'], prints)
