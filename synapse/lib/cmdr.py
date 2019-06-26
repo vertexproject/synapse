@@ -42,7 +42,7 @@ cmdsbycell = {
     ),
 }
 
-def addInterface(interface, ctor):
+def addInterfaceCmd(interface, ctor):
     '''
     Add a CLI Cmd for a given interface.
 
@@ -79,7 +79,7 @@ async def getItemCmdr(cell, outp=None, color=False, **opts):
         s_cli.Cli: A Cli instance with Cmds loaeded into it.
 
     '''
-    cmdr = await s_cli.Cli.anit(cell, outp=outp)
+    cmdr = await s_cli.Cli.anit(cell, outp=outp, **opts)
     if color:
         cmdr.colorsenabled = True
 
