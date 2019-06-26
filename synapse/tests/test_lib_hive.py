@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.tests.utils as s_test
 
@@ -84,6 +85,9 @@ class HiveTest(s_test.SynTest):
                     self.eq(31337, await hivedict.pop('lulz'))
 
                     self.eq(None, hivedict.get('nope'))
+
+                    self.eq(s_common.novalu, hivedict.get('nope', default=s_common.novalu))
+                    self.eq(s_common.novalu, await hivedict.pop('nope', default=s_common.novalu))
 
             async with self.getTestHiveFromDirn(dirn) as hive:
 

@@ -46,6 +46,7 @@ TerminalPygMap = {
     'RELPROP': p_t.Name,
     'RPAR': p_t.Punctuation,
     'RSQB': p_t.Punctuation,
+    'SETOPER': p_t.Operator,
     'SINGLEQUOTEDSTRING': p_t.Literal.String,
     'SWITCH': p_t.Keyword,
     'TAG': p_t.Name,

@@ -170,6 +170,7 @@ class LibTime(Lib):
 
             <query> [ :time = $lib.time.fromunix($epoch) ]
 
+
         '''
         secs = float(secs)
         return int(secs * 1000)
@@ -277,6 +278,98 @@ class List(Prim):
         Return the length of the list.
         '''
         return len(self.valu)
+
+class StormHiveDict(Prim):
+    # A Storm API for a HiveDict
+    def __init__(self, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.locls.update({
+            'get': self._methGet,
+            'pop': self._methPop,
+            'set': self._methSet,
+            'list': self._methList,
+        })
+
+    def _reqStr(self, name):
+        if not isinstance(name, str):
+            mesg = 'The name of a persistent variable must be a string.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+    async def _methGet(self, name, default=None):
+        self._reqStr(name)
+        return self.valu.get(name, default=default)
+
+    async def _methPop(self, name, default=None):
+        self._reqStr(name)
+        return await self.valu.pop(name, default=default)
+
+    async def _methSet(self, name, valu):
+        self._reqStr(name)
+        await self.valu.set(name, valu)
+
+    async def _methList(self):
+        return list(self.valu.items())
+
+class LibUser(Lib):
+    def addLibFuncs(self):
+        hivedict = StormHiveDict(self.runt.user.pvars)
+        self.locls.update({
+            'name': self._libUserName,
+            'vars': hivedict,
+        })
+
+    async def _libUserName(self, path=None):
+        return self.runt.user.name
+
+class LibGlobals(Lib):
+    '''
+    Global persistent Storm variables
+    '''
+    def __init__(self, runt, name):
+        self._stormvars = runt.snap.core.stormvars
+        Lib.__init__(self, runt, name)
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'get': self._methGet,
+            'pop': self._methPop,
+            'set': self._methSet,
+            'list': self._methList,
+        })
+
+    def _reqAllowed(self, perm, name):
+        self.runt.allowed(perm, name)
+
+    def _reqStr(self, name):
+        if not isinstance(name, str):
+            mesg = 'The name of a persistent variable must be a string.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+    async def _methGet(self, name, default=None):
+        self._reqStr(name)
+        self._reqAllowed('storm:globals:get', name)
+        return self._stormvars.get(name, default=default)
+
+    async def _methPop(self, name, default=None):
+        self._reqStr(name)
+        self._reqAllowed('storm:globals:pop', name)
+        return await self._stormvars.pop(name, default=default)
+
+    async def _methSet(self, name, valu):
+        self._reqStr(name)
+        self._reqAllowed('storm:globals:set', name)
+        await self._stormvars.set(name, valu)
+
+    async def _methList(self):
+        ret = []
+        for key, valu in list(self._stormvars.items()):
+            try:
+                self._reqAllowed('storm:globals:get', key)
+            except s_exc.AuthDeny as e:
+                continue
+            else:
+                ret.append((key, valu))
+        return ret
 
 class Node(Prim):
     '''
