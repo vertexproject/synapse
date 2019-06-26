@@ -55,6 +55,7 @@ TerminalPygMap = {
     'UNIVPROP': p_t.Name,
     'VARTOKN': p_t.Name.Variable,
     'VBAR': p_t.Punctuation,
+    'WHILE': p_t.Keyword,
     '_EXPRSTART': p_t.Punctuation,
     '_LEFTJOIN': p_t.Punctuation,
     '_LEFTPIVOT': p_t.Punctuation,

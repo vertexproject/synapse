@@ -2534,6 +2534,31 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.eval('inet:ipv4=1.2.3.4 for $tag in $node.tags() { [ +#hoho ] { [inet:ipv4=6.6.6.6 +#$tag] } break [ +#visi ]}').list()  # noqa: E501
             self.len(1, await core.eval('inet:ipv4=6.6.6.6 +(#hehe or #haha) -(#hehe and #haha) -#visi').list())
 
+    async def test_storm_whileloop(self):
+
+        async with self.getTestCore() as core:
+            q = '$x = 0 while $($x < 10) { $x=$($x+1) [test:int=$x] }'
+            nodes = await core.nodes(q)
+            self.len(10, nodes)
+
+            # Non Runtsafe test
+            q = '''
+            test:int=4 test:int=5 $x=$node.value()
+            while 1 {
+                $x=$($x-1)
+                if $($x=$(2)) {continue}
+                elif $($x=$(1)) {break}
+                $lib.print($x)
+            } '''
+            msgs = await core.streamstorm(q).list()
+            prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(['3', '4', '3'], prints)
+
+            q = '$x = 10 while 1 { $x=$($x-2) if $($x=$(4)) {continue} [test:int=$x]  if $($x<=0) {break} }'
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+            self.eq([8, 6, 2], [n.ndef[1] for n in nodes])
+
     async def test_storm_varmeth(self):
 
         async with self.getTestCore() as core:
