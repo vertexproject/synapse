@@ -230,6 +230,8 @@ class Bytes(Prim):
         self.locls.update({
             'bunzip': self._methBunzip,
             'gunzip': self._methGunzip,
+            'bzip': self._methBzip,
+            'gzip': self._methGzip,
             'json': self._methJsonLoad,
         })
 
@@ -243,6 +245,16 @@ class Bytes(Prim):
         '''
         return bz2.decompress(self.valu)
 
+    async def _methBzip(self):
+        '''
+        Compress the bytes using bzip2 and return them.
+
+        Example:
+
+            $foo = $mybytez.bzip()
+        '''
+        return bz2.compress(self.valu)
+
     async def _methGunzip(self):
         '''
         Decompress the bytes using gzip and return them.
@@ -252,6 +264,16 @@ class Bytes(Prim):
             $foo = $mybytez.gunzip()
         '''
         return gzip.decompress(self.valu)
+
+    async def _methGzip(self):
+        '''
+        Compress the bytes using gzip and return them.
+
+        Example:
+
+            $foo = $mybytez.gzip()
+        '''
+        return gzip.compress(self.valu)
 
     async def _methJsonLoad(self):
         '''
