@@ -1781,6 +1781,23 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('baz', nodes[0].ndef[1])
 
+    async def test_storm_quoted_variables(self):
+        async with self.getTestCore() as core:
+            q = '$"my var"=baz $bar=$"my var" [test:str=$bar]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('baz', nodes[0].ndef[1])
+
+            q = '$d = $lib.dict("field 1"=foo, "field 2"=bar) [test:str=$d.\'field 1\']'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('foo', nodes[0].ndef[1])
+
+            q = '($"a", $"#", $c) = (1, 2, 3) [test:str=$"#"]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('2', nodes[0].ndef[1])
+
     async def test_storm_lib_custom(self):
 
         async with self.getTestCore() as core:

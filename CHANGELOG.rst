@@ -13,6 +13,7 @@ Features and Enhancements
 - Add while loop to Storm.  (`#1290 <https://github.com/vertexproject/synapse/pull/1290>`_)
 - Add ``:accuracy`` as a secondary property to the ``tel:mob:telem`` node, so a user can record the accuracy of the ``tel:mob:telem:latlong`` property. (`#1294 <https://github.com/vertexproject/synapse/pull/1294>`_)
 - Always interpret numbers in expressions as numbers. (`#1293 <https://github.com/vertexproject/synapse/pull/1293>`_)
+- Allow quoted strings as variable names and fields.
 
 Bugfixes
 --------
