@@ -55,8 +55,6 @@ class Runtime:
     def isRuntVar(self, name):
         if name in self.runtvars:
             return True
-        if name in self.vars:
-            return True
         return False
 
     async def printf(self, mesg):

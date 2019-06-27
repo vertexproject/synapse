@@ -1,4 +1,3 @@
-import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
@@ -88,8 +87,7 @@ class StormTypesTest(s_test.SynTest):
             # For loop example for a multi-match case
             q = '''test:str=woot
                 for ($part1, $part2, $part3) in $node.globtags("foo.*.*.*") {
-                    -test:str=woot
-                    [test:str=$part1 +#$part3]
+                    [test:str=$part1] -test:str=woot [+#$part3]
                 }'''
             mesgs = await core.streamstorm(q).list()
             self.len(1, await core.nodes('test:str=bar'))
