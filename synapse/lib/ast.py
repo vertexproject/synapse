@@ -145,7 +145,7 @@ class Query(AstNode):
 
             yield node, path
 
-    async def iterNodePaths(self, runt):
+    async def iterNodePaths(self, runt, genr=None):
 
         count = 0
         subgraph = None
@@ -161,7 +161,8 @@ class Query(AstNode):
         self.optimize()
 
         # turtles all the way down...
-        genr = runt.getInput()
+        if genr is None:
+            genr = runt.getInput()
 
         for oper in self.kids:
             genr = oper.run(runt, genr)
