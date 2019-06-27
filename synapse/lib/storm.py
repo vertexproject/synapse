@@ -146,7 +146,7 @@ class Runtime:
         mesg = f'User must have permission {perm}'
         raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
 
-    async def iterStormQuery(self, query):
+    async def iterStormQuery(self, query, genr=None):
 
         with s_provenance.claim('storm', q=query.text, user=self.user.iden):
 
@@ -160,7 +160,7 @@ class Runtime:
             for name, valu in query.opts.items():
                 self.opts.setdefault(name, valu)
 
-            async for node, path in query.iterNodePaths(self):
+            async for node, path in query.iterNodePaths(self, genr=genr):
                 self.tick()
                 yield node, path
 
