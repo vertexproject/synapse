@@ -1,3 +1,4 @@
+import asyncio
 import fnmatch
 import logging
 import itertools
@@ -12,6 +13,9 @@ import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
+
+def parseNumber(x):
+    return float(x) if '.' in x else s_stormtypes.intify(x)
 
 async def agen(*items):
     for item in items:
@@ -141,7 +145,7 @@ class Query(AstNode):
 
             yield node, path
 
-    async def iterNodePaths(self, runt):
+    async def iterNodePaths(self, runt, genr=None):
 
         count = 0
         subgraph = None
@@ -157,7 +161,8 @@ class Query(AstNode):
         self.optimize()
 
         # turtles all the way down...
-        genr = runt.getInput()
+        if genr is None:
+            genr = runt.getInput()
 
         for oper in self.kids:
             genr = oper.run(runt, genr)
@@ -373,11 +378,9 @@ class ForLoop(Oper):
 
         subq = self.kids[2]
         name = self.kids[0].value()
+        node = None
 
-        count = 0
         async for node, path in genr:
-
-            count += 1
 
             for item in await self.kids[1].compute(path):
 
@@ -409,7 +412,7 @@ class ForLoop(Oper):
             yield node, path
 
         # no nodes and a runt safe value should execute once
-        if count == 0 and self.kids[1].isRuntSafe(runt):
+        if node is None and self.kids[1].isRuntSafe(runt):
 
             for item in await self.kids[1].runtval(runt):
 
@@ -433,6 +436,45 @@ class ForLoop(Oper):
 
                 except StormContinue:
                     continue
+
+class WhileLoop(Oper):
+
+    async def run(self, runt, genr):
+        subq = self.kids[1]
+        node = None
+
+        async for node, path in genr:
+
+            while await self.kids[0].compute(path):
+                try:
+
+                    newg = agen((node, path))
+                    await s_common.aspin(subq.inline(runt, newg))
+
+                except StormBreak:
+                    break
+
+                except StormContinue:
+                    continue
+
+            yield node, path
+
+        # no nodes and a runt safe value should execute once
+        if node is None and self.kids[0].isRuntSafe(runt):
+
+            while await self.kids[0].runtval(runt):
+
+                try:
+                    async for jtem in subq.inline(runt, agen()):
+                        yield jtem
+
+                except StormBreak:
+                    break
+
+                except StormContinue:
+                    continue
+
+                await asyncio.sleep(0)  # give other tasks some CPU
 
 class CmdOper(Oper):
 
@@ -1177,7 +1219,7 @@ class SubqCond(Cond):
         async def cond(node, path):
 
             size = 0
-            valu = int(await self.kids[2].compute(path))
+            valu = s_stormtypes.intify(await self.kids[2].compute(path))
 
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
@@ -1191,7 +1233,7 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
-            valu = int(await self.kids[2].compute(path))
+            valu = s_stormtypes.intify(await self.kids[2].compute(path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
                     return True
@@ -1204,7 +1246,7 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
-            valu = int(await self.kids[2].compute(path))
+            valu = s_stormtypes.intify(await self.kids[2].compute(path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size >= valu:
                     return False
@@ -1217,7 +1259,7 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
-            valu = int(await self.kids[2].compute(path))
+            valu = s_stormtypes.intify(await self.kids[2].compute(path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size >= valu:
                     return True
@@ -1230,7 +1272,7 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
-            valu = int(await self.kids[2].compute(path))
+            valu = s_stormtypes.intify(await self.kids[2].compute(path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
                     return False
@@ -1244,7 +1286,7 @@ class SubqCond(Cond):
         async def cond(node, path):
 
             size = 0
-            valu = int(await self.kids[2].compute(path))
+            valu = s_stormtypes.intify(await self.kids[2].compute(path))
 
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
@@ -1751,11 +1793,11 @@ class DollarExpr(RunValue, Cond):
     '''
     async def compute(self, path):
         assert len(self.kids) == 1
-        return int(await self.kids[0].compute(path))
+        return s_stormtypes.intify(await self.kids[0].compute(path))
 
     async def runtval(self, runt):
         assert len(self.kids) == 1
-        return int(await self.kids[0].runtval(runt))
+        return s_stormtypes.intify(await self.kids[0].runtval(runt))
 
     async def getCondEval(self, runt):
 
@@ -1766,22 +1808,22 @@ class DollarExpr(RunValue, Cond):
 
 
 _ExprFuncMap = {
-    '*': lambda x, y: int(x) * int(y),
-    '/': lambda x, y: int(x) // int(y),
-    '+': lambda x, y: int(x) + int(y),
-    '-': lambda x, y: int(x) - int(y),
-    '>': lambda x, y: int(x) > int(y),
-    '<': lambda x, y: int(x) < int(y),
-    '>=': lambda x, y: int(x) >= int(y),
-    '<=': lambda x, y: int(x) <= int(y),
-    'and': lambda x, y: int(x) and int(y),
-    'or': lambda x, y: int(x) or int(y),
-    '=': lambda x, y: x == y,
-    '!=': lambda x, y: x != y,
+    '*': lambda x, y: x * y,
+    '/': lambda x, y: x // y,
+    '+': lambda x, y: x + y,
+    '-': lambda x, y: x - y,
+    '>': lambda x, y: int(x > y),
+    '<': lambda x, y: int(x < y),
+    '>=': lambda x, y: int(x >= y),
+    '<=': lambda x, y: int(x <= y),
+    'and': lambda x, y: x and y,
+    'or': lambda x, y: x or y,
+    '=': lambda x, y: int(x == y),
+    '!=': lambda x, y: int(x != y),
 }
 
 _UnaryExprFuncMap = {
-    'not': lambda x: not int(x),
+    'not': lambda x: int(not x),
 }
 
 class UnaryExprNode(RunValue):
@@ -1811,11 +1853,35 @@ class ExprNode(RunValue):
         oper = self.kids[1].value()
         self._operfunc = _ExprFuncMap[oper]
 
+    def _coerce(self, parm1, parm2):
+        '''
+        If one parameter is a string and the other is a number, convert the string parameter to a number
+        '''
+        if isinstance(parm1, str):
+            if isinstance(parm2, str):
+                return parm1, parm2
+            if not isinstance(parm2, (int, float)):
+                raise s_exc.BadCmprType(type1=type(parm1).__name__, type2=type(parm2).__name__)
+
+            return parseNumber(parm1), parm2
+
+        if isinstance(parm2, str):
+            assert not isinstance(parm1, str)
+            if not isinstance(parm1, (int, float)):
+                raise s_exc.BadCmprType(type1=type(parm1).__name__, type2=type(parm2).__name__)
+            return parm1, parseNumber(parm2)
+
+        return parm1, parm2
+
     async def compute(self, path):
-        return int(self._operfunc(await self.kids[0].compute(path), await self.kids[2].compute(path)))
+        parm1 = await self.kids[0].compute(path)
+        parm2 = await self.kids[2].compute(path)
+        return self._operfunc(*self._coerce(parm1, parm2))
 
     async def runtval(self, runt):
-        return int(self._operfunc(await self.kids[0].runtval(runt), await self.kids[2].runtval(runt)))
+        parm1 = await self.kids[0].runtval(runt)
+        parm2 = await self.kids[2].runtval(runt)
+        return self._operfunc(*self._coerce(parm1, parm2))
 
 class VarList(Value):
     pass

@@ -2534,6 +2534,31 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.eval('inet:ipv4=1.2.3.4 for $tag in $node.tags() { [ +#hoho ] { [inet:ipv4=6.6.6.6 +#$tag] } break [ +#visi ]}').list()  # noqa: E501
             self.len(1, await core.eval('inet:ipv4=6.6.6.6 +(#hehe or #haha) -(#hehe and #haha) -#visi').list())
 
+    async def test_storm_whileloop(self):
+
+        async with self.getTestCore() as core:
+            q = '$x = 0 while $($x < 10) { $x=$($x+1) [test:int=$x] }'
+            nodes = await core.nodes(q)
+            self.len(10, nodes)
+
+            # Non Runtsafe test
+            q = '''
+            test:int=4 test:int=5 $x=$node.value()
+            while 1 {
+                $x=$($x-1)
+                if $($x=$(2)) {continue}
+                elif $($x=$(1)) {break}
+                $lib.print($x)
+            } '''
+            msgs = await core.streamstorm(q).list()
+            prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(['3', '4', '3'], prints)
+
+            q = '$x = 10 while 1 { $x=$($x-2) if $($x=$(4)) {continue} [test:int=$x]  if $($x<=0) {break} }'
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+            self.eq([8, 6, 2], [n.ndef[1] for n in nodes])
+
     async def test_storm_varmeth(self):
 
         async with self.getTestCore() as core:
@@ -2571,7 +2596,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             async def _test(q, ansr):
-                nodes = await core.eval(f'[test:int={q}]').list()
+                nodes = await core.nodes(f'[test:int={q}]')
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('test:int', ansr))
 
@@ -2598,6 +2623,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await _test('$(2 != 1)', 1)
             await _test('$(2 = 1)', 0)
             await _test('$(2 = 2)', 1)
+            await _test('$(2 = 2.0)', 1)
             await _test('$("foo" = "foo")', 1)
             await _test('$("foo" != "foo")', 0)
             await _test('$("foo2" = "foo")', 0)
@@ -2618,9 +2644,26 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Test non-runtsafe
             q = '[test:type10=1 :intprop=24] $val=:intprop [test:int=$(1 + $val)]'
-            nodes = await core.eval(q).list()
+            nodes = await core.nodes(q)
             self.len(2, nodes)
             self.eq(nodes[1].ndef, ('test:int', 25))
+
+            # Test invalid comparisons
+            q = '$val=(1,2,3) [test:str=$("foo" = $val)]'
+            await self.asyncraises(s_exc.BadCmprType, core.nodes(q))
+
+            q = '$val=(1,2,3) [test:str=$($val = "foo")]'
+            await self.asyncraises(s_exc.BadCmprType, core.nodes(q))
+
+            q = '$val=42 [test:str=$(42<$val)]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', '0'))
+
+            q = '[test:str=foo :hehe=42] [test:str=$(not :hehe<42)]'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[1].ndef, ('test:str', '1'))
 
     async def test_storm_filter_vars(self):
         '''
@@ -2768,7 +2811,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(nodes[0].hasTag('rofl'))
 
             # Non-constant runtsafe
-            q = '$vals=(1,2,3,4) for $i in $vals {if $($i=1) {[test:int=$i]}}'
+            q = '$vals=(1,2,3,4) for $i in $vals {if $($i="1") {[test:int=$i]}}'
             nodes = await core.nodes(q)
             self.len(1, nodes)
 

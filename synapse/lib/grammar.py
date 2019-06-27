@@ -3,6 +3,8 @@ import regex  # type: ignore
 
 import synapse.exc as s_exc
 
+import synapse.lib.stormtypes as s_stormtypes
+
 import synapse.lib.ast as s_ast
 import synapse.lib.datfile as s_datfile
 
@@ -32,6 +34,7 @@ ruleClassMap = {
     'exprsum': s_ast.ExprNode,
     'filtoper': s_ast.FiltOper,
     'forloop': s_ast.ForLoop,
+    'whileloop': s_ast.WhileLoop,
     'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),
     'formjoin_pivotout': lambda _: s_ast.PivotOut(isjoin=True),
     'formjoinin_pivotin': lambda kids: s_ast.PivotIn(kids, isjoin=True),
@@ -80,6 +83,7 @@ terminalClassMap = {
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': s_ast.TagMatch,
     'UNIVPROP': s_ast.UnivProp,
+    'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x))
 }
 
 terminalEnglishMap = {
@@ -125,6 +129,7 @@ terminalEnglishMap = {
     'RELPROP': 'relative property',
     'RPAR': ')',
     'RSQB': '}',
+    'SETOPER': '= or ?=',
     'SINGLEQUOTEDSTRING': 'single-quoted string',
     'SWITCH': 'switch',
     'TAG': 'plain tag name',
@@ -133,6 +138,7 @@ terminalEnglishMap = {
     'UNIVPROP': 'universal property',
     'VARTOKN': 'variable',
     'VBAR': '|',
+    'WHILE': 'while',
     '_EXPRSTART': '$(',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
