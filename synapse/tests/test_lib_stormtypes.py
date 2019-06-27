@@ -1,9 +1,15 @@
+
+import bz2
+import gzip
+import json
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_test
 
+from synapse.lib.httpapi import Handler
 
 class StormTypesTest(s_test.SynTest):
 
@@ -157,6 +163,80 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq('visi@vertex.link', nodes[0].ndef[1])
+
+    async def test_storm_lib_bytes_gunzip(self):
+        class gzipper(Handler):
+            async def get(self):
+                ret = {
+                    'a': 1,
+                    'b': 2,
+                    'c': 3,
+                }
+                ret = gzip.compress(bytes(json.dumps(ret), 'utf8'))
+
+                self.set_header('Content-Type', 'application/x-gzip')
+                self.set_header('Accept-Ranges', 'bytes')
+                self.set_status(200)
+                return self.write(ret)
+
+        async with self.getTestCore() as core:
+            addr, port = await core.addHttpPort(0)
+            core.insecure = True
+            opts = {'vars': {'port': port}}
+
+            core.addHttpApi('/tests/lib/stormtypes/gzip', gzipper, {'cell': core})
+
+            text = '''
+                $url = $lib.str.format("http://127.0.0.1:{port}/tests/lib/stormtypes/gzip", port=$port)
+
+                $thing = $lib.inet.http.get($url).body
+                $gzthing = $thing.gunzip()
+                $jsonthing = $gzthing.json()
+
+                for $foo in $jsonthing {
+                    [ test:str=$foo ]
+                }
+            '''
+            nodes = await core.nodes(text, opts=opts)
+            pprops = [node.ndef[1] for node in nodes]
+            self.eq(('a', 'b', 'c'), pprops)
+
+    async def test_storm_lib_bytes_bunzip(self):
+        class bzipper(Handler):
+            async def get(self):
+                ret = {
+                    'a': 1,
+                    'b': 2,
+                    'c': 3,
+                }
+                ret = bz2.compress(bytes(json.dumps(ret), 'utf8'))
+
+                self.set_header('Content-Type', 'application/x-bzip2')
+                self.set_header('Accept-Ranges', 'bytes')
+                self.set_status(200)
+                return self.write(ret)
+
+        async with self.getTestCore() as core:
+            addr, port = await core.addHttpPort(0)
+            core.insecure = True
+            opts = {'vars': {'port': port}}
+
+            core.addHttpApi('/tests/lib/stormtypes/bzip', bzipper, {'cell': core})
+
+            text = '''
+                $url = $lib.str.format("http://127.0.0.1:{port}/tests/lib/stormtypes/bzip", port=$port)
+
+                $thing = $lib.inet.http.get($url).body
+                $bzthing = $thing.bunzip()
+                $jsonthing = $bzthing.json()
+
+                for $foo in $jsonthing {
+                    [ test:str=$foo ]
+                }
+            '''
+            nodes = await core.nodes(text, opts=opts)
+            pprops = [node.ndef[1] for node in nodes]
+            self.eq(('a', 'b', 'c'), pprops)
 
     async def test_storm_lib_list(self):
         async with self.getTestCore() as core:
