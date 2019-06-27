@@ -2596,7 +2596,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             async def _test(q, ansr):
-                nodes = await core.eval(f'[test:int={q}]').list()
+                nodes = await core.nodes(f'[test:int={q}]')
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('test:int', ansr))
 
@@ -2623,6 +2623,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await _test('$(2 != 1)', 1)
             await _test('$(2 = 1)', 0)
             await _test('$(2 = 2)', 1)
+            await _test('$(2 = 2.0)', 1)
             await _test('$("foo" = "foo")', 1)
             await _test('$("foo" != "foo")', 0)
             await _test('$("foo2" = "foo")', 0)
@@ -2643,9 +2644,26 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Test non-runtsafe
             q = '[test:type10=1 :intprop=24] $val=:intprop [test:int=$(1 + $val)]'
-            nodes = await core.eval(q).list()
+            nodes = await core.nodes(q)
             self.len(2, nodes)
             self.eq(nodes[1].ndef, ('test:int', 25))
+
+            # Test invalid comparisons
+            q = '$val=(1,2,3) [test:str=$("foo" = $val)]'
+            await self.asyncraises(s_exc.BadCmprType, core.nodes(q))
+
+            q = '$val=(1,2,3) [test:str=$($val = "foo")]'
+            await self.asyncraises(s_exc.BadCmprType, core.nodes(q))
+
+            q = '$val=42 [test:str=$(42<$val)]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', '0'))
+
+            q = '[test:str=foo :hehe=42] [test:str=$(not :hehe<42)]'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[1].ndef, ('test:str', '1'))
 
     async def test_storm_filter_vars(self):
         '''
@@ -2793,7 +2811,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(nodes[0].hasTag('rofl'))
 
             # Non-constant runtsafe
-            q = '$vals=(1,2,3,4) for $i in $vals {if $($i=1) {[test:int=$i]}}'
+            q = '$vals=(1,2,3,4) for $i in $vals {if $($i="1") {[test:int=$i]}}'
             nodes = await core.nodes(q)
             self.len(1, nodes)
 

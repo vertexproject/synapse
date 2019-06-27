@@ -9,9 +9,12 @@ class StormHttpTest(s_test.SynTest):
             addr, port = await core.addHttpPort(0)
             core.insecure = True
             text = '''
+                $hdr = (
+                    ("User-Agent", "Storm HTTP Stuff"),
+                )
                 $url = $lib.str.format("http://127.0.0.1:{port}/api/v1/model", port=$port)
 
-                for $name in $lib.inet.http.get($url).json().result.forms {
+                for $name in $lib.inet.http.get($url, headers=$hdr).json().result.forms {
                     [ test:str=$name ]
                 }
             '''
