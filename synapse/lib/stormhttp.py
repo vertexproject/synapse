@@ -18,9 +18,9 @@ class LibHttp(s_stormtypes.Lib):
             #'session':
         })
 
-    async def _httpEasyGet(self, url):
+    async def _httpEasyGet(self, url, headers=None):
         async with aiohttp.ClientSession() as sess:
-            async with sess.get(url) as resp:
+            async with sess.get(url, headers=headers) as resp:
                 info = {
                     'code': resp.status,
                     'body': await resp.content.read(),
