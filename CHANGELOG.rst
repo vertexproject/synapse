@@ -11,7 +11,7 @@ Features and Enhancements
 - Add ``$lib.user.vars`` and ``$lib.globals`` Storm Types. These allow for persistent variable storage and retrieval inside of Storm across multiple queries.  These use ``.set()``, ``.get()``, ``.pop()`` and ``.list()`` methods on the two new Storm Types. (`#1287 <https://github.com/vertexproject/synapse/pull/1287>`_)
 - Add an optional try operator, ``?=``, to the Storm edit mode blocks. This allows for node creation and property setting to fail silently on BadTypeValu and BadPropValu errors.  Example: ``[ inet:ipv4 ?= notAnIpAddress :asn?=NotAnAsn ]``. (`#1288 <https://github.com/vertexproject/synapse/pull/1288>`_)
 - Add while loop to Storm.  (`#1290 <https://github.com/vertexproject/synapse/pull/1290>`_)
-
+- Always interpret numbers in expressions as numbers (`#1293 <https://github.com/vertexproject/synapse/pull/1293>`_)
 
 v0.1.14 - 2019-06-21
 ====================
