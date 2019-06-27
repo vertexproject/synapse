@@ -2501,6 +2501,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             pode = podes[0]
             self.true(s_node.tagged(pode, '#foo'))
 
+            nodes = await core.nodes('$d = $lib.dict(foo=bar) [test:str=yop +#$d.foo]')
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('bar'))
+
+            q = '[test:str=yop +#$lib.str.format("{first}.{last}", first=foo, last=bar)]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('foo.bar'))
+
     async def test_storm_forloop(self):
 
         async with self.getTestCore() as core:
