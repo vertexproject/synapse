@@ -2510,6 +2510,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].getTag('foo.bar'))
 
+            q = '$foo=(tag1,tag2,tag3) [test:str=x +#$foo]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('tag1'))
+            self.nn(nodes[0].getTag('tag2'))
+            self.nn(nodes[0].getTag('tag3'))
+
     async def test_storm_forloop(self):
 
         async with self.getTestCore() as core:
