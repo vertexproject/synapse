@@ -292,6 +292,8 @@ class AgendaTest(s_t_utils.SynTest):
                 sync.clear()
                 self.len(1, core.boss.tasks)
                 task = next(iter(core.boss.tasks.values()))
+                self.eq(task.info.get('query'), 'inet:ipv4=1 | sleep 120')
+                self.eq(task.info.get('iden'), guid)
                 appt_info = [info for g, info in agenda.list() if g == guid][0]
                 self.eq(appt_info['isrunning'], True)
                 await task.kill()
