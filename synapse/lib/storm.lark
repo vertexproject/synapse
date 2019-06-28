@@ -98,7 +98,7 @@ liftpropby: PROPNAME _WS? CMPR _WS? _valu
 liftprop: PROPNAME
 lifttagtag: "#" tagname [_WS? CMPR _valu]
 liftbytag: tagname [_WS? CMPR _valu]
-tagname: "#" _WS? (_varname | TAG)
+tagname: "#" _WS? (_varvalu | TAG)
 
 stormcmd: CMDNAME [_WS stormcmdargs]
 stormcmdargs: _WS? _cmdargv (_WS _cmdargv)*

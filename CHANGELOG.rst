@@ -15,6 +15,9 @@ Features and Enhancements
 - Always interpret numbers in expressions as numbers. (`#1293 <https://github.com/vertexproject/synapse/pull/1293>`_)
 - Allow quoted strings as variable names and fields.
 
+- Storm:  allow arbitrary var value expressions as tags, not just a variable name
+- Storm:  allow variables with list values for tag variables to set multiple tags, e.g. ``$foo=(tag1,tag2,tag3) [test:str=x +#$foo]``
+
 Bugfixes
 --------
 - Fix runtime safety scoping issue for variables in Storm. (`#1296 <https://github.com/vertexproject/synapse/pull/1296>`_)
