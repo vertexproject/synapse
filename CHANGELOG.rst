@@ -13,6 +13,7 @@ Features and Enhancements
 - Add while loop to Storm.  (`#1290 <https://github.com/vertexproject/synapse/pull/1290>`_)
 - Add ``:accuracy`` as a secondary property to the ``tel:mob:telem`` node, so a user can record the accuracy of the ``tel:mob:telem:latlong`` property. (`#1294 <https://github.com/vertexproject/synapse/pull/1294>`_)
 - Always interpret numbers in expressions as numbers. (`#1293 <https://github.com/vertexproject/synapse/pull/1293>`_)
+- Allow quoted strings as variable names and fields.
 
 - Storm:  allow arbitrary var value expressions as tags, not just a variable name
 - Storm:  allow variables with list values for tag variables to set multiple tags, e.g. ``$foo=(tag1,tag2,tag3) [test:str=x +#$foo]``

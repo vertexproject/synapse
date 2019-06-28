@@ -3,8 +3,6 @@ import regex  # type: ignore
 
 import synapse.exc as s_exc
 
-import synapse.lib.stormtypes as s_stormtypes
-
 import synapse.lib.ast as s_ast
 import synapse.lib.datfile as s_datfile
 
@@ -79,11 +77,12 @@ terminalClassMap = {
     'BREAK': lambda _: s_ast.BreakOper(),
     'CONTINUE': lambda _: s_ast.ContinueOper(),
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
+    'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'RELPROP': lambda x: s_ast.RelProp(x[1:]),  # drop leading :
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': s_ast.TagMatch,
     'UNIVPROP': s_ast.UnivProp,
-    'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x))
+    'VARTOKN': lambda x: s_ast.Const(x[1:-1] if len(x) and x[0] in ("'", '"') else x)
 }
 
 terminalEnglishMap = {
