@@ -2057,15 +2057,19 @@ class EditTagAdd(Edit):
 
         async for node, path in genr:
 
-            name = await self.kids[0].compute(path)
-            parts = name.split('.')
+            names = await self.kids[0].compute(path)
+            if not isinstance(names, list):
+                names = [names]
 
-            runt.allowed('tag:add', *parts)
+            for name in names:
+                parts = name.split('.')
 
-            if hasval:
-                valu = await self.kids[1].compute(path)
+                runt.allowed('tag:add', *parts)
 
-            await node.addTag(name, valu=valu)
+                if hasval:
+                    valu = await self.kids[1].compute(path)
+
+                await node.addTag(name, valu=valu)
 
             yield node, path
 

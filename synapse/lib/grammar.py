@@ -229,12 +229,13 @@ class AstConverter(lark.Transformer):
     def tagname(self, kids):
         assert kids and len(kids) == 1
         kid = kids[0]
-        if kid.type == 'TAG':
+
+        if isinstance(kid, lark.lexer.Token):
+            assert kid.type == 'TAG'
             return s_ast.TagName(kid.value)
 
-        assert kid.type == 'VARTOKN'
         kids = self._convert_children(kids)
-        return s_ast.VarValue(kids)
+        return kids[0]
 
     def valulist(self, kids):
         kids = self._convert_children(kids)
