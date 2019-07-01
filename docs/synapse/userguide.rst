@@ -40,10 +40,13 @@ The User Guide is a living document and will continue to be updated and expanded
     userguides/storm_ref_pivot
     userguides/storm_ref_data_mod
     userguides/storm_ref_subquery
-    userguides/storm_ref_vars
     userguides/storm_ref_model_introspect
     userguides/storm_ref_type_specific
     userguides/storm_ref_cmd
+    
+    userguides/storm_adv_variables
+    userguides/storm_adv_methods
+    userguides/storm_adv_libraries    
 
 Many of the concepts above are closely related and this outline represents a reasonable effort to introduce concepts in a logical order. However, it is difficult to fully understand the potential of Synapse and hypergraphs without grasping the power of the Storm query language to understand, manipulate, and annotate data. Similarly, it’s hard to understand the effectiveness of Storm without knowledge of the underlying data model. **The outline above is our suggested order but readers are encouraged to skip around or revisit earlier sections after digesting later sections to better see how these topics are tied together.**
 
