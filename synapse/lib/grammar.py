@@ -233,8 +233,7 @@ class AstConverter(lark.Transformer):
             assert kid.type == 'TAG'
             return s_ast.TagName(kid.value)
 
-        kids = self._convert_children(kids)
-        return kids[0]
+        return self._convert_child(kid)
 
     def valulist(self, kids):
         kids = self._convert_children(kids)
