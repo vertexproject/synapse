@@ -2,7 +2,7 @@
 Synapse Changelog
 *****************
 
-v0.1.15 - TBD
+v0.1.15 - 07-01-2019
 ====================
 
 Features and Enhancements
@@ -13,6 +13,11 @@ Features and Enhancements
 - Add while loop to Storm.  (`#1290 <https://github.com/vertexproject/synapse/pull/1290>`_)
 - Add ``:accuracy`` as a secondary property to the ``tel:mob:telem`` node, so a user can record the accuracy of the ``tel:mob:telem:latlong`` property. (`#1294 <https://github.com/vertexproject/synapse/pull/1294>`_)
 - Always interpret numbers in expressions as numbers. (`#1293 <https://github.com/vertexproject/synapse/pull/1293>`_)
+- Add a genr argument to ``iterStormQuery()`` to better facilitate nested Storm queries. (`#1297 <https://github.com/vertexproject/synapse/pull/1297>`_)
+- Allow headers to be set when using ``$lib.inet.http()`` in Storm. (`#1299 <https://github.com/vertexproject/synapse/pull/1299>`_)
+- Allow Storm variables to be used to make tag names in a edit block. (`#1300 <https://github.com/vertexproject/synapse/pull/1300>`_)
+- Allow Storm variables with list values to be used to set multiple tags in a edit block, e.g. ``$foo=(tag1,tag2,tag3) [test:str=x +#$foo]``. (`#1300 <https://github.com/vertexproject/synapse/pull/1300>`_)
+- Allow quoted strings as variable names and fields. (`#1298 <https://github.com/vertexproject/synapse/pull/1298>`_)
 
 Bugfixes
 --------
