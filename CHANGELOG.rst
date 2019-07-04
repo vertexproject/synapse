@@ -1,5 +1,17 @@
 *****************
 Synapse Changelog
+
+v0.1.16 - XXXX
+====================
+
+Features and Enhancements
+-------------------------
+- Allow parenthesis in editblocks. Edit operations in these parenthesis don't receive incoming nodes from left of the
+parentheses.  (`#1303 <https://github.com/vertexproject/synapse/pull/1303>`_)
+
+Bugfixes
+--------
+
 *****************
 
 v0.1.15 - 07-01-2019
