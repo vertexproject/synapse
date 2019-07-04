@@ -85,6 +85,7 @@ async def main(argv, outp=s_output.stdout):
     logfd = None
     if opts.logfile is not None:
         logfd = s_common.genfile(opts.logfile)
+        logfd.seek(0, 2)
 
     async def addCsvData(core):
 
