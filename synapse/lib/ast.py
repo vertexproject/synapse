@@ -1913,10 +1913,18 @@ class List(Value):
         return [k.value() for k in self.kids]
 
 class RelProp(Value):
-    pass
+    def __init__(self, kids=()):
+        assert len(kids) == 1
+        valu = kids[0].value()
+        assert valu[0] == ':'
+        Value.__init__(self, valu[1:])
 
 class UnivProp(Value):
-    pass
+    def __init__(self, kids=()):
+        assert len(kids) == 1
+        valu = kids[0].value()
+        assert valu[0] == '.'
+        Value.__init__(self, valu)
 
 class AbsProp(Value):
     pass

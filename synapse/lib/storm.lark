@@ -28,11 +28,11 @@ _editopers: "[" _WS? (_editoper _WS?)* "]"
 ///A single edit operation
 _editoper: editpropset | editunivset | edittagadd | editpropdel | editunivdel | edittagdel | editnodeadd
 edittagadd: "+" tagname [_WS? "=" _WS? _valu]
-editunivdel: "-" UNIVPROP
+editunivdel: "-" univprop
 edittagdel: "-" tagname
-editpropset: RELPROP _WS? SETOPER _WS? _valu
-editpropdel: "-" RELPROP
-editunivset: UNIVPROP _WS? SETOPER _WS? _valu
+editpropset: relprop _WS? SETOPER _WS? _valu
+editpropdel: "-" relprop
+editunivset: univprop _WS? SETOPER _WS? _valu
 editnodeadd: ABSPROPNOUNIV _WS? SETOPER _WS? _valu
 SETOPER: "=" | "?="
 
@@ -84,8 +84,8 @@ formpivotin.2: _LEFTPIVOT _WS? "*" -> formpivotin_
 formjoinin.2: _LEFTJOIN _WS? "*" -> formjoinin_pivotin
           | _LEFTJOIN _WS? ABSPROP -> formjoinin_pivotinfrom
 
-operrelprop: RELPROP _WS? _RIGHTPIVOT _WS? ("*" | ABSPROP) -> operrelprop_pivot
-           | RELPROP _WS? _RIGHTJOIN _WS? ABSPROP -> operrelprop_join
+operrelprop: relprop _WS? _RIGHTPIVOT _WS? ("*" | ABSPROP) -> operrelprop_pivot
+           | relprop _WS? _RIGHTJOIN _WS? ABSPROP -> operrelprop_join
 
 _RIGHTJOIN:  "-+>"
 _LEFTJOIN:   "<+-"
@@ -121,8 +121,8 @@ _valu: NONQUOTEWORD | valulist | _varvalu | relpropvalu | univpropvalu | tagprop
     | SINGLEQUOTEDSTRING | dollarexpr
 valulist: "(" [_WS? _valu (_WS? "," _WS? _valu)*] _WS? ["," _WS?] ")"
 tagpropvalue: tagname
-relpropvalu: RELPROP
-univpropvalu: UNIVPROP
+relpropvalu: relprop
+univpropvalu: univprop
 
 // An unquoted storm string constant.  Must start with a word char, ?, or - and not contain certain punctutation
 NONQUOTEWORD: /[\w\-?][^ \t\n),=\]}|]*/
@@ -153,9 +153,9 @@ _cond: notcond | "(" _WS? _condexpr _WS? ")"
 
 notcond: "not" _WS? _cond
 
-hasrelpropcond: RELPROP | UNIVPROP
+hasrelpropcond: relprop | univprop
 relpropcond.1: relpropvalue _WS? CMPR _WS? _valu
-relpropvalue:   RELPROP | UNIVPROP
+relpropvalue:   relprop | univprop
 
 abspropcond.1:  ABSPROPNOUNIV _WS? CMPR _WS? _valu
 hasabspropcond: ABSPROPNOUNIV
@@ -187,13 +187,14 @@ CPPCOMMENT: /\/\/[^\n]*/
 PROPS: /[a-z][a-z0-9]*(:[a-z0-9]+)+([:.][a-z][a-z0-9]+)*/
 // A universal property
 UNIVNAME: /\.[a-z][a-z0-9]*([:.][a-z0-9]+)*/
-UNIVPROP:  UNIVNAME
+univprop:  UNIVNAME | "." _varvalu
 // A full property or a universal property
 PROPNAME: PROPS | UNIVNAME
 ABSPROP: PROPNAME
 ABSPROPNOUNIV: PROPS
 // A relative property
-RELPROP: /:[$.\w][$.\w:]*/
+relprop: RELNAME | ":" _varvalu
+RELNAME: /:[$.\w][$.\w:]*/
 
 // The name of a storm command
 CMDNAME: /\b(?!(break|continue|for|while|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/
