@@ -334,6 +334,10 @@ class Oper(AstNode):
 
 class SubQuery(Oper):
 
+    def __init__(self, kids=()):
+        Oper.__init__(self, kids)
+        self.hasyield = False
+
     async def run(self, runt, genr):
 
         subq = self.kids[0]

@@ -138,6 +138,7 @@ terminalEnglishMap = {
     'VARTOKN': 'variable',
     'VBAR': '|',
     'WHILE': 'while',
+    'YIELD': 'yield',
     '_EXPRSTART': '$(',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
@@ -178,10 +179,17 @@ class AstConverter(lark.Transformer):
 
     @lark.v_args(meta=True)
     def subquery(self, kids, meta):
-        assert len(kids) == 1
-        kids = self._convert_children(kids)
-        ast = s_ast.SubQuery(kids)
+        assert len(kids) <= 2
+        hasyield = (len(kids) == 2)
+        kid = self._convert_child(kids[-1])
+        kid.hasyield = hasyield
 
+        return kid
+
+    @lark.v_args(meta=True)
+    def baresubquery(self, kids, meta):
+        assert len(kids) == 1
+        ast = s_ast.SubQuery(kids)
         # Keep the text of the subquery in case used by command
         ast.text = self.text[meta.start_pos:meta.end_pos]
         return ast
