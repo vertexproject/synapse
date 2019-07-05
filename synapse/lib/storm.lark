@@ -194,7 +194,9 @@ ABSPROP: PROPNAME
 ABSPROPNOUNIV: PROPS
 // A relative property
 relprop: RELNAME | ":" _varvalu
-RELNAME: /:[$.\w][$.\w:]*/
+
+// Similar to PROPS, but starts with a colon and allows :: as separator
+RELNAME: /\:\.?[a-z][a-z0-9]*(?:(\:\:|\:|\.)[a-z0-9]+)*/
 
 // The name of a storm command
 CMDNAME: /\b(?!(break|continue|for|while|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/

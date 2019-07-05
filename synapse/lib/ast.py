@@ -1114,9 +1114,9 @@ class PropPivotOut(PivotOper):
 
     async def run(self, runt, genr):
 
-        name = self.kids[0].value()
         warned = False
         async for node, path in genr:
+            name = await self.kids[0].compute(path)
 
             prop = node.form.props.get(name)
             if prop is None:
@@ -1451,9 +1451,21 @@ class HasRelPropCond(Cond):
 
     async def getCondEval(self, runt):
 
-        name = self.kids[0].value()
+        relprop = self.kids[0]
+        assert isinstance(relprop, RelProp)
+
+        if relprop.isconst:
+            name = relprop.value()
+
+            async def cond(node, path):
+                return node.has(name)
+
+            return cond
+
+        # relprop name itself is variable, so dynamically compute
 
         async def cond(node, path):
+            name = await relprop.compute(path)
             return node.has(name)
 
         return cond
@@ -1622,6 +1634,9 @@ class RunValue(CompValue):
     A computed value that requires a runtime.
     '''
 
+    def value(self):
+        raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.value()')
+
     async def runtval(self, runt):
         return self.value()
 
@@ -1649,9 +1664,6 @@ class Value(RunValue):
     def __repr__(self):
         return self.repr()
 
-    async def runtval(self, runt):
-        return self.value()
-
     async def compute(self, path):
         return self.value()
 
@@ -1660,23 +1672,21 @@ class Value(RunValue):
 
 class PropValue(CompValue):
 
-    def prepare(self):
-        self.name = self.kids[0].value()
-        self.ispiv = self.name.find('::') != -1
-
     async def getPropAndValu(self, path):
+        name = await self.kids[0].compute(path)
 
-        if not self.ispiv:
+        ispiv = name.find('::') != -1
+        if not ispiv:
 
-            prop = path.node.form.props.get(self.name)
+            prop = path.node.form.props.get(name)
             if prop is None:
-                raise s_exc.NoSuchProp(name=self.name)
+                raise s_exc.NoSuchProp(name=name)
 
-            valu = path.node.get(self.name)
+            valu = path.node.get(name)
             return prop, valu
 
         # handle implicit pivot properties
-        names = self.name.split('::')
+        names = name.split('::')
 
         node = path.node
 
@@ -1706,8 +1716,11 @@ class PropValue(CompValue):
         prop, valu = await self.getPropAndValu(path)
         return valu
 
-class RelPropValue(PropValue): pass
-class UnivPropValue(PropValue): pass
+class RelPropValue(PropValue):
+    pass
+
+class UnivPropValue(PropValue):
+    pass
 
 class TagPropValue(CompValue):
 
@@ -1723,8 +1736,11 @@ class CallArgs(RunValue):
     async def runtval(self, runt):
         return [await k.runtval(runt) for k in self.kids]
 
-class CallKwarg(CallArgs): pass
-class CallKwargs(CallArgs): pass
+class CallKwarg(CallArgs):
+    pass
+
+class CallKwargs(CallArgs):
+    pass
 
 class VarValue(RunValue, Cond):
 
@@ -1805,7 +1821,6 @@ class DollarExpr(RunValue, Cond):
             return await self.compute(path)
 
         return cond
-
 
 _ExprFuncMap = {
     '*': lambda x, y: x * y,
@@ -1912,19 +1927,41 @@ class List(Value):
     def value(self):
         return [k.value() for k in self.kids]
 
-class RelProp(Value):
-    def __init__(self, kids=()):
-        assert len(kids) == 1
-        valu = kids[0].value()
-        assert valu[0] == ':'
-        Value.__init__(self, valu[1:])
+class RelProp(RunValue):
 
-class UnivProp(Value):
     def __init__(self, kids=()):
+        RunValue.__init__(self, kids=kids)
         assert len(kids) == 1
-        valu = kids[0].value()
-        assert valu[0] == '.'
-        Value.__init__(self, valu)
+        kid = kids[0]
+
+        if isinstance(kid, Const):
+            self.isconst = True
+            valu = kid.value()
+            self.valu = valu[1:]
+            return
+
+        assert isinstance(kid, VarValue)
+        self.isconst = False
+        self.valu = s_common.novalu
+
+    def value(self):
+        assert self.isconst
+        return self.valu
+
+    async def runtval(self, runt):
+        if self.isconst:
+            return self.value()
+        return await self.kids[0].runtval(runt)
+
+class UnivProp(RelProp):
+    async def runtval(self, runt):
+        if self.isconst:
+            return self.value()
+        return '.' + await self.kids[0].runtval(runt)
+
+    def value(self):
+        assert self.isconst
+        return '.' + self.valu
 
 class AbsProp(Value):
     pass
@@ -1999,12 +2036,11 @@ class EditPropSet(Edit):
 
     async def run(self, runt, genr):
 
-        name = self.kids[0].value()
         oper = self.kids[1].value()
         excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
 
         async for node, path in genr:
-
+            name = await self.kids[0].compute(path)
             valu = await self.kids[2].compute(path)
 
             prop = node.form.props.get(name)
@@ -2024,9 +2060,8 @@ class EditPropDel(Edit):
 
     async def run(self, runt, genr):
 
-        name = self.kids[0].value()
-
         async for node, path in genr:
+            name = await self.kids[0].compute(path)
 
             prop = node.form.props.get(name)
             if prop is None:
@@ -2042,13 +2077,22 @@ class EditUnivDel(Edit):
 
     async def run(self, runt, genr):
 
-        name = self.kids[0].value()
+        univprop = self.kids[0]
+        assert isinstance(univprop, UnivProp)
+        if univprop.isconst:
+            name = self.kids[0].value()
 
-        univ = runt.snap.model.props.get(name)
-        if univ is None:
-            raise s_exc.NoSuchProp(name=name)
+            univ = runt.snap.model.props.get(name)
+            if univ is None:
+                raise s_exc.NoSuchProp(name=name)
 
         async for node, path in genr:
+            if not univprop.isconst:
+                name = await univprop.compute(path)
+
+                univ = runt.snap.model.props.get(name)
+                if univ is None:
+                    raise s_exc.NoSuchProp(name=name)
 
             runt.allowed('prop:del', name)
 
