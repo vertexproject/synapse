@@ -1,6 +1,15 @@
 *****************
 Synapse Changelog
 *****************
+v0.1.16 - XXXX
+====================
+
+Features and Enhancements
+-------------------------
+- Storm: allow relative and universal properties to be specified from a variable. `#1305 <https://github.com/vertexproject/synapse/pull/1305>`_)
+
+Bugfixes
+--------
 
 v0.1.15 - 07-01-2019
 ====================
