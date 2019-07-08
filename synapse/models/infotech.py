@@ -919,7 +919,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:app:snort:hit', {}, (
                     ('rule', ('it:app:snort:rule', {}), {
-                        'doc': 'The yara rule that matched the file.'}),
+                        'doc': 'The snort rule that matched the file.'}),
                     ('flow', ('inet:flow', {}), {
                         'doc': 'The inet:flow that matched the snort rule.'}),
                     ('src', ('inet:addr', {}), {

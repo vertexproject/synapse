@@ -368,6 +368,7 @@ class StormCmd(s_cli.Cmd):
         nodesfd = None
         if opts.get('save-nodes'):
             nodesfd = s_common.genfile(opts.get('save-nodes'))
+            nodesfd.truncate(0)
 
         try:
 

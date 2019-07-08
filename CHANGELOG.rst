@@ -2,6 +2,16 @@
 Synapse Changelog
 *****************
 
+v0.1.16 - XXXX
+====================
+
+Features and Enhancements
+-------------------------
+
+Bugfixes
+--------
+- Fix uses of s_common genfile where opened files weren't being truncated, or in one case, appended to.  (#1304 `https://github.com/vertexproject/synapse/pull/1304`)
+
 v0.1.15 - 07-01-2019
 ====================
 
