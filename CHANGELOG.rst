@@ -2,6 +2,14 @@
 Synapse Changelog
 *****************
 
+
+- Implement yield keyword.  The keyword "yield" before a subquery causes the output nodes of the subquery to be
+  merged into the output stream. (`#1307 <https://github.com/vertexproject/synapse/pull/1307>`_)
+
+Bugfixes
+--------
+- Fix that non-runtsafe loops didn't yield nodes.  They now do.  (`#1307 <https://github.com/vertexproject/synapse/pull/1307>`_)
+
 v0.1.15 - 07-01-2019
 ====================
 
