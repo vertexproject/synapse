@@ -188,7 +188,7 @@ def makeargparser():
     muxp.add_argument('--test', '-t', default=False, action='store_true',
                       help='Perform a local CSV ingest against a temporary cortex.')
     pars.add_argument('--export', default=False, action='store_true',
-                      help='Export CSV data to file from storm using $lib.fire(csv:row, data=()) events.')
+                      help='Export CSV data to file from storm using $lib.csv.emit(...) events.')
     pars.add_argument('stormfile', help='A STORM script describing how to create nodes from rows.')
     pars.add_argument('csvfiles', nargs='+', help='CSV files to load.')
     return pars
