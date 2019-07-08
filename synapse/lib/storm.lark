@@ -49,8 +49,8 @@ vareval: _varvalu
 // A variable assignment
 valuvar: _varname _WS? "=" _WS? _valu
 
-forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _varvalu _WS? subquery
-whileloop: "while" _WS _valu _WS? subquery
+forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _varvalu _WS? baresubquery
+whileloop: "while" _WS _valu _WS? baresubquery
 subquery: [YIELD _WS?] baresubquery
 baresubquery: "{" query "}"
 YIELD: "yield"
