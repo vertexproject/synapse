@@ -873,6 +873,7 @@ class CertDir:
         Save a certificate in PEM format to a file outside the certdir.
         '''
         with s_common.genfile(path) as fd:
+            fd.truncate(0)
             fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
 
     def savePkeyPem(self, pkey, path):
@@ -880,6 +881,7 @@ class CertDir:
         Save a private key in PEM format to a file outside the certdir.
         '''
         with s_common.genfile(path) as fd:
+            fd.truncate(0)
             fd.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
 
     def _checkDupFile(self, path):
@@ -922,6 +924,7 @@ class CertDir:
         self._checkDupFile(csrpath)
 
         with s_common.genfile(csrpath) as fd:
+            fd.truncate(0)
             fd.write(crypto.dump_certificate_request(crypto.FILETYPE_PEM, xcsr))
 
         if outp is not None:
@@ -969,6 +972,7 @@ class CertDir:
         self._checkDupFile(path)
 
         with s_common.genfile(path) as fd:
+            fd.truncate(0)
             fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
 
         return path
@@ -978,6 +982,7 @@ class CertDir:
         self._checkDupFile(path)
 
         with s_common.genfile(path) as fd:
+            fd.truncate(0)
             fd.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
 
         return path
@@ -987,6 +992,7 @@ class CertDir:
         self._checkDupFile(path)
 
         with s_common.genfile(path) as fd:
+            fd.truncate(0)
             fd.write(cert.export())
 
         return path

@@ -204,6 +204,11 @@ def genfile(*paths):
         If the file already exists, the fd returned is opened in ``r+b`` mode.
         Otherwise, the fd is opened in ``w+b`` mode.
 
+        The file position is set to the start of the file.  The user is
+        responsible for truncating (``fd.truncate()``) if the existing file
+        contents are not desired, or seeking to the end (``fd.seek(0, 2)``)
+        to append.
+
     Returns:
         io.BufferedRandom: A file-object which can be read/written too.
     '''
