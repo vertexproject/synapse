@@ -281,7 +281,10 @@ class StormCmd(s_cli.Cmd):
                     self.printf(f'        #{tag}')
 
     def _onInit(self, mesg):
-        pass
+        tick = mesg[1].get('tick')
+        if tick is not None:
+            tick = s_time.repr(tick)
+            self.printf(f'Executing query at {tick}')
 
     def _onFini(self, mesg):
         took = mesg[1].get('took')
@@ -363,7 +366,7 @@ class StormCmd(s_cli.Cmd):
         if showtext is not None:
             stormopts['show'] = showtext.split(',')
 
-        self.printf('')
+        # self.printf('')
 
         nodesfd = None
         if opts.get('save-nodes'):
