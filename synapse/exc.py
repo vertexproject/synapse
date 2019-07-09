@@ -34,6 +34,11 @@ class AuthDeny(SynErr): pass
 
 class BadCmdName(SynErr): pass
 class BadCmprValu(SynErr): pass
+class BadCmprType(SynErr):
+    '''
+    Attempt to compare two incomparable values
+    '''
+
 class BadConfValu(SynErr):
     '''
     The configuration value provided is not valid.

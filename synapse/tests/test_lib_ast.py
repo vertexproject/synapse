@@ -58,3 +58,18 @@ class AstTest(s_test.SynTest):
             msgs = await core.streamstorm(q).list()
             self.stormIsInPrint('sol', msgs)
             self.stormIsInPrint('mars', msgs)
+
+    async def test_ast_runtsafe_bug(self):
+        '''
+        A regression test where the runtsafety of $newvar was incorrect
+        '''
+        async with self.getTestCore() as core:
+            q = '''
+            [test:str=another]
+            $s = $lib.text("Foo")
+            $newvar=:hehe -.created
+            $s.add("yar {x}", x=$newvar)
+            $lib.print($s.str())'''
+            mesgs = await core.streamstorm(q).list()
+            prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
+            self.eq(['Foo'], prints)
