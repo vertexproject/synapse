@@ -366,8 +366,6 @@ class StormCmd(s_cli.Cmd):
         if showtext is not None:
             stormopts['show'] = showtext.split(',')
 
-        # self.printf('')
-
         nodesfd = None
         if opts.get('save-nodes'):
             nodesfd = s_common.genfile(opts.get('save-nodes'))
