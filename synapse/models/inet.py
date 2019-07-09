@@ -210,8 +210,11 @@ class Fqdn(s_types.Type):
 
     def _ctorCmprEq(self, text):
         if text == '':
-            raise s_exc.BadCmprValu(valu=text, name=self.name, cmpr='=',
-                                    mesg='Cannot generate fqdn comparator for a empty string')
+            # Asking if a +inet:fqdn='' is a odd filter, but
+            # the intuitive answer for that filter is to return False
+            def cmpr(valu):
+                return False
+            return cmpr
 
         if text[0] == '*':
             cval = text[1:]
@@ -538,6 +541,21 @@ class Url(s_types.StrBase):
     def postTypeInit(self):
         s_types.StrBase.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
+
+    def _ctorCmprEq(self, text):
+        if text == '':
+            # Asking if a +inet:url='' is a odd filter, but
+            # the intuitive answer for that filter is to return False
+            def cmpr(valu):
+                return False
+            return cmpr
+
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return norm == valu
+
+        return cmpr
 
     def _normPyStr(self, valu):
         orig = valu

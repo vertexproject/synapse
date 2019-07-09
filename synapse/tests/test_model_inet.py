@@ -426,7 +426,8 @@ class InetModelTest(s_t_utils.SynTest):
 
             # Cannot filter on a empty string
             q = 'inet:fqdn="*.link" +inet:fqdn=""'
-            await self.asyncraises(s_exc.BadCmprValu, core.nodes(q))
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
 
     async def test_fqdn_suffix(self):
         # Demonstrate FQDN suffix/zone behavior
@@ -987,6 +988,16 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('fqdn'), 'vertex.link')
                 self.eq(node.get('path'), '')
+
+            # equality comparator behavior
+            valu = 'https://vertex.link?a=1'
+            q = f'inet:url +inet:url="{valu}"'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'inet:url +inet:url=""'
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
 
     async def test_url_fqdn(self):
 
