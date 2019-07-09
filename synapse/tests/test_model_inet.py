@@ -414,9 +414,20 @@ class InetModelTest(s_t_utils.SynTest):
             # Demonstrate wildcard
             async with await core.snap() as snap:
                 await self.agenlen(3, snap.getNodesBy(formname, '*'))
+                await self.agenlen(3, snap.getNodesBy(formname, '*link'))
                 await self.agenlen(2, snap.getNodesBy(formname, '*.link'))
                 await self.agenlen(1, snap.getNodesBy(formname, '*.vertex.link'))
                 await self.agenraises(s_exc.BadLiftValu, snap.getNodesBy(formname, 'api.*.link'))
+
+            q = 'inet:fqdn="*.link" +inet:fqdn="*vertex.link"'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq({'vertex.link', 'api.vertex.link'}, {n.ndef[1] for n in nodes})
+
+            # Cannot filter on a empty string
+            q = 'inet:fqdn="*.link" +inet:fqdn=""'
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
 
     async def test_fqdn_suffix(self):
         # Demonstrate FQDN suffix/zone behavior
@@ -977,6 +988,16 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('fqdn'), 'vertex.link')
                 self.eq(node.get('path'), '')
+
+            # equality comparator behavior
+            valu = 'https://vertex.link?a=1'
+            q = f'inet:url +inet:url="{valu}"'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'inet:url +inet:url=""'
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
 
     async def test_url_fqdn(self):
 

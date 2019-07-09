@@ -58,6 +58,15 @@ class Node(s_base.Base):
         return await self.hive.add(self.full, valu)
 
     async def open(self, path):
+        '''
+        Open a child Node of the this Node.
+
+        Args:
+            path (tuple): A child path of the current node.
+
+        Returns:
+            Node: A Node at the child path.
+        '''
         full = self.full + path
         return await self.hive.open(full)
 
@@ -66,6 +75,12 @@ class Node(s_base.Base):
         return await self.hive.pop(full)
 
     async def dict(self):
+        '''
+        Get a HiveDict for this Node.
+
+        Returns:
+            HiveDict: A HiveDict for this Node.
+        '''
         return await HiveDict.anit(self.hive, self)
 
     def __iter__(self):
