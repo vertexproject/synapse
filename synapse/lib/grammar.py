@@ -77,10 +77,12 @@ terminalClassMap = {
     'BREAK': lambda _: s_ast.BreakOper(),
     'CONTINUE': lambda _: s_ast.ContinueOper(),
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
+    'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'RELPROP': lambda x: s_ast.RelProp(x[1:]),  # drop leading :
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': s_ast.TagMatch,
     'UNIVPROP': s_ast.UnivProp,
+    'VARTOKN': lambda x: s_ast.Const(x[1:-1] if len(x) and x[0] in ("'", '"') else x)
 }
 
 terminalEnglishMap = {
@@ -226,12 +228,12 @@ class AstConverter(lark.Transformer):
     def tagname(self, kids):
         assert kids and len(kids) == 1
         kid = kids[0]
-        if kid.type == 'TAG':
+
+        if isinstance(kid, lark.lexer.Token):
+            assert kid.type == 'TAG'
             return s_ast.TagName(kid.value)
 
-        assert kid.type == 'VARTOKN'
-        kids = self._convert_children(kids)
-        return s_ast.VarValue(kids)
+        return self._convert_child(kid)
 
     def valulist(self, kids):
         kids = self._convert_children(kids)
