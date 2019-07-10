@@ -12,6 +12,7 @@ Features and Enhancements
   merged into the output stream. (`#1307 <https://github.com/vertexproject/synapse/pull/1307>`_)
 - Allow parentheses in editblocks. Edit operations in parentheses don't receive incoming nodes from left of the
 parentheses.  (`#1303 <https://github.com/vertexproject/synapse/pull/1303>`_)
+- Storm: allow relative and universal properties to be specified from a variable. `#1305 <https://github.com/vertexproject/synapse/pull/1305>`_)
 
 Bugfixes
 --------

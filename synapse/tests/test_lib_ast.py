@@ -76,6 +76,66 @@ class AstTest(s_test.SynTest):
             prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
             self.eq(['Foo'], prints)
 
+    async def test_ast_variable_props(self):
+        async with self.getTestCore() as core:
+            # editpropset
+            q = '$var=hehe [test:str=foo :$var=heval]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('heval', nodes[0].get('hehe'))
+
+            # filter
+            q = '[test:str=heval] test:str $var=hehe +:$var'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('heval', nodes[0].get('hehe'))
+
+            # prop del
+            q = '[test:str=foo :tick=2019] $var=tick [-:$var]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.none(nodes[0].get('tick'))
+
+            # pivot
+            q = 'test:str=foo $var=hehe :$var -> test:str'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('heval', nodes[0].ndef[1])
+
+            q = '[test:pivcomp=(xxx,foo)] $var=lulz :$var -> *'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('foo', nodes[0].ndef[1])
+
+            # univ set
+            q = 'test:str=foo $var=seen [.$var=2019]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.nn(nodes[0].get('.seen'))
+
+            # univ filter (no var)
+            q = 'test:str -.created'
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
+
+            # univ filter (var)
+            q = 'test:str $var="seen" +.$var'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.nn(nodes[0].get('.seen'))
+
+            # univ delete
+            q = 'test:str=foo $var="seen" [ -.$var ] | spin | test:str=foo'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.none(nodes[0].get('.seen'))
+
+            # Sad paths
+            q = '[test:str=newp -.newp]'
+            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+            q = '$newp=newp [test:str=newp -.$newp]'
+            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+
     async def test_ast_editparens(self):
         async with self.getTestCore() as core:
             q = '[(test:str=foo)]'

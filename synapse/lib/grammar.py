@@ -57,6 +57,7 @@ ruleClassMap = {
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
     'query': s_ast.Query,
+    'relprop': s_ast.RelProp,
     'relpropcond': s_ast.RelPropCond,
     'relpropvalu': s_ast.RelPropValue,
     'relpropvalue': s_ast.RelPropValue,
@@ -68,6 +69,7 @@ ruleClassMap = {
     'varderef': s_ast.VarDeref,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
+    'univprop': s_ast.UnivProp
 }
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
@@ -79,10 +81,8 @@ terminalClassMap = {
     'CONTINUE': lambda _: s_ast.ContinueOper(),
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
-    'RELPROP': lambda x: s_ast.RelProp(x[1:]),  # drop leading :
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': s_ast.TagMatch,
-    'UNIVPROP': s_ast.UnivProp,
     'VARTOKN': lambda x: s_ast.Const(x[1:-1] if len(x) and x[0] in ("'", '"') else x)
 }
 
@@ -127,7 +127,7 @@ terminalEnglishMap = {
     'PROPNAME': 'property name',
     'PROPS': 'absolute property name',
     'RBRACE': ']',
-    'RELPROP': 'relative property',
+    'RELNAME': 'relative property',
     'RPAR': ')',
     'RSQB': '}',
     'SETOPER': '= or ?=',
@@ -136,7 +136,6 @@ terminalEnglishMap = {
     'TAG': 'plain tag name',
     'TAGMATCH': 'tag name with asterisks',
     'UNIVNAME': 'universal property',
-    'UNIVPROP': 'universal property',
     'VARTOKN': 'variable',
     'VBAR': '|',
     'WHILE': 'while',
