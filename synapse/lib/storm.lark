@@ -49,16 +49,18 @@ vareval: _varvalu
 // A variable assignment
 valuvar: _varname _WS? "=" _WS? _valu
 
-forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _varvalu _WS? subquery
-whileloop: "while" _WS _valu _WS? subquery
-subquery: "{" query "}"
-switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (casevalu _WSCOMM? subquery)) )* _WSCOMM? "}"
+forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _varvalu _WS? baresubquery
+whileloop: "while" _WS _valu _WS? baresubquery
+subquery: [YIELD _WS?] baresubquery
+baresubquery: "{" query "}"
+YIELD: "yield"
+switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" baresubquery) | (casevalu _WSCOMM? baresubquery)) )* _WSCOMM? "}"
 casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | CASEVALU
 CASEVALU: /[^:\s][^:]*:/
 
-ifstmt: "if" ifclause (_WSCOMM? "elif" ifclause)* [_WSCOMM? "else" _WSCOMM? subquery]
+ifstmt: "if" ifclause (_WSCOMM? "elif" ifclause)* [_WSCOMM? "else" _WSCOMM? baresubquery]
 // The stuff inside an if or elif
-ifclause: _WS _valu _WSCOMM? subquery
+ifclause: _WS _valu _WSCOMM? baresubquery
 
 // A bare variable list
 varlist: "(" [_WS? _varname (_WS? "," _WS? _varname)*] _WS? ["," _WS?] ")"
@@ -102,7 +104,7 @@ tagname: "#" _WS? (_varvalu | TAG)
 
 stormcmd: CMDNAME [_WS stormcmdargs]
 stormcmdargs: _WS? _cmdargv (_WS _cmdargv)*
-_cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
+_cmdargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
 // An unquoted string that's a command argument
 NONCMDQUOTE: /(?!['\"])[^\s|}]+/
 
