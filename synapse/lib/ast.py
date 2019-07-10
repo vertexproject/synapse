@@ -464,8 +464,6 @@ class WhileLoop(Oper):
                     newg = agen((node, path))
                     async for item in subq.inline(runt, newg):
                         yield item
-                    else:
-                        await s_common.aspin(subq.inline(runt, newg))
 
                 except StormBreak as e:
                     if e.item is not None:
