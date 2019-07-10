@@ -94,3 +94,16 @@ class AstTest(s_test.SynTest):
             # Test for nonsensicalness
             q = 'test:str=foo [(test:str=:hehe)]'
             await self.asyncraises(s_exc.BadSyntax, core.nodes(q))
+
+    async def test_subquery_yield(self):
+        async with self.getTestCore() as core:
+            q = '[test:comp=(10,bar)] { -> test:int}'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('test:comp', nodes[0].ndef[0])
+
+            q = '[test:comp=(10,bar)] yield { -> test:int}'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            kinds = [nodes[0].ndef[0], nodes[1].ndef[0]]
+            self.sorteq(kinds, ['test:comp', 'test:int'])

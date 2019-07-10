@@ -2544,7 +2544,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             async for node in core.eval('for $fqdn in $fqdns { [ inet:fqdn=$fqdn ] }', opts=opts):
                 vals.append(node.ndef[1])
 
-            self.eq(('bar.com', 'foo.com'), sorted(vals))
+            self.sorteq(('bar.com', 'foo.com'), vals)
 
             opts = {'vars': {'dnsa': (('foo.com', '1.2.3.4'), ('bar.com', '5.6.7.8'))}}
 
@@ -2564,13 +2564,24 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.eval('inet:ipv4=1.2.3.4 for $tag in $node.tags() { [ +#hoho ] { [inet:ipv4=5.5.5.5 +#$tag] } continue [ +#visi ] }').list()  # noqa: E501
             self.len(1, await core.eval('inet:ipv4=5.5.5.5 +#hehe +#haha -#visi').list())
 
-            await core.eval('inet:ipv4=1.2.3.4 for $tag in $node.tags() { [ +#hoho ] { [inet:ipv4=6.6.6.6 +#$tag] } break [ +#visi ]}').list()  # noqa: E501
-            self.len(1, await core.eval('inet:ipv4=6.6.6.6 +(#hehe or #haha) -(#hehe and #haha) -#visi').list())
+            q = 'inet:ipv4=1.2.3.4 for $tag in $node.tags() { [ +#hoho ] { [inet:ipv4=6.6.6.6 +#$tag] } break [ +#visi ]}'  # noqa: E501
+            self.len(1, await core.nodes(q))
+            q = 'inet:ipv4=6.6.6.6 +(#hehe or #haha) -(#hehe and #haha) -#visi'
+            self.len(1, await core.nodes(q))
+
+            q = 'inet:ipv4=1.2.3.4 for $tag in $node.tags() { [test:str=$tag] }'  # noqa: E501
+            nodes = await core.nodes(q)
+            self.eq([n.ndef[0] for n in nodes], [*['inet:ipv4', 'test:str'] * 3])
 
     async def test_storm_whileloop(self):
 
         async with self.getTestCore() as core:
-            q = '$x = 0 while $($x < 10) { $x=$($x+1) [test:int=$x] }'
+            q = '$x = 0 while $($x < 10) { $x=$($x+1) [test:int=$x]}'
+            nodes = await core.nodes(q)
+            self.len(10, nodes)
+
+            # It should work the same with a continue at the end
+            q = '$x = 0 while $($x < 10) { $x=$($x+1) [test:int=$x] continue}'
             nodes = await core.nodes(q)
             self.len(10, nodes)
 
@@ -2587,10 +2598,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             prints = [m[1].get('mesg') for m in msgs if m[0] == 'print']
             self.eq(['3', '4', '3'], prints)
 
+            # Non runtsafe yield test
+            q = 'test:int=4 while $node.value() { [test:str=$node.value()] break}'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
             q = '$x = 10 while 1 { $x=$($x-2) if $($x=$(4)) {continue} [test:int=$x]  if $($x<=0) {break} }'
             nodes = await core.nodes(q)
-            self.len(3, nodes)
-            self.eq([8, 6, 2], [n.ndef[1] for n in nodes])
+            self.eq([8, 6, 2, 0], [n.ndef[1] for n in nodes])
 
     async def test_storm_varmeth(self):
 

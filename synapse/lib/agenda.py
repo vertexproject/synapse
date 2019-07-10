@@ -608,7 +608,10 @@ class Agenda(s_base.Base):
             logger.warning('Unknown user %s in stored appointment', appt.useriden)
             await self._markfailed(appt)
             return
-        await self.core.boss.execute(self._runJob(user, appt), f'Agenda {appt.iden}', user)
+        await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user,
+                                     info={'iden': appt.iden,
+                                           'query': appt.query,
+                                           })
 
     async def _markfailed(self, appt):
         appt.lastfinishtime = appt.laststarttime = time.time()

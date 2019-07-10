@@ -14,6 +14,21 @@ Bugfixes
 
 *****************
 
+=======
+v0.1.16 - XXXX
+====================
+
+Features and Enhancements
+-------------------------
+- Implement yield keyword.  The keyword "yield" before a subquery causes the output nodes of the subquery to be
+  merged into the output stream. (`#1307 <https://github.com/vertexproject/synapse/pull/1307>`_)
+
+Bugfixes
+--------
+- Fix uses of s_common genfile where opened files weren't being truncated, or in one case, appended to.  (#1304 `https://github.com/vertexproject/synapse/pull/1304`)
+- Fix that non-runtsafe loops didn't yield nodes.  They now do.  (`#1307 <https://github.com/vertexproject/synapse/pull/1307>`_)
+- Fix that non-runtsafe loops that ran 0 times yielded the inbound node.  They now yield no nodes.  (`#1307 <https://github.com/vertexproject/synapse/pull/1307>`_)
+
 v0.1.15 - 07-01-2019
 ====================
 

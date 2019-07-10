@@ -334,6 +334,10 @@ class Oper(AstNode):
 
 class SubQuery(Oper):
 
+    def __init__(self, kids=()):
+        Oper.__init__(self, kids)
+        self.hasyield = False
+
     async def run(self, runt, genr):
 
         subq = self.kids[0]
@@ -341,8 +345,10 @@ class SubQuery(Oper):
         async for item in genr:
 
             subp = None
+
             async for subp in subq.run(runt, agen(item)):
-                pass  # pragma: no cover
+                if self.hasyield:
+                    yield subp
 
             # dup any path variables from the last yielded
             if subp is not None:
@@ -401,15 +407,18 @@ class ForLoop(Oper):
                 try:
 
                     newg = agen((node, path))
-                    await s_common.aspin(subq.inline(runt, newg))
+                    async for item in subq.inline(runt, newg):
+                        yield item
 
-                except StormBreak:
+                except StormBreak as e:
+                    if e.item is not None:
+                        yield e.item
                     break
 
-                except StormContinue:
+                except StormContinue as e:
+                    if e.item is not None:
+                        yield e.item
                     continue
-
-            yield node, path
 
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[1].isRuntSafe(runt):
@@ -431,10 +440,14 @@ class ForLoop(Oper):
                     async for jtem in subq.inline(runt, agen()):
                         yield jtem
 
-                except StormBreak:
+                except StormBreak as e:
+                    if e.item is not None:
+                        yield e.item
                     break
 
-                except StormContinue:
+                except StormContinue as e:
+                    if e.item is not None:
+                        yield e.item
                     continue
 
 class WhileLoop(Oper):
@@ -449,15 +462,18 @@ class WhileLoop(Oper):
                 try:
 
                     newg = agen((node, path))
-                    await s_common.aspin(subq.inline(runt, newg))
+                    async for item in subq.inline(runt, newg):
+                        yield item
 
-                except StormBreak:
+                except StormBreak as e:
+                    if e.item is not None:
+                        yield e.item
                     break
 
-                except StormContinue:
+                except StormContinue as e:
+                    if e.item is not None:
+                        yield e.item
                     continue
-
-            yield node, path
 
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[0].isRuntSafe(runt):
@@ -468,10 +484,14 @@ class WhileLoop(Oper):
                     async for jtem in subq.inline(runt, agen()):
                         yield jtem
 
-                except StormBreak:
+                except StormBreak as e:
+                    if e.item is not None:
+                        yield e.item
                     break
 
-                except StormContinue:
+                except StormContinue as e:
+                    if e.item is not None:
+                        yield e.item
                     continue
 
                 await asyncio.sleep(0)  # give other tasks some CPU

@@ -114,6 +114,10 @@ class Axon(s_cell.Cell):
 
         await s_cell.Cell.__anit__(self, dirn)
 
+        # share ourself via the cell dmon as "axon"
+        # for potential default remote use
+        self.dmon.share('axon', self)
+
         path = s_common.gendir(self.dirn, 'axon.lmdb')
         self.axonslab = await s_lmdbslab.Slab.anit(path)
         self.sizes = self.axonslab.initdb('sizes')

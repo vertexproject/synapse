@@ -1,5 +1,6 @@
 import json
 import asyncio
+import gzip
 
 import aiohttp
 
