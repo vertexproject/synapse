@@ -143,8 +143,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:prop', 'test:comp.created'), node.ndef)
-            self.nn(node.get('univ'))
-            self.false(node.get('univ'))
+            self.true(node.get('univ'))
 
             nodes = await core.eval('syn:prop:univ=1').list()
             self.ge(len(nodes), 2)

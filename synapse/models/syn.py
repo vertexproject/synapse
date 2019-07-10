@@ -242,6 +242,7 @@ class SynModule(s_module.CoreModule):
                 props['form'] = fnorm
                 props['base'] = base
                 props['relname'] = relname
+                univ = pobj.storinfo.get('univ', False)
 
             univ, _ = self.model.prop('syn:prop:univ').type.norm(univ)
             props['univ'] = univ
