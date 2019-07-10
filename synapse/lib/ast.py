@@ -1654,7 +1654,7 @@ class RunValue(CompValue):
     A computed value that requires a runtime.
     '''
 
-    def value(self):
+    def value(self):  # pragma: no cover
         raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.value()')
 
     async def runtval(self, runt):

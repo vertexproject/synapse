@@ -130,6 +130,12 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.none(nodes[0].get('.seen'))
 
+            # Sad paths
+            q = '[test:str=newp -.newp]'
+            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+            q = '$newp=newp [test:str=newp -.$newp]'
+            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+
     async def test_ast_editparens(self):
         async with self.getTestCore() as core:
             q = '[(test:str=foo)]'
