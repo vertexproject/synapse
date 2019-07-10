@@ -1,4 +1,3 @@
-
 import synapse.tests.utils as s_test
 
 class StormHttpTest(s_test.SynTest):

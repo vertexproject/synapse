@@ -23,16 +23,19 @@ _querystartedit: _editopers _morenons?
 _morenons: ( _WSCOMM? "|" _WSCOMM? | _WSCOMM) (_querystartcommand | _querystartnon)
     | ( _WSCOMM? "|" _WSCOMM? | _WSCOMM?) _querystartedit
 
-// Zero or more edit operations inside a single set of square brackets
-_editopers: "[" _WS? (_editoper _WS?)* "]"
+// Edit block: zero or more edit operations inside a single set of square brackets
+_editopers: "[" _WS? ((_editoper | editparens) _WS?)* "]"
 ///A single edit operation
 _editoper: editpropset | editunivset | edittagadd | editpropdel | editunivdel | edittagdel | editnodeadd
+
+///Parenthesis in an edit block don't have incoming nodes
+editparens: "(" _WS? editnodeadd _WS? (_editoper _WS?)* ")"
 edittagadd: "+" tagname [_WS? "=" _WS? _valu]
-editunivdel: "-" UNIVPROP
+editunivdel: "-" univprop
 edittagdel: "-" tagname
-editpropset: RELPROP _WS? SETOPER _WS? _valu
-editpropdel: "-" RELPROP
-editunivset: UNIVPROP _WS? SETOPER _WS? _valu
+editpropset: relprop _WS? SETOPER _WS? _valu
+editpropdel: "-" relprop
+editunivset: univprop _WS? SETOPER _WS? _valu
 editnodeadd: ABSPROPNOUNIV _WS? SETOPER _WS? _valu
 SETOPER: "=" | "?="
 
@@ -49,16 +52,18 @@ vareval: _varvalu
 // A variable assignment
 valuvar: _varname _WS? "=" _WS? _valu
 
-forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _varvalu _WS? subquery
-whileloop: "while" _WS _valu _WS? subquery
-subquery: "{" query "}"
-switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" subquery) | (casevalu _WSCOMM? subquery)) )* _WSCOMM? "}"
+forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _varvalu _WS? baresubquery
+whileloop: "while" _WS _valu _WS? baresubquery
+subquery: [YIELD _WS?] baresubquery
+baresubquery: "{" query "}"
+YIELD: "yield"
+switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" baresubquery) | (casevalu _WSCOMM? baresubquery)) )* _WSCOMM? "}"
 casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | CASEVALU
 CASEVALU: /[^:\s][^:]*:/
 
-ifstmt: "if" ifclause (_WSCOMM? "elif" ifclause)* [_WSCOMM? "else" _WSCOMM? subquery]
+ifstmt: "if" ifclause (_WSCOMM? "elif" ifclause)* [_WSCOMM? "else" _WSCOMM? baresubquery]
 // The stuff inside an if or elif
-ifclause: _WS _valu _WSCOMM? subquery
+ifclause: _WS _valu _WSCOMM? baresubquery
 
 // A bare variable list
 varlist: "(" [_WS? _varname (_WS? "," _WS? _varname)*] _WS? ["," _WS?] ")"
@@ -84,8 +89,8 @@ formpivotin.2: _LEFTPIVOT _WS? "*" -> formpivotin_
 formjoinin.2: _LEFTJOIN _WS? "*" -> formjoinin_pivotin
           | _LEFTJOIN _WS? ABSPROP -> formjoinin_pivotinfrom
 
-operrelprop: RELPROP _WS? _RIGHTPIVOT _WS? ("*" | ABSPROP) -> operrelprop_pivot
-           | RELPROP _WS? _RIGHTJOIN _WS? ABSPROP -> operrelprop_join
+operrelprop: relprop _WS? _RIGHTPIVOT _WS? ("*" | ABSPROP) -> operrelprop_pivot
+           | relprop _WS? _RIGHTJOIN _WS? ABSPROP -> operrelprop_join
 
 _RIGHTJOIN:  "-+>"
 _LEFTJOIN:   "<+-"
@@ -102,7 +107,7 @@ tagname: "#" _WS? (_varvalu | TAG)
 
 stormcmd: CMDNAME [_WS stormcmdargs]
 stormcmdargs: _WS? _cmdargv (_WS _cmdargv)*
-_cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
+_cmdargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
 // An unquoted string that's a command argument
 NONCMDQUOTE: /(?!['\"])[^\s|}]+/
 
@@ -121,8 +126,8 @@ _valu: NONQUOTEWORD | valulist | _varvalu | relpropvalu | univpropvalu | tagprop
     | SINGLEQUOTEDSTRING | dollarexpr
 valulist: "(" [_WS? _valu (_WS? "," _WS? _valu)*] _WS? ["," _WS?] ")"
 tagpropvalue: tagname
-relpropvalu: RELPROP
-univpropvalu: UNIVPROP
+relpropvalu: relprop
+univpropvalu: univprop
 
 // An unquoted storm string constant.  Must start with a word char, ?, or - and not contain certain punctutation
 NONQUOTEWORD: /[\w\-?][^ \t\n),=\]}|]*/
@@ -153,9 +158,9 @@ _cond: notcond | "(" _WS? _condexpr _WS? ")"
 
 notcond: "not" _WS? _cond
 
-hasrelpropcond: RELPROP | UNIVPROP
+hasrelpropcond: relprop | univprop
 relpropcond.1: relpropvalue _WS? CMPR _WS? _valu
-relpropvalue:   RELPROP | UNIVPROP
+relpropvalue:   relprop | univprop
 
 abspropcond.1:  ABSPROPNOUNIV _WS? CMPR _WS? _valu
 hasabspropcond: ABSPROPNOUNIV
@@ -187,13 +192,16 @@ CPPCOMMENT: /\/\/[^\n]*/
 PROPS: /[a-z][a-z0-9]*(:[a-z0-9]+)+([:.][a-z][a-z0-9]+)*/
 // A universal property
 UNIVNAME: /\.[a-z][a-z0-9]*([:.][a-z0-9]+)*/
-UNIVPROP:  UNIVNAME
+univprop:  UNIVNAME | "." _varvalu
 // A full property or a universal property
 PROPNAME: PROPS | UNIVNAME
 ABSPROP: PROPNAME
 ABSPROPNOUNIV: PROPS
 // A relative property
-RELPROP: /:[$.\w][$.\w:]*/
+relprop: RELNAME | ":" _varvalu
+
+// Similar to PROPS, but starts with a colon and allows :: as separator
+RELNAME: /\:\.?[a-z][a-z0-9]*(?:(\:\:|\:|\.)[a-z0-9]+)*/
 
 // The name of a storm command
 CMDNAME: /\b(?!(break|continue|for|while|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/

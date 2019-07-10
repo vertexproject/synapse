@@ -1,8 +1,15 @@
+
+import bz2
+import gzip
+import json
+
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_test
 
+from synapse.tests.utils import alist
+from synapse.lib.httpapi import Handler
 
 class StormTypesTest(s_test.SynTest):
 
@@ -155,6 +162,111 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq('visi@vertex.link', nodes[0].ndef[1])
+
+    async def test_storm_lib_bytes_gzip(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                hstr = b'ohhai'
+                ghstr = gzip.compress(hstr)
+                mstr = b'ohgood'
+                ggstr = gzip.compress(mstr)
+                n2 = s_common.guid()
+                n3 = s_common.guid()
+
+                node1 = await snap.addNode('graph:node', '*', {'data': ghstr})
+                node2 = await snap.addNode('graph:node', '*', {'data': mstr})
+
+                text = '''
+                    graph:node={valu}
+                    $gzthing = :data
+                    $foo = $gzthing.gunzip()
+                    $lib.print($foo)
+
+                    [ graph:node={n2} :data=$foo ]
+                '''
+                text = text.format(valu=node1.ndef[1], n2=n2)
+                msgs = await core.streamstorm(text).list()
+
+                # make sure we gunzip correctly
+                nodes = await alist(snap.getNodesBy('graph:node', n2))
+                self.eq(hstr, nodes[0].props['data'])
+
+                # gzip
+                text = '''
+                    graph:node={valu}
+                    $bar = :data
+                    [ graph:node={n3} :data=$bar.gzip() ]
+                '''
+                text = text.format(valu=node2.ndef[1], n3=n3)
+                msgs = await core.streamstorm(text).list()
+
+                # make sure we gzip correctly
+                nodes = await alist(snap.getNodesBy('graph:node', n3))
+                self.eq(ggstr, nodes[0].props['data'])
+
+    async def test_storm_lib_bytes_bzip(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                hstr = b'ohhai'
+                ghstr = bz2.compress(hstr)
+                mstr = b'ohgood'
+                ggstr = bz2.compress(mstr)
+                n2 = s_common.guid()
+                n3 = s_common.guid()
+
+                node1 = await snap.addNode('graph:node', '*', {'data': ghstr})
+                node2 = await snap.addNode('graph:node', '*', {'data': mstr})
+
+                text = '''
+                    graph:node={valu}
+                    $bzthing = :data
+                    $foo = $bzthing.bunzip()
+                    $lib.print($foo)
+
+                    [ graph:node={n2} :data=$foo ]
+                '''
+                text = text.format(valu=node1.ndef[1], n2=n2)
+                msgs = await core.streamstorm(text).list()
+
+                # make sure we bunzip correctly
+                nodes = await alist(snap.getNodesBy('graph:node', n2))
+                self.eq(hstr, nodes[0].props['data'])
+
+                # bzip
+                text = '''
+                    graph:node={valu}
+                    $bar = :data
+                    [ graph:node={n3} :data=$bar.bzip() ]
+                '''
+                text = text.format(valu=node2.ndef[1], n3=n3)
+                msgs = await core.streamstorm(text).list()
+
+                # make sure we bzip correctly
+                nodes = await alist(snap.getNodesBy('graph:node', n3))
+                self.eq(ggstr, nodes[0].props['data'])
+
+    async def test_storm_lib_bytes_json(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                foo = {'a': 'ohhai'}
+                ghstr = bytes(json.dumps(foo), 'utf8')
+                n2 = s_common.guid()
+
+                node1 = await snap.addNode('graph:node', '*', {'data': ghstr})
+
+                text = '''
+                    graph:node={valu}
+                    $jzthing = :data
+                    $foo = $jzthing.json()
+
+                    [ graph:node={n2} :data=$foo ]
+                '''
+                text = text.format(valu=node1.ndef[1], n2=n2)
+                msgs = await core.streamstorm(text).list()
+
+                # make sure we json loaded correctly
+                nodes = await alist(snap.getNodesBy('graph:node', n2))
+                self.eq(foo, nodes[0].props['data'])
 
     async def test_storm_lib_list(self):
         async with self.getTestCore() as core:

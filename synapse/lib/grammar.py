@@ -18,6 +18,7 @@ ruleClassMap = {
     'condsubq': s_ast.SubqCond,
     'dollarexpr': s_ast.DollarExpr,
     'editnodeadd': s_ast.EditNodeAdd,
+    'editparens': s_ast.EditParens,
     'editpropdel': s_ast.EditPropDel,
     'editpropset': s_ast.EditPropSet,
     'edittagadd': s_ast.EditTagAdd,
@@ -56,6 +57,7 @@ ruleClassMap = {
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
     'query': s_ast.Query,
+    'relprop': s_ast.RelProp,
     'relpropcond': s_ast.RelPropCond,
     'relpropvalu': s_ast.RelPropValue,
     'relpropvalue': s_ast.RelPropValue,
@@ -67,6 +69,7 @@ ruleClassMap = {
     'varderef': s_ast.VarDeref,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
+    'univprop': s_ast.UnivProp
 }
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
@@ -78,13 +81,12 @@ terminalClassMap = {
     'CONTINUE': lambda _: s_ast.ContinueOper(),
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
-    'RELPROP': lambda x: s_ast.RelProp(x[1:]),  # drop leading :
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': s_ast.TagMatch,
-    'UNIVPROP': s_ast.UnivProp,
     'VARTOKN': lambda x: s_ast.Const(x[1:-1] if len(x) and x[0] in ("'", '"') else x)
 }
 
+# For easier-to-understand syntax errors
 terminalEnglishMap = {
     'ABSPROP': 'absolute or universal property',
     'ABSPROPNOUNIV': 'absolute property',
@@ -125,7 +127,7 @@ terminalEnglishMap = {
     'PROPNAME': 'property name',
     'PROPS': 'absolute property name',
     'RBRACE': ']',
-    'RELPROP': 'relative property',
+    'RELNAME': 'relative property',
     'RPAR': ')',
     'RSQB': '}',
     'SETOPER': '= or ?=',
@@ -134,10 +136,10 @@ terminalEnglishMap = {
     'TAG': 'plain tag name',
     'TAGMATCH': 'tag name with asterisks',
     'UNIVNAME': 'universal property',
-    'UNIVPROP': 'universal property',
     'VARTOKN': 'variable',
     'VBAR': '|',
     'WHILE': 'while',
+    'YIELD': 'yield',
     '_EXPRSTART': '$(',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
@@ -178,10 +180,17 @@ class AstConverter(lark.Transformer):
 
     @lark.v_args(meta=True)
     def subquery(self, kids, meta):
-        assert len(kids) == 1
-        kids = self._convert_children(kids)
-        ast = s_ast.SubQuery(kids)
+        assert len(kids) <= 2
+        hasyield = (len(kids) == 2)
+        kid = self._convert_child(kids[-1])
+        kid.hasyield = hasyield
 
+        return kid
+
+    @lark.v_args(meta=True)
+    def baresubquery(self, kids, meta):
+        assert len(kids) == 1
+        ast = s_ast.SubQuery(kids)
         # Keep the text of the subquery in case used by command
         ast.text = self.text[meta.start_pos:meta.end_pos]
         return ast
