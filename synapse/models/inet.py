@@ -208,6 +208,26 @@ class Fqdn(s_types.Type):
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
 
+    def _ctorCmprEq(self, text):
+        if text == '':
+            # Asking if a +inet:fqdn='' is a odd filter, but
+            # the intuitive answer for that filter is to return False
+            def cmpr(valu):
+                return False
+            return cmpr
+
+        if text[0] == '*':
+            cval = text[1:]
+            def cmpr(valu):
+                return valu.endswith(cval)
+            return cmpr
+
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return norm == valu
+        return cmpr
+
     def _normPyStr(self, valu):
 
         valu = valu.replace('[.]', '.')
@@ -521,6 +541,21 @@ class Url(s_types.StrBase):
     def postTypeInit(self):
         s_types.StrBase.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
+
+    def _ctorCmprEq(self, text):
+        if text == '':
+            # Asking if a +inet:url='' is a odd filter, but
+            # the intuitive answer for that filter is to return False
+            def cmpr(valu):
+                return False
+            return cmpr
+
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return norm == valu
+
+        return cmpr
 
     def _normPyStr(self, valu):
         orig = valu

@@ -1,3 +1,7 @@
+import bz2
+import gzip
+import json
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -218,6 +222,68 @@ class Str(Prim):
 
         '''
         return self.valu.split(text)
+
+class Bytes(Prim):
+
+    def __init__(self, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.locls.update({
+            'bunzip': self._methBunzip,
+            'gunzip': self._methGunzip,
+            'bzip': self._methBzip,
+            'gzip': self._methGzip,
+            'json': self._methJsonLoad,
+        })
+
+    async def _methBunzip(self):
+        '''
+        Decompress the bytes using bzip2 and return them.
+
+        Example:
+
+            $foo = $mybytez.bunzip()
+        '''
+        return bz2.decompress(self.valu)
+
+    async def _methBzip(self):
+        '''
+        Compress the bytes using bzip2 and return them.
+
+        Example:
+
+            $foo = $mybytez.bzip()
+        '''
+        return bz2.compress(self.valu)
+
+    async def _methGunzip(self):
+        '''
+        Decompress the bytes using gzip and return them.
+
+        Example:
+
+            $foo = $mybytez.gunzip()
+        '''
+        return gzip.decompress(self.valu)
+
+    async def _methGzip(self):
+        '''
+        Compress the bytes using gzip and return them.
+
+        Example:
+
+            $foo = $mybytez.gzip()
+        '''
+        return gzip.compress(self.valu)
+
+    async def _methJsonLoad(self):
+        '''
+        Load JSON data from bytes.
+
+        Example:
+
+            $foo = $mybytez.json()
+        '''
+        return json.loads(self.valu)
 
 class Dict(Prim):
 
@@ -509,5 +575,8 @@ def fromprim(valu, path=None):
 
     if isinstance(valu, dict):
         return Dict(valu, path=path)
+
+    if isinstance(valu, bytes):
+        return Bytes(valu, path=path)
 
     raise s_exc.NoSuchType(name=valu.__class__.__name__)

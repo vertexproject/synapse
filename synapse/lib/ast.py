@@ -334,6 +334,10 @@ class Oper(AstNode):
 
 class SubQuery(Oper):
 
+    def __init__(self, kids=()):
+        Oper.__init__(self, kids)
+        self.hasyield = False
+
     async def run(self, runt, genr):
 
         subq = self.kids[0]
@@ -341,8 +345,10 @@ class SubQuery(Oper):
         async for item in genr:
 
             subp = None
+
             async for subp in subq.run(runt, agen(item)):
-                pass  # pragma: no cover
+                if self.hasyield:
+                    yield subp
 
             # dup any path variables from the last yielded
             if subp is not None:
@@ -401,15 +407,18 @@ class ForLoop(Oper):
                 try:
 
                     newg = agen((node, path))
-                    await s_common.aspin(subq.inline(runt, newg))
+                    async for item in subq.inline(runt, newg):
+                        yield item
 
-                except StormBreak:
+                except StormBreak as e:
+                    if e.item is not None:
+                        yield e.item
                     break
 
-                except StormContinue:
+                except StormContinue as e:
+                    if e.item is not None:
+                        yield e.item
                     continue
-
-            yield node, path
 
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[1].isRuntSafe(runt):
@@ -431,10 +440,14 @@ class ForLoop(Oper):
                     async for jtem in subq.inline(runt, agen()):
                         yield jtem
 
-                except StormBreak:
+                except StormBreak as e:
+                    if e.item is not None:
+                        yield e.item
                     break
 
-                except StormContinue:
+                except StormContinue as e:
+                    if e.item is not None:
+                        yield e.item
                     continue
 
 class WhileLoop(Oper):
@@ -449,15 +462,18 @@ class WhileLoop(Oper):
                 try:
 
                     newg = agen((node, path))
-                    await s_common.aspin(subq.inline(runt, newg))
+                    async for item in subq.inline(runt, newg):
+                        yield item
 
-                except StormBreak:
+                except StormBreak as e:
+                    if e.item is not None:
+                        yield e.item
                     break
 
-                except StormContinue:
+                except StormContinue as e:
+                    if e.item is not None:
+                        yield e.item
                     continue
-
-            yield node, path
 
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[0].isRuntSafe(runt):
@@ -468,10 +484,14 @@ class WhileLoop(Oper):
                     async for jtem in subq.inline(runt, agen()):
                         yield jtem
 
-                except StormBreak:
+                except StormBreak as e:
+                    if e.item is not None:
+                        yield e.item
                     break
 
-                except StormContinue:
+                except StormContinue as e:
+                    if e.item is not None:
+                        yield e.item
                     continue
 
                 await asyncio.sleep(0)  # give other tasks some CPU
@@ -1969,7 +1989,33 @@ class AbsProp(Value):
 class Edit(Oper):
     pass
 
+class EditParens(Edit):
+    async def run(self, runt, genr):
+
+        nodeadd = self.kids[0]
+        assert isinstance(nodeadd, EditNodeAdd)
+
+        if not nodeadd.isruntsafe(runt):
+            mesg = 'First node add in edit parentheses must not be dependent on incoming nodes'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        # Luke, let the nodes flow through you
+        async for item in genr:
+            yield item
+
+        # Run the opers once with no incoming nodes
+        genr = agen()
+
+        for oper in self.kids:
+            genr = oper.run(runt, genr)
+
+        async for item in genr:
+            yield item
+
 class EditNodeAdd(Edit):
+
+    def isruntsafe(self, runt):
+        return self.kids[2].isRuntSafe(runt)
 
     async def run(self, runt, genr):
 
@@ -1995,7 +2041,7 @@ class EditNodeAdd(Edit):
         # case 2: <query> [ foo:bar=($node, 20) ]
         # case 2: <query> $blah=:baz [ foo:bar=($blah, 20) ]
 
-        if not self.kids[2].isRuntSafe(runt):
+        if not self.isruntsafe(runt):
 
             first = True
             async for node, path in genr:
