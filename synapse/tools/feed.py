@@ -111,7 +111,7 @@ async def main(argv, outp=None):
 
 def makeargparser():
     desc = 'Command line tool for ingesting data into a cortex'
-    pars = argparse.ArgumentParser('synapse.tools.ingest', description=desc)
+    pars = argparse.ArgumentParser('synapse.tools.feed', description=desc)
 
     muxp = pars.add_mutually_exclusive_group(required=True)
     muxp.add_argument('--cortex', '-c', type=str,
