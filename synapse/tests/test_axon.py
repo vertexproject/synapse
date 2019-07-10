@@ -79,6 +79,7 @@ class AxonTest(s_t_utils.SynTest):
 
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
+            self.isin('axon', axon.dmon.shared)
             await self.runAxonTestBase(axon)
 
     async def test_axon_proxy(self):

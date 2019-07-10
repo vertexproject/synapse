@@ -53,7 +53,7 @@ def main(argv, outp=None):
 
 def setup():
     desc = 'Fetches file from the given axon'
-    pars = argparse.ArgumentParser('pullfile', description=desc)
+    pars = argparse.ArgumentParser('synapse.tools.pullfile', description=desc)
     pars.add_argument('-a', '--axon', type=str, dest='axon', required=True,
                       help='URL to the axon blob store')
     pars.add_argument('-o', '--output', type=str, dest='output',
