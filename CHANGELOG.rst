@@ -8,18 +8,42 @@ v0.1.16 - XXXX
 
 Features and Enhancements
 -------------------------
+- In Cmdr, the time when a Storm query is being executed by the Cortex is now emitted to the user.
+  (`#1310 <https://github.com/vertexproject/synapse/pull/1310>`_)
 - Implement yield keyword.  The keyword "yield" before a subquery causes the output nodes of the subquery to be merged
   into the output stream. (`#1307 <https://github.com/vertexproject/synapse/pull/1307>`_)
-- Allow parentheses in editblocks. Edit operations in parentheses don't receive incoming nodes from left of the
+- Allow relative and universal properties to be specified from a variable in Storm.
+  (`#1305 <https://github.com/vertexproject/synapse/pull/1305>`_)
+- Allow parentheses in Storm editblocks. Edit operations in parentheses don't receive incoming nodes from left of the
   parentheses.  (`#1303 <https://github.com/vertexproject/synapse/pull/1303>`_)
-- Storm: allow relative and universal properties to be specified from a variable. `#1305 <https://github.com/vertexproject/synapse/pull/1305>`_)
+- For Cron tasks, expose the Storm query and their iden in the Task data structure.
+  (`#1295 <https://github.com/vertexproject/synapse/pull/1295>`_)
+- Allow filtering ``inet:fqdn`` properties with ``*`` wildcards, such as ``+inet:fqdn=*.vertex.link``.
+  (`#1292 <https://github.com/vertexproject/synapse/pull/1292>`_)
+- Add a Bytes object to StormTypes which allows for ``$gzip()``, ``$gunzip()``, ``$bzip()``, ``$bunzip()``
+  and ``$json()`` decoding helpers. (`#1291 <https://github.com/vertexproject/synapse/pull/1291>`_)
 
 Bugfixes
 --------
-- Fix uses of s_common genfile where opened files weren't being truncated, or in one case, appended to.  (#1304 `https://github.com/vertexproject/synapse/pull/1304`)
-- Fix that non-runtsafe loops didn't yield nodes.  They now do.  (`#1307 <https://github.com/vertexproject/synapse/pull/1307>`_)
-- Fix that non-runtsafe loops that ran 0 times yielded the inbound node.  They now yield no nodes.  (`#1307 <https://github.com/vertexproject/synapse/pull/1307>`_)
+- The ``syn:prop`` runtime only nodes did not have ``:univ=1`` set on universal properties which were pushed onto the
+  form specific properties.  They now have ``:univ=1`` set on them.  (`#1313 <https://github.com/vertexproject/synapse/pull/1313>`_)
+- Fix invalid tool name references for ``synapse.tools.feed`` and ``synapse.tool.pullfile``.
+  (`#1311 <https://github.com/vertexproject/synapse/pull/1311>`_)
+- Add a missing default share name for the Axon cell. (`#1309 <https://github.com/vertexproject/synapse/pull/1309>`_)
+- Fix that non-runtsafe loops didn't yield nodes, they now do.
+  (`#1307 <https://github.com/vertexproject/synapse/pull/1307>`_)
+- Fix that non-runtsafe loops that ran 0 times yielded the inbound node.  They now yield no nodes.
+  (`#1307 <https://github.com/vertexproject/synapse/pull/1307>`_)
+- Fix ``synapse.tools.csvtool`` help description. (`#1306 <https://github.com/vertexproject/synapse/pull/1306>`_)
+- Fix uses of s_common genfile where opened files weren't being truncated, or in one case, appended to.
+  (`#1304 <https://github.com/vertexproject/synapse/pull/1304>`_)
 
+Improved Documentation
+----------------------
+- Add additional Hive API documentation. (`#1308 <https://github.com/vertexproject/synapse/pull/1308>`_)
+- Add additional type specific documentation for Storm. (`#1302 <https://github.com/vertexproject/synapse/pull/1302>`_)
+- Add documentation for ``synapse.tools.csvtool``, ``synapse.tools.pushfile``, and ``synapse.tools.pullfile``.
+  (`#1312 <https://github.com/vertexproject/synapse/pull/1312>`_)
 
 v0.1.15 - 07-01-2019
 ====================
@@ -58,7 +82,6 @@ Bugfixes
 
 Improved Documentation
 ----------------------
-
 - Add additional logging for ReadTheDocs documentation builds. (`#1284 <https://github.com/vertexproject/synapse/pull/1284>`_)
 - Add additional Hive API docstrings. (`#1285 <https://github.com/vertexproject/synapse/pull/1285>`_)
 
