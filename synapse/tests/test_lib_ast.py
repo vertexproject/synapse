@@ -93,7 +93,7 @@ class AstTest(s_test.SynTest):
 
             # Test for nonsensicalness
             q = 'test:str=foo [(test:str=:hehe)]'
-            await self.asyncraises(s_exc.BadSyntax, core.nodes(q))
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
     async def test_subquery_yield(self):
         async with self.getTestCore() as core:

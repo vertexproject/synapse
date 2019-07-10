@@ -1950,9 +1950,9 @@ class EditParens(Edit):
         nodeadd = self.kids[0]
         assert isinstance(nodeadd, EditNodeAdd)
 
-        # Discuss:  allow nonsensical operation?
         if not nodeadd.isruntsafe(runt):
-            raise s_exc.BadSyntax('First node add in edit parentheses must not be dependent on incoming nodes')
+            mesg = 'First node add in edit parentheses must not be dependent on incoming nodes'
+            raise s_exc.StormRuntimeError(mesg=mesg)
 
         # Luke, let the nodes flow through you
         async for item in genr:
