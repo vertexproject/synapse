@@ -1921,8 +1921,9 @@ class ExprNode(RunValue):
 class VarList(Value):
     pass
 
-class TagName(Value):
-    pass
+class TagName(RunValue):
+    async def compute(self, path): # pragma: no cover
+        raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.compute()')
 
 class TagMatch(Value):
     pass

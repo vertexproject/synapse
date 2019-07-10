@@ -76,6 +76,7 @@ class AstTest(s_test.SynTest):
             prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
             self.eq(['Foo'], prints)
 
+<<<<<<< HEAD
     async def test_ast_variable_props(self):
         async with self.getTestCore() as core:
             # editpropset
@@ -167,3 +168,14 @@ class AstTest(s_test.SynTest):
             self.len(2, nodes)
             kinds = [nodes[0].ndef[0], nodes[1].ndef[0]]
             self.sorteq(kinds, ['test:comp', 'test:int'])
+
+    async def test_ast_var_in_tags(self):
+        async with self.getTestCore() as core:
+            q = '[test:str=foo +#base.tag1]'
+            await core.nodes(q)
+            q = '$var=tag1 #base.$var'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = '$var=not #base.$var'
+            self.len(0, nodes)

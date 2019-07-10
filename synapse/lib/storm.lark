@@ -4,7 +4,7 @@
 %import common.ESCAPED_STRING
 
 // Lark Grammar Notes:
-// Lark uses standard EBNF notation with a couple extra bells and whistles:
+// Lark uses standard EBNF notation with a few extra bells and whistles:
 // * Rules and terminals that start with an underscore are not presented in the final parse tree.  The underscored
 //   terminals are skipped entirely, and the underscored rule nodes are replaced by their children.
 // * Rules ending with a .<num> are higher priority than other rules.
@@ -113,10 +113,16 @@ NONCMDQUOTE: /(?!['\"])[^\s|}]+/
 
 // A tag with either a variable reference or a tag name potentially with asterisks
 _tagmatch: "#" (_varvalu | TAGMATCH)
-// A tag name with asterisks
-TAGMATCH:  /([\w*]+\.)*[\w*]+/
-// A regular tag
-TAG: /([\w]+\.)*[\w]+/
+// A tag name with asterisks or $var as segment after the first segment
+// https://regex101.com/r/QEB7Gj/1
+TAGMATCH: /[\w*]+(?:(?:\.([\w*]+|\$(\w+|'[^']*'|\".*?(?<!\\)(\\\\)*?\")))*)?/
+
+// A regular tag potentially with $var as any number of segments after the first
+// TAG: /\w+(?:(?:\.(\w+|\$(\w+|'[^']*'|\".*?(?<!\\)(\\\\)*?\")))*)?/
+tag: TAGSEGNOVAR
+
+TAGSEGNOVAR: /\w+/
+TAGSEG: TAGSEGNOVAR | "$" VARTOKN
 
 // A comparison operator
 // https://regex101.com/r/l8hFq8/1
