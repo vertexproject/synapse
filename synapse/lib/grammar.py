@@ -18,6 +18,7 @@ ruleClassMap = {
     'condsubq': s_ast.SubqCond,
     'dollarexpr': s_ast.DollarExpr,
     'editnodeadd': s_ast.EditNodeAdd,
+    'editparens': s_ast.EditParens,
     'editpropdel': s_ast.EditPropDel,
     'editpropset': s_ast.EditPropSet,
     'edittagadd': s_ast.EditTagAdd,
@@ -85,6 +86,7 @@ terminalClassMap = {
     'VARTOKN': lambda x: s_ast.Const(x[1:-1] if len(x) and x[0] in ("'", '"') else x)
 }
 
+# For easier-to-understand syntax errors
 terminalEnglishMap = {
     'ABSPROP': 'absolute or universal property',
     'ABSPROPNOUNIV': 'absolute property',

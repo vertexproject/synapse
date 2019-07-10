@@ -1944,7 +1944,33 @@ class AbsProp(Value):
 class Edit(Oper):
     pass
 
+class EditParens(Edit):
+    async def run(self, runt, genr):
+
+        nodeadd = self.kids[0]
+        assert isinstance(nodeadd, EditNodeAdd)
+
+        if not nodeadd.isruntsafe(runt):
+            mesg = 'First node add in edit parentheses must not be dependent on incoming nodes'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        # Luke, let the nodes flow through you
+        async for item in genr:
+            yield item
+
+        # Run the opers once with no incoming nodes
+        genr = agen()
+
+        for oper in self.kids:
+            genr = oper.run(runt, genr)
+
+        async for item in genr:
+            yield item
+
 class EditNodeAdd(Edit):
+
+    def isruntsafe(self, runt):
+        return self.kids[2].isRuntSafe(runt)
 
     async def run(self, runt, genr):
 
@@ -1970,7 +1996,7 @@ class EditNodeAdd(Edit):
         # case 2: <query> [ foo:bar=($node, 20) ]
         # case 2: <query> $blah=:baz [ foo:bar=($blah, 20) ]
 
-        if not self.kids[2].isRuntSafe(runt):
+        if not self.isruntsafe(runt):
 
             first = True
             async for node, path in genr:

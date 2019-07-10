@@ -1,3 +1,5 @@
+import synapse.exc as s_exc
+
 import synapse.tests.utils as s_test
 
 class AstTest(s_test.SynTest):
@@ -73,6 +75,25 @@ class AstTest(s_test.SynTest):
             mesgs = await core.streamstorm(q).list()
             prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
             self.eq(['Foo'], prints)
+
+    async def test_ast_editparens(self):
+        async with self.getTestCore() as core:
+            q = '[(test:str=foo)]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = '$val=zoo test:str=foo [(test:str=bar test:str=baz :hehe=$val)]'
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+
+            # :hehe doesn't get applied to nodes incoming to editparens
+            self.none(nodes[0].get('hehe'))
+            self.eq('zoo', nodes[1].get('hehe'))
+            self.eq('zoo', nodes[2].get('hehe'))
+
+            # Test for nonsensicalness
+            q = 'test:str=foo [(test:str=:hehe)]'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
     async def test_subquery_yield(self):
         async with self.getTestCore() as core:
