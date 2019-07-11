@@ -836,6 +836,19 @@ class HiveIden(s_base.Base):
 
         await self.info.set('rules', rules)
 
+    async def delRuleIndx(self, indx):
+        if indx < 0:
+            raise s_exc.BadArg(mesg='Rule index must be greater than or equal to 0',
+                               valu=indx)
+        rules = list(self.rules)
+        try:
+            rules.pop(indx)
+        except IndexError:
+            raise s_exc.BadArg(mesg='Rule does not exist at specified index.',
+                               valu=indx) from None
+
+        await self.info.set('rules', rules)
+
 class HiveRole(HiveIden):
     '''
     A role within the Hive authorization subsystem.

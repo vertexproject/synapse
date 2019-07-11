@@ -141,6 +141,18 @@ class CellTest(s_t_utils.SynTest):
                     await proxy.popHiveKey(('foo', 'bar'))
                     self.eq([], await proxy.listHiveKey(('foo', )))
 
+                # Ensure we can delete a rule by its item and index position
+                async with echo.getLocalProxy() as proxy:  # type: EchoAuthApi
+                    rule = (True, ('hive:set', 'foo', 'bar'))
+                    self.isin(rule, user.rules)
+                    await proxy.delAuthRule('visi', rule)
+                    self.notin(rule, user.rules)
+
+                    rule = user.rules[0]
+                    self.isin(rule, user.rules)
+                    await proxy.delAuthRuleIndx('visi', 0)
+                    self.notin(rule, user.rules)
+
     async def test_cell_unix_sock(self):
 
         async with self.getTestCore() as core:

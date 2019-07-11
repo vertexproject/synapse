@@ -116,7 +116,7 @@ async def handleModify(opts):
 
             if opts.delrule is not None:
                 outp.printf(f'deleting rule index: {opts.delrule}')
-                await cell.delAuthRule(opts.name, opts.delrule)
+                await cell.delAuthRuleIndx(opts.name, opts.delrule)
 
             try:
                 user = await cell.getAuthInfo(opts.name)
