@@ -17,6 +17,7 @@ class TypesTest(s_t_utils.SynTest):
         # Base type tests, mainly sad paths
         model = s_datamodel.Model()
         t = model.type('bool')
+        self.eq(t.info.get('bases'), ())
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
         self.raises(s_exc.BadCmprValu, t.getIndxOps, 'newp', '*in=')
@@ -64,6 +65,7 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(node.get('bar'), 'haha')
 
             typ = core.model.type(t)
+            self.eq(typ.info.get('bases'), ('comp',))
             self.raises(s_exc.BadTypeValu, typ.norm,
                         (123, 'haha', 'newp'))
             self.eq(0, typ.getCompOffs('foo'))
@@ -92,11 +94,14 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_hex(self):
 
-        # Bad configurations are not allowed for the type
-        self.raises(s_exc.BadConfValu, s_types.Hex, None, None, None, {'size': -1})
-        self.raises(s_exc.BadConfValu, s_types.Hex, None, None, None, {'size': 1})
-
         async with self.getTestCore() as core:
+
+            # Bad configurations are not allowed for the type
+            with self.raises(s_exc.BadConfValu):
+                core.model.type('hex').clone({'size': 1})
+
+            with self.raises(s_exc.BadConfValu):
+                core.model.type('hex').clone({'size': -1})
 
             t = core.model.type('test:hexa')
             # Test norming to index values
