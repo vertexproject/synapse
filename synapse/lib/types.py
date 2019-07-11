@@ -314,7 +314,6 @@ class Type:
         tifo.update(info)
 
         bases = self.info.get('bases') + (self.name,)
-
         tifo['bases'] = bases
 
         topt = self.opts.copy()
