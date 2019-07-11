@@ -152,6 +152,9 @@ class CellTest(s_t_utils.SynTest):
                     self.isin(rule, user.rules)
                     await proxy.delAuthRuleIndx('visi', 0)
                     self.notin(rule, user.rules)
+                    # Sad path around cell deletion
+                    await self.asyncraises(s_exc.BadArg, proxy.delAuthRuleIndx('visi', -1))
+                    await self.asyncraises(s_exc.BadArg, proxy.delAuthRuleIndx('visi', 1000000))
 
     async def test_cell_unix_sock(self):
 

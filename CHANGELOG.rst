@@ -11,6 +11,11 @@ Features and Enhancements
 - Add type base data to show explicit type inheritance for data model types.
   (`#1315 <https://github.com/vertexproject/synapse/pull/1315>`_)
 
+Bugfixes
+--------
+- Fix rule deletion by the ``synapse.tools.cellauth`` tool.
+  (`#1319 <https://github.com/vertexproject/synapse/pull/1319>`_)
+
 Improved Documentation
 ----------------------
 - Add additional Storm documentation edit parenthesis, try statements, and type specific behavior.
