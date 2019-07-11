@@ -176,33 +176,33 @@ class StormTypesTest(s_test.SynTest):
                 node1 = await snap.addNode('graph:node', '*', {'data': ghstr})
                 node2 = await snap.addNode('graph:node', '*', {'data': mstr})
 
-                text = '''
-                    graph:node={valu}
+                text = f'''
+                    graph:node={node1.ndef[1]}
                     $gzthing = :data
                     $foo = $gzthing.gunzip()
                     $lib.print($foo)
 
                     [ graph:node={n2} :data=$foo ]
                 '''
-                text = text.format(valu=node1.ndef[1], n2=n2)
+
                 msgs = await core.streamstorm(text).list()
 
                 # make sure we gunzip correctly
                 nodes = await alist(snap.getNodesBy('graph:node', n2))
-                self.eq(hstr, nodes[0].props['data'])
+                self.eq(hstr, nodes[0].get('data'))
 
                 # gzip
-                text = '''
-                    graph:node={valu}
+                text = f'''
+                    graph:node={node2.ndef[1]}
                     $bar = :data
                     [ graph:node={n3} :data=$bar.gzip() ]
                 '''
-                text = text.format(valu=node2.ndef[1], n3=n3)
                 msgs = await core.streamstorm(text).list()
 
                 # make sure we gzip correctly
                 nodes = await alist(snap.getNodesBy('graph:node', n3))
-                self.eq(ggstr, nodes[0].props['data'])
+                self.eq(gzip.decompress(ggstr),
+                        gzip.decompress(nodes[0].get('data')))
 
     async def test_storm_lib_bytes_bzip(self):
         async with self.getTestCore() as core:
