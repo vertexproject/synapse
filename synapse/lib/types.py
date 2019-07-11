@@ -37,8 +37,7 @@ class Type:
         self.form = None # this will reference a Form() if the type is a form
         self.subof = None  # This references the name that a type was extended from.
 
-        if self.info.get('bases') is None:
-            self.info['bases'] = ()
+        self.info.setdefault('bases', ())
 
         self.opts = dict(self._opt_defs)
         self.opts.update(opts)
@@ -314,8 +313,7 @@ class Type:
         tifo = self.info.copy()
         tifo.update(info)
 
-        bases = list(self.info.get('bases', ()))
-        bases.append(self.name)
+        bases = self.info.get('bases') + (self.name,)
 
         tifo['bases'] = bases
 
