@@ -147,6 +147,8 @@ class CellTest(s_t_utils.SynTest):
                     self.isin(rule, user.rules)
                     await proxy.delAuthRule('visi', rule)
                     self.notin(rule, user.rules)
+                    # Removing a non-existing rule by *rule* has no consequence
+                    await proxy.delAuthRule('visi', rule)
 
                     rule = user.rules[0]
                     self.isin(rule, user.rules)
