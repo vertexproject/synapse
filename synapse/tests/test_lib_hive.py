@@ -87,6 +87,7 @@ class HiveTest(s_test.SynTest):
                     self.eq(None, hivedict.get('nope'))
 
                     self.eq(s_common.novalu, hivedict.get('nope', default=s_common.novalu))
+                    self.eq(s_common.novalu, await hivedict.pop('nope', default=s_common.novalu))
 
             async with self.getTestHiveFromDirn(dirn) as hive:
 

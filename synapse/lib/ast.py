@@ -1,3 +1,4 @@
+import asyncio
 import fnmatch
 import logging
 import itertools
@@ -12,6 +13,9 @@ import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
+
+def parseNumber(x):
+    return float(x) if '.' in x else s_stormtypes.intify(x)
 
 async def agen(*items):
     for item in items:
@@ -141,7 +145,7 @@ class Query(AstNode):
 
             yield node, path
 
-    async def iterNodePaths(self, runt):
+    async def iterNodePaths(self, runt, genr=None):
 
         count = 0
         subgraph = None
@@ -157,7 +161,8 @@ class Query(AstNode):
         self.optimize()
 
         # turtles all the way down...
-        genr = runt.getInput()
+        if genr is None:
+            genr = runt.getInput()
 
         for oper in self.kids:
             genr = oper.run(runt, genr)
@@ -329,6 +334,10 @@ class Oper(AstNode):
 
 class SubQuery(Oper):
 
+    def __init__(self, kids=()):
+        Oper.__init__(self, kids)
+        self.hasyield = False
+
     async def run(self, runt, genr):
 
         subq = self.kids[0]
@@ -336,8 +345,10 @@ class SubQuery(Oper):
         async for item in genr:
 
             subp = None
+
             async for subp in subq.run(runt, agen(item)):
-                pass  # pragma: no cover
+                if self.hasyield:
+                    yield subp
 
             # dup any path variables from the last yielded
             if subp is not None:
@@ -373,11 +384,9 @@ class ForLoop(Oper):
 
         subq = self.kids[2]
         name = self.kids[0].value()
+        node = None
 
-        count = 0
         async for node, path in genr:
-
-            count += 1
 
             for item in await self.kids[1].compute(path):
 
@@ -398,18 +407,21 @@ class ForLoop(Oper):
                 try:
 
                     newg = agen((node, path))
-                    await s_common.aspin(subq.inline(runt, newg))
+                    async for item in subq.inline(runt, newg):
+                        yield item
 
-                except StormBreak:
+                except StormBreak as e:
+                    if e.item is not None:
+                        yield e.item
                     break
 
-                except StormContinue:
+                except StormContinue as e:
+                    if e.item is not None:
+                        yield e.item
                     continue
 
-            yield node, path
-
         # no nodes and a runt safe value should execute once
-        if count == 0 and self.kids[1].isRuntSafe(runt):
+        if node is None and self.kids[1].isRuntSafe(runt):
 
             for item in await self.kids[1].runtval(runt):
 
@@ -428,11 +440,61 @@ class ForLoop(Oper):
                     async for jtem in subq.inline(runt, agen()):
                         yield jtem
 
-                except StormBreak:
+                except StormBreak as e:
+                    if e.item is not None:
+                        yield e.item
                     break
 
-                except StormContinue:
+                except StormContinue as e:
+                    if e.item is not None:
+                        yield e.item
                     continue
+
+class WhileLoop(Oper):
+
+    async def run(self, runt, genr):
+        subq = self.kids[1]
+        node = None
+
+        async for node, path in genr:
+
+            while await self.kids[0].compute(path):
+                try:
+
+                    newg = agen((node, path))
+                    async for item in subq.inline(runt, newg):
+                        yield item
+
+                except StormBreak as e:
+                    if e.item is not None:
+                        yield e.item
+                    break
+
+                except StormContinue as e:
+                    if e.item is not None:
+                        yield e.item
+                    continue
+
+        # no nodes and a runt safe value should execute once
+        if node is None and self.kids[0].isRuntSafe(runt):
+
+            while await self.kids[0].runtval(runt):
+
+                try:
+                    async for jtem in subq.inline(runt, agen()):
+                        yield jtem
+
+                except StormBreak as e:
+                    if e.item is not None:
+                        yield e.item
+                    break
+
+                except StormContinue as e:
+                    if e.item is not None:
+                        yield e.item
+                    continue
+
+                await asyncio.sleep(0)  # give other tasks some CPU
 
 class CmdOper(Oper):
 
@@ -1072,9 +1134,9 @@ class PropPivotOut(PivotOper):
 
     async def run(self, runt, genr):
 
-        name = self.kids[0].value()
         warned = False
         async for node, path in genr:
+            name = await self.kids[0].compute(path)
 
             prop = node.form.props.get(name)
             if prop is None:
@@ -1177,7 +1239,7 @@ class SubqCond(Cond):
         async def cond(node, path):
 
             size = 0
-            valu = int(await self.kids[2].compute(path))
+            valu = s_stormtypes.intify(await self.kids[2].compute(path))
 
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
@@ -1191,7 +1253,7 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
-            valu = int(await self.kids[2].compute(path))
+            valu = s_stormtypes.intify(await self.kids[2].compute(path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
                     return True
@@ -1204,7 +1266,7 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
-            valu = int(await self.kids[2].compute(path))
+            valu = s_stormtypes.intify(await self.kids[2].compute(path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size >= valu:
                     return False
@@ -1217,7 +1279,7 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
-            valu = int(await self.kids[2].compute(path))
+            valu = s_stormtypes.intify(await self.kids[2].compute(path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size >= valu:
                     return True
@@ -1230,7 +1292,7 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
-            valu = int(await self.kids[2].compute(path))
+            valu = s_stormtypes.intify(await self.kids[2].compute(path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
                     return False
@@ -1244,7 +1306,7 @@ class SubqCond(Cond):
         async def cond(node, path):
 
             size = 0
-            valu = int(await self.kids[2].compute(path))
+            valu = s_stormtypes.intify(await self.kids[2].compute(path))
 
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
@@ -1409,9 +1471,21 @@ class HasRelPropCond(Cond):
 
     async def getCondEval(self, runt):
 
-        name = self.kids[0].value()
+        relprop = self.kids[0]
+        assert isinstance(relprop, RelProp)
+
+        if relprop.isconst:
+            name = relprop.value()
+
+            async def cond(node, path):
+                return node.has(name)
+
+            return cond
+
+        # relprop name itself is variable, so dynamically compute
 
         async def cond(node, path):
+            name = await relprop.compute(path)
             return node.has(name)
 
         return cond
@@ -1580,6 +1654,9 @@ class RunValue(CompValue):
     A computed value that requires a runtime.
     '''
 
+    def value(self):  # pragma: no cover
+        raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.value()')
+
     async def runtval(self, runt):
         return self.value()
 
@@ -1607,9 +1684,6 @@ class Value(RunValue):
     def __repr__(self):
         return self.repr()
 
-    async def runtval(self, runt):
-        return self.value()
-
     async def compute(self, path):
         return self.value()
 
@@ -1618,23 +1692,21 @@ class Value(RunValue):
 
 class PropValue(CompValue):
 
-    def prepare(self):
-        self.name = self.kids[0].value()
-        self.ispiv = self.name.find('::') != -1
-
     async def getPropAndValu(self, path):
+        name = await self.kids[0].compute(path)
 
-        if not self.ispiv:
+        ispiv = name.find('::') != -1
+        if not ispiv:
 
-            prop = path.node.form.props.get(self.name)
+            prop = path.node.form.props.get(name)
             if prop is None:
-                raise s_exc.NoSuchProp(name=self.name)
+                raise s_exc.NoSuchProp(name=name)
 
-            valu = path.node.get(self.name)
+            valu = path.node.get(name)
             return prop, valu
 
         # handle implicit pivot properties
-        names = self.name.split('::')
+        names = name.split('::')
 
         node = path.node
 
@@ -1664,8 +1736,11 @@ class PropValue(CompValue):
         prop, valu = await self.getPropAndValu(path)
         return valu
 
-class RelPropValue(PropValue): pass
-class UnivPropValue(PropValue): pass
+class RelPropValue(PropValue):
+    pass
+
+class UnivPropValue(PropValue):
+    pass
 
 class TagPropValue(CompValue):
 
@@ -1681,8 +1756,11 @@ class CallArgs(RunValue):
     async def runtval(self, runt):
         return [await k.runtval(runt) for k in self.kids]
 
-class CallKwarg(CallArgs): pass
-class CallKwargs(CallArgs): pass
+class CallKwarg(CallArgs):
+    pass
+
+class CallKwargs(CallArgs):
+    pass
 
 class VarValue(RunValue, Cond):
 
@@ -1751,11 +1829,11 @@ class DollarExpr(RunValue, Cond):
     '''
     async def compute(self, path):
         assert len(self.kids) == 1
-        return int(await self.kids[0].compute(path))
+        return s_stormtypes.intify(await self.kids[0].compute(path))
 
     async def runtval(self, runt):
         assert len(self.kids) == 1
-        return int(await self.kids[0].runtval(runt))
+        return s_stormtypes.intify(await self.kids[0].runtval(runt))
 
     async def getCondEval(self, runt):
 
@@ -1764,24 +1842,23 @@ class DollarExpr(RunValue, Cond):
 
         return cond
 
-
 _ExprFuncMap = {
-    '*': lambda x, y: int(x) * int(y),
-    '/': lambda x, y: int(x) // int(y),
-    '+': lambda x, y: int(x) + int(y),
-    '-': lambda x, y: int(x) - int(y),
-    '>': lambda x, y: int(x) > int(y),
-    '<': lambda x, y: int(x) < int(y),
-    '>=': lambda x, y: int(x) >= int(y),
-    '<=': lambda x, y: int(x) <= int(y),
-    'and': lambda x, y: int(x) and int(y),
-    'or': lambda x, y: int(x) or int(y),
-    '=': lambda x, y: x == y,
-    '!=': lambda x, y: x != y,
+    '*': lambda x, y: x * y,
+    '/': lambda x, y: x // y,
+    '+': lambda x, y: x + y,
+    '-': lambda x, y: x - y,
+    '>': lambda x, y: int(x > y),
+    '<': lambda x, y: int(x < y),
+    '>=': lambda x, y: int(x >= y),
+    '<=': lambda x, y: int(x <= y),
+    'and': lambda x, y: x and y,
+    'or': lambda x, y: x or y,
+    '=': lambda x, y: int(x == y),
+    '!=': lambda x, y: int(x != y),
 }
 
 _UnaryExprFuncMap = {
-    'not': lambda x: not int(x),
+    'not': lambda x: int(not x),
 }
 
 class UnaryExprNode(RunValue):
@@ -1811,11 +1888,35 @@ class ExprNode(RunValue):
         oper = self.kids[1].value()
         self._operfunc = _ExprFuncMap[oper]
 
+    def _coerce(self, parm1, parm2):
+        '''
+        If one parameter is a string and the other is a number, convert the string parameter to a number
+        '''
+        if isinstance(parm1, str):
+            if isinstance(parm2, str):
+                return parm1, parm2
+            if not isinstance(parm2, (int, float)):
+                raise s_exc.BadCmprType(type1=type(parm1).__name__, type2=type(parm2).__name__)
+
+            return parseNumber(parm1), parm2
+
+        if isinstance(parm2, str):
+            assert not isinstance(parm1, str)
+            if not isinstance(parm1, (int, float)):
+                raise s_exc.BadCmprType(type1=type(parm1).__name__, type2=type(parm2).__name__)
+            return parm1, parseNumber(parm2)
+
+        return parm1, parm2
+
     async def compute(self, path):
-        return int(self._operfunc(await self.kids[0].compute(path), await self.kids[2].compute(path)))
+        parm1 = await self.kids[0].compute(path)
+        parm2 = await self.kids[2].compute(path)
+        return self._operfunc(*self._coerce(parm1, parm2))
 
     async def runtval(self, runt):
-        return int(self._operfunc(await self.kids[0].runtval(runt), await self.kids[2].runtval(runt)))
+        parm1 = await self.kids[0].runtval(runt)
+        parm2 = await self.kids[2].runtval(runt)
+        return self._operfunc(*self._coerce(parm1, parm2))
 
 class VarList(Value):
     pass
@@ -1846,11 +1947,41 @@ class List(Value):
     def value(self):
         return [k.value() for k in self.kids]
 
-class RelProp(Value):
-    pass
+class RelProp(RunValue):
 
-class UnivProp(Value):
-    pass
+    def __init__(self, kids=()):
+        RunValue.__init__(self, kids=kids)
+        assert len(kids) == 1
+        kid = kids[0]
+
+        if isinstance(kid, Const):
+            self.isconst = True
+            valu = kid.value()
+            self.valu = valu[1:]
+            return
+
+        assert isinstance(kid, VarValue)
+        self.isconst = False
+        self.valu = s_common.novalu
+
+    def value(self):
+        assert self.isconst
+        return self.valu
+
+    async def runtval(self, runt):
+        if self.isconst:
+            return self.value()
+        return await self.kids[0].runtval(runt)
+
+class UnivProp(RelProp):
+    async def runtval(self, runt):
+        if self.isconst:
+            return self.value()
+        return '.' + await self.kids[0].runtval(runt)
+
+    def value(self):
+        assert self.isconst
+        return '.' + self.valu
 
 class AbsProp(Value):
     pass
@@ -1858,7 +1989,33 @@ class AbsProp(Value):
 class Edit(Oper):
     pass
 
+class EditParens(Edit):
+    async def run(self, runt, genr):
+
+        nodeadd = self.kids[0]
+        assert isinstance(nodeadd, EditNodeAdd)
+
+        if not nodeadd.isruntsafe(runt):
+            mesg = 'First node add in edit parentheses must not be dependent on incoming nodes'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        # Luke, let the nodes flow through you
+        async for item in genr:
+            yield item
+
+        # Run the opers once with no incoming nodes
+        genr = agen()
+
+        for oper in self.kids:
+            genr = oper.run(runt, genr)
+
+        async for item in genr:
+            yield item
+
 class EditNodeAdd(Edit):
+
+    def isruntsafe(self, runt):
+        return self.kids[2].isRuntSafe(runt)
 
     async def run(self, runt, genr):
 
@@ -1884,7 +2041,7 @@ class EditNodeAdd(Edit):
         # case 2: <query> [ foo:bar=($node, 20) ]
         # case 2: <query> $blah=:baz [ foo:bar=($blah, 20) ]
 
-        if not self.kids[2].isRuntSafe(runt):
+        if not self.isruntsafe(runt):
 
             first = True
             async for node, path in genr:
@@ -1925,12 +2082,11 @@ class EditPropSet(Edit):
 
     async def run(self, runt, genr):
 
-        name = self.kids[0].value()
         oper = self.kids[1].value()
         excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
 
         async for node, path in genr:
-
+            name = await self.kids[0].compute(path)
             valu = await self.kids[2].compute(path)
 
             prop = node.form.props.get(name)
@@ -1950,9 +2106,8 @@ class EditPropDel(Edit):
 
     async def run(self, runt, genr):
 
-        name = self.kids[0].value()
-
         async for node, path in genr:
+            name = await self.kids[0].compute(path)
 
             prop = node.form.props.get(name)
             if prop is None:
@@ -1968,13 +2123,22 @@ class EditUnivDel(Edit):
 
     async def run(self, runt, genr):
 
-        name = self.kids[0].value()
+        univprop = self.kids[0]
+        assert isinstance(univprop, UnivProp)
+        if univprop.isconst:
+            name = self.kids[0].value()
 
-        univ = runt.snap.model.props.get(name)
-        if univ is None:
-            raise s_exc.NoSuchProp(name=name)
+            univ = runt.snap.model.props.get(name)
+            if univ is None:
+                raise s_exc.NoSuchProp(name=name)
 
         async for node, path in genr:
+            if not univprop.isconst:
+                name = await univprop.compute(path)
+
+                univ = runt.snap.model.props.get(name)
+                if univ is None:
+                    raise s_exc.NoSuchProp(name=name)
 
             runt.allowed('prop:del', name)
 
@@ -1991,15 +2155,19 @@ class EditTagAdd(Edit):
 
         async for node, path in genr:
 
-            name = await self.kids[0].compute(path)
-            parts = name.split('.')
+            names = await self.kids[0].compute(path)
+            if not isinstance(names, list):
+                names = [names]
 
-            runt.allowed('tag:add', *parts)
+            for name in names:
+                parts = name.split('.')
 
-            if hasval:
-                valu = await self.kids[1].compute(path)
+                runt.allowed('tag:add', *parts)
 
-            await node.addTag(name, valu=valu)
+                if hasval:
+                    valu = await self.kids[1].compute(path)
+
+                await node.addTag(name, valu=valu)
 
             yield node, path
 

@@ -1,9 +1,15 @@
-import synapse.exc as s_exc
+
+import bz2
+import gzip
+import json
+
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_test
 
+from synapse.tests.utils import alist
+from synapse.lib.httpapi import Handler
 
 class StormTypesTest(s_test.SynTest):
 
@@ -88,8 +94,7 @@ class StormTypesTest(s_test.SynTest):
             # For loop example for a multi-match case
             q = '''test:str=woot
                 for ($part1, $part2, $part3) in $node.globtags("foo.*.*.*") {
-                    -test:str=woot
-                    [test:str=$part1 +#$part3]
+                    [test:str=$part1] -test:str=woot [+#$part3]
                 }'''
             mesgs = await core.streamstorm(q).list()
             self.len(1, await core.nodes('test:str=bar'))
@@ -157,6 +162,111 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq('visi@vertex.link', nodes[0].ndef[1])
+
+    async def test_storm_lib_bytes_gzip(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                hstr = b'ohhai'
+                ghstr = gzip.compress(hstr)
+                mstr = b'ohgood'
+                ggstr = gzip.compress(mstr)
+                n2 = s_common.guid()
+                n3 = s_common.guid()
+
+                node1 = await snap.addNode('graph:node', '*', {'data': ghstr})
+                node2 = await snap.addNode('graph:node', '*', {'data': mstr})
+
+                text = f'''
+                    graph:node={node1.ndef[1]}
+                    $gzthing = :data
+                    $foo = $gzthing.gunzip()
+                    $lib.print($foo)
+
+                    [ graph:node={n2} :data=$foo ]
+                '''
+
+                msgs = await core.streamstorm(text).list()
+
+                # make sure we gunzip correctly
+                nodes = await alist(snap.getNodesBy('graph:node', n2))
+                self.eq(hstr, nodes[0].get('data'))
+
+                # gzip
+                text = f'''
+                    graph:node={node2.ndef[1]}
+                    $bar = :data
+                    [ graph:node={n3} :data=$bar.gzip() ]
+                '''
+                msgs = await core.streamstorm(text).list()
+
+                # make sure we gzip correctly
+                nodes = await alist(snap.getNodesBy('graph:node', n3))
+                self.eq(gzip.decompress(ggstr),
+                        gzip.decompress(nodes[0].get('data')))
+
+    async def test_storm_lib_bytes_bzip(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                hstr = b'ohhai'
+                ghstr = bz2.compress(hstr)
+                mstr = b'ohgood'
+                ggstr = bz2.compress(mstr)
+                n2 = s_common.guid()
+                n3 = s_common.guid()
+
+                node1 = await snap.addNode('graph:node', '*', {'data': ghstr})
+                node2 = await snap.addNode('graph:node', '*', {'data': mstr})
+
+                text = '''
+                    graph:node={valu}
+                    $bzthing = :data
+                    $foo = $bzthing.bunzip()
+                    $lib.print($foo)
+
+                    [ graph:node={n2} :data=$foo ]
+                '''
+                text = text.format(valu=node1.ndef[1], n2=n2)
+                msgs = await core.streamstorm(text).list()
+
+                # make sure we bunzip correctly
+                nodes = await alist(snap.getNodesBy('graph:node', n2))
+                self.eq(hstr, nodes[0].props['data'])
+
+                # bzip
+                text = '''
+                    graph:node={valu}
+                    $bar = :data
+                    [ graph:node={n3} :data=$bar.bzip() ]
+                '''
+                text = text.format(valu=node2.ndef[1], n3=n3)
+                msgs = await core.streamstorm(text).list()
+
+                # make sure we bzip correctly
+                nodes = await alist(snap.getNodesBy('graph:node', n3))
+                self.eq(ggstr, nodes[0].props['data'])
+
+    async def test_storm_lib_bytes_json(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                foo = {'a': 'ohhai'}
+                ghstr = bytes(json.dumps(foo), 'utf8')
+                n2 = s_common.guid()
+
+                node1 = await snap.addNode('graph:node', '*', {'data': ghstr})
+
+                text = '''
+                    graph:node={valu}
+                    $jzthing = :data
+                    $foo = $jzthing.json()
+
+                    [ graph:node={n2} :data=$foo ]
+                '''
+                text = text.format(valu=node1.ndef[1], n2=n2)
+                msgs = await core.streamstorm(text).list()
+
+                # make sure we json loaded correctly
+                nodes = await alist(snap.getNodesBy('graph:node', n2))
+                self.eq(foo, nodes[0].props['data'])
 
     async def test_storm_lib_list(self):
         async with self.getTestCore() as core:
@@ -334,8 +444,6 @@ class StormTypesTest(s_test.SynTest):
         # Do not include persistent vars support in this test see
         # test_persistent_vars for that behavior.
         async with self.getTestCore() as core:
-            # TODO: Should this be a straight dereference to a string
-            # constant? or a call?
             q = '$lib.print($lib.user.name())'
             mesgs = await s_test.alist(core.streamstorm(q))
             self.stormIsInPrint('root', mesgs)
@@ -369,6 +477,19 @@ class StormTypesTest(s_test.SynTest):
                     '''
                     mesgs = await s_test.alist(prox.storm(popq))
                     self.stormIsInPrint('pop valu is beep', mesgs)
+
+                    # get and pop take a secondary default value which may be returned
+                    q = '''$valu = $lib.globals.get(throwaway, $(0))
+                    $lib.print("get valu is {valu}", valu=$valu)
+                    '''
+                    mesgs = await s_test.alist(prox.storm(q))
+                    self.stormIsInPrint('get valu is 0', mesgs)
+
+                    q = '''$valu = $lib.globals.pop(throwaway, $(0))
+                    $lib.print("pop valu is {valu}", valu=$valu)
+                    '''
+                    mesgs = await s_test.alist(prox.storm(q))
+                    self.stormIsInPrint('pop valu is 0', mesgs)
 
                     listq = '''for ($key, $valu) in $lib.globals.list() {
                     $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
@@ -440,6 +561,19 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await s_test.alist(uprox.storm(listq))
                     self.len(1, [m for m in mesgs if m[0] == 'print'])
                     self.stormIsInPrint('somekey is hehe', mesgs)
+
+                    # get and pop take a secondary default value which may be returned
+                    q = '''$valu = $lib.user.vars.get(newp, $(0))
+                    $lib.print("get valu is {valu}", valu=$valu)
+                    '''
+                    mesgs = await s_test.alist(prox.storm(q))
+                    self.stormIsInPrint('get valu is 0', mesgs)
+
+                    q = '''$valu = $lib.user.vars.pop(newp, $(0))
+                    $lib.print("pop valu is {valu}", valu=$valu)
+                    '''
+                    mesgs = await s_test.alist(prox.storm(q))
+                    self.stormIsInPrint('pop valu is 0', mesgs)
 
                     # the user can access the specific core.vars key
                     # that they have access too but not the admin key

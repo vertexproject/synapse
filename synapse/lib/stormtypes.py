@@ -1,3 +1,7 @@
+import bz2
+import gzip
+import json
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -219,6 +223,68 @@ class Str(Prim):
         '''
         return self.valu.split(text)
 
+class Bytes(Prim):
+
+    def __init__(self, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.locls.update({
+            'bunzip': self._methBunzip,
+            'gunzip': self._methGunzip,
+            'bzip': self._methBzip,
+            'gzip': self._methGzip,
+            'json': self._methJsonLoad,
+        })
+
+    async def _methBunzip(self):
+        '''
+        Decompress the bytes using bzip2 and return them.
+
+        Example:
+
+            $foo = $mybytez.bunzip()
+        '''
+        return bz2.decompress(self.valu)
+
+    async def _methBzip(self):
+        '''
+        Compress the bytes using bzip2 and return them.
+
+        Example:
+
+            $foo = $mybytez.bzip()
+        '''
+        return bz2.compress(self.valu)
+
+    async def _methGunzip(self):
+        '''
+        Decompress the bytes using gzip and return them.
+
+        Example:
+
+            $foo = $mybytez.gunzip()
+        '''
+        return gzip.decompress(self.valu)
+
+    async def _methGzip(self):
+        '''
+        Compress the bytes using gzip and return them.
+
+        Example:
+
+            $foo = $mybytez.gzip()
+        '''
+        return gzip.compress(self.valu)
+
+    async def _methJsonLoad(self):
+        '''
+        Load JSON data from bytes.
+
+        Example:
+
+            $foo = $mybytez.json()
+        '''
+        return json.loads(self.valu)
+
 class Dict(Prim):
 
     def deref(self, name):
@@ -295,13 +361,13 @@ class StormHiveDict(Prim):
             mesg = 'The name of a persistent variable must be a string.'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name)
 
-    async def _methGet(self, name):
+    async def _methGet(self, name, default=None):
         self._reqStr(name)
-        return self.valu.get(name)
+        return self.valu.get(name, default=default)
 
-    async def _methPop(self, name):
+    async def _methPop(self, name, default=None):
         self._reqStr(name)
-        return await self.valu.pop(name)
+        return await self.valu.pop(name, default=default)
 
     async def _methSet(self, name, valu):
         self._reqStr(name)
@@ -345,15 +411,15 @@ class LibGlobals(Lib):
             mesg = 'The name of a persistent variable must be a string.'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name)
 
-    async def _methGet(self, name):
+    async def _methGet(self, name, default=None):
         self._reqStr(name)
         self._reqAllowed('storm:globals:get', name)
-        return self._stormvars.get(name)
+        return self._stormvars.get(name, default=default)
 
-    async def _methPop(self, name):
+    async def _methPop(self, name, default=None):
         self._reqStr(name)
         self._reqAllowed('storm:globals:pop', name)
-        return await self._stormvars.pop(name)
+        return await self._stormvars.pop(name, default=default)
 
     async def _methSet(self, name, valu):
         self._reqStr(name)
@@ -509,5 +575,8 @@ def fromprim(valu, path=None):
 
     if isinstance(valu, dict):
         return Dict(valu, path=path)
+
+    if isinstance(valu, bytes):
+        return Bytes(valu, path=path)
 
     raise s_exc.NoSuchType(name=valu.__class__.__name__)

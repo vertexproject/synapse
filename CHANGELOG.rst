@@ -2,6 +2,85 @@
 Synapse Changelog
 *****************
 
+
+v0.1.17 - TBD
+====================
+
+Features and Enhancements
+-------------------------
+- Add type base data to show explicit type inheritance for data model types.
+  (`#1315 <https://github.com/vertexproject/synapse/pull/1315>`_)
+
+Improved Documentation
+----------------------
+- Add additional Storm documentation edit parenthesis, try statements, and type specific behavior.
+  (`#1316 <https://github.com/vertexproject/synapse/pull/1316>`_)
+
+
+v0.1.16 - 2019-07-11
+====================
+
+Features and Enhancements
+-------------------------
+- In Cmdr, the time when a Storm query is being executed by the Cortex is now emitted to the user.
+  (`#1310 <https://github.com/vertexproject/synapse/pull/1310>`_)
+- Implement yield keyword.  The keyword "yield" before a subquery causes the output nodes of the subquery to be merged
+  into the output stream. (`#1307 <https://github.com/vertexproject/synapse/pull/1307>`_)
+- Allow relative and universal properties to be specified from a variable in Storm.
+  (`#1305 <https://github.com/vertexproject/synapse/pull/1305>`_)
+- Allow parentheses in Storm editblocks. Edit operations in parentheses don't receive incoming nodes from left of the
+  parentheses.  (`#1303 <https://github.com/vertexproject/synapse/pull/1303>`_)
+- For Cron tasks, expose the Storm query and their iden in the Task data structure.
+  (`#1295 <https://github.com/vertexproject/synapse/pull/1295>`_)
+- Allow filtering ``inet:fqdn`` properties with ``*`` wildcards, such as ``+inet:fqdn=*.vertex.link``.
+  (`#1292 <https://github.com/vertexproject/synapse/pull/1292>`_)
+- Add a Bytes object to StormTypes which allows for ``$gzip()``, ``$gunzip()``, ``$bzip()``, ``$bunzip()``
+  and ``$json()`` decoding helpers. (`#1291 <https://github.com/vertexproject/synapse/pull/1291>`_)
+
+Bugfixes
+--------
+- The ``syn:prop`` runtime only nodes did not have ``:univ=1`` set on universal properties which were pushed onto the
+  form specific properties.  They now have ``:univ=1`` set on them.  (`#1313 <https://github.com/vertexproject/synapse/pull/1313>`_)
+- Fix invalid tool name references for ``synapse.tools.feed`` and ``synapse.tool.pullfile``.
+  (`#1311 <https://github.com/vertexproject/synapse/pull/1311>`_)
+- Add a missing default share name for the Axon cell. (`#1309 <https://github.com/vertexproject/synapse/pull/1309>`_)
+- Fix that non-runtsafe loops didn't yield nodes, they now do.
+  (`#1307 <https://github.com/vertexproject/synapse/pull/1307>`_)
+- Fix that non-runtsafe loops that ran 0 times yielded the inbound node.  They now yield no nodes.
+  (`#1307 <https://github.com/vertexproject/synapse/pull/1307>`_)
+- Fix ``synapse.tools.csvtool`` help description. (`#1306 <https://github.com/vertexproject/synapse/pull/1306>`_)
+- Fix uses of s_common genfile where opened files weren't being truncated, or in one case, appended to.
+  (`#1304 <https://github.com/vertexproject/synapse/pull/1304>`_)
+
+Improved Documentation
+----------------------
+- Add additional Hive API documentation. (`#1308 <https://github.com/vertexproject/synapse/pull/1308>`_)
+- Add additional type specific documentation for Storm. (`#1302 <https://github.com/vertexproject/synapse/pull/1302>`_)
+- Add documentation for ``synapse.tools.csvtool``, ``synapse.tools.pushfile``, and ``synapse.tools.pullfile``.
+  (`#1312 <https://github.com/vertexproject/synapse/pull/1312>`_)
+
+v0.1.15 - 2019-07-01
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add ``$lib.user.vars`` and ``$lib.globals`` Storm Types. These allow for persistent variable storage and retrieval inside of Storm across multiple queries.  These use ``.set()``, ``.get()``, ``.pop()`` and ``.list()`` methods on the two new Storm Types. (`#1287 <https://github.com/vertexproject/synapse/pull/1287>`_)
+- Add an optional try operator, ``?=``, to the Storm edit mode blocks. This allows for node creation and property setting to fail silently on BadTypeValu and BadPropValu errors.  Example: ``[ inet:ipv4 ?= notAnIpAddress :asn?=NotAnAsn ]``. (`#1288 <https://github.com/vertexproject/synapse/pull/1288>`_)
+- Add while loop to Storm.  (`#1290 <https://github.com/vertexproject/synapse/pull/1290>`_)
+- Add ``:accuracy`` as a secondary property to the ``tel:mob:telem`` node, so a user can record the accuracy of the ``tel:mob:telem:latlong`` property. (`#1294 <https://github.com/vertexproject/synapse/pull/1294>`_)
+- Always interpret numbers in expressions as numbers. (`#1293 <https://github.com/vertexproject/synapse/pull/1293>`_)
+- Add a genr argument to ``iterStormQuery()`` to better facilitate nested Storm queries. (`#1297 <https://github.com/vertexproject/synapse/pull/1297>`_)
+- Allow headers to be set when using ``$lib.inet.http()`` in Storm. (`#1299 <https://github.com/vertexproject/synapse/pull/1299>`_)
+- Allow Storm variables to be used to make tag names in a edit block. (`#1300 <https://github.com/vertexproject/synapse/pull/1300>`_)
+- Allow Storm variables with list values to be used to set multiple tags in a edit block, e.g. ``$foo=(tag1,tag2,tag3) [test:str=x +#$foo]``. (`#1300 <https://github.com/vertexproject/synapse/pull/1300>`_)
+- Allow quoted strings as variable names and fields. (`#1298 <https://github.com/vertexproject/synapse/pull/1298>`_)
+
+Bugfixes
+--------
+- Fix runtime safety scoping issue for variables in Storm. (`#1296 <https://github.com/vertexproject/synapse/pull/1296>`_)
+
+
 v0.1.14 - 2019-06-21
 ====================
 
@@ -17,7 +96,6 @@ Bugfixes
 
 Improved Documentation
 ----------------------
-
 - Add additional logging for ReadTheDocs documentation builds. (`#1284 <https://github.com/vertexproject/synapse/pull/1284>`_)
 - Add additional Hive API docstrings. (`#1285 <https://github.com/vertexproject/synapse/pull/1285>`_)
 
