@@ -3,6 +3,15 @@ Synapse Changelog
 *****************
 
 
+v0.1.17 - TBD
+====================
+
+Improved Documentation
+----------------------
+- Add additional Storm documentation edit parenthesis, try statements, and type specific behavior.
+  (`#1316 <https://github.com/vertexproject/synapse/pull/1316>`_)
+
+
 v0.1.16 - 2019-07-11
 ====================
 
