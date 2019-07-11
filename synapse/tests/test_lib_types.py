@@ -92,11 +92,14 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_hex(self):
 
-        # Bad configurations are not allowed for the type
-        self.raises(s_exc.BadConfValu, s_types.Hex, None, None, None, {'size': -1})
-        self.raises(s_exc.BadConfValu, s_types.Hex, None, None, None, {'size': 1})
-
         async with self.getTestCore() as core:
+
+            # Bad configurations are not allowed for the type
+            with self.raises(s_exc.BadConfValu):
+                core.model.type('hex').clone({'size': 1})
+
+            with self.raises(s_exc.BadConfValu):
+                core.model.type('hex').clone({'size': -1})
 
             t = core.model.type('test:hexa')
             # Test norming to index values
