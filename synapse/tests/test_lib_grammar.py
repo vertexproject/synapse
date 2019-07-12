@@ -971,8 +971,8 @@ class GrammarTest(s_t_utils.SynTest):
         for i, query in enumerate(_Queries):
             try:
                 tree = parser.parse(query)
-                print(f'#{i}: {query}')
-                print(tree, '\n')
+                # print(f'#{i}: {query}')
+                # print(tree, '\n')
                 self.notin('_ambig', str(tree))
 
             except (lark.ParseError, lark.UnexpectedCharacters):
