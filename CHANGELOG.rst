@@ -1,6 +1,15 @@
 *****************
 Synapse Changelog
 *****************
+v0.1.18 - XXXX
+====================
+
+Features and Enhancements
+-------------------------
+- Storm:  allow plain variable references in tagnames and tagmatches, e.g. ``+#aka.$var.t42`` (`#1322 <https://github.com/vertexproject/synapse/pull/1322>`_)
+
+Bugfixes
+--------
 
 
 v0.1.16 - 2019-07-11
