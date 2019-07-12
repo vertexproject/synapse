@@ -15,7 +15,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:org', ('guid', {}), {
                     'doc': 'A GUID for a human organization such as a company or military unit',
                 }),
-                ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z]+$'}), {
+                ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z_]+$'}), {
                     'doc': 'An alias for the org GUID',
                     'ex': 'vertexproject',
                 }),
