@@ -114,7 +114,6 @@ NONCMDQUOTE: /(?!['\"])[^\s|}]+/
 // A tag with either a variable reference or a tag name potentially with asterisks
 _tagmatch: "#" (_varvalu | TAGMATCH)
 // A tag name with asterisks or $var as segment after the first segment
-// https://regex101.com/r/QEB7Gj/1
 TAGMATCH:  _TAGSEGSTARNOVAR ( "." (_TAGSEGSTARNOVAR | "$" VARTOKN))*
 _TAGSEGSTARNOVAR: /[\w*]+/
 
