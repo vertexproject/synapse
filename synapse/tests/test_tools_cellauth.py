@@ -167,7 +167,7 @@ class CellAuthTest(s_t_utils.SynTest):
 
     async def test_cellauth_rules(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCoreAndProxy() as (core, prox):
 
             coreurl = core.getLocalUrl()
 
@@ -184,12 +184,17 @@ class CellAuthTest(s_t_utils.SynTest):
             await s_cellauth.main(argv, outp)
             # print(str(outp))
             outp.expect(f'adding rule to {name}: (True, [{rule!r}])')
+            user = await prox.getAuthInfo(name)
+            self.eq(user[1].get('rules'),
+                    ((True, ('node:add',)),))
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--delrule', '0', 'foo']
             await s_cellauth.main(argv, outp)
             # print(str(outp))
             outp.expect(f'deleting rule index: 0')
+            user = await prox.getAuthInfo(name)
+            self.eq(user[1].get('rules'), ())
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--addrule', nrule, name]
