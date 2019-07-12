@@ -54,16 +54,6 @@ class AstNode:
         astn.parent = self
         astn.pindex = indx
 
-    def setKid(self, indx, astn):
-
-        self.kids[indx] = astn
-
-        astn.parent = self
-        astn.pindex = indx
-
-    def replace(self, astn):
-        self.parent.setKid(self.pindex, astn)
-
     def sibling(self, offs=1):
         '''
         Return sibling node by relative offset from self.
