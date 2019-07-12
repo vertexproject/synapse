@@ -882,25 +882,45 @@ class PivotToTags(PivotOper):
     async def run(self, runt, genr):
 
         leaf = False
-        mval = self.kids[0].value()
 
-        if not mval:
+        assert len(self.kids) == 1
+        kid = self.kids[0]
+        assert isinstance(kid, TagMatch)
 
-            leaf = True
+        if kid.isconst:
 
-            def filter(x):
-                return True
+            mval = kid.value()
 
-        elif mval.find('*') != -1:
+            if not mval:
 
-            # glob matcher...
-            def filter(x):
-                return fnmatch.fnmatch(x, mval)
+                leaf = True
 
-        else:
+                async def filter(x, path):
+                    return True
 
-            def filter(x):
-                return x == mval
+            elif kid.hasglob():
+
+                # glob matcher...
+                async def filter(x, path):
+                    return fnmatch.fnmatch(x, mval)
+
+            else:
+
+                async def filter(x, path):
+                    return x == mval
+        else:  # We have a $var as a segment
+
+            if kid.hasglob():
+
+                async def filter(x, path):
+                    valu = await kid.compute(path)
+                    return fnmatch.fnmatch(x, valu)
+
+            else:
+
+                async def filter(x, path):
+                    valu = await kid.compute(path)
+                    return x == valu
 
         async for node, path in genr:
 
@@ -909,7 +929,7 @@ class PivotToTags(PivotOper):
 
             for name, valu in node.getTags(leaf=leaf):
 
-                if not filter(name):
+                if not await filter(name, path):
                     continue
 
                 pivo = await runt.snap.getNodeByNdef(('syn:tag', name))
@@ -1403,11 +1423,11 @@ class TagCond(Cond):
             # TODO:  we might hint based on variable value
             return ()
 
-        name = kid.value()
-        if '*' in name:
+        if not kid.isconst or kid.hasglob():
             return ()
+
         return (
-            ('tag', {'name': name}),
+            ('tag', {'name': kid.value()}),
         )
 
     async def getCondEval(self, runt):
@@ -1568,7 +1588,7 @@ class TagValuCond(Cond):
         if cmprctor is None:
             raise s_exc.NoSuchCmpr(cmpr=cmpr, name=ival.name)
 
-        if isinstance(lnode, VarValue):
+        if isinstance(lnode, VarValue) or not lnode.isconst:
             async def cond(node, path):
                 name = await lnode.compute(path)
                 valu = await rnode.compute(path)
@@ -1922,11 +1942,29 @@ class VarList(Value):
     pass
 
 class TagName(RunValue):
-    async def compute(self, path): # pragma: no cover
-        raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.compute()')
+    def __init__(self, kids=()):
+        RunValue.__init__(self, kids)
+        self.isconst = not kids or (len(kids) == 1 and isinstance(self.kids[0], Const))
 
-class TagMatch(Value):
-    pass
+    def value(self):
+        assert self.isconst
+        return self.kids[0].valu if self.kids else ''
+
+    async def compute(self, path):
+        if self.isconst:
+            return self.value()
+        vals = [(await kid.compute(path)) for kid in self.kids]
+        return '.'.join(vals)
+
+class TagMatch(TagName):
+    '''
+    Like TagName, but can have asterisks
+    '''
+    def hasglob(self):
+        if not self.kids:
+            return False
+
+        return any('*' in kid.valu for kid in self.kids if isinstance(kid, Const))
 
 class Cmpr(Value):
     pass

@@ -115,14 +115,12 @@ NONCMDQUOTE: /(?!['\"])[^\s|}]+/
 _tagmatch: "#" (_varvalu | TAGMATCH)
 // A tag name with asterisks or $var as segment after the first segment
 // https://regex101.com/r/QEB7Gj/1
-TAGMATCH: /[\w*]+(?:(?:\.([\w*]+|\$(\w+|'[^']*'|\".*?(?<!\\)(\\\\)*?\")))*)?/
+TAGMATCH:  _TAGSEGSTARNOVAR ( "." (_TAGSEGSTARNOVAR | "$" VARTOKN))*
+_TAGSEGSTARNOVAR: /[\w*]+/
 
 // A regular tag potentially with $var as any number of segments after the first
-// TAG: /\w+(?:(?:\.(\w+|\$(\w+|'[^']*'|\".*?(?<!\\)(\\\\)*?\")))*)?/
-tag: TAGSEGNOVAR
-
-TAGSEGNOVAR: /\w+/
-TAGSEG: TAGSEGNOVAR | "$" VARTOKN
+TAG: _TAGSEGNOVAR ("." (_TAGSEGNOVAR | "$" VARTOKN))*
+_TAGSEGNOVAR: /\w+/
 
 // A comparison operator
 // https://regex101.com/r/l8hFq8/1
