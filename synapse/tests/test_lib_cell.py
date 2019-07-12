@@ -141,6 +141,23 @@ class CellTest(s_t_utils.SynTest):
                     await proxy.popHiveKey(('foo', 'bar'))
                     self.eq([], await proxy.listHiveKey(('foo', )))
 
+                # Ensure we can delete a rule by its item and index position
+                async with echo.getLocalProxy() as proxy:  # type: EchoAuthApi
+                    rule = (True, ('hive:set', 'foo', 'bar'))
+                    self.isin(rule, user.rules)
+                    await proxy.delAuthRule('visi', rule)
+                    self.notin(rule, user.rules)
+                    # Removing a non-existing rule by *rule* has no consequence
+                    await proxy.delAuthRule('visi', rule)
+
+                    rule = user.rules[0]
+                    self.isin(rule, user.rules)
+                    await proxy.delAuthRuleIndx('visi', 0)
+                    self.notin(rule, user.rules)
+                    # Sad path around cell deletion
+                    await self.asyncraises(s_exc.BadArg, proxy.delAuthRuleIndx('visi', -1))
+                    await self.asyncraises(s_exc.BadArg, proxy.delAuthRuleIndx('visi', 1000000))
+
     async def test_cell_unix_sock(self):
 
         async with self.getTestCore() as core:

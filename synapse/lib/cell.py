@@ -232,9 +232,14 @@ class CellApi(s_base.Base):
         return await item.addRule(rule, indx=indx)
 
     @adminapi
-    async def delAuthRule(self, name, indx):
+    async def delAuthRule(self, name, rule):
         item = self._getAuthItem(name)
-        return await item.delRule(indx)
+        return await item.delRule(rule)
+
+    @adminapi
+    async def delAuthRuleIndx(self, name, indx):
+        item = self._getAuthItem(name)
+        return await item.delRuleIndx(indx)
 
     @adminapi
     async def setAuthAdmin(self, name, admin):
