@@ -902,6 +902,7 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef[1], 'foo.bar')
 
             await self.agenlen(2, core.eval('test:str=visi -> #*'))
+            await self.agenlen(1, core.eval('test:str=visi -> #foo.bar'))
             await self.agenlen(1, core.eval('test:str=visi -> #foo.*'))
             await self.agenlen(0, core.eval('test:str=visi -> #baz.*'))
 

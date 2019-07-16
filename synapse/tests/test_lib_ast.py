@@ -197,7 +197,11 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(0, nodes)
 
+            q = 'test:str [+#base.tag1.foo] $var=tag1 -> #base.$var.*'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
             q = 'test:str $var=tag2 [+#base.$var]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.sorteq(nodes[0].tags, ('base', 'base.tag1', 'base.tag2'))
+            self.sorteq(nodes[0].tags, ('base', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
