@@ -181,6 +181,10 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(0, nodes)
 
+            q = 'test:str $var=tag1 +#base.$var'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
             q = 'test:str $var=tag1 +#base.$var@=2014'
             nodes = await core.nodes(q)
             self.len(1, nodes)

@@ -1424,12 +1424,10 @@ class TagCond(Cond):
 
         assert len(self.kids) == 1
         kid = self.kids[0]
-        if isinstance(kid, TagMatch):
+
+        if isinstance(kid, TagMatch) and kid.isconst:
             name = self.kids[0].value()
         else:
-            # TODO:  enable runtval calc here (variable nodes haven't been evaluated yet)
-            # if kid.isRuntSafe(runt):
-            #     name = await kid.runtval(runt)
             name = None
 
         if name is not None:
