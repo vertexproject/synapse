@@ -6,7 +6,8 @@ v0.1.18 - XXXX
 
 Features and Enhancements
 -------------------------
-- Storm:  allow plain variable references in tagnames and tagmatches, e.g. ``+#aka.$var.t42`` (`#1322 <https://github.com/vertexproject/synapse/pull/1322>`_)
+- Allow plain variable references in tagnames and tagmatches in Storm. For example: ``+#aka.$var.t42``
+  (`#1322 <https://github.com/vertexproject/synapse/pull/1322>`_)
 
 Bugfixes
 --------
