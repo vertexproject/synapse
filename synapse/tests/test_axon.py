@@ -71,6 +71,10 @@ class AxonTest(s_t_utils.SynTest):
             await fd.write(b'')
             self.eq(emptyretn, await fd.save())
 
+        info = await axon.metrics()
+        self.eq(33554445, info.get('size:bytes'))
+        self.eq(3, info.get('file:count'))
+
         bytz = []
         async for byts in axon.get(emptyhash):
             bytz.append(byts)
