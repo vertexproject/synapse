@@ -1949,8 +1949,7 @@ class TagMatch(TagName):
     Like TagName, but can have asterisks
     '''
     def hasglob(self):
-        if not self.kids:
-            return False
+        assert self.kids
 
         return any('*' in kid.valu for kid in self.kids if isinstance(kid, Const))
 
