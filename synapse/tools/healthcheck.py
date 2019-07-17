@@ -28,6 +28,13 @@ async def main(argv, outp=s_output.stdout):
                        'cell': opts.cell})
         outp.printf(serialize(ret))
         return 1
+    except s_exc.SynErr as e:
+        ret = (False, {'mesg': 'Synapse error encountered.',
+                       'errname': e.__class__.__name__,
+                       'errmesg': e.get('mesg'),
+                       'cell': opts.cell})
+        outp.printf(serialize(ret))
+        return 1
     except asyncio.CancelledError as e:
         ret = (False, {'mesg': 'Timeout connecting to cell',
                        'errname': e.__class__.__name__,
