@@ -18,6 +18,7 @@ import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.hive as s_hive
 import synapse.lib.compat as s_compat
+import synapse.lib.health as s_health
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 
@@ -314,6 +315,10 @@ class CellApi(s_base.Base):
             return role
 
         raise s_exc.NoSuchName(name=name)
+
+    @adminapi
+    async def getHealthCheck(self):
+        return await self.cell.getHealthCheck()
 
 class PassThroughApi(CellApi):
     '''
@@ -648,3 +653,10 @@ class Cell(s_base.Base, s_telepath.Aware):
             raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
 
         return user
+
+    async def getHealthCheck(self):
+        health = s_health.HealthCheck(htyp=self.getCellType())
+        # Give the Cell a shot at reporting its health
+        await self.fire('syn:health', health=health)
+        ret = health.pack()
+        return ret
