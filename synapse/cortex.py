@@ -750,6 +750,8 @@ class Cortex(s_cell.Cell):
         self.onfini(self.provstor.fini)
         self.provstor.migratePre010(self.view.layers[0])
 
+        self.on('syn:health', self._onHealthCortex)
+
         async def fini():
             await asyncio.gather(*[view.fini() for view in self.views.values()])
             await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
@@ -769,6 +771,13 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    async def _onHealthCortex(self, evnt):
+        health = evnt[1].get('health')
+        health.update('cortex',
+                      True,
+                      'All clear on the cortex front!',
+                      {'layercount': len(self.layers)})
 
     async def syncLayerSplices(self, iden, offs):
         '''

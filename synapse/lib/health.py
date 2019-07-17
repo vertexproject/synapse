@@ -26,6 +26,7 @@ class HealthCheck(object):
     def update(self,
                name: str,
                status: bool,
+               mesg: str = '',
                data: typing.Any =None,
                ) -> None:
         if name in self.data:
@@ -33,8 +34,11 @@ class HealthCheck(object):
                                           name=name, status=status)
         # Allow the component a shot at reporting a failure state
         self.healthy = status
-        if data is not None:
-            self.data[name] = data
+        if data is None:
+            data = {}
+        # record which component failed, any additional message they may have,
+        # as well as any additional data they want to report on.
+        self.data[name] = (status, mesg, data)
 
     @property
     def healthy(self) -> bool:

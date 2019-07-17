@@ -426,6 +426,8 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         await self._initCellHttp()
 
+        self.on('syn:health', self._onHealthCell)
+
         async def fini():
             [await s.fini() for s in self.sessions.values()]
 
@@ -660,3 +662,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         await self.fire('syn:health', health=health)
         ret = health.pack()
         return ret
+
+    async def _onHealthCell(self, evnt):
+        health = evnt[1].get('health')
+        health.update('cell', True, 'I am a cell!', {'sessions': len(self.sessions)})
