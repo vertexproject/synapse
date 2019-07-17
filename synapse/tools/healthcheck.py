@@ -21,8 +21,17 @@ async def main(argv, outp=s_output.stdout):
     try:
         prox = await asyncio.wait_for(s_telepath.openurl(opts.cell),
                                       timeout=opts.timeout)
-    except asyncio.CancelledError:
+    except ConnectionError as e:
+        ret = (False, {'mesg': 'Unable to  connecting to cell',
+                       'errname': e.__class__.__name__,
+                       'errmesg': str(e),
+                       'cell': opts.cell})
+        outp.printf(serialize(ret))
+        return 1
+    except asyncio.CancelledError as e:
         ret = (False, {'mesg': 'Timeout connecting to cell',
+                       'errname': e.__class__.__name__,
+                       'errmesg': str(e),
                        'cell': opts.cell})
         outp.printf(serialize(ret))
         return 1
@@ -33,11 +42,15 @@ async def main(argv, outp=s_output.stdout):
     except s_exc.SynErr as e:
         # TODO FIX ME!
         print(e)
-        ret = (False, {'mesg': 'synerror!',
+        ret = (False, {'mesg': 'Synapse error encountered.',
+                       'errname': e.__class__.__name__,
+                       'errmesg': e.get('mesg'),
                        'cell': opts.cell})
 
-    except asyncio.CancelledError:
+    except asyncio.CancelledError as e:
         ret = (False, {'mesg': 'Timeout getting health information from cell',
+                       'errname': e.__class__.__name__,
+                       'errmesg': str(e),
                        'cell': opts.cell})
 
     finally:
