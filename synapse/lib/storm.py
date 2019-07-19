@@ -236,6 +236,7 @@ class Cmd:
         try:
             self.opts = self.pars.parse_args(self.argv)
         except s_exc.BadSyntax as e:
+            logger.exception('error parsing syntax???')
             pass
         for line in self.pars.mesgs:
             await snap.printf(line)
@@ -896,3 +897,35 @@ class GraphCmd(Cmd):
 
         async for node, path in subg.run(runt, genr):
             yield node, path
+
+class TeeCmd(Cmd):
+    '''
+    words go here
+    '''
+    name = 'tee'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+
+        pars.add_argument('--join', '-j', default=False, action='store_true',
+                          help='Emit inbound nodes')
+
+        pars.add_argument('query', nargs='*',
+                          help='Specify a query to execute')
+
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        async for node, path in genr:  # type: s_node.Node, s_node.Path
+            for query in self.opts.query:
+                query = query.strip('{}')
+                # This does update path with any vars set in the last npath (node.storm behavior)
+                async for nnode, npath in node.storm(query, user=runt.user, path=path):
+                    yield nnode, npath
+
+            # yield first or last?
+            # yielding first preserves path vars.
+            # yielding last will show updated path vars from the last query....
+            if self.opts.join:
+                yield node, path

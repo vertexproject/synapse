@@ -442,3 +442,19 @@ class StormTest(s_t_utils.SynTest):
             errs = [m for m in mesgs if m[0] == 'err']
             self.len(1, errs)
             self.eq(errs[0][1][0], 'BadSyntax')
+
+    async def test_tee(self):
+        print('hello')
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                guid = s_common.guid()
+                # await snap.addNode('inet:ipv4', '1.2.3.4')
+                node = await snap.addNode('edge:refs', (('media:news', guid), ('inet:ipv4', '1.2.3.4')))
+                print(node)
+                node = await snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+                print(node)
+
+            q = 'inet:ipv4=1.2.3.4 | tee  --join { -> * } { <- *} { -> edge:refs:n2 :n1 -> * }'
+
+            async for mesg in core.streamstorm(q):
+                print(mesg)
