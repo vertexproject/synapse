@@ -919,7 +919,7 @@ class TeeCmd(Cmd):
 
         async for node, path in genr:  # type: s_node.Node, s_node.Path
             for query in self.opts.query:
-                query = query.strip('{}')
+                query = query[1:-1]
                 # This does update path with any vars set in the last npath (node.storm behavior)
                 async for nnode, npath in node.storm(query, user=runt.user, path=path):
                     yield nnode, npath
