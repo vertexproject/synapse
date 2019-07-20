@@ -565,11 +565,14 @@ class HttpApiTest(s_tests.SynTest):
             root = core.auth.getUserByName('root')
             await root.setPasswd('secret')
 
-            async with aiohttp.ClientSession() as sess:
-                async with sess.get(f'http://root:secret@localhost:{port}/api/v1/healthcheck') as resp:
+            print('getting session')
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+                print('making request')
+                async with sess.get(f'https://localhost:{port}/api/v1/healthcheck') as resp:
+                    print('getting json...')
                     item = await resp.json()
                     status, snfo = item.get('result')
                     self.true(status)
-                    from pprint import pprint
-
-                    pprint(item, width=120)
+                    print(snfo)
+                    # self.isinstance(snfo, list)
+                    # print()

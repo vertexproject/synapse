@@ -334,7 +334,7 @@ class TestModule(s_module.CoreModule):
         self.core.addRuntPropDel(self.model.prop('test:runt:lulz'), self._testRuntPropDelLulz)
 
     async def _onHealthcheckTest(self, event):
-        health = event[1].get('healthcheck')
+        health = event[1].get('health')
         if health is None:
             return
         if not self.healthy:
@@ -1189,11 +1189,13 @@ class SynTest(unittest.TestCase):
                     raise Exception('getHttpSess requires port for auth')
 
                 user, passwd = auth
+                print('logging in...')
                 async with sess.post(f'https://localhost:{port}/api/v1/login',
                                      json={'user': user, 'passwd': passwd}) as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
                     self.eq(user, retn['result']['name'])
+                print('yay')
 
             yield sess
 
