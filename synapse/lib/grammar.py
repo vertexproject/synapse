@@ -11,81 +11,6 @@ import synapse.lib.datfile as s_datfile
 # Note: this file is coupled strongly to synapse/lib/storm.lark.  Any changes to that file will probably require
 # changes here
 
-# For AstConverter, one-to-one replacements from lark to synapse AST
-ruleClassMap = {
-    'abspropcond': s_ast.AbsPropCond,
-    'andexpr': s_ast.AndCond,
-    'condsubq': s_ast.SubqCond,
-    'dollarexpr': s_ast.DollarExpr,
-    'editnodeadd': s_ast.EditNodeAdd,
-    'editparens': s_ast.EditParens,
-    'editpropdel': s_ast.EditPropDel,
-    'editpropset': s_ast.EditPropSet,
-    'edittagadd': s_ast.EditTagAdd,
-    'edittagdel': s_ast.EditTagDel,
-    'editunivdel': s_ast.EditUnivDel,
-    'editunivset': s_ast.EditPropSet,
-    'expror': s_ast.ExprNode,
-    'exprand': s_ast.ExprNode,
-    'exprnot': s_ast.UnaryExprNode,
-    'exprcmp': s_ast.ExprNode,
-    'exprproduct': s_ast.ExprNode,
-    'exprsum': s_ast.ExprNode,
-    'filtoper': s_ast.FiltOper,
-    'forloop': s_ast.ForLoop,
-    'whileloop': s_ast.WhileLoop,
-    'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),
-    'formjoin_pivotout': lambda _: s_ast.PivotOut(isjoin=True),
-    'formjoinin_pivotin': lambda kids: s_ast.PivotIn(kids, isjoin=True),
-    'formjoinin_pivotinfrom': lambda kids: s_ast.PivotInFrom(kids, isjoin=True),
-    'formpivot_': s_ast.FormPivot,
-    'formpivot_pivotout': s_ast.PivotOut,
-    'formpivot_pivottotags': s_ast.PivotToTags,
-    'formpivotin_': s_ast.PivotIn,
-    'formpivotin_pivotinfrom': s_ast.PivotInFrom,
-    'hasabspropcond': s_ast.HasAbsPropCond,
-    'hasrelpropcond': s_ast.HasRelPropCond,
-    'ifstmt': s_ast.IfStmt,
-    'ifclause': s_ast.IfClause,
-    'kwarg': lambda kids: s_ast.CallKwarg(kids=tuple(kids)),
-    'liftbytag': s_ast.LiftTag,
-    'liftformtag': s_ast.LiftFormTag,
-    'liftprop': s_ast.LiftProp,
-    'liftpropby': s_ast.LiftPropBy,
-    'lifttagtag': s_ast.LiftTagTag,
-    'notcond': s_ast.NotCond,
-    'opervarlist': s_ast.VarListSetOper,
-    'orexpr': s_ast.OrCond,
-    'query': s_ast.Query,
-    'relprop': s_ast.RelProp,
-    'relpropcond': s_ast.RelPropCond,
-    'relpropvalu': s_ast.RelPropValue,
-    'relpropvalue': s_ast.RelPropValue,
-    'stormcmd': lambda kids: s_ast.CmdOper(kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(tuple()))),
-    'tagcond': s_ast.TagCond,
-    'tagpropvalue': s_ast.TagPropValue,
-    'tagvalucond': s_ast.TagValuCond,
-    'valuvar': s_ast.VarSetOper,
-    'varderef': s_ast.VarDeref,
-    'vareval': s_ast.VarEvalOper,
-    'varvalue': s_ast.VarValue,
-    'univprop': s_ast.UnivProp
-}
-
-# For AstConverter, one-to-one replacements from lark to synapse AST
-terminalClassMap = {
-    'ABSPROP': s_ast.AbsProp,
-    'ABSPROPNOUNIV': s_ast.AbsProp,
-    'ALLTAGS': lambda _: s_ast.TagMatch(''),
-    'BREAK': lambda _: s_ast.BreakOper(),
-    'CONTINUE': lambda _: s_ast.ContinueOper(),
-    'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
-    'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
-    'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
-    'TAGMATCH': s_ast.TagMatch,
-    'VARTOKN': lambda x: s_ast.Const(x[1:-1] if len(x) and x[0] in ("'", '"') else x)
-}
-
 # For easier-to-understand syntax errors
 terminalEnglishMap = {
     'ABSPROP': 'absolute or universal property',
@@ -162,10 +87,12 @@ class AstConverter(lark.Transformer):
         # Keep the original text for error printing and weird subquery argv parsing
         self.text = text
 
-    def _convert_children(self, children):
-        return [self._convert_child(k) for k in children]
+    @classmethod
+    def _convert_children(cls, children):
+        return [cls._convert_child(k) for k in children]
 
-    def _convert_child(self, child):
+    @classmethod
+    def _convert_child(cls, child):
         if not isinstance(child, lark.lexer.Token):
             return child
         tokencls = terminalClassMap.get(child.type, s_ast.Const)
@@ -234,15 +161,24 @@ class AstConverter(lark.Transformer):
 
         return s_ast.Const(tuple(argv))
 
+    @classmethod
+    def _tagsplit(cls, tag):
+        if '$' not in tag:
+            return [s_ast.Const(tag)]
+
+        segs = tag.split('.')
+        kids = [s_ast.VarValue(kids=[s_ast.Const(seg[1:])]) if seg[0] == '$' else s_ast.Const(seg)
+                for seg in segs]
+        return kids
+
     def tagname(self, kids):
         assert kids and len(kids) == 1
         kid = kids[0]
+        if not isinstance(kid, lark.lexer.Token):
+            return self._convert_child(kid)
 
-        if isinstance(kid, lark.lexer.Token):
-            assert kid.type == 'TAG'
-            return s_ast.TagName(kid.value)
-
-        return self._convert_child(kid)
+        kids = self._tagsplit(kid.value)
+        return s_ast.TagName(kids=kids)
 
     def valulist(self, kids):
         kids = self._convert_children(kids)
@@ -349,7 +285,6 @@ class Parser:
         newtree = AstConverter(self.text).transform(tree)
         assert isinstance(newtree, s_ast.Const)
         return newtree.valu
-
 
 # TODO:  commonize with storm.lark
 scmdre = regex.compile('[a-z][a-z0-9.]+')
@@ -472,3 +407,78 @@ def parse_cmd_string(text, off):
     tree = CmdStringParser.parse(text[off:])
     valu, newoff = CmdStringer().transform(tree)
     return valu, off + newoff
+
+# For AstConverter, one-to-one replacements from lark to synapse AST
+terminalClassMap = {
+    'ABSPROP': s_ast.AbsProp,
+    'ABSPROPNOUNIV': s_ast.AbsProp,
+    'ALLTAGS': lambda _: s_ast.TagMatch(''),
+    'BREAK': lambda _: s_ast.BreakOper(),
+    'CONTINUE': lambda _: s_ast.ContinueOper(),
+    'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
+    'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
+    'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
+    'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
+    'VARTOKN': lambda x: s_ast.Const(x[1:-1] if len(x) and x[0] in ("'", '"') else x)
+}
+
+# For AstConverter, one-to-one replacements from lark to synapse AST
+ruleClassMap = {
+    'abspropcond': s_ast.AbsPropCond,
+    'andexpr': s_ast.AndCond,
+    'condsubq': s_ast.SubqCond,
+    'dollarexpr': s_ast.DollarExpr,
+    'editnodeadd': s_ast.EditNodeAdd,
+    'editparens': s_ast.EditParens,
+    'editpropdel': s_ast.EditPropDel,
+    'editpropset': s_ast.EditPropSet,
+    'edittagadd': s_ast.EditTagAdd,
+    'edittagdel': s_ast.EditTagDel,
+    'editunivdel': s_ast.EditUnivDel,
+    'editunivset': s_ast.EditPropSet,
+    'expror': s_ast.ExprNode,
+    'exprand': s_ast.ExprNode,
+    'exprnot': s_ast.UnaryExprNode,
+    'exprcmp': s_ast.ExprNode,
+    'exprproduct': s_ast.ExprNode,
+    'exprsum': s_ast.ExprNode,
+    'filtoper': s_ast.FiltOper,
+    'forloop': s_ast.ForLoop,
+    'whileloop': s_ast.WhileLoop,
+    'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),
+    'formjoin_pivotout': lambda _: s_ast.PivotOut(isjoin=True),
+    'formjoinin_pivotin': lambda kids: s_ast.PivotIn(kids, isjoin=True),
+    'formjoinin_pivotinfrom': lambda kids: s_ast.PivotInFrom(kids, isjoin=True),
+    'formpivot_': s_ast.FormPivot,
+    'formpivot_pivotout': s_ast.PivotOut,
+    'formpivot_pivottotags': s_ast.PivotToTags,
+    'formpivotin_': s_ast.PivotIn,
+    'formpivotin_pivotinfrom': s_ast.PivotInFrom,
+    'hasabspropcond': s_ast.HasAbsPropCond,
+    'hasrelpropcond': s_ast.HasRelPropCond,
+    'ifstmt': s_ast.IfStmt,
+    'ifclause': s_ast.IfClause,
+    'kwarg': lambda kids: s_ast.CallKwarg(kids=tuple(kids)),
+    'liftbytag': s_ast.LiftTag,
+    'liftformtag': s_ast.LiftFormTag,
+    'liftprop': s_ast.LiftProp,
+    'liftpropby': s_ast.LiftPropBy,
+    'lifttagtag': s_ast.LiftTagTag,
+    'notcond': s_ast.NotCond,
+    'opervarlist': s_ast.VarListSetOper,
+    'orexpr': s_ast.OrCond,
+    'query': s_ast.Query,
+    'relprop': s_ast.RelProp,
+    'relpropcond': s_ast.RelPropCond,
+    'relpropvalu': s_ast.RelPropValue,
+    'relpropvalue': s_ast.RelPropValue,
+    'stormcmd': lambda kids: s_ast.CmdOper(kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(tuple()))),
+    'tagcond': s_ast.TagCond,
+    'tagpropvalue': s_ast.TagPropValue,
+    'tagvalucond': s_ast.TagValuCond,
+    'valuvar': s_ast.VarSetOper,
+    'varderef': s_ast.VarDeref,
+    'vareval': s_ast.VarEvalOper,
+    'varvalue': s_ast.VarValue,
+    'univprop': s_ast.UnivProp
+}

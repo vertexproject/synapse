@@ -167,3 +167,41 @@ class AstTest(s_test.SynTest):
             self.len(2, nodes)
             kinds = [nodes[0].ndef[0], nodes[1].ndef[0]]
             self.sorteq(kinds, ['test:comp', 'test:int'])
+
+    async def test_ast_var_in_tags(self):
+        async with self.getTestCore() as core:
+            q = '[test:str=foo +#base.tag1=(2014,?)]'
+            await core.nodes(q)
+
+            q = '$var=tag1 #base.$var'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = '$var=not #base.$var'
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
+
+            q = 'test:str $var=tag1 +#base.$var'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'test:str $var=tag1 +#base.$var@=2014'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'test:str $var=tag1 -> #base.$var'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'test:str $var=nope -> #base.$var'
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
+
+            q = 'test:str [+#base.tag1.foo] $var=tag1 -> #base.$var.*'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            q = 'test:str $var=tag2 [+#base.$var]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.sorteq(nodes[0].tags, ('base', 'base.tag1', 'base.tag1.foo', 'base.tag2'))

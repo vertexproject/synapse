@@ -2,6 +2,15 @@
 Synapse Changelog
 *****************
 
+v0.1.18 - 2019-07-17
+====================
+
+Features and Enhancements
+-------------------------
+- Allow underscores in ``org:alias`` values. (`#1320 <https://github.com/vertexproject/synapse/pull/1320>`_)
+- Allow plain variable references in tagnames and tagmatches in Storm. For example: ``+#aka.$var.t42``
+  (`#1322 <https://github.com/vertexproject/synapse/pull/1322>`_)
+
 
 v0.1.17 - 2019-07-12
 ====================
