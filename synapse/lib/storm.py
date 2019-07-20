@@ -911,7 +911,7 @@ class TeeCmd(Cmd):
                           help='Emit inbound nodes')
 
         pars.add_argument('query', nargs='*',
-                          help='Specify a query to execute')
+                          help='Specify a query to execute on the input nodes.')
 
         return pars
 
