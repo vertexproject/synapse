@@ -556,3 +556,20 @@ class HttpApiTest(s_tests.SynTest):
                         node = json.loads(byts)
 
                     self.eq(0x01020304, node[0][1])
+
+    async def test_healthcheck(self):
+        async with self.getTestCore() as core:
+            # Run http instead of https for this test
+            host, port = await core.addHttpPort(0, host='127.0.0.1')
+
+            root = core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            async with aiohttp.ClientSession() as sess:
+                async with sess.get(f'http://root:secret@localhost:{port}/api/v1/healthcheck') as resp:
+                    item = await resp.json()
+                    status, snfo = item.get('result')
+                    self.true(status)
+                    from pprint import pprint
+
+                    pprint(item, width=120)

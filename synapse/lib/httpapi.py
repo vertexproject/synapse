@@ -596,3 +596,10 @@ class ModelV1(Handler):
 
         resp = await self.cell.getModelDict()
         return self.sendRestRetn(resp)
+
+class HealthCheckV1(Handler):
+
+    async def get(self):
+        await self.reqAuthAdmin()
+        resp = await self.cell.getHealthCheck()
+        return self.sendRestRetn(resp)
