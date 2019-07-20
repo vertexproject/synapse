@@ -560,7 +560,7 @@ class HttpApiTest(s_tests.SynTest):
     async def test_healthcheck(self):
         async with self.getTestCore() as core:
             # Run http instead of https for this test
-            host, port = await core.addHttpPort(0, host='127.0.0.1')
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
             root = core.auth.getUserByName('root')
             await root.setPasswd('secret')
