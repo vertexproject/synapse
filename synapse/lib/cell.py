@@ -664,5 +664,4 @@ class Cell(s_base.Base, s_telepath.Aware):
         return ret
 
     async def _onHealthCell(self, evnt):
-        health = evnt[1].get('health')
-        health.update('cell', True, 'I am a cell!', {'sessions': len(self.sessions)})
+        pass

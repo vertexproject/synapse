@@ -32,7 +32,10 @@ class HealthcheckTest(s_t_utils.SynTest):
             status1, snfo1 = await prox.getHealthCheck()
             self.true(status1)
             self.eq(snfo1.get('type'), 'cortex')
-            self.isinstance(snfo1.get('data'), dict)
+            data = snfo1.get('data')
+            testdata = data.get('testmodule')
+            self.eq(testdata,
+                    (True, 'Test module is healthy', {'beep': 0}))
 
             # The TestModule registers a syn:health event handler on the Cortex
             mod = core.modules.get('synapse.tests.utils.TestModule')  # type: s_t_utils.TestModule

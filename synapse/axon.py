@@ -19,6 +19,7 @@ CHUNK_SIZE = 16 * s_const.mebibyte
 
 tenmegs = 10 * s_const.mebibyte
 
+
 class UpLoad(s_base.Base):
 
     async def __anit__(self, axon):
@@ -62,11 +63,14 @@ class UpLoad(s_base.Base):
 
         return self.size, sha256
 
+
 class UpLoadShare(UpLoad, s_share.Share):
     typename = 'upload'
+
     async def __anit__(self, axon, link):
         await UpLoad.__anit__(self, axon)
         await s_share.Share.__anit__(self, link, None)
+
 
 class AxonApi(s_cell.CellApi, s_share.Share):
 
@@ -105,8 +109,8 @@ class AxonApi(s_cell.CellApi, s_share.Share):
         self.user.allowed(('axon:has',))
         return await self.cell.metrics()
 
-class Axon(s_cell.Cell):
 
+class Axon(s_cell.Cell):
     cellapi = AxonApi
     confdefs = ()
 
@@ -136,6 +140,25 @@ class Axon(s_cell.Cell):
         self.axonmetrics = await node.dict()
         self.axonmetrics.setdefault('size:bytes', 0)
         self.axonmetrics.setdefault('file:count', 0)
+
+        self.on('syn:health', self._onHealthAxon)
+
+    async def _onHealthAxon(self, event):
+        health = event[1].get('health')
+        if health is None:
+            return
+        metrics = await self.metrics()
+        tock = s_common.now()
+        window = 1000 * 5
+        tick = tock - window
+        recent_hashes = []
+        async for (offset, (bhash, size)) in self.history(tick, tock):
+            recent_hashes.append(s_common.ehex(bhash))
+        health.update('metrics', True, '', data=metrics)
+        health.update('recent', True, '', data={'tick': tick,
+                                                'tock': tock,
+                                                'hashes': recent_hashes,
+                                                })
 
     def _addSyncItem(self, item):
         self.axonhist.add(item)

@@ -773,11 +773,7 @@ class Cortex(s_cell.Cell):
         self._initFeedLoops()
 
     async def _onHealthCortex(self, evnt):
-        health = evnt[1].get('health')
-        health.update('cortex',
-                      True,
-                      'All clear on the cortex front!',
-                      {'layercount': len(self.layers)})
+        pass
 
     async def syncLayerSplices(self, iden, offs):
         '''

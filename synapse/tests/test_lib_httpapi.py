@@ -571,5 +571,3 @@ class HttpApiTest(s_tests.SynTest):
                     status, snfo = item.get('result')
                     self.true(status)
                     self.isinstance(snfo, dict)
-                    # TODO: Fix a bug where two HTTPAPI sessions are being made on the cell?
-                    print(snfo)

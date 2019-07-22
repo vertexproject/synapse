@@ -77,6 +77,17 @@ class AxonTest(s_t_utils.SynTest):
 
         self.eq(b'', b''.join(bytz))
 
+        # axon health
+        status, snfo = await axon.getHealthCheck()
+        self.true(status)
+        data = snfo.get('data')
+        _, _, metrics = data.get('metrics')
+        self.eq(metrics, await axon.metrics())
+        _, _, recents = data.get('recent')
+        hashes = recents.get('hashes')
+        self.len(3, hashes)
+        self.isin(s_common.ehex(emptyhash), hashes)
+
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
             self.isin('axon', axon.dmon.shared)
