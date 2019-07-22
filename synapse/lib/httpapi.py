@@ -143,7 +143,7 @@ class HandlerBase:
                 return None
 
             if iden is None:
-                iden = s_common.guid()
+                iden = s_common.guid().encode()
                 opts = {'expires_days': 14, 'secure': True, 'httponly': True}
                 self.set_secure_cookie('sess', iden, **opts)
 

@@ -452,10 +452,14 @@ class HttpApiTest(s_tests.SynTest):
 
             async with self.getHttpSess() as sess:
 
+                self.len(0, core.sessions)  # zero sessions..
+
                 async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
                     self.eq('visi', retn['result']['name'])
+
+                self.len(1, core.sessions)  # We have one session after login
 
                 # Get a copy of the data model
                 async with sess.get(f'https://localhost:{port}/api/v1/model') as resp:
@@ -463,6 +467,8 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('ok', retn.get('status'))
                     self.isin('types', retn['result'])
                     self.isin('forms', retn['result'])
+
+                self.len(1, core.sessions)  # We still have one session since the cookie was reused
 
                 # Norm via GET
                 body = {'prop': 'inet:ipv4', 'value': '1.2.3.4'}
