@@ -565,14 +565,11 @@ class HttpApiTest(s_tests.SynTest):
             root = core.auth.getUserByName('root')
             await root.setPasswd('secret')
 
-            print('getting session')
             async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
-                print('making request')
                 async with sess.get(f'https://localhost:{port}/api/v1/healthcheck') as resp:
-                    print('getting json...')
                     item = await resp.json()
                     status, snfo = item.get('result')
                     self.true(status)
+                    self.isinstance(snfo, dict)
+                    # TODO: Fix a bug where two HTTPAPI sessions are being made on the cell?
                     print(snfo)
-                    # self.isinstance(snfo, list)
-                    # print()
