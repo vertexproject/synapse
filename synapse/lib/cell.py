@@ -437,7 +437,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         return self.sessstor.gen(iden)
 
     async def genHttpSess(self, iden):
-        print(f'session: {iden}')
+
         # TODO age out http sessions
         sess = self.sessions.get(iden)
         if sess is not None:
