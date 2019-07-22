@@ -77,8 +77,8 @@ def makeargparser():
     pars = s_cmd.Parser('healthcheck', description=desc)
     pars.add_argument('--cell', '-c', required=True, type=str,
                       help='Telepath path to the cell to check.')
-    pars.add_argument('--timeout', '-t', default=30, type=int,
-                      help='Connection/call timeout')
+    pars.add_argument('--timeout', '-t', default=10, type=int,
+                      help='Connection and call timeout')
     return pars
 
 if __name__ == '__main__':  # pragma: no cover
