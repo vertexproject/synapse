@@ -444,17 +444,53 @@ class StormTest(s_t_utils.SynTest):
             self.eq(errs[0][1][0], 'BadSyntax')
 
     async def test_tee(self):
-        print('hello')
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 guid = s_common.guid()
-                # await snap.addNode('inet:ipv4', '1.2.3.4')
                 node = await snap.addNode('edge:refs', (('media:news', guid), ('inet:ipv4', '1.2.3.4')))
-                print(node)
                 node = await snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
-                print(node)
 
             q = 'inet:ipv4=1.2.3.4 | tee  --join { -> * } { <- *} { -> edge:refs:n2 :n1 -> * }'
 
+            q = 'inet:ipv4=1.2.3.4 | tee { -> * }'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:asn', 0))
+
+            q = 'inet:ipv4=1.2.3.4 | tee --join { -> * }'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:asn', 0))
+            self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
+
+            q = 'inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }'
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+            self.eq(nodes[0].ndef, ('inet:asn', 0))
+            self.eq(nodes[1].ndef[0], ('inet:dns:a'))
+            self.eq(nodes[2].ndef, ('inet:ipv4', 0x01020304))
+
+            q = 'inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * } { -> edge:refs:n2 :n1 -> * }'
+            nodes = await core.nodes(q)
+            self.len(4, nodes)
+            self.eq(nodes[0].ndef, ('inet:asn', 0))
+            self.eq(nodes[1].ndef[0], ('inet:dns:a'))
+            self.eq(nodes[2].ndef[0], ('media:news'))
+            self.eq(nodes[3].ndef, ('inet:ipv4', 0x01020304))
+
+            # Empty queries are okay - they will just return the input node
+            q = 'inet:ipv4=1.2.3.4 | tee {}'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            # Subqueries are okay too
+            q = 'inet:ipv4=1.2.3.4 | tee {{ -> * }}'
+            nodes = await core.nodes(q)
+            # self.len(0, nodes)
+
             async for mesg in core.streamstorm(q):
                 print(mesg)
+
+            q = 'inet:ipv4=1.2.3.4 | tee'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))

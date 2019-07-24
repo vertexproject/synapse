@@ -917,15 +917,18 @@ class TeeCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        if not self.opts.query:
+            raise s_exc.StormRuntimeError(mesg='Tee command must take at least one query as input.',
+                                          name=self.name)
+
         async for node, path in genr:  # type: s_node.Node, s_node.Path
             for query in self.opts.query:
                 query = query[1:-1]
+                await runt.snap.printf(f'query: {query}')
                 # This does update path with any vars set in the last npath (node.storm behavior)
                 async for nnode, npath in node.storm(query, user=runt.user, path=path):
+                    await runt.snap.printf(f'yielding node: {node.ndef}')
                     yield nnode, npath
 
-            # yield first or last?
-            # yielding first preserves path vars.
-            # yielding last will show updated path vars from the last query....
             if self.opts.join:
                 yield node, path
