@@ -900,7 +900,20 @@ class GraphCmd(Cmd):
 
 class TeeCmd(Cmd):
     '''
-    words go here
+    Execute multiple Storm queries on each node in the input stream, emitting
+    the output commands in order they are given.
+
+    Examples:
+
+        # Perform a pivot out and pivot in on a inet:ivp4 node
+        inet:ipv4=1.2.3.4 | tee { -> * } { <- * }
+
+        # Also emit the inbound node
+        inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }
+
+        # Subqueries are also supported, but will yield the input node automatically.
+        inet:ipv4=1.2.3.4 | tee { {subquery 1...} } { {subquery 2...} }
+
     '''
     name = 'tee'
 
@@ -908,7 +921,7 @@ class TeeCmd(Cmd):
         pars = Cmd.getArgParser(self)
 
         pars.add_argument('--join', '-j', default=False, action='store_true',
-                          help='Emit inbound nodes')
+                          help='Emit inbound nodes after processing storm queries.')
 
         pars.add_argument('query', nargs='*',
                           help='Specify a query to execute on the input nodes.')
@@ -924,7 +937,6 @@ class TeeCmd(Cmd):
         async for node, path in genr:  # type: s_node.Node, s_node.Path
             for query in self.opts.query:
                 query = query[1:-1]
-                await runt.snap.printf(f'query: {query}')
                 # This does update path with any vars set in the last npath (node.storm behavior)
                 async for nnode, npath in node.storm(query, user=runt.user, path=path):
                     await runt.snap.printf(f'yielding node: {node.ndef}')

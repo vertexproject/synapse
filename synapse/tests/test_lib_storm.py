@@ -450,8 +450,6 @@ class StormTest(s_t_utils.SynTest):
                 node = await snap.addNode('edge:refs', (('media:news', guid), ('inet:ipv4', '1.2.3.4')))
                 node = await snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
 
-            q = 'inet:ipv4=1.2.3.4 | tee  --join { -> * } { <- *} { -> edge:refs:n2 :n1 -> * }'
-
             q = 'inet:ipv4=1.2.3.4 | tee { -> * }'
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -484,13 +482,12 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
-            # Subqueries are okay too
+            # Subqueries are okay too but will just yield the input back out
             q = 'inet:ipv4=1.2.3.4 | tee {{ -> * }}'
             nodes = await core.nodes(q)
-            # self.len(0, nodes)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
-            async for mesg in core.streamstorm(q):
-                print(mesg)
-
+            # Sad path
             q = 'inet:ipv4=1.2.3.4 | tee'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
