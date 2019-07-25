@@ -82,4 +82,4 @@ def makeargparser():
     return pars
 
 if __name__ == '__main__':  # pragma: no cover
-    asyncio.run(main(sys.argv[1:]))
+    sys.exit(asyncio.run(main(sys.argv[1:])))
