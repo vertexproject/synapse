@@ -236,7 +236,6 @@ class Cmd:
         try:
             self.opts = self.pars.parse_args(self.argv)
         except s_exc.BadSyntax as e:
-            logger.exception('error parsing syntax???')
             pass
         for line in self.pars.mesgs:
             await snap.printf(line)
