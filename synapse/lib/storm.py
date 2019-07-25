@@ -896,3 +896,47 @@ class GraphCmd(Cmd):
 
         async for node, path in subg.run(runt, genr):
             yield node, path
+
+class TeeCmd(Cmd):
+    '''
+    Execute multiple Storm queries on each node in the input stream, emitting
+    the output commands in order they are given.
+
+    Examples:
+
+        # Perform a pivot out and pivot in on a inet:ivp4 node
+        inet:ipv4=1.2.3.4 | tee { -> * } { <- * }
+
+        # Also emit the inbound node
+        inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }
+
+    '''
+    name = 'tee'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+
+        pars.add_argument('--join', '-j', default=False, action='store_true',
+                          help='Emit inbound nodes after processing storm queries.')
+
+        pars.add_argument('query', nargs='*',
+                          help='Specify a query to execute on the input nodes.')
+
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if not self.opts.query:
+            raise s_exc.StormRuntimeError(mesg='Tee command must take at least one query as input.',
+                                          name=self.name)
+
+        async for node, path in genr:  # type: s_node.Node, s_node.Path
+            for query in self.opts.query:
+                query = query[1:-1]
+                # This does update path with any vars set in the last npath (node.storm behavior)
+                async for nnode, npath in node.storm(query, user=runt.user, path=path):
+                    await runt.snap.printf(f'yielding node: {node.ndef}')
+                    yield nnode, npath
+
+            if self.opts.join:
+                yield node, path
