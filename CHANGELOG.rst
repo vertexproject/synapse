@@ -16,6 +16,8 @@ Bugfixes
 --------
 - Fix a bug in HTTPAPI session handling which created duplicate sessions on the server side.
   (`#1324 <https://github.com/vertexproject/synapse/pull/1324>`_)
+- Fix a documentation error in the quickstart guide regarding permissions.
+  (`#1326 <https://github.com/vertexproject/synapse/pull/1326>`_)
 
 
 v0.1.18 - 2019-07-17
