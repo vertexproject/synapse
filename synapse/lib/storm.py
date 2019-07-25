@@ -910,9 +910,6 @@ class TeeCmd(Cmd):
         # Also emit the inbound node
         inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }
 
-        # Subqueries are also supported, but will yield the input node automatically.
-        inet:ipv4=1.2.3.4 | tee { {subquery 1...} } { {subquery 2...} }
-
     '''
     name = 'tee'
 
