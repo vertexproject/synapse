@@ -469,7 +469,7 @@ class Node:
 
         await self._setTagProp(name, norm, indx, info)
 
-        await self.snap.core.runTagAdd(self, name, norm)
+        await self.snap.view.runTagAdd(self, name, norm)
 
         return True
 
@@ -510,7 +510,7 @@ class Node:
         await self.snap.stor(sops, splices)
 
         # fire all the handlers / triggers
-        [await self.snap.core.runTagDel(self, t, v) for (t, v) in removed]
+        [await self.snap.view.runTagDel(self, t, v) for (t, v) in removed]
 
     async def delete(self, force=False):
         '''

@@ -2005,15 +2005,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Sad path for underlying Cortex.runRuntLift
             await self.agenraises(s_exc.NoSuchLift, core.runRuntLift('test:newp', 'newp'))
 
-    async def test_cortex_view_borked(self):
+    async def test_cortex_view_invalid(self):
 
         async with self.getTestCore() as core:
 
-            core.view.borked = s_common.guid()
+            core.view.invalid = s_common.guid()
             with self.raises(s_exc.NoSuchLayer):
                 await core.eval('[ test:str=foo ]').list()
 
-            core.view.borked = None
+            core.view.invalid = None
             self.len(1, await core.eval('[ test:str=foo ]').list())
 
     async def test_tag_globbing(self):
@@ -3160,8 +3160,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                                            'layer has invalid type') as stream:
                 async with self.getTestCore(dirn=dirn) as core:
                     self.true(await stream.wait(3))
-                    # And the default view is borked
-                    self.true(core.view.borked)
+                    # And the default view is invalid
+                    self.true(core.view.invalid)
 
     async def test_cortex_dedicated(self):
         '''

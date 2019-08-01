@@ -314,7 +314,7 @@ class Form:
             except Exception:
                 logger.exception('error on onadd for %s' % (self.name,))
 
-        await node.snap.core.triggers.runNodeAdd(node)
+        await node.snap.view.triggers.runNodeAdd(node)
 
     async def wasDeleted(self, node):
         '''
@@ -330,7 +330,7 @@ class Form:
             except Exception:
                 logger.exception('error on ondel for %s' % (self.name,))
 
-        await node.snap.core.triggers.runNodeDel(node)
+        await node.snap.view.triggers.runNodeDel(node)
 
     def getSetOps(self, buid, norm):
 

@@ -631,7 +631,7 @@ class ReIndexCmd(Cmd):
                     valu = node.get(tname)
                     if valu is None:
                         continue
-                    await runt.snap.core.runTagAdd(node, name, valu)
+                    await runt.snap.view.runTagAdd(node, name, valu)
 
                 yield node, path
 

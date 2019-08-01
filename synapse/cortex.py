@@ -1,7 +1,6 @@
 import os
 import asyncio
 import logging
-import itertools
 import contextlib
 import collections
 
@@ -14,11 +13,10 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
-import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
-import synapse.lib.snap as s_snap
+import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
@@ -40,98 +38,6 @@ logger = logging.getLogger(__name__)
 '''
 A Cortex implements the synapse hypergraph object.
 '''
-
-class View(s_base.Base):
-    '''
-    A view represents a cortex as seen from a specific set of layers.
-
-    The view class is used to implement Copy-On-Write layers as well as
-    interact with a subset of the layers configured in a Cortex.
-    '''
-
-    async def __anit__(self, core, node):
-        '''
-        Async init the view.
-
-        Args:
-            core (Cortex):  The cortex that owns the view.
-            node (HiveNode): The hive node containing the view info.
-        '''
-        await s_base.Base.__anit__(self)
-
-        self.core = core
-
-        self.node = node
-        self.iden = node.name()
-
-        self.borked = None
-
-        self.info = await node.dict()
-        self.info.setdefault('owner', 'root')
-        self.info.setdefault('layers', ())
-
-        self.layers = []
-
-        for iden in self.info.get('layers'):
-
-            layr = core.layers.get(iden)
-
-            if layr is None:
-                self.borked = iden
-                logger.warning('view %r has missing layer %r' % (self.iden, iden))
-                continue
-
-            if not self.layers and layr.readonly:
-                self.borked = iden
-                raise s_exc.ReadOnlyLayer(mesg=f'First layer {iden} must not be read-only')
-
-            self.layers.append(layr)
-
-    async def snap(self, user):
-
-        if self.borked is not None:
-            raise s_exc.NoSuchLayer(iden=self.borked)
-
-        return await s_snap.Snap.anit(self.core, self.layers, user)
-
-    def pack(self):
-        return {
-            'iden': self.iden,
-            'owner': self.info.get('owner'),
-            'layers': self.info.get('layers'),
-        }
-
-    async def addLayer(self, layr, indx=None):
-        if indx is None:
-            if not self.layers and layr.readonly:
-                raise s_exc.ReadOnlyLayer(mesg=f'First layer {layr.iden} must not be read-only')
-            self.layers.append(layr)
-        else:
-            if indx == 0 and layr.readonly:
-                raise s_exc.ReadOnlyLayer(mesg=f'First layer {layr.iden} must not be read-only')
-            self.layers.insert(indx, layr)
-        await self.info.set('layers', [l.iden for l in self.layers])
-
-    async def setLayers(self, layers):
-        '''
-        Set the view layers from a list of idens.
-        NOTE: view layers are stored "top down" ( write is layers[0] )
-        '''
-        layrs = []
-
-        for iden in layers:
-            layr = self.core.layers.get(iden)
-            if layr is None:
-                raise s_exc.NoSuchLayer(iden=iden)
-            if not layrs and layr.readonly:
-                raise s_exc.ReadOnlyLayer(mesg=f'First layer {layr.iden} must not be read-only')
-
-            layrs.append(layr)
-
-        self.borked = None
-        self.layers = layrs
-
-        await self.info.set('layers', layers)
 
 class CoreApi(s_cell.CellApi):
     '''
@@ -168,11 +74,11 @@ class CoreApi(s_cell.CellApi):
         ret = await self.cell.joinTeleLayer(url, indx=indx)
         return ret
 
-    async def getNodesBy(self, full, valu, cmpr='='):
+    async def getNodesBy(self, full, valu, cmpr='=', view=None):
         '''
         Yield Node.pack() tuples which match the query.
         '''
-        async for node in self.cell.getNodesBy(full, valu, cmpr=cmpr):
+        async for node in self.cell.getNodesBy(full, valu, cmpr=cmpr, view=view):
             yield node.pack()
 
     async def getModelDict(self):
@@ -370,7 +276,16 @@ class CoreApi(s_cell.CellApi):
 
         return crons
 
-    async def addNodeTag(self, iden, tag, valu=(None, None)):
+    async def _viewAllowed(self, iden):
+        # FIXME: check perms
+
+        view = self.cell.views.get(iden)
+        if view is None:
+            raise s_exc.NoSuchView(iden=iden)
+
+        return view
+
+    async def addNodeTag(self, iden, tag, valu=(None, None), view=None):
         '''
         Add a tag to a node specified by iden.
 
@@ -381,10 +296,13 @@ class CoreApi(s_cell.CellApi):
         '''
         buid = s_common.uhex(iden)
 
+        if view is not None:
+            view = self._viewAllowed(view)
+
         parts = tag.split('.')
         await self._reqUserAllowed('tag:add', *parts)
 
-        async with await self.cell.snap(user=self.user) as snap:
+        async with await self.cell.snap(user=self.user, view=view) as snap:
             with s_provenance.claim('coreapi', meth='tag:add', user=snap.user.iden):
 
                 node = await snap.getNodeByBuid(buid)
@@ -394,7 +312,7 @@ class CoreApi(s_cell.CellApi):
                 await node.addTag(tag, valu=valu)
                 return node.pack()
 
-    async def delNodeTag(self, iden, tag):
+    async def delNodeTag(self, iden, tag, view=None):
         '''
         Delete a tag from the node specified by iden.
 
@@ -403,6 +321,9 @@ class CoreApi(s_cell.CellApi):
             tag (str):  A tag string.
         '''
         buid = s_common.uhex(iden)
+
+        if view is not None:
+            view = self._viewAllowed(view)
 
         parts = tag.split('.')
         await self._reqUserAllowed('tag:del', *parts)
@@ -417,13 +338,16 @@ class CoreApi(s_cell.CellApi):
                 await node.delTag(tag)
                 return node.pack()
 
-    async def setNodeProp(self, iden, name, valu):
+    async def setNodeProp(self, iden, name, valu, view=None):
         '''
         Set a property on a single node.
         '''
         buid = s_common.uhex(iden)
 
-        async with await self.cell.snap(user=self.user) as snap:
+        if view is not None:
+            view = self._viewAllowed(view)
+
+        async with await self.cell.snap(user=self.user, view=view) as snap:
 
             with s_provenance.claim('coreapi', meth='prop:set', user=snap.user.iden):
 
@@ -437,14 +361,17 @@ class CoreApi(s_cell.CellApi):
                 await node.set(name, valu)
                 return node.pack()
 
-    async def delNodeProp(self, iden, name):
+    async def delNodeProp(self, iden, name, view=None):
         '''
         Delete a property from a single node.
         '''
 
         buid = s_common.uhex(iden)
 
-        async with await self.cell.snap(user=self.user) as snap:
+        if view is not None:
+            view = self._viewAllowed(view)
+
+        async with await self.cell.snap(user=self.user, view=view) as snap:
 
             with s_provenance.claim('coreapi', meth='prop:del', user=snap.user.iden):
 
@@ -458,17 +385,19 @@ class CoreApi(s_cell.CellApi):
                 await node.pop(name)
                 return node.pack()
 
-    async def addNode(self, form, valu, props=None):
+    async def addNode(self, form, valu, props=None, view=None):
 
         await self._reqUserAllowed('node:add', form)
+        if view is not None:
+            view = self._viewAllowed(view)
 
-        async with await self.cell.snap(user=self.user) as snap:
+        async with await self.cell.snap(user=self.user, view=view) as snap:
             with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
 
                 node = await snap.addNode(form, valu, props=props)
                 return node.pack()
 
-    async def addNodes(self, nodes):
+    async def addNodes(self, nodes, view=None):
         '''
         Add a list of packed nodes to the cortex.
 
@@ -492,7 +421,10 @@ class CoreApi(s_cell.CellApi):
             await self._reqUserAllowed('node:add', formname)
             done[formname] = True
 
-        async with await self.cell.snap(user=self.user) as snap:
+        if view is not None:
+            view = self._viewAllowed(view)
+
+        async with await self.cell.snap(user=self.user, view=view) as snap:
             with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
 
                 snap.strict = False
@@ -504,13 +436,15 @@ class CoreApi(s_cell.CellApi):
 
                     yield node
 
-    async def addFeedData(self, name, items, seqn=None):
+    async def addFeedData(self, name, items, seqn=None, view=None):
 
         await self._reqUserAllowed('feed:data', *name.split('.'))
+        if view is not None:
+            view = self._viewAllowed(view)
 
         with s_provenance.claim('feed:data', name=name):
 
-            async with await self.cell.snap(user=self.user) as snap:
+            async with await self.cell.snap(user=self.user, view=view) as snap:
                 snap.strict = False
                 return await snap.addFeedData(name, items, seqn=seqn)
 
@@ -521,7 +455,7 @@ class CoreApi(s_cell.CellApi):
     def setFeedOffs(self, iden, offs):
         return self.cell.setFeedOffs(iden, offs)
 
-    async def count(self, text, opts=None):
+    async def count(self, text, opts=None, view=None):
         '''
         Count the number of nodes which result from a storm query.
 
@@ -532,25 +466,35 @@ class CoreApi(s_cell.CellApi):
         Returns:
             (int): The number of nodes resulting from the query.
         '''
+
+        if view is not None:
+            view = self._viewAllowed(view)
+
         i = 0
-        async for _ in self.cell.eval(text, opts=opts, user=self.user):
+        async for _ in self.cell.eval(text, opts=opts, user=self.user, view=view):
             i += 1
         return i
 
-    async def eval(self, text, opts=None):
+    async def eval(self, text, opts=None, view=None):
         '''
         Evalute a storm query and yield packed nodes.
         '''
-        async for pode in self.cell.iterStormPodes(text, opts=opts, user=self.user):
+        if view is not None:
+            view = self._viewAllowed(view)
+
+        async for pode in self.cell.iterStormPodes(text, opts=opts, user=self.user, view=view):
             yield pode
 
-    async def storm(self, text, opts=None):
+    async def storm(self, text, opts=None, view=None):
         '''
         Evaluate a storm query and yield result messages.
         Yields:
             ((str,dict)): Storm messages.
         '''
-        async for mesg in self.cell.streamstorm(text, opts, user=self.user):
+        if view is not None:
+            view = self._viewAllowed(view)
+
+        async for mesg in self.cell.streamstorm(text, opts, user=self.user, view=view):
             yield mesg
 
     async def syncLayerSplices(self, iden, offs):
@@ -756,7 +700,7 @@ class Cortex(s_cell.Cell):
 
         self.onfini(fini)
 
-        self.triggers = s_trigger.Triggers(self)
+        self.trigstor = s_trigger.TriggerStorage(self)
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
 
@@ -983,6 +927,7 @@ class Cortex(s_cell.Cell):
             valu = s_common.int64un(lval)
             self.counts[form] = valu
 
+    # FIXME: what about multiple views?
     def pokeFormCount(self, form, valu):
 
         curv = self.counts.get(form, 0)
@@ -1160,34 +1105,6 @@ class Cortex(s_cell.Cell):
         ret = await s_coro.ornot(func, node, prop)
         return ret
 
-    async def runTagAdd(self, node, tag, valu):
-
-        # Run the non-glob callbacks, then the glob callbacks
-        funcs = itertools.chain(self.ontagadds.get(tag, ()), (x[1] for x in self.ontagaddglobs.get(tag)))
-        for func in funcs:
-            try:
-                await s_coro.ornot(func, node, tag, valu)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                logger.exception('onTagAdd Error')
-
-        # Run any trigger handlers
-        await self.triggers.runTagAdd(node, tag)
-
-    async def runTagDel(self, node, tag, valu):
-
-        funcs = itertools.chain(self.ontagdels.get(tag, ()), (x[1] for x in self.ontagdelglobs.get(tag)))
-        for func in funcs:
-            try:
-                await s_coro.ornot(func, node, tag, valu)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                logger.exception('onTagDel Error')
-
-        await self.triggers.runTagDel(node, tag)
-
     async def _checkLayerModels(self):
         mrev = s_modelrev.ModelRev(self)
         await mrev.revCoreLayers()
@@ -1201,7 +1118,7 @@ class Cortex(s_cell.Cell):
     async def _initCoreViews(self):
 
         for iden, node in await self.hive.open(('cortex', 'views')):
-            view = await View.anit(self, node)
+            view = await s_view.View.anit(self, node)
             self.views[iden] = view
 
         # if we have no views, we are initializing.  add the main view.
@@ -1216,7 +1133,7 @@ class Cortex(s_cell.Cell):
         await info.set('owner', owner)
         await info.set('layers', layers)
 
-        view = await View.anit(self, node)
+        view = await s_view.View.anit(self, node)
         self.views[iden] = view
 
         return view
@@ -1770,7 +1687,7 @@ class Cortex(s_cell.Cell):
         return ret
 
     @s_coro.genrhelp
-    async def eval(self, text, opts=None, user=None):
+    async def eval(self, text, opts=None, user=None, view=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
@@ -1778,12 +1695,12 @@ class Cortex(s_cell.Cell):
             user = self.auth.getUserByName('root')
 
         await self.boss.promote('storm', user=user, info={'query': text})
-        async with await self.snap(user=user) as snap:
+        async with await self.snap(user=user, view=view) as snap:
             async for node in snap.eval(text, opts=opts, user=user):
                 yield node
 
     @s_coro.genrhelp
-    async def storm(self, text, opts=None, user=None):
+    async def storm(self, text, opts=None, user=None, view=None):
         '''
         Evaluate a storm query and yield (node, path) tuples.
         Yields:
@@ -1793,18 +1710,18 @@ class Cortex(s_cell.Cell):
             user = self.auth.getUserByName('root')
 
         await self.boss.promote('storm', user=user, info={'query': text})
-        async with await self.snap(user=user) as snap:
+        async with await self.snap(user=user, view=view) as snap:
             async for mesg in snap.storm(text, opts=opts, user=user):
                 yield mesg
 
-    async def nodes(self, text, opts=None, user=None):
+    async def nodes(self, text, opts=None, user=None, view=None):
         '''
         A simple non-streaming way to return a list of nodes.
         '''
-        return [n async for n in self.eval(text, opts=opts, user=user)]
+        return [n async for n in self.eval(text, opts=opts, user=user, view=view)]
 
     @s_coro.genrhelp
-    async def streamstorm(self, text, opts=None, user=None):
+    async def streamstorm(self, text, opts=None, user=None, view=None):
         '''
         Evaluate a storm query and yield result messages.
         Yields:
@@ -1837,7 +1754,7 @@ class Cortex(s_cell.Cell):
                 await chan.put(('init', {'tick': tick, 'text': text, 'task': synt.iden}))
 
                 shownode = (show is None or 'node' in show)
-                async with await self.snap(user=user) as snap:
+                async with await self.snap(user=user, view=view) as snap:
 
                     if show is None:
                         snap.link(chan.put)
@@ -1885,12 +1802,12 @@ class Cortex(s_cell.Cell):
                 break
 
     @s_coro.genrhelp
-    async def iterStormPodes(self, text, opts=None, user=None):
+    async def iterStormPodes(self, text, opts=None, user=None, view=None):
         if user is None:
             user = self.auth.getUserByName('root')
 
         await self.boss.promote('storm', user=user, info={'query': text})
-        async with await self.snap(user=user) as snap:
+        async with await self.snap(user=user, view=view) as snap:
             async for pode in snap.iterStormPodes(text, opts=opts, user=user):
                 yield pode
 
@@ -1911,7 +1828,7 @@ class Cortex(s_cell.Cell):
             lvl = self.conf.get('storm:log:level')
             logger.log(lvl, 'Executing storm query {%s} as [%s]', text, user.name)
 
-    async def getNodeByNdef(self, ndef):
+    async def getNodeByNdef(self, ndef, view=None):
         '''
         Return a single Node() instance by (form,valu) tuple.
         '''
@@ -1925,10 +1842,10 @@ class Cortex(s_cell.Cell):
 
         buid = s_common.buid((form.name, norm))
 
-        async with await self.snap() as snap:
+        async with await self.snap(view=view) as snap:
             return await snap.getNodeByBuid(buid)
 
-    async def getNodesBy(self, full, valu, cmpr='='):
+    async def getNodesBy(self, full, valu, cmpr='=', view=None):
         '''
         Get nodes by a property value or lift syntax.
 
@@ -1947,7 +1864,7 @@ class Cortex(s_cell.Cell):
             # The inet:ipv4 type knows about cidr syntax
             core.getNodesBy('inet:ipv4', '1.2.3.0/24')
         '''
-        async with await self.snap() as snap:
+        async with await self.snap(view=view) as snap:
             async for node in snap.getNodesBy(full, valu, cmpr=cmpr):
                 yield node
 
@@ -1958,7 +1875,7 @@ class Cortex(s_cell.Cell):
             'stormcmds': {cmd: {} for cmd in self.stormcmds.keys()},
         }
 
-    async def addNodes(self, nodedefs):
+    async def addNodes(self, nodedefs, view=None):
         '''
         Quickly add/modify a list of nodes from node definition tuples.
         This API is the simplest/fastest way to add nodes, set node props,
@@ -1975,12 +1892,12 @@ class Cortex(s_cell.Cell):
         The "props" or "tags" keys may be omitted.
 
         '''
-        async with await self.snap() as snap:
+        async with await self.snap(view=view) as snap:
             snap.strict = False
             async for node in snap.addNodes(nodedefs):
                 yield node
 
-    async def addFeedData(self, name, items, seqn=None):
+    async def addFeedData(self, name, items, seqn=None, view=None):
         '''
         Add data using a feed/parser function.
 
@@ -1992,15 +1909,17 @@ class Cortex(s_cell.Cell):
         Returns:
             (int): The next expected offset (or None) if seqn is None.
         '''
-        async with await self.snap() as snap:
+        async with await self.snap(view=view) as snap:
             snap.strict = False
             return await snap.addFeedData(name, items, seqn=seqn)
 
     async def getFeedOffs(self, iden):
+        # FIXME:  adjust for view
         return await self.view.layers[0].getOffset(iden)
 
     async def setFeedOffs(self, iden, offs):
 
+        # FIXME:  adjust for view
         if offs < 0:
             mesg = 'Offset must be >= 0.'
             raise s_exc.BadConfValu(mesg=mesg, offs=offs, iden=iden)
@@ -2186,62 +2105,65 @@ class Cortex(s_cell.Cell):
         norm, info = tobj.norm(valu)
         return norm, info
 
-    async def addTrigger(self, condition, query, info, disabled=False, user=None):
+    async def addTrigger(self, condition, query, info, disabled=False, user=None, view=None):
         '''
         Adds a trigger to the cortex
         '''
-        if user is None:
-            user = self.auth.getUserByName('root')
+        if view is None:
+            view = self.view
 
-        iden = self.triggers.add(user.iden, condition, query, info=info)
-        if disabled:
-            self.triggers.disable(iden)
-        await self.fire('core:trigger:action', iden=iden, action='add')
-        return iden
+        return await view.addTrigger(condition, query, info, disabled, user)
 
-    def getTrigger(self, iden):
-        return self.triggers.get(iden)
+    def getTrigger(self, iden, view=None):
+        if view is None:
+            view = self.view
 
-    async def delTrigger(self, iden):
+        return view.getTrigger(iden)
+
+    async def delTrigger(self, iden, view=None):
         '''
         Deletes a trigger from the cortex
         '''
-        self.triggers.delete(iden)
-        await self.fire('core:trigger:action', iden=iden, action='delete')
+        if view is None:
+            view = self.view
 
-    async def updateTrigger(self, iden, query):
+        return await view.delTrigger(iden)
+
+    async def updateTrigger(self, iden, query, view=None):
         '''
         Change an existing trigger's query
         '''
-        self.triggers.mod(iden, query)
-        await self.fire('core:trigger:action', iden=iden, action='mod')
+        if view is None:
+            view = self.view
 
-    async def enableTrigger(self, iden):
+        return await view.updateTrigger(iden, query)
+
+    async def enableTrigger(self, iden, view=None):
         '''
         Change an existing trigger's query
         '''
-        self.triggers.enable(iden)
-        await self.fire('core:trigger:action', iden=iden, action='enable')
+        if view is None:
+            view = self.view
 
-    async def disableTrigger(self, iden):
+        return await view.enableTrigger(iden)
+
+    async def disableTrigger(self, iden, view=None):
         '''
         Change an existing trigger's query
         '''
-        self.triggers.disable(iden)
-        await self.fire('core:trigger:action', iden=iden, action='disable')
+        if view is None:
+            view = self.view
 
-    async def listTriggers(self):
+        return await view.disableTrigger(iden)
+
+    async def listTriggers(self, view=None):
         '''
         Lists all the triggers in the Cortex.
         '''
-        trigs = []
-        for (iden, trig) in self.triggers.list():
-            useriden = trig['useriden']
-            user = self.auth.user(useriden)
-            trig['username'] = '<unknown>' if user is None else user.name
-            trigs.append((iden, trig))
+        if view is None:
+            view = self.view
 
-        return trigs
+        return view.listTriggers()
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):

@@ -17,25 +17,25 @@ class TrigTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=fdir) as core:
                 rootiden = core.auth.getUserByName('root').iden
-                core.triggers.add('root', 'node:add', '[inet:user=1] | testcmd', info={'form': 'inet:ipv4'})
-                triggers = core.triggers.list()
+                core.view.triggers.add('root', 'node:add', '[inet:user=1] | testcmd', info={'form': 'inet:ipv4'})
+                triggers = core.view.triggers.list()
                 self.eq(triggers[0][1].get('storm'), '[inet:user=1] | testcmd')
                 iden = triggers[0][0]
-                core.triggers.mod(iden, '[inet:user=2 .test:univ=4] | testcmd')
-                triggers = core.triggers.list()
+                core.view.triggers.mod(iden, '[inet:user=2 .test:univ=4] | testcmd')
+                triggers = core.view.triggers.list()
                 self.eq(triggers[0][1].get('storm'), '[inet:user=2 .test:univ=4] | testcmd')
 
                 # Sad case
-                self.raises(s_exc.BadSyntax, core.triggers.mod, iden, ' | | badstorm ')
-                self.raises(s_exc.NoSuchIden, core.triggers.mod, 'deadb33f', 'inet:user')
+                self.raises(s_exc.BadSyntax, core.view.triggers.mod, iden, ' | | badstorm ')
+                self.raises(s_exc.NoSuchIden, core.view.triggers.mod, 'deadb33f', 'inet:user')
 
                 # Manually store a v0 trigger
                 ruledict = {'ver': 0, 'cond': 'node:add', 'form': 'inet:ipv4', 'user': 'root', 'storm': 'testcmd'}
                 iden = b'\xff' * 16
-                core.slab.put(iden, s_msgpack.en(ruledict), db=core.triggers.trigdb)
+                core.slab.put(iden, s_msgpack.en(ruledict), db=core.trigstor.trigdb)
 
             async with self.getTestCore(dirn=fdir) as core:
-                triggers = core.triggers.list()
+                triggers = core.view.triggers.list()
                 self.len(2, triggers)
                 self.eq(triggers[0][1].get('storm'), '[inet:user=2 .test:univ=4] | testcmd')
 
@@ -203,16 +203,16 @@ class TrigTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             rootiden = core.auth.getUserByName('root').iden
 
-            iden0 = core.triggers.add(rootiden, 'node:add', '[test:str=add]', {'form': 'test:guid'})
-            iden1 = core.triggers.add(rootiden, 'node:del', '[test:str=del]', {'form': 'test:guid'})
-            iden2 = core.triggers.add(rootiden, 'prop:set', '[test:str=set]', {'prop': 'test:guid:tick'})
+            iden0 = core.view.triggers.add(rootiden, 'node:add', '[test:str=add]', {'form': 'test:guid'})
+            iden1 = core.view.triggers.add(rootiden, 'node:del', '[test:str=del]', {'form': 'test:guid'})
+            iden2 = core.view.triggers.add(rootiden, 'prop:set', '[test:str=set]', {'prop': 'test:guid:tick'})
 
             await core.eval('[test:guid="*" :tick=2015] | delnode').list()
             self.len(3, await core.eval('test:str').list())
 
-            core.triggers.delete(iden0)
-            core.triggers.delete(iden1)
-            core.triggers.delete(iden2)
+            core.view.triggers.delete(iden0)
+            core.view.triggers.delete(iden1)
+            core.view.triggers.delete(iden2)
 
             await core.eval('test:str | delnode').list()
             await core.eval('[test:guid="*" :tick=2015] | delnode').list()
@@ -224,8 +224,8 @@ class TrigTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             rootiden = core.auth.getUserByName('root').iden
-            iden0 = core.triggers.add(rootiden, 'tag:add', '[ +#count0 ]', {'tag': 'foo.*.bar'})
-            iden1 = core.triggers.add(rootiden, 'tag:del', '[ +#count1 ]', {'tag': 'baz.*.faz'})
+            iden0 = core.view.triggers.add(rootiden, 'tag:add', '[ +#count0 ]', {'tag': 'foo.*.bar'})
+            iden1 = core.view.triggers.add(rootiden, 'tag:del', '[ +#count1 ]', {'tag': 'baz.*.faz'})
 
             await core.eval('[ test:guid="*" +#foo.asdf.bar ]').list()
             await core.eval('[ test:guid="*" +#baz.asdf.faz ]').list()
@@ -234,8 +234,8 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, await core.eval('#count0').list())
             self.len(1, await core.eval('#count1').list())
 
-            core.triggers.delete(iden0)
-            core.triggers.delete(iden1)
+            core.view.triggers.delete(iden0)
+            core.view.triggers.delete(iden1)
 
             await core.eval('test:guid | delnode').list()
 

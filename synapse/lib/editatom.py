@@ -122,4 +122,4 @@ class EditAtom:
 
         # Finally, fire all the triggers
         for node, prop, oldv, _ in self.npvs:
-            await snap.core.triggers.runPropSet(node, prop, oldv)
+            await snap.view.triggers.runPropSet(node, prop, oldv)
