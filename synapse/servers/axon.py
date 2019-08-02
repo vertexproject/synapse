@@ -9,6 +9,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
+import synapse.lib.dyndeps
 
 logger = logging.getLogger(__name__)
 
@@ -26,15 +27,18 @@ def parse(argv):
 
     return pars.parse_args(argv)
 
-async def main(argv, outp=s_output.stdout):
+async def main(argv, outp=s_output.stdout, axonctor=None):
 
     opts = parse(argv)
+
+    if axonctor is None:
+        axonctor = s_axon.Axon.anit
 
     s_common.setlogging(logger)
 
     outp.printf('starting axon: %s' % (opts.axondir,))
 
-    axon = await s_axon.Axon.anit(opts.axondir)
+    axon = await axonctor(opts.axondir)
 
     try:
 
