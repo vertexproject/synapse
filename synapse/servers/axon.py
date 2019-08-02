@@ -9,7 +9,6 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
-import synapse.lib.dyndeps
 
 logger = logging.getLogger(__name__)
 
