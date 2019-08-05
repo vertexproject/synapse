@@ -763,6 +763,8 @@ class Migrator:
             seenmax = seenmin + 1
         if seenmin is None:
             seenmin = seenmax - 1
+        if seenmin == seenmax:
+            seenmax = seenmin + 1
         return '.seen', (seenmin, seenmax)
 
     def ip_with_port_to_server(self, formname, propname, typename, val, props):

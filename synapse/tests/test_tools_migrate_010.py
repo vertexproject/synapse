@@ -177,13 +177,13 @@ class Migrate010Test(s_iq.SynTest):
 
             # ps:person:has
             core.formTufoByProp('ps:person:has', (person_guid, ('file:bytes', file_guid)),
-                                **{'seen:min': 1000, 'seen:max': 2000})
+                                **{'seen:min': 1000, 'seen:max': 1000})
             fh = tempfile.TemporaryFile(dir=str(dirn))
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('has', fh)
             self.len(1, nodes)
             self.eq(nodes[0][0], ('has', (('ps:person', person_guid), ('file:bytes', 'guid:' + file_guid))))
-            self.eq(nodes[0][1]['props']['.seen'], (1000, 2000))
+            self.eq(nodes[0][1]['props']['.seen'], (1000, 1001))
             fh.close()
 
             # ps:image
