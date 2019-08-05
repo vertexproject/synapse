@@ -1,5 +1,6 @@
 import synapse.tests.utils as s_test
 
+import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 
 class LinkTest(s_test.SynTest):
@@ -20,3 +21,42 @@ class LinkTest(s_test.SynTest):
         await link.send(b'visi')
         self.eq(b'vert', await link.recvsize(4))
         self.none(await link.recvsize(1))
+
+    async def test_link_file(self):
+
+        link0, file0 = await s_link.linkfile('rb')
+
+        def reader(fd):
+            byts = fd.read()
+            fd.close()
+            return byts
+
+        coro = s_coro.executor(reader, file0)
+
+        await link0.send(b'asdf')
+        await link0.send(b'qwer')
+
+        await link0.fini()
+
+        self.eq(b'asdfqwer', await coro)
+
+        link1, file1 = await s_link.linkfile('wb')
+
+        def writer(fd):
+            fd.write(b'asdf')
+            fd.write(b'qwer')
+            fd.close()
+
+        coro = s_coro.executor(writer, file1)
+
+        byts = b''
+
+        while True:
+            x = await link1.recv(1000000)
+            if not x:
+                break
+            byts += x
+
+        await coro
+
+        self.eq(b'asdfqwer', byts)

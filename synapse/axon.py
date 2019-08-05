@@ -124,18 +124,21 @@ class Axon(s_cell.Cell):
         self.onfini(self.axonslab.fini)
 
         self.axonhist = s_lmdbslab.Hist(self.axonslab, 'history')
-
-        path = s_common.gendir(self.dirn, 'blob.lmdb')
-        self.blobslab = await s_lmdbslab.Slab.anit(path)
-        self.blobs = self.blobslab.initdb('blobs')
-        self.onfini(self.blobslab.fini)
-
         self.axonseqn = s_slabseqn.SlabSeqn(self.axonslab, 'axonseqn')
 
         node = await self.hive.open(('axon', 'metrics'))
         self.axonmetrics = await node.dict()
         self.axonmetrics.setdefault('size:bytes', 0)
         self.axonmetrics.setdefault('file:count', 0)
+
+        # modularize blob storage
+        await self._initBlobStor()
+
+    async def _initBlobStor(self):
+        path = s_common.gendir(self.dirn, 'blob.lmdb')
+        self.blobslab = await s_lmdbslab.Slab.anit(path)
+        self.blobs = self.blobslab.initdb('blobs')
+        self.onfini(self.blobslab.fini)
 
     def _addSyncItem(self, item):
         self.axonhist.add(item)
@@ -180,12 +183,7 @@ class Axon(s_cell.Cell):
         if byts is not None:
             return int.from_bytes(byts, 'big')
 
-        size = 0
-        for i, byts in enumerate(genr):
-            size += len(byts)
-            lkey = sha256 + i.to_bytes(8, 'big')
-            self.blobslab.put(lkey, byts, db=self.blobs)
-            await asyncio.sleep(0)
+        size = await self._saveFileGenr(sha256, genr)
 
         self._addSyncItem((sha256, size))
 
@@ -194,6 +192,15 @@ class Axon(s_cell.Cell):
 
         self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
 
+        return size
+
+    async def _saveFileGenr(self, sha256, genr):
+        size = 0
+        for i, byts in enumerate(genr):
+            size += len(byts)
+            lkey = sha256 + i.to_bytes(8, 'big')
+            self.blobslab.put(lkey, byts, db=self.blobs)
+            await asyncio.sleep(0)
         return size
 
     async def wants(self, sha256s):
