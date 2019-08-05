@@ -3,6 +3,33 @@ Synapse Changelog
 *****************
 
 
+v0.1.19 - 2019-07-25
+====================
+
+Features and Enhancements
+-------------------------
+- Add a new Storm command, ``tee``, that allows for executing multiple storm queries with the input node as the input to
+  the queries, and rejoining their output as a new stream of nodes.
+  (`#1323 <https://github.com/vertexproject/synapse/pull/1323>`_)
+
+Bugfixes
+--------
+- Fix a bug in HTTPAPI session handling which created duplicate sessions on the server side.
+  (`#1324 <https://github.com/vertexproject/synapse/pull/1324>`_)
+- Fix a documentation error in the quickstart guide regarding permissions.
+  (`#1326 <https://github.com/vertexproject/synapse/pull/1326>`_)
+
+
+v0.1.18 - 2019-07-17
+====================
+
+Features and Enhancements
+-------------------------
+- Allow underscores in ``org:alias`` values. (`#1320 <https://github.com/vertexproject/synapse/pull/1320>`_)
+- Allow plain variable references in tagnames and tagmatches in Storm. For example: ``+#aka.$var.t42``
+  (`#1322 <https://github.com/vertexproject/synapse/pull/1322>`_)
+
+
 v0.1.17 - 2019-07-12
 ====================
 

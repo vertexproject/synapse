@@ -90,7 +90,7 @@ To prepare for sharing a Cortex via telepath or HTTP, roles and users should be 
     python -m synapse.tools.cellauth cell://cortex modify visi --adduser
     python -m synapse.tools.cellauth cell://cortex modify visi --passwd secretsauce
     python -m synapse.tools.cellauth cell://cortex modify visi --addrule node:add
-    python -m synapse.tools.cellauth cell://cortex modify visi --addrule node:set
+    python -m synapse.tools.cellauth cell://cortex modify visi --addrule prop:set
     python -m synapse.tools.cellauth cell://cortex modify visi --addrule tag:add
 
 Additionally, users may be granted the ``storm.cmd.sudo`` permission to allow them to use the Storm ``sudo`` command to execute queries as a super-user.  Keep in mind that any user with access to the ``sudo`` command can bypass all Storm permissions.::
@@ -109,11 +109,11 @@ Granular permissions based on types of nodes and tags may be used to create role
 *node:add.<form>*
      Add a specific form of node.  (ex. ``node:add.inet:ipv4``)
 
-*node:set*
+*prop:set*
      Set any property.
 
-*node:set.<prop>*
-     Set a specific property.  (ex. ``node:set.inet:ipv4:loc``)
+*prop:set.<prop>*
+     Set a specific property.  (ex. ``prop:set.inet:ipv4:loc``)
 
 *node:del*
      Delete any form of node.

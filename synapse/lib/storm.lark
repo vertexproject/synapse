@@ -4,7 +4,7 @@
 %import common.ESCAPED_STRING
 
 // Lark Grammar Notes:
-// Lark uses standard EBNF notation with a couple extra bells and whistles:
+// Lark uses standard EBNF notation with a few extra bells and whistles:
 // * Rules and terminals that start with an underscore are not presented in the final parse tree.  The underscored
 //   terminals are skipped entirely, and the underscored rule nodes are replaced by their children.
 // * Rules ending with a .<num> are higher priority than other rules.
@@ -74,7 +74,7 @@ opervarlist: varlist _WS? "=" _WS? _valu
 // Pivots
 _formpivot: formpivot_pivottotags | formpivot_pivotout | formpivot_
 formpivot_pivottotags: _RIGHTPIVOT _WS? (ALLTAGS | _tagmatch)
-// The special symbol that indicates to pivot to forms with any tags on them
+// The special symbol that indicates to pivot to syn:tag nodes
 ALLTAGS: "#"
 
 formpivot_pivotout:    _RIGHTPIVOT _WS? "*"
@@ -113,10 +113,13 @@ NONCMDQUOTE: /(?!['\"])[^\s|}]+/
 
 // A tag with either a variable reference or a tag name potentially with asterisks
 _tagmatch: "#" (_varvalu | TAGMATCH)
-// A tag name with asterisks
-TAGMATCH:  /([\w*]+\.)*[\w*]+/
-// A regular tag
-TAG: /([\w]+\.)*[\w]+/
+// A tag name with asterisks or $var as segment after the first segment
+TAGMATCH:  _TAGSEGSTARNOVAR ( "." (_TAGSEGSTARNOVAR | "$" VARTOKN))*
+_TAGSEGSTARNOVAR: /[\w*]+/
+
+// A regular tag potentially with $var as any number of segments after the first
+TAG: _TAGSEGNOVAR ("." (_TAGSEGNOVAR | "$" VARTOKN))*
+_TAGSEGNOVAR: /\w+/
 
 // A comparison operator
 // https://regex101.com/r/l8hFq8/1

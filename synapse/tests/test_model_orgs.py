@@ -38,6 +38,8 @@ class OuModelTest(s_t_utils.SynTest):
             # ou:alias
             t = core.model.type('ou:alias')
             self.raises(s_exc.BadTypeValu, t.norm, 'asdf.asdf.asfd')
+            self.eq(t.norm('HAHA1')[0], 'haha1')
+            self.eq(t.norm('GOV_MFA')[0], 'gov_mfa')
 
             async with await core.snap() as snap:
                 guid0 = s_common.guid()

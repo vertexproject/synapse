@@ -35,8 +35,9 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenlen(3, core.streamstorm('inet:dns:a :ipv4 -> *'))
 
     async def test_cortex_of_the_future(self):
-
-        # test "future/ongoing" time stamp.
+        '''
+        test "future/ongoing" time stamp.
+        '''
         async with self.getTestReadWriteCores() as (core, wcore):
 
             async with await wcore.snap() as snap:
@@ -901,6 +902,7 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef[1], 'foo.bar')
 
             await self.agenlen(2, core.eval('test:str=visi -> #*'))
+            await self.agenlen(1, core.eval('test:str=visi -> #foo.bar'))
             await self.agenlen(1, core.eval('test:str=visi -> #foo.*'))
             await self.agenlen(0, core.eval('test:str=visi -> #baz.*'))
 

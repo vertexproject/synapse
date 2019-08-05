@@ -101,6 +101,7 @@ commands:
 
       -  codecov/upload:
            file: /home/circleci/repo/coverage.xml
+           upload_name: ${PYVERS}node${CIRCLE_NODE_INDEX}
 
       - store_test_results:
           path: test-reports
@@ -144,6 +145,7 @@ commands:
 
       -  codecov/upload:
            file: /Users/distiller/repo/coverage.xml
+           upload_name: osx${PYVERS}node${CIRCLE_NODE_INDEX}
 
       - store_test_results:
           path: test-reports
@@ -369,7 +371,7 @@ workflows:
             - python37
           filters:
             tags:
-              only: /^v(0\.[0-9]+\.[0-9]+)$/
+              only: /^v(0\.1\.[0-9]+)$/
             branches:
               ignore: /.*/
 
@@ -388,7 +390,7 @@ workflows:
             - python37
           filters:
             tags:
-              only: /^v(0\.[0-9]+\.[0-9]+)$/
+              only: /^v(0\.1\.[0-9]+)$/
             branches:
               ignore: /.*/
 
