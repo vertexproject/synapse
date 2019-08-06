@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 16 * s_const.mebibyte
 
-tenmegs = 10 * s_const.mebibyte
+fsize = 512 * s_const.mebibyte
 
 class UpLoad(s_base.Base):
 
@@ -26,7 +26,7 @@ class UpLoad(s_base.Base):
         await s_base.Base.__anit__(self)
 
         self.axon = axon
-        self.fd = tempfile.SpooledTemporaryFile(max_size=tenmegs)
+        self.fd = tempfile.SpooledTemporaryFile(max_size=fsize)
 
         self.size = 0
         self.sha256 = hashlib.sha256()
