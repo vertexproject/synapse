@@ -27,7 +27,6 @@ class UpLoad(s_base.Base):
 
         self.axon = axon
         self.fd = tempfile.SpooledTemporaryFile(max_size=fsize)
-        self.onfini(self.fd.close)
         self.size = 0
         self.sha256 = hashlib.sha256()
 
@@ -59,7 +58,7 @@ class UpLoad(s_base.Base):
                 yield byts
 
         await self.axon.save(sha256, genr())
-
+        self.fd.close()
         return self.size, sha256
 
 class UpLoadShare(UpLoad, s_share.Share):
