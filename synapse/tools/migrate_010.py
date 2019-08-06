@@ -713,6 +713,12 @@ class Migrator:
 
         retn = ((formname, pk), {'props': props})
         if tags:
+            for tag, valu in list(tags.items()):
+                if valu == (None, None):
+                    continue
+                mint, maxt = valu
+                if mint == maxt:
+                    tags[tag] = (mint, mint + 1)
             retn[1]['tags'] = tags
 
         return retn

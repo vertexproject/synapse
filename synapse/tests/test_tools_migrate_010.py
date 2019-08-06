@@ -119,6 +119,7 @@ class Migrate010Test(s_iq.SynTest):
                                        ipv4=0x01020304)
             core.addTufoTag(tufo, 'test')
             core.addTufoTag(tufo, 'hehe.haha@2016-2017')
+            core.addTufoTag(tufo, 'hehe.same@2001')
             core.formTufoByProp('inet:web:logon', '*', acct='vertex.link/pennywise2', time=now,
                                 ipv6='::ffff:1.2.3.4')
             fh = tempfile.TemporaryFile(dir=str(dirn))
@@ -131,6 +132,7 @@ class Migrate010Test(s_iq.SynTest):
             tags = node1[1]['tags']
             self.eq(tags['test'], (None, None))
             self.eq(tags['hehe.haha'], (1451606400000, 1483228800000))
+            self.eq(tags['hehe.same'], (978307200000, 978307200001))
             nodes = self.get_formfile('syn:tagform', fh)
             self.eq(nodes, [])
             fh.close()
