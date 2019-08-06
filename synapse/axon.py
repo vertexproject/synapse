@@ -16,8 +16,7 @@ import synapse.lib.slabseqn as s_slabseqn
 logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 16 * s_const.mebibyte
-
-fsize = 512 * s_const.mebibyte
+MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
 
 class UpLoad(s_base.Base):
 
@@ -26,7 +25,7 @@ class UpLoad(s_base.Base):
         await s_base.Base.__anit__(self)
 
         self.axon = axon
-        self.fd = tempfile.SpooledTemporaryFile(max_size=fsize)
+        self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE)
         self.size = 0
         self.sha256 = hashlib.sha256()
 
