@@ -1,7 +1,33 @@
 import os
+import typing
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
+class ConfTypes(object):
+    def __init__(self):
+        self.types = {}
+        self._initTypes()
+
+    def _initTypes(self):
+        self.addType('bool', bool)
+        self.addType('int', int)
+        self.addType('str', str)
+        self.addType('list', list)
+        self.addType('dict', dict)
+
+    def addType(self, name: str, func: typing.Callable):
+        self.types[name] = func
+
+    def norm(self, name: str, valu: typing.Any) -> typing.Any:
+        func = self.types.get(name)
+        ret = func(valu)
+        return ret
+
+class Config2:
+    def __init__(self, confdefs):
+        self.confdefs = confdefs
+        self.conf = {}
 
 class Config:
 
