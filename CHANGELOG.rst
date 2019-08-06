@@ -2,6 +2,13 @@
 Synapse Changelog
 *****************
 
+v0.1.20 - 2019-08-06
+====================
+
+Features and Enhancements
+-------------------------
+- Refactor Axon to allow for easier subclassing. (`#1327 <https://github.com/vertexproject/synapse/pull/1327>`_)
+- Miscellaneous Axon improvements. (`#1331 <https://github.com/vertexproject/synapse/pull/1331>`_)
 
 v0.1.19 - 2019-07-25
 ====================
