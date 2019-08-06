@@ -23,6 +23,8 @@ class AxonTest(s_t_utils.SynTest):
 
         tick = s_common.now()
 
+        logger.info('asdfhash test')
+
         self.false(await axon.has(asdfhash))
 
         async with await axon.upload() as fd:
@@ -41,6 +43,9 @@ class AxonTest(s_t_utils.SynTest):
         self.eq(b'asdfasdf', b''.join(bytz))
 
         self.true(await axon.has(asdfhash))
+
+        logger.info('bbufhash test')
+
         self.false(await axon.has(bbufhash))
 
         self.eq((bbufhash,), await axon.wants((bbufhash, asdfhash)))
@@ -54,6 +59,8 @@ class AxonTest(s_t_utils.SynTest):
 
         self.eq((), await axon.wants((bbufhash, asdfhash)))
 
+        logger.info('History and metrics')
+
         items = [x async for x in axon.hashes(0)]
         self.eq(((0, (asdfhash, 8)), (1, (bbufhash, 33554437))), items)
 
@@ -66,6 +73,8 @@ class AxonTest(s_t_utils.SynTest):
         info = await axon.metrics()
         self.eq(33554445, info.get('size:bytes'))
         self.eq(2, info.get('file:count'))
+
+        logger.info('Empty file test')
 
         async with await axon.upload() as fd:
             await fd.write(b'')
