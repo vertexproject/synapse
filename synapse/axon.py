@@ -110,7 +110,7 @@ class Axon(s_cell.Cell):
 
     async def __anit__(self, dirn, conf=None):
 
-        await s_cell.Cell.__anit__(self, dirn)
+        await s_cell.Cell.__anit__(self, dirn, conf=conf)
 
         # share ourself via the cell dmon as "axon"
         # for potential default remote use
