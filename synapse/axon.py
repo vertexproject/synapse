@@ -27,7 +27,7 @@ class UpLoad(s_base.Base):
 
         self.axon = axon
         self.fd = tempfile.SpooledTemporaryFile(max_size=fsize)
-
+        self.onfini(self.fd.close)
         self.size = 0
         self.sha256 = hashlib.sha256()
 
