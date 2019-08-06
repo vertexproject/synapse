@@ -16,8 +16,7 @@ import synapse.lib.slabseqn as s_slabseqn
 logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 16 * s_const.mebibyte
-
-tenmegs = 10 * s_const.mebibyte
+MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
 
 class UpLoad(s_base.Base):
 
@@ -26,8 +25,7 @@ class UpLoad(s_base.Base):
         await s_base.Base.__anit__(self)
 
         self.axon = axon
-        self.fd = tempfile.SpooledTemporaryFile(max_size=tenmegs)
-
+        self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE)
         self.size = 0
         self.sha256 = hashlib.sha256()
 
@@ -59,7 +57,7 @@ class UpLoad(s_base.Base):
                 yield byts
 
         await self.axon.save(sha256, genr())
-
+        self.fd.close()
         return self.size, sha256
 
 class UpLoadShare(UpLoad, s_share.Share):
@@ -112,7 +110,7 @@ class Axon(s_cell.Cell):
 
     async def __anit__(self, dirn, conf=None):
 
-        await s_cell.Cell.__anit__(self, dirn)
+        await s_cell.Cell.__anit__(self, dirn, conf=conf)
 
         # share ourself via the cell dmon as "axon"
         # for potential default remote use
