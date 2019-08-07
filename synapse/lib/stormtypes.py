@@ -174,7 +174,6 @@ class LibTime(Lib):
         Parse a timestamp string using datetimte.strptime formatting.
         '''
         try:
-
             dt = datetime.datetime.strptime(valu, format)
         except ValueError as e:
             mesg = f'Error during time parsing - {str(e)}'
