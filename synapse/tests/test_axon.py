@@ -1,6 +1,7 @@
 import hashlib
 import logging
 
+import synapse.axon as s_axon
 import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
@@ -9,13 +10,17 @@ logger = logging.getLogger(__name__)
 
 # This causes blocks which are not homogeneous when sliced in kibibyte lengths
 bbuf = b'0123456' * 4793491
+abuf = b'asdfasdf'
+pbuf = b'pennywise'
 
 bbufhash = hashlib.sha256(bbuf).digest()
-asdfhash = hashlib.sha256(b'asdfasdf').digest()
+asdfhash = hashlib.sha256(abuf).digest()
 emptyhash = hashlib.sha256(b'').digest()
+pennhash = hashlib.sha256(pbuf).digest()
 
 asdfretn = (8, asdfhash)
 emptyretn = (0, emptyhash)
+pennretn = (9, pennhash)
 
 class AxonTest(s_t_utils.SynTest):
 
@@ -28,12 +33,12 @@ class AxonTest(s_t_utils.SynTest):
         self.false(await axon.has(asdfhash))
 
         async with await axon.upload() as fd:
-            await fd.write(b'asdfasdf')
+            await fd.write(abuf)
             self.eq(asdfretn, await fd.save())
 
         # do it again to test the short circuit
         async with await axon.upload() as fd:
-            await fd.write(b'asdfasdf')
+            await fd.write(abuf)
             self.eq(asdfretn, await fd.save())
 
         bytz = []
@@ -89,6 +94,25 @@ class AxonTest(s_t_utils.SynTest):
             bytz.append(byts)
 
         self.eq(b'', b''.join(bytz))
+
+        logger.info('Upload context reuse')
+        async with await axon.upload() as fd:
+            # We can reuse the FD _after_ we have called save() on it.
+            await fd.write(abuf)
+            retn = await fd.save()
+            self.eq(retn, asdfretn)
+            # Now write a new file
+            await fd.write(pbuf)
+            retn = await fd.save()
+            self.eq(retn, pennretn)
+
+        info = await axon.metrics()
+        self.eq(33554454, info.get('size:bytes'))
+        self.eq(4, info.get('file:count'))
+
+        # When testing a local axon, we want to ensure that the FD was in fact fini'd
+        if isinstance(fd, s_axon.UpLoad):
+            self.true(fd.fd.closed)
 
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
