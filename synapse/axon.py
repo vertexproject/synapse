@@ -34,8 +34,12 @@ class UpLoad(s_base.Base):
         self.fd.close()
 
     def _reset(self):
-        self.fd.close()
-        self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE)
+        if self.fd._rolled:
+            self.fd.close()
+            self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE)
+        else:
+            # If we haven't rolled over, this skips allocating new objects
+            self.fd.truncate(0)
         self.size = 0
         self.sha256 = hashlib.sha256()
 

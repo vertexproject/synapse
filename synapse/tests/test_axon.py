@@ -105,10 +105,18 @@ class AxonTest(s_t_utils.SynTest):
             await fd.write(pbuf)
             retn = await fd.save()
             self.eq(retn, pennretn)
+            logger.info('Reuse test with large file causing a rollover')
+            # Write a large file that will cause a rollover
+            very_bigbuf = (s_axon.MAX_SPOOL_SIZE + 2) * b'V'
+            vbhash = hashlib.sha256(very_bigbuf).digest()
+            for chunk in s_common.chunks(very_bigbuf, s_axon.CHUNK_SIZE):
+                await fd.write(chunk)
+            retn = await fd.save()
+            self.eq(retn, (len(very_bigbuf), vbhash))
 
         info = await axon.metrics()
-        self.eq(33554454, info.get('size:bytes'))
-        self.eq(4, info.get('file:count'))
+        self.eq(570425393, info.get('size:bytes'))
+        self.eq(5, info.get('file:count'))
 
         # When testing a local axon, we want to ensure that the FD was in fact fini'd
         if isinstance(fd, s_axon.UpLoad):
