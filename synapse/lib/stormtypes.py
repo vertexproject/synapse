@@ -1,11 +1,13 @@
 import bz2
 import gzip
 import json
+import datetime
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.node as s_node
+import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 
 def intify(x):
@@ -162,9 +164,23 @@ class LibTime(Lib):
     def addLibFuncs(self):
         self.locls.update({
             'fromunix': self.fromunix,
+            'parse': self.parse,
         })
 
     # TODO from other iso formats!
+
+    async def parse(self, valu, format):
+        '''
+        Parse a timestamp string using datetimte.strptime formatting.
+        '''
+        try:
+
+            dt = datetime.datetime.strptime(valu, format)
+        except ValueError as e:
+            mesg = f'Error during time parsing - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu,
+                                          format=format) from None
+        return int((dt - s_time.EPOCH).total_seconds() * 1000)
 
     async def fromunix(self, secs):
         '''
