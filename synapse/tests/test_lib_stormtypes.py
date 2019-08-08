@@ -650,3 +650,28 @@ class StormTypesTest(s_test.SynTest):
                     self.len(2, podes)
                     self.eq({('test:str', '1234'), ('test:int', 1234)},
                             {pode[0] for pode in podes})
+
+    async def test_storm_lib_time(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ ps:person="*" :dob = $lib.time.fromunix(20) ]')
+            self.len(1, nodes)
+            self.eq(20000, nodes[0].get('dob'))
+
+            query = '''$valu="10/1/2017 2:52"
+            $parsed=$lib.time.parse($valu, "%m/%d/%Y %H:%M")
+            [test:int=$parsed]
+            '''
+            nodes = await core.nodes(query)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 1506826320000)
+
+            # Sad case for parse
+            query = '''$valu="10/1/2017 2:52"
+            $parsed=$lib.time.parse($valu, "%m/%d/%Y--%H:%MTZ")
+            [test:int=$parsed]
+            '''
+            mesgs = await alist(core.streamstorm(query))
+            ernfos = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, ernfos)
+            self.isin('Error during time parsing', ernfos[0][1].get('mesg'))
