@@ -40,6 +40,7 @@ class UpLoad(s_base.Base):
         else:
             # If we haven't rolled over, this skips allocating new objects
             self.fd.truncate(0)
+            self.fd.seek(0)
         self.size = 0
         self.sha256 = hashlib.sha256()
 
