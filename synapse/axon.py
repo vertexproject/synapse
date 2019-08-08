@@ -34,7 +34,7 @@ class UpLoad(s_base.Base):
         self.fd.close()
 
     def _reset(self):
-        if self.fd._rolled:
+        if self.fd._rolled or self.fd.closed:
             self.fd.close()
             self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE)
         else:
