@@ -139,7 +139,7 @@ class AxonTest(s_t_utils.SynTest):
             await self.check_blob(axon, rgryhash)
 
         info = await axon.metrics()
-        self.eq(570425381, info.get('size:bytes'))
+        self.eq(570425379, info.get('size:bytes'))
         self.eq(6, info.get('file:count'))
 
         # When testing a local axon, we want to ensure that the FD was in fact fini'd
