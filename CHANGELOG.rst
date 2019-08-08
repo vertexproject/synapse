@@ -3,6 +3,15 @@ Synapse Changelog
 *****************
 
 
+v0.1.22 - 2019-08-08
+====================
+
+Bugfixes
+--------
+- Call seek() after truncating the file descriptor backing an Axon UpLoad context.
+  (`#1336 <https://github.com/vertexproject/synapse/pull/1336>`_)
+
+
 v0.1.21 - 2019-08-08
 ====================
 
