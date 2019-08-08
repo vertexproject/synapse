@@ -6,6 +6,13 @@ Synapse Changelog
 v0.1.22 - 2019-08-08
 ====================
 
+Features and Enhancements
+-------------------------
+- Add ``:loc`` secondary prop to ``tel:mob:telem`` to record geopolitcal location of a mobile telemetry node.
+  (`#1337 <https://github.com/vertexproject/synapse/pull/1337>`_)
+- Add ``:spec`` secondary prop to ``mat:item`` to record the specification of an instance of an item.
+  (`#1337 <https://github.com/vertexproject/synapse/pull/1337>`_)
+
 Bugfixes
 --------
 - Call seek() after truncating the file descriptor backing an Axon UpLoad context.
