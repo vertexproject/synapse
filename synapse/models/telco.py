@@ -328,6 +328,10 @@ class TelcoModule(s_module.CoreModule):
                     ('time', ('time', {}), {}),
                     ('latlong', ('geo:latlong', {}), {}),
 
+                    ('loc', ('loc', {}), {
+                        'doc': 'The geo-political location of the mobile telemetry sample.',
+                    }),
+
                     ('accuracy', ('geo:dist', {}), {
                         'doc': 'The reported accuracy of the latlong telemetry reading.',
                     }),
