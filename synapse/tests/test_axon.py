@@ -1,8 +1,11 @@
 import hashlib
 import logging
+import unittest.mock as mock
 
 import synapse.axon as s_axon
 import synapse.common as s_common
+
+import synapse.lib.const as s_const
 
 import synapse.tests.utils as s_t_utils
 
@@ -12,17 +15,29 @@ logger = logging.getLogger(__name__)
 bbuf = b'0123456' * 4793491
 abuf = b'asdfasdf'
 pbuf = b'pennywise'
+rbuf = b'robert gray'
 
 bbufhash = hashlib.sha256(bbuf).digest()
 asdfhash = hashlib.sha256(abuf).digest()
 emptyhash = hashlib.sha256(b'').digest()
 pennhash = hashlib.sha256(pbuf).digest()
+rgryhash = hashlib.sha256(rbuf).digest()
 
 asdfretn = (8, asdfhash)
 emptyretn = (0, emptyhash)
 pennretn = (9, pennhash)
+rgryretn = (11, rgryhash)
+
 
 class AxonTest(s_t_utils.SynTest):
+
+    async def check_blob(self, axon, fhash):
+        chunks = []
+        async for chunk in axon.get(fhash):
+            chunks.append(chunk)
+        buf = b''.join(chunks)
+        ahash = hashlib.sha256(buf).digest()
+        self.eq(fhash, ahash)
 
     async def runAxonTestBase(self, axon):
 
@@ -61,6 +76,7 @@ class AxonTest(s_t_utils.SynTest):
 
         self.true(await axon.has(asdfhash))
         self.true(await axon.has(bbufhash))
+        await self.check_blob(axon, bbufhash)
 
         self.eq((), await axon.wants((bbufhash, asdfhash)))
 
@@ -96,27 +112,41 @@ class AxonTest(s_t_utils.SynTest):
         self.eq(b'', b''.join(bytz))
 
         logger.info('Upload context reuse')
-        async with await axon.upload() as fd:
-            # We can reuse the FD _after_ we have called save() on it.
-            await fd.write(abuf)
-            retn = await fd.save()
-            self.eq(retn, asdfretn)
-            # Now write a new file
-            await fd.write(pbuf)
-            retn = await fd.save()
-            self.eq(retn, pennretn)
-            logger.info('Reuse test with large file causing a rollover')
-            # Write a large file that will cause a rollover
+        with mock.patch('synapse.axon.MAX_SPOOL_SIZE', s_axon.CHUNK_SIZE * 2):
+
             very_bigbuf = (s_axon.MAX_SPOOL_SIZE + 2) * b'V'
-            vbhash = hashlib.sha256(very_bigbuf).digest()
-            for chunk in s_common.chunks(very_bigbuf, s_axon.CHUNK_SIZE):
-                await fd.write(chunk)
-            retn = await fd.save()
-            self.eq(retn, (len(very_bigbuf), vbhash))
+            vbighash = hashlib.sha256(very_bigbuf).digest()
+            vbigretn = (len(very_bigbuf), vbighash)
+
+            async with await axon.upload() as fd:
+                # We can reuse the FD _after_ we have called save() on it.
+                await fd.write(abuf)
+                retn = await fd.save()
+                self.eq(retn, asdfretn)
+
+                logger.info('Reuse after uploading an existing file')
+                # Now write a new file
+                await fd.write(pbuf)
+                retn = await fd.save()
+                self.eq(retn, pennretn)
+                await self.check_blob(axon, pennhash)
+
+                logger.info('Reuse test with large file causing a rollover')
+                for chunk in s_common.chunks(very_bigbuf, s_axon.CHUNK_SIZE):
+                    await fd.write(chunk)
+                retn = await fd.save()
+                self.eq(retn, vbigretn)
+                await self.check_blob(axon, vbighash)
+
+                logger.info('Reuse test with small file post rollover')
+                await fd.write(rbuf)
+                retn = await fd.save()
+                self.eq(retn, rgryretn)
+                await self.check_blob(axon, rgryhash)
 
         info = await axon.metrics()
-        self.eq(570425393, info.get('size:bytes'))
-        self.eq(5, info.get('file:count'))
+        self.eq(67108899, info.get('size:bytes'))
+        self.eq(6, info.get('file:count'))
 
         # When testing a local axon, we want to ensure that the FD was in fact fini'd
         if isinstance(fd, s_axon.UpLoad):
