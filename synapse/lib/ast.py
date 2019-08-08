@@ -1708,7 +1708,7 @@ class PropValue(CompValue):
 
             prop = path.node.form.props.get(name)
             if prop is None:
-                raise s_exc.NoSuchProp(name=name)
+                raise s_exc.NoSuchProp(name=name, form=path.node.form.name)
 
             valu = path.node.get(name)
             return prop, valu
@@ -1727,7 +1727,7 @@ class PropValue(CompValue):
 
             prop = node.form.props.get(name)
             if prop is None:
-                raise s_exc.NoSuchProp(name=name)
+                raise s_exc.NoSuchProp(name=name, form=node.form.name)
 
             if i >= imax:
                 return prop, valu
