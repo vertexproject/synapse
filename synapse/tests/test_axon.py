@@ -111,6 +111,7 @@ class AxonTest(s_t_utils.SynTest):
 
         self.eq(b'', b''.join(bytz))
 
+        logger.info('Healthcheck test')
         status, snfo = await axon.getHealthCheck()
         self.true(status)
         data = snfo.get('data')
