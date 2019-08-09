@@ -16,11 +16,12 @@ class ConfTypes(object):
         self._initTypes()
 
     def _initTypes(self):
-        self.addType('bool', bool)
         self.addType('int', int)
         self.addType('str', str)
-        self.addType('list', list)
+        self.addType('bool', bool)
         self.addType('dict', dict)
+        self.addType('list', list)
+        self.addType('float', float)
 
     def addType(self, name: str, func: typing.Callable):
         self.types[name] = func
@@ -57,7 +58,11 @@ class Config2:
             raise s_exc.NoSuchName(name=name)
         self.conf[name] = norm(valu)
 
-    async def loadConfDict(self, conf):
+    async def loadConfDict(self, conf: typing.Dict):
+        # use a copy of the input dict, since the values may be
+        # modified at runtime by a object.
+        conf = conf.copy()
+
         for name, valu in conf.items():
             await self.set(name, valu)
 
@@ -65,16 +70,17 @@ class Config2:
         conf = s_common.yamlload(*path)
         return await self.loadConfDict(conf)
 
-    async def loadConfEnvs(self, envn):
+    async def loadConfEnvs(self, envn: typing.AnyStr):
+        '''Certain types may be yaml-decoded'''
         for key, _ in self.confdefs:
             envar = f'{self.prefix}{envn}_{key.replace(":", "_")}'.upper()
             envv = os.getenv(envar)
             if envv is not None:
-                logger.debug(f'Got config from envar: {envar}')
+                logger.debug(f'Loading config valu from: [{envar}]')
                 if self.norms[key] in self.yaml_loads:
                     # Do a yaml load pass to decode certain
                     # types prior to loading them.
-                    envv = yaml.safe_load_all(envv)
+                    envv = yaml.safe_load(envv)
                 await self.set(key, envv)
 
 class Config:
