@@ -276,7 +276,7 @@ commands:
 jobs:
 
   osx37:
-    parallelism: 2
+    parallelism: 4
     macos:
       xcode: "10.2.0"
 

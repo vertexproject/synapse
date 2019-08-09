@@ -364,3 +364,49 @@ class BaseTest(s_t_utils.SynTest):
         await base.fire('hehe')
         self.len(2, l0)
         self.len(1, l1)
+
+    async def test_base_mixin(self):
+
+        data = []
+
+        class M1(s_base.Base):
+            async def __anit__(self):
+                await s_base.Base.__anit__(self)
+                self.m1fini = asyncio.Event()
+                self.onfini(self.m1fini.set)
+                self.on('event', self._M1OnEvent)
+
+            def _M1OnEvent(self, event):
+                data.append(event)
+
+        class M2(s_base.Base):
+            async def __anit__(self):
+                await s_base.Base.__anit__(self)
+                self.m2fini = asyncio.Event()
+                self.onfini(self.m2fini.set)
+                self.on('event', self._M2OnEvent)
+
+            def _M2OnEvent(self, event):
+                data.append(event)
+
+        class MixedBases(M1, M2):
+
+            async def __anit__(self):
+                # Initialize our mixins
+                await M1.__anit__(self)
+                await M2.__anit__(self)
+
+        mixed = await MixedBases.anit()
+        self.false(mixed.m1fini.is_set())
+        self.false(mixed.m2fini.is_set())
+        self.len(2, mixed._fini_funcs)
+        self.len(2, mixed._syn_funcs.get('event'))
+        self.eq(mixed._syn_refs, 1)
+
+        await mixed.fire('event', key=1)
+        self.len(2, data)
+
+        await mixed.fini()
+
+        self.true(mixed.m1fini.is_set())
+        self.true(mixed.m2fini.is_set())

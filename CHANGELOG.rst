@@ -3,6 +3,49 @@ Synapse Changelog
 *****************
 
 
+v0.1.22 - 2019-08-08
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``:loc`` secondary prop to ``tel:mob:telem`` to record geopolitcal location of a mobile telemetry node.
+  (`#1337 <https://github.com/vertexproject/synapse/pull/1337>`_)
+- Add ``:spec`` secondary prop to ``mat:item`` to record the specification of an instance of an item.
+  (`#1337 <https://github.com/vertexproject/synapse/pull/1337>`_)
+
+Bugfixes
+--------
+- Call seek() after truncating the file descriptor backing an Axon UpLoad context.
+  (`#1336 <https://github.com/vertexproject/synapse/pull/1336>`_)
+
+
+v0.1.21 - 2019-08-08
+====================
+
+Features and Enhancements
+-------------------------
+- All the Axon UpLoad context manager to be re-used after calling ``.save()``
+  (`#1333 <https://github.com/vertexproject/synapse/pull/1333>`_)
+- Add Stormtypes ``$lib.time.parse()`` to parse an arbitrary date string using datetime.strptime format rules.
+  (`#1334 <https://github.com/vertexproject/synapse/pull/1334>`_)
+- Make NoSuchProp exceptions more informative about Node form names if that data is relevant.
+  (`#1335 <https://github.com/vertexproject/synapse/pull/1335>`_)
+
+Bugfixes
+--------
+- Allow two Base implementations to be used as mixins together without disrupting their underlying teardown and
+  observable behaviors. (`#1332 <https://github.com/vertexproject/synapse/pull/1332>`_)
+
+
+v0.1.20 - 2019-08-06
+====================
+
+Features and Enhancements
+-------------------------
+- Refactor Axon to allow for easier subclassing. (`#1327 <https://github.com/vertexproject/synapse/pull/1327>`_)
+- Miscellaneous Axon improvements. (`#1331 <https://github.com/vertexproject/synapse/pull/1331>`_)
+
+
 v0.1.19 - 2019-07-25
 ====================
 

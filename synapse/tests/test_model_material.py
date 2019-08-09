@@ -10,7 +10,7 @@ class MatTest(s_t_utils.SynTest):
                 node0 = await snap.addNode('mat:spec', n0_guid, props={'name': 'F16 Fighter Jet'})
                 n1_guid = guid()
                 node1 = await snap.addNode('mat:item', n1_guid,
-                                           props={'name': "Visi's F16 Fighter Jet", 'latlong': '0,0'})
+                                           props={'name': "Visi's F16 Fighter Jet", 'latlong': '0,0', 'spec': n0_guid})
 
                 f0 = await snap.addNode('file:bytes', '*')
                 f0_valu = f0.ndef[1]
@@ -28,3 +28,5 @@ class MatTest(s_t_utils.SynTest):
 
                 self.eq(node3.props.get('item'), n1_guid)
                 self.eq(node3.props.get('file'), f0_valu)
+
+                self.len(1, await core.nodes('mat:spec:name="f16 fighter jet" -> mat:item'))
