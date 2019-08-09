@@ -49,6 +49,8 @@ class Config2Test(s_test.SynTest):
                 'doc': 'Enable cron jobs running.'
             }),
 
+            ('haha', {'doc': 'words', 'defval': 1234})
+
         )
 
     def test_config2(self):

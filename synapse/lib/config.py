@@ -1,8 +1,14 @@
 import os
+import copy
 import typing
+import logging
+
+import yaml
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
+logger = logging.getLogger(__name__)
 
 class ConfTypes(object):
     def __init__(self):
@@ -25,9 +31,51 @@ class ConfTypes(object):
         return ret
 
 class Config2:
-    def __init__(self, confdefs):
+    def __init__(self, confdefs, prefix='SYN_'):
+        self.normer = ConfTypes()
+        self.prefix = prefix
         self.confdefs = confdefs
         self.conf = {}
+        self.norms = {}
+        self.yaml_loads = ('dict',
+                           'list',
+                           )
+
+        for key, info in self.confdefs:
+            self.norms[key] = info.get('type').lower()
+            defval = info.get('defval', s_common.novalu)
+            if defval is s_common.novalu:
+                continue
+            self.conf[key] = copy.deepcopy(defval)
+
+    def get(self, name):
+        return self.conf.get(name)
+
+    async def set(self, name, valu):
+        norm = self.norms.get(name)
+        if norm is None:
+            raise s_exc.NoSuchName(name=name)
+        self.conf[name] = norm(valu)
+
+    async def loadConfDict(self, conf):
+        for name, valu in conf.items():
+            await self.set(name, valu)
+
+    async def loadConfYaml(self, *path):
+        conf = s_common.yamlload(*path)
+        return await self.loadConfDict(conf)
+
+    async def loadConfEnvs(self, envn):
+        for key, _ in self.confdefs:
+            envar = f'{self.prefix}{envn}_{key.replace(":", "_")}'.upper()
+            envv = os.getenv(envar)
+            if envv is not None:
+                logger.debug(f'Got config from envar: {envar}')
+                if self.norms[key] in self.yaml_loads:
+                    # Do a yaml load pass to decode certain
+                    # types prior to loading them.
+                    envv = yaml.safe_load_all(envv)
+                await self.set(key, envv)
 
 class Config:
 
