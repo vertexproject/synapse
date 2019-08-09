@@ -49,14 +49,14 @@ class Config2:
                 continue
             self.conf[key] = copy.deepcopy(defval)
 
-    def get(self, name):
-        return self.conf.get(name)
+    def get(self, name, default=None):
+        return self.conf.get(name, default)
 
     async def set(self, name, valu):
         norm = self.norms.get(name)
         if norm is None:
             raise s_exc.NoSuchName(name=name)
-        self.conf[name] = norm(valu)
+        self.conf[name] = self.normer.norm(norm, valu)
 
     async def loadConfDict(self, conf: typing.Dict):
         # use a copy of the input dict, since the values may be
@@ -67,8 +67,11 @@ class Config2:
             await self.set(name, valu)
 
     async def loadConfYaml(self, *path):
-        conf = s_common.yamlload(*path)
-        return await self.loadConfDict(conf)
+        fp = s_common.genpath(*path)
+        if os.path.isfile(fp):
+            logger.debug('Loading file from [%s]', fp)
+            conf = s_common.yamlload(fp)
+            return await self.loadConfDict(conf)
 
     async def loadConfEnvs(self, envn: typing.AnyStr):
         '''Certain types may be yaml-decoded'''

@@ -18,6 +18,7 @@ import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.hive as s_hive
 import synapse.lib.compat as s_compat
+import synapse.lib.config as s_config
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 
@@ -334,11 +335,14 @@ class PassThroughApi(CellApi):
 
 bootdefs = (
 
-    ('insecure', {'defval': False, 'doc': 'Disable all authentication checking. (INSECURE!)'}),
+    ('insecure', {'defval': False, 'type': 'bool',
+                  'doc': 'Disable all authentication checking. (INSECURE!)'}),
 
-    ('auth:admin', {'defval': None, 'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
+    ('auth:admin', {'defval': None, 'type': 'str',
+                    'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
 
-    ('hive', {'defval': None, 'doc': 'Set to a Hive telepath URL or list of URLs'}),
+    ('hive', {'defval': None, 'type': 'str',
+              'doc': 'Set to a Hive telepath URL or list of URLs'}),
 
 )
 
@@ -374,8 +378,9 @@ class Cell(s_base.Base, s_telepath.Aware):
         with open(path, 'r') as fd:
             self.iden = fd.read().strip()
 
-        boot = self._loadCellYaml('boot.yaml')
-        self.boot = s_common.config(boot, bootdefs)
+        self.boot = s_config.Config2(bootdefs)
+        await self.boot.loadConfYaml(self.dirn, 'boot.yaml')
+        await self.boot.loadConfEnvs('boot')
 
         await self._initCellDmon()
 

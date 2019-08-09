@@ -182,7 +182,6 @@ class CellTest(s_t_utils.SynTest):
     async def test_cell_nonstandard_admin(self):
         boot = {
             'auth:admin': 'pennywise:cottoncandy',
-            'type': 'echoauth',
         }
         pconf = {'user': 'pennywise', 'passwd': 'cottoncandy'}
 
