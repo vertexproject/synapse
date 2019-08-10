@@ -16,6 +16,8 @@ class ConfTypes(object):
         self._initTypes()
 
     def _initTypes(self):
+        # These are super primitive and offer little safety
+        # for example, nearly anything can be cast into str()
         self.addType('int', int)
         self.addType('str', str)
         self.addType('bool', bool)
@@ -28,6 +30,8 @@ class ConfTypes(object):
 
     def norm(self, name: str, valu: typing.Any) -> typing.Any:
         func = self.types.get(name)
+        if func is None:
+            raise s_exc.NoSuchName(mesg='no norm func for name', name=name)
         ret = func(valu)
         return ret
 

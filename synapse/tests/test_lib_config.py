@@ -53,8 +53,64 @@ class Config2Test(s_test.SynTest):
 
         )
 
-    def test_config2(self):
-        pass
+    async def test_config2(self):
+        confdefs = (
+            ('ikey', {'type': 'int', 'defval': 1},),
+            ('skey', {'type': 'str', 'defval': '1'},),
+            ('bkey', {'type': 'bool', 'defval': False},),
+            ('dkey', {'type': 'dict', 'defval': {'hehe': 'haha'}},),
+            ('lkey1', {'type': 'list', 'defval': [{'hehe': 'haha'}]},),
+            ('lkey2', {'type': 'list'}),
+            ('fkey', {'type': 'float', 'defval': 1.2})
+        )
+        defvals = {'ikey': 1, 'skey': '1', 'bkey': False, 'fkey': 1.2,
+                   'dkey': {'hehe': 'haha'},
+                   'lkey1': [{'hehe': 'haha'}],
+                   }
+        conf = s_config.Config2(confdefs=confdefs)
+        self.eq(conf.conf, defvals)
+
+        # Simple type norm tests
+        await conf.set('ikey', '2')
+        self.eq(conf.get('ikey'), 2)
+
+        await conf.set('skey', 3)
+        self.eq(conf.get('skey'), '3')
+
+        await conf.set('bkey', 1)
+        self.eq(conf.get('bkey'), True)
+
+        await conf.set('bkey', 'yes')
+        self.eq(conf.get('bkey'), True)
+
+        await conf.set('bkey', 'no')  # bool() doesn't care
+        self.eq(conf.get('bkey'), True)
+
+        await conf.set('bkey', 0)
+        self.eq(conf.get('bkey'), False)
+
+        await conf.set('fkey', '3.14')
+        self.eq(conf.get('fkey'), 3.14)
+
+        # The mutable types are mutable
+        dkey = conf.get('dkey')
+        dkey['yup'] = 1
+        self.eq(conf.get('dkey'), {'yup': 1, 'hehe': 'haha'})
+
+        lkey1 = conf.get('lkey1')
+        lkey1.append('yes!')
+        self.len(2, conf.get('lkey1'))
+
+        # lkey2 wasn't set..
+        self.none(conf.get('lkey2'))
+        self.isinstance(conf.get('lkey2', []), list)
+        await conf.set('lkey2', [1, 2, 3])
+        self.eq(conf.get('lkey2'), [1, 2, 3])
+
+        # Our original confdefs defvals are unchanged
+        conf2 = s_config.Config2(confdefs=confdefs)
+        self.eq(conf2.conf, defvals)
+
 
 class ConfTest(s_test.SynTest):
 
