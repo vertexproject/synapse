@@ -69,8 +69,9 @@ class Config2:
     def _set(self, name, valu):
         norm = self.norms.get(name)
         if norm is None:
-            logger.warning('Config key: {name} has no norm function.')
+            logger.warning(f'Config key: [{name}] has no norm function.')
             self.conf[name] = valu
+            return
             # XXX THIS only fails in the test suite because the
             # CompatTest.test_compat_cellauth hsa some archaic config
             # data in it.  However, warning and moving along does allow
