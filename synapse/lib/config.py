@@ -56,7 +56,17 @@ class Config2:
     def get(self, name, default=None):
         return self.conf.get(name, default)
 
+    # Container magic methods
+    def __setitem__(self, key, valu):
+        self._set(key, valu)
+
+    def __getitem__(self, item):
+        return self.conf[item]
+
     async def set(self, name, valu):
+        self._set(name, valu)
+
+    def _set(self, name, valu):
         norm = self.norms.get(name)
         if norm is None:
             logger.warning('Config key: {name} has no norm function.')

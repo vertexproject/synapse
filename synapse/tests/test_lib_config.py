@@ -107,6 +107,8 @@ class Config2Test(s_test.SynTest):
         await conf.set('lkey2', [1, 2, 3])
         self.eq(conf.get('lkey2'), [1, 2, 3])
 
+        # TODO - Test container __setitem__ and __getitem__ methods.
+
         # Our original confdefs defvals are unchanged
         conf2 = s_config.Config2(confdefs=confdefs)
         self.eq(conf2.conf, defvals)

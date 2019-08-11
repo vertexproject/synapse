@@ -387,14 +387,16 @@ class Cell(s_base.Base, s_telepath.Aware):
         if conf is None:
             conf = {}
 
-        [conf.setdefault(k, v) for (k, v) in self._loadCellYaml('cell.yaml').items()]
-
-        self.conf = s_common.config(conf, self.confdefs + self.confbase)
+        self.conf = s_config.Config2(self.confdefs + self.confbase)
+        await self.conf.loadConfYaml(self.dirn, 'cell.yaml')
+        await self.conf.loadConfEnvs('cell')
+        await self.conf.loadConfDict(conf)
 
         self.cmds = {}
         self.insecure = self.boot.get('insecure', False)
 
         self.sessions = {}
+        # TODO - this config value isn't set anywhere. Add it to confbase?
         self.httpsonly = self.conf.get('https:only', False)
 
         self.boss = await s_boss.Boss.anit()
