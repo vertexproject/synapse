@@ -7,7 +7,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.hive as s_hive
 import synapse.lib.msgpack as s_msgpack
 
-import synapse.tools.hivesave as s_hivesave
+import synapse.tools.hive.save as s_hivesave
 
 class HiveSaveTest(s_test.SynTest):
 

@@ -10,7 +10,7 @@ import synapse.lib.msgpack as s_msgpack
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='synapse.tools.hivesave',
+    pars = argparse.ArgumentParser(prog='synapse.tools.hive.save',
                                    description='Save tree data from a remote hive to file.')
 
     pars.add_argument('--path', default=None, help='A hive path string to use as the root.')

@@ -10,7 +10,7 @@ import synapse.lib.msgpack as s_msgpack
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='synapse.tools.hiveload',
+    pars = argparse.ArgumentParser(prog='synapse.tools.hive.load',
                                    description='Load data into a remote hive from a previous hivesave.')
 
     pars.add_argument('--trim', default=False, action='store_true', help='Trim all other hive nodes (DANGER!)')
