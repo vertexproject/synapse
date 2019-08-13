@@ -159,6 +159,7 @@ class GeoTest(s_t_utils.SynTest):
                 guid = s_common.guid()
                 props = {'name': 'Vertex  HQ',
                          'desc': 'The place where Vertex Project hangs out at!',
+                         'address': '208 Datong Road, Pudong District, Shanghai, China',
                          'loc': 'us.hehe.haha',
                          'latlong': '34.1341, -118.3215',
                          'radius': '1.337km'}
@@ -169,6 +170,7 @@ class GeoTest(s_t_utils.SynTest):
                 self.eq(node.get('latlong'), (34.13409999, -118.3215))
                 self.eq(node.get('radius'), 1337000)
                 self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
+                self.eq(node.get('address'), '208 datong road, pudong district, shanghai, china')
 
     async def test_near(self):
         async with self.getTestCore() as core:
