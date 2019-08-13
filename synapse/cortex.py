@@ -687,7 +687,7 @@ class Cortex(s_cell.Cell):
         }),
         ('layer:lmdb:map_async', {
             'type': 'bool', 'defval': False,
-            'doc': 'Set the default lmdb:mapasync value in LMDB layers.'
+            'doc': 'Set the default lmdb:map_async value in LMDB layers.'
         }),
     )
 
