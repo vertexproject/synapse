@@ -197,6 +197,14 @@ class CellApi(s_base.Base):
         return await self.cell.hive.pop(path)
 
     @adminapi
+    async def saveHiveTree(self, path=()):
+        return await self.cell.hive.saveHiveTree(path=path)
+
+    @adminapi
+    async def loadHiveTree(self, tree, path=(), trim=False):
+        return await self.cell.hive.loadHiveTree(tree, path=path, trim=trim)
+
+    @adminapi
     async def addAuthUser(self, name):
         user = await self.cell.auth.addUser(name)
         return user.pack()
@@ -561,6 +569,16 @@ class Cell(s_base.Base, s_telepath.Aware):
         db = self.slab.initdb('hive')
         hive = await s_hive.SlabHive.anit(self.slab, db=db)
         self.onfini(hive)
+
+        path = os.path.join(self.dirn, 'hiveboot.yaml')
+
+        if os.path.isfile(path):
+            tree = s_common.yamlload(path)
+            if tree is not None:
+                await hive.loadHiveTree(tree)
+
+            os.unlink(path)
+
         return hive
 
     async def _initCellSlab(self, readonly=False):

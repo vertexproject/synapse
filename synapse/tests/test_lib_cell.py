@@ -1,3 +1,4 @@
+import os
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -241,3 +242,21 @@ class CellTest(s_t_utils.SynTest):
 
                     with self.raises(s_exc.AuthDeny):
                         await prox.setCellUser(s_common.guid())
+
+    async def test_cell_hiveboot(self):
+
+        with self.getTestDir() as dirn:
+
+            tree = {
+                'kids': {
+                    'hehe': {'value': 'haha'},
+                }
+            }
+
+            bootpath = os.path.join(dirn, 'hiveboot.yaml')
+
+            s_common.yamlsave(tree, bootpath)
+
+            async with await s_cell.Cell.anit(dirn) as cell:
+                self.eq('haha', await cell.hive.get(('hehe',)))
+                self.false(os.path.isfile(bootpath))

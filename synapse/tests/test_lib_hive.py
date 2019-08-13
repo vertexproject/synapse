@@ -11,43 +11,6 @@ import synapse.lib.lmdbslab as s_slab
 
 class HiveTest(s_test.SynTest):
 
-    @contextlib.asynccontextmanager
-    async def getTestHive(self):
-        with self.getTestDir() as dirn:
-            async with self.getTestHiveFromDirn(dirn) as hive:
-                yield hive
-
-    @contextlib.asynccontextmanager
-    async def getTestHiveFromDirn(self, dirn):
-
-        import synapse.lib.const as s_const
-        map_size = s_const.gibibyte
-
-        async with await s_slab.Slab.anit(dirn, map_size=map_size) as slab:
-
-            async with await s_hive.SlabHive.anit(slab) as hive:
-
-                yield hive
-
-    @contextlib.asynccontextmanager
-    async def getTestHiveDmon(self):
-        with self.getTestDir() as dirn:
-            async with self.getTestHiveFromDirn(dirn) as hive:
-                async with self.getTestDmon() as dmon:
-                    dmon.share('hive', hive)
-                    yield dmon
-
-    @contextlib.asynccontextmanager
-    async def getTestTeleHive(self):
-
-        async with self.getTestHiveDmon() as dmon:
-
-            turl = self.getTestUrl(dmon, 'hive')
-
-            async with await s_hive.openurl(turl) as hive:
-
-                yield hive
-
     async def test_hive_slab(self):
 
         with self.getTestDir() as dirn:
@@ -302,3 +265,44 @@ class HiveTest(s_test.SynTest):
 
             async with await s_hive.openurl(turl, user='root', passwd='secret') as hive0:
                 await hive.open(('foo', 'bar'))
+
+    async def test_hive_saveload(self):
+
+        tree0 = {
+            'kids': [
+                {'name': 'hehe', 'value': 'haha'},
+                {'name': 'hoho', 'value': 'huhu', 'kids': [
+                    {'name': 'foo', 'value': 99},
+                ]},
+            ]
+        }
+
+        tree1 = {
+            'kids': [
+                {'name': 'hoho', 'value': 'huhu', 'kids': [
+                    {'name': 'foo', 'value': 99},
+                ]},
+            ]
+        }
+
+        async with self.getTestHive() as hive:
+            await hive.loadHiveTree(tree0)
+            self.eq('haha', await hive.get(('hehe',)))
+            self.eq('huhu', await hive.get(('hoho',)))
+            self.eq(99, await hive.get(('hoho', 'foo')))
+
+            await hive.loadHiveTree(tree1, trim=True)
+            self.none(await hive.get(('hehe',)))
+            self.eq('huhu', await hive.get(('hoho',)))
+            self.eq(99, await hive.get(('hoho', 'foo')))
+
+        async with self.getTestHive() as hive:
+
+            node = await hive.open(('hehe', 'haha'))
+            await node.set(99)
+
+            tree = await hive.saveHiveTree()
+
+            self.eq('hehe', tree['kids'][0]['name'])
+            self.eq('haha', tree['kids'][0]['kids'][0]['name'])
+            self.eq(99, tree['kids'][0]['kids'][0]['value'])

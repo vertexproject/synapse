@@ -120,6 +120,51 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         self.auth = None
 
+    async def saveHiveTree(self, path=()):
+        tree = {}
+        root = await self.open(path)
+        self._saveHiveNode(root, tree)
+        return tree
+
+    def _saveHiveNode(self, node, tree):
+
+        tree['value'] = node.valu
+
+        kids = list(node.kids.items())
+        if not kids:
+            return
+
+        kidtrees = {}
+        for kidname, kidnode in kids:
+            kidtree = kidtrees[kidname] = {}
+            self._saveHiveNode(kidnode, kidtree)
+
+        tree['kids'] = kidtrees
+
+    async def loadHiveTree(self, tree, path=(), trim=False):
+        root = await self.open(path)
+        await self._loadHiveNode(root, tree, trim=trim)
+
+    async def _loadHiveNode(self, node, tree, trim=False):
+
+        valu = tree.get('value', s_common.novalu)
+        if node is not self.root and valu is not s_common.novalu:
+            await node.set(valu)
+
+        kidnames = set()
+
+        kids = tree.get('kids')
+        if kids is not None:
+            for kidname, kidtree in kids.items():
+                kidnames.add(kidname)
+                kidnode = await node.open((kidname,))
+                await self._loadHiveNode(kidnode, kidtree, trim=trim)
+
+        if trim:
+            culls = [n for n in node.kids.keys() if n not in kidnames]
+            for cullname in culls:
+                await node.pop((cullname, ))
+
     async def getHiveAuth(self):
 
         if self.auth is None:
@@ -400,6 +445,12 @@ class HiveApi(s_base.Base):
         self.msgq = asyncio.Queue(maxsize=10000)
 
         self.onfini(self._onHapiFini)
+
+    async def loadHiveTree(self, tree, path=(), trim=False):
+        return await self.hive.loadHiveTree(tree, path=path, trim=trim)
+
+    async def saveHiveTree(self, path=()):
+        return await self.hive.saveHiveTree(path=path)
 
     async def treeAndSync(self, path, iden):
 
