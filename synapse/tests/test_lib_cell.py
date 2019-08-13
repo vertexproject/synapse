@@ -259,4 +259,10 @@ class CellTest(s_t_utils.SynTest):
 
             async with await s_cell.Cell.anit(dirn) as cell:
                 self.eq('haha', await cell.hive.get(('hehe',)))
-                self.false(os.path.isfile(bootpath))
+
+            # test that the file does not load again
+            tree['kids']['redbaloons'] = {'value': 99}
+            s_common.yamlsave(tree, bootpath)
+
+            async with await s_cell.Cell.anit(dirn) as cell:
+                self.none(await cell.hive.get(('redbaloons',)))

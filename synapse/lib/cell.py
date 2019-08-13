@@ -566,18 +566,18 @@ class Cell(s_base.Base, s_telepath.Aware):
         if hurl is not None:
             return await s_hive.openurl(hurl)
 
+        isnew = not self.slab.dbexists('hive')
+
         db = self.slab.initdb('hive')
         hive = await s_hive.SlabHive.anit(self.slab, db=db)
         self.onfini(hive)
 
-        path = os.path.join(self.dirn, 'hiveboot.yaml')
-
-        if os.path.isfile(path):
-            tree = s_common.yamlload(path)
-            if tree is not None:
-                await hive.loadHiveTree(tree)
-
-            os.unlink(path)
+        if isnew:
+            path = os.path.join(self.dirn, 'hiveboot.yaml')
+            if os.path.isfile(path):
+                tree = s_common.yamlload(path)
+                if tree is not None:
+                    await hive.loadHiveTree(tree)
 
         return hive
 
