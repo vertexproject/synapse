@@ -51,7 +51,11 @@ class Genr(s_share.Share):
 
                 retn = (True, item)
                 mesg = ('share:data', {'share': self.iden, 'data': retn})
+
                 await self.link.tx(mesg)
+
+                # purposely yield for fair scheduling
+                await asyncio.sleep(0)
 
         except Exception as e:
 
@@ -81,7 +85,11 @@ class AsyncGenr(s_share.Share):
 
                 retn = (True, item)
                 mesg = ('share:data', {'share': self.iden, 'data': retn})
+
                 await self.link.tx(mesg)
+
+                # purposely yield for fair scheduling
+                await asyncio.sleep(0)
 
         except Exception as e:
             retn = s_common.retnexc(e)
