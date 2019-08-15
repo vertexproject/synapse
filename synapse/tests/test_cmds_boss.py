@@ -98,6 +98,11 @@ class CmdBossTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('kill 123412341234')
                 self.true(outp.expect('no matching process found', False))
 
+                # Specify the iden arg multiple times
+                outp.clear()
+                await cmdr.runCmdLine('kill 123412341234 deadb33f')
+                self.true(outp.expect('unrecognized arguments', False))
+
                 # Tear down the task as a real user
                 outp.clear()
                 await cmdr.runCmdLine('kill %s' % (iden,))

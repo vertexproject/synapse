@@ -65,10 +65,6 @@ class KillCmd(s_cli.Cmd):
         core = self.getCmdItem()
 
         match = opts.iden
-        if not match:
-            self.printf('no iden given to kill.')
-            return
-
         idens = []
         for task in await core.ps():
             iden = task.get('iden')
