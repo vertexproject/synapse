@@ -684,7 +684,11 @@ class Cortex(s_cell.Cell):
         ('dedicated', {
             'type': 'bool', 'defval': False,
             'doc': 'The cortex is free to use most of the resources of the system'
-        })
+        }),
+        ('layer:lmdb:map_async', {
+            'type': 'bool', 'defval': False,
+            'doc': 'Set the default lmdb:map_async value in LMDB layers.'
+        }),
     )
 
     cellapi = CoreApi

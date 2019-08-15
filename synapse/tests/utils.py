@@ -925,7 +925,7 @@ class SynTest(unittest.TestCase):
             s_cortex.Cortex: A Cortex object.
         '''
         if conf is None:
-            conf = {}
+            conf = {'layer:lmdb:map_async': True}
 
         conf = copy.deepcopy(conf)
 
