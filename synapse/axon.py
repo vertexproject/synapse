@@ -161,17 +161,7 @@ class Axon(s_cell.Cell):
         if health is None:
             return
         metrics = await self.metrics()
-        tock = s_common.now()
-        window = 1000 * 5
-        tick = tock - window
-        recent_hashes = []
-        async for (offset, (bhash, size)) in self.history(tick, tock):
-            recent_hashes.append(s_common.ehex(bhash))
         health.update('metrics', True, '', data=metrics)
-        health.update('recent', True, '', data={'tick': tick,
-                                                'tock': tock,
-                                                'hashes': recent_hashes,
-                                                })
 
     async def _initBlobStor(self):
         path = s_common.gendir(self.dirn, 'blob.lmdb')
