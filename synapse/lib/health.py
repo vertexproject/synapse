@@ -6,18 +6,16 @@ import synapse.exc as s_exc
 logger = logging.getLogger(__name__)
 
 class HealthCheck(object):
-    def __init__(self, htyp: str):
-        self.type = htyp
+    def __init__(self, iden: str):
+        self.iden = iden
         self._healthy = True
-        self.data = {}
-        self.packsizecheck = True
-        self.packsizemax = 4096
+        self.components = {}
 
     def pack(self) -> tuple:
-        ret = (self.healthy,
-               {'type': self.type,
-                'data': self.data},
-               )
+        ret = {'iden': self.iden,
+                'components': self.components,
+                'health': self.healthy,
+               }
         return ret
 
     def update(self,
@@ -26,7 +24,7 @@ class HealthCheck(object):
                mesg: str = '',
                data: typing.Any =None,
                ) -> None:
-        if name in self.data:
+        if name in self.components:
             raise s_exc.DataAlreadyExists(mesg='Already updated healthcheck for the component.',
                                           name=name, status=status)
         # Allow the component a shot at reporting a failure state
@@ -35,7 +33,10 @@ class HealthCheck(object):
             data = {}
         # record which component failed, any additional message they may have,
         # as well as any additional data they want to report on.
-        self.data[name] = (status, mesg, data)
+        self.components[name] = {'status': status,
+                                 'mesg': mesg,
+                                 'data': data,
+                                 }
 
     @property
     def healthy(self) -> bool:

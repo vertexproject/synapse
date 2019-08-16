@@ -7,9 +7,26 @@ import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 import synapse.telepath as s_telepath
 
+
 def serialize(ret):
     s = json.dumps(ret, separators=(',', ':'))
     return s
+
+
+def format_component(e, mesg: str) -> dict:
+    d = {
+        'error': {
+            'status': False,
+            'mesg': mesg,
+            'data': {
+                'errname': e.__class__.__name__,
+                'errmesg': str(e),
+            }
+        }
+    }
+
+    return d
+
 
 async def main(argv, outp=s_output.stdout):
     pars = makeargparser()
@@ -22,24 +39,27 @@ async def main(argv, outp=s_output.stdout):
         prox = await asyncio.wait_for(s_telepath.openurl(opts.cell),
                                       timeout=opts.timeout)
     except ConnectionError as e:
-        ret = (False, {'mesg': 'Unable to  connecting to cell',
-                       'errname': e.__class__.__name__,
-                       'errmesg': str(e),
-                       'cell': opts.cell})
+        mesg = 'Unable to connect to cell.'
+        ret = {'health': False,
+               'iden': opts.cell,
+               'components': format_component(e, mesg),
+               }
         outp.printf(serialize(ret))
         return 1
     except s_exc.SynErr as e:
-        ret = (False, {'mesg': 'Synapse error encountered.',
-                       'errname': e.__class__.__name__,
-                       'errmesg': e.get('mesg'),
-                       'cell': opts.cell})
+        mesg = 'Synapse error encountered.'
+        ret = {'health': False,
+               'iden': opts.cell,
+               'components': format_component(e, mesg),
+               }
         outp.printf(serialize(ret))
         return 1
     except asyncio.CancelledError as e:
-        ret = (False, {'mesg': 'Timeout connecting to cell',
-                       'errname': e.__class__.__name__,
-                       'errmesg': str(e),
-                       'cell': opts.cell})
+        mesg = 'Timeout connecting to cell'
+        ret = {'health': False,
+               'iden': opts.cell,
+               'components': format_component(e, mesg),
+               }
         outp.printf(serialize(ret))
         return 1
 
@@ -47,28 +67,29 @@ async def main(argv, outp=s_output.stdout):
         ret = await asyncio.wait_for(prox.getHealthCheck(),
                                      timeout=opts.timeout)
     except s_exc.SynErr as e:
-        # TODO FIX ME!
-        print(e)
-        ret = (False, {'mesg': 'Synapse error encountered.',
-                       'errname': e.__class__.__name__,
-                       'errmesg': e.get('mesg'),
-                       'cell': opts.cell})
+        mesg = 'Synapse error encountered.'
+        ret = {'health': False,
+               'iden': opts.cell,
+               'components': format_component(e, mesg),
+               }
 
     except asyncio.CancelledError as e:
-        ret = (False, {'mesg': 'Timeout getting health information from cell',
-                       'errname': e.__class__.__name__,
-                       'errmesg': str(e),
-                       'cell': opts.cell})
+        mesg = 'Timeout getting health information from cell.'
+        ret = {'health': False,
+               'iden': opts.cell,
+               'components': format_component(e, mesg),
+               }
 
     finally:
         await prox.fini()
 
     retval = 1
-    if ret[0] is True:
+    if ret.get('health') is True:
         retval = 0
 
     outp.printf(serialize(ret))
     return retval
+
 
 def makeargparser():
     desc = '''
@@ -80,6 +101,7 @@ def makeargparser():
     pars.add_argument('--timeout', '-t', default=10, type=int,
                       help='Connection and call timeout')
     return pars
+
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

@@ -574,6 +574,7 @@ class HttpApiTest(s_tests.SynTest):
             async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
                 async with sess.get(f'https://localhost:{port}/api/v1/healthcheck') as resp:
                     item = await resp.json()
-                    status, snfo = item.get('result')
-                    self.true(status)
+                    print(json.dumps(item.get('result')))
+                    snfo = item.get('result')
                     self.isinstance(snfo, dict)
+                    self.true(snfo.get('health'))

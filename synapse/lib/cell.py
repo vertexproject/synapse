@@ -657,7 +657,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         return user
 
     async def getHealthCheck(self):
-        health = s_health.HealthCheck(htyp=self.getCellType())
+        health = s_health.HealthCheck(self.getCellIden())
         # Give the Cell a shot at reporting its health
         await self.fire('syn:health', health=health)
         ret = health.pack()
