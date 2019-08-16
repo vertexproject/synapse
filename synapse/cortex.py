@@ -776,8 +776,11 @@ class Cortex(s_cell.Cell):
         self._initPushLoop()
         self._initFeedLoops()
 
-    async def _onHealthCortex(self, evnt):
-        pass
+    async def _onHealthCortex(self, event):
+        health = event[1].get('health')
+        if health is None:
+            return
+        health.update('cortex', True)
 
     async def syncLayerSplices(self, iden, offs):
         '''

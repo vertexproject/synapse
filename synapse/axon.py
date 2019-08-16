@@ -161,7 +161,7 @@ class Axon(s_cell.Cell):
         if health is None:
             return
         metrics = await self.metrics()
-        health.update('metrics', True, '', data=metrics)
+        health.update('axon', True, '', data=metrics)
 
     async def _initBlobStor(self):
         path = s_common.gendir(self.dirn, 'blob.lmdb')
