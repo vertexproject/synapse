@@ -22,7 +22,7 @@ class HealthCheck(object):
                name: str,
                status: bool,
                mesg: str = '',
-               data: typing.Any =None,
+               data: dict =None,
                ) -> None:
         if name in self.components:
             raise s_exc.DataAlreadyExists(mesg='Already updated healthcheck for the component.',
