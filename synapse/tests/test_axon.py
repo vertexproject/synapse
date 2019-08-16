@@ -112,15 +112,10 @@ class AxonTest(s_t_utils.SynTest):
         self.eq(b'', b''.join(bytz))
 
         logger.info('Healthcheck test')
-        status, snfo = await axon.getHealthCheck()
-        self.true(status)
-        data = snfo.get('data')
-        _, _, metrics = data.get('metrics')
-        self.eq(metrics, await axon.metrics())
-        _, _, recents = data.get('recent')
-        hashes = recents.get('hashes')
-        self.len(3, hashes)
-        self.isin(s_common.ehex(emptyhash), hashes)
+        snfo = await axon.getHealthCheck()
+        self.true(snfo.get('health'))
+        axfo = snfo.get('components').get('axon')
+        self.eq(axfo.get('data'), await axon.metrics())
 
         logger.info('Upload context reuse')
         with mock.patch('synapse.axon.MAX_SPOOL_SIZE', s_axon.CHUNK_SIZE * 2):
