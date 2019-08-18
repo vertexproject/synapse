@@ -145,3 +145,8 @@ class SlabSeqn:
 
             if i == imax:
                 break
+
+    def getByIndxByts(self, indxbyts):
+        byts = sefl.slab.get(indxbyts, db=self.db)
+        if byts is not None:
+            return s_msgpack.un(byts)
