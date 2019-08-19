@@ -325,6 +325,16 @@ class Slab(s_base.Base):
             opts['maxsize'] = self.maxsize
         s_common.yamlmod(opts, self.optspath)
 
+    async def _syncLoopOnce(self):
+        try:
+            # do this from the loop thread only to avoid recursion
+            await self.fire('commit')
+            self.forcecommit()
+
+        except lmdb.MapFullError:
+            self._handle_mapfull()
+            # There's no need to re-try self.forcecommit as _growMapSize does it
+
     async def _runSyncLoop(self):
         while not self.isfini:
             await self.waitfini(timeout=self.COMMIT_PERIOD)
@@ -332,15 +342,13 @@ class Slab(s_base.Base):
                 # There's no reason to forcecommit on fini, because there's a separate handler to already do that
                 break
 
-            try:
-                self.forcecommit()
-
-            except lmdb.MapFullError:
-                self._handle_mapfull()
-                # There's no need to re-try self.forcecommit as _growMapSize does it
+            await self._syncLoopOnce()
 
     async def _onCoFini(self):
         assert s_glob.iAmLoop()
+
+        await self.fire('commit')
+
         while True:
             try:
                 self._finiCoXact()
