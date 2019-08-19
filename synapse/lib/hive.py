@@ -694,6 +694,15 @@ class HiveAuth(s_base.Base):
         return self.usersbyiden.get(iden)
 
     def getUserByName(self, name):
+        '''
+        Get a user by their username.
+
+        Args:
+            name (str): Name of the user to get.
+
+        Returns:
+            HiveUser: A Hive User.  May return None if there is no user by the requested name.
+        '''
         return self.usersbyname.get(name)
 
     def getRoleByName(self, name):
