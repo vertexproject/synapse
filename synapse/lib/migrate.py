@@ -44,9 +44,10 @@ class Migration(s_base.Base):
 
     @contextlib.asynccontextmanager
     async def getTempSlab(self):
+        opts = {'map_async': True}
         with s_common.getTempDir() as dirn:
             path = os.path.join(dirn, 'migrate.lmdb')
-            async with await s_lmdbslab.Slab.anit(path) as slab:
+            async with await s_lmdbslab.Slab.anit(path, **opts) as slab:
                 yield slab
 
     @contextlib.asynccontextmanager
@@ -195,3 +196,23 @@ class Migration(s_base.Base):
 
             for buid, byts in slab.scanByFull():
                 yield buid, s_msgpack.un(byts)
+
+    async def normPropValu(self, name):
+
+        prop = self.core.model.prop(name)
+
+        for layr in self.layers:
+
+            async with self.getTempSlab() as slab:
+
+                for buid, valu in layr.iterPropRows('geo:place:address'):
+
+                    norm, info = prop.type.norm(valu)
+                    if norm == valu:
+                        continue
+
+                    slab.put(buid, s_msgpack.en(norm))
+
+                for buid, byts in slab.scanByFull():
+                    norm = s_msgpack.un(byts)
+                    await layr.storPropSet(buid, prop, norm)

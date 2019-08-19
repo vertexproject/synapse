@@ -116,3 +116,18 @@ class ModelRevTest(s_tests.SynTest):
             # check secondary compound property index
             sorc = (await core.nodes('meta:source'))[0].ndef[1]
             self.len(1, await core.nodes(f'meta:seen:source={sorc}'))
+
+    async def test_modelrev_0_1_1(self):
+
+        plac0 = '7b3bbf19a8e4d3f5204da8c7f6395494'
+        plac1 = 'dd0c914ec06bd7851009d5bad7430ff1'
+
+        async with self.getRegrCore('0.1.0') as core:
+
+            opts = {'vars': {'plac0': plac0, 'plac1': plac1}}
+
+            node0 = await core.nodes('geo:place=$plac0', opts=opts)[0]
+            node1 = await core.nodes('geo:place=$plac1', opts=opts)[0]
+
+            self.eq('this is not changed', node0[1]['props']['address'])
+            self.eq('this has been stripped', node1[1]['props']['address'])
