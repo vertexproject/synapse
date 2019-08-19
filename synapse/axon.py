@@ -28,6 +28,21 @@ class UpLoad(s_base.Base):
         self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE)
         self.size = 0
         self.sha256 = hashlib.sha256()
+        self.onfini(self._uploadFini)
+
+    def _uploadFini(self):
+        self.fd.close()
+
+    def _reset(self):
+        if self.fd._rolled or self.fd.closed:
+            self.fd.close()
+            self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE)
+        else:
+            # If we haven't rolled over, this skips allocating new objects
+            self.fd.truncate(0)
+            self.fd.seek(0)
+        self.size = 0
+        self.sha256 = hashlib.sha256()
 
     async def write(self, byts):
         self.size += len(byts)
@@ -37,9 +52,11 @@ class UpLoad(s_base.Base):
     async def save(self):
 
         sha256 = self.sha256.digest()
+        rsize = self.size
 
         if await self.axon.has(sha256):
-            return self.size, sha256
+            self._reset()
+            return rsize, sha256
 
         def genr():
 
@@ -57,8 +74,9 @@ class UpLoad(s_base.Base):
                 yield byts
 
         await self.axon.save(sha256, genr())
-        self.fd.close()
-        return self.size, sha256
+
+        self._reset()
+        return rsize, sha256
 
 class UpLoadShare(UpLoad, s_share.Share):
     typename = 'upload'
