@@ -78,7 +78,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                                            parser_class=functools.partial(s_cmd.Parser, outp=self))
 
         parser_ls = subparsers.add_parser('list', aliases=['ls'], help="List entries in the hive", usage=ListHelp)
-        parser_ls .add_argument('path', nargs='?', help='Hive path')
+        parser_ls.add_argument('path', nargs='?', help='Hive path')
 
         parser_get = subparsers.add_parser('get', help="Get any entry in the hive", usage=GetHelp)
         parser_get.add_argument('path', help='Hive path')

@@ -1,6 +1,8 @@
 import json
 import aiohttp
 
+import synapse.lib.httpapi as s_httpapi
+
 import synapse.tests.utils as s_tests
 
 class HttpApiTest(s_tests.SynTest):
@@ -17,6 +19,55 @@ class HttpApiTest(s_tests.SynTest):
                     item = await resp.json()
                     users = item.get('result')
                     self.isin('root', [u.get('name') for u in users])
+
+    async def test_reqauth(self):
+
+        class ReqAuthHandler(s_httpapi.Handler):
+            async def get(self):
+                if not await self.reqAuthAllowed('syn:test'):
+                    return
+                return self.sendRestRetn({'data': 'everything is awesome!'})
+
+        async with self.getTestCore() as core:
+            core.addHttpApi('/api/tests/test_reqauth', ReqAuthHandler, {'cell': core})
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            url = f'https://localhost:{port}/api/tests/test_reqauth'
+            root = core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            user = await core.auth.addUser('user')
+            await user.setPasswd('12345')
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+
+                async with sess.get(url) as resp:
+                    self.eq(resp.status, 200)
+                    retn = await resp.json()
+                    self.eq(retn.get('status'), 'ok')
+                    self.eq(retn.get('result'), {'data': 'everything is awesome!'})
+
+            async with self.getHttpSess(auth=('user', '12345'), port=port) as sess:
+                async with sess.get(url) as resp:
+                    self.eq(resp.status, 200)
+                    retn = await resp.json()
+                    self.eq(retn.get('status'), 'err')
+                    self.eq(retn.get('code'), 'AuthDeny')
+
+                await user.addRule((True, ('syn:test',)))
+
+                async with sess.get(url) as resp:
+                    self.eq(resp.status, 200)
+                    retn = await resp.json()
+                    self.eq(retn.get('status'), 'ok')
+                    self.eq(retn.get('result'), {'data': 'everything is awesome!'})
+
+            async with aiohttp.ClientSession() as sess:
+                burl = f'https://newp:newp@localhost:{port}/api/tests/test_reqauth'
+                async with sess.get(burl, ssl=False) as resp:
+                    self.eq(resp.status, 401)
+                    retn = await resp.json()
+                    self.eq(retn.get('status'), 'err')
 
     async def test_http_user_archived(self):
 

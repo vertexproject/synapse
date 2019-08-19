@@ -155,7 +155,7 @@ class CellApi(s_base.Base):
 
         admin = self.user.admin
 
-        logger.info(f'User [{str(self.user)}] Requesting task kill: {iden}')
+        logger.info(f'User [{self.user.name}] Requesting task kill: {iden}')
         task = self.cell.boss.get(iden)
         if task is None:
             logger.info(f'Task does not exist: {iden}')
