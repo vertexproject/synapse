@@ -214,7 +214,7 @@ class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
     '''
-    COMMIT_PERIOD = 1.0  # time between commits
+    COMMIT_PERIOD = 0.5  # time between commits
 
     async def __anit__(self, path, **kwargs):
 

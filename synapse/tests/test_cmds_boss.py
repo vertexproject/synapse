@@ -42,7 +42,7 @@ class CmdBossTest(s_t_utils.SynTest):
 
             outp.clear()
             await cmdr.runCmdLine('kill')
-            outp.expect('no iden given to kill')
+            outp.expect('Kill a running task/query within the cortex.')
 
             outp.clear()
             await cmdr.runCmdLine('kill %s' % (iden,))
@@ -91,7 +91,17 @@ class CmdBossTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.AuthDeny, tcore.kill(iden))
                 toutp.clear()
                 await tcmdr.runCmdLine('kill %s' % (iden,))
-                self.true(toutp.expect('no matching process found. aborting.'))
+                self.true(toutp.expect('no matching process found.'))
+
+                # Try a kill with a numeric identifier - this won't match
+                outp.clear()
+                await cmdr.runCmdLine('kill 123412341234')
+                self.true(outp.expect('no matching process found', False))
+
+                # Specify the iden arg multiple times
+                outp.clear()
+                await cmdr.runCmdLine('kill 123412341234 deadb33f')
+                self.true(outp.expect('unrecognized arguments', False))
 
                 # Tear down the task as a real user
                 outp.clear()

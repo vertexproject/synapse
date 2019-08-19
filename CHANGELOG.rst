@@ -3,6 +3,18 @@ Synapse Changelog
 *****************
 
 
+v0.1.23 - 2019-08-14
+====================
+
+Features and Enhancements
+-------------------------
+- Add a new Cortex configuration option, ``layer:lmdb:map_async``, to enable asynchronous fsync calls in LMDB layers.
+  (`#1338 <https://github.com/vertexproject/synapse/pull/1338>`_)
+- Add ``asyncio.sleep(0)`` calls to Telepath generator loops to enable all Telepath generators to have fair scheduling
+  on the server side.
+  (`#1341 <https://github.com/vertexproject/synapse/pull/1341>`_)
+
+
 v0.1.22 - 2019-08-08
 ====================
 
