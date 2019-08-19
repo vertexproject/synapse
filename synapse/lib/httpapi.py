@@ -133,6 +133,49 @@ class HandlerBase:
 
         return True
 
+    async def reqAuthAllowed(self, *path):
+        '''
+        Helper method that subclasses can use for user permission checking.
+
+        Args:
+            *path: Permission path components to check.
+
+        Notes:
+            This will call reqAuthUser() to ensure that there is a valid user.
+            If the cell is insecure, this will return True.  If this returns
+            False, the handler should return since the the status code and
+            resulting error message will already have been sent.
+
+        Examples:
+
+            Define a handler which checks for ``syn:test`` permission::
+
+                class ReqAuthHandler(s_httpapi.Handler):
+                    async def get(self):
+                        if not await self.reqAuthAllowed('syn:test'):
+                            return
+                     return self.sendRestRetn({'data': 'everything is awesome!'})
+
+        Returns:
+            bool: True if the user is allowed; False if the user is not allowed.
+
+        Raises:
+            s_exc.AuthDeny: If the permission is not allowed.
+
+        '''
+        if self.cell.insecure:  # pragma: no cover
+            return True
+
+        if not await self.reqAuthUser():
+            return False
+
+        user = await self.user()
+        if not user.allowed(path):
+            mesg = f'User {user.iden} ({user.name}) must have permission {".".join(path)}'
+            self.sendRestErr('AuthDeny', mesg)
+            return False
+        return True
+
     async def sess(self, gen=True):
 
         if self._web_sess is None:
