@@ -205,7 +205,7 @@ class Migration(s_base.Base):
 
             async with self.getTempSlab() as slab:
 
-                for buid, valu in layr.iterPropRows('geo:place:address'):
+                async for buid, valu in layr.iterPropRows(prop.form.name, prop.name):
 
                     norm, info = prop.type.norm(valu)
                     if norm == valu:

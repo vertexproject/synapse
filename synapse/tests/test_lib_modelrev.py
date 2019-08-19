@@ -119,15 +119,15 @@ class ModelRevTest(s_tests.SynTest):
 
     async def test_modelrev_0_1_1(self):
 
-        plac0 = '7b3bbf19a8e4d3f5204da8c7f6395494'
-        plac1 = 'dd0c914ec06bd7851009d5bad7430ff1'
+        cont0 = '7b3bbf19a8e4d3f5204da8c7f6395494'
+        cont1 = 'dd0c914ec06bd7851009d5bad7430ff1'
 
         async with self.getRegrCore('0.1.0') as core:
 
-            opts = {'vars': {'plac0': plac0, 'plac1': plac1}}
+            opts = {'vars': {'cont0': cont0, 'cont1': cont1}}
 
-            node0 = await core.nodes('geo:place=$plac0', opts=opts)[0]
-            node1 = await core.nodes('geo:place=$plac1', opts=opts)[0]
+            node0 = (await core.nodes('ps:contact=$cont0', opts=opts))[0]
+            node1 = (await core.nodes('ps:contact=$cont1', opts=opts))[0]
 
-            self.eq('this is not changed', node0[1]['props']['address'])
-            self.eq('this has been stripped', node1[1]['props']['address'])
+            self.eq('this is not changed', node0.get('address'))
+            self.eq('this has one space', node1.get('address'))
