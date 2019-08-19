@@ -142,7 +142,19 @@ class HandlerBase:
 
         Notes:
             This will call reqAuthUser() to ensure that there is a valid user.
-            If the cell is insecure, this will return True.
+            If the cell is insecure, this will return True.  If this returns
+            False, the handler should return since the the status code and
+            resulting error message will already have been sent.
+
+        Examples:
+
+            Define a handler which checks for ``syn:test`` permission::
+
+                class ReqAuthHandler(s_httpapi.Handler):
+                    async def get(self):
+                        if not await self.reqAuthAllowed('syn:test'):
+                            return
+                     return self.sendRestRetn({'data': 'everything is awesome!'})
 
         Returns:
             bool: True if the user is allowed; False if the user is not allowed.
@@ -151,7 +163,7 @@ class HandlerBase:
             s_exc.AuthDeny: If the permission is not allowed.
 
         '''
-        if self.cell.insecure:
+        if self.cell.insecure:  # pragma: no cover
             return True
 
         if not await self.reqAuthUser():
