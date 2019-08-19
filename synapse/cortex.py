@@ -689,9 +689,9 @@ class Cortex(s_cell.Cell):
 
     cellapi = CoreApi
 
-    async def __anit__(self, dirn, conf=None):
+    async def __anit__(self, dirn, conf=None, boot=None, **kwargs):
 
-        await s_cell.Cell.__anit__(self, dirn, conf=conf)
+        await s_cell.Cell.__anit__(self, dirn, conf=conf, boot=boot, **kwargs)
 
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use

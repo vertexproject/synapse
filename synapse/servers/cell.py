@@ -8,6 +8,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
 
@@ -31,7 +32,12 @@ async def getCell(outp,
 
     outp.printf(f'starting cell: {celldir}')
 
-    cell = await ctor.anit(celldir)
+    conf = s_config.Config2(confdefs=ctor.confdefs + ctor.confbase)
+    await conf.loadConfEnvs('cell')
+    boot = s_config.Config2(ctor.bootdefs)
+    await boot.loadConfEnvs('boot')
+
+    cell = await ctor.anit(celldir, conf=conf, boot=boot)
 
     try:
 

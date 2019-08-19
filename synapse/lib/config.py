@@ -63,6 +63,19 @@ class Config2:
     def __getitem__(self, item):
         return self.conf[item]
 
+    # dict methods
+    def copy(self):
+        return copy.deepcopy(self)
+
+    def items(self):
+        return self.conf.items()
+
+    def values(self):
+        return self.conf.values()
+
+    def keys(self):
+        return self.conf.keys()
+
     async def set(self, name, valu):
         self._set(name, valu)
 

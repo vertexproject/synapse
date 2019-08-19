@@ -355,8 +355,9 @@ class Cell(s_base.Base, s_telepath.Aware):
     # config options that are in all cells...
     confdefs = ()
     confbase = ()
+    bootdefs = bootdefs
 
-    async def __anit__(self, dirn, conf=None, readonly=False):
+    async def __anit__(self, dirn, conf=None, boot=None, readonly=False, **kwargs):
 
         await s_base.Base.__anit__(self)
 
@@ -378,9 +379,10 @@ class Cell(s_base.Base, s_telepath.Aware):
         with open(path, 'r') as fd:
             self.iden = fd.read().strip()
 
-        self.boot = s_config.Config2(bootdefs)
+        self.boot = s_config.Config2(self.bootdefs)
         await self.boot.loadConfYaml(self.dirn, 'boot.yaml')
-        await self.boot.loadConfEnvs('boot')
+        if boot is not None:
+            await self.boot.loadConfDict(conf)
 
         await self._initCellDmon()
 
@@ -389,8 +391,8 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         self.conf = s_config.Config2(self.confdefs + self.confbase)
         await self.conf.loadConfYaml(self.dirn, 'cell.yaml')
-        await self.conf.loadConfEnvs('cell')
-        await self.conf.loadConfDict(conf)
+        if conf is not None:
+            await self.conf.loadConfDict(conf)
 
         self.cmds = {}
         self.insecure = self.boot.get('insecure', False)
