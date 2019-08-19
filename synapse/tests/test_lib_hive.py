@@ -269,20 +269,20 @@ class HiveTest(s_test.SynTest):
     async def test_hive_saveload(self):
 
         tree0 = {
-            'kids': [
-                {'name': 'hehe', 'value': 'haha'},
-                {'name': 'hoho', 'value': 'huhu', 'kids': [
-                    {'name': 'foo', 'value': 99},
-                ]},
-            ]
+            'kids': {
+                'hehe': {'value': 'haha'},
+                'hoho': {'value': 'huhu', 'kids': {
+                    'foo': {'value': 99},
+                }},
+            }
         }
 
         tree1 = {
-            'kids': [
-                {'name': 'hoho', 'value': 'huhu', 'kids': [
-                    {'name': 'foo', 'value': 99},
-                ]},
-            ]
+            'kids': {
+                'hoho': {'value': 'huhu', 'kids': {
+                    'foo': {'value': 99},
+                }}
+            }
         }
 
         async with self.getTestHive() as hive:
@@ -303,6 +303,7 @@ class HiveTest(s_test.SynTest):
 
             tree = await hive.saveHiveTree()
 
-            self.eq('hehe', tree['kids'][0]['name'])
-            self.eq('haha', tree['kids'][0]['kids'][0]['name'])
-            self.eq(99, tree['kids'][0]['kids'][0]['value'])
+            self.nn(tree['kids']['hehe'])
+            self.nn(tree['kids']['hehe']['kids']['haha'])
+
+            self.eq(99, tree['kids']['hehe']['kids']['haha']['value'])
