@@ -108,6 +108,7 @@ class Config2Test(s_test.SynTest):
         self.eq(conf.get('lkey2'), [1, 2, 3])
 
         # TODO - Test container __setitem__ and __getitem__ methods.
+        # TODO - Test dict mimic methods
 
         # Our original confdefs defvals are unchanged
         conf2 = s_config.Config2(confdefs=confdefs)
