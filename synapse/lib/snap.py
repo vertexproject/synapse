@@ -694,7 +694,10 @@ class Snap(s_base.Base):
             yield row, node
 
     async def getNodeData(self, buid, name, defv=None):
-        return await self.layers[0].getNodeData(buid, name, defv=defv)
+        envl = await self.layers[0].getNodeData(buid, name, defv=defv)
+        if envl is not None:
+            return envl.get('data')
 
     async def setNodeData(self, buid, name, item):
-        return await self.layers[0].setNodeData(buid, name, item)
+        envl = {'user': self.user.iden, 'time': s_common.now(), 'data': item}
+        return await self.layers[0].setNodeData(buid, name, envl)
