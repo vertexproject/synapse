@@ -16,8 +16,7 @@ import synapse.lib.slabseqn as s_slabseqn
 logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 16 * s_const.mebibyte
-
-tenmegs = 10 * s_const.mebibyte
+MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
 
 class UpLoad(s_base.Base):
 
@@ -26,8 +25,22 @@ class UpLoad(s_base.Base):
         await s_base.Base.__anit__(self)
 
         self.axon = axon
-        self.fd = tempfile.SpooledTemporaryFile(max_size=tenmegs)
+        self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE)
+        self.size = 0
+        self.sha256 = hashlib.sha256()
+        self.onfini(self._uploadFini)
 
+    def _uploadFini(self):
+        self.fd.close()
+
+    def _reset(self):
+        if self.fd._rolled or self.fd.closed:
+            self.fd.close()
+            self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE)
+        else:
+            # If we haven't rolled over, this skips allocating new objects
+            self.fd.truncate(0)
+            self.fd.seek(0)
         self.size = 0
         self.sha256 = hashlib.sha256()
 
@@ -39,9 +52,11 @@ class UpLoad(s_base.Base):
     async def save(self):
 
         sha256 = self.sha256.digest()
+        rsize = self.size
 
         if await self.axon.has(sha256):
-            return self.size, sha256
+            self._reset()
+            return rsize, sha256
 
         def genr():
 
@@ -60,7 +75,8 @@ class UpLoad(s_base.Base):
 
         await self.axon.save(sha256, genr())
 
-        return self.size, sha256
+        self._reset()
+        return rsize, sha256
 
 class UpLoadShare(UpLoad, s_share.Share):
     typename = 'upload'
@@ -112,7 +128,7 @@ class Axon(s_cell.Cell):
 
     async def __anit__(self, dirn, conf=None):
 
-        await s_cell.Cell.__anit__(self, dirn)
+        await s_cell.Cell.__anit__(self, dirn, conf=conf)
 
         # share ourself via the cell dmon as "axon"
         # for potential default remote use
@@ -124,18 +140,21 @@ class Axon(s_cell.Cell):
         self.onfini(self.axonslab.fini)
 
         self.axonhist = s_lmdbslab.Hist(self.axonslab, 'history')
-
-        path = s_common.gendir(self.dirn, 'blob.lmdb')
-        self.blobslab = await s_lmdbslab.Slab.anit(path)
-        self.blobs = self.blobslab.initdb('blobs')
-        self.onfini(self.blobslab.fini)
-
         self.axonseqn = s_slabseqn.SlabSeqn(self.axonslab, 'axonseqn')
 
         node = await self.hive.open(('axon', 'metrics'))
         self.axonmetrics = await node.dict()
         self.axonmetrics.setdefault('size:bytes', 0)
         self.axonmetrics.setdefault('file:count', 0)
+
+        # modularize blob storage
+        await self._initBlobStor()
+
+    async def _initBlobStor(self):
+        path = s_common.gendir(self.dirn, 'blob.lmdb')
+        self.blobslab = await s_lmdbslab.Slab.anit(path)
+        self.blobs = self.blobslab.initdb('blobs')
+        self.onfini(self.blobslab.fini)
 
     def _addSyncItem(self, item):
         self.axonhist.add(item)
@@ -180,12 +199,7 @@ class Axon(s_cell.Cell):
         if byts is not None:
             return int.from_bytes(byts, 'big')
 
-        size = 0
-        for i, byts in enumerate(genr):
-            size += len(byts)
-            lkey = sha256 + i.to_bytes(8, 'big')
-            self.blobslab.put(lkey, byts, db=self.blobs)
-            await asyncio.sleep(0)
+        size = await self._saveFileGenr(sha256, genr)
 
         self._addSyncItem((sha256, size))
 
@@ -194,6 +208,15 @@ class Axon(s_cell.Cell):
 
         self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
 
+        return size
+
+    async def _saveFileGenr(self, sha256, genr):
+        size = 0
+        for i, byts in enumerate(genr):
+            size += len(byts)
+            lkey = sha256 + i.to_bytes(8, 'big')
+            self.blobslab.put(lkey, byts, db=self.blobs)
+            await asyncio.sleep(0)
         return size
 
     async def wants(self, sha256s):

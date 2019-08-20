@@ -1769,13 +1769,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(alldefs.get(('syn:tag', 'nope')))
             self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
 
-    async def test_storm_lib_time(self):
-
-        async with self.getTestCore() as core:
-            nodes = await core.eval('[ ps:person="*" :dob = $lib.time.fromunix(20) ]').list()
-            self.len(1, nodes)
-            self.eq(20000, nodes[0].get('dob'))
-
     async def test_storm_two_level_assignment(self):
         async with self.getTestCore() as core:
             q = '$foo=baz $bar=$foo [test:str=$bar]'

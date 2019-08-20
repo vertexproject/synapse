@@ -82,6 +82,7 @@ class TelcoModelTest(s_t_utils.SynTest):
                 softguid = s_common.guid()
                 props = {'time': '2001',
                          'latlong': (-1, 1),
+                         'loc': 'us',
                          'accuracy': '100mm',
                          'cell': (('001', '02'), 3, 4),
                          'imsi': '310150123456789',
@@ -105,6 +106,7 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], guid)
                 self.eq(node.get('time'), 978307200000)
                 self.eq(node.get('latlong'), (-1.0, 1.0))
+                self.eq(node.get('loc'), 'us')
                 self.eq(node.get('accuracy'), 100)
                 self.eq(node.get('cell'), (('001', '02'), 3, 4))
                 self.eq(node.get('cell:carrier'), ('001', '02'))

@@ -21,6 +21,10 @@ class MatModule(s_module.CoreModule):
 
                     ('name', ('str', {'lower': True}), {'doc': 'The human readable name of the material item'}),
 
+                    ('spec', ('mat:spec', {}), {
+                        'doc': 'The mat:spec of which this item is an instance.',
+                    }),
+
                     ('latlong', ('geo:latlong', {}), {'doc': 'The last known lat/long location of the node'}),
 
                     # TODO add baseline things like dimensions / mass / etc?
