@@ -76,6 +76,8 @@ class LmdbLayer(s_layer.Layer):
         self.onfini(self.spliceslab.fini)
 
         self.dataslab = await s_lmdbslab.Slab.anit(datapath, map_async=True)
+        self.databyname = self.dataslab.initdb('byname')
+        self.databybuid = self.dataslab.initdb('bybuid')
         self.onfini(self.dataslab.fini)
 
         metadb = self.layrslab.initdb('meta')
@@ -100,20 +102,22 @@ class LmdbLayer(s_layer.Layer):
 
     async def setNodeData(self, buid, name, item):
         # TODO more str->utf8 caching
-        lkey = buid + name.encode('utf8')
-        lval = s_msgpack.en(item)
-        self.dataslab.put(lkey, lval)
+        nenc = name.encode('utf8') + b'\x00'
+        self.dataslab.put(nenc + buid, b'\x00', db=self.databyname)
+        self.dataslab.put(buid + nenc, s_msgpack.en(item), db=self.databybuid)
 
     async def getNodeData(self, buid, name, defv=None):
-        lkey = buid + name.encode('utf8')
-        byts = self.dataslab.get(lkey)
+        nenc = name.encode('utf8') + b'\x00'
+        byts = self.dataslab.get(buid + nenc, db=self.databybuid)
         if byts is None:
             return None
         return s_msgpack.un(byts)
 
     def _wipeNodeData(self, buid):
-        for lkey, lval in self.dataslab.scanByPref(buid):
-            self.dataslab.pop(lkey)
+        for lkey, lval in self.dataslab.scanByPref(buid, db=self.databybuid):
+            name = lkey[32:]
+            self.dataslab.pop(name + buid, db=self.databyname)
+            self.dataslab.pop(buid + name, db=self.databybuid)
 
     async def stor(self, sops, splices=None):
         '''
