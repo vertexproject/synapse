@@ -927,7 +927,6 @@ class Cortex(s_cell.Cell):
             valu = s_common.int64un(lval)
             self.counts[form] = valu
 
-    # FIXME: what about multiple views?
     def pokeFormCount(self, form, valu):
 
         curv = self.counts.get(form, 0)
@@ -941,6 +940,8 @@ class Cortex(s_cell.Cell):
     async def _calcFormCounts(self):
         '''
         Recalculate form counts from scratch.
+
+        Note:  this only counts nodes in the main view
         '''
         logger.info('Calculating form counts from scratch.')
         self.counts.clear()
@@ -1909,17 +1910,23 @@ class Cortex(s_cell.Cell):
         Returns:
             (int): The next expected offset (or None) if seqn is None.
         '''
+        if view is None:
+            view = self.view
+
         async with await self.snap(view=view) as snap:
             snap.strict = False
             return await snap.addFeedData(name, items, seqn=seqn)
 
-    async def getFeedOffs(self, iden):
-        # FIXME:  adjust for view
+    async def getFeedOffs(self, iden, view=None):
+        if view is None:
+            view = self.view
+
         return await self.view.layers[0].getOffset(iden)
 
-    async def setFeedOffs(self, iden, offs):
+    async def setFeedOffs(self, iden, offs, view=None):
+        if view is None:
+            view = self.view
 
-        # FIXME:  adjust for view
         if offs < 0:
             mesg = 'Offset must be >= 0.'
             raise s_exc.BadConfValu(mesg=mesg, offs=offs, iden=iden)
