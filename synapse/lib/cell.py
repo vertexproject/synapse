@@ -196,12 +196,14 @@ class CellApi(s_base.Base):
         await self._reqUserAllowed(*perm)
         return await self.cell.hive.pop(path)
 
-    @adminapi
     async def saveHiveTree(self, path=()):
+        perm = ('hive:get',) + path
+        await self._reqUserAllowed(*perm)
         return await self.cell.hive.saveHiveTree(path=path)
 
-    @adminapi
     async def loadHiveTree(self, tree, path=(), trim=False):
+        perm = ('hive:set',) + path
+        await self._reqUserAllowed(*perm)
         return await self.cell.hive.loadHiveTree(tree, path=path, trim=trim)
 
     @adminapi
