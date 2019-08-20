@@ -46,6 +46,7 @@ class LmdbLayer(s_layer.Layer):
         await s_layer.Layer.__anit__(self, core, node)
 
         path = os.path.join(self.dirn, 'layer.lmdb')
+        datapath = os.path.join(self.dirn, 'nodedata.lmdb')
         splicepath = os.path.join(self.dirn, 'splices.lmdb')
 
         self.fresh = not os.path.exists(path)
@@ -74,6 +75,9 @@ class LmdbLayer(s_layer.Layer):
                                                      growsize=growsize, writemap=True, readahead=readahead, map_async=map_async)
         self.onfini(self.spliceslab.fini)
 
+        self.dataslab = await s_lmdbslab.Slab.anit(datapath, map_async=True)
+        self.onfini(self.dataslab.fini)
+
         metadb = self.layrslab.initdb('meta')
         self.metadict = s_lmdbslab.SlabDict(self.layrslab, metadb)
 
@@ -93,6 +97,23 @@ class LmdbLayer(s_layer.Layer):
             'pref': self._rowsByPref,
             'range': self._rowsByRange,
         }
+
+    async def setNodeData(self, buid, name, item):
+        # TODO more str->utf8 caching
+        lkey = buid + name.encode('utf8')
+        lval = s_msgpack.en(item)
+        self.dataslab.put(lkey, lval)
+
+    async def getNodeData(self, buid, name, defv=None):
+        lkey = buid + name.encode('utf8')
+        byts = self.dataslab.get(lkey)
+        if byts is None:
+            return None
+        return s_msgpack.un(byts)
+
+    def _wipeNodeData(self, buid):
+        for lkey, lval in self.dataslab.scanByPref(buid):
+            self.dataslab.pop(lkey)
 
     async def stor(self, sops, splices=None):
         '''
@@ -384,6 +405,8 @@ class LmdbLayer(s_layer.Layer):
             bpkey = buid + prop.encode()
         else:
             bpkey = buid + b'*' + form.encode()
+            # we are deleting the primary property. wipe data.
+            self._wipeNodeData(buid)
 
         univ = info.get('univ')
 

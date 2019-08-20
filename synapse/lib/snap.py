@@ -692,3 +692,9 @@ class Snap(s_base.Base):
                     continue
 
             yield row, node
+
+    async def getNodeData(self, buid, name, defv=None):
+        return await self.layers[0].getNodeData(buid, name, defv=defv)
+
+    async def setNodeData(self, buid, name, item):
+        return await self.layers[0].setNodeData(buid, name, item)

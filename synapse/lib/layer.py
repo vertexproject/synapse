@@ -429,3 +429,9 @@ class Layer(s_base.Base):
 
     def migrateProvPre010(self, slab):  # pragma: no cover
         raise NotImplementedError
+
+    async def setNodeData(self, buid, name, item):
+        raise NotImplementedError
+
+    async def getNodeData(self, buid, name, defv=None):
+        raise NotImplementedError

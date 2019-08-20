@@ -460,6 +460,7 @@ class Node(Prim):
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update({
+            'data': node.data,
             'form': self._methNodeForm,
             'ndef': self._methNodeNdef,
             'tags': self._methNodeTags,

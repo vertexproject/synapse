@@ -675,3 +675,27 @@ class StormTypesTest(s_test.SynTest):
             ernfos = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, ernfos)
             self.isin('Error during time parsing', ernfos[0][1].get('mesg'))
+
+    async def test_storm_node_data(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[test:int=10] $node.data(foo, hehe) $node.data(bar, haha) $node.data(baz, hoho)')
+
+            self.len(1, nodes)
+            self.eq(await nodes[0].data('foo'), 'hehe')
+
+            nodes = await core.nodes('test:int $foo=$node.data(foo) [ test:str=$foo ] +test:str')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'hehe'))
+
+            # delete and remake the node to confirm data wipe
+            nodes = await core.nodes('test:int=10 | delnode')
+            nodes = await core.nodes('test:int=10')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('[test:int=10]')
+
+            self.none(await nodes[0].data('foo'))
+            self.none(await nodes[0].data('bar'))
+            self.none(await nodes[0].data('baz'))
