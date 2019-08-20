@@ -680,7 +680,7 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[test:int=10] $node.data(foo, hehe) $node.data(bar, haha) $node.data(baz, hoho)')
+            nodes = await core.nodes('[test:int=10] $node.data(foo, hehe)')
 
             self.len(1, nodes)
             self.eq(await nodes[0].data('foo'), 'hehe')
@@ -697,5 +697,3 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('[test:int=10]')
 
             self.none(await nodes[0].data('foo'))
-            self.none(await nodes[0].data('bar'))
-            self.none(await nodes[0].data('baz'))
