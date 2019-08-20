@@ -76,7 +76,7 @@ class View(s_base.Base):
 
     async def addLayer(self, layr, indx=None):
 
-        for view in self.core.views:
+        for view in self.core.views.values():
             if view.parent is self:
                 raise s_exc.ReadOnlyLayer(mesg='May not change layers that have been inherited from')
 
@@ -98,7 +98,7 @@ class View(s_base.Base):
         Set the view layers from a list of idens.
         NOTE: view layers are stored "top down" ( write is layers[0] )
         '''
-        for view in self.core.views:
+        for view in self.core.views.values():
             if view.parent is self:
                 raise s_exc.ReadOnlyLayer(mesg='May not change layers that have been inherited from')
 
