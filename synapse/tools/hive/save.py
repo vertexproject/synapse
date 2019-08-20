@@ -33,5 +33,5 @@ async def main(argv, outp=s_output.stdout):
     else:
         s_msgpack.dumpfile(tree, opts.filepath)
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     asyncio.run(main(sys.argv[1:]))

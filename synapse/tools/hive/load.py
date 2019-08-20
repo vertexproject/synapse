@@ -34,5 +34,5 @@ async def main(argv, outp=s_output.stdout):
     async with await s_telepath.openurl(opts.hiveurl) as hive:
         await hive.loadHiveTree(tree, path=path, trim=opts.trim)
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     asyncio.run(main(sys.argv[1:]))
