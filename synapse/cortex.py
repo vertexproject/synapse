@@ -742,6 +742,7 @@ class Cortex(s_cell.Cell):
         mods = list(s_modules.coremods)
         mods.extend(self.conf.get('modules'))
         await self._loadCoreMods(mods)
+        await self._loadExtModel()
 
         # Initialize our storage and views
         await self._initCoreLayers()
@@ -773,6 +774,113 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    async def _loadExtModel(self):
+
+        self.extprops = await (await self.hive.open(('cortex', 'model', 'props'))).dict()
+        self.extunivs = await (await self.hive.open(('cortex', 'model', 'univs'))).dict()
+
+        for name, propdef in self.extprops.items():
+            try:
+                info = propdef.get('info')
+                formname = propdef.get('form')
+                propname = propdef.get('prop')
+                typedef = propdef.get('typedef')
+
+                self.model.addFormProp(formname, propname, typedef, info)
+
+            except asyncio.CancelledError as e:
+                raise
+            except Exception as e:
+                logger.warning(f'ext prop ({name}) error: {e}')
+
+        for name, propdef in self.extunivs.items():
+            try:
+                info = propdef.get('info')
+                propname = propdef.get('prop')
+                typedef = propdef.get('typedef')
+
+                self.model.addUnivProp(propname, typedef, info)
+
+            except asyncio.CancelledError as e:
+                raise
+            except Exception as e:
+                logger.warning(f'ext univ ({name}) error: {e}')
+
+    async def addExtUniv(self, univdef):
+        '''
+        {
+            'prop': <str>,
+
+            'info': {
+                'doc': <str>,
+            },
+
+            'typedef': (<name>, <info>),
+        }
+        '''
+        # the loading function does the actual validation...
+        await self._addExtUniv(univdef)
+        name = univdef.get('prop')
+        await self.extunivs.set(name, univdef)
+
+    async def _addExtUniv(self, univdef):
+
+        name = univdef.get('prop')
+        if not name.startswith('_'):
+            mesg = 'ext univ name must start with "_"'
+            raise s_exc.BadPropDef(name=name, mesg=mesg)
+
+        info = univdef.get('info')
+        if info.get('defval', s_common.novalu) is not s_common.novalu:
+            mesg = 'ext univ may not (yet) have a default value'
+            raise s_exc.BadPropDef(name=name, mesg=mesg)
+
+        typedef = univdef.get('typedef')
+        self.model.addUnivProp(name, typedef, info)
+
+    async def delExtProp(self, name):
+        pass # TODO
+
+    async def delExtUniv(self, name):
+        pass # TODO
+
+    async def addExtProp(self, propdef):
+        '''
+        {
+            'form': <str>,
+            'prop': <str>,
+
+            'info': {
+                'doc': <str>,
+            },
+
+            'typedef': (<name>, <info>),
+        }
+        '''
+        await self._addExtProp(propdef)
+
+        form = propdef.get('form')
+        prop = propdef.get('prop')
+
+        await self.extprops.set(f'{form}:{prop}', propdef)
+
+    async def _addExtProp(self, propdef):
+
+        form = propdef.get('form')
+        prop = propdef.get('prop')
+        info = propdef.get('info', {})
+        typedef = propdef.get('typedef')
+
+        if not prop.startswith('_'):
+            mesg = 'ext prop must begin with "_"'
+            raise s_exc.BadPropDef(name=prop, mesg=mesg)
+
+        if info.get('defval', s_common.novalu) is not s_common.novalu:
+            mesg = 'ext prop may not (yet) have a default value'
+            raise s_exc.BadPropDef(name=prop, mesg=mesg)
+
+        self.model.addFormProp(form, prop, typedef, info)
 
     async def syncLayerSplices(self, iden, offs):
         '''

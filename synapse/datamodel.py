@@ -667,12 +667,7 @@ class Model:
                         raise s_exc.BadPropDef(valu=propdef)
 
                     propname, typedef, propinfo = propdef
-
-                    prop = Prop(self, form, propname, typedef, propinfo)
-
-                    full = f'{formname}:{propname}'
-                    self.props[full] = prop
-                    self.props[(formname, propname)] = prop
+                    self._addFormProp(form, propname, typedef, propinfo)
 
         self._modelinfo.addDataModels(mods)
 
@@ -702,6 +697,20 @@ class Model:
 
         for form in self.forms.values():
             self._addFormUniv(form, name, tdef, info)
+
+    def addFormProp(self, formname, propname, tdef, info):
+        form = self.forms.get(formname)
+        if form is None:
+            raise s_exc.NoSuchForm(name=formname)
+        self._addFormProp(form, propname, tdef, info)
+
+    def _addFormProp(self, form, name, tdef, info):
+
+        prop = Prop(self, form, name, tdef, info)
+
+        full = f'{form.name}:{name}'
+        self.props[full] = prop
+        self.props[(form.name, name)] = prop
 
     def addBaseType(self, item):
         '''

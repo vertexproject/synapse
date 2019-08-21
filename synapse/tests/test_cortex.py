@@ -4,6 +4,7 @@ import asyncio
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
@@ -3168,3 +3169,63 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore(conf=conf) as core:
             layr = core.view.layers[0]
             self.true(layr.lockmemory)
+
+    async def test_cortex_ext_model(self):
+
+        with self.getTestDir() as dirn:
+            async with await s_cortex.Cortex.anit(dirn) as core:
+                pdef = {
+                    'form': 'inet:ipv4',
+                    'prop': 'visi',
+                    'info': {
+                        'doc': 'the visi prop',
+                        'defval': 20,
+                    },
+                    'typedef': ('int', {}),
+                }
+                udef = {
+                    'prop': 'woot',
+                    'info': {
+                        'defval': 'asdf',
+                        'doc': 'the woot universal prop',
+                    },
+                    'typedef': ('str', {'lower': True}),
+                }
+
+                # blowup for bad names
+                with self.raises(s_exc.BadPropDef):
+                    await core.addExtProp(pdef)
+                with self.raises(s_exc.BadPropDef):
+                    await core.addExtUniv(udef)
+
+                pdef['prop'] = '_visi'
+                udef['prop'] = '_woot'
+
+                # blowup for defvals
+                with self.raises(s_exc.BadPropDef):
+                    await core.addExtProp(pdef)
+                with self.raises(s_exc.BadPropDef):
+                    await core.addExtUniv(udef)
+
+                pdef['info'].pop('defval')
+                udef['info'].pop('defval')
+
+                await core.addExtProp(pdef)
+                await core.addExtUniv(udef)
+
+                nodes = await core.nodes('[inet:ipv4=1.2.3.4 :_visi=30 ._woot=HEHE ]')
+                self.len(1, nodes)
+
+                self.len(1, await core.nodes('syn:prop:base="_visi"'))
+                self.len(1, await core.nodes('syn:prop=inet:ipv4._woot'))
+                self.len(1, await core.nodes('._woot=hehe'))
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+                nodes = await core.nodes('[inet:ipv4=5.5.5.5 :_visi=100]')
+                self.len(1, nodes)
+
+                nodes = await core.nodes('inet:ipv4:_visi>30')
+                self.len(1, nodes)
+
+                nodes = await core.nodes('._woot=hehe')
+                self.len(1, nodes)

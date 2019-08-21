@@ -192,9 +192,9 @@ CPPCOMMENT: /\/\/[^\n]*/
 
 // Must be kept consistent with same regexes in synapse/lib/grammar.py
 // A full property.  Must contain at least 1 colon
-PROPS: /[a-z][a-z0-9]*(:[a-z0-9]+)+([:.][a-z][a-z0-9]+)*/
+PROPS: /[a-z_][a-z0-9]*(:[a-z0-9]+)+([:.][a-z_][a-z0-9]+)*/
 // A universal property
-UNIVNAME: /\.[a-z][a-z0-9]*([:.][a-z0-9]+)*/
+UNIVNAME: /\.[a-z_][a-z0-9]*([:.][a-z0-9]+)*/
 univprop:  UNIVNAME | "." _varvalu
 // A full property or a universal property
 PROPNAME: PROPS | UNIVNAME
@@ -204,7 +204,7 @@ ABSPROPNOUNIV: PROPS
 relprop: RELNAME | ":" _varvalu
 
 // Similar to PROPS, but starts with a colon and allows :: as separator
-RELNAME: /\:\.?[a-z][a-z0-9]*(?:(\:\:|\:|\.)[a-z0-9]+)*/
+RELNAME: /\:\.?[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z0-9]+)*/
 
 // The name of a storm command
 CMDNAME: /\b(?!(break|continue|for|while|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/
