@@ -646,4 +646,4 @@ class HealthCheckV1(Handler):
         if not await self.reqAuthAllowed('syn:health'):
             return
         resp = await self.cell.getHealthCheck()
-        return self.sendRestRetn(resp)
+        return self.write(resp)

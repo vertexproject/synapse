@@ -10,9 +10,13 @@ class HealthCheck(object):
         self.components = []
 
     def pack(self) -> tuple:
+        if self.healthy:
+            health = 'green'
+        else:
+            health = 'red'
         ret = {'iden': self.iden,
                'components': self.components,
-               'health': self.healthy,
+               'statuscode': health,
                }
         return ret
 
