@@ -159,6 +159,32 @@ class LibStr(Lib):
 
         return text
 
+class LibBytes(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'put': self._libBytesPut,
+        })
+
+    async def _libBytesPut(self, byts):
+        '''
+        Save the given bytes variable to the axon.
+
+        Returns:
+            ($size, $sha256)
+
+        Example:
+            ($size, $sha2) = $lib.bytes.put($bytes)
+        '''
+        if not isinstance(byts, bytes):
+            mesg = '$lib.bytes.put() requires a bytes argument'
+            raise BadArg(mesg=mesg)
+
+        #TODO decide on access pattern
+        await self.runt.snap.core.axready.wait()
+        size, sha2 = await self.runt.snap.core.axon.put(byts)
+        return (size, s_common.ehex(sha2))
+
 class LibTime(Lib):
 
     def addLibFuncs(self):

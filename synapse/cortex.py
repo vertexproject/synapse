@@ -681,13 +681,20 @@ class Cortex(s_cell.Cell):
             'type': 'bool', 'defval': True,
             'doc': 'Enable cron jobs running.'
         }),
+
         ('dedicated', {
             'type': 'bool', 'defval': False,
             'doc': 'The cortex is free to use most of the resources of the system'
         }),
+
         ('layer:lmdb:map_async', {
             'type': 'bool', 'defval': False,
             'doc': 'Set the default lmdb:map_async value in LMDB layers.'
+        }),
+
+        ('axon', {
+            'type': 'str', 'defval': None,
+            'doc': 'A telepath URL for a remote axon.',
         }),
     )
 
@@ -744,6 +751,7 @@ class Cortex(s_cell.Cell):
         await self._loadCoreMods(mods)
 
         # Initialize our storage and views
+        await self._initCoreAxon()
         await self._initCoreLayers()
         await self._checkLayerModels()
         await self._initCoreViews()
@@ -875,6 +883,33 @@ class Cortex(s_cell.Cell):
         stormvars = await self.hive.open(('cortex', 'storm', 'vars'))
         self.stormvars = await stormvars.dict()
 
+    async def _initCoreAxon(self):
+
+        self.axon = None
+        self.axready = asyncio.Event()
+
+        turl = self.conf.get('axon')
+        if turl is None:
+            path = os.path.join(self.dirn, 'axon')
+            self.axon = await s_axon.Axon.anit(path)
+            self.onfini(self.axon.fini)
+            self.axready.set()
+            return
+
+        async def teleloop():
+            self.axready.clear()
+            while not self.isfini:
+                try:
+                    self.axon = await s_telepath.openurl(turl)
+                    self.axon.onfini(teleloop)
+                    self.axready.set()
+                    return
+                except Exception as e:
+                    logger.warning('remote axon error: %r' % (e,))
+                    await asyncio.sleep(1)
+
+        self.schedCoro(teleloop())
+
     def _initStormCmds(self):
         '''
         Registration for built-in Storm commands.
@@ -903,6 +938,7 @@ class Cortex(s_cell.Cell):
         self.addStormLib(('str',), s_stormtypes.LibStr)
         self.addStormLib(('time',), s_stormtypes.LibTime)
         self.addStormLib(('user',), s_stormtypes.LibUser)
+        self.addStormLib(('bytes',), s_stormtypes.LibBytes)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
 

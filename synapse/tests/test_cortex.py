@@ -1042,6 +1042,13 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
+    async def test_cortex_axon(self):
+        async with self.getTestCore() as core:
+            await core.axready.wait()
+            size, sha2 = await core.axon.put(b'asdfasdf')
+            self.eq(size, 8)
+            self.eq(s_common.ehex(sha2), '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
+
 class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed

@@ -135,7 +135,7 @@ class Axon(s_cell.Cell):
         self.dmon.share('axon', self)
 
         path = s_common.gendir(self.dirn, 'axon.lmdb')
-        self.axonslab = await s_lmdbslab.Slab.anit(path)
+        self.axonslab = await s_lmdbslab.Slab.anit(path, map_async=True)
         self.sizes = self.axonslab.initdb('sizes')
         self.onfini(self.axonslab.fini)
 
