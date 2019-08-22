@@ -113,8 +113,8 @@ class AxonTest(s_t_utils.SynTest):
 
         logger.info('Healthcheck test')
         snfo = await axon.getHealthCheck()
-        self.true(snfo.get('health'))
-        axfo = snfo.get('components').get('axon')
+        self.eq(snfo.get('status'), 'green')
+        axfo = [comp for comp in snfo.get('components') if comp.get('name') == 'axon'][0]
         self.eq(axfo.get('data'), await axon.metrics())
 
         logger.info('Upload context reuse')

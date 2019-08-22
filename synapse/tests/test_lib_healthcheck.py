@@ -30,12 +30,13 @@ class HealthcheckTest(s_t_utils.SynTest):
         # Show a passing / failing healthcheck on a cell
         async with self.getTestCoreAndProxy() as (core, prox):
             snfo1 = await prox.getHealthCheck()
-            self.true(snfo1.get('health'))
+            self.eq(snfo1.get('status'), 'green')
             self.eq(snfo1.get('iden'), core.getCellIden())
-            data = snfo1.get('components')
-            testdata = data.get('testmodule')
+            comps = snfo1.get('components')
+            testdata = [comp for comp in comps if comp.get('name') == 'testmodule'][0]
             self.eq(testdata,
-                    {'status': True,
+                    {'status': 'green',
+                     'name': 'testmodule',
                      'mesg': 'Test module is healthy',
                      'data': {'beep': 0}})
 
@@ -46,9 +47,11 @@ class HealthcheckTest(s_t_utils.SynTest):
 
             snfo2 = await prox.getHealthCheck()
             self.false(snfo2.get('health'))
-            data = snfo2.get('components')
-            testdata = data.get('testmodule')
+            comps = snfo2.get('components')
+            testdata = [comp for comp in comps if comp.get('name') == 'testmodule'][0]
             self.eq(testdata,
-                    {'status': False,
+                    {'status': 'red',
+                     'name': 'testmodule',
+
                      'mesg': 'Test module is unhealthy',
                      'data': {'beep': 1}})

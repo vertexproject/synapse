@@ -14,9 +14,17 @@ class HealthCheck(object):
             health = 'green'
         else:
             health = 'red'
+        comps = []
+        for component in self.components:
+            comp = component.copy()
+            if comp.get('status'):
+                comp['status'] = 'green'
+            else:
+                comp['status'] = 'red'
+            comps.append(comp)
         ret = {'iden': self.iden,
-               'components': self.components,
-               'statuscode': health,
+               'components': comps,
+               'status': health,
                }
         return ret
 

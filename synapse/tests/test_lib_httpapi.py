@@ -626,4 +626,4 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.get(f'https://localhost:{port}/api/v1/healthcheck') as resp:
                     snfo = await resp.json()
                     self.isinstance(snfo, dict)
-                    self.eq(snfo.get('statuscode'), 'green')
+                    self.eq(snfo.get('status'), 'green')
