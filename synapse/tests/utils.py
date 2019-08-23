@@ -49,11 +49,13 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
+import synapse.lib.hive as s_hive
 import synapse.lib.const as s_const
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
+import synapse.lib.lmdbslab as s_slab
 import synapse.lib.thishost as s_thishost
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -1654,3 +1656,40 @@ class SynTest(unittest.TestCase):
         idel = await core.auth.addUser('icandel')
         await idel.grant('deleter')
         await idel.setPasswd('secret')
+
+    @contextlib.asynccontextmanager
+    async def getTestHive(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestHiveFromDirn(dirn) as hive:
+                yield hive
+
+    @contextlib.asynccontextmanager
+    async def getTestHiveFromDirn(self, dirn):
+
+        import synapse.lib.const as s_const
+        map_size = s_const.gibibyte
+
+        async with await s_slab.Slab.anit(dirn, map_size=map_size) as slab:
+
+            async with await s_hive.SlabHive.anit(slab) as hive:
+
+                yield hive
+
+    @contextlib.asynccontextmanager
+    async def getTestHiveDmon(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestHiveFromDirn(dirn) as hive:
+                async with self.getTestDmon() as dmon:
+                    dmon.share('hive', hive)
+                    yield dmon
+
+    @contextlib.asynccontextmanager
+    async def getTestTeleHive(self):
+
+        async with self.getTestHiveDmon() as dmon:
+
+            turl = self.getTestUrl(dmon, 'hive')
+
+            async with await s_hive.openurl(turl) as hive:
+
+                yield hive
