@@ -83,6 +83,8 @@ class BadTime(SynErr): pass
 class BadUrl(SynErr): pass
 
 class CantDelNode(SynErr): pass
+class CantDelProp(SynErr): pass
+class CantDelUniv(SynErr): pass
 class CantDelRootUser(SynErr): pass
 class CantRevLayer(SynErr): pass
 class CliFini(SynErr):
@@ -157,6 +159,7 @@ class NoSuchOpt(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchPivot(SynErr): pass
 class NoSuchProp(SynErr): pass
+class NoSuchUniv(SynErr): pass
 class NoSuchRole(SynErr): pass
 class NoSuchStor(SynErr): pass
 class NoSuchType(SynErr): pass

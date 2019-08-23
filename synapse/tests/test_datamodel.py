@@ -46,3 +46,38 @@ class DataModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             with self.raises(s_exc.BadIndxValu):
                 core.model.form('test:type').getSetOps('test:type', 'A' * 512)
+
+    async def test_datamodel_del_prop(self):
+
+        modl = s_datamodel.Model()
+
+        modl.addType('foo:bar', 'int', {}, {})
+        modl.addForm('foo:bar', {}, (('x', ('int', {}), {}), ))
+        modl.addUnivProp('hehe', ('int', {}), {})
+        modl.addFormProp('foo:bar', 'y', ('int', {}), {})
+
+        self.nn(modl.prop('foo:bar:x'))
+        self.nn(modl.prop('foo:bar:y'))
+        self.nn(modl.prop('foo:bar.hehe'))
+
+        self.nn(modl.form('foo:bar').prop('x'))
+        self.nn(modl.form('foo:bar').prop('y'))
+        self.nn(modl.form('foo:bar').prop('.hehe'))
+
+        self.len(3, modl.propsbytype['int'])
+
+        modl.delFormProp('foo:bar', 'y')
+
+        self.nn(modl.prop('foo:bar:x'))
+        self.nn(modl.prop('foo:bar.hehe'))
+        self.nn(modl.form('foo:bar').prop('x'))
+        self.nn(modl.form('foo:bar').prop('.hehe'))
+
+        self.len(2, modl.propsbytype['int'])
+        self.none(modl.prop('foo:bar:y'))
+        self.none(modl.form('foo:bar').prop('y'))
+
+        modl.delUnivProp('hehe')
+
+        self.none(modl.prop('.hehe'))
+        self.none(modl.form('foo:bar').prop('.hehe'))

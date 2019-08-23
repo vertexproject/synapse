@@ -3195,6 +3195,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # blowup for bad names
                 with self.raises(s_exc.BadPropDef):
                     await core.addExtProp(pdef)
+
                 with self.raises(s_exc.BadPropDef):
                     await core.addExtUniv(udef)
 
@@ -3204,6 +3205,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # blowup for defvals
                 with self.raises(s_exc.BadPropDef):
                     await core.addExtProp(pdef)
+
                 with self.raises(s_exc.BadPropDef):
                     await core.addExtUniv(udef)
 
@@ -3221,6 +3223,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('._woot=hehe'))
 
             async with await s_cortex.Cortex.anit(dirn) as core:
+
                 nodes = await core.nodes('[inet:ipv4=5.5.5.5 :_visi=100]')
                 self.len(1, nodes)
 
@@ -3229,3 +3232,30 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 nodes = await core.nodes('._woot=hehe')
                 self.len(1, nodes)
+
+                with self.raises(s_exc.CantDelUniv):
+                    await core.delExtUniv('_woot')
+
+                with self.raises(s_exc.CantDelProp):
+                    await core.delExtProp('inet:ipv4', '_visi')
+
+                await core.nodes('._woot [ -._woot ]')
+
+                self.nn(core.model.prop('._woot'))
+                self.nn(core.model.prop('inet:ipv4._woot'))
+                self.nn(core.model.form('inet:ipv4').prop('._woot'))
+
+                await core.delExtUniv('_woot')
+
+                self.none(core.model.prop('._woot'))
+                self.none(core.model.prop('inet:ipv4._woot'))
+                self.none(core.model.form('inet:ipv4').prop('._woot'))
+
+                self.nn(core.model.prop('inet:ipv4:_visi'))
+                self.nn(core.model.form('inet:ipv4').prop('_visi'))
+
+                await core.nodes('inet:ipv4:_visi [ -:_visi ]')
+                await core.delExtProp('inet:ipv4', '_visi')
+
+                self.none(core.model.prop('inet:ipv4._visi'))
+                self.none(core.model.form('inet:ipv4').prop('._visi'))

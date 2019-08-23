@@ -809,6 +809,8 @@ class Cortex(s_cell.Cell):
 
     async def addExtUniv(self, univdef):
         '''
+        Add an extended universal property to the cortex.
+
         {
             'prop': <str>,
 
@@ -839,14 +841,10 @@ class Cortex(s_cell.Cell):
         typedef = univdef.get('typedef')
         self.model.addUnivProp(name, typedef, info)
 
-    async def delExtProp(self, name):
-        pass # TODO
-
-    async def delExtUniv(self, name):
-        pass # TODO
-
     async def addExtProp(self, propdef):
         '''
+        Add an extended property to the cortex.
+
         {
             'form': <str>,
             'prop': <str>,
@@ -881,6 +879,45 @@ class Cortex(s_cell.Cell):
             raise s_exc.BadPropDef(name=prop, mesg=mesg)
 
         self.model.addFormProp(form, prop, typedef, info)
+
+    async def delExtProp(self, form, prop):
+        '''
+        Remove an extended property from the cortex.
+        '''
+        name = f'{form}:{prop}'
+
+        pdef = self.extprops.get(name)
+        if pdef is None:
+            mesg = f'No ext prop named {name}'
+            raise s_exc.NoSuchProp(form=form, prop=prop, mesg=mesg)
+
+        pdef['deleted'] = True
+
+        for layr in self.layers.values():
+            async for item in layr.iterPropRows(form, prop):
+                mesg = f'Nodes still exist with prop: {form}:{prop}'
+                raise s_exc.CantDelProp(mesg=mesg)
+
+        self.model.delFormProp(form, prop)
+        await self.extprops.pop(name, None)
+
+    async def delExtUniv(self, prop):
+        '''
+        Remove an extended universal property from the cortex.
+        '''
+        udef = self.extunivs.get(prop)
+        if udef is None:
+            mesg = f'No ext univ named {prop}'
+            raise s_exc.NoSuchUniv(name=prop, mesg=mesg)
+
+        univname = '.' + prop
+        for layr in self.layers.values():
+            async for item in layr.iterUnivRows(univname):
+                mesg = f'Nodes still exist with universal prop: {prop}'
+                raise s_exc.CantDelUniv(mesg=mesg)
+
+        self.model.delUnivProp(prop)
+        await self.extunivs.pop(prop, None)
 
     async def syncLayerSplices(self, iden, offs):
         '''
