@@ -680,14 +680,18 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[test:int=10] $node.data(foo, hehe)')
+            nodes = await core.nodes('[test:int=10] $node.data.set(foo, hehe)')
 
             self.len(1, nodes)
-            self.eq(await nodes[0].data('foo'), 'hehe')
+            self.eq(await nodes[0].getData('foo'), 'hehe')
 
-            nodes = await core.nodes('test:int $foo=$node.data(foo) [ test:str=$foo ] +test:str')
+            nodes = await core.nodes('test:int $foo=$node.data.get(foo) [ test:str=$foo ] +test:str')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'hehe'))
+
+            nodes = await core.nodes('test:int for ($name, $valu) in $node.data.list() { [ test:str=$name ] } +test:str')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'foo'))
 
             # delete and remake the node to confirm data wipe
             nodes = await core.nodes('test:int=10 | delnode')
@@ -696,4 +700,4 @@ class StormTypesTest(s_test.SynTest):
 
             nodes = await core.nodes('[test:int=10]')
 
-            self.none(await nodes[0].data('foo'))
+            self.none(await nodes[0].getData('foo'))

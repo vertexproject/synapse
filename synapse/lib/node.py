@@ -583,10 +583,15 @@ class Node:
 
         await self.form.wasDeleted(self)
 
-    async def data(self, name, valu=s_common.novalu):
-        if valu is s_common.novalu:
-            return await self.snap.getNodeData(self.buid, name)
+    async def getData(self, name):
+        return await self.snap.getNodeData(self.buid, name)
+
+    async def setData(self, name, valu):
         return await self.snap.setNodeData(self.buid, name, valu)
+
+    async def iterData(self):
+        async for item in self.snap.iterNodeData(self.buid):
+            yield item
 
 class Path:
     '''

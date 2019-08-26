@@ -435,3 +435,7 @@ class Layer(s_base.Base):
 
     async def getNodeData(self, buid, name, defv=None): # pragma: no cover
         raise NotImplementedError
+
+    async def iterNodeData(self, buid): # pragma: no cover
+        for x in (): yield x
+        raise NotImplementedError

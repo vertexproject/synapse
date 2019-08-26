@@ -102,21 +102,25 @@ class LmdbLayer(s_layer.Layer):
 
     async def setNodeData(self, buid, name, item):
         # TODO more str->utf8 caching
-        nenc = name.encode('utf8') + b'\x00'
-        self.dataslab.put(nenc + buid, b'\x00', db=self.databyname)
-        self.dataslab.put(buid + nenc, s_msgpack.en(item), db=self.databybuid)
+        utf8 = name.encode('utf8')
+        self.dataslab.put(utf8 + b'\x00' + buid, b'\x00', db=self.databyname)
+        self.dataslab.put(buid + utf8, s_msgpack.en(item), db=self.databybuid)
 
     async def getNodeData(self, buid, name, defv=None):
-        nenc = name.encode('utf8') + b'\x00'
-        byts = self.dataslab.get(buid + nenc, db=self.databybuid)
+        utf8 = name.encode('utf8')
+        byts = self.dataslab.get(buid + utf8, db=self.databybuid)
         if byts is None:
             return None
         return s_msgpack.un(byts)
 
+    async def iterNodeData(self, buid):
+        for lkey, lval in self.dataslab.scanByPref(buid, db=self.databybuid):
+            yield lkey[32:].decode('utf8'), s_msgpack.un(lval)
+
     def _wipeNodeData(self, buid):
         for lkey, lval in self.dataslab.scanByPref(buid, db=self.databybuid):
             name = lkey[32:]
-            self.dataslab.pop(name + buid, db=self.databyname)
+            self.dataslab.pop(name + b'\x00' + buid, db=self.databyname)
             self.dataslab.pop(buid + name, db=self.databybuid)
 
     async def stor(self, sops, splices=None):

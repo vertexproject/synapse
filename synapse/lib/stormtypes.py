@@ -163,6 +163,7 @@ class LibTime(Lib):
 
     def addLibFuncs(self):
         self.locls.update({
+            'now': s_common.now,
             'fromunix': self.fromunix,
             'parse': self.parse,
         })
@@ -452,15 +453,27 @@ class LibGlobals(Lib):
                 ret.append((key, valu))
         return ret
 
+class NodeData(Prim):
+
+    def __init__(self, node, path=None):
+        Prim.__init__(self, node, path=path)
+
+        async def listdata():
+            return [x async for x in node.iterData()]
+
+        self.locls.update({
+            'get': node.getData,
+            'set': node.setData,
+            'list': listdata,
+        })
+
 class Node(Prim):
     '''
     Implements the STORM api for a node instance.
     '''
-
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update({
-            'data': node.data,
             'form': self._methNodeForm,
             'ndef': self._methNodeNdef,
             'tags': self._methNodeTags,
@@ -469,6 +482,11 @@ class Node(Prim):
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
         })
+
+        def ctordata(path=None):
+            return NodeData(node, path=path)
+
+        self.ctors['data'] = ctordata
 
     async def _methNodeTags(self, glob=None):
         tags = list(self.valu.tags.keys())
