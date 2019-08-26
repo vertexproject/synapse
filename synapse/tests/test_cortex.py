@@ -21,6 +21,58 @@ class CortexTest(s_t_utils.SynTest):
     '''
     The tests that should be run with different types of layers
     '''
+
+    async def test_cortex_tagprop(self):
+
+        async with self.getTestCore() as core:
+            await core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
+
+            nodes = await core.nodes('[ test:int=10 +#foo.bar:score=20 ]')
+
+            # test all the syntax cases...
+            self.len(1, await core.nodes('#foo.bar'))
+            self.len(1, await core.nodes('#foo.bar:score'))
+            self.len(1, await core.nodes('#foo.bar:score=20'))
+            self.len(1, await core.nodes('#foo.bar:score<=30'))
+            self.len(1, await core.nodes('#foo.bar:score>=10'))
+            self.len(1, await core.nodes('#foo.bar:score*range=(10, 30)'))
+
+            self.len(1, await core.nodes('test:int +#foo.bar'))
+            self.len(1, await core.nodes('test:int +#foo.bar:score'))
+            self.len(1, await core.nodes('test:int +#foo.bar:score=20'))
+            #self.len(1, await core.nodes('test:int +#foo.bar:score?=20'))
+            self.len(1, await core.nodes('test:int +#foo.bar:score<=30'))
+            self.len(1, await core.nodes('test:int +#foo.bar:score>=10'))
+            self.len(1, await core.nodes('test:int +#foo.bar:score*range=(10, 30)'))
+
+            self.len(0, await core.nodes('test:int -#foo.bar'))
+            self.len(0, await core.nodes('test:int -#foo.bar:score'))
+            self.len(0, await core.nodes('test:int -#foo.bar:score=20'))
+            #self.len(0, await core.nodes('test:int -#foo.bar:score?=20'))
+            self.len(0, await core.nodes('test:int -#foo.bar:score<=30'))
+            self.len(0, await core.nodes('test:int -#foo.bar:score>=10'))
+            self.len(0, await core.nodes('test:int -#foo.bar:score*range=(10, 30)'))
+
+            self.raises(s_exc.CantDelProp):
+                await core.delTagProp('score')
+
+            # test the "set existing" cases for lift indexes
+            self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score=100 ]'))
+            self.len(1, await core.nodes('#foo.bar'))
+            self.len(1, await core.nodes('#foo.bar:score'))
+            self.len(1, await core.nodes('#foo.bar:score=100'))
+            self.len(1, await core.nodes('#foo.bar:score<=110'))
+            self.len(1, await core.nodes('#foo.bar:score>=90'))
+            self.len(1, await core.nodes('#foo.bar:score*range=(90, 110)'))
+
+            # test that removing the tag removes all props indexes
+            nodes = await core.nodes('test:int=10 [ -#foo.bar ]')
+            self.len(0, await core.nodes('#foo.bar:score'))
+            self.len(0, await core.nodes('#foo.bar:score=100'))
+            self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
+
+            await core.delTagProp('score')
+
     async def test_cortex_prop_pivot(self):
 
         async with self.getTestReadWriteCores() as (core, wcore):

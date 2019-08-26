@@ -19,6 +19,31 @@ logger = logging.getLogger(__name__)
 
 hexre = regex.compile('^[0-9a-z]+$')
 
+class TagProp:
+
+    def __init__(self, model, name, tdef, info):
+
+        self.name = name
+        self.info = info
+        self.tdef = tdef
+        self.model = model
+
+        self.utf8 = name.encode()
+        self.nenc = name.encode() + b'\x00'
+
+        self.base = self.model.types.get(tdef[0])
+        if self.base is None:
+            raise s_exc.NoSuchType(name=tdef[0])
+
+        self.type = self.base.clone(tdef[1])
+
+    def pack(self):
+        return {
+            'name': self.name,
+            'info': self.info,
+            'type': self.typedef,
+        }
+
 class PropBase:
 
     def __init__(self):
@@ -449,6 +474,7 @@ class Model:
         self.types = {} # name: Type()
         self.forms = {} # name: Form()
         self.props = {} # (form,name): Prop() and full: Prop()
+        self.tagprops = {} # name: TagProp()
         self.formabbr = {} # name: [Form(), ... ]
 
         self.univs = []
@@ -570,6 +596,8 @@ class Model:
         retn = {
             'types': {},
             'forms': {},
+            'tagprops': {
+            },
         }
 
         for tobj in self.types.values():
@@ -577,6 +605,9 @@ class Model:
 
         for fobj in self.forms.values():
             retn['forms'][fobj.name] = fobj.pack()
+
+        for pobj in self.tagprops.values():
+            retn['tagprops'][pobj.name] = pobj.pack()
 
         return retn
 
@@ -715,6 +746,14 @@ class Model:
         full = f'{form.name}:{name}'
         self.props[full] = prop
         self.props[(form.name, name)] = prop
+
+    def delTagProp(self, name):
+        return self.tagprops.pop(name)
+
+    def addTagProp(self, name, tdef, info):
+        prop = TagProp(self, name, tdef, info)
+        self.tagprops[name] = prop
+        return prop
 
     def delFormProp(self, formname, propname):
 

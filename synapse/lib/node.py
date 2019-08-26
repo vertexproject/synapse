@@ -512,6 +512,63 @@ class Node:
         # fire all the handlers / triggers
         [await self.snap.core.runTagDel(self, t, v) for (t, v) in removed]
 
+    def hasTagProp(self, name):
+        '''
+        Check if a #foo.bar:baz tag property exists on the node.
+        '''
+        return self.tagprops.get(name, s_common.novalu) != s_common.novalu
+
+    def getTagProp(self, name, defval=None):
+        '''
+        Return the value (or defval) of the given tag property.
+        '''
+        return self.tagprops.get(name, defval)
+
+    async def setTagProp(self, tag, prop, valu):
+        '''
+        Set the value of the given tag property.
+        '''
+        if not self.hasTag(tag):
+            self.addTag(tag)
+
+        prop = self.snap.model.getTagProp(prop)
+        if prop is None:
+            raise s_exc.NoSuchTagProp(name=prop)
+
+        try:
+            norm, info = prop.type.norm(valu)
+        except Exception as e:
+            mesg = f'Bad property value: {prop.full}={valu!r}'
+            return await self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, name=prop.name, valu=valu, emesg=str(e))
+
+        indx = prop.type.indx(norm)
+
+        sops = (
+            ('tag:prop:set', (self.buid, self.form.name, tag, prop, norm, indx, {})),
+        )
+
+        splices = (
+            self.snap.splice('tag:prop:set', ndef=self.ndef, tag=tag, prop=prop, valu=norm),
+        )
+
+        await self.snap.stor(sops, splices)
+
+    async def delTagProp(self, tag, prop):
+
+        curv = self.tagprops.pop(name, s_common.novalu)
+        if curv is s_common.novalu:
+            return False
+
+        sops = (
+            ('tag:prop:del', (self.buid, self.form.name, tag, prop, {})),
+        )
+
+        splices = (
+            self.snap.splice('tag:prop:del', ndef=self.ndef, tagprop=name, curv=curv),
+        )
+
+        await self.snap.stor(sops, splices)
+
     async def delete(self, force=False):
         '''
         Delete a node from the cortex.

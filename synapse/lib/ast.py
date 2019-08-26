@@ -1750,11 +1750,16 @@ class RelPropValue(PropValue):
 class UnivPropValue(PropValue):
     pass
 
-class TagPropValue(CompValue):
+class TagValue(CompValue):
 
     async def compute(self, path):
         valu = await self.kids[0].compute(path)
         return path.node.getTag(valu)
+
+class TagPropValue(CompValue):
+    async def compute(self, path):
+        valu = await self.kids[0].compute(path)
+        return path.node.getTagProp(valu)
 
 class CallArgs(RunValue):
 
@@ -2209,6 +2214,49 @@ class EditTagDel(Edit):
             runt.allowed('tag:del', *parts)
 
             await node.delTag(name)
+
+            yield node, path
+
+class EditTagPropSet(Edit):
+    '''
+    [ #foo.bar:baz=10 ]
+    '''
+    async def run(self, runt, genr):
+
+        async for node, path in genr:
+
+            name = await self.kids[0].compute(path)
+            valu = await self.kids[1].compute(path)
+
+            tag, prop = name.split(':', 1)
+
+            tagparts = tag.split('.')
+
+            # for now, use the tag add perms
+            runt.allowed('tag:add', *tagparts)
+
+            await node.setTagProp(name, valu)
+
+            yield node, path
+
+class EditTagPropDel(Edit):
+    '''
+    [ -#foo.bar:baz ]
+    '''
+    async def run(self, runt, genr):
+
+        async for node, path in genr:
+
+            name = await self.kids[0].compute(path)
+
+            tag, prop = name.split(':', 1)
+
+            tagparts = tag.split('.')
+
+            # for now, use the tag add perms
+            runt.allowed('tag:del', *tagparts)
+
+            await node.delTagProp(name, valu)
 
             yield node, path
 

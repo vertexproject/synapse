@@ -166,6 +166,7 @@ class NoSuchType(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchVar(SynErr): pass
 class NoSuchView(SynErr): pass
+class NoSuchTagProp(SynErr): pass
 
 class ParserExit(SynErr):
     ''' Raised by synapse.lib.cmd.Parser on Parser exit() '''

@@ -129,6 +129,8 @@ class Layer(s_base.Base):
             'prop:set': self._storPropSet,
             'prop:del': self._storPropDel,
             'buid:set': self._storBuidSet,
+            'tag:prop:set': self._storTagPropSet,
+            'tag:prop:del': self._storTagPropDel,
         }
 
         self.fresh = False
@@ -376,6 +378,12 @@ class Layer(s_base.Base):
         raise NotImplementedError
 
     async def _storPropSet(self, oper):  # pragma: no cover
+        raise NotImplementedError
+
+    async def _storTagPropSet(self, oper): # pragma: no cover
+        raise NotImplementedError
+
+    async def _storTagPropDel(self, oper): # pragma: no cover
         raise NotImplementedError
 
     async def _storBuidSet(self, oper):  # pragma: no cover

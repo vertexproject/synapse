@@ -26,7 +26,9 @@ _morenons: ( _WSCOMM? "|" _WSCOMM? | _WSCOMM) (_querystartcommand | _querystartn
 // Edit block: zero or more edit operations inside a single set of square brackets
 _editopers: "[" _WS? ((_editoper | editparens) _WS?)* "]"
 ///A single edit operation
-_editoper: editpropset | editunivset | edittagadd | editpropdel | editunivdel | edittagdel | editnodeadd
+_editoper: editnodeadd
+            | editpropset | editunivset | edittagpropset | edittagadd
+            | editpropdel | editunivdel | edittagpropdel | edittagdel
 
 ///Parenthesis in an edit block don't have incoming nodes
 editparens: "(" _WS? editnodeadd _WS? (_editoper _WS?)* ")"
@@ -37,11 +39,14 @@ editpropset: relprop _WS? SETOPER _WS? _valu
 editpropdel: "-" relprop
 editunivset: univprop _WS? SETOPER _WS? _valu
 editnodeadd: ABSPROPNOUNIV _WS? SETOPER _WS? _valu
+edittagpropset: "+" tagprop _WS? SETOPER _WS? _valu
+edittagpropdel: "-" tagprop _WS? SETOPER _WS? _valu
 SETOPER: "=" | "?="
 
 // The set of non-edit non-commands in storm
 _oper.1: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | vareval
-     | filtoper | liftbytag | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | _liftprop | ifstmt
+     | filtoper | liftbytag | liftbytagprop | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE
+     | _liftprop | ifstmt
 
 BREAK: "break"
 CONTINUE: "continue"
@@ -103,7 +108,9 @@ liftpropby: PROPNAME _WS? CMPR _WS? _valu
 liftprop: PROPNAME
 lifttagtag: "#" tagname [_WS? CMPR _valu]
 liftbytag: tagname [_WS? CMPR _valu]
+liftbytagprop: tagprop [_WS? CMPR _valu]
 tagname: "#" _WS? (_varvalu | TAG)
+tagprop: "#" TAG ":" PROPS
 
 stormcmd: CMDNAME [_WS stormcmdargs]
 stormcmdargs: _WS? _cmdargv (_WS _cmdargv)*
@@ -125,10 +132,12 @@ _TAGSEGNOVAR: /\w+/
 // https://regex101.com/r/l8hFq8/1
 CMPR: /(?!<-)[@!<>^~=][@!<>^~=]*|\*[^=\s]*?=/
 
-_valu: NONQUOTEWORD | valulist | _varvalu | relpropvalu | univpropvalu | tagpropvalue | DOUBLEQUOTEDSTRING
-    | SINGLEQUOTEDSTRING | dollarexpr
+_valu: NONQUOTEWORD | valulist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | dollarexpr
+
 valulist: "(" [_WS? _valu (_WS? "," _WS? _valu)*] _WS? ["," _WS?] ")"
-tagpropvalue: tagname
+tagvalu: tagname
+tagpropvalu: tagprop
 relpropvalu: relprop
 univpropvalu: univprop
 
@@ -232,5 +241,5 @@ AND: "and"
 _expratom: _exprvalu | "(" exprsum ")"
 
 // Just like _valu, but doesn't allow valu lists or unquoted strings
-_exprvalu: NUMBER | _varvalu | relpropvalu | univpropvalu | tagpropvalue | DOUBLEQUOTEDSTRING
+_exprvalu: NUMBER | _varvalu | relpropvalu | univpropvalu | tagvalu | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING | dollarexpr

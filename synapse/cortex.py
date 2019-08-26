@@ -779,15 +779,16 @@ class Cortex(s_cell.Cell):
 
         self.extprops = await (await self.hive.open(('cortex', 'model', 'props'))).dict()
         self.extunivs = await (await self.hive.open(('cortex', 'model', 'univs'))).dict()
+        self.exttagprops = await (await self.hive.open(('cortex', 'model', 'tagprops'))).dict()
 
         for name, propdef in self.extprops.items():
             try:
                 info = propdef.get('info')
-                formname = propdef.get('form')
-                propname = propdef.get('prop')
-                typedef = propdef.get('typedef')
+                form = propdef.get('form')
+                prop = propdef.get('prop')
+                tdef = propdef.get('typedef')
 
-                self.model.addFormProp(formname, propname, typedef, info)
+                self.model.addFormProp(form, prop, tdef, info)
 
             except asyncio.CancelledError as e:
                 raise
@@ -797,15 +798,28 @@ class Cortex(s_cell.Cell):
         for name, propdef in self.extunivs.items():
             try:
                 info = propdef.get('info')
-                propname = propdef.get('prop')
-                typedef = propdef.get('typedef')
+                prop = propdef.get('prop')
+                tdef = propdef.get('typedef')
 
-                self.model.addUnivProp(propname, typedef, info)
+                self.model.addUnivProp(prop, tdef, info)
 
             except asyncio.CancelledError as e:
                 raise
             except Exception as e:
                 logger.warning(f'ext univ ({name}) error: {e}')
+
+        for name, propdef in self.exttagprops.items():
+            try:
+                info = propdef.get('info')
+                prop = propdef.get('prop')
+                tdef = propdef.get('typedef')
+
+                self.model.addTagProp(name, tdef, info)
+
+            except asyncio.CancelledError as e:
+                raise
+            except Exception as e:
+                logger.warning(f'ext tag prop ({name}) error: {e}')
 
     async def addExtUniv(self, univdef):
         '''
@@ -891,8 +905,6 @@ class Cortex(s_cell.Cell):
             mesg = f'No ext prop named {name}'
             raise s_exc.NoSuchProp(form=form, prop=prop, mesg=mesg)
 
-        pdef['deleted'] = True
-
         for layr in self.layers.values():
             async for item in layr.iterPropRows(form, prop):
                 mesg = f'Nodes still exist with prop: {form}:{prop}'
@@ -918,6 +930,31 @@ class Cortex(s_cell.Cell):
 
         self.model.delUnivProp(prop)
         await self.extunivs.pop(prop, None)
+
+    async def addTagProp(self, name, tdef, info):
+
+        if self.exttagprops.get(name) is not None:
+            raise s_exc.DupPropName(name=name)
+
+        self.model.addTagProp(name, tdef, info)
+
+        await self.exttagprops.set(name, {'name': name, 'typedef': tdef, 'info': info})
+
+    async def delTagProp(self, prop):
+
+        pdef = self.exttagprops.get(prop)
+        if pdef is None:
+            mesg = f'No tag prop named {prop}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=prop)
+
+        for layr in self.layers.values():
+            for item in layr.iterTagPropsByName(prop):
+                mesg = f'Nodes still exist with tagprop: {prop}'
+                raise s_exc.CantDelProp(mesg=mesg)
+
+        self.model.delTagProp(prop)
+
+        await self.exttagprops.pop(prop, None)
 
     async def syncLayerSplices(self, iden, offs):
         '''
