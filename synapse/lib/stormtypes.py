@@ -178,7 +178,7 @@ class LibBytes(Lib):
         '''
         if not isinstance(byts, bytes):
             mesg = '$lib.bytes.put() requires a bytes argument'
-            raise BadArg(mesg=mesg)
+            raise s_exc.BadArg(mesg=mesg)
 
         #TODO decide on access pattern
         await self.runt.snap.core.axready.wait()

@@ -3,6 +3,7 @@ import bz2
 import gzip
 import json
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
@@ -679,6 +680,11 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_lib_bytes(self):
 
         async with self.getTestCore() as core:
+
+            with self.raises(s_exc.BadArg):
+                opts = {'vars': {'bytes': 10}}
+                text = '($size, $sha2) = $lib.bytes.put($bytes)'
+                nodes = await core.nodes(text, opts=opts)
 
             opts = {'vars': {'bytes': b'asdfasdf'}}
             text = '($size, $sha2) = $lib.bytes.put($bytes) [ test:int=$size test:str=$sha2 ]'
