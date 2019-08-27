@@ -3297,20 +3297,20 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 # blowup for bad names
                 with self.raises(s_exc.BadPropDef):
-                    await core.addExtProp('inet:ipv4', 'visi', ('int', {}), {})
+                    await core.addFormProp('inet:ipv4', 'visi', ('int', {}), {})
 
                 with self.raises(s_exc.BadPropDef):
-                    await core.addExtUniv('woot', ('str', {'lower': True}), {})
+                    await core.addUnivProp('woot', ('str', {'lower': True}), {})
 
                 # blowup for defvals
                 with self.raises(s_exc.BadPropDef):
-                    await core.addExtProp('inet:ipv4', '_visi', ('int', {}), {'defval': 20})
+                    await core.addFormProp('inet:ipv4', '_visi', ('int', {}), {'defval': 20})
 
                 with self.raises(s_exc.BadPropDef):
-                    await core.addExtUniv('_woot', ('str', {'lower': True}), {'defval': 'asdf'})
+                    await core.addUnivProp('_woot', ('str', {'lower': True}), {'defval': 'asdf'})
 
-                await core.addExtProp('inet:ipv4', '_visi', ('int', {}), {})
-                await core.addExtUniv('_woot', ('str', {'lower': True}), {})
+                await core.addFormProp('inet:ipv4', '_visi', ('int', {}), {})
+                await core.addUnivProp('_woot', ('str', {'lower': True}), {})
 
                 nodes = await core.nodes('[inet:ipv4=1.2.3.4 :_visi=30 ._woot=HEHE ]')
                 self.len(1, nodes)
@@ -3331,10 +3331,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, nodes)
 
                 with self.raises(s_exc.CantDelUniv):
-                    await core.delExtUniv('_woot')
+                    await core.delUnivProp('_woot')
 
                 with self.raises(s_exc.CantDelProp):
-                    await core.delExtProp('inet:ipv4', '_visi')
+                    await core.delFormProp('inet:ipv4', '_visi')
 
                 await core.nodes('._woot [ -._woot ]')
 
@@ -3342,7 +3342,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.nn(core.model.prop('inet:ipv4._woot'))
                 self.nn(core.model.form('inet:ipv4').prop('._woot'))
 
-                await core.delExtUniv('_woot')
+                await core.delUnivProp('_woot')
 
                 self.none(core.model.prop('._woot'))
                 self.none(core.model.prop('inet:ipv4._woot'))
@@ -3352,7 +3352,47 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.nn(core.model.form('inet:ipv4').prop('_visi'))
 
                 await core.nodes('inet:ipv4:_visi [ -:_visi ]')
-                await core.delExtProp('inet:ipv4', '_visi')
+                await core.delFormProp('inet:ipv4', '_visi')
 
                 self.none(core.model.prop('inet:ipv4._visi'))
                 self.none(core.model.form('inet:ipv4').prop('._visi'))
+
+                # test the remote APIs
+                async with core.getLocalProxy() as prox:
+
+                    await prox.addUnivProp('_r100', ('str', {}), {})
+                    self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ ._r100=woot ]'))
+
+                    with self.raises(s_exc.CantDelUniv):
+                        await prox.delUnivProp('_r100')
+
+                    self.len(1, await core.nodes('._r100 [ -._r100 ]'))
+                    await prox.delUnivProp('_r100')
+
+                    await prox.addFormProp('inet:ipv4', '_blah', ('int', {}), {})
+                    self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ :_blah=10 ]'))
+
+                    with self.raises(s_exc.CantDelProp):
+                        await prox.delFormProp('inet:ipv4', '_blah')
+
+                    self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ -:_blah ]'))
+                    await prox.delFormProp('inet:ipv4', '_blah')
+
+                    with self.raises(s_exc.NoSuchProp):
+                        await prox.delFormProp('inet:ipv4', 'asn')
+
+                    with self.raises(s_exc.NoSuchUniv):
+                        await prox.delUnivProp('seen')
+
+                    await prox.addTagProp('added', ('time', {}), {})
+
+                    with self.raises(s_exc.NoSuchTagProp):
+                        await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar:time="2049" ]')
+
+                    self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar:added="2049" ]'))
+
+                    with self.raises(s_exc.CantDelProp):
+                        await prox.delTagProp('added')
+
+                    await core.nodes('#foo.bar [ -#foo ]')
+                    await prox.delTagProp('added')

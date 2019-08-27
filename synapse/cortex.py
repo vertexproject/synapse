@@ -635,37 +635,37 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getTypeNorm(name, valu)
 
-    async def addExtProp(self, form, prop, tdef, info):
+    async def addFormProp(self, form, prop, tdef, info):
         '''
         Add an extended property to the given form.
 
         Extended properties *must* begin with _
         '''
         await self._reqUserAllowed('model', 'prop', 'add', form)
-        return await self.cell.addExtProp(form, prop, tdef, info)
+        return await self.cell.addFormProp(form, prop, tdef, info)
 
-    async def delExtProp(self, form, name):
+    async def delFormProp(self, form, name):
         '''
         Remove an extended property from the given form.
         '''
         await self._reqUserAllowed('model', 'prop', 'del', form)
-        return await self.cell.delExtUniv(form, name)
+        return await self.cell.delFormProp(form, name)
 
-    async def addExtUniv(self, name, tdef, info):
+    async def addUnivProp(self, name, tdef, info):
         '''
         Add an extended universal property.
 
         Extended properties *must* begin with _
         '''
         await self._reqUserAllowed('model', 'univ', 'add')
-        return await self.cell.addExtUniv(name, tdef, info)
+        return await self.cell.addUnivProp(name, tdef, info)
 
-    async def delExtUniv(self, name):
+    async def delUnivProp(self, name):
         '''
         Remove an extended universal property.
         '''
         await self._reqUserAllowed('model', 'univ', 'del')
-        return await self.cell.delExtUniv(name)
+        return await self.cell.delUnivProp(name)
 
     async def addTagProp(self, name, tdef, info):
         '''
@@ -851,13 +851,9 @@ class Cortex(s_cell.Cell):
             except Exception as e:
                 logger.warning(f'ext tag prop ({name}) error: {e}')
 
-    async def addExtUniv(self, name, tdef, info):
+    async def addUnivProp(self, name, tdef, info):
+
         # the loading function does the actual validation...
-        await self._addExtUniv(name, tdef, info)
-        await self.extunivs.set(name, (name, tdef, info))
-
-    async def _addExtUniv(self, name, tdef, info):
-
         if not name.startswith('_'):
             mesg = 'ext univ name must start with "_"'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
@@ -868,11 +864,9 @@ class Cortex(s_cell.Cell):
 
         self.model.addUnivProp(name, tdef, info)
 
-    async def addExtProp(self, form, prop, tdef, info):
-        await self._addExtProp(form, prop, tdef, info)
-        await self.extprops.set(f'{form}:{prop}', (form, prop, tdef, info))
+        await self.extunivs.set(name, (name, tdef, info))
 
-    async def _addExtProp(self, form, prop, tdef, info):
+    async def addFormProp(self, form, prop, tdef, info):
 
         if not prop.startswith('_'):
             mesg = 'ext prop must begin with "_"'
@@ -883,8 +877,9 @@ class Cortex(s_cell.Cell):
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
 
         self.model.addFormProp(form, prop, tdef, info)
+        await self.extprops.set(f'{form}:{prop}', (form, prop, tdef, info))
 
-    async def delExtProp(self, form, prop):
+    async def delFormProp(self, form, prop):
         '''
         Remove an extended property from the cortex.
         '''
@@ -903,7 +898,7 @@ class Cortex(s_cell.Cell):
         self.model.delFormProp(form, prop)
         await self.extprops.pop(full, None)
 
-    async def delExtUniv(self, prop):
+    async def delUnivProp(self, prop):
         '''
         Remove an extended universal property from the cortex.
         '''
