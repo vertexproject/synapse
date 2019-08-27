@@ -76,6 +76,9 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.splices(offs, size):
             yield item
 
+    async def hasTagProp(self, name):
+        return await self.layr.hasTagProp(name)
+
 class Layer(s_base.Base):
     '''
     The base class for a cortex layer.

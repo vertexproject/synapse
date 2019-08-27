@@ -129,3 +129,7 @@ class RemoteLayer(s_layer.Layer):
     async def setOffset(self, iden, valu):
         await self._readyPlayerOne()
         return await self.proxy.setOffset(iden, valu)
+
+    async def hasTagProp(self, name):
+        await self._readyPlayerOne()
+        return await self.proxy.hasTagProp(name)
