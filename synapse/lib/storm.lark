@@ -111,8 +111,9 @@ _liftprop: liftformtag | liftpropby | liftprop
             | liftbytagprop | liftbyformtagprop | liftbyonlytagprop
 
 liftformtag.1: PROPNAME tagname [_WS? CMPR _valu]
-liftpropby: (PROPNAME | "*" _varvalu) _WS? CMPR _WS? _valu
-liftprop: (PROPNAME | "*" _varvalu)
+_DEREF:  "*"
+liftpropby: (PROPNAME | _DEREF _varvalu) _WS? CMPR _WS? _valu
+liftprop: (PROPNAME | _DEREF _varvalu)
 lifttagtag: "#" tagname [_WS? CMPR _valu]
 liftbytag: tagname [_WS? CMPR _valu]
 liftbytagprop: tagprop [_WS? CMPR _valu]
@@ -120,7 +121,8 @@ liftbyonlytagprop: onlytagprop [_WS? CMPR _valu]
 liftbyformtagprop: formtagprop [_WS? CMPR _valu]
 tagname: "#" _WS? (_varvalu | TAG)
 tagprop: "#" TAG ":" BASEPROP
-onlytagprop: "#:" BASEPROP
+_ONLYTAGPROP: "#:"
+onlytagprop: _ONLYTAGPROP BASEPROP
 formtagprop: PROPNAME "#" TAG ":" BASEPROP
 
 stormcmd: CMDNAME [_WS stormcmdargs]
