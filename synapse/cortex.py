@@ -1692,12 +1692,14 @@ class Cortex(s_cell.Cell):
         return ret
 
     @s_coro.genrhelp
-    async def eval(self, text, opts=None, user=None, view=None):
+    async def eval(self, text, opts=None, user=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
         if user is None:
             user = self.auth.getUserByName('root')
+
+        view = None if opts is None else opts.get('view')
 
         await self.boss.promote('storm', user=user, info={'query': text})
         async with await self.snap(user=user, view=view) as snap:
@@ -1705,7 +1707,7 @@ class Cortex(s_cell.Cell):
                 yield node
 
     @s_coro.genrhelp
-    async def storm(self, text, opts=None, user=None, view=None):
+    async def storm(self, text, opts=None, user=None):
         '''
         Evaluate a storm query and yield (node, path) tuples.
         Yields:
@@ -1714,19 +1716,21 @@ class Cortex(s_cell.Cell):
         if user is None:
             user = self.auth.getUserByName('root')
 
+        view = None if opts is None else opts.get('view')
+
         await self.boss.promote('storm', user=user, info={'query': text})
         async with await self.snap(user=user, view=view) as snap:
             async for mesg in snap.storm(text, opts=opts, user=user):
                 yield mesg
 
-    async def nodes(self, text, opts=None, user=None, view=None):
+    async def nodes(self, text, opts=None, user=None):
         '''
         A simple non-streaming way to return a list of nodes.
         '''
         return [n async for n in self.eval(text, opts=opts, user=user, view=view)]
 
     @s_coro.genrhelp
-    async def streamstorm(self, text, opts=None, user=None, view=None):
+    async def streamstorm(self, text, opts=None, user=None):
         '''
         Evaluate a storm query and yield result messages.
         Yields:
@@ -1745,6 +1749,8 @@ class Cortex(s_cell.Cell):
         synt = await self.boss.promote('storm', user=user, info={'query': text})
 
         show = opts.get('show')
+
+        view = opts.get('view')
 
         async def runStorm():
             cancelled = False
@@ -2123,58 +2129,41 @@ class Cortex(s_cell.Cell):
         if view is None:
             view = self.view
 
-        return await view.addTrigger(condition, query, info, disabled, user)
+        return await self.view.addTrigger(condition, query, info, disabled, user)
 
-    def getTrigger(self, iden, view=None):
-        if view is None:
-            view = self.view
+    def getTrigger(self, iden):
 
-        return view.getTrigger(iden)
+        return self.view.getTrigger(iden)
 
     async def delTrigger(self, iden, view=None):
         '''
         Deletes a trigger from the cortex
         '''
-        if view is None:
-            view = self.view
-
-        return await view.delTrigger(iden)
+        return await self.view.delTrigger(iden)
 
     async def updateTrigger(self, iden, query, view=None):
         '''
         Change an existing trigger's query
         '''
-        if view is None:
-            view = self.view
-
-        return await view.updateTrigger(iden, query)
+        return await self.view.updateTrigger(iden, query)
 
     async def enableTrigger(self, iden, view=None):
         '''
         Change an existing trigger's query
         '''
-        if view is None:
-            view = self.view
-
-        return await view.enableTrigger(iden)
+        return await self.view.enableTrigger(iden)
 
     async def disableTrigger(self, iden, view=None):
         '''
         Change an existing trigger's query
         '''
-        if view is None:
-            view = self.view
-
-        return await view.disableTrigger(iden)
+        return await self.view.disableTrigger(iden)
 
     async def listTriggers(self, view=None):
         '''
         Lists all the triggers in the Cortex.
         '''
-        if view is None:
-            view = self.view
-
-        return view.listTriggers()
+        return self.view.listTriggers()
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):
