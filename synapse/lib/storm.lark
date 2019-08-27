@@ -24,14 +24,18 @@ _morenons: ( _WSCOMM? "|" _WSCOMM? | _WSCOMM) (_querystartcommand | _querystartn
     | ( _WSCOMM? "|" _WSCOMM? | _WSCOMM?) _querystartedit
 
 // Edit block: zero or more edit operations inside a single set of square brackets
-_editopers: "[" _WS? ((_editoper | editparens) _WS?)* "]"
+
+_editopers: "[" _WS? (_editopersstart | _editparensstart) _WS? "]"
+_editopersstart: _editoper [ ( _WS _editopersstart | _WS? _editparensstart) ]
+_editparensstart: editparens [ _WS (_editopersstart | _editparensstart) ]
+
 ///A single edit operation
 _editoper: editnodeadd
             | editpropset | editunivset | edittagpropset | edittagadd
             | editpropdel | editunivdel | edittagpropdel | edittagdel
 
 ///Parenthesis in an edit block don't have incoming nodes
-editparens: "(" _WS? editnodeadd _WS? (_editoper _WS?)* ")"
+editparens: "(" _WS? editnodeadd _WS? _editoper? (_WS _editoper)* ")"
 edittagadd: "+" tagname [_WS? "=" _WS? _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname
@@ -110,7 +114,7 @@ lifttagtag: "#" tagname [_WS? CMPR _valu]
 liftbytag: tagname [_WS? CMPR _valu]
 liftbytagprop: tagprop [_WS? CMPR _valu]
 tagname: "#" _WS? (_varvalu | TAG)
-tagprop: "#" TAG ":" PROPS
+tagprop: "#" TAG ":" BASEPROP
 
 stormcmd: CMDNAME [_WS stormcmdargs]
 stormcmdargs: _WS? _cmdargv (_WS _cmdargv)*
@@ -164,6 +168,7 @@ FILTPREFIX: "+" | "-"
 _cond: notcond | "(" _WS? _condexpr _WS? ")"
     | hasrelpropcond | relpropcond
     | abspropcond | hasabspropcond
+    | tagpropcond | hastagpropcond
     | tagcond | tagvalucond
     | condsubq
     | _varvalu | dollarexpr
@@ -176,6 +181,9 @@ relpropvalue:   relprop | univprop
 
 abspropcond.1:  ABSPROPNOUNIV _WS? CMPR _WS? _valu
 hasabspropcond: ABSPROPNOUNIV
+
+tagpropcond.1:  tagprop _WS? CMPR _WS? _valu
+hastagpropcond: tagprop
 
 tagvalucond.1:  _tagmatch _WS? CMPR _WS? _valu
 tagcond: _tagmatch
@@ -214,6 +222,9 @@ relprop: RELNAME | ":" _varvalu
 
 // Similar to PROPS, but starts with a colon and allows :: as separator
 RELNAME: /\:\.?[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z0-9]+)*/
+
+// Similar to PROPS but does not require a colon
+BASEPROP: /[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z0-9]+)*/
 
 // The name of a storm command
 CMDNAME: /\b(?!(break|continue|for|while|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/

@@ -123,6 +123,7 @@ class Layer(s_base.Base):
             'prop:ival': self._liftByPropIval,
             'univ:ival': self._liftByUnivIval,
             'form:ival': self._liftByFormIval,
+            'tag:prop': self._liftByTagProp,
         }
 
         self._stor_funcs = {
@@ -395,11 +396,17 @@ class Layer(s_base.Base):
     async def _liftByIndx(self, oper):  # pragma: no cover
         raise NotImplementedError
 
+    async def _liftByTagProp(self, oper): # pragma: no cover
+        raise NotImplementedError
+
     async def iterFormRows(self, form):  # pragma: no cover
         '''
         Iterate (buid, valu) rows for the given form in this layer.
         '''
         for x in (): yield x
+        raise NotImplementedError
+
+    async def hasTagProp(self, name):
         raise NotImplementedError
 
     async def iterPropRows(self, form, prop):  # pragma: no cover

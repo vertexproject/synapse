@@ -215,6 +215,24 @@ class Snap(s_base.Base):
         async for row, node in self.getLiftNodes(lops, '#' + name, cmpf=cmpf):
             yield node
 
+    async def _getNodesByTagProp(self, name, tag=None, form=None, valu=None, cmpr='='):
+
+        prop = self.model.getTagProp(name)
+        if prop is None:
+            mesg = f'No tag property named {name}'
+            raise s_exc.NoSuchProp(name=name, mesg=mesg)
+
+        cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
+
+        full = f'#{tag}:{name}'
+
+        lops = (('tag:prop', {'form': form, 'tag': tag, 'prop': name}),)
+        if valu is not None:
+            lops[0][1]['iops'] = prop.type.getIndxOps(valu, cmpr)
+
+        async for row, node in self.getLiftNodes(lops, full, cmpf=cmpf):
+            yield node
+
     async def _getNodesByFormTag(self, name, tag, valu=None, cmpr='='):
 
         filt = None

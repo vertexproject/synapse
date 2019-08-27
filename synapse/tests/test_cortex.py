@@ -53,8 +53,16 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:int -#foo.bar:score>=10'))
             self.len(0, await core.nodes('test:int -#foo.bar:score*range=(10, 30)'))
 
-            self.raises(s_exc.CantDelProp):
+            # test use as a value...
+            self.len(1, await core.nodes('test:int $valu=#foo.bar:score [ +#foo.bar:score = $($valu + 20) ] +#foo.bar:score=40'))
+
+            with self.raises(s_exc.CantDelProp):
                 await core.delTagProp('score')
+
+            with self.raises(s_exc.BadPropValu):
+                self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score=asdf ]'))
+
+            self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score?=asdf ] +#foo.bar:score=40'))
 
             # test the "set existing" cases for lift indexes
             self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score=100 ]'))
@@ -65,6 +73,16 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('#foo.bar:score>=90'))
             self.len(1, await core.nodes('#foo.bar:score*range=(90, 110)'))
 
+            # test that removing it explicitly behaves as intended
+            nodes = await core.nodes('test:int=10 [ -#foo.bar ]')
+            self.len(0, await core.nodes('#foo.bar:score'))
+            self.len(0, await core.nodes('#foo.bar:score=100'))
+            self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
+
+            # add it back in to remove by whole tag...
+            nodes = await core.nodes('test:int=10 [ +#foo.bar:score=100 ]')
+            self.len(1, await core.nodes('#foo.bar:score=100'))
+
             # test that removing the tag removes all props indexes
             nodes = await core.nodes('test:int=10 [ -#foo.bar ]')
             self.len(0, await core.nodes('#foo.bar:score'))
@@ -72,6 +90,9 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
 
             await core.delTagProp('score')
+
+            with self.raises(s_exc.NoSuchTagProp):
+                await core.nodes('test:int=10 [ +#foo.bar:score=66 ]')
 
     async def test_cortex_prop_pivot(self):
 
@@ -3246,26 +3267,20 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 # blowup for bad names
                 with self.raises(s_exc.BadPropDef):
-                    await core.addExtProp(pdef)
+                    await core.addExtProp('inet:ipv4', 'visi', ('int', {}), {})
 
                 with self.raises(s_exc.BadPropDef):
-                    await core.addExtUniv(udef)
-
-                pdef['prop'] = '_visi'
-                udef['prop'] = '_woot'
+                    await core.addExtUniv('woot', ('str', {'lower': True}), {})
 
                 # blowup for defvals
                 with self.raises(s_exc.BadPropDef):
-                    await core.addExtProp(pdef)
+                    await core.addExtProp('inet:ipv4', '_visi', ('int', {}), {'defval': 20})
 
                 with self.raises(s_exc.BadPropDef):
-                    await core.addExtUniv(udef)
+                    await core.addExtUniv('_woot', ('str', {'lower': True}), {'defval': 'asdf'})
 
-                pdef['info'].pop('defval')
-                udef['info'].pop('defval')
-
-                await core.addExtProp(pdef)
-                await core.addExtUniv(udef)
+                await core.addExtProp('inet:ipv4', '_visi', ('int', {}), {})
+                await core.addExtUniv('_woot', ('str', {'lower': True}), {})
 
                 nodes = await core.nodes('[inet:ipv4=1.2.3.4 :_visi=30 ._woot=HEHE ]')
                 self.len(1, nodes)

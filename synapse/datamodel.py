@@ -755,6 +755,9 @@ class Model:
         self.tagprops[name] = prop
         return prop
 
+    def getTagProp(self, name):
+        return self.tagprops.get(name)
+
     def delFormProp(self, formname, propname):
 
         form = self.forms.get(formname)

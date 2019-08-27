@@ -51,6 +51,7 @@ terminalEnglishMap = {
     'OR': 'or',
     'PROPNAME': 'property name',
     'PROPS': 'absolute property name',
+    'BASEPROP': 'base property name',
     'RBRACE': ']',
     'RELNAME': 'relative property',
     'RPAR': ')',
@@ -170,6 +171,10 @@ class AstConverter(lark.Transformer):
         kids = [s_ast.VarValue(kids=[s_ast.Const(seg[1:])]) if seg[0] == '$' else s_ast.Const(seg)
                 for seg in segs]
         return kids
+
+    def tagprop(self, kids):
+        kids = self._convert_children(kids)
+        return s_ast.TagProp(kids=kids)
 
     def tagname(self, kids):
         assert kids and len(kids) == 1
@@ -458,6 +463,7 @@ ruleClassMap = {
     'formpivotin_pivotinfrom': s_ast.PivotInFrom,
     'hasabspropcond': s_ast.HasAbsPropCond,
     'hasrelpropcond': s_ast.HasRelPropCond,
+    'hastagpropcond': s_ast.HasTagPropCond,
     'ifstmt': s_ast.IfStmt,
     'ifclause': s_ast.IfClause,
     'kwarg': lambda kids: s_ast.CallKwarg(kids=tuple(kids)),
@@ -466,6 +472,7 @@ ruleClassMap = {
     'liftprop': s_ast.LiftProp,
     'liftpropby': s_ast.LiftPropBy,
     'lifttagtag': s_ast.LiftTagTag,
+    'liftbytagprop': s_ast.LiftTagProp,
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
@@ -479,6 +486,7 @@ ruleClassMap = {
     'tagvalu': s_ast.TagValue,
     'tagpropvalu': s_ast.TagPropValue,
     'tagvalucond': s_ast.TagValuCond,
+    'tagpropcond': s_ast.TagPropCond,
     'valuvar': s_ast.VarSetOper,
     'varderef': s_ast.VarDeref,
     'vareval': s_ast.VarEvalOper,

@@ -635,6 +635,52 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getTypeNorm(name, valu)
 
+    async def addExtProp(self, form, prop, tdef, info):
+        '''
+        Add an extended property to the given form.
+
+        Extended properties *must* begin with _
+        '''
+        await self._reqUserAllowed('model', 'prop', 'add', form)
+        return await self.cell.addExtProp(form, prop, tdef, info)
+
+    async def delExtProp(self, form, name):
+        '''
+        Remove an extended property from the given form.
+        '''
+        await self._reqUserAllowed('model', 'prop', 'del', form)
+        return await self.cell.delExtUniv(form, name)
+
+    async def addExtUniv(self, name, tdef, info):
+        '''
+        Add an extended universal property.
+
+        Extended properties *must* begin with _
+        '''
+        await self._reqUserAllowed('model', 'univ', 'add')
+        return await self.cell.addExtUniv(name, tdef, info)
+
+    async def delExtUniv(self, name):
+        '''
+        Remove an extended universal property.
+        '''
+        await self._reqUserAllowed('model', 'univ', 'del')
+        return await self.cell.delExtUniv(name)
+
+    async def addTagProp(self, name, tdef, info):
+        '''
+        Add a tag property to record data about tags on nodes.
+        '''
+        await self._reqUserAllowed('model', 'tagprop', 'add')
+        return await self.cell.addTagProp(name, tdef, info)
+
+    async def delTagProp(self, name):
+        '''
+        Remove a previously added tag property.
+        '''
+        await self._reqUserAllowed('model', 'tagprop', 'add')
+        return await self.cell.delTagProp(name)
+
 class Cortex(s_cell.Cell):
     '''
     A Cortex implements the synapse hypergraph.
@@ -781,128 +827,72 @@ class Cortex(s_cell.Cell):
         self.extunivs = await (await self.hive.open(('cortex', 'model', 'univs'))).dict()
         self.exttagprops = await (await self.hive.open(('cortex', 'model', 'tagprops'))).dict()
 
-        for name, propdef in self.extprops.items():
+        for form, prop, tdef, info in self.extprops.values():
             try:
-                info = propdef.get('info')
-                form = propdef.get('form')
-                prop = propdef.get('prop')
-                tdef = propdef.get('typedef')
-
                 self.model.addFormProp(form, prop, tdef, info)
-
             except asyncio.CancelledError as e:
                 raise
             except Exception as e:
-                logger.warning(f'ext prop ({name}) error: {e}')
+                logger.warning(f'ext prop ({form}:{prop}) error: {e}')
 
-        for name, propdef in self.extunivs.items():
+        for prop, tdef, info in self.extunivs.values():
             try:
-                info = propdef.get('info')
-                prop = propdef.get('prop')
-                tdef = propdef.get('typedef')
-
                 self.model.addUnivProp(prop, tdef, info)
-
             except asyncio.CancelledError as e:
                 raise
             except Exception as e:
                 logger.warning(f'ext univ ({name}) error: {e}')
 
-        for name, propdef in self.exttagprops.items():
+        for prop, tdef, info in self.exttagprops.values():
             try:
-                info = propdef.get('info')
-                prop = propdef.get('prop')
-                tdef = propdef.get('typedef')
-
-                self.model.addTagProp(name, tdef, info)
-
+                self.model.addTagProp(prop, tdef, info)
             except asyncio.CancelledError as e:
                 raise
             except Exception as e:
                 logger.warning(f'ext tag prop ({name}) error: {e}')
 
-    async def addExtUniv(self, univdef):
-        '''
-        Add an extended universal property to the cortex.
-
-        {
-            'prop': <str>,
-
-            'info': {
-                'doc': <str>,
-            },
-
-            'typedef': (<name>, <info>),
-        }
-        '''
+    async def addExtUniv(self, name, tdef, info):
         # the loading function does the actual validation...
-        await self._addExtUniv(univdef)
-        name = univdef.get('prop')
-        await self.extunivs.set(name, univdef)
+        await self._addExtUniv(name, tdef, info)
+        await self.extunivs.set(name, (name, tdef, info))
 
-    async def _addExtUniv(self, univdef):
+    async def _addExtUniv(self, name, tdef, info):
 
-        name = univdef.get('prop')
         if not name.startswith('_'):
             mesg = 'ext univ name must start with "_"'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
 
-        info = univdef.get('info')
         if info.get('defval', s_common.novalu) is not s_common.novalu:
-            mesg = 'ext univ may not (yet) have a default value'
+            mesg = 'Ext univ may not (yet) have a default value.'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
 
-        typedef = univdef.get('typedef')
-        self.model.addUnivProp(name, typedef, info)
+        self.model.addUnivProp(name, tdef, info)
 
-    async def addExtProp(self, propdef):
-        '''
-        Add an extended property to the cortex.
+    async def addExtProp(self, form, prop, tdef, info):
+        await self._addExtProp(form, prop, tdef, info)
+        await self.extprops.set(f'{form}:{prop}', (form, prop, tdef, info))
 
-        {
-            'form': <str>,
-            'prop': <str>,
-
-            'info': {
-                'doc': <str>,
-            },
-
-            'typedef': (<name>, <info>),
-        }
-        '''
-        await self._addExtProp(propdef)
-
-        form = propdef.get('form')
-        prop = propdef.get('prop')
-
-        await self.extprops.set(f'{form}:{prop}', propdef)
-
-    async def _addExtProp(self, propdef):
-
-        form = propdef.get('form')
-        prop = propdef.get('prop')
-        info = propdef.get('info', {})
-        typedef = propdef.get('typedef')
+    async def _addExtProp(self, form, prop, tdef, info):
 
         if not prop.startswith('_'):
             mesg = 'ext prop must begin with "_"'
-            raise s_exc.BadPropDef(name=prop, mesg=mesg)
+            raise s_exc.BadPropDef(prop=prop, mesg=mesg)
 
         if info.get('defval', s_common.novalu) is not s_common.novalu:
-            mesg = 'ext prop may not (yet) have a default value'
-            raise s_exc.BadPropDef(name=prop, mesg=mesg)
+            mesg = 'Ext prop may not (yet) have a default value.'
+            raise s_exc.BadPropDef(prop=prop, mesg=mesg)
 
-        self.model.addFormProp(form, prop, typedef, info)
+        self.model.addFormProp(form, prop, tdef, info)
 
     async def delExtProp(self, form, prop):
         '''
         Remove an extended property from the cortex.
         '''
-        name = f'{form}:{prop}'
+        full = f'{form}:{prop}'
 
-        pdef = self.extprops.get(name)
+        pdef = self.extprops.get(full)
         if pdef is None:
-            mesg = f'No ext prop named {name}'
+            mesg = f'No ext prop named {full}'
             raise s_exc.NoSuchProp(form=form, prop=prop, mesg=mesg)
 
         for layr in self.layers.values():
@@ -911,7 +901,7 @@ class Cortex(s_cell.Cell):
                 raise s_exc.CantDelProp(mesg=mesg)
 
         self.model.delFormProp(form, prop)
-        await self.extprops.pop(name, None)
+        await self.extprops.pop(full, None)
 
     async def delExtUniv(self, prop):
         '''
@@ -938,23 +928,23 @@ class Cortex(s_cell.Cell):
 
         self.model.addTagProp(name, tdef, info)
 
-        await self.exttagprops.set(name, {'name': name, 'typedef': tdef, 'info': info})
+        await self.exttagprops.set(name, (name, tdef, info))
 
-    async def delTagProp(self, prop):
+    async def delTagProp(self, name):
 
-        pdef = self.exttagprops.get(prop)
+        pdef = self.exttagprops.get(name)
         if pdef is None:
-            mesg = f'No tag prop named {prop}'
-            raise s_exc.NoSuchProp(mesg=mesg, name=prop)
+            mesg = f'No tag prop named {name}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         for layr in self.layers.values():
-            for item in layr.iterTagPropsByName(prop):
-                mesg = f'Nodes still exist with tagprop: {prop}'
+            if await layr.hasTagProp(name):
+                mesg = f'Nodes still exist with tagprop: {name}'
                 raise s_exc.CantDelProp(mesg=mesg)
 
-        self.model.delTagProp(prop)
+        self.model.delTagProp(name)
 
-        await self.exttagprops.pop(prop, None)
+        await self.exttagprops.pop(name, None)
 
     async def syncLayerSplices(self, iden, offs):
         '''
