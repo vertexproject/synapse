@@ -679,11 +679,6 @@ class LiftTag(LiftOper):
 class LiftTagProp(LiftOper):
     '''
     #foo.bar:baz [ = x ]
-
-    TODO
-
-    #:baz [ = x ]
-    form:name#foo.bar:baz [ = x ]
     '''
     async def lift(self, runt):
 
@@ -696,6 +691,42 @@ class LiftTagProp(LiftOper):
             valu = await self.kids[2].compute(runt)
 
         async for node in runt.snap._getNodesByTagProp(prop, tag=tag, valu=valu, cmpr=cmpr):
+            yield node
+
+class LiftFormTagProp(LiftOper):
+    '''
+    hehe:haha#foo.bar:baz [ = x ]
+    '''
+
+    async def lift(self, runt):
+
+        cmpr = None
+        valu = None
+        form, tag, prop = await self.kids[0].compute(runt)
+
+        if len(self.kids) == 3:
+            cmpr = await self.kids[1].compute(runt)
+            valu = await self.kids[2].compute(runt)
+
+        async for node in runt.snap._getNodesByTagProp(prop, form=form, tag=tag, valu=valu, cmpr=cmpr):
+            yield node
+
+class LiftOnlyTagProp(LiftOper):
+    '''
+    #:baz [ = x ]
+    '''
+
+    async def lift(self, runt):
+
+        cmpr = None
+        valu = None
+        prop = await self.kids[0].compute(runt)
+
+        if len(self.kids) == 3:
+            cmpr = await self.kids[1].compute(runt)
+            valu = await self.kids[2].compute(runt)
+
+        async for node in runt.snap._getNodesByTagProp(prop, valu=valu, cmpr=cmpr):
             yield node
 
 class LiftTagTag(LiftOper):
@@ -1828,6 +1859,31 @@ class TagProp(CompValue):
         tag = await self.kids[0].compute(path)
         prop = await self.kids[1].compute(path)
         return (tag, prop)
+
+class FormTagProp(CompValue):
+
+    def isRuntSafe(self, runt):
+        if not self.kids[0].isRuntSafe(runt):
+            return False
+        if not self.kids[1].isRuntSafe(runt):
+            return False
+        if not self.kids[2].isRuntSafe(runt):
+            return False
+        return True
+
+    async def compute(self, path):
+        form = await self.kids[0].compute(path)
+        tag = await self.kids[1].compute(path)
+        prop = await self.kids[2].compute(path)
+        return (form, tag, prop)
+
+class OnlyTagProp(CompValue):
+
+    def isRuntSafe(self, runt):
+        return self.kids[0].isRuntSafe(runt)
+
+    async def compute(self, path):
+        return await self.kids[0].compute(path)
 
 class TagPropValue(CompValue):
     async def compute(self, path):

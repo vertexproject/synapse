@@ -37,6 +37,11 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('#foo.bar:score>=10'))
             self.len(1, await core.nodes('#foo.bar:score*range=(10, 30)'))
 
+            self.len(1, await core.nodes('#:score'))
+            self.len(1, await core.nodes('#:score=20'))
+            self.len(1, await core.nodes('test:int#foo.bar:score'))
+            self.len(1, await core.nodes('test:int#foo.bar:score=20'))
+
             self.len(1, await core.nodes('test:int +#foo.bar'))
             self.len(1, await core.nodes('test:int +#foo.bar:score'))
             self.len(1, await core.nodes('test:int +#foo.bar:score=20'))

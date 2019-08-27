@@ -385,9 +385,9 @@ class LmdbLayer(s_layer.Layer):
             self.layrslab.delete(abrv_ftp + curi, val=buid, db=self.by_tp_ftpi)
 
         if indx is not None:
-            self.layrslab.put(abrv_p + indx, buid, db=self.by_tp_pi)
-            self.layrslab.put(abrv_tp + indx, buid, db=self.by_tp_tpi)
-            self.layrslab.put(abrv_ftp + indx, buid, db=self.by_tp_ftpi)
+            self.layrslab.put(abrv_p + indx, buid, dupdata=True, db=self.by_tp_pi)
+            self.layrslab.put(abrv_tp + indx, buid, dupdata=True, db=self.by_tp_tpi)
+            self.layrslab.put(abrv_ftp + indx, buid, dupdata=True, db=self.by_tp_ftpi)
 
         self._putBuidCache(buid, tagprop, valu)
 
@@ -531,40 +531,47 @@ class LmdbLayer(s_layer.Layer):
         iops = oper[1].get('iops')
 
         # #:prop
-        #if form is None and tag is None:
+        name = prop
+        db = self.by_tp_pi
 
         # #tag:prop
-        if form is None:
+        if tag is not None:
+            name = f'#{tag}:{prop}'
+            db = self.by_tp_tpi
 
-            abrv = self.getNameAbrv(f'#{tag}:{prop}')
-            if iops is None:
-                for lkey, buid in self.layrslab.scanByPref(abrv, db=self.by_tp_tpi):
+        # form#tag:prop
+        if form is not None:
+            name = f'{form}#{tag}:{prop}'
+            db = self.by_tp_ftpi
+
+        abrv = self.getNameAbrv(name)
+
+        if iops is None:
+            for lkey, buid in self.layrslab.scanByPref(abrv, db=db):
+                yield (buid,)
+            return
+
+        for iopr in iops:
+
+            if iopr[0] == 'eq':
+                for lkey, buid in self.layrslab.scanByDups(abrv + iopr[1], db=db):
                     yield (buid,)
                 return
 
-            for iopr in iops:
+            if iopr[0] == 'pref':
+                for lkey, buid in self.layrslab.scanByPref(abrv + iopr[1], db=db):
+                    yield (buid,)
+                return
 
-                if iopr[0] == 'eq':
-                    for lkey, buid in self.layrslab.scanByDups(abrv + iopr[1], db=self.by_tp_tpi):
-                        yield (buid,)
-                    return
+            if iopr[0] == 'range':
+                kmin = abrv + iopr[1][0]
+                kmax = abrv + iopr[1][1]
+                for lkey, buid in self.layrslab.scanByRange(kmin, kmax, db=db):
+                    yield (buid,)
+                return
 
-                if iopr[0] == 'pref':
-                    for lkey, buid in self.layrslab.scanByPref(abrv + iopr[1], db=self.by_tp_tpi):
-                        yield (buid,)
-                    return
-
-                if iopr[0] == 'range':
-                    kmin = abrv + iopr[1][0]
-                    kmax = abrv + iopr[1][1]
-                    for lkey, buid in self.layrslab.scanByRange(kmin, kmax, db=self.by_tp_tpi):
-                        yield (buid,)
-                    return
-
-                mesg = f'No such index function for tag props: {iopr[0]}'
-                raise s_exc.NoSuchName(name=iopr[0], mesg=mesg)
-
-        # form#tag:prop
+            mesg = f'No such index function for tag props: {iopr[0]}'
+            raise s_exc.NoSuchName(name=iopr[0], mesg=mesg)
 
     async def _liftByIndx(self, oper):
         # ('indx', (<dbname>, <prefix>, (<indxopers>...))

@@ -49,7 +49,8 @@ SETOPER: "=" | "?="
 
 // The set of non-edit non-commands in storm
 _oper.1: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | vareval
-     | filtoper | liftbytag | liftbytagprop | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE
+     | filtoper | liftbytag | liftbytagprop | liftbyformtagprop | liftbyonlytagprop
+     | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE
      | _liftprop | ifstmt
 
 BREAK: "break"
@@ -107,14 +108,20 @@ _RIGHTPIVOT: "->"
 _LEFTPIVOT:  "<-"
 
 _liftprop: liftformtag | liftpropby | liftprop
+            | liftbytagprop | liftbyformtagprop | liftbyonlytagprop
+
 liftformtag.1: PROPNAME tagname [_WS? CMPR _valu]
 liftpropby: PROPNAME _WS? CMPR _WS? _valu
 liftprop: PROPNAME
 lifttagtag: "#" tagname [_WS? CMPR _valu]
 liftbytag: tagname [_WS? CMPR _valu]
 liftbytagprop: tagprop [_WS? CMPR _valu]
+liftbyonlytagprop: onlytagprop [_WS? CMPR _valu]
+liftbyformtagprop: formtagprop [_WS? CMPR _valu]
 tagname: "#" _WS? (_varvalu | TAG)
 tagprop: "#" TAG ":" BASEPROP
+onlytagprop: "#:" BASEPROP
+formtagprop: PROPNAME "#" TAG ":" BASEPROP
 
 stormcmd: CMDNAME [_WS stormcmdargs]
 stormcmdargs: _WS? _cmdargv (_WS _cmdargv)*
