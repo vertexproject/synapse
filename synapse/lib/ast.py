@@ -791,10 +791,9 @@ class LiftProp(LiftOper):
 
     async def lift(self, runt):
 
-        name = self.kids[0].value()
-
         cmpr = None
         valu = None
+        name = await self.kids[0].compute(runt)
 
         if len(self.kids) == 3:
             cmpr = self.kids[1].value()
@@ -838,9 +837,8 @@ class LiftPropBy(LiftOper):
 
     async def lift(self, runt):
 
-        name = self.kids[0].value()
         cmpr = self.kids[1].value()
-
+        name = await self.kids[0].compute(runt)
         valu = await self.kids[2].compute(runt)
 
         async for node in runt.snap.getNodesBy(name, valu, cmpr=cmpr):

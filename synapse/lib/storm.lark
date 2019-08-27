@@ -62,7 +62,7 @@ vareval: _varvalu
 // A variable assignment
 valuvar: _varname _WS? "=" _WS? _valu
 
-forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _varvalu _WS? baresubquery
+forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _valu _WS? baresubquery
 whileloop: "while" _WS _valu _WS? baresubquery
 subquery: [YIELD _WS?] baresubquery
 baresubquery: "{" query "}"
@@ -111,8 +111,8 @@ _liftprop: liftformtag | liftpropby | liftprop
             | liftbytagprop | liftbyformtagprop | liftbyonlytagprop
 
 liftformtag.1: PROPNAME tagname [_WS? CMPR _valu]
-liftpropby: PROPNAME _WS? CMPR _WS? _valu
-liftprop: PROPNAME
+liftpropby: (PROPNAME | "*" _varvalu) _WS? CMPR _WS? _valu
+liftprop: (PROPNAME | "*" _varvalu)
 lifttagtag: "#" tagname [_WS? CMPR _valu]
 liftbytag: tagname [_WS? CMPR _valu]
 liftbytagprop: tagprop [_WS? CMPR _valu]
@@ -141,7 +141,7 @@ _TAGSEGNOVAR: /\w+/
 
 // A comparison operator
 // https://regex101.com/r/l8hFq8/1
-CMPR: /(?!<-)[@!<>^~=][@!<>^~=]*|\*[^=\s]*?=/
+CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*|\*[^=\s]*?=/
 
 _valu: NONQUOTEWORD | valulist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu
     | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | dollarexpr
@@ -160,7 +160,7 @@ _varvalu: "$" _varvaluatom
 
 _varvaluatom: varvalue | varderef | funccall
 varvalue: VARTOKN
-_varname: "$" _WS? VARTOKN
+_varname: "$" VARTOKN
 VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
 
 varderef: _varvaluatom "." VARTOKN

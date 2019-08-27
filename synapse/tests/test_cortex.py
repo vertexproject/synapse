@@ -21,10 +21,51 @@ class CortexTest(s_t_utils.SynTest):
     '''
     The tests that should be run with different types of layers
     '''
+    async def test_cortex_prop_deref(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ test:int=10 test:str=woot ]')
+            text = '''
+                for $prop in (test:int, test:str) {
+                    *$prop
+                }
+            '''
+            self.len(2, await core.nodes(text))
+
+            text = '''
+                syn:prop=test:int $prop=$node.value() *$prop=10 -syn:prop
+            '''
+            nodes = await core.nodes(text)
+            self.eq(nodes[0].ndef, ('test:int', 10))
+
+            guid = 'da299a896ff52ab0e605341ab910dad5'
+
+            opts = {'vars': {'guid': guid}}
+            self.len(2, await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) (inet:iface=$guid :ipv4=1.2.3.4) ]', opts=opts))
+
+            text = '''
+
+                syn:form syn:prop:ro=1 syn:prop:ro=0
+
+                $prop = $node.value()
+
+                *$prop?=1.2.3.4
+
+                -syn:form
+                -syn:prop
+
+            '''
+            nodes = await core.nodes(text)
+            self.len(3, nodes)
+
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', 0x01020304)))
+            self.eq(nodes[2].ndef, ('inet:iface', guid))
 
     async def test_cortex_tagprop(self):
 
         async with self.getTestCore() as core:
+
             await core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
 
             nodes = await core.nodes('[ test:int=10 +#foo.bar:score=20 ]')

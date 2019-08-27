@@ -294,6 +294,19 @@ class Snap(s_base.Base):
                 yield node
             return
 
+        # special case "try equal" which doesnt bail on invalid values
+        if cmpr == '?=':
+
+            try:
+                async for item in self.getNodesBy(full, valu=valu, cmpr='='):
+                    yield item
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                return
+
+            return
+
         if full.startswith('#'):
             async for node in self._getNodesByTag(full, valu=valu, cmpr=cmpr):
                 yield node
