@@ -600,10 +600,35 @@ class HttpApiTest(s_tests.SynTest):
 
                     self.eq(0x01020304, node[0][1])
 
+                async with sess.post(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
+
+                    async for byts, x in resp.content.iter_chunks():
+
+                        if not byts:
+                            break
+
+                        mesg = json.loads(byts)
+
+                        if mesg[0] == 'node':
+                            node = mesg[1]
+
+                    self.eq(0x01020304, node[0][1])
+
                 node = None
                 body = {'query': '[ inet:ipv4=1.2.3.4 ]'}
 
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
+
+                    async for byts, x in resp.content.iter_chunks():
+
+                        if not byts:
+                            break
+
+                        node = json.loads(byts)
+
+                    self.eq(0x01020304, node[0][1])
+
+                async with sess.post(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
 
                     async for byts, x in resp.content.iter_chunks():
 
