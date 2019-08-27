@@ -577,7 +577,7 @@ class Node:
             return False
 
         sops = (
-            ('tag:prop:del', (self.buid, self.form.name, tag, prop, {})),
+            ('tag:prop:del', (self.buid, self.form.name, tag, name, {})),
         )
 
         splices = (

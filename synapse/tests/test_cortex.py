@@ -3030,21 +3030,38 @@ class CortexBasicTest(s_t_utils.SynTest):
                 node = await snap.getNodeByNdef(('test:str', 'foo'))
                 self.none(node.getTag('bar'))
 
+            await core.addTagProp('score', ('int', {}), {})
+            splice = ('tag:prop:set', {'ndef': ('test:str', 'foo'), 'tag': 'lol', 'prop': 'score', 'valu': 100, 'curv': None})
+            await core.addFeedData('syn.splice', [splice])
+
+            self.len(1, await core.nodes('#lol:score=100'))
+
+            splice = ('tag:prop:del', {'ndef': ('test:str', 'foo'), 'tag': 'lol', 'prop': 'score', 'valu': 100})
+            await core.addFeedData('syn.splice', [splice])
+
+            self.len(0, await core.nodes('#lol:score=100'))
+
     async def test_splice_generation(self):
 
         async with self.getTestCore() as core:
 
-            await alist(core.eval('[test:str=hello]'))
-            await alist(core.eval('test:str=hello [:tick="2001"]'))
-            await alist(core.eval('test:str=hello [:tick="2002"]'))
-            await alist(core.eval('test:str [+#foo.bar]'))
-            await alist(core.eval('test:str [+#foo.bar=(2000,2002)]'))
-            await alist(core.eval('test:str [+#foo.bar=(2000,20020601)]'))
+            await core.addTagProp('confidence', ('int', {}), {})
+
+            await core.nodes('[test:str=hello]')
+            await core.nodes('test:str=hello [:tick="2001"]')
+            await core.nodes('test:str=hello [:tick="2002"]')
+            await core.nodes('test:str [+#foo.bar]')
+            await core.nodes('test:str [+#foo.bar=(2000,2002)]')
+            await core.nodes('test:str [+#foo.bar=(2000,20020601)]')
             # Add a tag inside the time window of the previously added tag
-            await alist(core.eval('test:str [+#foo.bar=(2000,20020501)]'))
-            await alist(core.eval('test:str [-#foo]'))
-            await alist(core.eval('test:str [-:tick]'))
-            await alist(core.eval('test:str | delnode --force'))
+            await core.nodes('test:str [+#foo.bar=(2000,20020501)]')
+            await core.nodes('test:str [-#foo]')
+            await core.nodes('test:str [-:tick]')
+
+            await core.nodes('test:str=hello [ +#lol:confidence=100 ]')
+            await core.nodes('test:str=hello [ -#lol:confidence  ]')
+
+            await core.nodes('test:str | delnode --force')
 
             _splices = await alist(core.view.layers[0].splices(0, 10000))
             splices = []
@@ -3092,6 +3109,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.isin(mesg, splices)
 
             mesg = ('node:del', {'ndef': ('test:str', 'hello')})
+            self.isin(mesg, splices)
+
+            mesg = ('tag:prop:set', {'ndef': ('test:str', 'hello'), 'tag': 'lol', 'prop': 'confidence', 'valu': 100, 'curv': None})
+            self.isin(mesg, splices)
+
+            mesg = ('tag:prop:del', {'ndef': ('test:str', 'hello'), 'tag': 'lol', 'prop': 'confidence', 'valu': 100})
             self.isin(mesg, splices)
 
     async def test_cortex_waitfor(self):

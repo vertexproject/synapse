@@ -1084,6 +1084,8 @@ class Cortex(s_cell.Cell):
             'node:del': self._onFeedNodeDel,
             'prop:set': self._onFeedPropSet,
             'prop:del': self._onFeedPropDel,
+            'tag:prop:set': self._onFeedTagPropSet,
+            'tag:prop:del': self._onFeedTagPropDel,
         }
         self.splicers.update(**splicers)
 
@@ -1843,6 +1845,26 @@ class Cortex(s_cell.Cell):
             return
 
         await node.delTag(tag)
+
+    async def _onFeedTagPropSet(self, snap, mesg):
+
+        tag = mesg[1].get('tag')
+        prop = mesg[1].get('prop')
+        ndef = mesg[1].get('ndef')
+        valu = mesg[1].get('valu')
+
+        node = await snap.getNodeByNdef(ndef)
+        if node is not None:
+            await node.setTagProp(tag, prop, valu)
+
+    async def _onFeedTagPropDel(self, snap, mesg):
+        tag = mesg[1].get('tag')
+        prop = mesg[1].get('prop')
+        ndef = mesg[1].get('ndef')
+
+        node = await snap.getNodeByNdef(ndef)
+        if node is not None:
+            await node.delTagProp(tag, prop)
 
     async def _addSynIngest(self, snap, items):
 

@@ -2387,7 +2387,7 @@ class EditTagPropDel(Edit):
             # for now, use the tag add perms
             runt.allowed('tag:del', *tagparts)
 
-            await node.delTagProp(tag, name, valu)
+            await node.delTagProp(tag, prop)
 
             yield node, path
 

@@ -44,7 +44,7 @@ editpropdel: "-" relprop
 editunivset: univprop _WS? SETOPER _WS? _valu
 editnodeadd: ABSPROPNOUNIV _WS? SETOPER _WS? _valu
 edittagpropset: "+" tagprop _WS? SETOPER _WS? _valu
-edittagpropdel: "-" tagprop _WS? SETOPER _WS? _valu
+edittagpropdel: "-" tagprop
 SETOPER: "=" | "?="
 
 // The set of non-edit non-commands in storm
