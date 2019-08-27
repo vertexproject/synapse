@@ -29,6 +29,7 @@ import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
 import synapse.lib.trigger as s_trigger
 import synapse.lib.modelrev as s_modelrev
+import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdblayer as s_lmdblayer
 import synapse.lib.stormhttp as s_stormhttp
 import synapse.lib.provenance as s_provenance
@@ -369,6 +370,20 @@ class CoreApi(s_cell.CellApi):
             crons.append((iden, cron))
 
         return crons
+
+    async def setStormCmd(self, cdef):
+        '''
+        Set the definition of a pure storm command in the cortex.
+        '''
+        await self._reqUserAllowed(('storm', 'admin', 'cmds'))
+        return await self.cell.setStormCmd(cdef)
+
+    async def delStormCmd(self, name):
+        '''
+        Remove a pure storm command from the cortex.
+        '''
+        await self._reqUserAllowed(('storm', 'admin', 'cmds'))
+        return await self.cell.delStormCmd(name)
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
@@ -712,6 +727,9 @@ class Cortex(s_cell.Cell):
         self.stormvars = None  # type: s_hive.HiveDict
         self.stormrunts = {}
 
+        self.svcsbyiden = {}
+        self.svcsbyname = {}
+
         self._runtLiftFuncs = {}
         self._runtPropSetFuncs = {}
         self._runtPropDelFuncs = {}
@@ -724,12 +742,9 @@ class Cortex(s_cell.Cell):
         self.libroot = (None, {}, {})
         self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
 
-        # async inits
         await self._initCoreHive()
-
-        # sync inits
         self._initSplicers()
-        self._initStormCmds()
+        await self._initStormCmds()
         self._initStormLibs()
         self._initFeedFuncs()
         self._initFormCounts()
@@ -773,6 +788,89 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    async def setStormCmd(self, cdef):
+        '''
+        Set pure storm command definition.
+
+        cdef = {
+
+            'name': <name>,
+
+            'cmdopts': [
+                (<name>, <opts>),
+            ]
+
+            'cmdconf': {
+                <str>: <valu>
+            },
+
+            'storm': <text>,
+
+        }
+        '''
+        name = cdef.get('name')
+        await self._setStormCmd(cdef)
+        await self.cmdhive.set(name, cdef)
+
+    async def _setStormCmd(self, cdef):
+
+        name = cdef.get('name')
+        if not s_grammar.isCmdName(name):
+            raise s_exc.BadCmdName(name=name)
+
+        def ctor(argv):
+            return s_storm.PureCmd(cdef, argv)
+
+        self.stormcmds[name] = ctor
+
+    async def delStormCmd(self, name):
+        '''
+        Remove a previously set pure storm command.
+        '''
+        ctor = self.stormcmds.get(name)
+        if ctor is None:
+            mesg = f'No storm command named {name}.'
+            raise s_exc.NoSuchCmd(name=name, mesg=mesg)
+
+        cdef = self.cmdhive.get(name)
+        if cdef is None:
+            mesg = f'The storm command is not dynamic.'
+            raise s_exc.CantDelCmd(mesg=mesg)
+
+        await self.cmdhive.pop(name)
+        self.stormcmds.pop(name, None)
+
+    #async def getStormSvcs(self):
+    #async def delStormSvc(self, iden):
+    def getStormSvc(self, name):
+
+        ssvc = self.svcsbyiden.get(name)
+        if ssvc is not None:
+            return ssvc
+
+        ssvc = self.svcsbyname.get(name)
+        if ssvc is not None:
+            return ssvc
+
+    async def setStormSvc(self, sdef):
+
+        iden = sdef.get('iden')
+
+        osvc = self.svcsbyiden.get(iden)
+        ssvc = await s_stormsvc.StormService.anit(sdef)
+
+        self.onfini(ssvc)
+
+        if osvc is not None:
+            self.svcsbyiden.pop(osvc.iden, None)
+            self.svcsbyname.pop(osvc.name, None)
+
+        self.svcsbyiden[ssvc.iden] = ssvc
+        self.svcsbyname[ssvc.name] = ssvc
+
+        if osvc is not None:
+            await osvc.fini()
 
     async def syncLayerSplices(self, iden, offs):
         '''
@@ -875,7 +973,7 @@ class Cortex(s_cell.Cell):
         stormvars = await self.hive.open(('cortex', 'storm', 'vars'))
         self.stormvars = await stormvars.dict()
 
-    def _initStormCmds(self):
+    async def _initStormCmds(self):
         '''
         Registration for built-in Storm commands.
         '''
@@ -894,6 +992,16 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.DelNodeCmd)
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
+
+        cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
+
+        self.cmdhive = await cmdhive.dict()
+
+        for name, cdef in self.cmdhive.items():
+            try:
+                await self._setStormCmd(cdef)
+            except Exception as e:
+                logger.warning(f'Storm command ({name}) load failed: {e}')
 
     def _initStormLibs(self):
         '''

@@ -34,7 +34,7 @@ class StormType:
         self.ctors = {}
         self.locls = {}
 
-    def deref(self, name):
+    async def deref(self, name):
 
         locl = self.locls.get(name, s_common.novalu)
         if locl is not s_common.novalu:
@@ -58,9 +58,9 @@ class Lib(StormType):
     def addLibFuncs(self):
         pass
 
-    def deref(self, name):
+    async def deref(self, name):
         try:
-            return StormType.deref(self, name)
+            return await StormType.deref(self, name)
         except s_exc.NoSuchName:
             pass
 
@@ -86,7 +86,14 @@ class LibBase(Lib):
             'fire': self._fire,
             'text': self._text,
             'print': self._print,
+            'service': self._methLibService,
         })
+
+    async def _methLibService(self, name):
+        '''
+        $lib.service(woot).doWootThing(:prop)
+        '''
+        return self.runt.snap.core.getStormSvc(name)
 
     async def _set(self, *vals):
         return Set(set(vals))
@@ -302,7 +309,7 @@ class Bytes(Prim):
 
 class Dict(Prim):
 
-    def deref(self, name):
+    async def deref(self, name):
         return self.valu.get(name)
 
 class Set(Prim):

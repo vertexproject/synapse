@@ -288,6 +288,42 @@ class Cmd:
         mesg = 'Unknown prop/variable syntax'
         raise s_exc.BadSyntax(mesg=mesg, valu=name)
 
+class PureCmd(Cmd):
+
+    def __init__(self, cdef, argv):
+        self.cdef = cdef
+        Cmd.__init__(self, argv)
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        for name, opts in self.cdef.get('cmdargs', ()):
+            pars.add_argument(name, **opts)
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        text = self.cdef.get('storm')
+        query = runt.snap.core.getStormQuery(text)
+
+        opts = {'vars': runt.vars}
+
+        opts['vars']['cmdconf'] = self.cdef.get('cmdconf', {})
+        opts['vars']['cmdopts'] = vars(self.opts)
+
+        # run in an isolated runtime to prevent var leaks
+
+        count = 0
+        async for node, path in genr:
+            count += 1
+            async for item in node.storm(text, opts=opts, user=runt.user):
+                yield item
+
+        if count == 0:
+            with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
+                if query.isRuntSafe(subr):
+                    async for item in subr.iterStormQuery(query):
+                        yield item
+
 class HelpCmd(Cmd):
     '''
     List available commands and a brief description for each.

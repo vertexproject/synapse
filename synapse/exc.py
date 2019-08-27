@@ -135,6 +135,7 @@ class NoCertKey(SynErr):
 class ModAlreadyLoaded(SynErr): pass
 
 class NoSuchAct(SynErr): pass
+class NoSuchCmd(SynErr): pass
 class NoSuchCmpr(SynErr): pass
 class NoSuchCond(SynErr): pass
 class NoSuchCtor(SynErr): pass

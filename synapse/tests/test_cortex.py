@@ -4,6 +4,7 @@ import asyncio
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
@@ -196,6 +197,55 @@ class CortexTest(s_t_utils.SynTest):
                 node = await snap.getNodeByNdef(('test:type10', 'one'))
                 self.nn(node)
                 self.eq(node.get('intprop'), 21)
+
+    async def test_cortex_pure_cmds(self):
+
+        cdef = {
+
+            'name': 'testcmd',
+
+            'cmdargs': (
+                ('tagname', {}),
+                ('--domore', {'default': False, 'action': 'store_true'}),
+            ),
+
+            'cmdconf': {
+                'hehe': 'haha',
+            },
+
+            'storm': 'if $cmdopts.domore { [ +#$cmdconf.hehe ] } [ +#$cmdopts.tagname ]',
+        }
+
+        with self.getTestDir() as dirn:
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+
+                async with core.getLocalProxy() as prox:
+
+                    await prox.setStormCmd(cdef)
+
+                    nodes = await core.nodes('[ inet:asn=10 ] | testcmd zoinks')
+                    self.true(nodes[0].tags.get('zoinks'))
+
+                    nodes = await core.nodes('[ inet:asn=11 ] | testcmd zoinks --domore')
+
+                    self.true(nodes[0].tags.get('haha'))
+                    self.true(nodes[0].tags.get('zoinks'))
+
+            # make sure it's still loaded...
+            async with await s_cortex.Cortex.anit(dirn) as core:
+
+                async with core.getLocalProxy() as prox:
+
+                    await core.nodes('[ inet:asn=30 ] | testcmd zoinks')
+
+                    await prox.delStormCmd('testcmd')
+
+                    with self.raises(s_exc.NoSuchCmd):
+                        await prox.delStormCmd('newpcmd')
+
+                    with self.raises(s_exc.NoSuchName):
+                        await core.nodes('[ inet:asn=31 ] | testcmd zoinks')
 
     async def test_base_types2(self):
 

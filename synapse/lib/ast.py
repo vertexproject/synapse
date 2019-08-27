@@ -7,6 +7,7 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
 import synapse.lib.provenance as s_provenance
@@ -378,7 +379,7 @@ class ForLoop(Oper):
 
         async for node, path in genr:
 
-            for item in await self.kids[1].compute(path):
+            async for item in s_coro.agen(await self.kids[1].compute(path)):
 
                 if isinstance(name, (list, tuple)):
 
@@ -413,7 +414,7 @@ class ForLoop(Oper):
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[1].isRuntSafe(runt):
 
-            for item in await self.kids[1].runtval(runt):
+            async for item in s_coro.agen(await self.kids[1].runtval(runt)):
 
                 if isinstance(name, (list, tuple)):
 
@@ -1807,13 +1808,13 @@ class VarDeref(RunValue):
         valu = await self.kids[0].compute(path)
         name = await self.kids[1].compute(path)
         valu = s_stormtypes.fromprim(valu, path=path)
-        return valu.deref(name)
+        return await valu.deref(name)
 
     async def runtval(self, runt):
         valu = await self.kids[0].runtval(runt)
         name = await self.kids[1].runtval(runt)
         valu = s_stormtypes.fromprim(valu)
-        return valu.deref(name)
+        return await valu.deref(name)
 
 class FuncCall(RunValue):
 
@@ -1822,14 +1823,14 @@ class FuncCall(RunValue):
         argv = await self.kids[1].compute(path)
         kwlist = await self.kids[2].compute(path)
         kwargs = dict(kwlist)
-        return await func(*argv, **kwargs)
+        return await s_coro.ornot(func, *argv, **kwargs)
 
     async def runtval(self, runt):
         func = await self.kids[0].runtval(runt)
         argv = await self.kids[1].runtval(runt)
         kwlist = await self.kids[2].compute(runt)
         kwargs = dict(kwlist)
-        return await func(*argv, **kwargs)
+        return await s_coro.ornot(func, *argv, **kwargs)
 
 class DollarExpr(RunValue, Cond):
     '''
