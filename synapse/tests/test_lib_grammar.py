@@ -1018,9 +1018,6 @@ class GrammarTest(s_t_utils.SynTest):
         parser = s_grammar.Parser(query)
         self.raises(s_exc.BadSyntax, parser.query)
 
-    def test_tag_colon_error(self):
-        s_grammar.Parser('#foo.bar:baz').query()
-
     def test_isre_funcs(self):
 
         self.true(s_grammar.isCmdName('testcmd'))

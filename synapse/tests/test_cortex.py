@@ -3246,24 +3246,8 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_cortex_ext_model(self):
 
         with self.getTestDir() as dirn:
+
             async with await s_cortex.Cortex.anit(dirn) as core:
-                pdef = {
-                    'form': 'inet:ipv4',
-                    'prop': 'visi',
-                    'info': {
-                        'doc': 'the visi prop',
-                        'defval': 20,
-                    },
-                    'typedef': ('int', {}),
-                }
-                udef = {
-                    'prop': 'woot',
-                    'info': {
-                        'defval': 'asdf',
-                        'doc': 'the woot universal prop',
-                    },
-                    'typedef': ('str', {'lower': True}),
-                }
 
                 # blowup for bad names
                 with self.raises(s_exc.BadPropDef):

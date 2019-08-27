@@ -406,7 +406,7 @@ class Layer(s_base.Base):
         for x in (): yield x
         raise NotImplementedError
 
-    async def hasTagProp(self, name):
+    async def hasTagProp(self, name): # pragma: no cover
         raise NotImplementedError
 
     async def iterPropRows(self, form, prop):  # pragma: no cover

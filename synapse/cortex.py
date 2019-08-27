@@ -678,7 +678,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Remove a previously added tag property.
         '''
-        await self._reqUserAllowed('model', 'tagprop', 'add')
+        await self._reqUserAllowed('model', 'tagprop', 'del')
         return await self.cell.delTagProp(name)
 
 class Cortex(s_cell.Cell):
