@@ -520,7 +520,17 @@ _Queries = [
     'if $foo {[+#woot]} elif $(1-1) {[+#nowoot]} else {[+#nonowoot] }',
     '$foo=$(1 or 0 and 0)',
     '$foo=$(not 1 and 1)',
-    '$foo=$(not 1 > 1)'
+    '$foo=$(not 1 > 1)',
+    '#:lol',
+    '#baz.faz:lol',
+    'foo:bar#baz.faz:lol',
+    '#:lol=20',
+    '#baz.faz:lol=20',
+    'foo:bar#baz.faz:lol=20',
+    '+#foo.bar:lol',
+    '+#foo.bar:lol=20',
+    '[ -#baz.faz:lol ]',
+    '[ +#baz.faz:lol=20 ]',
 ]
 
 # Generated with print_parse_list below
@@ -954,6 +964,16 @@ _ParseResults = [
     'Query: [VarSetOper: [Const: foo, DollarExpr: [ExprNode: [Const: 1, Const: or, ExprNode: [Const: 0, Const: and, Const: 0]]]]]',
     'Query: [VarSetOper: [Const: foo, DollarExpr: [ExprNode: [UnaryExprNode: [Const: not, Const: 1], Const: and, Const: 1]]]]',
     'Query: [VarSetOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, ExprNode: [Const: 1, Const: >, Const: 1]]]]]',
+    'Query: [LiftOnlyTagProp: [OnlyTagProp: [Const: lol]]]',
+    'Query: [LiftTagProp: [TagProp: [Const: baz.faz, Const: lol]]]',
+    'Query: [LiftFormTagProp: [FormTagProp: [Const: foo:bar, Const: baz.faz, Const: lol]]]',
+    'Query: [LiftOnlyTagProp: [OnlyTagProp: [Const: lol], Const: =, Const: 20]]',
+    'Query: [LiftTagProp: [TagProp: [Const: baz.faz, Const: lol], Const: =, Const: 20]]',
+    'Query: [LiftFormTagProp: [FormTagProp: [Const: foo:bar, Const: baz.faz, Const: lol], Const: =, Const: 20]]',
+    'Query: [FiltOper: [Const: +, HasTagPropCond: [TagProp: [Const: foo.bar, Const: lol]]]]',
+    'Query: [FiltOper: [Const: +, TagPropCond: [TagProp: [Const: foo.bar, Const: lol], Const: =, Const: 20]]]',
+    'Query: [EditTagPropDel: [TagProp: [Const: baz.faz, Const: lol]]]',
+    'Query: [EditTagPropSet: [TagProp: [Const: baz.faz, Const: lol], Const: =, Const: 20]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):

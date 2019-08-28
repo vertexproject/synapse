@@ -49,7 +49,7 @@ SETOPER: "=" | "?="
 
 // The set of non-edit non-commands in storm
 _oper.1: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | vareval
-     | filtoper | liftbytag | liftbytagprop | liftbyformtagprop | liftbyonlytagprop
+     | filtoper | liftbytag
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE
      | _liftprop | ifstmt
 
