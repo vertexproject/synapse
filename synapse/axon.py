@@ -113,6 +113,14 @@ class AxonApi(s_cell.CellApi, s_share.Share):
         self.user.allowed(('axon:has',))
         return await self.cell.wants(sha256s)
 
+    async def put(self, byts):
+        await self._reqUserAllowed('axon:upload')
+        return await self.cell.put(byts)
+
+    async def puts(self, files):
+        await self._reqUserAllowed('axon:upload')
+        return await self.cell.puts(files)
+
     async def upload(self):
         self.user.allowed(('axon:upload',))
         return await UpLoadShare.anit(self.cell, self.link)
