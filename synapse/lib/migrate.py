@@ -197,7 +197,7 @@ class Migration(s_base.Base):
             for buid, byts in slab.scanByFull():
                 yield buid, s_msgpack.un(byts)
 
-    async def normPropValu(self, name):
+    async def normPropValu(self, name, modulus=10000):
 
         prop = self.core.model.prop(name)
 
@@ -205,7 +205,11 @@ class Migration(s_base.Base):
 
             async with self.getTempSlab() as slab:
 
+                i = 0
                 async for buid, valu in layr.iterPropRows(prop.form.name, prop.name):
+                    i = i + 1
+                    if i % modulus == 0:
+                        logger.debug(f'Consumed {prop.form.name} count: {i}')
 
                     norm, info = prop.type.norm(valu)
                     if norm == valu:
@@ -213,6 +217,17 @@ class Migration(s_base.Base):
 
                     slab.put(buid, s_msgpack.en(norm))
 
+                if i:
+                    logger.debug(f'Total {prop.form.name} count: {i}')
+
+                i = 0
                 for buid, byts in slab.scanByFull():
                     norm = s_msgpack.un(byts)
                     await layr.storPropSet(buid, prop, norm)
+                    i = i + 1
+                    if i % modulus == 0:
+                        logger.debug(f'Set prop count: {i}')
+                if i:
+                    logger.debug(f'Total propset count: {i}')
+
+        logger.debug(f'Done norming: {prop.form.name}')
