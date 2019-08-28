@@ -1042,13 +1042,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
-    async def test_cortex_axon(self):
-        async with self.getTestCore() as core:
-            await core.axready.wait()
-            size, sha2 = await core.axon.put(b'asdfasdf')
-            self.eq(size, 8)
-            self.eq(s_common.ehex(sha2), '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
-
 class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed
@@ -3175,3 +3168,43 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore(conf=conf) as core:
             layr = core.view.layers[0]
             self.true(layr.lockmemory)
+
+    async def test_cortex_axon(self):
+        async with self.getTestCore() as core:
+            # By default, a cortex has a local Axon instance available
+            await core.axready.wait()
+            size, sha2 = await core.axon.put(b'asdfasdf')
+            self.eq(size, 8)
+            self.eq(s_common.ehex(sha2), '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
+        self.true(core.axon.isfini)
+        self.false(core.axready.is_set())
+
+        with self.getTestDir() as dirn:
+            adrn = s_common.genpath(dirn, 'axon')
+            # cdrn = s_common.genpath(dirn, 'core')
+
+            async with self.getTestAxon(dirn=adrn) as axon:
+                aurl = axon.getLocalUrl()
+
+            conf = {'axon': aurl}
+            async with self.getTestCore(conf=conf) as core:
+                async with self.getTestAxon(dirn=adrn) as axon:
+                    self.true(await asyncio.wait_for(core.axready.wait(), 10))
+                    size, sha2 = await core.axon.put(b'asdfasdf')
+                    self.eq(size, 8)
+                    self.eq(s_common.ehex(sha2), '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
+
+                unset = False
+                for i in range(20):
+                    aset = core.axready.is_set()
+                    if aset is False:
+                        unset = True
+                        break
+                    await asyncio.sleep(0.1)
+                self.true(unset)
+
+                async with self.getTestAxon(dirn=adrn) as axon:
+                    self.true(await asyncio.wait_for(core.axready.wait(), 10))
+                    # ensure we can use the proxy
+                    self.eq(await axon.metrics(),
+                            await core.axon.metrics())

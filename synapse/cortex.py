@@ -731,6 +731,12 @@ class Cortex(s_cell.Cell):
         self.libroot = (None, {}, {})
         self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
 
+        self.axon = None  # type: s_axon.AxonApi
+        self.axready = asyncio.Event()
+
+        # generic fini handler for the Cortex
+        self.onfini(self._onCoreFini)
+
         # async inits
         await self._initCoreHive()
 
@@ -781,6 +787,13 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    async def _onCoreFini(self):
+        '''
+        Generic fini handler for cortex components which may change or vary at runtime.
+        '''
+        if self.axon:
+            await self.axon.fini()
 
     async def syncLayerSplices(self, iden, offs):
         '''
@@ -884,15 +897,11 @@ class Cortex(s_cell.Cell):
         self.stormvars = await stormvars.dict()
 
     async def _initCoreAxon(self):
-
-        self.axon = None
-        self.axready = asyncio.Event()
-
         turl = self.conf.get('axon')
         if turl is None:
             path = os.path.join(self.dirn, 'axon')
             self.axon = await s_axon.Axon.anit(path)
-            self.onfini(self.axon.fini)
+            self.axon.onfini(self.axready.clear)
             self.axready.set()
             return
 
@@ -904,9 +913,11 @@ class Cortex(s_cell.Cell):
                     self.axon.onfini(teleloop)
                     self.axready.set()
                     return
+                except asyncio.CancelledError:
+                    raise
                 except Exception as e:
                     logger.warning('remote axon error: %r' % (e,))
-                    await asyncio.sleep(1)
+                await self.waitfini(1)
 
         self.schedCoro(teleloop())
 
