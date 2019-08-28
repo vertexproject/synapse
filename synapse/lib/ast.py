@@ -1861,13 +1861,7 @@ class TagProp(CompValue):
 class FormTagProp(CompValue):
 
     def isRuntSafe(self, runt):
-        if not self.kids[0].isRuntSafe(runt):
-            return False
-        if not self.kids[1].isRuntSafe(runt):
-            return False
-        if not self.kids[2].isRuntSafe(runt):
-            return False
-        return True
+        return all(k.isRuntSafe(runt) for k in self.kids)
 
     async def compute(self, path):
         form = await self.kids[0].compute(path)
