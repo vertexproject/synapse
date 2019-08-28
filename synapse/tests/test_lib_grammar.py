@@ -531,6 +531,8 @@ _Queries = [
     '+#foo.bar:lol=20',
     '[ -#baz.faz:lol ]',
     '[ +#baz.faz:lol=20 ]',
+    '#tag:somegeoloctypebecauseihatelife*near=($lat, $long)',
+    '*$foo*near=20',
 ]
 
 # Generated with print_parse_list below
@@ -974,6 +976,8 @@ _ParseResults = [
     'Query: [FiltOper: [Const: +, TagPropCond: [TagProp: [Const: foo.bar, Const: lol], Const: =, Const: 20]]]',
     'Query: [EditTagPropDel: [TagProp: [Const: baz.faz, Const: lol]]]',
     'Query: [EditTagPropSet: [TagProp: [Const: baz.faz, Const: lol], Const: =, Const: 20]]',
+    'Query: [LiftTagProp: [TagProp: [Const: tag, Const: somegeoloctypebecauseihatelife], Const: *near=, List: [VarValue: [Const: lat], VarValue: [Const: long]]]]',
+    'Query: [LiftPropBy: [VarValue: [Const: foo], Const: *near=, Const: 20]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
