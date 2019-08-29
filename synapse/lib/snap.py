@@ -705,3 +705,8 @@ class Snap(s_base.Base):
     async def iterNodeData(self, buid):
         async for item in self.layers[0].iterNodeData(buid):
             yield item
+
+    async def popNodeData(self, buid, name):
+        envl = await self.layers[0].popNodeData(buid, name)
+        if envl is not None:
+            return envl.get('data')

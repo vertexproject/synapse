@@ -489,6 +489,7 @@ class NodeData(Prim):
         self.locls.update({
             'get': node.getData,
             'set': node.setData,
+            'pop': node.popData,
             'list': listdata,
         })
 

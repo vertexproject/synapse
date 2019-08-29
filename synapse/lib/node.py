@@ -589,6 +589,9 @@ class Node:
     async def setData(self, name, valu):
         return await self.snap.setNodeData(self.buid, name, valu)
 
+    async def popData(self, name):
+        return await self.snap.popNodeData(self.buid, name)
+
     async def iterData(self):
         async for item in self.snap.iterNodeData(self.buid):
             yield item

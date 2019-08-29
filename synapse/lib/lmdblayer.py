@@ -100,22 +100,27 @@ class LmdbLayer(s_layer.Layer):
             'range': self._rowsByRange,
         }
 
+    async def popNodeData(self, buid, name):
+        utf8 = name.encode()
+        self.dataslab.pop(utf8 + b'\x00' + buid, db=self.databyname)
+        byts = self.dataslab.pop(buid + utf8, db=self.databybuid)
+        if byts is not None:
+            return s_msgpack.un(byts)
+
     async def setNodeData(self, buid, name, item):
-        # TODO more str->utf8 caching
-        utf8 = name.encode('utf8')
+        utf8 = name.encode()
         self.dataslab.put(utf8 + b'\x00' + buid, b'\x00', db=self.databyname)
         self.dataslab.put(buid + utf8, s_msgpack.en(item), db=self.databybuid)
 
     async def getNodeData(self, buid, name, defv=None):
-        utf8 = name.encode('utf8')
-        byts = self.dataslab.get(buid + utf8, db=self.databybuid)
+        byts = self.dataslab.get(buid + name.encode(), db=self.databybuid)
         if byts is None:
             return None
         return s_msgpack.un(byts)
 
     async def iterNodeData(self, buid):
         for lkey, lval in self.dataslab.scanByPref(buid, db=self.databybuid):
-            yield lkey[32:].decode('utf8'), s_msgpack.un(lval)
+            yield lkey[32:].decode(), s_msgpack.un(lval)
 
     def _wipeNodeData(self, buid):
         for lkey, lval in self.dataslab.scanByPref(buid, db=self.databybuid):
@@ -215,7 +220,7 @@ class LmdbLayer(s_layer.Layer):
 
         for lkey, lval in self.layrslab.scanByPref(buid, db=self.bybuid):
 
-            prop = lkey[32:].decode('utf8')
+            prop = lkey[32:].decode()
             valu, indx = s_msgpack.un(lval)
             props[prop] = valu
 
@@ -226,7 +231,7 @@ class LmdbLayer(s_layer.Layer):
     async def getNodeNdef(self, buid):
         for lkey, lval in self.layrslab.scanByPref(buid + b'*', db=self.bybuid):
             valu, indx = s_msgpack.un(lval)
-            return lkey[33:].decode('utf8'), valu
+            return lkey[33:].decode(), valu
 
     async def getFormIndx(self, buid):
         for lkey, lval in self.layrslab.scanByPref(buid + b'*', db=self.bybuid):

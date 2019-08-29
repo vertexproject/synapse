@@ -703,6 +703,14 @@ class StormTypesTest(s_test.SynTest):
 
             self.none(await nodes[0].getData('foo'))
 
+            nodes = await core.nodes('[ test:int=20 ] $node.data.set(woot, woot)')
+            self.eq('woot', await nodes[0].getData('woot'))
+
+            nodes = await core.nodes('test:int=20 [ test:str=$node.data.pop(woot) ]')
+
+            self.none(await nodes[0].getData('woot'))
+            self.eq(nodes[1].ndef, ('test:str', 'woot'))
+
     async def test_storm_lib_bytes(self):
 
         async with self.getTestCore() as core:
