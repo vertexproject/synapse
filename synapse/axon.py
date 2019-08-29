@@ -160,7 +160,7 @@ class Axon(s_cell.Cell):
 
     async def _initBlobStor(self):
         path = s_common.gendir(self.dirn, 'blob.lmdb')
-        self.blobslab = await s_lmdbslab.Slab.anit(path)
+        self.blobslab = await s_lmdbslab.Slab.anit(path, map_async=True)
         self.blobs = self.blobslab.initdb('blobs')
         self.onfini(self.blobslab.fini)
 
