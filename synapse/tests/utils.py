@@ -778,7 +778,19 @@ class SynTest(unittest.TestCase):
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
     @contextlib.asynccontextmanager
-    async def getTestAxon(self):
+    async def getTestAxon(self, dirn=None):
+        '''
+        Get a test Axon as an async context manager.
+
+        Returns:
+            s_axon.Axon: A Axon object.
+        '''
+        if dirn is not None:
+            async with await s_axon.Axon.anit(dirn) as axon:
+                yield axon
+
+            return
+
         with self.getTestDir() as dirn:
             async with await s_axon.Axon.anit(dirn) as axon:
                 yield axon
