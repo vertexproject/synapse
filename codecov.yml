@@ -1,0 +1,5 @@
+fixes:
+  - "synapse/::"  # Fix suggested by codecov support ticket #2083
+#  - "before/::after/"  # move path   e.g., "before/path" => "after/path"
+#  - "::after/"         # move root   e.g., "path/" => "after/path/"
+#  - "before/::"        # reduce root e.g., "before/path/" => "path/"
