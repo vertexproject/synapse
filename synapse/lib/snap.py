@@ -220,7 +220,7 @@ class Snap(s_base.Base):
         prop = self.model.getTagProp(name)
         if prop is None:
             mesg = f'No tag property named {name}'
-            raise s_exc.NoSuchProp(name=name, mesg=mesg)
+            raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
 
         cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
 
@@ -300,7 +300,7 @@ class Snap(s_base.Base):
             try:
                 async for item in self.getNodesBy(full, valu=valu, cmpr='='):
                     yield item
-            except asyncio.CancelledError:
+            except asyncio.CancelledError: # pragma: no cover
                 raise
             except Exception:
                 return
@@ -393,7 +393,7 @@ class Snap(s_base.Base):
             retn = await self._addNodeFnib(fnib, props=props)
             return retn
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError: # pragma: no cover
             raise
 
         except Exception:

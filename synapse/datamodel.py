@@ -41,7 +41,7 @@ class TagProp:
         return {
             'name': self.name,
             'info': self.info,
-            'type': self.typedef,
+            'type': self.tdef,
         }
 
 class PropBase:

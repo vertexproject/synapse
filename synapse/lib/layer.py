@@ -448,13 +448,13 @@ class Layer(s_base.Base):
     def migrateProvPre010(self, slab):  # pragma: no cover
         raise NotImplementedError
 
-    async def delUnivProp(self, propname, info=None):
+    async def delUnivProp(self, propname, info=None): # pragma: no cover
         '''
         Bulk delete all instances of a universal prop.
         '''
         raise NotImplementedError
 
-    async def delFormProp(self, formname, propname, info=None):
+    async def delFormProp(self, formname, propname, info=None): # pragma: no cover
         '''
         Bulk delete all instances of a form prop.
         '''

@@ -1702,7 +1702,7 @@ class TagPropCond(Cond):
             prop = path.runt.snap.model.getTagProp(name)
             if prop is None:
                 mesg = f'No such tag property: {name}'
-                raise s_exc.NoSuchProp(name=name, mesg=mesg)
+                raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
 
             # TODO cache on (cmpr, valu) for perf?
             valu = await self.kids[2].compute(path)
@@ -1847,11 +1847,7 @@ class TagValue(CompValue):
 class TagProp(CompValue):
 
     def isRuntSafe(self, runt):
-        if not self.kids[0].isRuntSafe(runt):
-            return False
-        if not self.kids[1].isRuntSafe(runt):
-            return False
-        return True
+        return all(k.isRuntSafe(runt) for k in self.kids)
 
     async def compute(self, path):
         tag = await self.kids[0].compute(path)
@@ -2359,7 +2355,7 @@ class EditTagPropSet(Edit):
 
             try:
                 await node.setTagProp(tag, prop, valu)
-            except asyncio.CancelledError:
+            except asyncio.CancelledError: # pragma: no cover
                 raise
             except excignore:
                 pass

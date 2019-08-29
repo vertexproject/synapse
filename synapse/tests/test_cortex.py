@@ -66,9 +66,11 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            await core.addTagProp('user', ('str', {}), {})
             await core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
 
             nodes = await core.nodes('[ test:int=10 +#foo.bar:score=20 ]')
+            nodes = await core.nodes('[ test:str=lulz +#blah:user=visi ]')
 
             # test all the syntax cases...
             self.len(1, await core.nodes('#foo.bar'))
@@ -77,6 +79,8 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('#foo.bar:score<=30'))
             self.len(1, await core.nodes('#foo.bar:score>=10'))
             self.len(1, await core.nodes('#foo.bar:score*range=(10, 30)'))
+
+            self.len(1, await core.nodes('#blah:user^=vi'))
 
             self.len(1, await core.nodes('#:score'))
             self.len(1, await core.nodes('#:score=20'))
@@ -135,10 +139,28 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('#foo.bar:score=100'))
             self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
 
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:int=10 +#foo.bar:score*newp=66')
+
+            modl = await core.getModelDict()
+            self.nn(modl['tagprops'].get('score'))
+
             await core.delTagProp('score')
+
+            modl = await core.getModelDict()
+            self.none(modl['tagprops'].get('score'))
+
+            with self.raises(s_exc.NoSuchTagProp):
+                await core.nodes('#foo.bar:score')
 
             with self.raises(s_exc.NoSuchTagProp):
                 await core.nodes('test:int=10 [ +#foo.bar:score=66 ]')
+
+            with self.raises(s_exc.NoSuchTagProp):
+                await core.nodes('test:int=10 +#foo.bar:score=66')
+
+            with self.raises(s_exc.NoSuchType):
+                await core.addTagProp('derp', ('derp', {}), {})
 
     async def test_cortex_prop_pivot(self):
 

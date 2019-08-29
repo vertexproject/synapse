@@ -22,6 +22,31 @@ class DataModelTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadFormDef):
             modl.addDataModels(mods)
 
+    async def test_datamodel_dynamics(self):
+
+        modl = s_datamodel.Model()
+
+        with self.raises(s_exc.NoSuchType):
+            modl.addType('he:he', 'ha:ha', {}, {})
+
+        with self.raises(s_exc.NoSuchType):
+            modl.addForm('he:he', {}, [])
+
+        with self.raises(s_exc.BadPropDef):
+            modl.addType('he:he', 'int', {}, {})
+            modl.addForm('he:he', {}, [
+                ('asdf',),
+            ])
+
+        with self.raises(s_exc.NoSuchProp):
+            modl.delFormProp('he:he', 'newp')
+
+        with self.raises(s_exc.NoSuchForm):
+            modl.delFormProp('ne:wp', 'newp')
+
+        with self.raises(s_exc.NoSuchUniv):
+            modl.delUnivProp('newp')
+
     async def test_datamodel_getModelDef(self):
 
         async with self.getTestCore() as core:

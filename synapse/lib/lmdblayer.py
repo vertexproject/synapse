@@ -356,12 +356,6 @@ class LmdbLayer(s_layer.Layer):
             return True
         return False
 
-    def _delTagProps(self, buid, form, name):
-        '''
-        Remove all tag props for the given tag.
-        '''
-        raise Exception('TODO')
-
     def _storTagPropSet(self, oper):
 
         _, (buid, form, tag, prop, valu, indx, info) = oper
@@ -404,7 +398,10 @@ class LmdbLayer(s_layer.Layer):
         bpkey = buid + tagprop.encode()
 
         curb = self.layrslab.pop(bpkey, db=self.bybuid)
-        if curb is None:
+
+        # this *should* be completely impossible
+        if curb is None: # pragma: no cover
+            logger.warning('_storTagPropDel has no current value!')
             return
 
         curv, curi = s_msgpack.un(curb)
@@ -570,6 +567,7 @@ class LmdbLayer(s_layer.Layer):
                     yield (buid,)
                 return
 
+            #pragma: no cover
             mesg = f'No such index function for tag props: {iopr[0]}'
             raise s_exc.NoSuchName(name=iopr[0], mesg=mesg)
 
