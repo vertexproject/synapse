@@ -76,7 +76,8 @@ class RemoteLayer(s_layer.Layer):
 
             except Exception:
                 logger.exception('remote layer reconnect failure')
-                await asyncio.sleep(1)
+
+            await self.waitfini(1)
 
     async def _readyPlayerOne(self):
         timeout = self.conf.get('readywait')

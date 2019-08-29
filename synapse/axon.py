@@ -113,6 +113,14 @@ class AxonApi(s_cell.CellApi, s_share.Share):
         self.user.allowed(('axon:has',))
         return await self.cell.wants(sha256s)
 
+    async def put(self, byts):
+        await self._reqUserAllowed('axon:upload')
+        return await self.cell.put(byts)
+
+    async def puts(self, files):
+        await self._reqUserAllowed('axon:upload')
+        return await self.cell.puts(files)
+
     async def upload(self):
         self.user.allowed(('axon:upload',))
         return await UpLoadShare.anit(self.cell, self.link)
@@ -135,7 +143,7 @@ class Axon(s_cell.Cell):
         self.dmon.share('axon', self)
 
         path = s_common.gendir(self.dirn, 'axon.lmdb')
-        self.axonslab = await s_lmdbslab.Slab.anit(path)
+        self.axonslab = await s_lmdbslab.Slab.anit(path, map_async=True)
         self.sizes = self.axonslab.initdb('sizes')
         self.onfini(self.axonslab.fini)
 
@@ -152,7 +160,7 @@ class Axon(s_cell.Cell):
 
     async def _initBlobStor(self):
         path = s_common.gendir(self.dirn, 'blob.lmdb')
-        self.blobslab = await s_lmdbslab.Slab.anit(path)
+        self.blobslab = await s_lmdbslab.Slab.anit(path, map_async=True)
         self.blobs = self.blobslab.initdb('blobs')
         self.onfini(self.blobslab.fini)
 
@@ -177,9 +185,12 @@ class Axon(s_cell.Cell):
             yield byts
 
     async def put(self, byts):
-        sha256 = hashlib.sha256(byts).digest()
-        await self.save(sha256, [byts])
-        return len(byts), sha256
+        # Use a UpLoad context manager so that we can
+        # ensure that a one-shot set of bytes is chunked
+        # in a consistent fashion.
+        async with await self.upload() as fd:
+            await fd.write(byts)
+            return await fd.save()
 
     async def puts(self, files):
         return [await self.put(b) for b in files]

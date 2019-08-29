@@ -250,6 +250,9 @@ class Handler(HandlerBase, t_web.RequestHandler):
 
 class StormNodesV1(Handler):
 
+    async def post(self):
+        return await self.get()
+
     async def get(self):
 
         if not await self.reqAuthUser():
@@ -272,6 +275,9 @@ class StormNodesV1(Handler):
             await self.flush()
 
 class StormV1(Handler):
+
+    async def post(self):
+        return await self.get()
 
     async def get(self):
 
