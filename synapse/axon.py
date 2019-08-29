@@ -185,9 +185,12 @@ class Axon(s_cell.Cell):
             yield byts
 
     async def put(self, byts):
-        sha256 = hashlib.sha256(byts).digest()
-        await self.save(sha256, [byts])
-        return len(byts), sha256
+        # Use a UpLoad context manager so that we can
+        # ensure that a one-shot set of bytes is chunked
+        # in a consistent fashion.
+        async with await self.upload() as fd:
+            await fd.write(byts)
+            return await fd.save()
 
     async def puts(self, files):
         return [await self.put(b) for b in files]
