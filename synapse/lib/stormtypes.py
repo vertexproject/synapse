@@ -378,7 +378,11 @@ class List(Prim):
         self.locls.update({
             'index': self._methListIndex,
             'length': self._methListLength,
+            'append': self._methListAppend,
         })
+
+    async def _methListAppend(self, valu):
+        self.valu.append(valu)
 
     async def _methListIndex(self, valu):
         '''
@@ -504,7 +508,12 @@ class Node(Prim):
             'iden': self._methNodeIden,
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
+
+            'isform': self._methNodeIsForm,
         })
+
+    async def _methNodeIsForm(self, name):
+        return node.form.name == name
 
     async def _methNodeTags(self, glob=None):
         tags = list(self.valu.tags.keys())
