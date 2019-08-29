@@ -3,6 +3,7 @@ import bz2
 import gzip
 import json
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
@@ -675,3 +676,25 @@ class StormTypesTest(s_test.SynTest):
             ernfos = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, ernfos)
             self.isin('Error during time parsing', ernfos[0][1].get('mesg'))
+
+    async def test_storm_lib_bytes(self):
+
+        async with self.getTestCore() as core:
+
+            with self.raises(s_exc.BadArg):
+                opts = {'vars': {'bytes': 10}}
+                text = '($size, $sha2) = $lib.bytes.put($bytes)'
+                nodes = await core.nodes(text, opts=opts)
+
+            opts = {'vars': {'bytes': b'asdfasdf'}}
+            text = '($size, $sha2) = $lib.bytes.put($bytes) [ test:int=$size test:str=$sha2 ]'
+
+            nodes = await core.nodes(text, opts=opts)
+            self.len(2, nodes)
+
+            self.eq(nodes[0].ndef, ('test:int', 8))
+            self.eq(nodes[1].ndef, ('test:str', '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892'))
+
+            bkey = s_common.uhex('2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
+            byts = b''.join([b async for b in core.axon.get(bkey)])
+            self.eq(b'asdfasdf', byts)
