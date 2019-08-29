@@ -184,11 +184,6 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getModelDict()
 
-    def axon(self):
-        '''
-        '''
-        return s_axon.AxonApi.anit(self.cell.axon, self.link, self.user)
-
     def getCoreInfo(self):
         '''
         Return static generic information about the cortex including model definition
