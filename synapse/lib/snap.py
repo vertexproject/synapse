@@ -697,6 +697,7 @@ class Snap(s_base.Base):
         envl = await self.layers[0].getNodeData(buid, name, defv=defv)
         if envl is not None:
             return envl.get('data')
+        return defv
 
     async def setNodeData(self, buid, name, item):
         envl = {'user': self.user.iden, 'time': s_common.now(), 'data': item}
