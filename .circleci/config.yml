@@ -102,6 +102,7 @@ commands:
       -  codecov/upload:
            file: /home/circleci/repo/coverage.xml
            upload_name: ${PYVERS}node${CIRCLE_NODE_INDEX}
+           flags: linux
 
       - store_test_results:
           path: test-reports
@@ -146,6 +147,7 @@ commands:
       -  codecov/upload:
            file: /Users/distiller/repo/coverage.xml
            upload_name: osx${PYVERS}node${CIRCLE_NODE_INDEX}
+           flags: osx
 
       - store_test_results:
           path: test-reports
