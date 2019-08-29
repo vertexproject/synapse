@@ -881,7 +881,8 @@ class Cortex(s_cell.Cell):
 
             except Exception:
                 logger.exception('error in initCoreMirror loop')
-                await asyncio.sleep(1)
+
+            await self.waitfini(1)
 
     async def _getWaitFor(self, name, valu):
         form = self.model.form(name)
