@@ -1,6 +1,20 @@
 import synapse.tests.utils as s_test
+import synapse.lib.stormsvc as s_stormsvc
 
-class FakeService:
+class RealService(s_stormsvc.StormSvc):
+    _storm_svc_cmds = (
+        {
+            'name': 'ohhai',
+            'cmdopts': (
+                ('--verbose', {'default': False, 'action': 'store_true'}),
+            ),
+            'storm': '[ inet:ipv4=1.2.3.4 :asn=$cmdconf.svc.asn() ]',
+            # TODO perm? synvers? runas? (svc perms?)
+        },
+    )
+
+    async def asn(self):
+        return 20
 
     async def doit(self, x):
         return x + 20
@@ -17,24 +31,28 @@ class StormSvcTest(s_test.SynTest):
     async def test_storm_svcs(self):
 
         async with self.getTestCore() as core:
-            fake = FakeService()
-            core.dmon.share('fake', fake)
-            lurl = core.getLocalUrl(share='fake')
 
+            real = RealService()
+
+            core.dmon.share('real', real)
+            lurl = core.getLocalUrl(share='real')
+
+            iden = 'bf3043ab6992644e82db254bc7c1f868'
             sdef = {
+                'iden': iden,
                 'name': 'fake',
-                'iden': 'bf3043ab6992644e82db254bc7c1f868',
                 'url': lurl,
             }
+
             await core.setStormSvc(sdef)
-            await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ]')
 
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ] $asn = $lib.service(fake).doit(:asn) [ :asn=$asn ]')
+            await core.svcsbyiden[iden].ready.wait()
 
-            self.eq(40, nodes[0].props['asn'])
+            nodes = await core.nodes('[ inet:ipv4=5.5.5.5 ] | ohhai')
 
-            nodes = await core.nodes('for $fqdn in $lib.service(fake).fqdns() { [ inet:fqdn=$fqdn ] }')
             self.len(2, nodes)
+            self.eq(nodes[0].get('asn'), 20)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
 
-            nodes = await core.nodes('for $ipv4 in $lib.service(fake).ipv4s() { [ inet:ipv4=$ipv4 ] }')
-            self.len(2, nodes)
+            self.eq(nodes[1].get('asn'), 20)
+            self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))

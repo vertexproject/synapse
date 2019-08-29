@@ -1,7 +1,8 @@
-
 import bz2
 import gzip
 import json
+
+import synapse.exc as s_exc
 
 import synapse.common as s_common
 import synapse.cortex as s_cortex
@@ -675,3 +676,39 @@ class StormTypesTest(s_test.SynTest):
             ernfos = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, ernfos)
             self.isin('Error during time parsing', ernfos[0][1].get('mesg'))
+
+    async def test_storm_lib_telepath(self):
+
+        class FakeService:
+
+            async def doit(self, x):
+                return x + 20
+
+            async def fqdns(self):
+                yield 'woot.com'
+                yield 'vertex.link'
+
+            async def ipv4s(self):
+                return ('1.2.3.4', '5.6.7.8')
+
+        async with self.getTestCore() as core:
+
+            fake = FakeService()
+            core.dmon.share('fake', fake)
+            lurl = core.getLocalUrl(share='fake')
+
+            await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ]')
+
+            opts = {'vars': {'url': lurl}}
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ] $asn = $lib.telepath.open($url).doit(:asn) [ :asn=$asn ]', opts=opts)
+            self.eq(40, nodes[0].props['asn'])
+
+            nodes = await core.nodes('for $fqdn in $lib.telepath.open($url).fqdns() { [ inet:fqdn=$fqdn ] }', opts=opts)
+            self.len(2, nodes)
+
+            nodes = await core.nodes('for $ipv4 in $lib.telepath.open($url).ipv4s() { [ inet:ipv4=$ipv4 ] }', opts=opts)
+            self.len(2, nodes)
+
+            with self.raises(s_exc.NoSuchName):
+                await core.nodes('$lib.telepath.open($url)._newp()', opts=opts)

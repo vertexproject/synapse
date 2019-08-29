@@ -5,6 +5,7 @@ import datetime
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
@@ -214,6 +215,35 @@ class LibCsv(Lib):
         '''
         row = [toprim(a) for a in args]
         await self.runt.snap.fire('csv:row', row=row, table=table)
+
+class LibTelepath(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'open': self._methTeleOpen,
+        })
+
+    async def _methTeleOpen(self, url, **opts):
+        '''
+        Open and return a telepath RPC proxy.
+        '''
+        scheme = url.split('://')[0]
+        self.runt.allowed(('storm', 'lib', 'telepath', 'open', scheme))
+        return Proxy(await self.runt.getTeleProxy(url))
+
+class Proxy(StormType):
+
+    def __init__(self, proxy, path=None):
+        StormType.__init__(self, path=path)
+        self.proxy = proxy
+
+    async def deref(self, name):
+
+        if name[0] == '_':
+            mesg = f'No proxy method named {name}'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        return getattr(self.proxy, name, None)
 
 class Prim(StormType):
     '''

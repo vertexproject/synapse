@@ -858,7 +858,7 @@ class Cortex(s_cell.Cell):
         iden = sdef.get('iden')
 
         osvc = self.svcsbyiden.get(iden)
-        ssvc = await s_stormsvc.StormService.anit(sdef)
+        ssvc = await s_stormsvc.StormSvcClient.anit(self, sdef)
 
         self.onfini(ssvc)
 
@@ -1012,6 +1012,8 @@ class Cortex(s_cell.Cell):
         self.addStormLib(('time',), s_stormtypes.LibTime)
         self.addStormLib(('user',), s_stormtypes.LibUser)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
+        self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
+
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
 
     def _initSplicers(self):

@@ -5,6 +5,7 @@ import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.ast as s_ast
 import synapse.lib.node as s_node
@@ -46,11 +47,26 @@ class Runtime:
         self.runtvars.update(self.vars.keys())
         self.runtvars.update(self.ctors.keys())
 
+        self.proxies = {}
         self.elevated = False
 
         # used by the digraph projection logic
         self._graph_done = {}
         self._graph_want = collections.deque()
+
+    async def getTeleProxy(self, url, **opts):
+
+        flat = tuple(sorted(opts.items()))
+        prox = self.proxies.get((url, flat))
+        if prox is not None:
+            return prox
+
+        prox = await s_telepath.openurl(url, **opts)
+
+        self.proxies[(url, flat)] = prox
+        self.snap.onfini(prox.fini)
+
+        return prox
 
     def isRuntVar(self, name):
         if name in self.runtvars:
