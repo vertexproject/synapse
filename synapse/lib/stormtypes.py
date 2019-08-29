@@ -180,7 +180,6 @@ class LibBytes(Lib):
             mesg = '$lib.bytes.put() requires a bytes argument'
             raise s_exc.BadArg(mesg=mesg)
 
-        #TODO decide on access pattern
         await self.runt.snap.core.axready.wait()
         size, sha2 = await self.runt.snap.core.axon.put(byts)
         return (size, s_common.ehex(sha2))

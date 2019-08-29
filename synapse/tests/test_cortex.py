@@ -3180,15 +3180,13 @@ class CortexBasicTest(s_t_utils.SynTest):
         self.false(core.axready.is_set())
 
         with self.getTestDir() as dirn:
-            adrn = s_common.genpath(dirn, 'axon')
-            # cdrn = s_common.genpath(dirn, 'core')
 
-            async with self.getTestAxon(dirn=adrn) as axon:
+            async with self.getTestAxon(dirn=dirn) as axon:
                 aurl = axon.getLocalUrl()
 
             conf = {'axon': aurl}
             async with self.getTestCore(conf=conf) as core:
-                async with self.getTestAxon(dirn=adrn) as axon:
+                async with self.getTestAxon(dirn=dirn) as axon:
                     self.true(await asyncio.wait_for(core.axready.wait(), 10))
                     size, sha2 = await core.axon.put(b'asdfasdf')
                     self.eq(size, 8)
@@ -3203,7 +3201,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await asyncio.sleep(0.1)
                 self.true(unset)
 
-                async with self.getTestAxon(dirn=adrn) as axon:
+                async with self.getTestAxon(dirn=dirn) as axon:
                     self.true(await asyncio.wait_for(core.axready.wait(), 10))
                     # ensure we can use the proxy
                     self.eq(await axon.metrics(),
