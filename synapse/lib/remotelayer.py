@@ -76,6 +76,7 @@ class RemoteLayer(s_layer.Layer):
 
             except Exception:
                 logger.exception('remote layer reconnect failure')
+
             await self.waitfini(1)
 
     async def _readyPlayerOne(self):

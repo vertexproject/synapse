@@ -881,6 +881,7 @@ class Cortex(s_cell.Cell):
 
             except Exception:
                 logger.exception('error in initCoreMirror loop')
+
             await self.waitfini(1)
 
     async def _getWaitFor(self, name, valu):
