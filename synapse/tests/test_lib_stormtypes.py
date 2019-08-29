@@ -677,6 +677,40 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, ernfos)
             self.isin('Error during time parsing', ernfos[0][1].get('mesg'))
 
+    async def test_storm_node_data(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[test:int=10] $node.data.set(foo, hehe)')
+
+            self.len(1, nodes)
+            self.eq(await nodes[0].getData('foo'), 'hehe')
+
+            nodes = await core.nodes('test:int $foo=$node.data.get(foo) [ test:str=$foo ] +test:str')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'hehe'))
+
+            nodes = await core.nodes('test:int for ($name, $valu) in $node.data.list() { [ test:str=$name ] } +test:str')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'foo'))
+
+            # delete and remake the node to confirm data wipe
+            nodes = await core.nodes('test:int=10 | delnode')
+            nodes = await core.nodes('test:int=10')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('[test:int=10]')
+
+            self.none(await nodes[0].getData('foo'))
+
+            nodes = await core.nodes('[ test:int=20 ] $node.data.set(woot, woot)')
+            self.eq('woot', await nodes[0].getData('woot'))
+
+            nodes = await core.nodes('test:int=20 [ test:str=$node.data.pop(woot) ]')
+
+            self.none(await nodes[0].getData('woot'))
+            self.eq(nodes[1].ndef, ('test:str', 'woot'))
+
     async def test_storm_lib_bytes(self):
 
         async with self.getTestCore() as core:
