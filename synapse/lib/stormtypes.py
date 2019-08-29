@@ -481,17 +481,37 @@ class LibGlobals(Lib):
 class NodeData(Prim):
 
     def __init__(self, node, path=None):
+
         Prim.__init__(self, node, path=path)
 
-        async def listdata():
-            return [x async for x in node.iterData()]
-
         self.locls.update({
-            'get': node.getData,
-            'set': node.setData,
-            'pop': node.popData,
-            'list': listdata,
+            'get': self._getNodeData,
+            'set': self._setNodeData,
+            'pop': self._popNodeData,
+            'list': self._listNodeData,
         })
+
+    def _reqAllowed(self, perm):
+        if not self.valu.snap.user.allowed(perm):
+            pstr = '.'.join(perm)
+            mesg = f'User is not allowed permission: {pstr}'
+            raise s_exc.AuthDeny(perm=perm, mesg=mesg)
+
+    async def _getNodeData(self, name):
+        self._reqAllowed(('storm', 'node', 'data', 'get', name))
+        return await self.valu.getData(name)
+
+    async def _setNodeData(self, name, valu):
+        self._reqAllowed(('storm', 'node', 'data', 'set', name))
+        return await self.valu.setData(name, valu)
+
+    async def _popNodeData(self, name):
+        self._reqAllowed(('storm', 'node', 'data', 'pop', name))
+        return await self.valu.popData(name)
+
+    async def _listNodeData(self):
+        self._reqAllowed(('storm', 'node', 'data', 'list'))
+        return [x async for x in self.valu.iterData()]
 
 class Node(Prim):
     '''
