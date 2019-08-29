@@ -59,6 +59,7 @@ TerminalPygMap = {
     'WHILE': p_t.Keyword,
     'YIELD': p_t.Keyword,
     '_EXPRSTART': p_t.Punctuation,
+    '_DEREF': p_t.Punctuation,
     '_LEFTJOIN': p_t.Punctuation,
     '_LEFTPIVOT': p_t.Punctuation,
     '_ONLYTAGPROP': p_t.Name,
