@@ -2,10 +2,10 @@ import hashlib
 import logging
 import unittest.mock as mock
 
+import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.common as s_common
-
-import synapse.lib.const as s_const
+import synapse.telepath as s_telepath
 
 import synapse.tests.utils as s_t_utils
 
@@ -169,4 +169,27 @@ class AxonTest(s_t_utils.SynTest):
     async def test_axon_proxy(self):
         async with self.getTestAxon() as axon:
             async with axon.getLocalProxy() as prox:
+                await self.runAxonTestBase(prox)
+
+    async def test_axon_perms(self):
+        async with self.getTestAxon() as axon:
+            user = await axon.auth.addUser('user')
+            await user.setPasswd('test')
+            _, port = await axon.dmon.listen('tcp://127.0.0.1:0')
+            aurl = f'tcp://user:test@127.0.0.1:{port}/axon'
+            async with await s_telepath.openurl(aurl) as prox:  # type: s_axon.AxonApi
+                # Ensure the user can't do things with bytes they don't have permissions too.
+                await self.agenraises(s_exc.AuthDeny, prox.get(asdfhash))
+                await self.asyncraises(s_exc.AuthDeny, prox.has(asdfhash))
+                await self.agenraises(s_exc.AuthDeny, prox.hashes(0))
+                await self.agenraises(s_exc.AuthDeny, prox.history(0))
+                await self.asyncraises(s_exc.AuthDeny, prox.wants((asdfhash,)))
+                await self.asyncraises(s_exc.AuthDeny, prox.put(abuf))
+                await self.asyncraises(s_exc.AuthDeny, prox.puts((abuf,)))
+                await self.asyncraises(s_exc.AuthDeny, prox.upload())
+                await self.asyncraises(s_exc.AuthDeny, prox.metrics())
+                # now add rules and run the test suite
+                await user.addRule((True, ('axon', 'get',)))
+                await user.addRule((True, ('axon', 'has',)))
+                await user.addRule((True, ('axon', 'upload',)))
                 await self.runAxonTestBase(prox)
