@@ -110,6 +110,9 @@ commands:
       - store_artifacts:
           path: test-reports
 
+      - store_artifacts:
+          path: coverage.xml
+
   test_steps_osx:
     description: "OSX Test Steps"
     steps:
@@ -154,6 +157,9 @@ commands:
 
       - store_artifacts:
           path: test-reports
+
+      - store_artifacts:
+          path: coverage.xml
 
   deploy_to_pypi:
     description: "Publish packages to pypi"
