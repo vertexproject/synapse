@@ -167,8 +167,8 @@ class PsModule(s_module.CoreModule):
                     ('loc', ('loc', {}), {
                         'doc': 'Best known contact geopolitical location.'
                     }),
-                    ('address', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The free-form address listed for the contact',
+                    ('address', ('geo:address', {}), {
+                        'doc': 'The street address listed for the contact.',
                     }),
                     ('phone', ('tel:phone', {}), {
                         'doc': 'The main phone number for this contact',
