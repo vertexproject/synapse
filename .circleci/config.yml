@@ -374,53 +374,53 @@ workflows:
             branches:
               only: /.*/
 
-      - deploy_pypi:
-          requires:
-            - doctests
-            - python37
-          filters:
-            tags:
-              only: /^v(0\.1\.[0-9]+)$/
-            branches:
-              ignore: /.*/
-
-      - docker_branches:
-          requires:
-            - doctests
-            - python37
-          filters:
-            branches:
-              only:
-                - master
-
-      - docker_tags:
-          requires:
-            - doctests
-            - python37
-          filters:
-            tags:
-              only: /^v(0\.1\.[0-9]+)$/
-            branches:
-              ignore: /.*/
-
-      - docker_tags_01x:
-          requires:
-            - doctests
-            - python37
-          filters:
-            tags:
-              only: /^v0\.1\.[0-9.]+$/
-            branches:
-              ignore: /.*/
-
-  nightly:
-    triggers:
-      - schedule:
-          cron: "0 12 * * *"
-          filters:
-            branches:
-              only:
-                - master
-    jobs:
-      - doctests
-      - python37
+#      - deploy_pypi:
+#          requires:
+#            - doctests
+#            - python37
+#          filters:
+#            tags:
+#              only: /^v(0\.1\.[0-9]+)$/
+#            branches:
+#              ignore: /.*/
+#
+#      - docker_branches:
+#          requires:
+#            - doctests
+#            - python37
+#          filters:
+#            branches:
+#              only:
+#                - master
+#
+#      - docker_tags:
+#          requires:
+#            - doctests
+#            - python37
+#          filters:
+#            tags:
+#              only: /^v(0\.1\.[0-9]+)$/
+#            branches:
+#              ignore: /.*/
+#
+#      - docker_tags_01x:
+#          requires:
+#            - doctests
+#            - python37
+#          filters:
+#            tags:
+#              only: /^v0\.1\.[0-9.]+$/
+#            branches:
+#              ignore: /.*/
+#
+#  nightly:
+#    triggers:
+#      - schedule:
+#          cron: "0 12 * * *"
+#          filters:
+#            branches:
+#              only:
+#                - master
+#    jobs:
+#      - doctests
+#      - python37
