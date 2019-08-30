@@ -197,6 +197,16 @@ class CellApi(s_base.Base):
         await self._reqUserAllowed(*perm)
         return await self.cell.hive.pop(path)
 
+    async def saveHiveTree(self, path=()):
+        perm = ('hive:get',) + path
+        await self._reqUserAllowed(*perm)
+        return await self.cell.hive.saveHiveTree(path=path)
+
+    async def loadHiveTree(self, tree, path=(), trim=False):
+        perm = ('hive:set',) + path
+        await self._reqUserAllowed(*perm)
+        return await self.cell.hive.loadHiveTree(tree, path=path, trim=trim)
+
     @adminapi
     async def addAuthUser(self, name):
         user = await self.cell.auth.addUser(name)
@@ -567,9 +577,19 @@ class Cell(s_base.Base, s_telepath.Aware):
         if hurl is not None:
             return await s_hive.openurl(hurl)
 
+        isnew = not self.slab.dbexists('hive')
+
         db = self.slab.initdb('hive')
         hive = await s_hive.SlabHive.anit(self.slab, db=db)
         self.onfini(hive)
+
+        if isnew:
+            path = os.path.join(self.dirn, 'hiveboot.yaml')
+            if os.path.isfile(path):
+                tree = s_common.yamlload(path)
+                if tree is not None:
+                    await hive.loadHiveTree(tree)
+
         return hive
 
     async def _initCellSlab(self, readonly=False):

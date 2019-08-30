@@ -184,11 +184,6 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getModelDict()
 
-    def axon(self):
-        '''
-        '''
-        return s_axon.AxonApi.anit(self.cell.axon, self.link, self.user)
-
     def getCoreInfo(self):
         '''
         Return static generic information about the cortex including model definition
@@ -681,13 +676,20 @@ class Cortex(s_cell.Cell):
             'type': 'bool', 'defval': True,
             'doc': 'Enable cron jobs running.'
         }),
+
         ('dedicated', {
             'type': 'bool', 'defval': False,
             'doc': 'The cortex is free to use most of the resources of the system'
         }),
+
         ('layer:lmdb:map_async', {
             'type': 'bool', 'defval': False,
             'doc': 'Set the default lmdb:map_async value in LMDB layers.'
+        }),
+
+        ('axon', {
+            'type': 'str', 'defval': None,
+            'doc': 'A telepath URL for a remote axon.',
         }),
     )
 
@@ -724,6 +726,12 @@ class Cortex(s_cell.Cell):
         self.libroot = (None, {}, {})
         self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
 
+        self.axon = None  # type: s_axon.AxonApi
+        self.axready = asyncio.Event()
+
+        # generic fini handler for the Cortex
+        self.onfini(self._onCoreFini)
+
         # async inits
         await self._initCoreHive()
 
@@ -744,6 +752,7 @@ class Cortex(s_cell.Cell):
         await self._loadCoreMods(mods)
 
         # Initialize our storage and views
+        await self._initCoreAxon()
         await self._initCoreLayers()
         await self._checkLayerModels()
         await self._initCoreViews()
@@ -773,6 +782,13 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    async def _onCoreFini(self):
+        '''
+        Generic fini handler for cortex components which may change or vary at runtime.
+        '''
+        if self.axon:
+            await self.axon.fini()
 
     async def syncLayerSplices(self, iden, offs):
         '''
@@ -865,7 +881,8 @@ class Cortex(s_cell.Cell):
 
             except Exception:
                 logger.exception('error in initCoreMirror loop')
-                await asyncio.sleep(1)
+
+            await self.waitfini(1)
 
     async def _getWaitFor(self, name, valu):
         form = self.model.form(name)
@@ -874,6 +891,31 @@ class Cortex(s_cell.Cell):
     async def _initCoreHive(self):
         stormvars = await self.hive.open(('cortex', 'storm', 'vars'))
         self.stormvars = await stormvars.dict()
+
+    async def _initCoreAxon(self):
+        turl = self.conf.get('axon')
+        if turl is None:
+            path = os.path.join(self.dirn, 'axon')
+            self.axon = await s_axon.Axon.anit(path)
+            self.axon.onfini(self.axready.clear)
+            self.axready.set()
+            return
+
+        async def teleloop():
+            self.axready.clear()
+            while not self.isfini:
+                try:
+                    self.axon = await s_telepath.openurl(turl)
+                    self.axon.onfini(teleloop)
+                    self.axready.set()
+                    return
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    logger.warning('remote axon error: %r' % (e,))
+                await self.waitfini(1)
+
+        self.schedCoro(teleloop())
 
     def _initStormCmds(self):
         '''
@@ -903,6 +945,7 @@ class Cortex(s_cell.Cell):
         self.addStormLib(('str',), s_stormtypes.LibStr)
         self.addStormLib(('time',), s_stormtypes.LibTime)
         self.addStormLib(('user',), s_stormtypes.LibUser)
+        self.addStormLib(('bytes',), s_stormtypes.LibBytes)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
 

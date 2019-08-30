@@ -27,6 +27,7 @@ asdfretn = (8, asdfhash)
 emptyretn = (0, emptyhash)
 pennretn = (9, pennhash)
 rgryretn = (11, rgryhash)
+bbufretn = (len(bbuf), bbufhash)
 
 
 class AxonTest(s_t_utils.SynTest):
@@ -72,13 +73,21 @@ class AxonTest(s_t_utils.SynTest):
 
         async with await axon.upload() as fd:
             await fd.write(bbuf)
-            await fd.save()
+            self.eq(bbufretn, await fd.save())
 
         self.true(await axon.has(asdfhash))
         self.true(await axon.has(bbufhash))
         await self.check_blob(axon, bbufhash)
 
         self.eq((), await axon.wants((bbufhash, asdfhash)))
+
+        logger.info('put() / puts() tests')
+        # These don't add new data; but exercise apis to load data
+        retn = await axon.put(abuf)
+        self.eq(retn, asdfretn)
+
+        retn = await axon.puts([abuf, bbuf])
+        self.eq(retn, (asdfretn, bbufretn))
 
         logger.info('History and metrics')
 
