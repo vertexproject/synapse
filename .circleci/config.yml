@@ -99,6 +99,9 @@ commands:
             mkdir test-reports
             circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
+      - store_artifacts:
+          path: coverage.xml
+
       -  codecov/upload:
            file: /home/circleci/repo/coverage.xml
            upload_name: ${PYVERS}node${CIRCLE_NODE_INDEX}
@@ -109,9 +112,6 @@ commands:
 
       - store_artifacts:
           path: test-reports
-
-      - store_artifacts:
-          path: coverage.xml
 
   test_steps_osx:
     description: "OSX Test Steps"
