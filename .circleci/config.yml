@@ -98,6 +98,7 @@ commands:
             . venv/bin/activate
             mkdir test-reports
             circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
+            python -m coverage xml -i
 
       - store_artifacts:
           path: coverage.xml
@@ -289,7 +290,7 @@ jobs:
       xcode: "10.2.0"
 
     environment:
-      COVERAGE_ARGS: --cov synapse --no-cov-on-fail --cov-report=xml
+      COVERAGE_ARGS: --cov synapse --no-cov-on-fail
       PYVERS: 3.7
 
     working_directory: /Users/distiller/repo
@@ -302,7 +303,7 @@ jobs:
     docker:
       - image: circleci/python:3.7
         environment:
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail --cov-report=xml
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
           PYVERS: 3.7
           SYN_REGRESSION_REPO: ~/git/synapse-regression
 
@@ -352,19 +353,19 @@ workflows:
   version: 2
   run_tests:
     jobs:
-      - doctests:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only: /.*/
-
-      - osx37:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only: /.*/
+#      - doctests:
+#          filters:
+#            tags:
+#              only: /.*/
+#            branches:
+#              only: /.*/
+#
+#      - osx37:
+#          filters:
+#            tags:
+#              only: /.*/
+#            branches:
+#              only: /.*/
 
       - python37:
           filters:
