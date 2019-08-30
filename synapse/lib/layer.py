@@ -458,4 +458,13 @@ class Layer(s_base.Base):
         '''
         Bulk delete all instances of a form prop.
         '''
+
+    async def setNodeData(self, buid, name, item): # pragma: no cover
+        raise NotImplementedError
+
+    async def getNodeData(self, buid, name, defv=None): # pragma: no cover
+        raise NotImplementedError
+
+    async def iterNodeData(self, buid): # pragma: no cover
+        for x in (): yield x
         raise NotImplementedError

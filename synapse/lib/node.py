@@ -657,6 +657,19 @@ class Node:
 
         await self.form.wasDeleted(self)
 
+    async def getData(self, name):
+        return await self.snap.getNodeData(self.buid, name)
+
+    async def setData(self, name, valu):
+        return await self.snap.setNodeData(self.buid, name, valu)
+
+    async def popData(self, name):
+        return await self.snap.popNodeData(self.buid, name)
+
+    async def iterData(self):
+        async for item in self.snap.iterNodeData(self.buid):
+            yield item
+
 class Path:
     '''
     A path context tracked through the storm runtime.

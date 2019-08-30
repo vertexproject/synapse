@@ -47,6 +47,7 @@ class LmdbLayer(s_layer.Layer):
         await s_layer.Layer.__anit__(self, core, node)
 
         path = os.path.join(self.dirn, 'layer.lmdb')
+        datapath = os.path.join(self.dirn, 'nodedata.lmdb')
         splicepath = os.path.join(self.dirn, 'splices.lmdb')
 
         self.fresh = not os.path.exists(path)
@@ -74,6 +75,11 @@ class LmdbLayer(s_layer.Layer):
         self.spliceslab = await s_lmdbslab.Slab.anit(splicepath, max_dbs=128, map_size=mapsize, maxsize=maxsize,
                                                      growsize=growsize, writemap=True, readahead=readahead, map_async=map_async)
         self.onfini(self.spliceslab.fini)
+
+        self.dataslab = await s_lmdbslab.Slab.anit(datapath, map_async=True)
+        self.databyname = self.dataslab.initdb('byname')
+        self.databybuid = self.dataslab.initdb('bybuid')
+        self.onfini(self.dataslab.fini)
 
         metadb = self.layrslab.initdb('meta')
         self.metadict = s_lmdbslab.SlabDict(self.layrslab, metadb)
@@ -136,6 +142,34 @@ class LmdbLayer(s_layer.Layer):
             return None
 
         return byts.decode()
+
+    async def popNodeData(self, buid, name):
+        utf8 = name.encode()
+        self.dataslab.pop(utf8 + b'\x00' + buid, db=self.databyname)
+        byts = self.dataslab.pop(buid + utf8, db=self.databybuid)
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    async def setNodeData(self, buid, name, item):
+        utf8 = name.encode()
+        self.dataslab.put(utf8 + b'\x00' + buid, b'\x00', db=self.databyname)
+        self.dataslab.put(buid + utf8, s_msgpack.en(item), db=self.databybuid)
+
+    async def getNodeData(self, buid, name, defv=None):
+        byts = self.dataslab.get(buid + name.encode(), db=self.databybuid)
+        if byts is None:
+            return None
+        return s_msgpack.un(byts)
+
+    async def iterNodeData(self, buid):
+        for lkey, lval in self.dataslab.scanByPref(buid, db=self.databybuid):
+            yield lkey[32:].decode(), s_msgpack.un(lval)
+
+    def _wipeNodeData(self, buid):
+        for lkey, lval in self.dataslab.scanByPref(buid, db=self.databybuid):
+            name = lkey[32:]
+            self.dataslab.pop(name + b'\x00' + buid, db=self.databyname)
+            self.dataslab.pop(buid + name, db=self.databybuid)
 
     async def stor(self, sops, splices=None):
         '''
@@ -229,7 +263,7 @@ class LmdbLayer(s_layer.Layer):
 
         for lkey, lval in self.layrslab.scanByPref(buid, db=self.bybuid):
 
-            prop = lkey[32:].decode('utf8')
+            prop = lkey[32:].decode()
             valu, indx = s_msgpack.un(lval)
             props[prop] = valu
 
@@ -240,7 +274,7 @@ class LmdbLayer(s_layer.Layer):
     async def getNodeNdef(self, buid):
         for lkey, lval in self.layrslab.scanByPref(buid + b'*', db=self.bybuid):
             valu, indx = s_msgpack.un(lval)
-            return lkey[33:].decode('utf8'), valu
+            return lkey[33:].decode(), valu
 
     async def getFormIndx(self, buid):
         for lkey, lval in self.layrslab.scanByPref(buid + b'*', db=self.bybuid):
@@ -497,6 +531,8 @@ class LmdbLayer(s_layer.Layer):
             bpkey = buid + prop.encode()
         else:
             bpkey = buid + b'*' + form.encode()
+            # we are deleting the primary property. wipe data.
+            self._wipeNodeData(buid)
 
         univ = info.get('univ')
 
