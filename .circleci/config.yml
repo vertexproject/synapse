@@ -16,7 +16,7 @@ commands:
             # Use the codecov call from the codecov orb..
             curl -s https://codecov.io/bash | bash -s -- \
               -t "${CODECOV_TOKEN}" \
-              -n "${PYVERS}node${CIRCLE_NODE_INDEX}" \
+              -n "${CODECOV_PREFIX}${PYVERS}node${CIRCLE_NODE_INDEX}" \
               -F "${CODECOV_FLAG}" \
               -Z || echo 'Codecov upload failed'
 
@@ -281,9 +281,10 @@ jobs:
       xcode: "10.2.0"
 
     environment:
-      COVERAGE_ARGS: --cov synapse --no-cov-on-fail
       PYVERS: 3.7
       CODECOV_FLAG: osx
+      CODECOV_PREFIX: osx
+      COVERAGE_ARGS: --cov synapse --no-cov-on-fail
 
     working_directory: /Users/distiller/repo
 
@@ -295,10 +296,10 @@ jobs:
     docker:
       - image: circleci/python:3.7
         environment:
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
           PYVERS: 3.7
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
 
     working_directory: ~/repo
 
