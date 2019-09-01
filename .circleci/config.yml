@@ -98,10 +98,10 @@ commands:
             . venv/bin/activate
             mkdir test-reports
             circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
-            python -m coverage xml -i
+#            python -m coverage xml -i
 
       -  codecov/upload:
-           file: /home/circleci/repo/coverage.xml
+#           file: /home/circleci/repo/coverage.xml
            upload_name: ${PYVERS}node${CIRCLE_NODE_INDEX}
            flags: linux
 
@@ -348,19 +348,19 @@ workflows:
   version: 2
   run_tests:
     jobs:
-      - doctests:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only: /.*/
-
-      - osx37:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only: /.*/
+#      - doctests:
+#          filters:
+#            tags:
+#              only: /.*/
+#            branches:
+#              only: /.*/
+#
+#      - osx37:
+#          filters:
+#            tags:
+#              only: /.*/
+#            branches:
+#              only: /.*/
 
       - python37:
           filters:
@@ -368,54 +368,54 @@ workflows:
               only: /.*/
             branches:
               only: /.*/
-
-      - deploy_pypi:
-          requires:
-            - doctests
-            - python37
-          filters:
-            tags:
-              only: /^v(0\.1\.[0-9]+)$/
-            branches:
-              ignore: /.*/
-
-      - docker_branches:
-          requires:
-            - doctests
-            - python37
-          filters:
-            branches:
-              only:
-                - master
-
-      - docker_tags:
-          requires:
-            - doctests
-            - python37
-          filters:
-            tags:
-              only: /^v(0\.1\.[0-9]+)$/
-            branches:
-              ignore: /.*/
-
-      - docker_tags_01x:
-          requires:
-            - doctests
-            - python37
-          filters:
-            tags:
-              only: /^v0\.1\.[0-9.]+$/
-            branches:
-              ignore: /.*/
-
-  nightly:
-    triggers:
-      - schedule:
-          cron: "0 12 * * *"
-          filters:
-            branches:
-              only:
-                - master
-    jobs:
-      - doctests
-      - python37
+#
+#      - deploy_pypi:
+#          requires:
+#            - doctests
+#            - python37
+#          filters:
+#            tags:
+#              only: /^v(0\.1\.[0-9]+)$/
+#            branches:
+#              ignore: /.*/
+#
+#      - docker_branches:
+#          requires:
+#            - doctests
+#            - python37
+#          filters:
+#            branches:
+#              only:
+#                - master
+#
+#      - docker_tags:
+#          requires:
+#            - doctests
+#            - python37
+#          filters:
+#            tags:
+#              only: /^v(0\.1\.[0-9]+)$/
+#            branches:
+#              ignore: /.*/
+#
+#      - docker_tags_01x:
+#          requires:
+#            - doctests
+#            - python37
+#          filters:
+#            tags:
+#              only: /^v0\.1\.[0-9.]+$/
+#            branches:
+#              ignore: /.*/
+#
+#  nightly:
+#    triggers:
+#      - schedule:
+#          cron: "0 12 * * *"
+#          filters:
+#            branches:
+#              only:
+#                - master
+#    jobs:
+#      - doctests
+#      - python37
