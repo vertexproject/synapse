@@ -20,7 +20,7 @@ commands:
               -F "${CODECOV_FLAG}" \
               -Z || echo 'Codecov upload failed'
 
-  do_venv_setupt:
+  do_venv_setup:
     description: "Setup venv for testing"
     steps:
       - run:
