@@ -4,9 +4,6 @@
 #
 version: 2.1
 
-orbs:
-  codecov: codecov/codecov@1.0.5
-
 commands:
   test_steps_doc:
     description: "Documentation test steps"
@@ -98,12 +95,18 @@ commands:
             . venv/bin/activate
             mkdir test-reports
             circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
-#            python -m coverage xml -i
 
-      -  codecov/upload:
-#           file: /home/circleci/repo/coverage.xml
-           upload_name: ${PYVERS}node${CIRCLE_NODE_INDEX}
-           flags: linux
+      - run:
+          name: Upload Coverage Results
+          command: |
+            # Activate the venv so that codecov bash uploader finds coverage
+            . venv/bin/activate
+            # Use the codecov call from the codecov orb..
+            curl -s https://codecov.io/bash | bash -s -- \
+              -t "${CODECOV_TOKEN}" \
+              -n "${PYVERS}node${CIRCLE_NODE_INDEX}" \
+              -F "linux" \
+              -Z || echo 'Codecov upload failed'
 
       - store_test_results:
           path: test-reports
