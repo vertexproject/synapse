@@ -5,6 +5,21 @@
 version: 2.1
 
 commands:
+  do_report_coverage:
+    description: "Codecov report upload"
+    steps:
+      - run:
+          name: Upload Coverage Results
+          command: |
+            # Activate the venv so that codecov bash uploader finds coverage
+            . venv/bin/activate
+            # Use the codecov call from the codecov orb..
+            curl -s https://codecov.io/bash | bash -s -- \
+              -t "${CODECOV_TOKEN}" \
+              -n "${PYVERS}node${CIRCLE_NODE_INDEX}" \
+              -F "${CODECOV_FLAG}" \
+              -Z || echo 'Codecov upload failed'
+
   test_steps_doc:
     description: "Documentation test steps"
     steps:
@@ -96,17 +111,7 @@ commands:
             mkdir test-reports
             circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
-      - run:
-          name: Upload Coverage Results
-          command: |
-            # Activate the venv so that codecov bash uploader finds coverage
-            . venv/bin/activate
-            # Use the codecov call from the codecov orb..
-            curl -s https://codecov.io/bash | bash -s -- \
-              -t "${CODECOV_TOKEN}" \
-              -n "${PYVERS}node${CIRCLE_NODE_INDEX}" \
-              -F "linux" \
-              -Z || echo 'Codecov upload failed'
+      - do_report_coverage
 
       - store_test_results:
           path: test-reports
@@ -149,10 +154,7 @@ commands:
             circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
             python -m coverage xml -i
 
-      -  codecov/upload:
-           file: /Users/distiller/repo/coverage.xml
-           upload_name: osx${PYVERS}node${CIRCLE_NODE_INDEX}
-           flags: osx
+      - do_report_coverage
 
       - store_test_results:
           path: test-reports
@@ -290,6 +292,7 @@ jobs:
     environment:
       COVERAGE_ARGS: --cov synapse --no-cov-on-fail
       PYVERS: 3.7
+      CODECOV_FLAG: osx
 
     working_directory: /Users/distiller/repo
 
@@ -303,6 +306,7 @@ jobs:
         environment:
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
           PYVERS: 3.7
+          CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
 
     working_directory: ~/repo
@@ -351,19 +355,19 @@ workflows:
   version: 2
   run_tests:
     jobs:
-#      - doctests:
-#          filters:
-#            tags:
-#              only: /.*/
-#            branches:
-#              only: /.*/
-#
-#      - osx37:
-#          filters:
-#            tags:
-#              only: /.*/
-#            branches:
-#              only: /.*/
+      - doctests:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /.*/
+
+      - osx37:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /.*/
 
       - python37:
           filters:
@@ -371,54 +375,54 @@ workflows:
               only: /.*/
             branches:
               only: /.*/
-#
-#      - deploy_pypi:
-#          requires:
-#            - doctests
-#            - python37
-#          filters:
-#            tags:
-#              only: /^v(0\.1\.[0-9]+)$/
-#            branches:
-#              ignore: /.*/
-#
-#      - docker_branches:
-#          requires:
-#            - doctests
-#            - python37
-#          filters:
-#            branches:
-#              only:
-#                - master
-#
-#      - docker_tags:
-#          requires:
-#            - doctests
-#            - python37
-#          filters:
-#            tags:
-#              only: /^v(0\.1\.[0-9]+)$/
-#            branches:
-#              ignore: /.*/
-#
-#      - docker_tags_01x:
-#          requires:
-#            - doctests
-#            - python37
-#          filters:
-#            tags:
-#              only: /^v0\.1\.[0-9.]+$/
-#            branches:
-#              ignore: /.*/
-#
-#  nightly:
-#    triggers:
-#      - schedule:
-#          cron: "0 12 * * *"
-#          filters:
-#            branches:
-#              only:
-#                - master
-#    jobs:
-#      - doctests
-#      - python37
+
+      - deploy_pypi:
+          requires:
+            - doctests
+            - python37
+          filters:
+            tags:
+              only: /^v(0\.1\.[0-9]+)$/
+            branches:
+              ignore: /.*/
+
+      - docker_branches:
+          requires:
+            - doctests
+            - python37
+          filters:
+            branches:
+              only:
+                - master
+
+      - docker_tags:
+          requires:
+            - doctests
+            - python37
+          filters:
+            tags:
+              only: /^v(0\.1\.[0-9]+)$/
+            branches:
+              ignore: /.*/
+
+      - docker_tags_01x:
+          requires:
+            - doctests
+            - python37
+          filters:
+            tags:
+              only: /^v0\.1\.[0-9.]+$/
+            branches:
+              ignore: /.*/
+
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 12 * * *"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - doctests
+      - python37
