@@ -1,6 +1,7 @@
 import bz2
 import gzip
 import json
+import base64
 import datetime
 
 import synapse.exc as s_exc
@@ -233,6 +234,20 @@ class LibCsv(Lib):
         '''
         row = [toprim(a) for a in args]
         await self.runt.snap.fire('csv:row', row=row, table=table)
+
+class LibBase64(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'encode': self._encode,
+            'decode': self._decode
+        })
+
+    async def _encode(self, valu):
+        return base64.urlsafe_b64encode(valu).decode('ascii')
+
+    async def _decode(self, valu):
+        return base64.urlsafe_b64decode(valu)
 
 class Prim(StormType):
     '''

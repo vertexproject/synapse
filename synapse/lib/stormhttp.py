@@ -1,10 +1,7 @@
 import json
-import asyncio
-import gzip
 
 import aiohttp
 
-import synapse.common as s_common
 import synapse.lib.stormtypes as s_stormtypes
 
 class LibHttp(s_stormtypes.Lib):
@@ -15,7 +12,7 @@ class LibHttp(s_stormtypes.Lib):
     def addLibFuncs(self):
         self.locls.update({
             'get': self._httpEasyGet,
-            #'post':
+            'post': self._httpPost,
             #'session':
         })
 
@@ -25,6 +22,15 @@ class LibHttp(s_stormtypes.Lib):
                 info = {
                     'code': resp.status,
                     'body': await resp.content.read(),
+                }
+                return HttpResp(info)
+
+    async def _httpPost(self, url, headers=None, body=None):
+        async with aiohttp.ClientSession() as sess:
+            async with sess.post(url, headers=headers, data=body) as resp:
+                info = {
+                    'code': resp.status,
+                    'body': await resp.content.read()
                 }
                 return HttpResp(info)
 

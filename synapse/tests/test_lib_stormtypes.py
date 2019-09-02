@@ -2,6 +2,9 @@
 import bz2
 import gzip
 import json
+import base64
+import hashlib
+import binascii
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -10,7 +13,6 @@ import synapse.cortex as s_cortex
 import synapse.tests.utils as s_test
 
 from synapse.tests.utils import alist
-from synapse.lib.httpapi import Handler
 
 class StormTypesTest(s_test.SynTest):
 
@@ -732,3 +734,30 @@ class StormTypesTest(s_test.SynTest):
             bkey = s_common.uhex('2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
             byts = b''.join([b async for b in core.axon.get(bkey)])
             self.eq(b'asdfasdf', byts)
+
+    async def test_storm_lib_base64(self):
+
+        async with self.getTestCore() as core:
+
+            await core.axready.wait()
+
+            opts = {'vars': {'bytes': b'foobar'}}
+            text = '$valu = $lib.b64.encode($bytes) [ test:str=$valu ]'
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'Zm9vYmFy'))
+
+            opts = {'vars': {'bytes': 'Zm9vYmFy'}}
+            text = '$lib.bytes.put($lib.b64.decode($bytes))'
+            nodes = await core.nodes(text, opts)
+            key = binascii.unhexlify(hashlib.sha256(base64.urlsafe_b64decode(opts['vars']['bytes'])).hexdigest())
+            byts = b''.join([b async for b in core.axon.get(key)])
+            self.eq(byts, b'foobar')
+
+            # unhappy case
+            opts = {'vars': {'bytes': 'foobar'}}
+            text = '[test:str=$lib.b64.decode($bytes)]'
+            mesgs = await alist(core.streamstorm(text, opts=opts))
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            self.isin('Incorrect padding', errs[0][1].get('mesg'))
