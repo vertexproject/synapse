@@ -142,7 +142,6 @@ TAG: _TAGSEGNOVAR ("." (_TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGNOVAR: /\w+/
 
 // A comparison operator
-// https://regex101.com/r/l8hFq8/1
 CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*|\*[^=\s]*?=/
 
 _valu: NONQUOTEWORD | valulist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu
