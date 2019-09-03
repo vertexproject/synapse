@@ -149,7 +149,13 @@ class CortexTest(s_t_utils.SynTest):
                 modl = await core.getModelDict()
                 self.nn(modl['tagprops'].get('score'))
 
+                with self.raises(s_exc.DupPropName):
+                    await core.addTagProp('score', ('int', {}), {})
+
                 await core.delTagProp('score')
+
+                with self.raises(s_exc.NoSuchProp):
+                    await core.delTagProp('score')
 
                 modl = await core.getModelDict()
                 self.none(modl['tagprops'].get('score'))
@@ -3364,6 +3370,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadPropDef):
                     await core.addUnivProp('_woot', ('str', {'lower': True}), {'defval': 'asdf'})
 
+                with self.raises(s_exc.NoSuchForm):
+                    await core.addFormProp('inet:newp', '_visi', ('int', {}), {})
+
                 await core.addFormProp('inet:ipv4', '_visi', ('int', {}), {})
                 await core.addUnivProp('_woot', ('str', {'lower': True}), {})
 
@@ -3399,6 +3408,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core.delUnivProp('_woot')
 
+                with self.raises(s_exc.NoSuchUniv):
+                    await core.delUnivProp('_woot')
+
                 self.none(core.model.prop('._woot'))
                 self.none(core.model.prop('inet:ipv4._woot'))
                 self.none(core.model.form('inet:ipv4').prop('._woot'))
@@ -3408,6 +3420,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core.nodes('inet:ipv4:_visi [ -:_visi ]')
                 await core.delFormProp('inet:ipv4', '_visi')
+
+                with self.raises(s_exc.NoSuchProp):
+                    await core.delFormProp('inet:ipv4', '_visi')
 
                 self.none(core.model.prop('inet:ipv4._visi'))
                 self.none(core.model.form('inet:ipv4').prop('._visi'))

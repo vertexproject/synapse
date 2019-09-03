@@ -596,8 +596,7 @@ class Model:
         retn = {
             'types': {},
             'forms': {},
-            'tagprops': {
-            },
+            'tagprops': {},
         }
 
         for tobj in self.types.values():
