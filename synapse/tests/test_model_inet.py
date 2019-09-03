@@ -1135,6 +1135,25 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    async def test_url_mirror(self):
+        url0 = 'http://vertex.link'
+        url1 = 'http://vtx.lk'
+        opts = {'vars': {'url0': url0, 'url1': url1}}
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:url:mirror=($url0, $url1) ]', opts=opts)
+
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:url:mirror', (url0, url1)))
+            self.eq(nodes[0].get('at'), 'http://vtx.lk')
+            self.eq(nodes[0].get('of'), 'http://vertex.link')
+
+            with self.raises(s_exc.ReadOnlyProp):
+                nodes = await core.nodes('inet:url:mirror=($url0, $url1) [ :at=http://newp.com ]', opts=opts)
+
+            with self.raises(s_exc.ReadOnlyProp):
+                nodes = await core.nodes('inet:url:mirror=($url0, $url1) [ :of=http://newp.com ]', opts=opts)
+
     async def test_urlredir(self):
         formname = 'inet:urlredir'
         valu = ('https://vertex.link/idk', 'https://cool.vertex.link:443/something_else')
