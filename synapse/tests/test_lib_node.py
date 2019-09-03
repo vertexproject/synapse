@@ -18,21 +18,20 @@ class NodeTest(s_t_utils.SynTest):
 
             async with await core.snap() as snap:
 
-                await snap.storm('[ test:str=cool +#foo:score=10 ]').list()
-
                 node = await snap.addNode(form, valu, props=props)
+                await node.setTagProp('foo', 'score', 10)
 
                 iden, info = node.pack()
                 self.eq(iden, ('test:str', 'cool'))
                 self.eq(info.get('tags'), {'foo': (None, None)})
+                self.eq(info.get('tagprops'), {'foo': {'score': 10}})
                 props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
                 self.eq(props, {'tick': 12345})
-
-                self.eq(info['tagprops']['foo']['score'], 10)
 
                 iden, info = node.pack(dorepr=True)
                 self.eq(iden, ('test:str', 'cool'))
                 self.eq(info.get('tags'), {'foo': (None, None)})
+                # TODO - Add repr support for tagprops
                 props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
                 self.eq(props, {'tick': 12345})
                 self.eq(info.get('repr'), None)
