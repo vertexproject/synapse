@@ -126,10 +126,14 @@ class Node:
         Returns:
             (tuple): An (iden, info) node tuple.
         '''
+        tagprops = collections.defaultdict(dict)
+        [tagprops[tag].__setitem__(prop, valu) for (tag, prop), valu in self.tagprops.items()]
+
         node = (self.ndef, {
             'iden': self.iden(),
             'tags': self.tags,
             'props': self.props,
+            'tagprops': tagprops,
         })
 
         if dorepr:
