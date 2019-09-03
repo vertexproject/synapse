@@ -1064,6 +1064,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.false(s_grammar.isUnivName('test:str.haha.hehe'))
         self.true(s_grammar.isUnivName('.foo:x'))
         self.true(s_grammar.isUnivName('.x:foo'))
+        self.true(s_grammar.isUnivName('._haha'))
 
         self.true(s_grammar.isFormName('test:str'))
         self.true(s_grammar.isFormName('t2:str'))
@@ -1078,6 +1079,8 @@ class GrammarTest(s_t_utils.SynTest):
 
         self.true(s_grammar.isPropName('test:str'))
         self.true(s_grammar.isPropName('test:str:tick'))
+        self.true(s_grammar.isPropName('test:str:_tick'))
+        self.true(s_grammar.isPropName('_test:str:_tick'))
         self.true(s_grammar.isPropName('test:str:str123'))
         self.true(s_grammar.isPropName('test:str:123str'))
         self.true(s_grammar.isPropName('test:str:123:456'))
