@@ -1712,6 +1712,8 @@ class TagPropCond(Cond):
                 raise s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name)
 
             curv = node.getTagProp(tag, name)
+            if curv is None:
+                return False
             return ctor(valu)(curv)
 
         return cond

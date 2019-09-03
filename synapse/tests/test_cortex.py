@@ -64,103 +64,113 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_cortex_tagprop(self):
 
-        async with self.getTestCore() as core:
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
 
-            await core.addTagProp('user', ('str', {}), {})
-            await core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
+                await core.addTagProp('user', ('str', {}), {})
+                await core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
+                await core.addTagProp('at', ('geo:latlong', {}), {'doc': 'Where the node was when the tag was applied.'})
 
-            nodes = await core.nodes('[ test:int=10 +#foo.bar:score=20 ]')
-            nodes = await core.nodes('[ test:str=lulz +#blah:user=visi ]')
+                nodes = await core.nodes('[ test:int=10 +#foo.bar:score=20 ]')
+                nodes = await core.nodes('[ test:str=lulz +#blah:user=visi ]')
+                nodes = await core.nodes('[ test:str=wow +#hehe:at=(10, 20) ]')
 
-            # test all the syntax cases...
-            self.len(1, await core.nodes('#foo.bar'))
-            self.len(1, await core.nodes('#foo.bar:score'))
-            self.len(1, await core.nodes('#foo.bar:score=20'))
-            self.len(1, await core.nodes('#foo.bar:score<=30'))
-            self.len(1, await core.nodes('#foo.bar:score>=10'))
-            self.len(1, await core.nodes('#foo.bar:score*range=(10, 30)'))
+                # test all the syntax cases...
+                self.len(1, await core.nodes('#foo.bar'))
+                self.len(1, await core.nodes('#foo.bar:score'))
+                self.len(1, await core.nodes('#foo.bar:score=20'))
+                self.len(1, await core.nodes('#foo.bar:score<=30'))
+                self.len(1, await core.nodes('#foo.bar:score>=10'))
+                self.len(1, await core.nodes('#foo.bar:score*range=(10, 30)'))
 
-            self.len(1, await core.nodes('#blah:user^=vi'))
+                self.len(1, await core.nodes('#blah:user^=vi'))
 
-            self.len(1, await core.nodes('#:score'))
-            self.len(1, await core.nodes('#:score=20'))
-            self.len(1, await core.nodes('test:int#foo.bar:score'))
-            self.len(1, await core.nodes('test:int#foo.bar:score=20'))
+                self.len(1, await core.nodes('#:score'))
+                self.len(1, await core.nodes('#:score=20'))
+                self.len(1, await core.nodes('test:int#foo.bar:score'))
+                self.len(1, await core.nodes('test:int#foo.bar:score=20'))
 
-            self.len(1, await core.nodes('test:int +#foo.bar'))
-            self.len(1, await core.nodes('test:int +#foo.bar:score'))
-            self.len(1, await core.nodes('test:int +#foo.bar:score=20'))
-            #self.len(1, await core.nodes('test:int +#foo.bar:score?=20'))
-            self.len(1, await core.nodes('test:int +#foo.bar:score<=30'))
-            self.len(1, await core.nodes('test:int +#foo.bar:score>=10'))
-            self.len(1, await core.nodes('test:int +#foo.bar:score*range=(10, 30)'))
+                self.len(1, await core.nodes('test:int +#foo.bar'))
+                self.len(1, await core.nodes('test:int +#foo.bar:score'))
+                self.len(1, await core.nodes('test:int +#foo.bar:score=20'))
+                #self.len(1, await core.nodes('test:int +#foo.bar:score?=20'))
+                self.len(1, await core.nodes('test:int +#foo.bar:score<=30'))
+                self.len(1, await core.nodes('test:int +#foo.bar:score>=10'))
+                self.len(1, await core.nodes('test:int +#foo.bar:score*range=(10, 30)'))
 
-            self.len(0, await core.nodes('test:int -#foo.bar'))
-            self.len(0, await core.nodes('test:int -#foo.bar:score'))
-            self.len(0, await core.nodes('test:int -#foo.bar:score=20'))
-            #self.len(0, await core.nodes('test:int -#foo.bar:score?=20'))
-            self.len(0, await core.nodes('test:int -#foo.bar:score<=30'))
-            self.len(0, await core.nodes('test:int -#foo.bar:score>=10'))
-            self.len(0, await core.nodes('test:int -#foo.bar:score*range=(10, 30)'))
+                self.len(0, await core.nodes('test:int -#foo.bar'))
+                self.len(0, await core.nodes('test:int -#foo.bar:score'))
+                self.len(0, await core.nodes('test:int -#foo.bar:score=20'))
+                self.len(0, await core.nodes('test:int -#foo.bar:score<=30'))
+                self.len(0, await core.nodes('test:int -#foo.bar:score>=10'))
+                self.len(0, await core.nodes('test:int -#foo.bar:score*range=(10, 30)'))
 
-            # test use as a value...
-            self.len(1, await core.nodes('test:int $valu=#foo.bar:score [ +#foo.bar:score = $($valu + 20) ] +#foo.bar:score=40'))
+                self.len(1, await core.nodes('test:str +#hehe:at*near=((10, 20), 1km)'))
 
-            with self.raises(s_exc.CantDelProp):
+                # test use as a value...
+                self.len(1, await core.nodes('test:int $valu=#foo.bar:score [ +#foo.bar:score = $($valu + 20) ] +#foo.bar:score=40'))
+
+                with self.raises(s_exc.CantDelProp):
+                    await core.delTagProp('score')
+
+                with self.raises(s_exc.BadPropValu):
+                    self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score=asdf ]'))
+
+                self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score?=asdf ] +#foo.bar:score=40'))
+
+                # test the "set existing" cases for lift indexes
+                self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score=100 ]'))
+                self.len(1, await core.nodes('#foo.bar'))
+                self.len(1, await core.nodes('#foo.bar:score'))
+                self.len(1, await core.nodes('#foo.bar:score=100'))
+                self.len(1, await core.nodes('#foo.bar:score<=110'))
+                self.len(1, await core.nodes('#foo.bar:score>=90'))
+                self.len(1, await core.nodes('#foo.bar:score*range=(90, 110)'))
+
+                # test that removing it explicitly behaves as intended
+                nodes = await core.nodes('test:int=10 [ -#foo.bar ]')
+                self.len(0, await core.nodes('#foo.bar:score'))
+                self.len(0, await core.nodes('#foo.bar:score=100'))
+                self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
+
+                # add it back in to remove by whole tag...
+                nodes = await core.nodes('test:int=10 [ +#foo.bar:score=100 ]')
+                self.len(1, await core.nodes('#foo.bar:score=100'))
+
+                # test that removing the tag removes all props indexes
+                nodes = await core.nodes('test:int=10 [ -#foo.bar ]')
+                self.len(0, await core.nodes('#foo.bar:score'))
+                self.len(0, await core.nodes('#foo.bar:score=100'))
+                self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
+
+                with self.raises(s_exc.NoSuchCmpr):
+                    await core.nodes('test:int=10 +#foo.bar:score*newp=66')
+
+                modl = await core.getModelDict()
+                self.nn(modl['tagprops'].get('score'))
+
                 await core.delTagProp('score')
 
-            with self.raises(s_exc.BadPropValu):
-                self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score=asdf ]'))
+                modl = await core.getModelDict()
+                self.none(modl['tagprops'].get('score'))
 
-            self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score?=asdf ] +#foo.bar:score=40'))
+                with self.raises(s_exc.NoSuchTagProp):
+                    await core.nodes('#foo.bar:score')
 
-            # test the "set existing" cases for lift indexes
-            self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score=100 ]'))
-            self.len(1, await core.nodes('#foo.bar'))
-            self.len(1, await core.nodes('#foo.bar:score'))
-            self.len(1, await core.nodes('#foo.bar:score=100'))
-            self.len(1, await core.nodes('#foo.bar:score<=110'))
-            self.len(1, await core.nodes('#foo.bar:score>=90'))
-            self.len(1, await core.nodes('#foo.bar:score*range=(90, 110)'))
+                with self.raises(s_exc.NoSuchTagProp):
+                    await core.nodes('test:int=10 [ +#foo.bar:score=66 ]')
 
-            # test that removing it explicitly behaves as intended
-            nodes = await core.nodes('test:int=10 [ -#foo.bar ]')
-            self.len(0, await core.nodes('#foo.bar:score'))
-            self.len(0, await core.nodes('#foo.bar:score=100'))
-            self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
+                with self.raises(s_exc.NoSuchTagProp):
+                    await core.nodes('test:int=10 +#foo.bar:score=66')
 
-            # add it back in to remove by whole tag...
-            nodes = await core.nodes('test:int=10 [ +#foo.bar:score=100 ]')
-            self.len(1, await core.nodes('#foo.bar:score=100'))
+                with self.raises(s_exc.NoSuchType):
+                    await core.addTagProp('derp', ('derp', {}), {})
 
-            # test that removing the tag removes all props indexes
-            nodes = await core.nodes('test:int=10 [ -#foo.bar ]')
-            self.len(0, await core.nodes('#foo.bar:score'))
-            self.len(0, await core.nodes('#foo.bar:score=100'))
-            self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
-
-            with self.raises(s_exc.NoSuchCmpr):
-                await core.nodes('test:int=10 +#foo.bar:score*newp=66')
-
-            modl = await core.getModelDict()
-            self.nn(modl['tagprops'].get('score'))
-
-            await core.delTagProp('score')
-
-            modl = await core.getModelDict()
-            self.none(modl['tagprops'].get('score'))
-
-            with self.raises(s_exc.NoSuchTagProp):
-                await core.nodes('#foo.bar:score')
-
-            with self.raises(s_exc.NoSuchTagProp):
-                await core.nodes('test:int=10 [ +#foo.bar:score=66 ]')
-
-            with self.raises(s_exc.NoSuchTagProp):
-                await core.nodes('test:int=10 +#foo.bar:score=66')
-
-            with self.raises(s_exc.NoSuchType):
-                await core.addTagProp('derp', ('derp', {}), {})
+            # Ensure that the tagprops persist
+            async with self.getTestCore(dirn=dirn) as core:
+                # Ensure we can still work with a tagprop, after restart, that was
+                # defined with a type that came from a CoreModule model definition.
+                self.len(1, await core.nodes('test:str +#hehe:at*near=((10, 20), 1km)'))
 
     async def test_cortex_prop_pivot(self):
 

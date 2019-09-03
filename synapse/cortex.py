@@ -839,7 +839,7 @@ class Cortex(s_cell.Cell):
         for form, prop, tdef, info in self.extprops.values():
             try:
                 self.model.addFormProp(form, prop, tdef, info)
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError as e:  # pragma: no cover
                 raise
             except Exception as e:
                 logger.warning(f'ext prop ({form}:{prop}) error: {e}')
@@ -847,18 +847,18 @@ class Cortex(s_cell.Cell):
         for prop, tdef, info in self.extunivs.values():
             try:
                 self.model.addUnivProp(prop, tdef, info)
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError as e:  # pragma: no cover
                 raise
             except Exception as e:
-                logger.warning(f'ext univ ({name}) error: {e}')
+                logger.warning(f'ext univ ({prop}) error: {e}')
 
         for prop, tdef, info in self.exttagprops.values():
             try:
                 self.model.addTagProp(prop, tdef, info)
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError as e:  # pragma: no cover
                 raise
             except Exception as e:
-                logger.warning(f'ext tag prop ({name}) error: {e}')
+                logger.warning(f'ext tag prop ({prop}) error: {e}')
 
     async def addUnivProp(self, name, tdef, info):
 
