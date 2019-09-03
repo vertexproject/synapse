@@ -742,13 +742,13 @@ class StormTypesTest(s_test.SynTest):
             await core.axready.wait()
 
             opts = {'vars': {'bytes': b'foobar'}}
-            text = '$valu = $lib.b64.encode($bytes) [ test:str=$valu ]'
+            text = '$valu = $lib.base64.encode($bytes) [ test:str=$valu ]'
             nodes = await core.nodes(text, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'Zm9vYmFy'))
 
             opts = {'vars': {'bytes': 'Zm9vYmFy'}}
-            text = '$lib.bytes.put($lib.b64.decode($bytes))'
+            text = '$lib.bytes.put($lib.base64.decode($bytes))'
             nodes = await core.nodes(text, opts)
             key = binascii.unhexlify(hashlib.sha256(base64.urlsafe_b64decode(opts['vars']['bytes'])).hexdigest())
             byts = b''.join([b async for b in core.axon.get(key)])
@@ -756,7 +756,7 @@ class StormTypesTest(s_test.SynTest):
 
             # unhappy case
             opts = {'vars': {'bytes': 'foobar'}}
-            text = '[test:str=$lib.b64.decode($bytes)]'
+            text = '[test:str=$lib.base64.decode($bytes)]'
             mesgs = await alist(core.streamstorm(text, opts=opts))
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)

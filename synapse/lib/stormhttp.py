@@ -25,9 +25,9 @@ class LibHttp(s_stormtypes.Lib):
                 }
                 return HttpResp(info)
 
-    async def _httpPost(self, url, headers=None, body=None):
+    async def _httpPost(self, url, headers=None, json=None, body=None):
         async with aiohttp.ClientSession() as sess:
-            async with sess.post(url, headers=headers, data=body) as resp:
+            async with sess.post(url, headers=headers, json=json, data=body) as resp:
                 info = {
                     'code': resp.status,
                     'body': await resp.content.read()

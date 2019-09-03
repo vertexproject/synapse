@@ -30,11 +30,10 @@ class StormHttpTest(s_test.SynTest):
 
             adduser = '''
                 $url = $lib.str.format("http://127.0.0.1:{port}/api/v1/auth/adduser", port=$port)
-                $user = $lib.str.format('{"name": "{name}", "passwd": "{passwd}"}', name=$name, passwd=$passwd)
-
-                $user = $lib.inet.http.post($url, body=$user).json().result.name
-                $lib.print($user)
-                [ test:str=$user ]
+                $user = $lib.dict(name=$name, passwd=$passwd)
+                $post = $lib.inet.http.post($url, json=$user).json().result.name
+                $lib.print($post)
+                [ test:str=$post ]
             '''
             opts = {'vars': {'port': port, 'name': user, 'passwd': passwd}}
             nodes = await core.storm(adduser, opts=opts).list()
@@ -47,14 +46,13 @@ class StormHttpTest(s_test.SynTest):
 
             core.insecure = True
             addr, port = await core.addHttpPort(0)
-            json = '{"query": "{query}"}'
             text = '''
             $url = $lib.str.format("http://127.0.0.1:{port}/api/v1/storm", port=$port)
-            $stormq = "($size, $sha2) = $lib.bytes.put($lib.b64.decode('dmVydGV4')) [ test:str = $sha2 ] [ test:int = $size ]"
-            $query = $lib.str.format($json, query=$stormq)
-            $bytez = $lib.inet.http.post($url, body=$query)
+            $stormq = "($size, $sha2) = $lib.bytes.put($lib.base64.decode('dmVydGV4')) [ test:str = $sha2 ] [ test:int = $size ]"
+            $json = $lib.dict(query=$stormq)
+            $bytez = $lib.inet.http.post($url, json=$json)
             '''
-            opts = {'vars': {'port': port, 'json': json}}
+            opts = {'vars': {'port': port}}
             nodes = await core.storm(text, opts=opts).list()
             nodes = await core.nodes('test:str')
             self.len(1, nodes)
@@ -63,3 +61,14 @@ class StormHttpTest(s_test.SynTest):
             nodes = await core.nodes('test:int')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 6))
+
+            text = '''
+            $url = $lib.str.format("http://127.0.0.1:{port}/api/v1/storm", port=$port)
+            $json = $lib.dict(query="test:str")
+            $body = $json
+            $json=$lib.inet.http.post($url, json=$json, body=$body)
+            '''
+            mesgs = await s_test.alist(core.streamstorm(text, opts=opts))
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            self.isin('data and json parameters can not be used at the same time', errs[0][1].get('mesg'))
