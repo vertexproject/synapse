@@ -26,7 +26,6 @@ class StormHttpTest(s_test.SynTest):
         async with self.getTestCore() as core:
             core.insecure = True
             addr, port = await core.addHttpPort(0)
-            user, passwd = 'foo', 'bar'
 
             adduser = '''
                 $url = $lib.str.format("http://127.0.0.1:{port}/api/v1/auth/adduser", port=$port)
@@ -35,10 +34,22 @@ class StormHttpTest(s_test.SynTest):
                 $lib.print($post)
                 [ test:str=$post ]
             '''
-            opts = {'vars': {'port': port, 'name': user, 'passwd': passwd}}
+            opts = {'vars': {'port': port, 'name': 'foo', 'passwd': 'bar'}}
             nodes = await core.storm(adduser, opts=opts).list()
             self.len(1, nodes)
-            self.assertIn(user, [u.name for u in core.auth.users()])
+            self.assertIn('foo', [u.name for u in core.auth.users()])
+
+            adduser = '''
+                $url = $lib.str.format("http://127.0.0.1:{port}/api/v1/auth/adduser", port=$port)
+                $user = $lib.str.format('{"name": "{name}", "passwd": "{passwd}"}', name=$name, passwd=$passwd)
+                $header = $lib.dict("Content-Type"="application/json")
+                $post = $lib.inet.http.post($url, headers=$header, body=$user).json().result.name
+                [ test:str=$post ]
+            '''
+            opts = {'vars': {'port': port, 'name': 'vertex', 'passwd': 'project'}}
+            nodes = await core.storm(adduser, opts=opts).list()
+            self.len(1, nodes)
+            self.assertIn('vertex', [u.name for u in core.auth.users()])
 
     async def test_storm_http_post_file(self):
 
