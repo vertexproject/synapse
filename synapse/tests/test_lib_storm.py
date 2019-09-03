@@ -399,19 +399,16 @@ class StormTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.BadSyntax,
                                   core.eval('test:guid | min test:newp'))
 
-    async def test_storm_maxbug(self):
-        async with self.getTestCore() as core:
-
-            minval = core.model.type('time').norm('2015')[0]
-            midval = core.model.type('time').norm('2016')[0]
-            maxval = core.model.type('time').norm('2017')[0]
-
+            # Ensure that max evaluates ival properties as the upper bound.
             async with await core.snap() as snap:
                 node = await snap.addNode('test:guid', '*', {'tick': '2015',
                                                              '.seen': (minval, maxval)})
+                await node.addTag('maxtest')
                 node = await snap.addNode('test:guid', '*', {'tick': '2016',
                                                              '.seen': (midval, midval + 1)})
-            nodes = await core.eval('test:guid ($tick, $tock) = .seen | max $tick').list()
+                await node.addTag('maxtest')
+
+            nodes = await core.eval('#maxtest | max .seen').list()
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), minval)
 
