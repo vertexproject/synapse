@@ -8,12 +8,69 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.ast as s_ast
+import synapse.lib.base as s_base
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.scope as s_scope
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
+
+class StormDmon(s_base.Base):
+
+    async def __anit__(self, core, iden, ddef):
+
+        await s_base.Base.__anit__(self)
+
+        self.core = core
+        self.iden = iden
+        self.ddef = ddef
+
+        self.task = None
+        self.user = core.auth.user(ddef.get('user'))
+
+        async def fini():
+            if self.task is not None:
+                await self.task.cancel()
+
+        self.onfini(fini)
+
+    async def run(self):
+        self.task = self.schedCoro(self._run())
+
+    async def _run(self):
+
+        name = self.ddef.get('name', 'storm dmon')
+
+        await self.core.boss.promote('storm:dmon', user=self.user, info={'iden': self.iden, 'name': name})
+
+        s_scope.set('storm:dmon', self.iden)
+
+        text = self.ddef.get('storm')
+        opts = self.ddef.get('stormopts')
+
+        while not self.isfini:
+
+            try:
+
+                async with await self.snap(user=user) as snap:
+
+                    async for nodepath in snap.storm(text, opts=opts, user=user):
+                        # all storm tasks yield often to prevent latency
+                        await asyncio.sleep(0)
+
+                # if the generator exits cleanly and the dmon is "once" we're done
+                if self.ddef.get('once'):
+                    logger.warning(f'dmon done: {self.iden}')
+                    await self.core.delStormDmon(self.iden)
+
+            except asyncio.CancelledError as e:
+                raise
+
+            except Exception as e:
+                logger.warning(f'dmon error ({self.iden}): {e}')
+                await asyncio.sleep(1)
 
 class Runtime:
     '''

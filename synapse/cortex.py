@@ -21,6 +21,7 @@ import synapse.lib.hive as s_hive
 import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
+import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
 import synapse.lib.dyndeps as s_dyndeps
@@ -788,6 +789,24 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+        await self._initStormDmons()
+
+    async def _initStormDmons(self):
+
+        node = await self.hive.open(('cortex', 'storm', 'dmons'))
+
+        self.stormdmons = {}
+        self.stormdmonhive = await node.dict()
+
+        for iden, ddef in self.stormdmonhive.items():
+            try:
+                await self.runStormDmon(iden, ddef)
+
+            except asyncio.CancelledError as e: # pragma: no cover
+                raise
+
+            except Exception as e:
+                logger.warning(f'initStormDmon ({iden}) failed: {e}')
 
     async def setStormCmd(self, cdef):
         '''
@@ -1009,6 +1028,7 @@ class Cortex(s_cell.Cell):
         '''
         self.addStormLib(('csv',), s_stormtypes.LibCsv)
         self.addStormLib(('str',), s_stormtypes.LibStr)
+        self.addStormLib(('dmon',), s_stormtypes.LibDmon)
         self.addStormLib(('time',), s_stormtypes.LibTime)
         self.addStormLib(('user',), s_stormtypes.LibUser)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
@@ -1481,8 +1501,116 @@ class Cortex(s_cell.Cell):
 
         self.stormcmds[ctor.name] = ctor
 
+    async def addStormDmon(self, ddef):
+        '''
+        Add a storm dmon task.
+        '''
+        iden = s_common.guid()
+        await self.runStormDmon(iden, ddef)
+        await self.stormdmonhive.set(iden, ddef)
+
+    async def delStormDmon(self, iden):
+        '''
+        Stop and remove a storm dmon.
+        '''
+        await self.stormdmonhive.pop(iden)
+
+    async def runStormTask(self, text, opts=None, user=None):
+        '''
+        Execute a storm query as a background task.
+        '''
+        return self.schedCoro(self._runStormTask(text, opts=opts, user=user))
+
+    async def _runStormTask(self, text, opts=None, user=None):
+
+        if user is None:
+            user = self.auth.getUserByName('root')
+
+        await self.boss.promote('storm:task', user=user, info={'query': text})
+
+        try:
+
+            async with await self.snap(user=user) as snap:
+
+                async for nodepath in snap.storm(text, opts=opts, user=user):
+                    # all storm tasks yield often to prevent latency
+                    await asyncio.sleep(0)
+
+        except asyncio.CancelledError as e:
+            raise
+
+        except Exception as e:
+            logger.warning(f'storm task error: {e}')
+
     def getStormCmd(self, name):
         return self.stormcmds.get(name)
+
+    async def runStormDmon(self, iden, ddef):
+
+        # validate ddef before firing task
+        uidn = ddef.get('user')
+
+        user = self.auth.user(uidn)
+        if user is None:
+            mesg = f'No user with iden {uidn}.'
+            raise s_exc.NoSuchUser(iden=uidn, mesg=mesg)
+
+        # raises if parser failure
+        self.getStormQuery(ddef.get('storm'))
+
+        await self._initStormDmon(iden, ddef)
+
+        #self.schedCoro(self._runStormDmon(iden, ddef, user))
+
+    async def _initStormDmon(self, iden, ddef):
+
+        dmon = await s_storm.StormDmon.anit(self, iden, ddef)
+
+        self.stormdmons[iden] = dmon
+        def fini():
+            self.stormdmons.pop(iden, None)
+
+        dmon.onfini(fini)
+        await dmon.run()
+
+    async def getStormDmon(self, iden):
+        return self.stormdmons.get(iden)
+
+    async def getStormDmons(self):
+        return list(self.stormdmons.values())
+
+    #async def _runStormDmon(self, iden, ddef, user):
+
+        #name = ddef.get('name', 'storm dmon')
+
+        #await self.boss.promote('storm:dmon', user=user, info={'iden': iden, 'name': name})
+
+        #s_scope.set('storm:dmon', iden)
+
+        #text = ddef.get('storm')
+        #opts = ddef.get('stormopts')
+
+        #while not self.isfini:
+
+            #try:
+
+                #async with await self.snap(user=user) as snap:
+
+                    #async for nodepath in snap.storm(text, opts=opts, user=user):
+                        ## all storm tasks yield often to prevent latency
+                        #await asyncio.sleep(0)
+
+                # if the generator exits cleanly and the dmon is "once" we're done
+                #if ddef.get('once'):
+                    #logger.warning(f'dmon done: {iden}')
+                    #await self.delStormDmon(iden)
+
+            ##except asyncio.CancelledError as e:
+                #raise
+
+            #except Exception as e:
+                #logger.warning(f'dmon error ({iden}): {e}')
+                #await asyncio.sleep(1)
 
     def addStormLib(self, path, ctor):
 

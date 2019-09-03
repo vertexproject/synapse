@@ -1675,6 +1675,20 @@ class RunValue(CompValue):
     def isRuntSafe(self, runt):
         return all(k.isRuntSafe(runt) for k in self.kids)
 
+class EmbedQuery(RunValue):
+
+    def __init__(self, text, kids=()):
+        AstNode.__init__(self, kids=kids)
+        self.text = text
+
+    async def runtval(self, runt):
+        opts = {'vars': dict(runt.vars)}
+        return s_stormtypes.Query(self.text, opts)
+
+    async def compute(self, path):
+        opts = {'vars': dict(path.vars)}
+        return s_stormtypes.Query(self.text, opts)
+
 class Value(RunValue):
 
     '''

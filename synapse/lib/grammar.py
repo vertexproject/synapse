@@ -122,6 +122,23 @@ class AstConverter(lark.Transformer):
         ast.text = self.text[meta.start_pos:meta.end_pos]
         return ast
 
+    @lark.v_args(meta=True)
+    def query(self, kids, meta):
+        kids = self._convert_children(kids)
+
+        text = self.text[meta.start_pos:meta.end_pos]
+        quer = s_ast.Query(kids=kids)
+        quer.text = text
+
+        return quer
+
+    @lark.v_args(meta=True)
+    def embedquery(self, kids, meta):
+        assert len(kids) == 1
+        text = kids[0].text
+        ast = s_ast.EmbedQuery(text, kids)
+        return ast
+
     def funccall(self, kids):
         kids = self._convert_children(kids)
         arglist = [k for k in kids[1:] if not isinstance(k, s_ast.CallKwarg)]
@@ -444,6 +461,7 @@ ruleClassMap = {
     'exprsum': s_ast.ExprNode,
     'filtoper': s_ast.FiltOper,
     'forloop': s_ast.ForLoop,
+    #'yieldvalu': s_ast.YieldValu,
     'whileloop': s_ast.WhileLoop,
     'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),
     'formjoin_pivotout': lambda _: s_ast.PivotOut(isjoin=True),
@@ -467,7 +485,6 @@ ruleClassMap = {
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
-    'query': s_ast.Query,
     'relprop': s_ast.RelProp,
     'relpropcond': s_ast.RelPropCond,
     'relpropvalu': s_ast.RelPropValue,

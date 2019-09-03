@@ -1,6 +1,7 @@
 import bz2
 import gzip
 import json
+import asyncio
 import datetime
 
 import synapse.exc as s_exc
@@ -10,6 +11,8 @@ import synapse.telepath as s_telepath
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
+import synapse.lib.scope as s_scope
+import synapse.lib.msgpack as s_msgpack
 
 def intify(x):
     if isinstance(x, str):
@@ -73,6 +76,43 @@ class Lib(StormType):
 
         ctor = slib[2].get('ctor', Lib)
         return ctor(self.runt, name=path)
+
+#class LibTask(Lib):
+    #def addLibFuncs(self):
+        #self.locls.update({
+            #'addStormDmon': self._libTaskDmon,
+        #})
+
+class LibDmon(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'add': self._libDmonAdd,
+            #'exit': self._libDmonExit,
+        })
+
+    async def _libDmonAdd(self, quer, once=True):
+
+        self.runt.allowed('storm', 'lib', 'dmon', 'add')
+
+        # closure style capture of runtime
+        runtvars = {k: v for (k, v) in self.runt.vars.items() if s_msgpack.isok(v)}
+
+        opts = {'vars': runtvars}
+
+        ddef = {
+            'once': once,
+            'user': self.runt.user.iden,
+
+            'storm': str(quer),
+            'stormopts': opts,
+        }
+
+        return await self.runt.snap.core.addStormDmon(ddef)
+
+    async def _libDmonExit(self):
+        iden = s_scope.get('storm:dmon')
+        print('DMON EXIT: %r' % (scope,))
 
 class LibBase(Lib):
 
@@ -173,6 +213,8 @@ class LibTime(Lib):
         self.locls.update({
             'fromunix': self.fromunix,
             'parse': self.parse,
+            'sleep': self.sleep,
+            'ticker': self.ticker,
         })
 
     # TODO from other iso formats!
@@ -188,6 +230,28 @@ class LibTime(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu,
                                           format=format) from None
         return int((dt - s_time.EPOCH).total_seconds() * 1000)
+
+    async def sleep(self, valu):
+        '''
+        Sleep/yield execution of the storm query.
+        '''
+        await asyncio.sleep(float(valu))
+
+    async def ticker(self, tick, count=None):
+
+        if count is not None:
+            count = intify(count)
+
+        tick = float(tick)
+
+        offs = 0
+        while True:
+            await asyncio.sleep(tick)
+            yield offs
+
+            offs += 1
+            if count is not None and offs == count:
+                break
 
     async def fromunix(self, secs):
         '''
@@ -492,6 +556,23 @@ class LibGlobals(Lib):
             else:
                 ret.append((key, valu))
         return ret
+
+class Query(StormType):
+    '''
+    A storm primitive representing an embedded query.
+    '''
+    def __init__(self, text, opts, path=None):
+
+        StormType.__init__(self, path=path)
+
+        self.text = text
+        self.opts = opts
+
+        self.locls.update({
+        })
+
+    def __str__(self):
+        return self.text
 
 class Node(Prim):
     '''

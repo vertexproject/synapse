@@ -3218,3 +3218,34 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore(conf=conf) as core:
             layr = core.view.layers[0]
             self.true(layr.lockmemory)
+
+    async def test_cortex_storm_task(self):
+        async with self.getTestCore() as core:
+
+            task = await core.runStormTask('[ inet:ipv4=1.2.3.4 +#hehe ]')
+
+            await task
+
+            self.len(1, await core.nodes('#hehe'))
+
+            task = await core.runStormTask('for $offs in $lib.time.ticker(0.01, count=3) { [ test:int=$offs  +#haha ] }')
+
+            await task
+
+            self.len(3, await core.nodes('#haha'))
+
+    async def test_cortex_storm_lib_dmon(self):
+        async with self.getTestCore() as core:
+            await core.nodes('''
+                $ipv4 = 1.2.3.4
+
+                $query = ${
+                    [ inet:ipv4=$ipv4 ]
+                }
+
+                $lib.dmon.add($query)
+            ''')
+            print(repr(await core.getStormDmons()))
+            await asyncio.sleep(0.2)
+            self.len(1, await core.nodes('inet:ipv4'))
+            print(repr(await core.getStormDmons()))
