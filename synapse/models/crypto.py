@@ -14,6 +14,22 @@ class CryptoModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
             'types': (
+
+                ('crypto:x509:cert', ('guid', {}), {
+                }),
+
+                ('crypto:x509:san', (???), {
+                }),
+
+                ('crypto:x509:crl', ('guid', {}), {
+                }),
+
+                ('crypto:x509:revoked', ('comp', 'fields': (('crl', 'crypto:x509:crl'), ('cert', 'crypto:x509:cert'))), {
+                }),
+
+                ('crypto:x509:signedfile', ???
+                }),
+
                 ('hash:md5', ('hex', {'size': 32}), {
                     'doc': 'A hex encodeded MD5 hash',
                     'ex': ex_md5
@@ -65,7 +81,32 @@ class CryptoModule(s_module.CoreModule):
                      {'doc': 'One of the two private primes.'}),
                     ('priv:q', ('hex', {}),
                      {'doc': 'One of the two private primes.'}),
-                ))
+                )),
+
+                ('crypto:x509:cert', {}, (
+                    ('subject',
+                    ('subject:cn', ('str', {}), {
+                        # specify to the model that this field *may* contain the following types
+                        'pivots': ('inet:fqdn', 'inet:email')
+                    ),
+
+                    ('md5', 
+                    ('sha1', 
+                    ('sha256', 
+
+                    ('algo',
+                    ('keytype'
+                    ('modulus',
+                    ('signature', 
+
+                    ('ext:auth:keyid',
+                    ('ext:subj:keyid',
+                    ('ext:usage',
+                    ('ext:keyusage',
+                    ('ext:crl:paths',
+                    # TODO more of these
+                    ('ext:cons:is_ca',
+                )),
             )
         }
         name = 'crypto'
