@@ -24,6 +24,10 @@ class HiveTest(s_test.SynTest):
                     self.none(await hivedict.set('hehe', 200))
                     self.none(await hivedict.set('haha', 'hoho'))
 
+                    valus = list(hivedict.values())
+                    self.len(2, valus)
+                    self.eq(set(valus), {200, 'hoho'})
+
                     data = {}
 
                     async def onSetHehe(valu):
