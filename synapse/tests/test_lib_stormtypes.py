@@ -741,18 +741,33 @@ class StormTypesTest(s_test.SynTest):
 
             await core.axready.wait()
 
-            opts = {'vars': {'bytes': b'foobar'}}
+            # urlsafe
+            opts = {'vars': {'bytes': b'fooba?'}}
             text = '$valu = $lib.base64.encode($bytes) [ test:str=$valu ]'
             nodes = await core.nodes(text, opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'Zm9vYmFy'))
+            self.eq(nodes[0].ndef, ('test:str', 'Zm9vYmE_'))
 
-            opts = {'vars': {'bytes': 'Zm9vYmFy'}}
+            opts = {'vars': {'bytes': nodes[0].ndef[1]}}
             text = '$lib.bytes.put($lib.base64.decode($bytes))'
             nodes = await core.nodes(text, opts)
             key = binascii.unhexlify(hashlib.sha256(base64.urlsafe_b64decode(opts['vars']['bytes'])).hexdigest())
             byts = b''.join([b async for b in core.axon.get(key)])
-            self.eq(byts, b'foobar')
+            self.eq(byts, b'fooba?')
+
+            # normal
+            opts = {'vars': {'bytes': b'fooba?'}}
+            text = '$valu = $lib.base64.encode($bytes, $(0)) [ test:str=$valu ]'
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'Zm9vYmE/'))
+
+            opts = {'vars': {'bytes': nodes[0].ndef[1]}}
+            text = '$lib.bytes.put($lib.base64.decode($bytes, $(0)))'
+            nodes = await core.nodes(text, opts)
+            key = binascii.unhexlify(hashlib.sha256(base64.urlsafe_b64decode(opts['vars']['bytes'])).hexdigest())
+            byts = b''.join([b async for b in core.axon.get(key)])
+            self.eq(byts, b'fooba?')
 
             # unhappy case
             opts = {'vars': {'bytes': 'foobar'}}

@@ -243,11 +243,17 @@ class LibBase64(Lib):
             'decode': self._decode
         })
 
-    async def _encode(self, valu):
-        return base64.urlsafe_b64encode(valu).decode('ascii')
+    async def _encode(self, valu, urlsafe=True):
+        if urlsafe:
+            return base64.urlsafe_b64encode(valu).decode('ascii')
+        else:
+            return base64.b64encode(valu).decode('ascii')
 
-    async def _decode(self, valu):
-        return base64.urlsafe_b64decode(valu)
+    async def _decode(self, valu, urlsafe=True):
+        if urlsafe:
+            return base64.urlsafe_b64decode(valu)
+        else:
+            return base64.b64decode(valu)
 
 class Prim(StormType):
     '''
