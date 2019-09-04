@@ -395,17 +395,34 @@ class LmdbLayer(s_layer.Layer):
             oldv, oldi = s_msgpack.un(byts)
             if oldi is not None:
 
-                self.layrslab.delete(pvpref + oldi, pvvalu, db=self.byprop)
+                if isinstance(oldi, bytes):
 
-                if univ:
-                    self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
+                    self.layrslab.delete(pvpref + oldi, pvvalu, db=self.byprop)
+                    if univ:
+                        self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
+
+                else:
+                    for oldibyts in oldi:
+                        self.layrslab.delete(pvpref + oldibyts, pvvalu, db=self.byprop)
+                        if univ:
+                            self.layrslab.delete(penc + oldibyts, pvvalu, db=self.byuniv)
 
         if indx is not None:
 
-            self.layrslab.put(pvpref + indx, pvvalu, dupdata=True, db=self.byprop)
+            if isinstance(indx, bytes):
 
-            if univ:
-                self.layrslab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
+                self.layrslab.put(pvpref + indx, pvvalu, dupdata=True, db=self.byprop)
+
+                if univ:
+                    self.layrslab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
+
+            else:
+
+                for indxbyts in indx:
+                    self.layrslab.put(pvpref + indxbyts, pvvalu, dupdata=True, db=self.byprop)
+
+                    if univ:
+                        self.layrslab.put(penc + indxbyts, pvvalu, dupdata=True, db=self.byuniv)
 
     def _storPropDel(self, oper):
 
@@ -434,10 +451,21 @@ class LmdbLayer(s_layer.Layer):
         pvvalu = s_msgpack.en((buid,))
 
         if oldi is not None:
-            self.layrslab.delete(fenc + penc + oldi, pvvalu, db=self.byprop)
 
-            if univ:
-                self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
+            if isinstance(oldi, bytes):
+
+                self.layrslab.delete(fenc + penc + oldi, pvvalu, db=self.byprop)
+
+                if univ:
+                    self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
+
+            else:
+                for oldibyts in oldi:
+
+                    self.layrslab.delete(fenc + penc + oldibyts, pvvalu, db=self.byprop)
+
+                    if univ:
+                        self.layrslab.delete(penc + oldibyts, pvvalu, db=self.byuniv)
 
     async def _storSplices(self, splices):
         info = self.splicelog.save(splices)

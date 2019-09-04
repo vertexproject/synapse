@@ -139,6 +139,9 @@ class Prop(PropBase):
 
     def getLiftOps(self, valu, cmpr='='):
 
+        if self.type._lift_v2:
+            return self.type.getLiftOpsV2(self, valu, cmpr=cmpr)
+
         if valu is None:
             iops = (('pref', b''),)
             return (
@@ -351,6 +354,9 @@ class Form:
         '''
         Get a set of lift operations for use with an Xact.
         '''
+        if self.type._lift_v2:
+            return self.type.getLiftOpsV2(self, valu, cmpr=cmpr)
+
         if valu is None:
             iops = (('pref', b''),)
             return (
@@ -512,6 +518,10 @@ class Model:
 
         info = {'doc': 'The node definition type for a (form,valu) compound field.'}
         item = s_types.Ndef(self, 'ndef', info, {})
+        self.addBaseType(item)
+
+        info = {'doc': 'A typed array which indexes each field.'}
+        item = s_types.Array(self, 'array', info, {'type': 'int'})
         self.addBaseType(item)
 
         # info = {'doc': 'A list type for storing multiple values of the same type.'}

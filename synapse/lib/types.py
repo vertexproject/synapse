@@ -21,6 +21,7 @@ tagre = regex.compile(r'(\w+\.)*\w+')
 class Type:
 
     _opt_defs = ()
+    _lift_v2 = False
 
     def __init__(self, modl, name, info, opts):
         '''
@@ -383,6 +384,88 @@ class Bool(Type):
 
     def repr(self, valu):
         return repr(bool(valu))
+
+class Array(Type):
+
+    _lift_v2 = True
+
+    def getLiftOpsV2(self, prop, valu, cmpr='='):
+
+        if cmpr == '=':
+            norm, info = self.norm(valu)
+            iops = (
+                ('eq', b'\x00' + s_common.buid(norm)),
+            )
+            return (
+                ('indx', ('byprop', prop.pref, iops)),
+            )
+
+        if cmpr == '*contains=':
+            norm, info = self.arraytype.norm(valu)
+            byts = self.arraytype.indx(norm)
+            iops = (
+                ('eq', b'\x01' + self.arraytype.indx(norm)),
+            )
+            return (
+                ('indx', ('byprop', prop.pref, iops)),
+            )
+
+        # TODO we *could* retrieve and munge the iops from arraytype...
+
+        mesg = f'Array type has no lift by: {cmpr}.'
+        raise s_exc.NoSuchCmpr(mesg=mesg)
+
+    def postTypeInit(self):
+
+        self.isuniq = self.opts.get('uniq', False)
+        self.issorted = self.opts.get('sorted', False)
+
+        typename = self.opts.get('type')
+        if typename is None:
+            mesg = 'Array type requires type= option.'
+            raise s_exc.BadTypeDef(mesg=mesg)
+
+        typeopts = self.opts.get('typeopts', {})
+        self.arraytype = self.modl.type(typename).clone(typeopts)
+
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+    def _normPyTuple(self, valu):
+
+        adds = []
+        norms = []
+
+        for item in valu:
+            norm, info = self.arraytype.norm(item)
+            adds.extend(info.get('adds', ()))
+            norms.append(norm)
+
+        form = self.modl.form(self.arraytype.name)
+        if form is not None:
+            adds.extend([(form.name, n) for n in norms])
+
+        adds = list(set(adds))
+
+        if self.isuniq:
+            norms = list(set(norms))
+
+        if self.issorted:
+            norms = sorted(norms)
+
+        return norms, {'adds': adds}
+
+    def repr(self, valu):
+        return [self.arraytype.repr(v) for v in valu]
+
+    def indx(self, norm):
+        # return a tuple of indx bytes and the layer will know what to do
+        vals = []
+        # prop=[foo,bar]
+        vals.append(b'\x00' + s_common.buid(norm))
+        # prop*contains=foo
+        [vals.append(b'\x01' + self.arraytype.indx(v)) for v in norm]
+        return vals
 
 class Comp(Type):
 

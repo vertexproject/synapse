@@ -1050,3 +1050,56 @@ class TypesTest(s_t_utils.SynTest):
             opts = {'vars': {'url': url}}
             self.len(1, await core.eval('[ it:exec:url="*" :url=$url ]', opts=opts).list())
             self.len(1, await core.eval('it:exec:url:url=$url', opts=opts).list())
+
+    async def test_types_array(self):
+
+        mdef = {
+            'types': (
+                ('test:array', ('array', {'type': 'inet:ipv4'}), {}),
+                ('test:witharray', ('guid', {}), {}),
+            ),
+            'forms': (
+                ('test:array', {}, (
+                )),
+                ('test:witharray', {}, (
+                    ('fqdns', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {}),
+                )),
+            ),
+        }
+        async with self.getTestCore() as core:
+
+            core.model.addDataModels([('asdf', mdef)])
+
+            nodes = await core.nodes('[ test:array=(1.2.3.4, 5.6.7.8) ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:array*contains=1.2.3.4')
+            self.len(1, nodes)
+
+            # make sure "adds" got added
+            #nodes = await core.nodes('inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8')
+            #self.len(2, nodes)
+
+            nodes = await core.nodes('[ test:witharray="*" :fqdns=(woot.com, VERTEX.LINK, vertex.link) ]')
+            self.len(1, nodes)
+
+            self.eq(nodes[0].get('fqdns'), ('vertex.link', 'woot.com'))
+
+            nodes = await core.nodes('test:witharray:fqdns=(vertex.link, WOOT.COM)')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:witharray:fqdns*contains=vertex.link')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:witharray [ :fqdns=(hehe.com, haha.com) ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:fqdn=hehe.com inet:fqdn=haha.com')
+            self.len(2, nodes)
+
+            # make sure the multi-array entries got deleted
+            nodes = await core.nodes('test:witharray:fqdns*contains=vertex.link')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('test:witharray:fqdns*contains=hehe.com')
+            self.len(1, nodes)
