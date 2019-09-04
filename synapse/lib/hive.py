@@ -681,6 +681,10 @@ class HiveDict(s_base.Base):
         for key, node in iter(self.node):
             yield key, node.valu
 
+    def values(self):
+        for name, node in iter(self.node):
+            yield node.valu
+
     async def pop(self, name, default=None):
         node = self.node.get(name)
         if node is None:
