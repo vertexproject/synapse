@@ -215,6 +215,24 @@ class Snap(s_base.Base):
         async for row, node in self.getLiftNodes(lops, '#' + name, cmpf=cmpf):
             yield node
 
+    async def _getNodesByTagProp(self, name, tag=None, form=None, valu=None, cmpr='='):
+
+        prop = self.model.getTagProp(name)
+        if prop is None:
+            mesg = f'No tag property named {name}'
+            raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
+
+        cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
+
+        full = f'#{tag}:{name}'
+
+        lops = (('tag:prop', {'form': form, 'tag': tag, 'prop': name}),)
+        if valu is not None:
+            lops[0][1]['iops'] = prop.type.getIndxOps(valu, cmpr)
+
+        async for row, node in self.getLiftNodes(lops, full, cmpf=cmpf):
+            yield node
+
     async def _getNodesByFormTag(self, name, tag, valu=None, cmpr='='):
 
         filt = None
@@ -274,6 +292,19 @@ class Snap(s_base.Base):
         if cmpr == '*type=':
             async for node in self._getNodesByType(full, valu=valu):
                 yield node
+            return
+
+        # special case "try equal" which doesnt bail on invalid values
+        if cmpr == '?=':
+
+            try:
+                async for item in self.getNodesBy(full, valu=valu, cmpr='='):
+                    yield item
+            except asyncio.CancelledError: # pragma: no cover
+                raise
+            except Exception:
+                return
+
             return
 
         if full.startswith('#'):
@@ -362,7 +393,7 @@ class Snap(s_base.Base):
             retn = await self._addNodeFnib(fnib, props=props)
             return retn
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError: # pragma: no cover
             raise
 
         except Exception:
@@ -692,3 +723,22 @@ class Snap(s_base.Base):
                     continue
 
             yield row, node
+
+    async def getNodeData(self, buid, name, defv=None):
+        envl = await self.layers[0].getNodeData(buid, name, defv=defv)
+        if envl is not None:
+            return envl.get('data')
+        return defv
+
+    async def setNodeData(self, buid, name, item):
+        envl = {'user': self.user.iden, 'time': s_common.now(), 'data': item}
+        return await self.layers[0].setNodeData(buid, name, envl)
+
+    async def iterNodeData(self, buid):
+        async for item in self.layers[0].iterNodeData(buid):
+            yield item
+
+    async def popNodeData(self, buid, name):
+        envl = await self.layers[0].popNodeData(buid, name)
+        if envl is not None:
+            return envl.get('data')

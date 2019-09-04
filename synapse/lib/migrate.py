@@ -44,9 +44,10 @@ class Migration(s_base.Base):
 
     @contextlib.asynccontextmanager
     async def getTempSlab(self):
+        opts = {'map_async': True}
         with s_common.getTempDir() as dirn:
             path = os.path.join(dirn, 'migrate.lmdb')
-            async with await s_lmdbslab.Slab.anit(path) as slab:
+            async with await s_lmdbslab.Slab.anit(path, **opts) as slab:
                 yield slab
 
     @contextlib.asynccontextmanager
@@ -195,3 +196,38 @@ class Migration(s_base.Base):
 
             for buid, byts in slab.scanByFull():
                 yield buid, s_msgpack.un(byts)
+
+    async def normPropValu(self, name, modulus=10000):
+
+        prop = self.core.model.prop(name)
+
+        for layr in self.layers:
+
+            async with self.getTempSlab() as slab:
+
+                i = 0
+                async for buid, valu in layr.iterPropRows(prop.form.name, prop.name):
+                    i = i + 1
+                    if i % modulus == 0:
+                        logger.debug(f'Consumed {prop.form.name} count: {i}')
+
+                    norm, info = prop.type.norm(valu)
+                    if norm == valu:
+                        continue
+
+                    slab.put(buid, s_msgpack.en(norm))
+
+                if i:
+                    logger.debug(f'Total {prop.form.name} count: {i}')
+
+                i = 0
+                for buid, byts in slab.scanByFull():
+                    norm = s_msgpack.un(byts)
+                    await layr.storPropSet(buid, prop, norm)
+                    i = i + 1
+                    if i % modulus == 0:
+                        logger.debug(f'Set prop count: {i}')
+                if i:
+                    logger.debug(f'Total propset count: {i}')
+
+        logger.debug(f'Done norming: {prop.form.name}')

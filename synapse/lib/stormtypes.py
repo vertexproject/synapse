@@ -159,10 +159,36 @@ class LibStr(Lib):
 
         return text
 
+class LibBytes(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'put': self._libBytesPut,
+        })
+
+    async def _libBytesPut(self, byts):
+        '''
+        Save the given bytes variable to the axon.
+
+        Returns:
+            ($size, $sha256)
+
+        Example:
+            ($size, $sha2) = $lib.bytes.put($bytes)
+        '''
+        if not isinstance(byts, bytes):
+            mesg = '$lib.bytes.put() requires a bytes argument'
+            raise s_exc.BadArg(mesg=mesg)
+
+        await self.runt.snap.core.axready.wait()
+        size, sha2 = await self.runt.snap.core.axon.put(byts)
+        return (size, s_common.ehex(sha2))
+
 class LibTime(Lib):
 
     def addLibFuncs(self):
         self.locls.update({
+            'now': s_common.now,
             'fromunix': self.fromunix,
             'parse': self.parse,
         })
@@ -452,11 +478,45 @@ class LibGlobals(Lib):
                 ret.append((key, valu))
         return ret
 
+class NodeData(Prim):
+
+    def __init__(self, node, path=None):
+
+        Prim.__init__(self, node, path=path)
+
+        self.locls.update({
+            'get': self._getNodeData,
+            'set': self._setNodeData,
+            'pop': self._popNodeData,
+            'list': self._listNodeData,
+        })
+
+    def _reqAllowed(self, perm):
+        if not self.valu.snap.user.allowed(perm):
+            pstr = '.'.join(perm)
+            mesg = f'User is not allowed permission: {pstr}'
+            raise s_exc.AuthDeny(perm=perm, mesg=mesg)
+
+    async def _getNodeData(self, name):
+        self._reqAllowed(('storm', 'node', 'data', 'get', name))
+        return await self.valu.getData(name)
+
+    async def _setNodeData(self, name, valu):
+        self._reqAllowed(('storm', 'node', 'data', 'set', name))
+        return await self.valu.setData(name, valu)
+
+    async def _popNodeData(self, name):
+        self._reqAllowed(('storm', 'node', 'data', 'pop', name))
+        return await self.valu.popData(name)
+
+    async def _listNodeData(self):
+        self._reqAllowed(('storm', 'node', 'data', 'list'))
+        return [x async for x in self.valu.iterData()]
+
 class Node(Prim):
     '''
     Implements the STORM api for a node instance.
     '''
-
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update({
@@ -468,6 +528,11 @@ class Node(Prim):
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
         })
+
+        def ctordata(path=None):
+            return NodeData(node, path=path)
+
+        self.ctors['data'] = ctordata
 
     async def _methNodeTags(self, glob=None):
         tags = list(self.valu.tags.keys())
