@@ -82,4 +82,6 @@ class StormHttpTest(s_test.SynTest):
             mesgs = await s_test.alist(core.streamstorm(text, opts=opts))
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
-            self.isin('data and json parameters can not be used at the same time', errs[0][1].get('mesg'))
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('Error during http post - data and json parameters can not be used at the same time', err[1].get('mesg'))

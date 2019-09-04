@@ -769,10 +769,21 @@ class StormTypesTest(s_test.SynTest):
             byts = b''.join([b async for b in core.axon.get(key)])
             self.eq(byts, b'fooba?')
 
-            # unhappy case
+            # unhappy cases
+            opts = {'vars': {'bytes': 'not bytes'}}
+            text = '[ test:str=$lib.base64.encode($bytes) ]'
+            mesgs = await alist(core.streamstorm(text, opts=opts))
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('Error during base64 encoding - a bytes-like object is required', err[1].get('mesg'))
+
             opts = {'vars': {'bytes': 'foobar'}}
             text = '[test:str=$lib.base64.decode($bytes)]'
             mesgs = await alist(core.streamstorm(text, opts=opts))
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
-            self.isin('Incorrect padding', errs[0][1].get('mesg'))
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('Error during base64 decoding - Incorrect padding', err[1].get('mesg'))

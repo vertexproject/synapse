@@ -2,6 +2,8 @@ import json
 
 import aiohttp
 
+import synapse.exc as s_exc
+
 import synapse.lib.stormtypes as s_stormtypes
 
 class LibHttp(s_stormtypes.Lib):
@@ -27,12 +29,16 @@ class LibHttp(s_stormtypes.Lib):
 
     async def _httpPost(self, url, headers=None, json=None, body=None):
         async with aiohttp.ClientSession() as sess:
-            async with sess.post(url, headers=headers, json=json, data=body) as resp:
-                info = {
-                    'code': resp.status,
-                    'body': await resp.content.read()
-                }
-                return HttpResp(info)
+            try:
+                async with sess.post(url, headers=headers, json=json, data=body) as resp:
+                    info = {
+                        'code': resp.status,
+                        'body': await resp.content.read()
+                    }
+                    return HttpResp(info)
+            except ValueError as e:
+                mesg = f'Error during http post - {str(e)}'
+                raise s_exc.StormRuntimeError(mesg=mesg, headers=headers, json=json, body=body) from None
 
 class HttpResp(s_stormtypes.StormType):
 

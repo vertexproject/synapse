@@ -2,6 +2,7 @@ import bz2
 import gzip
 import json
 import base64
+import binascii
 import datetime
 
 import synapse.exc as s_exc
@@ -244,16 +245,22 @@ class LibBase64(Lib):
         })
 
     async def _encode(self, valu, urlsafe=True):
-        if urlsafe:
-            return base64.urlsafe_b64encode(valu).decode('ascii')
-        else:
+        try:
+            if urlsafe:
+                return base64.urlsafe_b64encode(valu).decode('ascii')
             return base64.b64encode(valu).decode('ascii')
+        except TypeError as e:
+            mesg = f'Error during base64 encoding - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
 
     async def _decode(self, valu, urlsafe=True):
-        if urlsafe:
-            return base64.urlsafe_b64decode(valu)
-        else:
+        try:
+            if urlsafe:
+                return base64.urlsafe_b64decode(valu)
             return base64.b64decode(valu)
+        except binascii.Error as e:
+            mesg = f'Error during base64 decoding - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
 
 class Prim(StormType):
     '''
