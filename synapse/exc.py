@@ -108,6 +108,7 @@ class DataAlreadyExists(SynErr):
     pass
 
 class DbOutOfSpace(SynErr): pass
+class DupName(SynErr): pass
 class DupFileName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupRoleName(SynErr): pass

@@ -400,6 +400,60 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.false(slab.dbexists('foo'))
                 self.gt(slab.mapsize, before_mapsize)
 
+    async def test_lmdb_multiqueue(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                mque = slab.getMultiQueue('test')
+
+                self.false(mque.exists('woot'))
+
+                with self.raises(s_exc.NoSuchName):
+                    await mque.rem('woot')
+
+                with self.raises(s_exc.NoSuchName):
+                    await mque.get('woot', 0)
+
+                with self.raises(s_exc.NoSuchName):
+                    mque.put('woot', 'lulz')
+
+                mque.add('woot', {'some': 'info'})
+
+                self.true(mque.exists('woot'))
+
+                self.eq(0, mque.put('woot', 'hehe'))
+                self.eq(1, mque.put('woot', 'haha'))
+                self.eq(2, mque.put('woot', 'hoho'))
+
+                self.eq(3, mque.size('woot'))
+
+                self.eq((1, 'hehe'), await mque.get('woot', 0))
+                self.eq((2, 'haha'), await mque.get('woot', 1))
+                self.eq((2, 'haha'), await mque.get('woot', 0))
+
+                self.eq(2, mque.size('woot'))
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                mque = slab.getMultiQueue('test')
+
+                self.eq(2, mque.size('woot'))
+                self.eq(3, mque.offset('woot'))
+
+                self.true(mque.exists('woot'))
+
+                self.eq((3, 'hoho'), await mque.get('woot', 2))
+
+                mque.put('woot', 'huhu')
+
+                await mque.rem('woot')
+
+                self.false(mque.exists('woot'))
+
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
     async def test_lmdbslabmemlock(self):

@@ -226,30 +226,58 @@ class MultiQueue:
 
         self.waiters = {}
 
+    def exists(self, name):
+        return self.queues.get(name) is not None
+
+    def size(self, name):
+        return self.sizes.get(name)
+
+    def offset(self, name):
+        return self.offsets.get(name)
+
     def add(self, name, info):
+
+        if self.queues.get(name) is not None:
+            mesg = f'A queue exists with the name {name}.'
+            raise s_exc.DupName(mesg=mesg)
+
         item = self.queues.get(name)
         if item is None:
             self.queues.set(name, info)
 
     async def rem(self, name):
 
+        if self.queues.get(name) is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg)
+
         pref = self.abrv.nameToAbrv(name)
         for lkey, lval in self.slab.scanByPref(pref, db=self.qdata):
             self.slab.delete(lkey, db=self.qdata)
-            asyncio.sleep(0)
+            await asyncio.sleep(0)
 
         self.queues.pop(name)
         self.offsets.pop(name)
 
-        evnt = self.waiters.pop(name)
+        evnt = self.waiters.pop(name, None)
         if evnt is not None:
             evnt.set()
 
     async def get(self, name, offs):
+
+        if self.queues.get(name) is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg)
+
         async for itemoff, item in self.consume(name, offs):
             return itemoff, item
 
     def put(self, name, item):
+
+        if self.queues.get(name) is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg)
+
         abrv = self.abrv.nameToAbrv(name)
         offs = self.offsets.get(name, 0)
         self.slab.put(abrv + s_common.int64en(offs), s_msgpack.en(item), db=self.qdata)
@@ -285,17 +313,14 @@ class MultiQueue:
             if count == size:
                 break
 
-    async def cleanup(self, iden, offs):
+    async def cleanup(self, name, offs):
         '''
         Remove up-to (and including) the queue entry at offs.
         '''
-        if offs == 0:
-            return
-
         indx = s_common.int64en(offs)
         abrv = self.abrv.nameToAbrv(name)
 
-        for lkey, lval in self.slab.scanByPref(abrv + int64min, abrv + indx, db=self.qdata):
+        for lkey, lval in self.slab.scanByRange(abrv + int64min, abrv + indx, db=self.qdata):
             self.slab.delete(lkey, db=self.qdata)
             self.sizes.set(name, self.sizes.get(name) - 1)
             await asyncio.sleep(0)
