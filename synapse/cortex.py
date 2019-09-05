@@ -31,6 +31,7 @@ import synapse.lib.modules as s_modules
 import synapse.lib.trigger as s_trigger
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
+import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.lmdblayer as s_lmdblayer
 import synapse.lib.stormhttp as s_stormhttp
 import synapse.lib.provenance as s_provenance
@@ -763,6 +764,7 @@ class Cortex(s_cell.Cell):
         await self._initCoreLayers()
         await self._checkLayerModels()
         await self._initCoreViews()
+        await self._initCoreQueues()
         # our "main" view has the same iden as we do
         self.view = self.views.get(self.iden)
 
@@ -807,6 +809,14 @@ class Cortex(s_cell.Cell):
 
             except Exception as e:
                 logger.warning(f'initStormDmon ({iden}) failed: {e}')
+
+    async def _initCoreQueues(self):
+        path = os.path.join(self.dirn, 'queues.lmdb')
+
+        slab = await s_lmdbslab.Slab.anit(path, map_async=True)
+        self.onfini(slab.fini)
+
+        self.multiqueue = slab.getMultiQueue('cortex:queue')
 
     async def setStormCmd(self, cdef):
         '''
@@ -1031,6 +1041,7 @@ class Cortex(s_cell.Cell):
         self.addStormLib(('dmon',), s_stormtypes.LibDmon)
         self.addStormLib(('time',), s_stormtypes.LibTime)
         self.addStormLib(('user',), s_stormtypes.LibUser)
+        self.addStormLib(('queue',), s_stormtypes.LibQueue)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
         self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
 

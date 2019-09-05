@@ -77,12 +77,6 @@ class Lib(StormType):
         ctor = slib[2].get('ctor', Lib)
         return ctor(self.runt, name=path)
 
-#class LibTask(Lib):
-    #def addLibFuncs(self):
-        #self.locls.update({
-            #'addStormDmon': self._libTaskDmon,
-        #})
-
 class LibDmon(Lib):
 
     def addLibFuncs(self):
@@ -280,6 +274,59 @@ class LibCsv(Lib):
         row = [toprim(a) for a in args]
         await self.runt.snap.fire('csv:row', row=row, table=table)
 
+class LibQueue(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'open': self._methQueueOpen,
+            #'list': self._methQueueList,
+            #'shut': self._methQueueShut,
+        })
+
+    async def _methQueueOpen(self, name, allow=()):
+        info = self.runt.snap.core.multiqueue.queues.get(name)
+        if info is None:
+            self.runt.allowed('storm', 'lib', 'queue', 'open')
+            info = {'user': self.runt.user.iden, 'time': s_common.now()}
+            self.runt.snap.core.multiqueue.add(name, info)
+
+        return Queue(self.runt, name, info)
+
+class Queue(StormType):
+    '''
+    $q = $lib.queue.open('hehe')
+
+    inet:ipv4 +#foo.bar.baz
+
+    $q.put( $lib.dict(ipv4=$node.repr()) )
+    '''
+
+    def __init__(self, runt, name, info):
+
+        StormType.__init__(self)
+        self.runt = runt
+        self.name = name
+        self.info = info
+
+        self.locls.update({
+            'get': self._methQueueGet,
+            'put': self._methQueuePut,
+        })
+
+    async def allowed(self, *perm):
+        if self.info.get('user') == self.runt.user.iden:
+            return
+        await self.runt.allowed(*perm)
+
+    async def _methQueueGet(self, offs):
+        offs = intify(offs)
+        await self.allowed('storm', 'queue', self.name, 'get')
+        return await self.runt.snap.core.multiqueue.get(self.name, offs)
+
+    async def _methQueuePut(self, item):
+        await self.allowed('storm', 'queue', self.name, 'put')
+        return self.runt.snap.core.multiqueue.put(self.name, item)
+
 class LibTelepath(Lib):
 
     def addLibFuncs(self):
@@ -287,7 +334,7 @@ class LibTelepath(Lib):
             'open': self._methTeleOpen,
         })
 
-    async def _methTeleOpen(self, url, **opts):
+    async def _methTeleOpen(self, name):
         '''
         Open and return a telepath RPC proxy.
         '''

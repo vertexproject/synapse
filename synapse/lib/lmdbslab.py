@@ -15,6 +15,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
@@ -147,6 +148,7 @@ class SlabDict:
         lkey = self.pref + name.encode('utf8')
         self.slab.put(lkey, byts, db=self.db)
         self.info[name] = valu
+        return valu
 
     def pop(self, name, defval=None):
         '''
@@ -163,6 +165,140 @@ class SlabDict:
         lkey = self.pref + name.encode('utf8')
         self.slab.pop(lkey, db=self.db)
         return valu
+
+class SlabAbrv:
+    '''
+    A utility for translating arbitrary names into fixed with id bytes
+    '''
+
+    def __init__(self, slab, name):
+
+        self.slab = slab
+        self.name2abrv = slab.initdb(f'{name}:name2abrv')
+        self.abrv2name = slab.initdb(f'{name}:abrv2name')
+
+        self.offs = 0
+
+        item = self.slab.last(db=self.abrv2name)
+        if item is not None:
+            self.offs = s_common.int64un(item[0])
+
+    @s_cache.memoize(10000)
+    def abrvToName(self, abrv):
+        byts = self.slab.get(abrv, db=self.abrv2name)
+        if byts is not None:
+            return byts.decode()
+
+    @s_cache.memoize(10000)
+    def nameToAbrv(self, name):
+
+        lkey = name.encode()
+        abrv = self.slab.get(lkey, db=self.name2abrv)
+        if abrv is not None:
+            return abrv
+
+        abrv = s_common.int64en(self.offs)
+
+        self.offs += 1
+
+        self.slab.put(lkey, abrv, db=self.name2abrv)
+        self.slab.put(abrv, lkey, db=self.abrv2name)
+
+        return abrv
+
+int64min = s_common.int64en(0)
+int64max = s_common.int64en(0xffffffffffffffff)
+
+class MultiQueue:
+    '''
+    Allows creation/consumption of multiple durable queues in a slab.
+    '''
+    def __init__(self, slab, name):
+
+        self.slab = slab
+
+        self.abrv = slab.getNameAbrv(f'{name}:abrv')
+        self.qdata = self.slab.initdb(f'{name}:qdata')
+
+        self.sizes = SlabDict(self.slab, db=self.slab.initdb(f'{name}:sizes'))
+        self.queues = SlabDict(self.slab, db=self.slab.initdb(f'{name}:meta'))
+        self.offsets = SlabDict(self.slab, db=self.slab.initdb(f'{name}:offs'))
+
+        self.waiters = {}
+
+    def add(self, name, info):
+        item = self.queues.get(name)
+        if item is None:
+            self.queues.set(name, info)
+
+    async def rem(self, name):
+
+        pref = self.abrv.nameToAbrv(name)
+        for lkey, lval in self.slab.scanByPref(pref, db=self.qdata):
+            self.slab.delete(lkey, db=self.qdata)
+            asyncio.sleep(0)
+
+        self.queues.pop(name)
+        self.offsets.pop(name)
+
+        evnt = self.waiters.pop(name)
+        if evnt is not None:
+            evnt.set()
+
+    async def get(self, name, offs):
+        async for itemoff, item in self.consume(name, offs):
+            return itemoff, item
+
+    def put(self, name, item):
+        abrv = self.abrv.nameToAbrv(name)
+        offs = self.offsets.get(name, 0)
+        self.slab.put(abrv + s_common.int64en(offs), s_msgpack.en(item), db=self.qdata)
+        self.offsets.set(name, offs + 1)
+        self.sizes.set(name, self.sizes.get(name, 0) + 1)
+        return offs
+
+    async def consume(self, name, offs, size=1000):
+        '''
+        offs = 0
+        while todo:
+            for offs, item in q.consume(name, offs):
+                dostuff()
+
+        yield (nextoffs, item) tuples and remove previous offsets.
+        '''
+        if offs > 0:
+            await self.cleanup(name, offs - 1)
+
+        abrv = self.abrv.nameToAbrv(name)
+
+        indx = s_common.int64en(offs)
+
+        count = 0
+        for lkey, lval in self.slab.scanByRange(abrv + indx, abrv + int64max, db=self.qdata):
+
+            itemoffs = s_common.int64un(lkey[8:])
+
+            yield itemoffs + 1, s_msgpack.un(lval)
+
+            count += 1
+
+            if count == size:
+                break
+
+    async def cleanup(self, iden, offs):
+        '''
+        Remove up-to (and including) the queue entry at offs.
+        '''
+        if offs == 0:
+            return
+
+        indx = s_common.int64en(offs)
+        abrv = self.abrv.nameToAbrv(name)
+
+        for lkey, lval in self.slab.scanByPref(abrv + int64min, abrv + indx, db=self.qdata):
+            self.slab.delete(lkey, db=self.qdata)
+            self.sizes.set(name, self.sizes.get(name) - 1)
+            await asyncio.sleep(0)
 
 class GuidStor:
 
@@ -289,8 +425,16 @@ class Slab(s_base.Base):
             self.memlocktask = s_coro.executor(self._memorylockloop)
             self.onfini(memlockfini)
 
+        self.dbnames = {}
+
         self.onfini(self._onCoFini)
         self.schedCoro(self._runSyncLoop())
+
+    def getNameAbrv(self, name):
+        return SlabAbrv(self, name)
+
+    def getMultiQueue(self, name):
+        return MultiQueue(self, name)
 
     def statinfo(self):
         return {
@@ -510,7 +654,9 @@ class Slab(s_base.Base):
                 db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort)
                 self.dirty = True
                 self.forcecommit()
-                return LmdbDatabase(db, dupsort)
+                self.dbnames[name] = (db, dupsort)
+                return name
+                #return LmdbDatabase(db, dupsort)
             except lmdb.MapFullError:
                 self._handle_mapfull()
 
@@ -525,9 +671,10 @@ class Slab(s_base.Base):
             try:
                 if not self.dbexists(name):
                     return
-                db = self.initdb(name)
+                db, dupsort = self.dbnames.get(name)
+                #db = self.initdb(name)
                 self.dirty = True
-                self.xact.drop(db.db, delete=True)
+                self.xact.drop(db, delete=True)
                 self.forcecommit()
                 return
 
@@ -541,30 +688,33 @@ class Slab(s_base.Base):
         valu = self.get(name.encode())
         return valu is not None
 
-    def get(self, lkey, db=_DefaultDB):
+    def get(self, lkey, db=None):
         self._acqXactForReading()
+        realdb, dupsort = self.dbnames.get(db, (None, False))
         try:
-            return self.xact.get(lkey, db=db.db)
+            return self.xact.get(lkey, db=realdb)
         finally:
             self._relXactForReading()
 
-    def last(self, db=_DefaultDB):
+    def last(self, db=None):
         '''
         Return the last key/value pair from the given db.
         '''
         self._acqXactForReading()
+        realdb, dupsort = self.dbnames.get(db, (None, False))
         try:
-            with self.xact.cursor(db=db.db) as curs:
+            with self.xact.cursor(db=realdb) as curs:
                 if not curs.last():
                     return None
                 return curs.key(), curs.value()
         finally:
             self._relXactForReading()
 
-    def stat(self, db=_DefaultDB):
+    def stat(self, db=None):
         self._acqXactForReading()
+        realdb, dupsort = self.dbnames.get(db, (None, False))
         try:
-            return self.xact.stat(db=db.db)
+            return self.xact.stat(db=realdb)
         finally:
             self._relXactForReading()
 
@@ -679,8 +829,7 @@ class Slab(s_base.Base):
         if self.readonly:
             raise s_exc.IsReadOnly()
 
-        if db is None:
-            db = _DefaultDB
+        realdb, dupsort = self.dbnames.get(db, (None, False))
 
         try:
             self.dirty = True
@@ -688,12 +837,12 @@ class Slab(s_base.Base):
             if not self.recovering:
                 self._logXactOper(calling_func, lkey, *args, db=db, **kwargs)
 
-            return xact_func(self.xact, lkey, *args, db=db.db, **kwargs)
+            return xact_func(self.xact, lkey, *args, db=realdb, **kwargs)
 
         except lmdb.MapFullError:
             return self._handle_mapfull()
 
-    def putmulti(self, kvpairs, dupdata=False, append=False, db=_DefaultDB):
+    def putmulti(self, kvpairs, dupdata=False, append=False, db=None):
         '''
         Returns:
             Tuple of number of items consumed, number of items added
@@ -705,13 +854,15 @@ class Slab(s_base.Base):
         if not isinstance(kvpairs, list):
             kvpairs = list(kvpairs)
 
+        realdb, dupsort = self.dbnames.get(db, (None, False))
+
         try:
             self.dirty = True
 
             if not self.recovering:
                 self._logXactOper(self.putmulti, kvpairs, dupdata=dupdata, append=append, db=db)
 
-            with self.xact.cursor(db=db.db) as curs:
+            with self.xact.cursor(db=realdb) as curs:
                 return curs.putmulti(kvpairs, dupdata=dupdata, append=append)
 
         except lmdb.MapFullError:
@@ -788,11 +939,10 @@ class Scan:
     A state-object used by Slab.  Not to be instantiated directly.
     '''
     def __init__(self, slab, db):
-        if db is None:
-            db = _DefaultDB
+        #if db is None:
+            #db = _DefaultDB
         self.slab = slab
-        self.db = db.db
-        self.dupsort = db.dupsort
+        self.db, self.dupsort = slab.dbnames.get(db, (None, False))
 
         self.atitem = None
         self.bumped = False

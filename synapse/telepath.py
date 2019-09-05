@@ -586,6 +586,82 @@ class Proxy(s_base.Base):
         setattr(self, name, meth)
         return meth
 
+class Client(s_base.Base):
+
+    async def __anit__(self, url, opts=None, conf=None, onlink=None):
+
+        await s_base.Base.__anit__(self)
+
+        self._t_url = url
+        self._t_urls = collections.deque()
+
+        self._t_opts = opts
+        self._t_conf = conf
+
+        #TODO chop user/passwd out of url and set in opts
+
+        self._t_proxy = None
+        self._t_ready = asyncio.Event()
+        self._t_onlink = onlink
+
+        await self._fireLinkLoop()
+
+    def _getNextUrl(self):
+        # TODO url list in deque
+        return self._t_url
+
+    async def _fireLinkLoop(self):
+        self._t_proxy = None
+        self._t_ready.clear()
+        await self.schedCoro(self._teleLinkLoop)
+
+    async def _teleLinkLoop(self):
+
+        url = self._getNextUrl()
+        while not self.isfini:
+
+            try:
+                await self._initTeleLink(url)
+
+            except asyncio.TeleRedir as e:
+                url = e.errinfo.get('url')
+                continue
+
+            except asyncio.CancelledError:
+                raise
+
+            except Exception as e:
+                url = self._getNextUrl()
+                logger.warning(f'telepath client ({self._t_url}): {e}')
+                await asyncio.sleep(self._t_conf.get('retrysleep', 0.2))
+
+    async def _initTeleLink(self, url, opts=None):
+
+        if self._t_proxy is not None:
+            await self._t_proxy.fini()
+
+        self._t_proxy = await openurl(url, **self._t_opts)
+        self._t_proxy.onfini(self._fireLinkLoop)
+
+        if self._t_onlink is not None:
+            try:
+                await self._t_onlink()
+
+            except asyncio.CancelledError:
+                raise
+
+            except asyncio.TeleRedir as e:
+                raise
+
+            except Exception as e:
+                logger.warning('telepath client ({self._t_url}) onlink: {e}')
+
+            return
+
+    async def __getattr__(self, name):
+        await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', 10))
+        return getattr(self._t_proxy, name)
+
 def alias(name):
     '''
     Resolve a telepath alias via ~/.syn/aliases.yaml

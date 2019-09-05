@@ -712,3 +712,11 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchName):
                 await core.nodes('$lib.telepath.open($url)._newp()', opts=opts)
+
+    async def test_storm_lib_queue(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('$q = $lib.queue.open(visi) [ inet:ipv4=1.2.3.4 ] $q.put( $node.repr() )')
+            nodes = await core.nodes('$q = $lib.queue.open(visi) ($offs, $ipv4) = $q.get(0) inet:ipv4=$ipv4')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))

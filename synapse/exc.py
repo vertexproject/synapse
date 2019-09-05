@@ -187,3 +187,5 @@ class StepTimeout(SynErr):
 
 class StormRuntimeError(SynErr): pass
 class StormVarListError(StormRuntimeError): pass
+
+class TeleRedir(SynErr): pass
