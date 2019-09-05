@@ -3,7 +3,7 @@ Synapse Changelog
 *****************
 
 
-v0.1.24 - TBD
+v0.1.24 - 2019-09-03
 ====================
 
 Features and Enhancements
@@ -33,6 +33,14 @@ Features and Enhancements
   (`#1339 <https://github.com/vertexproject/synapse/pull/1339>`_)
 - Fix Axon permission handling for remote users to actually enforce permissions.
   (`#1354 <https://github.com/vertexproject/synapse/pull/1354>`_)
+- Add a new form, ``inet:url:mirror``, which represents URL content being mirror between two different URLs.
+  (`#1360 <https://github.com/vertexproject/synapse/pull/1360>`_)
+- Add support for user defined runtime properties.
+  (`#1350 <https://github.com/vertexproject/synapse/pull/1350>`_)
+- Add support for user defined secondary properties to be attached to a tag.
+  (`#1350 <https://github.com/vertexproject/synapse/pull/1350>`_)
+- Add support for defererencing a variable value in order to lift by a variable property name.
+  (`#1350 <https://github.com/vertexproject/synapse/pull/1350>`_)
 
 Bugfixes
 --------
@@ -46,6 +54,9 @@ Bugfixes
 - Remove codecov orb and use the codecov bash uploaded directly.
   (`#1355 <https://github.com/vertexproject/synapse/pull/1355>`_)
   (`#1357 <https://github.com/vertexproject/synapse/pull/1357>`_)
+- Make the Storm ``max`` command aware of Ival types, and pull the maximum value based on the right hand side of the
+  interval.
+  (`#1359 <https://github.com/vertexproject/synapse/pull/1359>`_)
 
 
 v0.1.23 - 2019-08-14

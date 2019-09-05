@@ -1123,6 +1123,7 @@ class Cortex(s_cell.Cell):
         self.addStormLib(('bytes',), s_stormtypes.LibBytes)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
+        self.addStormLib(('base64',), s_stormtypes.LibBase64)
 
     def _initSplicers(self):
         '''
