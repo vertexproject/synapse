@@ -84,7 +84,7 @@ async def main(argv, outp=s_output.stdout):
         await prox.fini()
 
     retval = 1
-    if ret.get('status') in ('green', 'yellow'):
+    if ret.get('status') in ('nominal', 'degraded'):
         retval = 0
 
     outp.printf(serialize(ret))

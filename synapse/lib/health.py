@@ -1,19 +1,19 @@
-RED = 'red'
-GREEN = 'green'
-YELLOW = 'yellow'
-HEALTH_PRIORITY = {RED: 1, YELLOW: 2, GREEN: 3}
+NOMINAL = 'nominal'
+DEGRADED = 'degraded'
+FAILED = 'failed'
+HEALTH_PRIORITY = {FAILED: 1, DEGRADED: 2, NOMINAL: 3}
 
 
 class HealthCheck(object):
     def __init__(self, iden):
         self.iden = iden
-        self._status = GREEN
+        self._status = NOMINAL
         self.components = []
 
     def pack(self):
         return {'iden': self.iden,
                 'components': self.components,
-                'status': self.status,
+                'status': self._status,
                 }
 
     def update(self, name, status, mesg='', data=None):
@@ -31,7 +31,7 @@ class HealthCheck(object):
         '''
         # Allow the component a shot at reporting a failure state
         status = status.lower()
-        self.status = status
+        self.setStatus(status)
         if data is None:
             data = {}
         self.components.append({'status': status,
@@ -40,12 +40,10 @@ class HealthCheck(object):
                                 'data': data,
                                 })
 
-    @property
-    def status(self):
+    def getStatus(self):
         return self._status
 
-    @status.setter
-    def status(self, valu):
+    def setStatus(self, valu):
         valu = valu.lower()
         new_priority = HEALTH_PRIORITY.get(valu)
         if new_priority is None:

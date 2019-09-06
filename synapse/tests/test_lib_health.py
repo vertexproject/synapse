@@ -1,16 +1,6 @@
-import asyncio
-import contextlib
-
-import synapse.exc as s_exc
-import synapse.common as s_common
-
-import synapse.lib.modelrev as s_modelrev
-import synapse.lib.remotelayer as s_remotelayer
-
 import synapse.lib.health as s_healthcheck
 
 import synapse.tests.utils as s_t_utils
-import synapse.tests.test_cortex as t_cortex
 
 
 class HealthcheckTest(s_t_utils.SynTest):
@@ -20,32 +10,32 @@ class HealthcheckTest(s_t_utils.SynTest):
         # .healthy property setter behavior
         hcheck = s_healthcheck.HealthCheck('test')
         with self.raises(AttributeError):
-            hcheck.status = True
+            hcheck.setStatus(True)
         with self.raises(ValueError):
-            hcheck.status = 'blue'
+            hcheck.setStatus('okay')
 
         # Ensure that we can only degrade status
-        self.eq(hcheck.status, 'green')
-        hcheck.status = 'green'
-        self.eq(hcheck.status, 'green')
-        hcheck.status = 'yellow'
-        self.eq(hcheck.status, 'yellow')
-        hcheck.status = 'red'
-        self.eq(hcheck.status, 'red')
-        hcheck.status = 'yellow'
-        self.eq(hcheck.status, 'red')
-        hcheck.status = 'green'
-        self.eq(hcheck.status, 'red')
+        self.eq(hcheck.getStatus(), 'nominal')
+        hcheck.setStatus('nominal')
+        self.eq(hcheck.getStatus(), 'nominal')
+        hcheck.setStatus('degraded')
+        self.eq(hcheck.getStatus(), 'degraded')
+        hcheck.setStatus('failed')
+        self.eq(hcheck.getStatus(), 'failed')
+        hcheck.setStatus('degraded')
+        self.eq(hcheck.getStatus(), 'failed')
+        hcheck.setStatus('nominal')
+        self.eq(hcheck.getStatus(), 'failed')
 
         # Show a passing / failing healthcheck on a cell
         async with self.getTestCoreAndProxy() as (core, prox):
             snfo1 = await prox.getHealthCheck()
-            self.eq(snfo1.get('status'), 'green')
+            self.eq(snfo1.get('status'), 'nominal')
             self.eq(snfo1.get('iden'), core.getCellIden())
             comps = snfo1.get('components')
             testdata = [comp for comp in comps if comp.get('name') == 'testmodule'][0]
             self.eq(testdata,
-                    {'status': 'green',
+                    {'status': 'nominal',
                      'name': 'testmodule',
                      'mesg': 'Test module is healthy',
                      'data': {'beep': 0}})
@@ -56,11 +46,11 @@ class HealthcheckTest(s_t_utils.SynTest):
             mod.healthy = False
 
             snfo2 = await prox.getHealthCheck()
-            self.false(snfo2.get('health'))
+            self.eq(snfo2.get('status'), 'failed')
             comps = snfo2.get('components')
             testdata = [comp for comp in comps if comp.get('name') == 'testmodule'][0]
             self.eq(testdata,
-                    {'status': 'red',
+                    {'status': 'failed',
                      'name': 'testmodule',
                      'mesg': 'Test module is unhealthy',
                      'data': {'beep': 1}})

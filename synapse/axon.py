@@ -164,7 +164,7 @@ class Axon(s_cell.Cell):
         health = event[1].get('health')
         if health is None:  # pragma: no coverg
             return
-        health.update('axon', 'green', '', data=await self.metrics())
+        health.update('axon', 'nominal', '', data=await self.metrics())
 
     async def _initBlobStor(self):
         path = s_common.gendir(self.dirn, 'blob.lmdb')

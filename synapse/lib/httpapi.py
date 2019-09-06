@@ -649,7 +649,7 @@ class ModelV1(Handler):
 class HealthCheckV1(Handler):
 
     async def get(self):
-        if not await self.reqAuthAllowed('syn', 'health'):
+        if not await self.reqAuthAllowed('health'):
             return
         resp = await self.cell.getHealthCheck()
         return self.sendRestRetn(resp)

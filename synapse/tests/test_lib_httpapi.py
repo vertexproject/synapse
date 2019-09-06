@@ -654,7 +654,7 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(result.get('status'), 'ok')
                     snfo = result.get('result')
                     self.isinstance(snfo, dict)
-                    self.eq(snfo.get('status'), 'green')
+                    self.eq(snfo.get('status'), 'nominal')
 
             user = await core.auth.addUser('user')
             await user.setPasswd('beep')
@@ -662,7 +662,7 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.get(url) as resp:
                     result = await resp.json()
                     self.eq(result.get('status'), 'err')
-                await user.addRule((True, ('syn', 'health')))
+                await user.addRule((True, ('health',)))
                 async with sess.get(url) as resp:
                     result = await resp.json()
                     self.eq(result.get('status'), 'ok')
