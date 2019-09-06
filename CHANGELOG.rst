@@ -3,6 +3,25 @@ Synapse Changelog
 *****************
 
 
+v0.1.25 - 2019-09-06
+====================
+- Add ``$lib.inet.http.put()`` Stormtypes support to allow making HTTP PUT requests.
+  (`#1358 <https://github.com/vertexproject/synapse/pull/1358>`_)
+- Add ``$llib.base64`` Stormtypes to allow for manipulation of base64 data in Storm.
+  (`#1358 <https://github.com/vertexproject/synapse/pull/1358>`_)
+- Add healthcheck tooling that can be used to implement heartbeat support for Synapse Cells.
+  (`#1344 <https://github.com/vertexproject/synapse/pull/1344>`_)
+
+Features and Enhancements
+-------------------------
+
+Bugfixes
+--------
+- Fix an issue where the ``geo:dist`` was missing comparator support. This was fixed by caussing it to inherit from the
+  IntBase type.
+  (`#1362 <https://github.com/vertexproject/synapse/pull/1362>`_)
+
+
 v0.1.24 - 2019-09-03
 ====================
 
