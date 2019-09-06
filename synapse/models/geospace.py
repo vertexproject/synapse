@@ -21,7 +21,7 @@ distrepr = (
     (10.0, 'cm'),
 )
 
-class Dist(s_types.Type):
+class Dist(s_types.IntBase):
 
     def postTypeInit(self):
         self.setNormFunc(int, self._normPyInt)

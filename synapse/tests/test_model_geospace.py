@@ -19,6 +19,7 @@ geotestmodel = {
         ('test:latlong', {}, (
             ('lat', ('geo:latitude', {}), {}),
             ('long', ('geo:longitude', {}), {}),
+            ('dist', ('geo:dist', {}), {}),
         )),
     ),
 }
@@ -261,10 +262,35 @@ class GeoTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             await core.loadCoreModule('synapse.tests.test_model_geospace.GeoTstModule')
             # Lift behavior for a node whose has a latlong as their primary property
-            nodes = await core.eval('[test:latlong=(10, 10) test:latlong=(10.1, 10.1) test:latlong=(3, 3)]').list()
+            nodes = await core.eval('[(test:latlong=(10, 10) :dist=10m) '
+                                    '(test:latlong=(10.1, 10.1) :dist=20m) '
+                                    '(test:latlong=(3, 3) :dist=5m)]').list()
             self.len(3, nodes)
 
             nodes = await core.eval('test:latlong*near=((10, 10), 5km)').list()
             self.len(1, nodes)
             nodes = await core.eval('test:latlong*near=((10, 10), 30km)').list()
             self.len(2, nodes)
+
+            # Ensure geo:dist inherits from IntBase correctly
+            nodes = await core.nodes('test:latlong +:dist>5m')
+            self.len(2, nodes)
+            nodes = await core.nodes('test:latlong +:dist>=5m')
+            self.len(3, nodes)
+            nodes = await core.nodes('test:latlong +:dist<5m')
+            self.len(0, nodes)
+            nodes = await core.nodes('test:latlong +:dist<=5m')
+            self.len(1, nodes)
+            nodes = await core.nodes('test:latlong:dist>5m')
+            self.len(2, nodes)
+            nodes = await core.nodes('test:latlong:dist>=5m')
+            self.len(3, nodes)
+            nodes = await core.nodes('test:latlong:dist<5m')
+            self.len(0, nodes)
+            nodes = await core.nodes('test:latlong:dist<=5m')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:latlong +:dist*range=(8m, 10m)')
+            self.len(1, nodes)
+            nodes = await core.nodes('test:latlong:dist*range=(8m, 10m)')
+            self.len(1, nodes)
