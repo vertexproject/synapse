@@ -155,15 +155,12 @@ class Axon(s_cell.Cell):
         self.axonmetrics.setdefault('size:bytes', 0)
         self.axonmetrics.setdefault('file:count', 0)
 
-        self.on('syn:health', self._onHealthAxon)
+        self.addHealthFunc(self._axonHealth)
 
         # modularize blob storage
         await self._initBlobStor()
 
-    async def _onHealthAxon(self, event):
-        health = event[1].get('health')
-        if health is None:  # pragma: no coverg
-            return
+    async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())
 
     async def _initBlobStor(self):

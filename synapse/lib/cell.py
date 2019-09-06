@@ -436,7 +436,8 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         await self._initCellHttp()
 
-        self.on('syn:health', self._onHealthCell)
+        self._health_funcs = []
+        self.addHealthFunc(self._cellHealth)
 
         async def fini():
             [await s.fini() for s in self.sessions.values()]
@@ -678,10 +679,14 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     async def getHealthCheck(self):
         health = s_health.HealthCheck(self.getCellIden())
-        # Give the Cell a shot at reporting its health
-        await self.fire('syn:health', health=health)
-        ret = health.pack()
-        return ret
+        print(self._health_funcs)
+        for func in self._health_funcs:
+            await func(health)
+        return health.pack()
 
-    async def _onHealthCell(self, evnt):
+    def addHealthFunc(self, func):
+        '''Register a callback function to get a HeaalthCheck object.'''
+        self._health_funcs.append(func)
+
+    async def _cellHealth(self, health):
         pass

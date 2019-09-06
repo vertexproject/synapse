@@ -319,7 +319,7 @@ class TestModule(s_module.CoreModule):
         self.core.addStormLib(('test',), LibTst)
 
         self.healthy = True
-        self.core.on('syn:health', self._onHealthTestMod)
+        self.core.addHealthFunc(self._testModHealth)
 
         self._runtsByBuid = {}
         self._runtsByPropValu = collections.defaultdict(list)
@@ -335,10 +335,7 @@ class TestModule(s_module.CoreModule):
         self.core.addRuntPropSet(self.model.prop('test:runt:lulz'), self._testRuntPropSetLulz)
         self.core.addRuntPropDel(self.model.prop('test:runt:lulz'), self._testRuntPropDelLulz)
 
-    async def _onHealthTestMod(self, event):
-        health = event[1].get('health')
-        if health is None:
-            return
+    async def _testModHealth(self, health):
         if self.healthy:
             health.update(self.getModName(), 'nominal',
                           'Test module is healthy', data={'beep': 0})
