@@ -810,6 +810,8 @@ class Cortex(s_cell.Cell):
         self.onfini(self.provstor.fini)
         self.provstor.migratePre010(self.view.layers[0])
 
+        self.addHealthFunc(self._cortexHealth)
+
         async def fini():
             await asyncio.gather(*[view.fini() for view in self.views.values()])
             await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
@@ -829,6 +831,9 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    async def _cortexHealth(self, health):
+        health.update('cortex', 'nominal')
 
     async def _loadExtModel(self):
 
