@@ -47,7 +47,7 @@ class HealthcheckTest(s_t_utils.SynTest):
             self.eq(resp.get('components')[0].get('name'), 'error')
             m = 'Timeout getting health information from cell.'
             self.eq(resp.get('components')[0].get('mesg'), m)
-            core.off('syn:health', sleep)
+            core._health_funcs.remove(sleep)
 
             logger.info('Checking with the incorrect password')
             outp.clear()
