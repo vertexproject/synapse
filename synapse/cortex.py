@@ -834,7 +834,7 @@ class Cortex(s_cell.Cell):
 
     async def _onHealthCortex(self, event):
         health = event[1].get('health')
-        if health is None:
+        if health is None:  # pragma: no cover
             return
         health.update('cortex', 'green')
 

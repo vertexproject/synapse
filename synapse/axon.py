@@ -166,7 +166,7 @@ class Axon(s_cell.Cell):
 
     async def _onHealthAxon(self, event):
         health = event[1].get('health')
-        if health is None:
+        if health is None:  # pragma: no coverg
             return
         health.update('axon', 'green', '', data=await self.metrics())
 
