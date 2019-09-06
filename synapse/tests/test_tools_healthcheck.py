@@ -1,13 +1,7 @@
 import json
 import asyncio
-import contextlib
-
-import synapse.exc as s_exc
-import synapse.common as s_common
-
 
 import synapse.tests.utils as s_t_utils
-import synapse.tests.test_cortex as t_cortex
 
 import synapse.tools.healthcheck as s_t_healthcheck
 

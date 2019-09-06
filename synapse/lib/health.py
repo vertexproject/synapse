@@ -1,8 +1,3 @@
-import logging
-
-logger = logging.getLogger(__name__)
-
-
 RED = 'red'
 GREEN = 'green'
 YELLOW = 'yellow'
@@ -48,8 +43,6 @@ class HealthCheck(object):
     @status.setter
     def status(self, valu: str):
         valu = valu.lower()
-        # if valu not in HEALTH_PRIORITY:
-        #     raise ValueError(f'Value {valu} must be in {list(HEALTH_PRIORITY)}')
         new_priority = HEALTH_PRIORITY.get(valu)
         if new_priority is None:
             raise ValueError(f'Value {valu} must be in {list(HEALTH_PRIORITY)}')
