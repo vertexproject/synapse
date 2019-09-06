@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 CHUNK_SIZE = 16 * s_const.mebibyte
 MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
 
-
 class UpLoad(s_base.Base):
 
     async def __anit__(self, axon):
@@ -79,14 +78,11 @@ class UpLoad(s_base.Base):
         self._reset()
         return rsize, sha256
 
-
 class UpLoadShare(UpLoad, s_share.Share):
     typename = 'upload'
-
     async def __anit__(self, axon, link):
         await UpLoad.__anit__(self, axon)
         await s_share.Share.__anit__(self, link, None)
-
 
 class AxonApi(s_cell.CellApi, s_share.Share):
 
@@ -133,8 +129,8 @@ class AxonApi(s_cell.CellApi, s_share.Share):
         await self._reqUserAllowed('axon', 'has')
         return await self.cell.metrics()
 
-
 class Axon(s_cell.Cell):
+
     cellapi = AxonApi
     confdefs = ()
 

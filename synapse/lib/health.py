@@ -5,31 +5,35 @@ HEALTH_PRIORITY = {RED: 1, YELLOW: 2, GREEN: 3}
 
 
 class HealthCheck(object):
-    def __init__(self, iden: str):
+    def __init__(self, iden):
         self.iden = iden
         self._status = GREEN
         self.components = []
 
-    def pack(self) -> tuple:
-        ret = {'iden': self.iden,
-               'components': self.components,
-               'status': self.status,
-               }
-        return ret
+    def pack(self):
+        return {'iden': self.iden,
+                'components': self.components,
+                'status': self.status,
+                }
 
-    def update(self,
-               name: str,
-               status: bool,
-               mesg: str = '',
-               data: dict = None,
-               ) -> None:
+    def update(self, name, status, mesg='', data=None):
+        '''
+        Append a new component to the Healcheck object.
+
+        Args:
+            name (str): Name of the reported component.
+            status (str): green/yellow/red status code.
+            mesg (str): Optional message about the component status.
+            data (dict): Optional arbitrary dictionary of additional metadata about the component.
+
+        Returns:
+            None
+        '''
         # Allow the component a shot at reporting a failure state
         status = status.lower()
         self.status = status
         if data is None:
             data = {}
-        # record which component failed, any additional message they may have,
-        # as well as any additional data they want to report on.
         self.components.append({'status': status,
                                 'name': name,
                                 'mesg': mesg,
@@ -37,11 +41,11 @@ class HealthCheck(object):
                                 })
 
     @property
-    def status(self) -> str:
+    def status(self):
         return self._status
 
     @status.setter
-    def status(self, valu: str):
+    def status(self, valu):
         valu = valu.lower()
         new_priority = HEALTH_PRIORITY.get(valu)
         if new_priority is None:
