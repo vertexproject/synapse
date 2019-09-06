@@ -1,10 +1,12 @@
 import json
 import asyncio
+import logging
 
 import synapse.tests.utils as s_t_utils
 
 import synapse.tools.healthcheck as s_t_healthcheck
 
+logger = logging.getLogger(__name__)
 
 class HealthcheckTest(s_t_utils.SynTest):
 
@@ -34,9 +36,10 @@ class HealthcheckTest(s_t_utils.SynTest):
             # Sad paths
 
             # timeout during check
+            logger.info('Checking with a timeout')
             async def sleep(*args, **kwargs):
-                await asyncio.sleep(0.3)
-            core.on('syn:health', sleep)
+                await asyncio.sleep(0.6)
+            core.addHealthFunc(sleep)
             outp.clear()
             retn = await s_t_healthcheck.main(['-c', curl, '-t', '0.2'], outp)
             self.eq(retn, 1)
@@ -46,6 +49,7 @@ class HealthcheckTest(s_t_utils.SynTest):
             self.eq(resp.get('components')[0].get('mesg'), m)
             core.off('syn:health', sleep)
 
+            logger.info('Checking with the incorrect password')
             outp.clear()
             _, port = await core.dmon.listen('tcp://127.0.0.1:0')
             root = core.auth.getUserByName('root')
@@ -58,6 +62,7 @@ class HealthcheckTest(s_t_utils.SynTest):
             self.eq(resp.get('components')[0].get('mesg'), m)
 
             # dont do this in prod...
+            logger.info('Checking without perms')
             await root.setAdmin(False)
             outp.clear()
             retn = await s_t_healthcheck.main(['-c', curl, '-t', '0.2'], outp)
@@ -68,6 +73,7 @@ class HealthcheckTest(s_t_utils.SynTest):
             self.eq(resp.get('components')[0].get('mesg'), m)
 
             # do this sad test last ...
+            logger.info('Checking a finid cortex')
             await prox.fini()
             await core.fini()
             await asyncio.sleep(0)

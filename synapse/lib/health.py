@@ -3,7 +3,6 @@ DEGRADED = 'degraded'
 FAILED = 'failed'
 HEALTH_PRIORITY = {FAILED: 1, DEGRADED: 2, NOMINAL: 3}
 
-
 class HealthCheck(object):
     def __init__(self, iden):
         self.iden = iden
