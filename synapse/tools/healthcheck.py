@@ -8,11 +8,9 @@ import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 import synapse.telepath as s_telepath
 
-
 def serialize(ret):
     s = json.dumps(ret, separators=(',', ':'))
     return s
-
 
 def format_component(e, mesg: str) -> dict:
     d = {
@@ -26,7 +24,6 @@ def format_component(e, mesg: str) -> dict:
     }
 
     return d
-
 
 async def main(argv, outp=s_output.stdout):
     pars = makeargparser()
@@ -90,7 +87,6 @@ async def main(argv, outp=s_output.stdout):
     outp.printf(serialize(ret))
     return retval
 
-
 def makeargparser():
     desc = '''
     synapse healthcheck tool
@@ -101,7 +97,6 @@ def makeargparser():
     pars.add_argument('--timeout', '-t', default=10, type=float,
                       help='Connection and call timeout')
     return pars
-
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))
