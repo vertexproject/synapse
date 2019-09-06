@@ -679,7 +679,6 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     async def getHealthCheck(self):
         health = s_health.HealthCheck(self.getCellIden())
-        print(self._health_funcs)
         for func in self._health_funcs:
             await func(health)
         return health.pack()
