@@ -21,7 +21,7 @@ class HealthCheck(object):
 
         Args:
             name (str): Name of the reported component.
-            status (str): green/yellow/red status code.
+            status (str): nomdinal/degraded/failed status code.
             mesg (str): Optional message about the component status.
             data (dict): Optional arbitrary dictionary of additional metadata about the component.
 
