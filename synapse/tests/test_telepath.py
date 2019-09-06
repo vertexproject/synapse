@@ -178,6 +178,10 @@ class TeleTest(s_t_utils.SynTest):
 
             prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
 
+            sessions = await dmon.getSessInfo()
+            self.len(1, sessions)
+            self.eq(sessions[0], {'items': {None: 'synapse.tests.test_telepath.Foo'}})
+
             # Prox exposes remote synapse version
             self.eq(prox._getSynVers(), s_version.version)
 

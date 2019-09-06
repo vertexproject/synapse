@@ -330,6 +330,10 @@ class CellApi(s_base.Base):
         await self._reqUserAllowed('health')
         return await self.cell.getHealthCheck()
 
+    @adminapi
+    async def getDaemonUsers(self):
+        return await self.cell.getDaemonUsers()
+
 class PassThroughApi(CellApi):
     '''
     Class that passes through methods made on it to its cell.
@@ -689,3 +693,6 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     async def _cellHealth(self, health):
         pass
+
+    async def getDmonSessions(self):
+        return self.dmon.getSessInfo()

@@ -36,6 +36,13 @@ class Sess(s_base.Base):
     def popSessItem(self, name):
         return self.items.pop(name, None)
 
+    def pack(self):
+        ret = {'items': {name: f'{item.__module__}.{item.__class__.__name__}' for name, item in self.items.items()}}
+        if self.user:
+            ret['user'] = self.user.iden
+            ret['user:name'] = self.user.name
+        return ret
+
 class Genr(s_share.Share):
 
     typename = 'genr'
@@ -199,6 +206,9 @@ class Daemon(s_base.Base):
         except Exception:
             logger.exception(f'onTeleShare() error for: {name}')
 
+    async def getSessInfo(self):
+        return [sess.pack() for sess in self.sessions.values()]
+
     async def _onDmonFini(self):
         for s in self.listenservers:
             try:
@@ -305,6 +315,11 @@ class Daemon(s_base.Base):
                 item = await s_coro.ornot(item.getTeleApi, link, mesg, path)
                 if isinstance(item, s_base.Base):
                     link.onfini(item.fini)
+                # FIXME - cellApi setCellUser has no notification back
+                # to up to the Session object ATM
+                user = getattr(item, 'user', None)
+                if user:
+                    sess.user = user
 
             reply[1]['sharinfo'] = s_reflect.getShareInfo(item)
 
