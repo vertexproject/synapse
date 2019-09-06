@@ -4,9 +4,11 @@ import socket
 import asyncio
 
 import synapse.exc as s_exc
+import synapse.telepath as s_telepath
+
 import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
-import synapse.telepath as s_telepath
+import synapse.lib.health as s_health
 
 def serialize(ret):
     s = json.dumps(ret, separators=(',', ':'))
@@ -15,7 +17,7 @@ def serialize(ret):
 def format_component(e, mesg: str) -> dict:
     d = {
         'name': 'error',
-        'status': 'red',
+        'status': s_health.FAILED,
         'mesg': mesg,
         'data': {
             'errname': e.__class__.__name__,
@@ -37,7 +39,7 @@ async def main(argv, outp=s_output.stdout):
                                       timeout=opts.timeout)
     except (ConnectionError, socket.gaierror) as e:
         mesg = 'Unable to connect to cell.'
-        ret = {'status': 'red',
+        ret = {'status': 'failed',
                'iden': opts.cell,
                'components': [format_component(e, mesg)],
                }
@@ -45,7 +47,7 @@ async def main(argv, outp=s_output.stdout):
         return 1
     except s_exc.SynErr as e:
         mesg = 'Synapse error encountered.'
-        ret = {'status': 'red',
+        ret = {'status': s_health.FAILED,
                'iden': opts.cell,
                'components': [format_component(e, mesg)],
                }
@@ -53,7 +55,7 @@ async def main(argv, outp=s_output.stdout):
         return 1
     except asyncio.TimeoutError as e:  # pragma: no cover
         mesg = 'Timeout connecting to cell'
-        ret = {'status': 'red',
+        ret = {'status': s_health.FAILED,
                'iden': opts.cell,
                'components': [format_component(e, mesg)],
                }
@@ -65,14 +67,14 @@ async def main(argv, outp=s_output.stdout):
                                      timeout=opts.timeout)
     except s_exc.SynErr as e:
         mesg = 'Synapse error encountered.'
-        ret = {'status': 'red',
+        ret = {'status': s_health.FAILED,
                'iden': opts.cell,
                'components': [format_component(e, mesg)],
                }
 
     except asyncio.TimeoutError as e:
         mesg = 'Timeout getting health information from cell.'
-        ret = {'status': 'red',
+        ret = {'status': s_health.FAILED,
                'iden': opts.cell,
                'components': [format_component(e, mesg)],
                }
@@ -81,7 +83,7 @@ async def main(argv, outp=s_output.stdout):
         await prox.fini()
 
     retval = 1
-    if ret.get('status') in ('nominal', 'degraded'):
+    if ret.get('status') in (s_health.NOMINAL, s_health.DEGRADED):
         retval = 0
 
     outp.printf(serialize(ret))
