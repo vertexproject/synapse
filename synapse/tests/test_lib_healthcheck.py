@@ -19,13 +19,23 @@ class HealthcheckTest(s_t_utils.SynTest):
 
         # .healthy property setter behavior
         hcheck = s_healthcheck.HealthCheck('test')
-        self.true(hcheck.healthy)
-        hcheck.healthy = True
-        self.true(hcheck.healthy)
-        hcheck.healthy = False
-        self.false(hcheck.healthy)
-        hcheck.healthy = True
-        self.false(hcheck.healthy)
+        with self.raises(AttributeError):
+            hcheck.status = True
+        with self.raises(ValueError):
+            hcheck.status = 'blue'
+
+        # Ensure that we can only degrade status
+        self.eq(hcheck.status, 'green')
+        hcheck.status = 'green'
+        self.eq(hcheck.status, 'green')
+        hcheck.status = 'yellow'
+        self.eq(hcheck.status, 'yellow')
+        hcheck.status = 'red'
+        self.eq(hcheck.status, 'red')
+        hcheck.status = 'yellow'
+        self.eq(hcheck.status, 'red')
+        hcheck.status = 'green'
+        self.eq(hcheck.status, 'red')
 
         # Show a passing / failing healthcheck on a cell
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -52,6 +62,5 @@ class HealthcheckTest(s_t_utils.SynTest):
             self.eq(testdata,
                     {'status': 'red',
                      'name': 'testmodule',
-
                      'mesg': 'Test module is unhealthy',
                      'data': {'beep': 1}})

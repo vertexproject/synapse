@@ -327,7 +327,7 @@ class CellApi(s_base.Base):
         raise s_exc.NoSuchName(name=name)
 
     async def getHealthCheck(self):
-        await self._reqUserAllowed('syn:health')
+        await self._reqUserAllowed('syn', 'health')
         return await self.cell.getHealthCheck()
 
 class PassThroughApi(CellApi):

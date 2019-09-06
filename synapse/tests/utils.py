@@ -340,10 +340,10 @@ class TestModule(s_module.CoreModule):
         if health is None:
             return
         if self.healthy:
-            health.update(self.getModName(), True,
+            health.update(self.getModName(), 'green',
                           'Test module is healthy', data={'beep': 0})
         else:
-            health.update(self.getModName(), False,
+            health.update(self.getModName(), 'red',
                           'Test module is unhealthy', data={'beep': 1})
 
     async def addTestRecords(self, snap, items):

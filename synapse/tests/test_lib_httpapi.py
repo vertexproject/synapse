@@ -647,8 +647,22 @@ class HttpApiTest(s_tests.SynTest):
             root = core.auth.getUserByName('root')
             await root.setPasswd('secret')
 
+            url = f'https://localhost:{port}/api/v1/healthcheck'
             async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
-                async with sess.get(f'https://localhost:{port}/api/v1/healthcheck') as resp:
-                    snfo = await resp.json()
+                async with sess.get(url) as resp:
+                    result = await resp.json()
+                    self.eq(result.get('status'), 'ok')
+                    snfo = result.get('result')
                     self.isinstance(snfo, dict)
                     self.eq(snfo.get('status'), 'green')
+
+            user = await core.auth.addUser('user')
+            await user.setPasswd('beep')
+            async with self.getHttpSess(auth=('user', 'beep'), port=port) as sess:
+                async with sess.get(url) as resp:
+                    result = await resp.json()
+                    self.eq(result.get('status'), 'err')
+                await user.addRule((True, ('syn', 'health')))
+                async with sess.get(url) as resp:
+                    result = await resp.json()
+                    self.eq(result.get('status'), 'ok')

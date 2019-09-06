@@ -40,7 +40,7 @@ async def main(argv, outp=s_output.stdout):
                                       timeout=opts.timeout)
     except (ConnectionError, socket.gaierror) as e:
         mesg = 'Unable to connect to cell.'
-        ret = {'health': 'red',
+        ret = {'status': 'red',
                'iden': opts.cell,
                'components': [format_component(e, mesg)],
                }
@@ -48,7 +48,7 @@ async def main(argv, outp=s_output.stdout):
         return 1
     except s_exc.SynErr as e:
         mesg = 'Synapse error encountered.'
-        ret = {'health': 'red',
+        ret = {'status': 'red',
                'iden': opts.cell,
                'components': [format_component(e, mesg)],
                }
@@ -56,7 +56,7 @@ async def main(argv, outp=s_output.stdout):
         return 1
     except asyncio.TimeoutError as e:  # pragma: no cover
         mesg = 'Timeout connecting to cell'
-        ret = {'health': 'red',
+        ret = {'status': 'red',
                'iden': opts.cell,
                'components': [format_component(e, mesg)],
                }
@@ -68,14 +68,14 @@ async def main(argv, outp=s_output.stdout):
                                      timeout=opts.timeout)
     except s_exc.SynErr as e:
         mesg = 'Synapse error encountered.'
-        ret = {'health': 'red',
+        ret = {'status': 'red',
                'iden': opts.cell,
                'components': [format_component(e, mesg)],
                }
 
     except asyncio.TimeoutError as e:
         mesg = 'Timeout getting health information from cell.'
-        ret = {'health': 'red',
+        ret = {'status': 'red',
                'iden': opts.cell,
                'components': [format_component(e, mesg)],
                }
@@ -84,7 +84,7 @@ async def main(argv, outp=s_output.stdout):
         await prox.fini()
 
     retval = 1
-    if ret.get('status') == 'green':
+    if ret.get('status') in ('green', 'yellow'):
         retval = 0
 
     outp.printf(serialize(ret))

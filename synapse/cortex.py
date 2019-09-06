@@ -836,7 +836,7 @@ class Cortex(s_cell.Cell):
         health = event[1].get('health')
         if health is None:
             return
-        health.update('cortex', True)
+        health.update('cortex', 'green')
 
     async def _loadExtModel(self):
 

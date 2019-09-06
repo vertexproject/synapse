@@ -3,28 +3,22 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+RED = 'red'
+GREEN = 'green'
+YELLOW = 'yellow'
+HEALTH_PRIORITY = {RED: 1, YELLOW: 2, GREEN: 3}
+
+
 class HealthCheck(object):
     def __init__(self, iden: str):
         self.iden = iden
-        self._healthy = True
+        self._status = GREEN
         self.components = []
 
     def pack(self) -> tuple:
-        if self.healthy:
-            health = 'green'
-        else:
-            health = 'red'
-        comps = []
-        for component in self.components:
-            comp = component.copy()
-            if comp.get('status'):
-                comp['status'] = 'green'
-            else:
-                comp['status'] = 'red'
-            comps.append(comp)
         ret = {'iden': self.iden,
-               'components': comps,
-               'status': health,
+               'components': self.components,
+               'status': self.status,
                }
         return ret
 
@@ -35,7 +29,8 @@ class HealthCheck(object):
                data: dict = None,
                ) -> None:
         # Allow the component a shot at reporting a failure state
-        self.healthy = status
+        status = status.lower()
+        self.status = status
         if data is None:
             data = {}
         # record which component failed, any additional message they may have,
@@ -47,14 +42,18 @@ class HealthCheck(object):
                                 })
 
     @property
-    def healthy(self) -> bool:
-        return self._healthy
+    def status(self) -> str:
+        return self._status
 
-    @healthy.setter
-    def healthy(self, valu: bool):
-        if not self.healthy:
-            # Cannot change a unhealthy healthcheck status
+    @status.setter
+    def status(self, valu: str):
+        valu = valu.lower()
+        # if valu not in HEALTH_PRIORITY:
+        #     raise ValueError(f'Value {valu} must be in {list(HEALTH_PRIORITY)}')
+        new_priority = HEALTH_PRIORITY.get(valu)
+        if new_priority is None:
+            raise ValueError(f'Value {valu} must be in {list(HEALTH_PRIORITY)}')
+        # Can only degrade status, not improve it.
+        if new_priority >= HEALTH_PRIORITY.get(self._status):
             return
-        if not valu:
-            # Can only set the _health to unhealthy
-            self._healthy = False
+        self._status = valu

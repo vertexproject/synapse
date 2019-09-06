@@ -195,6 +195,7 @@ class AxonTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.AuthDeny, prox.upload())
                 await self.asyncraises(s_exc.AuthDeny, prox.metrics())
                 # now add rules and run the test suite
+                await user.addRule((True, ('syn', 'health')))
                 await user.addRule((True, ('axon', 'get',)))
                 await user.addRule((True, ('axon', 'has',)))
                 await user.addRule((True, ('axon', 'upload',)))
