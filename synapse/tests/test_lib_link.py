@@ -1,6 +1,7 @@
 import asyncio
 
-import synapse.lib.base as s_base
+import synapse.common as s_common
+
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 
@@ -27,25 +28,49 @@ class LinkTest(s_test.SynTest):
 
     async def test_link_tx_sadpath(self):
 
-        async with await s_base.Base.anit() as base:
+        evt = asyncio.Event()
 
-            evt = asyncio.Event()
+        async def onlink(link):
+            msg0 = await link.rx()
+            self.eq(('what', {'k': 1}), msg0)
+            link.onfini(evt.set)
+            await link.fini()
 
-            async def onlink(link):
-                msg0 = await link.rx()
-                self.eq(('what', {'k': 1}), msg0)
-                link.onfini(evt.set)
-                await link.fini()
+        serv = await s_link.listen('127.0.0.1', 0, onlink)
+        host, port = serv.sockets[0].getsockname()
+        link = await s_link.connect(host, port)
+        await link.tx(('what', {'k': 1}))
+        self.true(await s_coro.event_wait(evt, 6))
+        # Why does this first TX post fini on the server link work,
+        # but the second one fails?
+        await link.tx(('me', {'k': 2}))
+        await self.asyncraises(ConnectionError, link.tx(('worry?', {'k': 3})))
 
-            serv = await s_link.listen('127.0.0.1', 0, onlink)
-            host, port = serv.sockets[0].getsockname()
-            link = await s_link.connect(host, port)
+    async def test_link_rx_sadpath(self):
+
+        buid = 'a9d0cdafef705b9864bd6ae2f1f082444db8d3413091f8c20ae8b31d79aa35f9'
+        buid = s_common.uhex(buid)
+
+        evt = asyncio.Event()
+
+        async def onlink(link):
             await link.tx(('what', {'k': 1}))
             self.true(await s_coro.event_wait(evt, 6))
-            # Why does this first TX post fini on the server link work,
-            # but the second one fails?
-            await link.tx(('me', {'k': 2}))
-            await self.asyncraises(ConnectionError, link.tx(('worry?', {'k': 3})))
+            # Send purposely bad data through the link
+            await link.send(buid)
+            await link.fini()
+
+        serv = await s_link.listen('127.0.0.1', 0, onlink)
+        host, port = serv.sockets[0].getsockname()
+        link = await s_link.connect(host, port)
+        msg0 = await link.rx()
+        self.eq(msg0, ('what', {'k': 1}))
+        evt.set()
+        await asyncio.sleep(0)
+        with self.getAsyncLoggerStream('synapse.lib.link', 'rx error') as stream:
+            msg1 = await link.rx()
+            self.true(await stream.wait(6))
+        self.none(msg1)
 
     async def test_link_file(self):
 
