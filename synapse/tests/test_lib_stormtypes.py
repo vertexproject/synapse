@@ -2,14 +2,17 @@
 import bz2
 import gzip
 import json
+import base64
+import hashlib
+import binascii
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_test
 
 from synapse.tests.utils import alist
-from synapse.lib.httpapi import Handler
 
 class StormTypesTest(s_test.SynTest):
 
@@ -675,3 +678,112 @@ class StormTypesTest(s_test.SynTest):
             ernfos = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, ernfos)
             self.isin('Error during time parsing', ernfos[0][1].get('mesg'))
+
+    async def test_storm_node_data(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[test:int=10] $node.data.set(foo, hehe)')
+
+            self.len(1, nodes)
+            self.eq(await nodes[0].getData('foo'), 'hehe')
+
+            nodes = await core.nodes('test:int $foo=$node.data.get(foo) [ test:str=$foo ] +test:str')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'hehe'))
+
+            nodes = await core.nodes('test:int for ($name, $valu) in $node.data.list() { [ test:str=$name ] } +test:str')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'foo'))
+
+            # delete and remake the node to confirm data wipe
+            nodes = await core.nodes('test:int=10 | delnode')
+            nodes = await core.nodes('test:int=10')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('[test:int=10]')
+
+            self.none(await nodes[0].getData('foo'))
+
+            nodes = await core.nodes('[ test:int=20 ] $node.data.set(woot, woot)')
+            self.eq('woot', await nodes[0].getData('woot'))
+
+            nodes = await core.nodes('test:int=20 [ test:str=$node.data.pop(woot) ]')
+
+            self.none(await nodes[0].getData('woot'))
+            self.eq(nodes[1].ndef, ('test:str', 'woot'))
+
+    async def test_storm_lib_bytes(self):
+
+        async with self.getTestCore() as core:
+
+            with self.raises(s_exc.BadArg):
+                opts = {'vars': {'bytes': 10}}
+                text = '($size, $sha2) = $lib.bytes.put($bytes)'
+                nodes = await core.nodes(text, opts=opts)
+
+            opts = {'vars': {'bytes': b'asdfasdf'}}
+            text = '($size, $sha2) = $lib.bytes.put($bytes) [ test:int=$size test:str=$sha2 ]'
+
+            nodes = await core.nodes(text, opts=opts)
+            self.len(2, nodes)
+
+            self.eq(nodes[0].ndef, ('test:int', 8))
+            self.eq(nodes[1].ndef, ('test:str', '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892'))
+
+            bkey = s_common.uhex('2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
+            byts = b''.join([b async for b in core.axon.get(bkey)])
+            self.eq(b'asdfasdf', byts)
+
+    async def test_storm_lib_base64(self):
+
+        async with self.getTestCore() as core:
+
+            await core.axready.wait()
+
+            # urlsafe
+            opts = {'vars': {'bytes': b'fooba?'}}
+            text = '$valu = $lib.base64.encode($bytes) [ test:str=$valu ]'
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'Zm9vYmE_'))
+
+            opts = {'vars': {'bytes': nodes[0].ndef[1]}}
+            text = '$lib.bytes.put($lib.base64.decode($bytes))'
+            nodes = await core.nodes(text, opts)
+            key = binascii.unhexlify(hashlib.sha256(base64.urlsafe_b64decode(opts['vars']['bytes'])).hexdigest())
+            byts = b''.join([b async for b in core.axon.get(key)])
+            self.eq(byts, b'fooba?')
+
+            # normal
+            opts = {'vars': {'bytes': b'fooba?'}}
+            text = '$valu = $lib.base64.encode($bytes, $(0)) [ test:str=$valu ]'
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'Zm9vYmE/'))
+
+            opts = {'vars': {'bytes': nodes[0].ndef[1]}}
+            text = '$lib.bytes.put($lib.base64.decode($bytes, $(0)))'
+            nodes = await core.nodes(text, opts)
+            key = binascii.unhexlify(hashlib.sha256(base64.urlsafe_b64decode(opts['vars']['bytes'])).hexdigest())
+            byts = b''.join([b async for b in core.axon.get(key)])
+            self.eq(byts, b'fooba?')
+
+            # unhappy cases
+            opts = {'vars': {'bytes': 'not bytes'}}
+            text = '[ test:str=$lib.base64.encode($bytes) ]'
+            mesgs = await alist(core.streamstorm(text, opts=opts))
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('Error during base64 encoding - a bytes-like object is required', err[1].get('mesg'))
+
+            opts = {'vars': {'bytes': 'foobar'}}
+            text = '[test:str=$lib.base64.decode($bytes)]'
+            mesgs = await alist(core.streamstorm(text, opts=opts))
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('Error during base64 decoding - Incorrect padding', err[1].get('mesg'))

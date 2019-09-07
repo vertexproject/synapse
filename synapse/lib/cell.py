@@ -18,6 +18,7 @@ import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.hive as s_hive
 import synapse.lib.compat as s_compat
+import synapse.lib.health as s_health
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 
@@ -196,6 +197,16 @@ class CellApi(s_base.Base):
         await self._reqUserAllowed(*perm)
         return await self.cell.hive.pop(path)
 
+    async def saveHiveTree(self, path=()):
+        perm = ('hive:get',) + path
+        await self._reqUserAllowed(*perm)
+        return await self.cell.hive.saveHiveTree(path=path)
+
+    async def loadHiveTree(self, tree, path=(), trim=False):
+        perm = ('hive:set',) + path
+        await self._reqUserAllowed(*perm)
+        return await self.cell.hive.loadHiveTree(tree, path=path, trim=trim)
+
     @adminapi
     async def addAuthUser(self, name):
         user = await self.cell.auth.addUser(name)
@@ -315,6 +326,10 @@ class CellApi(s_base.Base):
 
         raise s_exc.NoSuchName(name=name)
 
+    async def getHealthCheck(self):
+        await self._reqUserAllowed('health')
+        return await self.cell.getHealthCheck()
+
 class PassThroughApi(CellApi):
     '''
     Class that passes through methods made on it to its cell.
@@ -421,6 +436,9 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         await self._initCellHttp()
 
+        self._health_funcs = []
+        self.addHealthFunc(self._cellHealth)
+
         async def fini():
             [await s.fini() for s in self.sessions.values()]
 
@@ -509,20 +527,20 @@ class Cell(s_base.Base, s_telepath.Aware):
         }
 
         self.wapp = t_web.Application(**opts)
+        self._initCellHttpApis()
+
+    def _initCellHttpApis(self):
 
         self.addHttpApi('/api/v1/login', s_httpapi.LoginV1, {'cell': self})
+        self.addHttpApi('/api/v1/healthcheck', s_httpapi.HealthCheckV1, {'cell': self})
 
         self.addHttpApi('/api/v1/auth/users', s_httpapi.AuthUsersV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/roles', s_httpapi.AuthRolesV1, {'cell': self})
-
         self.addHttpApi('/api/v1/auth/adduser', s_httpapi.AuthAddUserV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/addrole', s_httpapi.AuthAddRoleV1, {'cell': self})
-
         self.addHttpApi('/api/v1/auth/delrole', s_httpapi.AuthDelRoleV1, {'cell': self})
-
         self.addHttpApi('/api/v1/auth/user/(.*)', s_httpapi.AuthUserV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/role/(.*)', s_httpapi.AuthRoleV1, {'cell': self})
-
         self.addHttpApi('/api/v1/auth/grant', s_httpapi.AuthGrantV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/revoke', s_httpapi.AuthRevokeV1, {'cell': self})
 
@@ -558,9 +576,19 @@ class Cell(s_base.Base, s_telepath.Aware):
         if hurl is not None:
             return await s_hive.openurl(hurl)
 
+        isnew = not self.slab.dbexists('hive')
+
         db = self.slab.initdb('hive')
         hive = await s_hive.SlabHive.anit(self.slab, db=db)
         self.onfini(hive)
+
+        if isnew:
+            path = os.path.join(self.dirn, 'hiveboot.yaml')
+            if os.path.isfile(path):
+                tree = s_common.yamlload(path)
+                if tree is not None:
+                    await hive.loadHiveTree(tree)
+
         return hive
 
     async def _initCellSlab(self, readonly=False):
@@ -648,3 +676,16 @@ class Cell(s_base.Base, s_telepath.Aware):
             raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
 
         return user
+
+    async def getHealthCheck(self):
+        health = s_health.HealthCheck(self.getCellIden())
+        for func in self._health_funcs:
+            await func(health)
+        return health.pack()
+
+    def addHealthFunc(self, func):
+        '''Register a callback function to get a HeaalthCheck object.'''
+        self._health_funcs.append(func)
+
+    async def _cellHealth(self, health):
+        pass

@@ -250,6 +250,9 @@ class Handler(HandlerBase, t_web.RequestHandler):
 
 class StormNodesV1(Handler):
 
+    async def post(self):
+        return await self.get()
+
     async def get(self):
 
         if not await self.reqAuthUser():
@@ -272,6 +275,9 @@ class StormNodesV1(Handler):
             await self.flush()
 
 class StormV1(Handler):
+
+    async def post(self):
+        return await self.get()
 
     async def get(self):
 
@@ -638,4 +644,12 @@ class ModelV1(Handler):
             return
 
         resp = await self.cell.getModelDict()
+        return self.sendRestRetn(resp)
+
+class HealthCheckV1(Handler):
+
+    async def get(self):
+        if not await self.reqAuthAllowed('health'):
+            return
+        resp = await self.cell.getHealthCheck()
         return self.sendRestRetn(resp)

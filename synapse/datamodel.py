@@ -19,6 +19,31 @@ logger = logging.getLogger(__name__)
 
 hexre = regex.compile('^[0-9a-z]+$')
 
+class TagProp:
+
+    def __init__(self, model, name, tdef, info):
+
+        self.name = name
+        self.info = info
+        self.tdef = tdef
+        self.model = model
+
+        self.utf8 = name.encode()
+        self.nenc = name.encode() + b'\x00'
+
+        self.base = self.model.types.get(tdef[0])
+        if self.base is None:
+            raise s_exc.NoSuchType(name=tdef[0])
+
+        self.type = self.base.clone(tdef[1])
+
+    def pack(self):
+        return {
+            'name': self.name,
+            'info': self.info,
+            'type': self.tdef,
+        }
+
 class PropBase:
 
     def __init__(self):
@@ -449,6 +474,7 @@ class Model:
         self.types = {} # name: Type()
         self.forms = {} # name: Form()
         self.props = {} # (form,name): Prop() and full: Prop()
+        self.tagprops = {} # name: TagProp()
         self.formabbr = {} # name: [Form(), ... ]
 
         self.univs = []
@@ -570,6 +596,7 @@ class Model:
         retn = {
             'types': {},
             'forms': {},
+            'tagprops': {},
         }
 
         for tobj in self.types.values():
@@ -577,6 +604,9 @@ class Model:
 
         for fobj in self.forms.values():
             retn['forms'][fobj.name] = fobj.pack()
+
+        for pobj in self.tagprops.values():
+            retn['tagprops'][pobj.name] = pobj.pack()
 
         return retn
 
@@ -623,15 +653,8 @@ class Model:
 
         # load all the types in order...
         for modlname, mdef in mods:
-
-            for typename, (basename, opts), info in mdef.get('types', ()):
-
-                base = self.types.get(basename)
-                if base is None:
-                    raise s_exc.NoSuchType(name=basename)
-
-                self.types[typename] = base.extend(typename, opts, info)
-                self._modeldef['types'].append((typename, (basename, opts), info))
+            for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
+                self.addType(typename, basename, typeopts, typeinfo)
 
         # Load all the universal properties
         for modlname, mdef in mods:
@@ -642,39 +665,45 @@ class Model:
         for modlname, mdef in mods:
 
             for formname, forminfo, propdefs in mdef.get('forms', ()):
-
-                if not s_grammar.isFormName(formname):
-                    mesg = f'Invalid form name {formname}'
-                    raise s_exc.BadFormDef(name=formname, mesg=mesg)
-
-                _type = self.types.get(formname)
-                if _type is None:
-                    raise s_exc.NoSuchType(name=formname)
-
-                self._modeldef['forms'].append((formname, forminfo, propdefs))
-
-                form = Form(self, formname, forminfo)
-
-                self.forms[formname] = form
-                self.props[formname] = form
-
-                for univname, typedef, univinfo in self.univs:
-                    self._addFormUniv(form, univname, typedef, univinfo)
-
-                for propdef in propdefs:
-
-                    if len(propdef) != 3:
-                        raise s_exc.BadPropDef(valu=propdef)
-
-                    propname, typedef, propinfo = propdef
-
-                    prop = Prop(self, form, propname, typedef, propinfo)
-
-                    full = f'{formname}:{propname}'
-                    self.props[full] = prop
-                    self.props[(formname, propname)] = prop
+                self.addForm(formname, forminfo, propdefs)
 
         self._modelinfo.addDataModels(mods)
+
+    def addType(self, typename, basename, typeopts, typeinfo):
+        base = self.types.get(basename)
+        if base is None:
+            raise s_exc.NoSuchType(name=basename)
+
+        self.types[typename] = base.extend(typename, typeopts, typeinfo)
+        self._modeldef['types'].append((typename, (basename, typeopts), typeinfo))
+
+    def addForm(self, formname, forminfo, propdefs):
+
+        if not s_grammar.isFormName(formname):
+            mesg = f'Invalid form name {formname}'
+            raise s_exc.BadFormDef(name=formname, mesg=mesg)
+
+        _type = self.types.get(formname)
+        if _type is None:
+            raise s_exc.NoSuchType(name=formname)
+
+        self._modeldef['forms'].append((formname, forminfo, propdefs))
+
+        form = Form(self, formname, forminfo)
+
+        self.forms[formname] = form
+        self.props[formname] = form
+
+        for univname, typedef, univinfo in self.univs:
+            self._addFormUniv(form, univname, typedef, univinfo)
+
+        for propdef in propdefs:
+
+            if len(propdef) != 3:
+                raise s_exc.BadPropDef(valu=propdef)
+
+            propname, typedef, propinfo = propdef
+            self._addFormProp(form, propname, typedef, propinfo)
 
     def _addFormUniv(self, form, name, tdef, info):
 
@@ -702,6 +731,61 @@ class Model:
 
         for form in self.forms.values():
             self._addFormUniv(form, name, tdef, info)
+
+    def addFormProp(self, formname, propname, tdef, info):
+        form = self.forms.get(formname)
+        if form is None:
+            raise s_exc.NoSuchForm(name=formname)
+        self._addFormProp(form, propname, tdef, info)
+
+    def _addFormProp(self, form, name, tdef, info):
+
+        prop = Prop(self, form, name, tdef, info)
+
+        full = f'{form.name}:{name}'
+        self.props[full] = prop
+        self.props[(form.name, name)] = prop
+
+    def delTagProp(self, name):
+        return self.tagprops.pop(name)
+
+    def addTagProp(self, name, tdef, info):
+        prop = TagProp(self, name, tdef, info)
+        self.tagprops[name] = prop
+        return prop
+
+    def getTagProp(self, name):
+        return self.tagprops.get(name)
+
+    def delFormProp(self, formname, propname):
+
+        form = self.forms.get(formname)
+        if form is None:
+            raise s_exc.NoSuchForm(name=formname)
+
+        prop = form.props.pop(propname, None)
+        if prop is None:
+            raise s_exc.NoSuchProp(name=f'{formname}:{propname}')
+
+        form.props.pop(prop.name, None)
+        form.defvals.pop(prop.name, None)
+        self.props.pop(prop.full, None)
+        self.props.pop((form.name, prop.name), None)
+
+        self.propsbytype[prop.type.name].remove(prop)
+
+    def delUnivProp(self, propname):
+
+        univname = '.' + propname
+
+        univ = self.props.pop(univname, None)
+        if univ is None:
+            raise s_exc.NoSuchUniv(name=propname)
+
+        self.univlook.pop(univname, None)
+
+        for form in self.forms.values():
+            self.delFormProp(form.name, univname)
 
     def addBaseType(self, item):
         '''

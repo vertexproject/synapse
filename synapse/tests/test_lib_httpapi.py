@@ -600,6 +600,20 @@ class HttpApiTest(s_tests.SynTest):
 
                     self.eq(0x01020304, node[0][1])
 
+                async with sess.post(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
+
+                    async for byts, x in resp.content.iter_chunks():
+
+                        if not byts:
+                            break
+
+                        mesg = json.loads(byts)
+
+                        if mesg[0] == 'node':
+                            node = mesg[1]
+
+                    self.eq(0x01020304, node[0][1])
+
                 node = None
                 body = {'query': '[ inet:ipv4=1.2.3.4 ]'}
 
@@ -613,3 +627,42 @@ class HttpApiTest(s_tests.SynTest):
                         node = json.loads(byts)
 
                     self.eq(0x01020304, node[0][1])
+
+                async with sess.post(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
+
+                    async for byts, x in resp.content.iter_chunks():
+
+                        if not byts:
+                            break
+
+                        node = json.loads(byts)
+
+                    self.eq(0x01020304, node[0][1])
+
+    async def test_healthcheck(self):
+        async with self.getTestCore() as core:
+            # Run http instead of https for this test
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            root = core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            url = f'https://localhost:{port}/api/v1/healthcheck'
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+                async with sess.get(url) as resp:
+                    result = await resp.json()
+                    self.eq(result.get('status'), 'ok')
+                    snfo = result.get('result')
+                    self.isinstance(snfo, dict)
+                    self.eq(snfo.get('status'), 'nominal')
+
+            user = await core.auth.addUser('user')
+            await user.setPasswd('beep')
+            async with self.getHttpSess(auth=('user', 'beep'), port=port) as sess:
+                async with sess.get(url) as resp:
+                    result = await resp.json()
+                    self.eq(result.get('status'), 'err')
+                await user.addRule((True, ('health',)))
+                async with sess.get(url) as resp:
+                    result = await resp.json()
+                    self.eq(result.get('status'), 'ok')
