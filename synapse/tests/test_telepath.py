@@ -474,10 +474,16 @@ class TeleTest(s_t_utils.SynTest):
                 self.isinstance(sess.getSessItem(key), CustomShare)
 
                 # make another customeshare reference which will be tracked
+                evt = asyncio.Event()
                 async with await proxy.customshare() as _share:
                     self.len(3, sess.items)
+                    _key = [k for k in sess.items.keys() if k and k != key][0]
+                    _cshare = sess.getSessItem(_key)
+                    self.isinstance(_cshare, CustomShare)
+                    _cshare.onfini(evt.set)
                 # and that item is removed on the _share fini by the client
-                await asyncio.sleep(0.001)
+                # await asyncio.sleep(0.001)
+                self.true(await asyncio.wait_for(evt.wait(), 6))
                 self.len(2, sess.items)
                 self.nn(sess.getSessItem(key))
 
