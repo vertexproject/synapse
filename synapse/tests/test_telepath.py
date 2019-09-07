@@ -26,9 +26,6 @@ class Boom:
 class CustomShare(s_share.Share):
     typename = 'customshare'
 
-    async def __anit__(self, link, item):
-        await s_share.Share.__anit__(self, link, item)
-
     async def _runShareLoop(self):
         try:
             await asyncio.sleep(10)
