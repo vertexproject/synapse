@@ -373,7 +373,6 @@ class Daemon(s_base.Base):
                 raise s_exc.NoSuchObj(name=name)
 
             s_scope.set('sess', sess)
-            # TODO set user....
 
             methname, args, kwargs = todo
 
