@@ -58,6 +58,8 @@ class CellApi(s_base.Base):
         self.link = link
         assert user
         self.user = user
+        sess = self.link.get('sess')  # type: s_daemon.Sess
+        sess.user = user
 
     async def allowed(self, *path):
         '''
@@ -137,6 +139,7 @@ class CellApi(s_base.Base):
             raise s_exc.NoSuchUser(iden=iden)
 
         self.user = user
+        self.link.get('sess').user = user
         return True
 
     async def ps(self):
@@ -331,8 +334,8 @@ class CellApi(s_base.Base):
         return await self.cell.getHealthCheck()
 
     @adminapi
-    async def getDaemonUsers(self):
-        return await self.cell.getDaemonUsers()
+    async def getDmonSessions(self):
+        return await self.cell.getDmonSessions()
 
 class PassThroughApi(CellApi):
     '''
@@ -695,4 +698,4 @@ class Cell(s_base.Base, s_telepath.Aware):
         pass
 
     async def getDmonSessions(self):
-        return self.dmon.getSessInfo()
+        return await self.dmon.getSessInfo()

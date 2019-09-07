@@ -26,6 +26,11 @@ class Boom:
 class CustomShare(s_share.Share):
     typename = 'customshare'
 
+    async def __anit__(self, link, item):
+        await s_share.Share.__anit__(self, link, item)
+        print('Making a customshare!')
+        print(self)
+
     async def _runShareLoop(self):
         try:
             await asyncio.sleep(10)
@@ -468,7 +473,9 @@ class TeleTest(s_t_utils.SynTest):
                 self.eq(10, await proxy.getFooBar(20, 10))
 
                 # check a custom share works
+                print('getting my customshare')
                 obj = await proxy.customshare()
+                print('got my customshare!')
                 self.eq(999, await obj.boo(999))
 
                 # Ensure the Share object is placed into the
@@ -492,6 +499,14 @@ class TeleTest(s_t_utils.SynTest):
                 self.true(await asyncio.wait_for(evt.wait(), 6))
                 self.len(2, sess.items)
                 self.nn(sess.getSessItem(key))
+
+                # ensure that the share is represented in the session info via
+                # the helper APIs as well
+                sessions = await dmon.getSessInfo()
+                self.len(1, sessions)
+                from pprint import pprint
+                pprint(sessions)
+                # self.eq(sessions[0], {'items': {None: 'synapse.tests.test_telepath.Foo'}})
 
                 # and we can still use the first obj we made
                 ret = await alist(obj.custgenr(3))

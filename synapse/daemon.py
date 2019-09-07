@@ -37,10 +37,13 @@ class Sess(s_base.Base):
         return self.items.pop(name, None)
 
     def pack(self):
+        for k, v in self.items.items():
+            print(k, v)
         ret = {'items': {name: f'{item.__module__}.{item.__class__.__name__}' for name, item in self.items.items()}}
         if self.user:
-            ret['user'] = self.user.iden
-            ret['user:name'] = self.user.name
+            ret['user'] = {'iden': self.user.iden,
+                           'name': self.user.name,
+                           }
         return ret
 
 class Genr(s_share.Share):
@@ -315,11 +318,6 @@ class Daemon(s_base.Base):
                 item = await s_coro.ornot(item.getTeleApi, link, mesg, path)
                 if isinstance(item, s_base.Base):
                     link.onfini(item.fini)
-                # FIXME - cellApi setCellUser has no notification back
-                # to up to the Session object ATM
-                user = getattr(item, 'user', None)
-                if user:
-                    sess.user = user
 
             reply[1]['sharinfo'] = s_reflect.getShareInfo(item)
 

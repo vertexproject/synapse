@@ -52,6 +52,13 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await proxy.isadmin())
                     self.true(await proxy.allowed('hehe', 'haha'))
 
+                    resp = await proxy.getDmonSessions()
+                    self.len(1, resp)
+                    info = resp[0]
+                    self.eq(info.get('items'), {None: 'synapse.tests.test_lib_cell.EchoAuthApi'})
+                    self.eq(info.get('user').get('name'), 'root')
+                    self.eq(info.get('user').get('iden'), root.iden)
+
                 user = await echo.auth.addUser('visi')
                 await user.setPasswd('foo')
                 await user.addRule((True, ('foo', 'bar')))
