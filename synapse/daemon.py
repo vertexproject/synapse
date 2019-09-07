@@ -37,8 +37,6 @@ class Sess(s_base.Base):
         return self.items.pop(name, None)
 
     def pack(self):
-        for k, v in self.items.items():
-            print(k, v)
         ret = {'items': {name: f'{item.__module__}.{item.__class__.__name__}' for name, item in self.items.items()}}
         if self.user:
             ret['user'] = {'iden': self.user.iden,

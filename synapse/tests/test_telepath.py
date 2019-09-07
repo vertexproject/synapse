@@ -28,8 +28,6 @@ class CustomShare(s_share.Share):
 
     async def __anit__(self, link, item):
         await s_share.Share.__anit__(self, link, item)
-        print('Making a customshare!')
-        print(self)
 
     async def _runShareLoop(self):
         try:
@@ -469,13 +467,15 @@ class TeleTest(s_t_utils.SynTest):
                 # Ensure the session tracks the reference to the TeleApi object
                 sess = dmon.sessions[list(dmon.sessions.keys())[0]]
                 self.isinstance(sess.getSessItem(None), TeleApi)
+                # And that data is available from the session helper API
+                snfo = await dmon.getSessInfo()
+                self.len(1, snfo)
+                self.eq(snfo[0], {'items': {None: 'synapse.tests.test_telepath.TeleApi'}})
 
                 self.eq(10, await proxy.getFooBar(20, 10))
 
                 # check a custom share works
-                print('getting my customshare')
                 obj = await proxy.customshare()
-                print('got my customshare!')
                 self.eq(999, await obj.boo(999))
 
                 # Ensure the Share object is placed into the
@@ -502,11 +502,10 @@ class TeleTest(s_t_utils.SynTest):
 
                 # ensure that the share is represented in the session info via
                 # the helper APIs as well
-                sessions = await dmon.getSessInfo()
-                self.len(1, sessions)
-                from pprint import pprint
-                pprint(sessions)
-                # self.eq(sessions[0], {'items': {None: 'synapse.tests.test_telepath.Foo'}})
+                snfo = await dmon.getSessInfo()
+                self.len(1, snfo)
+                self.eq(snfo[0], {'items': {None: 'synapse.tests.test_telepath.TeleApi',
+                                            key: 'synapse.tests.test_telepath.CustomShare'}})
 
                 # and we can still use the first obj we made
                 ret = await alist(obj.custgenr(3))
