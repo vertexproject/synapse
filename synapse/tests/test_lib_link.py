@@ -1,7 +1,10 @@
-import synapse.tests.utils as s_test
+import asyncio
 
+import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+
+import synapse.tests.utils as s_test
 
 class LinkTest(s_test.SynTest):
 
@@ -21,6 +24,28 @@ class LinkTest(s_test.SynTest):
         await link.send(b'visi')
         self.eq(b'vert', await link.recvsize(4))
         self.none(await link.recvsize(1))
+
+    async def test_link_tx_sadpath(self):
+
+        async with await s_base.Base.anit() as base:
+
+            evt = asyncio.Event()
+
+            async def onlink(link):
+                msg0 = await link.rx()
+                self.eq(('what', {'k': 1}), msg0)
+                link.onfini(evt.set)
+                await link.fini()
+
+            serv = await s_link.listen('127.0.0.1', 0, onlink)
+            host, port = serv.sockets[0].getsockname()
+            link = await s_link.connect(host, port)
+            await link.tx(('what', {'k': 1}))
+            self.true(await s_coro.event_wait(evt, 6))
+            # Why does this first TX post fini on the server link work,
+            # but the second one fails?
+            await link.tx(('me', {'k': 2}))
+            await self.asyncraises(ConnectionError, link.tx(('worry?', {'k': 3})))
 
     async def test_link_file(self):
 
