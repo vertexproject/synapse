@@ -429,7 +429,7 @@ def unescape(valu):
     '''
     Parse a string for backslash-escaped characters and omit them.
     '''
-    return regex.sub(ESC_RE, r'\1', valu)
+    return ESC_RE.sub(r'\1', valu)
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
 terminalClassMap = {
