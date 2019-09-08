@@ -1042,6 +1042,33 @@ class GrammarTest(s_t_utils.SynTest):
         parser = s_grammar.Parser(query)
         self.raises(s_exc.BadSyntax, parser.query)
 
+    async def test_quotes(self):
+        # Double and single quote versions of a valu
+        q1 = '''[test:str="WORDS \\"THINGS STUFF.\\""]'''
+        q2 = '''[test:str='WORDS "THINGS STUFF."']'''
+        q12valu = 'WORDS "THINGS STUFF."'
+
+        # Additional test values
+        q3 = '''[test:str="\\""]'''
+        q4 = '''[test:str="hello\\\\world!"]'''
+
+        # Test vectors
+        queries = ((q1, q12valu),
+                   (q2, q12valu),
+                   (q3, '"'),
+                   (q4, 'hello\\world!')
+                   )
+
+        async with self.getTestCore() as core:
+            for query, valu in queries:
+                # parser = s_grammar.Parser(query)
+                # tree = parser.query()
+                # print(tree)
+                nodes = await core.nodes(query)
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef[1], valu)
+                # print(nodes[0])
+
     def test_isre_funcs(self):
 
         self.true(s_grammar.isCmdName('testcmd'))

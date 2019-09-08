@@ -423,6 +423,24 @@ def parse_cmd_string(text, off):
     valu, newoff = CmdStringer().transform(tree)
     return valu, off + newoff
 
+def quoted(valu):
+
+    text = ''
+    offs = 0
+
+    while offs < len(valu):
+        c = valu[offs]
+        offs += 1
+
+        if c == '\\':
+            text += valu[offs]
+            offs += 1
+            continue
+
+        text += c
+
+    return text
+
 # For AstConverter, one-to-one replacements from lark to synapse AST
 terminalClassMap = {
     'ABSPROP': s_ast.AbsProp,
@@ -430,7 +448,7 @@ terminalClassMap = {
     'ALLTAGS': lambda _: s_ast.TagMatch(''),
     'BREAK': lambda _: s_ast.BreakOper(),
     'CONTINUE': lambda _: s_ast.ContinueOper(),
-    'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
+    'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(quoted(x[1:-1])),  # drop quotes
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
