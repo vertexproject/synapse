@@ -423,25 +423,13 @@ def parse_cmd_string(text, off):
     valu, newoff = CmdStringer().transform(tree)
     return valu, off + newoff
 
-def quoted(valu):
+ESC_RE = regex.compile(r'\\(.)')
+
+def unescape(valu):
     '''
-    Parse a string for backslash escaped characters and omit them.
+    Parse a string for backslash-escaped characters and omit them.
     '''
-    text = ''
-    offs = 0
-
-    while offs < len(valu):
-        c = valu[offs]
-        offs += 1
-
-        if c == '\\':
-            text += valu[offs]
-            offs += 1
-            continue
-
-        text += c
-
-    return text
+    return regex.sub(ESC_RE, r'\1', valu)
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
 terminalClassMap = {
@@ -450,7 +438,7 @@ terminalClassMap = {
     'ALLTAGS': lambda _: s_ast.TagMatch(''),
     'BREAK': lambda _: s_ast.BreakOper(),
     'CONTINUE': lambda _: s_ast.ContinueOper(),
-    'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(quoted(x[1:-1])),  # drop quotes
+    'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x[1:-1])),  # drop quotes
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),

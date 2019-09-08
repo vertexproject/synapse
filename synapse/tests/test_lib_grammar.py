@@ -1065,13 +1065,9 @@ class GrammarTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             for query, valu in queries:
-                # parser = s_grammar.Parser(query)
-                # tree = parser.query()
-                # print(tree)
                 nodes = await core.nodes(query)
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef[1], valu)
-                # print(nodes[0])
 
     def test_isre_funcs(self):
 
