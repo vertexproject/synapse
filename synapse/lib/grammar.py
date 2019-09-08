@@ -424,7 +424,9 @@ def parse_cmd_string(text, off):
     return valu, off + newoff
 
 def quoted(valu):
-
+    '''
+    Parse a string for backslash escaped characters and omit them.
+    '''
     text = ''
     offs = 0
 
