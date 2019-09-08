@@ -1051,12 +1051,16 @@ class GrammarTest(s_t_utils.SynTest):
         # Additional test values
         q3 = '''[test:str="\\""]'''
         q4 = '''[test:str="hello\\\\world!"]'''
+        q5 = '''[test:str="hello\\\\\\"world!"]'''
+        q6 = '''[test:str='hello\\\\\\"world!']'''
 
         # Test vectors
         queries = ((q1, q12valu),
                    (q2, q12valu),
                    (q3, '"'),
-                   (q4, 'hello\\world!')
+                   (q4, 'hello\\world!'),
+                   (q5, 'hello\\"world!'),
+                   (q6, 'hello\\\\\\"world!'),
                    )
 
         async with self.getTestCore() as core:
