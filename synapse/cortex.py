@@ -768,10 +768,12 @@ class Cortex(s_cell.Cell):
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
 
+        # Finalize coremodule loading
+        await self._initCoreMods()
+
+        # Now start agenda AFTER all coremodules have finished loading.
         if self.conf.get('cron:enable'):
             await self.agenda.start()
-
-        await self._initCoreMods()
 
         # Initialize free-running tasks.
         self._initCryoLoop()
