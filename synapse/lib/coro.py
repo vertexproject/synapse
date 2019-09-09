@@ -99,8 +99,8 @@ class GenrHelp:
             return
 
         except GeneratorExit:
-            # Raised if a synchronous consumer exiting a iterator early,
-            # we need to signal the generator to close down.
+            # Raised if a synchronous consumer exited an iterator early.
+            # Signal the generator to close down.
             s_glob.sync(self.genr.aclose())
             raise
 
