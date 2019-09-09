@@ -15,8 +15,18 @@ import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 
 def intify(x):
+
     if isinstance(x, str):
+
+        x = x.lower()
+        if x == 'true':
+            return 1
+
+        if x == 'false':
+            return 0
+
         return int(x, 0)
+
     return int(x)
 
 def kwarg_format(text, **kwargs):
@@ -296,7 +306,14 @@ class Queue(StormType):
     '''
     $q = $lib.queue.open('hehe')
 
-    inet:ipv4 +#foo.bar.baz
+    ==============================================
+
+    for ($offs, $item) in $q.gets(wait=1) {
+        dostuff($item)
+        $q.cull($offs)
+    }
+
+    ==============================================
 
     $q.put( $lib.dict(ipv4=$node.repr()) )
     '''
@@ -311,14 +328,42 @@ class Queue(StormType):
         self.locls.update({
             'get': self._methQueueGet,
             'put': self._methQueuePut,
+            'puts': self._methQueuePuts,
+            'gets': self._methQueueGets,
+            'cull': self._methQueueCull,
         })
+
+    async def _methQueueCull(self, offs):
+        await self.allowed('storm', 'queue', self.name, 'get')
+
+        offs = intify(offs)
+
+        mque = self.runt.snap.core.multiqueue
+        await self.runt.snap.core.multiqueue.cull(self.name, offs)
+
+    async def _methQueueGets(self, offs=0, wait=False, cull=True):
+
+        await self.allowed('storm', 'queue', self.name, 'get')
+
+        wait = intify(wait)
+        cull = intify(cull)
+        offs = intify(offs)
+
+        mque = self.runt.snap.core.multiqueue
+
+        async for item in mque.gets(self.name, offs, cull=cull, wait=wait):
+            yield item
+
+    async def _methQueuePuts(self, wait=False):
+        await self.allowed('storm', 'queue', self.name, 'get')
+        wait = intify(wait)
 
     async def allowed(self, *perm):
         if self.info.get('user') == self.runt.user.iden:
             return
         await self.runt.allowed(*perm)
 
-    async def _methQueueGet(self, offs):
+    async def _methQueueGet(self, offs, cull=True):
         offs = intify(offs)
         await self.allowed('storm', 'queue', self.name, 'get')
         return await self.runt.snap.core.multiqueue.get(self.name, offs)

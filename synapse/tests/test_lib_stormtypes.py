@@ -720,3 +720,27 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('$q = $lib.queue.open(visi) ($offs, $ipv4) = $q.get(0) inet:ipv4=$ipv4')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            # test iter use case
+            nodes = await core.nodes('$q = $lib.queue.open(blah) [ inet:ipv4=1.2.3.4 inet:ipv4=5.5.5.5 ] $q.put( $node.repr() )')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('''
+                $q = $lib.queue.open(blah)
+                for ($offs, $ipv4) in $q.gets(0, cull=0) {
+                    inet:ipv4=$ipv4
+                }
+            ''')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('''
+                $q = $lib.queue.open(blah)
+                for ($offs, $ipv4) in $q.gets(0) {
+                    inet:ipv4=$ipv4
+                    $q.cull($offs)
+                }
+            ''')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('$q = $lib.queue.open(blah) for ($offs, $ipv4) in $q.gets() { inet:ipv4=$ipv4 }')
+            self.len(0, nodes)

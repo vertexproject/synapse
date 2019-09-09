@@ -3,6 +3,7 @@ import asyncio
 import pathlib
 import functools
 import threading
+import collections
 
 import logging
 logger = logging.getLogger(__name__)
@@ -166,6 +167,12 @@ class SlabDict:
         self.slab.pop(lkey, db=self.db)
         return valu
 
+    def inc(self, name, valu=1):
+        curv = self.info.get(name, 0)
+        curv += valu
+        self.set(name, curv)
+        return curv
+
 class SlabAbrv:
     '''
     A utility for translating arbitrary names into fixed with id bytes
@@ -224,7 +231,7 @@ class MultiQueue:
         self.queues = SlabDict(self.slab, db=self.slab.initdb(f'{name}:meta'))
         self.offsets = SlabDict(self.slab, db=self.slab.initdb(f'{name}:offs'))
 
-        self.waiters = {}
+        self.waiters = collections.defaultdict(asyncio.Event)
 
     def exists(self, name):
         return self.queues.get(name) is not None
@@ -251,10 +258,7 @@ class MultiQueue:
             mesg = f'No queue named {name}.'
             raise s_exc.NoSuchName(mesg=mesg)
 
-        pref = self.abrv.nameToAbrv(name)
-        for lkey, lval in self.slab.scanByPref(pref, db=self.qdata):
-            self.slab.delete(lkey, db=self.qdata)
-            await asyncio.sleep(0)
+        await self.cull(name, 0xffffffffffffffff)
 
         self.queues.pop(name)
         self.offsets.pop(name)
@@ -263,60 +267,88 @@ class MultiQueue:
         if evnt is not None:
             evnt.set()
 
-    async def get(self, name, offs):
-
-        if self.queues.get(name) is None:
-            mesg = f'No queue named {name}.'
-            raise s_exc.NoSuchName(mesg=mesg)
-
-        async for itemoff, item in self.consume(name, offs):
-            return itemoff, item
+    async def get(self, name, offs, wait=False, cull=True):
+        '''
+        Return (nextoffs, item) tuple or (-1, None) for the given offset.
+        '''
+        async for itemoffs, item in self.gets(name, offs, wait=wait, cull=cull):
+            return itemoffs, item
+        return -1, None
 
     def put(self, name, item):
+        return self.puts(name, (item,))
+
+    def puts(self, name, items):
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
             raise s_exc.NoSuchName(mesg=mesg)
 
         abrv = self.abrv.nameToAbrv(name)
-        offs = self.offsets.get(name, 0)
-        self.slab.put(abrv + s_common.int64en(offs), s_msgpack.en(item), db=self.qdata)
-        self.offsets.set(name, offs + 1)
-        self.sizes.set(name, self.sizes.get(name, 0) + 1)
-        return offs
 
-    async def consume(self, name, offs, size=1000):
-        '''
-        offs = 0
-        while todo:
-            for offs, item in q.consume(name, offs):
-                dostuff()
+        offs = retn = self.offsets.get(name, 0)
 
-        yield (nextoffs, item) tuples and remove previous offsets.
+        for item in items:
+
+            self.slab.put(abrv + s_common.int64en(offs), s_msgpack.en(item), db=self.qdata)
+
+            self.sizes.inc(name, 1)
+            offs = self.offsets.inc(name, 1)
+
+        # wake the sleepers
+        evnt = self.waiters.get(name)
+        if evnt is not None:
+            evnt.set()
+
+        return retn
+
+    async def gets(self, name, offs, size=None, cull=False, wait=False):
         '''
-        if offs > 0:
-            await self.cleanup(name, offs - 1)
+        Yield (offs, item) tuples from the message queue.
+        '''
+
+        if self.queues.get(name) is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        if cull and offs > 0:
+            await self.cull(name, offs - 1)
 
         abrv = self.abrv.nameToAbrv(name)
 
-        indx = s_common.int64en(offs)
-
         count = 0
-        for lkey, lval in self.slab.scanByRange(abrv + indx, abrv + int64max, db=self.qdata):
 
-            itemoffs = s_common.int64un(lkey[8:])
+        while not self.slab.isfini:
 
-            yield itemoffs + 1, s_msgpack.un(lval)
+            indx = s_common.int64en(offs)
 
-            count += 1
+            for lkey, lval in self.slab.scanByRange(abrv + indx, abrv + int64max, db=self.qdata):
 
-            if count == size:
-                break
+                offs = s_common.int64un(lkey[8:])
 
-    async def cleanup(self, name, offs):
+                yield offs, s_msgpack.un(lval)
+
+                offs += 1   # in case of wait, we're at next offset
+                count += 1
+
+                if size is not None and count >= size:
+                    return
+
+            if not wait:
+                return
+
+            evnt = self.waiters[name]
+            evnt.clear()
+
+            await evnt.wait()
+
+    async def cull(self, name, offs):
         '''
         Remove up-to (and including) the queue entry at offs.
         '''
+        if offs < 0:
+            return
+
         indx = s_common.int64en(offs)
         abrv = self.abrv.nameToAbrv(name)
 

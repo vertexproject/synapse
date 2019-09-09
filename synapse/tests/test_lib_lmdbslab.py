@@ -431,9 +431,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.eq(3, mque.size('woot'))
 
-                self.eq((1, 'hehe'), await mque.get('woot', 0))
-                self.eq((2, 'haha'), await mque.get('woot', 1))
-                self.eq((2, 'haha'), await mque.get('woot', 0))
+                self.eq((0, 'hehe'), await mque.get('woot', 0))
+                self.eq((1, 'haha'), await mque.get('woot', 1))
+                self.eq((1, 'haha'), await mque.get('woot', 0))
 
                 self.eq(2, mque.size('woot'))
 
@@ -444,9 +444,39 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(2, mque.size('woot'))
                 self.eq(3, mque.offset('woot'))
 
+                self.eq(((1, 'haha'), ), [x async for x in mque.gets('woot', 0, size=1)])
+                self.eq(((1, 'haha'), (2, 'hoho')), [x async for x in mque.gets('woot', 0)])
+
+                data = []
+                evnt = asyncio.Event()
+
+                async def getswait():
+                    async for item in mque.gets('woot', 0, wait=True):
+
+                        if item[1] is None:
+                            break
+
+                        data.append(item)
+
+                        if item[1] == 'hoho':
+                            evnt.set()
+
+                task = slab.schedCoro(getswait())
+
+                await asyncio.wait_for(evnt.wait(), 2)
+
+                self.eq(data, ((1, 'haha'), (2, 'hoho')))
+
+                mque.put('woot', 'lulz')
+                mque.put('woot', None)
+
+                await asyncio.wait_for(task, 2)
+
+                self.eq(data, ((1, 'haha'), (2, 'hoho'), (3, 'lulz')))
+
                 self.true(mque.exists('woot'))
 
-                self.eq((3, 'hoho'), await mque.get('woot', 2))
+                self.eq((2, 'hoho'), await mque.get('woot', 2))
 
                 mque.put('woot', 'huhu')
 
