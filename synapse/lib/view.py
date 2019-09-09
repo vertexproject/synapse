@@ -3,6 +3,7 @@ import logging
 import itertools
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
@@ -59,6 +60,128 @@ class View(s_base.Base):
                 raise s_exc.ReadOnlyLayer(mesg=f'First layer {iden} must not be read-only')
 
             self.layers.append(layr)
+
+    async def eval(self, text, opts=None, user=None):
+        '''
+        Evaluate a storm query and yield Nodes only.
+        '''
+        if user is None:
+            user = self.core.auth.getUserByName('root')
+
+        await self.core.boss.promote('storm', user=user, info={'query': text})
+        async with await self.snap(user=user) as snap:
+            async for node in snap.eval(text, opts=opts, user=user):
+                yield node
+
+    async def storm(self, text, opts=None, user=None):
+        '''
+        Evaluate a storm query and yield (node, path) tuples.
+
+        Yields:
+            (Node, Path) tuples
+        '''
+        if user is None:
+            user = self.core.auth.getUserByName('root')
+
+        await self.core.boss.promote('storm', user=user, info={'query': text})
+        async with await self.snap(user=user) as snap:
+            async for mesg in snap.storm(text, opts=opts, user=user):
+                yield mesg
+
+    async def nodes(self, text, opts=None, user=None):
+        '''
+        A simple non-streaming way to return a list of nodes.
+        '''
+        return [n async for n in self.eval(text, opts=opts, user=user)]
+
+    async def streamstorm(self, text, opts=None, user=None):
+        '''
+        Evaluate a storm query and yield result messages.
+        Yields:
+            ((str,dict)): Storm messages.
+        '''
+        if opts is None:
+            opts = {}
+
+        MSG_QUEUE_SIZE = 1000
+        chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
+
+        if user is None:
+            user = self.core.auth.getUserByName('root')
+
+        # promote ourself to a synapse task
+        synt = await self.core.boss.promote('storm', user=user, info={'query': text})
+
+        show = opts.get('show')
+
+        async def runStorm():
+            cancelled = False
+            tick = s_common.now()
+            count = 0
+            try:
+                # First, try text parsing. If this fails, we won't be able to get
+                # a storm runtime in the snap, so catch and pass the `err` message
+                # before handing a `fini` message along.
+                self.core.getStormQuery(text)
+
+                await chan.put(('init', {'tick': tick, 'text': text, 'task': synt.iden}))
+
+                shownode = (show is None or 'node' in show)
+                async with await self.snap(user=user) as snap:
+
+                    if show is None:
+                        snap.link(chan.put)
+
+                    else:
+                        [snap.on(n, chan.put) for n in show]
+
+                    if shownode:
+                        async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                            await chan.put(('node', pode))
+                            count += 1
+
+                    else:
+                        async for item in snap.storm(text, opts=opts, user=user):
+                            count += 1
+
+            except asyncio.CancelledError:
+                logger.warning('Storm runtime cancelled.')
+                cancelled = True
+                raise
+
+            except Exception as e:
+                logger.exception('Error during storm execution')
+                enfo = s_common.err(e)
+                enfo[1].pop('esrc', None)
+                enfo[1].pop('ename', None)
+                await chan.put(('err', enfo))
+
+            finally:
+                if cancelled:
+                    return
+                tock = s_common.now()
+                took = tock - tick
+                await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
+
+        await synt.worker(runStorm())
+
+        while True:
+
+            mesg = await chan.get()
+
+            yield mesg
+
+            if mesg[0] == 'fini':
+                break
+
+    async def iterStormPodes(self, text, opts=None, user=None):
+        if user is None:
+            user = self.auth.getUserByName('root')
+
+        await self.core.boss.promote('storm', user=user, info={'query': text})
+        async with await self.snap(user=user) as snap:
+            async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                yield pode
 
     async def snap(self, user):
 

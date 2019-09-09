@@ -119,7 +119,7 @@ class CoreApi(s_cell.CellApi):
 
         '''
         if iden is None:
-            return
+            return self.cell.view
 
         view = self.cell.views.get(iden)
         if view is None:
@@ -128,6 +128,8 @@ class CoreApi(s_cell.CellApi):
         # TODO:  distinguish between read and read/write perms
 
         await self._reqUserAllowed('view:lift', iden)
+
+        return view
 
     def _trig_auth_check(self, useriden):
         ''' Check that, as a non-admin, may only manipulate resources created by you. '''
@@ -459,13 +461,11 @@ class CoreApi(s_cell.CellApi):
             (int): The number of nodes resulting from the query.
         '''
 
-        # FIXME: code smell:  extract value out of dict to evaluate permissions
-        # resulting view should be passed directly
-        view = None if opts is None else opts.get('view')
-        await self._reqViewAllowed(view)
+        viewiden = None if opts is None else opts.get('view')
+        view = await self._reqViewAllowed(viewiden)
 
         i = 0
-        async for _ in self.cell.eval(text, opts=opts, user=self.user):
+        async for _ in view.eval(text, opts=opts, user=self.user):
             i += 1
         return i
 
@@ -474,10 +474,10 @@ class CoreApi(s_cell.CellApi):
         Evaluate a storm query and yield packed nodes.
         '''
 
-        view = None if opts is None else opts.get('view')
-        await self._reqViewAllowed(view)
+        viewiden = None if opts is None else opts.get('view')
+        view = await self._reqViewAllowed(viewiden)
 
-        async for pode in self.cell.iterStormPodes(text, opts=opts, user=self.user):
+        async for pode in view.iterStormPodes(text, opts=opts, user=self.user):
             yield pode
 
     async def storm(self, text, opts=None):
@@ -488,10 +488,10 @@ class CoreApi(s_cell.CellApi):
             ((str,dict)): Storm messages.
         '''
 
-        view = None if opts is None else opts.get('view')
-        await self._reqViewAllowed(view)
+        viewiden = None if opts is None else opts.get('view')
+        view = await self._reqViewAllowed(viewiden)
 
-        async for mesg in self.cell.streamstorm(text, opts, user=self.user):
+        async for mesg in view.streamstorm(text, opts, user=self.user):
             yield mesg
 
     async def syncLayerSplices(self, iden, offs):
@@ -1935,11 +1935,11 @@ class Cortex(s_cell.Cell):
 
     def _viewFromOpts(self, opts):
         if opts is None:
-            return None
+            return self.view
 
         viewiden = opts.get('view')
         if viewiden is None:
-            return None
+            return self.view
         else:
             view = self.views.get(viewiden)
             if view is None:
@@ -1952,15 +1952,10 @@ class Cortex(s_cell.Cell):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
-        if user is None:
-            user = self.auth.getUserByName('root')
-
         view = self._viewFromOpts(opts)
 
-        await self.boss.promote('storm', user=user, info={'query': text})
-        async with await self.snap(user=user, view=view) as snap:
-            async for node in snap.eval(text, opts=opts, user=user):
-                yield node
+        async for node in view.eval(text, opts, user):
+            yield node
 
     @s_coro.genrhelp
     async def storm(self, text, opts=None, user=None):
@@ -1969,15 +1964,10 @@ class Cortex(s_cell.Cell):
         Yields:
             (Node, Path) tuples
         '''
-        if user is None:
-            user = self.auth.getUserByName('root')
-
         view = self._viewFromOpts(opts)
 
-        await self.boss.promote('storm', user=user, info={'query': text})
-        async with await self.snap(user=user, view=view) as snap:
-            async for mesg in snap.storm(text, opts=opts, user=user):
-                yield mesg
+        async for mesg in view.storm(text, opts, user):
+            yield mesg
 
     async def nodes(self, text, opts=None, user=None):
         '''
@@ -1989,84 +1979,14 @@ class Cortex(s_cell.Cell):
     async def streamstorm(self, text, opts=None, user=None):
         '''
         Evaluate a storm query and yield result messages.
+
         Yields:
             ((str,dict)): Storm messages.
         '''
-        if opts is None:
-            opts = {}
-
-        MSG_QUEUE_SIZE = 1000
-        chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
-
-        if user is None:
-            user = self.auth.getUserByName('root')
-
         view = self._viewFromOpts(opts)
 
-        # promote ourself to a synapse task
-        synt = await self.boss.promote('storm', user=user, info={'query': text})
-
-        show = opts.get('show')
-
-        async def runStorm():
-            cancelled = False
-            tick = s_common.now()
-            count = 0
-            try:
-                # First, try text parsing. If this fails, we won't be able to get
-                # a storm runtime in the snap, so catch and pass the `err` message
-                # before handing a `fini` message along.
-                self.getStormQuery(text)
-
-                await chan.put(('init', {'tick': tick, 'text': text, 'task': synt.iden}))
-
-                shownode = (show is None or 'node' in show)
-                async with await self.snap(user=user, view=view) as snap:
-
-                    if show is None:
-                        snap.link(chan.put)
-
-                    else:
-                        [snap.on(n, chan.put) for n in show]
-
-                    if shownode:
-                        async for pode in snap.iterStormPodes(text, opts=opts, user=user):
-                            await chan.put(('node', pode))
-                            count += 1
-
-                    else:
-                        async for item in snap.storm(text, opts=opts, user=user):
-                            count += 1
-
-            except asyncio.CancelledError:
-                logger.warning('Storm runtime cancelled.')
-                cancelled = True
-                raise
-
-            except Exception as e:
-                logger.exception('Error during storm execution')
-                enfo = s_common.err(e)
-                enfo[1].pop('esrc', None)
-                enfo[1].pop('ename', None)
-                await chan.put(('err', enfo))
-
-            finally:
-                if cancelled:
-                    return
-                tock = s_common.now()
-                took = tock - tick
-                await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
-
-        await synt.worker(runStorm())
-
-        while True:
-
-            mesg = await chan.get()
-
+        async for mesg in view.streamstorm(text, opts, user):
             yield mesg
-
-            if mesg[0] == 'fini':
-                break
 
     @s_coro.genrhelp
     async def iterStormPodes(self, text, opts=None, user=None):
