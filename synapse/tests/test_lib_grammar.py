@@ -1043,24 +1043,39 @@ class GrammarTest(s_t_utils.SynTest):
         self.raises(s_exc.BadSyntax, parser.query)
 
     async def test_quotes(self):
-        # Double and single quote versions of a valu
-        q1 = '''[test:str="WORDS \\"THINGS STUFF.\\""]'''
-        q2 = '''[test:str='WORDS "THINGS STUFF."']'''
-        q12valu = 'WORDS "THINGS STUFF."'
-
-        # Additional test values
-        q3 = '''[test:str="\\""]'''
-        q4 = '''[test:str="hello\\\\world!"]'''
-        q5 = '''[test:str="hello\\\\\\"world!"]'''
-        q6 = '''[test:str='hello\\\\\\"world!']'''
 
         # Test vectors
-        queries = ((q1, q12valu),
-                   (q2, q12valu),
-                   (q3, '"'),
-                   (q4, 'hello\\world!'),
-                   (q5, 'hello\\"world!'),
-                   (q6, 'hello\\\\\\"world!'),
+        queries = ((r'''[test:str="WORDS \"THINGS STUFF.\""]''', 'WORDS "THINGS STUFF."'),
+                   (r'''[test:str='WORDS "THINGS STUFF."']''', 'WORDS "THINGS STUFF."'),
+                   (r'''[test:str="\""]''', '"'),
+                   (r'''[test:str="hello\\world!"]''', 'hello\\world!'),
+                   (r'''[test:str="hello\\\"world!"]''', 'hello\\"world!'),
+                   # Single quoted string
+                   (r'''[test:str='hello\\\"world!']''', 'hello\\\\\\"world!'),
+                   (r'''[test:str='hello\t"world!']''', 'hello\\t"world!'),
+                   # TAB
+                   (r'''[test:str="hello\tworld!"]''', 'hello\tworld!'),
+                   (r'''[test:str="hello\\tworld!"]''', 'hello\\tworld!'),
+                   (r'''[test:str="hello\\\tworld!"]''', 'hello\\\tworld!'),
+                   # LF / Newline
+                   (r'''[test:str="hello\nworld!"]''', 'hello\nworld!'),
+                   (r'''[test:str="hello\\nworld!"]''', 'hello\\nworld!'),
+                   (r'''[test:str="hello\\\nworld!"]''', 'hello\\\nworld!'),
+                   # CR / Carriage returns
+                   (r'''[test:str="hello\rworld!"]''', 'hello\rworld!'),
+                   (r'''[test:str="hello\\rworld!"]''', 'hello\\rworld!'),
+                   (r'''[test:str="hello\\\rworld!"]''', 'hello\\\rworld!'),
+                   # single quote escape
+                   (r'''[test:str="hello\'world!"]''', '''hello'world!'''),
+                   (r'''[test:str="hello'world!"]''', '''hello'world!'''),  # escapse isn't technically required
+                   # BEL
+                   (r'''[test:str="hello\aworld!"]''', '''hello\aworld!'''),
+                   # BS
+                   (r'''[test:str="hello\bworld!"]''', '''hello\bworld!'''),
+                   # FF
+                   (r'''[test:str="hello\fworld!"]''', '''hello\fworld!'''),
+                   # VT
+                   (r'''[test:str="hello\vworld!"]''', '''hello\vworld!'''),
                    )
 
         async with self.getTestCore() as core:

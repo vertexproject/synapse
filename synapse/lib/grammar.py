@@ -1,3 +1,4 @@
+import ast
 import lark  # type: ignore
 import regex  # type: ignore
 
@@ -423,13 +424,15 @@ def parse_cmd_string(text, off):
     valu, newoff = CmdStringer().transform(tree)
     return valu, off + newoff
 
-ESC_RE = regex.compile(r'\\(.)')
-
 def unescape(valu):
     '''
     Parse a string for backslash-escaped characters and omit them.
+    The full list of escaped characters can be found at
+    https://docs.python.org/3/reference/lexical_analysis.html#string-and-bytes-literals
     '''
-    return ESC_RE.sub(r'\1', valu)
+    ret = ast.literal_eval(valu)
+    assert isinstance(ret, str)
+    return ret
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
 terminalClassMap = {
@@ -438,7 +441,7 @@ terminalClassMap = {
     'ALLTAGS': lambda _: s_ast.TagMatch(''),
     'BREAK': lambda _: s_ast.BreakOper(),
     'CONTINUE': lambda _: s_ast.ContinueOper(),
-    'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x[1:-1])),  # drop quotes
+    'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),  # drop quotes and handle escape characters
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
