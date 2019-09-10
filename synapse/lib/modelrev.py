@@ -6,7 +6,7 @@ import synapse.lib.migrate as s_migrate
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 1, 0)
+maxvers = (0, 1, 1)
 
 class ModelRev:
 
@@ -15,6 +15,7 @@ class ModelRev:
         self.revs = (
             ((0, 0, 0), self._addModelVers),
             ((0, 1, 0), self._addFormNameSpaces),
+            ((0, 1, 1), self._normContactAddress),
         )
 
     async def revCoreLayers(self):
@@ -90,3 +91,7 @@ class ModelRev:
                 await migr.setFormName('cluster', 'graph:cluster')
                 await migr.setFormName('graph:link', 'graph:edge')
                 await migr.setFormName('graph:timelink', 'graph:timeedge')
+
+    async def _normContactAddress(self, layers):
+        async with self.getCoreMigr(layers) as migr:
+            await migr.normPropValu('ps:contact:address')

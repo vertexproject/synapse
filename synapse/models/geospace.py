@@ -21,7 +21,7 @@ distrepr = (
     (10.0, 'cm'),
 )
 
-class Dist(s_types.Type):
+class Dist(s_types.IntBase):
 
     def postTypeInit(self):
         self.setNormFunc(int, self._normPyInt)
@@ -201,6 +201,10 @@ class GeoModule(s_module.CoreModule):
 
                     ('geo:place', ('guid', {}), {
                         'doc': 'A GUID for a geographic place.'}),
+
+                    ('geo:address', ('str', {'lower': 1, 'onespace': 1, 'strip': True}), {
+                        'doc': 'A street/mailing address string.',
+                    }),
                 ),
 
                 'forms': (
@@ -231,6 +235,9 @@ class GeoModule(s_module.CoreModule):
 
                         ('loc', ('loc', {}), {
                             'doc': 'The geo-political location string for the node.'}),
+
+                        ('address', ('geo:address', {}), {
+                            'doc': 'The street/mailing address for the place.'}),
 
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The lat/long position for the place.'}),

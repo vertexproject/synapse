@@ -318,6 +318,9 @@ class TestModule(s_module.CoreModule):
 
         self.core.addStormLib(('test',), LibTst)
 
+        self.healthy = True
+        self.core.addHealthFunc(self._testModHealth)
+
         self._runtsByBuid = {}
         self._runtsByPropValu = collections.defaultdict(list)
         await self._initTestRunts()
@@ -331,6 +334,14 @@ class TestModule(s_module.CoreModule):
                 self.core.addRuntLift(pfull, self._testRuntLift)
         self.core.addRuntPropSet(self.model.prop('test:runt:lulz'), self._testRuntPropSetLulz)
         self.core.addRuntPropDel(self.model.prop('test:runt:lulz'), self._testRuntPropDelLulz)
+
+    async def _testModHealth(self, health):
+        if self.healthy:
+            health.update(self.getModName(), 'nominal',
+                          'Test module is healthy', data={'beep': 0})
+        else:
+            health.update(self.getModName(), 'failed',
+                          'Test module is unhealthy', data={'beep': 1})
 
     async def addTestRecords(self, snap, items):
         for name in items:

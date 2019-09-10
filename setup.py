@@ -4,7 +4,7 @@ import sys
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '0.1.23'
+VERSION = '0.1.25'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -42,7 +42,7 @@ setup(
         'PyYAML>=5.1,<6.0',
         'aiohttp>=3.5.4,<4.0',
         'prompt-toolkit>=2.0.7,<2.1.0',
-        'lark-parser>=0.7.1,<0.8.0',
+        'lark-parser>=0.7.1,<0.8.0,!=0.7.4',
         'Pygments>=2.3.0,<2.4.0',
     ],
 

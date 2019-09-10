@@ -1,6 +1,8 @@
 import bz2
 import gzip
 import json
+import base64
+import binascii
 import datetime
 
 import synapse.exc as s_exc
@@ -188,6 +190,7 @@ class LibTime(Lib):
 
     def addLibFuncs(self):
         self.locls.update({
+            'now': s_common.now,
             'fromunix': self.fromunix,
             'parse': self.parse,
         })
@@ -232,6 +235,32 @@ class LibCsv(Lib):
         '''
         row = [toprim(a) for a in args]
         await self.runt.snap.fire('csv:row', row=row, table=table)
+
+class LibBase64(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'encode': self._encode,
+            'decode': self._decode
+        })
+
+    async def _encode(self, valu, urlsafe=True):
+        try:
+            if urlsafe:
+                return base64.urlsafe_b64encode(valu).decode('ascii')
+            return base64.b64encode(valu).decode('ascii')
+        except TypeError as e:
+            mesg = f'Error during base64 encoding - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
+
+    async def _decode(self, valu, urlsafe=True):
+        try:
+            if urlsafe:
+                return base64.urlsafe_b64decode(valu)
+            return base64.b64decode(valu)
+        except binascii.Error as e:
+            mesg = f'Error during base64 decoding - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
 
 class Prim(StormType):
     '''
@@ -477,11 +506,45 @@ class LibGlobals(Lib):
                 ret.append((key, valu))
         return ret
 
+class NodeData(Prim):
+
+    def __init__(self, node, path=None):
+
+        Prim.__init__(self, node, path=path)
+
+        self.locls.update({
+            'get': self._getNodeData,
+            'set': self._setNodeData,
+            'pop': self._popNodeData,
+            'list': self._listNodeData,
+        })
+
+    def _reqAllowed(self, perm):
+        if not self.valu.snap.user.allowed(perm):
+            pstr = '.'.join(perm)
+            mesg = f'User is not allowed permission: {pstr}'
+            raise s_exc.AuthDeny(perm=perm, mesg=mesg)
+
+    async def _getNodeData(self, name):
+        self._reqAllowed(('storm', 'node', 'data', 'get', name))
+        return await self.valu.getData(name)
+
+    async def _setNodeData(self, name, valu):
+        self._reqAllowed(('storm', 'node', 'data', 'set', name))
+        return await self.valu.setData(name, valu)
+
+    async def _popNodeData(self, name):
+        self._reqAllowed(('storm', 'node', 'data', 'pop', name))
+        return await self.valu.popData(name)
+
+    async def _listNodeData(self):
+        self._reqAllowed(('storm', 'node', 'data', 'list'))
+        return [x async for x in self.valu.iterData()]
+
 class Node(Prim):
     '''
     Implements the STORM api for a node instance.
     '''
-
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update({
@@ -493,6 +556,11 @@ class Node(Prim):
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
         })
+
+        def ctordata(path=None):
+            return NodeData(node, path=path)
+
+        self.ctors['data'] = ctordata
 
     async def _methNodeTags(self, glob=None):
         tags = list(self.valu.tags.keys())

@@ -76,6 +76,9 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.splices(offs, size):
             yield item
 
+    async def hasTagProp(self, name):
+        return await self.layr.hasTagProp(name)
+
 class Layer(s_base.Base):
     '''
     The base class for a cortex layer.
@@ -123,12 +126,15 @@ class Layer(s_base.Base):
             'prop:ival': self._liftByPropIval,
             'univ:ival': self._liftByUnivIval,
             'form:ival': self._liftByFormIval,
+            'tag:prop': self._liftByTagProp,
         }
 
         self._stor_funcs = {
             'prop:set': self._storPropSet,
             'prop:del': self._storPropDel,
             'buid:set': self._storBuidSet,
+            'tag:prop:set': self._storTagPropSet,
+            'tag:prop:del': self._storTagPropDel,
         }
 
         self.fresh = False
@@ -378,6 +384,12 @@ class Layer(s_base.Base):
     async def _storPropSet(self, oper):  # pragma: no cover
         raise NotImplementedError
 
+    async def _storTagPropSet(self, oper): # pragma: no cover
+        raise NotImplementedError
+
+    async def _storTagPropDel(self, oper): # pragma: no cover
+        raise NotImplementedError
+
     async def _storBuidSet(self, oper):  # pragma: no cover
         raise NotImplementedError
 
@@ -387,11 +399,17 @@ class Layer(s_base.Base):
     async def _liftByIndx(self, oper):  # pragma: no cover
         raise NotImplementedError
 
+    async def _liftByTagProp(self, oper): # pragma: no cover
+        raise NotImplementedError
+
     async def iterFormRows(self, form):  # pragma: no cover
         '''
         Iterate (buid, valu) rows for the given form in this layer.
         '''
         for x in (): yield x
+        raise NotImplementedError
+
+    async def hasTagProp(self, name): # pragma: no cover
         raise NotImplementedError
 
     async def iterPropRows(self, form, prop):  # pragma: no cover
@@ -428,4 +446,25 @@ class Layer(s_base.Base):
         raise NotImplementedError
 
     def migrateProvPre010(self, slab):  # pragma: no cover
+        raise NotImplementedError
+
+    async def delUnivProp(self, propname, info=None): # pragma: no cover
+        '''
+        Bulk delete all instances of a universal prop.
+        '''
+        raise NotImplementedError
+
+    async def delFormProp(self, formname, propname, info=None): # pragma: no cover
+        '''
+        Bulk delete all instances of a form prop.
+        '''
+
+    async def setNodeData(self, buid, name, item): # pragma: no cover
+        raise NotImplementedError
+
+    async def getNodeData(self, buid, name, defv=None): # pragma: no cover
+        raise NotImplementedError
+
+    async def iterNodeData(self, buid): # pragma: no cover
+        for x in (): yield x
         raise NotImplementedError

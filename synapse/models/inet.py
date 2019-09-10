@@ -939,6 +939,10 @@ class InetModule(s_module.CoreModule):
                         'ex': '(http://foo.com/,http://bar.com/)'
                     }),
 
+                    ('inet:url:mirror', ('comp', {'fields': (('of', 'inet:url'), ('at', 'inet:url'))}), {
+                        'doc': 'A URL mirror site.',
+                    }),
+
                     ('inet:user', ('str', {'lower': True}), {
                         'doc': 'A username string.'
                     }),
@@ -1687,6 +1691,17 @@ class InetModule(s_module.CoreModule):
                         ('dst:fqdn', ('inet:fqdn', {}), {
                             'ro': True,
                             'doc': 'The FQDN within the dst URL (if present)'
+                        }),
+                    )),
+
+                    ('inet:url:mirror', {}, (
+                        ('of', ('inet:url', {}), {
+                            'ro': True,
+                            'doc': 'The URL being mirrored.',
+                        }),
+                        ('at', ('inet:url', {}), {
+                            'ro': True,
+                            'doc': 'The URL of the mirror.',
                         }),
                     )),
 

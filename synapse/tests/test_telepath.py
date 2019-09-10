@@ -456,12 +456,40 @@ class TeleTest(s_t_utils.SynTest):
         async with self.getTestDmon() as dmon:
             dmon.share('woke', item)
             async with await self.getTestProxy(dmon, 'woke') as proxy:
+
+                # Ensure the session tracks the reference to the TeleApi object
+                sess = dmon.sessions[list(dmon.sessions.keys())[0]]
+                self.isinstance(sess.getSessItem(None), TeleApi)
+
                 self.eq(10, await proxy.getFooBar(20, 10))
 
                 # check a custom share works
                 obj = await proxy.customshare()
                 self.eq(999, await obj.boo(999))
 
+                # Ensure the Share object is placed into the
+                # session for the daemon.
+                self.len(2, sess.items)
+                key = [k for k in sess.items.keys() if k][0]
+                self.isinstance(sess.getSessItem(key), CustomShare)
+
+                # make another customshare reference which will be
+                # tracked by the Sess object
+                evt = asyncio.Event()
+                async with await proxy.customshare() as _share:
+                    self.len(3, sess.items)
+                    _key = [k for k in sess.items.keys() if k and k != key][0]
+                    _cshare = sess.getSessItem(_key)
+                    self.isinstance(_cshare, CustomShare)
+                    _cshare.onfini(evt.set)
+
+                # and that item is removed from the sess on the
+                # _share fini by the client
+                self.true(await asyncio.wait_for(evt.wait(), 6))
+                self.len(2, sess.items)
+                self.nn(sess.getSessItem(key))
+
+                # and we can still use the first obj we made
                 ret = await alist(obj.custgenr(3))
                 self.eq(ret, [0, 1, 2])
 
