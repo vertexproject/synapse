@@ -17,6 +17,54 @@ import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
+stormcmds = (
+    {
+        'name': 'queue.add',
+        'descr': 'Add a queue to the cortex.',
+        'cmdargs': (
+            ('name', {'help': 'The name of the new queue.'}),
+        ),
+        'storm': '''
+            $lib.queue.add($cmdopts.name)
+            $lib.print("queue added: {name}", name=$cmdopts.name)
+        ''',
+    },
+    {
+        'name': 'queue.del',
+        'descr': 'Remove a queue from the cortex.',
+        'cmdargs': (
+            ('name', {'help': 'The name of the queue to remove.'}),
+        ),
+        'storm': '''
+            $lib.queue.del($cmdopts.name)
+            $lib.print("queue removed: {name}", name=$cmdopts.name)
+        ''',
+    },
+    {
+        'name': 'queue.list',
+        'descr': 'List the queues in the cortex.',
+        'storm': '''
+            $lib.print('Storm queue list:')
+            for $info in $lib.queue.list() {
+                $name = $info.name.ljust(32)
+                $lib.print("    {name}:  size: {size} offs: {offs}", name=$name, size=$info.size, offs=$info.offs)
+            }
+        ''',
+    },
+    {
+        'name': 'dmon.list',
+        'descr': 'List the storm daemon queries running in the cortex.',
+        'cmdargs': (),
+        'storm': '''
+            $lib.print('Storm daemon list:')
+            for $info in $lib.dmon.list() {
+                $name = $info.name.ljust(20)
+                $lib.print("    {iden}:  ({name}): {status}", iden=$info.iden, name=$info.name, status=$info.status)
+            }
+        ''',
+    },
+)
+
 class StormDmon(s_base.Base):
     '''
     A background storm runtime which is restarted by the cortex.
@@ -37,7 +85,7 @@ class StormDmon(s_base.Base):
 
         async def fini():
             if self.task is not None:
-                await self.task.cancel()
+                self.task.cancel()
 
         self.onfini(fini)
 
@@ -45,12 +93,10 @@ class StormDmon(s_base.Base):
         self.task = self.schedCoro(self._run())
 
     def pack(self):
-        return {
-            'iden': self.iden,
-            'ddef': self.ddef,
-            'count': self.count,
-            'status': self.status,
-        }
+        retn = dict(self.ddef)
+        retn['count'] = self.count
+        retn['status'] = self.status
+        return retn
 
     async def _run(self):
 
@@ -63,26 +109,36 @@ class StormDmon(s_base.Base):
         text = self.ddef.get('storm')
         opts = self.ddef.get('stormopts')
 
+        dmoniden = self.ddef.get('iden')
+        useriden = self.ddef.get('user')
+
         while not self.isfini:
 
             try:
 
-                async with await self.snap(user=user) as snap:
+                user = self.core.auth.user(useriden)
+                if user is None:
+                    mesg = f'No user iden: {useriden}'
+                    raise s_exc.NoSuchUser(mesg=mesg)
+
+                self.status = 'running'
+                async with await self.core.snap(user=user) as snap:
 
                     async for nodepath in snap.storm(text, opts=opts, user=user):
                         # all storm tasks yield often to prevent latency
                         self.count += 1
                         await asyncio.sleep(0)
 
-                # if the generator exits cleanly and the dmon is "once" we're done
-                if self.ddef.get('once'):
-                    logger.warning(f'dmon done: {self.iden}')
-                    await self.core.delStormDmon(self.iden)
+                    logger.warning(f'dmon query exited: {dmoniden}')
+
+                    self.status = 'exited'
+                    await asyncio.sleep(1)
 
             except asyncio.CancelledError as e:
                 raise
 
             except Exception as e:
+                logger.exception(e)
                 logger.warning(f'dmon error ({self.iden}): {e}')
                 self.status = f'error: {e}'
                 await asyncio.sleep(1)
@@ -146,6 +202,7 @@ class Runtime:
         return False
 
     async def printf(self, mesg):
+        #print(mesg)
         return await self.snap.printf(mesg)
 
     async def warn(self, mesg, **info):

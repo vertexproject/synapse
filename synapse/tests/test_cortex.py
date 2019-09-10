@@ -3236,16 +3236,68 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_storm_lib_dmon(self):
         async with self.getTestCore() as core:
-            await core.nodes('''
-                $ipv4 = 1.2.3.4
+            nodes = await core.nodes('''
 
-                $query = ${
-                    [ inet:ipv4=$ipv4 ]
-                }
+                $lib.print(hi)
 
-                $lib.dmon.add($query)
+                $tx = $lib.queue.add(tx)
+                $rx = $lib.queue.add(rx)
+
+                $ddef = $lib.dmon.add(${
+
+                    $rx = $lib.queue.get(tx)
+                    $tx = $lib.queue.get(rx)
+
+                    $ipv4 = nope
+                    for ($offs, $ipv4) in $rx.gets(wait=1) {
+                        [ inet:ipv4=$ipv4 ]
+                        $rx.cull($offs)
+                        $tx.put($ipv4)
+                    }
+                })
+
+                $tx.put(1.2.3.4)
+
+                for ($xoff, $xpv4) in $rx.gets(size=1, wait=1) { }
+
+                $lib.print(xed)
+
+                inet:ipv4=$xpv4
+
+                $lib.dmon.del($ddef.iden)
+
+                $lib.queue.del(tx)
+                $lib.queue.del(rx)
             ''')
-            print(repr(await core.getStormDmons()))
-            await asyncio.sleep(0.2)
-            self.len(1, await core.nodes('inet:ipv4'))
-            print(repr(await core.getStormDmons()))
+            self.len(1, nodes)
+            self.len(0, await core.getStormDmons())
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes('$lib.dmon.del(newp)')
+
+    async def test_cortex_storm_lib_dmon_cmds(self):
+        async with self.getTestCore() as core:
+            await core.nodes('''
+                $q = $lib.queue.add(visi)
+                $lib.queue.add(boom)
+
+                $lib.dmon.add(${
+                    $lib.queue.get(visi).put(blah)
+                    for ($offs, $item) in $lib.queue.get(boom).gets(wait=1) {
+                        [ inet:ipv4=$item ]
+                    }
+                }, name=wootdmon)
+
+                for ($offs, $item) in $q.gets(size=1) { $q.cull($offs) }
+            ''')
+            # dmon is now fully running
+            msgs = await core.streamstorm('dmon.list').list()
+            self.stormIsInPrint('(wootdmon): running', msgs)
+
+            # make the dmon blow up
+            await core.nodes('''
+                $lib.queue.get(boom).put(hehe)
+                for ($offs, $item) in $q.gets(size=1) { $q.cull($offs) }
+            ''')
+            msgs = await core.streamstorm('dmon.list').list()
+            self.stormIsInPrint('(wootdmon): error', msgs)

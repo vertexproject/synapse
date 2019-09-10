@@ -775,6 +775,7 @@ class Cortex(s_cell.Cell):
         async def fini():
             await asyncio.gather(*[view.fini() for view in self.views.values()])
             await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
+            await asyncio.gather(*[dmon.fini() for dmon in self.stormdmons.values()])
 
         self.onfini(fini)
 
@@ -869,6 +870,12 @@ class Cortex(s_cell.Cell):
 
         def ctor(argv):
             return s_storm.PureCmd(cdef, argv)
+
+        # TODO unify class ctors and func ctors vs briefs...
+        def getCmdBrief():
+            return cdef.get('descr', 'No description').split('\n')[0]
+
+        ctor.getCmdBrief = getCmdBrief
 
         self.stormcmds[name] = ctor
 
@@ -1080,6 +1087,9 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.ReIndexCmd)
 
         for cdef in s_stormsvc.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
+        for cdef in s_storm.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
         cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
@@ -1581,14 +1591,23 @@ class Cortex(s_cell.Cell):
         Add a storm dmon task.
         '''
         iden = s_common.guid()
-        await self.runStormDmon(iden, ddef)
+        ddef['iden'] = iden
+        dmon = await self.runStormDmon(iden, ddef)
         await self.stormdmonhive.set(iden, ddef)
+        return dmon
 
     async def delStormDmon(self, iden):
         '''
         Stop and remove a storm dmon.
         '''
-        await self.stormdmonhive.pop(iden)
+        ddef = await self.stormdmonhive.pop(iden)
+        if ddef is None:
+            mesg = f'No storm daemon exists with iden {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        dmon = self.stormdmons.pop(iden, None)
+        if dmon is not None:
+            await dmon.fini()
 
     async def runStormTask(self, text, opts=None, user=None):
         '''
@@ -1633,10 +1652,6 @@ class Cortex(s_cell.Cell):
         # raises if parser failure
         self.getStormQuery(ddef.get('storm'))
 
-        await self._initStormDmon(iden, ddef)
-
-    async def _initStormDmon(self, iden, ddef):
-
         dmon = await s_storm.StormDmon.anit(self, iden, ddef)
 
         self.stormdmons[iden] = dmon
@@ -1645,6 +1660,8 @@ class Cortex(s_cell.Cell):
 
         dmon.onfini(fini)
         await dmon.run()
+
+        return dmon
 
     async def getStormDmon(self, iden):
         return self.stormdmons.get(iden)

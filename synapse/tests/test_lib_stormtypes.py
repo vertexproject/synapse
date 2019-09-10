@@ -716,31 +716,48 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_lib_queue(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('$q = $lib.queue.open(visi) [ inet:ipv4=1.2.3.4 ] $q.put( $node.repr() )')
-            nodes = await core.nodes('$q = $lib.queue.open(visi) ($offs, $ipv4) = $q.get(0) inet:ipv4=$ipv4')
+
+            msgs = await core.streamstorm('queue.add visi').list()
+            self.stormIsInPrint('queue added: visi', msgs)
+
+            with self.raises(s_exc.DupName):
+                await core.nodes('queue.add visi')
+
+            msgs = await core.streamstorm('queue.list').list()
+            self.stormIsInPrint('Storm queue list:', msgs)
+            self.stormIsInPrint('visi', msgs)
+
+            nodes = await core.nodes('$q = $lib.queue.get(visi) [ inet:ipv4=1.2.3.4 ] $q.put( $node.repr() )')
+            nodes = await core.nodes('$q = $lib.queue.get(visi) ($offs, $ipv4) = $q.get(0) inet:ipv4=$ipv4')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
             # test iter use case
-            nodes = await core.nodes('$q = $lib.queue.open(blah) [ inet:ipv4=1.2.3.4 inet:ipv4=5.5.5.5 ] $q.put( $node.repr() )')
+            nodes = await core.nodes('$q = $lib.queue.add(blah) [ inet:ipv4=1.2.3.4 inet:ipv4=5.5.5.5 ] $q.put( $node.repr() )')
             self.len(2, nodes)
 
             nodes = await core.nodes('''
-                $q = $lib.queue.open(blah)
-                for ($offs, $ipv4) in $q.gets(0, cull=0) {
+                $q = $lib.queue.get(blah)
+                for ($offs, $ipv4) in $q.gets(0, cull=0, wait=0) {
                     inet:ipv4=$ipv4
                 }
             ''')
             self.len(2, nodes)
 
             nodes = await core.nodes('''
-                $q = $lib.queue.open(blah)
-                for ($offs, $ipv4) in $q.gets(0) {
+                $q = $lib.queue.get(blah)
+                for ($offs, $ipv4) in $q.gets(wait=0) {
                     inet:ipv4=$ipv4
                     $q.cull($offs)
                 }
             ''')
             self.len(2, nodes)
 
-            nodes = await core.nodes('$q = $lib.queue.open(blah) for ($offs, $ipv4) in $q.gets() { inet:ipv4=$ipv4 }')
+            nodes = await core.nodes('$q = $lib.queue.get(blah) for ($offs, $ipv4) in $q.gets(wait=0) { inet:ipv4=$ipv4 }')
             self.len(0, nodes)
+
+            msgs = await core.streamstorm('queue.del visi').list()
+            self.stormIsInPrint('queue removed: visi', msgs)
+
+            with self.raises(s_exc.NoSuchName):
+                await core.nodes('queue.del visi')

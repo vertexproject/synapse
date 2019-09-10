@@ -112,6 +112,9 @@ class SlabDict:
 
         return props
 
+    def keys(self):
+        return self.info.keys()
+
     def items(self):
         '''
         Return a tuple of (prop, valu) tuples from the SlabDict.
@@ -233,6 +236,23 @@ class MultiQueue:
 
         self.waiters = collections.defaultdict(asyncio.Event)
 
+    def list(self):
+        return [self.status(n) for n in self.queues.keys()]
+
+    def status(self, name):
+
+        meta = self.queues.get(name)
+        if meta is None:
+            mesg = f'No queue named {name}'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        return {
+            'name': name,
+            'meta': meta,
+            'size': self.sizes.get(name),
+            'offs': self.offsets.get(name),
+        }
+
     def exists(self, name):
         return self.queues.get(name) is not None
 
@@ -251,6 +271,8 @@ class MultiQueue:
         item = self.queues.get(name)
         if item is None:
             self.queues.set(name, info)
+            self.sizes.set(name, 0)
+            self.offsets.set(name, 0)
 
     async def rem(self, name):
 
@@ -728,8 +750,10 @@ class Slab(s_base.Base):
             try:
                 if not self.dbexists(name):
                     return
-                db, dupsort = self.dbnames.get(name)
-                #db = self.initdb(name)
+
+                self.initdb(name)
+                db, dupsort = self.dbnames.pop(name)
+
                 self.dirty = True
                 self.xact.drop(db, delete=True)
                 self.forcecommit()
@@ -925,12 +949,12 @@ class Slab(s_base.Base):
         except lmdb.MapFullError:
             return self._handle_mapfull()
 
-    def copydb(self, sourcedb, destslab, destdbname=None, progresscb=None):
+    def copydb(self, sourcedbname, destslab, destdbname=None, progresscb=None):
         '''
         Copy an entire database in this slab to a new database in potentially another slab.
 
         Args:
-            sourcedb (LmdbDatabase): which database in this slab to copy rows from
+            sourcedbname (str): name of the db in the source environment
             destslab (LmdbSlab): which slab to copy rows to
             destdbname (str): the name of the database to copy rows to in destslab
             progresscb (Callable[int]):  if not None, this function will be periodically called with the number of rows
@@ -943,16 +967,19 @@ class Slab(s_base.Base):
             If any rows already exist in the target database, this method returns an error.  This means that one cannot
             use destdbname=None unless there are no explicit databases in the destination slab.
         '''
-        destdb = destslab.initdb(destdbname, sourcedb.dupsort)
+        sourcedb, dupsort = self.dbnames.get(sourcedbname)
 
-        statdict = destslab.stat(db=destdb)
+        destslab.initdb(destdbname, dupsort)
+        destdb, _ = destslab.dbnames.get(destdbname)
+
+        statdict = destslab.stat(db=destdbname)
         if statdict['entries'] > 0:
             raise s_exc.DataAlreadyExists()
 
         rowcount = 0
 
-        for chunk in s_common.chunks(self.scanByFull(db=sourcedb), COPY_CHUNKSIZE):
-            ccount, acount = destslab.putmulti(chunk, dupdata=True, append=True, db=destdb)
+        for chunk in s_common.chunks(self.scanByFull(db=sourcedbname), COPY_CHUNKSIZE):
+            ccount, acount = destslab.putmulti(chunk, dupdata=True, append=True, db=destdbname)
             if ccount != len(chunk) or acount != len(chunk):
                 raise s_exc.BadCoreStore(mesg='Unexpected number of values written')  # pragma: no cover
 

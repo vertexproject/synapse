@@ -87,14 +87,14 @@ class Lib(StormType):
         ctor = slib[2].get('ctor', Lib)
         return ctor(self.runt, name=path)
 
-class Dmon(StormType):
-    '''
-    Storm API Wrapper for StormDmon instances.
-    '''
-    def __init__(self, runt, dmon):
-        self.runt = runt
-        self.dmon = dmon
-        self.locls.update(dmon.pack())
+#class Dmon(StormType):
+    #'''
+    #Storm API Wrapper for StormDmon instances.
+    #'''
+    #def __init__(self, runt, dmon):
+        #self.runt = runt
+        #self.dmon = dmon
+        #self.locls.update(dmon.pack())
 
 class LibDmon(Lib):
 
@@ -107,7 +107,7 @@ class LibDmon(Lib):
 
     async def _libDmonDel(self, iden):
 
-        dmon = self.runt.snap.core.getStormDmon(iden)
+        dmon = await self.runt.snap.core.getStormDmon(iden)
         if dmon is None:
             mesg = f'No storm dmon with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -115,13 +115,13 @@ class LibDmon(Lib):
         if dmon.ddef.get('user') != self.runt.user.iden:
             self.runt.allowed('storm', 'dmon', 'del', iden)
 
-        self.runt.snap.core.delStormDmon(iden)
+        await self.runt.snap.core.delStormDmon(iden)
 
     async def _libDmonList(self):
-        for dmon in self.runt.snap.core.getStormDmons():
-            yield Dmon(self.runt, dmon)
+        dmons = await self.runt.snap.core.getStormDmons()
+        return [d.pack() for d in dmons]
 
-    async def _libDmonAdd(self, quer, once=True):
+    async def _libDmonAdd(self, quer, name='noname'):
         '''
         Add a storm dmon (persistent background task) to the cortex.
 
@@ -129,22 +129,21 @@ class LibDmon(Lib):
         '''
         self.runt.allowed('storm', 'dmon', 'add')
 
-        once = intify(once)
-
         # closure style capture of runtime
         runtvars = {k: v for (k, v) in self.runt.vars.items() if s_msgpack.isok(v)}
 
         opts = {'vars': runtvars}
 
         ddef = {
-            'once': once,
+            'name': name,
             'user': self.runt.user.iden,
-
             'storm': str(quer),
             'stormopts': opts,
         }
 
-        return await self.runt.snap.core.addStormDmon(ddef)
+        dmon = await self.runt.snap.core.addStormDmon(ddef)
+
+        return dmon.pack()
 
 class LibService(Lib):
 
@@ -355,19 +354,50 @@ class LibQueue(Lib):
 
     def addLibFuncs(self):
         self.locls.update({
-            'open': self._methQueueOpen,
-            #'list': self._methQueueList,
-            #'shut': self._methQueueShut,
+            'add': self._methQueueAdd,
+            'del': self._methQueueDel,
+            'get': self._methQueueGet,
+            'list': self._methQueueList,
         })
 
-    async def _methQueueOpen(self, name, allow=()):
+    async def _methQueueAdd(self, name):
+
+        self.runt.allowed('storm', 'queue', 'add')
+
         info = self.runt.snap.core.multiqueue.queues.get(name)
-        if info is None:
-            self.runt.allowed('storm', 'lib', 'queue', 'open')
-            info = {'user': self.runt.user.iden, 'time': s_common.now()}
-            self.runt.snap.core.multiqueue.add(name, info)
+        if info is not None:
+            mesg = f'A queue named {name} already exists.'
+            raise s_exc.DupName(mesg=mesg)
+
+        info = {'user': self.runt.user.iden, 'time': s_common.now()}
+        self.runt.snap.core.multiqueue.add(name, info)
 
         return Queue(self.runt, name, info)
+
+    async def _methQueueGet(self, name):
+
+        info = self.runt.snap.core.multiqueue.queues.get(name)
+        if info is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        return Queue(self.runt, name, info)
+
+    async def _methQueueDel(self, name, allow=()):
+
+        info = self.runt.snap.core.multiqueue.queues.get(name)
+        if info is None:
+            mesg = f'No queue named {name} exists.'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        if (info.get('user') == self.runt.user.iden or
+            self.runt.allowed('storm', 'queue', 'del', name)):
+
+            await self.runt.snap.core.multiqueue.rem(name)
+
+    async def _methQueueList(self):
+        self.runt.allowed('storm', 'lib', 'queue', 'list')
+        return self.runt.snap.core.multiqueue.list()
 
 class Queue(StormType):
     '''
@@ -397,7 +427,7 @@ class Queue(StormType):
         mque = self.runt.snap.core.multiqueue
         await self.runt.snap.core.multiqueue.cull(self.name, offs)
 
-    async def _methQueueGets(self, offs=0, wait=False, cull=True):
+    async def _methQueueGets(self, offs=0, wait=True, cull=True, size=None):
 
         await self.allowed('storm', 'queue', self.name, 'get')
 
@@ -405,9 +435,12 @@ class Queue(StormType):
         cull = intify(cull)
         offs = intify(offs)
 
+        if size is not None:
+            size = intify(size)
+
         mque = self.runt.snap.core.multiqueue
 
-        async for item in mque.gets(self.name, offs, cull=cull, wait=wait):
+        async for item in mque.gets(self.name, offs, cull=cull, wait=wait, size=size):
             yield item
 
     async def _methQueuePuts(self, wait=False):
@@ -419,10 +452,18 @@ class Queue(StormType):
             return
         await self.runt.allowed(*perm)
 
-    async def _methQueueGet(self, offs, cull=True):
-        offs = intify(offs)
+    async def _methQueueGet(self, offs=0, wait=True, cull=True):
+
         await self.allowed('storm', 'queue', self.name, 'get')
-        return await self.runt.snap.core.multiqueue.get(self.name, offs)
+
+        offs = intify(offs)
+        wait = intify(wait)
+        cull = intify(cull)
+
+        mque = self.runt.snap.core.multiqueue
+
+        async for item in mque.gets(self.name, offs, cull=cull, wait=wait):
+            return item
 
     async def _methQueuePut(self, item):
         await self.allowed('storm', 'queue', self.name, 'put')
@@ -435,7 +476,7 @@ class LibTelepath(Lib):
             'open': self._methTeleOpen,
         })
 
-    async def _methTeleOpen(self, name):
+    async def _methTeleOpen(self, url):
         '''
         Open and return a telepath RPC proxy.
         '''
@@ -476,6 +517,8 @@ class Str(Prim):
             'split': self._methStrSplit,
             'endswith': self._methStrEndswith,
             'startswith': self._methStrStartswith,
+            'ljust': self._methStrLjust,
+            'rjust': self._methStrRjust,
         })
 
     async def _methStrSplit(self, text):
@@ -494,6 +537,12 @@ class Str(Prim):
 
     async def _methStrStartswith(self, text):
         return self.valu.startswith(text)
+
+    async def _methStrRjust(self, size):
+        return self.valu.rjust(intify(size))
+
+    async def _methStrLjust(self, size):
+        return self.valu.ljust(intify(size))
 
 class Bytes(Prim):
 
