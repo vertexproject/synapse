@@ -87,17 +87,49 @@ class Lib(StormType):
         ctor = slib[2].get('ctor', Lib)
         return ctor(self.runt, name=path)
 
+class Dmon(StormType):
+    '''
+    Storm API Wrapper for StormDmon instances.
+    '''
+    def __init__(self, runt, dmon):
+        self.runt = runt
+        self.dmon = dmon
+        self.locls.update(dmon.pack())
+
 class LibDmon(Lib):
 
     def addLibFuncs(self):
         self.locls.update({
             'add': self._libDmonAdd,
-            #'exit': self._libDmonExit,
+            'del': self._libDmonDel,
+            'list': self._libDmonList,
         })
 
-    async def _libDmonAdd(self, quer, once=True):
+    async def _libDmonDel(self, iden):
 
-        self.runt.allowed('storm', 'lib', 'dmon', 'add')
+        dmon = self.runt.snap.core.getStormDmon(iden)
+        if dmon is None:
+            mesg = f'No storm dmon with iden: {iden}'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        if dmon.ddef.get('user') != self.runt.user.iden:
+            self.runt.allowed('storm', 'dmon', 'del', iden)
+
+        self.runt.snap.core.delStormDmon(iden)
+
+    async def _libDmonList(self):
+        for dmon in self.runt.snap.core.getStormDmons():
+            yield Dmon(self.runt, dmon)
+
+    async def _libDmonAdd(self, quer, once=True):
+        '''
+        Add a storm dmon (persistent background task) to the cortex.
+
+        $lib.dmon.add(${ myquery })
+        '''
+        self.runt.allowed('storm', 'dmon', 'add')
+
+        once = intify(once)
 
         # closure style capture of runtime
         runtvars = {k: v for (k, v) in self.runt.vars.items() if s_msgpack.isok(v)}
@@ -114,9 +146,51 @@ class LibDmon(Lib):
 
         return await self.runt.snap.core.addStormDmon(ddef)
 
-    async def _libDmonExit(self):
-        iden = s_scope.get('storm:dmon')
-        print('DMON EXIT: %r' % (scope,))
+class LibService(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'add': self._libSvcAdd,
+            'del': self._libSvcDel,
+            'get': self._libSvcGet,
+            'list': self._libSvcList,
+            'wait': self._libSvcWait,
+        })
+
+    async def _libSvcAdd(self, name, url):
+
+        self.runt.allowed('storm', 'service', 'add')
+        sdef = {
+            'name': name,
+            'url': url,
+        }
+        ssvc = await self.runt.snap.core.addStormSvc(sdef)
+        return ssvc.sdef
+
+    async def _libSvcDel(self, iden):
+        self.runt.allowed('storm', 'service', 'del')
+        return await self.runt.snap.core.delStormSvc(iden)
+
+    async def _libSvcGet(self, name):
+        self.runt.allowed('storm', 'service', 'get', name)
+        ssvc = self.runt.snap.core.getStormSvc(name)
+        if ssvc is None:
+            mesg = f'No service with name/iden: {name}'
+            raise s_exc.NoSuchName(mesg=mesg)
+        return ssvc
+
+    async def _libSvcList(self):
+        self.runt.allowed('storm', 'service', 'list')
+        return [s.sdef for s in self.runt.snap.core.getStormSvcs()]
+
+    async def _libSvcWait(self, name):
+        self.runt.allowed('storm', 'service', 'get')
+        ssvc = self.runt.snap.core.getStormSvc(name)
+        if ssvc is None:
+            mesg = f'No service with name/iden: {name}'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        await ssvc.ready.wait()
 
 class LibBase(Lib):
 
@@ -131,14 +205,7 @@ class LibBase(Lib):
             'fire': self._fire,
             'text': self._text,
             'print': self._print,
-            'service': self._methLibService,
         })
-
-    async def _methLibService(self, name):
-        '''
-        $lib.service(woot).doWootThing(:prop)
-        '''
-        return self.runt.snap.core.getStormSvc(name)
 
     async def _set(self, *vals):
         return Set(set(vals))
@@ -304,18 +371,7 @@ class LibQueue(Lib):
 
 class Queue(StormType):
     '''
-    $q = $lib.queue.open('hehe')
-
-    ==============================================
-
-    for ($offs, $item) in $q.gets(wait=1) {
-        dostuff($item)
-        $q.cull($offs)
-    }
-
-    ==============================================
-
-    $q.put( $lib.dict(ipv4=$node.repr()) )
+    A StormLib API instance of a named channel in the cortex multiqueue.
     '''
 
     def __init__(self, runt, name, info):
@@ -418,6 +474,8 @@ class Str(Prim):
         Prim.__init__(self, valu, path=path)
         self.locls.update({
             'split': self._methStrSplit,
+            'endswith': self._methStrEndswith,
+            'startswith': self._methStrStartswith,
         })
 
     async def _methStrSplit(self, text):
@@ -430,6 +488,12 @@ class Str(Prim):
 
         '''
         return self.valu.split(text)
+
+    async def _methStrEndswith(self, text):
+        return self.valu.endswith(text)
+
+    async def _methStrStartswith(self, text):
+        return self.valu.startswith(text)
 
 class Bytes(Prim):
 

@@ -791,6 +791,8 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+        await self._initStormSvcs()
         await self._initStormDmons()
 
     async def _initStormDmons(self):
@@ -809,6 +811,23 @@ class Cortex(s_cell.Cell):
 
             except Exception as e:
                 logger.warning(f'initStormDmon ({iden}) failed: {e}')
+
+    async def _initStormSvcs(self):
+
+        node = await self.hive.open(('cortex', 'storm', 'services'))
+
+        self.stormservices = await node.dict()
+
+        for iden, sdef in self.stormservices.items():
+
+            try:
+                await self.setStormSvc(sdef)
+
+            except asyncio.CancelledError as e: # pragma: no cover
+                raise
+
+            except Exception as e:
+                logger.warning(f'initStormService ({iden}) failed: {e}')
 
     async def _initCoreQueues(self):
         path = os.path.join(self.dirn, 'queues.lmdb')
@@ -870,8 +889,6 @@ class Cortex(s_cell.Cell):
         await self.cmdhive.pop(name)
         self.stormcmds.pop(name, None)
 
-    #async def getStormSvcs(self):
-    #async def delStormSvc(self, iden):
     def getStormSvc(self, name):
 
         ssvc = self.svcsbyiden.get(name)
@@ -881,6 +898,41 @@ class Cortex(s_cell.Cell):
         ssvc = self.svcsbyname.get(name)
         if ssvc is not None:
             return ssvc
+
+    async def addStormSvc(self, sdef):
+        '''
+        Add a registered storm service to the cortex.
+        '''
+        if sdef.get('iden') is None:
+            sdef['iden'] = s_common.guid()
+
+        iden = sdef.get('iden')
+        if self.svcsbyiden.get(iden) is not None:
+            mesg = f'Storm service already exists: {iden}'
+            raise s_exc.DupStormSvc(mesg=mesg)
+
+        ssvc = await self.setStormSvc(sdef)
+        await self.stormservices.set(iden, sdef)
+
+        return ssvc
+
+    async def delStormSvc(self, iden):
+        '''
+        Delete a registered storm service from the cortex.
+        '''
+
+        sdef = await self.stormservices.pop(iden, None)
+        if sdef is None:
+            mesg = f'No storm service with iden: {iden}'
+            raise s_exc.NoSuchStormSvc(mesg=mesg)
+
+        name = sdef.get('name')
+        if name is not None:
+            self.svcsbyname.pop(name, None)
+
+        ssvc = self.svcsbyiden.pop(iden, None)
+        if ssvc is not None:
+            await ssvc.fini()
 
     async def setStormSvc(self, sdef):
 
@@ -900,6 +952,11 @@ class Cortex(s_cell.Cell):
 
         if osvc is not None:
             await osvc.fini()
+
+        return ssvc
+
+    def getStormSvcs(self):
+        return list(self.svcsbyiden.values())
 
     async def syncLayerSplices(self, iden, offs):
         '''
@@ -1022,15 +1079,21 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
 
+        for cdef in s_stormsvc.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
         cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
 
         self.cmdhive = await cmdhive.dict()
 
         for name, cdef in self.cmdhive.items():
-            try:
-                await self._setStormCmd(cdef)
-            except Exception as e:
-                logger.warning(f'Storm command ({name}) load failed: {e}')
+            await self._trySetStormCmd(name, cdef)
+
+    async def _trySetStormCmd(self, name, cdef):
+        try:
+            await self._setStormCmd(cdef)
+        except Exception as e:
+            logger.warning(f'Storm command ({name}) load failed: {e}')
 
     def _initStormLibs(self):
         '''
@@ -1042,6 +1105,7 @@ class Cortex(s_cell.Cell):
         self.addStormLib(('time',), s_stormtypes.LibTime)
         self.addStormLib(('user',), s_stormtypes.LibUser)
         self.addStormLib(('queue',), s_stormtypes.LibQueue)
+        self.addStormLib(('service',), s_stormtypes.LibService)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
         self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
 
@@ -1571,8 +1635,6 @@ class Cortex(s_cell.Cell):
 
         await self._initStormDmon(iden, ddef)
 
-        #self.schedCoro(self._runStormDmon(iden, ddef, user))
-
     async def _initStormDmon(self, iden, ddef):
 
         dmon = await s_storm.StormDmon.anit(self, iden, ddef)
@@ -1589,39 +1651,6 @@ class Cortex(s_cell.Cell):
 
     async def getStormDmons(self):
         return list(self.stormdmons.values())
-
-    #async def _runStormDmon(self, iden, ddef, user):
-
-        #name = ddef.get('name', 'storm dmon')
-
-        #await self.boss.promote('storm:dmon', user=user, info={'iden': iden, 'name': name})
-
-        #s_scope.set('storm:dmon', iden)
-
-        #text = ddef.get('storm')
-        #opts = ddef.get('stormopts')
-
-        #while not self.isfini:
-
-            #try:
-
-                #async with await self.snap(user=user) as snap:
-
-                    #async for nodepath in snap.storm(text, opts=opts, user=user):
-                        ## all storm tasks yield often to prevent latency
-                        #await asyncio.sleep(0)
-
-                # if the generator exits cleanly and the dmon is "once" we're done
-                #if ddef.get('once'):
-                    #logger.warning(f'dmon done: {iden}')
-                    #await self.delStormDmon(iden)
-
-            ##except asyncio.CancelledError as e:
-                #raise
-
-            #except Exception as e:
-                #logger.warning(f'dmon error ({iden}): {e}')
-                #await asyncio.sleep(1)
 
     def addStormLib(self, path, ctor):
 

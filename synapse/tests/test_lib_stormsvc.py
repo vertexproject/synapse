@@ -1,3 +1,7 @@
+import synapse.exc as s_exc
+import synapse.cortex as s_cortex
+import synapse.daemon as s_daemon
+
 import synapse.tests.utils as s_test
 import synapse.lib.stormsvc as s_stormsvc
 
@@ -8,8 +12,7 @@ class RealService(s_stormsvc.StormSvc):
             'cmdopts': (
                 ('--verbose', {'default': False, 'action': 'store_true'}),
             ),
-            'storm': '[ inet:ipv4=1.2.3.4 :asn=$cmdconf.svc.asn() ]',
-            # TODO perm? synvers? runas? (svc perms?)
+            'storm': '[ inet:ipv4=1.2.3.4 :asn=$lib.service.get($cmdconf.svciden).asn() ]',
         },
     )
 
@@ -28,31 +31,86 @@ class RealService(s_stormsvc.StormSvc):
 
 class StormSvcTest(s_test.SynTest):
 
-    async def test_storm_svcs(self):
+    async def test_storm_svc_cmds(self):
 
         async with self.getTestCore() as core:
 
+            msgs = await core.streamstorm('service.add --help').list()
+            self.stormIsInPrint(f'Add a storm service to the cortex.', msgs)
+
+            msgs = await core.streamstorm('service.del --help').list()
+            self.stormIsInPrint(f'Remove a storm service from the cortex.', msgs)
+
+            msgs = await core.streamstorm('service.list --help').list()
+            self.stormIsInPrint(f'List the storm services configured in the cortex.', msgs)
+
+            msgs = await core.streamstorm('service.add fake tcp://localhost:3333/foo').list()
+            iden = core.getStormSvcs()[0].iden
+            self.stormIsInPrint(f'added {iden} (fake): tcp://localhost:3333/foo', msgs)
+
+            msgs = await core.streamstorm('service.list').list()
+            self.stormIsInPrint('Storm service list', msgs)
+            self.stormIsInPrint(f'    {iden} (fake): tcp://localhost:3333/foo', msgs)
+
+            msgs = await core.streamstorm(f'service.del {iden[:4]}').list()
+            self.stormIsInPrint(f'removed {iden} (fake): tcp://localhost:3333/foo', msgs)
+
+    async def test_storm_svcs(self):
+
+        with self.getTestDir() as dirn:
+
             real = RealService()
 
-            core.dmon.share('real', real)
-            lurl = core.getLocalUrl(share='real')
+            async with await s_daemon.Daemon.anit() as dmon:
 
-            iden = 'bf3043ab6992644e82db254bc7c1f868'
-            sdef = {
-                'iden': iden,
-                'name': 'fake',
-                'url': lurl,
-            }
+                dmon.share('real', RealService())
 
-            await core.setStormSvc(sdef)
+                host, port = await dmon.listen('tcp://127.0.0.1:0/')
+                lurl = f'tcp://127.0.0.1:{port}/real'
 
-            await core.svcsbyiden[iden].ready.wait()
+                async with await s_cortex.Cortex.anit(dirn) as core:
 
-            nodes = await core.nodes('[ inet:ipv4=5.5.5.5 ] | ohhai')
+                    await core.nodes(f'service.add fake {lurl}')
+                    iden = core.getStormSvcs()[0].iden
 
-            self.len(2, nodes)
-            self.eq(nodes[0].get('asn'), 20)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
+                    # force a wait for command loads
+                    await core.nodes('$lib.service.wait(fake)')
 
-            self.eq(nodes[1].get('asn'), 20)
-            self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
+                    nodes = await core.nodes('[ inet:ipv4=5.5.5.5 ] | ohhai')
+
+                    self.len(2, nodes)
+                    self.eq(nodes[0].get('asn'), 20)
+                    self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
+
+                    self.eq(nodes[1].get('asn'), 20)
+                    self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
+
+                async with await s_cortex.Cortex.anit(dirn) as core:
+
+                    nodes = await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
+
+                    self.len(2, nodes)
+                    self.eq(nodes[0].get('asn'), 20)
+                    self.eq(nodes[0].ndef, ('inet:ipv4', 0x06060606))
+
+                    self.eq(nodes[1].get('asn'), 20)
+                    self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
+
+                    # reach in and close the proxies
+                    for ssvc in core.getStormSvcs():
+                        await ssvc.client._t_proxy.fini()
+
+                    nodes = await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
+                    self.len(2, nodes)
+
+                    await core.delStormSvc(iden)
+
+                async with await s_cortex.Cortex.anit(dirn) as core:
+                    with self.raises(s_exc.NoSuchName):
+                        nodes = await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
+
+                    sdef = {
+                        'iden': iden,
+                        'name': 'fake',
+                        'url': lurl,
+                    }

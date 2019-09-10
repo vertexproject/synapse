@@ -113,6 +113,7 @@ class DupFileName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupRoleName(SynErr): pass
 class DupUserName(SynErr): pass
+class DupStormSvc(SynErr): pass
 
 class FileExists(SynErr): pass
 

@@ -205,3 +205,13 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.sorteq(nodes[0].tags, ('base', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
+
+    async def test_ast_forloop_runtsafe(self):
+
+        async with self.getTestCore() as core:
+
+            async with await core.snap() as snap:
+                with snap.getStormRuntime() as runt:
+                    self.len(3, await core.nodes('$bar = (hehe,haha,hoho) for $foo in $bar { [ test:str=$foo ] }'))
+                    #query = core.getStormQuery('for $foo in $lib.lolz() { $lib.stuff($foo) }')
+                    #self.true(query.isRuntSafe(runt))

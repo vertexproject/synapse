@@ -587,10 +587,23 @@ class Proxy(s_base.Base):
         return meth
 
 class Client(s_base.Base):
+    '''
+    A Telepath client object which reconnects and allows waiting for link up.
 
+    conf = {
+        'retrysleep': 0.2,
+    }
+
+    '''
     async def __anit__(self, url, opts=None, conf=None, onlink=None):
 
         await s_base.Base.__anit__(self)
+
+        if conf is None:
+            conf = {}
+
+        if opts is None:
+            opts = {}
 
         self._t_url = url
         self._t_urls = collections.deque()
@@ -604,6 +617,13 @@ class Client(s_base.Base):
         self._t_ready = asyncio.Event()
         self._t_onlink = onlink
 
+        async def fini():
+            if self._t_proxy is not None:
+                await self._t_proxy.fini()
+            self._t_ready.set()
+
+        self.onfini(fini)
+
         await self._fireLinkLoop()
 
     def _getNextUrl(self):
@@ -613,7 +633,7 @@ class Client(s_base.Base):
     async def _fireLinkLoop(self):
         self._t_proxy = None
         self._t_ready.clear()
-        await self.schedCoro(self._teleLinkLoop)
+        self.schedCoro(self._teleLinkLoop())
 
     async def _teleLinkLoop(self):
 
@@ -622,8 +642,10 @@ class Client(s_base.Base):
 
             try:
                 await self._initTeleLink(url)
+                self._t_ready.set()
+                return
 
-            except asyncio.TeleRedir as e:
+            except s_exc.TeleRedir as e:
                 url = e.errinfo.get('url')
                 continue
 
@@ -633,10 +655,10 @@ class Client(s_base.Base):
             except Exception as e:
                 url = self._getNextUrl()
                 logger.warning(f'telepath client ({self._t_url}): {e}')
+                print(f'telepath client ({self._t_url}): {e}')
                 await asyncio.sleep(self._t_conf.get('retrysleep', 0.2))
 
-    async def _initTeleLink(self, url, opts=None):
-
+    async def _initTeleLink(self, url):
         if self._t_proxy is not None:
             await self._t_proxy.fini()
 
@@ -644,23 +666,28 @@ class Client(s_base.Base):
         self._t_proxy.onfini(self._fireLinkLoop)
 
         if self._t_onlink is not None:
-            try:
-                await self._t_onlink()
+            await self._t_onlink(self._t_proxy)
 
-            except asyncio.CancelledError:
-                raise
-
-            except asyncio.TeleRedir as e:
-                raise
-
-            except Exception as e:
-                logger.warning('telepath client ({self._t_url}) onlink: {e}')
-
-            return
-
-    async def __getattr__(self, name):
+    async def task(self, todo, name=None):
+        # implement the main workhorse method for a proxy to allow Method
+        # objects to use us as the proxy.
         await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', 10))
-        return getattr(self._t_proxy, name)
+        return await self._t_proxy.task(todo, name=name)
+
+    async def waitready(self):
+        await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', 10))
+
+    def __getattr__(self, name):
+
+        info = self._t_proxy.methinfo.get(name)
+        if info is not None and info.get('genr'):
+            meth = GenrMethod(self, name)
+            setattr(self, name, meth)
+            return meth
+
+        meth = Method(self, name)
+        setattr(self, name, meth)
+        return meth
 
 def alias(name):
     '''

@@ -8,6 +8,67 @@ import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
+stormcmds = (
+    {
+        'name': 'service.add',
+        'descr': 'Add a storm service to the cortex.',
+        'cmdargs': (
+            ('name', {'help': 'The name of the service.'}),
+            ('url', {'help': 'The telepath URL for the remote service.'}),
+        ),
+        'cmdconf': {},
+        'storm': '''
+            $sdef = $lib.service.add($cmdopts.name, $cmdopts.url)
+            $lib.print("added {iden} ({name}): {url}", iden=$sdef.iden, name=$sdef.name, url=$sdef.url)
+        ''',
+    },
+    {
+        'name': 'service.del',
+        'descr': 'Remove a storm service from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'The service identifier or prefix.'}),
+        ),
+        'cmdconf': {},
+        'storm': '''
+            $svcs = ()
+
+            for $sdef in $lib.service.list() {
+                if $sdef.iden.startswith($cmdopts.iden) {
+                    $svcs.append($sdef)
+                }
+            }
+
+            $count = $svcs.length()
+
+            if $( $count > 0 ) {
+                for $sdef in $svcs {
+                    $lib.service.del($sdef.iden)
+                    $lib.print("removed {iden} ({name}): {url}", iden=$sdef.iden, name=$sdef.name, url=$sdef.url)
+                }
+            } else {
+                $lib.print("No service found by iden: {iden}", iden=$cmdopts.iden)
+            }
+        ''',
+    },
+    {
+        'name': 'service.list',
+        'descr': 'List the storm services configured in the cortex.',
+        'cmdopts': (),
+        'cmdconf': {},
+        'storm': '''
+            $lib.print("")
+            $lib.print("Storm service list:")
+            $count = $(0)
+            for $sdef in $lib.service.list() {
+                $lib.print("    {iden} ({name}): {url}", iden=$sdef.iden, name=$sdef.name, url=$sdef.url)
+                $count = $( $count + 1 )
+            }
+            $lib.print("")
+            $lib.print("{count} services", count=$count)
+        ''',
+    }
+)
+
 class StormSvc:
 
     _storm_svc_name = 'noname'
@@ -40,30 +101,32 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
         self.iden = sdef.get('iden')
         self.name = sdef.get('name')
 
-        self.proxy = None
-        self.ready = asyncio.Event()
-
         # service info from the server...
         self.info = None
 
-        self.schedCoro(self._initSvcProxy())
+        url = self.sdef.get('url')
 
-    async def _initStormCmds(self):
+        self.ready = asyncio.Event()
+        self.client = await s_telepath.Client.anit(url, onlink=self._onTeleLink)
 
-        clss = self.proxy.sharinfo.get('classes', ())
+        self.onfini(self.client.fini)
+
+    async def _onTeleLink(self, proxy):
+
+        clss = proxy.sharinfo.get('classes', ())
 
         names = [c.rsplit('.', 1)[-1] for c in clss]
         if 'StormSvc' not in names:
             return
 
-        self.info = await self.proxy.getStormSvcInfo()
+        self.info = await proxy.getStormSvcInfo()
 
         for cdef in self.info.get('cmds', ()):
 
             cdef.setdefault('cmdconf', {})
 
             try:
-                cdef['cmdconf']['svc'] = self
+                cdef['cmdconf']['svciden'] = self.iden
                 await self.core.setStormCmd(cdef)
 
             except asyncio.CancelledError:
@@ -71,42 +134,12 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
 
             except Exception as e:
                 name = cdef.get('name')
-                logger.warning(f'setStormCmd ({name}) failed for service {self.name} ({self.iden})')
+                import traceback; traceback.print_exc()
+                logger.warning(f'setStormCmd ({name}) failed for service {self.name} ({self.iden}): {e}')
+
+        self.ready.set()
 
     async def deref(self, name):
-        await self.ready.wait()
-        return getattr(self.proxy, name)
-
-    async def _initSvcProxy(self):
-
-        url = self.sdef.get('url')
-
-        while not self.isfini:
-
-            self.ready.clear()
-
-            try:
-                self.proxy = await s_telepath.openurl(url)
-
-                async def fini():
-                    self.proxy = None
-                    self.ready.clear()
-                    await self.fire('storm:svc:fini')
-                    self.schedCoro(self._initSvcProxy())
-
-                self.proxy.onfini(fini)
-
-                await self._initStormCmds()
-
-                self.ready.set()
-
-                await self.fire('storm:svc:init')
-
-                return
-
-            except asyncio.CancelledError:
-                raise
-
-            except Exception as e:
-                logger.warning(f'StormService ({self.iden}) proxy failure: {e}')
-                await asyncio.sleep(1)
+        # method used by storm runtime library on deref
+        await self.client.waitready()
+        return getattr(self.client, name)

@@ -18,7 +18,9 @@ import synapse.lib.stormtypes as s_stormtypes
 logger = logging.getLogger(__name__)
 
 class StormDmon(s_base.Base):
-
+    '''
+    A background storm runtime which is restarted by the cortex.
+    '''
     async def __anit__(self, core, iden, ddef):
 
         await s_base.Base.__anit__(self)
@@ -30,6 +32,9 @@ class StormDmon(s_base.Base):
         self.task = None
         self.user = core.auth.user(ddef.get('user'))
 
+        self.count = 0
+        self.status = 'initializing'
+
         async def fini():
             if self.task is not None:
                 await self.task.cancel()
@@ -38,6 +43,14 @@ class StormDmon(s_base.Base):
 
     async def run(self):
         self.task = self.schedCoro(self._run())
+
+    def pack(self):
+        return {
+            'iden': self.iden,
+            'ddef': self.ddef,
+            'count': self.count,
+            'status': self.status,
+        }
 
     async def _run(self):
 
@@ -58,6 +71,7 @@ class StormDmon(s_base.Base):
 
                     async for nodepath in snap.storm(text, opts=opts, user=user):
                         # all storm tasks yield often to prevent latency
+                        self.count += 1
                         await asyncio.sleep(0)
 
                 # if the generator exits cleanly and the dmon is "once" we're done
@@ -70,6 +84,7 @@ class StormDmon(s_base.Base):
 
             except Exception as e:
                 logger.warning(f'dmon error ({self.iden}): {e}')
+                self.status = f'error: {e}'
                 await asyncio.sleep(1)
 
 class Runtime:
@@ -219,14 +234,17 @@ class Runtime:
         mesg = f'User must have permission {perm}'
         raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
 
+    def loadRuntVars(self, query):
+        # do a quick pass to determine which vars are per-node.
+        for oper in query.kids:
+            for name in oper.getRuntVars(self):
+                self.runtvars.add(name)
+
     async def iterStormQuery(self, query, genr=None):
 
         with s_provenance.claim('storm', q=query.text, user=self.user.iden):
 
-            # do a quick pass to determine which vars are per-node.
-            for oper in query.kids:
-                for name in oper.getRuntVars(self):
-                    self.runtvars.add(name)
+            self.loadRuntVars(query)
 
             # init any options from the query
             # (but dont override our own opts)
@@ -300,8 +318,14 @@ class Cmd:
     def getCmdBrief(cls):
         return cls.__doc__.strip().split('\n')[0]
 
+    def getName(self):
+        return self.name
+
+    def getDescr(self):
+        return self.__class__.__doc__
+
     def getArgParser(self):
-        return Parser(prog=self.name, descr=self.__class__.__doc__)
+        return Parser(prog=self.getName(), descr=self.getDescr())
 
     async def hasValidOpts(self, snap):
 
@@ -367,6 +391,12 @@ class PureCmd(Cmd):
         self.cdef = cdef
         Cmd.__init__(self, argv)
 
+    def getDescr(self):
+        return self.cdef.get('descr', 'no documentation provided')
+
+    def getName(self):
+        return self.cdef.get('name')
+
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
         for name, opts in self.cdef.get('cmdargs', ()):
@@ -393,6 +423,7 @@ class PureCmd(Cmd):
 
         if count == 0:
             with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
+                subr.loadRuntVars(query)
                 if query.isRuntSafe(subr):
                     async for item in subr.iterStormQuery(query):
                         yield item
