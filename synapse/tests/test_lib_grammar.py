@@ -1042,6 +1042,56 @@ class GrammarTest(s_t_utils.SynTest):
         parser = s_grammar.Parser(query)
         self.raises(s_exc.BadSyntax, parser.query)
 
+    async def test_quotes(self):
+
+        # Test vectors
+        queries = ((r'''[test:str="WORDS \"THINGS STUFF.\""]''', 'WORDS "THINGS STUFF."'),
+                   (r'''[test:str='WORDS "THINGS STUFF."']''', 'WORDS "THINGS STUFF."'),
+                   (r'''[test:str="\""]''', '"'),
+                   (r'''[test:str="hello\\world!"]''', 'hello\\world!'),
+                   (r'''[test:str="hello\\\"world!"]''', 'hello\\"world!'),
+                   # Single quoted string
+                   (r'''[test:str='hello\\\"world!']''', 'hello\\\\\\"world!'),
+                   (r'''[test:str='hello\t"world!']''', 'hello\\t"world!'),
+                   # TAB
+                   (r'''[test:str="hello\tworld!"]''', 'hello\tworld!'),
+                   (r'''[test:str="hello\\tworld!"]''', 'hello\\tworld!'),
+                   (r'''[test:str="hello\\\tworld!"]''', 'hello\\\tworld!'),
+                   # LF / Newline
+                   (r'''[test:str="hello\nworld!"]''', 'hello\nworld!'),
+                   (r'''[test:str="hello\\nworld!"]''', 'hello\\nworld!'),
+                   (r'''[test:str="hello\\\nworld!"]''', 'hello\\\nworld!'),
+                   # CR / Carriage returns
+                   (r'''[test:str="hello\rworld!"]''', 'hello\rworld!'),
+                   (r'''[test:str="hello\\rworld!"]''', 'hello\\rworld!'),
+                   (r'''[test:str="hello\\\rworld!"]''', 'hello\\\rworld!'),
+                   # single quote escape
+                   (r'''[test:str="hello\'world!"]''', '''hello'world!'''),
+                   (r'''[test:str="hello'world!"]''', '''hello'world!'''),  # escape isn't technically required
+                   # BEL
+                   (r'''[test:str="hello\aworld!"]''', '''hello\aworld!'''),
+                   # BS
+                   (r'''[test:str="hello\bworld!"]''', '''hello\bworld!'''),
+                   # FF
+                   (r'''[test:str="hello\fworld!"]''', '''hello\fworld!'''),
+                   # VT
+                   (r'''[test:str="hello\vworld!"]''', '''hello\vworld!'''),
+                   # \xhh - hex
+                   (r'''[test:str="hello\xffworld!"]''', '''hello\xffworld!'''),
+                   # \ooo - octal
+                   (r'''[test:str="hello\040world!"]''', '''hello world!'''),
+                   # Items encoded as a python literal object wrapped in quotes
+                   # are not turned into their corresponding item, they are
+                   # treated as strings.
+                   (r'''[test:str="{'key': 'valu'}"]''', '''{'key': 'valu'}'''),
+                   )
+
+        async with self.getTestCore() as core:
+            for (query, valu) in queries:
+                nodes = await core.nodes(query)
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef[1], valu)
+
     def test_isre_funcs(self):
 
         self.true(s_grammar.isCmdName('testcmd'))
