@@ -48,8 +48,10 @@ class LinkTest(s_test.SynTest):
 
     async def test_link_rx_sadpath(self):
 
-        buid = 'a9d0cdafef705b9864bd6ae2f1f082444db8d3413091f8c20ae8b31d79aa35f9'
-        buid = s_common.uhex(buid)
+        junk = 'a9d0cdafef705b9864bd'
+        # random sequence of data which causes an error
+        # to be thrown when unpacking data via msgpack.
+        junk = s_common.uhex(junk)
 
         evt = asyncio.Event()
 
@@ -57,7 +59,7 @@ class LinkTest(s_test.SynTest):
             await link.tx(('what', {'k': 1}))
             self.true(await s_coro.event_wait(evt, 6))
             # Send purposely bad data through the link
-            await link.send(buid)
+            await link.send(junk)
             await link.fini()
 
         serv = await s_link.listen('127.0.0.1', 0, onlink)
