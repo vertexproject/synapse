@@ -9,6 +9,7 @@ import synapse.common as s_common
 import synapse.lib.ast as s_ast
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.scrape as s_scrape
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -937,6 +938,68 @@ class TeeCmd(Cmd):
                 async for nnode, npath in node.storm(query, user=runt.user, path=path):
                     await runt.snap.printf(f'yielding node: {node.ndef}')
                     yield nnode, npath
+
+            if self.opts.join:
+                yield node, path
+
+class ScrapeCmd(Cmd):
+    '''
+    Use textual properties of existing nodes to find other easily recognizable nodes.
+
+    Examples:
+
+        inet:search:query | scrape
+        inet:search:query | scrape --refs
+    '''
+
+    name = 'scrape'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+
+        pars.add_argument('--props', '-p', nargs='+', type=str, default=[],
+                          help='Specify relative properties to scrape')
+        pars.add_argument('--refs', '-r', default=False, action='store_true',
+                          help='Create refs to any scraped nodes from the source node')
+        pars.add_argument('-j', '--join', default=False, action='store_true',
+                          help='Include source nodes in the output of the command.')
+
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        async for node, path in genr:  # type: s_node.Node, s_node.Path
+
+            # repr all prop vals and try to scrape nodes from them
+            reprs = node.reprs()
+
+            props = [k for k in node.props.keys()]
+
+            # make sure any provided props are valid
+            for fprop in self.opts.props:
+                if fprop in props:
+                    continue
+                raise s_exc.BadOptValu('%r not a valid prop for %r' % (fprop, node.ndef))
+
+            # if a list of props haven't been specified, then default to ALL of them
+            if not self.opts.props:
+                self.opts.props = [k for k in node.props.keys()]
+
+            for prop in self.opts.props:
+                val = node.props.get(prop)
+
+                # use the repr val or the system mode val as appropriate
+                sval = reprs.get(prop, val)
+
+                for form, valu in s_scrape.scrape(sval):
+                    nnode = await node.snap.addNode(form, valu)
+                    npath = path.fork(nnode)
+                    yield nnode, npath
+
+                    if self.opts.refs:
+                        rnode = await node.snap.addNode('edge:refs', (node.ndef, (form, valu)))
+                        rpath = path.fork(rnode)
+                        yield rnode, rpath
 
             if self.opts.join:
                 yield node, path

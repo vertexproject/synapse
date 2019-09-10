@@ -443,6 +443,37 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, errs)
             self.eq(errs[0][1][0], 'BadSyntax')
 
+    async def test_scrape(self):
+        async with self.getTestCore() as core:
+            node = 'foo'
+            async with await core.snap() as snap:
+                guid = s_common.guid()
+                node = await snap.addNode('inet:search:query', guid,
+                                          {'text': 'what about 1.2.3.4',
+                                           'time': '2019-04-04 17:03',
+                                           'engine': 'google',
+                                            })
+
+            q = 'inet:search:query | scrape -p text engine'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            q = 'inet:search:query | scrape --refs'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, ('edge:refs', (node.ndef, nodes[0].ndef)))
+
+            q = 'inet:search:query | scrape --join'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, node.ndef)
+
+            q = 'inet:search:query | scrape -p engine foobarbaz'
+            await self.asyncraises(s_exc.BadOptValu, core.nodes(q))
+
     async def test_tee(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
