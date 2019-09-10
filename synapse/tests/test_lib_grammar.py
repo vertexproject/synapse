@@ -1067,7 +1067,7 @@ class GrammarTest(s_t_utils.SynTest):
                    (r'''[test:str="hello\\\rworld!"]''', 'hello\\\rworld!'),
                    # single quote escape
                    (r'''[test:str="hello\'world!"]''', '''hello'world!'''),
-                   (r'''[test:str="hello'world!"]''', '''hello'world!'''),  # escapse isn't technically required
+                   (r'''[test:str="hello'world!"]''', '''hello'world!'''),  # escape isn't technically required
                    # BEL
                    (r'''[test:str="hello\aworld!"]''', '''hello\aworld!'''),
                    # BS
