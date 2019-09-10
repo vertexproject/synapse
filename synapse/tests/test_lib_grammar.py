@@ -1076,10 +1076,14 @@ class GrammarTest(s_t_utils.SynTest):
                    (r'''[test:str="hello\fworld!"]''', '''hello\fworld!'''),
                    # VT
                    (r'''[test:str="hello\vworld!"]''', '''hello\vworld!'''),
+                   # \xhh - hex
+                   (r'''[test:str="hello\xffworld!"]''', '''hello\xffworld!'''),
+                   # \ooo - octal
+                   (r'''[test:str="hello\040world!"]''', '''hello world!'''),
                    )
 
         async with self.getTestCore() as core:
-            for query, valu in queries:
+            for (query, valu) in queries:
                 nodes = await core.nodes(query)
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef[1], valu)
