@@ -244,12 +244,22 @@ class View(s_base.Base):
 
         await self.info.set('layers', layers)
 
-    async def makeChild(self):
+    async def makeChild(self, **layrinfo):
         '''
-        Makes a new view inheriting from this view with the same layers and a new write layer on top
+        Makes a new view inheriting from this view with the same layers and a new LMDB write layer on top
+
+        Args:
+            Passed through to cortex.addLayer
+
+        Returns:
+            new view object
         '''
-        # FIXME
-        pass
+        writlayr = self.core.addLayer(**layrinfo)
+
+        viewiden = s_common.iden()
+        owner = layrinfo.get('owner', 'root')
+        view = self.core.addView(viewiden, owner, [writlayr.iden] + [l.iden for l in self.layers])
+        return view
 
     async def runTagAdd(self, node, tag, valu):
 
