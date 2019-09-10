@@ -12,6 +12,7 @@ import synapse.lib.base as s_base
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
+import synapse.lib.types as s_types
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -600,6 +601,12 @@ class MaxCmd(Cmd):
             if valu is None:
                 continue
 
+            # Specifically if the name given is a ival property,
+            # we want to max on upper bound of the ival.
+            prop = node.form.prop(self.opts.name)
+            if prop and isinstance(prop.type, s_types.Ival):
+                valu = valu[1]
+
             if maxvalu is None or valu > maxvalu:
                 maxvalu = valu
                 maxitem = (node, path)
@@ -1128,11 +1135,11 @@ class TeeCmd(Cmd):
                                           name=self.name)
 
         async for node, path in genr:  # type: s_node.Node, s_node.Path
+
             for query in self.opts.query:
                 query = query[1:-1]
                 # This does update path with any vars set in the last npath (node.storm behavior)
                 async for nnode, npath in node.storm(query, user=runt.user, path=path):
-                    await runt.snap.printf(f'yielding node: {node.ndef}')
                     yield nnode, npath
 
             if self.opts.join:

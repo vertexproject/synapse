@@ -187,11 +187,6 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getModelDict()
 
-    def axon(self):
-        '''
-        '''
-        return s_axon.AxonApi.anit(self.cell.axon, self.link, self.user)
-
     def getCoreInfo(self):
         '''
         Return static generic information about the cortex including model definition
@@ -652,6 +647,52 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getTypeNorm(name, valu)
 
+    async def addFormProp(self, form, prop, tdef, info):
+        '''
+        Add an extended property to the given form.
+
+        Extended properties *must* begin with _
+        '''
+        await self._reqUserAllowed('model', 'prop', 'add', form)
+        return await self.cell.addFormProp(form, prop, tdef, info)
+
+    async def delFormProp(self, form, name):
+        '''
+        Remove an extended property from the given form.
+        '''
+        await self._reqUserAllowed('model', 'prop', 'del', form)
+        return await self.cell.delFormProp(form, name)
+
+    async def addUnivProp(self, name, tdef, info):
+        '''
+        Add an extended universal property.
+
+        Extended properties *must* begin with _
+        '''
+        await self._reqUserAllowed('model', 'univ', 'add')
+        return await self.cell.addUnivProp(name, tdef, info)
+
+    async def delUnivProp(self, name):
+        '''
+        Remove an extended universal property.
+        '''
+        await self._reqUserAllowed('model', 'univ', 'del')
+        return await self.cell.delUnivProp(name)
+
+    async def addTagProp(self, name, tdef, info):
+        '''
+        Add a tag property to record data about tags on nodes.
+        '''
+        await self._reqUserAllowed('model', 'tagprop', 'add')
+        return await self.cell.addTagProp(name, tdef, info)
+
+    async def delTagProp(self, name):
+        '''
+        Remove a previously added tag property.
+        '''
+        await self._reqUserAllowed('model', 'tagprop', 'del')
+        return await self.cell.delTagProp(name)
+
 class Cortex(s_cell.Cell):
     '''
     A Cortex implements the synapse hypergraph.
@@ -698,13 +739,20 @@ class Cortex(s_cell.Cell):
             'type': 'bool', 'defval': True,
             'doc': 'Enable cron jobs running.'
         }),
+
         ('dedicated', {
             'type': 'bool', 'defval': False,
             'doc': 'The cortex is free to use most of the resources of the system'
         }),
+
         ('layer:lmdb:map_async', {
             'type': 'bool', 'defval': False,
             'doc': 'Set the default lmdb:map_async value in LMDB layers.'
+        }),
+
+        ('axon', {
+            'type': 'str', 'defval': None,
+            'doc': 'A telepath URL for a remote axon.',
         }),
     )
 
@@ -744,6 +792,12 @@ class Cortex(s_cell.Cell):
         self.libroot = (None, {}, {})
         self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
 
+        self.axon = None  # type: s_axon.AxonApi
+        self.axready = asyncio.Event()
+
+        # generic fini handler for the Cortex
+        self.onfini(self._onCoreFini)
+
         await self._initCoreHive()
         self._initSplicers()
         await self._initStormCmds()
@@ -759,8 +813,10 @@ class Cortex(s_cell.Cell):
         mods = list(s_modules.coremods)
         mods.extend(self.conf.get('modules'))
         await self._loadCoreMods(mods)
+        await self._loadExtModel()
 
         # Initialize our storage and views
+        await self._initCoreAxon()
         await self._initCoreLayers()
         await self._checkLayerModels()
         await self._initCoreViews()
@@ -771,6 +827,8 @@ class Cortex(s_cell.Cell):
         self.provstor = await s_provenance.ProvStor.anit(self.dirn)
         self.onfini(self.provstor.fini)
         self.provstor.migratePre010(self.view.layers[0])
+
+        self.addHealthFunc(self._cortexHealth)
 
         async def fini():
             await asyncio.gather(*[view.fini() for view in self.views.values()])
@@ -783,10 +841,12 @@ class Cortex(s_cell.Cell):
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
 
+        # Finalize coremodule loading
+        await self._initCoreMods()
+
+        # Now start agenda AFTER all coremodules have finished loading.
         if self.conf.get('cron:enable'):
             await self.agenda.start()
-
-        await self._initCoreMods()
 
         # Initialize free-running tasks.
         self._initCryoLoop()
@@ -965,6 +1025,136 @@ class Cortex(s_cell.Cell):
     def getStormSvcs(self):
         return list(self.svcsbyiden.values())
 
+    async def _cortexHealth(self, health):
+        health.update('cortex', 'nominal')
+
+    async def _loadExtModel(self):
+
+        self.extprops = await (await self.hive.open(('cortex', 'model', 'props'))).dict()
+        self.extunivs = await (await self.hive.open(('cortex', 'model', 'univs'))).dict()
+        self.exttagprops = await (await self.hive.open(('cortex', 'model', 'tagprops'))).dict()
+
+        for form, prop, tdef, info in self.extprops.values():
+            try:
+                self.model.addFormProp(form, prop, tdef, info)
+            except asyncio.CancelledError as e:  # pragma: no cover
+                raise
+            except Exception as e:
+                logger.warning(f'ext prop ({form}:{prop}) error: {e}')
+
+        for prop, tdef, info in self.extunivs.values():
+            try:
+                self.model.addUnivProp(prop, tdef, info)
+            except asyncio.CancelledError as e:  # pragma: no cover
+                raise
+            except Exception as e:
+                logger.warning(f'ext univ ({prop}) error: {e}')
+
+        for prop, tdef, info in self.exttagprops.values():
+            try:
+                self.model.addTagProp(prop, tdef, info)
+            except asyncio.CancelledError as e:  # pragma: no cover
+                raise
+            except Exception as e:
+                logger.warning(f'ext tag prop ({prop}) error: {e}')
+
+    async def addUnivProp(self, name, tdef, info):
+
+        # the loading function does the actual validation...
+        if not name.startswith('_'):
+            mesg = 'ext univ name must start with "_"'
+            raise s_exc.BadPropDef(name=name, mesg=mesg)
+
+        if info.get('defval', s_common.novalu) is not s_common.novalu:
+            mesg = 'Ext univ may not (yet) have a default value.'
+            raise s_exc.BadPropDef(name=name, mesg=mesg)
+
+        self.model.addUnivProp(name, tdef, info)
+
+        await self.extunivs.set(name, (name, tdef, info))
+
+    async def addFormProp(self, form, prop, tdef, info):
+
+        if not prop.startswith('_'):
+            mesg = 'ext prop must begin with "_"'
+            raise s_exc.BadPropDef(prop=prop, mesg=mesg)
+
+        if info.get('defval', s_common.novalu) is not s_common.novalu:
+            mesg = 'Ext prop may not (yet) have a default value.'
+            raise s_exc.BadPropDef(prop=prop, mesg=mesg)
+
+        self.model.addFormProp(form, prop, tdef, info)
+        await self.extprops.set(f'{form}:{prop}', (form, prop, tdef, info))
+
+    async def delFormProp(self, form, prop):
+        '''
+        Remove an extended property from the cortex.
+        '''
+        full = f'{form}:{prop}'
+
+        pdef = self.extprops.get(full)
+        if pdef is None:
+            mesg = f'No ext prop named {full}'
+            raise s_exc.NoSuchProp(form=form, prop=prop, mesg=mesg)
+
+        for layr in self.layers.values():
+            async for item in layr.iterPropRows(form, prop):
+                mesg = f'Nodes still exist with prop: {form}:{prop}'
+                raise s_exc.CantDelProp(mesg=mesg)
+
+        self.model.delFormProp(form, prop)
+        await self.extprops.pop(full, None)
+
+    async def delUnivProp(self, prop):
+        '''
+        Remove an extended universal property from the cortex.
+        '''
+        udef = self.extunivs.get(prop)
+        if udef is None:
+            mesg = f'No ext univ named {prop}'
+            raise s_exc.NoSuchUniv(name=prop, mesg=mesg)
+
+        univname = '.' + prop
+        for layr in self.layers.values():
+            async for item in layr.iterUnivRows(univname):
+                mesg = f'Nodes still exist with universal prop: {prop}'
+                raise s_exc.CantDelUniv(mesg=mesg)
+
+        self.model.delUnivProp(prop)
+        await self.extunivs.pop(prop, None)
+
+    async def addTagProp(self, name, tdef, info):
+
+        if self.exttagprops.get(name) is not None:
+            raise s_exc.DupPropName(name=name)
+
+        self.model.addTagProp(name, tdef, info)
+
+        await self.exttagprops.set(name, (name, tdef, info))
+
+    async def delTagProp(self, name):
+
+        pdef = self.exttagprops.get(name)
+        if pdef is None:
+            mesg = f'No tag prop named {name}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name)
+
+        for layr in self.layers.values():
+            if await layr.hasTagProp(name):
+                mesg = f'Nodes still exist with tagprop: {name}'
+                raise s_exc.CantDelProp(mesg=mesg)
+
+        self.model.delTagProp(name)
+
+        await self.exttagprops.pop(name, None)
+
+    async def _onCoreFini(self):
+        '''
+        Generic fini handler for cortex components which may change or vary at runtime.
+        '''
+        if self.axon:
+            await self.axon.fini()
+
     async def syncLayerSplices(self, iden, offs):
         '''
         Yield (offs, mesg) tuples for splices in a layer.
@@ -1056,7 +1246,8 @@ class Cortex(s_cell.Cell):
 
             except Exception:
                 logger.exception('error in initCoreMirror loop')
-                await asyncio.sleep(1)
+
+            await self.waitfini(1)
 
     async def _getWaitFor(self, name, valu):
         form = self.model.form(name)
@@ -1065,6 +1256,31 @@ class Cortex(s_cell.Cell):
     async def _initCoreHive(self):
         stormvars = await self.hive.open(('cortex', 'storm', 'vars'))
         self.stormvars = await stormvars.dict()
+
+    async def _initCoreAxon(self):
+        turl = self.conf.get('axon')
+        if turl is None:
+            path = os.path.join(self.dirn, 'axon')
+            self.axon = await s_axon.Axon.anit(path)
+            self.axon.onfini(self.axready.clear)
+            self.axready.set()
+            return
+
+        async def teleloop():
+            self.axready.clear()
+            while not self.isfini:
+                try:
+                    self.axon = await s_telepath.openurl(turl)
+                    self.axon.onfini(teleloop)
+                    self.axready.set()
+                    return
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    logger.warning('remote axon error: %r' % (e,))
+                await self.waitfini(1)
+
+        self.schedCoro(teleloop())
 
     async def _initStormCmds(self):
         '''
@@ -1116,10 +1332,12 @@ class Cortex(s_cell.Cell):
         self.addStormLib(('user',), s_stormtypes.LibUser)
         self.addStormLib(('queue',), s_stormtypes.LibQueue)
         self.addStormLib(('service',), s_stormtypes.LibService)
+        self.addStormLib(('bytes',), s_stormtypes.LibBytes)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
         self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
 
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
+        self.addStormLib(('base64',), s_stormtypes.LibBase64)
 
     def _initSplicers(self):
         '''
@@ -1132,6 +1350,8 @@ class Cortex(s_cell.Cell):
             'node:del': self._onFeedNodeDel,
             'prop:set': self._onFeedPropSet,
             'prop:del': self._onFeedPropDel,
+            'tag:prop:set': self._onFeedTagPropSet,
+            'tag:prop:del': self._onFeedTagPropDel,
         }
         self.splicers.update(**splicers)
 
@@ -1971,6 +2191,26 @@ class Cortex(s_cell.Cell):
             return
 
         await node.delTag(tag)
+
+    async def _onFeedTagPropSet(self, snap, mesg):
+
+        tag = mesg[1].get('tag')
+        prop = mesg[1].get('prop')
+        ndef = mesg[1].get('ndef')
+        valu = mesg[1].get('valu')
+
+        node = await snap.getNodeByNdef(ndef)
+        if node is not None:
+            await node.setTagProp(tag, prop, valu)
+
+    async def _onFeedTagPropDel(self, snap, mesg):
+        tag = mesg[1].get('tag')
+        prop = mesg[1].get('prop')
+        ndef = mesg[1].get('ndef')
+
+        node = await snap.getNodeByNdef(ndef)
+        if node is not None:
+            await node.delTagProp(tag, prop)
 
     async def _addSynIngest(self, snap, items):
 

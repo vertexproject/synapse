@@ -3,6 +3,81 @@ Synapse Changelog
 *****************
 
 
+v0.1.25 - 2019-09-06
+====================
+- Add ``$lib.inet.http.put()`` Stormtypes support to allow making HTTP PUT requests.
+  (`#1358 <https://github.com/vertexproject/synapse/pull/1358>`_)
+- Add ``$llib.base64`` Stormtypes to allow for manipulation of base64 data in Storm.
+  (`#1358 <https://github.com/vertexproject/synapse/pull/1358>`_)
+- Add healthcheck tooling that can be used to implement heartbeat support for Synapse Cells.
+  (`#1344 <https://github.com/vertexproject/synapse/pull/1344>`_)
+
+Features and Enhancements
+-------------------------
+
+Bugfixes
+--------
+- Fix an issue where the ``geo:dist`` was missing comparator support. This was fixed by caussing it to inherit from the
+  IntBase type.
+  (`#1362 <https://github.com/vertexproject/synapse/pull/1362>`_)
+
+
+v0.1.24 - 2019-09-03
+====================
+
+Features and Enhancements
+-------------------------
+- Add a granular permission checking helper to the HTTPAPI Handler base.
+  (`#1346 <https://github.com/vertexproject/synapse/pull/1346>`_)
+- Allow retrieval of data from a LMDB SlabSeqn object by arbitrary index bytes.
+  (`#1342 <https://github.com/vertexproject/synapse/pull/1342>`_)
+- Add ``synapse.tools.hive.save`` and ``synapse.tools.hive.load`` to save an load arbitrary trees of a Hive.
+  (`#1340 <https://github.com/vertexproject/synapse/pull/1340>`_)
+- Add support to the Cell to preload hive on **first** boot via a ``hiveboot.yaml`` file containing a serialized Hive
+  tree.
+  (`#1340 <https://github.com/vertexproject/synapse/pull/1340>`_)
+- Add POST support to the ``/api/v1/storm`` and ``/api/v1/storm/nodes`` HTTP APIs.
+  (`#1351 <https://github.com/vertexproject/synapse/pull/1351>`_)
+- Ensure that a Cortex always has an Axon available.  By default, the Axon will be locally stored on disk in the Cortex
+  cell directory.  This can alternatively be configured to point to a Axon URL via the ``axon`` configuration option
+  for a Cortex.
+  (`#1349 <https://github.com/vertexproject/synapse/pull/1349>`_)
+- Add Stormtypes ``$lib.bytes.put()`` to allow storing a Storm variable, representing bytes, in the Axon configured for
+  a Cortex.
+  (`#1349 <https://github.com/vertexproject/synapse/pull/1349>`_)
+- Add support for storing arbitrary key value data on a node.
+  (`#1347 <https://github.com/vertexproject/synapse/pull/1347>`_)
+- Add ``geo:address`` type to record an arbitrary address string; add ``:address`` property to ``geo:place`` form. Convert
+  ``ps:contact:address`` to be type ``geo:address``. This does involve a automatic data migration during Cortex startup.
+  (`#1339 <https://github.com/vertexproject/synapse/pull/1339>`_)
+- Fix Axon permission handling for remote users to actually enforce permissions.
+  (`#1354 <https://github.com/vertexproject/synapse/pull/1354>`_)
+- Add a new form, ``inet:url:mirror``, which represents URL content being mirror between two different URLs.
+  (`#1360 <https://github.com/vertexproject/synapse/pull/1360>`_)
+- Add support for user defined runtime properties.
+  (`#1350 <https://github.com/vertexproject/synapse/pull/1350>`_)
+- Add support for user defined secondary properties to be attached to a tag.
+  (`#1350 <https://github.com/vertexproject/synapse/pull/1350>`_)
+- Add support for defererencing a variable value in order to lift by a variable property name.
+  (`#1350 <https://github.com/vertexproject/synapse/pull/1350>`_)
+
+Bugfixes
+--------
+- Fix an issue with the ``kill`` command failing when providing a purely numeric task identifier.
+  (`#1343 <https://github.com/vertexproject/synapse/pull/1343>`_)
+- Fix an with logging the incorrect user value when terminating a task.
+  (`#1343 <https://github.com/vertexproject/synapse/pull/1343>`_)
+- Replace ``asyncio.sleep()`` calls with ``self.waitfini()`` calls in loop retry code, to ensure that tasks do not end
+  up retrying after the object has been torn down if the ioloop is still running.
+  (`#1353 <https://github.com/vertexproject/synapse/pull/1353>`_)
+- Remove codecov orb and use the codecov bash uploaded directly.
+  (`#1355 <https://github.com/vertexproject/synapse/pull/1355>`_)
+  (`#1357 <https://github.com/vertexproject/synapse/pull/1357>`_)
+- Make the Storm ``max`` command aware of Ival types, and pull the maximum value based on the right hand side of the
+  interval.
+  (`#1359 <https://github.com/vertexproject/synapse/pull/1359>`_)
+
+
 v0.1.23 - 2019-08-14
 ====================
 

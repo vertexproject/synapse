@@ -34,6 +34,7 @@ class Node:
         self.tags = {}
         self.props = {}
         self.univs = {}
+        self.tagprops = {}
 
         # raw prop -> layer it was set at
         self.proplayr = collections.defaultdict(lambda: self.snap.wlyr, proplayr or {})
@@ -105,6 +106,13 @@ class Node:
 
             # check for tag encoding
             if p0 == '#':
+
+                # proptag...
+                if ':' in prop:
+                    tag, prop = prop[1:].split(':', 1)
+                    self.tagprops[(tag, prop)] = valu
+                    continue
+
                 self.tags[prop[1:]] = valu
                 continue
 
@@ -118,10 +126,14 @@ class Node:
         Returns:
             (tuple): An (iden, info) node tuple.
         '''
+        tagprops = collections.defaultdict(dict)
+        [tagprops[tag].__setitem__(prop, valu) for (tag, prop), valu in self.tagprops.items()]
+
         node = (self.ndef, {
             'iden': self.iden(),
             'tags': self.tags,
             'props': self.props,
+            'tagprops': tagprops,
         })
 
         if dorepr:
@@ -491,6 +503,8 @@ class Node:
 
         pref = name + '.'
 
+        tagprops = [x for x in self.tagprops.keys() if x[0] == name]
+
         subtags = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
         subtags.sort(reverse=True)
 
@@ -499,11 +513,13 @@ class Node:
         for sublen, subtag in subtags:
             valu = self.tags.pop(subtag, None)
             removed.append((subtag, valu))
+            tagprops.extend([x for x in self.tagprops.keys() if x[0] == subtag])
 
         removed.append((name, curv))
 
         info = {'univ': True}
         sops = [('prop:del', (self.buid, self.form.name, '#' + t, info)) for (t, v) in removed]
+        sops.extend([('tag:prop:del', (self.buid, self.form.name, tag, prop, {})) for (tag, prop) in tagprops])
 
         # fire all the splices
         splices = [self.snap.splice('tag:del', ndef=self.ndef, tag=t, valu=v) for (t, v) in removed]
@@ -511,6 +527,68 @@ class Node:
 
         # fire all the handlers / triggers
         [await self.snap.core.runTagDel(self, t, v) for (t, v) in removed]
+
+    def hasTagProp(self, tag, prop):
+        '''
+        Check if a #foo.bar:baz tag property exists on the node.
+        '''
+        return (tag, prop) in self.tagprops
+
+    def getTagProp(self, tag, prop, defval=None):
+        '''
+        Return the value (or defval) of the given tag property.
+        '''
+        return self.tagprops.get((tag, prop), defval)
+
+    async def setTagProp(self, tag, name, valu):
+        '''
+        Set the value of the given tag property.
+        '''
+        if not self.hasTag(tag):
+            await self.addTag(tag)
+
+        prop = self.snap.model.getTagProp(name)
+        if prop is None:
+            raise s_exc.NoSuchTagProp(name=name)
+
+        try:
+            norm, info = prop.type.norm(valu)
+        except Exception as e:
+            mesg = f'Bad property value: #{tag}:{prop.name}={valu!r}'
+            return await self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, name=prop.name, valu=valu, emesg=str(e))
+
+        indx = prop.type.indx(norm)
+
+        tagkey = (tag, name)
+        curv = self.tagprops.get(tagkey)
+
+        sops = (
+            ('tag:prop:set', (self.buid, self.form.name, tag, prop.name, norm, indx, {})),
+        )
+
+        splices = (
+            self.snap.splice('tag:prop:set', ndef=self.ndef, tag=tag, prop=prop.name, valu=norm, curv=curv),
+        )
+
+        await self.snap.stor(sops, splices)
+
+        self.tagprops[tagkey] = norm
+
+    async def delTagProp(self, tag, name):
+
+        curv = self.tagprops.pop((tag, name), s_common.novalu)
+        if curv is s_common.novalu:
+            return False
+
+        sops = (
+            ('tag:prop:del', (self.buid, self.form.name, tag, name, {})),
+        )
+
+        splices = (
+            self.snap.splice('tag:prop:del', ndef=self.ndef, tag=tag, prop=name, valu=curv),
+        )
+
+        await self.snap.stor(sops, splices)
 
     async def delete(self, force=False):
         '''
@@ -582,6 +660,19 @@ class Node:
         self.snap.core.pokeFormCount(formname, -1)
 
         await self.form.wasDeleted(self)
+
+    async def getData(self, name):
+        return await self.snap.getNodeData(self.buid, name)
+
+    async def setData(self, name, valu):
+        return await self.snap.setNodeData(self.buid, name, valu)
+
+    async def popData(self, name):
+        return await self.snap.popNodeData(self.buid, name)
+
+    async def iterData(self):
+        async for item in self.snap.iterNodeData(self.buid):
+            yield item
 
 class Path:
     '''

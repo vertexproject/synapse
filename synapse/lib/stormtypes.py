@@ -1,7 +1,9 @@
 import bz2
 import gzip
 import json
+import base64
 import asyncio
+import binascii
 import datetime
 
 import synapse.exc as s_exc
@@ -277,10 +279,36 @@ class LibStr(Lib):
 
         return text
 
+class LibBytes(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'put': self._libBytesPut,
+        })
+
+    async def _libBytesPut(self, byts):
+        '''
+        Save the given bytes variable to the axon.
+
+        Returns:
+            ($size, $sha256)
+
+        Example:
+            ($size, $sha2) = $lib.bytes.put($bytes)
+        '''
+        if not isinstance(byts, bytes):
+            mesg = '$lib.bytes.put() requires a bytes argument'
+            raise s_exc.BadArg(mesg=mesg)
+
+        await self.runt.snap.core.axready.wait()
+        size, sha2 = await self.runt.snap.core.axon.put(byts)
+        return (size, s_common.ehex(sha2))
+
 class LibTime(Lib):
 
     def addLibFuncs(self):
         self.locls.update({
+            'now': s_common.now,
             'fromunix': self.fromunix,
             'parse': self.parse,
             'sleep': self.sleep,
@@ -497,6 +525,32 @@ class Proxy(StormType):
             raise s_exc.NoSuchName(mesg=mesg)
 
         return getattr(self.proxy, name, None)
+
+class LibBase64(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'encode': self._encode,
+            'decode': self._decode
+        })
+
+    async def _encode(self, valu, urlsafe=True):
+        try:
+            if urlsafe:
+                return base64.urlsafe_b64encode(valu).decode('ascii')
+            return base64.b64encode(valu).decode('ascii')
+        except TypeError as e:
+            mesg = f'Error during base64 encoding - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
+
+    async def _decode(self, valu, urlsafe=True):
+        try:
+            if urlsafe:
+                return base64.urlsafe_b64decode(valu)
+            return base64.b64decode(valu)
+        except binascii.Error as e:
+            mesg = f'Error during base64 decoding - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
 
 class Prim(StormType):
     '''
@@ -779,11 +833,45 @@ class Query(StormType):
     def __str__(self):
         return self.text
 
+class NodeData(Prim):
+
+    def __init__(self, node, path=None):
+
+        Prim.__init__(self, node, path=path)
+
+        self.locls.update({
+            'get': self._getNodeData,
+            'set': self._setNodeData,
+            'pop': self._popNodeData,
+            'list': self._listNodeData,
+        })
+
+    def _reqAllowed(self, perm):
+        if not self.valu.snap.user.allowed(perm):
+            pstr = '.'.join(perm)
+            mesg = f'User is not allowed permission: {pstr}'
+            raise s_exc.AuthDeny(perm=perm, mesg=mesg)
+
+    async def _getNodeData(self, name):
+        self._reqAllowed(('storm', 'node', 'data', 'get', name))
+        return await self.valu.getData(name)
+
+    async def _setNodeData(self, name, valu):
+        self._reqAllowed(('storm', 'node', 'data', 'set', name))
+        return await self.valu.setData(name, valu)
+
+    async def _popNodeData(self, name):
+        self._reqAllowed(('storm', 'node', 'data', 'pop', name))
+        return await self.valu.popData(name)
+
+    async def _listNodeData(self):
+        self._reqAllowed(('storm', 'node', 'data', 'list'))
+        return [x async for x in self.valu.iterData()]
+
 class Node(Prim):
     '''
     Implements the STORM api for a node instance.
     '''
-
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update({
@@ -797,6 +885,11 @@ class Node(Prim):
 
             'isform': self._methNodeIsForm,
         })
+
+        def ctordata(path=None):
+            return NodeData(node, path=path)
+
+        self.ctors['data'] = ctordata
 
     async def _methNodeIsForm(self, name):
         return node.form.name == name

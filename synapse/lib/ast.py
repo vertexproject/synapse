@@ -677,6 +677,59 @@ class LiftTag(LiftOper):
         async for node in runt.snap._getNodesByTag(tag, valu=valu, cmpr=cmpr):
             yield node
 
+class LiftTagProp(LiftOper):
+    '''
+    #foo.bar:baz [ = x ]
+    '''
+    async def lift(self, runt):
+
+        cmpr = None
+        valu = None
+        tag, prop = await self.kids[0].compute(runt)
+
+        if len(self.kids) == 3:
+            cmpr = await self.kids[1].compute(runt)
+            valu = await self.kids[2].compute(runt)
+
+        async for node in runt.snap._getNodesByTagProp(prop, tag=tag, valu=valu, cmpr=cmpr):
+            yield node
+
+class LiftFormTagProp(LiftOper):
+    '''
+    hehe:haha#foo.bar:baz [ = x ]
+    '''
+
+    async def lift(self, runt):
+
+        cmpr = None
+        valu = None
+        form, tag, prop = await self.kids[0].compute(runt)
+
+        if len(self.kids) == 3:
+            cmpr = await self.kids[1].compute(runt)
+            valu = await self.kids[2].compute(runt)
+
+        async for node in runt.snap._getNodesByTagProp(prop, form=form, tag=tag, valu=valu, cmpr=cmpr):
+            yield node
+
+class LiftOnlyTagProp(LiftOper):
+    '''
+    #:baz [ = x ]
+    '''
+
+    async def lift(self, runt):
+
+        cmpr = None
+        valu = None
+        prop = await self.kids[0].compute(runt)
+
+        if len(self.kids) == 3:
+            cmpr = await self.kids[1].compute(runt)
+            valu = await self.kids[2].compute(runt)
+
+        async for node in runt.snap._getNodesByTagProp(prop, valu=valu, cmpr=cmpr):
+            yield node
+
 class LiftTagTag(LiftOper):
     '''
     ##foo.bar
@@ -739,10 +792,9 @@ class LiftProp(LiftOper):
 
     async def lift(self, runt):
 
-        name = self.kids[0].value()
-
         cmpr = None
         valu = None
+        name = await self.kids[0].compute(runt)
 
         if len(self.kids) == 3:
             cmpr = self.kids[1].value()
@@ -786,9 +838,8 @@ class LiftPropBy(LiftOper):
 
     async def lift(self, runt):
 
-        name = self.kids[0].value()
         cmpr = self.kids[1].value()
-
+        name = await self.kids[0].compute(runt)
         valu = await self.kids[2].compute(runt)
 
         async for node in runt.snap.getNodesBy(name, valu, cmpr=cmpr):
@@ -1499,6 +1550,16 @@ class HasRelPropCond(Cond):
 
         return cond
 
+class HasTagPropCond(Cond):
+
+    async def getCondEval(self, runt):
+
+        async def cond(node, path):
+            tag, name = await self.kids[0].compute(path)
+            return node.hasTagProp(tag, name)
+
+        return cond
+
 class HasAbsPropCond(Cond):
 
     async def getCondEval(self, runt):
@@ -1626,6 +1687,35 @@ class RelPropCond(Cond):
             func = ctor(xval)
 
             return func(valu)
+
+        return cond
+
+class TagPropCond(Cond):
+
+    async def getCondEval(self, runt):
+
+        cmpr = self.kids[1].value()
+
+        async def cond(node, path):
+
+            tag, name = await self.kids[0].compute(path)
+
+            prop = path.runt.snap.model.getTagProp(name)
+            if prop is None:
+                mesg = f'No such tag property: {name}'
+                raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
+
+            # TODO cache on (cmpr, valu) for perf?
+            valu = await self.kids[2].compute(path)
+
+            ctor = prop.type.getCmprCtor(cmpr)
+            if ctor is None:
+                raise s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name)
+
+            curv = node.getTagProp(tag, name)
+            if curv is None:
+                return False
+            return ctor(valu)(curv)
 
         return cond
 
@@ -1768,11 +1858,45 @@ class RelPropValue(PropValue):
 class UnivPropValue(PropValue):
     pass
 
-class TagPropValue(CompValue):
+class TagValue(CompValue):
 
     async def compute(self, path):
         valu = await self.kids[0].compute(path)
         return path.node.getTag(valu)
+
+class TagProp(CompValue):
+
+    def isRuntSafe(self, runt):
+        return all(k.isRuntSafe(runt) for k in self.kids)
+
+    async def compute(self, path):
+        tag = await self.kids[0].compute(path)
+        prop = await self.kids[1].compute(path)
+        return (tag, prop)
+
+class FormTagProp(CompValue):
+
+    def isRuntSafe(self, runt):
+        return all(k.isRuntSafe(runt) for k in self.kids)
+
+    async def compute(self, path):
+        form = await self.kids[0].compute(path)
+        tag = await self.kids[1].compute(path)
+        prop = await self.kids[2].compute(path)
+        return (form, tag, prop)
+
+class OnlyTagProp(CompValue):
+
+    def isRuntSafe(self, runt):
+        return self.kids[0].isRuntSafe(runt)
+
+    async def compute(self, path):
+        return await self.kids[0].compute(path)
+
+class TagPropValue(CompValue):
+    async def compute(self, path):
+        tag, prop = await self.kids[0].compute(path)
+        return path.node.getTagProp(tag, prop)
 
 class CallArgs(RunValue):
 
@@ -2227,6 +2351,53 @@ class EditTagDel(Edit):
             runt.allowed('tag:del', *parts)
 
             await node.delTag(name)
+
+            yield node, path
+
+class EditTagPropSet(Edit):
+    '''
+    [ #foo.bar:baz=10 ]
+    '''
+    async def run(self, runt, genr):
+
+        oper = self.kids[1].value()
+        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
+
+        async for node, path in genr:
+
+            tag, prop = await self.kids[0].compute(path)
+            valu = await self.kids[2].compute(path)
+
+            tagparts = tag.split('.')
+
+            # for now, use the tag add perms
+            runt.allowed('tag:add', *tagparts)
+
+            try:
+                await node.setTagProp(tag, prop, valu)
+            except asyncio.CancelledError: # pragma: no cover
+                raise
+            except excignore:
+                pass
+
+            yield node, path
+
+class EditTagPropDel(Edit):
+    '''
+    [ -#foo.bar:baz ]
+    '''
+    async def run(self, runt, genr):
+
+        async for node, path in genr:
+
+            tag, prop = await self.kids[0].compute(path)
+
+            tagparts = tag.split('.')
+
+            # for now, use the tag add perms
+            runt.allowed('tag:del', *tagparts)
+
+            await node.delTagProp(tag, prop)
 
             yield node, path
 

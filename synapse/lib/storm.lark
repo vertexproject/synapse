@@ -24,12 +24,18 @@ _morenons: ( _WSCOMM? "|" _WSCOMM? | _WSCOMM) (_querystartcommand | _querystartn
     | ( _WSCOMM? "|" _WSCOMM? | _WSCOMM?) _querystartedit
 
 // Edit block: zero or more edit operations inside a single set of square brackets
-_editopers: "[" _WS? ((_editoper | editparens) _WS?)* "]"
+
+_editopers: "[" _WS? (_editopersstart | _editparensstart) _WS? "]"
+_editopersstart: _editoper [ ( _WS _editopersstart | _WS? _editparensstart) ]
+_editparensstart: editparens [ _WS (_editopersstart | _editparensstart) ]
+
 ///A single edit operation
-_editoper: editpropset | editunivset | edittagadd | editpropdel | editunivdel | edittagdel | editnodeadd
+_editoper: editnodeadd
+            | editpropset | editunivset | edittagpropset | edittagadd
+            | editpropdel | editunivdel | edittagpropdel | edittagdel
 
 ///Parenthesis in an edit block don't have incoming nodes
-editparens: "(" _WS? editnodeadd _WS? (_editoper _WS?)* ")"
+editparens: "(" _WS? editnodeadd _WS? _editoper? (_WS _editoper)* ")"
 edittagadd: "+" tagname [_WS? "=" _WS? _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname
@@ -37,12 +43,13 @@ editpropset: relprop _WS? SETOPER _WS? _valu
 editpropdel: "-" relprop
 editunivset: univprop _WS? SETOPER _WS? _valu
 editnodeadd: ABSPROPNOUNIV _WS? SETOPER _WS? _valu
+edittagpropset: "+" tagprop _WS? SETOPER _WS? _valu
+edittagpropdel: "-" tagprop
 SETOPER: "=" | "?="
 
 // The set of non-edit non-commands in storm
 _oper.1: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | vareval
      | filtoper | liftbytag | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | _liftprop | ifstmt
-//     | yieldvalu
 
 BREAK: "break"
 CONTINUE: "continue"
@@ -53,7 +60,7 @@ vareval: _varvalu
 // A variable assignment
 valuvar: _varname _WS? "=" _WS? _valu
 
-forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _varvalu _WS? baresubquery
+forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _valu _WS? baresubquery
 whileloop: "while" _WS _valu _WS? baresubquery
 subquery: [YIELD _WS?] baresubquery
 //yieldvalu: YIELD _valu
@@ -100,12 +107,22 @@ _RIGHTPIVOT: "->"
 _LEFTPIVOT:  "<-"
 
 _liftprop: liftformtag | liftpropby | liftprop
+            | liftbytagprop | liftbyformtagprop | liftbyonlytagprop
+
 liftformtag.1: PROPNAME tagname [_WS? CMPR _valu]
-liftpropby: PROPNAME _WS? CMPR _WS? _valu
-liftprop: PROPNAME
+_DEREF:  "*"
+liftpropby: (PROPNAME | _DEREF _varvalu) _WS? CMPR _WS? _valu
+liftprop: (PROPNAME | _DEREF _varvalu)
 lifttagtag: "#" tagname [_WS? CMPR _valu]
 liftbytag: tagname [_WS? CMPR _valu]
+liftbytagprop: tagprop [_WS? CMPR _valu]
+liftbyonlytagprop: onlytagprop [_WS? CMPR _valu]
+liftbyformtagprop: formtagprop [_WS? CMPR _valu]
 tagname: "#" _WS? (_varvalu | TAG)
+tagprop: "#" TAG ":" BASEPROP
+_ONLYTAGPROP: "#:"
+onlytagprop: _ONLYTAGPROP BASEPROP
+formtagprop: PROPNAME "#" TAG ":" BASEPROP
 
 stormcmd: CMDNAME [_WS stormcmdargs]
 stormcmdargs: _WS? _cmdargv (_WS _cmdargv)*
@@ -124,13 +141,14 @@ TAG: _TAGSEGNOVAR ("." (_TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGNOVAR: /\w+/
 
 // A comparison operator
-// https://regex101.com/r/l8hFq8/1
-CMPR: /(?!<-)[@!<>^~=][@!<>^~=]*|\*[^=\s]*?=/
+CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*|\*[^=\s]*?=/
 
-_valu: NONQUOTEWORD | valulist | _varvalu | relpropvalu | univpropvalu | tagpropvalue | DOUBLEQUOTEDSTRING
-    | SINGLEQUOTEDSTRING | dollarexpr | embedquery
+_valu: NONQUOTEWORD | valulist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalue
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | dollarexpr | embedquery
+
 valulist: "(" [_WS? _valu (_WS? "," _WS? _valu)*] _WS? ["," _WS?] ")"
-tagpropvalue: tagname
+tagvalu: tagname
+tagpropvalu: tagprop
 relpropvalu: relprop
 univpropvalu: univprop
 embedquery: "${" query "}"
@@ -143,7 +161,7 @@ _varvalu: "$" _varvaluatom
 
 _varvaluatom: varvalue | varderef | funccall
 varvalue: VARTOKN
-_varname: "$" _WS? VARTOKN
+_varname: "$" VARTOKN
 VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
 
 varderef: _varvaluatom "." VARTOKN
@@ -158,6 +176,7 @@ FILTPREFIX: "+" | "-"
 _cond: notcond | "(" _WS? _condexpr _WS? ")"
     | hasrelpropcond | relpropcond
     | abspropcond | hasabspropcond
+    | tagpropcond | hastagpropcond
     | tagcond | tagvalucond
     | condsubq
     | _varvalu | dollarexpr
@@ -170,6 +189,9 @@ relpropvalue:   relprop | univprop
 
 abspropcond.1:  ABSPROPNOUNIV _WS? CMPR _WS? _valu
 hasabspropcond: ABSPROPNOUNIV
+
+tagpropcond.1:  tagprop _WS? CMPR _WS? _valu
+hastagpropcond: tagprop
 
 tagvalucond.1:  _tagmatch _WS? CMPR _WS? _valu
 tagcond: _tagmatch
@@ -195,9 +217,9 @@ CPPCOMMENT: /\/\/[^\n]*/
 
 // Must be kept consistent with same regexes in synapse/lib/grammar.py
 // A full property.  Must contain at least 1 colon
-PROPS: /[a-z][a-z0-9]*(:[a-z0-9]+)+([:.][a-z][a-z0-9]+)*/
+PROPS: /[a-z_][a-z0-9]*(:[a-z0-9]+)+([:.][a-z_][a-z0-9]+)*/
 // A universal property
-UNIVNAME: /\.[a-z][a-z0-9]*([:.][a-z0-9]+)*/
+UNIVNAME: /\.[a-z_][a-z0-9]*([:.][a-z0-9]+)*/
 univprop:  UNIVNAME | "." _varvalu
 // A full property or a universal property
 PROPNAME: PROPS | UNIVNAME
@@ -207,7 +229,10 @@ ABSPROPNOUNIV: PROPS
 relprop: RELNAME | ":" _varvalu
 
 // Similar to PROPS, but starts with a colon and allows :: as separator
-RELNAME: /\:\.?[a-z][a-z0-9]*(?:(\:\:|\:|\.)[a-z0-9]+)*/
+RELNAME: /\:\.?[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z0-9]+)*/
+
+// Similar to PROPS but does not require a colon
+BASEPROP: /[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z0-9]+)*/
 
 // The name of a storm command
 CMDNAME: /\b(?!(break|continue|for|while|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/
@@ -235,5 +260,5 @@ AND: "and"
 _expratom: _exprvalu | "(" exprsum ")"
 
 // Just like _valu, but doesn't allow valu lists or unquoted strings
-_exprvalu: NUMBER | _varvalu | relpropvalu | univpropvalu | tagpropvalue | DOUBLEQUOTEDSTRING
+_exprvalu: NUMBER | _varvalu | relpropvalu | univpropvalu | tagvalu | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING | dollarexpr

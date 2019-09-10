@@ -83,6 +83,8 @@ class BadTime(SynErr): pass
 class BadUrl(SynErr): pass
 
 class CantDelNode(SynErr): pass
+class CantDelProp(SynErr): pass
+class CantDelUniv(SynErr): pass
 class CantDelRootUser(SynErr): pass
 class CantRevLayer(SynErr): pass
 class CliFini(SynErr):
@@ -160,12 +162,14 @@ class NoSuchOpt(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchPivot(SynErr): pass
 class NoSuchProp(SynErr): pass
+class NoSuchUniv(SynErr): pass
 class NoSuchRole(SynErr): pass
 class NoSuchStor(SynErr): pass
 class NoSuchType(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchVar(SynErr): pass
 class NoSuchView(SynErr): pass
+class NoSuchTagProp(SynErr): pass
 
 class ParserExit(SynErr):
     ''' Raised by synapse.lib.cmd.Parser on Parser exit() '''
