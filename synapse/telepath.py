@@ -655,7 +655,6 @@ class Client(s_base.Base):
             except Exception as e:
                 url = self._getNextUrl()
                 logger.warning(f'telepath client ({self._t_url}): {e}')
-                print(f'telepath client ({self._t_url}): {e}')
                 await asyncio.sleep(self._t_conf.get('retrysleep', 0.2))
 
     async def _initTeleLink(self, url):
