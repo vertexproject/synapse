@@ -1080,6 +1080,10 @@ class GrammarTest(s_t_utils.SynTest):
                    (r'''[test:str="hello\xffworld!"]''', '''hello\xffworld!'''),
                    # \ooo - octal
                    (r'''[test:str="hello\040world!"]''', '''hello world!'''),
+                   # Items encoded as a python literal object wrapped in quotes
+                   # are not turned into their corresponding item, they are
+                   # treated as strings.
+                   (r'''[test:str="{'key': 'valu'}"]''', '''{'key': 'valu'}'''),
                    )
 
         async with self.getTestCore() as core:
