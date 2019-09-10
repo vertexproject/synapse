@@ -143,7 +143,7 @@ _TAGSEGNOVAR: /\w+/
 // A comparison operator
 CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*|\*[^=\s]*?=/
 
-_valu: NONQUOTEWORD | valulist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalue
+_valu: NONQUOTEWORD | valulist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu
     | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | dollarexpr | embedquery
 
 valulist: "(" [_WS? _valu (_WS? "," _WS? _valu)*] _WS? ["," _WS?] ")"
