@@ -1417,17 +1417,11 @@ class Cortex(s_cell.Cell):
         '''
         Add a Layer to the cortex.
 
-        Notes:
-
-            The addLayer ``**info`` arg is expected to be shaped like the following::
-
-                info = {
-                    'iden': <str>, ( optional iden. default guid() )
-                    'type': <str>, ( optional type. default lmdb )
-                    'owner': <str>, ( optional owner. default root )
-                    'config': {}, # type specific config options.
-                }
-
+        Args:
+            iden (str): optional iden. default: guid() )
+            type (str): optional type. default: lmdb )
+            owner (str): optional owner. default: root )
+            config (dict): type specific config options
         '''
         iden = info.pop('iden', None)
         if iden is None:
