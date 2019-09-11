@@ -64,6 +64,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'ipv4': '1.2.3.4',
                     'latlong': '0.0, 0.0',
                     'os': sver0,
+                    'manu': 'Dull',
+                    'model': 'Lutitude 8249',
                     'serial': '111-222',
                 }
                 node = await snap.addNode('it:host', host0, hprops)

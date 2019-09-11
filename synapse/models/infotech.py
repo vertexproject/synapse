@@ -332,6 +332,12 @@ class ItModule(s_module.CoreModule):
                     ('os', ('it:prod:softver', {}), {
                         'doc': 'The operating system of the host.'
                     }),
+                    ('manu', ('str', {}), {
+                        'doc': 'The manufacturer.',
+                    }),
+                    ('model', ('str', {}), {
+                        'doc': 'The product model.',
+                    }),
                     ('serial', ('str', {}), {
                         'doc': 'The serial number.',
                     }),
