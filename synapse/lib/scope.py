@@ -152,17 +152,6 @@ def set(name, valu):
     '''
     _task_scope().set(name, valu)
 
-def find(name, valu):
-
-    for task in asyncio.all_tasks():
-
-        scope = getattr(task, '_syn_scope', None)
-        if scope is None:
-            continue
-
-        if scope.get(name) == valu:
-            return task
-
 def pop(name):
     '''
     Pop and return a task scope variable.
