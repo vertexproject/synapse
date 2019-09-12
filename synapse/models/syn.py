@@ -37,7 +37,7 @@ class SynModule(s_module.CoreModule):
         # add event registration for model changes to allow for new models to reset the runtime model data
         self.core.on('core:module:load', self._onCoreModelChange)
         self.core.on('core:tagprop:change', self._onCoreModelChange)
-        self.core.on('core:extramodel:change', self._onCoreModelChange)
+        self.core.on('core:extmodel:change', self._onCoreModelChange)
         self.core.on('core:trigger:action', self._onCoreTriggerMod)
 
     def _onCoreTriggerMod(self, event):
@@ -208,7 +208,7 @@ class SynModule(s_module.CoreModule):
             ptype, _ = self.model.prop('syn:prop:type').type.norm(pobj.type.name)
 
             univ = False
-            extramodel = False
+            extmodel = False
 
             doc = pobj.info.get('doc', 'no docstring')
             doc, _ = self.model.prop('syn:prop:doc').type.norm(doc)
@@ -229,7 +229,7 @@ class SynModule(s_module.CoreModule):
                 univ = True
                 props['ro'] = ro
                 if pobj.name.startswith('._'):
-                    extramodel = True
+                    extmodel = True
 
             elif isinstance(pobj, s_datamodel.Form):
                 fnorm, _ = self.model.prop('syn:prop:form').type.norm(pobj.full)
@@ -250,12 +250,12 @@ class SynModule(s_module.CoreModule):
                 props['relname'] = relname
                 univ = pobj.storinfo.get('univ', False)
                 if relname.startswith(('_', '._')):
-                    extramodel = True
+                    extmodel = True
 
             univ, _ = self.model.prop('syn:prop:univ').type.norm(univ)
-            extramodel, _ = self.model.prop('syn:prop:extramodel').type.norm(extramodel)
+            extmodel, _ = self.model.prop('syn:prop:extmodel').type.norm(extmodel)
             props['univ'] = univ
-            props['extramodel'] = extramodel
+            props['extmodel'] = extmodel
 
             self._addRuntRows('syn:prop', pnorm, props,
                               self._modelRuntsByBuid, self._modelRuntsByPropValu)
@@ -349,8 +349,8 @@ class SynModule(s_module.CoreModule):
                         'doc': 'Base name of the property', 'ro': True}),
                     ('ro', ('bool', {}), {
                         'doc': 'If the property is read-only after being set.', 'ro': True}),
-                    ('extramodel', ('bool', {}), {
-                        'doc': 'If the property is a user defined property or not.', 'ro': True}),
+                    ('extmodel', ('bool', {}), {
+                        'doc': 'If the property is an extended model property or not.', 'ro': True}),
                 )),
                 ('syn:tagprop', {'runt': True}, (
                     ('doc', ('str', {'strip': True}), {
