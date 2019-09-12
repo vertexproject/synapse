@@ -1,14 +1,8 @@
 import os
-import regex
 import asyncio
-import unittest.mock as mock
 
-from prompt_toolkit.formatted_text import FormattedText
-
-import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.cli as s_cli
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.encoding as s_encoding
 
