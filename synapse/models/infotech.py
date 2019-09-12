@@ -333,13 +333,13 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The operating system of the host.'
                     }),
                     ('manu', ('str', {}), {
-                        'doc': 'The manufacturer.',
+                        'doc': 'The manufacturer of the host.',
                     }),
                     ('model', ('str', {}), {
-                        'doc': 'The product model.',
+                        'doc': 'The product model of the host.',
                     }),
                     ('serial', ('str', {}), {
-                        'doc': 'The serial number.',
+                        'doc': 'The serial number of the host.',
                     }),
                 )),
                 ('it:hosturl', {}, (
