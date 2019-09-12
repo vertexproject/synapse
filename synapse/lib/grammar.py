@@ -445,7 +445,7 @@ terminalClassMap = {
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
-    'VARTOKN': lambda x: s_ast.Const(x[1:-1] if len(x) and x[0] in ("'", '"') else x)
+    'VARTOKN': lambda x: s_ast.Const('' if not x else (x[1:-1] if x[0] == "'" else (unescape(x) if x[0] == '"' else x)))
 }
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
