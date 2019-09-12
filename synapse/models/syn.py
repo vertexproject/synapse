@@ -35,7 +35,9 @@ class SynModule(s_module.CoreModule):
                 self.core.addRuntLift(pfull, lifter)
 
         # add event registration for model changes to allow for new models to reset the runtime model data
-        self.core.on('core:module:load', self._onCoreModuleLoad)
+        self.core.on('core:module:load', self._onCoreModelChange)
+        self.core.on('core:tagprop:change', self._onCoreModelChange)
+        self.core.on('core:extramodel:change', self._onCoreModelChange)
         self.core.on('core:trigger:action', self._onCoreTriggerMod)
 
     def _onCoreTriggerMod(self, event):
@@ -49,7 +51,7 @@ class SynModule(s_module.CoreModule):
         self._triggerRuntsByBuid.clear()
         self._triggerRuntsByPropValu.clear()
 
-    def _onCoreModuleLoad(self, event):
+    def _onCoreModelChange(self, event):
         '''
         Clear the cached model rows.
         '''

@@ -30,6 +30,11 @@ class SynModelTest(s_t_utils.SynTest):
             await cortex.addFormProp('test:str', '_twiddle', ('bool', {}), {'doc': 'hehe', 'ro': True})
             await cortex.addUnivProp('_sneaky', ('bool', {}), {'doc': 'Note if a node is sneaky.'})
 
+        async def delExtraModelConfigs(cortex):
+            await cortex.delTagProp('beep')
+            await cortex.delFormProp('test:str', '_twiddle')
+            await cortex.delUnivProp('_sneaky')
+
         async with self.getTestCore() as core:
 
             await addExtraModelConfigs(core)
@@ -230,6 +235,25 @@ class SynModelTest(s_t_utils.SynTest):
 
                 nodes = await core.eval('syn:form=test:runt').list()
                 self.len(1, nodes)
+
+                nodes = await core.eval('syn:prop:form="test:str" +:extramodel=True').list()
+                self.len(0, nodes)
+                nodes = await core.eval('syn:tagprop').list()
+                self.len(0, nodes)
+
+                await addExtraModelConfigs(core)
+
+                nodes = await core.eval('syn:prop:form="test:str" +:extramodel=True').list()
+                self.len(2, nodes)
+                nodes = await core.eval('syn:tagprop').list()
+                self.len(1, nodes)
+
+                await delExtraModelConfigs(core)
+
+                nodes = await core.eval('syn:prop:form="test:str" +:extramodel=True').list()
+                self.len(0, nodes)
+                nodes = await core.eval('syn:tagprop').list()
+                self.len(0, nodes)
 
     async def test_syn_trigger_runts(self):
         async with self.getTestCore() as core:
