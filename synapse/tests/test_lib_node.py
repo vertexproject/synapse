@@ -31,12 +31,13 @@ class NodeTest(s_t_utils.SynTest):
                 iden, info = node.pack(dorepr=True)
                 self.eq(iden, ('test:str', 'cool'))
                 self.eq(info.get('tags'), {'foo': (None, None)})
-                # TODO - Add repr support for tagprops
                 props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
                 self.eq(props, {'tick': 12345})
                 self.eq(info.get('repr'), None)
                 reprs = {k: v for (k, v) in info.get('reprs', {}).items() if not k.startswith('.')}
                 self.eq(reprs, {'tick': '1970/01/01 00:00:12.345'})
+                tagpropreprs = info.get('tagpropreprs')
+                self.eq(tagpropreprs, {'foo': {'score': '10'}})
 
                 # Set a property on the node which is extra model and pack it.
                 # This situation can be encountered in a multi-layer situation
@@ -45,15 +46,19 @@ class NodeTest(s_t_utils.SynTest):
                 # a node which has props the second cortex doens't know about.
                 node.props['.newp'] = 1
                 node.props['newp'] = (2, 3)
+                node.tagprops[('foo', 'valu')] = 10
                 iden, info = node.pack(dorepr=True)
                 props, reprs = info.get('props'), info.get('reprs')
+                tagprops, tagpropreprs = info.get('tagprops'), info.get('tagpropreprs')
                 self.eq(props.get('.newp'), 1)
                 self.eq(props.get('newp'), (2, 3))
+                self.eq(tagprops, {'foo': {'score': 10, 'valu': 10}})
 
                 # without model knowledge it is impossible to repr a value so it should
                 # *not* be in the repr dict
                 self.none(reprs.get('newp'))
                 self.none(reprs.get('.newp'))
+                self.eq(tagpropreprs, {'foo': {'score': '10'}})
 
     async def test_set(self):
         form = 'test:str'

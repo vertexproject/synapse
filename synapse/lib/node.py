@@ -143,6 +143,7 @@ class Node:
                 node[1]['repr'] = self.repr()
 
             node[1]['reprs'] = self.reprs()
+            node[1]['tagpropreprs'] = self.tagpropreprs()
 
         return node
 
@@ -372,6 +373,27 @@ class Node:
             reps[name] = rval
 
         return reps
+
+    def tagpropreprs(self):
+        '''
+        Return a dictionary of repr values for tagprops whose repr is different than
+        the system mode value.
+        '''
+        reps = collections.defaultdict(dict)
+
+        for (tag, name), valu in self.tagprops.items():
+
+            prop = self.form.modl.tagprop(name)
+            if prop is None:
+                continue
+
+            rval = prop.type.repr(valu)
+            if rval is None or rval == valu:
+                continue
+
+            reps[tag][name] = rval
+
+        return dict(reps)
 
     def hasTag(self, name):
         name = s_chop.tag(name)
