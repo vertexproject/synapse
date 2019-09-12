@@ -380,7 +380,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine('cron add --hourly 1 -M 17 {#bar}')
                     self.true(outp.expect('may not use both'))
 
-                # Test manipulating triggers as another user
+                # Test manipulating cron jobs as another user
                 await realcore.auth.addUser('bond')
 
                 async with realcore.getLocalProxy(user='bond') as tcore:
