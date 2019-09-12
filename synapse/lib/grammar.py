@@ -434,14 +434,6 @@ def unescape(valu):
     assert isinstance(ret, str)
     return ret
 
-def vartoken_unescape(valu):
-    if len(valu):
-        if valu[0] == '"':
-            return unescape(valu)
-        elif valu[0] == "'":
-            return valu[1:-1]
-    return valu
-
 # For AstConverter, one-to-one replacements from lark to synapse AST
 terminalClassMap = {
     'ABSPROP': s_ast.AbsProp,
@@ -453,7 +445,7 @@ terminalClassMap = {
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
-    'VARTOKN': lambda x: s_ast.Const(vartoken_unescape(x))
+    'VARTOKN': lambda x: s_ast.Const('' if not x else (x[1:-1] if x[0] == "'" else (unescape(x) if x[0] == '"' else x)))
 }
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
