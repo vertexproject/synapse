@@ -626,9 +626,21 @@ class Client(s_base.Base):
 
         await self._fireLinkLoop()
 
+    def _initUrlDeque(self):
+        self._t_urls.clear()
+        if isinstance(self._t_url, str):
+            self._t_urls.append(self._t_url)
+            return
+        self._t_urls.extend(self._t_url)
+
     def _getNextUrl(self):
         # TODO url list in deque
-        return self._t_url
+        if not self._t_urls:
+            self._initUrlDeque()
+        return self._t_urls.popleft()
+
+    def _setNextUrl(self, url):
+        self._t_urls.appendleft(url)
 
     async def _fireLinkLoop(self):
         self._t_proxy = None
@@ -637,8 +649,9 @@ class Client(s_base.Base):
 
     async def _teleLinkLoop(self):
 
-        url = self._getNextUrl()
         while not self.isfini:
+
+            url = self._getNextUrl()
 
             try:
                 await self._initTeleLink(url)
@@ -646,7 +659,7 @@ class Client(s_base.Base):
                 return
 
             except s_exc.TeleRedir as e:
-                url = e.errinfo.get('url')
+                self._setNextUrl(e.errinfo.get('url'))
                 continue
 
             except asyncio.CancelledError:
@@ -662,7 +675,10 @@ class Client(s_base.Base):
             await self._t_proxy.fini()
 
         self._t_proxy = await openurl(url, **self._t_opts)
-        self._t_proxy.onfini(self._fireLinkLoop)
+        async def fini():
+            await self._fireLinkLoop()
+
+        self._t_proxy.onfini(fini)
 
         if self._t_onlink is not None:
             await self._t_onlink(self._t_proxy)
@@ -670,8 +686,23 @@ class Client(s_base.Base):
     async def task(self, todo, name=None):
         # implement the main workhorse method for a proxy to allow Method
         # objects to use us as the proxy.
-        await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', 10))
-        return await self._t_proxy.task(todo, name=name)
+        while not self.isfini:
+            try:
+                await self.waitready()
+
+                # there is a small race where the daemon may fini the proxy
+                # account for that here...
+                if self._t_proxy.isfini:
+                    self._t_ready.clear()
+                    continue
+
+                return await self._t_proxy.task(todo, name=name)
+
+            except s_exc.TeleRedir as e:
+                url = e.errinfo.get('url')
+                self._setNextUrl(url)
+                logger.warning(f'telepath task redirected: ({url})')
+                await self._t_proxy.fini()
 
     async def waitready(self):
         await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', 10))

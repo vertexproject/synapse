@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
+import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
@@ -589,3 +590,102 @@ class TeleTest(s_t_utils.SynTest):
                 # test an absolute cell:// url
                 async with await s_telepath.openurl(f'cell://{path}') as prox:
                     self.eq('cell', await prox.getCellType())
+
+    async def test_telepath_client_redir(self):
+
+        class TestRedir(s_telepath.Aware):
+
+            def __init__(self, valu, redir=None):
+                self.valu = valu
+                self.redir = redir
+
+            def getTeleApi(self, link, mesg, path):
+                if self.redir is not None:
+                    raise s_exc.TeleRedir(url=self.redir)
+                return self
+
+            async def dostuff(self, x):
+
+                if self.redir:
+                    raise s_exc.TeleRedir(url=self.redir)
+
+                return x + self.valu
+
+        dmon0 = await s_daemon.Daemon.anit()
+        dmon1 = await s_daemon.Daemon.anit()
+
+        addr0 = await dmon0.listen('tcp://127.0.0.1:0/')
+        addr1 = await dmon1.listen('tcp://127.0.0.1:0/')
+
+        url0 = f'tcp://127.0.0.1:{addr0[1]}/foo'
+        url1 = f'tcp://127.0.0.1:{addr1[1]}/foo'
+
+        rdir0 = TestRedir(10)
+        rdir1 = TestRedir(20, redir=url0)
+
+        dmon0.share('foo', rdir0)
+        dmon1.share('foo', rdir1)
+
+        async with await s_telepath.Client.anit(url0) as targ:
+            await targ.waitready()
+            self.eq(110, await targ.dostuff(100))
+
+        # this should get redirected to url0...
+        async with await s_telepath.Client.anit(url1) as targ:
+            await targ.waitready()
+            self.eq(110, await targ.dostuff(100))
+
+        # fake out the redirect to connect, then redirect on call...
+        rdir1.redir = None
+        async with await s_telepath.Client.anit(url1) as targ:
+            await targ.waitready()
+            self.eq(120, await targ.dostuff(100))
+            rdir1.redir = url0
+            self.eq(110, await targ.dostuff(100))
+
+        await dmon0.fini()
+        await dmon1.fini()
+
+    async def test_telepath_client_failover(self):
+
+        class TestFail:
+            def __init__(self):
+                self.count = 0
+
+            async def dostuff(self, x):
+                self.count += 1
+                return x + 10
+
+        dmon0 = await s_daemon.Daemon.anit()
+        dmon1 = await s_daemon.Daemon.anit()
+
+        addr0 = await dmon0.listen('tcp://127.0.0.1:0/')
+        addr1 = await dmon1.listen('tcp://127.0.0.1:0/')
+
+        url0 = f'tcp://127.0.0.1:{addr0[1]}/foo'
+        url1 = f'tcp://127.0.0.1:{addr1[1]}/foo'
+
+        fail0 = TestFail()
+        fail1 = TestFail()
+
+        dmon0.share('foo', fail0)
+        dmon1.share('foo', fail1)
+
+        urls = (url0, url1)
+
+        async with await s_telepath.Client.anit(urls) as targ:
+
+            await targ.waitready()
+
+            self.eq(110, await targ.dostuff(100))
+            self.eq(1, fail0.count)
+            self.eq(0, fail1.count)
+
+            await dmon0.fini()
+
+            self.eq(110, await targ.dostuff(100))
+            self.eq(1, fail0.count)
+            self.eq(1, fail1.count)
+
+        await dmon0.fini()
+        await dmon1.fini()
