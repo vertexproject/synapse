@@ -856,7 +856,7 @@ def tags(pode, leaf=False):
 
 def tagsnice(pode):
     '''
-    Get all the leaf tags and the tags that have values
+    Get all the leaf tags and the tags that have values or tagprops.
 
     Args:
         pode (tuple): A packed node.
@@ -864,8 +864,11 @@ def tagsnice(pode):
     Returns:
         list: A list of tag strings.
     '''
-    tags = pode[1]['tags']
-    return _tagscommon(pode, False)
+    ret = _tagscommon(pode, False)
+    for tag in pode[1].get('tagprops', {}):
+        if tag not in ret:
+            ret.append(tag)
+    return ret
 
 def _tagscommon(pode, leafonly):
     '''
@@ -1011,3 +1014,19 @@ def reprTag(pode, tag):
     maxt = s_time.repr(valu[1])
     valu = f'({mint}, {maxt})'
     return valu
+
+def reprTagProps(pode, tag):
+    ret = []
+    exists = pode[1]['tags'].get(tag)
+    if exists is None:
+        return ret
+    tagprops = pode[1].get('tagprops', {}).get(tag)
+    if tagprops is None:
+        return ret
+    for prop, valu in tagprops.items():
+        repr = pode[1].get('tagpropreprs', {}).get(tag, {}).get(prop)
+        if repr is not None:
+            ret.append((prop, repr))
+        else:
+            ret.append((prop, str(repr)))
+    return sorted(ret, key=lambda x: x[0])
