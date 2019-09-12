@@ -56,9 +56,9 @@ class CmdBossTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
 
-            await realcore.auth.addUser('test')
+            await realcore.auth.addUser('bond')
 
-            async with realcore.getLocalProxy(user='test') as tcore:
+            async with realcore.getLocalProxy(user='bond') as tcore:
 
                 evnt = asyncio.Event()
 
@@ -103,8 +103,18 @@ class CmdBossTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('kill 123412341234 deadb33f')
                 self.true(outp.expect('unrecognized arguments', False))
 
-                # Tear down the task as a real user
-                outp.clear()
+                # Give user explicit permissions to list
+                await core.addAuthRule('bond', (True, ('syn:boss:list',)))
+
+                # List now that the user has permissions
+                toutp.clear()
+                await tcmdr.runCmdLine('ps')
+                self.true(toutp.expect('1 tasks found.'))
+
+                # Give user explicit license to kill
+                await core.addAuthRule('bond', (True, ('syn:boss:kill',)))
+
+                # Kill the task as the user
                 await cmdr.runCmdLine('kill %s' % (iden,))
                 outp.expect('kill status: True')
                 self.true(task.done())

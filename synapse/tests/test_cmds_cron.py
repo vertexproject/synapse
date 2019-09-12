@@ -379,3 +379,56 @@ class CmdCronTest(s_t_utils.SynTest):
                     outp.clear()
                     await cmdr.runCmdLine('cron add --hourly 1 -M 17 {#bar}')
                     self.true(outp.expect('may not use both'))
+
+                # Test manipulating triggers as another user
+                await realcore.auth.addUser('bond')
+
+                async with realcore.getLocalProxy(user='bond') as tcore:
+                    toutp = self.getTestOutp()
+                    tcmdr = await s_cmdr.getItemCmdr(tcore, outp=toutp)
+
+                    await tcmdr.runCmdLine('cron list')
+                    self.true(toutp.expect('No cron jobs found'))
+
+                    toutp.clear()
+                    await tcmdr.runCmdLine(f'cron disable {guid[:6]}')
+                    self.true(toutp.expect('provided iden does not match'))
+
+                    toutp.clear()
+                    await tcmdr.runCmdLine(f'cron enable {guid[:6]}')
+                    self.true(toutp.expect('provided iden does not match'))
+
+                    toutp.clear()
+                    await tcmdr.runCmdLine(f'cron edit {guid[:6]} {{#foo}}')
+                    self.true(toutp.expect('provided iden does not match'))
+
+                    toutp.clear()
+                    await tcmdr.runCmdLine(f'cron del {guid[:6]}')
+                    self.true(toutp.expect('provided iden does not match'))
+
+                    # Give explicit perm
+                    await core.addAuthRule('bond', (True, ('syn:cron:get',)))
+
+                    toutp.clear()
+                    await tcmdr.runCmdLine('cron list')
+                    self.true(toutp.expect('root'))
+
+                    await core.addAuthRule('bond', (True, ('syn:cron:set',)))
+
+                    toutp.clear()
+                    await tcmdr.runCmdLine(f'cron disable {guid[:6]}')
+                    self.true(toutp.expect('Disabled cron job'))
+
+                    toutp.clear()
+                    await tcmdr.runCmdLine(f'cron enable {guid[:6]}')
+                    self.true(toutp.expect('Enabled cron job'))
+
+                    toutp.clear()
+                    await tcmdr.runCmdLine(f'cron edit {guid[:6]} {{#foo}}')
+                    self.true(toutp.expect('Modified cron job'))
+
+                    await core.addAuthRule('bond', (True, ('syn:cron:del',)))
+
+                    toutp.clear()
+                    await tcmdr.runCmdLine(f'cron del {guid[:6]}')
+                    self.true(toutp.expect('Deleted cron job'))
