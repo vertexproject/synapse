@@ -687,5 +687,13 @@ class TeleTest(s_t_utils.SynTest):
             self.eq(1, fail0.count)
             self.eq(1, fail1.count)
 
-        await dmon0.fini()
+        async with await s_telepath.Client.anit(urls) as targ:
+
+            await targ.waitready()
+
+            self.eq(110, await targ.dostuff(100))
+
+            self.eq(1, fail0.count)
+            self.eq(2, fail1.count)
+
         await dmon1.fini()
