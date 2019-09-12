@@ -25,6 +25,7 @@ class SynModule(s_module.CoreModule):
         for form, lifter in (('syn:type', self._synModelLift),
                              ('syn:form', self._synModelLift),
                              ('syn:prop', self._synModelLift),
+                             ('syn:tagprop', self._synModelLift),
                              ('syn:trigger', self._synTriggerLift),
                              ):
             form = self.model.form(form)
@@ -205,6 +206,7 @@ class SynModule(s_module.CoreModule):
             ptype, _ = self.model.prop('syn:prop:type').type.norm(pobj.type.name)
 
             univ = False
+            extramodel = False
 
             doc = pobj.info.get('doc', 'no docstring')
             doc, _ = self.model.prop('syn:prop:doc').type.norm(doc)
@@ -224,6 +226,8 @@ class SynModule(s_module.CoreModule):
             if isinstance(pobj, s_datamodel.Univ):
                 univ = True
                 props['ro'] = ro
+                if pobj.name.startswith('._'):
+                    extramodel = True
 
             elif isinstance(pobj, s_datamodel.Form):
                 fnorm, _ = self.model.prop('syn:prop:form').type.norm(pobj.full)
@@ -243,11 +247,25 @@ class SynModule(s_module.CoreModule):
                 props['base'] = base
                 props['relname'] = relname
                 univ = pobj.storinfo.get('univ', False)
+                if relname.startswith(('_', '._')):
+                    extramodel = True
 
             univ, _ = self.model.prop('syn:prop:univ').type.norm(univ)
+            extramodel, _ = self.model.prop('syn:prop:extramodel').type.norm(extramodel)
             props['univ'] = univ
+            props['extramodel'] = extramodel
 
             self._addRuntRows('syn:prop', pnorm, props,
+                              self._modelRuntsByBuid, self._modelRuntsByPropValu)
+
+        tpform = self.model.form('syn:tagprop')
+        for tpname, tpobj in self.model.tagprops.items():
+            tpnorm, _ = tpform.type.norm(tpname)
+            tptype, _ = self.model.prop('syn:tagprop:type').type.norm(tpobj.type.name)
+            doc = tpobj.info.get('doc', 'no docstring')
+
+            props = {'doc': doc, 'type': tptype}
+            self._addRuntRows('syn:tagprop', tpnorm, props,
                               self._modelRuntsByBuid, self._modelRuntsByPropValu)
 
     def getModelDefs(self):
@@ -263,6 +281,9 @@ class SynModule(s_module.CoreModule):
                 }),
                 ('syn:prop', ('str', {'strip': True}), {
                     'doc': 'A Synapse property.'
+                }),
+                ('syn:tagprop', ('str', {'strip': True}), {
+                    'doc': 'A user defined tag property.'
                 }),
                 ('syn:trigger', ('guid', {}), {
                     'doc': 'A Synapse trigger.'
@@ -326,6 +347,14 @@ class SynModule(s_module.CoreModule):
                         'doc': 'Base name of the property', 'ro': True}),
                     ('ro', ('bool', {}), {
                         'doc': 'If the property is read-only after being set.', 'ro': True}),
+                    ('extramodel', ('bool', {}), {
+                        'doc': 'If the property is a user defined property or not.', 'ro': True}),
+                )),
+                ('syn:tagprop', {'runt': True}, (
+                    ('doc', ('str', {'strip': True}), {
+                        'doc': 'Description of the tagprop definition.'}),
+                    ('type', ('syn:type', {}), {
+                        'doc': 'The synapse type for this tagprop.', 'ro': True}),
                 )),
                 ('syn:trigger', {'runt': True}, (
                     ('vers', ('int', {}), {
