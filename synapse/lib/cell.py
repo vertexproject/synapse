@@ -144,7 +144,7 @@ class CellApi(s_base.Base):
         retn = []
 
         admin = self.user.admin
-        isallowed = await self.allowed('syn:boss:list')
+        isallowed = await self.allowed(('task', 'get'))
 
         for synt in self.cell.boss.ps():
             if admin or synt.user == self.user or isallowed:
@@ -155,7 +155,7 @@ class CellApi(s_base.Base):
     async def kill(self, iden):
 
         admin = self.user.admin
-        isallowed = await self.allowed('syn:boss:kill')
+        isallowed = await self.allowed(('task', 'del'))
 
         logger.info(f'User [{self.user.name}] Requesting task kill: {iden}')
         task = self.cell.boss.get(iden)

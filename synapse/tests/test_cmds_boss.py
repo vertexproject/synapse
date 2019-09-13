@@ -104,7 +104,7 @@ class CmdBossTest(s_t_utils.SynTest):
                 self.true(outp.expect('unrecognized arguments', False))
 
                 # Give user explicit permissions to list
-                await core.addAuthRule('bond', (True, ('syn:boss:list',)))
+                await core.addAuthRule('bond', (True, (('task', 'get'),)))
 
                 # List now that the user has permissions
                 toutp.clear()
@@ -112,7 +112,7 @@ class CmdBossTest(s_t_utils.SynTest):
                 self.true(toutp.expect('1 tasks found.'))
 
                 # Give user explicit license to kill
-                await core.addAuthRule('bond', (True, ('syn:boss:kill',)))
+                await core.addAuthRule('bond', (True, (('task', 'del'),)))
 
                 # Kill the task as the user
                 await cmdr.runCmdLine('kill %s' % (iden,))
