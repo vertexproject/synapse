@@ -10,6 +10,18 @@ ex_sha256 = 'ad9f4fe922b61e674a09530831759843b1880381de686a43460a76864ca0340c'
 ex_sha384 = 'd425f1394e418ce01ed1579069a8bfaa1da8f32cf823982113ccbef531fa36bda9987f389c5af05b5e28035242efab6c'
 ex_sha512 = 'ca74fe2ff2d03b29339ad7d08ba21d192077fece1715291c7b43c20c9136cd132788239189f3441a87eb23ce2660aa243f334295902c904b5520f6e80ab91f11'
 
+sigalgos = {
+#1.2.840.113549.1.1.1 - RSA encryption
+#1.2.840.113549.1.1.2 - MD2 with RSA encryption
+    '1.2.840.113549.1.1.3': 'md4WithRSAEncryption',
+#1.2.840.113549.1.1.4 - MD5 with RSA encryption
+    '1.2.840.113549.1.1.5': 'sha1-with-rsa-signature',
+#1.2.840.113549.1.1.6 - rsaOAEPEncryptionSET
+#1.2.840.113549.1.1.7 - id-RSAES-OAEP
+#1.2.840.113549.1.1.10 - RSASSA-PSS
+#1.2.840.113549.1.1.11 - sha256WithRSAEncryption
+}
+
 class CryptoModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
@@ -28,6 +40,15 @@ class CryptoModule(s_module.CoreModule):
                 }),
 
                 ('crypto:x509:signedfile', ???
+                }),
+
+                ('crypto:x509:chain', ('array', {'type': 'crypto:x509:cert'}), {
+                })
+
+                ('iso:oid', ('str', {'regex':
+                ('iso:oid', ('str', {'regex': '^([1-9][0-9]{0,3}|0)(\.([1-9][0-9]{0,3}|0)){5,13}$'}), {
+
+                ('crypto:x509:keytype', ('str', {'regex': '^([1-9][0-9]{0,3}|0)(\.([1-9][0-9]{0,3}|0)){5,13}$'}), {
                 }),
 
                 ('hash:md5', ('hex', {'size': 32}), {
@@ -83,31 +104,84 @@ class CryptoModule(s_module.CoreModule):
                      {'doc': 'One of the two private primes.'}),
                 )),
 
+                ('crypto:x509:signed', {}, (
+                    ('cert', ('crypto:x509:cert', {}), {
+                        'doc': 'The certificate for the key which signed the file.'}),
+                    ('file': ('file:bytes', {}), {
+                        'doc': 'The file which was signed by the certificates key.'}),
+                ),
+                ('crypto:x509:crl', {},
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file containing the CRL.'}),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the CRL was published.'}),
+                ),
+                ('crypto:x509:revoked', {}, (
+                    ('crl', ('crypto:x509:crl', {}), {
+                        'doc': 'The CRL which revoked the certificate.'})
+                    ('cert', ('crypto:x509:cert', {}), {
+                        'doc': 'The certificate revoked by the CRL.'}),
+                ),
+
                 ('crypto:x509:cert', {}, (
-                    ('subject',
+
+                    ('subject', ('str', {}), {
+                    }),
+
+                    ('issuer', ('str', {}), {
+                    }),
+
+                    ('serial', ('str', {}), {
+                    }),
+
                     ('subject:cn', ('str', {}), {
                         # specify to the model that this field *may* contain the following types
-                        'pivots': ('inet:fqdn', 'inet:email')
-                    ),
+                        'pivots': ('inet:fqdn', 'inet:email'),
+                    }),
 
-                    ('md5', 
-                    ('sha1', 
-                    ('sha256', 
+                    ('validity:notbefore', ('time', {}), {
+                    }),
 
-                    ('algo',
-                    ('keytype'
-                    ('modulus',
-                    ('signature', 
+                    ('validity:notafter', ('time', {}), {
+                    }),
 
-                    ('ext:auth:keyid',
-                    ('ext:subj:keyid',
-                    ('ext:usage',
-                    ('ext:keyusage',
-                    ('ext:crl:paths',
+                    ('md5', ('hash:md5', {}) {
+                        'doc': 'The MD5 fingerprint for the certificate.',
+                    }),
+
+                    ('sha1', ('hash:sha1', {}) {
+                        'doc': 'The SHA1 fingerprint for the certificate.',
+                    }),
+
+                    ('sha256', ('hash:sha256', {}) {
+                        'doc': 'The SHA256 fingerprint for the certificate.',
+                    }),
+
+                    ('keytype', ('oid', {'names': keytypes}), {
+                        'doc': 'The X.509 key type OID.',
+                    }),
+                    ('modulus', ('hex', {}), {
+                        'doc': 'The hexidecimal representation of the key modulus.',
+                    })
+                    ('algo', ('oid', {'names': sigalgos}), {
+                        'doc': 'The X.509 signature algorithm OID.',
+                    })
+                    ('signature', ('hex', {}), {
+                        'doc': 'The hexidecimal representation of the digital signature.',
+                    }),
+
+                    ('ext:sans', ('array', {'type': 'crypto:x509:san'}), {
+                    }),
+
+                    #('ext:auth:keyid',
+                    #('ext:subj:keyid',
+                    #('ext:usage',
+                    #('ext:keyusage',
+                    #('ext:crl:paths',
                     # TODO more of these
-                    ('ext:cons:is_ca',
+                    #('ext:cons:isca',
                 )),
             )
         }
-        name = 'crypto'
+        name='crypto'
         return ((name, modl),)

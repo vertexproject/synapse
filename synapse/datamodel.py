@@ -560,6 +560,10 @@ class Model:
         item = s_types.NodeProp(self, 'nodeprop', info, {})
         self.addBaseType(item)
 
+        info = {'doc': 'The base OID type.'}
+        item = s_types.Oid(self, 'oid', info, {})
+        self.addBaseType(item)
+
         # add the base universal properties...
         self.addUnivProp('seen', ('ival', {}), {
             'doc': 'The time interval for first/last observation of the node.',

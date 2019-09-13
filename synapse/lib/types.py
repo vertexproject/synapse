@@ -1278,6 +1278,26 @@ class Tag(StrBase):
 
         return norm, {'subs': subs}
 
+class Oid(Str):
+
+    def postTypeInit(self):
+        self.opts['regex'] = '^([1-9][0-9]{0,3}|0)(\.([1-9][0-9]{0,3}|0)){5,13}$'
+        StrBase.postTypeInit(self)
+
+        self._oid_revs = {}
+        self._oid_names = self.opts.get('names', {})
+
+        if self._oid_names is not None:
+            self._oid_revs.update({v.lower(): k for (k, v) in self._oid_names.items()})
+
+    def _normPyStr(self, text):
+        text = self._oid_revs.get(text.lower(), text)
+        valu, info = Str._normPyStr(self, text)
+        return valu, info
+
+    def repr(self, norm):
+        return self._oid_names.get(norm, norm)
+
 class Time(IntBase):
 
     _opt_defs = (
