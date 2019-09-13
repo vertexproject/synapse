@@ -691,7 +691,7 @@ class Client(s_base.Base):
 
                 # there is a small race where the daemon may fini the proxy
                 # account for that here...
-                if self._t_proxy.isfini:
+                if self._t_proxy is None or self._t_proxy.isfini:
                     self._t_ready.clear()
                     continue
 
