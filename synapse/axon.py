@@ -155,8 +155,13 @@ class Axon(s_cell.Cell):
         self.axonmetrics.setdefault('size:bytes', 0)
         self.axonmetrics.setdefault('file:count', 0)
 
+        self.addHealthFunc(self._axonHealth)
+
         # modularize blob storage
         await self._initBlobStor()
+
+    async def _axonHealth(self, health):
+        health.update('axon', 'nominal', '', data=await self.metrics())
 
     async def _initBlobStor(self):
         path = s_common.gendir(self.dirn, 'blob.lmdb')

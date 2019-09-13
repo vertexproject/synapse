@@ -18,6 +18,7 @@ import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.hive as s_hive
 import synapse.lib.compat as s_compat
+import synapse.lib.health as s_health
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 
@@ -325,6 +326,10 @@ class CellApi(s_base.Base):
 
         raise s_exc.NoSuchName(name=name)
 
+    async def getHealthCheck(self):
+        await self._reqUserAllowed('health')
+        return await self.cell.getHealthCheck()
+
 class PassThroughApi(CellApi):
     '''
     Class that passes through methods made on it to its cell.
@@ -431,6 +436,9 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         await self._initCellHttp()
 
+        self._health_funcs = []
+        self.addHealthFunc(self._cellHealth)
+
         async def fini():
             [await s.fini() for s in self.sessions.values()]
 
@@ -519,20 +527,20 @@ class Cell(s_base.Base, s_telepath.Aware):
         }
 
         self.wapp = t_web.Application(**opts)
+        self._initCellHttpApis()
+
+    def _initCellHttpApis(self):
 
         self.addHttpApi('/api/v1/login', s_httpapi.LoginV1, {'cell': self})
+        self.addHttpApi('/api/v1/healthcheck', s_httpapi.HealthCheckV1, {'cell': self})
 
         self.addHttpApi('/api/v1/auth/users', s_httpapi.AuthUsersV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/roles', s_httpapi.AuthRolesV1, {'cell': self})
-
         self.addHttpApi('/api/v1/auth/adduser', s_httpapi.AuthAddUserV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/addrole', s_httpapi.AuthAddRoleV1, {'cell': self})
-
         self.addHttpApi('/api/v1/auth/delrole', s_httpapi.AuthDelRoleV1, {'cell': self})
-
         self.addHttpApi('/api/v1/auth/user/(.*)', s_httpapi.AuthUserV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/role/(.*)', s_httpapi.AuthRoleV1, {'cell': self})
-
         self.addHttpApi('/api/v1/auth/grant', s_httpapi.AuthGrantV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/revoke', s_httpapi.AuthRevokeV1, {'cell': self})
 
@@ -668,3 +676,16 @@ class Cell(s_base.Base, s_telepath.Aware):
             raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
 
         return user
+
+    async def getHealthCheck(self):
+        health = s_health.HealthCheck(self.getCellIden())
+        for func in self._health_funcs:
+            await func(health)
+        return health.pack()
+
+    def addHealthFunc(self, func):
+        '''Register a callback function to get a HeaalthCheck object.'''
+        self._health_funcs.append(func)
+
+    async def _cellHealth(self, health):
+        pass
