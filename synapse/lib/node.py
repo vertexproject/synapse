@@ -1041,9 +1041,9 @@ def reprTagProps(pode, tag):
     if tagprops is None:
         return ret
     for prop, valu in tagprops.items():
-        repr = pode[1].get('tagpropreprs', {}).get(tag, {}).get(prop)
-        if repr is not None:
-            ret.append((prop, repr))
+        rval = pode[1].get('tagpropreprs', {}).get(tag, {}).get(prop)
+        if rval is not None:
+            ret.append((prop, rval))
         else:
-            ret.append((prop, str(repr)))
+            ret.append((prop, str(valu)))
     return sorted(ret, key=lambda x: x[0])

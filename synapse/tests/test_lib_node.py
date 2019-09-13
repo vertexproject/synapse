@@ -197,6 +197,7 @@ class NodeTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('note', ('str', {'lower': True, 'strip': 'True'}), {})
             async with await core.snap() as snap:
                 node = await snap.addNode(form, valu, props=props)
                 await node.addTag('test.foo.bar.duck', tval)
@@ -204,6 +205,8 @@ class NodeTest(s_t_utils.SynTest):
                 await node.addTag('test.foo.time', ('2016', '2019'))
                 await node.addTag('test.foo', ('2015', '2017'))
                 await node.setTagProp('test', 'score', 0)
+                await node.setTagProp('test', 'note', 'Words')
+
                 pode = node.pack(dorepr=True)
 
                 node2 = await snap.addNode('test:int', '1234')
@@ -240,6 +243,11 @@ class NodeTest(s_t_utils.SynTest):
         self.eq(s_node.reprProp(pode, ':tick'), '1970/01/01 00:00:12.345')
         self.eq(s_node.reprProp(pode, 'test:str:tick'), '1970/01/01 00:00:12.345')
         self.none(s_node.reprProp(pode, 'newp'))
+
+        self.eq(s_node.reprTagProps(pode, 'test'),
+                [('note', 'words'), ('score', '0')])
+        self.eq(s_node.reprTagProps(pode, 'newp'), [])
+        self.eq(s_node.reprTagProps(pode, 'test.foo'), [])
 
         props = s_node.props(pode)
         self.isin('.created', props)
