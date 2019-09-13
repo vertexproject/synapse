@@ -928,6 +928,8 @@ class Cortex(s_cell.Cell):
         if not s_grammar.isCmdName(name):
             raise s_exc.BadCmdName(name=name)
 
+        self.getStormQuery(cdef.get('storm'))
+
         def ctor(argv):
             return s_storm.PureCmd(cdef, argv)
 
@@ -1005,20 +1007,12 @@ class Cortex(s_cell.Cell):
 
         iden = sdef.get('iden')
 
-        osvc = self.svcsbyiden.get(iden)
         ssvc = await s_stormsvc.StormSvcClient.anit(self, sdef)
 
         self.onfini(ssvc)
 
-        if osvc is not None:
-            self.svcsbyiden.pop(osvc.iden, None)
-            self.svcsbyname.pop(osvc.name, None)
-
         self.svcsbyiden[ssvc.iden] = ssvc
         self.svcsbyname[ssvc.name] = ssvc
-
-        if osvc is not None:
-            await osvc.fini()
 
         return ssvc
 
@@ -1820,6 +1814,11 @@ class Cortex(s_cell.Cell):
         '''
         iden = s_common.guid()
         ddef['iden'] = iden
+
+        if ddef.get('user') is None:
+            user = self.auth.getUserByName('root')
+            ddef['user'] = user.iden
+
         dmon = await self.runStormDmon(iden, ddef)
         await self.stormdmonhive.set(iden, ddef)
         return dmon
@@ -1844,6 +1843,9 @@ class Cortex(s_cell.Cell):
 
         # validate ddef before firing task
         uidn = ddef.get('user')
+        if uidn is None:
+            mesg = 'Storm daemon definition requires "user".'
+            raise s_exc.NeedConfValu(mesg=mesg)
 
         user = self.auth.user(uidn)
         if user is None:

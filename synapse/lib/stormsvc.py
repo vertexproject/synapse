@@ -120,25 +120,25 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
         clss = proxy.sharinfo.get('classes', ())
 
         names = [c.rsplit('.', 1)[-1] for c in clss]
-        if 'StormSvc' not in names:
-            return
 
-        self.info = await proxy.getStormSvcInfo()
+        if 'StormSvc' in names:
 
-        for cdef in self.info.get('cmds', ()):
+            self.info = await proxy.getStormSvcInfo()
 
-            cdef.setdefault('cmdconf', {})
+            for cdef in self.info.get('cmds', ()):
 
-            try:
-                cdef['cmdconf']['svciden'] = self.iden
-                await self.core.setStormCmd(cdef)
+                cdef.setdefault('cmdconf', {})
 
-            except asyncio.CancelledError:
-                raise
+                try:
+                    cdef['cmdconf']['svciden'] = self.iden
+                    await self.core.setStormCmd(cdef)
 
-            except Exception as e:
-                name = cdef.get('name')
-                logger.exception(f'setStormCmd ({name}) failed for service {self.name} ({self.iden})')
+                except asyncio.CancelledError:
+                    raise
+
+                except Exception as e:
+                    name = cdef.get('name')
+                    logger.exception(f'setStormCmd ({name}) failed for service {self.name} ({self.iden})')
 
         self.ready.set()
 

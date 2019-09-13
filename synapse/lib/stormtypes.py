@@ -470,9 +470,9 @@ class Queue(StormType):
         async for item in mque.gets(self.name, offs, cull=cull, wait=wait, size=size):
             yield item
 
-    async def _methQueuePuts(self, wait=False):
-        await self.allowed('storm', 'queue', self.name, 'get')
-        wait = intify(wait)
+    async def _methQueuePuts(self, items, wait=False):
+        await self.allowed('storm', 'queue', self.name, 'put')
+        return self.runt.snap.core.multiqueue.puts(self.name, items)
 
     async def allowed(self, *perm):
         if self.info.get('user') == self.runt.user.iden:
@@ -891,7 +891,7 @@ class Node(Prim):
         self.ctors['data'] = ctordata
 
     async def _methNodeIsForm(self, name):
-        return node.form.name == name
+        return self.valu.form.name == name
 
     async def _methNodeTags(self, glob=None):
         tags = list(self.valu.tags.keys())

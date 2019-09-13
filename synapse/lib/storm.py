@@ -103,7 +103,7 @@ class StormDmon(s_base.Base):
 
         name = self.ddef.get('name', 'storm dmon')
 
-        await self.core.boss.promote('storm:dmon', user=self.user, info={'iden': self.iden, 'name': name})
+        await self.core.boss.promote('storm:dmon', user=self.user.iden, info={'iden': self.iden, 'name': name})
 
         s_scope.set('storm:dmon', self.iden)
 
@@ -111,21 +111,15 @@ class StormDmon(s_base.Base):
         opts = self.ddef.get('stormopts')
 
         dmoniden = self.ddef.get('iden')
-        useriden = self.ddef.get('user')
 
         while not self.isfini:
 
             try:
 
-                user = self.core.auth.user(useriden)
-                if user is None:
-                    mesg = f'No user iden: {useriden}'
-                    raise s_exc.NoSuchUser(mesg=mesg)
-
                 self.status = 'running'
-                async with await self.core.snap(user=user) as snap:
+                async with await self.core.snap(user=self.user) as snap:
 
-                    async for nodepath in snap.storm(text, opts=opts, user=user):
+                    async for nodepath in snap.storm(text, opts=opts, user=self.user):
                         # all storm tasks yield often to prevent latency
                         self.count += 1
                         await asyncio.sleep(0)
@@ -139,6 +133,7 @@ class StormDmon(s_base.Base):
                 raise
 
             except Exception as e:
+                print(repr(e))
                 logger.exception(e)
                 logger.warning(f'dmon error ({self.iden}): {e}')
                 self.status = f'error: {e}'

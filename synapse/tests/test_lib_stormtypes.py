@@ -151,6 +151,11 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = [m async for m in prox.storm("$lib.print('woot at: {s} {num}', s=hello, num=$(42+43))")]
                 self.stormIsInPrint('woot at: hello 85', mesgs)
 
+    async def test_storm_lib_node(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ test:str=woot ] [ test:int=$node.isform(test:str) ] +test:int')
+            self.eq(1, nodes[0].ndef[1])
+
     async def test_storm_lib_dict(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('$blah = $lib.dict(foo=vertex.link) [ inet:fqdn=$blah.foo ]')
@@ -164,6 +169,18 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq('visi@vertex.link', nodes[0].ndef[1])
+
+            nodes = await core.nodes('$s = woot [ test:int=$s.startswith(w) ]')
+            self.eq(1, nodes[0].ndef[1])
+
+            nodes = await core.nodes('$s = woot [ test:int=$s.endswith(visi) ]')
+            self.eq(0, nodes[0].ndef[1])
+
+            nodes = await core.nodes('$s = woot [ test:str=$s.rjust(10) ]')
+            self.eq('      woot', nodes[0].ndef[1])
+
+            nodes = await core.nodes('$s = woot [ test:str=$s.ljust(10) ]')
+            self.eq('woot      ', nodes[0].ndef[1])
 
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
@@ -678,6 +695,21 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, ernfos)
             self.isin('Error during time parsing', ernfos[0][1].get('mesg'))
 
+    async def test_storm_lib_time_ticker(self):
+
+        async with self.getTestCore() as core:
+            await core.nodes('''
+                $lib.queue.add(visi)
+                $lib.dmon.add(${
+                    $visi=$lib.queue.get(visi)
+                    for $tick in $lib.time.ticker(0.01) {
+                        $visi.put($tick)
+                    }
+                })
+            ''')
+            nodes = await core.nodes('for ($offs, $tick) in $lib.queue.get(visi).gets(size=3) { [test:int=$tick] } ')
+            self.len(3, nodes)
+
     async def test_storm_lib_telepath(self):
 
         class FakeService:
@@ -762,6 +794,16 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchName):
                 await core.nodes('queue.del visi')
+
+            with self.raises(s_exc.NoSuchName):
+                await core.nodes('$lib.queue.get(newp).get()')
+
+            await core.nodes('''
+                $doit = $lib.queue.add(doit)
+                $doit.puts((foo,bar))
+            ''')
+            nodes = await core.nodes('for ($offs, $name) in $lib.queue.get(doit).gets(size=2) { [test:str=$name] }')
+            self.len(2, nodes)
 
     async def test_storm_node_data(self):
 

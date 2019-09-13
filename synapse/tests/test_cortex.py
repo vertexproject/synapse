@@ -3440,6 +3440,39 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('$lib.dmon.del(newp)')
 
+    async def test_cortex_storm_dmon(self):
+
+        with self.getTestDir() as dirn:
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+                await core.nodes('$lib.queue.add(visi)')
+                ddef = {'storm': '$lib.queue.get(visi).put(done) for $tick in $lib.time.ticker(1) {}'}
+                await core.addStormDmon(ddef)
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+                # two entries means he ran twice ( once on add and once on restart )
+                await core.nodes('$lib.queue.get(visi).gets(size=2)')
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.delStormDmon(s_common.guid())
+
+            iden = s_common.guid()
+            with self.raises(s_exc.NeedConfValu):
+                await core.runStormDmon(iden, {})
+
+            with self.raises(s_exc.NoSuchUser):
+                await core.runStormDmon(iden, {'user': s_common.guid()})
+
+    async def test_cortex_storm_cmd_bads(self):
+
+        async with self.getTestCore() as core:
+
+            with self.raises(s_exc.BadCmdName):
+                await core.setStormCmd({'name': ')(*&#$)*', 'storm': ''})
+
+            with self.raises(s_exc.CantDelCmd):
+                await core.delStormCmd('sleep')
+
     async def test_cortex_storm_lib_dmon_cmds(self):
         async with self.getTestCore() as core:
             await core.nodes('''
@@ -3466,6 +3499,34 @@ class CortexBasicTest(s_t_utils.SynTest):
             ''')
             msgs = await core.streamstorm('dmon.list').list()
             self.stormIsInPrint('(wootdmon): error', msgs)
+
+    async def test_cortex_storm_dmon_exit(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('''
+                $q = $lib.queue.add(visi)
+                $lib.user.vars.set(foo, $(10))
+
+                $lib.dmon.add(${
+
+                    $foo = $lib.user.vars.get(foo)
+
+                    $lib.queue.get(visi).put(step)
+
+                    if $( $foo = 20 ) {
+                        for $tick in $lib.time.ticker(10) {
+                            $lib.print(woot)
+                        }
+                    }
+
+                    $lib.user.vars.set(foo, $(20))
+
+                }, name=wootdmon)
+
+            ''')
+            # wait for him to exit once and loop...
+            await core.nodes('for $x in $lib.queue.get(visi).gets(size=2) {}')
 
     async def test_cortex_ext_model(self):
 
