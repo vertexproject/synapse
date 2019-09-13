@@ -70,10 +70,9 @@ class PsModule(s_module.CoreModule):
                     }),
                 )),
                 ('ps:persona', {}, (
-                    # FIXME aliases?
-                    # ('guidname', ('str', {'lower': True}), {
-                    #     'doc': 'The GUID resolver alias for the suspected person.',
-                    # }),
+                    ('person', ('ps:person', {}), {
+                        'doc': 'The real person behind the persona.',
+                    }),
                     ('dob', ('time', {}), {
                         'doc': 'The Date of Birth (DOB) if known.',
                     }),
