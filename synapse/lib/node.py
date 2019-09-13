@@ -143,6 +143,7 @@ class Node:
                 node[1]['repr'] = self.repr()
 
             node[1]['reprs'] = self.reprs()
+            node[1]['tagpropreprs'] = self.tagpropreprs()
 
         return node
 
@@ -372,6 +373,27 @@ class Node:
             reps[name] = rval
 
         return reps
+
+    def tagpropreprs(self):
+        '''
+        Return a dictionary of repr values for tagprops whose repr is different than
+        the system mode value.
+        '''
+        reps = collections.defaultdict(dict)
+
+        for (tag, name), valu in self.tagprops.items():
+
+            prop = self.form.modl.tagprop(name)
+            if prop is None:
+                continue
+
+            rval = prop.type.repr(valu)
+            if rval is None or rval == valu:
+                continue
+
+            reps[tag][name] = rval
+
+        return dict(reps)
 
     def hasTag(self, name):
         name = s_chop.tag(name)
@@ -834,7 +856,7 @@ def tags(pode, leaf=False):
 
 def tagsnice(pode):
     '''
-    Get all the leaf tags and the tags that have values
+    Get all the leaf tags and the tags that have values or tagprops.
 
     Args:
         pode (tuple): A packed node.
@@ -842,8 +864,11 @@ def tagsnice(pode):
     Returns:
         list: A list of tag strings.
     '''
-    tags = pode[1]['tags']
-    return _tagscommon(pode, False)
+    ret = _tagscommon(pode, False)
+    for tag in pode[1].get('tagprops', {}):
+        if tag not in ret:
+            ret.append(tag)
+    return ret
 
 def _tagscommon(pode, leafonly):
     '''
@@ -989,3 +1014,36 @@ def reprTag(pode, tag):
     maxt = s_time.repr(valu[1])
     valu = f'({mint}, {maxt})'
     return valu
+
+def reprTagProps(pode, tag):
+    '''
+    Get the human readable values for any tagprops on a tag for a given node.
+
+    Args:
+        pode (tuple): A packed node.
+        tag (str): The tag to get the tagprops reprs for.
+
+    Notes:
+        The human readable value is only available if the node came from a
+        storm query execution where the ``repr`` key was passed into the
+        ``opts`` argument with a True value.
+
+        If the tag does not have any tagprops associated with it, this returns an empty list.
+
+    Returns:
+        list: A list of tuples, containing the name of the tagprop and the repr value.
+    '''
+    ret = []
+    exists = pode[1]['tags'].get(tag)
+    if exists is None:
+        return ret
+    tagprops = pode[1].get('tagprops', {}).get(tag)
+    if tagprops is None:
+        return ret
+    for prop, valu in tagprops.items():
+        rval = pode[1].get('tagpropreprs', {}).get(tag, {}).get(prop)
+        if rval is not None:
+            ret.append((prop, rval))
+        else:
+            ret.append((prop, str(valu)))
+    return sorted(ret, key=lambda x: x[0])
