@@ -1376,8 +1376,6 @@ class Cortex(s_cell.Cell):
     async def delView(self, iden):
         '''
         Delete a cortex view by iden.
-
-        TODO:  determine if there are any unique layers for that view and delete those too?
         '''
         if iden == self.iden:
             raise s_exc.SynErr(mesg='cannot delete the main view')
@@ -1386,14 +1384,33 @@ class Cortex(s_cell.Cell):
         if view is None:
             raise s_exc.NoSuchView(iden=iden)
 
+        layeriden = view.iden if view.parent is not None and view.layers[0].iden == view.iden else None
+
         await self.hive.pop(('cortex', 'views', iden))
         await view.fini()
+
+        if layeriden is not None:
+            await self.delLayer(iden)
+
+    async def delLayer(self, iden):
+        for view in self.views.values():
+            if iden in view.layers:
+                raise s_exc.LayerInUse(iden=iden)
+
+        layr = self.layers.pop(iden, None)
+        if layr is None:
+            raise s_exc.NoSuchLayer(iden=iden)
+
+        await self.hive.pop(('cortex', 'layers', iden))
+
+        # TODO: actually delete the storage for the data
+        await layr.fini()
 
     async def setViewLayers(self, layers, iden=None):
         '''
         Args:
             layers ([str]): A top-down list of of layer guids
-            iden (str): The view iden ( defaults to default view ).
+            iden (str): The view iden (defaults to default view).
         '''
         if iden is None:
             iden = self.iden
@@ -2308,31 +2325,31 @@ class Cortex(s_cell.Cell):
 
         return self.view.getTrigger(iden)
 
-    async def delTrigger(self, iden, view=None):
+    async def delTrigger(self, iden):
         '''
         Deletes a trigger from the cortex
         '''
         return await self.view.delTrigger(iden)
 
-    async def updateTrigger(self, iden, query, view=None):
+    async def updateTrigger(self, iden, query):
         '''
         Change an existing trigger's query
         '''
         return await self.view.updateTrigger(iden, query)
 
-    async def enableTrigger(self, iden, view=None):
+    async def enableTrigger(self, iden):
         '''
         Change an existing trigger's query
         '''
         return await self.view.enableTrigger(iden)
 
-    async def disableTrigger(self, iden, view=None):
+    async def disableTrigger(self, iden):
         '''
         Change an existing trigger's query
         '''
         return await self.view.disableTrigger(iden)
 
-    async def listTriggers(self, view=None):
+    async def listTriggers(self):
         '''
         Lists all the triggers in the Cortex.
         '''

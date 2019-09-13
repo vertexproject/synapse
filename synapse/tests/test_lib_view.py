@@ -37,18 +37,21 @@ class ViewTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.ReadOnlyLayer, core.view.setLayers([tmplayr]))
             await self.asyncraises(s_exc.ReadOnlyLayer, view2.setLayers([tmplayr]))
 
+            await core.delView(view2.iden)
+
     async def test_view_trigger(self):
         async with self.getTestCore() as core:
             # Fork the main view
             view2 = await core.view.fork()
 
-            # A trigger on the main view doesn't fire when the condition matches on a forked view
+            # A trigger from the main view fires when the condition matches on a forked view
             await core.addTrigger('node:add', '[ test:str=mainhit ]', info={'form': 'test:int'})
             nodes = await alist(core.eval('[ test:int=11 ]', opts={'view': view2.iden}))
             self.len(1, nodes)
 
             nodes = await alist(view2.eval('test:str'))
-            self.len(0, nodes)
+            self.len(1, nodes)
+
             nodes = await alist(core.view.eval('test:str'))
             self.len(0, nodes)
 
@@ -56,8 +59,12 @@ class ViewTest(s_t_utils.SynTest):
             await view2.addTrigger('node:add', '[ test:str=forkhit ]', info={'form': 'test:int'})
             nodes = await alist(view2.eval('[ test:int=12 ]'))
 
-            nodes = await alist(view2.eval('test:str=forkhit'))
+            nodes = await view2.nodes('test:str=forkhit')
             self.len(1, nodes)
 
             nodes = await alist(core.view.eval('test:str=forkhit'))
             self.len(0, nodes)
+
+            # listTriggers should show view and inherited triggers
+            trigs = view2.listTriggers()
+            self.len(2, trigs)

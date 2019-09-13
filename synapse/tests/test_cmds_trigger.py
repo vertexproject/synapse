@@ -36,7 +36,6 @@ class CmdTriggersTest(s_t_utils.SynTest):
 
             # Trigger is created disabled, so no nodes yet
             await self.agenlen(0, core.eval('test:int=6'))
-            print('here', flush=True)
             waiter = realcore.waiter(1, 'core:trigger:action')
             await cmdr.runCmdLine(f'trigger enable {goodbuid2}')
             evnts = await waiter.wait(1)

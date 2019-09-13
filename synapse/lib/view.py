@@ -252,11 +252,11 @@ class View(s_base.Base):
             Passed through to cortex.addLayer
 
         Returns:
-            new view object
+            new view object, with an iden the same as the new write layer iden
         '''
         writlayr = await self.core.addLayer(**layrinfo)
 
-        viewiden = s_common.guid()
+        viewiden = writlayr.iden
         owner = layrinfo.get('owner', 'root')
         layeridens = [writlayr.iden] + [l.iden for l in self.layers]
 
@@ -292,6 +292,22 @@ class View(s_base.Base):
                 logger.exception('onTagDel Error')
 
         await self.triggers.runTagDel(node, tag)
+
+    async def runNodeAdd(self, node):
+        await self.triggers.runNodeAdd(node)
+        if self.parent is not None:
+            await self.parent.runNodeAdd(node)
+
+    async def runNodeDel(self, node):
+        await self.triggers.runNodeDel(node)
+        if self.parent is not None:
+            await self.parent.runNodeDel(node)
+
+    async def runPropSet(self, node, prop, oldv):
+        await self.triggers.runPropSet(node, prop, oldv)
+
+        if self.parent is not None:
+            await self.parent.runPropSet(node, prop, oldv)
 
     async def addTrigger(self, condition, query, info, disabled=False, user=None):
         '''
@@ -351,7 +367,7 @@ class View(s_base.Base):
 
         if self.parent is not None:
             inheritd = self.parent.listTriggers()
-            for trig in inheritd:
+            for iden, trig in inheritd:
                 trig['inherited'] = True
             trigs.extend(inheritd)
 
