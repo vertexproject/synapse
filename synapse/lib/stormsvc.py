@@ -40,13 +40,14 @@ stormcmds = (
 
             $count = $svcs.length()
 
-            if $( $count > 0 ) {
-                for $sdef in $svcs {
-                    $lib.service.del($sdef.iden)
-                    $lib.print("removed {iden} ({name}): {url}", iden=$sdef.iden, name=$sdef.name, url=$sdef.url)
-                }
-            } else {
+            if $( $count = 1 ) {
+                $sdef = $svcs.index(0)
+                $lib.service.del($sdef.iden)
+                $lib.print("removed {iden} ({name}): {url}", iden=$sdef.iden, name=$sdef.name, url=$sdef.url)
+            } elif $( $count = 0 ) {
                 $lib.print("No service found by iden: {iden}", iden=$cmdopts.iden)
+            } else {
+                $lib.print('Multiple matches found for {iden}.  Aborting delete.', iden=$cmdopts.iden)
             }
         ''',
     },
@@ -70,6 +71,9 @@ stormcmds = (
 )
 
 class StormSvc:
+    '''
+    The StormSvc mixin class used to make a remote storm service with commands.
+    '''
 
     _storm_svc_name = 'noname'
     _storm_svc_vers = (0, 0, 1)
@@ -134,8 +138,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
 
             except Exception as e:
                 name = cdef.get('name')
-                import traceback; traceback.print_exc()
-                logger.warning(f'setStormCmd ({name}) failed for service {self.name} ({self.iden}): {e}')
+                logger.exception(f'setStormCmd ({name}) failed for service {self.name} ({self.iden})')
 
         self.ready.set()
 

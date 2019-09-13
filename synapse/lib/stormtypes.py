@@ -89,15 +89,6 @@ class Lib(StormType):
         ctor = slib[2].get('ctor', Lib)
         return ctor(self.runt, name=path)
 
-#class Dmon(StormType):
-    #'''
-    #Storm API Wrapper for StormDmon instances.
-    #'''
-    #def __init__(self, runt, dmon):
-        #self.runt = runt
-        #self.dmon = dmon
-        #self.locls.update(dmon.pack())
-
 class LibDmon(Lib):
 
     def addLibFuncs(self):
@@ -182,7 +173,14 @@ class LibService(Lib):
 
     async def _libSvcList(self):
         self.runt.allowed('storm', 'service', 'list')
-        return [s.sdef for s in self.runt.snap.core.getStormSvcs()]
+        retn = []
+
+        for ssvc in self.runt.snap.core.getStormSvcs():
+            sdef = dict(ssvc.sdef)
+            sdef['ready'] = ssvc.ready.is_set()
+            retn.append(sdef)
+
+        return retn
 
     async def _libSvcWait(self, name):
         self.runt.allowed('storm', 'service', 'get')
@@ -333,7 +331,7 @@ class LibTime(Lib):
         '''
         Sleep/yield execution of the storm query.
         '''
-        await asyncio.sleep(float(valu))
+        await self.runt.snap.waitfini(timeout=float(valu))
 
     async def ticker(self, tick, count=None):
 
@@ -344,7 +342,8 @@ class LibTime(Lib):
 
         offs = 0
         while True:
-            await asyncio.sleep(tick)
+
+            await self.runt.snap.waitfini(timeout=tick)
             yield offs
 
             offs += 1

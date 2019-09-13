@@ -133,7 +133,7 @@ class StormDmon(s_base.Base):
                     logger.warning(f'dmon query exited: {dmoniden}')
 
                     self.status = 'exited'
-                    await asyncio.sleep(1)
+                    await self.waitfini(timeout=1)
 
             except asyncio.CancelledError as e:
                 raise
@@ -142,7 +142,7 @@ class StormDmon(s_base.Base):
                 logger.exception(e)
                 logger.warning(f'dmon error ({self.iden}): {e}')
                 self.status = f'error: {e}'
-                await asyncio.sleep(1)
+                await self.waitfini(timeout=1)
 
 class Runtime:
     '''
@@ -203,7 +203,6 @@ class Runtime:
         return False
 
     async def printf(self, mesg):
-        #print(mesg)
         return await self.snap.printf(mesg)
 
     async def warn(self, mesg, **info):

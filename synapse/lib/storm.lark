@@ -49,7 +49,9 @@ SETOPER: "=" | "?="
 
 // The set of non-edit non-commands in storm
 _oper.1: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | vareval
-     | filtoper | liftbytag | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | _liftprop | ifstmt
+     | filtoper | liftbytag
+     | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE
+     | _liftprop | ifstmt
 
 BREAK: "break"
 CONTINUE: "continue"
@@ -63,7 +65,6 @@ valuvar: _varname _WS? "=" _WS? _valu
 forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _valu _WS? baresubquery
 whileloop: "while" _WS _valu _WS? baresubquery
 subquery: [YIELD _WS?] baresubquery
-//yieldvalu: YIELD _valu
 baresubquery: "{" query "}"
 YIELD: "yield"
 switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" baresubquery) | (casevalu _WSCOMM? baresubquery)) )* _WSCOMM? "}"

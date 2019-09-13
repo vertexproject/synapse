@@ -19,16 +19,6 @@ class RealService(s_stormsvc.StormSvc):
     async def asn(self):
         return 20
 
-    async def doit(self, x):
-        return x + 20
-
-    async def fqdns(self):
-        yield 'woot.com'
-        yield 'vertex.link'
-
-    async def ipv4s(self):
-        return ('1.2.3.4', '5.6.7.8')
-
 class StormSvcTest(s_test.SynTest):
 
     async def test_storm_svc_cmds(self):

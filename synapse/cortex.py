@@ -882,7 +882,7 @@ class Cortex(s_cell.Cell):
         for iden, sdef in self.stormservices.items():
 
             try:
-                await self.setStormSvc(sdef)
+                await self._setStormSvc(sdef)
 
             except asyncio.CancelledError as e: # pragma: no cover
                 raise
@@ -891,7 +891,7 @@ class Cortex(s_cell.Cell):
                 logger.warning(f'initStormService ({iden}) failed: {e}')
 
     async def _initCoreQueues(self):
-        path = os.path.join(self.dirn, 'queues.lmdb')
+        path = os.path.join(self.dirn, 'slabs', 'queues.lmdb')
 
         slab = await s_lmdbslab.Slab.anit(path, map_async=True)
         self.onfini(slab.fini)
@@ -978,7 +978,7 @@ class Cortex(s_cell.Cell):
             mesg = f'Storm service already exists: {iden}'
             raise s_exc.DupStormSvc(mesg=mesg)
 
-        ssvc = await self.setStormSvc(sdef)
+        ssvc = await self._setStormSvc(sdef)
         await self.stormservices.set(iden, sdef)
 
         return ssvc
@@ -1001,7 +1001,7 @@ class Cortex(s_cell.Cell):
         if ssvc is not None:
             await ssvc.fini()
 
-    async def setStormSvc(self, sdef):
+    async def _setStormSvc(self, sdef):
 
         iden = sdef.get('iden')
 
@@ -1828,33 +1828,6 @@ class Cortex(s_cell.Cell):
         dmon = self.stormdmons.pop(iden, None)
         if dmon is not None:
             await dmon.fini()
-
-    async def runStormTask(self, text, opts=None, user=None):
-        '''
-        Execute a storm query as a background task.
-        '''
-        return self.schedCoro(self._runStormTask(text, opts=opts, user=user))
-
-    async def _runStormTask(self, text, opts=None, user=None):
-
-        if user is None:
-            user = self.auth.getUserByName('root')
-
-        await self.boss.promote('storm:task', user=user, info={'query': text})
-
-        try:
-
-            async with await self.snap(user=user) as snap:
-
-                async for nodepath in snap.storm(text, opts=opts, user=user):
-                    # all storm tasks yield often to prevent latency
-                    await asyncio.sleep(0)
-
-        except asyncio.CancelledError as e:
-            raise
-
-        except Exception as e:
-            logger.warning(f'storm task error: {e}')
 
     def getStormCmd(self, name):
         return self.stormcmds.get(name)

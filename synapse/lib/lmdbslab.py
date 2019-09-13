@@ -735,7 +735,6 @@ class Slab(s_base.Base):
                 self.forcecommit()
                 self.dbnames[name] = (db, dupsort)
                 return name
-                #return LmdbDatabase(db, dupsort)
             except lmdb.MapFullError:
                 self._handle_mapfull()
 
@@ -1023,8 +1022,6 @@ class Scan:
     A state-object used by Slab.  Not to be instantiated directly.
     '''
     def __init__(self, slab, db):
-        #if db is None:
-            #db = _DefaultDB
         self.slab = slab
         self.db, self.dupsort = slab.dbnames.get(db, (None, False))
 
