@@ -1016,6 +1016,23 @@ def reprTag(pode, tag):
     return valu
 
 def reprTagProps(pode, tag):
+    '''
+    Get the human readable values for any tagprops on a tag for a given node.
+
+    Args:
+        pode (tuple): A packed node.
+        tag (str): The tag to get the tagprops reprs for.
+
+    Notes:
+        The human readable value is only available if the node came from a
+        storm query execution where the ``repr`` key was passed into the
+        ``opts`` argument with a True value.
+
+        If the tag does not have any tagprops associated with it, this returns an empty list.
+
+    Returns:
+        list: A list of tuples, containing the name of the tagprop and the repr value.
+    '''
     ret = []
     exists = pode[1]['tags'].get(tag)
     if exists is None:

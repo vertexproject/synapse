@@ -15,16 +15,18 @@ class NodeTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('note', ('str', {'lower': True, 'strip': 'True'}), {})
 
             async with await core.snap() as snap:
 
                 node = await snap.addNode(form, valu, props=props)
                 await node.setTagProp('foo', 'score', 10)
+                await node.setTagProp('foo', 'note', " This is a really cool tag! ")
 
                 iden, info = node.pack()
                 self.eq(iden, ('test:str', 'cool'))
                 self.eq(info.get('tags'), {'foo': (None, None)})
-                self.eq(info.get('tagprops'), {'foo': {'score': 10}})
+                self.eq(info.get('tagprops'), {'foo': {'score': 10, 'note': 'this is a really cool tag!'}})
                 props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
                 self.eq(props, {'tick': 12345})
 
@@ -52,7 +54,7 @@ class NodeTest(s_t_utils.SynTest):
                 tagprops, tagpropreprs = info.get('tagprops'), info.get('tagpropreprs')
                 self.eq(props.get('.newp'), 1)
                 self.eq(props.get('newp'), (2, 3))
-                self.eq(tagprops, {'foo': {'score': 10, 'valu': 10}})
+                self.eq(tagprops, {'foo': {'score': 10, 'note': 'this is a really cool tag!', 'valu': 10}})
 
                 # without model knowledge it is impossible to repr a value so it should
                 # *not* be in the repr dict
