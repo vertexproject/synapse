@@ -881,6 +881,7 @@ class Cortex(s_cell.Cell):
         self.model.addUnivProp(name, tdef, info)
 
         await self.extunivs.set(name, (name, tdef, info))
+        await self.fire('core:extmodel:change', prop=name, act='add', type='univ')
 
     async def addFormProp(self, form, prop, tdef, info):
 
@@ -894,6 +895,8 @@ class Cortex(s_cell.Cell):
 
         self.model.addFormProp(form, prop, tdef, info)
         await self.extprops.set(f'{form}:{prop}', (form, prop, tdef, info))
+        await self.fire('core:extmodel:change',
+                        form=form, prop=prop, act='add', type='formprop')
 
     async def delFormProp(self, form, prop):
         '''
@@ -913,6 +916,8 @@ class Cortex(s_cell.Cell):
 
         self.model.delFormProp(form, prop)
         await self.extprops.pop(full, None)
+        await self.fire('core:extmodel:change',
+                        form=form, prop=prop, act='del', type='formprop')
 
     async def delUnivProp(self, prop):
         '''
@@ -931,6 +936,7 @@ class Cortex(s_cell.Cell):
 
         self.model.delUnivProp(prop)
         await self.extunivs.pop(prop, None)
+        await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
 
     async def addTagProp(self, name, tdef, info):
 
@@ -940,6 +946,7 @@ class Cortex(s_cell.Cell):
         self.model.addTagProp(name, tdef, info)
 
         await self.exttagprops.set(name, (name, tdef, info))
+        await self.fire('core:tagprop:change', name=name, act='add')
 
     async def delTagProp(self, name):
 
@@ -956,6 +963,7 @@ class Cortex(s_cell.Cell):
         self.model.delTagProp(name)
 
         await self.exttagprops.pop(name, None)
+        await self.fire('core:tagprop:change', name=name, act='del')
 
     async def _onCoreFini(self):
         '''

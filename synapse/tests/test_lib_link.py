@@ -1,7 +1,11 @@
-import synapse.tests.utils as s_test
+import asyncio
+
+import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+
+import synapse.tests.utils as s_test
 
 class LinkTest(s_test.SynTest):
 
@@ -21,6 +25,54 @@ class LinkTest(s_test.SynTest):
         await link.send(b'visi')
         self.eq(b'vert', await link.recvsize(4))
         self.none(await link.recvsize(1))
+
+    async def test_link_tx_sadpath(self):
+
+        evt = asyncio.Event()
+
+        async def onlink(link):
+            msg0 = await link.rx()
+            self.eq(('what', {'k': 1}), msg0)
+            link.onfini(evt.set)
+            await link.fini()
+
+        serv = await s_link.listen('127.0.0.1', 0, onlink)
+        host, port = serv.sockets[0].getsockname()
+        link = await s_link.connect(host, port)
+        await link.tx(('what', {'k': 1}))
+        self.true(await s_coro.event_wait(evt, 6))
+        # Why does this first TX post fini on the server link work,
+        # but the second one fails?
+        await link.tx(('me', {'k': 2}))
+        await self.asyncraises(ConnectionError, link.tx(('worry?', {'k': 3})))
+
+    async def test_link_rx_sadpath(self):
+
+        junk = 'a9d0cdafef705b9864bd'
+        # random sequence of data which causes an error
+        # to be thrown when unpacking data via msgpack.
+        junk = s_common.uhex(junk)
+
+        evt = asyncio.Event()
+
+        async def onlink(link):
+            await link.tx(('what', {'k': 1}))
+            self.true(await s_coro.event_wait(evt, 6))
+            # Send purposely bad data through the link
+            await link.send(junk)
+            await link.fini()
+
+        serv = await s_link.listen('127.0.0.1', 0, onlink)
+        host, port = serv.sockets[0].getsockname()
+        link = await s_link.connect(host, port)
+        msg0 = await link.rx()
+        self.eq(msg0, ('what', {'k': 1}))
+        evt.set()
+        await asyncio.sleep(0)
+        with self.getAsyncLoggerStream('synapse.lib.link', 'rx error') as stream:
+            msg1 = await link.rx()
+            self.true(await stream.wait(6))
+        self.none(msg1)
 
     async def test_link_file(self):
 

@@ -3,17 +3,42 @@ Synapse Changelog
 *****************
 
 
+v0.1.26 - 2019-09-12
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``:serial``, ``:model``, and ``:manu`` secondary properties to the ``it:host`` form.
+  (`#1358 <https://github.com/vertexproject/synapse/pull/1358>`_)
+
+Bugfixes
+--------
+- Fix an issue in Storm where double quoted string values with backslash escaped characters in double quoted strings
+  were not being properly escaped during syntax parsing.  Double quoted strings are now being processed with
+  ``ast.literal_eval()``.  This means that double quoted string values will be processed according to Python's
+  string literals as seen here https://docs.python.org/3/reference/lexical_analysis.html#string-and-bytes-literals prior
+  to passing them into any sort of model normalization routines. Single quoted string values parsing is not affected by
+  this change.
+  (`#1366 <https://github.com/vertexproject/synapse/pull/1366>`_)
+  (`#1370 <https://github.com/vertexproject/synapse/pull/1367>`_)
+- Fix an issue where a Daemon Share object was being tracked twice on the server side.
+  (`#1363 <https://github.com/vertexproject/synapse/pull/1363>`_)
+- Fix an issue where Cron tasks could start prior to CoreModules loading being finalized.
+  (`#1367 <https://github.com/vertexproject/synapse/pull/1367>`_)
+- Fix an issue with inconsistent test coverage for ``synapse.lib.link``.
+  (`#1365 <https://github.com/vertexproject/synapse/pull/1365>`_)
+
 v0.1.25 - 2019-09-06
 ====================
+
+Features and Enhancements
+-------------------------
 - Add ``$lib.inet.http.put()`` Stormtypes support to allow making HTTP PUT requests.
   (`#1358 <https://github.com/vertexproject/synapse/pull/1358>`_)
 - Add ``$llib.base64`` Stormtypes to allow for manipulation of base64 data in Storm.
   (`#1358 <https://github.com/vertexproject/synapse/pull/1358>`_)
 - Add healthcheck tooling that can be used to implement heartbeat support for Synapse Cells.
   (`#1344 <https://github.com/vertexproject/synapse/pull/1344>`_)
-
-Features and Enhancements
--------------------------
 
 Bugfixes
 --------
