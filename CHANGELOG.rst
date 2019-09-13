@@ -3,7 +3,51 @@ Synapse Changelog
 *****************
 
 
-v0.1.24 - TBD
+v0.1.26 - 2019-09-12
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``:serial``, ``:model``, and ``:manu`` secondary properties to the ``it:host`` form.
+  (`#1358 <https://github.com/vertexproject/synapse/pull/1358>`_)
+
+Bugfixes
+--------
+- Fix an issue in Storm where double quoted string values with backslash escaped characters in double quoted strings
+  were not being properly escaped during syntax parsing.  Double quoted strings are now being processed with
+  ``ast.literal_eval()``.  This means that double quoted string values will be processed according to Python's
+  string literals as seen here https://docs.python.org/3/reference/lexical_analysis.html#string-and-bytes-literals prior
+  to passing them into any sort of model normalization routines. Single quoted string values parsing is not affected by
+  this change.
+  (`#1366 <https://github.com/vertexproject/synapse/pull/1366>`_)
+  (`#1370 <https://github.com/vertexproject/synapse/pull/1367>`_)
+- Fix an issue where a Daemon Share object was being tracked twice on the server side.
+  (`#1363 <https://github.com/vertexproject/synapse/pull/1363>`_)
+- Fix an issue where Cron tasks could start prior to CoreModules loading being finalized.
+  (`#1367 <https://github.com/vertexproject/synapse/pull/1367>`_)
+- Fix an issue with inconsistent test coverage for ``synapse.lib.link``.
+  (`#1365 <https://github.com/vertexproject/synapse/pull/1365>`_)
+
+v0.1.25 - 2019-09-06
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``$lib.inet.http.put()`` Stormtypes support to allow making HTTP PUT requests.
+  (`#1358 <https://github.com/vertexproject/synapse/pull/1358>`_)
+- Add ``$llib.base64`` Stormtypes to allow for manipulation of base64 data in Storm.
+  (`#1358 <https://github.com/vertexproject/synapse/pull/1358>`_)
+- Add healthcheck tooling that can be used to implement heartbeat support for Synapse Cells.
+  (`#1344 <https://github.com/vertexproject/synapse/pull/1344>`_)
+
+Bugfixes
+--------
+- Fix an issue where the ``geo:dist`` was missing comparator support. This was fixed by caussing it to inherit from the
+  IntBase type.
+  (`#1362 <https://github.com/vertexproject/synapse/pull/1362>`_)
+
+
+v0.1.24 - 2019-09-03
 ====================
 
 Features and Enhancements
@@ -33,6 +77,14 @@ Features and Enhancements
   (`#1339 <https://github.com/vertexproject/synapse/pull/1339>`_)
 - Fix Axon permission handling for remote users to actually enforce permissions.
   (`#1354 <https://github.com/vertexproject/synapse/pull/1354>`_)
+- Add a new form, ``inet:url:mirror``, which represents URL content being mirror between two different URLs.
+  (`#1360 <https://github.com/vertexproject/synapse/pull/1360>`_)
+- Add support for user defined runtime properties.
+  (`#1350 <https://github.com/vertexproject/synapse/pull/1350>`_)
+- Add support for user defined secondary properties to be attached to a tag.
+  (`#1350 <https://github.com/vertexproject/synapse/pull/1350>`_)
+- Add support for defererencing a variable value in order to lift by a variable property name.
+  (`#1350 <https://github.com/vertexproject/synapse/pull/1350>`_)
 
 Bugfixes
 --------
@@ -46,6 +98,9 @@ Bugfixes
 - Remove codecov orb and use the codecov bash uploaded directly.
   (`#1355 <https://github.com/vertexproject/synapse/pull/1355>`_)
   (`#1357 <https://github.com/vertexproject/synapse/pull/1357>`_)
+- Make the Storm ``max`` command aware of Ival types, and pull the maximum value based on the right hand side of the
+  interval.
+  (`#1359 <https://github.com/vertexproject/synapse/pull/1359>`_)
 
 
 v0.1.23 - 2019-08-14

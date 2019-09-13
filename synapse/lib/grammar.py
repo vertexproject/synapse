@@ -1,3 +1,4 @@
+import ast
 import lark  # type: ignore
 import regex  # type: ignore
 
@@ -51,6 +52,7 @@ terminalEnglishMap = {
     'OR': 'or',
     'PROPNAME': 'property name',
     'PROPS': 'absolute property name',
+    'BASEPROP': 'base property name',
     'RBRACE': ']',
     'RELNAME': 'relative property',
     'RPAR': ')',
@@ -65,9 +67,11 @@ terminalEnglishMap = {
     'VBAR': '|',
     'WHILE': 'while',
     'YIELD': 'yield',
+    '_DEREF': '*',
     '_EXPRSTART': '$(',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
+    '_ONLYTAGPROP': '#:',
     '_RIGHTJOIN': '-+>',
     '_RIGHTPIVOT': '->',
     '_WS': 'whitespace',
@@ -170,6 +174,18 @@ class AstConverter(lark.Transformer):
         kids = [s_ast.VarValue(kids=[s_ast.Const(seg[1:])]) if seg[0] == '$' else s_ast.Const(seg)
                 for seg in segs]
         return kids
+
+    def tagprop(self, kids):
+        kids = self._convert_children(kids)
+        return s_ast.TagProp(kids=kids)
+
+    def formtagprop(self, kids):
+        kids = self._convert_children(kids)
+        return s_ast.FormTagProp(kids=kids)
+
+    def onlytagprop(self, kids):
+        kids = self._convert_children(kids)
+        return s_ast.OnlyTagProp(kids=kids)
 
     def tagname(self, kids):
         assert kids and len(kids) == 1
@@ -288,8 +304,8 @@ class Parser:
 
 # TODO:  commonize with storm.lark
 scmdre = regex.compile('[a-z][a-z0-9.]+')
-univre = regex.compile(r'\.[a-z][a-z0-9]*([:.][a-z0-9]+)*')
-propre = regex.compile(r'[a-z][a-z0-9]*(:[a-z0-9]+)+([:.][a-z][a-z0-9]+)*')
+univre = regex.compile(r'\.[a-z_][a-z0-9]*([:.][a-z0-9]+)*')
+propre = regex.compile(r'[a-z_][a-z0-9]*(:[a-z0-9]+)+([:.][a-z_ ][a-z0-9]+)*')
 formre = regex.compile(r'[a-z][a-z0-9]*(:[a-z0-9]+)+')
 
 def isPropName(name):
@@ -408,6 +424,16 @@ def parse_cmd_string(text, off):
     valu, newoff = CmdStringer().transform(tree)
     return valu, off + newoff
 
+def unescape(valu):
+    '''
+    Parse a string for backslash-escaped characters and omit them.
+    The full list of escaped characters can be found at
+    https://docs.python.org/3/reference/lexical_analysis.html#string-and-bytes-literals
+    '''
+    ret = ast.literal_eval(valu)
+    assert isinstance(ret, str)
+    return ret
+
 # For AstConverter, one-to-one replacements from lark to synapse AST
 terminalClassMap = {
     'ABSPROP': s_ast.AbsProp,
@@ -415,11 +441,11 @@ terminalClassMap = {
     'ALLTAGS': lambda _: s_ast.TagMatch(''),
     'BREAK': lambda _: s_ast.BreakOper(),
     'CONTINUE': lambda _: s_ast.ContinueOper(),
-    'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
+    'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),  # drop quotes and handle escape characters
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
-    'VARTOKN': lambda x: s_ast.Const(x[1:-1] if len(x) and x[0] in ("'", '"') else x)
+    'VARTOKN': lambda x: s_ast.Const('' if not x else (x[1:-1] if x[0] == "'" else (unescape(x) if x[0] == '"' else x)))
 }
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
@@ -434,6 +460,8 @@ ruleClassMap = {
     'editpropset': s_ast.EditPropSet,
     'edittagadd': s_ast.EditTagAdd,
     'edittagdel': s_ast.EditTagDel,
+    'edittagpropset': s_ast.EditTagPropSet,
+    'edittagpropdel': s_ast.EditTagPropDel,
     'editunivdel': s_ast.EditUnivDel,
     'editunivset': s_ast.EditPropSet,
     'expror': s_ast.ExprNode,
@@ -456,6 +484,7 @@ ruleClassMap = {
     'formpivotin_pivotinfrom': s_ast.PivotInFrom,
     'hasabspropcond': s_ast.HasAbsPropCond,
     'hasrelpropcond': s_ast.HasRelPropCond,
+    'hastagpropcond': s_ast.HasTagPropCond,
     'ifstmt': s_ast.IfStmt,
     'ifclause': s_ast.IfClause,
     'kwarg': lambda kids: s_ast.CallKwarg(kids=tuple(kids)),
@@ -464,6 +493,9 @@ ruleClassMap = {
     'liftprop': s_ast.LiftProp,
     'liftpropby': s_ast.LiftPropBy,
     'lifttagtag': s_ast.LiftTagTag,
+    'liftbytagprop': s_ast.LiftTagProp,
+    'liftbyformtagprop': s_ast.LiftFormTagProp,
+    'liftbyonlytagprop': s_ast.LiftOnlyTagProp,
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
@@ -474,8 +506,10 @@ ruleClassMap = {
     'relpropvalue': s_ast.RelPropValue,
     'stormcmd': lambda kids: s_ast.CmdOper(kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(tuple()))),
     'tagcond': s_ast.TagCond,
-    'tagpropvalue': s_ast.TagPropValue,
+    'tagvalu': s_ast.TagValue,
+    'tagpropvalu': s_ast.TagPropValue,
     'tagvalucond': s_ast.TagValuCond,
+    'tagpropcond': s_ast.TagPropCond,
     'valuvar': s_ast.VarSetOper,
     'varderef': s_ast.VarDeref,
     'vareval': s_ast.VarEvalOper,
