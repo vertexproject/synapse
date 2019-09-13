@@ -36,7 +36,7 @@ class View(s_base.Base):
         self.iden = node.name()
 
         self.invalid = None
-        self.parent = None
+        self.parent = None  # The view this view was forked from
 
         self.info = await node.dict()
         self.info.setdefault('owner', 'root')
@@ -201,10 +201,10 @@ class View(s_base.Base):
 
         for view in self.core.views.values():
             if view.parent is self:
-                raise s_exc.ReadOnlyLayer(mesg='May not change layers that have been inherited from')
+                raise s_exc.ReadOnlyLayer(mesg='May not change layers that have been forked from')
 
         if self.parent is not None:
-            raise s_exc.ReadOnlyLayer(mesg='May not change layers of inherited view')
+            raise s_exc.ReadOnlyLayer(mesg='May not change layers of forked view')
 
         if indx is None:
             if not self.layers and layr.readonly:
@@ -219,14 +219,14 @@ class View(s_base.Base):
     async def setLayers(self, layers):
         '''
         Set the view layers from a list of idens.
-        NOTE: view layers are stored "top down" ( write is layers[0] )
+        NOTE: view layers are stored "top down" (the write layer is self.layers[0])
         '''
         for view in self.core.views.values():
             if view.parent is self:
-                raise s_exc.ReadOnlyLayer(mesg='May not change layers that have been inherited from')
+                raise s_exc.ReadOnlyLayer(mesg='May not change layers that have been forked from')
 
         if self.parent is not None:
-            raise s_exc.ReadOnlyLayer(mesg='May not change layers of inherited view')
+            raise s_exc.ReadOnlyLayer(mesg='May not change layers of forked view')
 
         layrs = []
 
@@ -244,9 +244,9 @@ class View(s_base.Base):
 
         await self.info.set('layers', layers)
 
-    async def makeChild(self, **layrinfo):
+    async def fork(self, **layrinfo):
         '''
-        Makes a new view inheriting from this view with the same layers and a new LMDB write layer on top
+        Makes a new view inheriting from this view with the same layers and a new write layer on top
 
         Args:
             Passed through to cortex.addLayer
@@ -254,11 +254,15 @@ class View(s_base.Base):
         Returns:
             new view object
         '''
-        writlayr = self.core.addLayer(**layrinfo)
+        writlayr = await self.core.addLayer(**layrinfo)
 
-        viewiden = s_common.iden()
+        viewiden = s_common.guid()
         owner = layrinfo.get('owner', 'root')
-        view = self.core.addView(viewiden, owner, [writlayr.iden] + [l.iden for l in self.layers])
+        layeridens = [writlayr.iden] + [l.iden for l in self.layers]
+
+        view = await self.core.addView(viewiden, owner, layeridens)
+        view.parent = self
+
         return view
 
     async def runTagAdd(self, node, tag, valu):
@@ -291,7 +295,7 @@ class View(s_base.Base):
 
     async def addTrigger(self, condition, query, info, disabled=False, user=None):
         '''
-        Adds a trigger to the cortex
+        Adds a trigger to the view.
         '''
         if user is None:
             user = self.core.auth.getUserByName('root')
@@ -307,35 +311,35 @@ class View(s_base.Base):
 
     async def delTrigger(self, iden):
         '''
-        Deletes a trigger from the cortex
+        Delete a trigger from the view.
         '''
         self.triggers.delete(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='delete')
 
     async def updateTrigger(self, iden, query):
         '''
-        Change an existing trigger's query
+        Change an existing trigger's query.
         '''
         self.triggers.mod(iden, query)
         await self.core.fire('core:trigger:action', iden=iden, action='mod')
 
     async def enableTrigger(self, iden):
         '''
-        Change an existing trigger's query
+        Enable an existing trigger.
         '''
         self.triggers.enable(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='enable')
 
     async def disableTrigger(self, iden):
         '''
-        Change an existing trigger's query
+        Disable an existing trigger.
         '''
         self.triggers.disable(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='disable')
 
     def listTriggers(self):
         '''
-        Lists all the triggers in the View.
+        List all the triggers in the view.
         '''
         trigs = []
         for (iden, trig) in self.triggers.list():
