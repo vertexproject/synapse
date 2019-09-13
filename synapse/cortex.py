@@ -155,7 +155,7 @@ class CoreApi(s_cell.CellApi):
 
     async def enableTrigger(self, iden):
         '''
-        Change an existing trigger's query
+        Enable an existing trigger
         '''
         trig = self.cell.getTrigger(iden)
         self._trig_auth_check(trig.get('useriden'))
@@ -163,7 +163,7 @@ class CoreApi(s_cell.CellApi):
 
     async def disableTrigger(self, iden):
         '''
-        Change an existing trigger's query
+        Disable an existing trigger
         '''
         trig = self.cell.getTrigger(iden)
         self._trig_auth_check(trig.get('useriden'))
@@ -1368,6 +1368,8 @@ class Cortex(s_cell.Cell):
     async def delView(self, iden):
         '''
         Delete a cortex view by iden.
+
+        TODO:  determine if there are any unique layers for that view and delete those too?
         '''
         if iden == self.iden:
             raise s_exc.SynErr(mesg='cannot delete the main view')
@@ -1926,8 +1928,6 @@ class Cortex(s_cell.Cell):
         for modname, mod in self.modules.items():
             ret.append((modname, mod.conf))
         return ret
-
-    # CORTEX
 
     def _viewFromOpts(self, opts):
         if opts is None:
