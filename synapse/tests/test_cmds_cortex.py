@@ -1,14 +1,8 @@
 import os
-import regex
 import asyncio
-import unittest.mock as mock
 
-from prompt_toolkit.formatted_text import FormattedText
-
-import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.cli as s_cli
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.encoding as s_encoding
 
@@ -25,7 +19,9 @@ class CmdCoreTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
 
-            await self.agenlen(1, core.eval("[ test:str=abcd :tick=2015 +#cool ]"))
+            await realcore.addTagProp('score', ('int', {}), {})
+
+            await self.agenlen(1, core.eval("[ test:str=abcd :tick=2015 +#cool]"))
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
@@ -137,6 +133,15 @@ class CmdCoreTest(s_t_utils.SynTest):
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm [ test:str=foo +#bar.baz=(2015,?) ]')
             self.true(outp.expect('#bar.baz = (2015/01/01 00:00:00.000, ?)', throw=False))
+            self.false(outp.expect('#bar ', throw=False))
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine('storm [ test:str=foo +#bar:score=22 +#bar.baz:score=0 ]')
+            self.true(outp.expect('#bar:score = 22', throw=False))
+            self.true(outp.expect('#bar.baz = (2015/01/01 00:00:00.000, ?)', throw=False))
+            self.true(outp.expect('#bar.baz:score = 0', throw=False))
             self.false(outp.expect('#bar ', throw=False))
             outp.expect('complete. 1 nodes')
 
