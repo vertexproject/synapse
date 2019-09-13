@@ -44,7 +44,7 @@ class ViewTest(s_t_utils.SynTest):
 
             # A trigger on the main view doesn't fire when the condition matches on a forked view
             await core.addTrigger('node:add', '[ test:str=mainhit ]', info={'form': 'test:int'})
-            nodes = await alist(view2.eval('[ test:int=11 ]'))
+            nodes = await alist(core.eval('[ test:int=11 ]', opts={'view': view2.iden}))
             self.len(1, nodes)
 
             nodes = await alist(view2.eval('test:str'))

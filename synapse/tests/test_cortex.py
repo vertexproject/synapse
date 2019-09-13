@@ -475,6 +475,12 @@ class CortexTest(s_t_utils.SynTest):
                 self.nn(node.getTag('foo'))
                 self.none(node.getTag('foo.bar'))
 
+            # Make sure the 'view' key in optional opts parameter works
+            nodes = await alist(core.eval('test:comp', opts={'view': core.view.iden}))
+            self.len(1, nodes)
+
+            await self.asyncraises(s_exc.NoSuchView, alist(core.eval('test:comp', opts={'view': 'xxx'})))
+
             async for node in core.eval('[ test:str="foo bar" :tick=2018]'):
                 self.eq(1514764800000, node.get('tick'))
                 self.eq('foo bar', node.ndef[1])
