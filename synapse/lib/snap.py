@@ -74,6 +74,10 @@ class Snap(s_base.Base):
         self.onfini(self.stack.close)
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
+        self.trigson = True
+
+    def disableTriggers(self):
+        self.trigson = False
 
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):

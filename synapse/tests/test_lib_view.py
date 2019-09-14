@@ -37,7 +37,12 @@ class ViewTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.ReadOnlyLayer, core.view.setLayers([tmplayr]))
             await self.asyncraises(s_exc.ReadOnlyLayer, view2.setLayers([tmplayr]))
 
-            await core.delView(view2.iden)
+            # Merge the child back into the parent
+            await view2.merge()
+
+            # Now, the node added to the child is seen in the parent
+            nodes = await core.nodes('test:int=12')
+            self.len(1, nodes)
 
     async def test_view_trigger(self):
         async with self.getTestCore() as core:
