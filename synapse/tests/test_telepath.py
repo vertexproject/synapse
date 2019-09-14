@@ -628,6 +628,12 @@ class TeleTest(s_t_utils.SynTest):
 
         async with await s_telepath.Client.anit(url0) as targ:
             await targ.waitready()
+            # Client implements some base helpers the proxy does
+            self.eq(targ._getSynVers(), s_version.version)
+            self.eq(targ._getClasses(),
+                    ('synapse.tests.test_telepath.TestRedir',
+                     'synapse.telepath.Aware'))
+            # client works as a passthrough to the proxy
             self.eq(110, await targ.dostuff(100))
 
         # this should get redirected to url0...

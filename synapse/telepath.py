@@ -718,6 +718,34 @@ class Client(s_base.Base):
         setattr(self, name, meth)
         return meth
 
+    def _getSynVers(self):
+        '''
+        Helper method to retrieve the remote Synapse version from Client
+        for the currently connected Proxy.
+
+        Notes:
+            This will return None if the synapse version was not supplied
+            during the Telepath handshake.
+
+        Returns:
+            tuple: A tuple of major, minor, patch information as integers.
+        '''
+        return self._t_proxy._getSynVers()
+
+    def _getClasses(self):
+        '''
+        Helper method to retrieve the classes that comprise the remote object
+        for the currently connected Proxy.
+
+        Notes:
+            This will return None if the class version was not supplied
+            during the Telepath handshake.
+
+        Returns:
+            tuple: A tuple of strings containing the class paths for the remote object.
+        '''
+        return self._t_proxy._getClasses()
+
 def alias(name):
     '''
     Resolve a telepath alias via ~/.syn/aliases.yaml
