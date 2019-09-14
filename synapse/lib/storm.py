@@ -133,9 +133,7 @@ class StormDmon(s_base.Base):
                 raise
 
             except Exception as e:
-                print(repr(e))
-                logger.exception(e)
-                logger.warning(f'dmon error ({self.iden}): {e}')
+                logger.exception(f'dmon error ({self.iden}): {e}')
                 self.status = f'error: {e}'
                 await self.waitfini(timeout=1)
 
