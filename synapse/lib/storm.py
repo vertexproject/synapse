@@ -998,6 +998,9 @@ class ScrapeCmd(Cmd):
 
             for prop in proplist:
                 val = node.props.get(prop)
+                if val is None:
+                    await runt.snap.printf(f'No prop ":{prop}" for {node.ndef}')
+                    continue
 
                 # use the repr val or the system mode val as appropriate
                 sval = reprs.get(prop, val)

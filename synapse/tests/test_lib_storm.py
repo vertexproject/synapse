@@ -497,6 +497,10 @@ class StormTest(s_t_utils.SynTest):
             q = 'inet:search:query inet:banner | scrape -p engine'
             await self.asyncraises(s_exc.BadOptValu, core.nodes(q))
 
+            await core.nodes('[inet:search:query="*"]')
+            mesgs = await alist(core.streamstorm('inet:search:query | scrape --props text'))
+            self.stormIsInPrint('No prop ":text" for', mesgs)
+
     async def test_tee(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
