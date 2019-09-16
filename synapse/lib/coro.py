@@ -18,7 +18,7 @@ async def agen(item):
     Wrap an async_generator *or* generator in an async_generator.
 
     Notes:
-        Do not use this for a synchronous generator which would cuase
+        Do not use this for a synchronous generator which would cause
         none-blocking IO; otherwise that IO will block the ioloop.
     '''
     if getattr(item, '__aiter__', None) is not None:
