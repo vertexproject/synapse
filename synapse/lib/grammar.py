@@ -495,7 +495,6 @@ ruleClassMap = {
     'exprsum': s_ast.ExprNode,
     'filtoper': s_ast.FiltOper,
     'forloop': s_ast.ForLoop,
-    #'yieldvalu': s_ast.YieldValu,
     'whileloop': s_ast.WhileLoop,
     'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),
     'formjoin_pivotout': lambda _: s_ast.PivotOut(isjoin=True),
