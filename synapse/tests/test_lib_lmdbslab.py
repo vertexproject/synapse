@@ -450,6 +450,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                                     'offs': 3,
                                     })
 
+                await mque.cull('woot', -1)
+                self.eq(mque.status('woot'), status[0])
+
                 self.raises(s_exc.DupName, mque.add, 'woot', {})
 
             async with await s_lmdbslab.Slab.anit(path) as slab:
