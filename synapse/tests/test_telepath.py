@@ -629,14 +629,15 @@ class TeleTest(s_t_utils.SynTest):
                              'addr': sockpath})
 
     async def test_ipv6(self):
+        if os.getenv('CIRCLECI', False):
+            self.skip('ipv6 is not supported in circleci')
 
         foo = Foo()
 
         async with self.getTestDmon() as dmon:
 
             dmon.share('foo', foo)
-            # addr = await dmon.listen('tcp://[::1]:0/')
-            addr = await dmon.listen('tcp://[::]:0/')
+            addr = await dmon.listen('tcp://[::1]:0/')
             host, port = addr[0], addr[1]
 
             async with await s_telepath.openurl(f'tcp://{host}/foo',
