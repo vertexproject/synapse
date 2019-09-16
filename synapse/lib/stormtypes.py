@@ -13,7 +13,6 @@ import synapse.telepath as s_telepath
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
-import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 
 def intify(x):
