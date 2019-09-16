@@ -1,7 +1,6 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
-import synapse.daemon as s_daemon
 
 import synapse.tests.utils as s_test
 import synapse.lib.stormsvc as s_stormsvc
@@ -36,6 +35,15 @@ class BoomService(s_stormsvc.StormSvc):
 class NoService:
     def lower(self):
         return 'asdf'
+
+class LifterService(s_stormsvc.StormSvc):
+    _storm_svc_cmds = (
+        {
+            'name': 'lifter',
+            'desc': 'Lift inet:ipv4=1.2.3.4',
+            'storm': 'inet:ipv4=1.2.3.4',
+        },
+    )
 
 class StormSvcTest(s_test.SynTest):
 
@@ -82,17 +90,19 @@ class StormSvcTest(s_test.SynTest):
 
         with self.getTestDir() as dirn:
 
-            async with await s_daemon.Daemon.anit() as dmon:
+            async with self.getTestDmon() as dmon:
 
                 dmon.share('prim', NoService())
                 dmon.share('real', RealService())
                 dmon.share('boom', BoomService())
+                dmon.share('lift', LifterService())
 
-                host, port = await dmon.listen('tcp://127.0.0.1:0/')
+                host, port = dmon.addr
 
                 lurl = f'tcp://127.0.0.1:{port}/real'
                 purl = f'tcp://127.0.0.1:{port}/prim'
                 burl = f'tcp://127.0.0.1:{port}/boom'
+                curl = f'tcp://127.0.0.1:{port}/lift'
 
                 async with await s_cortex.Cortex.anit(dirn) as core:
 
@@ -101,11 +111,13 @@ class StormSvcTest(s_test.SynTest):
 
                     await core.nodes(f'service.add prim {purl}')
                     await core.nodes(f'service.add boom {burl}')
+                    await core.nodes(f'service.add lift {curl}')
 
                     # force a wait for command loads
                     await core.nodes('$lib.service.wait(fake)')
                     await core.nodes('$lib.service.wait(prim)')
                     await core.nodes('$lib.service.wait(boom)')
+                    await core.nodes('$lib.service.wait(lift)')
 
                     self.nn(core.getStormCmd('ohhai'))
                     self.none(core.getStormCmd('goboom'))
@@ -125,6 +137,10 @@ class StormSvcTest(s_test.SynTest):
 
                     nodes = await core.nodes('for $ipv4 in $lib.service.get(fake).ipv4s() { [inet:ipv4=$ipv4] }')
                     self.len(3, nodes)
+
+                    # execute a pure storm service without inbound nodes
+                    nodes = await core.nodes('lifter')
+                    self.len(1, nodes)
 
                 async with await s_cortex.Cortex.anit(dirn) as core:
 

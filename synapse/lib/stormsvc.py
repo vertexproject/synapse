@@ -117,7 +117,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
 
     async def _onTeleLink(self, proxy):
 
-        clss = proxy.sharinfo.get('classes', ())
+        clss = proxy._getClasses()
 
         names = [c.rsplit('.', 1)[-1] for c in clss]
 
