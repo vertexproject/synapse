@@ -119,16 +119,21 @@ class Link(s_base.Base):
         '''
         Get a summary of address information related to the link.
         '''
-        ret = {}
+        ret = {'family': 'tcp',
+               'addr': self.sock.getpeername(),
+               }
+        # Set family information
         if self.info.get('unix'):
             ret['family'] = 'unix'
+            # Unix sockets don't use getpeername
             ret['addr'] = self.sock.getsockname()
         elif self.info.get('tls'):
             ret['family'] = 'tls'
-            ret['addr'] = self.sock.getpeername()
-        else:
-            ret['family'] = 'tcp'
-            ret['addr'] = self.sock.getpeername()
+        # Set ipver if needed
+        if self.sock.family == socket.AF_INET:
+            ret['ipver'] = 'ipv4'
+        if self.sock.family == socket.AF_INET6:
+            ret['ipver'] = 'ipv6'
         return ret
 
     async def send(self, byts):

@@ -186,6 +186,7 @@ class TeleTest(s_t_utils.SynTest):
             anfo = snfo[0].get('anfo')
             self.isinstance(anfo, dict)
             self.eq(anfo.get('family'), 'tcp')
+            self.eq(anfo.get('ipver'), 'ipv4')
             # The prox's local sock.getsockname() corresponds to the
             # server's sock.getpeername()
             self.eq(anfo.get('addr'), prox.link.sock.getsockname())
@@ -626,3 +627,26 @@ class TeleTest(s_t_utils.SynTest):
                     self.eq(snfo[0].get('anfo'),
                             {'family': 'unix',
                              'addr': sockpath})
+
+    async def test_ipv6(self):
+
+        foo = Foo()
+
+        async with self.getTestDmon() as dmon:
+
+            dmon.share('foo', foo)
+            addr = await dmon.listen('tcp://[::1]:0/')
+            host, port = addr[0], addr[1]
+            print(addr)
+
+            async with await s_telepath.openurl(f'tcp://{host}/foo',
+                                                port=port) as prox:
+                # Ensure that ipv6 is returned via session info
+                snfo = await dmon.getSessInfo()
+                anfo = snfo[0].get('anfo')
+                self.eq(anfo, {'family': 'tcp',
+                               'ipver': 'ipv6',
+                               'addr': prox.link.sock.getsockname()})
+
+                # check a standard return value
+                self.eq(30, await prox.bar(10, 20))
