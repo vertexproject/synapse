@@ -421,6 +421,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchName):
                     mque.put('woot', 'lulz')
 
+                with self.raises(s_exc.NoSuchName):
+                    mque.status('woot')
+
                 mque.add('woot', {'some': 'info'})
 
                 self.true(mque.exists('woot'))
@@ -435,7 +438,19 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq((1, 'haha'), await mque.get('woot', 1))
                 self.eq((1, 'haha'), await mque.get('woot', 0))
 
+                self.eq((-1, None), await mque.get('woot', 1000, cull=False))
+
                 self.eq(2, mque.size('woot'))
+
+                status = mque.list()
+                self.len(1, status)
+                self.eq(status[0], {'name': 'woot',
+                                    'meta': {'some': 'info'},
+                                    'size': 2,
+                                    'offs': 3,
+                                    })
+
+                self.raises(s_exc.DupName, mque.add, 'woot', {})
 
             async with await s_lmdbslab.Slab.anit(path) as slab:
 

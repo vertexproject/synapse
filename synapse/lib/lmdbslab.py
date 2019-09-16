@@ -244,7 +244,7 @@ class MultiQueue:
         meta = self.queues.get(name)
         if meta is None:
             mesg = f'No queue named {name}'
-            raise s_exc.NoSuchName(mesg=mesg)
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
 
         return {
             'name': name,
@@ -266,7 +266,7 @@ class MultiQueue:
 
         if self.queues.get(name) is not None:
             mesg = f'A queue exists with the name {name}.'
-            raise s_exc.DupName(mesg=mesg)
+            raise s_exc.DupName(mesg=mesg, name=name)
 
         item = self.queues.get(name)
         if item is None:
@@ -278,7 +278,7 @@ class MultiQueue:
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
-            raise s_exc.NoSuchName(mesg=mesg)
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
 
         await self.cull(name, 0xffffffffffffffff)
 
@@ -304,7 +304,7 @@ class MultiQueue:
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
-            raise s_exc.NoSuchName(mesg=mesg)
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
 
         abrv = self.abrv.nameToAbrv(name)
 
@@ -331,7 +331,7 @@ class MultiQueue:
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
-            raise s_exc.NoSuchName(mesg=mesg)
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
 
         if cull and offs > 0:
             await self.cull(name, offs - 1)
