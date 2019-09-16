@@ -635,7 +635,8 @@ class TeleTest(s_t_utils.SynTest):
         async with self.getTestDmon() as dmon:
 
             dmon.share('foo', foo)
-            addr = await dmon.listen('tcp://[::1]:0/')
+            # addr = await dmon.listen('tcp://[::1]:0/')
+            addr = await dmon.listen('tcp://[::]:0/')
             host, port = addr[0], addr[1]
 
             async with await s_telepath.openurl(f'tcp://{host}/foo',
