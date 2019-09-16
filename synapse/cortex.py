@@ -201,10 +201,10 @@ class CoreApi(s_cell.CellApi):
                                           user=self.user)
         return iden
 
-    def _trig_auth_check(self, useriden):
-        ''' Check that, as a non-admin, may only manipulate resources created by you. '''
-        if not self.user.admin and useriden != self.user.iden:
-            mesg = 'As non-admin, may only manipulate triggers or cron jobs created by you'
+    async def _trig_auth_check(self, useriden, perm):
+        ''' Raise exception if non-admin and doesn't have explicit perms and resource not created by that user '''
+        if not self.user.admin and useriden != self.user.iden and not await self.allowed(perm):
+            mesg = 'Without explicit permission, may only manipulate triggers or cron jobs created by you'
             raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
 
     async def delTrigger(self, iden):
@@ -212,7 +212,7 @@ class CoreApi(s_cell.CellApi):
         Deletes a trigger from the cortex
         '''
         trig = self.cell.getTrigger(iden)
-        self._trig_auth_check(trig.get('useriden'))
+        await self._trig_auth_check(trig.get('useriden'), ('trigger', 'del'))
         await self.cell.delTrigger(iden)
 
     async def updateTrigger(self, iden, query):
@@ -220,7 +220,7 @@ class CoreApi(s_cell.CellApi):
         Change an existing trigger's query
         '''
         trig = self.cell.getTrigger(iden)
-        self._trig_auth_check(trig.get('useriden'))
+        await self._trig_auth_check(trig.get('useriden'), ('trigger', 'set'))
         await self.cell.updateTrigger(iden, query)
 
     async def enableTrigger(self, iden):
@@ -228,7 +228,7 @@ class CoreApi(s_cell.CellApi):
         Change an existing trigger's query
         '''
         trig = self.cell.getTrigger(iden)
-        self._trig_auth_check(trig.get('useriden'))
+        await self._trig_auth_check(trig.get('useriden'), ('trigger', 'set'))
         await self.cell.enableTrigger(iden)
 
     async def disableTrigger(self, iden):
@@ -236,7 +236,7 @@ class CoreApi(s_cell.CellApi):
         Change an existing trigger's query
         '''
         trig = self.cell.getTrigger(iden)
-        self._trig_auth_check(trig.get('useriden'))
+        await self._trig_auth_check(trig.get('useriden'), ('trigger', 'set'))
         await self.cell.disableTrigger(iden)
 
     async def listTriggers(self):
@@ -245,9 +245,10 @@ class CoreApi(s_cell.CellApi):
         '''
         trigs = []
         _trigs = await self.cell.listTriggers()
+        isallowed = await self.allowed(('trigger', 'get'))
         for (iden, trig) in _trigs:
             useriden = trig['useriden']
-            if not (self.user.admin or useriden == self.user.iden):
+            if not (self.user.admin or useriden == self.user.iden or isallowed):
                 continue
             trigs.append((iden, trig))
 
@@ -311,7 +312,7 @@ class CoreApi(s_cell.CellApi):
         cron = self.cell.agenda.appts.get(iden)
         if cron is None:
             raise s_exc.NoSuchIden()
-        self._trig_auth_check(cron.useriden)
+        await self._trig_auth_check(cron.useriden, ('cron', 'del'))
         await self.cell.agenda.delete(iden)
 
     async def updateCronJob(self, iden, query):
@@ -324,7 +325,7 @@ class CoreApi(s_cell.CellApi):
         cron = self.cell.agenda.appts.get(iden)
         if cron is None:
             raise s_exc.NoSuchIden()
-        self._trig_auth_check(cron.useriden)
+        await self._trig_auth_check(cron.useriden, ('cron', 'set'))
         await self.cell.agenda.mod(iden, query)
 
     async def enableCronJob(self, iden):
@@ -337,7 +338,7 @@ class CoreApi(s_cell.CellApi):
         cron = self.cell.agenda.appts.get(iden)
         if cron is None:
             raise s_exc.NoSuchIden()
-        self._trig_auth_check(cron.useriden)
+        await self._trig_auth_check(cron.useriden, ('cron', 'set'))
         await self.cell.agenda.enable(iden)
 
     async def disableCronJob(self, iden):
@@ -350,7 +351,7 @@ class CoreApi(s_cell.CellApi):
         cron = self.cell.agenda.appts.get(iden)
         if cron is None:
             raise s_exc.NoSuchIden()
-        self._trig_auth_check(cron.useriden)
+        await self._trig_auth_check(cron.useriden, ('cron', 'set'))
         await self.cell.agenda.disable(iden)
 
     async def listCronJobs(self):
@@ -358,9 +359,10 @@ class CoreApi(s_cell.CellApi):
         Get information about all the cron jobs accessible to the current user
         '''
         crons = []
+        isallowed = await self.allowed(('cron', 'get'))
         for iden, cron in self.cell.agenda.list():
             useriden = cron['useriden']
-            if not (self.user.admin or useriden == self.user.iden):
+            if not (self.user.admin or useriden == self.user.iden or isallowed):
                 continue
             user = self.cell.auth.user(useriden)
             cron['username'] = '<unknown>' if user is None else user.name
