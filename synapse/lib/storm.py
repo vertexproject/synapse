@@ -13,6 +13,7 @@ import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
+import synapse.lib.scrape as s_scrape
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -1133,6 +1134,75 @@ class TeeCmd(Cmd):
                 # This does update path with any vars set in the last npath (node.storm behavior)
                 async for nnode, npath in node.storm(query, user=runt.user, path=path):
                     yield nnode, npath
+
+            if self.opts.join:
+                yield node, path
+
+class ScrapeCmd(Cmd):
+    '''
+    Use textual properties of existing nodes to find other easily recognizable nodes.
+
+    Examples:
+
+        inet:search:query | scrape
+
+        # Scrape inbound node properties and make edge:refs nodes to the new nodes.
+        inet:search:query | scrape --refs
+
+        # Scrape the :text prop from the inbound nodes.
+        inet:search:query | scrape --props text
+    '''
+
+    name = 'scrape'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+
+        pars.add_argument('--props', '-p', nargs='+', type=str, default=[],
+                          help='Specify relative properties to scrape')
+        pars.add_argument('--refs', '-r', default=False, action='store_true',
+                          help='Create edge:refs to any scraped nodes from the source node')
+        pars.add_argument('-j', '--join', default=False, action='store_true',
+                          help='Include source nodes in the output of the command.')
+
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        async for node, path in genr:  # type: s_node.Node, s_node.Path
+
+            # repr all prop vals and try to scrape nodes from them
+            reprs = node.reprs()
+
+            # make sure any provided props are valid
+            for fprop in self.opts.props:
+                if node.form.props.get(fprop, None) is None:
+                    raise s_exc.BadOptValu(mesg=f'{fprop} not a valid prop for {node.ndef[1]}',
+                                           name='props', valu=self.opts.props)
+
+            # if a list of props haven't been specified, then default to ALL of them
+            proplist = self.opts.props
+            if not proplist:
+                proplist = [k for k in node.props.keys()]
+
+            for prop in proplist:
+                val = node.props.get(prop)
+                if val is None:
+                    await runt.snap.printf(f'No prop ":{prop}" for {node.ndef}')
+                    continue
+
+                # use the repr val or the system mode val as appropriate
+                sval = reprs.get(prop, val)
+
+                for form, valu in s_scrape.scrape(sval):
+                    nnode = await node.snap.addNode(form, valu)
+                    npath = path.fork(nnode)
+                    yield nnode, npath
+
+                    if self.opts.refs:
+                        rnode = await node.snap.addNode('edge:refs', (node.ndef, nnode.ndef))
+                        rpath = path.fork(rnode)
+                        yield rnode, rpath
 
             if self.opts.join:
                 yield node, path

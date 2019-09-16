@@ -1300,6 +1300,7 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.GraphCmd)
         self.addStormCmd(s_storm.LimitCmd)
         self.addStormCmd(s_storm.SleepCmd)
+        self.addStormCmd(s_storm.ScrapeCmd)
         self.addStormCmd(s_storm.DelNodeCmd)
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
