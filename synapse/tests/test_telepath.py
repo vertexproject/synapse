@@ -171,16 +171,24 @@ class TeleTest(s_t_utils.SynTest):
 
         async with self.getTestDmon() as dmon:
 
-            addr = await dmon.listen('tcp://127.0.0.1:0')
             dmon.share('foo', foo)
 
             await self.asyncraises(s_exc.BadUrl, s_telepath.openurl('noscheme/foo'))
 
-            prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
+            prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1])
 
-            sessions = await dmon.getSessInfo()
-            self.len(1, sessions)
-            self.eq(sessions[0], {'items': {None: 'synapse.tests.test_telepath.Foo'}})
+            # Some bookkeeping data about the connection is available
+            # from the daemon related to the sesssion's objects and
+            # connection information.
+            snfo = await dmon.getSessInfo()
+            self.len(1, snfo)
+            self.eq(snfo[0].get('items'), {None: 'synapse.tests.test_telepath.Foo'})
+            anfo = snfo[0].get('anfo')
+            self.isinstance(anfo, dict)
+            self.eq(anfo.get('family'), 'tcp')
+            # The prox's local sock.getsockname() corresponds to the
+            # server's sock.getpeername()
+            self.eq(anfo.get('addr'), prox.link.sock.getsockname())
 
             # Prox exposes remote synapse version
             self.eq(prox._getSynVers(), s_version.version)
@@ -232,10 +240,9 @@ class TeleTest(s_t_utils.SynTest):
 
         async with self.getTestDmon() as dmon:
 
-            addr = await dmon.listen('tcp://127.0.0.1:0')
             dmon.share('foo', foo)
 
-            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1]) as prox:
+            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
                 self.eq((10, 20, 30), await s_coro.executor(sync))
 
     def test_telepath_sync_genr_break(self):
@@ -283,12 +290,11 @@ class TeleTest(s_t_utils.SynTest):
 
         async with self.getTestDmon() as dmon:
 
-            addr = await dmon.listen('tcp://127.0.0.1:0')
             dmon.share('foo', foo)
 
             await self.asyncraises(s_exc.BadUrl, s_telepath.openurl('noscheme/foo'))
 
-            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1]) as prox:
+            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
 
                 prox.sess = None
 
@@ -359,15 +365,20 @@ class TeleTest(s_t_utils.SynTest):
             async with await s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]) as prox:
                 self.eq(30, await prox.bar(10, 20))
 
+                # The daemon's session information for a TLS link
+                # it's own family.
+                sessions = await dmon.getSessInfo()
+                self.len(1, sessions)
+                self.eq(sessions[0].get('anfo').get('family'), 'tls')
+
     async def test_telepath_surrogate(self):
 
         foo = Foo()
         async with self.getTestDmon() as dmon:
 
-            addr = await dmon.listen('tcp://127.0.0.1:0')
             dmon.share('foo', foo)
 
-            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1]) as prox:
+            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
                 bads = '\u01cb\ufffd\ud842\ufffd\u0012'
                 t0 = ('1234', {'key': bads})
 
@@ -381,10 +392,9 @@ class TeleTest(s_t_utils.SynTest):
 
         async with self.getTestDmon() as dmon:
 
-            addr = await dmon.listen('tcp://127.0.0.1:0')
             dmon.share('foo', foo)
 
-            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1]) as prox:
+            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
 
                 genr = prox.corogenr(3)
                 self.eq([0, 1, 2], [x async for x in genr])
@@ -467,7 +477,7 @@ class TeleTest(s_t_utils.SynTest):
                 # And that data is available from the session helper API
                 snfo = await dmon.getSessInfo()
                 self.len(1, snfo)
-                self.eq(snfo[0], {'items': {None: 'synapse.tests.test_telepath.TeleApi'}})
+                self.eq(snfo[0].get('items'), {None: 'synapse.tests.test_telepath.TeleApi'})
 
                 self.eq(10, await proxy.getFooBar(20, 10))
 
@@ -501,8 +511,9 @@ class TeleTest(s_t_utils.SynTest):
                 # the helper APIs as well
                 snfo = await dmon.getSessInfo()
                 self.len(1, snfo)
-                self.eq(snfo[0], {'items': {None: 'synapse.tests.test_telepath.TeleApi',
-                                            key: 'synapse.tests.test_telepath.CustomShare'}})
+                self.eq(snfo[0].get('items'),
+                        {None: 'synapse.tests.test_telepath.TeleApi',
+                         key: 'synapse.tests.test_telepath.CustomShare'})
 
                 # and we can still use the first obj we made
                 ret = await alist(obj.custgenr(3))
@@ -546,12 +557,12 @@ class TeleTest(s_t_utils.SynTest):
 
         async with self.getTestDmon() as dmon:
 
-            addr = await dmon.listen('tcp://127.0.0.1:0')
+            host, port = dmon.addr
             dmon.share(name, item)
 
             with self.getTestDir() as dirn:
 
-                url = f'tcp://{addr[0]}:{addr[1]}/{name}'
+                url = f'tcp://{host}:{port}/{name}'
                 beepbeep_alias = url + '/beepbeep'
                 aliases = {name: url,
                            f'{name}/borp': beepbeep_alias}
@@ -583,10 +594,10 @@ class TeleTest(s_t_utils.SynTest):
 
         async with self.getTestDmon() as dmon:
 
-            addr, port = await dmon.listen('tcp://127.0.0.1:0')
+            host, port = dmon.addr
             dmon.share('*', Foo())
 
-            async with await s_telepath.openurl(f'tcp://{addr}:{port}/') as prox:
+            async with await s_telepath.openurl(f'tcp://{host}:{port}/') as prox:
                 self.eq('hiya', await prox.echo('hiya'))
 
     async def test_url_cell(self):
@@ -594,13 +605,24 @@ class TeleTest(s_t_utils.SynTest):
         with self.getTestDir(chdir=True) as dirn:
 
             path = os.path.join(dirn, 'cell')
+            sockpath = os.path.join(path, 'sock')
 
             async with await s_cell.Cell.anit(path) as cell:
 
                 # test a relative cell:// url
                 async with await s_telepath.openurl('cell://cell') as prox:
                     self.eq('cell', await prox.getCellType())
+                    # unix path information is available from the session information.
+                    snfo = await cell.dmon.getSessInfo()
+                    self.eq(snfo[0].get('anfo'),
+                            {'family': 'unix',
+                             'addr': sockpath})
 
                 # test an absolute cell:// url
                 async with await s_telepath.openurl(f'cell://{path}') as prox:
                     self.eq('cell', await prox.getCellType())
+                    # unix path information is available from the session information.
+                    snfo = await cell.dmon.getSessInfo()
+                    self.eq(snfo[0].get('anfo'),
+                            {'family': 'unix',
+                             'addr': sockpath})

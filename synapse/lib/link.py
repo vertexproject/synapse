@@ -30,7 +30,8 @@ async def listen(host, port, onlink, ssl=None):
     Returns a server object that contains the listening sockets
     '''
     async def onconn(reader, writer):
-        link = await Link.anit(reader, writer)
+        info = {'tls': bool(ssl)}
+        link = await Link.anit(reader, writer, info=info)
         link.schedCoro(onlink(link))
 
     server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
@@ -113,6 +114,22 @@ class Link(s_base.Base):
             self.writer.close()
 
         self.onfini(fini)
+
+    def getAddrInfo(self):
+        '''
+        Get a summary of address information related to the link.
+        '''
+        ret = {}
+        if self.info.get('unix'):
+            ret['family'] = 'unix'
+            ret['addr'] = self.sock.getsockname()
+        elif self.info.get('tls'):
+            ret['family'] = 'tls'
+            ret['addr'] = self.sock.getpeername()
+        else:
+            ret['family'] = 'tcp'
+            ret['addr'] = self.sock.getpeername()
+        return ret
 
     async def send(self, byts):
         self.writer.write(byts)
