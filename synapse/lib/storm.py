@@ -967,7 +967,7 @@ class ScrapeCmd(Cmd):
         pars.add_argument('--props', '-p', nargs='+', type=str, default=[],
                           help='Specify relative properties to scrape')
         pars.add_argument('--refs', '-r', default=False, action='store_true',
-                          help='Create refs to any scraped nodes from the source node')
+                          help='Create edge:refs to any scraped nodes from the source node')
         pars.add_argument('-j', '--join', default=False, action='store_true',
                           help='Include source nodes in the output of the command.')
 
@@ -980,19 +980,17 @@ class ScrapeCmd(Cmd):
             # repr all prop vals and try to scrape nodes from them
             reprs = node.reprs()
 
-            props = [k for k in node.props.keys()]
-
             # make sure any provided props are valid
             for fprop in self.opts.props:
-                if fprop in props:
-                    continue
-                raise s_exc.BadOptValu('%r not a valid prop for %r' % (fprop, node.ndef))
+                if node.form.props.get(fprop, None) is None:
+                    raise s_exc.BadOptValu('%r not a valid prop for %r' % (fprop, node.ndef))
 
             # if a list of props haven't been specified, then default to ALL of them
+            proplist = self.opts.props
             if not self.opts.props:
-                self.opts.props = [k for k in node.props.keys()]
+                proplist = [k for k in node.props.keys()]
 
-            for prop in self.opts.props:
+            for prop in proplist:
                 val = node.props.get(prop)
 
                 # use the repr val or the system mode val as appropriate
@@ -1004,7 +1002,7 @@ class ScrapeCmd(Cmd):
                     yield nnode, npath
 
                     if self.opts.refs:
-                        rnode = await node.snap.addNode('edge:refs', (node.ndef, (form, valu)))
+                        rnode = await node.snap.addNode('edge:refs', (node.ndef, nnode.ndef))
                         rpath = path.fork(rnode)
                         yield rnode, rpath
 
