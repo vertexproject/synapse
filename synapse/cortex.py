@@ -841,20 +841,20 @@ class Cortex(s_cell.Cell):
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
 
-        # Finalize coremodule loading
+        # Finalize coremodule loading & give stormservices a shot to load
         await self._initCoreMods()
+        await self._initStormSvcs()
 
-        # Now start agenda AFTER all coremodules have finished loading.
+        # Now start agenda and dmons after all coremodules have finished
+        # loading and services have gotten a shot to be registerd.
         if self.conf.get('cron:enable'):
             await self.agenda.start()
+        await self._initStormDmons()
 
         # Initialize free-running tasks.
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
-
-        await self._initStormSvcs()
-        await self._initStormDmons()
 
     async def _initStormDmons(self):
 
