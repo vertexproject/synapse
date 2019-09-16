@@ -28,6 +28,9 @@ PROGRESS_PERIOD = COPY_CHUNKSIZE * 1024
 # By default, double the map size each time we run out of space, until this amount, and then we only increase by that
 MAX_DOUBLE_SIZE = 100 * s_const.gibibyte
 
+int64min = s_common.int64en(0)
+int64max = s_common.int64en(0xffffffffffffffff)
+
 class LmdbDatabase():
     def __init__(self, db, dupsort):
         self.db = db
@@ -178,7 +181,7 @@ class SlabDict:
 
 class SlabAbrv:
     '''
-    A utility for translating arbitrary names into fixed with id bytes
+    A utility for translating arbitrary name strings into fixed with id bytes
     '''
 
     def __init__(self, slab, name):
@@ -215,9 +218,6 @@ class SlabAbrv:
         self.slab.put(abrv, lkey, db=self.abrv2name)
 
         return abrv
-
-int64min = s_common.int64en(0)
-int64max = s_common.int64en(0xffffffffffffffff)
 
 class MultiQueue:
     '''

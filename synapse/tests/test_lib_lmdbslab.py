@@ -502,6 +502,43 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.false(mque.exists('woot'))
 
+    async def test_slababrv(self):
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                abrv = s_lmdbslab.SlabAbrv(slab, 'test')
+
+                valu = abrv.nameToAbrv('hehe')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x00')
+                valu = abrv.nameToAbrv('haha')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
+
+                name = abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x01')
+                self.eq(name, 'haha')
+
+                self.none(abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
+
+            # And persistence
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                abrv = s_lmdbslab.SlabAbrv(slab, 'test')
+                # recall first
+                name = abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x00')
+                self.eq(name, 'hehe')
+
+                name = abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x01')
+                self.eq(name, 'haha')
+                # Remaking them makes the values we already had
+                valu = abrv.nameToAbrv('hehe')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x00')
+
+                valu = abrv.nameToAbrv('haha')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
+
+                # And we still have no valu for 02
+                self.none(abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
+
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
     async def test_lmdbslabmemlock(self):
