@@ -62,7 +62,7 @@ def un(byts):
 
 def isok(item):
     '''
-    Returns True if the item can be msgpacked ( by testing packing ).
+    Returns True if the item can be msgpacked (by testing packing).
     '''
     try:
         en(item)

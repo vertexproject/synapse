@@ -58,10 +58,10 @@ stormcmds = (
         'cmdconf': {},
         'storm': '''
             $lib.print("")
-            $lib.print("Storm service list:")
+            $lib.print("Storm service list (iden, ready, name, url):")
             $count = $(0)
             for $sdef in $lib.service.list() {
-                $lib.print("    {iden} ({name}): {url}", iden=$sdef.iden, name=$sdef.name, url=$sdef.url)
+                $lib.print("    {iden} {ready} ({name}): {url}", iden=$sdef.iden, ready=$sdef.ready, name=$sdef.name, url=$sdef.url)
                 $count = $( $count + 1 )
             }
             $lib.print("")

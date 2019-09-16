@@ -65,8 +65,8 @@ class StormSvcTest(s_test.SynTest):
             self.stormIsInPrint(f'added {iden} (fake): tcp://localhost:3333/foo', msgs)
 
             msgs = await core.streamstorm('service.list').list()
-            self.stormIsInPrint('Storm service list', msgs)
-            self.stormIsInPrint(f'    {iden} (fake): tcp://localhost:3333/foo', msgs)
+            self.stormIsInPrint('Storm service list (iden, ready, name, url):', msgs)
+            self.stormIsInPrint(f'    {iden} False (fake): tcp://localhost:3333/foo', msgs)
 
             msgs = await core.streamstorm(f'service.del {iden[:4]}').list()
             self.stormIsInPrint(f'removed {iden} (fake): tcp://localhost:3333/foo', msgs)
