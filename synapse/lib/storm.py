@@ -956,7 +956,12 @@ class ScrapeCmd(Cmd):
     Examples:
 
         inet:search:query | scrape
+
+        # Scrape inbound node properties and make edge:refs nodes to the new nodes.
         inet:search:query | scrape --refs
+
+        # Scrape the :text prop from the inbound nodes.
+        inet:search:query | scrape --props text
     '''
 
     name = 'scrape'
@@ -983,11 +988,12 @@ class ScrapeCmd(Cmd):
             # make sure any provided props are valid
             for fprop in self.opts.props:
                 if node.form.props.get(fprop, None) is None:
-                    raise s_exc.BadOptValu('%r not a valid prop for %r' % (fprop, node.ndef))
+                    raise s_exc.BadOptValu(mesg=f'{fprop} not a valid prop for {node.ndef[1]}',
+                                           name='props', valu=self.opts.props)
 
             # if a list of props haven't been specified, then default to ALL of them
             proplist = self.opts.props
-            if not self.opts.props:
+            if not proplist:
                 proplist = [k for k in node.props.keys()]
 
             for prop in proplist:
