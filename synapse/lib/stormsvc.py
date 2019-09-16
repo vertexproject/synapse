@@ -133,7 +133,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
                     cdef['cmdconf']['svciden'] = self.iden
                     await self.core.setStormCmd(cdef)
 
-                except asyncio.CancelledError:
+                except asyncio.CancelledError:  # pragma: no cover
                     raise
 
                 except Exception as e:
