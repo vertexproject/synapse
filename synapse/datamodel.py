@@ -819,3 +819,6 @@ class Model:
 
     def univ(self, name):
         return self.univlook.get(name)
+
+    def tagprop(self, name):
+        return self.tagprops.get(name)

@@ -55,6 +55,8 @@ Examples:
         'node:del',
         'prop:set',
         'prop:del',
+        'tag:prop:set',
+        'tag:prop:del',
     )
 
     def _make_argparser(self):
@@ -275,9 +277,16 @@ class StormCmd(s_cli.Cmd):
             for tag in sorted(s_node.tagsnice(node)):
 
                 valu = s_node.reprTag(node, tag)
+                tprops = s_node.reprTagProps(node, tag)
+                printed = False
                 if valu:
                     self.printf(f'        #{tag} = {valu}')
-                else:
+                    printed = True
+                if tprops:
+                    for prop, pval in tprops:
+                        self.printf(f'        #{tag}:{prop} = {pval}')
+                    printed = True
+                if not printed:
                     self.printf(f'        #{tag}')
 
     def _onInit(self, mesg):
