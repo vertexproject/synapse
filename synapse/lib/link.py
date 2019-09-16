@@ -69,6 +69,9 @@ async def linkfile(mode='wb'):
     return link0, file1
 
 async def linksock():
+    '''
+    Connect a Link, socket pair.
+    '''
     sock0, sock1 = socket.socketpair()
     reader, writer = await asyncio.open_connection(sock=sock0)
     link0 = await Link.anit(reader, writer, info={'unix': True})
