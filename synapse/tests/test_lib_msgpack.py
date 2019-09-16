@@ -122,6 +122,20 @@ class MsgPackTest(s_t_utils.SynTest):
         self.len(1, objs)
         self.eq(objs[0], (71, struct))
 
+        # Generic isok helper
+        self.true(s_msgpack.isok(1))
+        self.true(s_msgpack.isok('1'))
+        self.true(s_msgpack.isok(1.1))
+        self.true(s_msgpack.isok(None))
+        self.true(s_msgpack.isok(True))
+        self.true(s_msgpack.isok(False))
+        self.true(s_msgpack.isok([1]))
+        self.true(s_msgpack.isok((1,)))
+        self.true(s_msgpack.isok({1: 1}))
+        # unpackage types
+        self.false(s_msgpack.isok({1, 2}))  # set
+        self.false(s_msgpack.isok(print))  # function
+
     def test_msgpack_large_data(self):
 
         big_string = s_const.mebibyte * 129 * 'V'
