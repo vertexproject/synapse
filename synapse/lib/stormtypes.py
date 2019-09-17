@@ -202,8 +202,21 @@ class LibTime(Lib):
         '''
         Format a Synapse timestamp into a string value using strftime.
         '''
+        timetype = self.runt.snap.model.type('time')
+        # Give a times string a shot at being normed prior to formating.
         try:
-            dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=valu)
+            norm, _ = timetype.norm(valu)
+        except s_exc.BadTypeValu as e:
+            mesg = f'Failed to norm a time value prior to formatting - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu,
+                                          format=format) from None
+
+        if norm == timetype.futsize:
+            mesg = 'Cannot format a timestamp for ongoing/future time.'
+            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, format=format)
+
+        try:
+            dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=norm)
             ret = dt.strftime(format)
         except Exception as e:
             mesg = f'Error during time format - {str(e)}'

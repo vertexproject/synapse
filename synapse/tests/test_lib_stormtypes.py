@@ -684,6 +684,29 @@ class StormTypesTest(s_test.SynTest):
             '''
             mesgs = await alist(core.streamstorm(query))
             self.stormIsInPrint('2019-17-09', mesgs)
+
+            # Strs can be parsed using time norm routine.
+            query = '''$valu=$lib.time.format('200103040516', '%Y %m %d')
+            $lib.print($valu)
+            '''
+            mesgs = await alist(core.streamstorm(query))
+            self.stormIsInPrint('2001 03 04', mesgs)
+
+            # Out of bounds case for datetime
+            query = '''[test:int=253402300800000]
+            $valu=$lib.time.format($node.value(), '%Y')'''
+            mesgs = await alist(core.streamstorm(query))
+            ernfos = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, ernfos)
+            self.isin('Failed to norm a time value prior to formatting', ernfos[0][1].get('mesg'))
+
+            # Cant format ? times
+            query = '$valu=$lib.time.format("?", "%Y")'
+            mesgs = await alist(core.streamstorm(query))
+            ernfos = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, ernfos)
+            self.isin('Cannot format a timestamp for ongoing/future time.', ernfos[0][1].get('mesg'))
+
             # strftime fail - taken from
             # https://github.com/python/cpython/blob/3.7/Lib/test/datetimetester.py#L1404
             query = r'''[test:str=1234 :tick=20190917]
