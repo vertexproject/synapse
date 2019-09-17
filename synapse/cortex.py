@@ -19,7 +19,6 @@ import synapse.lib.hive as s_hive
 import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
-import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
 import synapse.lib.dyndeps as s_dyndeps
@@ -815,7 +814,7 @@ class Cortex(s_cell.Cell):
             try:
                 await self.runStormDmon(iden, ddef)
 
-            except asyncio.CancelledError as e: # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover
                 raise
 
             except Exception as e:
@@ -832,7 +831,7 @@ class Cortex(s_cell.Cell):
             try:
                 await self._setStormSvc(sdef)
 
-            except asyncio.CancelledError as e: # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover
                 raise
 
             except Exception as e:
@@ -952,8 +951,6 @@ class Cortex(s_cell.Cell):
             await ssvc.fini()
 
     async def _setStormSvc(self, sdef):
-
-        iden = sdef.get('iden')
 
         ssvc = await s_stormsvc.StormSvcClient.anit(self, sdef)
 
@@ -1794,6 +1791,7 @@ class Cortex(s_cell.Cell):
         dmon = await s_storm.StormDmon.anit(self, iden, ddef)
 
         self.stormdmons[iden] = dmon
+
         def fini():
             self.stormdmons.pop(iden, None)
 
