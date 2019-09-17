@@ -121,9 +121,32 @@ class AstConverter(lark.Transformer):
     @lark.v_args(meta=True)
     def baresubquery(self, kids, meta):
         assert len(kids) == 1
-        ast = s_ast.SubQuery(kids)
-        # Keep the text of the subquery in case used by command
-        ast.text = self.text[meta.start_pos:meta.end_pos]
+
+        epos = getattr(meta, 'end_pos', 0)
+        spos = getattr(meta, 'start_pos', 0)
+
+        subq = s_ast.SubQuery(kids)
+        subq.text = self.text[spos:epos]
+
+        return subq
+
+    @lark.v_args(meta=True)
+    def query(self, kids, meta):
+        kids = self._convert_children(kids)
+
+        epos = getattr(meta, 'end_pos', 0)
+        spos = getattr(meta, 'start_pos', 0)
+
+        quer = s_ast.Query(kids=kids)
+        quer.text = self.text[spos:epos]
+
+        return quer
+
+    @lark.v_args(meta=True)
+    def embedquery(self, kids, meta):
+        assert len(kids) == 1
+        text = kids[0].text
+        ast = s_ast.EmbedQuery(text, kids)
         return ast
 
     def funccall(self, kids):
@@ -499,7 +522,6 @@ ruleClassMap = {
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
-    'query': s_ast.Query,
     'relprop': s_ast.RelProp,
     'relpropcond': s_ast.RelPropCond,
     'relpropvalu': s_ast.RelPropValue,

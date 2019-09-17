@@ -1,3 +1,4 @@
+import socket
 import asyncio
 
 import synapse.common as s_common
@@ -112,3 +113,42 @@ class LinkTest(s_test.SynTest):
         await coro
 
         self.eq(b'asdfqwer', byts)
+
+    async def test_linksock(self):
+        link0, sock0 = await s_link.linksock()
+        self.isinstance(link0, s_link.Link)
+        self.isinstance(sock0, socket.socket)
+
+        def reader(sock):
+            buf = b''
+            while True:
+                byts = sock.recv(1024)
+                if not byts:
+                    break
+                buf += byts
+            return buf
+
+        coro = s_coro.executor(reader, sock0)
+
+        await link0.send(b'part1')
+        await link0.send(b'qwer')
+
+        await link0.fini()
+
+        self.eq(b'part1qwer', await coro)
+        sock0.close()
+
+        link1, sock1 = await s_link.linksock()
+
+        def writer(sock):
+            sock.sendall(b'part2')
+            sock.sendall(b'qwer')
+            sock.shutdown(socket.SHUT_WR)
+
+        coro = s_coro.executor(writer, sock1)
+        await coro
+
+        self.eq(b'part2qwer', await link1.recvsize(9))
+
+        await link1.fini()
+        sock1.close()

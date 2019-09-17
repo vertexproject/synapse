@@ -2,19 +2,32 @@ import bz2
 import gzip
 import json
 import base64
+import asyncio
 import binascii
 import datetime
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
+import synapse.lib.msgpack as s_msgpack
 
 def intify(x):
+
     if isinstance(x, str):
+
+        x = x.lower()
+        if x == 'true':
+            return 1
+
+        if x == 'false':
+            return 0
+
         return int(x, 0)
+
     return int(x)
 
 def kwarg_format(text, **kwargs):
@@ -36,7 +49,7 @@ class StormType:
         self.ctors = {}
         self.locls = {}
 
-    def deref(self, name):
+    async def deref(self, name):
 
         locl = self.locls.get(name, s_common.novalu)
         if locl is not s_common.novalu:
@@ -60,9 +73,9 @@ class Lib(StormType):
     def addLibFuncs(self):
         pass
 
-    def deref(self, name):
+    async def deref(self, name):
         try:
-            return StormType.deref(self, name)
+            return await StormType.deref(self, name)
         except s_exc.NoSuchName:
             pass
 
@@ -74,6 +87,108 @@ class Lib(StormType):
 
         ctor = slib[2].get('ctor', Lib)
         return ctor(self.runt, name=path)
+
+class LibDmon(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'add': self._libDmonAdd,
+            'del': self._libDmonDel,
+            'list': self._libDmonList,
+        })
+
+    async def _libDmonDel(self, iden):
+
+        dmon = await self.runt.snap.core.getStormDmon(iden)
+        if dmon is None:
+            mesg = f'No storm dmon with iden: {iden}'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        if dmon.ddef.get('user') != self.runt.user.iden:
+            self.runt.allowed('storm', 'dmon', 'del', iden)
+
+        await self.runt.snap.core.delStormDmon(iden)
+
+    async def _libDmonList(self):
+        dmons = await self.runt.snap.core.getStormDmons()
+        return [d.pack() for d in dmons]
+
+    async def _libDmonAdd(self, quer, name='noname'):
+        '''
+        Add a storm dmon (persistent background task) to the cortex.
+
+        $lib.dmon.add(${ myquery })
+        '''
+        self.runt.allowed('storm', 'dmon', 'add')
+
+        # closure style capture of runtime
+        runtvars = {k: v for (k, v) in self.runt.vars.items() if s_msgpack.isok(v)}
+
+        opts = {'vars': runtvars}
+
+        ddef = {
+            'name': name,
+            'user': self.runt.user.iden,
+            'storm': str(quer),
+            'stormopts': opts,
+        }
+
+        dmon = await self.runt.snap.core.addStormDmon(ddef)
+
+        return dmon.pack()
+
+class LibService(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'add': self._libSvcAdd,
+            'del': self._libSvcDel,
+            'get': self._libSvcGet,
+            'list': self._libSvcList,
+            'wait': self._libSvcWait,
+        })
+
+    async def _libSvcAdd(self, name, url):
+
+        self.runt.allowed('storm', 'service', 'add')
+        sdef = {
+            'name': name,
+            'url': url,
+        }
+        ssvc = await self.runt.snap.core.addStormSvc(sdef)
+        return ssvc.sdef
+
+    async def _libSvcDel(self, iden):
+        self.runt.allowed('storm', 'service', 'del')
+        return await self.runt.snap.core.delStormSvc(iden)
+
+    async def _libSvcGet(self, name):
+        self.runt.allowed('storm', 'service', 'get', name)
+        ssvc = self.runt.snap.core.getStormSvc(name)
+        if ssvc is None:
+            mesg = f'No service with name/iden: {name}'
+            raise s_exc.NoSuchName(mesg=mesg)
+        return ssvc
+
+    async def _libSvcList(self):
+        self.runt.allowed('storm', 'service', 'list')
+        retn = []
+
+        for ssvc in self.runt.snap.core.getStormSvcs():
+            sdef = dict(ssvc.sdef)
+            sdef['ready'] = ssvc.ready.is_set()
+            retn.append(sdef)
+
+        return retn
+
+    async def _libSvcWait(self, name):
+        self.runt.allowed('storm', 'service', 'get')
+        ssvc = self.runt.snap.core.getStormSvc(name)
+        if ssvc is None:
+            mesg = f'No service with name/iden: {name}'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        await ssvc.ready.wait()
 
 class LibBase(Lib):
 
@@ -193,6 +308,8 @@ class LibTime(Lib):
             'now': s_common.now,
             'fromunix': self.fromunix,
             'parse': self.parse,
+            'sleep': self.sleep,
+            'ticker': self.ticker,
         })
 
     # TODO from other iso formats!
@@ -208,6 +325,29 @@ class LibTime(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu,
                                           format=format) from None
         return int((dt - s_time.EPOCH).total_seconds() * 1000)
+
+    async def sleep(self, valu):
+        '''
+        Sleep/yield execution of the storm query.
+        '''
+        await self.runt.snap.waitfini(timeout=float(valu))
+
+    async def ticker(self, tick, count=None):
+
+        if count is not None:
+            count = intify(count)
+
+        tick = float(tick)
+
+        offs = 0
+        while True:
+
+            await self.runt.snap.waitfini(timeout=tick)
+            yield offs
+
+            offs += 1
+            if count is not None and offs == count:
+                break
 
     async def fromunix(self, secs):
         '''
@@ -235,6 +375,154 @@ class LibCsv(Lib):
         '''
         row = [toprim(a) for a in args]
         await self.runt.snap.fire('csv:row', row=row, table=table)
+
+class LibQueue(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'add': self._methQueueAdd,
+            'del': self._methQueueDel,
+            'get': self._methQueueGet,
+            'list': self._methQueueList,
+        })
+
+    async def _methQueueAdd(self, name):
+
+        self.runt.allowed('storm', 'queue', 'add')
+
+        info = self.runt.snap.core.multiqueue.queues.get(name)
+        if info is not None:
+            mesg = f'A queue named {name} already exists.'
+            raise s_exc.DupName(mesg=mesg)
+
+        info = {'user': self.runt.user.iden, 'time': s_common.now()}
+        self.runt.snap.core.multiqueue.add(name, info)
+
+        return Queue(self.runt, name, info)
+
+    async def _methQueueGet(self, name):
+
+        info = self.runt.snap.core.multiqueue.queues.get(name)
+        if info is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        return Queue(self.runt, name, info)
+
+    async def _methQueueDel(self, name, allow=()):
+
+        info = self.runt.snap.core.multiqueue.queues.get(name)
+        if info is None:
+            mesg = f'No queue named {name} exists.'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        if (info.get('user') == self.runt.user.iden or
+            self.runt.allowed('storm', 'queue', 'del', name)):
+
+            await self.runt.snap.core.multiqueue.rem(name)
+
+    async def _methQueueList(self):
+        self.runt.allowed('storm', 'lib', 'queue', 'list')
+        return self.runt.snap.core.multiqueue.list()
+
+class Queue(StormType):
+    '''
+    A StormLib API instance of a named channel in the cortex multiqueue.
+    '''
+
+    def __init__(self, runt, name, info):
+
+        StormType.__init__(self)
+        self.runt = runt
+        self.name = name
+        self.info = info
+
+        self.locls.update({
+            'get': self._methQueueGet,
+            'put': self._methQueuePut,
+            'puts': self._methQueuePuts,
+            'gets': self._methQueueGets,
+            'cull': self._methQueueCull,
+        })
+
+    async def _methQueueCull(self, offs):
+        await self.allowed('storm', 'queue', self.name, 'get')
+
+        offs = intify(offs)
+
+        mque = self.runt.snap.core.multiqueue
+        await self.runt.snap.core.multiqueue.cull(self.name, offs)
+
+    async def _methQueueGets(self, offs=0, wait=True, cull=True, size=None):
+
+        await self.allowed('storm', 'queue', self.name, 'get')
+
+        wait = intify(wait)
+        cull = intify(cull)
+        offs = intify(offs)
+
+        if size is not None:
+            size = intify(size)
+
+        mque = self.runt.snap.core.multiqueue
+
+        async for item in mque.gets(self.name, offs, cull=cull, wait=wait, size=size):
+            yield item
+
+    async def _methQueuePuts(self, items, wait=False):
+        await self.allowed('storm', 'queue', self.name, 'put')
+        return self.runt.snap.core.multiqueue.puts(self.name, items)
+
+    async def allowed(self, *perm):
+        if self.info.get('user') == self.runt.user.iden:
+            return
+        await self.runt.allowed(*perm)
+
+    async def _methQueueGet(self, offs=0, wait=True, cull=True):
+
+        await self.allowed('storm', 'queue', self.name, 'get')
+
+        offs = intify(offs)
+        wait = intify(wait)
+        cull = intify(cull)
+
+        mque = self.runt.snap.core.multiqueue
+
+        async for item in mque.gets(self.name, offs, cull=cull, wait=wait):
+            return item
+
+    async def _methQueuePut(self, item):
+        await self.allowed('storm', 'queue', self.name, 'put')
+        return self.runt.snap.core.multiqueue.put(self.name, item)
+
+class LibTelepath(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'open': self._methTeleOpen,
+        })
+
+    async def _methTeleOpen(self, url):
+        '''
+        Open and return a telepath RPC proxy.
+        '''
+        scheme = url.split('://')[0]
+        self.runt.allowed(('storm', 'lib', 'telepath', 'open', scheme))
+        return Proxy(await self.runt.getTeleProxy(url))
+
+class Proxy(StormType):
+
+    def __init__(self, proxy, path=None):
+        StormType.__init__(self, path=path)
+        self.proxy = proxy
+
+    async def deref(self, name):
+
+        if name[0] == '_':
+            mesg = f'No proxy method named {name}'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        return getattr(self.proxy, name, None)
 
 class LibBase64(Lib):
 
@@ -279,6 +567,10 @@ class Str(Prim):
         Prim.__init__(self, valu, path=path)
         self.locls.update({
             'split': self._methStrSplit,
+            'endswith': self._methStrEndswith,
+            'startswith': self._methStrStartswith,
+            'ljust': self._methStrLjust,
+            'rjust': self._methStrRjust,
         })
 
     async def _methStrSplit(self, text):
@@ -291,6 +583,18 @@ class Str(Prim):
 
         '''
         return self.valu.split(text)
+
+    async def _methStrEndswith(self, text):
+        return self.valu.endswith(text)
+
+    async def _methStrStartswith(self, text):
+        return self.valu.startswith(text)
+
+    async def _methStrRjust(self, size):
+        return self.valu.rjust(intify(size))
+
+    async def _methStrLjust(self, size):
+        return self.valu.ljust(intify(size))
 
 class Bytes(Prim):
 
@@ -356,7 +660,7 @@ class Bytes(Prim):
 
 class Dict(Prim):
 
-    def deref(self, name):
+    async def deref(self, name):
         return self.valu.get(name)
 
 class Set(Prim):
@@ -395,7 +699,11 @@ class List(Prim):
         self.locls.update({
             'index': self._methListIndex,
             'length': self._methListLength,
+            'append': self._methListAppend,
         })
+
+    async def _methListAppend(self, valu):
+        self.valu.append(valu)
 
     async def _methListIndex(self, valu):
         '''
@@ -506,6 +814,23 @@ class LibGlobals(Lib):
                 ret.append((key, valu))
         return ret
 
+class Query(StormType):
+    '''
+    A storm primitive representing an embedded query.
+    '''
+    def __init__(self, text, opts, path=None):
+
+        StormType.__init__(self, path=path)
+
+        self.text = text
+        self.opts = opts
+
+        self.locls.update({
+        })
+
+    def __str__(self):
+        return self.text
+
 class NodeData(Prim):
 
     def __init__(self, node, path=None):
@@ -555,12 +880,17 @@ class Node(Prim):
             'iden': self._methNodeIden,
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
+
+            'isform': self._methNodeIsForm,
         })
 
         def ctordata(path=None):
             return NodeData(node, path=path)
 
         self.ctors['data'] = ctordata
+
+    async def _methNodeIsForm(self, name):
+        return self.valu.form.name == name
 
     async def _methNodeTags(self, glob=None):
         tags = list(self.valu.tags.keys())

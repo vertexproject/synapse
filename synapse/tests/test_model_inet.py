@@ -477,7 +477,7 @@ class InetModelTest(s_t_utils.SynTest):
 
                 # Remove the FQDN's suffix status and make sure its children lose zone status
                 n3 = await snap.addNode(formname, 'vertex.link', props={'issuffix': False})
-                iszone(n3)     # vertex.link should now be a zone becuase we removed its suffix status
+                iszone(n3)     # vertex.link should now be a zone because we removed its suffix status
                 n0 = await snap.getNodeByNdef((formname, 'abc.vertex.link'))
                 n1 = await snap.getNodeByNdef((formname, 'def.vertex.link'))
                 n2 = await snap.getNodeByNdef((formname, 'g.def.vertex.link'))
