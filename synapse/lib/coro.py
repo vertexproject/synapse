@@ -13,6 +13,22 @@ import synapse.glob as s_glob
 def iscoro(item):
     return inspect.iscoroutine(item)
 
+async def agen(item):
+    '''
+    Wrap an async_generator *or* generator in an async_generator.
+
+    Notes:
+        Do not use this for a synchronous generator which would cause
+        none-blocking IO; otherwise that IO will block the ioloop.
+    '''
+    if getattr(item, '__aiter__', None) is not None:
+        async for x in item:
+            yield x
+        return
+
+    for x in item:
+        yield x
+
 def executor(func, *args, **kwargs):
     '''
     Execute a non-coroutine function in the ioloop executor pool.

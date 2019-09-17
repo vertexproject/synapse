@@ -223,6 +223,8 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(t.norm('100')[0], 100)
         self.eq(t.norm('0x20')[0], 32)
         self.raises(s_exc.BadTypeValu, t.norm, 'newp')
+        self.eq(t.norm(True)[0], 1)
+        self.eq(t.norm(False)[0], 0)
 
         # Index tests
         self.eq(t.indx(-2**63), b'\x00\x00\x00\x00\x00\x00\x00\x00')

@@ -19,6 +19,7 @@ import synapse.lib.hive as s_hive
 import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
+import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
 import synapse.lib.dyndeps as s_dyndeps
@@ -27,6 +28,8 @@ import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
 import synapse.lib.trigger as s_trigger
 import synapse.lib.modelrev as s_modelrev
+import synapse.lib.stormsvc as s_stormsvc
+import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.lmdblayer as s_lmdblayer
 import synapse.lib.stormhttp as s_stormhttp
 import synapse.lib.provenance as s_provenance
@@ -299,6 +302,20 @@ class CoreApi(s_cell.CellApi):
             crons.append((iden, cron))
 
         return crons
+
+    async def setStormCmd(self, cdef):
+        '''
+        Set the definition of a pure storm command in the cortex.
+        '''
+        await self._reqUserAllowed(('storm', 'admin', 'cmds'))
+        return await self.cell.setStormCmd(cdef)
+
+    async def delStormCmd(self, name):
+        '''
+        Remove a pure storm command from the cortex.
+        '''
+        await self._reqUserAllowed(('storm', 'admin', 'cmds'))
+        return await self.cell.delStormCmd(name)
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
@@ -708,6 +725,9 @@ class Cortex(s_cell.Cell):
         self.stormvars = None  # type: s_hive.HiveDict
         self.stormrunts = {}
 
+        self.svcsbyiden = {}
+        self.svcsbyname = {}
+
         self._runtLiftFuncs = {}
         self._runtPropSetFuncs = {}
         self._runtPropDelFuncs = {}
@@ -726,12 +746,9 @@ class Cortex(s_cell.Cell):
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
 
-        # async inits
         await self._initCoreHive()
-
-        # sync inits
         self._initSplicers()
-        self._initStormCmds()
+        await self._initStormCmds()
         self._initStormLibs()
         self._initFeedFuncs()
         self._initFormCounts()
@@ -751,6 +768,7 @@ class Cortex(s_cell.Cell):
         await self._initCoreLayers()
         await self._checkLayerModels()
         await self._initCoreViews()
+        await self._initCoreQueues()
         # our "main" view has the same iden as we do
         self.view = self.views.get(self.iden)
 
@@ -763,6 +781,7 @@ class Cortex(s_cell.Cell):
         async def fini():
             await asyncio.gather(*[view.fini() for view in self.views.values()])
             await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
+            await asyncio.gather(*[dmon.fini() for dmon in self.stormdmons.values()])
 
         self.onfini(fini)
 
@@ -770,17 +789,183 @@ class Cortex(s_cell.Cell):
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
 
-        # Finalize coremodule loading
+        # Finalize coremodule loading & give stormservices a shot to load
         await self._initCoreMods()
+        await self._initStormSvcs()
 
-        # Now start agenda AFTER all coremodules have finished loading.
+        # Now start agenda and dmons after all coremodules have finished
+        # loading and services have gotten a shot to be registerd.
         if self.conf.get('cron:enable'):
             await self.agenda.start()
+        await self._initStormDmons()
 
         # Initialize free-running tasks.
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    async def _initStormDmons(self):
+
+        node = await self.hive.open(('cortex', 'storm', 'dmons'))
+
+        self.stormdmons = {}
+        self.stormdmonhive = await node.dict()
+
+        for iden, ddef in self.stormdmonhive.items():
+            try:
+                await self.runStormDmon(iden, ddef)
+
+            except asyncio.CancelledError as e: # pragma: no cover
+                raise
+
+            except Exception as e:
+                logger.warning(f'initStormDmon ({iden}) failed: {e}')
+
+    async def _initStormSvcs(self):
+
+        node = await self.hive.open(('cortex', 'storm', 'services'))
+
+        self.stormservices = await node.dict()
+
+        for iden, sdef in self.stormservices.items():
+
+            try:
+                await self._setStormSvc(sdef)
+
+            except asyncio.CancelledError as e: # pragma: no cover
+                raise
+
+            except Exception as e:
+                logger.warning(f'initStormService ({iden}) failed: {e}')
+
+    async def _initCoreQueues(self):
+        path = os.path.join(self.dirn, 'slabs', 'queues.lmdb')
+
+        slab = await s_lmdbslab.Slab.anit(path, map_async=True)
+        self.onfini(slab.fini)
+
+        self.multiqueue = slab.getMultiQueue('cortex:queue')
+
+    async def setStormCmd(self, cdef):
+        '''
+        Set pure storm command definition.
+
+        cdef = {
+
+            'name': <name>,
+
+            'cmdopts': [
+                (<name>, <opts>),
+            ]
+
+            'cmdconf': {
+                <str>: <valu>
+            },
+
+            'storm': <text>,
+
+        }
+        '''
+        name = cdef.get('name')
+        await self._setStormCmd(cdef)
+        await self.cmdhive.set(name, cdef)
+
+    async def _setStormCmd(self, cdef):
+
+        name = cdef.get('name')
+        if not s_grammar.isCmdName(name):
+            raise s_exc.BadCmdName(name=name)
+
+        self.getStormQuery(cdef.get('storm'))
+
+        def ctor(argv):
+            return s_storm.PureCmd(cdef, argv)
+
+        # TODO unify class ctors and func ctors vs briefs...
+        def getCmdBrief():
+            return cdef.get('descr', 'No description').split('\n')[0]
+
+        ctor.getCmdBrief = getCmdBrief
+
+        self.stormcmds[name] = ctor
+
+    async def delStormCmd(self, name):
+        '''
+        Remove a previously set pure storm command.
+        '''
+        ctor = self.stormcmds.get(name)
+        if ctor is None:
+            mesg = f'No storm command named {name}.'
+            raise s_exc.NoSuchCmd(name=name, mesg=mesg)
+
+        cdef = self.cmdhive.get(name)
+        if cdef is None:
+            mesg = f'The storm command is not dynamic.'
+            raise s_exc.CantDelCmd(mesg=mesg)
+
+        await self.cmdhive.pop(name)
+        self.stormcmds.pop(name, None)
+
+    def getStormSvc(self, name):
+
+        ssvc = self.svcsbyiden.get(name)
+        if ssvc is not None:
+            return ssvc
+
+        ssvc = self.svcsbyname.get(name)
+        if ssvc is not None:
+            return ssvc
+
+    async def addStormSvc(self, sdef):
+        '''
+        Add a registered storm service to the cortex.
+        '''
+        if sdef.get('iden') is None:
+            sdef['iden'] = s_common.guid()
+
+        iden = sdef.get('iden')
+        if self.svcsbyiden.get(iden) is not None:
+            mesg = f'Storm service already exists: {iden}'
+            raise s_exc.DupStormSvc(mesg=mesg)
+
+        ssvc = await self._setStormSvc(sdef)
+        await self.stormservices.set(iden, sdef)
+
+        return ssvc
+
+    async def delStormSvc(self, iden):
+        '''
+        Delete a registered storm service from the cortex.
+        '''
+
+        sdef = await self.stormservices.pop(iden, None)
+        if sdef is None:
+            mesg = f'No storm service with iden: {iden}'
+            raise s_exc.NoSuchStormSvc(mesg=mesg)
+
+        name = sdef.get('name')
+        if name is not None:
+            self.svcsbyname.pop(name, None)
+
+        ssvc = self.svcsbyiden.pop(iden, None)
+        if ssvc is not None:
+            await ssvc.fini()
+
+    async def _setStormSvc(self, sdef):
+
+        iden = sdef.get('iden')
+
+        ssvc = await s_stormsvc.StormSvcClient.anit(self, sdef)
+
+        self.onfini(ssvc)
+
+        self.svcsbyiden[ssvc.iden] = ssvc
+        self.svcsbyname[ssvc.name] = ssvc
+
+        return ssvc
+
+    def getStormSvcs(self):
+        return list(self.svcsbyiden.values())
 
     async def _cortexHealth(self, health):
         health.update('cortex', 'nominal')
@@ -1047,7 +1232,7 @@ class Cortex(s_cell.Cell):
 
         self.schedCoro(teleloop())
 
-    def _initStormCmds(self):
+    async def _initStormCmds(self):
         '''
         Registration for built-in Storm commands.
         '''
@@ -1068,16 +1253,40 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
 
+        for cdef in s_stormsvc.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
+        for cdef in s_storm.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
+        cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
+
+        self.cmdhive = await cmdhive.dict()
+
+        for name, cdef in self.cmdhive.items():
+            await self._trySetStormCmd(name, cdef)
+
+    async def _trySetStormCmd(self, name, cdef):
+        try:
+            await self._setStormCmd(cdef)
+        except Exception as e:
+            logger.warning(f'Storm command ({name}) load failed: {e}')
+
     def _initStormLibs(self):
         '''
         Registration for built-in Storm Libraries
         '''
         self.addStormLib(('csv',), s_stormtypes.LibCsv)
         self.addStormLib(('str',), s_stormtypes.LibStr)
+        self.addStormLib(('dmon',), s_stormtypes.LibDmon)
         self.addStormLib(('time',), s_stormtypes.LibTime)
         self.addStormLib(('user',), s_stormtypes.LibUser)
+        self.addStormLib(('queue',), s_stormtypes.LibQueue)
+        self.addStormLib(('service',), s_stormtypes.LibService)
         self.addStormLib(('bytes',), s_stormtypes.LibBytes)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
+        self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
+
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
         self.addStormLib(('base64',), s_stormtypes.LibBase64)
 
@@ -1535,8 +1744,69 @@ class Cortex(s_cell.Cell):
 
         self.stormcmds[ctor.name] = ctor
 
+    async def addStormDmon(self, ddef):
+        '''
+        Add a storm dmon task.
+        '''
+        iden = s_common.guid()
+        ddef['iden'] = iden
+
+        if ddef.get('user') is None:
+            user = self.auth.getUserByName('root')
+            ddef['user'] = user.iden
+
+        dmon = await self.runStormDmon(iden, ddef)
+        await self.stormdmonhive.set(iden, ddef)
+        return dmon
+
+    async def delStormDmon(self, iden):
+        '''
+        Stop and remove a storm dmon.
+        '''
+        ddef = await self.stormdmonhive.pop(iden)
+        if ddef is None:
+            mesg = f'No storm daemon exists with iden {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        dmon = self.stormdmons.pop(iden, None)
+        if dmon is not None:
+            await dmon.fini()
+
     def getStormCmd(self, name):
         return self.stormcmds.get(name)
+
+    async def runStormDmon(self, iden, ddef):
+
+        # validate ddef before firing task
+        uidn = ddef.get('user')
+        if uidn is None:
+            mesg = 'Storm daemon definition requires "user".'
+            raise s_exc.NeedConfValu(mesg=mesg)
+
+        user = self.auth.user(uidn)
+        if user is None:
+            mesg = f'No user with iden {uidn}.'
+            raise s_exc.NoSuchUser(iden=uidn, mesg=mesg)
+
+        # raises if parser failure
+        self.getStormQuery(ddef.get('storm'))
+
+        dmon = await s_storm.StormDmon.anit(self, iden, ddef)
+
+        self.stormdmons[iden] = dmon
+        def fini():
+            self.stormdmons.pop(iden, None)
+
+        dmon.onfini(fini)
+        await dmon.run()
+
+        return dmon
+
+    async def getStormDmon(self, iden):
+        return self.stormdmons.get(iden)
+
+    async def getStormDmons(self):
+        return list(self.stormdmons.values())
 
     def addStormLib(self, path, ctor):
 

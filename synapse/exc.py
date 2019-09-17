@@ -47,6 +47,8 @@ class BadConfValu(SynErr):
     '''
     pass
 
+class NeedConfValu(SynErr): pass
+
 class BadCoreStore(SynErr):
     '''The storage layer has encountered an error'''
     pass
@@ -82,6 +84,7 @@ class BadTag(SynErr): pass
 class BadTime(SynErr): pass
 class BadUrl(SynErr): pass
 
+class CantDelCmd(SynErr): pass
 class CantDelNode(SynErr): pass
 class CantDelProp(SynErr): pass
 class CantDelUniv(SynErr): pass
@@ -110,10 +113,12 @@ class DataAlreadyExists(SynErr):
     pass
 
 class DbOutOfSpace(SynErr): pass
+class DupName(SynErr): pass
 class DupFileName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupRoleName(SynErr): pass
 class DupUserName(SynErr): pass
+class DupStormSvc(SynErr): pass
 
 class FileExists(SynErr): pass
 
@@ -139,6 +144,7 @@ class NoCertKey(SynErr):
 class ModAlreadyLoaded(SynErr): pass
 
 class NoSuchAct(SynErr): pass
+class NoSuchCmd(SynErr): pass
 class NoSuchCmpr(SynErr): pass
 class NoSuchCond(SynErr): pass
 class NoSuchCtor(SynErr): pass
@@ -169,6 +175,7 @@ class NoSuchUser(SynErr): pass
 class NoSuchVar(SynErr): pass
 class NoSuchView(SynErr): pass
 class NoSuchTagProp(SynErr): pass
+class NoSuchStormSvc(SynErr): pass
 
 class ParserExit(SynErr):
     ''' Raised by synapse.lib.cmd.Parser on Parser exit() '''
@@ -192,3 +199,5 @@ class StepTimeout(SynErr):
 
 class StormRuntimeError(SynErr): pass
 class StormVarListError(StormRuntimeError): pass
+
+class TeleRedir(SynErr): pass
