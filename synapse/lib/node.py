@@ -679,7 +679,8 @@ class Node:
         await self.snap.stor(sops, [splice])
 
         self.snap.livenodes.pop(self.buid)
-        self.snap.core.pokeFormCount(formname, -1)
+        if self.snap.core.view.layers[0] == self.snap.view.layers[0]:
+            self.snap.core.pokeFormCount(formname, -1)
 
         await self.form.wasDeleted(self)
 

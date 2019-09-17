@@ -3693,3 +3693,31 @@ class CortexBasicTest(s_t_utils.SynTest):
                     # ensure we can use the proxy
                     self.eq(await axon.metrics(),
                             await core.axon.metrics())
+
+    async def test_cortex_delLayerView(self):
+        async with self.getTestCore() as core:
+
+            # Can't delete the default view
+            await self.asyncraises(s_exc.SynErr, core.delView(core.view.iden))
+
+            # Can't delete a layer in a view
+            await self.asyncraises(s_exc.SynErr, core.delLayer(core.view.layers[0].iden))
+
+            # Can't delete a nonexistent view
+            await self.asyncraises(s_exc.NoSuchView, core.delView('XXX'))
+
+            # Can't delete a nonexistent layer
+            await self.asyncraises(s_exc.NoSuchLayer, core.delLayer('XXX'))
+
+            # Fork the main view
+            view2 = await core.view.fork()
+
+            viewiden = view2.iden
+            layriden = view2.layers[0].iden
+
+            # Can't delete a view twice
+            await core.delView(viewiden)
+            await self.asyncraises(s_exc.NoSuchView, core.delView(viewiden))
+
+            # A forked view deletes its write layer
+            await self.asyncraises(s_exc.NoSuchLayer, core.delLayer(layriden))

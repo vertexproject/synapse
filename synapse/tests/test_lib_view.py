@@ -44,7 +44,7 @@ class ViewTest(s_t_utils.SynTest):
             # Fork the main view
             view2 = await core.view.fork()
 
-            # A trigger from the main view fires when the condition matches on a forked view
+            # A trigger inherited from the main view fires on the forked view when the condition matches
             await core.addTrigger('node:add', '[ test:str=mainhit ]', info={'form': 'test:int'})
             nodes = await alist(core.eval('[ test:int=11 ]', opts={'view': view2.iden}))
             self.len(1, nodes)

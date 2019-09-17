@@ -116,7 +116,6 @@ class CoreApi(s_cell.CellApi):
             None
 
         Raises:
-            s_exc.AuthDeny: If the permission is not allowed
             s_exc.NoSuchView: If the view iden doesn't exist
 
         '''
@@ -127,9 +126,7 @@ class CoreApi(s_cell.CellApi):
         if view is None:
             raise s_exc.NoSuchView(iden=iden)
 
-        # TODO:  distinguish between read and read/write perms
-
-        await self._reqUserAllowed('view:lift', iden)
+        # TODO:  enforce view perms
 
         return view
 
@@ -1602,13 +1599,15 @@ class Cortex(s_cell.Cell):
             await self.delLayer(iden)
 
     async def delLayer(self, iden):
-        for view in self.views.values():
-            if iden in view.layers:
-                raise s_exc.LayerInUse(iden=iden)
-
-        layr = self.layers.pop(iden, None)
+        layr = self.layers.get(iden, None)
         if layr is None:
             raise s_exc.NoSuchLayer(iden=iden)
+
+        for view in self.views.values():
+            if layr in view.layers:
+                raise s_exc.LayerInUse(iden=iden)
+
+        del self.layers[iden]
 
         await self.hive.pop(('cortex', 'layers', iden))
 
