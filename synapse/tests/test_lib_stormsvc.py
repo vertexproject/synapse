@@ -161,13 +161,3 @@ class StormSvcTest(s_test.SynTest):
                     self.len(2, nodes)
 
                     await core.delStormSvc(iden)
-
-                async with await s_cortex.Cortex.anit(dirn) as core:
-                    with self.raises(s_exc.NoSuchName):
-                        nodes = await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
-
-                    sdef = {
-                        'iden': iden,
-                        'name': 'fake',
-                        'url': lurl,
-                    }

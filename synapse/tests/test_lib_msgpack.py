@@ -126,6 +126,7 @@ class MsgPackTest(s_t_utils.SynTest):
         self.true(s_msgpack.isok(1))
         self.true(s_msgpack.isok('1'))
         self.true(s_msgpack.isok(1.1))
+        self.true(s_msgpack.isok(b'1'))
         self.true(s_msgpack.isok(None))
         self.true(s_msgpack.isok(True))
         self.true(s_msgpack.isok(False))
