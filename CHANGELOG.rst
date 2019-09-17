@@ -3,6 +3,38 @@ Synapse Changelog
 *****************
 
 
+v0.1.27 - TBD
+====================
+
+Features and Enhancements
+-------------------------
+- Add syn:prop runtime only nodes for extramodel properties.
+  (`#1372 <https://github.com/vertexproject/synapse/pull/1372>`_)
+- Add syn:tagprop runtime only nodes for tagprop properties.
+  (`#1372 <https://github.com/vertexproject/synapse/pull/1372>`_)
+- Add ``:person`` field to ``ps:persona`` form.
+  (`#1376 <https://github.com/vertexproject/synapse/pull/1376>`_)
+- Add reprs for tagprops to the packed node format, and add cmdr display for tags with tagprops.
+  (`#1373 <https://github.com/vertexproject/synapse/pull/1373>`_)
+- Add a ``scrape`` command to Storm to enable regex based scraping of node properties for easily identifiable forms.
+  (`#1368 <https://github.com/vertexproject/synapse/pull/1368>`_)
+- Add explicit permissions for interacting with the trigger, cron and boss operations.
+  (`#1371 <https://github.com/vertexproject/synapse/pull/1371>`_)
+- Add explicit permissions for interacting with the trigger, cron and boss operations.
+  (`#1371 <https://github.com/vertexproject/synapse/pull/1371>`_)
+- Add support for remote Telepath services in Storm.
+  (`#1352 <https://github.com/vertexproject/synapse/pull/1352>`_)
+- Add support for implementing Storm commands in pure Storm.
+  (`#1352 <https://github.com/vertexproject/synapse/pull/1352>`_)
+- Add persistent, durable queue objects to Storm backed by LMDB slabs.
+  (`#1352 <https://github.com/vertexproject/synapse/pull/1352>`_)
+- Add support for persistent Storm daemon loops.
+  (`#1352 <https://github.com/vertexproject/synapse/pull/1352>`_)
+- Add a Telepath Client object. The client object is heavier than a Proxy and supports reconnects and.
+  (`#1352 <https://github.com/vertexproject/synapse/pull/1352>`_)
+- Add StormType ``$lib.time.format()`` to allow for formatting a timestamp value value into an arbitrary string.
+
+
 v0.1.26 - 2019-09-12
 ====================
 
@@ -27,6 +59,7 @@ Bugfixes
   (`#1367 <https://github.com/vertexproject/synapse/pull/1367>`_)
 - Fix an issue with inconsistent test coverage for ``synapse.lib.link``.
   (`#1365 <https://github.com/vertexproject/synapse/pull/1365>`_)
+
 
 v0.1.25 - 2019-09-06
 ====================
