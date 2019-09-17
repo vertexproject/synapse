@@ -41,7 +41,8 @@ class CortexTest(s_t_utils.SynTest):
             guid = 'da299a896ff52ab0e605341ab910dad5'
 
             opts = {'vars': {'guid': guid}}
-            self.len(2, await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) (inet:iface=$guid :ipv4=1.2.3.4) ]', opts=opts))
+            self.len(2, await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) (inet:iface=$guid :ipv4=1.2.3.4) ]',
+                                         opts=opts))
 
             text = '''
 
@@ -69,11 +70,12 @@ class CortexTest(s_t_utils.SynTest):
 
                 await core.addTagProp('user', ('str', {}), {})
                 await core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
-                await core.addTagProp('at', ('geo:latlong', {}), {'doc': 'Where the node was when the tag was applied.'})
+                await core.addTagProp('at', ('geo:latlong', {}), {'doc':
+                                                                  'Where the node was when the tag was applied.'})
 
-                nodes = await core.nodes('[ test:int=10 +#foo.bar:score=20 ]')
-                nodes = await core.nodes('[ test:str=lulz +#blah:user=visi ]')
-                nodes = await core.nodes('[ test:str=wow +#hehe:at=(10, 20) ]')
+                await core.nodes('[ test:int=10 +#foo.bar:score=20 ]')
+                await core.nodes('[ test:str=lulz +#blah:user=visi ]')
+                await core.nodes('[ test:str=wow +#hehe:at=(10, 20) ]')
 
                 # test all the syntax cases...
                 self.len(1, await core.nodes('#foo.bar'))
@@ -93,7 +95,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('test:int +#foo.bar'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score=20'))
-                #self.len(1, await core.nodes('test:int +#foo.bar:score?=20'))
+                # self.len(1, await core.nodes('test:int +#foo.bar:score?=20'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score<=30'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score>=10'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score*range=(10, 30)'))
@@ -108,7 +110,8 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('test:str +#hehe:at*near=((10, 20), 1km)'))
 
                 # test use as a value...
-                self.len(1, await core.nodes('test:int $valu=#foo.bar:score [ +#foo.bar:score = $($valu + 20) ] +#foo.bar:score=40'))
+                q = 'test:int $valu=#foo.bar:score [ +#foo.bar:score = $($valu + 20) ] +#foo.bar:score=40'
+                self.len(1, await core.nodes(q))
 
                 with self.raises(s_exc.CantDelProp):
                     await core.delTagProp('score')
@@ -128,17 +131,17 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('#foo.bar:score*range=(90, 110)'))
 
                 # test that removing it explicitly behaves as intended
-                nodes = await core.nodes('test:int=10 [ -#foo.bar ]')
+                await core.nodes('test:int=10 [ -#foo.bar ]')
                 self.len(0, await core.nodes('#foo.bar:score'))
                 self.len(0, await core.nodes('#foo.bar:score=100'))
                 self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
 
                 # add it back in to remove by whole tag...
-                nodes = await core.nodes('test:int=10 [ +#foo.bar:score=100 ]')
+                await core.nodes('test:int=10 [ +#foo.bar:score=100 ]')
                 self.len(1, await core.nodes('#foo.bar:score=100'))
 
                 # test that removing the tag removes all props indexes
-                nodes = await core.nodes('test:int=10 [ -#foo.bar ]')
+                await core.nodes('test:int=10 [ -#foo.bar ]')
                 self.len(0, await core.nodes('#foo.bar:score'))
                 self.len(0, await core.nodes('#foo.bar:score=100'))
                 self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
@@ -3124,7 +3127,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(node.getTag('bar'))
 
             await core.addTagProp('score', ('int', {}), {})
-            splice = ('tag:prop:set', {'ndef': ('test:str', 'foo'), 'tag': 'lol', 'prop': 'score', 'valu': 100, 'curv': None})
+            splice = ('tag:prop:set', {'ndef': ('test:str', 'foo'), 'tag': 'lol', 'prop': 'score', 'valu': 100,
+                                       'curv': None})
             await core.addFeedData('syn.splice', [splice])
 
             self.len(1, await core.nodes('#lol:score=100'))
@@ -3204,7 +3208,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             mesg = ('node:del', {'ndef': ('test:str', 'hello')})
             self.isin(mesg, splices)
 
-            mesg = ('tag:prop:set', {'ndef': ('test:str', 'hello'), 'tag': 'lol', 'prop': 'confidence', 'valu': 100, 'curv': None})
+            mesg = ('tag:prop:set', {'ndef': ('test:str', 'hello'), 'tag': 'lol', 'prop': 'confidence', 'valu': 100,
+                                     'curv': None})
             self.isin(mesg, splices)
 
             mesg = ('tag:prop:del', {'ndef': ('test:str', 'hello'), 'tag': 'lol', 'prop': 'confidence', 'valu': 100})
