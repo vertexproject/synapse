@@ -1,4 +1,3 @@
-
 import bz2
 import gzip
 import json
@@ -152,6 +151,11 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = [m async for m in prox.storm("$lib.print('woot at: {s} {num}', s=hello, num=$(42+43))")]
                 self.stormIsInPrint('woot at: hello 85', mesgs)
 
+    async def test_storm_lib_node(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ test:str=woot ] [ test:int=$node.isform(test:str) ] +test:int')
+            self.eq(1, nodes[0].ndef[1])
+
     async def test_storm_lib_dict(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('$blah = $lib.dict(foo=vertex.link) [ inet:fqdn=$blah.foo ]')
@@ -165,6 +169,18 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq('visi@vertex.link', nodes[0].ndef[1])
+
+            nodes = await core.nodes('$s = woot [ test:int=$s.startswith(w) ]')
+            self.eq(1, nodes[0].ndef[1])
+
+            nodes = await core.nodes('$s = woot [ test:int=$s.endswith(visi) ]')
+            self.eq(0, nodes[0].ndef[1])
+
+            nodes = await core.nodes('$s = woot [ test:str=$s.rjust(10) ]')
+            self.eq('      woot', nodes[0].ndef[1])
+
+            nodes = await core.nodes('$s = woot [ test:str=$s.ljust(10) ]')
+            self.eq('woot      ', nodes[0].ndef[1])
 
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
@@ -716,6 +732,116 @@ class StormTypesTest(s_test.SynTest):
             ernfos = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, ernfos)
             self.isin('Error during time format', ernfos[0][1].get('mesg'))
+
+    async def test_storm_lib_time_ticker(self):
+
+        async with self.getTestCore() as core:
+            await core.nodes('''
+                $lib.queue.add(visi)
+                $lib.dmon.add(${
+                    $visi=$lib.queue.get(visi)
+                    for $tick in $lib.time.ticker(0.01) {
+                        $visi.put($tick)
+                    }
+                })
+            ''')
+            nodes = await core.nodes('for ($offs, $tick) in $lib.queue.get(visi).gets(size=3) { [test:int=$tick] } ')
+            self.len(3, nodes)
+
+    async def test_storm_lib_telepath(self):
+
+        class FakeService:
+
+            async def doit(self, x):
+                return x + 20
+
+            async def fqdns(self):
+                yield 'woot.com'
+                yield 'vertex.link'
+
+            async def ipv4s(self):
+                return ('1.2.3.4', '5.6.7.8')
+
+        async with self.getTestCore() as core:
+
+            fake = FakeService()
+            core.dmon.share('fake', fake)
+            lurl = core.getLocalUrl(share='fake')
+
+            await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ]')
+
+            opts = {'vars': {'url': lurl}}
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ] $asn = $lib.telepath.open($url).doit(:asn) [ :asn=$asn ]', opts=opts)
+            self.eq(40, nodes[0].props['asn'])
+
+            nodes = await core.nodes('for $fqdn in $lib.telepath.open($url).fqdns() { [ inet:fqdn=$fqdn ] }', opts=opts)
+            self.len(2, nodes)
+
+            nodes = await core.nodes('for $ipv4 in $lib.telepath.open($url).ipv4s() { [ inet:ipv4=$ipv4 ] }', opts=opts)
+            self.len(2, nodes)
+
+            with self.raises(s_exc.NoSuchName):
+                await core.nodes('$lib.telepath.open($url)._newp()', opts=opts)
+
+    async def test_storm_lib_queue(self):
+
+        async with self.getTestCore() as core:
+
+            msgs = await core.streamstorm('queue.add visi').list()
+            self.stormIsInPrint('queue added: visi', msgs)
+
+            with self.raises(s_exc.DupName):
+                await core.nodes('queue.add visi')
+
+            msgs = await core.streamstorm('queue.list').list()
+            self.stormIsInPrint('Storm queue list:', msgs)
+            self.stormIsInPrint('visi', msgs)
+
+            nodes = await core.nodes('$q = $lib.queue.get(visi) [ inet:ipv4=1.2.3.4 ] $q.put( $node.repr() )')
+            nodes = await core.nodes('$q = $lib.queue.get(visi) ($offs, $ipv4) = $q.get(0) inet:ipv4=$ipv4')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            # test iter use case
+            nodes = await core.nodes('$q = $lib.queue.add(blah) [ inet:ipv4=1.2.3.4 inet:ipv4=5.5.5.5 ] $q.put( $node.repr() )')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('''
+                $q = $lib.queue.get(blah)
+                for ($offs, $ipv4) in $q.gets(0, cull=0, wait=0) {
+                    inet:ipv4=$ipv4
+                }
+            ''')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('''
+                $q = $lib.queue.get(blah)
+                for ($offs, $ipv4) in $q.gets(wait=0) {
+                    inet:ipv4=$ipv4
+                    $q.cull($offs)
+                }
+            ''')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('$q = $lib.queue.get(blah) for ($offs, $ipv4) in $q.gets(wait=0) { inet:ipv4=$ipv4 }')
+            self.len(0, nodes)
+
+            msgs = await core.streamstorm('queue.del visi').list()
+            self.stormIsInPrint('queue removed: visi', msgs)
+
+            with self.raises(s_exc.NoSuchName):
+                await core.nodes('queue.del visi')
+
+            with self.raises(s_exc.NoSuchName):
+                await core.nodes('$lib.queue.get(newp).get()')
+
+            await core.nodes('''
+                $doit = $lib.queue.add(doit)
+                $doit.puts((foo,bar))
+            ''')
+            nodes = await core.nodes('for ($offs, $name) in $lib.queue.get(doit).gets(size=2) { [test:str=$name] }')
+            self.len(2, nodes)
 
     async def test_storm_node_data(self):
 

@@ -60,6 +60,16 @@ def un(byts):
     # This uses a subset of unpacker_kwargs
     return msgpack.loads(byts, use_list=False, raw=False, unicode_errors='surrogatepass')
 
+def isok(item):
+    '''
+    Returns True if the item can be msgpacked (by testing packing).
+    '''
+    try:
+        en(item)
+        return True
+    except Exception as e:
+        return False
+
 def iterfd(fd):
     '''
     Generator which unpacks a file object of msgpacked content.

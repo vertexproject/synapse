@@ -683,6 +683,7 @@ class Int(IntBase):
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(bool, self._normPyBool)
 
     def merge(self, oldv, newv):
 
@@ -707,6 +708,9 @@ class Int(IntBase):
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
                                     mesg=str(e)) from None
         return self._normPyInt(valu)
+
+    def _normPyBool(self, valu):
+        return self._normPyInt(int(valu))
 
     def _normPyInt(self, valu):
 

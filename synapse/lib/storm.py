@@ -5,16 +5,138 @@ import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.ast as s_ast
+import synapse.lib.base as s_base
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
+
+stormcmds = (
+    {
+        'name': 'queue.add',
+        'descr': 'Add a queue to the cortex.',
+        'cmdargs': (
+            ('name', {'help': 'The name of the new queue.'}),
+        ),
+        'storm': '''
+            $lib.queue.add($cmdopts.name)
+            $lib.print("queue added: {name}", name=$cmdopts.name)
+        ''',
+    },
+    {
+        'name': 'queue.del',
+        'descr': 'Remove a queue from the cortex.',
+        'cmdargs': (
+            ('name', {'help': 'The name of the queue to remove.'}),
+        ),
+        'storm': '''
+            $lib.queue.del($cmdopts.name)
+            $lib.print("queue removed: {name}", name=$cmdopts.name)
+        ''',
+    },
+    {
+        'name': 'queue.list',
+        'descr': 'List the queues in the cortex.',
+        'storm': '''
+            $lib.print('Storm queue list:')
+            for $info in $lib.queue.list() {
+                $name = $info.name.ljust(32)
+                $lib.print("    {name}:  size: {size} offs: {offs}", name=$name, size=$info.size, offs=$info.offs)
+            }
+        ''',
+    },
+    {
+        'name': 'dmon.list',
+        'descr': 'List the storm daemon queries running in the cortex.',
+        'cmdargs': (),
+        'storm': '''
+            $lib.print('Storm daemon list:')
+            for $info in $lib.dmon.list() {
+                $name = $info.name.ljust(20)
+                $lib.print("    {iden}:  ({name}): {status}", iden=$info.iden, name=$info.name, status=$info.status)
+            }
+        ''',
+    },
+)
+
+class StormDmon(s_base.Base):
+    '''
+    A background storm runtime which is restarted by the cortex.
+    '''
+    async def __anit__(self, core, iden, ddef):
+
+        await s_base.Base.__anit__(self)
+
+        self.core = core
+        self.iden = iden
+        self.ddef = ddef
+
+        self.task = None
+        self.user = core.auth.user(ddef.get('user'))
+
+        self.count = 0
+        self.status = 'initializing'
+
+        async def fini():
+            if self.task is not None:
+                self.task.cancel()
+
+        self.onfini(fini)
+
+    async def run(self):
+        self.task = self.schedCoro(self._run())
+
+    def pack(self):
+        retn = dict(self.ddef)
+        retn['count'] = self.count
+        retn['status'] = self.status
+        return retn
+
+    async def _run(self):
+
+        name = self.ddef.get('name', 'storm dmon')
+
+        await self.core.boss.promote('storm:dmon', user=self.user.iden, info={'iden': self.iden, 'name': name})
+
+        s_scope.set('storm:dmon', self.iden)
+
+        text = self.ddef.get('storm')
+        opts = self.ddef.get('stormopts')
+
+        dmoniden = self.ddef.get('iden')
+
+        while not self.isfini:
+
+            try:
+
+                self.status = 'running'
+                async with await self.core.snap(user=self.user) as snap:
+
+                    async for nodepath in snap.storm(text, opts=opts, user=self.user):
+                        # all storm tasks yield often to prevent latency
+                        self.count += 1
+                        await asyncio.sleep(0)
+
+                    logger.warning(f'dmon query exited: {dmoniden}')
+
+                    self.status = 'exited'
+                    await self.waitfini(timeout=1)
+
+            except asyncio.CancelledError as e:
+                raise
+
+            except Exception as e:
+                logger.exception(f'dmon error ({self.iden}): {e}')
+                self.status = f'error: {e}'
+                await self.waitfini(timeout=1)
 
 class Runtime:
     '''
@@ -48,11 +170,26 @@ class Runtime:
         self.runtvars.update(self.vars.keys())
         self.runtvars.update(self.ctors.keys())
 
+        self.proxies = {}
         self.elevated = False
 
         # used by the digraph projection logic
         self._graph_done = {}
         self._graph_want = collections.deque()
+
+    async def getTeleProxy(self, url, **opts):
+
+        flat = tuple(sorted(opts.items()))
+        prox = self.proxies.get((url, flat))
+        if prox is not None:
+            return prox
+
+        prox = await s_telepath.openurl(url, **opts)
+
+        self.proxies[(url, flat)] = prox
+        self.snap.onfini(prox.fini)
+
+        return prox
 
     def isRuntVar(self, name):
         if name in self.runtvars:
@@ -148,14 +285,17 @@ class Runtime:
         mesg = f'User must have permission {perm}'
         raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
 
+    def loadRuntVars(self, query):
+        # do a quick pass to determine which vars are per-node.
+        for oper in query.kids:
+            for name in oper.getRuntVars(self):
+                self.runtvars.add(name)
+
     async def iterStormQuery(self, query, genr=None):
 
         with s_provenance.claim('storm', q=query.text, user=self.user.iden):
 
-            # do a quick pass to determine which vars are per-node.
-            for oper in query.kids:
-                for name in oper.getRuntVars(self):
-                    self.runtvars.add(name)
+            self.loadRuntVars(query)
 
             # init any options from the query
             # (but dont override our own opts)
@@ -229,8 +369,14 @@ class Cmd:
     def getCmdBrief(cls):
         return cls.__doc__.strip().split('\n')[0]
 
+    def getName(self):
+        return self.name
+
+    def getDescr(self):
+        return self.__class__.__doc__
+
     def getArgParser(self):
-        return Parser(prog=self.name, descr=self.__class__.__doc__)
+        return Parser(prog=self.getName(), descr=self.getDescr())
 
     async def hasValidOpts(self, snap):
 
@@ -289,6 +435,49 @@ class Cmd:
 
         mesg = 'Unknown prop/variable syntax'
         raise s_exc.BadSyntax(mesg=mesg, valu=name)
+
+class PureCmd(Cmd):
+
+    def __init__(self, cdef, argv):
+        self.cdef = cdef
+        Cmd.__init__(self, argv)
+
+    def getDescr(self):
+        return self.cdef.get('descr', 'no documentation provided')
+
+    def getName(self):
+        return self.cdef.get('name')
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        for name, opts in self.cdef.get('cmdargs', ()):
+            pars.add_argument(name, **opts)
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        text = self.cdef.get('storm')
+        query = runt.snap.core.getStormQuery(text)
+
+        opts = {'vars': runt.vars}
+
+        opts['vars']['cmdconf'] = self.cdef.get('cmdconf', {})
+        opts['vars']['cmdopts'] = vars(self.opts)
+
+        # run in an isolated runtime to prevent var leaks
+
+        count = 0
+        async for node, path in genr:
+            count += 1
+            async for item in node.storm(text, opts=opts, user=runt.user):
+                yield item
+
+        if count == 0:
+            with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
+                subr.loadRuntVars(query)
+                if query.isRuntSafe(subr):
+                    async for item in subr.iterStormQuery(query):
+                        yield item
 
 class HelpCmd(Cmd):
     '''
