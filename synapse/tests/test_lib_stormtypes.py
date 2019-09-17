@@ -679,6 +679,21 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, ernfos)
             self.isin('Error during time parsing', ernfos[0][1].get('mesg'))
 
+            query = '''[test:str=1234 :tick=20190917]
+            $lib.print($lib.time.format(:tick, "%Y-%d-%m"))
+            '''
+            mesgs = await alist(core.streamstorm(query))
+            self.stormIsInPrint('2019-17-09', mesgs)
+            # strftime fail - taken from
+            # https://github.com/python/cpython/blob/3.7/Lib/test/datetimetester.py#L1404
+            query = r'''[test:str=1234 :tick=20190917]
+            $lib.print($lib.time.format(:tick, "%y\ud800%m"))
+            '''
+            mesgs = await alist(core.streamstorm(query))
+            ernfos = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, ernfos)
+            self.isin('Error during time format', ernfos[0][1].get('mesg'))
+
     async def test_storm_node_data(self):
 
         async with self.getTestCore() as core:

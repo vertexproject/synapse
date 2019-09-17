@@ -193,9 +193,23 @@ class LibTime(Lib):
             'now': s_common.now,
             'fromunix': self.fromunix,
             'parse': self.parse,
+            'format': self.format,
         })
 
     # TODO from other iso formats!
+
+    async def format(self, valu, format):
+        '''
+        Format a Synapse timestamp into a string value using strftime.
+        '''
+        try:
+            dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=valu)
+            ret = dt.strftime(format)
+        except Exception as e:
+            mesg = f'Error during time format - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu,
+                                          format=format) from None
+        return ret
 
     async def parse(self, valu, format):
         '''
