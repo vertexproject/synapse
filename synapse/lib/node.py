@@ -682,7 +682,7 @@ class Node:
 
         # If the node was originally in the main layer and our current write layer is the main layer,
         # decrement the form count
-        if self.snap.wlyr == self.proplayr['*'] == self.snap.core.view.layers[0]:
+        if self.snap.wlyr == self.proplayr['*' + self.form.name] == self.snap.core.view.layers[0]:
             self.snap.core.pokeFormCount(formname, -1)
 
         await self.form.wasDeleted(self)

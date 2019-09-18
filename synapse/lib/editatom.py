@@ -106,7 +106,7 @@ class EditAtom:
 
         for node in self.mybldgbuids.values():
             # Track which layer the node primary property is written to
-            node.proplayr['*'] = snap.wlyr
+            node.proplayr['*' + node.form.name] = snap.wlyr
 
             # Only track form counts on the main view
             if isonmainview:
