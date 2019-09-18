@@ -3,7 +3,7 @@ Synapse Changelog
 *****************
 
 
-v0.1.27 - TBD
+v0.1.27 - 2019-09-18
 ====================
 
 Features and Enhancements
@@ -34,6 +34,8 @@ Features and Enhancements
   (`#1352 <https://github.com/vertexproject/synapse/pull/1352>`_)
 - Add StormType ``$lib.time.format()`` to allow for formatting a timestamp value value into an arbitrary string.
   (`#1378 <https://github.com/vertexproject/synapse/pull/1378>`_)
+- Internal plumbing support for a Cortex managing multiple views.
+  (`#1348 <https://github.com/vertexproject/synapse/pull/1348>`_)
 
 
 v0.1.26 - 2019-09-12
