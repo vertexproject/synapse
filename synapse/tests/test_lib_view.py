@@ -9,6 +9,7 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('[ test:int=10 ]')
             nodes = await alist(core.eval('test:int=10'))
             self.len(1, nodes)
+            self.eq(1, core.counts.get('test:int'))
 
             # Fork the main view
             view2 = await core.view.fork()
@@ -22,6 +23,7 @@ class ViewTest(s_t_utils.SynTest):
             # A node added to the parent after the fork is still seen by the child
             nodes = await alist(view2.eval('test:int=11'))
             self.len(1, nodes)
+            self.eq(2, core.counts.get('test:int'))
 
             # A node added to the child is not seen by the parent
             nodes = await alist(view2.eval('[ test:int=12 ]'))
@@ -29,6 +31,13 @@ class ViewTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:int=12')
             self.len(0, nodes)
+            self.eq(2, core.counts.get('test:int'))
+
+            # Deleting nodes from the child view should not affect the main
+            await alist(view2.eval('test:int | delnode'))
+            self.eq(2, core.counts.get('test:int'))
+            nodes = await alist(view2.eval('test:int=10'))
+            self.len(1, nodes)
 
             # Forker and forkee have their layer configuration frozen
             tmplayr = await core.addLayer()
