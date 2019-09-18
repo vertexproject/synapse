@@ -679,7 +679,10 @@ class Node:
         await self.snap.stor(sops, [splice])
 
         self.snap.livenodes.pop(self.buid)
-        if self.snap.core.view.layers[0] == self.snap.view.layers[0]:
+
+        # If the node was originally in the main layer and our current write layer is the main layer,
+        # decrement the form count
+        if self.snap.wlyr == self.proplayr['*'] == self.snap.core.view.layers[0]:
             self.snap.core.pokeFormCount(formname, -1)
 
         await self.form.wasDeleted(self)
