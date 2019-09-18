@@ -132,6 +132,8 @@ class IsFini(SynErr): pass
 class IsReadOnly(SynErr): pass
 class IsRuntForm(SynErr): pass
 
+class LayerInUse(SynErr): pass
+
 class LinkErr(SynErr): pass
 class LinkShutDown(LinkErr): pass
 

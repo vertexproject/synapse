@@ -43,6 +43,37 @@ class RemoteLayerTest(t_cortex.CortexTest):
                 await core1.view.addLayer(layr)
                 yield core0, core1
 
+    async def test_remote_formcounts(self):
+        async with self.getRemoteCores() as (core0, core1):
+            self.none(core0.counts.get('test:str'))
+            self.none(core1.counts.get('test:str'))
+
+            self.len(2, await core0.nodes('[(test:str=1) (test:str=2)]'))
+            self.eq(core0.counts.get('test:str'), 2)
+            self.none(core1.counts.get('test:str'))
+
+            self.len(2, await core1.nodes('[(test:str=2) (test:str=3)]'))
+            self.eq(core0.counts.get('test:str'), 2)
+            self.eq(core1.counts.get('test:str'), 1)
+
+            nodes = await core1.nodes('test:str [+#hehe.haha]')
+            self.len(3, nodes)
+            for node in nodes:
+                self.true(node.hasTag('hehe.haha'))
+
+            self.none(core0.counts.get('syn:tag'))
+            self.eq(core1.counts.get('syn:tag'), 2)
+
+            self.len(2, await core0.nodes('test:str'))
+
+            # Delete all nodes from core1's perspective
+            self.len(0, await  core1.nodes('test:str | delnode --force'))
+            self.eq(core0.counts.get('test:str'), 2)
+            self.eq(core1.counts.get('test:str'), 0)
+
+            self.len(2, await core0.nodes('test:str'))
+            self.len(2, await core1.nodes('test:str'))
+
     async def test_cortex_readonly_toplayer(self):
         '''
         Test the various ways to incorrectly put a remote layer as the write layer

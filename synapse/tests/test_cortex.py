@@ -41,7 +41,8 @@ class CortexTest(s_t_utils.SynTest):
             guid = 'da299a896ff52ab0e605341ab910dad5'
 
             opts = {'vars': {'guid': guid}}
-            self.len(2, await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) (inet:iface=$guid :ipv4=1.2.3.4) ]', opts=opts))
+            self.len(2, await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) (inet:iface=$guid :ipv4=1.2.3.4) ]',
+                                         opts=opts))
 
             text = '''
 
@@ -69,11 +70,12 @@ class CortexTest(s_t_utils.SynTest):
 
                 await core.addTagProp('user', ('str', {}), {})
                 await core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
-                await core.addTagProp('at', ('geo:latlong', {}), {'doc': 'Where the node was when the tag was applied.'})
+                await core.addTagProp('at', ('geo:latlong', {}), {'doc':
+                                                                  'Where the node was when the tag was applied.'})
 
-                nodes = await core.nodes('[ test:int=10 +#foo.bar:score=20 ]')
-                nodes = await core.nodes('[ test:str=lulz +#blah:user=visi ]')
-                nodes = await core.nodes('[ test:str=wow +#hehe:at=(10, 20) ]')
+                await core.nodes('[ test:int=10 +#foo.bar:score=20 ]')
+                await core.nodes('[ test:str=lulz +#blah:user=visi ]')
+                await core.nodes('[ test:str=wow +#hehe:at=(10, 20) ]')
 
                 # test all the syntax cases...
                 self.len(1, await core.nodes('#foo.bar'))
@@ -93,7 +95,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('test:int +#foo.bar'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score=20'))
-                #self.len(1, await core.nodes('test:int +#foo.bar:score?=20'))
+                # self.len(1, await core.nodes('test:int +#foo.bar:score?=20'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score<=30'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score>=10'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score*range=(10, 30)'))
@@ -108,7 +110,8 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('test:str +#hehe:at*near=((10, 20), 1km)'))
 
                 # test use as a value...
-                self.len(1, await core.nodes('test:int $valu=#foo.bar:score [ +#foo.bar:score = $($valu + 20) ] +#foo.bar:score=40'))
+                q = 'test:int $valu=#foo.bar:score [ +#foo.bar:score = $($valu + 20) ] +#foo.bar:score=40'
+                self.len(1, await core.nodes(q))
 
                 with self.raises(s_exc.CantDelProp):
                     await core.delTagProp('score')
@@ -128,17 +131,17 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('#foo.bar:score*range=(90, 110)'))
 
                 # test that removing it explicitly behaves as intended
-                nodes = await core.nodes('test:int=10 [ -#foo.bar ]')
+                await core.nodes('test:int=10 [ -#foo.bar ]')
                 self.len(0, await core.nodes('#foo.bar:score'))
                 self.len(0, await core.nodes('#foo.bar:score=100'))
                 self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
 
                 # add it back in to remove by whole tag...
-                nodes = await core.nodes('test:int=10 [ +#foo.bar:score=100 ]')
+                await core.nodes('test:int=10 [ +#foo.bar:score=100 ]')
                 self.len(1, await core.nodes('#foo.bar:score=100'))
 
                 # test that removing the tag removes all props indexes
-                nodes = await core.nodes('test:int=10 [ -#foo.bar ]')
+                await core.nodes('test:int=10 [ -#foo.bar ]')
                 self.len(0, await core.nodes('#foo.bar:score'))
                 self.len(0, await core.nodes('#foo.bar:score=100'))
                 self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
@@ -523,6 +526,12 @@ class CortexTest(s_t_utils.SynTest):
             async for node in core.eval('[ test:comp=(10, haha) +#foo.bar -#foo.bar ]'):
                 self.nn(node.getTag('foo'))
                 self.none(node.getTag('foo.bar'))
+
+            # Make sure the 'view' key in optional opts parameter works
+            nodes = await alist(core.eval('test:comp', opts={'view': core.view.iden}))
+            self.len(1, nodes)
+
+            await self.asyncraises(s_exc.NoSuchView, alist(core.eval('test:comp', opts={'view': 'xxx'})))
 
             async for node in core.eval('[ test:str="foo bar" :tick=2018]'):
                 self.eq(1514764800000, node.get('tick'))
@@ -2205,15 +2214,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Sad path for underlying Cortex.runRuntLift
             await self.agenraises(s_exc.NoSuchLift, core.runRuntLift('test:newp', 'newp'))
 
-    async def test_cortex_view_borked(self):
+    async def test_cortex_view_invalid(self):
 
         async with self.getTestCore() as core:
 
-            core.view.borked = s_common.guid()
+            core.view.invalid = s_common.guid()
             with self.raises(s_exc.NoSuchLayer):
                 await core.eval('[ test:str=foo ]').list()
 
-            core.view.borked = None
+            core.view.invalid = None
             self.len(1, await core.eval('[ test:str=foo ]').list())
 
     async def test_tag_globbing(self):
@@ -3118,7 +3127,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(node.getTag('bar'))
 
             await core.addTagProp('score', ('int', {}), {})
-            splice = ('tag:prop:set', {'ndef': ('test:str', 'foo'), 'tag': 'lol', 'prop': 'score', 'valu': 100, 'curv': None})
+            splice = ('tag:prop:set', {'ndef': ('test:str', 'foo'), 'tag': 'lol', 'prop': 'score', 'valu': 100,
+                                       'curv': None})
             await core.addFeedData('syn.splice', [splice])
 
             self.len(1, await core.nodes('#lol:score=100'))
@@ -3198,7 +3208,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             mesg = ('node:del', {'ndef': ('test:str', 'hello')})
             self.isin(mesg, splices)
 
-            mesg = ('tag:prop:set', {'ndef': ('test:str', 'hello'), 'tag': 'lol', 'prop': 'confidence', 'valu': 100, 'curv': None})
+            mesg = ('tag:prop:set', {'ndef': ('test:str', 'hello'), 'tag': 'lol', 'prop': 'confidence', 'valu': 100,
+                                     'curv': None})
             self.isin(mesg, splices)
 
             mesg = ('tag:prop:del', {'ndef': ('test:str', 'hello'), 'tag': 'lol', 'prop': 'confidence', 'valu': 100})
@@ -3383,8 +3394,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                                            'layer has invalid type') as stream:
                 async with self.getTestCore(dirn=dirn) as core:
                     self.true(await stream.wait(3))
-                    # And the default view is borked
-                    self.true(core.view.borked)
+                    # And the default view is invalid
+                    self.true(core.view.invalid)
 
     async def test_cortex_dedicated(self):
         '''
@@ -3682,3 +3693,31 @@ class CortexBasicTest(s_t_utils.SynTest):
                     # ensure we can use the proxy
                     self.eq(await axon.metrics(),
                             await core.axon.metrics())
+
+    async def test_cortex_delLayerView(self):
+        async with self.getTestCore() as core:
+
+            # Can't delete the default view
+            await self.asyncraises(s_exc.SynErr, core.delView(core.view.iden))
+
+            # Can't delete a layer in a view
+            await self.asyncraises(s_exc.SynErr, core.delLayer(core.view.layers[0].iden))
+
+            # Can't delete a nonexistent view
+            await self.asyncraises(s_exc.NoSuchView, core.delView('XXX'))
+
+            # Can't delete a nonexistent layer
+            await self.asyncraises(s_exc.NoSuchLayer, core.delLayer('XXX'))
+
+            # Fork the main view
+            view2 = await core.view.fork()
+
+            viewiden = view2.iden
+            layriden = view2.layers[0].iden
+
+            # Can't delete a view twice
+            await core.delView(viewiden)
+            await self.asyncraises(s_exc.NoSuchView, core.delView(viewiden))
+
+            # A forked view deletes its write layer
+            await self.asyncraises(s_exc.NoSuchLayer, core.delLayer(layriden))
