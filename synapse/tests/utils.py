@@ -141,6 +141,8 @@ testmodel = {
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
 
+        ('test:arrayprop', ('guid', {}), {}),
+
         ('test:comp', ('comp', {'fields': (
             ('hehe', 'test:int'),
             ('haha', 'test:lower'))
@@ -170,6 +172,9 @@ testmodel = {
 
     'forms': (
 
+        ('test:arrayprop', {}, (
+            ('ints', ('array', {'type': 'test:int'}), {}),
+        )),
         ('test:type10', {}, (
 
             ('intprop', ('int', {'min': 20, 'max': 30}), {

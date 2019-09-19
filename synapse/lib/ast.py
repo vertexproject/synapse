@@ -676,6 +676,19 @@ class LiftTag(LiftOper):
         async for node in runt.snap._getNodesByTag(tag, valu=valu, cmpr=cmpr):
             yield node
 
+class LiftByArray(LiftOper):
+    '''
+    :prop*[range=(200, 400)]
+    '''
+    async def lift(self, runt):
+
+        name = await self.kids[0].compute(runt)
+        cmpr = await self.kids[1].compute(runt)
+        valu = await self.kids[2].compute(runt)
+
+        async for node in runt.snap.getNodesByArray(name, valu, cmpr=cmpr):
+            yield node
+
 class LiftTagProp(LiftOper):
     '''
     #foo.bar:baz [ = x ]
@@ -899,6 +912,13 @@ class PivotOut(PivotOper):
                     yield pivo, path.fork(pivo)
                     continue
 
+                if isinstance(prop.type, s_types.Array):
+                    typename = prop.type.opts.get('type')
+                    if runt.snap.model.forms.get(typename) is not None:
+                        for item in valu:
+                            async for pivo in runt.snap.getNodesBy(typename, item):
+                                yield pivo, path.fork(pivo)
+
                 form = runt.snap.model.forms.get(prop.type.name)
                 if form is None:
                     continue
@@ -1007,6 +1027,10 @@ class PivotIn(PivotOper):
             name, valu = node.ndef
 
             for prop in runt.snap.model.propsbytype.get(name, ()):
+                async for pivo in runt.snap.getNodesBy(prop.full, valu):
+                    yield pivo, path.fork(pivo)
+
+            for prop in runt.snap.model.arraysbytype.get(name, ()):
                 async for pivo in runt.snap.getNodesBy(prop.full, valu):
                     yield pivo, path.fork(pivo)
 
@@ -1585,6 +1609,39 @@ class HasAbsPropCond(Cond):
 
         return cond
 
+class ArrayCond(Cond):
+
+    async def getCondEval(self, runt):
+
+        name = self.kids[0].value()
+        cmpr = self.kids[1].value()
+
+        async def cond(node, path):
+
+            prop = node.form.props.get(name)
+            if prop is None:
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(name=name)
+
+            if not isinstance(prop.type, s_types.Array):
+                mesg = f'Array filter syntax is invalid for non-array prop {name}.'
+                raise s_exc.BadCmprType(mesg=mesg)
+
+            ctor = prop.type.arraytype.getCmprCtor(cmpr)
+
+            items = node.get(name)
+            if items is None:
+                return False
+
+            val2 = await self.kids[2].compute(path)
+            for item in items:
+                if ctor(val2)(item):
+                    return True
+
+            return False
+
+        return cond
+
 class AbsPropCond(Cond):
 
     async def getCondEval(self, runt):
@@ -1736,6 +1793,11 @@ class FiltOper(Oper):
             answ = await cond(node, path)
             if (must and answ) or (not must and not answ):
                 yield node, path
+
+class FiltByArray(FiltOper):
+    '''
+    +:foo*[^=visi]
+    '''
 
 class CompValue(AstNode):
     '''

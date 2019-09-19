@@ -617,19 +617,19 @@ class LmdbLayer(s_layer.Layer):
             if iopr[0] == 'eq':
                 for lkey, buid in self.layrslab.scanByDups(abrv + iopr[1], db=db):
                     yield (buid,)
-                return
+                continue
 
             if iopr[0] == 'pref':
                 for lkey, buid in self.layrslab.scanByPref(abrv + iopr[1], db=db):
                     yield (buid,)
-                return
+                continue
 
             if iopr[0] == 'range':
                 kmin = abrv + iopr[1][0]
                 kmax = abrv + iopr[1][1]
                 for lkey, buid in self.layrslab.scanByRange(kmin, kmax, db=db):
                     yield (buid,)
-                return
+                continue
 
             #pragma: no cover
             mesg = f'No such index function for tag props: {iopr[0]}'

@@ -144,6 +144,7 @@ class Prop(PropBase):
         self.encname = self.utf8name + b'\x00'
 
         self.pref = self.form.utf8name + b'\x00' + self.utf8name + b'\x00'
+        self.dbname = 'byprop'
 
         self.type = self.modl.getTypeClone(typedef)
 
@@ -227,6 +228,7 @@ class Univ(PropBase):
         self.type = modl.getTypeClone(typedef)
         self.info = propinfo
         self.pref = name.encode('utf8') + b'\x00'
+        self.dbname = 'byuniv'
 
     def getLiftOps(self, valu, cmpr='='):
 
@@ -487,6 +489,7 @@ class Model:
         self.univlook = {}
 
         self.propsbytype = collections.defaultdict(list) # name: Prop()
+        self.arraysbytype = collections.defaultdict(list)
 
         self._type_pends = collections.defaultdict(list)
         self._modeldef = {
@@ -752,6 +755,10 @@ class Model:
 
         prop = Prop(self, form, name, tdef, info)
 
+        # index the array item types
+        if isinstance(prop.type, s_types.Array):
+            self.arraysbytype[prop.type.arraytype.name].append(prop)
+
         full = f'{form.name}:{name}'
         self.props[full] = prop
         self.props[(form.name, name)] = prop
@@ -776,6 +783,9 @@ class Model:
         prop = form.props.pop(propname, None)
         if prop is None:
             raise s_exc.NoSuchProp(name=f'{formname}:{propname}')
+
+        if isinstance(prop.type, s_types.Array):
+            self.arraysbytype[prop.type.arraytype.name].remove(prop)
 
         form.props.pop(prop.name, None)
         form.defvals.pop(prop.name, None)

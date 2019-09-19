@@ -51,16 +51,16 @@ class Type:
 
         self.indxcmpr = {
             '=': self.indxByEq,
-            '*in=': self.indxByIn,
-            '*range=': self.indxByRange,
+            'in=': self.indxByIn,
+            'range=': self.indxByRange,
         }
 
         self.setCmprCtor('=', self._ctorCmprEq)
         self.setCmprCtor('!=', self._ctorCmprNe)
         self.setCmprCtor('~=', self._ctorCmprRe)
         self.setCmprCtor('^=', self._ctorCmprPref)
-        self.setCmprCtor('*in=', self._ctorCmprIn)
-        self.setCmprCtor('*range=', self._ctorCmprRange)
+        self.setCmprCtor('in=', self._ctorCmprIn)
+        self.setCmprCtor('range=', self._ctorCmprRange)
 
         self.setNormFunc(s_node.Node, self._normStormNode)
 
@@ -189,10 +189,10 @@ class Type:
     def _ctorCmprRange(self, vals):
 
         if not isinstance(vals, (list, tuple)):
-            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='*range=')
+            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='range=')
 
         if len(vals) != 2:
-            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='*range=')
+            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='range=')
 
         minv = self.norm(vals[0])[0]
         maxv = self.norm(vals[1])[0]
@@ -216,7 +216,7 @@ class Type:
 
         opers = []
         if not isinstance(vals, (list, tuple)):
-            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='*in=')
+            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='in=')
 
         for valu in vals:
             opers.extend(self.getIndxOps(valu))
@@ -226,10 +226,10 @@ class Type:
     def indxByRange(self, valu):
 
         if not isinstance(valu, (list, tuple)):
-            raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='*range=')
+            raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='range=')
 
         if len(valu) != 2:
-            raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='*range=')
+            raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='range=')
 
         minv, _ = self.norm(valu[0])
         maxv, _ = self.norm(valu[1])
@@ -400,7 +400,7 @@ class Array(Type):
                 ('indx', ('byprop', prop.pref, iops)),
             )
 
-        if cmpr == '*contains=':
+        if cmpr == 'contains=':
             norm, info = self.arraytype.norm(valu)
             byts = self.arraytype.indx(norm)
             iops = (
@@ -830,8 +830,8 @@ class Ival(Type):
         self.timetype = self.modl.type('time')
 
         # Range stuff with ival's don't make sense
-        self.indxcmpr.pop('*range=', None)
-        self._cmpr_ctors.pop('*range=', None)
+        self.indxcmpr.pop('range=', None)
+        self._cmpr_ctors.pop('range=', None)
 
         self.setCmprCtor('@=', self._ctorCmprAt)
         # _ctorCmprAt implements its own custom norm-style resolution
@@ -1526,10 +1526,10 @@ class Time(IntBase):
         '''
 
         if not isinstance(valu, (list, tuple)):
-            raise s_exc.BadCmprValu(valu=valu, cmpr='*range=')
+            raise s_exc.BadCmprValu(valu=valu, cmpr='range=')
 
         if len(valu) != 2:
-            raise s_exc.BadCmprValu(valu=valu, cmpr='*range=')
+            raise s_exc.BadCmprValu(valu=valu, cmpr='range=')
 
         tick, tock = self.getTickTock(valu)
 
@@ -1545,10 +1545,10 @@ class Time(IntBase):
         '''
 
         if not isinstance(vals, (list, tuple)):
-            raise s_exc.BadCmprValu(valu=vals, cmpr='*range=')
+            raise s_exc.BadCmprValu(valu=vals, cmpr='range=')
 
         if len(vals) != 2:
-            raise s_exc.BadCmprValu(valu=vals, cmpr='*range=')
+            raise s_exc.BadCmprValu(valu=vals, cmpr='range=')
 
         tick, tock = self.getTickTock(vals)
 

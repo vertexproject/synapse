@@ -14,6 +14,7 @@ import synapse.lib.base as s_base
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
+import synapse.lib.types as s_types
 import synapse.lib.editatom as s_editatom
 
 logger = logging.getLogger(__name__)
@@ -370,6 +371,30 @@ class Snap(s_base.Base):
             lops = prop.getLiftOps(valu)
             async for row, node in self.getLiftNodes(lops, prop.name):
                 yield node
+
+    async def getNodesByArray(self, name, valu, cmpr='='):
+        '''
+        Yield nodes by an array property with *items* matching <cmpr> <valu>
+        '''
+
+        prop = self.model.props.get(name)
+        if prop is None:
+            mesg = f'No property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg)
+
+        if not isinstance(prop.type, s_types.Array):
+            mesg = f'Prop ({name}) is not an array type.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        iops = prop.type.arraytype.getIndxOps(valu, cmpr=cmpr)
+
+        prefix = prop.pref + b'\x01'
+        lops = (('indx', (prop.dbname, prefix, iops)),)
+
+        #TODO post-lift cmpr filter
+        #cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
+        async for row, node in self.getLiftNodes(lops, prop.name):
+            yield node
 
     async def addNode(self, name, valu, props=None):
         '''

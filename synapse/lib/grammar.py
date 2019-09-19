@@ -23,6 +23,7 @@ terminalEnglishMap = {
     'CCOMMENT': 'C comment',
     'CMDNAME': 'command name',
     'CMPR': 'comparison operator',
+    'BYNAME': 'named comparison operator',
     'COLON': ':',
     'COMMA': ',',
     'CONTINUE': 'continue',
@@ -451,6 +452,7 @@ terminalClassMap = {
 # For AstConverter, one-to-one replacements from lark to synapse AST
 ruleClassMap = {
     'abspropcond': s_ast.AbsPropCond,
+    'arraycond': s_ast.ArrayCond,
     'andexpr': s_ast.AndCond,
     'condsubq': s_ast.SubqCond,
     'dollarexpr': s_ast.DollarExpr,
@@ -493,6 +495,7 @@ ruleClassMap = {
     'liftprop': s_ast.LiftProp,
     'liftpropby': s_ast.LiftPropBy,
     'lifttagtag': s_ast.LiftTagTag,
+    'liftbyarray': s_ast.LiftByArray,
     'liftbytagprop': s_ast.LiftTagProp,
     'liftbyformtagprop': s_ast.LiftFormTagProp,
     'liftbyonlytagprop': s_ast.LiftOnlyTagProp,
