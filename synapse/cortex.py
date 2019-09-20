@@ -102,6 +102,9 @@ class CoreApi(s_cell.CellApi):
         '''
         Adds a trigger to the cortex
         '''
+        if not self.user.admin and not self.user.allowed('trigger', 'add'):
+            mesg = 'User not authorized to create triggers.'
+            raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
         iden = await self.cell.addTrigger(condition, query, info, disabled,
                                           user=self.user)
         return iden
@@ -211,6 +214,9 @@ class CoreApi(s_cell.CellApi):
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
+        if not self.user.admin and not self.user.allowed('cron', 'add'):
+            mesg = 'User not authorized to create cron job.'
+            raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
 
         def _convert_reqdict(reqdict):
             return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}

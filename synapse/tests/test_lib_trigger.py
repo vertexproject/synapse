@@ -176,15 +176,19 @@ class TrigTest(s_t_utils.SynTest):
                 buid2 = [b for b, r in triglist if r['cond'] == 'tag:add' and r.get('form') is None][0]
                 await core.delTrigger(buid2)
 
+                # A rando user can't manipulate triggers
+
                 await core.addAuthUser('fred')
                 await core.setUserPasswd('fred', 'fred')
 
                 url = real.getLocalUrl()
 
                 async with await s_telepath.openurl(url, user='fred') as fred:
-
                     # Trigger list other user
                     self.len(0, await fred.listTriggers())
+
+                    await self.asyncraises(
+                        s_exc.AuthDeny, fred.addTrigger('node:add', '[ test:int=1 ]', info={'form': 'test:str'}))
 
                     # Delete trigger auth failure
                     await self.asyncraises(s_exc.AuthDeny, fred.delTrigger(buid))

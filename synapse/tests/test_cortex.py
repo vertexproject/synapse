@@ -3721,3 +3721,27 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # A forked view deletes its write layer
             await self.asyncraises(s_exc.NoSuchLayer, core.delLayer(layriden))
+
+    async def test_cortex_cronjob_perms(self):
+        async with self.getTestCore() as realcore:
+            async with realcore.getLocalProxy() as core:
+                await core.addAuthUser('fred')
+                await core.setUserPasswd('fred', 'secret')
+                iden = await core.addCronJob('[test:str=foo]', {'dayofmonth': 1}, None, None)
+
+            async with realcore.getLocalProxy(user='fred') as core:
+                # Rando user can't make cron jobs
+                await self.asyncraises(s_exc.AuthDeny, core.addCronJob('[test:int=1]', {'month': 1}, None, None))
+
+                # Rando user can't mod cron jobs
+                await self.asyncraises(s_exc.AuthDeny, core.updateCronJob(iden, '[test:str=bar]'))
+
+                # Rando user doesn't see any cron jobs
+                self.len(0, await core.listCronJobs())
+
+                # Rando user can't delete cron jobs
+                await self.asyncraises(s_exc.AuthDeny, core.delCronJob(iden))
+
+                # Rando user can't enable/disable cron jobs
+                await self.asyncraises(s_exc.AuthDeny, core.enableCronJob(iden))
+                await self.asyncraises(s_exc.AuthDeny, core.disableCronJob(iden))
