@@ -105,6 +105,7 @@ class CoreApi(s_cell.CellApi):
         if not self.user.admin and not self.user.allowed('trigger', 'add'):
             mesg = 'User not authorized to create triggers.'
             raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
+
         iden = await self.cell.addTrigger(condition, query, info, disabled,
                                           user=self.user)
         return iden
