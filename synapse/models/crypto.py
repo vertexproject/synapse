@@ -28,15 +28,19 @@ class CryptoModule(s_module.CoreModule):
             'types': (
 
                 ('crypto:x509:cert', ('guid', {}), {
+                    'doc': 'A unique X.509 certificate.',
                 }),
 
                 ('crypto:x509:san', (???), {
+                    'doc': 'An X.509 Subject Alternative Name (SAN) value.',
                 }),
 
                 ('crypto:x509:crl', ('guid', {}), {
+                    'doc': 'A unique X.509 Certificate Revocation List.',
                 }),
 
                 ('crypto:x509:revoked', ('comp', 'fields': (('crl', 'crypto:x509:crl'), ('cert', 'crypto:x509:cert'))), {
+                    'doc': 'A revokation relationship between a CRL and an X.509 certificate.',
                 }),
 
                 ('crypto:x509:signedfile', ???
@@ -45,11 +49,11 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:x509:chain', ('array', {'type': 'crypto:x509:cert'}), {
                 })
 
-                ('iso:oid', ('str', {'regex':
-                ('iso:oid', ('str', {'regex': '^([1-9][0-9]{0,3}|0)(\.([1-9][0-9]{0,3}|0)){5,13}$'}), {
+                #('iso:oid', ('str', {'regex':
+                #('iso:oid', ('str', {'regex': '^([1-9][0-9]{0,3}|0)(\.([1-9][0-9]{0,3}|0)){5,13}$'}), {
 
-                ('crypto:x509:keytype', ('str', {'regex': '^([1-9][0-9]{0,3}|0)(\.([1-9][0-9]{0,3}|0)){5,13}$'}), {
-                }),
+                #('crypto:x509:keytype', ('str', {'regex': '^([1-9][0-9]{0,3}|0)(\.([1-9][0-9]{0,3}|0)){5,13}$'}), {
+                #}),
 
                 ('hash:md5', ('hex', {'size': 32}), {
                     'doc': 'A hex encodeded MD5 hash',
@@ -116,6 +120,7 @@ class CryptoModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the CRL was published.'}),
                 ),
+
                 ('crypto:x509:revoked', {}, (
                     ('crl', ('crypto:x509:crl', {}), {
                         'doc': 'The CRL which revoked the certificate.'})
@@ -126,17 +131,23 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:x509:cert', {}, (
 
                     ('subject', ('str', {}), {
+                        'doc': 'The subject identifier, commonly in X.500/LDAP format, to which the certificate was issued.',
                     }),
 
+                    ('subject:fqdn', ('inet:fqdn', {}), {
+                        'doc': 'The optional inet:fqdn from within the subject Common Name.',
+                    })
+
+                    ('subject:email', ('inet:email', {}), {
+                        'doc': 'The optional inet:email from within the subject Common Name.',
+                    })
+
                     ('issuer', ('str', {}), {
+                        'doc': 'The Distinguished Name (DN) of the Certificate Authority (CA) which issued the certificate.',
                     }),
 
                     ('serial', ('str', {}), {
-                    }),
-
-                    ('subject:cn', ('str', {}), {
-                        # specify to the model that this field *may* contain the following types
-                        'pivots': ('inet:fqdn', 'inet:email'),
+                        'doc': 'The serial number string in the certificate.',
                     }),
 
                     ('validity:notbefore', ('time', {}), {
@@ -160,17 +171,25 @@ class CryptoModule(s_module.CoreModule):
                     ('keytype', ('oid', {'names': keytypes}), {
                         'doc': 'The X.509 key type OID.',
                     }),
-                    ('modulus', ('hex', {}), {
-                        'doc': 'The hexidecimal representation of the key modulus.',
-                    })
+
+                    ('rsa:key', ('rsa:key', {}), {
+                        'doc': 'The optional RSA public key associated with the certificate.',
+                    }),
+
                     ('algo', ('oid', {'names': sigalgos}), {
                         'doc': 'The X.509 signature algorithm OID.',
                     })
+
                     ('signature', ('hex', {}), {
                         'doc': 'The hexidecimal representation of the digital signature.',
                     }),
 
                     ('ext:sans', ('array', {'type': 'crypto:x509:san'}), {
+                        'doc': 'The Subject Alternate Names (SANs) listed in the certficate.',
+                    }),
+
+                    ('ext:crls', ('array', {'type': 'inet:url'}), {
+                        'doc': 'A list of the CRL Distribution Point URLs.',
                     }),
 
                     #('ext:auth:keyid',
