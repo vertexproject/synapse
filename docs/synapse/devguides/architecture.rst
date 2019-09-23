@@ -83,6 +83,7 @@ The ``Cell`` (cell.py_) is a ``Base`` implementation which has several component
   implementers can easily sublcass the ``CellApi`` class to add additional RPC routines.
 - The ``Cell`` also contains hooks for easily starting a Tornado webserver.  This allows us to trivially add web API
   routes to an object.
+- The ``Cell`` contains a ``Boss`` which can be used to remotely enumerate and cancel managed coroutines.
 
 Since the cell contains so much core management functionality, adding functionality to the Synapse ``Cell`` allows
 **all** applications using a Cell to be immediately extended to take advantage of that functionality without having to
@@ -91,9 +92,9 @@ revisit multiple different implementations to update them.  For this reason, our
 capability, that is now available to all those applications, as well as any others ``Cell`` implementations.
 
 The application level components themselves have servers in the ``synapse.servers`` module, but there is also a generic
-server for starting any cell, ``synapse.servers.cell``.  These servers will create the ``Cell``, and also add any additional
-RPC or HTTP API listening servers as neccesary.  Those are the preferred ways to run an application implemented via
-a ``Cell``.
+server for starting any cell, ``synapse.servers.cell``.  These servers will create the ``Cell``, and also add any
+additional RPC or HTTP API listening servers as necessary.  Those are the preferred ways to run an application
+implemented via a ``Cell``.
 
 
 Telepath RPC
@@ -112,13 +113,16 @@ serviced.  A *very* brief example of this is the following:
 
     import synapse.telepath as s_telepath
 
-    async with await s_telepath.openurl('tcp://user:secret@1.2.3.4:27492/') as proxy:
+    url = 'tcp://user:secret@1.2.3.4:27492/someObject'
+
+    async with await s_telepath.openurl(url) as proxy:
 
         # Make attribute called "someMethod" on the proxy
-        # then send a task to the server called "someMethod" with the argument
-        # of somearg=1234
+        # then send a task to the server called "someMethod"
+        # with the argument of somearg=1234
         resp = proxy.someMethod(somearg=1234)
-        # then print our response!
+        # The resp is the result of calling the someMethod argument on
+        # the object named someObject on the daemon.
         print(resp)
 
 A few notes about Telepath:
