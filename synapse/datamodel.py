@@ -287,6 +287,32 @@ class Form:
 
         self.props = {}     # name: Prop()
         self.defvals = {}   # name: valu
+        self.refsout = None
+
+    def getRefsOut(self):
+
+        if self.refsout is None:
+
+            self.refsout = {
+                'prop': [],
+                'ndef': [],
+                'array': [],
+            }
+
+            for name, prop in self.props.items():
+
+                if isinstance(prop.type, s_types.Array):
+                    typename = prop.type.arraytype.name
+                    if self.modl.forms.get(typename) is not None:
+                        self.refsout['array'].append((name, typename))
+
+                elif isinstance(prop.type, s_types.Ndef):
+                    self.refsout['ndef'].append(name)
+
+                elif self.modl.forms.get(prop.type.name) is not None:
+                    self.refsout['prop'].append((name, prop.type.name))
+
+        return self.refsout
 
     def getWaitFor(self, valu):
         norm, info = self.type.norm(valu)

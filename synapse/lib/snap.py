@@ -290,7 +290,7 @@ class Snap(s_base.Base):
             await self.printf(f'get nodes by: {full} {cmpr} {valu!r}')
 
         # special handling for by type (*type=) here...
-        if cmpr == '*type=':
+        if cmpr == 'type=':
             async for node in self._getNodesByType(full, valu=valu):
                 yield node
             return

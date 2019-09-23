@@ -207,10 +207,19 @@ class AstTest(s_test.SynTest):
             self.sorteq(nodes[0].tags, ('base', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
 
     async def test_ast_array_pivot(self):
+
         async with self.getTestCore() as core:
+
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(1, 2, 3) ]')
             nodes = await core.nodes('test:arrayprop -> *')
             self.len(3, nodes)
+
+            nodes = await core.nodes('test:arrayprop -> test:int')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('test:int=2 -> test:arrayprop')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'test:arrayprop')
 
     async def test_ast_lift_filt_array(self):
         async with self.getTestCore() as core:

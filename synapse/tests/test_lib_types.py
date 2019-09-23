@@ -20,9 +20,9 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(t.info.get('bases'), ())
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
-        self.raises(s_exc.BadCmprValu, t.getIndxOps, 'newp', '*in=')
-        self.raises(s_exc.BadCmprValu, t.getIndxOps, 'newp', '*range=')
-        self.raises(s_exc.BadCmprValu, t.getIndxOps, ['newp'], '*range=')
+        self.raises(s_exc.BadCmprValu, t.getIndxOps, 'newp', 'in=')
+        self.raises(s_exc.BadCmprValu, t.getIndxOps, 'newp', 'range=')
+        self.raises(s_exc.BadCmprValu, t.getIndxOps, ['newp'], 'range=')
 
     def test_bool(self):
         model = s_datamodel.Model()
@@ -854,7 +854,7 @@ class TypesTest(s_t_utils.SynTest):
             tock = t.norm('2015')[0]
 
             self.raises(s_exc.BadCmprValu,
-                        t.cmpr, '2015', '*range=', tick)
+                        t.cmpr, '2015', 'range=', tick)
 
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'a', {'tick': '2014'})
@@ -865,30 +865,30 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await alist(core.getNodesBy('test:str:tick', '2014'))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
             nodes = await alist(core.getNodesBy('test:str:tick', ('2014', '2015'),
-                                                cmpr='*range='))
+                                                cmpr='range='))
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
             nodes = await alist(core.getNodesBy('test:str:tick', '201401*'))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
             nodes = await alist(core.getNodesBy('test:str:tick', ('-3000 days', 'now'),
-                                                cmpr='*range='))
+                                                cmpr='range='))
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b', 'c', 'd'})
             nodes = await alist(core.getNodesBy('test:str:tick', (tick, tock),
-                                                cmpr='*range='))
+                                                cmpr='range='))
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
             nodes = await alist(core.getNodesBy('test:str:tick', ('20131231', '+2 days'),
-                                                cmpr='*range='))
+                                                cmpr='range='))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
             nodes = await alist(core.eval('test:str:tick*range=(20131231, "+2 days")'))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
             nodes = await alist(core.getNodesBy('test:str:tick', ('-1 day', '+1 day'),
-                                                cmpr='*range='))
+                                                cmpr='range='))
             self.eq({node.ndef[1] for node in nodes}, {'d'})
             nodes = await alist(core.getNodesBy('test:str:tick', ('-1 days', 'now', ),
-                                                cmpr='*range='))
+                                                cmpr='range='))
             self.eq({node.ndef[1] for node in nodes}, {'d'})
             # Equivalent lift
             nodes = await alist(core.getNodesBy('test:str:tick', ('now', '-1 days'),
-                                                  cmpr='*range='))
+                                                  cmpr='range='))
             self.eq({node.ndef[1] for node in nodes}, {'d'})
             # This is equivalent of the previous lift
 
@@ -940,7 +940,7 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.BadCmprValu,
                                   core.eval('test:str:tick*range=(2015)'))
             await self.agenraises(s_exc.BadCmprValu,
-                                  core.getNodesBy('test:str:tick', tick, '*range='))
+                                  core.getNodesBy('test:str:tick', tick, 'range='))
             await self.agenraises(s_exc.BadCmprValu,
                                   core.eval('test:str +:tick*range=(2015)'))
             await self.agenraises(s_exc.BadCmprValu,

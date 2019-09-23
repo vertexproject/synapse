@@ -1522,7 +1522,7 @@ class Time(IntBase):
 
     def indxByRange(self, valu):
         '''
-        Override default ``*range=`` handler to account for relative computation.
+        Override default ``range=`` handler to account for relative computation.
         '''
 
         if not isinstance(valu, (list, tuple)):
@@ -1541,7 +1541,7 @@ class Time(IntBase):
 
     def _ctorCmprRange(self, vals):
         '''
-        Override default *range= handler to account for relative computation.
+        Override default range= handler to account for relative computation.
         '''
 
         if not isinstance(vals, (list, tuple)):

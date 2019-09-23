@@ -384,10 +384,10 @@ class CortexTest(s_t_utils.SynTest):
                 nodes = await alist(snap.getNodesBy('.created', '2010', cmpr='>='))
                 self.len(1 + 1, nodes)
 
-                nodes = await alist(snap.getNodesBy('.created', ('2010', '3001'), cmpr='*range='))
+                nodes = await alist(snap.getNodesBy('.created', ('2010', '3001'), cmpr='range='))
                 self.len(1 + 1, nodes)
 
-                nodes = await alist(snap.getNodesBy('.created', ('2010', '?'), cmpr='*range='))
+                nodes = await alist(snap.getNodesBy('.created', ('2010', '?'), cmpr='range='))
                 self.len(1 + 1, nodes)
 
                 await self.agenlen(2, core.eval('.created'))
