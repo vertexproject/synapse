@@ -512,7 +512,14 @@ class CoreApi(s_cell.CellApi):
 
     async def watch(self, wdef):
         '''
-        Yield events from within the cortex based on a watch definition dictionary.
+        Hook cortex/view/layer watch points based on a specified watch definition.
+
+        Example:
+
+            wdef = { 'tags': [ 'foo.bar', 'baz.*' ] }
+
+            async for mesg in core.watch(wdef):
+                dostuff(mesg)
         '''
         #TODO permissions checks are currently about the view/layer.  We may need additional
         # checks when the wdef expands to include other cortex events.
@@ -1010,13 +1017,7 @@ class Cortex(s_cell.Cell):
     async def watch(self, wdef):
         '''
         Hook cortex/view/layer watch points based on a specified watch definition.
-
-        Example:
-
-            wdef = { 'tags': [ 'foo.bar', 'baz.*' ] }
-
-            async for mesg in core.watch(wdef):
-                dostuff(mesg)
+        ( see CoreApi.watch() docs for details )
         '''
         iden = wdef.get('view', self.view.iden)
 
