@@ -384,6 +384,5 @@ class SynModule(s_module.CoreModule):
                         'doc': 'Tag the trigger is watching for.'
                     }),
                 )),
-
             ),
         }),)

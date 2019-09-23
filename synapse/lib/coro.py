@@ -13,6 +13,22 @@ import synapse.glob as s_glob
 def iscoro(item):
     return inspect.iscoroutine(item)
 
+async def agen(item):
+    '''
+    Wrap an async_generator *or* generator in an async_generator.
+
+    Notes:
+        Do not use this for a synchronous generator which would cause
+        none-blocking IO; otherwise that IO will block the ioloop.
+    '''
+    if getattr(item, '__aiter__', None) is not None:
+        async for x in item:
+            yield x
+        return
+
+    for x in item:
+        yield x
+
 def executor(func, *args, **kwargs):
     '''
     Execute a non-coroutine function in the ioloop executor pool.
@@ -99,8 +115,8 @@ class GenrHelp:
             return
 
         except GeneratorExit:
-            # Raised if a synchronous consumer exiting a iterator early,
-            # we need to signal the generator to close down.
+            # Raised if a synchronous consumer exited an iterator early.
+            # Signal the generator to close down.
             s_glob.sync(self.genr.aclose())
             raise
 

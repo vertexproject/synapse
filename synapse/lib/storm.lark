@@ -152,13 +152,14 @@ CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*/
 _safe_cmpr: BYNAME | CMPR
 
 _valu: NONQUOTEWORD | valulist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu
-    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | dollarexpr
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | dollarexpr | embedquery
 
 valulist: "(" [_WS? _valu (_WS? "," _WS? _valu)*] _WS? ["," _WS?] ")"
 tagvalu: tagname
 tagpropvalu: tagprop
 relpropvalu: relprop
 univpropvalu: univprop
+embedquery: "${" query "}"
 
 // An unquoted storm string constant.  Must start with a word char, ?, or - and not contain certain punctutation
 NONQUOTEWORD: /[\w\-?][^ \t\n),=\]}|]*/

@@ -265,7 +265,7 @@ class SynModelTest(s_t_utils.SynTest):
             evnts = await waiter.wait(3)
             self.len(1, evnts)
 
-            triggers = core.triggers.list()
+            triggers = core.view.triggers.list()
             iden = triggers[0][0]
             self.len(1, triggers)
 

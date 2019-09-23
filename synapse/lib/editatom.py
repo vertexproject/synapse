@@ -102,11 +102,21 @@ class EditAtom:
 
         await snap.stor(self.sops, splices)
 
+        isonmainview = (snap.wlyr == snap.core.view.layers[0])
+
         for node in self.mybldgbuids.values():
-            snap.core.pokeFormCount(node.form.name, 1)
+            # Track which layer the node primary property is written to
+            node.proplayr['*' + node.form.name] = snap.wlyr
+
+            # Only track form counts on the main view
+            if isonmainview:
+                snap.core.pokeFormCount(node.form.name, 1)
+
             snap.buidcache.append(node)
             snap.livenodes[node.buid] = node
 
+        # Wait for all the other editatoms we're waiting on to get to this point so that handlers below have
+        # complete nodes to deal with
         await self.rendevous()
 
         for node in self.mybldgbuids.values():
@@ -122,4 +132,4 @@ class EditAtom:
 
         # Finally, fire all the triggers
         for node, prop, oldv, _ in self.npvs:
-            await snap.core.triggers.runPropSet(node, prop, oldv)
+            await snap.view.runPropSet(node, prop, oldv)

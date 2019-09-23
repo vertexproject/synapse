@@ -35,7 +35,7 @@ class Snap(s_base.Base):
     ('print', {}),
     '''
 
-    async def __anit__(self, core, layers, user):
+    async def __anit__(self, view, user):
         '''
         Args:
             core (cortex):  the cortex
@@ -51,12 +51,13 @@ class Snap(s_base.Base):
         self.elevated = False
         self.canceled = False
 
-        self.core = core
+        self.core = view.core
+        self.view = view
         self.user = user
-        self.model = core.model
+        self.model = self.core.model
 
         # it is optimal for a snap to have layers in "bottom up" order
-        self.layers = list(reversed(layers))
+        self.layers = list(reversed(view.layers))
         self.wlyr = self.layers[-1]
 
         # variables used by the storm runtime
@@ -73,7 +74,7 @@ class Snap(s_base.Base):
 
         self.onfini(self.stack.close)
         self.changelog = []
-        self.tagtype = core.model.type('ival')
+        self.tagtype = self.core.model.type('ival')
 
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):

@@ -510,7 +510,7 @@ class Node:
 
         await self._setTagProp(name, norm, indx, info)
 
-        await self.snap.core.runTagAdd(self, name, norm)
+        await self.snap.view.runTagAdd(self, name, norm)
 
         return True
 
@@ -555,7 +555,7 @@ class Node:
         await self.snap.stor(sops, splices)
 
         # fire all the handlers / triggers
-        [await self.snap.core.runTagDel(self, t, v) for (t, v) in removed]
+        [await self.snap.view.runTagDel(self, t, v) for (t, v) in removed]
 
     def hasTagProp(self, tag, prop):
         '''
@@ -686,7 +686,11 @@ class Node:
         await self.snap.stor(sops, [splice])
 
         self.snap.livenodes.pop(self.buid)
-        self.snap.core.pokeFormCount(formname, -1)
+
+        # If the node was originally in the main layer and our current write layer is the main layer,
+        # decrement the form count
+        if self.snap.wlyr == self.proplayr['*' + self.form.name] == self.snap.core.view.layers[0]:
+            self.snap.core.pokeFormCount(formname, -1)
 
         await self.form.wasDeleted(self)
 
