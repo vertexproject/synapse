@@ -25,7 +25,19 @@ class SynModelTest(s_t_utils.SynTest):
 
     async def test_syn_model_runts(self):
 
+        async def addExtModelConfigs(cortex):
+            await cortex.addTagProp('beep', ('int', {}), {'doc': 'words'})
+            await cortex.addFormProp('test:str', '_twiddle', ('bool', {}), {'doc': 'hehe', 'ro': True})
+            await cortex.addUnivProp('_sneaky', ('bool', {}), {'doc': 'Note if a node is sneaky.'})
+
+        async def delExtModelConfigs(cortex):
+            await cortex.delTagProp('beep')
+            await cortex.delFormProp('test:str', '_twiddle')
+            await cortex.delUnivProp('_sneaky')
+
         async with self.getTestCore() as core:
+
+            await addExtModelConfigs(core)
 
             # Ensure that we can lift by syn:type + prop + valu,
             # and expected props are present.
@@ -111,6 +123,13 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq('intprop', node.get('relname'))
             self.eq('20', node.get('defval'))
             self.eq('intprop', node.get('base'))
+            self.false(node.get('extmodel'))
+
+            # Ensure that extmodel formprops are seen
+            nodes = await core.eval('syn:prop="test:str:_twiddle"').list()
+            self.len(1, nodes)
+            node = nodes[0]
+            self.true(node.get('extmodel'))
 
             # A deeper nested prop will have different base and relname values
             nodes = await core.eval('syn:prop="test:edge:n1:form"').list()
@@ -138,6 +157,7 @@ class SynModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(('syn:prop', '.created'), node.ndef)
             self.true(node.get('univ'))
+            self.false(node.get('extmodel'))
 
             nodes = await core.eval('syn:prop="test:comp.created"').list()
             self.len(1, nodes)
@@ -148,15 +168,38 @@ class SynModelTest(s_t_utils.SynTest):
             nodes = await core.eval('syn:prop:univ=1').list()
             self.ge(len(nodes), 2)
 
+            # extmodel univs are represented
+            nodes = await core.eval('syn:prop="._sneaky"').list()
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(('syn:prop', '._sneaky'), node.ndef)
+            self.true(node.get('univ'))
+            self.true(node.get('extmodel'))
+
+            nodes = await core.eval('syn:prop="test:comp._sneaky"').list()
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(('syn:prop', 'test:comp._sneaky'), node.ndef)
+            self.true(node.get('univ'))
+            self.true(node.get('extmodel'))
+
+            # Tag prop data is also represented
+            nodes = await core.eval('syn:tagprop=beep').list()
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(('syn:tagprop', 'beep'), node.ndef)
+            self.eq(node.get('doc'), 'words')
+            self.eq(node.get('type'), 'int')
+
             # Ensure that we can filter / pivot across the model nodes
             nodes = await core.eval('syn:form=test:comp -> syn:prop:form').list()
-            # form is a prop, two universal properties (+1 test univ) and two model secondary properties.
-            self.len(1 + 2 + 1 + 2, nodes)
+            # form is a prop, two universal properties (+2 test univ) and two model secondary properties.
+            self.len(1 + 2 + 2 + 2, nodes)
 
             # Go from a syn:type to a syn:form to a syn:prop with a filter
             q = 'syn:type:subof=comp +syn:type:doc~=".*fake.*" -> syn:form:type -> syn:prop:form'
             nodes = await core.eval(q).list()
-            self.len(1 + 2 + 1 + 2, nodes)
+            self.len(1 + 2 + 2 + 2, nodes)
 
             # Some forms inherit from a single type
             nodes = await core.eval('syn:type="inet:addr" -> syn:type:subof').list()
@@ -193,6 +236,25 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.eval('syn:form=test:runt').list()
                 self.len(1, nodes)
 
+                nodes = await core.eval('syn:prop:form="test:str" +:extmodel=True').list()
+                self.len(0, nodes)
+                nodes = await core.eval('syn:tagprop').list()
+                self.len(0, nodes)
+
+                await addExtModelConfigs(core)
+
+                nodes = await core.eval('syn:prop:form="test:str" +:extmodel=True').list()
+                self.len(2, nodes)
+                nodes = await core.eval('syn:tagprop').list()
+                self.len(1, nodes)
+
+                await delExtModelConfigs(core)
+
+                nodes = await core.eval('syn:prop:form="test:str" +:extmodel=True').list()
+                self.len(0, nodes)
+                nodes = await core.eval('syn:tagprop').list()
+                self.len(0, nodes)
+
     async def test_syn_trigger_runts(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('syn:trigger')
@@ -203,7 +265,7 @@ class SynModelTest(s_t_utils.SynTest):
             evnts = await waiter.wait(3)
             self.len(1, evnts)
 
-            triggers = core.triggers.list()
+            triggers = core.view.triggers.list()
             iden = triggers[0][0]
             self.len(1, triggers)
 
