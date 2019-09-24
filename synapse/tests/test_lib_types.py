@@ -1058,10 +1058,15 @@ class TypesTest(s_t_utils.SynTest):
         mdef = {
             'types': (
                 ('test:array', ('array', {'type': 'inet:ipv4'}), {}),
+                ('test:arraycomp', ('comp', {'fields': (('ipv4s', 'test:array'), ('int', 'test:int'))}), {}),
                 ('test:witharray', ('guid', {}), {}),
             ),
             'forms': (
                 ('test:array', {}, (
+                )),
+                ('test:arraycomp', {}, (
+                    ('ipv4s', ('test:array', {}), {}),
+                    ('int', ('test:int', {}), {}),
                 )),
                 ('test:witharray', {}, (
                     ('fqdns', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {}),
@@ -1081,9 +1086,15 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:array*contains=1.2.3.4')
             self.len(1, nodes)
 
+            nodes = await core.nodes('[ test:arraycomp=((1.2.3.4, 5.6.7.8), 10) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:arraycomp', ([0x01020304, 0x05060708], 10)))
+            self.eq(nodes[0].get('int'), 10)
+            self.eq(nodes[0].get('ipv4s'), (0x01020304, 0x05060708))
+
             # make sure "adds" got added
-            #nodes = await core.nodes('inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8')
-            #self.len(2, nodes)
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8')
+            self.len(2, nodes)
 
             nodes = await core.nodes('[ test:witharray="*" :fqdns=(woot.com, VERTEX.LINK, vertex.link) ]')
             self.len(1, nodes)
