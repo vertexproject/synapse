@@ -984,7 +984,7 @@ class HiveUser(HiveIden):
             if perm[:len(path)] == path:
                 return retn
 
-        return False
+        return None
 
     def getRoles(self):
         for iden in self.roles:
@@ -1022,7 +1022,7 @@ class HiveUser(HiveIden):
     async def _onLockedEdit(self, mesg):
         self.locked = self.info.get('locked')
 
-    def allowed(self, perm, elev=True):
+    def allowed(self, perm, elev=True, default=None):
 
         if self.locked:
             return False
@@ -1030,7 +1030,9 @@ class HiveUser(HiveIden):
         if self.admin and elev:
             return True
 
-        return self.permcache.get(perm)
+        retn = self.permcache.get(perm)
+
+        return default if retn is None else retn
 
     async def grant(self, name, indx=None):
 

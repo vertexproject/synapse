@@ -59,7 +59,7 @@ class CellApi(s_base.Base):
         assert user
         self.user = user
 
-    async def allowed(self, *path):
+    async def allowed(self, *path, default=None):
         '''
         Check if the user has the requested permission.
 
@@ -76,9 +76,9 @@ class CellApi(s_base.Base):
                     dostuff()
 
         Returns:
-            bool: True if the user has permission, False otherwise.
+            Optional[bool]: True if the user has permission, False if explicitly denied, None if no entry
         '''
-        return self.user.allowed(path)
+        return self.user.allowed(path, default=default)
 
     async def _reqUserAllowed(self, *path):
         '''
