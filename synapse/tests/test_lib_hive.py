@@ -178,6 +178,20 @@ class HiveTest(s_test.SynTest):
                 self.true(user.allowed(('baz', 'faz'), elev=False))
                 self.true(user.allowed(('foo', 'bar'), elev=False))
 
+                # Add a DENY to the beginning of the rule list
+                await role.addRule((False, ('baz', 'faz')), indx=0)
+                self.false(user.allowed(('baz', 'faz'), elev=False))
+
+                # Delete the DENY
+                await role.delRuleIndx(0)
+
+                # After deleting, former ALLOW rule applies
+                self.true(user.allowed(('baz', 'faz'), elev=False, default='yolo'))
+
+                # non-existent rule returns default
+                self.none(user.allowed(('boo', 'foo'), elev=False))
+                self.eq('yolo', user.allowed(('boo', 'foo'), elev=False, default='yolo'))
+
                 await self.asyncraises(s_exc.NoSuchRole, user.revoke('accountants'))
 
                 await user.revoke('ninjas')

@@ -126,7 +126,8 @@ class CoreApi(s_cell.CellApi):
         if view is None:
             raise s_exc.NoSuchView(iden=iden)
 
-        # TODO:  enforce view perms
+        if not view.worldreadable:
+            await self._reqUserAllowed('view', iden, 'read')
 
         return view
 
@@ -303,14 +304,14 @@ class CoreApi(s_cell.CellApi):
         '''
         Set the definition of a pure storm command in the cortex.
         '''
-        await self._reqUserAllowed(('storm', 'admin', 'cmds'))
+        await self._reqUserAllowed('storm', 'admin', 'cmds')
         return await self.cell.setStormCmd(cdef)
 
     async def delStormCmd(self, name):
         '''
         Remove a pure storm command from the cortex.
         '''
-        await self._reqUserAllowed(('storm', 'admin', 'cmds'))
+        await self._reqUserAllowed('storm', 'admin', 'cmds')
         return await self.cell.delStormCmd(name)
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):

@@ -48,6 +48,46 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.delView(view2.iden)
 
+    async def test_view_perms(self):
+        async with self.getTestCoreAndProxy() as (core, prox):
+            await prox.addAuthUser('fred')
+            await prox.setUserPasswd('fred', 'secret')
+            view2 = await core.view.fork()
+            await alist(core.eval('[test:int=10]'))
+            await alist(view2.eval('[test:int=11]'))
+
+            # Rando can access main view but not a fork
+            async with core.getLocalProxy(user='fred') as fredcore:
+                viewopts = {'view': view2.iden}
+                self.eq(1, await fredcore.count('test:int'))
+
+                await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int', opts={'view': view2.iden}))
+
+                # Rando can access forked view with explicit perms
+                await prox.addAuthRule('fred', (True, ('view', view2.iden, 'read')))
+                self.eq(2, await fredcore.count('test:int', opts=viewopts))
+
+                # But still can't write to layer
+                await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=12]', opts=viewopts))
+                await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
+
+                # Rando can write to forked view's write layer with explicit perm
+                await prox.addAuthRule('fred', (True, ('layer', view2.layers[0].iden, 'prop:set')))
+
+                self.eq(1, await fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
+                await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=12]', opts=viewopts))
+
+                await prox.addAuthRule('fred', (True, ('layer', view2.layers[0].iden, 'node:add')))
+                self.eq(1, await fredcore.count('[test:int=12]', opts=viewopts))
+
+                # Add an explicit DENY for adding test:int nodes
+                await prox.addAuthRule('fred', (False, ('layer', view2.layers[0].iden, 'node:add', 'test:int')),
+                                       indx=0)
+                await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=13]', opts=viewopts))
+
+                # Adding test:str is allowed though
+                self.eq(1, await fredcore.count('[test:str=foo]', opts=viewopts))
+
     async def test_view_trigger(self):
         async with self.getTestCore() as core:
             # Fork the main view

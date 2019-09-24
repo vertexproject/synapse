@@ -37,6 +37,7 @@ class View(s_base.Base):
 
         self.invalid = None
         self.parent = None  # The view this view was forked from
+        self.worldreadable = True  # Default read permissions of this view
 
         self.info = await node.dict()
         self.info.setdefault('owner', 'root')
@@ -261,6 +262,7 @@ class View(s_base.Base):
         layeridens = [writlayr.iden] + [l.iden for l in self.layers]
 
         view = await self.core.addView(viewiden, owner, layeridens)
+        view.worldreadable = False
         view.parent = self
 
         return view

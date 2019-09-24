@@ -265,19 +265,20 @@ class Runtime:
                 yield node, self.initPath(node)
 
     @s_cache.memoize(size=100)
-    def allowed(self, *args):
+    def allowed(self, *args, ask_layer=False):
+        '''
+        Raise AuthDeny if user doesn't have global permissions and write layer permissions
+        '''
 
-        # a user will be set by auth subsystem if enabled
-        if self.user is None:
+        if self.user is None or self.user.admin or self.elevated:
             return
 
-        if self.user.admin:
+        allowed = self.user.allowed(args)
+
+        if allowed:
             return
 
-        if self.elevated:
-            return
-
-        if self.user.allowed(args):
+        if allowed is None and ask_layer and self.user.allowed(('layer', self.snap.wlyr.iden, *args)):
             return
 
         # fails will not be cached...
@@ -676,9 +677,9 @@ class DelNodeCmd(Cmd):
 
             # make sure we can delete the tags...
             for tag in node.tags.keys():
-                runt.allowed('tag:del', *tag.split('.'))
+                runt.allowed('tag:del', *tag.split('.'), ask_layer=True)
 
-            runt.allowed('node:del', node.form.name)
+            runt.allowed('node:del', node.form.name, ask_layer=True)
 
             await node.delete(force=self.opts.force)
 
