@@ -434,6 +434,10 @@ class Array(Type):
         typeopts = self.opts.get('typeopts', {})
         self.arraytype = self.modl.type(typename).clone(typeopts)
 
+        if isinstance(self.arraytype, Array):
+            mesg = 'Array type of array values is not (yet) supported.'
+            raise s_exc.BadTypeDef(mesg)
+
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
 

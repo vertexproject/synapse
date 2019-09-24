@@ -1072,6 +1072,9 @@ class TypesTest(s_t_utils.SynTest):
 
             core.model.addDataModels([('asdf', mdef)])
 
+            with self.raises(s_exc.BadTypeDef):
+                await core.addFormProp('test:int', '_hehe', ('array', {'type': 'array'}), {})
+
             nodes = await core.nodes('[ test:array=(1.2.3.4, 5.6.7.8) ]')
             self.len(1, nodes)
 
