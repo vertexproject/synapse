@@ -37,6 +37,10 @@ class TagProp:
 
         self.type = self.base.clone(tdef[1])
 
+        if isinstance(self.type, s_types.Array):
+            mesg = 'Tag props may not be array types (yet).'
+            raise s_exc.BadPropDef(mesg=mesg)
+
     def pack(self):
         return {
             'name': self.name,

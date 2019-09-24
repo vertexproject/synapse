@@ -805,7 +805,7 @@ class LiftProp(LiftOper):
 
     async def lift(self, runt):
 
-        cmpr = None
+        cmpr = '='
         valu = None
         name = await self.kids[0].compute(runt)
 

@@ -391,6 +391,12 @@ class Array(Type):
 
     def getLiftOpsV2(self, prop, valu, cmpr='='):
 
+        if valu is None:
+            iops = (('pref', b'\x00'),)
+            return (
+                ('indx', ('byprop', prop.pref, iops)),
+            )
+
         if cmpr == '=':
             norm, info = self.norm(valu)
             iops = (

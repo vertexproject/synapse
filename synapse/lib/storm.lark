@@ -143,7 +143,6 @@ TAG: _TAGSEGNOVAR ("." (_TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGNOVAR: /\w+/
 
 // A comparison operator
-//CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*|\*[^=\s]*?=/
 _cmpr: _by_cmpr | CMPR
 _by_cmpr: "*" BYNAME
 BYNAME: /[^=\s]*?=/
