@@ -1282,25 +1282,55 @@ class Tag(StrBase):
 
         return norm, {'subs': subs}
 
-class Oid(Str):
+class Union(StrBase):
+    '''
+    A union of potential string types with type specific subs.
+    '''
+    _opt_defs = (
+        'strict': True,
+    )
 
     def postTypeInit(self):
-        self.opts['regex'] = '^([1-9][0-9]{0,3}|0)(\.([1-9][0-9]{0,3}|0)){5,13}$'
+
         StrBase.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
 
-        self._oid_revs = {}
-        self._oid_names = self.opts.get('names', {})
+        self.strict = self.opts.get('strict')
 
-        if self._oid_names is not None:
-            self._oid_revs.update({v.lower(): k for (k, v) in self._oid_names.items()})
+        fields = self.opts.get('fields')
+        if fields is None:
+            mesg = 'Union type requires field= option.'
+            raise s_exc.BadTypeDef(mesg=mesg)
+
+        self.fields = []
+        for fieldname, typename in fields:
+
+            fieldtype = self.modl.types.get(typename)
+            if fieldtype is None:
+                raise s_exc.NoSuchType(name=typename)
+
+            self.fields.append((fieldname, fieldtype))
 
     def _normPyStr(self, text):
-        text = self._oid_revs.get(text.lower(), text)
-        valu, info = Str._normPyStr(self, text)
-        return valu, info
+        for subname, subtype in self.fields:
+            try:
 
-    def repr(self, norm):
-        return self._oid_names.get(norm, norm)
+                subnorm, subinfo = subtype.norm(text)
+
+                if self.strict:
+                    subrepr = subtype.repr(subnorm)
+                    return subrepr, {'subs': {subname: subnorm}}
+
+                return text, {'subs': {subname: subnorm}}
+
+            except s_exc.BadTypeValu:
+                continue
+
+        if self.strict:
+            mesg = f'Invalid string value for type ({self.name}): {text}'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        return text, {}
 
 class Time(IntBase):
 

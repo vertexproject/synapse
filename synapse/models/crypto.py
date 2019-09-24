@@ -31,7 +31,10 @@ class CryptoModule(s_module.CoreModule):
                     'doc': 'A unique X.509 certificate.',
                 }),
 
-                ('crypto:x509:san', (???), {
+                ('crypto:x509:san', ('union', {
+                                        'strict': False,
+                                        'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}
+                                    ), {
                     'doc': 'An X.509 Subject Alternative Name (SAN) value.',
                 }),
 
@@ -47,13 +50,8 @@ class CryptoModule(s_module.CoreModule):
                 }),
 
                 ('crypto:x509:chain', ('array', {'type': 'crypto:x509:cert'}), {
+                    'doc': 'A list of X.509 certificate GUIDs which form a signature chain.',
                 })
-
-                #('iso:oid', ('str', {'regex':
-                #('iso:oid', ('str', {'regex': '^([1-9][0-9]{0,3}|0)(\.([1-9][0-9]{0,3}|0)){5,13}$'}), {
-
-                #('crypto:x509:keytype', ('str', {'regex': '^([1-9][0-9]{0,3}|0)(\.([1-9][0-9]{0,3}|0)){5,13}$'}), {
-                #}),
 
                 ('hash:md5', ('hex', {'size': 32}), {
                     'doc': 'A hex encodeded MD5 hash',
@@ -108,12 +106,20 @@ class CryptoModule(s_module.CoreModule):
                      {'doc': 'One of the two private primes.'}),
                 )),
 
+                ('crypto:x509:san', {}, (
+                    ('fqdn', ('inet:fqdn', {}), {
+                        'doc': 'The inet:fqdn if the SAN is a DNS name.'}),
+                    ('email', ('inet:fqdn', {}), {
+                        'doc': 'The inet:email if the SAN is an email address.'}),
+                ),
+
                 ('crypto:x509:signed', {}, (
                     ('cert', ('crypto:x509:cert', {}), {
                         'doc': 'The certificate for the key which signed the file.'}),
                     ('file': ('file:bytes', {}), {
                         'doc': 'The file which was signed by the certificates key.'}),
                 ),
+
                 ('crypto:x509:crl', {},
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file containing the CRL.'}),
@@ -151,9 +157,11 @@ class CryptoModule(s_module.CoreModule):
                     }),
 
                     ('validity:notbefore', ('time', {}), {
+                        'doc': 'The timestamp for the beginning of the certificate validity period.',
                     }),
 
                     ('validity:notafter', ('time', {}), {
+                        'doc': 'The timestamp for the end of the certificate validity period.',
                     }),
 
                     ('md5', ('hash:md5', {}) {
@@ -168,7 +176,7 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The SHA256 fingerprint for the certificate.',
                     }),
 
-                    ('keytype', ('oid', {'names': keytypes}), {
+                    ('keytype', ('oid', {}), {
                         'doc': 'The X.509 key type OID.',
                     }),
 
@@ -176,7 +184,7 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The optional RSA public key associated with the certificate.',
                     }),
 
-                    ('algo', ('oid', {'names': sigalgos}), {
+                    ('algo', ('oid', {}), {
                         'doc': 'The X.509 signature algorithm OID.',
                     })
 
