@@ -521,7 +521,7 @@ class CoreApi(s_cell.CellApi):
             async for mesg in core.watch(wdef):
                 dostuff(mesg)
         '''
-        #TODO permissions checks are currently about the view/layer.  We may need additional
+        # TODO: permissions checks are currently about the view/layer.  We may need additional
         # checks when the wdef expands to include other cortex events.
         iden = wdef.get('view', self.cell.view.iden)
         await self._reqUserAllowed('watch', 'view', iden)
