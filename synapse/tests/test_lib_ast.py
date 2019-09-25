@@ -220,9 +220,19 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:arrayprop:ints -> test:int')
             self.len(3, nodes)
 
+            nodes = await core.nodes('test:arrayprop:ints -> *')
+            self.len(3, nodes)
+
             nodes = await core.nodes('test:int=2 -> test:arrayprop')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'test:arrayprop')
+
+    async def test_ast_pivot_ndef(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ edge:refs=((test:int, 10), (test:str, woot)) ]')
+            nodes = await core.nodes('edge:refs -> test:str')
+            self.eq(nodes[0].ndef, ('test:str', 'woot'))
 
     async def test_ast_lift_filt_array(self):
 
@@ -237,7 +247,12 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.BadPropDef):
                 await core.addTagProp('array', ('array', {'type': 'int'}), {})
 
-            await core.addFormProp('test:int', '_hehe', ('array', {'type': 'test:int'}), {})
+            await core.addFormProp('test:int', '_hehe', ('array', {'type': 'int'}), {})
+            nodes = await core.nodes('[ test:int=9999 :_hehe=(1, 2, 3) ]')
+            self.len(1, nodes)
+            nodes = await core.nodes('test:int=9999 :_hehe -> *')
+            self.len(0, nodes)
+            await core.nodes('test:int=9999 | delnode')
             await core.delFormProp('test:int', '_hehe')
 
             with self.raises(s_exc.NoSuchProp):
