@@ -42,11 +42,12 @@ class CryptoModule(s_module.CoreModule):
                     'doc': 'A unique X.509 Certificate Revocation List.',
                 }),
 
-                ('crypto:x509:revoked', ('comp', 'fields': (('crl', 'crypto:x509:crl'), ('cert', 'crypto:x509:cert'))), {
+                ('crypto:x509:revoked', ('comp', {'fields': (('crl', 'crypto:x509:crl'), ('cert', 'crypto:x509:cert'))}), {
                     'doc': 'A revokation relationship between a CRL and an X.509 certificate.',
                 }),
 
-                ('crypto:x509:signedfile', ???
+                ('crypto:x509:signedfile', ('comp', {'fields': (('cert', 'crypto:x509:cert'), ('file', 'file:bytes'))}), {
+                    'doc': 'A digital signature relationship between an X.509 certificate and a file.',
                 }),
 
                 ('crypto:x509:chain', ('array', {'type': 'crypto:x509:cert'}), {
