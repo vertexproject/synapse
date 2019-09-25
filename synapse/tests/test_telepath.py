@@ -179,18 +179,18 @@ class TeleTest(s_t_utils.SynTest):
             prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1])
 
             # Some bookkeeping data about the connection is available
-            # from the daemon related to the sesssion's objects and
+            # from the daemon related to the session's objects and
             # connection information.
             snfo = await dmon.getSessInfo()
             self.len(1, snfo)
             self.eq(snfo[0].get('items'), {None: 'synapse.tests.test_telepath.Foo'})
-            anfo = snfo[0].get('anfo')
-            self.isinstance(anfo, dict)
-            self.eq(anfo.get('family'), 'tcp')
-            self.eq(anfo.get('ipver'), 'ipv4')
+            conninfo = snfo[0].get('conninfo')
+            self.isinstance(conninfo, dict)
+            self.eq(conninfo.get('family'), 'tcp')
+            self.eq(conninfo.get('ipver'), 'ipv4')
             # The prox's local sock.getsockname() corresponds to the
             # server's sock.getpeername()
-            self.eq(anfo.get('addr'), prox.link.sock.getsockname())
+            self.eq(conninfo.get('addr'), prox.link.sock.getsockname())
 
             # Prox exposes remote synapse version
             self.eq(prox._getSynVers(), s_version.version)
@@ -368,10 +368,10 @@ class TeleTest(s_t_utils.SynTest):
                 self.eq(30, await prox.bar(10, 20))
 
                 # The daemon's session information for a TLS link
-                # it's own family.
+                # its own family.
                 sessions = await dmon.getSessInfo()
                 self.len(1, sessions)
-                self.eq(sessions[0].get('anfo').get('family'), 'tls')
+                self.eq(sessions[0].get('conninfo').get('family'), 'tls')
 
     async def test_telepath_surrogate(self):
 
@@ -616,7 +616,7 @@ class TeleTest(s_t_utils.SynTest):
                     self.eq('cell', await prox.getCellType())
                     # unix path information is available from the session information.
                     snfo = await cell.dmon.getSessInfo()
-                    self.eq(snfo[0].get('anfo'),
+                    self.eq(snfo[0].get('conninfo'),
                             {'family': 'unix',
                              'addr': sockpath})
 
@@ -625,7 +625,7 @@ class TeleTest(s_t_utils.SynTest):
                     self.eq('cell', await prox.getCellType())
                     # unix path information is available from the session information.
                     snfo = await cell.dmon.getSessInfo()
-                    self.eq(snfo[0].get('anfo'),
+                    self.eq(snfo[0].get('conninfo'),
                             {'family': 'unix',
                              'addr': sockpath})
 
@@ -653,8 +653,8 @@ class TeleTest(s_t_utils.SynTest):
                                                 port=port) as prox:
                 # Ensure that ipv6 is returned via session info
                 snfo = await dmon.getSessInfo()
-                anfo = snfo[0].get('anfo')
-                self.eq(anfo, {'family': 'tcp',
+                conninfo = snfo[0].get('conninfo')
+                self.eq(conninfo, {'family': 'tcp',
                                'ipver': 'ipv6',
                                'addr': prox.link.sock.getsockname()})
 
