@@ -94,14 +94,14 @@ class CmdBossTest(s_t_utils.SynTest):
                 self.true(toutp.expect('no matching process found.'))
 
                 # Try a kill with a numeric identifier - this won't match
-                outp.clear()
-                await cmdr.runCmdLine('kill 123412341234')
-                self.true(outp.expect('no matching process found', False))
+                toutp.clear()
+                await tcmdr.runCmdLine('kill 123412341234')
+                self.true(toutp.expect('no matching process found', False))
 
                 # Specify the iden arg multiple times
-                outp.clear()
-                await cmdr.runCmdLine('kill 123412341234 deadb33f')
-                self.true(outp.expect('unrecognized arguments', False))
+                toutp.clear()
+                await tcmdr.runCmdLine('kill 123412341234 deadb33f')
+                self.true(toutp.expect('unrecognized arguments', False))
 
                 # Give user explicit permissions to list
                 await core.addAuthRule('bond', (True, ('task', 'get')))
