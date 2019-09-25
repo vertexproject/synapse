@@ -152,7 +152,7 @@ class Prop(PropBase):
 
         self.type = self.modl.getTypeClone(typedef)
 
-        self.form.props[name] = self
+        self.form.setProp(name, self)
 
         self.modl.propsbytype[self.type.name].append(self)
 
@@ -292,6 +292,16 @@ class Form:
         self.props = {}     # name: Prop()
         self.defvals = {}   # name: valu
         self.refsout = None
+
+    def setProp(self, name, prop):
+        self.refsout = None
+        self.props[name] = prop
+
+    def delProp(self, name):
+        self.refsout = None
+        prop = self.props.pop(name, None)
+        self.defvals.pop(name, None)
+        return prop
 
     def getRefsOut(self):
 
@@ -810,15 +820,13 @@ class Model:
         if form is None:
             raise s_exc.NoSuchForm(name=formname)
 
-        prop = form.props.pop(propname, None)
+        prop = form.delProp(propname)
         if prop is None:
             raise s_exc.NoSuchProp(name=f'{formname}:{propname}')
 
         if isinstance(prop.type, s_types.Array):
             self.arraysbytype[prop.type.arraytype.name].remove(prop)
 
-        form.props.pop(prop.name, None)
-        form.defvals.pop(prop.name, None)
         self.props.pop(prop.full, None)
         self.props.pop((form.name, prop.name), None)
 

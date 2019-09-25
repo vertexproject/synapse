@@ -106,3 +106,19 @@ class DataModelTest(s_t_utils.SynTest):
 
         self.none(modl.prop('.hehe'))
         self.none(modl.form('foo:bar').prop('.hehe'))
+
+    async def test_datamodel_form_refs_cache(self):
+        async with self.getTestCore() as core:
+
+            refs = core.model.form('test:comp').getRefsOut()
+            self.len(1, refs['prop'])
+
+            await core.addFormProp('test:comp', '_ipv4', ('inet:ipv4', {}), {})
+
+            refs = core.model.form('test:comp').getRefsOut()
+            self.len(2, refs['prop'])
+
+            await core.delFormProp('test:comp', '_ipv4')
+
+            refs = core.model.form('test:comp').getRefsOut()
+            self.len(1, refs['prop'])
