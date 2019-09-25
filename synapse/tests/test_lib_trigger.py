@@ -125,22 +125,26 @@ class TrigTest(s_t_utils.SynTest):
                 await self.agenlen(1, core.eval('test:int=8'))
 
                 # Bad trigger parms
-                await self.asyncraises(s_exc.BadOptValu, core.addTrigger('nocond', 'test:int=4',
-                                                                         info={'form': 'test:str'}))
-                await self.asyncraises(s_exc.BadSyntax,
-                                       core.addTrigger('node:add', ' | | badstorm ', info={'form': 'test:str'}))
-                await self.asyncraises(s_exc.BadOptValu,
-                                       core.addTrigger('node:add', 'test:int=4', info={'form': 'test:str', 'tag': 'foo'}))
-                await self.asyncraises(s_exc.BadOptValu,
-                                       core.addTrigger('prop:set', 'test:int=4',
-                                                       info={'form': 'test:str', 'prop': 'foo'}))
-                await self.asyncraises(s_exc.BadOptValu,
-                                       core.addTrigger('tag:add', '[ +#count test:str=$tag ]', info={}))
-                await self.asyncraises(s_exc.BadOptValu, core.addTrigger('tag:add', '[ +#count test:str=$tag ]',
-                                                                         info={'tag': 'foo', 'prop': 'test:str'}))
+                with self.raises(s_exc.BadOptValu):
+                    await core.addTrigger('nocond', 'test:int=4', info={'form': 'test:str'})
+
+                with self.raises(s_exc.BadSyntax):
+                    await core.addTrigger('node:add', ' | | badstorm ', info={'form': 'test:str'})
+
+                with self.raises(s_exc.BadOptValu):
+                    await core.addTrigger('node:add', 'test:int=4', info={'form': 'test:str', 'tag': 'foo'})
+
+                with self.raises(s_exc.BadOptValu):
+                    await core.addTrigger('prop:set', 'test:int=4', info={'form': 'test:str', 'prop': 'foo'})
+
+                with self.raises(s_exc.BadOptValu):
+                    await core.addTrigger('tag:add', '[ +#count test:str=$tag ]', info={})
+
+                with self.raises(s_exc.BadOptValu):
+                    await core.addTrigger('tag:add', '[ +#count test:str=$tag ]', info={'tag': 'foo', 'prop': 'test:str'})
                 # bad tagmatch
-                await self.asyncraises(s_exc.BadTag,
-                                       core.addTrigger('tag:add', '[ +#count test:str=$tag ]', info={'tag': 'foo&baz'}))
+                with self.raises(s_exc.BadTag):
+                    await core.addTrigger('tag:add', '[ +#count test:str=$tag ]', info={'tag': 'foo&baz'})
 
                 # Trigger list
                 triglist = await core.listTriggers()
@@ -187,8 +191,8 @@ class TrigTest(s_t_utils.SynTest):
                     # Trigger list other user
                     self.len(0, await fred.listTriggers())
 
-                    await self.asyncraises(
-                        s_exc.AuthDeny, fred.addTrigger('node:add', '[ test:int=1 ]', info={'form': 'test:str'}))
+                    with self.raises(s_exc.AuthDeny):
+                        await fred.addTrigger('node:add', '[ test:int=1 ]', info={'form': 'test:str'})
 
                     # Delete trigger auth failure
                     await self.asyncraises(s_exc.AuthDeny, fred.delTrigger(buid))
