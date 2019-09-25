@@ -1,10 +1,16 @@
 *****************
 Synapse Changelog
 *****************
+v0.1.28 - 2019-XXXX
+====================
+Features and Enhancements
+-------------------------
 
 
 v0.1.27 - 2019-09-18
 ====================
+- Require explicit permission for a user to add triggers or cron job.
+  (`#1379 <https://github.com/vertexproject/synapse/pull/1372>`_)
 
 Features and Enhancements
 -------------------------
@@ -18,8 +24,6 @@ Features and Enhancements
   (`#1373 <https://github.com/vertexproject/synapse/pull/1373>`_)
 - Add a ``scrape`` command to Storm to enable regex based scraping of node properties for easily identifiable forms.
   (`#1368 <https://github.com/vertexproject/synapse/pull/1368>`_)
-- Add explicit permissions for interacting with the trigger, cron and boss operations.
-  (`#1371 <https://github.com/vertexproject/synapse/pull/1371>`_)
 - Add explicit permissions for interacting with the trigger, cron and boss operations.
   (`#1371 <https://github.com/vertexproject/synapse/pull/1371>`_)
 - Add support for remote Telepath services in Storm.
