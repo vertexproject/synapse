@@ -3721,3 +3721,60 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # A forked view deletes its write layer
             await self.asyncraises(s_exc.NoSuchLayer, core.delLayer(layriden))
+
+    async def test_cortex_cronjob_perms(self):
+        async with self.getTestCore() as realcore:
+            async with realcore.getLocalProxy() as core:
+                await core.addAuthUser('fred')
+                await core.setUserPasswd('fred', 'secret')
+                iden = await core.addCronJob('[test:str=foo]', {'dayofmonth': 1}, None, None)
+
+            async with realcore.getLocalProxy(user='fred') as core:
+                # Rando user can't make cron jobs
+                await self.asyncraises(s_exc.AuthDeny, core.addCronJob('[test:int=1]', {'month': 1}, None, None))
+
+                # Rando user can't mod cron jobs
+                await self.asyncraises(s_exc.AuthDeny, core.updateCronJob(iden, '[test:str=bar]'))
+
+                # Rando user doesn't see any cron jobs
+                self.len(0, await core.listCronJobs())
+
+                # Rando user can't delete cron jobs
+                await self.asyncraises(s_exc.AuthDeny, core.delCronJob(iden))
+
+                # Rando user can't enable/disable cron jobs
+                await self.asyncraises(s_exc.AuthDeny, core.enableCronJob(iden))
+                await self.asyncraises(s_exc.AuthDeny, core.disableCronJob(iden))
+
+    async def test_cortex_watch(self):
+
+        async with self.getTestCore() as core:
+
+            async with core.getLocalProxy() as prox:
+
+                async def nodes():
+                    await asyncio.sleep(0.1)    # due to telepath proxy causing task switch
+                    await core.nodes('[ test:int=10 +#foo.bar +#baz.faz ]')
+                    await core.nodes('test:int=10 [ -#foo.bar -#baz.faz ]')
+
+                task = core.schedCoro(nodes())
+
+                data = []
+                async for mesg in prox.watch({'tags': ['foo.bar', 'baz.*']}):
+                    data.append(mesg)
+                    if len(data) == 4:
+                        break
+
+                await asyncio.wait_for(task, timeout=1)
+
+                self.eq(data[0][0], 'tag:add')
+                self.eq(data[0][1]['tag'], 'foo.bar')
+
+                self.eq(data[1][0], 'tag:add')
+                self.eq(data[1][1]['tag'], 'baz.faz')
+
+                self.eq(data[2][0], 'tag:del')
+                self.eq(data[2][1]['tag'], 'foo.bar')
+
+                self.eq(data[3][0], 'tag:del')
+                self.eq(data[3][1]['tag'], 'baz.faz')
