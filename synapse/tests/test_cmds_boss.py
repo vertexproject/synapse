@@ -115,6 +115,7 @@ class CmdBossTest(s_t_utils.SynTest):
                 await core.addAuthRule('bond', (True, ('task', 'del')))
 
                 # Kill the task as the user
-                await cmdr.runCmdLine('kill %s' % (iden,))
-                outp.expect('kill status: True')
+                toutp.clear()
+                await tcmdr.runCmdLine('kill %s' % (iden,))
+                toutp.expect('kill status: True')
                 self.true(task.done())

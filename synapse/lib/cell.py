@@ -156,7 +156,7 @@ class CellApi(s_base.Base):
 
     async def kill(self, iden):
 
-        isallowed = await self.allowed(('task', 'del'))
+        isallowed = await self.allowed('task', 'del')
 
         logger.info(f'User [{self.user.name}] Requesting task kill: {iden}')
         task = self.cell.boss.get(iden)
