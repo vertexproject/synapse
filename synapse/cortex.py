@@ -140,8 +140,9 @@ class CoreApi(s_cell.CellApi):
         isallowed = await self.allowed(*perm)
         if (useriden == self.user.iden) or isallowed:
             return
-        mesg = 'Without explicit permission, may only manipulate triggers or cron jobs created by you'
-        raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
+        perm = '.'.join(perm)
+        mesg = f'User must have permission {perm} or own the resource'
+        raise s_exc.AuthDeny(mesg=mesg, user=self.user.name, perm=perm)
 
     async def delTrigger(self, iden):
         '''

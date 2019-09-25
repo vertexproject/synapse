@@ -156,7 +156,8 @@ class CellApi(s_base.Base):
 
     async def kill(self, iden):
 
-        isallowed = await self.allowed('task', 'del')
+        perm = ('task', 'del')
+        isallowed = await self.allowed(*perm)
 
         logger.info(f'User [{self.user.name}] Requesting task kill: {iden}')
         task = self.cell.boss.get(iden)
@@ -170,7 +171,9 @@ class CellApi(s_base.Base):
             logger.info(f'Task killed: {iden}')
             return True
 
-        raise s_exc.AuthDeny(mesg='Caller must own task or be admin.', task=iden, user=str(self.user))
+        perm = '.'.join(perm)
+        raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
+                             task=iden, user=str(self.user), perm=perm)
 
     async def listHiveKey(self, path=None):
         if path is None:
