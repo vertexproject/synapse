@@ -209,8 +209,11 @@ class Layer(s_base.Base):
         self.spliced.clear()
 
         items = [(indx + i, s) for (i, s) in enumerate(splices)]
+
         # go fast and protect against edit-while-iter issues
         [(await wind.puts(items)) for wind in tuple(self.windows)]
+
+        [(await self.dist(s)) for s in splices]
 
     async def _storSplices(self, splices):  # pragma: no cover
         '''

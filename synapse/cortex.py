@@ -19,6 +19,7 @@ import synapse.lib.hive as s_hive
 import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
+import synapse.lib.queue as s_queue
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
 import synapse.lib.dyndeps as s_dyndeps
@@ -516,6 +517,25 @@ class CoreApi(s_cell.CellApi):
         async for mesg in view.streamstorm(text, opts, user=self.user):
             yield mesg
 
+    async def watch(self, wdef):
+        '''
+        Hook cortex/view/layer watch points based on a specified watch definition.
+
+        Example:
+
+            wdef = { 'tags': [ 'foo.bar', 'baz.*' ] }
+
+            async for mesg in core.watch(wdef):
+                dostuff(mesg)
+        '''
+        # TODO: permissions checks are currently about the view/layer.  We may need additional
+        # checks when the wdef expands to include other cortex events.
+        iden = wdef.get('view', self.cell.view.iden)
+        await self._reqUserAllowed('watch', 'view', iden)
+
+        async for mesg in self.cell.watch(wdef):
+            yield mesg
+
     async def syncLayerSplices(self, iden, offs):
         '''
         Yield (indx, mesg) splices for the given layer beginning at offset.
@@ -1000,6 +1020,39 @@ class Cortex(s_cell.Cell):
                 raise
             except Exception as e:
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
+
+    async def watch(self, wdef):
+        '''
+        Hook cortex/view/layer watch points based on a specified watch definition.
+        ( see CoreApi.watch() docs for details )
+        '''
+        iden = wdef.get('view', self.view.iden)
+
+        view = self.views.get(iden)
+        if view is None:
+            raise s_exc.NoSuchView(iden=iden)
+
+        async with await s_queue.Window.anit(maxsize=10000) as wind:
+
+            tags = wdef.get('tags')
+            if tags is not None:
+
+                tglobs = s_cache.TagGlobs()
+                [tglobs.add(t, True) for t in tags]
+
+                async def ontag(mesg):
+                    name = mesg[1].get('tag')
+                    if not tglobs.get(name):
+                        return
+
+                    await wind.put(mesg)
+
+                for layr in self.view.layers:
+                    layr.on('tag:add', ontag, base=wind)
+                    layr.on('tag:del', ontag, base=wind)
+
+            async for mesg in wind:
+                yield mesg
 
     async def addUnivProp(self, name, tdef, info):
 
