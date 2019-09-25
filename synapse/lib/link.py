@@ -69,6 +69,15 @@ async def linkfile(mode='wb'):
 
     return link0, file1
 
+async def linksock():
+    '''
+    Connect a Link, socket pair.
+    '''
+    sock0, sock1 = socket.socketpair()
+    reader, writer = await asyncio.open_connection(sock=sock0)
+    link0 = await Link.anit(reader, writer, info={'unix': True})
+    return link0, sock1
+
 class Link(s_base.Base):
     '''
     A Link() is created to wrap a socket reader/writer.

@@ -78,7 +78,7 @@ class KillCmd(s_cli.Cmd):
         if len(idens) > 1:  # pragma: no cover
             # this is a non-trivial situation to test since the
             # boss idens are random guids
-            self.printf('multiple matching process found. aborting.')
+            self.printf('multiple matching processes found. aborting.')
             return
 
         kild = await core.kill(idens[0])
