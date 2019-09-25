@@ -146,18 +146,16 @@ class CellApi(s_base.Base):
 
         retn = []
 
-        admin = self.user.admin
-        isallowed = await self.allowed(('task', 'get'))
+        isallowed = await self.allowed('task', 'get')
 
-        for synt in self.cell.boss.ps():
-            if admin or synt.user == self.user or isallowed:
-                retn.append(synt.pack())
+        for task in self.cell.boss.ps():
+            if (task.user == self.user) or isallowed:
+                retn.append(task.pack())
 
         return retn
 
     async def kill(self, iden):
 
-        admin = self.user.admin
         isallowed = await self.allowed(('task', 'del'))
 
         logger.info(f'User [{self.user.name}] Requesting task kill: {iden}')
@@ -166,7 +164,7 @@ class CellApi(s_base.Base):
             logger.info(f'Task does not exist: {iden}')
             return False
 
-        if admin or task.user == self.user or isallowed:
+        if (task.user == self.user) or isallowed:
             logger.info(f'Killing task: {iden}')
             await task.kill()
             logger.info(f'Task killed: {iden}')
