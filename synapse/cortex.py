@@ -181,12 +181,11 @@ class CoreApi(s_cell.CellApi):
         '''
         trigs = []
         _trigs = await self.cell.listTriggers()
-        isallowed = await self.allowed(('trigger', 'get'))
+        isallowed = await self.allowed('trigger', 'get')
         for (iden, trig) in _trigs:
             useriden = trig['useriden']
-            if not (self.user.admin or useriden == self.user.iden or isallowed):
-                continue
-            trigs.append((iden, trig))
+            if (useriden == self.user.iden) or isallowed:
+                trigs.append((iden, trig))
 
         return trigs
 
