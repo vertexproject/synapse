@@ -52,6 +52,14 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await proxy.isadmin())
                     self.true(await proxy.allowed('hehe', 'haha'))
 
+                    # Auth data is reflected in the Dmon session
+                    resp = await proxy.getDmonSessions()
+                    self.len(1, resp)
+                    info = resp[0]
+                    self.eq(info.get('items'), {None: 'synapse.tests.test_lib_cell.EchoAuthApi'})
+                    self.eq(info.get('user').get('name'), 'root')
+                    self.eq(info.get('user').get('iden'), root.iden)
+
                 user = await echo.auth.addUser('visi')
                 await user.setPasswd('foo')
                 await user.addRule((True, ('foo', 'bar')))
@@ -231,6 +239,9 @@ class CellTest(s_t_utils.SynTest):
                 async with cell.getLocalProxy() as prox:
 
                     self.eq('root', (await prox.getCellUser())['name'])
+                    snfo = await prox.getDmonSessions()
+                    self.len(1, snfo)
+                    self.eq(snfo[0].get('user').get('name'), 'root')
 
                     with self.raises(s_exc.NoSuchUser):
                         await prox.setCellUser(s_common.guid())
@@ -239,6 +250,12 @@ class CellTest(s_t_utils.SynTest):
 
                     self.true(await prox.setCellUser(user['iden']))
                     self.eq('visi', (await prox.getCellUser())['name'])
+
+                    # setCellUser propagates his change to the Daemon Sess object.
+                    # But we have to use the daemon directly to get that info
+                    snfo = await cell.dmon.getSessInfo()
+                    self.len(1, snfo)
+                    self.eq(snfo[0].get('user').get('name'), 'visi')
 
                     with self.raises(s_exc.AuthDeny):
                         await prox.setCellUser(s_common.guid())

@@ -407,13 +407,13 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(toutp.expect('provided iden does not match'))
 
                     # Give explicit perm
-                    await core.addAuthRule('bond', (True, (('cron', 'get'),)))
+                    await core.addAuthRule('bond', (True, ('cron', 'get')))
 
                     toutp.clear()
                     await tcmdr.runCmdLine('cron list')
                     self.true(toutp.expect('root'))
 
-                    await core.addAuthRule('bond', (True, (('cron', 'set'),)))
+                    await core.addAuthRule('bond', (True, ('cron', 'set')))
 
                     toutp.clear()
                     await tcmdr.runCmdLine(f'cron disable {guid[:6]}')
@@ -427,7 +427,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     await tcmdr.runCmdLine(f'cron edit {guid[:6]} {{#foo}}')
                     self.true(toutp.expect('Modified cron job'))
 
-                    await core.addAuthRule('bond', (True, (('cron', 'del'),)))
+                    await core.addAuthRule('bond', (True, ('cron', 'del')))
 
                     toutp.clear()
                     await tcmdr.runCmdLine(f'cron del {guid[:6]}')
