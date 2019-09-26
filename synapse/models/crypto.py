@@ -10,17 +10,7 @@ ex_sha256 = 'ad9f4fe922b61e674a09530831759843b1880381de686a43460a76864ca0340c'
 ex_sha384 = 'd425f1394e418ce01ed1579069a8bfaa1da8f32cf823982113ccbef531fa36bda9987f389c5af05b5e28035242efab6c'
 ex_sha512 = 'ca74fe2ff2d03b29339ad7d08ba21d192077fece1715291c7b43c20c9136cd132788239189f3441a87eb23ce2660aa243f334295902c904b5520f6e80ab91f11'
 
-sigalgos = {
-#1.2.840.113549.1.1.1 - RSA encryption
-#1.2.840.113549.1.1.2 - MD2 with RSA encryption
-    '1.2.840.113549.1.1.3': 'md4WithRSAEncryption',
-#1.2.840.113549.1.1.4 - MD5 with RSA encryption
-    '1.2.840.113549.1.1.5': 'sha1-with-rsa-signature',
-#1.2.840.113549.1.1.6 - rsaOAEPEncryptionSET
-#1.2.840.113549.1.1.7 - id-RSAES-OAEP
-#1.2.840.113549.1.1.10 - RSASSA-PSS
-#1.2.840.113549.1.1.11 - sha256WithRSAEncryption
-}
+class X509San(s_types.Type):
 
 class CryptoModule(s_module.CoreModule):
     def getModelDefs(self):
@@ -31,11 +21,12 @@ class CryptoModule(s_module.CoreModule):
                     'doc': 'A unique X.509 certificate.',
                 }),
 
-                ('crypto:x509:san', ('union', {
-                                        'strict': False,
-                                        'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}
-                                    ), {
+                ('crypto:x509:sanval', ('union', {'strict': False, 'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
                     'doc': 'An X.509 Subject Alternative Name (SAN) value.',
+                }),
+
+                ('crypto:x509:san', ('comp', {'fields': (('type', 'str'), ('value', 'crypto:x509:sanval'))}) {
+                    'doc': 'An X.509 Subject Alternative Name (SAN).',
                 }),
 
                 ('crypto:x509:crl', ('guid', {}), {
@@ -108,9 +99,13 @@ class CryptoModule(s_module.CoreModule):
                 )),
 
                 ('crypto:x509:san', {}, (
-                    ('fqdn', ('inet:fqdn', {}), {
+                    ('type', ('str', {}), {
+                        'doc': 'The type of SAN value.'}),
+                    ('value', ('crypto:x509:sanval', {}), {
+                        'doc': 'The raw SAN value.'}),
+                    ('value:fqdn', ('inet:fqdn', {}), {
                         'doc': 'The inet:fqdn if the SAN is a DNS name.'}),
-                    ('email', ('inet:fqdn', {}), {
+                    ('value:email', ('inet:fqdn', {}), {
                         'doc': 'The inet:email if the SAN is an email address.'}),
                 ),
 
