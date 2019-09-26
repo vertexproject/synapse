@@ -16,6 +16,12 @@ import synapse.lib.lmdbslab as s_slab
 
 logger = logging.getLogger(__name__)
 
+
+def hivebasepath(hivebase, *path):
+    if hivebase is None:
+        return path
+    return ('hivebase', *hivebase, *path)
+
 class Node(s_base.Base):
     '''
     A single node within the Hive tree.

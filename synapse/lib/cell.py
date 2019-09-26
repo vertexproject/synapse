@@ -59,12 +59,14 @@ class CellApi(s_base.Base):
         assert user
         self.user = user
 
-    async def allowed(self, *path, default=None):
+    async def allowed(self, *path, default=None, hivebase=None):
         '''
         Check if the user has the requested permission.
 
         Args:
             *path: Permission path components to check.
+            default: Value returned if no value stored
+            hivebase (tuple[str]): Hivebase of rules to consult, None for global rules
 
         Examples:
 
@@ -78,9 +80,9 @@ class CellApi(s_base.Base):
         Returns:
             Optional[bool]: True if the user has permission, False if explicitly denied, None if no entry
         '''
-        return self.user.allowed(path, default=default)
+        return self.user.allowed(path, default=default, hivebase=hivebase)
 
-    async def _reqUserAllowed(self, *path):
+    async def _reqUserAllowed(self, *path, hivebase=None):
         '''
         Helper method that subclasses can use for user permission checking.
 
@@ -106,7 +108,7 @@ class CellApi(s_base.Base):
             s_exc.AuthDeny: If the permission is not allowed.
 
         '''
-        if not await self.allowed(*path):
+        if not await self.allowed(*path, hivebase=hivebase):
             perm = '.'.join(path)
             mesg = f'User must have permission {perm}'
             raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
@@ -155,7 +157,7 @@ class CellApi(s_base.Base):
     async def kill(self, iden):
 
         admin = self.user.admin
-        isallowed = await self.allowed(('task', 'del'))
+        isallowed = await self.allowed('task', 'del')
 
         logger.info(f'User [{self.user.name}] Requesting task kill: {iden}')
         task = self.cell.boss.get(iden)
@@ -171,42 +173,48 @@ class CellApi(s_base.Base):
 
         raise s_exc.AuthDeny(mesg='Caller must own task or be admin.', task=iden, user=str(self.user))
 
-    async def listHiveKey(self, path=None):
+    async def listHiveKey(self, path=None, hivebase=None):
         if path is None:
             path = ()
         perm = ('hive:get',) + path
-        await self._reqUserAllowed(*perm)
+        await self._reqUserAllowed(*perm, hivebase=hivebase)
+        path = s_hive.hivebasepath(hivebase)
         items = self.cell.hive.dir(path)
         if items is None:
             return None
         return [item[0] for item in items]
 
-    async def getHiveKey(self, path):
+    async def getHiveKey(self, path, hivebase=None):
         ''' Get the value of a key in the cell default hive '''
         perm = ('hive:get',) + path
-        await self._reqUserAllowed(*perm)
+        await self._reqUserAllowed(*perm, hivebase=hivebase)
+        path = s_hive.hivebasepath(hivebase)
         return await self.cell.hive.get(path)
 
-    async def setHiveKey(self, path, value):
+    async def setHiveKey(self, path, value, hivebase=None):
         ''' Set or change the value of a key in the cell default hive '''
         perm = ('hive:set',) + path
         await self._reqUserAllowed(*perm)
+        path = s_hive.hivebasepath(hivebase)
         return await self.cell.hive.set(path, value)
 
-    async def popHiveKey(self, path):
+    async def popHiveKey(self, path, hivebase=None):
         ''' Remove and return the value of a key in the cell default hive '''
         perm = ('hive:pop',) + path
         await self._reqUserAllowed(*perm)
+        path = s_hive.hivebasepath(hivebase)
         return await self.cell.hive.pop(path)
 
-    async def saveHiveTree(self, path=()):
+    async def saveHiveTree(self, path=(), hivebase=None):
         perm = ('hive:get',) + path
         await self._reqUserAllowed(*perm)
+        path = s_hive.hivebasepath(hivebase)
         return await self.cell.hive.saveHiveTree(path=path)
 
-    async def loadHiveTree(self, tree, path=(), trim=False):
+    async def loadHiveTree(self, tree, path=(), trim=False, hivebase=None):
         perm = ('hive:set',) + path
         await self._reqUserAllowed(*perm)
+        path = s_hive.hivebasepath(hivebase)
         return await self.cell.hive.loadHiveTree(tree, path=path, trim=trim)
 
     @adminapi
@@ -240,17 +248,17 @@ class CellApi(s_base.Base):
         return [r.name for r in self.cell.auth.roles()]
 
     @adminapi
-    async def addAuthRule(self, name, rule, indx=None):
+    async def addAuthRule(self, name, rule, indx=None, hivebase=None):
         item = self._getAuthItem(name)
         return await item.addRule(rule, indx=indx)
 
     @adminapi
-    async def delAuthRule(self, name, rule):
+    async def delAuthRule(self, name, rule, hivebase=None):
         item = self._getAuthItem(name)
         return await item.delRule(rule)
 
     @adminapi
-    async def delAuthRuleIndx(self, name, indx):
+    async def delAuthRuleIndx(self, name, indx, hivebase=None):
         item = self._getAuthItem(name)
         return await item.delRuleIndx(indx)
 
@@ -304,7 +312,7 @@ class CellApi(s_base.Base):
         await user.revoke(rolename)
 
     @adminapi
-    async def getAuthInfo(self, name):
+    async def getAuthInfo(self, name, hivebase=None):
         '''
         An admin only API endpoint for getting user info.
         '''
@@ -317,7 +325,7 @@ class CellApi(s_base.Base):
 
         return (name, pack)
 
-    def _getAuthItem(self, name):
+    def _getAuthItem(self, name, hivebase=None):
         user = self.cell.auth.getUserByName(name)
         if user is not None:
             return user
@@ -567,7 +575,7 @@ class Cell(s_base.Base, s_telepath.Aware):
             logger.error(f'Failed to listen on unix socket at: [{sockpath}][{e}]')
             logger.error('LOCAL UNIX SOCKET WILL BE UNAVAILABLE')
         except Exception as e:  # pragma: no cover
-            logging.exception('Unknown dmon listen error.')
+            logging.exception(f'Unknown dmon listen error {e}.')
             raise
 
         self.onfini(self.dmon.fini)
