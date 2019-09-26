@@ -283,5 +283,14 @@ class TrigTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     await proxy.delTrigger(trig1)
 
+                self.eq(await proxy.listTriggers(), ())
+                await newb.addRule((True, ('trigger', 'get')))
+                self.len(1, await proxy.listTriggers())
+
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.disableTrigger(trig1)
+                await newb.addRule((True, ('trigger', 'set')))
+                self.none(await proxy.disableTrigger(trig1))
+
                 await newb.addRule((True, ('trigger', 'del')))
                 await proxy.delTrigger(trig1)

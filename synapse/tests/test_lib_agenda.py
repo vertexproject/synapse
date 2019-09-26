@@ -366,5 +366,14 @@ class AgendaTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     await proxy.delCronJob(cron1)
 
+                self.eq(await proxy.listCronJobs(), ())
+                await newb.addRule((True, ('cron', 'get')))
+                self.len(1, await proxy.listCronJobs())
+
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.disableCronJob(cron1)
+                await newb.addRule((True, ('cron', 'set')))
+                self.none(await proxy.disableCronJob(cron1))
+
                 await newb.addRule((True, ('cron', 'del')))
                 await proxy.delCronJob(cron1)
