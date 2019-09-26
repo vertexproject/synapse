@@ -253,3 +253,35 @@ class TrigTest(s_t_utils.SynTest):
 
             self.len(0, await core.eval('#count0').list())
             self.len(0, await core.eval('#count1').list())
+
+    async def test_trigger_perms(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            newb = await core.auth.addUser('newb')
+
+            await visi.addRule((True, ('tag:add', 'foo')))
+
+            async with core.getLocalProxy(user='visi') as proxy:
+
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.addTrigger('node:add', '[ +#foo ]', info={'form': 'inet:ipv4'})
+
+                await visi.addRule((True, ('trigger', 'add')))
+
+                trig0 = await proxy.addTrigger('node:add', '[ +#foo ]', info={'form': 'inet:ipv4'})
+                trig1 = await proxy.addTrigger('node:add', '[ +#foo ]', info={'form': 'inet:ipv6'})
+
+                nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+                self.nn(nodes[0].tags.get('foo'))
+
+                await proxy.delTrigger(trig0)
+
+            async with core.getLocalProxy(user='newb') as proxy:
+
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.delTrigger(trig1)
+
+                await newb.addRule((True, ('trigger', 'del')))
+                await proxy.delTrigger(trig1)

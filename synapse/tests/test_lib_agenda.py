@@ -343,3 +343,28 @@ class AgendaTest(s_t_utils.SynTest):
                 self.len(2, appts)
                 last_appt = [appt for (iden, appt) in appts if iden == guid3][0]
                 self.eq(last_appt['query'], '#bahhumbug')
+
+    async def test_cron_perms(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            newb = await core.auth.addUser('newb')
+            async with core.getLocalProxy(user='visi') as proxy:
+
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.addCronJob('inet:ipv4', {'hour': 2})
+
+                await visi.addRule((True, ('cron', 'add')))
+                cron0 = await proxy.addCronJob('inet:ipv4', {'hour': 2})
+                cron1 = await proxy.addCronJob('inet:ipv6', {'hour': 2})
+
+                await proxy.delCronJob(cron0)
+
+            async with core.getLocalProxy(user='newb') as proxy:
+
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.delCronJob(cron1)
+
+                await newb.addRule((True, ('cron', 'del')))
+                await proxy.delCronJob(cron1)
