@@ -316,9 +316,8 @@ class Hive(s_base.Base, s_telepath.Aware):
             step = node.kids.get(name)
             if step is None:
                 step = await self._initNodePath(node, path, None)
-                #print('STEP: %r %r' % (path, step))
                 # hive add events alert the *parent* path of edits
-                #await node.fire('hive:add', path=path[:-1], name=name, valu=None)
+                # await node.fire('hive:add', path=path[:-1], name=name, valu=None)
 
             node = step
 
@@ -702,10 +701,9 @@ class HiveDict(s_base.Base):
 
         return retn
 
-#TODO
-#class HiveLock(s_base.Base):
-#class HiveSeqn(s_base.Base):
-#class HiveRules(s_base.Base): allow separate rules for different objects
+# TODO
+# class HiveLock(s_base.Base):
+# class HiveSeqn(s_base.Base):
 
 class HiveAuth(s_base.Base):
 
@@ -941,49 +939,14 @@ class HiveRole(HiveIden):
             'rules': self.rules,
         }
 
-class HiveUser(HiveIden):
-
-    async def __anit__(self, auth, node):
-
-        await HiveIden.__anit__(self, auth, node)
-
-        self.info.setdefault('roles', ())
-
-        self.info.setdefault('admin', False)
-        self.info.setdefault('passwd', None)
-        self.info.setdefault('locked', False)
-        self.info.setdefault('archived', False)
-
-        self.roles = self.info.get('roles', onedit=self._onRolesEdit)
-        self.admin = self.info.get('admin', onedit=self._onAdminEdit)
-        self.locked = self.info.get('locked', onedit=self._onLockedEdit)
-
-        # arbitrary profile data for application layer use
-        prof = await self.node.open(('profile',))
-        self.profile = await prof.dict()
-
-        # vars cache for persistent user level data storage
-        # TODO: max size check / max count check?
-        pvars = await self.node.open(('vars',))
-        self.pvars = await pvars.dict()
-
-        self.fullrules = []
+class HiveRules():
+    ''' allow separate rules for different objects '''
+    async def __anit__(self, auth, node, hivebase):
+        self.fullrules = {} # useriden -> rule list
         self.permcache = s_cache.FixedCache(self._calcPermAllow)
+        self.roles = self.info.get('roles', onedit=self._onRolesEdit)
 
         self._initFullRules()
-
-    def pack(self):
-        return {
-            'type': 'user',
-            'name': self.name,
-            'iden': self.node.name(),
-            'rules': self.rules,
-            'roles': [r.iden for r in self.getRoles()],
-            'admin': self.admin,
-            'email': self.info.get('email'),
-            'locked': self.locked,
-            'archived': self.info.get('archived'),
-        }
 
     def _calcPermAllow(self, perm):
         for retn, path in self.fullrules:
@@ -991,12 +954,6 @@ class HiveUser(HiveIden):
                 return retn
 
         return None
-
-    def getRoles(self):
-        for iden in self.roles:
-            role = self.auth.role(iden)
-            if role is not None:
-                yield role
 
     def _initFullRules(self):
 
@@ -1020,6 +977,49 @@ class HiveUser(HiveIden):
     async def _onRulesEdit(self, mesg):
         self.rules = self.info.get('rules')
         self._initFullRules()
+
+class HiveUser(s_base.Base):
+
+    async def __anit__(self, auth, node):
+
+        await s_base.Base.__anit__(self)
+
+        self.info.setdefault('roles', ())
+
+        self.info.setdefault('admin', False)
+        self.info.setdefault('passwd', None)
+        self.info.setdefault('locked', False)
+        self.info.setdefault('archived', False)
+
+        self.admin = self.info.get('admin', onedit=self._onAdminEdit)
+        self.locked = self.info.get('locked', onedit=self._onLockedEdit)
+
+        # arbitrary profile data for application layer use
+        prof = await self.node.open(('profile',))
+        self.profile = await prof.dict()
+
+        # vars cache for persistent user level data storage
+        # TODO: max size check / max count check?
+        pvars = await self.node.open(('vars',))
+        self.pvars = await pvars.dict()
+
+    def pack(self):
+        return {
+            'type': 'user',
+            'name': self.name,
+            'iden': self.node.name(),
+            'roles': [r.iden for r in self.getRoles()],
+            'admin': self.admin,
+            'email': self.info.get('email'),
+            'locked': self.locked,
+            'archived': self.info.get('archived'),
+        }
+
+    def getRoles(self):
+        for iden in self.roles:
+            role = self.auth.role(iden)
+            if role is not None:
+                yield role
 
     async def _onAdminEdit(self, mesg):
         self.admin = self.info.get('admin')

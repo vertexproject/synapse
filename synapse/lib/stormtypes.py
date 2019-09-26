@@ -2,13 +2,11 @@ import bz2
 import gzip
 import json
 import base64
-import asyncio
 import binascii
 import datetime
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.telepath as s_telepath
 
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
@@ -443,8 +441,7 @@ class LibQueue(Lib):
             mesg = f'No queue named {name} exists.'
             raise s_exc.NoSuchName(mesg=mesg)
 
-        if (info.get('user') == self.runt.user.iden or
-            self.runt.allowed('storm', 'queue', 'del', name)):
+        if (info.get('user') == self.runt.user.iden or self.runt.allowed('storm', 'queue', 'del', name)):
 
             await self.runt.snap.core.multiqueue.rem(name)
 
@@ -477,7 +474,6 @@ class Queue(StormType):
 
         offs = intify(offs)
 
-        mque = self.runt.snap.core.multiqueue
         await self.runt.snap.core.multiqueue.cull(self.name, offs)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=True, size=None):
@@ -835,7 +831,7 @@ class LibGlobals(Lib):
         for key, valu in list(self._stormvars.items()):
             try:
                 self._reqAllowed('storm:globals:get', key)
-            except s_exc.AuthDeny as e:
+            except s_exc.AuthDeny:
                 continue
             else:
                 ret.append((key, valu))
