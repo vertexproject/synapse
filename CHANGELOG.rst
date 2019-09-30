@@ -3,6 +3,16 @@ Synapse Changelog
 *****************
 
 
+v0.1.29 - 2019-09-26
+====================
+
+Bugfixes
+--------
+- Fix permissions checks added in #1380 for the Triggers and Cron subsystems. Thank you https://github.com/awjnsn for
+  the bug report.
+  (`#1387 <https://github.com/vertexproject/synapse/pull/1387>`_)
+
+
 v0.1.28 - 2019-09-25
 ====================
 

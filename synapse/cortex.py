@@ -106,10 +106,7 @@ class CoreApi(s_cell.CellApi):
         # TODO: accept a view or layer param
         '''
         wlyr = self.cell.view.layers[0]
-
-        if not await wlyr.allowed(self.user, ('trigger', 'add')):
-            mesg = 'User not authorized to create triggers.'
-            raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
+        await wlyr._reqUserAllowed(self.user, ('trigger', 'add'))
 
         iden = await self.cell.addTrigger(condition, query, info, disabled, user=self.user)
         return iden
@@ -142,7 +139,9 @@ class CoreApi(s_cell.CellApi):
         return view
 
     async def _trig_auth_check(self, useriden, perm):
-        ''' Raise exception if doesn't have explicit perms and resource not created by that user '''
+        '''
+        Raise exception if doesn't have explicit perms and resource not created by that user
+        '''
         isallowed = await self.allowed(perm)
         if (useriden == self.user.iden) or isallowed:
             return
@@ -224,9 +223,7 @@ class CoreApi(s_cell.CellApi):
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
-        if not self.user.allowed(('cron', 'add')):
-            mesg = 'User not authorized to create cron job.'
-            raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
+        await self._reqUserAllowed(('cron', 'add'))
 
         def _convert_reqdict(reqdict):
             return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
@@ -495,7 +492,7 @@ class CoreApi(s_cell.CellApi):
             (int): The number of nodes resulting from the query.
         '''
 
-        view = self._getViewFromOpts(opts)
+        view = await self._getViewFromOpts(opts)
 
         i = 0
         async for _ in view.eval(text, opts=opts, user=self.user):
@@ -507,7 +504,7 @@ class CoreApi(s_cell.CellApi):
         Evaluate a storm query and yield packed nodes.
         '''
 
-        view = self._getViewFromOpts(opts)
+        view = await self._getViewFromOpts(opts)
 
         async for pode in view.iterStormPodes(text, opts=opts, user=self.user):
             yield pode
@@ -520,7 +517,7 @@ class CoreApi(s_cell.CellApi):
             ((str,dict)): Storm messages.
         '''
 
-        view = self._getViewFromOpts(opts)
+        view = await self._getViewFromOpts(opts)
 
         async for mesg in view.streamstorm(text, opts, user=self.user):
             yield mesg
