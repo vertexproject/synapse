@@ -61,35 +61,41 @@ class CellApi(s_base.Base):
         sess = self.link.get('sess')  # type: s_daemon.Sess
         sess.user = user
 
-    async def allowed(self, *path, default=None, hivebase=None):
+    # FIXME: why is this async?
+    async def allowed(self, perm, default=None, entitupl=None):
         '''
         Check if the user has the requested permission.
 
         Args:
-            *path: Permission path components to check.
+            perm: Permission path components to check
             default: Value returned if no value stored
-            hivebase (tuple[str]): Hivebase of rules to consult, None for global rules
+            entitupl (tuple[str]): entitupl of rules to consult, None for global rules
 
         Examples:
 
             Form a path and check the permission from a remote proxy::
 
                 perm = ('node:add', 'inet:ipv4')
-                allowed = await prox.allowed(*perm)
+                allowed = await prox.allowed(perm)
                 if allowed:
                     dostuff()
 
         Returns:
             Optional[bool]: True if the user has permission, False if explicitly denied, None if no entry
         '''
-        return self.user.allowed(path, default=default, hivebase=hivebase)
 
-    async def _reqUserAllowed(self, *path, hivebase=None):
+        # FIXME:  alternative is could make a AuthEntityCellApi subclass and override this method
+        if isinstance(self.cell, s_base.AuthEntity):
+            return self.cell.allowed(self.user, perm, default=default)
+
+        return self.user.allowed(perm, default=default, entitupl=entitupl)
+
+    async def _reqUserAllowed(self, perm, entitupl=None):
         '''
         Helper method that subclasses can use for user permission checking.
 
         Args:
-            *path: Permission path components to check.
+            perm: Permission path components to check
 
         Notes:
             This can be used to require a permission; and will throw an exception if the permission is not allowed.
@@ -100,8 +106,8 @@ class CellApi(s_base.Base):
 
                 async def makeWidget(wvalu, wtype):
                     # This will throw if the user doesn't have the appropriate widget permission
-                    await self._reqUserAllowed('widget', wtype)
-                    return await self.cell.makeWidget(wvalu, wtype)
+                    await self._reqUserAllowed(('widget', wtype))
+                    return await self.cell.makeWidget((wvalu, wtype))
 
         Returns:
             None: This API does not return anything. It only throws an exception on failure.
@@ -110,8 +116,8 @@ class CellApi(s_base.Base):
             s_exc.AuthDeny: If the permission is not allowed.
 
         '''
-        if not await self.allowed(*path, hivebase=hivebase):
-            perm = '.'.join(path)
+        if not await self.allowed(perm, entitupl=entitupl):
+            perm = '.'.join(perm)
             mesg = f'User must have permission {perm}'
             raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
 
@@ -148,7 +154,7 @@ class CellApi(s_base.Base):
 
         retn = []
 
-        isallowed = await self.allowed('task', 'get')
+        isallowed = await self.allowed(('task', 'get'))
 
         for task in self.cell.boss.ps():
             if (task.user == self.user) or isallowed:
@@ -158,7 +164,7 @@ class CellApi(s_base.Base):
 
     async def kill(self, iden):
         perm = ('task', 'del')
-        isallowed = await self.allowed(*perm)
+        isallowed = await self.allowed(perm)
 
         logger.info(f'User [{self.user.name}] Requesting task kill: {iden}')
         task = self.cell.boss.get(iden)
@@ -176,48 +182,48 @@ class CellApi(s_base.Base):
         raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
                              task=iden, user=str(self.user), perm=perm)
 
-    async def listHiveKey(self, path=None, hivebase=None):
+    async def listHiveKey(self, path=None):
         if path is None:
             path = ()
         perm = ('hive:get',) + path
-        await self._reqUserAllowed(*perm, hivebase=hivebase)
-        path = s_hive.hivebasepath(hivebase)
+        await self._reqUserAllowed(perm)
         items = self.cell.hive.dir(path)
         if items is None:
             return None
         return [item[0] for item in items]
 
-    async def getHiveKey(self, path, hivebase=None):
-        ''' Get the value of a key in the cell default hive '''
+    async def getHiveKey(self, path):
+        '''
+        Get the value of a key in the cell default hive
+        '''
         perm = ('hive:get',) + path
-        await self._reqUserAllowed(*perm, hivebase=hivebase)
-        path = s_hive.hivebasepath(hivebase)
+        await self._reqUserAllowed(perm)
         return await self.cell.hive.get(path)
 
-    async def setHiveKey(self, path, value, hivebase=None):
-        ''' Set or change the value of a key in the cell default hive '''
+    async def setHiveKey(self, path, value):
+        '''
+        Set or change the value of a key in the cell default hive
+        '''
         perm = ('hive:set',) + path
-        await self._reqUserAllowed(*perm)
-        path = s_hive.hivebasepath(hivebase)
+        await self._reqUserAllowed(perm)
         return await self.cell.hive.set(path, value)
 
-    async def popHiveKey(self, path, hivebase=None):
-        ''' Remove and return the value of a key in the cell default hive '''
+    async def popHiveKey(self, path):
+        '''
+        Remove and return the value of a key in the cell default hive
+        '''
         perm = ('hive:pop',) + path
-        await self._reqUserAllowed(*perm)
-        path = s_hive.hivebasepath(hivebase)
+        await self._reqUserAllowed(perm)
         return await self.cell.hive.pop(path)
 
-    async def saveHiveTree(self, path=(), hivebase=None):
+    async def saveHiveTree(self, path=()):
         perm = ('hive:get',) + path
-        await self._reqUserAllowed(*perm)
-        path = s_hive.hivebasepath(hivebase)
+        await self._reqUserAllowed(perm)
         return await self.cell.hive.saveHiveTree(path=path)
 
-    async def loadHiveTree(self, tree, path=(), trim=False, hivebase=None):
+    async def loadHiveTree(self, tree, path=(), trim=False):
         perm = ('hive:set',) + path
-        await self._reqUserAllowed(*perm)
-        path = s_hive.hivebasepath(hivebase)
+        await self._reqUserAllowed(perm)
         return await self.cell.hive.loadHiveTree(tree, path=path, trim=trim)
 
     @adminapi
@@ -251,17 +257,17 @@ class CellApi(s_base.Base):
         return [r.name for r in self.cell.auth.roles()]
 
     @adminapi
-    async def addAuthRule(self, name, rule, indx=None, hivebase=None):
+    async def addAuthRule(self, name, rule, indx=None, entitupl=None):
         item = self._getAuthItem(name)
-        return await item.addRule(rule, indx=indx)
+        return await item.addRule(rule, indx=indx, entitupl=entitupl)
 
     @adminapi
-    async def delAuthRule(self, name, rule, hivebase=None):
+    async def delAuthRule(self, name, rule, entitupl=None):
         item = self._getAuthItem(name)
-        return await item.delRule(rule)
+        return await item.delRule(rule, entitupl=entitupl)
 
     @adminapi
-    async def delAuthRuleIndx(self, name, indx, hivebase=None):
+    async def delAuthRuleIndx(self, name, indx):
         item = self._getAuthItem(name)
         return await item.delRuleIndx(indx)
 
@@ -315,7 +321,7 @@ class CellApi(s_base.Base):
         await user.revoke(rolename)
 
     @adminapi
-    async def getAuthInfo(self, name, hivebase=None):
+    async def getAuthInfo(self, name):
         '''
         An admin only API endpoint for getting user info.
         '''
@@ -328,7 +334,7 @@ class CellApi(s_base.Base):
 
         return (name, pack)
 
-    def _getAuthItem(self, name, hivebase=None):
+    def _getAuthItem(self, name):
         user = self.cell.auth.getUserByName(name)
         if user is not None:
             return user
@@ -340,7 +346,7 @@ class CellApi(s_base.Base):
         raise s_exc.NoSuchName(name=name)
 
     async def getHealthCheck(self):
-        await self._reqUserAllowed('health')
+        await self._reqUserAllowed(('health', ))
         return await self.cell.getHealthCheck()
 
     @adminapi

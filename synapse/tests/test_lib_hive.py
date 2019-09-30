@@ -7,7 +7,6 @@ import synapse.common as s_common
 import synapse.tests.utils as s_test
 
 import synapse.lib.hive as s_hive
-import synapse.lib.lmdbslab as s_slab
 
 class HiveTest(s_test.SynTest):
 

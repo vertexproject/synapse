@@ -20,9 +20,20 @@ outp = None
 
 denyallow = ['deny', 'allow']
 def reprrule(rule):
-    head = denyallow[rule[0]]
-    text = '.'.join(rule[1])
-    return f'{head}: {text}'
+    if isinstance(rule, tuple):
+        # V1 Rule
+        head = denyallow[rule[0]]
+        text = '.'.join(rule[1])
+        return f'{head}: {text}'
+    else:
+        # V2 Rule
+        head = denyallow[rule['allow']]
+        text = '.'.join(rule['path'])
+        entitupl = rule.get('entitupl')
+        if entitupl is None:
+            return f'{head}: {text}'
+
+        return f'{head}: {text} on {":".join(entitupl)}'
 
 def printuser(user):
 
@@ -52,6 +63,11 @@ def printuser(user):
             outp.printf(f'    role: {rolename}')
 
 async def handleModify(opts):
+
+    if opts.authentity and not opts.addrule:
+        outp.printf('--authentity option only valid with --addrule')
+        return -1
+
     try:
         async with await s_telepath.openurl(opts.cellurl) as cell:
 
@@ -109,10 +125,18 @@ async def handleModify(opts):
                     allow = False
                     text = text[1:]
 
-                rule = (allow, text.split('.'))
+                rule = {'allow': allow, 'path': text.split('.')}
 
                 outp.printf(f'adding rule to {opts.name}: {rule!r}')
-                await cell.addAuthRule(opts.name, rule, indx=None)
+
+                entitupl = None
+                if opts.authentity:
+                    entitupl = tuple(opts.authentity.split(';'))
+                    if len(entitupl) != 2:
+                        outp.print('Invalid AuthEntity format.  Must be kind:iden')
+                        return 1
+
+                await cell.addAuthRule(opts.name, rule, indx=None, entitupl=entitupl)
 
             if opts.delrule is not None:
                 outp.printf(f'deleting rule index: {opts.delrule}')
@@ -120,7 +144,7 @@ async def handleModify(opts):
 
             try:
                 user = await cell.getAuthInfo(opts.name)
-            except s_exc.NoSuchName as e:
+            except s_exc.NoSuchName:
                 outp.printf(f'no such user: {opts.name}')
                 return 1
 
@@ -225,6 +249,8 @@ def makeargparser():
 
     muxp.add_argument('--addrule', help='Add the given rule to the user/role.')
     muxp.add_argument('--delrule', type=int, help='Delete the given rule number from the user/role.')
+
+    pars_mod.add_argument('--authentity', type=str, help='The AuthEntity to apply new rule to in kind:iden format')
 
     pars_mod.add_argument('name', help='The user/role to modify.')
     pars_mod.set_defaults(func=handleModify)

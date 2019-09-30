@@ -12,7 +12,7 @@ import synapse.lib.trigger as s_trigger
 
 logger = logging.getLogger(__name__)
 
-class View(s_base.Base):
+class View(s_base.AuthEntity):
     '''
     A view represents a cortex as seen from a specific set of layers.
 
@@ -28,7 +28,7 @@ class View(s_base.Base):
             core (Cortex):  The cortex that owns the view.
             node (HiveNode): The hive node containing the view info.
         '''
-        await s_base.Base.__anit__(self)
+        await s_base.AuthEntity.__anit__(self)
 
         self.core = core
 
@@ -61,6 +61,14 @@ class View(s_base.Base):
                 raise s_exc.ReadOnlyLayer(mesg=f'First layer {iden} must not be read-only')
 
             self.layers.append(layr)
+
+    async def allowed(self, hiveuser, perm, elev=True, default=None):
+        if self.worldreadable:
+            return True
+
+        # FIXME: map perm 'read' in view to perm 'view:read' in global scope?
+
+        return await s_base.AuthEntity.allowed(self, hiveuser, perm, elev=elev, default=default)
 
     async def eval(self, text, opts=None, user=None):
         '''
@@ -256,6 +264,7 @@ class View(s_base.Base):
             new view object, with an iden the same as the new write layer iden
         '''
         writlayr = await self.core.addLayer(**layrinfo)
+        self.onfini(writlayr)
 
         viewiden = writlayr.iden
         owner = layrinfo.get('owner', 'root')
@@ -374,3 +383,12 @@ class View(s_base.Base):
             trigs.extend(inheritd)
 
         return trigs
+
+    async def trash(self, auth):
+        '''
+        Delete the underlying storage for the view and any layers created by this view
+        '''
+        await s_base.AuthEntity.trash(self, auth)
+        if self.parent:
+            # FIXME:  perhaps more explicit "ownership" of layers by views
+            await self.layers[0].trash(auth)

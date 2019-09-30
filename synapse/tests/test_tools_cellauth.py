@@ -183,13 +183,14 @@ class CellAuthTest(s_t_utils.SynTest):
             argv = [coreurl, 'modify', '--addrule', rule, name]
             await s_cellauth.main(argv, outp)
             # print(str(outp))
-            outp.expect(f'adding rule to {name}: (True, [{rule!r}])')
+            outp.expect(f"adding rule to {name}: {{'allow': True, 'path': [{rule!r}]}}")
             user = await prox.getAuthInfo(name)
             self.eq(user[1].get('rules'),
-                    ((True, ('node:add',)),))
+                    ({'allow': True, 'path': ('node:add',)},))
 
             outp = self.getTestOutp()
             argv = [coreurl, 'modify', '--delrule', '0', 'foo']
+            outp.clear()
             await s_cellauth.main(argv, outp)
             # print(str(outp))
             outp.expect(f'deleting rule index: 0')
@@ -200,4 +201,6 @@ class CellAuthTest(s_t_utils.SynTest):
             argv = [coreurl, 'modify', '--addrule', nrule, name]
             await s_cellauth.main(argv, outp)
             # print(str(outp))
-            outp.expect(f'adding rule to {name}: (False, [{rule!r}])')
+            outp.expect(f"adding rule to {name}: {{'allow': False, 'path': [{rule!r}]}}")
+
+            # FIXME: add --authentity test

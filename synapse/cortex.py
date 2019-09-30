@@ -102,43 +102,48 @@ class CoreApi(s_cell.CellApi):
     async def addTrigger(self, condition, query, info, disabled=False):
         '''
         Adds a trigger to the cortex
+
+        # TODO: accept a view or layer param
         '''
-        if not self.user.admin and not self.user.allowed('trigger', 'add'):
+        wlyr = self.cell.view.layers[0]
+
+        if not await wlyr.allowed(self.user, ('trigger', 'add')):
             mesg = 'User not authorized to create triggers.'
             raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
 
-        iden = await self.cell.addTrigger(condition, query, info, disabled,
-                                          user=self.user)
+        iden = await self.cell.addTrigger(condition, query, info, disabled, user=self.user)
         return iden
 
-    async def _reqViewAllowed(self, iden):
+    async def _getViewFromOpts(self, opts):
         '''
 
         Args:
-            iden(str): view iden to access
+            opts(Optional[Dict]): opts dicts that may contain a view field
 
         Returns:
-            None
+            view object
 
         Raises:
             s_exc.NoSuchView: If the view iden doesn't exist
+            s_exc.AuthDeny: If the current user doesn't have read access to the view
 
         '''
+        iden = (opts or {}).get('view')
         if iden is None:
+            # This assumes everyone has access to the default view
             return self.cell.view
 
         view = self.cell.views.get(iden)
         if view is None:
             raise s_exc.NoSuchView(iden=iden)
 
-        if not view.worldreadable:
-            await self._reqUserAllowed('view', iden, 'read')
+        await view._reqUserAllowed(self.user, ('read', ))
 
         return view
 
     async def _trig_auth_check(self, useriden, perm):
         ''' Raise exception if doesn't have explicit perms and resource not created by that user '''
-        isallowed = await self.allowed(*perm)
+        isallowed = await self.allowed(perm)
         if (useriden == self.user.iden) or isallowed:
             return
         perm = '.'.join(perm)
@@ -183,7 +188,7 @@ class CoreApi(s_cell.CellApi):
         '''
         trigs = []
         _trigs = await self.cell.listTriggers()
-        isallowed = await self.allowed('trigger', 'get')
+        isallowed = await self.allowed(('trigger', 'get'))
         for (iden, trig) in _trigs:
             useriden = trig['useriden']
             if (useriden == self.user.iden) or isallowed:
@@ -219,7 +224,7 @@ class CoreApi(s_cell.CellApi):
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
-        if not self.user.admin and not self.user.allowed('cron', 'add'):
+        if not self.user.allowed(('cron', 'add')):
             mesg = 'User not authorized to create cron job.'
             raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
 
@@ -297,9 +302,11 @@ class CoreApi(s_cell.CellApi):
     async def listCronJobs(self):
         '''
         Get information about all the cron jobs accessible to the current user
+
+        FIXME: discuss making individual cron/triggers authentities
         '''
         crons = []
-        isallowed = await self.allowed('cron', 'get')
+        isallowed = await self.allowed(('cron', 'get'))
         for iden, cron in self.cell.agenda.list():
             useriden = cron['useriden']
             if (useriden == self.user.iden) or isallowed:
@@ -313,14 +320,14 @@ class CoreApi(s_cell.CellApi):
         '''
         Set the definition of a pure storm command in the cortex.
         '''
-        await self._reqUserAllowed('storm', 'admin', 'cmds')
+        await self._reqUserAllowed(('storm', 'admin', 'cmds'))
         return await self.cell.setStormCmd(cdef)
 
     async def delStormCmd(self, name):
         '''
         Remove a pure storm command from the cortex.
         '''
-        await self._reqUserAllowed('storm', 'admin', 'cmds')
+        await self._reqUserAllowed(('storm', 'admin', 'cmds'))
         return await self.cell.delStormCmd(name)
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
@@ -334,10 +341,11 @@ class CoreApi(s_cell.CellApi):
         '''
         buid = s_common.uhex(iden)
 
-        parts = tag.split('.')
-        await self._reqUserAllowed('tag:add', *parts)
-
         async with await self.cell.snap(user=self.user) as snap:
+
+            parts = tag.split('.')
+            await snap.wlyr._reqUserAllowed(self.user, ('tag:add', *parts))
+
             with s_provenance.claim('coreapi', meth='tag:add', user=snap.user.iden):
 
                 node = await snap.getNodeByBuid(buid)
@@ -357,10 +365,11 @@ class CoreApi(s_cell.CellApi):
         '''
         buid = s_common.uhex(iden)
 
-        parts = tag.split('.')
-        await self._reqUserAllowed('tag:del', *parts)
-
         async with await self.cell.snap(user=self.user) as snap:
+
+            parts = tag.split('.')
+            await snap.wlyr._reqUserAllowed(self.user, ('tag:del', *parts))
+
             with s_provenance.claim('coreapi', meth='tag:del', user=snap.user.iden):
 
                 node = await snap.getNodeByBuid(buid)
@@ -385,7 +394,7 @@ class CoreApi(s_cell.CellApi):
                     raise s_exc.NoSuchIden(iden=iden)
 
                 prop = node.form.props.get(name)
-                await self._reqUserAllowed('prop:set', prop.full)
+                await snap.wlyr._reqUserAllowed(self.user, ('prop:set', prop.full))
 
                 await node.set(name, valu)
                 return node.pack()
@@ -406,16 +415,15 @@ class CoreApi(s_cell.CellApi):
                     raise s_exc.NoSuchIden(iden=iden)
 
                 prop = node.form.props.get(name)
-                await self._reqUserAllowed('prop:del', prop.full)
+                await snap.wlyr._reqUserAllowed(self.user, ('prop:del', prop.full))
 
                 await node.pop(name)
                 return node.pack()
 
     async def addNode(self, form, valu, props=None):
 
-        await self._reqUserAllowed('node:add', form)
-
         async with await self.cell.snap(user=self.user) as snap:
+            await snap.wlyr._reqUserAllowed(self.user, ('node:add', form))
             with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
 
                 node = await snap.addNode(form, valu, props=props)
@@ -442,7 +450,7 @@ class CoreApi(s_cell.CellApi):
             if done.get(formname):
                 continue
 
-            await self._reqUserAllowed('node:add', formname)
+            await self.cell.view.layers[0]._reqUserAllowed(self.user, ('node:add', formname))
             done[formname] = True
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -459,7 +467,8 @@ class CoreApi(s_cell.CellApi):
 
     async def addFeedData(self, name, items, seqn=None):
 
-        await self._reqUserAllowed('feed:data', *name.split('.'))
+        wlyr = self.cell.view.layers[0]
+        await wlyr._reqUserAllowed(self.user, ('feed:data', *name.split('.')))
 
         with s_provenance.claim('feed:data', name=name):
 
@@ -486,8 +495,7 @@ class CoreApi(s_cell.CellApi):
             (int): The number of nodes resulting from the query.
         '''
 
-        viewiden = None if opts is None else opts.get('view')
-        view = await self._reqViewAllowed(viewiden)
+        view = self._getViewFromOpts(opts)
 
         i = 0
         async for _ in view.eval(text, opts=opts, user=self.user):
@@ -499,8 +507,7 @@ class CoreApi(s_cell.CellApi):
         Evaluate a storm query and yield packed nodes.
         '''
 
-        viewiden = None if opts is None else opts.get('view')
-        view = await self._reqViewAllowed(viewiden)
+        view = self._getViewFromOpts(opts)
 
         async for pode in view.iterStormPodes(text, opts=opts, user=self.user):
             yield pode
@@ -513,8 +520,7 @@ class CoreApi(s_cell.CellApi):
             ((str,dict)): Storm messages.
         '''
 
-        viewiden = None if opts is None else opts.get('view')
-        view = await self._reqViewAllowed(viewiden)
+        view = self._getViewFromOpts(opts)
 
         async for mesg in view.streamstorm(text, opts, user=self.user):
             yield mesg
@@ -532,8 +538,10 @@ class CoreApi(s_cell.CellApi):
         '''
         # TODO: permissions checks are currently about the view/layer.  We may need additional
         # checks when the wdef expands to include other cortex events.
+
+        # FIXME: does this perm go on the view?
         iden = wdef.get('view', self.cell.view.iden)
-        await self._reqUserAllowed('watch', 'view', iden)
+        await self._reqUserAllowed(('watch', 'view', iden))
 
         async for mesg in self.cell.watch(wdef):
             yield mesg
@@ -546,7 +554,8 @@ class CoreApi(s_cell.CellApi):
         The generator will only terminate on network disconnect or if the
         consumer falls behind the max window size of 10,000 splice messages.
         '''
-        await self._reqUserAllowed('layer:sync', iden)
+        # FIXME: does this perm go on the layer now
+        await self._reqUserAllowed(('layer:sync', iden))
         async for item in self.cell.syncLayerSplices(iden, offs):
             yield item
 
@@ -626,14 +635,14 @@ class CoreApi(s_cell.CellApi):
 
         Extended properties *must* begin with _
         '''
-        await self._reqUserAllowed('model', 'prop', 'add', form)
+        await self._reqUserAllowed(('model', 'prop', 'add', form))
         return await self.cell.addFormProp(form, prop, tdef, info)
 
     async def delFormProp(self, form, name):
         '''
         Remove an extended property from the given form.
         '''
-        await self._reqUserAllowed('model', 'prop', 'del', form)
+        await self._reqUserAllowed(('model', 'prop', 'del', form))
         return await self.cell.delFormProp(form, name)
 
     async def addUnivProp(self, name, tdef, info):
@@ -642,28 +651,28 @@ class CoreApi(s_cell.CellApi):
 
         Extended properties *must* begin with _
         '''
-        await self._reqUserAllowed('model', 'univ', 'add')
+        await self._reqUserAllowed(('model', 'univ', 'add'))
         return await self.cell.addUnivProp(name, tdef, info)
 
     async def delUnivProp(self, name):
         '''
         Remove an extended universal property.
         '''
-        await self._reqUserAllowed('model', 'univ', 'del')
+        await self._reqUserAllowed(('model', 'univ', 'del'))
         return await self.cell.delUnivProp(name)
 
     async def addTagProp(self, name, tdef, info):
         '''
         Add a tag property to record data about tags on nodes.
         '''
-        await self._reqUserAllowed('model', 'tagprop', 'add')
+        await self._reqUserAllowed(('model', 'tagprop', 'add'))
         return await self.cell.addTagProp(name, tdef, info)
 
     async def delTagProp(self, name):
         '''
         Remove a previously added tag property.
         '''
-        await self._reqUserAllowed('model', 'tagprop', 'del')
+        await self._reqUserAllowed(('model', 'tagprop', 'del'))
         return await self.cell.delTagProp(name)
 
 class Cortex(s_cell.Cell):

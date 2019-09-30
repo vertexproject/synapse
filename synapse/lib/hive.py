@@ -16,12 +16,6 @@ import synapse.lib.lmdbslab as s_slab
 
 logger = logging.getLogger(__name__)
 
-
-def hivebasepath(hivebase, *path):
-    if hivebase is None:
-        return path
-    return ('hivebase', *hivebase, *path)
-
 class Node(s_base.Base):
     '''
     A single node within the Hive tree.
@@ -204,10 +198,13 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         if base is not None:
             async def fini():
-                self.editsbypath[path].discard(func)
+                self.editsbypath.get('path', set()).discard(func)
             base.onfini(fini)
 
         self.editsbypath[path].add(func)
+
+    def unonedit(self, path, func):
+        self.editsbypath.get('path', set()).discard(func)
 
     async def get(self, full):
         '''
@@ -880,12 +877,17 @@ class HiveIden(s_base.Base):
         await self.node.set(name)
 
     async def setRules(self, rules):
+        rules = _rulesToV2(rules)
         self.rules = list(rules)
         await self.info.set('rules', rules)
 
-    async def addRule(self, rule, indx=None):
+    async def addRule(self, rule, indx=None, entitupl=None):
 
         rules = list(self.rules)
+
+        rule = _ruleToV2(rule)
+        if entitupl is not None:
+            rule['entitupl'] = entitupl
 
         if indx is None:
             rules.append(rule)
@@ -894,7 +896,11 @@ class HiveIden(s_base.Base):
 
         await self.info.set('rules', rules)
 
-    async def delRule(self, rule):
+    async def delRule(self, rule, entitupl=None):
+
+        rule = _ruleToV2(rule)
+        if entitupl is not None:
+            rule['entitupl'] = entitupl
 
         if rule not in self.rules:
             return False
@@ -917,6 +923,25 @@ class HiveIden(s_base.Base):
 
         await self.info.set('rules', rules)
 
+def _ruleToV2(rule):
+    '''
+    Convert an old V1 tuple rule to a new V2 dict rule.  If already a V2 rule, return it unchanged
+    '''
+    if isinstance(rule, dict):
+        return rule
+
+    assert isinstance(rule, (tuple, list))
+    allow, path = rule
+    return {'allow': allow, 'path': path}
+
+
+# FIXME:  discuss just convert all rules at boot
+def _rulesToV2(oldrules):
+    '''
+    Convert a list of V1 and/or V2 rules to a list of V2 rules.
+    '''
+    return [_ruleToV2(rule) for rule in oldrules]
+
 class HiveRole(HiveIden):
     '''
     A role within the Hive authorization subsystem.
@@ -924,7 +949,7 @@ class HiveRole(HiveIden):
     '''
     async def _onRulesEdit(self, mesg):
 
-        self.rules = self.info.get('rules')
+        self.rules = _rulesToV2(self.info.get('rules'))
 
         for user in self.auth.usersbyiden.values():
 
@@ -939,21 +964,67 @@ class HiveRole(HiveIden):
             'rules': self.rules,
         }
 
-class HiveRules():
-    ''' allow separate rules for different objects '''
-    async def __anit__(self, auth, node, hivebase):
-        self.fullrules = {} # useriden -> rule list
-        self.permcache = s_cache.FixedCache(self._calcPermAllow)
+class HiveUser(HiveIden):
+
+    async def __anit__(self, auth, node):
+
+        await HiveIden.__anit__(self, auth, node)
+
+        self.info.setdefault('roles', ())
+
+        self.info.setdefault('admin', False)
+        self.info.setdefault('passwd', None)
+        self.info.setdefault('locked', False)
+        self.info.setdefault('archived', False)
+
         self.roles = self.info.get('roles', onedit=self._onRolesEdit)
+        self.admin = self.info.get('admin', onedit=self._onAdminEdit)
+        self.locked = self.info.get('locked', onedit=self._onLockedEdit)
+
+        # arbitrary profile data for application layer use
+        prof = await self.node.open(('profile',))
+        self.profile = await prof.dict()
+
+        # vars cache for persistent user level data storage
+        # TODO: max size check / max count check?
+        pvars = await self.node.open(('vars',))
+        self.pvars = await pvars.dict()
+
+        self.fullrules = []
+        self.permcache = s_cache.FixedCache(self._calcPermAllow)
 
         self._initFullRules()
 
-    def _calcPermAllow(self, perm):
-        for retn, path in self.fullrules:
+    def pack(self):
+        return {
+            'type': 'user',
+            'name': self.name,
+            'iden': self.node.name(),
+            'rules': self.rules,
+            'roles': [r.iden for r in self.getRoles()],
+            'admin': self.admin,
+            'email': self.info.get('email'),
+            'locked': self.locked,
+            'archived': self.info.get('archived'),
+        }
+
+    def _calcPermAllow(self, key):
+        perm, entitupl = key
+        for rule in self.fullrules:
+            if entitupl != rule.get('entitupl', None):
+                continue
+
+            path = rule['path']
             if perm[:len(path)] == path:
-                return retn
+                return rule['allow']
 
         return None
+
+    def getRoles(self):
+        for iden in self.roles:
+            role = self.auth.role(iden)
+            if role is not None:
+                yield role
 
     def _initFullRules(self):
 
@@ -975,51 +1046,8 @@ class HiveRules():
         self._initFullRules()
 
     async def _onRulesEdit(self, mesg):
-        self.rules = self.info.get('rules')
+        self.rules = _rulesToV2(self.info.get('rules'))
         self._initFullRules()
-
-class HiveUser(s_base.Base):
-
-    async def __anit__(self, auth, node):
-
-        await s_base.Base.__anit__(self)
-
-        self.info.setdefault('roles', ())
-
-        self.info.setdefault('admin', False)
-        self.info.setdefault('passwd', None)
-        self.info.setdefault('locked', False)
-        self.info.setdefault('archived', False)
-
-        self.admin = self.info.get('admin', onedit=self._onAdminEdit)
-        self.locked = self.info.get('locked', onedit=self._onLockedEdit)
-
-        # arbitrary profile data for application layer use
-        prof = await self.node.open(('profile',))
-        self.profile = await prof.dict()
-
-        # vars cache for persistent user level data storage
-        # TODO: max size check / max count check?
-        pvars = await self.node.open(('vars',))
-        self.pvars = await pvars.dict()
-
-    def pack(self):
-        return {
-            'type': 'user',
-            'name': self.name,
-            'iden': self.node.name(),
-            'roles': [r.iden for r in self.getRoles()],
-            'admin': self.admin,
-            'email': self.info.get('email'),
-            'locked': self.locked,
-            'archived': self.info.get('archived'),
-        }
-
-    def getRoles(self):
-        for iden in self.roles:
-            role = self.auth.role(iden)
-            if role is not None:
-                yield role
 
     async def _onAdminEdit(self, mesg):
         self.admin = self.info.get('admin')
@@ -1028,7 +1056,7 @@ class HiveUser(s_base.Base):
     async def _onLockedEdit(self, mesg):
         self.locked = self.info.get('locked')
 
-    def allowed(self, perm, elev=True, default=None):
+    def allowed(self, perm, elev=True, default=None, entitupl=None):
 
         if self.locked:
             return False
@@ -1036,7 +1064,13 @@ class HiveUser(s_base.Base):
         if self.admin and elev:
             return True
 
-        retn = self.permcache.get(perm)
+        if entitupl is not None:
+            # Check for an AuthEntity-specific rule first
+            retn = self.permcache.get((perm, entitupl))
+            if retn is not None:
+                return retn
+
+        retn = self.permcache.get((perm, None))
 
         return default if retn is None else retn
 

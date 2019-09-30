@@ -3,12 +3,11 @@ import atexit
 import signal
 import asyncio
 import inspect
-import asyncio
 import logging
 import weakref
+import itertools
 import contextlib
 import collections
-import concurrent.futures
 
 if __debug__:
     import traceback
@@ -150,6 +149,8 @@ class Base:
             meth = getattr(item, '__exit__', None)
             if meth is not None:
                 return meth(None, None, None)
+
+        self.onfini(fini)
 
         entr = getattr(item, '__aenter__', None)
         if entr is not None:
@@ -740,3 +741,34 @@ async def main(coro): # pragma: no cover
     if isinstance(base, Base):
         async with base:
             await base.main()
+
+class AuthEntity(Base):
+    '''
+    An object that manages its own permissions
+
+    Note:
+        This is a mixin and is intended to be subclassed
+    '''
+    async def trash(self, auth):
+        '''
+        Remove all rules relating to this object
+        '''
+        entitupl = self.entitupl()
+        for item in itertools.chain(auth.roles(), auth.users()):
+            for rule in item.rules:
+                if isinstance(rule, dict) and rule.get('entitupl') == entitupl:
+                    await item.delRule(rule)
+
+    def entitupl(self):
+        # FIXME:  alternative use an explicit class property for the first part
+        return (self.__class__.__name__, self.iden)
+
+    async def _reqUserAllowed(self, hiveuser, perm):
+        if not await self.allowed(hiveuser, perm):
+            perm = '.'.join(perm)
+            mesg = f'User must have permission {perm} for {":".join(self.entitupl())}'
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=hiveuser.name)
+
+    # FIXME:  async because cell.allowed is async
+    async def allowed(self, hiveuser, perm, elev=True, default=None):
+        return hiveuser.allowed(perm, elev=elev, default=default, entitupl=self.entitupl())

@@ -4,6 +4,7 @@ cortex construction.
 
 Note:  this interface is subject to change between minor revisions.
 '''
+import shutil
 import asyncio
 import logging
 import contextlib
@@ -35,31 +36,31 @@ class LayerApi(s_cell.CellApi):
         self.storperm = ('layer:stor', self.layr.iden)
 
     async def getLiftRows(self, lops):
-        await self._reqUserAllowed(*self.liftperm)
+        await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.getLiftRows(lops):
             yield item
 
     async def iterFormRows(self, form):
-        await self._reqUserAllowed(*self.liftperm)
+        await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.iterFormRows(form):
             yield item
 
     async def iterPropRows(self, form, prop):
-        await self._reqUserAllowed(*self.liftperm)
+        await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.iterPropRows(form, prop):
             yield item
 
     async def iterUnivRows(self, univ):
-        await self._reqUserAllowed(*self.liftperm)
+        await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.iterUnivRows(univ):
             yield item
 
     async def stor(self, sops, splices=None):
-        await self._reqUserAllowed(*self.storperm)
+        await self._reqUserAllowed(self.storperm)
         return await self.layr.stor(sops, splices=splices)
 
     async def getBuidProps(self, buid):
-        await self._reqUserAllowed(*self.liftperm)
+        await self._reqUserAllowed(self.liftperm)
         return await self.layr.getBuidProps(buid)
 
     async def getModelVers(self):
@@ -72,14 +73,14 @@ class LayerApi(s_cell.CellApi):
         return await self.layr.setOffset(iden, valu)
 
     async def splices(self, offs, size):
-        await self._reqUserAllowed(*self.liftperm)
+        await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.splices(offs, size):
             yield item
 
     async def hasTagProp(self, name):
         return await self.layr.hasTagProp(name)
 
-class Layer(s_base.Base):
+class Layer(s_base.AuthEntity):
     '''
     The base class for a cortex layer.
     '''
@@ -471,3 +472,10 @@ class Layer(s_base.Base):
     async def iterNodeData(self, buid): # pragma: no cover
         for x in (): yield x
         raise NotImplementedError
+
+    async def trash(self, auth):
+        '''
+        Delete the underlying storage
+        '''
+        await s_base.AuthEntity.trash(self, auth)
+        shutil.rmtree(self.dirn, ignore_errors=True)

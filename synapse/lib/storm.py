@@ -264,8 +264,9 @@ class Runtime:
             if node is not None:
                 yield node, self.initPath(node)
 
+    # FIXME: that this raises is inconsistent with other methods called "allowed".  Suggest renaming to reqAllowed
     @s_cache.memoize(size=100)
-    def allowed(self, *args, ask_layer=False):
+    def allowed(self, args, ask_layer=False):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
         '''
@@ -278,7 +279,7 @@ class Runtime:
         if allowed:
             return
 
-        if allowed is None and ask_layer and self.user.allowed(('layer', self.snap.wlyr.iden, *args)):
+        if allowed is None and ask_layer and self.user.allowed(args, entitupl=self.snap.wlyr.entitupl()):
             return
 
         # fails will not be cached...
@@ -677,9 +678,9 @@ class DelNodeCmd(Cmd):
 
             # make sure we can delete the tags...
             for tag in node.tags.keys():
-                runt.allowed('tag:del', *tag.split('.'), ask_layer=True)
+                runt.allowed(('tag:del', *tag.split('.')), ask_layer=True)
 
-            runt.allowed('node:del', node.form.name, ask_layer=True)
+            runt.allowed(('node:del', node.form.name), ask_layer=True)
 
             await node.delete(force=self.opts.force)
 
@@ -703,7 +704,7 @@ class SudoCmd(Cmd):
     name = 'sudo'
 
     async def execStormCmd(self, runt, genr):
-        runt.allowed('storm', 'cmd', 'sudo')
+        runt.allowed(('storm', 'cmd', 'sudo'))
         runt.elevate()
         async for item in genr:
             yield item

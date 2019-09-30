@@ -1,4 +1,5 @@
 import os
+import shutil
 import asyncio
 import pathlib
 import functools
@@ -508,6 +509,17 @@ class Slab(s_base.Base):
 
         self.onfini(self._onCoFini)
         self.schedCoro(self._runSyncLoop())
+
+    def trash(self):
+        '''
+        Deletes underlying storage
+        '''
+        try:
+            os.unlink(self.optspath)
+        except FileNotFoundError:
+            pass
+
+        shutil.rmtree(self.path, ignore_errors=True)
 
     def getNameAbrv(self, name):
         return SlabAbrv(self, name)
