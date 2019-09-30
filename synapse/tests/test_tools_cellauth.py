@@ -179,7 +179,7 @@ class CellAuthTest(s_t_utils.SynTest):
             argv = ['--debug', coreurl, 'modify', '--adduser', name]
             await s_cellauth.main(argv, outp)
 
-            outp = self.getTestOutp()
+            outp.clear()
             argv = [coreurl, 'modify', '--addrule', rule, name]
             await s_cellauth.main(argv, outp)
             # print(str(outp))
@@ -188,19 +188,20 @@ class CellAuthTest(s_t_utils.SynTest):
             self.eq(user[1].get('rules'),
                     ({'allow': True, 'path': ('node:add',)},))
 
-            outp = self.getTestOutp()
-            argv = [coreurl, 'modify', '--delrule', '0', 'foo']
             outp.clear()
+            argv = [coreurl, 'modify', '--delrule', '0', 'foo']
             await s_cellauth.main(argv, outp)
             # print(str(outp))
             outp.expect(f'deleting rule index: 0')
             user = await prox.getAuthInfo(name)
             self.eq(user[1].get('rules'), ())
 
-            outp = self.getTestOutp()
-            argv = [coreurl, 'modify', '--addrule', nrule, name]
+            outp.clear()
+            viewiden = core.view.iden
+            authenti = f'view:{viewiden}'
+            argv = [coreurl, 'modify', '--addrule', nrule, name, '--authentity', authenti]
             await s_cellauth.main(argv, outp)
             # print(str(outp))
-            outp.expect(f"adding rule to {name}: {{'allow': False, 'path': [{rule!r}]}}")
-
-            # FIXME: add --authentity test
+            outp.expect(
+                f"adding rule to {name}: {{'allow': False, 'path': [{rule!r}], 'entitupl': ('view', '{viewiden}')}}")
+            outp.expect(f'deny: node:add on {authenti}')

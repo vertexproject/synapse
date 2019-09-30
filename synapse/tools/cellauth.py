@@ -127,16 +127,17 @@ async def handleModify(opts):
 
                 rule = {'allow': allow, 'path': text.split('.')}
 
-                outp.printf(f'adding rule to {opts.name}: {rule!r}')
-
                 entitupl = None
                 if opts.authentity:
-                    entitupl = tuple(opts.authentity.split(';'))
+                    entitupl = tuple(opts.authentity.split(':'))
                     if len(entitupl) != 2:
-                        outp.print('Invalid AuthEntity format.  Must be kind:iden')
+                        outp.printf('Invalid AuthEntity format.  Must be kind:iden')
                         return 1
+                    rule['entitupl'] = entitupl
 
-                await cell.addAuthRule(opts.name, rule, indx=None, entitupl=entitupl)
+                outp.printf(f'adding rule to {opts.name}: {rule!r}')
+
+                await cell.addAuthRule(opts.name, rule, indx=None)
 
             if opts.delrule is not None:
                 outp.printf(f'deleting rule index: {opts.delrule}')
