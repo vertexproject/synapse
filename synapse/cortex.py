@@ -491,7 +491,6 @@ class CoreApi(s_cell.CellApi):
         Returns:
             (int): The number of nodes resulting from the query.
         '''
-
         view = await self._getViewFromOpts(opts)
 
         i = 0

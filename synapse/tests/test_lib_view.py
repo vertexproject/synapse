@@ -58,9 +58,10 @@ class ViewTest(s_t_utils.SynTest):
             await alist(core.eval('[test:int=10]'))
             await alist(view2.eval('[test:int=11]'))
 
-            # Rando can access main view but not a fork
             async with core.getLocalProxy(user='fred') as fredcore:
                 viewopts = {'view': view2.iden}
+
+                # Rando can access main view but not a fork
                 self.eq(1, await fredcore.count('test:int'))
 
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int', opts=viewopts))
@@ -69,7 +70,8 @@ class ViewTest(s_t_utils.SynTest):
                 layrtupl = ('LmdbLayer', view2.layers[0].iden)
 
                 # Rando can access forked view with explicit perms
-                await prox.addAuthRule('fred', (True, ('read', )), entitupl=viewtupl)
+                rule = {'allow': True, 'path': ('read', ), 'entitupl': viewtupl}
+                await prox.addAuthRule('fred', rule)
                 self.eq(2, await fredcore.count('test:int', opts=viewopts))
 
                 # But still can't write to layer
@@ -77,20 +79,27 @@ class ViewTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
 
                 # Rando can write to forked view's write layer with explicit perm
-                await prox.addAuthRule('fred', (True, ('prop:set', )), entitupl=layrtupl)
+                rule = {'allow': True, 'path': ('prop:set', ), 'entitupl': layrtupl}
+                await prox.addAuthRule('fred', rule)
 
                 self.eq(1, await fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=12]', opts=viewopts))
 
-                await prox.addAuthRule('fred', (True, ('node:add', )), entitupl=layrtupl)
+                rule = {'allow': True, 'path': ('node:add', ), 'entitupl': layrtupl}
+                await prox.addAuthRule('fred', rule)
                 self.eq(1, await fredcore.count('[test:int=12]', opts=viewopts))
 
                 # Add an explicit DENY for adding test:int nodes
-                await prox.addAuthRule('fred', (False, ('node:add', 'test:int')), entitupl=layrtupl, indx=0)
+                rule = {'allow': False, 'path': ('node:add', 'test:int'), 'entitupl': layrtupl}
+                await prox.addAuthRule('fred', rule, indx=0)
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=13]', opts=viewopts))
 
                 # Adding test:str is allowed though
                 self.eq(1, await fredcore.count('[test:str=foo]', opts=viewopts))
+
+                # An non-default world readable view works without explicit permission
+                view2.worldreadable = True
+                self.eq(3, await fredcore.count('test:int', opts=viewopts))
 
                 await view2.fini()
 

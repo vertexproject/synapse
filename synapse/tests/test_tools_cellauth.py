@@ -8,10 +8,17 @@ class CellAuthTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            argv = [core.getLocalUrl()]
+            coreurl = core.getLocalUrl()
+
+            argv = [coreurl]
             outp = self.getTestOutp()
             self.eq(await s_cellauth.main(argv, outp), -1)
             outp.expect('the following arguments are required:')
+
+            outp.clear()
+            argv = [coreurl, 'modify', '--adduser', 'foo', '--authentity', 'foo:bar']
+            await s_cellauth.main(argv, outp)
+            outp.expect('only valid with --addrule')
 
     async def test_cellauth_list(self):
 

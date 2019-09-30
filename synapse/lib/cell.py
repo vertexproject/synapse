@@ -67,7 +67,7 @@ class CellApi(s_base.Base):
         Check if the user has the requested permission.
 
         Args:
-            perm: Permission path components to check
+            perm: permission path components to check
             default: Value returned if no value stored
             entitupl (tuple[str]): entitupl of rules to consult, None for global rules
 
@@ -83,11 +83,6 @@ class CellApi(s_base.Base):
         Returns:
             Optional[bool]: True if the user has permission, False if explicitly denied, None if no entry
         '''
-
-        # FIXME:  alternative is could make a AuthEntityCellApi subclass and override this method
-        if isinstance(self.cell, s_base.AuthEntity):
-            return self.cell.allowed(self.user, perm, default=default)
-
         return self.user.allowed(perm, default=default, entitupl=entitupl)
 
     async def _reqUserAllowed(self, perm, entitupl=None):
@@ -95,7 +90,7 @@ class CellApi(s_base.Base):
         Helper method that subclasses can use for user permission checking.
 
         Args:
-            perm: Permission path components to check
+            perm: permission path components to check
 
         Notes:
             This can be used to require a permission; and will throw an exception if the permission is not allowed.
@@ -257,14 +252,14 @@ class CellApi(s_base.Base):
         return [r.name for r in self.cell.auth.roles()]
 
     @adminapi
-    async def addAuthRule(self, name, rule, indx=None, entitupl=None):
+    async def addAuthRule(self, name, rule, indx=None):
         item = self._getAuthItem(name)
-        return await item.addRule(rule, indx=indx, entitupl=entitupl)
+        return await item.addRule(rule, indx=indx)
 
     @adminapi
-    async def delAuthRule(self, name, rule, entitupl=None):
+    async def delAuthRule(self, name, rule):
         item = self._getAuthItem(name)
-        return await item.delRule(rule, entitupl=entitupl)
+        return await item.delRule(rule)
 
     @adminapi
     async def delAuthRuleIndx(self, name, indx):

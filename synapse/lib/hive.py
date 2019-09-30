@@ -203,9 +203,6 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         self.editsbypath[path].add(func)
 
-    def unonedit(self, path, func):
-        self.editsbypath.get('path', set()).discard(func)
-
     async def get(self, full):
         '''
         Get the value of a node at a given path.
@@ -866,7 +863,7 @@ class HiveIden(s_base.Base):
         self.onfini(self.info)
 
         self.info.setdefault('rules', ())
-        self.rules = self.info.get('rules', onedit=self._onRulesEdit)
+        self.rules = _rulesToV2(self.info.get('rules', onedit=self._onRulesEdit))
 
     async def _onRulesEdit(self, mesg):  # pragma: no cover
         raise s_exc.NoSuchImpl(mesg='HiveIden subclasses must implement _onRulesEdit',
@@ -881,13 +878,11 @@ class HiveIden(s_base.Base):
         self.rules = list(rules)
         await self.info.set('rules', rules)
 
-    async def addRule(self, rule, indx=None, entitupl=None):
+    async def addRule(self, rule, indx=None):
 
         rules = list(self.rules)
 
         rule = _ruleToV2(rule)
-        if entitupl is not None:
-            rule['entitupl'] = entitupl
 
         if indx is None:
             rules.append(rule)
@@ -896,11 +891,9 @@ class HiveIden(s_base.Base):
 
         await self.info.set('rules', rules)
 
-    async def delRule(self, rule, entitupl=None):
+    async def delRule(self, rule):
 
         rule = _ruleToV2(rule)
-        if entitupl is not None:
-            rule['entitupl'] = entitupl
 
         if rule not in self.rules:
             return False

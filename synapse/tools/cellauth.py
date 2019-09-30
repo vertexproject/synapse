@@ -20,20 +20,13 @@ outp = None
 
 denyallow = ['deny', 'allow']
 def reprrule(rule):
-    if isinstance(rule, tuple):
-        # V1 Rule
-        head = denyallow[rule[0]]
-        text = '.'.join(rule[1])
+    head = denyallow[rule['allow']]
+    text = '.'.join(rule['path'])
+    entitupl = rule.get('entitupl')
+    if entitupl is None:
         return f'{head}: {text}'
-    else:
-        # V2 Rule
-        head = denyallow[rule['allow']]
-        text = '.'.join(rule['path'])
-        entitupl = rule.get('entitupl')
-        if entitupl is None:
-            return f'{head}: {text}'
 
-        return f'{head}: {text} on {":".join(entitupl)}'
+    return f'{head}: {text} on {":".join(entitupl)}'
 
 def printuser(user):
 

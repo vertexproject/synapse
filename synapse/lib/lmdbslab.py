@@ -516,7 +516,7 @@ class Slab(s_base.Base):
         '''
         try:
             os.unlink(self.optspath)
-        except FileNotFoundError:
+        except FileNotFoundError:  # pragma: no cover
             pass
 
         shutil.rmtree(self.path, ignore_errors=True)
