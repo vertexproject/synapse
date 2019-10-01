@@ -24,7 +24,7 @@ def reprrule(rule):
     text = '.'.join(rule[1])
     return f'{head}: {text}'
 
-def printuser(user):
+async def printuser(user, details=False, cell=None):
 
     admin = user[1].get('admin')
     authtype = user[1].get('type')
@@ -51,6 +51,12 @@ def printuser(user):
         outp.printf('roles:')
         for rolename in sorted(user[1].get('roles')):
             outp.printf(f'    role: {rolename}')
+
+            if details:
+                role = await cell.getAuthInfo(rolename)
+                for i, rule in enumerate(role[1].get('rules', ())):
+                    rrep = reprrule(rule)
+                    outp.printf(f'        {i} {rrep}')
 
 async def handleModify(opts):
     try:
@@ -125,7 +131,7 @@ async def handleModify(opts):
                 outp.printf(f'no such user: {opts.name}')
                 return 1
 
-            printuser(user)
+            await printuser(user)
 
     except Exception as e:  # pragma: no cover
 
@@ -149,7 +155,7 @@ async def handleList(opts):
                         outp.printf(f'no such user: {opts.name}')
                         return 1
 
-                    printuser(user)
+                    await printuser(user, cell=cell, details=opts.detail)
                 return 0
 
             outp.printf(f'getting users and roles')
@@ -202,6 +208,8 @@ def makeargparser():
     # list
     pars_list = subpars.add_parser('list', help='List users/roles')
     pars_list.add_argument('name', nargs='*', default=None, help='The name of the user/role to list')
+    pars_list.add_argument('-d', '--detail', default=False, action='store_true',
+                           help='Show rule details for roles associated with a user.')
     pars_list.set_defaults(func=handleList)
 
     # create / modify / delete
