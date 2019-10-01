@@ -760,15 +760,15 @@ class AuthEntity(Base):
                     await item.delRule(rule)
 
     def entitupl(self):
-        # FIXME:  alternative use an explicit class property for the first part
+        # FIXME:  alternative:  use an explicit class property for the first part
         return (self.__class__.__name__, self.iden)
 
+    # async for consistency with CellApi
     async def _reqUserAllowed(self, hiveuser, perm):
-        if not await self.allowed(hiveuser, perm):
+        if not self.allowed(hiveuser, perm):
             perm = '.'.join(perm)
             mesg = f'User must have permission {perm} for {":".join(self.entitupl())}'
             raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=hiveuser.name)
 
-    # FIXME:  async because cell.allowed is async
-    async def allowed(self, hiveuser, perm, elev=True, default=None):
+    def allowed(self, hiveuser, perm, elev=True, default=None):
         return hiveuser.allowed(perm, elev=elev, default=default, entitupl=self.entitupl())

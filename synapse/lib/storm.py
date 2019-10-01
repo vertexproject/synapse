@@ -265,8 +265,12 @@ class Runtime:
                 yield node, self.initPath(node)
 
     # FIXME: that this raises is inconsistent with other methods called "allowed".  Suggest renaming to reqAllowed
+
+    # FIXME: the ask_layer parameter is due to we don't know which permissions to ask the layer about.  Alternative is
+    # to forward all perm checks to the layer and have it return None for all the ones it doesn't care about.  Or we
+    # have some perm registry thing.
     @s_cache.memoize(size=100)
-    def allowed(self, args, ask_layer=False):
+    def allowed(self, perms, ask_layer=False):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
         '''
@@ -274,16 +278,16 @@ class Runtime:
         if self.user is None or self.user.admin or self.elevated:
             return
 
-        allowed = self.user.allowed(args)
+        allowed = self.user.allowed(perms)
 
         if allowed:
             return
 
-        if allowed is None and ask_layer and self.user.allowed(args, entitupl=self.snap.wlyr.entitupl()):
+        if allowed is None and ask_layer and self.snap.wlyr.allowed(self.user, perms):
             return
 
         # fails will not be cached...
-        perm = '.'.join(args)
+        perm = '.'.join(perms)
         mesg = f'User must have permission {perm}'
         raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
 

@@ -62,13 +62,13 @@ class View(s_base.AuthEntity):
 
             self.layers.append(layr)
 
-    async def allowed(self, hiveuser, perm, elev=True, default=None):
+    def allowed(self, hiveuser, perm, elev=True, default=None):
         if self.worldreadable:
             return True
 
         # FIXME: map perm 'read' in view to perm 'view:read' in global scope?
 
-        return await s_base.AuthEntity.allowed(self, hiveuser, perm, elev=elev, default=default)
+        return s_base.AuthEntity.allowed(self, hiveuser, perm, elev=elev, default=default)
 
     async def eval(self, text, opts=None, user=None):
         '''
