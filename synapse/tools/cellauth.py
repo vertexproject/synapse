@@ -31,7 +31,8 @@ def printuser(user):
 
     outp.printf(f'{user[0]}')
     outp.printf(f'type: {authtype}')
-    outp.printf(f'admin: {admin}')
+    if admin is not None:
+        outp.printf(f'admin: {admin}')
 
     if authtype == 'user':
         locked = user[1].get('locked')
