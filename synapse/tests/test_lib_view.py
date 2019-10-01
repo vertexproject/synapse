@@ -115,7 +115,7 @@ class ViewTest(s_t_utils.SynTest):
                 wlyr = view2.layers[0]
                 await wlyr.fini()
                 await wlyr.trash(core.auth)
-                self.false(pathlib.Path(view2.layers[0].dirn).exists())
+                self.false(pathlib.Path(wlyr.dirn).exists())
                 rules = core.auth.getUserByName('fred').rules
                 self.len(0, rules)
 
