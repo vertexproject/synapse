@@ -386,9 +386,11 @@ class View(s_base.AuthEntity):
 
     async def trash(self, auth):
         '''
-        Delete the underlying storage for the view and any layers created by this view
+        Delete the underlying storage for the view.
+
+        Note: this does not delete any layer storage.
         '''
         await s_base.AuthEntity.trash(self, auth)
-        if self.parent:
-            # FIXME:  perhaps more explicit "ownership" of layers by views
-            await self.layers[0].trash(auth)
+
+        for (iden, _) in self.triggers.list():
+            self.triggers.delete(iden)

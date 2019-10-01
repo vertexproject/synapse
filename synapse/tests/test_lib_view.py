@@ -103,11 +103,19 @@ class ViewTest(s_t_utils.SynTest):
 
                 await view2.fini()
 
+                rule_count = len(core.auth.getUserByName('fred').rules)
+
                 await view2.trash(core.auth)
 
-                self.false(pathlib.Path(view2.layers[0].dirn).exists())
+                # Verify that trashing the view deletes the 1 rule on the view
+                rules = core.auth.getUserByName('fred').rules
+                self.len(rule_count - 1, rules)
 
-                # All of fred's rules are related to the new view, so there should be none left after trashing
+                # Verify that trashing the write layer deletes the remaining rules and backing store
+                wlyr = view2.layers[0]
+                await wlyr.fini()
+                await wlyr.trash(core.auth)
+                self.false(pathlib.Path(view2.layers[0].dirn).exists())
                 rules = core.auth.getUserByName('fred').rules
                 self.len(0, rules)
 
