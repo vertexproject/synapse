@@ -205,3 +205,9 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.sorteq(nodes[0].tags, ('base', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
+
+    async def test_ast_embed_compute(self):
+        # currently a simple smoke test for the EmbedQuery.compute method
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ test:int=10 test:int=20 ]  $q=${#foo.bar}')
+            self.len(2, nodes)

@@ -339,7 +339,7 @@ class Form:
             except Exception:
                 logger.exception('error on onadd for %s' % (self.name,))
 
-        await node.snap.core.triggers.runNodeAdd(node)
+        await node.snap.view.runNodeAdd(node)
 
     async def wasDeleted(self, node):
         '''
@@ -355,7 +355,7 @@ class Form:
             except Exception:
                 logger.exception('error on ondel for %s' % (self.name,))
 
-        await node.snap.core.triggers.runNodeDel(node)
+        await node.snap.view.runNodeDel(node)
 
     def getSetOps(self, buid, norm):
 
@@ -809,3 +809,6 @@ class Model:
 
     def univ(self, name):
         return self.univlook.get(name)
+
+    def tagprop(self, name):
+        return self.tagprops.get(name)

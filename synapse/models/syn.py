@@ -25,6 +25,7 @@ class SynModule(s_module.CoreModule):
         for form, lifter in (('syn:type', self._synModelLift),
                              ('syn:form', self._synModelLift),
                              ('syn:prop', self._synModelLift),
+                             ('syn:tagprop', self._synModelLift),
                              ('syn:trigger', self._synTriggerLift),
                              ):
             form = self.model.form(form)
@@ -34,7 +35,9 @@ class SynModule(s_module.CoreModule):
                 self.core.addRuntLift(pfull, lifter)
 
         # add event registration for model changes to allow for new models to reset the runtime model data
-        self.core.on('core:module:load', self._onCoreModuleLoad)
+        self.core.on('core:module:load', self._onCoreModelChange)
+        self.core.on('core:tagprop:change', self._onCoreModelChange)
+        self.core.on('core:extmodel:change', self._onCoreModelChange)
         self.core.on('core:trigger:action', self._onCoreTriggerMod)
 
     def _onCoreTriggerMod(self, event):
@@ -48,7 +51,7 @@ class SynModule(s_module.CoreModule):
         self._triggerRuntsByBuid.clear()
         self._triggerRuntsByPropValu.clear()
 
-    def _onCoreModuleLoad(self, event):
+    def _onCoreModelChange(self, event):
         '''
         Clear the cached model rows.
         '''
@@ -205,6 +208,7 @@ class SynModule(s_module.CoreModule):
             ptype, _ = self.model.prop('syn:prop:type').type.norm(pobj.type.name)
 
             univ = False
+            extmodel = False
 
             doc = pobj.info.get('doc', 'no docstring')
             doc, _ = self.model.prop('syn:prop:doc').type.norm(doc)
@@ -224,6 +228,8 @@ class SynModule(s_module.CoreModule):
             if isinstance(pobj, s_datamodel.Univ):
                 univ = True
                 props['ro'] = ro
+                if pobj.name.startswith('._'):
+                    extmodel = True
 
             elif isinstance(pobj, s_datamodel.Form):
                 fnorm, _ = self.model.prop('syn:prop:form').type.norm(pobj.full)
@@ -243,11 +249,25 @@ class SynModule(s_module.CoreModule):
                 props['base'] = base
                 props['relname'] = relname
                 univ = pobj.storinfo.get('univ', False)
+                if relname.startswith(('_', '._')):
+                    extmodel = True
 
             univ, _ = self.model.prop('syn:prop:univ').type.norm(univ)
+            extmodel, _ = self.model.prop('syn:prop:extmodel').type.norm(extmodel)
             props['univ'] = univ
+            props['extmodel'] = extmodel
 
             self._addRuntRows('syn:prop', pnorm, props,
+                              self._modelRuntsByBuid, self._modelRuntsByPropValu)
+
+        tpform = self.model.form('syn:tagprop')
+        for tpname, tpobj in self.model.tagprops.items():
+            tpnorm, _ = tpform.type.norm(tpname)
+            tptype, _ = self.model.prop('syn:tagprop:type').type.norm(tpobj.type.name)
+            doc = tpobj.info.get('doc', 'no docstring')
+
+            props = {'doc': doc, 'type': tptype}
+            self._addRuntRows('syn:tagprop', tpnorm, props,
                               self._modelRuntsByBuid, self._modelRuntsByPropValu)
 
     def getModelDefs(self):
@@ -263,6 +283,9 @@ class SynModule(s_module.CoreModule):
                 }),
                 ('syn:prop', ('str', {'strip': True}), {
                     'doc': 'A Synapse property.'
+                }),
+                ('syn:tagprop', ('str', {'strip': True}), {
+                    'doc': 'A user defined tag property.'
                 }),
                 ('syn:trigger', ('guid', {}), {
                     'doc': 'A Synapse trigger.'
@@ -326,6 +349,14 @@ class SynModule(s_module.CoreModule):
                         'doc': 'Base name of the property', 'ro': True}),
                     ('ro', ('bool', {}), {
                         'doc': 'If the property is read-only after being set.', 'ro': True}),
+                    ('extmodel', ('bool', {}), {
+                        'doc': 'If the property is an extended model property or not.', 'ro': True}),
+                )),
+                ('syn:tagprop', {'runt': True}, (
+                    ('doc', ('str', {'strip': True}), {
+                        'doc': 'Description of the tagprop definition.'}),
+                    ('type', ('syn:type', {}), {
+                        'doc': 'The synapse type for this tagprop.', 'ro': True}),
                 )),
                 ('syn:trigger', {'runt': True}, (
                     ('vers', ('int', {}), {
@@ -353,6 +384,5 @@ class SynModule(s_module.CoreModule):
                         'doc': 'Tag the trigger is watching for.'
                     }),
                 )),
-
             ),
         }),)

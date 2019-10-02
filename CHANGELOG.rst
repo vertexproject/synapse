@@ -3,17 +3,110 @@ Synapse Changelog
 *****************
 
 
+v0.1.29 - 2019-09-26
+====================
+
+Bugfixes
+--------
+- Fix permissions checks added in #1380 for the Triggers and Cron subsystems. Thank you https://github.com/awjnsn for
+  the bug report.
+  (`#1387 <https://github.com/vertexproject/synapse/pull/1387>`_)
+
+
+v0.1.28 - 2019-09-25
+====================
+
+Features and Enhancements
+-------------------------
+- Add a Cortex API for watching for tag changes on nodes in the Cortex.
+  (`#1383 <https://github.com/vertexproject/synapse/pull/1383>`_)
+- Require explicit permission for a user to add triggers or cron job.
+  (`#1380 <https://github.com/vertexproject/synapse/pull/1380>`_)
+- Add a CellApi get information about current Telepath client sessions on a Daemon.
+  (`#1364 <https://github.com/vertexproject/synapse/pull/1364>`_)
+
+Bugfixes
+--------
+- Fix permissions checks added in #1371 for the Boss, Triggers and Cron subsystems.
+  (`#1385 <https://github.com/vertexproject/synapse/pull/1385>`_)
+
+Improved Documentation
+----------------------
+- Add some high level Synapse architecture notes to the Developers guide.
+  (`#1382 <https://github.com/vertexproject/synapse/pull/1382>`_)
+  (`#1386 <https://github.com/vertexproject/synapse/pull/1386>`_)
+
+
+v0.1.27 - 2019-09-18
+====================
+
+Features and Enhancements
+-------------------------
+- Add syn:prop runtime only nodes for extramodel properties.
+  (`#1372 <https://github.com/vertexproject/synapse/pull/1372>`_)
+- Add syn:tagprop runtime only nodes for tagprop properties.
+  (`#1372 <https://github.com/vertexproject/synapse/pull/1372>`_)
+- Add ``:person`` field to ``ps:persona`` form.
+  (`#1376 <https://github.com/vertexproject/synapse/pull/1376>`_)
+- Add reprs for tagprops to the packed node format, and add cmdr display for tags with tagprops.
+  (`#1373 <https://github.com/vertexproject/synapse/pull/1373>`_)
+- Add a ``scrape`` command to Storm to enable regex based scraping of node properties for easily identifiable forms.
+  (`#1368 <https://github.com/vertexproject/synapse/pull/1368>`_)
+- Add explicit permissions for interacting with the trigger, cron and boss operations.
+  (`#1371 <https://github.com/vertexproject/synapse/pull/1371>`_)
+- Add support for remote Telepath services in Storm.
+  (`#1352 <https://github.com/vertexproject/synapse/pull/1352>`_)
+- Add support for implementing Storm commands in pure Storm.
+  (`#1352 <https://github.com/vertexproject/synapse/pull/1352>`_)
+- Add persistent, durable queue objects to Storm backed by LMDB slabs.
+  (`#1352 <https://github.com/vertexproject/synapse/pull/1352>`_)
+- Add support for persistent Storm daemon loops.
+  (`#1352 <https://github.com/vertexproject/synapse/pull/1352>`_)
+- Add a Telepath Client object. The client object is heavier than a Proxy and supports reconnects and.
+  (`#1352 <https://github.com/vertexproject/synapse/pull/1352>`_)
+- Add StormType ``$lib.time.format()`` to allow for formatting a timestamp value value into an arbitrary string.
+  (`#1378 <https://github.com/vertexproject/synapse/pull/1378>`_)
+- Internal plumbing support for a Cortex managing multiple views.
+  (`#1348 <https://github.com/vertexproject/synapse/pull/1348>`_)
+
+
+v0.1.26 - 2019-09-12
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``:serial``, ``:model``, and ``:manu`` secondary properties to the ``it:host`` form.
+  (`#1358 <https://github.com/vertexproject/synapse/pull/1358>`_)
+
+Bugfixes
+--------
+- Fix an issue in Storm where double quoted string values with backslash escaped characters in double quoted strings
+  were not being properly escaped during syntax parsing.  Double quoted strings are now being processed with
+  ``ast.literal_eval()``.  This means that double quoted string values will be processed according to Python's
+  string literals as seen here https://docs.python.org/3/reference/lexical_analysis.html#string-and-bytes-literals prior
+  to passing them into any sort of model normalization routines. Single quoted string values parsing is not affected by
+  this change.
+  (`#1366 <https://github.com/vertexproject/synapse/pull/1366>`_)
+  (`#1370 <https://github.com/vertexproject/synapse/pull/1367>`_)
+- Fix an issue where a Daemon Share object was being tracked twice on the server side.
+  (`#1363 <https://github.com/vertexproject/synapse/pull/1363>`_)
+- Fix an issue where Cron tasks could start prior to CoreModules loading being finalized.
+  (`#1367 <https://github.com/vertexproject/synapse/pull/1367>`_)
+- Fix an issue with inconsistent test coverage for ``synapse.lib.link``.
+  (`#1365 <https://github.com/vertexproject/synapse/pull/1365>`_)
+
+
 v0.1.25 - 2019-09-06
 ====================
+
+Features and Enhancements
+-------------------------
 - Add ``$lib.inet.http.put()`` Stormtypes support to allow making HTTP PUT requests.
   (`#1358 <https://github.com/vertexproject/synapse/pull/1358>`_)
 - Add ``$llib.base64`` Stormtypes to allow for manipulation of base64 data in Storm.
   (`#1358 <https://github.com/vertexproject/synapse/pull/1358>`_)
 - Add healthcheck tooling that can be used to implement heartbeat support for Synapse Cells.
   (`#1344 <https://github.com/vertexproject/synapse/pull/1344>`_)
-
-Features and Enhancements
--------------------------
 
 Bugfixes
 --------
