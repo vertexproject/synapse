@@ -19,10 +19,9 @@ Admin users in a remote cell.
 outp = None
 
 denyallow = ['deny', 'allow']
-def reprrule(rule):
-    head = denyallow[rule['allow']]
+def reprrule(rule, entitupl=None):
+    head = denyallow[rule[0]]
     text = '.'.join(rule['path'])
-    entitupl = rule.get('entitupl')
     if entitupl is None:
         return f'{head}: {text}'
 
@@ -118,7 +117,7 @@ async def handleModify(opts):
                     allow = False
                     text = text[1:]
 
-                rule = {'allow': allow, 'path': text.split('.')}
+                rule = (allow, text.split('.'))
 
                 entitupl = None
                 if opts.authentity:
@@ -126,11 +125,10 @@ async def handleModify(opts):
                     if len(entitupl) != 2:
                         outp.printf('Invalid AuthEntity format.  Must be kind:iden')
                         return 1
-                    rule['entitupl'] = entitupl
 
                 outp.printf(f'adding rule to {opts.name}: {rule!r}')
 
-                await cell.addAuthRule(opts.name, rule, indx=None)
+                await cell.addAuthRule(opts.name, rule, indx=None, entitupl=entitupl)
 
             if opts.delrule is not None:
                 outp.printf(f'deleting rule index: {opts.delrule}')

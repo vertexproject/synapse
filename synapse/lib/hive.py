@@ -858,12 +858,13 @@ class HiveIden(s_base.Base):
         self.node = node
         self.iden = node.name()
         self.name = node.valu
+        self.authentities = {}  # entitupl -> HiveEntitySubject
 
         self.info = await node.dict()
         self.onfini(self.info)
 
         self.info.setdefault('rules', ())
-        self.rules = _rulesToV2(self.info.get('rules', onedit=self._onRulesEdit))
+        self.rules = self.info.get('rules', onedit=self._onRulesEdit)
 
     async def _onRulesEdit(self, mesg):  # pragma: no cover
         raise s_exc.NoSuchImpl(mesg='HiveIden subclasses must implement _onRulesEdit',
@@ -916,6 +917,14 @@ class HiveIden(s_base.Base):
 
         await self.info.set('rules', rules)
 
+class HiveEntitySubject(HiveIden):
+    '''
+    A user or role underneath an AuthEntity node that just has rules.
+    '''
+    async def __anit__(self, auth, node, hiveiden):
+        await HiveIden.__anit__(self, auth, node)
+        self.hiveiden = hiveiden  # an instance of HiveRole or HiveUser that has the rest of the metadata
+
 def _ruleToV2(rule):
     '''
     Convert an old V1 tuple rule to a new V2 dict rule.  If already a V2 rule, return it unchanged
@@ -957,6 +966,8 @@ class HiveRole(HiveIden):
             'rules': self.rules,
         }
 
+
+
 class HiveUser(HiveIden):
 
     async def __anit__(self, auth, node):
@@ -985,6 +996,7 @@ class HiveUser(HiveIden):
 
         self.fullrules = []
         self.permcache = s_cache.FixedCache(self._calcPermAllow)
+        self.objectrules = {}
 
         self._initFullRules()
 
@@ -999,6 +1011,7 @@ class HiveUser(HiveIden):
             'email': self.info.get('email'),
             'locked': self.locked,
             'archived': self.info.get('archived'),
+            'objectrules':
         }
 
     def _calcPermAllow(self, key):
