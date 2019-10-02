@@ -36,12 +36,21 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('icanadd')
             outp.expect('admin: False')
             outp.expect('role: creator')
+            self.false(outp.expect('allow: node:add', throw=False))
 
             argv = [coreurl, 'list', 'creator']
             outp = self.getTestOutp()
             self.eq(await s_cellauth.main(argv, outp), 0)
             outp.expect('creator')
             outp.expect('type: role')
+
+            argv = [coreurl, 'list', '--detail', 'icanadd']
+            outp = self.getTestOutp()
+            self.eq(await s_cellauth.main(argv, outp), 0)
+            outp.expect('icanadd')
+            outp.expect('admin: False')
+            outp.expect('role: creator')
+            outp.expect('allow: node:add', throw=False)
 
     async def test_cellauth_user(self):
 
