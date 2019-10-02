@@ -231,7 +231,6 @@ class CellApi(s_base.Base):
     @adminapi
     async def delAuthRole(self, name):
         role = await self.cell.auth.delRole(name)
-        # FIXME - This throws an exception.
         return role.pack()
 
     @adminapi
