@@ -247,6 +247,7 @@ class Proxy(s_base.Base):
 
         self.sess = None
         self.links = collections.deque()
+        self._link_poolsize = 4
 
         self.synack = None
         self.syndone = asyncio.Event()
@@ -344,8 +345,8 @@ class Proxy(s_base.Base):
         if link.isfini:
             return
 
-        # a pool of 4 max for now...
-        if len(self.links) >= 4:
+        # If we've exceeded our poolsize, discard the current link.
+        if len(self.links) >= self._link_poolsize:
             return await link.fini()
 
         self.links.append(link)
@@ -591,7 +592,9 @@ class Client(s_base.Base):
     A Telepath client object which reconnects and allows waiting for link up.
 
     conf = {
+        'timeout': 10,
         'retrysleep': 0.2,
+        'link_poolsize': 4,
     }
 
     '''
@@ -678,6 +681,7 @@ class Client(s_base.Base):
             await self._fireLinkLoop()
 
         self._t_proxy.onfini(fini)
+        self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
 
         if self._t_onlink is not None:
             await self._t_onlink(self._t_proxy)
