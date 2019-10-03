@@ -1251,6 +1251,8 @@ class FormPivot(PivotOper):
             # "reverse" ndef references...
             for refsname in refs.get('ndef'):
 
+                found = True
+
                 refsprop = destform.props.get(refsname)
                 async for pivo in runt.snap.getNodesBy(refsprop.full, node.ndef):
                     yield pivo, path.fork(pivo)
@@ -1286,7 +1288,9 @@ class PropPivotOut(PivotOper):
                     continue
 
                 for item in valu:
-                    async for pivo in runt.snap.getNodeByNdef((fname, item)):
+
+                    pivo = await runt.snap.getNodeByNdef((fname, item))
+                    if pivo is not None:
                         yield pivo, path.fork(pivo)
 
                 continue

@@ -223,6 +223,9 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:arrayprop:ints -> *')
             self.len(3, nodes)
 
+            nodes = await core.nodes('test:arrayprop :ints -> *')
+            self.len(3, nodes)
+
             nodes = await core.nodes('test:int=2 -> test:arrayprop')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'test:arrayprop')
@@ -233,6 +236,14 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[ edge:refs=((test:int, 10), (test:str, woot)) ]')
             nodes = await core.nodes('edge:refs -> test:str')
             self.eq(nodes[0].ndef, ('test:str', 'woot'))
+
+            nodes = await core.nodes('[ geo:nloc=((inet:fqdn, woot.com), "34.1,-118.3", now) ]')
+            self.len(1, nodes)
+
+            # test a reverse ndef pivot
+            nodes = await core.nodes('inet:fqdn=woot.com -> geo:nloc')
+            self.len(1, nodes)
+            self.eq('geo:nloc', nodes[0].ndef[0])
 
     async def test_ast_lift_filt_array(self):
 
@@ -281,6 +292,14 @@ class AstTest(s_test.SynTest):
             self.eq(nodes[0].get('ints'), (100, 101, 102))
 
             nodes = await core.nodes('test:arrayprop +:ints*[ range=(50,100) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ints'), (100, 101, 102))
+
+            nodes = await core.nodes('test:arrayprop:ints=(1, 2, 3) | limit 1 | [ -:ints ]')
+            self.len(1, nodes)
+
+            # test filter case where field is None
+            nodes = await core.nodes('test:arrayprop +:ints*[=100]')
             self.len(1, nodes)
             self.eq(nodes[0].get('ints'), (100, 101, 102))
 
