@@ -103,9 +103,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Adds a trigger to the cortex
         '''
-        if not self.user.admin and not self.user.allowed('trigger', 'add'):
-            mesg = 'User not authorized to create triggers.'
-            raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
+        await self._reqUserAllowed('trigger', 'add')
 
         iden = await self.cell.addTrigger(condition, query, info, disabled,
                                           user=self.user)
@@ -136,7 +134,9 @@ class CoreApi(s_cell.CellApi):
         return view
 
     async def _trig_auth_check(self, useriden, perm):
-        ''' Raise exception if doesn't have explicit perms and resource not created by that user '''
+        '''
+        Raise exception if doesn't have explicit perms and resource not created by that user
+        '''
         isallowed = await self.allowed(*perm)
         if (useriden == self.user.iden) or isallowed:
             return
@@ -218,9 +218,7 @@ class CoreApi(s_cell.CellApi):
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
-        if not self.user.admin and not self.user.allowed('cron', 'add'):
-            mesg = 'User not authorized to create cron job.'
-            raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
+        await self._reqUserAllowed('cron', 'add')
 
         def _convert_reqdict(reqdict):
             return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
