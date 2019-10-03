@@ -231,6 +231,32 @@ class CortexTest(s_t_utils.SynTest):
 
                 await node.seen('now', source=sorc)
 
+                # test un-populated properties
+                node = await snap.addNode('ps:contact', '*')
+                self.len(0, node.getNodeRefs())
+
+                # test ndef field
+                node = await snap.addNode('geo:nloc', (('inet:fqdn', 'woot.com'), '34.1,-118.3', 'now'))
+                refs = dict(node.getNodeRefs())
+                refs.get('ndef', ('inet:fqdn', 'woot.com'))
+
+                # test un-populated ndef field
+                node = await snap.addNode('test:str', 'woot')
+                refs = dict(node.getNodeRefs())
+                self.none(refs.get('bar'))
+
+                node = await snap.addNode('test:arrayprop', '*')
+
+                # test un-populated array prop
+                refs = node.getNodeRefs()
+                self.len(0, [r for r in refs if r[0] == 'ints'])
+
+                # test array prop
+                await node.set('ints', (1, 2, 3))
+                refs = node.getNodeRefs()
+                ints = sorted([r[1] for r in refs if r[0] == 'ints'])
+                self.eq(ints, (('test:int', 1), ('test:int', 2), ('test:int', 3)))
+
             opts = {'vars': {'sorc': sorc}}
             nodes = [n.pack() async for n in core.eval('meta:seen:source=$sorc -> *', opts=opts)]
 
