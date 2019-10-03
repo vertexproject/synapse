@@ -2875,7 +2875,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(node.ndef, ('inet:ipv4', 0x01020304))
 
             with self.raises(s_exc.NoSuchPivot):
-                nodes = await alist(core.eval('inet:ipv4 -> test:str'))
+                nodes = await core.nodes('[ test:int=10 ] -> test:type')
 
     async def test_storm_expressions(self):
         async with self.getTestCore() as core:
