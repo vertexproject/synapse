@@ -1056,7 +1056,7 @@ class Cortex(s_cell.Cell):
         ( see CoreApi.watch() docs for details )
         '''
         async with self.watcher(wdef) as wind:
-            for mesg in wind:
+            async for mesg in wind:
                 yield mesg
 
     async def addUnivProp(self, name, tdef, info):
