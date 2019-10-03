@@ -13,7 +13,26 @@ ex_sha512 = 'ca74fe2ff2d03b29339ad7d08ba21d192077fece1715291c7b43c20c9136cd13278
 class CryptoModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
+
             'types': (
+
+                ('crypto:currency:coin', ('str', {'lower': True}), {
+                    'doc': 'An individual crypto currency type.',
+                    'ex': 'btc',
+                }),
+                ('crypto:currency:wallet', ('comp', {'fields': (('coin', 'crypto:currency:coin'), ('address', 'str'))}), {
+                    'doc': 'An individual crypto currency wallet / endpoint.',
+                    'ex': '(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)',
+                }),
+
+                ('crypto:currency:client', ('comp', {'fields': (
+                                                        ('address', 'inet:client'),
+                                                        ('wallet', 'crypto:currency:wallet')
+                                                    )}), {
+                    'doc': 'A fused node representing a crypto currency wallet used by an inet:client.',
+                    'ex': '(1.2.3.4, (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2))',
+                }),
+
                 ('hash:md5', ('hex', {'size': 32}), {
                     'doc': 'A hex encodeded MD5 hash',
                     'ex': ex_md5
@@ -46,7 +65,32 @@ class CryptoModule(s_module.CoreModule):
                     'doc': 'An RSA keypair modulus and public exponent.'
                 }),
             ),
+
             'forms': (
+
+                ('crypto:currency:coin', {}, (
+                    ('name', ('str', {}), {
+                        'doc': 'The full name of the crypto coin.'}),
+                )),
+
+                ('crypto:currency:wallet', {}, (
+                    ('coin', ('str', {}), {
+                        'doc': 'The crypto coin to which the address belongs.'}),
+                    ('desc', ('str', {}), {
+                        'doc': 'A free-form description of the wallet.'}),
+                    ('address', ('str', {}), {
+                        'doc': 'The coin specific address identifier.'}),
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'Contact information associated with the wallet.'}),
+                )),
+
+                ('crypto:currency:client', {}, (
+                    ('address', ('inet:client', {}), {
+                        'doc': 'The client address observed using the wallet.'}),
+                    ('wallet', ('crypto:currency:wallet', {}), {
+                        'doc': 'The wallet observed in use the the client.'}),
+                )),
+
                 ('hash:md5', {}, ()),
                 ('hash:sha1', {}, ()),
                 ('hash:sha256', {}, ()),
