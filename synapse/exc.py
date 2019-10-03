@@ -16,7 +16,7 @@ class SynErr(Exception):
     def items(self):
         return {k: v for k, v in self.errinfo.items()}
 
-    def get(self, name):
+    def get(self, name, defv=None):
         '''
         Return a value from the errinfo dict.
 
@@ -28,7 +28,7 @@ class SynErr(Exception):
                 blah = e.get('blah')
 
         '''
-        return self.errinfo.get(name)
+        return self.errinfo.get(name, defv)
 
 class AuthDeny(SynErr): pass
 

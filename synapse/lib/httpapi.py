@@ -334,14 +334,13 @@ class WatchSockV1(WebSocket):
                 async for mesg in watcher:
                     await self.xmit(mesg[0], **mesg[1])
 
+                # pragma: no cover
+                # (this would only happen on slow-consumer)
                 await self.xmit('fini')
 
         except s_exc.SynErr as e:
 
-            text = e.get('mesg')
-            if text is None:
-                text = str(e)
-
+            text = e.get('mesg', str(e))
             await self.xmit('errx', code=e.__class__.__name__, mesg=text)
 
         except Exception as e:
