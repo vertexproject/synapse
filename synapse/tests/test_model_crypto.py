@@ -41,23 +41,23 @@ class CryptoModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ crypto:currency:client=(1.2.3.4, (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)) ]')
             self.len(1, nodes)
 
-            nodes = await core.nodes('inet:client=1.2.3.4 -> crypto:currency:client -> crypto:currency:wallet')
+            nodes = await core.nodes('inet:client=1.2.3.4 -> crypto:currency:client -> crypto:currency:address')
             self.eq(nodes[0].get('coin'), 'btc')
-            self.eq(nodes[0].get('address'), '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')
+            self.eq(nodes[0].get('iden'), '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')
 
             nodes = await core.nodes('''
                 [
                     econ:acct:payment="*"
-                        :from:wallet=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
-                        :to:wallet=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :from:coinaddr=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :to:coinaddr=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
                 ]
             ''')
 
             # these would explode if the model was wrong
-            self.len(1, await core.nodes('crypto:currency:wallet [ :desc="woot woot" :contact="*" ] -> ps:contact'))
-            self.len(1, await core.nodes('crypto:currency:wallet:address=1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
-            self.len(1, await core.nodes('crypto:currency:wallet:coin=btc'))
-            self.len(1, await core.nodes('crypto:currency:client:address=1.2.3.4'))
+            self.len(1, await core.nodes('crypto:currency:address [ :desc="woot woot" :contact="*" ] -> ps:contact'))
+            self.len(1, await core.nodes('crypto:currency:address:iden=1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+            self.len(1, await core.nodes('crypto:currency:address:coin=btc'))
+            self.len(1, await core.nodes('crypto:currency:client:inetaddr=1.2.3.4'))
 
     async def test_norm_lm_ntlm(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex

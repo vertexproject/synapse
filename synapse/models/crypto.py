@@ -20,16 +20,16 @@ class CryptoModule(s_module.CoreModule):
                     'doc': 'An individual crypto currency type.',
                     'ex': 'btc',
                 }),
-                ('crypto:currency:wallet', ('comp', {'fields': (('coin', 'crypto:currency:coin'), ('address', 'str'))}), {
-                    'doc': 'An individual crypto currency wallet / endpoint.',
+                ('crypto:currency:address', ('comp', {'fields': (('coin', 'crypto:currency:coin'), ('iden', 'str'))}), {
+                    'doc': 'An individual crypto currency address.',
                     'ex': '(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)',
                 }),
 
                 ('crypto:currency:client', ('comp', {'fields': (
-                                                        ('address', 'inet:client'),
-                                                        ('wallet', 'crypto:currency:wallet')
+                                                        ('inetaddr', 'inet:client'),
+                                                        ('coinaddr', 'crypto:currency:address')
                                                     )}), {
-                    'doc': 'A fused node representing a crypto currency wallet used by an inet:client.',
+                    'doc': 'A fused node representing a crypto currency address used by an Internet client.',
                     'ex': '(1.2.3.4, (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2))',
                 }),
 
@@ -73,22 +73,22 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The full name of the crypto coin.'}),
                 )),
 
-                ('crypto:currency:wallet', {}, (
+                ('crypto:currency:address', {}, (
                     ('coin', ('str', {}), {
                         'doc': 'The crypto coin to which the address belongs.'}),
                     ('desc', ('str', {}), {
-                        'doc': 'A free-form description of the wallet.'}),
-                    ('address', ('str', {}), {
+                        'doc': 'A free-form description of the address.'}),
+                    ('iden', ('str', {}), {
                         'doc': 'The coin specific address identifier.'}),
                     ('contact', ('ps:contact', {}), {
-                        'doc': 'Contact information associated with the wallet.'}),
+                        'doc': 'Contact information associated with the address.'}),
                 )),
 
                 ('crypto:currency:client', {}, (
-                    ('address', ('inet:client', {}), {
-                        'doc': 'The client address observed using the wallet.'}),
-                    ('wallet', ('crypto:currency:wallet', {}), {
-                        'doc': 'The wallet observed in use the the client.'}),
+                    ('inetaddr', ('inet:client', {}), {
+                        'doc': 'The Internet client address observed using the crypto currency address.'}),
+                    ('coinaddr', ('crypto:currency:address', {}), {
+                        'doc': 'The crypto currency address observed in use the the Internet client.'}),
                 )),
 
                 ('hash:md5', {}, ()),

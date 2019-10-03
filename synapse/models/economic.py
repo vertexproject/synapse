@@ -115,14 +115,14 @@ class EconModule(s_module.CoreModule):
                     ('from:pay:card', ('econ:pay:card', {}), {
                         'doc': 'The payment card making the payment.'}),
 
-                    ('from:wallet', ('crypto:currency:wallet', {}), {
-                        'doc': 'The crypto currency wallet making the payment.'}),
+                    ('from:coinaddr', ('crypto:currency:address', {}), {
+                        'doc': 'The crypto currency address making the payment.'}),
 
                     ('from:contact', ('ps:contact', {}), {
                         'doc': 'Contact information for the person/org being paid.'}),
 
-                    ('to:wallet', ('crypto:currency:wallet', {}), {
-                        'doc': 'The crypto currency wallet receiving the payment.'}),
+                    ('to:coinaddr', ('crypto:currency:address', {}), {
+                        'doc': 'The crypto currency address receiving the payment.'}),
 
                     ('to:contact', ('ps:contact', {}), {
                         'doc': 'Contact information for the person/org being paid.'}),
