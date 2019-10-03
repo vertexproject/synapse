@@ -162,13 +162,13 @@ class CmdTriggersTest(s_t_utils.SynTest):
                 self.true(toutp.expect('provided iden does not match'))
 
                 # Give explicit perm
-                await core.addAuthRule('bond', (True, (('trigger', 'get'),)))
+                await core.addAuthRule('bond', (True, ('trigger', 'get')))
 
                 toutp.clear()
                 await tcmdr.runCmdLine('trigger list')
                 self.true(toutp.expect('root'))
 
-                await core.addAuthRule('bond', (True, (('trigger', 'set'),)))
+                await core.addAuthRule('bond', (True, ('trigger', 'set')))
 
                 toutp.clear()
                 await tcmdr.runCmdLine(f'trigger mod {goodbuid2} {{[ test:str=yep ]}}')
@@ -182,7 +182,7 @@ class CmdTriggersTest(s_t_utils.SynTest):
                 await tcmdr.runCmdLine(f'trigger enable {goodbuid2}')
                 self.true(toutp.expect('Enabled trigger '))
 
-                await core.addAuthRule('bond', (True, (('trigger', 'del'),)))
+                await core.addAuthRule('bond', (True, ('trigger', 'del')))
 
                 toutp.clear()
                 await tcmdr.runCmdLine(f'trigger del {goodbuid2}')

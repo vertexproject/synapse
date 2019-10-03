@@ -146,19 +146,18 @@ class CellApi(s_base.Base):
 
         retn = []
 
-        admin = self.user.admin
-        isallowed = await self.allowed(('task', 'get'))
+        isallowed = await self.allowed('task', 'get')
 
-        for synt in self.cell.boss.ps():
-            if admin or synt.user == self.user or isallowed:
-                retn.append(synt.pack())
+        for task in self.cell.boss.ps():
+            if (task.user == self.user) or isallowed:
+                retn.append(task.pack())
 
         return retn
 
     async def kill(self, iden):
 
-        admin = self.user.admin
-        isallowed = await self.allowed(('task', 'del'))
+        perm = ('task', 'del')
+        isallowed = await self.allowed(*perm)
 
         logger.info(f'User [{self.user.name}] Requesting task kill: {iden}')
         task = self.cell.boss.get(iden)
@@ -166,13 +165,15 @@ class CellApi(s_base.Base):
             logger.info(f'Task does not exist: {iden}')
             return False
 
-        if admin or task.user == self.user or isallowed:
+        if (task.user == self.user) or isallowed:
             logger.info(f'Killing task: {iden}')
             await task.kill()
             logger.info(f'Task killed: {iden}')
             return True
 
-        raise s_exc.AuthDeny(mesg='Caller must own task or be admin.', task=iden, user=str(self.user))
+        perm = '.'.join(perm)
+        raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
+                             task=iden, user=str(self.user), perm=perm)
 
     async def listHiveKey(self, path=None):
         if path is None:

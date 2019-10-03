@@ -103,9 +103,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Adds a trigger to the cortex
         '''
-        if not self.user.admin and not self.user.allowed('trigger', 'add'):
-            mesg = 'User not authorized to create triggers.'
-            raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
+        await self._reqUserAllowed('trigger', 'add')
 
         iden = await self.cell.addTrigger(condition, query, info, disabled,
                                           user=self.user)
@@ -136,10 +134,15 @@ class CoreApi(s_cell.CellApi):
         return view
 
     async def _trig_auth_check(self, useriden, perm):
-        ''' Raise exception if non-admin and doesn't have explicit perms and resource not created by that user '''
-        if not self.user.admin and useriden != self.user.iden and not await self.allowed(perm):
-            mesg = 'Without explicit permission, may only manipulate triggers or cron jobs created by you'
-            raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
+        '''
+        Raise exception if doesn't have explicit perms and resource not created by that user
+        '''
+        isallowed = await self.allowed(*perm)
+        if (useriden == self.user.iden) or isallowed:
+            return
+        perm = '.'.join(perm)
+        mesg = f'User must have permission {perm} or own the resource'
+        raise s_exc.AuthDeny(mesg=mesg, user=self.user.name, perm=perm)
 
     async def delTrigger(self, iden):
         '''
@@ -179,12 +182,11 @@ class CoreApi(s_cell.CellApi):
         '''
         trigs = []
         _trigs = await self.cell.listTriggers()
-        isallowed = await self.allowed(('trigger', 'get'))
+        isallowed = await self.allowed('trigger', 'get')
         for (iden, trig) in _trigs:
             useriden = trig['useriden']
-            if not (self.user.admin or useriden == self.user.iden or isallowed):
-                continue
-            trigs.append((iden, trig))
+            if (useriden == self.user.iden) or isallowed:
+                trigs.append((iden, trig))
 
         return trigs
 
@@ -216,9 +218,7 @@ class CoreApi(s_cell.CellApi):
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
-        if not self.user.admin and not self.user.allowed('cron', 'add'):
-            mesg = 'User not authorized to create cron job.'
-            raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
+        await self._reqUserAllowed('cron', 'add')
 
         def _convert_reqdict(reqdict):
             return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
@@ -296,14 +296,13 @@ class CoreApi(s_cell.CellApi):
         Get information about all the cron jobs accessible to the current user
         '''
         crons = []
-        isallowed = await self.allowed(('cron', 'get'))
+        isallowed = await self.allowed('cron', 'get')
         for iden, cron in self.cell.agenda.list():
             useriden = cron['useriden']
-            if not (self.user.admin or useriden == self.user.iden or isallowed):
-                continue
-            user = self.cell.auth.user(useriden)
-            cron['username'] = '<unknown>' if user is None else user.name
-            crons.append((iden, cron))
+            if (useriden == self.user.iden) or isallowed:
+                user = self.cell.auth.user(useriden)
+                cron['username'] = '<unknown>' if user is None else user.name
+                crons.append((iden, cron))
 
         return crons
 

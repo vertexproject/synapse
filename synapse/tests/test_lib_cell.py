@@ -191,11 +191,10 @@ class CellTest(s_t_utils.SynTest):
     async def test_cell_nonstandard_admin(self):
         boot = {
             'auth:admin': 'pennywise:cottoncandy',
-            'type': 'echoauth',
         }
         pconf = {'user': 'pennywise', 'passwd': 'cottoncandy'}
 
-        with self.getTestDir('cellauth') as dirn:
+        with self.getTestDir() as dirn:
 
             s_common.yamlsave(boot, dirn, 'boot.yaml')
             async with await EchoAuth.anit(dirn) as echo:
