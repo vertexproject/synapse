@@ -1022,11 +1022,9 @@ class Cortex(s_cell.Cell):
             except Exception as e:
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
 
-    async def watch(self, wdef):
-        '''
-        Hook cortex/view/layer watch points based on a specified watch definition.
-        ( see CoreApi.watch() docs for details )
-        '''
+    @contextlib.asynccontextmanager
+    async def watcher(self, wdef):
+
         iden = wdef.get('view', self.view.iden)
 
         view = self.views.get(iden)
@@ -1052,7 +1050,15 @@ class Cortex(s_cell.Cell):
                     layr.on('tag:add', ontag, base=wind)
                     layr.on('tag:del', ontag, base=wind)
 
-            async for mesg in wind:
+            yield wind
+
+    async def watch(self, wdef):
+        '''
+        Hook cortex/view/layer watch points based on a specified watch definition.
+        ( see CoreApi.watch() docs for details )
+        '''
+        async with self.watcher(wdef) as wind:
+            for mesg in wind:
                 yield mesg
 
     async def addUnivProp(self, name, tdef, info):
@@ -1384,6 +1390,7 @@ class Cortex(s_cell.Cell):
         Registration for built-in Cortex httpapi endpoints
         '''
         self.addHttpApi('/api/v1/storm', s_httpapi.StormV1, {'cell': self})
+        self.addHttpApi('/api/v1/watch', s_httpapi.WatchSockV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
 
         self.addHttpApi('/api/v1/model', s_httpapi.ModelV1, {'cell': self})

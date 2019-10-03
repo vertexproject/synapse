@@ -67,6 +67,7 @@ class BadArg(SynErr):
 class BadFileExt(SynErr): pass
 class BadIndxValu(SynErr): pass
 class BadMesgVers(SynErr): pass
+class BadMesgFormat(SynErr): pass
 class BadOperArg(SynErr):
     ''' Improper storm function arguments '''
     pass
