@@ -1,5 +1,6 @@
 import json
 import base64
+import asyncio
 import logging
 
 from urllib.parse import urlparse
@@ -342,6 +343,9 @@ class WatchSockV1(WebSocket):
 
             text = e.get('mesg', str(e))
             await self.xmit('errx', code=e.__class__.__name__, mesg=text)
+
+        except asyncio.CancelledError:
+            raise
 
         except Exception as e:
             await self.xmit('errx', code=e.__class__.__name__, mesg=str(e))
