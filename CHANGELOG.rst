@@ -3,6 +3,25 @@ Synapse Changelog
 *****************
 
 
+v0.1.30 - 2019-10-04
+====================
+
+Feature
+--------
+- Make the Telepath ``Proxy`` link pool size configurable, and expose that as a configuration value on the Telepath
+  ``Client``.
+  (`#1389 <https://github.com/vertexproject/synapse/pull/1389>`_)
+- Add a Websocket based API For receiving Cortex watch events.
+  (`#1392 <https://github.com/vertexproject/synapse/pull/1392>`_)
+- Add initial support for multi-value properties.
+  (`#1361 <https://github.com/vertexproject/synapse/pull/1361>`_)
+
+Bugfixes
+--------
+- Remove unused test assets and fix manifest so test assets are properly grafted into packages.
+  (`#1388 <https://github.com/vertexproject/synapse/pull/1388>`_)
+
+
 v0.1.29 - 2019-09-26
 ====================
 
