@@ -2877,6 +2877,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchPivot):
                 nodes = await core.nodes('[ test:int=10 ] -> test:type')
 
+            nodes = await core.nodes('[ test:str=woot :bar=(inet:fqdn, woot.com) ] -> inet:fqdn')
+            self.eq(nodes[0].ndef, ('inet:fqdn', 'woot.com'))
+
     async def test_storm_expressions(self):
         async with self.getTestCore() as core:
 

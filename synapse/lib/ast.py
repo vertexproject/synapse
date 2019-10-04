@@ -1213,12 +1213,13 @@ class FormPivot(PivotOper):
 
             for refsname in refs.get('ndef'):
 
+                found = True
+
                 refsvalu = node.get(refsname)
                 if refsvalu is not None and refsvalu[0] == destform.name:
                     pivo = await runt.snap.getNodeByNdef(refsvalu)
                     if pivo is not None:
                         yield pivo, path.fork(pivo)
-                    return
 
             #########################################################################
             # reverse "-> form" pivots (ie inet:fqdn -> inet:dns:a)
