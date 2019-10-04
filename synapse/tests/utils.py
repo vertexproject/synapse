@@ -141,6 +141,8 @@ testmodel = {
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
 
+        ('test:arrayprop', ('guid', {}), {}),
+
         ('test:comp', ('comp', {'fields': (
             ('hehe', 'test:int'),
             ('haha', 'test:lower'))
@@ -166,10 +168,14 @@ testmodel = {
 
     'univs': (
         ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
+        ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
     ),
 
     'forms': (
 
+        ('test:arrayprop', {}, (
+            ('ints', ('array', {'type': 'test:int'}), {}),
+        )),
         ('test:type10', {}, (
 
             ('intprop', ('int', {'min': 20, 'max': 30}), {
