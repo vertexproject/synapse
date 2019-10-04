@@ -464,6 +464,33 @@ class AuthUserV1(Handler):
 
         self.sendRestRetn(user.pack())
 
+class AuthUserPasswdV1(Handler):
+
+    async def post(self, iden):
+
+        # TODO allow user to change their own name / email via this API
+        if not await self.reqAuthUser():
+            return
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        user = self.cell.auth.user(iden)
+        if user is None:
+            self.sendRestErr('NoSuchUser', f'User {iden} does not exist.')
+            return
+
+        password = body.get('password')
+
+        if self.user.admin or self.user.iden == user.iden:
+            try:
+                await user.setPasswd(password)
+            except s_exc.BadArg as e:
+                self.sendRestErr('BadArg', e.get('mesg'))
+                return
+        self.sendRestRetn(user.pack())
+
 class AuthRoleV1(Handler):
 
     async def get(self, iden):
