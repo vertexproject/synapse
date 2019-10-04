@@ -266,13 +266,13 @@ class CellApi(s_base.Base):
         item = self._getAuthItem(name)
         await item.setAdmin(admin)
 
-    @adminapi
     async def setUserPasswd(self, name, passwd):
         user = self.cell.auth.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(user=name)
-
-        await user.setPasswd(passwd)
+        if self.user.admin or self.user.iden == user.iden:
+            return await user.setPasswd(passwd)
+        raise s_exc.AuthDeny(mesg='Cannot change user password.', user=user.name)
 
     @adminapi
     async def setUserLocked(self, name, locked):
