@@ -189,6 +189,55 @@ class HttpApiTest(s_tests.SynTest):
             self.len(0, newb.getRoles())
             self.none(core.auth.getRoleByName('bobs'))
 
+    async def test_http_passwd(self):
+        async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            root = core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            newb = await core.auth.addUser('newb')
+            await newb.setPasswd('newb')
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+                url = f'https://localhost:{port}/api/v1/auth/password/{newb.iden}'
+                # Admin can change the newb password
+                async with sess.post(url, json={'password': 'words'}) as resp:
+                    item = await resp.json()
+                    self.eq(item.get('status'), 'ok')
+
+                # must have content
+                async with sess.post(url) as resp:
+                    item = await resp.json()
+                    self.eq(item.get('status'), 'err')
+                    self.isin('Invalid JSON content.', (item.get('mesg')))
+
+                # password must be valid
+                async with sess.post(url, json={'password': ''}) as resp:
+                    item = await resp.json()
+                    self.eq(item.get('status'), 'err')
+                    self.eq(item.get('code'), 'BadArg')
+
+                url = f'https://localhost:{port}/api/v1/auth/password/1234'
+                # User iden must be valid
+                async with sess.post(url, json={'password': 'words'}) as resp:
+                    item = await resp.json()
+                    self.isin('User does not exist', (item.get('mesg')))
+
+            async with self.getHttpSess(auth=('newb', 'words'), port=port) as sess:
+                # newb can change their own password
+                url = f'https://localhost:{port}/api/v1/auth/password/{newb.iden}'
+                async with sess.post(url, json={'password': 'newb'}) as resp:
+                    item = await resp.json()
+                    self.eq(item.get('status'), 'ok')
+
+                # non-admin newb cannot change someone elses password
+                url = f'https://localhost:{port}/api/v1/auth/password/{root.iden}'
+                async with sess.post(url, json={'password': 'newb'}) as resp:
+                    item = await resp.json()
+                    self.eq(item.get('status'), 'ok')
+
     async def test_http_auth(self):
         '''
         Test the HTTP api for cell auth.

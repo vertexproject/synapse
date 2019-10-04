@@ -471,6 +471,7 @@ class AuthUserPasswdV1(Handler):
         # TODO allow user to change their own name / email via this API
         if not await self.reqAuthUser():
             return
+        current_user = await self.user()
 
         body = self.getJsonBody()
         if body is None:
@@ -478,12 +479,12 @@ class AuthUserPasswdV1(Handler):
 
         user = self.cell.auth.user(iden)
         if user is None:
-            self.sendRestErr('NoSuchUser', f'User {iden} does not exist.')
+            self.sendRestErr('NoSuchUser', f'User does not exist: {iden}')
             return
 
         password = body.get('password')
 
-        if self.user.admin or self.user.iden == user.iden:
+        if current_user.admin or current_user.iden == user.iden:
             try:
                 await user.setPasswd(password)
             except s_exc.BadArg as e:
