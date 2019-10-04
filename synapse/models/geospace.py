@@ -89,9 +89,9 @@ class LatLong(s_types.Type):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
 
-        self.setCmprCtor('*near=', self._cmprNear)
-        self.setLiftHintCmprCtor('*near=', self._cmprNear)
-        self.indxcmpr['*near='] = self._indxNear
+        self.setCmprCtor('near=', self._cmprNear)
+        self.setLiftHintCmprCtor('near=', self._cmprNear)
+        self.indxcmpr['near='] = self._indxNear
 
     def _normCmprValu(self, valu):
         latlong, dist = valu
