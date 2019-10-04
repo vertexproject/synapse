@@ -103,6 +103,8 @@ class CoreApi(s_cell.CellApi):
         '''
         Adds a trigger to the cortex
         '''
+        await self._reqUserAllowed('trigger', 'add')
+
         iden = await self.cell.addTrigger(condition, query, info, disabled,
                                           user=self.user)
         return iden
@@ -132,10 +134,15 @@ class CoreApi(s_cell.CellApi):
         return view
 
     async def _trig_auth_check(self, useriden, perm):
-        ''' Raise exception if non-admin and doesn't have explicit perms and resource not created by that user '''
-        if not self.user.admin and useriden != self.user.iden and not await self.allowed(perm):
-            mesg = 'Without explicit permission, may only manipulate triggers or cron jobs created by you'
-            raise s_exc.AuthDeny(user=self.user.name, mesg=mesg)
+        '''
+        Raise exception if doesn't have explicit perms and resource not created by that user
+        '''
+        isallowed = await self.allowed(*perm)
+        if (useriden == self.user.iden) or isallowed:
+            return
+        perm = '.'.join(perm)
+        mesg = f'User must have permission {perm} or own the resource'
+        raise s_exc.AuthDeny(mesg=mesg, user=self.user.name, perm=perm)
 
     async def delTrigger(self, iden):
         '''
@@ -175,12 +182,11 @@ class CoreApi(s_cell.CellApi):
         '''
         trigs = []
         _trigs = await self.cell.listTriggers()
-        isallowed = await self.allowed(('trigger', 'get'))
+        isallowed = await self.allowed('trigger', 'get')
         for (iden, trig) in _trigs:
             useriden = trig['useriden']
-            if not (self.user.admin or useriden == self.user.iden or isallowed):
-                continue
-            trigs.append((iden, trig))
+            if (useriden == self.user.iden) or isallowed:
+                trigs.append((iden, trig))
 
         return trigs
 
@@ -212,6 +218,7 @@ class CoreApi(s_cell.CellApi):
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
+        await self._reqUserAllowed('cron', 'add')
 
         def _convert_reqdict(reqdict):
             return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
@@ -289,14 +296,13 @@ class CoreApi(s_cell.CellApi):
         Get information about all the cron jobs accessible to the current user
         '''
         crons = []
-        isallowed = await self.allowed(('cron', 'get'))
+        isallowed = await self.allowed('cron', 'get')
         for iden, cron in self.cell.agenda.list():
             useriden = cron['useriden']
-            if not (self.user.admin or useriden == self.user.iden or isallowed):
-                continue
-            user = self.cell.auth.user(useriden)
-            cron['username'] = '<unknown>' if user is None else user.name
-            crons.append((iden, cron))
+            if (useriden == self.user.iden) or isallowed:
+                user = self.cell.auth.user(useriden)
+                cron['username'] = '<unknown>' if user is None else user.name
+                crons.append((iden, cron))
 
         return crons
 
@@ -1014,11 +1020,9 @@ class Cortex(s_cell.Cell):
             except Exception as e:
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
 
-    async def watch(self, wdef):
-        '''
-        Hook cortex/view/layer watch points based on a specified watch definition.
-        ( see CoreApi.watch() docs for details )
-        '''
+    @contextlib.asynccontextmanager
+    async def watcher(self, wdef):
+
         iden = wdef.get('view', self.view.iden)
 
         view = self.views.get(iden)
@@ -1044,6 +1048,14 @@ class Cortex(s_cell.Cell):
                     layr.on('tag:add', ontag, base=wind)
                     layr.on('tag:del', ontag, base=wind)
 
+            yield wind
+
+    async def watch(self, wdef):
+        '''
+        Hook cortex/view/layer watch points based on a specified watch definition.
+        ( see CoreApi.watch() docs for details )
+        '''
+        async with self.watcher(wdef) as wind:
             async for mesg in wind:
                 yield mesg
 
@@ -1376,6 +1388,7 @@ class Cortex(s_cell.Cell):
         Registration for built-in Cortex httpapi endpoints
         '''
         self.addHttpApi('/api/v1/storm', s_httpapi.StormV1, {'cell': self})
+        self.addHttpApi('/api/v1/watch', s_httpapi.WatchSockV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
 
         self.addHttpApi('/api/v1/model', s_httpapi.ModelV1, {'cell': self})

@@ -37,6 +37,10 @@ class TagProp:
 
         self.type = self.base.clone(tdef[1])
 
+        if isinstance(self.type, s_types.Array):
+            mesg = 'Tag props may not be array types (yet).'
+            raise s_exc.BadPropDef(mesg=mesg)
+
     def pack(self):
         return {
             'name': self.name,
@@ -144,10 +148,11 @@ class Prop(PropBase):
         self.encname = self.utf8name + b'\x00'
 
         self.pref = self.form.utf8name + b'\x00' + self.utf8name + b'\x00'
+        self.dbname = 'byprop'
 
         self.type = self.modl.getTypeClone(typedef)
 
-        self.form.props[name] = self
+        self.form.setProp(name, self)
 
         self.modl.propsbytype[self.type.name].append(self)
 
@@ -163,6 +168,9 @@ class Prop(PropBase):
         return self.compoffs
 
     def getLiftOps(self, valu, cmpr='='):
+
+        if self.type._lift_v2:
+            return self.type.getLiftOpsV2(self, valu, cmpr=cmpr)
 
         if valu is None:
             iops = (('pref', b''),)
@@ -224,6 +232,7 @@ class Univ(PropBase):
         self.type = modl.getTypeClone(typedef)
         self.info = propinfo
         self.pref = name.encode('utf8') + b'\x00'
+        self.dbname = 'byuniv'
 
     def getLiftOps(self, valu, cmpr='='):
 
@@ -282,6 +291,42 @@ class Form:
 
         self.props = {}     # name: Prop()
         self.defvals = {}   # name: valu
+        self.refsout = None
+
+    def setProp(self, name, prop):
+        self.refsout = None
+        self.props[name] = prop
+
+    def delProp(self, name):
+        self.refsout = None
+        prop = self.props.pop(name, None)
+        self.defvals.pop(name, None)
+        return prop
+
+    def getRefsOut(self):
+
+        if self.refsout is None:
+
+            self.refsout = {
+                'prop': [],
+                'ndef': [],
+                'array': [],
+            }
+
+            for name, prop in self.props.items():
+
+                if isinstance(prop.type, s_types.Array):
+                    typename = prop.type.arraytype.name
+                    if self.modl.forms.get(typename) is not None:
+                        self.refsout['array'].append((name, typename))
+
+                elif isinstance(prop.type, s_types.Ndef):
+                    self.refsout['ndef'].append(name)
+
+                elif self.modl.forms.get(prop.type.name) is not None:
+                    self.refsout['prop'].append((name, prop.type.name))
+
+        return self.refsout
 
     def getWaitFor(self, valu):
         norm, info = self.type.norm(valu)
@@ -376,6 +421,9 @@ class Form:
         '''
         Get a set of lift operations for use with an Xact.
         '''
+        if self.type._lift_v2:
+            return self.type.getLiftOpsV2(self, valu, cmpr=cmpr)
+
         if valu is None:
             iops = (('pref', b''),)
             return (
@@ -481,6 +529,7 @@ class Model:
         self.univlook = {}
 
         self.propsbytype = collections.defaultdict(list) # name: Prop()
+        self.arraysbytype = collections.defaultdict(list)
 
         self._type_pends = collections.defaultdict(list)
         self._modeldef = {
@@ -538,6 +587,10 @@ class Model:
 
         info = {'doc': 'The node definition type for a (form,valu) compound field.'}
         item = s_types.Ndef(self, 'ndef', info, {})
+        self.addBaseType(item)
+
+        info = {'doc': 'A typed array which indexes each field.'}
+        item = s_types.Array(self, 'array', info, {'type': 'int'})
         self.addBaseType(item)
 
         # info = {'doc': 'A list type for storing multiple values of the same type.'}
@@ -746,6 +799,10 @@ class Model:
 
         prop = Prop(self, form, name, tdef, info)
 
+        # index the array item types
+        if isinstance(prop.type, s_types.Array):
+            self.arraysbytype[prop.type.arraytype.name].append(prop)
+
         full = f'{form.name}:{name}'
         self.props[full] = prop
         self.props[(form.name, name)] = prop
@@ -767,12 +824,13 @@ class Model:
         if form is None:
             raise s_exc.NoSuchForm(name=formname)
 
-        prop = form.props.pop(propname, None)
+        prop = form.delProp(propname)
         if prop is None:
             raise s_exc.NoSuchProp(name=f'{formname}:{propname}')
 
-        form.props.pop(prop.name, None)
-        form.defvals.pop(prop.name, None)
+        if isinstance(prop.type, s_types.Array):
+            self.arraysbytype[prop.type.arraytype.name].remove(prop)
+
         self.props.pop(prop.full, None)
         self.props.pop((form.name, prop.name), None)
 

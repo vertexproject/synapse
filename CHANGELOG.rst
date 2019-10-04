@@ -3,6 +3,40 @@ Synapse Changelog
 *****************
 
 
+v0.1.29 - 2019-09-26
+====================
+
+Bugfixes
+--------
+- Fix permissions checks added in #1380 for the Triggers and Cron subsystems. Thank you https://github.com/awjnsn for
+  the bug report.
+  (`#1387 <https://github.com/vertexproject/synapse/pull/1387>`_)
+
+
+v0.1.28 - 2019-09-25
+====================
+
+Features and Enhancements
+-------------------------
+- Add a Cortex API for watching for tag changes on nodes in the Cortex.
+  (`#1383 <https://github.com/vertexproject/synapse/pull/1383>`_)
+- Require explicit permission for a user to add triggers or cron job.
+  (`#1380 <https://github.com/vertexproject/synapse/pull/1380>`_)
+- Add a CellApi get information about current Telepath client sessions on a Daemon.
+  (`#1364 <https://github.com/vertexproject/synapse/pull/1364>`_)
+
+Bugfixes
+--------
+- Fix permissions checks added in #1371 for the Boss, Triggers and Cron subsystems.
+  (`#1385 <https://github.com/vertexproject/synapse/pull/1385>`_)
+
+Improved Documentation
+----------------------
+- Add some high level Synapse architecture notes to the Developers guide.
+  (`#1382 <https://github.com/vertexproject/synapse/pull/1382>`_)
+  (`#1386 <https://github.com/vertexproject/synapse/pull/1386>`_)
+
+
 v0.1.27 - 2019-09-18
 ====================
 
@@ -18,8 +52,6 @@ Features and Enhancements
   (`#1373 <https://github.com/vertexproject/synapse/pull/1373>`_)
 - Add a ``scrape`` command to Storm to enable regex based scraping of node properties for easily identifiable forms.
   (`#1368 <https://github.com/vertexproject/synapse/pull/1368>`_)
-- Add explicit permissions for interacting with the trigger, cron and boss operations.
-  (`#1371 <https://github.com/vertexproject/synapse/pull/1371>`_)
 - Add explicit permissions for interacting with the trigger, cron and boss operations.
   (`#1371 <https://github.com/vertexproject/synapse/pull/1371>`_)
 - Add support for remote Telepath services in Storm.

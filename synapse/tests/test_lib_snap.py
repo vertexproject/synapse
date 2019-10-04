@@ -263,3 +263,11 @@ class SnapTest(s_t_utils.SynTest):
             # now set one to a diff value that we will ask for but should be masked
             self.len(1, await core0.eval('[ inet:ipv4=1.2.3.4 :asn=99 ]').list())
             self.len(0, await core1.eval('inet:ipv4:asn=99').list())
+
+    async def test_cortex_lift_bytype(self):
+        async with self.getTestCore() as core:
+            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
+            nodes = await core.nodes('inet:ipv4*type=1.2.3.4')
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', 0x01020304)))

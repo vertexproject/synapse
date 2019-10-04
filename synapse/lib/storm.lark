@@ -107,18 +107,19 @@ _LEFTJOIN:   "<+-"
 _RIGHTPIVOT: "->"
 _LEFTPIVOT:  "<-"
 
-_liftprop: liftformtag | liftpropby | liftprop
+_liftprop: liftformtag | liftpropby | liftprop | liftbyarray
             | liftbytagprop | liftbyformtagprop | liftbyonlytagprop
 
-liftformtag.1: PROPNAME tagname [_WS? CMPR _valu]
+liftformtag.1: PROPNAME tagname [_WS? _cmpr _valu]
 _DEREF:  "*"
-liftpropby: (PROPNAME | _DEREF _varvalu) _WS? CMPR _WS? _valu
+liftpropby: (PROPNAME | _DEREF _varvalu) _WS? _cmpr _WS? _valu
 liftprop: (PROPNAME | _DEREF _varvalu)
-lifttagtag: "#" tagname [_WS? CMPR _valu]
-liftbytag: tagname [_WS? CMPR _valu]
-liftbytagprop: tagprop [_WS? CMPR _valu]
-liftbyonlytagprop: onlytagprop [_WS? CMPR _valu]
-liftbyformtagprop: formtagprop [_WS? CMPR _valu]
+liftbyarray: (PROPNAME | _DEREF _varvalu) _WS? "*[" _WS? _safe_cmpr _WS? _valu _WS? "]"
+lifttagtag: "#" tagname [_WS? _cmpr _valu]
+liftbytag: tagname [_WS? _cmpr _valu]
+liftbytagprop: tagprop [_WS? _cmpr _valu]
+liftbyonlytagprop: onlytagprop [_WS? _cmpr _valu]
+liftbyformtagprop: formtagprop [_WS? _cmpr _valu]
 tagname: "#" _WS? (_varvalu | TAG)
 tagprop: "#" TAG ":" BASEPROP
 _ONLYTAGPROP: "#:"
@@ -142,7 +143,12 @@ TAG: _TAGSEGNOVAR ("." (_TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGNOVAR: /\w+/
 
 // A comparison operator
-CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*|\*[^=\s]*?=/
+_cmpr: _by_cmpr | CMPR
+_by_cmpr: "*" BYNAME
+BYNAME: /[^=\s]*?=/
+CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*/
+
+_safe_cmpr: BYNAME | CMPR
 
 _valu: NONQUOTEWORD | valulist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu
     | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | dollarexpr | embedquery
@@ -179,25 +185,26 @@ _cond: notcond | "(" _WS? _condexpr _WS? ")"
     | abspropcond | hasabspropcond
     | tagpropcond | hastagpropcond
     | tagcond | tagvalucond
-    | condsubq
+    | condsubq | arraycond
     | _varvalu | dollarexpr
 
 notcond: "not" _WS? _cond
 
 hasrelpropcond: relprop | univprop
-relpropcond.1: relpropvalue _WS? CMPR _WS? _valu
+relpropcond.1: relpropvalue _WS? _cmpr _WS? _valu
 relpropvalue:   relprop | univprop
 
-abspropcond.1:  ABSPROPNOUNIV _WS? CMPR _WS? _valu
+abspropcond.1:  ABSPROPNOUNIV _WS? _cmpr _WS? _valu
 hasabspropcond: ABSPROPNOUNIV
 
-tagpropcond.1:  tagprop _WS? CMPR _WS? _valu
+tagpropcond.1:  tagprop _WS? _cmpr _WS? _valu
 hastagpropcond: tagprop
 
-tagvalucond.1:  _tagmatch _WS? CMPR _WS? _valu
+tagvalucond.1:  _tagmatch _WS? _cmpr _WS? _valu
 tagcond: _tagmatch
 
-condsubq: "{" query "}" [_WSCOMM? CMPR _WSCOMM? _valu]
+condsubq: "{" query "}" [_WSCOMM? _cmpr _WSCOMM? _valu]
+arraycond: relprop "*[" _WS? _safe_cmpr _WS? _valu _WS? "]"
 
 _condexpr: _cond | orexpr | andexpr
 orexpr: _condexpr _WS? "or" _WS? _cond

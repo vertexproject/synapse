@@ -10,8 +10,8 @@ Library Architecture
 
 The Synapse library is broken out in a hierarchical fashion. The root of the library contains application level code,
 such as the implementations of the Cortex, Axon, Cryotank, as well as the Telepath client and server components.
-There is also a set of common library files (common.py_) and exceptions (exc.py_). There are several submodules
-available:
+There are also a set of common helper functions (common.py_) and exceptions (exc.py_). There are several submodules
+available as well:
 
 synapse.cmds
   Command implementations for the Cmdr CLI tool
