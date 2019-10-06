@@ -352,7 +352,8 @@ workflows:
             tags:
               only: /.*/
             branches:
-              only: /.*/
+              only:
+                - master
 
       - osx37:
           filters:
