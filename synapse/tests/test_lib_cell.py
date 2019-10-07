@@ -102,7 +102,26 @@ class CellTest(s_t_utils.SynTest):
                     val = await proxy.listHiveKey(('foo', 'bar'))
                     self.eq(('baz', 'faz', 'haz'), val)
 
+                    # visi user can change visi user pass
+                    await proxy.setUserPasswd('visi', 'foobar')
+                    # non admin visi user cannot change root user pass
+                    with self.raises(s_exc.AuthDeny):
+                        await proxy.setUserPasswd('root', 'coolstorybro')
+                    # cannot change a password for a non existent user
+                    with self.raises(s_exc.NoSuchUser):
+                        await proxy.setUserPasswd('newp', 'new[')
+
+                # New password works
+                visi_url = f'tcp://visi:foobar@127.0.0.1:{port}/echo00'
+                async with await s_telepath.openurl(visi_url) as proxy:  # type: EchoAuthApi
+                    info = await proxy.getCellUser()
+                    print(info)
+
                 async with await s_telepath.openurl(root_url) as proxy:  # type: EchoAuthApi
+
+                    # root user can change visi user pass
+                    await proxy.setUserPasswd('visi', 'foo')
+                    visi_url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
 
                     await proxy.setUserLocked('visi', True)
                     info = await proxy.getAuthInfo('visi')

@@ -255,6 +255,12 @@ class HiveTest(s_test.SynTest):
             user = auth.getUserByName('root')
             await user.setPasswd('secret')
 
+            # hive passwords must be non-zero length strings
+            with self.raises(s_exc.BadArg):
+                await user.setPasswd('')
+            with self.raises(s_exc.BadArg):
+                await user.setPasswd({'key': 'vau'})
+
             turl = self.getTestUrl(dmon, 'hive')
 
             await user.setLocked(True)
