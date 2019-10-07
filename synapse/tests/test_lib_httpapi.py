@@ -203,7 +203,7 @@ class HttpApiTest(s_tests.SynTest):
             async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
                 url = f'https://localhost:{port}/api/v1/auth/password/{newb.iden}'
                 # Admin can change the newb password
-                async with sess.post(url, json={'password': 'words'}) as resp:
+                async with sess.post(url, json={'passwd': 'words'}) as resp:
                     item = await resp.json()
                     self.eq(item.get('status'), 'ok')
 
@@ -214,27 +214,27 @@ class HttpApiTest(s_tests.SynTest):
                     self.isin('Invalid JSON content.', (item.get('mesg')))
 
                 # password must be valid
-                async with sess.post(url, json={'password': ''}) as resp:
+                async with sess.post(url, json={'passwd': ''}) as resp:
                     item = await resp.json()
                     self.eq(item.get('status'), 'err')
                     self.eq(item.get('code'), 'BadArg')
 
                 url = f'https://localhost:{port}/api/v1/auth/password/1234'
                 # User iden must be valid
-                async with sess.post(url, json={'password': 'words'}) as resp:
+                async with sess.post(url, json={'passwd': 'words'}) as resp:
                     item = await resp.json()
                     self.isin('User does not exist', (item.get('mesg')))
 
             async with self.getHttpSess(auth=('newb', 'words'), port=port) as sess:
                 # newb can change their own password
                 url = f'https://localhost:{port}/api/v1/auth/password/{newb.iden}'
-                async with sess.post(url, json={'password': 'newb'}) as resp:
+                async with sess.post(url, json={'passwd': 'newb'}) as resp:
                     item = await resp.json()
                     self.eq(item.get('status'), 'ok')
 
                 # non-admin newb cannot change someone elses password
                 url = f'https://localhost:{port}/api/v1/auth/password/{root.iden}'
-                async with sess.post(url, json={'password': 'newb'}) as resp:
+                async with sess.post(url, json={'passwd': 'newb'}) as resp:
                     item = await resp.json()
                     self.eq(item.get('status'), 'ok')
 

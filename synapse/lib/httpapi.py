@@ -481,7 +481,7 @@ class AuthUserPasswdV1(Handler):
             self.sendRestErr('NoSuchUser', f'User does not exist: {iden}')
             return
 
-        password = body.get('password')
+        password = body.get('passwd')
 
         if current_user.admin or current_user.iden == user.iden:
             try:
