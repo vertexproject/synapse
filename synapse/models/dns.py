@@ -1,13 +1,19 @@
+import regex
+
 import synapse.exc as s_exc
 
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
+
+intre = regex.compile(r'^\d*$')
 
 class DnsName(s_types.StrBase):
 
     def postTypeInit(self):
 
         s_types.StrBase.postTypeInit(self)
+        self.inarpa = '.in-addr.arpa'
+        self.inarpa6 = '.ip6.arpa'
 
         self.setNormFunc(str, self._normPyStr)
 
@@ -23,11 +29,12 @@ class DnsName(s_types.StrBase):
         # Break out fqdn / ipv4 / ipv6 subs :D
         subs = {}
         # ipv4
-        inarpa = '.in-addr.arpa'
-        inarpa6 = '.ip6.arpa'
-        if norm.endswith(inarpa):
+        if intre.match(norm):
+            # do-nothing for integer only forms
+            pass
+        elif norm.endswith(self.inarpa):
             # Strip, reverse, check if ipv4
-            temp = norm[:-len(inarpa)]
+            temp = norm[:-len(self.inarpa)]
             temp = '.'.join(temp.split('.')[::-1])
             try:
                 ipv4norm, info = self.modl.type('inet:ipv4').norm(temp)
@@ -35,8 +42,8 @@ class DnsName(s_types.StrBase):
                 pass
             else:
                 subs['ipv4'] = ipv4norm
-        elif norm.endswith(inarpa6):
-            parts = [c for c in norm[:-len(inarpa6)][::-1] if c != '.']
+        elif norm.endswith(self.inarpa6):
+            parts = [c for c in norm[:-len(self.inarpa6)][::-1] if c != '.']
             try:
                 if len(parts) != 32:
                     raise s_exc.BadTypeValu
