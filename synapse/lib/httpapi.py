@@ -468,7 +468,6 @@ class AuthUserPasswdV1(Handler):
 
     async def post(self, iden):
 
-        # TODO allow user to change their own name / email via this API
         if not await self.reqAuthUser():
             return
         current_user = await self.user()
