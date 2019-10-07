@@ -1101,6 +1101,9 @@ class HiveUser(HiveIden):
         return False
 
     async def setPasswd(self, passwd):
+        # Prevent empty string or non-string values
+        if not passwd or not isinstance(passwd, str):
+            raise s_exc.BadArg(mesg='Password must be a string')
         salt = s_common.guid()
         hashed = s_common.guid((salt, passwd))
         await self.info.set('passwd', (salt, hashed))
