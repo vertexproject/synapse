@@ -67,11 +67,6 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:x509:signedfile', ('comp', {'fields': (('cert', 'crypto:x509:cert'), ('file', 'file:bytes'))}), {
                     'doc': 'A digital signature relationship between an X.509 certificate and a file.',
                 }),
-
-                ('crypto:x509:chain', ('array', {'type': 'crypto:x509:cert'}), {
-                    'doc': 'A list of X.509 certificate GUIDs which form a signature chain.',
-                }),
-
             ),
             'forms': (
                 ('hash:md5', {}, ()),
@@ -121,14 +116,6 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The subject identifier, commonly in X.500/LDAP format, to which the certificate was issued.',
                     }),
 
-                    ('subject:fqdn', ('inet:fqdn', {}), {
-                        'doc': 'The optional inet:fqdn from within the subject Common Name.',
-                    }),
-
-                    ('subject:email', ('inet:email', {}), {
-                        'doc': 'The optional inet:email from within the subject Common Name.',
-                    }),
-
                     ('issuer', ('str', {}), {
                         'doc': 'The Distinguished Name (DN) of the Certificate Authority (CA) which issued the certificate.',
                     }),
@@ -155,10 +142,6 @@ class CryptoModule(s_module.CoreModule):
 
                     ('sha256', ('hash:sha256', {}), {
                         'doc': 'The SHA256 fingerprint for the certificate.',
-                    }),
-
-                    ('keytype', ('iso:oid', {}), {
-                        'doc': 'The X.509 key type OID.',
                     }),
 
                     ('rsa:key', ('rsa:key', {}), {
