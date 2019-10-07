@@ -266,24 +266,24 @@ class Runtime:
 
     # FIXME: that this raises is inconsistent with other methods called "allowed".  Suggest renaming to reqAllowed
 
-    # FIXME: the ask_layer parameter is due to we don't know which permissions to ask the layer about.  Alternative is
-    # to forward all perm checks to the layer and have it return None for all the ones it doesn't care about.  Or we
-    # have some perm registry thing.
     @s_cache.memoize(size=100)
     def allowed(self, perms, ask_layer=False):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
+
+        Note:
+            Caching results is acceptable because the cache lifetime is that of a single query
         '''
 
         if self.user is None or self.user.admin or self.elevated:
             return
 
-        allowed = self.user.allowed(perms)
+        if ask_layer:
+            allowed = self.snap.wlyr.allowed(self.user, perms)
+        else:
+            allowed = self.user.allowed(perms)
 
         if allowed:
-            return
-
-        if allowed is None and ask_layer and self.snap.wlyr.allowed(self.user, perms):
             return
 
         # fails will not be cached...

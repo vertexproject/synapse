@@ -1,6 +1,8 @@
 import asyncio
 import logging
+import itertools
 import collections
+from typing import Optional, Dict, Tuple, List
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -166,7 +168,12 @@ class Hive(s_base.Base, s_telepath.Aware):
                 await node.pop((cullname, ))
 
     async def getHiveAuth(self):
+        '''
+        Retrieve a HiveAuth for hive standalone or non-cell uses.
 
+        Note:
+            This is for the hive's own auth, or for non-cell auth.  It isn't the same auth as for a cell
+        '''
         if self.auth is None:
 
             path = tuple(self.conf.get('auth:path').split('/'))
@@ -198,7 +205,7 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         if base is not None:
             async def fini():
-                self.editsbypath.get('path', set()).discard(func)
+                self.editsbypath[path].discard(func)
             base.onfini(fini)
 
         self.editsbypath[path].add(func)
@@ -699,10 +706,59 @@ class HiveDict(s_base.Base):
 # class HiveLock(s_base.Base):
 # class HiveSeqn(s_base.Base):
 
+# FIXME: move to separate file
+
 class HiveAuth(s_base.Base):
+    '''
+    HiveAuth is a user authentication and authorization stored in a Hive.  Users
+    correspond to separate logins with different passwords and potentially
+    different privileges.
+
+    Users are assigned "rules".  These rules are evaluated in order until a rule
+    matches.  Each rule is a tuple of boolean, and a rule path (a sequence of
+    strings).  Rules that are prefixes of a privilege match, i.e.  a rule
+    ('foo', ) will match ('foo', 'bar').
+
+    Roles are just collections of rules.  When a user is "granted" a role those
+    rules are assigned to that user.  Unlike in an RBAC system, users don't
+    explicitly assume a role; they are merely a convenience mechanism to easily
+    assign the same rules to multiple users.
+
+    Authentities are objects that manage their own authorization.  Each
+    authentity has roles and users subkeys which contain rules specific to that
+    user or role for that authentity.  The roles and users of an authentity,
+    called EntityRole and EntityUser respectively, contain the iden of a role or
+    user defined prior and rules specific to that role or user; they do not
+    duplicate the metadata of the role or user.
+
+    Node layout:
+
+    Auth root (passed in to constructor
+    ├ roles
+    │   ├ <role iden 1>
+    │   ├ ...
+    │   └ last role
+    ├ users
+    │   ├ <user iden 1>
+    │   ├ ...
+    │   └ last user
+    └ authentities
+        ├ <kind:iden 1>  # FIXME: could also use a <kind> level, then the iden level
+        │   ├ roles
+        │   │   ├ <role iden 1> <- EntityRole
+        │   │   ├ ...
+        │   │   └ last role
+        │   └ users
+        │       ├ <user iden 1> <- EntityUser
+        │       ├ ...
+        │       └ last user
+        ├ <kind:iden 2>
+        │   ├ ...
+        └ ... last authentity
+
+    '''
 
     async def __anit__(self, node):
-
         await s_base.Base.__anit__(self)
 
         self.node = node
@@ -711,6 +767,7 @@ class HiveAuth(s_base.Base):
         self.rolesbyiden = {}
         self.usersbyname = {}
         self.rolesbyname = {}
+        self.authentities = {}
 
         roles = await self.node.open(('roles',))
         for iden, node in roles:
@@ -719,6 +776,13 @@ class HiveAuth(s_base.Base):
         users = await self.node.open(('users',))
         for iden, node in users:
             await self._addUserNode(node)
+
+        authentities = await self.node.open(('authentities',))
+        for iden, node in authentities:
+            try:
+                await self._addAuthEntity(node)
+            except Exception:
+                logger.exception('Failure loading AuthEntity')
 
         # initialize an admin user named root
         root = self.getUserByName('root')
@@ -731,6 +795,7 @@ class HiveAuth(s_base.Base):
         async def fini():
             [await u.fini() for u in self.users()]
             [await r.fini() for r in self.roles()]
+            [await a.fini() for a in self.authentities.values()]
 
         self.onfini(fini)
 
@@ -763,9 +828,8 @@ class HiveAuth(s_base.Base):
 
     async def _addUserNode(self, node):
 
-        user = await HiveUser.anit(self, node)
+        user = await HiveUser.anit(node, self)
 
-        self.onfini(user)
         self.usersbyiden[user.iden] = user
         self.usersbyname[user.name] = user
 
@@ -773,14 +837,35 @@ class HiveAuth(s_base.Base):
 
     async def _addRoleNode(self, node):
 
-        role = await HiveRole.anit(self, node)
-
-        self.onfini(role)
+        role = await HiveRole.anit(node, self)
 
         self.rolesbyiden[role.iden] = role
         self.rolesbyname[role.name] = role
 
         return role
+
+    async def _addAuthEntity(self, node):
+        entity = await HiveAuthEntity.anit(node, self)
+        self.authentities[entity.entitupl] = entity
+        return entity
+
+    async def addAuthEntity(self, entitupl):
+        '''
+        Returns:
+            (HiveAuthEntity)
+        '''
+        authenti = self.getAuthEntity(entitupl)
+        if authenti is not None:
+            return authenti
+
+        name = ':'.join(entitupl)
+        path = self.node.full + ('authentities', name)
+        node = await self.node.hive.open(path)
+        await self.node.hive.set(path, name)
+        return await self._addAuthEntity(node)
+
+    def getAuthEntity(self, entitupl):
+        return self.authentities.get(entitupl)
 
     async def addUser(self, name):
 
@@ -810,6 +895,30 @@ class HiveAuth(s_base.Base):
         node = await self.node.hive.open(path)
         return await self._addRoleNode(node)
 
+    async def getRulerByName(self, name, entitupl=None):
+        '''
+        Return the HiveRuler (a HiveUser, HiveRole, HiveEntityUser, or HiveEntityRole) corresponding to the given name.
+        If entitupl is not None, it returns the respective HiveEntityRuler, creating one if not present.
+        '''
+        if entitupl is not None:
+            authenti = self.getAuthEntity(entitupl)
+            if authenti is None:
+                raise s_exc.NoSuchAuthEntity(entitupl=entitupl)
+
+        user = self.getUserByName(name)
+        if user is not None:
+            if entitupl is not None:
+                return await authenti.getEntityUser(user)
+            return user
+
+        role = self.getRoleByName(name)
+        if role is not None:
+            if entitupl is not None:
+                return await authenti.getEntityRole(role)
+            return role
+
+        raise s_exc.NoSuchName(name=name)
+
     async def delUser(self, name):
 
         if name == 'root':
@@ -822,7 +931,11 @@ class HiveAuth(s_base.Base):
         self.usersbyiden.pop(user.iden)
         self.usersbyname.pop(user.name)
 
+        for entiuser in user.entirulr.values():
+            await entiuser.pop()
+
         path = self.node.full + ('users', user.iden)
+        await user.fini()
 
         await self.node.hive.pop(path)
 
@@ -840,17 +953,188 @@ class HiveAuth(s_base.Base):
         self.rolesbyiden.pop(role.iden)
         self.rolesbyname.pop(role.name)
 
+        for entirole in role.entirulr.values():
+            await entirole.pop()
+
         path = self.node.full + ('roles', role.iden)
 
         for user in self._getUsersInRole(role):
             await user.revokeRole(role)
 
+        await user.fini()
+
         # directly set the nodes value and let events prop
         await self.node.hive.pop(path)
 
-class HiveIden(s_base.Base):
+class HiveAuthEntity(s_base.Base):
+    '''
+    The rule engine for an AuthEntity
+    '''
+    async def __anit__(self, node, auth):
+        await s_base.Base.__anit__(self)
+        self.name = node.valu
+        self.auth = auth
 
-    async def __anit__(self, auth, node):
+        parts = self.name.split(':')
+        if len(parts) != 2:
+            raise s_exc.InconsistentStorage('Invalid AuthEntity name {self.name} in {".".join(node.path)}')
+        self.entitupl = tuple(parts)
+
+        self.node = node
+        self.entiroles: Dict[str, HiveEntityRole] = {} # iden -> HiveEntityRoles
+        self.entiusers: Dict[str, HiveEntityUser] = {} # iden -> HiveEntityUsers
+
+        # Load users first, as roles will populate users with no-node entries
+
+        usersnode = await node.open(('users',))
+        self.onfini(usersnode)
+
+        for name, entiusernode, in usersnode:
+
+            user = self.node.auth.user(name)
+            if user is None:
+                logger.warning(f'Hive:  path {name} refers to unknown user')
+                continue
+
+            entiuser = await HiveEntityUser.anit(entiusernode, self, user)
+            self.entiusers[user.iden] = entiuser
+
+        rolesnode = await node.open(('roles',))
+        self.onfini(rolesnode)
+
+        for name, _ in rolesnode:
+
+            role = self.node.auth.role(name)
+            if role is None:
+                logger.warning(f'Hive:  path {name} refers to unknown role')
+                continue
+
+            self._addEntityRole(role)
+
+        async def fini():
+            for entirulr in itertools.chain(self.entiroles.values(), self.entiusers.values()):
+                await entirulr.fini()
+
+        self.onfini(fini)
+
+    async def _addEntityRole(self, hiverole):
+
+        path = self.node.full + ('roles', hiverole.iden, )
+        await self.node.hive.set(path, hiverole.name)
+        node = await self.node.hive.open(path)
+        entirole = await HiveEntityRole.anit(node, self, hiverole)
+        self.entiroles[hiverole.iden] = entirole
+
+        # Add no-node entityusers so that entity roles work
+        for user in self.node.auth._getUsersInRole(hiverole):
+            if user.iden not in self.entiusers:
+                self._addEntityUser(user, hasnode=False)
+
+        return entirole
+
+    async def getEntityRole(self, hiverole):
+        '''
+        Retrieve the entityrole for a particular role.  Make it if it doesn't exist
+        '''
+        entirole = self.entiroles.get(hiverole.iden)
+        if entirole is not None:
+            return entirole
+
+        return await self._addEntityRole(hiverole)
+
+    async def _addEntityUser(self, hiveuser, hasnode=True):
+        if hasnode:
+            path = self.node.full + ('users', hiveuser.iden, )
+            await self.node.hive.set(path, hiveuser.name)
+            node = await self.node.hive.open(path)
+        else:
+            node = None
+        entiuser = await HiveEntityUser.anit(node, self, hiveuser)
+        self.entiusers[hiveuser.iden] = entiuser
+        return entiuser
+
+    async def getEntityUser(self, hiveuser):
+        '''
+        Retrieve the entityuser for a particular user.  Make it if it doesn't exist
+        '''
+        entiuser = self.entiusers.get(hiveuser.iden)
+        if entiuser is not None:
+            if entiuser.node is None:
+                # Replace the fake entiuser with one backed by storage
+                del self.entiusers[hiveuser.iden]
+            else:
+                return entiuser
+
+        return await self._addEntityUser(hiveuser)
+
+    async def delete(self):
+        todelete = list(self.entiroles.values()) + list(self.entiusers.values())
+        for entirulr in todelete:
+            await entirulr.delete()
+        await self.node.pop(())
+
+class AuthEntity(s_base.Base):
+    '''
+    An object that manages its own permissions
+
+    Note:
+        This is a mixin and is intended to be subclassed by View, layers
+    '''
+    async def __anit__(self, auth):  # type: ignore
+        await s_base.Base.__anit__(self)
+        self.hiveenti = await auth.addAuthEntity(self.entitupl())
+        self.onfini(self.hiveenti)
+
+    async def trash(self):
+        '''
+        Remove all rules relating to this object
+
+        Prerequisite: Object must be fini'd first
+        '''
+        assert self.isfini
+        await self.hiveenti.delete()
+
+    def entitupl(self):
+        # FIXME:  alternative:  use an explicit class property for the first part
+        return (self.__class__.__name__, self.iden)
+
+    async def _reqUserAllowed(self, hiveuser, perm):
+        '''
+        Raise AuthDeny if hiveuser does not have permissions perm
+
+        Note:
+            async for consistency with CellApi._reqUserAllowed
+        '''
+        if not self.allowed(hiveuser, perm):
+            perm = '.'.join(perm)
+            mesg = f'User must have permission {perm} for {":".join(self.entitupl())}'
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=hiveuser.name)
+
+    def allowed(self, hiveuser, perm, elev=True, default=None):
+        '''
+        Returns (Optional[bool]):
+            True if explicitly granted, False if denied, None if neither
+        '''
+
+        # FIXME: check global first?
+
+        # Check for an AuthEntity-specific rule first
+        entirulr = self.hiveenti.entiusers.get(hiveuser.iden)
+        if entirulr is not None:
+            retn = entirulr.permcache.get(perm)
+            if retn is not None:
+                return retn
+
+        # Check the global (i.e. cortex-wide) rules
+        retn = hiveuser.allowed(perm, elev=elev, default=default)
+        return default if retn is None else retn
+
+class HiveRuler(s_base.Base):
+    '''
+    A HiveNode that holds a list of rules.  This includes HiveUsers, HiveRoles, and the AuthEntity variants of those
+    '''
+
+    async def __anit__(self, node, auth):
 
         await s_base.Base.__anit__(self)
 
@@ -858,16 +1142,22 @@ class HiveIden(s_base.Base):
         self.node = node
         self.iden = node.name()
         self.name = node.valu
-        self.authentities = {}  # entitupl -> HiveEntitySubject
 
-        self.info = await node.dict()
-        self.onfini(self.info)
+        # Stores the AuthEntity-specific instances of this ruler, by authentity tuple
+        self.entirulr: Dict[Tuple[str, str], HiveEntityRuler] = {}  # entitupl -> HiveEntityRuler
 
-        self.info.setdefault('rules', ())
-        self.rules = self.info.get('rules', onedit=self._onRulesEdit)
+        # Allow no-node HiveRulers so that AuthEntity-specific roles work
+        if node is None:
+            self.info = {}
+            self.rules = ()
+        else:
+            self.info = await node.dict()
+            self.onfini(self.info)
+            self.info.setdefault('rules', ())
+            self.rules = self.info.get('rules', onedit=self._onRulesEdit)
 
     async def _onRulesEdit(self, mesg):  # pragma: no cover
-        raise s_exc.NoSuchImpl(mesg='HiveIden subclasses must implement _onRulesEdit',
+        raise s_exc.NoSuchImpl(mesg='HiveRuler subclasses must implement _onRulesEdit',
                                name='_onRulesEdit')
 
     async def setName(self, name):
@@ -875,15 +1165,12 @@ class HiveIden(s_base.Base):
         await self.node.set(name)
 
     async def setRules(self, rules):
-        rules = _rulesToV2(rules)
         self.rules = list(rules)
         await self.info.set('rules', rules)
 
     async def addRule(self, rule, indx=None):
 
         rules = list(self.rules)
-
-        rule = _ruleToV2(rule)
 
         if indx is None:
             rules.append(rule)
@@ -894,8 +1181,6 @@ class HiveIden(s_base.Base):
 
     async def delRule(self, rule):
 
-        rule = _ruleToV2(rule)
-
         if rule not in self.rules:
             return False
 
@@ -903,6 +1188,7 @@ class HiveIden(s_base.Base):
         rules.remove(rule)
 
         await self.info.set('rules', rules)
+        return True
 
     async def delRuleIndx(self, indx):
         if indx < 0:
@@ -917,44 +1203,117 @@ class HiveIden(s_base.Base):
 
         await self.info.set('rules', rules)
 
-class HiveEntitySubject(HiveIden):
+class HiveEntityRuler(HiveRuler):
     '''
-    A user or role underneath an AuthEntity node that just has rules.
+    Store AuthEntity-specific rules for a role or user
     '''
-    async def __anit__(self, auth, node, hiveiden):
-        await HiveIden.__anit__(self, auth, node)
-        self.hiveiden = hiveiden  # an instance of HiveRole or HiveUser that has the rest of the metadata
+    async def __anit__(self, node: Optional[Node], enti: HiveAuthEntity, hiverulr: HiveRuler):  # type: ignore
+        await HiveRuler.__anit__(self, node, enti.auth)
+        self.enti = enti
+        self.hiverulr = hiverulr  # an instance of HiveRole or HiveUser that has the rest of the metadata
+        entitupl = enti.name
 
-def _ruleToV2(rule):
-    '''
-    Convert an old V1 tuple rule to a new V2 dict rule.  If already a V2 rule, return it unchanged
-    '''
-    if isinstance(rule, dict):
-        return rule
+        # Give the subject a reference to me for easy status querying
+        assert entitupl not in hiverulr.entirulr
+        hiverulr.entirulr[entitupl] = self
+        self.onfini(node)
+        self._initFullRules()
 
-    assert isinstance(rule, (tuple, list))
-    allow, path = rule
-    return {'allow': allow, 'path': path}
+    def _initFullRules(self):  # pragma: no cover
+        raise s_exc.NoSuchImpl(mesg='HiveEntityRuler subclasses must implement _onRulesEdit')
 
+    async def delete(self):  # pragma: no cover
+        raise s_exc.NoSuchImpl(mesg='HiveEntityRuler subclasses must implement delete')
 
-# FIXME:  discuss just convert all rules at boot
-def _rulesToV2(oldrules):
+class HiveEntityRole(HiveEntityRuler):
     '''
-    Convert a list of V1 and/or V2 rules to a list of V2 rules.
-    '''
-    return [_ruleToV2(rule) for rule in oldrules]
-
-class HiveRole(HiveIden):
-    '''
-    A role within the Hive authorization subsystem.
-    The HiveRole mainly exists to contain rules.
+    A bundle of rules specific to a particular AuthEntity for a role
     '''
     async def _onRulesEdit(self, mesg):
+        '''
+        Update rules, update all users in this authentity that
+        '''
+        self.rules = self.info.get('rules')
+        self._initFullRules()
 
-        self.rules = _rulesToV2(self.info.get('rules'))
+    def _initFullRules(self):
+        roleiden = self.hiverulr.iden
+        for entiuser in self.enti.users:
+            if roleiden in entiuser.hiverulr.roles:
+                entiuser._initFullRules()
+
+    async def delete(self):
+        del self.enti.entiroles[self.iden]
+        if self.node is not None:
+            await self.node.pop()
+
+        # Recalculate all the rules
+        for entiuser in self.enti.users:
+            entiuser._initFullRules()
+        await self.fini()
+
+class HiveEntityUser(HiveEntityRuler):
+    '''
+    A bundle of rules specific to a particular AuthEntity for a particular user
+    '''
+    async def __anit__(self, node: Optional[Node], authenti: HiveAuthEntity, hiverulr: HiveRuler):  # type: ignore
+        '''
+        If node is Node, this has no backing store; it is strictly to allow rule calculation for users granted a role
+        with an authentity-specific rule, but no user-specific rule.
+        '''
+        self.fullrules: List[Tuple[bool, Tuple[str]]] = []
+        self.permcache = s_cache.FixedCache(self._calcPermAllow)
+        await HiveEntityRuler.__anit__(self, node, authenti, hiverulr)
+
+    def _calcPermAllow(self, key):
+        perm = key
+        for rule in self.fullrules:
+            allow, path = rule
+            if perm[:len(path)] == path:
+                return allow
+
+        return None
+
+    async def delete(self):
+        del self.enti.entiusers[self.iden]
+        if self.node is not None:
+            await self.node.pop(())
+        await self.fini()
+
+    async def _onRulesEdit(self, mesg):
+        self.rules = self.info.get('rules')
+        self._initFullRules()
+
+    def _initFullRules(self):
+
+        self.fullrules.clear()
+        self.permcache.clear()
+
+        for rule in self.rules:
+            self.fullrules.append(rule)
+
+        # We only care about role rules that apply to this AuthEntity
+        for iden in self.hiverulr.roles:
+
+            entirole = self.enti.entiroles.get(iden)
+            if entirole is None:
+                continue
+
+            for rule in entirole.rules:
+                self.fullrules.append(rule)
+
+class HiveRole(HiveRuler):
+    '''
+    A role within the Hive authorization subsystem.
+
+    A role in HiveAuth exists to bundle rules together so that the same
+    set of rules can be applied to multiple users.
+    '''
+    async def _onRulesEdit(self, mesg):
+        self.rules = self.info.get('rules')
 
         for user in self.auth.usersbyiden.values():
-
+            # Recalc all the users that have me as a role
             if self.iden in user.roles:
                 user._initFullRules()
 
@@ -964,15 +1323,19 @@ class HiveRole(HiveIden):
             'iden': self.iden,
             'name': self.name,
             'rules': self.rules,
+            'entirules': {key: e.rules for key, e in self.entirulr.items()}
         }
 
+class HiveUser(HiveRuler):
+    '''
+    A user within HiveAuth.
+
+    Cortex-wide rules are stored here.  AuthEntity-specific rules for this user are stored in an HiveEntityUser.
 
 
-class HiveUser(HiveIden):
-
-    async def __anit__(self, auth, node):
-
-        await HiveIden.__anit__(self, auth, node)
+    '''
+    async def __anit__(self, node, auth):
+        await HiveRuler.__anit__(self, node, auth)
 
         self.info.setdefault('roles', ())
 
@@ -996,9 +1359,9 @@ class HiveUser(HiveIden):
 
         self.fullrules = []
         self.permcache = s_cache.FixedCache(self._calcPermAllow)
-        self.objectrules = {}
 
         self._initFullRules()
+        self._updateEntityRulers()
 
     def pack(self):
         return {
@@ -1011,18 +1374,17 @@ class HiveUser(HiveIden):
             'email': self.info.get('email'),
             'locked': self.locked,
             'archived': self.info.get('archived'),
-            'objectrules':
+            'entirules': {key: e.rules for key, e in self.entirulr.items()}
         }
 
     def _calcPermAllow(self, key):
-        perm, entitupl = key
-        for rule in self.fullrules:
-            if entitupl != rule.get('entitupl', None):
-                continue
+        perm = key
 
-            path = rule['path']
+        # Check the global (i.e. cortex-wide) rules
+        for rule in self.fullrules:
+            allow, path = rule
             if perm[:len(path)] == path:
-                return rule['allow']
+                return allow
 
         return None
 
@@ -1047,12 +1409,17 @@ class HiveUser(HiveIden):
             for rule in role.rules:
                 self.fullrules.append(rule)
 
+    def _updateEntityRulers(self):
+        for entirulr in self.entirulr.values():
+            entirulr._initFullRules()
+
     async def _onRolesEdit(self, mesg):
         self.roles = self.info.get('roles')
         self._initFullRules()
+        self._updateEntityRulers()
 
     async def _onRulesEdit(self, mesg):
-        self.rules = _rulesToV2(self.info.get('rules'))
+        self.rules = self.info.get('rules')
         self._initFullRules()
 
     async def _onAdminEdit(self, mesg):
@@ -1062,7 +1429,7 @@ class HiveUser(HiveIden):
     async def _onLockedEdit(self, mesg):
         self.locked = self.info.get('locked')
 
-    def allowed(self, perm, elev=True, default=None, entitupl=None):
+    def allowed(self, perm, elev=True, default=None):
 
         if self.locked:
             return False
@@ -1070,13 +1437,7 @@ class HiveUser(HiveIden):
         if self.admin and elev:
             return True
 
-        if entitupl is not None:
-            # Check for an AuthEntity-specific rule first
-            retn = self.permcache.get((perm, entitupl))
-            if retn is not None:
-                return retn
-
-        retn = self.permcache.get((perm, None))
+        retn = self.permcache.get(perm)
 
         return default if retn is None else retn
 

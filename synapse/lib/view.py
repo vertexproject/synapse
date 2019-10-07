@@ -7,12 +7,13 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.hive as s_hive
 import synapse.lib.snap as s_snap
 import synapse.lib.trigger as s_trigger
 
 logger = logging.getLogger(__name__)
 
-class View(s_base.AuthEntity):
+class View(s_hive.AuthEntity):
     '''
     A view represents a cortex as seen from a specific set of layers.
 
@@ -28,12 +29,11 @@ class View(s_base.AuthEntity):
             core (Cortex):  The cortex that owns the view.
             node (HiveNode): The hive node containing the view info.
         '''
-        await s_base.AuthEntity.__anit__(self)
-
-        self.core = core
-
         self.node = node
         self.iden = node.name()
+        await s_hive.AuthEntity.__anit__(self, core.auth)
+
+        self.core = core
 
         self.invalid = None
         self.parent = None  # The view this view was forked from
@@ -68,7 +68,7 @@ class View(s_base.AuthEntity):
 
         # FIXME: map perm 'read' in view to perm 'view:read' in global scope?
 
-        return s_base.AuthEntity.allowed(self, hiveuser, perm, elev=elev, default=default)
+        return s_hive.AuthEntity.allowed(self, hiveuser, perm, elev=elev, default=default)
 
     async def eval(self, text, opts=None, user=None):
         '''
@@ -384,13 +384,13 @@ class View(s_base.AuthEntity):
 
         return trigs
 
-    async def trash(self, auth):
+    async def trash(self):
         '''
         Delete the underlying storage for the view.
 
         Note: this does not delete any layer storage.
         '''
-        await s_base.AuthEntity.trash(self, auth)
+        await s_hive.AuthEntity.trash(self)
 
         for (iden, _) in self.triggers.list():
             self.triggers.delete(iden)

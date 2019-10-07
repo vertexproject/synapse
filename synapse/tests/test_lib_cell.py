@@ -152,7 +152,7 @@ class CellTest(s_t_utils.SynTest):
 
                 # Ensure we can delete a rule by its item and index position
                 async with echo.getLocalProxy() as proxy:  # type: EchoAuthApi
-                    rule = {'allow': True, 'path': ('hive:set', 'foo', 'bar')}
+                    rule = (True, ('hive:set', 'foo', 'bar'))
                     self.isin(rule, user.rules)
                     await proxy.delAuthRule('visi', rule)
                     self.notin(rule, user.rules)

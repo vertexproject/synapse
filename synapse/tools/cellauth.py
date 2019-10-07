@@ -14,18 +14,18 @@ import synapse.lib.output as s_output
 logger = logging.getLogger(__name__)
 
 desc = '''
-Admin users in a remote cell.
+Manage permissions of users in a remote cell.
 '''
 outp = None
 
 denyallow = ['deny', 'allow']
-def reprrule(rule, entitupl=None):
+def reprrule(rule, authenti=None):
     head = denyallow[rule[0]]
-    text = '.'.join(rule['path'])
-    if entitupl is None:
+    text = '.'.join(rule[1])
+    if authenti is None:
         return f'{head}: {text}'
 
-    return f'{head}: {text} on {":".join(entitupl)}'
+    return f'{head}: {text} on {authenti}'
 
 def printuser(user):
 
@@ -42,9 +42,18 @@ def printuser(user):
 
     outp.printf('rules:')
 
-    for i, rule in enumerate(user[1].get('rules')):
+    i = 0
+
+    for rule in user[1].get('rules'):
+        i += 1
         rrep = reprrule(rule)
         outp.printf(f'    {i} {rrep}')
+
+    for authenti, rules in user[1].get('entirules', {}).items():
+        for rule in rules:
+            rrep = reprrule(rule, authenti=authenti)
+            i += 1
+            outp.printf(f'    {i} {rrep}')
 
     outp.printf('')
 

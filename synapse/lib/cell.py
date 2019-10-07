@@ -61,8 +61,7 @@ class CellApi(s_base.Base):
         sess = self.link.get('sess')  # type: s_daemon.Sess
         sess.user = user
 
-    # FIXME: why is this async?
-    async def allowed(self, perm, default=None, entitupl=None):
+    async def allowed(self, perm, default=None):
         '''
         Check if the user has the requested permission.
 
@@ -83,9 +82,9 @@ class CellApi(s_base.Base):
         Returns:
             Optional[bool]: True if the user has permission, False if explicitly denied, None if no entry
         '''
-        return self.user.allowed(perm, default=default, entitupl=entitupl)
+        return self.user.allowed(perm, default=default)
 
-    async def _reqUserAllowed(self, perm, entitupl=None):
+    async def _reqUserAllowed(self, perm):
         '''
         Helper method that subclasses can use for user permission checking.
 
@@ -111,7 +110,7 @@ class CellApi(s_base.Base):
             s_exc.AuthDeny: If the permission is not allowed.
 
         '''
-        if not await self.allowed(perm, entitupl=entitupl):
+        if not await self.allowed(perm):
             perm = '.'.join(perm)
             mesg = f'User must have permission {perm}'
             raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
@@ -252,18 +251,18 @@ class CellApi(s_base.Base):
         return [r.name for r in self.cell.auth.roles()]
 
     @adminapi
-    async def addAuthRule(self, name, rule, indx=None):
-        item = self._getAuthItem(name)
+    async def addAuthRule(self, name, rule, indx=None, entitupl=None):
+        item = await self.cell.auth.getRulerByName(name, entitupl=entitupl)
         return await item.addRule(rule, indx=indx)
 
     @adminapi
-    async def delAuthRule(self, name, rule):
-        item = self._getAuthItem(name)
+    async def delAuthRule(self, name, rule, entitupl=None):
+        item = await self.cell.auth.getRulerByName(name, entitupl=entitupl)
         return await item.delRule(rule)
 
     @adminapi
-    async def delAuthRuleIndx(self, name, indx):
-        item = self._getAuthItem(name)
+    async def delAuthRuleIndx(self, name, indx, entitupl=None):
+        item = await self.cell.auth.getRulerByName(name, entitupl=entitupl)
         return await item.delRuleIndx(indx)
 
     @adminapi
@@ -271,7 +270,7 @@ class CellApi(s_base.Base):
         '''
         Set the admin status of the given user/role.
         '''
-        item = self._getAuthItem(name)
+        item = await self.cell.auth.getRulerByName(name)
         await item.setAdmin(admin)
 
     @adminapi
@@ -320,7 +319,7 @@ class CellApi(s_base.Base):
         '''
         An admin only API endpoint for getting user info.
         '''
-        item = self._getAuthItem(name)
+        item = await self.cell.auth.getRulerByName(name)
         pack = item.pack()
 
         # translate role guids to names for back compat
@@ -328,17 +327,6 @@ class CellApi(s_base.Base):
             pack['roles'] = [self.cell.auth.role(r).name for r in pack['roles']]
 
         return (name, pack)
-
-    def _getAuthItem(self, name):
-        user = self.cell.auth.getUserByName(name)
-        if user is not None:
-            return user
-
-        role = self.cell.auth.getRoleByName(name)
-        if role is not None:
-            return role
-
-        raise s_exc.NoSuchName(name=name)
 
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health', ))

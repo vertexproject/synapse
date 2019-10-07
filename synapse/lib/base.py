@@ -5,7 +5,6 @@ import asyncio
 import inspect
 import logging
 import weakref
-import itertools
 import contextlib
 import collections
 
@@ -741,47 +740,3 @@ async def main(coro): # pragma: no cover
     if isinstance(base, Base):
         async with base:
             await base.main()
-
-class AuthEntity(Base):
-    '''
-    An object that manages its own permissions
-
-    Note:
-        This is a mixin and is intended to be subclassed
-    '''
-    async def trash(self, auth):
-        '''
-        Remove all rules relating to this object
-
-        Prerequisite: Object must be fini'd first
-        '''
-        assert self.isfini
-
-        entitupl = self.entitupl()
-        for item in itertools.chain(auth.roles(), auth.users()):
-            for rule in item.rules:
-                if isinstance(rule, dict) and rule.get('entitupl') == entitupl:
-                    await item.delRule(rule)
-
-    def entitupl(self):
-        # FIXME:  alternative:  use an explicit class property for the first part
-        return (self.__class__.__name__, self.iden)
-
-    async def _reqUserAllowed(self, hiveuser, perm):
-        '''
-        Raise AuthDeny if hiveuser does not have permissions perm
-
-        Note:
-            async for consistency with CellApi._reqUserAllowed
-        '''
-        if not self.allowed(hiveuser, perm):
-            perm = '.'.join(perm)
-            mesg = f'User must have permission {perm} for {":".join(self.entitupl())}'
-            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=hiveuser.name)
-
-    def allowed(self, hiveuser, perm, elev=True, default=None):
-        '''
-        Returns (Optional[bool]):
-            True if explicitly granted, False if denied, None if neither
-        '''
-        return hiveuser.allowed(perm, elev=elev, default=default, entitupl=self.entitupl())

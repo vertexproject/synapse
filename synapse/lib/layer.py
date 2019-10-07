@@ -17,6 +17,7 @@ import synapse.exc as s_exc
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
+import synapse.lib.hive as s_hive
 import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
 
@@ -80,7 +81,7 @@ class LayerApi(s_cell.CellApi):
     async def hasTagProp(self, name):
         return await self.layr.hasTagProp(name)
 
-class Layer(s_base.AuthEntity):
+class Layer(s_hive.AuthEntity):
     '''
     The base class for a cortex layer.
     '''
@@ -92,11 +93,10 @@ class Layer(s_base.AuthEntity):
 
     async def __anit__(self, core, node):
 
-        await s_base.Base.__anit__(self)
-
         self.core = core
         self.node = node
         self.iden = node.name()
+        await s_hive.AuthEntity.__anit__(self, core.auth)
         self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
         # splice windows...
@@ -473,9 +473,9 @@ class Layer(s_base.AuthEntity):
         for x in (): yield x
         raise NotImplementedError
 
-    async def trash(self, auth):
+    async def trash(self):
         '''
         Delete the underlying storage
         '''
-        await s_base.AuthEntity.trash(self, auth)
+        await s_hive.AuthEntity.trash(self)
         shutil.rmtree(self.dirn, ignore_errors=True)

@@ -762,14 +762,13 @@ class LmdbLayer(s_layer.Layer):
         self.dbs[name] = db
         return db
 
-    async def trash(self, auth):
+    async def trash(self):
         '''
         Delete the underlying storage
-        FIXME:  alternative to passing auth:  have an on-trash handler for auth stuff
 
         Note:  object must be fini'd first
         '''
         self.layrslab.trash()
         self.spliceslab.trash()
         self.dataslab.trash()
-        await s_layer.Layer.trash(self, auth)
+        await s_layer.Layer.trash(self)

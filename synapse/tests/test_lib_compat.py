@@ -22,7 +22,6 @@ class CompatTest(s_tests.SynTest):
 
         # check direct user rules with order
         fred = core.auth.getUserByName('fred')
-
         self.true(fred.allowed(('tag:add', 'hehe', 'haha')))
         self.false(fred.allowed(('tag:add', 'newp')))
 
