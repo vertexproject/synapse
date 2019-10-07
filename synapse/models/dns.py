@@ -1,11 +1,7 @@
-import regex
-
 import synapse.exc as s_exc
 
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
-
-intre = regex.compile(r'^\d*$')
 
 class DnsName(s_types.StrBase):
 
@@ -25,12 +21,12 @@ class DnsName(s_types.StrBase):
     def _normPyStr(self, valu):
         # Backwards compatible
         norm = valu.lower()
-        norm = norm.strip()
+        norm = norm.strip()  # type: str
         # Break out fqdn / ipv4 / ipv6 subs :D
         subs = {}
         # ipv4
-        if intre.match(norm):
-            # do-nothing for integer only forms
+        if norm.isnumeric():
+            # do-nothing for integer only strs
             pass
         elif norm.endswith(self.inarpa):
             # Strip, reverse, check if ipv4
