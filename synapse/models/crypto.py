@@ -61,7 +61,7 @@ class CryptoModule(s_module.CoreModule):
                 }),
 
                 ('crypto:x509:revoked', ('comp', {'fields': (('crl', 'crypto:x509:crl'), ('cert', 'crypto:x509:cert'))}), {
-                    'doc': 'A revokation relationship between a CRL and an X.509 certificate.',
+                    'doc': 'A revocation relationship between a CRL and an X.509 certificate.',
                 }),
 
                 ('crypto:x509:signedfile', ('comp', {'fields': (('cert', 'crypto:x509:cert'), ('file', 'file:bytes'))}), {
@@ -112,8 +112,13 @@ class CryptoModule(s_module.CoreModule):
 
                 ('crypto:x509:cert', {}, (
 
+                    # CN=cName, OU=orgUnit, O=org, L=city, S=state, C=countryCode
                     ('subject', ('str', {}), {
                         'doc': 'The subject identifier, commonly in X.500/LDAP format, to which the certificate was issued.',
+                    }),
+
+                    ('subject:cn', ('str', {}), {
+                        'doc': 'The optional CN field from the subject X.500 Distinguished Name.',
                     }),
 
                     ('issuer', ('str', {}), {
@@ -153,35 +158,39 @@ class CryptoModule(s_module.CoreModule):
                     }),
 
                     ('signature', ('hex', {}), {
-                        'doc': 'The hexidecimal representation of the digital signature.',
+                        'doc': 'The hexadecimal representation of the digital signature.',
                     }),
 
                     ('ext:sans', ('array', {'type': 'crypto:x509:san'}), {
                         'doc': 'The Subject Alternate Names (SANs) listed in the certficate.',
                     }),
 
-                    ('ext:crls', ('array', {'type': 'inet:url'}), {
-                        'doc': 'A list of the CRL Distribution Point URLs.',
+                    ('ext:crls', ('array', {'type': 'crypto:x509:san'}), {
+                        'doc': 'A list of Subject Alternate Names (SANs) for Distribution Points.',
                     }),
 
-                    ('identifies:fqdns', ('array', {'type': 'inet:fqdn'}), {
+                    ('identities:fqdns', ('array', {'type': 'inet:fqdn'}), {
                         'doc': 'The fused list of FQDNs identified by the cert CN and SANs.',
                     }),
 
-                    ('identifies:emails', ('array', {'type': 'inet:email'}), {
+                    ('identities:emails', ('array', {'type': 'inet:email'}), {
                         'doc': 'The fused list of e-mail addresses identified by the cert CN and SANs.',
                     }),
 
-                    ('identifies:ipv4s', ('array', {'type': 'inet:ipv4'}), {
+                    ('identities:ipv4s', ('array', {'type': 'inet:ipv4'}), {
                         'doc': 'The fused list of IPv4 addresses identified by the cert CN and SANs.',
                     }),
 
-                    ('identifies:ipv6s', ('array', {'type': 'inet:ipv6'}), {
+                    ('identities:ipv6s', ('array', {'type': 'inet:ipv6'}), {
                         'doc': 'The fused list of IPv6 addresses identified by the cert CN and SANs.',
                     }),
 
-                    ('identifies:urls', ('array', {'type': 'inet:url'}), {
+                    ('identities:urls', ('array', {'type': 'inet:url'}), {
                         'doc': 'The fused list of URLs identified by the cert CN and SANs.',
+                    }),
+
+                    ('crl:urls', ('array', {'type': 'inet:url'}), {
+                        'doc': 'The extracted URL values from the CRLs extension.',
                     }),
 
                 )),

@@ -111,6 +111,7 @@ class CryptoModelTest(s_t_utils.SynTest):
 
                     :subject="CN=vertex.link"
                     :issuer="DN FOO THING"
+
                     :serial=12345
 
                     :validity:notafter=2019
@@ -125,13 +126,14 @@ class CryptoModelTest(s_t_utils.SynTest):
                     :signature=ff00ff00
 
                     :ext:sans=((dns, vertex.link), (dns, "*.vertex.link"))
-                    :ext:crls = ("http://vertex.link/crls")
+                    :ext:crls = ((dns, http://vertex.link/crls))
+                    :crl:urls = ("http://vertex.link/crls")
 
-                    :identifies:urls=(http://woot.com/1, http://woot.com/2)
-                    :identifies:fqdns=(vertex.link, woot.com)
-                    :identifies:ipv4s=(1.2.3.4, 5.5.5.5)
-                    :identifies:ipv6s=(ff::11, ff::aa)
-                    :identifies:emails=(visi@vertex.link, v@vtx.lk)
+                    :identities:urls=(http://woot.com/1, http://woot.com/2)
+                    :identities:fqdns=(vertex.link, woot.com)
+                    :identities:ipv4s=(1.2.3.4, 5.5.5.5)
+                    :identities:ipv6s=(ff::11, ff::aa)
+                    :identities:emails=(visi@vertex.link, v@vtx.lk)
                 ]
             ''', opts={'vars': {'cert': cert, 'md5': TEST_MD5, 'sha1': TEST_SHA1, 'sha256': TEST_SHA256}})
 
@@ -150,12 +152,13 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('algo'), '1.2.840.113549.1.1.11')
             self.eq(nodes[0].get('rsa:key'), ('ff00ff00', 100))
             self.eq(nodes[0].get('signature'), 'ff00ff00')
-            self.eq(nodes[0].get('ext:crls'), ('http://vertex.link/crls',))
+            self.eq(nodes[0].get('ext:crls'), (('dns', 'http://vertex.link/crls'),))
+            self.eq(nodes[0].get('crl:urls'), ('http://vertex.link/crls',))
             self.eq(nodes[0].get('ext:sans'), (('dns', 'vertex.link'), ('dns', '*.vertex.link')))
-            self.eq(nodes[0].get('identifies:urls'), ('http://woot.com/1', 'http://woot.com/2'))
-            self.eq(nodes[0].get('identifies:fqdns'), ('vertex.link', 'woot.com'))
-            self.eq(nodes[0].get('identifies:ipv4s'), (0x01020304, 0x05050505))
-            self.eq(nodes[0].get('identifies:ipv6s'), ('ff::11', 'ff::aa'))
+            self.eq(nodes[0].get('identities:urls'), ('http://woot.com/1', 'http://woot.com/2'))
+            self.eq(nodes[0].get('identities:fqdns'), ('vertex.link', 'woot.com'))
+            self.eq(nodes[0].get('identities:ipv4s'), (0x01020304, 0x05050505))
+            self.eq(nodes[0].get('identities:ipv6s'), ('ff::11', 'ff::aa'))
 
             nodes = await core.nodes('''
                 [
