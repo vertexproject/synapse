@@ -117,10 +117,6 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The subject identifier, commonly in X.500/LDAP format, to which the certificate was issued.',
                     }),
 
-                    ('subject:cn', ('str', {}), {
-                        'doc': 'The optional CN field from the subject X.500 Distinguished Name.',
-                    }),
-
                     ('issuer', ('str', {}), {
                         'doc': 'The Distinguished Name (DN) of the Certificate Authority (CA) which issued the certificate.',
                     }),
