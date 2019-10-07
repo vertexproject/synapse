@@ -10,41 +10,11 @@ ex_sha256 = 'ad9f4fe922b61e674a09530831759843b1880381de686a43460a76864ca0340c'
 ex_sha384 = 'd425f1394e418ce01ed1579069a8bfaa1da8f32cf823982113ccbef531fa36bda9987f389c5af05b5e28035242efab6c'
 ex_sha512 = 'ca74fe2ff2d03b29339ad7d08ba21d192077fece1715291c7b43c20c9136cd132788239189f3441a87eb23ce2660aa243f334295902c904b5520f6e80ab91f11'
 
-class X509San(s_types.Type):
-
 class CryptoModule(s_module.CoreModule):
+
     def getModelDefs(self):
         modl = {
             'types': (
-
-                ('crypto:x509:cert', ('guid', {}), {
-                    'doc': 'A unique X.509 certificate.',
-                }),
-
-                ('crypto:x509:sanval', ('union', {'strict': False, 'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
-                    'doc': 'An X.509 Subject Alternative Name (SAN) value.',
-                }),
-
-                ('crypto:x509:san', ('comp', {'fields': (('type', 'str'), ('value', 'crypto:x509:sanval'))}) {
-                    'doc': 'An X.509 Subject Alternative Name (SAN).',
-                }),
-
-                ('crypto:x509:crl', ('guid', {}), {
-                    'doc': 'A unique X.509 Certificate Revocation List.',
-                }),
-
-                ('crypto:x509:revoked', ('comp', {'fields': (('crl', 'crypto:x509:crl'), ('cert', 'crypto:x509:cert'))}), {
-                    'doc': 'A revokation relationship between a CRL and an X.509 certificate.',
-                }),
-
-                ('crypto:x509:signedfile', ('comp', {'fields': (('cert', 'crypto:x509:cert'), ('file', 'file:bytes'))}), {
-                    'doc': 'A digital signature relationship between an X.509 certificate and a file.',
-                }),
-
-                ('crypto:x509:chain', ('array', {'type': 'crypto:x509:cert'}), {
-                    'doc': 'A list of X.509 certificate GUIDs which form a signature chain.',
-                })
-
                 ('hash:md5', ('hex', {'size': 32}), {
                     'doc': 'A hex encodeded MD5 hash',
                     'ex': ex_md5
@@ -73,9 +43,35 @@ class CryptoModule(s_module.CoreModule):
                     'doc': 'A hex encoded Microsoft Windows NTLM password hash',
                     'ex': ex_md5
                 }),
+
                 ('rsa:key', ('comp', {'fields': (('mod', 'hex'), ('pub:exp', 'int')), }), {
                     'doc': 'An RSA keypair modulus and public exponent.'
                 }),
+
+                ('crypto:x509:cert', ('guid', {}), {
+                    'doc': 'A unique X.509 certificate.',
+                }),
+
+                ('crypto:x509:san', ('comp', {'fields': (('type', 'str'), ('value', 'str'))}), {
+                    'doc': 'An X.509 Subject Alternative Name (SAN).',
+                }),
+
+                ('crypto:x509:crl', ('guid', {}), {
+                    'doc': 'A unique X.509 Certificate Revocation List.',
+                }),
+
+                ('crypto:x509:revoked', ('comp', {'fields': (('crl', 'crypto:x509:crl'), ('cert', 'crypto:x509:cert'))}), {
+                    'doc': 'A revokation relationship between a CRL and an X.509 certificate.',
+                }),
+
+                ('crypto:x509:signedfile', ('comp', {'fields': (('cert', 'crypto:x509:cert'), ('file', 'file:bytes'))}), {
+                    'doc': 'A digital signature relationship between an X.509 certificate and a file.',
+                }),
+
+                ('crypto:x509:chain', ('array', {'type': 'crypto:x509:cert'}), {
+                    'doc': 'A list of X.509 certificate GUIDs which form a signature chain.',
+                }),
+
             ),
             'forms': (
                 ('hash:md5', {}, ()),
@@ -98,37 +94,26 @@ class CryptoModule(s_module.CoreModule):
                      {'doc': 'One of the two private primes.'}),
                 )),
 
-                ('crypto:x509:san', {}, (
-                    ('type', ('str', {}), {
-                        'doc': 'The type of SAN value.'}),
-                    ('value', ('crypto:x509:sanval', {}), {
-                        'doc': 'The raw SAN value.'}),
-                    ('value:fqdn', ('inet:fqdn', {}), {
-                        'doc': 'The inet:fqdn if the SAN is a DNS name.'}),
-                    ('value:email', ('inet:fqdn', {}), {
-                        'doc': 'The inet:email if the SAN is an email address.'}),
-                ),
-
-                ('crypto:x509:signed', {}, (
+                ('crypto:x509:signedfile', {}, (
                     ('cert', ('crypto:x509:cert', {}), {
                         'doc': 'The certificate for the key which signed the file.'}),
-                    ('file': ('file:bytes', {}), {
+                    ('file', ('file:bytes', {}), {
                         'doc': 'The file which was signed by the certificates key.'}),
-                ),
+                )),
 
-                ('crypto:x509:crl', {},
+                ('crypto:x509:crl', {}, (
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file containing the CRL.'}),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the CRL was published.'}),
-                ),
+                )),
 
                 ('crypto:x509:revoked', {}, (
                     ('crl', ('crypto:x509:crl', {}), {
-                        'doc': 'The CRL which revoked the certificate.'})
+                        'doc': 'The CRL which revoked the certificate.'}),
                     ('cert', ('crypto:x509:cert', {}), {
                         'doc': 'The certificate revoked by the CRL.'}),
-                ),
+                )),
 
                 ('crypto:x509:cert', {}, (
 
@@ -138,11 +123,11 @@ class CryptoModule(s_module.CoreModule):
 
                     ('subject:fqdn', ('inet:fqdn', {}), {
                         'doc': 'The optional inet:fqdn from within the subject Common Name.',
-                    })
+                    }),
 
                     ('subject:email', ('inet:email', {}), {
                         'doc': 'The optional inet:email from within the subject Common Name.',
-                    })
+                    }),
 
                     ('issuer', ('str', {}), {
                         'doc': 'The Distinguished Name (DN) of the Certificate Authority (CA) which issued the certificate.',
@@ -160,19 +145,19 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The timestamp for the end of the certificate validity period.',
                     }),
 
-                    ('md5', ('hash:md5', {}) {
+                    ('md5', ('hash:md5', {}), {
                         'doc': 'The MD5 fingerprint for the certificate.',
                     }),
 
-                    ('sha1', ('hash:sha1', {}) {
+                    ('sha1', ('hash:sha1', {}), {
                         'doc': 'The SHA1 fingerprint for the certificate.',
                     }),
 
-                    ('sha256', ('hash:sha256', {}) {
+                    ('sha256', ('hash:sha256', {}), {
                         'doc': 'The SHA256 fingerprint for the certificate.',
                     }),
 
-                    ('keytype', ('oid', {}), {
+                    ('keytype', ('iso:oid', {}), {
                         'doc': 'The X.509 key type OID.',
                     }),
 
@@ -180,9 +165,9 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The optional RSA public key associated with the certificate.',
                     }),
 
-                    ('algo', ('oid', {}), {
+                    ('algo', ('iso:oid', {}), {
                         'doc': 'The X.509 signature algorithm OID.',
-                    })
+                    }),
 
                     ('signature', ('hex', {}), {
                         'doc': 'The hexidecimal representation of the digital signature.',
@@ -196,15 +181,28 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'A list of the CRL Distribution Point URLs.',
                     }),
 
-                    #('ext:auth:keyid',
-                    #('ext:subj:keyid',
-                    #('ext:usage',
-                    #('ext:keyusage',
-                    #('ext:crl:paths',
-                    # TODO more of these
-                    #('ext:cons:isca',
+                    ('identifies:fqdns', ('array', {'type': 'inet:fqdn'}), {
+                        'doc': 'The fused list of FQDNs identified by the cert CN and SANs.',
+                    }),
+
+                    ('identifies:emails', ('array', {'type': 'inet:email'}), {
+                        'doc': 'The fused list of e-mail addresses identified by the cert CN and SANs.',
+                    }),
+
+                    ('identifies:ipv4s', ('array', {'type': 'inet:ipv4'}), {
+                        'doc': 'The fused list of IPv4 addresses identified by the cert CN and SANs.',
+                    }),
+
+                    ('identifies:ipv6s', ('array', {'type': 'inet:ipv6'}), {
+                        'doc': 'The fused list of IPv6 addresses identified by the cert CN and SANs.',
+                    }),
+
+                    ('identifies:urls', ('array', {'type': 'inet:url'}), {
+                        'doc': 'The fused list of URLs identified by the cert CN and SANs.',
+                    }),
+
                 )),
             )
         }
-        name='crypto'
+        name = 'crypto'
         return ((name, modl),)

@@ -318,7 +318,8 @@ class StormTypesTest(s_test.SynTest):
             [ inet:ipv4=1.2.3.4 :loc=us]
             $ipv4 = $node.repr()
             $loc = $node.repr(loc)
-            $valu = $lib.str.format("{ipv4} in {loc}", ipv4=$ipv4, loc=$loc)
+            $latlong = $node.repr(latlong, defv="??")
+            $valu = $lib.str.format("{ipv4} in {loc} at {latlong}", ipv4=$ipv4, loc=$loc, latlong=$latlong)
             [ test:str=$valu ]
             +test:str
         '''
@@ -326,7 +327,7 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes(text)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef[1], '1.2.3.4 in us')
+            self.eq(nodes[0].ndef[1], '1.2.3.4 in us at ??')
 
     async def test_storm_csv(self):
         async with self.getTestCore() as core:

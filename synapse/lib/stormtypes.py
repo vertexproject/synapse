@@ -953,8 +953,11 @@ class Node(Prim):
     async def _methNodeNdef(self):
         return self.valu.ndef
 
-    async def _methNodeRepr(self, name=None):
-        return self.valu.repr(name=name)
+    async def _methNodeRepr(self, name=None, defv=None):
+        rval = self.valu.repr(name=name)
+        if rval is None:
+            rval = defv
+        return rval
 
     async def _methNodeIden(self):
         return self.valu.iden()
