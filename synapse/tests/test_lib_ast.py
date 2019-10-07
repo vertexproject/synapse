@@ -206,6 +206,143 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.sorteq(nodes[0].tags, ('base', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
 
+    async def test_ast_array_pivot(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ test:arrayprop="*" :ints=(1, 2, 3) ]')
+            nodes = await core.nodes('test:arrayprop -> *')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('test:arrayprop -> test:int')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('test:arrayprop:ints -> test:int')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('test:arrayprop:ints -> *')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('test:arrayprop :ints -> *')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('test:int=1 <- * +test:arrayprop')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:int=2 -> test:arrayprop')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'test:arrayprop')
+
+    async def test_ast_pivot_ndef(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ edge:refs=((test:int, 10), (test:str, woot)) ]')
+            nodes = await core.nodes('edge:refs -> test:str')
+            self.eq(nodes[0].ndef, ('test:str', 'woot'))
+
+            nodes = await core.nodes('[ geo:nloc=((inet:fqdn, woot.com), "34.1,-118.3", now) ]')
+            self.len(1, nodes)
+
+            # test a reverse ndef pivot
+            nodes = await core.nodes('inet:fqdn=woot.com -> geo:nloc')
+            self.len(1, nodes)
+            self.eq('geo:nloc', nodes[0].ndef[0])
+
+    async def test_ast_lift_filt_array(self):
+
+        async with self.getTestCore() as core:
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:arrayprop:ints*[^=asdf]')
+
+            with self.raises(s_exc.BadTypeDef):
+                await core.addFormProp('test:int', '_hehe', ('array', {'type': None}), {})
+
+            with self.raises(s_exc.BadPropDef):
+                await core.addTagProp('array', ('array', {'type': 'int'}), {})
+
+            await core.addFormProp('test:int', '_hehe', ('array', {'type': 'int'}), {})
+            nodes = await core.nodes('[ test:int=9999 :_hehe=(1, 2, 3) ]')
+            self.len(1, nodes)
+            nodes = await core.nodes('test:int=9999 :_hehe -> *')
+            self.len(0, nodes)
+            await core.nodes('test:int=9999 | delnode')
+            await core.delFormProp('test:int', '_hehe')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('test:arrayprop:newp*[^=asdf]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:comp:hehe*[^=asdf]')
+
+            await core.nodes('[ test:comp=(10,asdf) ]')
+
+            with self.raises(s_exc.BadCmprType):
+                await core.nodes('test:comp +:hehe*[^=asdf]')
+
+            nodes = await core.nodes('[ test:arrayprop="*" :ints=(1, 2, 3) ]')
+            nodes = await core.nodes('[ test:arrayprop="*" :ints=(100, 101, 102) ]')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('test:arrayprop +:newp*[^=asdf]')
+
+            nodes = await core.nodes('test:arrayprop:ints*[=3]')
+            self.len(1, nodes)
+            self.eq(nodes[0].repr('ints'), ('1', '2', '3'))
+
+            nodes = await core.nodes('test:arrayprop:ints*[ range=(50,100) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ints'), (100, 101, 102))
+
+            nodes = await core.nodes('test:arrayprop +:ints*[ range=(50,100) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ints'), (100, 101, 102))
+
+            nodes = await core.nodes('test:arrayprop:ints=(1, 2, 3) | limit 1 | [ -:ints ]')
+            self.len(1, nodes)
+
+            # test filter case where field is None
+            nodes = await core.nodes('test:arrayprop +:ints*[=100]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('ints'), (100, 101, 102))
+
+    async def test_ast_del_array(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ test:arrayprop="*" :ints=(1, 2, 3) ]')
+            nodes = await core.nodes('test:arrayprop [ -:ints ]')
+
+            self.len(1, nodes)
+            self.none(nodes[0].get('ints'))
+
+            nodes = await core.nodes('test:int=2 -> test:arrayprop')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('test:arrayprop:ints=(1, 2, 3)')
+            self.len(0, nodes)
+
+    async def test_ast_univ_array(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ test:int=10 .univarray=(1, 2, 3) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('.univarray'), (1, 2, 3))
+
+            nodes = await core.nodes('.univarray*[=2]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:int=10 [ .univarray=(1, 3) ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('.univarray*[=2]')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('test:int=10 [ -.univarray ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('.univarray')
+            self.len(0, nodes)
+
     async def test_ast_embed_compute(self):
         # currently a simple smoke test for the EmbedQuery.compute method
         async with self.getTestCore() as core:

@@ -21,6 +21,7 @@ tagre = regex.compile(r'(\w+\.)*\w+')
 class Type:
 
     _opt_defs = ()
+    _lift_v2 = False
 
     def __init__(self, modl, name, info, opts):
         '''
@@ -50,16 +51,16 @@ class Type:
 
         self.indxcmpr = {
             '=': self.indxByEq,
-            '*in=': self.indxByIn,
-            '*range=': self.indxByRange,
+            'in=': self.indxByIn,
+            'range=': self.indxByRange,
         }
 
         self.setCmprCtor('=', self._ctorCmprEq)
         self.setCmprCtor('!=', self._ctorCmprNe)
         self.setCmprCtor('~=', self._ctorCmprRe)
         self.setCmprCtor('^=', self._ctorCmprPref)
-        self.setCmprCtor('*in=', self._ctorCmprIn)
-        self.setCmprCtor('*range=', self._ctorCmprRange)
+        self.setCmprCtor('in=', self._ctorCmprIn)
+        self.setCmprCtor('range=', self._ctorCmprRange)
 
         self.setNormFunc(s_node.Node, self._normStormNode)
 
@@ -188,10 +189,10 @@ class Type:
     def _ctorCmprRange(self, vals):
 
         if not isinstance(vals, (list, tuple)):
-            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='*range=')
+            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='range=')
 
         if len(vals) != 2:
-            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='*range=')
+            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='range=')
 
         minv = self.norm(vals[0])[0]
         maxv = self.norm(vals[1])[0]
@@ -215,7 +216,7 @@ class Type:
 
         opers = []
         if not isinstance(vals, (list, tuple)):
-            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='*in=')
+            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='in=')
 
         for valu in vals:
             opers.extend(self.getIndxOps(valu))
@@ -225,10 +226,10 @@ class Type:
     def indxByRange(self, valu):
 
         if not isinstance(valu, (list, tuple)):
-            raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='*range=')
+            raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='range=')
 
         if len(valu) != 2:
-            raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='*range=')
+            raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='range=')
 
         minv, _ = self.norm(valu[0])
         maxv, _ = self.norm(valu[1])
@@ -383,6 +384,98 @@ class Bool(Type):
 
     def repr(self, valu):
         return repr(bool(valu))
+
+class Array(Type):
+
+    _lift_v2 = True
+
+    def getLiftOpsV2(self, prop, valu, cmpr='='):
+
+        if valu is None:
+            iops = (('pref', b'\x00'),)
+            return (
+                ('indx', ('byprop', prop.pref, iops)),
+            )
+
+        if cmpr == '=':
+            norm, info = self.norm(valu)
+            iops = (
+                ('eq', b'\x00' + s_common.buid(norm)),
+            )
+            return (
+                ('indx', ('byprop', prop.pref, iops)),
+            )
+
+        if cmpr == 'contains=':
+            norm, info = self.arraytype.norm(valu)
+            byts = self.arraytype.indx(norm)
+            iops = (
+                ('eq', b'\x01' + self.arraytype.indx(norm)),
+            )
+            return (
+                ('indx', ('byprop', prop.pref, iops)),
+            )
+
+        # TODO we *could* retrieve and munge the iops from arraytype...
+
+        mesg = f'Array type has no lift by: {cmpr}.'
+        raise s_exc.NoSuchCmpr(mesg=mesg)
+
+    def postTypeInit(self):
+
+        self.isuniq = self.opts.get('uniq', False)
+        self.issorted = self.opts.get('sorted', False)
+
+        typename = self.opts.get('type')
+        if typename is None:
+            mesg = 'Array type requires type= option.'
+            raise s_exc.BadTypeDef(mesg=mesg)
+
+        typeopts = self.opts.get('typeopts', {})
+        self.arraytype = self.modl.type(typename).clone(typeopts)
+
+        if isinstance(self.arraytype, Array):
+            mesg = 'Array type of array values is not (yet) supported.'
+            raise s_exc.BadTypeDef(mesg)
+
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+    def _normPyTuple(self, valu):
+
+        adds = []
+        norms = []
+
+        for item in valu:
+            norm, info = self.arraytype.norm(item)
+            adds.extend(info.get('adds', ()))
+            norms.append(norm)
+
+        form = self.modl.form(self.arraytype.name)
+        if form is not None:
+            adds.extend([(form.name, n) for n in norms])
+
+        adds = list(set(adds))
+
+        if self.isuniq:
+            norms = list(set(norms))
+
+        if self.issorted:
+            norms = sorted(norms)
+
+        return norms, {'adds': adds}
+
+    def repr(self, valu):
+        return [self.arraytype.repr(v) for v in valu]
+
+    def indx(self, norm):
+        # return a tuple of indx bytes and the layer will know what to do
+        vals = []
+        # prop=[foo,bar]
+        vals.append(b'\x00' + s_common.buid(norm))
+        # prop*contains=foo
+        [vals.append(b'\x01' + self.arraytype.indx(v)) for v in norm]
+        return vals
 
 class Comp(Type):
 
@@ -751,8 +844,8 @@ class Ival(Type):
         self.timetype = self.modl.type('time')
 
         # Range stuff with ival's don't make sense
-        self.indxcmpr.pop('*range=', None)
-        self._cmpr_ctors.pop('*range=', None)
+        self.indxcmpr.pop('range=', None)
+        self._cmpr_ctors.pop('range=', None)
 
         self.setCmprCtor('@=', self._ctorCmprAt)
         # _ctorCmprAt implements its own custom norm-style resolution
@@ -1443,14 +1536,14 @@ class Time(IntBase):
 
     def indxByRange(self, valu):
         '''
-        Override default ``*range=`` handler to account for relative computation.
+        Override default ``range=`` handler to account for relative computation.
         '''
 
         if not isinstance(valu, (list, tuple)):
-            raise s_exc.BadCmprValu(valu=valu, cmpr='*range=')
+            raise s_exc.BadCmprValu(valu=valu, cmpr='range=')
 
         if len(valu) != 2:
-            raise s_exc.BadCmprValu(valu=valu, cmpr='*range=')
+            raise s_exc.BadCmprValu(valu=valu, cmpr='range=')
 
         tick, tock = self.getTickTock(valu)
 
@@ -1462,14 +1555,14 @@ class Time(IntBase):
 
     def _ctorCmprRange(self, vals):
         '''
-        Override default *range= handler to account for relative computation.
+        Override default range= handler to account for relative computation.
         '''
 
         if not isinstance(vals, (list, tuple)):
-            raise s_exc.BadCmprValu(valu=vals, cmpr='*range=')
+            raise s_exc.BadCmprValu(valu=vals, cmpr='range=')
 
         if len(vals) != 2:
-            raise s_exc.BadCmprValu(valu=vals, cmpr='*range=')
+            raise s_exc.BadCmprValu(valu=vals, cmpr='range=')
 
         tick, tock = self.getTickTock(vals)
 
