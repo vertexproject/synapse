@@ -41,6 +41,10 @@ class DnsModelTest(s_t_utils.SynTest):
             self.eq(norm, '1.2.3.4')
             self.eq(info.get('subs'), {'ipv4': 0x01020304})
 
+            norm, info = typ.norm('134744072')  # 8.8.8.8 in integer form
+            self.eq(norm, '134744072')
+            self.eq(info.get('subs'), {})
+
             norm, info = typ.norm('::FFFF:1.2.3.4')
             self.eq(norm, '::ffff:1.2.3.4')
             self.eq(info.get('subs'), {'ipv6': '::ffff:1.2.3.4', 'ipv4': 0x01020304})
