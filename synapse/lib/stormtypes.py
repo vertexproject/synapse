@@ -872,9 +872,7 @@ class LibVars(Lib):
             valu = valu.lstrip('$')
 
         try:
-            print(valu)
             del(self.runt.vars[valu])
-            print('delled')
         except:
             pass
 
