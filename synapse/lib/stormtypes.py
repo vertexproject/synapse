@@ -954,10 +954,14 @@ class Node(Prim):
         return self.valu.ndef
 
     async def _methNodeRepr(self, name=None, defv=None):
-        rval = self.valu.repr(name=name)
-        if rval is None:
-            rval = defv
-        return rval
+
+        try:
+
+            return self.valu.repr(name=name)
+
+        except s_exc.NoPropValu:
+
+            return defv
 
     async def _methNodeIden(self):
         return self.valu.iden()
