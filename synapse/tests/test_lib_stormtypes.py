@@ -951,3 +951,36 @@ class StormTypesTest(s_test.SynTest):
             err = errs[0]
             self.eq(err[0], 'StormRuntimeError')
             self.isin('Error during base64 decoding - Incorrect padding', err[1].get('mesg'))
+
+    async def test_storm_lib_vars(self):
+
+        async with self.getTestCore() as core:
+
+            opts = {'vars': {'testvar': 'test'}}
+            text = '$testkey=testvar [ test:str=$lib.vars.get($testkey) ]'
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'test'))
+
+            opts = {'vars': {'testvar': 'test'}}
+            text = '$testkey=\'$testvar\' [ test:str=$lib.vars.get($testkey, strip=True) ]'
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'test'))
+
+            text = '$testkey=testvar [ test:str=$lib.vars.get($testkey) ]'
+            mesgs = await alist(core.streamstorm(text))
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('No var with name: testvar', err[1].get('mesg'))
+
+            opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
+            text = '$lib.vars.del(testvar) [ test:str=$lib.vars.get($testkey) ]'
+            mesgs = await alist(core.streamstorm(text, opts=opts))
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('No var with name: testvar', err[1].get('mesg'))
