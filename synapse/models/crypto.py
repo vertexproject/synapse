@@ -10,6 +10,11 @@ ex_sha256 = 'ad9f4fe922b61e674a09530831759843b1880381de686a43460a76864ca0340c'
 ex_sha384 = 'd425f1394e418ce01ed1579069a8bfaa1da8f32cf823982113ccbef531fa36bda9987f389c5af05b5e28035242efab6c'
 ex_sha512 = 'ca74fe2ff2d03b29339ad7d08ba21d192077fece1715291c7b43c20c9136cd132788239189f3441a87eb23ce2660aa243f334295902c904b5520f6e80ab91f11'
 
+x509vers = (
+    (0, 'v1'),
+    (2, 'v3'),
+)
+
 class CryptoModule(s_module.CoreModule):
 
     def getModelDefs(self):
@@ -156,7 +161,6 @@ class CryptoModule(s_module.CoreModule):
 
                 ('crypto:x509:cert', {}, (
 
-                    # CN=cName, OU=orgUnit, O=org, L=city, S=state, C=countryCode
                     ('subject', ('str', {}), {
                         'doc': 'The subject identifier, commonly in X.500/LDAP format, to which the certificate was issued.',
                     }),
@@ -167,6 +171,10 @@ class CryptoModule(s_module.CoreModule):
 
                     ('serial', ('str', {}), {
                         'doc': 'The serial number string in the certificate.',
+                    }),
+
+                    ('version', ('int', {'enums': x509vers}), {
+                        'doc': 'The version integer in the certificate. (ex. 2 == v3 )',
                     }),
 
                     ('validity:notbefore', ('time', {}), {

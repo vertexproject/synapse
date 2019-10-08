@@ -138,6 +138,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                     :issuer="DN FOO THING"
 
                     :serial=12345
+                    :version=v3
 
                     :validity:notafter=2019
                     :validity:notbefore=2015
@@ -166,6 +167,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('subject'), "CN=vertex.link")
             self.eq(nodes[0].get('issuer'), "DN FOO THING")
             self.eq(nodes[0].get('serial'), "12345")
+            self.eq(nodes[0].get('version'), 2)
 
             self.eq(nodes[0].get('validity:notafter'), 1546300800000)
             self.eq(nodes[0].get('validity:notbefore'), 1420070400000)
