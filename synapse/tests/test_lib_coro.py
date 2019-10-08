@@ -1,9 +1,12 @@
+import time
+import asyncio
 import threading
 
 import synapse.glob as s_glob
 import synapse.lib.coro as s_coro
 import synapse.tests.utils as s_t_utils
 
+class FakeError(Exception): pass
 
 class CoroTest(s_t_utils.SynTest):
 
@@ -56,3 +59,25 @@ class CoroTest(s_t_utils.SynTest):
             return tid
         # Ensure a generic coroutine is executed on the ioloop thread
         self.eq(s_glob._glob_thrd.ident, await afunc())
+
+    async def test_lib_coro_fork(self):
+
+        def func(x, y=10):
+            return x + y
+
+        def sleep():
+            time.sleep(10)
+
+        def fakeit():
+            raise FakeError()
+
+        todo = (func, (20,), {'y': 30})
+        self.eq(50, await s_coro.fork(todo))
+
+        todo = (sleep, (), {})
+        with self.raises(asyncio.TimeoutError):
+            await s_coro.fork(todo, timeout=0.1)
+
+        todo = (fakeit, (), {})
+        with self.raises(FakeError):
+            await s_coro.fork(todo, timeout=0.1)

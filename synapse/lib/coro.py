@@ -5,6 +5,7 @@ import asyncio
 import inspect
 import logging
 import functools
+import multiprocessing
 
 logger = logging.getLogger(__name__)
 
@@ -132,3 +133,36 @@ def genrhelp(f):
     def func(*args, **kwargs):
         return GenrHelp(f(*args, **kwargs))
     return func
+
+async def fork(todo, timeout=None):
+    '''
+    Run a todo (func, args, kwargs) tuple in a multiprocessing subprocess.
+    '''
+    def exectodo():
+        func, args, kwargs = todo
+        try:
+            que.put(func(*args, **kwargs))
+        except Exception as e:
+            que.put(e)
+
+    def execfork():
+        proc.start()
+        proc.join()
+        return que.get(block=False)
+
+    que = multiprocessing.Queue()
+    proc = multiprocessing.Process(target=exectodo)
+
+    try:
+
+        coro = executor(execfork)
+
+        retn = await asyncio.wait_for(coro, timeout=timeout)
+        if isinstance(retn, Exception):
+            raise retn
+
+        return retn
+
+    except (asyncio.CancelledError, asyncio.TimeoutError):
+        proc.terminate()
+        raise
