@@ -163,22 +163,29 @@ class Node:
         '''
         retn = []
 
-        for name, valu in self.props.items():
+        refs = self.form.getRefsOut()
 
-            pobj = self.form.props.get(name)
-
-            if isinstance(pobj.type, s_types.Ndef):
-                retn.append((name, valu))
+        for name, dest in refs.get('prop', ()):
+            valu = self.props.get(name)
+            if valu is None:
                 continue
 
-            if self.snap.model.forms.get(pobj.type.name) is None:
+            retn.append((name, (dest, valu)))
+
+        for name in refs.get('ndef', ()):
+            valu = self.props.get(name)
+            if valu is None:
+                continue
+            retn.append((name, valu))
+
+        for name, dest in refs.get('array', ()):
+
+            valu = self.props.get(name)
+            if valu is None:
                 continue
 
-            ndef = (pobj.type.name, valu)
-            if ndef == self.ndef:
-                continue
-
-            retn.append((name, ndef))
+            for item in valu:
+                retn.append((name, (dest, item)))
 
         return retn
 

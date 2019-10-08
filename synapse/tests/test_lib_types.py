@@ -20,9 +20,9 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(t.info.get('bases'), ())
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
-        self.raises(s_exc.BadCmprValu, t.getIndxOps, 'newp', '*in=')
-        self.raises(s_exc.BadCmprValu, t.getIndxOps, 'newp', '*range=')
-        self.raises(s_exc.BadCmprValu, t.getIndxOps, ['newp'], '*range=')
+        self.raises(s_exc.BadCmprValu, t.getIndxOps, 'newp', 'in=')
+        self.raises(s_exc.BadCmprValu, t.getIndxOps, 'newp', 'range=')
+        self.raises(s_exc.BadCmprValu, t.getIndxOps, ['newp'], 'range=')
 
     def test_bool(self):
         model = s_datamodel.Model()
@@ -856,7 +856,7 @@ class TypesTest(s_t_utils.SynTest):
             tock = t.norm('2015')[0]
 
             self.raises(s_exc.BadCmprValu,
-                        t.cmpr, '2015', '*range=', tick)
+                        t.cmpr, '2015', 'range=', tick)
 
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'a', {'tick': '2014'})
@@ -867,30 +867,30 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await alist(core.getNodesBy('test:str:tick', '2014'))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
             nodes = await alist(core.getNodesBy('test:str:tick', ('2014', '2015'),
-                                                cmpr='*range='))
+                                                cmpr='range='))
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
             nodes = await alist(core.getNodesBy('test:str:tick', '201401*'))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
             nodes = await alist(core.getNodesBy('test:str:tick', ('-3000 days', 'now'),
-                                                cmpr='*range='))
+                                                cmpr='range='))
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b', 'c', 'd'})
             nodes = await alist(core.getNodesBy('test:str:tick', (tick, tock),
-                                                cmpr='*range='))
+                                                cmpr='range='))
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
             nodes = await alist(core.getNodesBy('test:str:tick', ('20131231', '+2 days'),
-                                                cmpr='*range='))
+                                                cmpr='range='))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
             nodes = await alist(core.eval('test:str:tick*range=(20131231, "+2 days")'))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
             nodes = await alist(core.getNodesBy('test:str:tick', ('-1 day', '+1 day'),
-                                                cmpr='*range='))
+                                                cmpr='range='))
             self.eq({node.ndef[1] for node in nodes}, {'d'})
             nodes = await alist(core.getNodesBy('test:str:tick', ('-1 days', 'now', ),
-                                                cmpr='*range='))
+                                                cmpr='range='))
             self.eq({node.ndef[1] for node in nodes}, {'d'})
             # Equivalent lift
             nodes = await alist(core.getNodesBy('test:str:tick', ('now', '-1 days'),
-                                                  cmpr='*range='))
+                                                  cmpr='range='))
             self.eq({node.ndef[1] for node in nodes}, {'d'})
             # This is equivalent of the previous lift
 
@@ -942,7 +942,7 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.BadCmprValu,
                                   core.eval('test:str:tick*range=(2015)'))
             await self.agenraises(s_exc.BadCmprValu,
-                                  core.getNodesBy('test:str:tick', tick, '*range='))
+                                  core.getNodesBy('test:str:tick', tick, 'range='))
             await self.agenraises(s_exc.BadCmprValu,
                                   core.eval('test:str +:tick*range=(2015)'))
             await self.agenraises(s_exc.BadCmprValu,
@@ -1052,3 +1052,70 @@ class TypesTest(s_t_utils.SynTest):
             opts = {'vars': {'url': url}}
             self.len(1, await core.eval('[ it:exec:url="*" :url=$url ]', opts=opts).list())
             self.len(1, await core.eval('it:exec:url:url=$url', opts=opts).list())
+
+    async def test_types_array(self):
+
+        mdef = {
+            'types': (
+                ('test:array', ('array', {'type': 'inet:ipv4'}), {}),
+                ('test:arraycomp', ('comp', {'fields': (('ipv4s', 'test:array'), ('int', 'test:int'))}), {}),
+                ('test:witharray', ('guid', {}), {}),
+            ),
+            'forms': (
+                ('test:array', {}, (
+                )),
+                ('test:arraycomp', {}, (
+                    ('ipv4s', ('test:array', {}), {}),
+                    ('int', ('test:int', {}), {}),
+                )),
+                ('test:witharray', {}, (
+                    ('fqdns', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {}),
+                )),
+            ),
+        }
+        async with self.getTestCore() as core:
+
+            core.model.addDataModels([('asdf', mdef)])
+
+            with self.raises(s_exc.BadTypeDef):
+                await core.addFormProp('test:int', '_hehe', ('array', {'type': 'array'}), {})
+
+            nodes = await core.nodes('[ test:array=(1.2.3.4, 5.6.7.8) ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:array*contains=1.2.3.4')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('[ test:arraycomp=((1.2.3.4, 5.6.7.8), 10) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:arraycomp', ([0x01020304, 0x05060708], 10)))
+            self.eq(nodes[0].get('int'), 10)
+            self.eq(nodes[0].get('ipv4s'), (0x01020304, 0x05060708))
+
+            # make sure "adds" got added
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('[ test:witharray="*" :fqdns=(woot.com, VERTEX.LINK, vertex.link) ]')
+            self.len(1, nodes)
+
+            self.eq(nodes[0].get('fqdns'), ('vertex.link', 'woot.com'))
+
+            nodes = await core.nodes('test:witharray:fqdns=(vertex.link, WOOT.COM)')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:witharray:fqdns*contains=vertex.link')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:witharray [ :fqdns=(hehe.com, haha.com) ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:fqdn=hehe.com inet:fqdn=haha.com')
+            self.len(2, nodes)
+
+            # make sure the multi-array entries got deleted
+            nodes = await core.nodes('test:witharray:fqdns*contains=vertex.link')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('test:witharray:fqdns*contains=hehe.com')
+            self.len(1, nodes)

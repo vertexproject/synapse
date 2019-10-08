@@ -10,6 +10,7 @@ TerminalPygMap = {
     'AND': p_t.Keyword,
     'BREAK': p_t.Keyword,
     'BASEPROP': p_t.Name,
+    'BYNAME': p_t.Operator,
     'CASEVALU': p_t.Literal.String,
     'CCOMMENT': p_t.Comment,
     'CMDNAME': p_t.Keyword,

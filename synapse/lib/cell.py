@@ -273,13 +273,13 @@ class CellApi(s_base.Base):
         item = await self.cell.auth.getRulerByName(name)
         await item.setAdmin(admin)
 
-    @adminapi
     async def setUserPasswd(self, name, passwd):
         user = self.cell.auth.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(user=name)
-
-        await user.setPasswd(passwd)
+        if self.user.admin or self.user.iden == user.iden:
+            return await user.setPasswd(passwd)
+        raise s_exc.AuthDeny(mesg='Cannot change user password.', user=user.name)
 
     @adminapi
     async def setUserLocked(self, name, locked):
@@ -547,6 +547,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         self.addHttpApi('/api/v1/auth/delrole', s_httpapi.AuthDelRoleV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/user/(.*)', s_httpapi.AuthUserV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/role/(.*)', s_httpapi.AuthRoleV1, {'cell': self})
+        self.addHttpApi('/api/v1/auth/password/(.*)', s_httpapi.AuthUserPasswdV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/grant', s_httpapi.AuthGrantV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/revoke', s_httpapi.AuthRevokeV1, {'cell': self})
 

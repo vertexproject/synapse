@@ -8,6 +8,8 @@ class DnsName(s_types.StrBase):
     def postTypeInit(self):
 
         s_types.StrBase.postTypeInit(self)
+        self.inarpa = '.in-addr.arpa'
+        self.inarpa6 = '.ip6.arpa'
 
         self.setNormFunc(str, self._normPyStr)
 
@@ -19,15 +21,16 @@ class DnsName(s_types.StrBase):
     def _normPyStr(self, valu):
         # Backwards compatible
         norm = valu.lower()
-        norm = norm.strip()
+        norm = norm.strip()  # type: str
         # Break out fqdn / ipv4 / ipv6 subs :D
         subs = {}
         # ipv4
-        inarpa = '.in-addr.arpa'
-        inarpa6 = '.ip6.arpa'
-        if norm.endswith(inarpa):
+        if norm.isnumeric():
+            # do-nothing for integer only strs
+            pass
+        elif norm.endswith(self.inarpa):
             # Strip, reverse, check if ipv4
-            temp = norm[:-len(inarpa)]
+            temp = norm[:-len(self.inarpa)]
             temp = '.'.join(temp.split('.')[::-1])
             try:
                 ipv4norm, info = self.modl.type('inet:ipv4').norm(temp)
@@ -35,8 +38,8 @@ class DnsName(s_types.StrBase):
                 pass
             else:
                 subs['ipv4'] = ipv4norm
-        elif norm.endswith(inarpa6):
-            parts = [c for c in norm[:-len(inarpa6)][::-1] if c != '.']
+        elif norm.endswith(self.inarpa6):
+            parts = [c for c in norm[:-len(self.inarpa6)][::-1] if c != '.']
             try:
                 if len(parts) != 32:
                     raise s_exc.BadTypeValu
