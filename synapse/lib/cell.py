@@ -571,8 +571,8 @@ class Cell(s_base.Base, s_telepath.Aware):
         except OSError as e:
             logger.error(f'Failed to listen on unix socket at: [{sockpath}][{e}]')
             logger.error('LOCAL UNIX SOCKET WILL BE UNAVAILABLE')
-        except Exception as e:  # pragma: no cover
-            logging.exception(f'Unknown dmon listen error {e}.')
+        except Exception:  # pragma: no cover
+            logging.exception(f'Unknown dmon listen error.')
             raise
 
         self.onfini(self.dmon.fini)
