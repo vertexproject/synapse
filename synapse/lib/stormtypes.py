@@ -246,7 +246,6 @@ class LibBase(Lib):
         return max(*ints)
 
     async def _print(self, mesg, **kwargs):
-
         if not isinstance(mesg, str):
             mesg = repr(mesg)
         elif kwargs:
@@ -858,11 +857,12 @@ class LibVars(Lib):
         if strip:
             valu = valu.lstrip('$')
 
-        if valu not in self.runt.vars:
+        ret = self.runt.getVar(valu)
+        if not ret:
             mesg = f'No var with name: {valu}'
-            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, strip=strip) from None
+            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, strip=strip)
 
-        return self.runt.vars.get(valu)
+        return ret
 
     async def _libVarsDel(self, valu, strip=False):
         '''
@@ -871,16 +871,13 @@ class LibVars(Lib):
         if strip:
             valu = valu.lstrip('$')
 
-        try:
-            del(self.runt.vars[valu])
-        except:
-            pass
+        self.runt.vars.pop(valu, None)
 
     async def _libVarsList(self):
         '''
         List variables available in a storm query.
         '''
-        return ((key, valu) for key, valu in self.runt.vars.items())
+        return list(self.runt.vars.items())
 
 class Query(StormType):
     '''
