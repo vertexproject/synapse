@@ -954,12 +954,30 @@ class Node(Prim):
         return self.valu.ndef
 
     async def _methNodeRepr(self, name=None, defv=None):
+        '''
+        Get the repr for the primary property or secondary propert of a Node.
 
+        Args:
+            name (str): Optional name of the secondary property to get the repr for.
+            defv (str): Optional default value to return if the secondary property does not exist.
+
+        Returns:
+            String repr for the property.
+
+        Raises:
+            s_exc.StormRuntimeError: If the secondary property does not exist for the Node form.
+        '''
         try:
             return self.valu.repr(name=name)
 
         except s_exc.NoPropValu:
             return defv
+
+        except s_exc.NoSuchProp as e:
+            form = e.get('form')
+            prop = e.get('prop')
+            mesg = f'Requested property [{prop}] does not exist for the form [{form}].'
+            raise s_exc.StormRuntimeError(mesg=mesg, form=form, prop=prop) from None
 
     async def _methNodeIden(self):
         return self.valu.iden()

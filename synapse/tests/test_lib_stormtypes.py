@@ -329,6 +329,14 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], '1.2.3.4 in us at ??')
 
+            mesgs = await alist(core.streamstorm('inet:ipv4 $repr=$node.repr(newp)'))
+
+            err = mesgs[-2][1]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('mesg', err[1])
+            self.eq(err[1].get('prop'), 'newp')
+            self.eq(err[1].get('form'), 'inet:ipv4')
+
     async def test_storm_csv(self):
         async with self.getTestCore() as core:
             nodes = await core.eval('[test:str=1234 :tick=2001]').list()
