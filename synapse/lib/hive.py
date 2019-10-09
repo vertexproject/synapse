@@ -779,7 +779,7 @@ class HiveAuth(s_base.Base):
         for iden, node in authentities:
             try:
                 await self._addAuthEntity(node)
-            except Exception:
+            except Exception:  # pragma: no cover
                 logger.exception('Failure loading AuthEntity')
 
         # initialize an admin user named root
@@ -849,6 +849,8 @@ class HiveAuth(s_base.Base):
 
     async def addAuthEntity(self, entitupl):
         '''
+        Retrieve AuthEntity by tuple.  Create if not present.
+
         Returns:
             (HiveAuthEntity)
         '''
@@ -930,7 +932,7 @@ class HiveAuth(s_base.Base):
         self.usersbyname.pop(user.name)
 
         for entiuser in user.entirulr.values():
-            await entiuser.pop()
+            await entiuser.delete()
 
         path = self.node.full + ('users', user.iden)
         await user.fini()
@@ -952,7 +954,7 @@ class HiveAuth(s_base.Base):
         self.rolesbyname.pop(role.name)
 
         for entirole in role.entirulr.values():
-            await entirole.pop()
+            await entirole.delete()
 
         path = self.node.full + ('roles', role.iden)
 
@@ -987,10 +989,10 @@ class HiveAuthEntity(s_base.Base):
         usersnode = await node.open(('users',))
         self.onfini(usersnode)
 
-        for name, entiusernode, in usersnode:
+        for name, entiusernode in usersnode:
 
             user = self.node.auth.user(name)
-            if user is None:
+            if user is None:  # pragma: no cover
                 logger.warning(f'Hive:  path {name} refers to unknown user')
                 continue
 
@@ -1003,11 +1005,11 @@ class HiveAuthEntity(s_base.Base):
         for name, _ in rolesnode:
 
             role = self.node.auth.role(name)
-            if role is None:
+            if role is None:  # pragma: no cover
                 logger.warning(f'Hive:  path {name} refers to unknown role')
                 continue
 
-            self._addEntityRole(role)
+            await self._addEntityRole(role)
 
         async def fini():
             for entirulr in itertools.chain(self.entiroles.values(), self.entiusers.values()):

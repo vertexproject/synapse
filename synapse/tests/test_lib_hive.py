@@ -335,7 +335,9 @@ class HiveTest(s_test.SynTest):
     async def test_hive_authentity_perms(self):
         async with self.getTestCoreAndProxy() as (core, prox):
             await prox.addAuthUser('fred')
+            await prox.addAuthUser('bobo')
             await prox.setUserPasswd('fred', 'secret')
+            await prox.setUserPasswd('bobo', 'secret')
             view2 = await core.view.fork()
             await alist(core.eval('[test:int=10]'))
             await alist(view2.eval('[test:int=11]'))
@@ -350,6 +352,11 @@ class HiveTest(s_test.SynTest):
 
                 viewtupl = ('View', view2.iden)
                 layrtupl = ('LmdbLayer', view2.layers[0].iden)
+
+                # Add to a non-existent authentity
+                rule = (True, ('read', ))
+                badtupl = ('Newp', 'XXX')
+                await self.asyncraises(s_exc.NoSuchAuthEntity, prox.addAuthRule('fred', rule, entitupl=badtupl))
 
                 # Rando can access forked view with explicit perms
                 rule = (True, ('read', ))
@@ -397,6 +404,13 @@ class HiveTest(s_test.SynTest):
                 view2.worldreadable = True
                 self.eq(3, await fredcore.count('test:int', opts=viewopts))
 
+                # Deleting a user that has a role with an AuthEntity-specific rule
+                await prox.addUserRole('bobo', 'friends')
+                await prox.delAuthUser('bobo')
+
+                # Deleting a role
+                await prox.delAuthRole('friends')
+
                 await view2.fini()
 
                 rule_count = len((await core.auth.getRulerByName('fred', entitupl=viewtupl)).rules)
@@ -414,3 +428,7 @@ class HiveTest(s_test.SynTest):
                 self.false(pathlib.Path(wlyr.dirn).exists())
                 rules = core.auth.getUserByName('fred').rules
                 self.len(0, rules)
+
+    async def test_hive_persistence(self):
+        # FIXME
+        pass

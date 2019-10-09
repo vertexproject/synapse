@@ -85,7 +85,7 @@ async def handleModify(opts):
 
             if opts.deluser:
                 outp.printf(f'deleting user: {opts.name}')
-                user = await cell.delAuthUser(opts.name)
+                await cell.delAuthUser(opts.name)
 
             if opts.addrole:
                 outp.printf(f'adding role: {opts.name}')
@@ -93,7 +93,7 @@ async def handleModify(opts):
 
             if opts.delrole:
                 outp.printf(f'deleting role: {opts.name}')
-                user = await cell.delAuthRole(opts.name)
+                await cell.delAuthRole(opts.name)
 
             if opts.passwd:
                 outp.printf(f'setting passwd for: {opts.name}')
