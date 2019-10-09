@@ -429,6 +429,27 @@ class HiveTest(s_test.SynTest):
                 rules = core.auth.getUserByName('fred').rules
                 self.len(0, rules)
 
-    async def test_hive_persistence(self):
-        # FIXME
-        pass
+    async def test_hive_auth_persistence(self):
+        with self.getTestDir() as fdir:
+            async with self.getTestCoreAndProxy(dirn=fdir) as (core, prox):
+                # Set a bunch of permissions
+                await prox.addAuthUser('fred')
+                await prox.setUserPasswd('fred', 'secret')
+                view2 = await core.view.fork()
+                await alist(core.eval('[test:int=10] [test:int=11]'))
+                viewtupl = ('View', view2.iden)
+                layrtupl = ('LmdbLayer', view2.layers[0].iden)
+                rule = (True, ('read', ))
+                await prox.addAuthRule('fred', rule, entitupl=viewtupl)
+                await prox.addAuthRole('friends')
+                rule = (True, ('prop:set', ))
+                await prox.addAuthRule('friends', rule, entitupl=layrtupl)
+                await prox.addUserRole('fred', 'friends')
+
+            # Restart the core/auth and make sure perms work
+
+            async with self.getTestCoreAndProxy(dirn=fdir) as (core, prox):
+                async with core.getLocalProxy(user='fred') as fredcore:
+                    viewopts = {'view': view2.iden}
+                    self.eq(2, await fredcore.count('test:int', opts=viewopts))
+                    self.eq(1, await fredcore.count('test:int=11 [:loc=ru]', opts=viewopts))

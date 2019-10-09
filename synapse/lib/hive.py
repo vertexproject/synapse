@@ -961,14 +961,14 @@ class HiveAuth(s_base.Base):
         for user in self._getUsersInRole(role):
             await user.revokeRole(role)
 
-        await user.fini()
+        await role.fini()
 
         # directly set the nodes value and let events prop
         await self.node.hive.pop(path)
 
 class HiveAuthEntity(s_base.Base):
     '''
-    The rule engine for an AuthEntity
+    The rules engine (with persistence) for an AuthEntity
     '''
     async def __anit__(self, node, auth):
         await s_base.Base.__anit__(self)
@@ -991,7 +991,7 @@ class HiveAuthEntity(s_base.Base):
 
         for name, entiusernode in usersnode:
 
-            user = self.node.auth.user(name)
+            user = self.auth.user(name)
             if user is None:  # pragma: no cover
                 logger.warning(f'Hive:  path {name} refers to unknown user')
                 continue
@@ -1004,7 +1004,7 @@ class HiveAuthEntity(s_base.Base):
 
         for name, _ in rolesnode:
 
-            role = self.node.auth.role(name)
+            role = self.auth.role(name)
             if role is None:  # pragma: no cover
                 logger.warning(f'Hive:  path {name} refers to unknown role')
                 continue
@@ -1023,7 +1023,6 @@ class HiveAuthEntity(s_base.Base):
         await self.node.hive.set(path, hiverole.name)
         node = await self.node.hive.open(path)
         entirole = await HiveEntityRole.anit(node, self, hiverole)
-        self.entiroles[hiverole.iden] = entirole
 
         await self._fillEmptyUsers(hiverole)
 
@@ -1082,6 +1081,7 @@ class AuthEntity(s_base.Base):
     '''
     async def __anit__(self, auth):  # type: ignore
         await s_base.Base.__anit__(self)
+
         self.hiveenti = await auth.addAuthEntity(self.entitupl())
         self.onfini(self.hiveenti)
 
@@ -1115,7 +1115,6 @@ class AuthEntity(s_base.Base):
         Returns (Optional[bool]):
             True if explicitly granted, False if denied, None if neither
         '''
-
         # FIXME: check global first?
 
         # Check for an AuthEntity-specific rule first
@@ -1225,6 +1224,10 @@ class HiveEntityRole(HiveEntityRuler):
     '''
     A bundle of rules specific to a particular AuthEntity for a role
     '''
+    async def __anit__(self, node, authenti, hiverulr):  # type: ignore
+        authenti.entiroles[hiverulr.iden] = self
+        await HiveEntityRuler.__anit__(self, node, authenti, hiverulr)
+
     async def _onRulesEdit(self, mesg):
         '''
         Update rules, update all users in this authentity that
@@ -1253,10 +1256,6 @@ class HiveEntityUser(HiveEntityRuler):
     A bundle of rules specific to a particular AuthEntity for a particular user
     '''
     async def __anit__(self, node, authenti, hiverulr):  # type: ignore
-        '''
-        If node is Node, this has no backing store; it is strictly to allow rule calculation for users granted a role
-        with an authentity-specific rule, but no user-specific rule.
-        '''
         self.fullrules = []
         self.permcache = s_cache.FixedCache(self._calcPermAllow)
         await HiveEntityRuler.__anit__(self, node, authenti, hiverulr)
