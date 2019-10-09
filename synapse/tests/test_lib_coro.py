@@ -1,12 +1,26 @@
+import sys
 import time
 import asyncio
 import threading
 
+import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.lib.coro as s_coro
 import synapse.tests.utils as s_t_utils
 
 class FakeError(Exception): pass
+
+def forkfunc(x, y=10):
+    return x + y
+
+def forksleep():
+    time.sleep(10)
+
+def forkfakeit():
+    raise FakeError()
+
+def forkexit():
+    sys.exit(0)
 
 class CoroTest(s_t_utils.SynTest):
 
@@ -62,22 +76,17 @@ class CoroTest(s_t_utils.SynTest):
 
     async def test_lib_coro_fork(self):
 
-        def func(x, y=10):
-            return x + y
-
-        def sleep():
-            time.sleep(10)
-
-        def fakeit():
-            raise FakeError()
-
-        todo = (func, (20,), {'y': 30})
+        todo = (forkfunc, (20,), {'y': 30})
         self.eq(50, await s_coro.fork(todo))
 
-        todo = (sleep, (), {})
+        todo = (forksleep, (), {})
         with self.raises(asyncio.TimeoutError):
             await s_coro.fork(todo, timeout=0.1)
 
-        todo = (fakeit, (), {})
+        todo = (forkfakeit, (), {})
         with self.raises(FakeError):
-            await s_coro.fork(todo, timeout=0.1)
+            await s_coro.fork(todo)
+
+        todo = (forkexit, (), {})
+        with self.raises(s_exc.ForkExit):
+            await s_coro.fork(todo)

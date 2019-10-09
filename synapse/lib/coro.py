@@ -1,6 +1,7 @@
 '''
 Async/Coroutine related utilities.
 '''
+import queue
 import asyncio
 import inspect
 import logging
@@ -9,6 +10,7 @@ import multiprocessing
 
 logger = logging.getLogger(__name__)
 
+import synapse.exc as s_exc
 import synapse.glob as s_glob
 
 def iscoro(item):
@@ -134,24 +136,30 @@ def genrhelp(f):
         return GenrHelp(f(*args, **kwargs))
     return func
 
-async def fork(todo, timeout=None):
+def _exectodo(que, todo):
+    func, args, kwargs = todo
+    try:
+        que.put(func(*args, **kwargs))
+    except Exception as e:
+        que.put(e)
+
+async def fork(todo, timeout=None, ctx=None):
     '''
     Run a todo (func, args, kwargs) tuple in a multiprocessing subprocess.
     '''
-    def exectodo():
-        func, args, kwargs = todo
-        try:
-            que.put(func(*args, **kwargs))
-        except Exception as e:
-            que.put(e)
+    if ctx is None:
+        ctx = multiprocessing.get_context('spawn')
+
+    que = ctx.Queue()
+    proc = ctx.Process(target=_exectodo, args=(que, todo))
 
     def execfork():
         proc.start()
         proc.join()
-        return que.get(block=False)
-
-    que = multiprocessing.Queue()
-    proc = multiprocessing.Process(target=exectodo)
+        try:
+            return que.get(block=False)
+        except queue.Empty:
+            raise s_exc.ForkExit(code=proc.exitcode)
 
     try:
 
