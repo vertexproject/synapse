@@ -1,6 +1,7 @@
 import hashlib
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
 
@@ -121,3 +122,93 @@ class CryptoModelTest(s_t_utils.SynTest):
                 self.eq(node.get('priv:exp'), HEXSTR_PRIVATE_EXPONENT)
                 self.eq(node.get('priv:p'), HEXSTR_PRIVATE_PRIME_P)
                 self.eq(node.get('priv:q'), HEXSTR_PRIVATE_PRIME_Q)
+
+    async def test_model_x509(self):
+
+        async with self.getTestCore() as core:
+
+            crl = s_common.guid()
+            cert = s_common.guid()
+            fileguid = 'guid:' + s_common.guid()
+
+            nodes = await core.nodes('''
+                [ crypto:x509:cert=$cert
+
+                    :subject="CN=vertex.link"
+                    :issuer="DN FOO THING"
+
+                    :serial=12345
+                    :version=v3
+
+                    :validity:notafter=2019
+                    :validity:notbefore=2015
+
+                    :md5=$md5
+                    :sha1=$sha1
+                    :sha256=$sha256
+
+                    :algo=1.2.840.113549.1.1.11
+                    :rsa:key=(ff00ff00, 100)
+                    :signature=ff00ff00
+
+                    :ext:sans=((dns, vertex.link), (dns, "*.vertex.link"))
+                    :ext:crls = ((dns, http://vertex.link/crls))
+                    :crl:urls = ("http://vertex.link/crls")
+
+                    :identities:urls=(http://woot.com/1, http://woot.com/2)
+                    :identities:fqdns=(vertex.link, woot.com)
+                    :identities:ipv4s=(1.2.3.4, 5.5.5.5)
+                    :identities:ipv6s=(ff::11, ff::aa)
+                    :identities:emails=(visi@vertex.link, v@vtx.lk)
+                ]
+            ''', opts={'vars': {'cert': cert, 'md5': TEST_MD5, 'sha1': TEST_SHA1, 'sha256': TEST_SHA256}})
+
+            self.eq(nodes[0].ndef, ('crypto:x509:cert', cert))
+            self.eq(nodes[0].get('subject'), "CN=vertex.link")
+            self.eq(nodes[0].get('issuer'), "DN FOO THING")
+            self.eq(nodes[0].get('serial'), "12345")
+            self.eq(nodes[0].get('version'), 2)
+
+            self.eq(nodes[0].get('validity:notafter'), 1546300800000)
+            self.eq(nodes[0].get('validity:notbefore'), 1420070400000)
+
+            self.eq(nodes[0].get('md5'), TEST_MD5)
+            self.eq(nodes[0].get('sha1'), TEST_SHA1)
+            self.eq(nodes[0].get('sha256'), TEST_SHA256)
+
+            self.eq(nodes[0].get('algo'), '1.2.840.113549.1.1.11')
+            self.eq(nodes[0].get('rsa:key'), ('ff00ff00', 100))
+            self.eq(nodes[0].get('signature'), 'ff00ff00')
+            self.eq(nodes[0].get('ext:crls'), (('dns', 'http://vertex.link/crls'),))
+            self.eq(nodes[0].get('crl:urls'), ('http://vertex.link/crls',))
+            self.eq(nodes[0].get('ext:sans'), (('dns', 'vertex.link'), ('dns', '*.vertex.link')))
+            self.eq(nodes[0].get('identities:urls'), ('http://woot.com/1', 'http://woot.com/2'))
+            self.eq(nodes[0].get('identities:fqdns'), ('vertex.link', 'woot.com'))
+            self.eq(nodes[0].get('identities:ipv4s'), (0x01020304, 0x05050505))
+            self.eq(nodes[0].get('identities:ipv6s'), ('ff::11', 'ff::aa'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:x509:crl=$crl
+                        :url=http://vertex.link/crls
+                        :file="*"
+                ]
+            ''', opts={'vars': {'crl': crl}})
+
+            self.eq(nodes[0].ndef, ('crypto:x509:crl', crl))
+            self.nn(nodes[0].get('file'))
+            self.eq(nodes[0].get('url'), 'http://vertex.link/crls')
+
+            opts = {'vars': {'cert': cert, 'file': fileguid}}
+            nodes = await core.nodes('[ crypto:x509:signedfile = ($cert, $file) ]', opts=opts)
+
+            self.eq(nodes[0].ndef, ('crypto:x509:signedfile', (cert, fileguid)))
+            self.eq(nodes[0].get('cert'), cert)
+            self.nn(nodes[0].get('file'), fileguid)
+
+            opts = {'vars': {'cert': cert, 'crl': crl}}
+            nodes = await core.nodes('[ crypto:x509:revoked = ($crl, $cert) ]', opts=opts)
+
+            self.eq(nodes[0].ndef, ('crypto:x509:revoked', (crl, cert)))
+            self.eq(nodes[0].get('crl'), crl)
+            self.nn(nodes[0].get('cert'), cert)
