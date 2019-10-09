@@ -221,5 +221,8 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect(f'adding rule to {name}: (False, [{rule!r}])')
             outp.expect(f'deny: node:add on {authenti}')
 
+            outp.clear()
             authenti = 'Not:a:authentity'
             argv = [coreurl, 'modify', '--addrule', nrule, name, '--authentity', authenti]
+            await s_cellauth.main(argv, outp)
+            outp.expect('Invalid AuthEntity format')

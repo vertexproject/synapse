@@ -1408,7 +1408,7 @@ class HiveUser(HiveRuler):
 
     async def _updateEntityRulers(self):
         '''
-        Make entityuser placeholders for all authentities that use roles I'm a member of
+        Make entityuser placeholders for all authentities that use roles of which I'm a member.
         '''
         for iden in self.roles:
             role = self.auth.role(iden)
@@ -1420,17 +1420,8 @@ class HiveUser(HiveRuler):
 
     async def _onRolesEdit(self, mesg):
         '''
-        For the previous value of roles, for all of my HiveEntityUsers, if their HiveEntity has any of my roles,
-        clear the calculated rules.  This is so revoking a user from a role will clear out the rules from
-        hiveauthusers that have rules from the removed role.
+        Update my rules and all my authEntityRulers'.
         '''
-        roles = set(self.roles)  # The previous value
-
-        for entirulr in self.entirulr.values():
-            entiroles = set(entirulr.enti.entiroles.keys())
-            if not roles.isdisjoint(entiroles):
-                entirulr._clearFullRules()
-
         self.roles = self.info.get('roles')
 
         self._initFullRules()

@@ -379,7 +379,7 @@ class HiveTest(s_test.SynTest):
 
                 # After granting, succeeds
                 await prox.addUserRole('fred', 'friends')
-                self.eq(1, await fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
+                self.eq(1, await fredcore.count('test:int=11 [:loc=ru]', opts=viewopts))
 
                 # But adding a node still fails
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=12]', opts=viewopts))
