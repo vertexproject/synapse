@@ -356,16 +356,30 @@ class HiveTest(s_test.SynTest):
                 await prox.addAuthRule('fred', rule, entitupl=viewtupl)
                 self.eq(2, await fredcore.count('test:int', opts=viewopts))
 
+                await prox.addAuthRole('friends')
+
                 # But still can't write to layer
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=12]', opts=viewopts))
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
 
-                # Rando can write to forked view's write layer with explicit perm
-                rule = (True, ('prop:set', ))
-                await prox.addAuthRule('fred', rule, entitupl=layrtupl)
+                # fred can write to forked view's write layer with explicit perm through role
 
-                self.eq(1, await fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
+                rule = (True, ('prop:set', ))
+                await prox.addAuthRule('friends', rule, entitupl=layrtupl)
+
+                # Before granting, still fails
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=12]', opts=viewopts))
+
+                # After granting, succeeds
+                await prox.addUserRole('fred', 'friends')
+                self.eq(1, await fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
+
+                # But adding a node still fails
+                await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=12]', opts=viewopts))
+
+                # After revoking role from fred, fails again
+                await prox.delAuthRule('friends', rule, entitupl=layrtupl)
+                await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
 
                 rule = (True, ('node:add', ))
                 await prox.addAuthRule('fred', rule, entitupl=layrtupl)
@@ -400,7 +414,3 @@ class HiveTest(s_test.SynTest):
                 self.false(pathlib.Path(wlyr.dirn).exists())
                 rules = core.auth.getUserByName('fred').rules
                 self.len(0, rules)
-
-                # FIXME:  add test where add rule for role but no specific user role
-
-                # add test for rule and user rule
