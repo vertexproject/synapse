@@ -230,6 +230,9 @@ class GeoModule(s_module.CoreModule):
                         ('name', ('str', {'lower': 1, 'onespace': 1}), {
                             'doc': 'The name of the place.'}),
 
+                        ('parent', ('geo:place', {}), {
+                            'doc': 'A parent place, possibly from reverse geocoding.'}),
+
                         ('desc', ('str', {}), {
                             'doc': 'A long form description of the place.'}),
 
