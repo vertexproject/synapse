@@ -984,3 +984,10 @@ class StormTypesTest(s_test.SynTest):
             err = errs[0]
             self.eq(err[0], 'StormRuntimeError')
             self.isin('No var with name: testvar', err[1].get('mesg'))
+
+            opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
+            text = '$lib.print($lib.vars.list())'
+            mesgs = await alist(core.streamstorm(text, opts=opts))
+            mesgs = [m for m in mesgs if m[0] == 'print']
+            self.len(1, mesgs)
+            self.stormIsInPrint("('testvar', 'test'), ('testkey', 'testvar')", mesgs)
