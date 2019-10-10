@@ -1340,6 +1340,7 @@ class Cortex(s_cell.Cell):
         self.addStormLib(('dmon',), s_stormtypes.LibDmon)
         self.addStormLib(('time',), s_stormtypes.LibTime)
         self.addStormLib(('user',), s_stormtypes.LibUser)
+        self.addStormLib(('vars',), s_stormtypes.LibVars)
         self.addStormLib(('queue',), s_stormtypes.LibQueue)
         self.addStormLib(('service',), s_stormtypes.LibService)
         self.addStormLib(('bytes',), s_stormtypes.LibBytes)
