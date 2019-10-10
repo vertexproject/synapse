@@ -452,6 +452,18 @@ class StormTypesTest(s_test.SynTest):
             self.eq(err[0], 'StormRuntimeError')
             self.isin('No var with name: testkey', err[1].get('mesg'))
 
+            opts = {'vars': {'testkey': 'testvar'}}
+            text = "[ test:str='123' ] $path.setvar($testkey, test) [ test:str=$testvar ]"
+            nodes = await core.nodes(text, opts=opts)
+            self.len(2, nodes)
+            self.eq(nodes[1].ndef, ('test:str', 'test'))
+
+            opts = {'vars': {'testkey': '$testvar'}}
+            text = "[ test:str='123' ] $path.setvar($testkey, test, strip=True) [ test:str=$testvar ]"
+            nodes = await core.nodes(text, opts=opts)
+            self.len(2, nodes)
+            self.eq(nodes[1].ndef, ('test:str', 'test'))
+
             opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
             text = '''
                 [ test:str='123' ]
@@ -1038,6 +1050,18 @@ class StormTypesTest(s_test.SynTest):
             err = errs[0]
             self.eq(err[0], 'StormRuntimeError')
             self.isin('No var with name: testvar', err[1].get('mesg'))
+
+            opts = {'vars': {'testkey': 'testvar'}}
+            text = '$lib.vars.set($testkey, test) [ test:str=$lib.vars.get(testvar) ]'
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'test'))
+
+            opts = {'vars': {'testkey': '$testvar'}}
+            text = '$lib.vars.set($testkey, test, strip=True) [ test:str=$lib.vars.get(testvar) ]'
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'test'))
 
             opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
             text = '$lib.vars.del(testvar) [ test:str=$lib.vars.get($testkey) ]'
