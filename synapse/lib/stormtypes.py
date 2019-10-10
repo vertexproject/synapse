@@ -1027,6 +1027,9 @@ class Path(Prim):
         self.locls.update({
             'idens': self._methPathIdens,
             'trace': self._methPathTrace,
+            'getvar': self._methPathGetVar,
+            'delvar': self._methPathDelVar,
+            'listvars': self._methPathListVars,
         })
 
     async def _methPathIdens(self):
@@ -1035,6 +1038,35 @@ class Path(Prim):
     async def _methPathTrace(self):
         trace = self.valu.trace()
         return Trace(trace)
+
+    async def _methPathGetVar(self, valu, strip=False):
+        '''
+        Resolve a variable in the path of a storm query
+        '''
+        if strip:
+            valu = valu.lstrip('$')
+
+        ret = self.path.getVar(valu)
+        if ret is s_common.novalu:
+            mesg = f'No var with name: {valu}'
+            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, strip=strip)
+
+        return ret
+
+    async def _methPathDelVar(self, valu, strip=False):
+        '''
+        Unset a variable in the path of a storm query.
+        '''
+        if strip:
+            valu = valu.lstrip('$')
+
+        self.path.vars.pop(valu, None)
+
+    async def _methPathListVars(self):
+        '''
+        List variables available in the path of a storm query.
+        '''
+        return list(self.path.vars.items())
 
 class Trace(Prim):
     '''
