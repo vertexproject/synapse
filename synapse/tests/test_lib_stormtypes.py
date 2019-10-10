@@ -433,13 +433,14 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(tuple(sorted(nodes[0].get('data'))), idens)
 
-            text = "[ test:str='123' ] $testkey=testvar [ test:str=$path.getvar(testkey) ]"
-            nodes = await core.nodes(text)
+            opts = {'vars': {'testvar': 'test'}}
+            text = "[ test:str='123' ] $testkey=testvar [ test:str=$path.getvar($testkey) ]"
+            nodes = await core.nodes(text, opts=opts)
             self.len(2, nodes)
-            self.eq(nodes[1].ndef, ('test:str', 'testvar'))
+            self.eq(nodes[1].ndef, ('test:str', 'test'))
 
-            opts = {'vars': {'testvar': 'testkey'}}
-            text = "[ test:str='123' ] $testkey=test [ test:str=$path.getvar(testkey) ]"
+            opts = {'vars': {'testvar': 'test'}}
+            text = "[ test:str='123' ] $testkey='$testvar' [ test:str=$path.getvar($testkey, strip=True) ]"
             nodes = await core.nodes(text, opts=opts)
             self.len(2, nodes)
             self.eq(nodes[1].ndef, ('test:str', 'test'))
