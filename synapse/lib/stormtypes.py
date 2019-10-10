@@ -867,7 +867,7 @@ class LibVars(Lib):
 
     async def _libVarsSet(self, name, valu, strip=False):
         '''
-        Resolve a variable in a storm query
+        Set a variable in a storm query
         '''
         if strip:
             name = name.lstrip('$')
@@ -1066,7 +1066,7 @@ class Path(Prim):
 
     async def _methPathSetVar(self, name, valu, strip=False):
         '''
-        Resolve a variable in the path of a storm query
+        Set a variable in the path of a storm query
         '''
         if strip:
             name = name.lstrip('$')
