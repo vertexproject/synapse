@@ -433,6 +433,73 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(tuple(sorted(nodes[0].get('data'))), idens)
 
+            opts = {'vars': {'testvar': 'test'}}
+            text = "[ test:str='123' ] $testkey=testvar [ test:str=$path.getvar($testkey) ]"
+            nodes = await core.nodes(text, opts=opts)
+            self.len(2, nodes)
+            self.eq(nodes[1].ndef, ('test:str', 'test'))
+
+            opts = {'vars': {'testvar': 'test'}}
+            text = "[ test:str='123' ] $testkey='$testvar' [ test:str=$path.getvar($testkey, strip=True) ]"
+            nodes = await core.nodes(text, opts=opts)
+            self.len(2, nodes)
+            self.eq(nodes[1].ndef, ('test:str', 'test'))
+
+            text = "[ test:str='123' ] [ test:str=$path.getvar(testkey) ]"
+            mesgs = await alist(core.streamstorm(text))
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('No var with name: testkey', err[1].get('mesg'))
+
+            opts = {'vars': {'testkey': 'testvar'}}
+            text = "[ test:str='123' ] $path.setvar($testkey, test) [ test:str=$testvar ]"
+            nodes = await core.nodes(text, opts=opts)
+            self.len(2, nodes)
+            self.eq(nodes[1].ndef, ('test:str', 'test'))
+
+            opts = {'vars': {'testkey': '$testvar'}}
+            text = "[ test:str='123' ] $path.setvar($testkey, test, strip=True) [ test:str=$testvar ]"
+            nodes = await core.nodes(text, opts=opts)
+            self.len(2, nodes)
+            self.eq(nodes[1].ndef, ('test:str', 'test'))
+
+            opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
+            text = '''
+                [ test:str='123' ]
+                $lib.vars.del(testvar)
+                $path.delvar(testvar)
+                [ test:str=$path.getvar($testkey) ]'''
+
+            mesgs = await alist(core.streamstorm(text, opts=opts))
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('No var with name: testvar', err[1].get('mesg'))
+
+            opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
+            text = '''
+                [ test:str='123' ]
+                $lib.vars.del(testvar)
+                $path.delvar(\'$testvar\', strip=True)
+                [ test:str=$path.getvar($testkey) ]'''
+
+            mesgs = await alist(core.streamstorm(text, opts=opts))
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('No var with name: testvar', err[1].get('mesg'))
+
+            opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
+            text = "[ test:str='123' ] $lib.print($path.listvars())"
+            mesgs = await alist(core.streamstorm(text, opts=opts))
+            mesgs = [m for m in mesgs if m[0] == 'print']
+            self.len(1, mesgs)
+            self.stormIsInPrint("('testvar', 'test'), ('testkey', 'testvar')", mesgs)
+
     async def test_storm_trace(self):
         async with self.getTestCore() as core:
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
@@ -960,3 +1027,64 @@ class StormTypesTest(s_test.SynTest):
             err = errs[0]
             self.eq(err[0], 'StormRuntimeError')
             self.isin('Error during base64 decoding - Incorrect padding', err[1].get('mesg'))
+
+    async def test_storm_lib_vars(self):
+
+        async with self.getTestCore() as core:
+
+            opts = {'vars': {'testvar': 'test'}}
+            text = '$testkey=testvar [ test:str=$lib.vars.get($testkey) ]'
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'test'))
+
+            opts = {'vars': {'testvar': 'test'}}
+            text = '$testkey=\'$testvar\' [ test:str=$lib.vars.get($testkey, strip=True) ]'
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'test'))
+
+            text = '$testkey=testvar [ test:str=$lib.vars.get($testkey) ]'
+            mesgs = await alist(core.streamstorm(text))
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('No var with name: testvar', err[1].get('mesg'))
+
+            opts = {'vars': {'testkey': 'testvar'}}
+            text = '$lib.vars.set($testkey, test) [ test:str=$lib.vars.get(testvar) ]'
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'test'))
+
+            opts = {'vars': {'testkey': '$testvar'}}
+            text = '$lib.vars.set($testkey, test, strip=True) [ test:str=$lib.vars.get(testvar) ]'
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'test'))
+
+            opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
+            text = '$lib.vars.del(testvar) [ test:str=$lib.vars.get($testkey) ]'
+            mesgs = await alist(core.streamstorm(text, opts=opts))
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('No var with name: testvar', err[1].get('mesg'))
+
+            opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
+            text = '$lib.vars.del(\'$testvar\', strip=True) [ test:str=$lib.vars.get($testkey) ]'
+            mesgs = await alist(core.streamstorm(text, opts=opts))
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('No var with name: testvar', err[1].get('mesg'))
+
+            opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
+            text = '$lib.print($lib.vars.list())'
+            mesgs = await alist(core.streamstorm(text, opts=opts))
+            mesgs = [m for m in mesgs if m[0] == 'print']
+            self.len(1, mesgs)
+            self.stormIsInPrint("('testvar', 'test'), ('testkey', 'testvar')", mesgs)
