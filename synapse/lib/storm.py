@@ -141,6 +141,11 @@ class StormDmon(s_base.Base):
 class Runtime:
     '''
     A Runtime represents the instance of a running query.
+
+    The runtime should maintain a firm API boundary using the snap.
+    Parallel query execution requires that the snap be treated as an
+    opaque object which is called through, but not dereferenced.
+
     '''
     def __init__(self, snap, opts=None, user=None):
 

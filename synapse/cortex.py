@@ -93,6 +93,12 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getModelDict()
 
+    async def getModelDef(self):
+        return await self.cell.getModelDef()
+
+    async def getModelDefs(self):
+        return await self.cell.getModelDefs()
+
     def getCoreInfo(self):
         '''
         Return static generic information about the cortex including model definition
@@ -1424,6 +1430,11 @@ class Cortex(s_cell.Cell):
 
     async def getModelDict(self):
         return self.model.getModelDict()
+
+    async def getModelDefs(self):
+        defs = self.model.getModelDefs()
+        # TODO add an extended model def
+        return defs
 
     def _initFormCounts(self):
 

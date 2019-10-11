@@ -89,9 +89,10 @@ class Layer(s_base.Base):
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, core, node):
+    async def __anit__(self, core, node, readonly=False):
 
         await s_base.Base.__anit__(self)
+        self.readonly = readonly
 
         self.core = core
         self.node = node

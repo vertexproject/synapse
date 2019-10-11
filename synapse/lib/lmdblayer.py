@@ -42,9 +42,11 @@ class LmdbLayer(s_layer.Layer):
                             'doc': 'Enables map_async option in LMDB to avoid blocking on mmap syncs.'}),
     )
 
-    async def __anit__(self, core, node):
+    async def __anit__(self, core, node, readonly=False):
 
         await s_layer.Layer.__anit__(self, core, node)
+
+        self.readonly = readonly
 
         path = os.path.join(self.dirn, 'layer.lmdb')
         datapath = os.path.join(self.dirn, 'nodedata.lmdb')
@@ -69,14 +71,15 @@ class LmdbLayer(s_layer.Layer):
 
         self.layrslab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, maxsize=maxsize,
                                                    growsize=growsize, writemap=True, readahead=readahead,
-                                                   lockmemory=self.lockmemory, map_async=map_async)
+                                                   lockmemory=self.lockmemory, map_async=map_async, readonly=self.readonly)
         self.onfini(self.layrslab.fini)
 
         self.spliceslab = await s_lmdbslab.Slab.anit(splicepath, max_dbs=128, map_size=mapsize, maxsize=maxsize,
-                                                     growsize=growsize, writemap=True, readahead=readahead, map_async=map_async)
+                                                     growsize=growsize, writemap=True, readahead=readahead,
+                                                     map_async=map_async, readonly=self.readonly)
         self.onfini(self.spliceslab.fini)
 
-        self.dataslab = await s_lmdbslab.Slab.anit(datapath, map_async=True)
+        self.dataslab = await s_lmdbslab.Slab.anit(datapath, map_async=True, readonly=self.readonly)
         self.databyname = self.dataslab.initdb('byname')
         self.databybuid = self.dataslab.initdb('bybuid')
         self.onfini(self.dataslab.fini)

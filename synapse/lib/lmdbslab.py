@@ -441,7 +441,6 @@ class Slab(s_base.Base):
         opts = kwargs
 
         self.path = pathlib.Path(path)
-
         self.optspath = self.path.with_suffix('.opts.yaml')
 
         if self.optspath.exists():
@@ -508,6 +507,9 @@ class Slab(s_base.Base):
 
         self.onfini(self._onCoFini)
         self.schedCoro(self._runSyncLoop())
+
+    def __repr__(self):
+        return 'Slab: %r' % (self.path,)
 
     def getNameAbrv(self, name):
         return SlabAbrv(self, name)
@@ -1023,6 +1025,7 @@ class Scan:
     '''
     def __init__(self, slab, db):
         self.slab = slab
+        print('SCAN ON %r FOR %r' % (slab, db,))
         self.db, self.dupsort = slab.dbnames.get(db, (None, False))
 
         self.atitem = None
@@ -1031,6 +1034,9 @@ class Scan:
 
     def __enter__(self):
         self.slab._acqXactForReading()
+        print('READONLY %r' % (self.slab.readonly,))
+        print(self.slab.xact.stat())
+        print('ENTER DB %r %r' % (self.slab.xact, self.db,))
         self.curs = self.slab.xact.cursor(db=self.db)
         self.slab.scans.add(self)
         return self

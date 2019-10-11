@@ -82,7 +82,7 @@ class Snap(s_base.Base):
             user = self.user
 
         runt = s_storm.Runtime(self, opts=opts, user=user)
-        self.core.stormrunts[runt.iden] = runt
+        #self.core.stormrunts[runt.iden] = runt
         yield runt
         self.core.stormrunts.pop(runt.iden, None)
 
