@@ -332,7 +332,7 @@ class HiveTest(s_test.SynTest):
 
             self.eq(99, tree['kids']['hehe']['kids']['haha']['value'])
 
-    async def test_hive_authentity_perms(self):
+    async def test_hive_authgate_perms(self):
         async with self.getTestCoreAndProxy() as (core, prox):
             await prox.addAuthUser('fred')
             await prox.addAuthUser('bobo')
@@ -350,17 +350,17 @@ class HiveTest(s_test.SynTest):
 
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int', opts=viewopts))
 
-                viewtupl = ('View', view2.iden)
-                layrtupl = ('LmdbLayer', view2.layers[0].iden)
+                viewiden = view2.iden
+                layriden = view2.layers[0].iden
+                breakpoint()
 
-                # Add to a non-existent authentity
-                rule = (True, ('read', ))
-                badtupl = ('Newp', 'XXX')
-                await self.asyncraises(s_exc.NoSuchAuthEntity, prox.addAuthRule('fred', rule, entitupl=badtupl))
+                # Add to a non-existent authgate
+                rule = (True, ('view', 'read', ))
+                badiden = 'XXX'
+                await self.asyncraises(s_exc.NoSuchAuthGate, prox.addAuthRule('fred', rule, iden=badiden))
 
                 # Rando can access forked view with explicit perms
-                rule = (True, ('read', ))
-                await prox.addAuthRule('fred', rule, entitupl=viewtupl)
+                await prox.addAuthRule('fred', rule, iden=viewiden)
                 self.eq(2, await fredcore.count('test:int', opts=viewopts))
 
                 await prox.addAuthRole('friends')
@@ -372,7 +372,7 @@ class HiveTest(s_test.SynTest):
                 # fred can write to forked view's write layer with explicit perm through role
 
                 rule = (True, ('prop:set', ))
-                await prox.addAuthRule('friends', rule, entitupl=layrtupl)
+                await prox.addAuthRule('friends', rule, iden=layriden)
 
                 # Before granting, still fails
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=12]', opts=viewopts))
@@ -384,17 +384,17 @@ class HiveTest(s_test.SynTest):
                 # But adding a node still fails
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=12]', opts=viewopts))
 
-                # After revoking role from fred, fails again
-                await prox.delAuthRule('friends', rule, entitupl=layrtupl)
+                # After removing rule from friends, fails again
+                await prox.delAuthRule('friends', rule, iden=layriden)
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
 
                 rule = (True, ('node:add', ))
-                await prox.addAuthRule('fred', rule, entitupl=layrtupl)
+                await prox.addAuthRule('fred', rule, iden=layriden)
                 self.eq(1, await fredcore.count('[test:int=12]', opts=viewopts))
 
                 # Add an explicit DENY for adding test:int nodes
                 rule = (False, ('node:add', 'test:int'))
-                await prox.addAuthRule('fred', rule, indx=0, entitupl=layrtupl)
+                await prox.addAuthRule('fred', rule, indx=0, iden=layriden)
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=13]', opts=viewopts))
 
                 # Adding test:str is allowed though
@@ -404,22 +404,23 @@ class HiveTest(s_test.SynTest):
                 view2.worldreadable = True
                 self.eq(3, await fredcore.count('test:int', opts=viewopts))
 
-                # Deleting a user that has a role with an AuthEntity-specific rule
+                # Deleting a user that has a role with an Authgate-specific rule
+                rule = (True, ('prop:set', ))
+                await prox.addAuthRule('friends', rule, iden=layriden)
+                self.eq(1, await fredcore.count('test:int=11 [:loc=sp]', opts=viewopts))
                 await prox.addUserRole('bobo', 'friends')
                 await prox.delAuthUser('bobo')
+                self.eq(1, await fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
 
-                # Deleting a role
+                # Deleting a role removes all the authgate-specific role rules
                 await prox.delAuthRole('friends')
+                await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int=11 [:loc=ru]', opts=viewopts))
 
                 await view2.fini()
-
-                rule_count = len((await core.auth.getRulerByName('fred', entitupl=viewtupl)).rules)
-
                 await view2.trash()
 
-                # Verify that trashing the view deletes the 1 rule on the view
-                rules = core.auth.getUserByName('fred').rules
-                self.len(rule_count - 1, rules)
+                # Verify that trashing the view deletes the authgate from the hive
+                self.none(core.auth.getAuthgate(viewiden))
 
                 # Verify that trashing the write layer deletes the remaining rules and backing store
                 wlyr = view2.layers[0]
@@ -437,13 +438,13 @@ class HiveTest(s_test.SynTest):
                 await prox.setUserPasswd('fred', 'secret')
                 view2 = await core.view.fork()
                 await alist(core.eval('[test:int=10] [test:int=11]'))
-                viewtupl = ('View', view2.iden)
-                layrtupl = ('LmdbLayer', view2.layers[0].iden)
-                rule = (True, ('read', ))
-                await prox.addAuthRule('fred', rule, entitupl=viewtupl)
+                viewiden = view2.iden
+                layriden = view2.layers[0].iden
+                rule = (True, ('view', 'read', ))
+                await prox.addAuthRule('fred', rule, iden=viewiden)
                 await prox.addAuthRole('friends')
                 rule = (True, ('prop:set', ))
-                await prox.addAuthRule('friends', rule, entitupl=layrtupl)
+                await prox.addAuthRule('friends', rule, iden=layriden)
                 await prox.addUserRole('fred', 'friends')
 
             # Restart the core/auth and make sure perms work

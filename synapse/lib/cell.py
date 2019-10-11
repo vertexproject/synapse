@@ -68,7 +68,6 @@ class CellApi(s_base.Base):
         Args:
             perm: permission path components to check
             default: Value returned if no value stored
-            entitupl (tuple[str]): entitupl of rules to consult, None for global rules
 
         Examples:
 
@@ -249,18 +248,18 @@ class CellApi(s_base.Base):
         return [r.name for r in self.cell.auth.roles()]
 
     @adminapi
-    async def addAuthRule(self, name, rule, indx=None, entitupl=None):
-        item = await self.cell.auth.getRulerByName(name, entitupl=entitupl)
+    async def addAuthRule(self, name, rule, indx=None, iden=None):
+        item = await self.cell.auth.getRulerByName(name, iden=iden)
         return await item.addRule(rule, indx=indx)
 
     @adminapi
-    async def delAuthRule(self, name, rule, entitupl=None):
-        item = await self.cell.auth.getRulerByName(name, entitupl=entitupl)
+    async def delAuthRule(self, name, rule, iden=None):
+        item = await self.cell.auth.getRulerByName(name, iden=iden)
         return await item.delRule(rule)
 
     @adminapi
-    async def delAuthRuleIndx(self, name, indx, entitupl=None):
-        item = await self.cell.auth.getRulerByName(name, entitupl=entitupl)
+    async def delAuthRuleIndx(self, name, indx, iden=None):
+        item = await self.cell.auth.getRulerByName(name, iden=iden)
         return await item.delRuleIndx(indx)
 
     @adminapi

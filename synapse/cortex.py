@@ -134,7 +134,7 @@ class CoreApi(s_cell.CellApi):
         if view is None:
             raise s_exc.NoSuchView(iden=iden)
 
-        await view._reqUserAllowed(self.user, ('read', ))
+        await view._reqUserAllowed(self.user, ('view', 'read'))
 
         return view
 
@@ -299,8 +299,6 @@ class CoreApi(s_cell.CellApi):
     async def listCronJobs(self):
         '''
         Get information about all the cron jobs accessible to the current user
-
-        FIXME: discuss making individual cron/triggers authentities
         '''
         crons = []
         isallowed = await self.allowed(('cron', 'get'))
@@ -535,7 +533,7 @@ class CoreApi(s_cell.CellApi):
         # TODO: permissions checks are currently about the view/layer.  We may need additional
         # checks when the wdef expands to include other cortex events.
 
-        # FIXME: does this perm go on the view?
+        # TODO: consider perm going on the view
         iden = wdef.get('view', self.cell.view.iden)
         await self._reqUserAllowed(('watch', 'view', iden))
 
@@ -550,7 +548,7 @@ class CoreApi(s_cell.CellApi):
         The generator will only terminate on network disconnect or if the
         consumer falls behind the max window size of 10,000 splice messages.
         '''
-        # FIXME: does this perm go on the layer now
+        # TODO : consider perm to go on the layer now (flag day)
         await self._reqUserAllowed(('layer:sync', iden))
         async for item in self.cell.syncLayerSplices(iden, offs):
             yield item

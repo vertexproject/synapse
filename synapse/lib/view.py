@@ -13,13 +13,15 @@ import synapse.lib.trigger as s_trigger
 
 logger = logging.getLogger(__name__)
 
-class View(s_hive.AuthEntity):
+class View(s_hive.AuthGater):
     '''
     A view represents a cortex as seen from a specific set of layers.
 
     The view class is used to implement Copy-On-Write layers as well as
     interact with a subset of the layers configured in a Cortex.
     '''
+
+    authgatetype = 'view'
 
     async def __anit__(self, core, node):
         '''
@@ -31,7 +33,7 @@ class View(s_hive.AuthEntity):
         '''
         self.node = node
         self.iden = node.name()
-        await s_hive.AuthEntity.__anit__(self, core.auth)
+        await s_hive.AuthGater.__anit__(self, core.auth)
 
         self.core = core
 
@@ -63,12 +65,10 @@ class View(s_hive.AuthEntity):
             self.layers.append(layr)
 
     def allowed(self, hiveuser, perm, elev=True, default=None):
-        if self.worldreadable:
-            return True
+        if self.worldreadable and perm == ('view', 'read'):
+            default = True
 
-        # FIXME: map perm 'read' in view to perm 'view:read' in global scope?
-
-        return s_hive.AuthEntity.allowed(self, hiveuser, perm, elev=elev, default=default)
+        return s_hive.AuthGater.allowed(self, hiveuser, perm, elev=elev, default=default)
 
     async def eval(self, text, opts=None, user=None):
         '''

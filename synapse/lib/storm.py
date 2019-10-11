@@ -264,32 +264,39 @@ class Runtime:
             if node is not None:
                 yield node, self.initPath(node)
 
-    # FIXME: that this raises is inconsistent with other methods called "allowed".  Suggest renaming to reqAllowed
+    def reqLayerAllowed(self, perms):
+        if self._allowed(perms, ask_layer=True):
+            return
 
-    @s_cache.memoize(size=100)
-    def allowed(self, perms, ask_layer=False):
+        perm = '.'.join(perms)
+        mesg = f'User must have permission {perm} on write layer'
+        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
+
+    def reqAllowed(self, perms):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
 
-        Note:
-            Caching results is acceptable because the cache lifetime is that of a single query
         '''
-
-        if self.user is None or self.user.admin or self.elevated:
+        if self._allowed(perms):
             return
 
-        if ask_layer:
-            allowed = self.snap.wlyr.allowed(self.user, perms)
-        else:
-            allowed = self.user.allowed(perms)
-
-        if allowed:
-            return
-
-        # fails will not be cached...
         perm = '.'.join(perms)
         mesg = f'User must have permission {perm}'
         raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
+
+    @s_cache.memoize(size=100)
+    def _allowed(self, perms, ask_layer=False):
+        '''
+        Note:
+            Caching results is acceptable because the cache lifetime is that of a single query
+        '''
+        if self.user is None or self.user.admin or self.elevated:
+            return True
+
+        if ask_layer:
+            return self.snap.wlyr.allowed(self.user, perms)
+        else:
+            return self.user.allowed(perms)
 
     def loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
@@ -682,9 +689,9 @@ class DelNodeCmd(Cmd):
 
             # make sure we can delete the tags...
             for tag in node.tags.keys():
-                runt.allowed(('tag:del', *tag.split('.')), ask_layer=True)
+                runt.reqLayerAllowed(('tag:del', *tag.split('.')))
 
-            runt.allowed(('node:del', node.form.name), ask_layer=True)
+            runt.reqLayerAllowed(('node:del', node.form.name))
 
             await node.delete(force=self.opts.force)
 
@@ -708,7 +715,7 @@ class SudoCmd(Cmd):
     name = 'sudo'
 
     async def execStormCmd(self, runt, genr):
-        runt.allowed(('storm', 'cmd', 'sudo'))
+        runt.reqAllowed(('storm', 'cmd', 'sudo'))
         runt.elevate()
         async for item in genr:
             yield item

@@ -81,12 +81,14 @@ class LayerApi(s_cell.CellApi):
     async def hasTagProp(self, name):
         return await self.layr.hasTagProp(name)
 
-class Layer(s_hive.AuthEntity):
+class Layer(s_hive.AuthGater):
     '''
     The base class for a cortex layer.
     '''
     confdefs = ()
     readonly = False
+
+    authgatetype = 'layr'
 
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
@@ -96,7 +98,7 @@ class Layer(s_hive.AuthEntity):
         self.core = core
         self.node = node
         self.iden = node.name()
-        await s_hive.AuthEntity.__anit__(self, core.auth)
+        await s_hive.AuthGater.__anit__(self, core.auth)
         self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
         # splice windows...
