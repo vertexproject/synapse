@@ -567,7 +567,7 @@ class Agenda(s_base.Base):
             return appt
 
         mesg = f'No cron job with id: {iden}'
-        raise s_exc.NoSuchIden(iden=iden)
+        raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
     async def enable(self, iden):
         appt = self.appts.get(iden)
