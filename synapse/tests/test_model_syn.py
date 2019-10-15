@@ -294,7 +294,7 @@ class SynModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('syn:trigger')
             self.len(3, nodes)
             nodes = await core.nodes('syn:trigger:doc')
-            self.len(1, nodes)
+            self.len(3, nodes)
             nodes = await core.nodes('syn:trigger:vers')
             self.len(3, nodes)
             nodes = await core.nodes('syn:trigger:cond')

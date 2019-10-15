@@ -392,6 +392,7 @@ class AgendaTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('syn:cron', cron0))
                 self.eq(nodes[0].get('doc'), '')
+                self.eq(nodes[0].get('storm'), 'inet:ipv4')
 
                 nodes = await core.nodes(f'syn:cron={cron0} [ :doc=hehe ]')
                 self.len(1, nodes)

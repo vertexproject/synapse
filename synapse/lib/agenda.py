@@ -273,6 +273,7 @@ class _Appt:
         return buid, (
             ('*syn:cron', self.iden),
             ('doc', self.doc),
+            ('storm', self.query),
         )
 
     def __eq__(self, other):
