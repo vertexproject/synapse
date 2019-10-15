@@ -161,6 +161,8 @@ class Runtime:
         self.snap = snap
         self.user = user
 
+        self.model = snap.getDataModel()
+
         self.task = asyncio.current_task()
 
         self.inputs = []    # [synapse.lib.node.Node(), ...]

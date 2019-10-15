@@ -76,6 +76,83 @@ class Snap(s_base.Base):
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
 
+    # APIs that wrap cortex APIs to provide a boundary for the storm runtime
+    # ( in many instances a sub-process snap will override )
+
+    def getDataModel(self):
+        return self.model
+
+    async def getCoreAxon(self):
+        await self.core.axready.wait()
+        return self.runt.snap.core.axon
+
+    async def addStormSvc(self, sdef):
+        return await self.core.addStormSvc(sdef)
+
+    async def delStormSvc(self, iden):
+        return await self.core.delStormSvc(iden)
+
+    def getStormSvc(self, iden):
+        return self.core.getStormSvc(iden)
+
+    def getStormSvcs(self, iden):
+        return self.core.getStormSvcs()
+
+    def getStormCmd(self, name):
+        return self.core.getStormCmd(name)
+
+    async def addCoreQueue(self, name):
+        info = {'user': self.user.iden, 'time': s_common.now()}
+        self.core.multiqueue.add(name, info)
+        return info
+
+    async def getCoreQueue(self, name):
+        return await self.core.getCoreQueue(name)
+        #await self.core.multiqueue.get(name)
+
+    async def delCoreQueue(self, name):
+        return await self.core.delCoreQueue(name)
+        #await self.core.multiqueue.rem(name)
+
+    async def getCoreQueues(self):
+        return await self.core.getCoreQueues()
+        #return self.runt.snap.core.multiqueue.list()
+
+    async def cullCoreQueue(self, name, offs):
+        return await self.core.cullCoreQueue(name, offs)
+        #await self.core.multiqueue.cull(self.name, offs)
+
+    async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
+        async for item in self.core.getsCoreQueue(name, offs, cull=cull, wait=wait, size=size):
+        #async for item in mque.gets(name, offs, cull=cull, wait=wait, size=size):
+            yield item
+
+    async def putsCoreQueue(self, name, items):
+        return await self.core.putsCoreQueue(name, items)
+        #return self.runt.snap.core.multiqueue.puts(name, items)
+
+    async def putCoreQueue(self, name, item):
+        return await self.core.putCoreQueue(name, item)
+        #return self.runt.snap.core.multiqueue.put(name, item)
+
+    def getStormVars(self):
+        return self.core.stormvars
+
+    async def getStormLib(self, path):
+        return self.core.getStormLib(path)
+
+    async def getStormDmon(self, iden):
+        return await self.core.getStormDmon(iden)
+
+    async def delStormDmon(self, iden):
+        await self.core.delStormDmon(iden)
+
+    async def getStormDmons(self):
+        return await self.core.getStormDmons()
+
+    async def addStormDmon(self, ddef):
+        return await self.core.addStormDmon(ddef)
+
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):
         if user is None:
