@@ -397,6 +397,7 @@ class SynModule(s_module.CoreModule):
                         'doc': 'A description of the cron job.'}),
 
                     ('storm', ('str', {}), {
+                        'ro': True,
                         'doc': 'The storm query executed by the cron job.'}),
 
                 )),
