@@ -811,6 +811,8 @@ class Cortex(s_cell.Cell):
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
 
+        await self._initRuntFuncs()
+
         # Finalize coremodule loading & give stormservices a shot to load
         await self._initCoreMods()
         await self._initStormSvcs()
@@ -825,6 +827,40 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    async def _initRuntFuncs(self):
+
+        async def onLiftCron(full, valu=None, cmpr='='):
+
+            if valu is None:
+
+                for iden, cron in self.cell.agenda.list():
+                    yield cron.getRuntInfo()
+
+                return
+
+            iden = str(valu)
+
+            cjob = self.agenda.get(iden)
+            if cjob is None:
+                return
+
+            yield cjob.getRuntInfo()
+
+        async def onSetTrigDoc(node, prop, valu):
+            iden = node.ndef[1]
+            await self.view.triggers.setTrigDoc(iden, str(valu))
+            return True
+
+        async def onSetCronDoc(node, prop, valu):
+            iden = node.ndef[1]
+            await self.agenda.doc(iden, str(valu))
+            return True
+
+        self.addRuntLift('syn:cron', self.agenda.onLiftRunts)
+
+        self.addRuntPropSet('syn:cron:doc', onSetCronDoc)
+        self.addRuntPropSet('syn:trigger:doc', onSetTrigDoc)
 
     async def _initStormDmons(self):
 
@@ -1585,11 +1621,11 @@ class Cortex(s_cell.Cell):
         async for buid, rows in func(full, valu, cmpr):
             yield buid, rows
 
-    def addRuntPropSet(self, prop, func):
+    def addRuntPropSet(self, full, func):
         '''
         Register a prop set helper for a runt form
         '''
-        self._runtPropSetFuncs[prop.full] = func
+        self._runtPropSetFuncs[full] = func
 
     async def runRuntPropSet(self, node, prop, valu):
         func = self._runtPropSetFuncs.get(prop.full)
@@ -1599,11 +1635,11 @@ class Cortex(s_cell.Cell):
         ret = await s_coro.ornot(func, node, prop, valu)
         return ret
 
-    def addRuntPropDel(self, prop, func):
+    def addRuntPropDel(self, full, func):
         '''
         Register a prop set helper for a runt form
         '''
-        self._runtPropDelFuncs[prop.full] = func
+        self._runtPropDelFuncs[full] = func
 
     async def runRuntPropDel(self, node, prop):
         func = self._runtPropDelFuncs.get(prop.full)

@@ -278,6 +278,11 @@ class SynModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(f'syn:trigger={iden}')
             self.len(1, nodes)
 
+            # set the trigger doc
+            nodes = await core.nodes(f'syn:trigger={iden} [ :doc=hehe ]')
+            self.len(1, nodes)
+            self.eq('hehe', nodes[0].get('doc'))
+
             # Trigger reloads and make some more triggers to play with
             waiter = core.waiter(2, 'core:trigger:action')
             await core.addTrigger('prop:set', '[inet:user=1] | testcmd', info={'prop': 'inet:ipv4:asn'})
@@ -288,6 +293,8 @@ class SynModelTest(s_t_utils.SynTest):
             # lift by all props and valus
             nodes = await core.nodes('syn:trigger')
             self.len(3, nodes)
+            nodes = await core.nodes('syn:trigger:doc')
+            self.len(1, nodes)
             nodes = await core.nodes('syn:trigger:vers')
             self.len(3, nodes)
             nodes = await core.nodes('syn:trigger:cond')

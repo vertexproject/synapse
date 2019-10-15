@@ -33,6 +33,7 @@ class Rule:
     storm: str  # storm query
     viewiden: str # owning view
     enabled: bool = True
+    doc: Optional[str] = dataclasses.field(default='') # documentation / description
     form: Optional[str] = dataclasses.field(default=None) # form name
     tag: Optional[str] = dataclasses.field(default=None) # tag name
     prop: Optional[str] = dataclasses.field(default=None) # property name
@@ -231,6 +232,15 @@ class Triggers:
         self.view.core.getStormQuery(query)
 
         rule.storm = query
+        self.view.core.trigstor.stor(iden, rule)
+
+    async def setTrigDoc(self, iden, text):
+
+        rule = self._rules.get(iden)
+        if rule is None:
+            raise s_exc.NoSuchIden(iden=iden)
+
+        rule.doc = text
         self.view.core.trigstor.stor(iden, rule)
 
     def enable(self, iden):

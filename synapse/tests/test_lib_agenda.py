@@ -377,3 +377,23 @@ class AgendaTest(s_t_utils.SynTest):
 
                 await newb.addRule((True, ('cron', 'del')))
                 await proxy.delCronJob(cron1)
+
+    async def test_agenda_runts(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('cron', 'add')))
+
+            async with core.getLocalProxy(user='visi') as proxy:
+                cron0 = await proxy.addCronJob('inet:ipv4', {'hour': 2})
+
+                nodes = await core.nodes('syn:cron')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('syn:cron', cron0))
+                self.eq(nodes[0].get('doc'), '')
+
+                nodes = await core.nodes(f'syn:cron={cron0} [ :doc=hehe ]')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('syn:cron', cron0))
+                self.eq(nodes[0].get('doc'), 'hehe')

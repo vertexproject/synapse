@@ -222,10 +222,15 @@ class Node:
             return False
 
         if self.isrunt:
+
             if prop.info.get('ro'):
-                raise s_exc.IsRuntForm(mesg='Cannot set read-only props on runt nodes',
-                                       form=self.form.full, prop=name, valu=valu)
-            return await self.snap.core.runRuntPropSet(self, prop, valu)
+                mesg = 'Cannot set read-only props on runt nodes'
+                raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full, prop=name, valu=valu)
+
+            await self.snap.core.runRuntPropSet(self, prop, valu)
+            self.props[prop.name] = valu
+
+            return True
 
         curv = self.props.get(name)
 

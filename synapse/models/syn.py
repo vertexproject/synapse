@@ -131,6 +131,7 @@ class SynModule(s_module.CoreModule):
         for iden, info in _trigs:
             tnorm, _ = typeform.type.norm(iden)
             props = {'.created': now,
+                     'doc': info.pop('doc'),
                      'vers': info.pop('ver'),
                      'cond': info.pop('cond'),
                      'storm': info.pop('storm'),
@@ -287,8 +288,11 @@ class SynModule(s_module.CoreModule):
                 ('syn:tagprop', ('str', {'strip': True}), {
                     'doc': 'A user defined tag property.'
                 }),
+                ('syn:cron', ('guid', {}), {
+                    'doc': 'A Cortex cron job.',
+                }),
                 ('syn:trigger', ('guid', {}), {
-                    'doc': 'A Synapse trigger.'
+                    'doc': 'A Cortex trigger.'
                 }),
             ),
 
@@ -362,6 +366,9 @@ class SynModule(s_module.CoreModule):
                     ('vers', ('int', {}), {
                         'doc': 'Trigger version', 'ro': True,
                     }),
+                    ('doc', ('str', {}), {
+                        'doc': 'A documentation string describing the trigger.',
+                    }),
                     ('cond', ('str', {'strip': True, 'lower': True}), {
                         'doc': 'The trigger condition', 'ro': True,
                     }),
@@ -383,6 +390,15 @@ class SynModule(s_module.CoreModule):
                     ('tag', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'Tag the trigger is watching for.'
                     }),
+                )),
+                ('syn:cron', {'runt': True}, (
+
+                    ('doc', ('str', {}), {
+                        'doc': 'A description of the cron job.'}),
+
+                    ('storm', ('str', {}), {
+                        'doc': 'The storm query executed by the cron job.'}),
+
                 )),
             ),
         }),)

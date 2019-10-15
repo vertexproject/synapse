@@ -294,3 +294,16 @@ class TrigTest(s_t_utils.SynTest):
 
                 await newb.addRule((True, ('trigger', 'del')))
                 await proxy.delTrigger(trig1)
+
+    async def test_trigger_runts(self):
+
+        async with self.getTestCore() as core:
+
+            iden = await core.addTrigger('node:add', '[ test:int=1 ]', info={'form': 'test:str'})
+
+            nodes = await core.nodes('syn:trigger')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('doc'), '')
+
+            nodes = await core.nodes(f'syn:trigger={iden} [ :doc="hehe haha" ]')
+            self.eq(nodes[0].get('doc'), 'hehe haha')

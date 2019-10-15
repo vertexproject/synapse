@@ -241,6 +241,7 @@ class _Appt:
     the lowest nexttime of all its ApptRecs.
     '''
     def __init__(self, iden, recur, indx, query, useriden, recs, nexttime=None):
+        self.doc = ''
         self.iden = iden
         self.recur = recur # does this appointment repeat
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
@@ -267,6 +268,13 @@ class _Appt:
         self.lastresult = None
         self.enabled = True
 
+    def getRuntInfo(self):
+        buid = s_common.buid(('syn:cron', self.iden))
+        return buid, (
+            ('*syn:cron', self.iden),
+            ('doc', self.doc),
+        )
+
     def __eq__(self, other):
         ''' For heap logic to sort upcoming events lower '''
         return (self.nexttime, self.indx) == (other.nexttime, other.indx)
@@ -278,6 +286,7 @@ class _Appt:
     def pack(self):
         return {
             'ver': 1,
+            'doc': self.doc,
             'enabled': self.enabled,
             'recur': self.recur,
             'iden': self.iden,
@@ -299,6 +308,7 @@ class _Appt:
             raise s_exc.BadStorageVersion(mesg=f"Found version {val['ver']}")  # pragma: no cover
         recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
         appt = cls(val['iden'], val['recur'], val['indx'], val['query'], val['useriden'], recs, val['nexttime'])
+        appt.doc = val.get('doc', '')
         appt.startcount = val['startcount']
         appt.laststarttime = val['laststarttime']
         appt.lastfinishtime = val['lastfinishtime']
@@ -368,6 +378,21 @@ class Agenda(s_base.Base):
         self.enabled = False
         self._schedtask = None  # The task of the scheduler loop.  Doesn't run until we're enabled
         await self._load_all()
+
+    async def onLiftRunts(self, full, valu=None, cmpr=None):
+
+        if valu is None:
+            for iden, cjob in self.appts.items():
+                yield cjob.getRuntInfo()
+
+            return
+
+        iden = str(valu)
+        cjob = self.appts.get(iden)
+        if cjob is None:
+            return
+
+        yield cjob.getRuntInfo()
 
     async def start(self):
         '''
@@ -451,7 +476,7 @@ class Agenda(s_base.Base):
     def list(self):
         return [(iden, (appt.pack())) for (iden, appt) in self.appts.items()]
 
-    async def add(self, useriden, query: str, reqs, incunit=None, incvals=None):
+    async def add(self, useriden, query: str, reqs, incunit=None, incvals=None, doc=''):
         '''
         Persistently adds an appointment
 
@@ -507,9 +532,22 @@ class Agenda(s_base.Base):
         appt = _Appt(iden, recur, indx, query, useriden, recs)
         self._addappt(iden, appt)
 
+        appt.doc = doc
+
         await self._storeAppt(appt)
 
         return iden
+
+    async def doc(self, iden, text):
+        '''
+        Set the doc field of an appointment.
+        '''
+        appt = self.appts.get(iden)
+        if appt is None:
+            raise s_exc.NoSuchIden()
+
+        appt.doc = text
+        await self._storeAppt(appt)
 
     async def enable(self, iden):
         appt = self.appts.get(iden)
