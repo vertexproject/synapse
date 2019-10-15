@@ -830,23 +830,6 @@ class Cortex(s_cell.Cell):
 
     async def _initRuntFuncs(self):
 
-        async def onLiftCron(full, valu=None, cmpr='='):
-
-            if valu is None:
-
-                for iden, cron in self.cell.agenda.list():
-                    yield cron.getRuntInfo()
-
-                return
-
-            iden = str(valu)
-
-            cjob = self.agenda.get(iden)
-            if cjob is None:
-                return
-
-            yield cjob.getRuntInfo()
-
         async def onSetTrigDoc(node, prop, valu):
             iden = node.ndef[1]
             trig = await node.snap.view.triggers.get(iden)
