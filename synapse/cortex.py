@@ -849,13 +849,15 @@ class Cortex(s_cell.Cell):
 
         async def onSetTrigDoc(node, prop, valu):
             iden = node.ndef[1]
-            await self.view.triggers.setTrigDoc(iden, str(valu))
-            return True
+            trig = await node.snap.view.triggers.get(iden)
+            await trig.reqAllowed(node.snap.user, ('trigger', 'set', 'doc'))
+            await trig.setDoc(str(valu))
 
         async def onSetCronDoc(node, prop, valu):
             iden = node.ndef[1]
-            await self.agenda.doc(iden, str(valu))
-            return True
+            appt = await self.agenda.get(iden)
+            await appt.reqAllowed(node.snap.user, ('cron', 'set', 'doc'))
+            await appt.setDoc(str(valu))
 
         self.addRuntLift('syn:cron', self.agenda.onLiftRunts)
 

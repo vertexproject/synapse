@@ -323,7 +323,7 @@ class View(s_base.Base):
         return iden
 
     def getTrigger(self, iden):
-        return self.triggers.get(iden)
+        self.triggers.get(iden).pack()
 
     async def delTrigger(self, iden):
         '''

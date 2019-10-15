@@ -240,8 +240,9 @@ class _Appt:
     Each such entry has a list of ApptRecs.  Each time the appointment is scheduled, the nexttime of the appointment is
     the lowest nexttime of all its ApptRecs.
     '''
-    def __init__(self, iden, recur, indx, query, useriden, recs, nexttime=None):
+    def __init__(self, stor, iden, recur, indx, query, useriden, recs, nexttime=None):
         self.doc = ''
+        self.stor = stor
         self.iden = iden
         self.recur = recur # does this appointment repeat
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
@@ -276,6 +277,16 @@ class _Appt:
             ('storm', self.query),
         )
 
+    async def reqAllowed(self, user, perm):
+
+        if user.iden == self.useriden:
+            return
+
+        if user.allowed(perm):
+            return
+
+        raise s_exc.AuthDeny(perm=perm)
+
     def __eq__(self, other):
         ''' For heap logic to sort upcoming events lower '''
         return (self.nexttime, self.indx) == (other.nexttime, other.indx)
@@ -304,11 +315,11 @@ class _Appt:
         }
 
     @classmethod
-    def unpack(cls, val):
+    def unpack(cls, stor, val):
         if val['ver'] != 1:
             raise s_exc.BadStorageVersion(mesg=f"Found version {val['ver']}")  # pragma: no cover
         recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
-        appt = cls(val['iden'], val['recur'], val['indx'], val['query'], val['useriden'], recs, val['nexttime'])
+        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['useriden'], recs, val['nexttime'])
         appt.doc = val.get('doc', '')
         appt.startcount = val['startcount']
         appt.laststarttime = val['laststarttime']
@@ -355,6 +366,16 @@ class _Appt:
             self._recidxnexttime = None
             self.nexttime = None
             return
+
+    async def setDoc(self, text):
+        '''
+        Set the doc field of an appointment.
+        '''
+        self.doc = text
+        await self._save()
+
+    async def _save(self):
+        await self.stor._storeAppt(self)
 
 class Agenda(s_base.Base):
     '''
@@ -422,7 +443,7 @@ class Agenda(s_base.Base):
         to_delete = []
         for iden, val in self._hivedict.items():
             try:
-                appt = _Appt.unpack(val)
+                appt = _Appt.unpack(self, val)
                 if appt.iden != iden:
                     raise s_exc.InconsistentStorage(mesg='iden inconsistency')
                 self._addappt(iden, appt)
@@ -530,7 +551,7 @@ class Agenda(s_base.Base):
                 incvals = (incvals, )
             recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
 
-        appt = _Appt(iden, recur, indx, query, useriden, recs)
+        appt = _Appt(self, iden, recur, indx, query, useriden, recs)
         self._addappt(iden, appt)
 
         appt.doc = doc
@@ -539,16 +560,14 @@ class Agenda(s_base.Base):
 
         return iden
 
-    async def doc(self, iden, text):
-        '''
-        Set the doc field of an appointment.
-        '''
-        appt = self.appts.get(iden)
-        if appt is None:
-            raise s_exc.NoSuchIden()
+    async def get(self, iden):
 
-        appt.doc = text
-        await self._storeAppt(appt)
+        appt = self.appts.get(iden)
+        if appt is not None:
+            return appt
+
+        mesg = f'No cron job with id: {iden}'
+        raise s_exc.NoSuchIden(iden=iden)
 
     async def enable(self, iden):
         appt = self.appts.get(iden)
