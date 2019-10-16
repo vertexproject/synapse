@@ -182,7 +182,7 @@ class ParserExit(SynErr):
     ''' Raised by synapse.lib.cmd.Parser on Parser exit() '''
     pass
 
-class ForkExit(SynErr): pass
+class SpawnExit(SynErr): pass
 
 class ReadOnlyLayer(SynErr): pass
 class ReadOnlyProp(SynErr): pass

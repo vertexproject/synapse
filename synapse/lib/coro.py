@@ -159,7 +159,7 @@ async def spawn(todo, timeout=None, ctx=None):
         try:
             return que.get(block=False)
         except queue.Empty:
-            raise s_exc.ForkExit(code=proc.exitcode)
+            raise s_exc.SpawnExit(code=proc.exitcode)
 
     try:
 

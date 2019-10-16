@@ -88,5 +88,5 @@ class CoroTest(s_t_utils.SynTest):
             await s_coro.spawn(todo)
 
         todo = (spawnexit, (), {})
-        with self.raises(s_exc.ForkExit):
+        with self.raises(s_exc.SpawnExit):
             await s_coro.spawn(todo)
