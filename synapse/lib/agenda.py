@@ -367,6 +367,17 @@ class _Appt:
             self.nexttime = None
             return
 
+    async def reqAllowed(self, user, perm):
+        if not await self.allowed(user, perm):
+            mesg = 'User does not own or have permissions to cron job.'
+            raise s_exc.AuthDeny(perm=perm, mesg=mesg)
+
+    async def allowed(self, user, perm):
+        if user.iden == self.useriden:
+            return True
+
+        return user.allowed(perm)
+
     async def setDoc(self, text):
         '''
         Set the doc field of an appointment.
@@ -496,7 +507,7 @@ class Agenda(s_base.Base):
             yield newdict
 
     def list(self):
-        return [(iden, (appt.pack())) for (iden, appt) in self.appts.items()]
+        return list(self.appts.items())
 
     async def add(self, useriden, query: str, reqs, incunit=None, incvals=None, doc=''):
         '''

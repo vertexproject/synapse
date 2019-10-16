@@ -159,7 +159,7 @@ class Triggers:
         raise s_exc.NoSuchCond(name=rule.cond)
 
     def list(self):
-        return [(iden, dataclasses.asdict(rule)) for iden, rule in self._rules.items()]
+        return list(self._rules.items())
 
     def mod(self, iden, query):
         rule = self._rules.get(iden)
@@ -384,12 +384,14 @@ class Rule:
         return dataclasses.asdict(self)
 
     async def reqAllowed(self, user, perm):
-
-        if user.iden == self.useriden:
-            return
-
-        if not user.allowed(perm):
+        if not await self.allowed(user, perm):
             raise s_exc.AuthDeny(perm=perm)
+
+    async def allowed(self, user, perm):
+        if user.iden == self.useriden:
+            return True
+
+        return user.allowed(perm)
 
     async def setDoc(self, text):
         self.doc = text

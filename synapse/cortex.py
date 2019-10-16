@@ -133,47 +133,36 @@ class CoreApi(s_cell.CellApi):
 
         return view
 
-    async def _trig_auth_check(self, useriden, perm):
-        '''
-        Raise exception if doesn't have explicit perms and resource not created by that user
-        '''
-        isallowed = await self.allowed(*perm)
-        if (useriden == self.user.iden) or isallowed:
-            return
-        perm = '.'.join(perm)
-        mesg = f'User must have permission {perm} or own the resource'
-        raise s_exc.AuthDeny(mesg=mesg, user=self.user.name, perm=perm)
-
     async def delTrigger(self, iden):
         '''
         Deletes a trigger from the cortex
         '''
-        trig = self.cell.getTrigger(iden)
-        await self._trig_auth_check(trig.get('useriden'), ('trigger', 'del'))
+        trig = await self.cell.getTrigger(iden)
+        await trig.reqAllowed(self.user, ('trigger', 'del'))
         await self.cell.delTrigger(iden)
 
     async def updateTrigger(self, iden, query):
         '''
         Change an existing trigger's query
         '''
-        trig = self.cell.getTrigger(iden)
-        await self._trig_auth_check(trig.get('useriden'), ('trigger', 'set'))
+        trig = await self.cell.getTrigger(iden)
+        await trig.reqAllowed(self.user, ('trigger', 'set'))
         await self.cell.updateTrigger(iden, query)
 
     async def enableTrigger(self, iden):
         '''
         Enable an existing trigger
         '''
-        trig = self.cell.getTrigger(iden)
-        await self._trig_auth_check(trig.get('useriden'), ('trigger', 'set'))
+        trig = await self.cell.getTrigger(iden)
+        await trig.reqAllowed(self.user, ('trigger', 'set'))
         await self.cell.enableTrigger(iden)
 
     async def disableTrigger(self, iden):
         '''
         Disable an existing trigger
         '''
-        trig = self.cell.getTrigger(iden)
-        await self._trig_auth_check(trig.get('useriden'), ('trigger', 'set'))
+        trig = await self.cell.getTrigger(iden)
+        await trig.reqAllowed(self.user, ('trigger', 'set'))
         await self.cell.disableTrigger(iden)
 
     async def listTriggers(self):
@@ -181,12 +170,14 @@ class CoreApi(s_cell.CellApi):
         Lists all the triggers that the current user is authorized to access
         '''
         trigs = []
-        _trigs = await self.cell.listTriggers()
-        isallowed = await self.allowed('trigger', 'get')
-        for (iden, trig) in _trigs:
-            useriden = trig['useriden']
-            if (useriden == self.user.iden) or isallowed:
-                trigs.append((iden, trig))
+        for iden, trig in await self.cell.listTriggers():
+
+            if await trig.allowed(self.user, ('trigger', 'get')):
+
+                info = trig.pack()
+                # pack the username into the return as a convenience
+                info['username'] = self.cell.getUserName(trig.useriden)
+                trigs.append((iden, info))
 
         return trigs
 
@@ -249,7 +240,7 @@ class CoreApi(s_cell.CellApi):
         cron = self.cell.agenda.appts.get(iden)
         if cron is None:
             raise s_exc.NoSuchIden()
-        await self._trig_auth_check(cron.useriden, ('cron', 'del'))
+        await cron.reqAllowed(self.user, ('cron', 'del'))
         await self.cell.agenda.delete(iden)
 
     async def updateCronJob(self, iden, query):
@@ -262,7 +253,7 @@ class CoreApi(s_cell.CellApi):
         cron = self.cell.agenda.appts.get(iden)
         if cron is None:
             raise s_exc.NoSuchIden()
-        await self._trig_auth_check(cron.useriden, ('cron', 'set'))
+        await cron.reqAllowed(self.user, ('cron', 'set'))
         await self.cell.agenda.mod(iden, query)
 
     async def enableCronJob(self, iden):
@@ -275,7 +266,7 @@ class CoreApi(s_cell.CellApi):
         cron = self.cell.agenda.appts.get(iden)
         if cron is None:
             raise s_exc.NoSuchIden()
-        await self._trig_auth_check(cron.useriden, ('cron', 'set'))
+        await cron.reqAllowed(self.user, ('cron', 'set'))
         await self.cell.agenda.enable(iden)
 
     async def disableCronJob(self, iden):
@@ -288,7 +279,7 @@ class CoreApi(s_cell.CellApi):
         cron = self.cell.agenda.appts.get(iden)
         if cron is None:
             raise s_exc.NoSuchIden()
-        await self._trig_auth_check(cron.useriden, ('cron', 'set'))
+        await cron.reqAllowed(self.user, ('cron', 'set'))
         await self.cell.agenda.disable(iden)
 
     async def listCronJobs(self):
@@ -296,13 +287,15 @@ class CoreApi(s_cell.CellApi):
         Get information about all the cron jobs accessible to the current user
         '''
         crons = []
-        isallowed = await self.allowed('cron', 'get')
+
         for iden, cron in self.cell.agenda.list():
-            useriden = cron['useriden']
-            if (useriden == self.user.iden) or isallowed:
-                user = self.cell.auth.user(useriden)
-                cron['username'] = '<unknown>' if user is None else user.name
-                crons.append((iden, cron))
+
+            if not await cron.allowed(self.user, ('cron', 'get')):
+                continue
+
+            info = cron.pack()
+            info['username'] = self.cell.getUserName(cron.useriden)
+            crons.append((iden, info))
 
         return crons
 
@@ -2679,9 +2672,8 @@ class Cortex(s_cell.Cell):
 
         return await self.view.addTrigger(condition, query, info, disabled, user)
 
-    def getTrigger(self, iden):
-
-        return self.view.getTrigger(iden)
+    async def getTrigger(self, iden):
+        return await self.view.getTrigger(iden)
 
     async def delTrigger(self, iden):
         '''
@@ -2711,7 +2703,7 @@ class Cortex(s_cell.Cell):
         '''
         Lists all the triggers in the Cortex.
         '''
-        return self.view.listTriggers()
+        return await self.view.listTriggers()
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):

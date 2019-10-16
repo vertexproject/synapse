@@ -127,21 +127,25 @@ class SynModule(s_module.CoreModule):
     async def _initTriggerRunts(self):
         now = s_common.now()
         typeform = self.model.form('syn:trigger')
-        _trigs = await self.core.listTriggers()
-        for iden, info in _trigs:
+        for iden, trig in await self.core.listTriggers():
+
             tnorm, _ = typeform.type.norm(iden)
+
             props = {'.created': now,
-                     'doc': info.pop('doc'),
-                     'vers': info.pop('ver'),
-                     'cond': info.pop('cond'),
-                     'storm': info.pop('storm'),
-                     'user': info.pop('username'),
-                     'enabled': info.pop('enabled'),
+                     'doc': trig.doc,
+                     'vers': trig.ver,
+                     'cond': trig.cond,
+                     'storm': trig.storm,
+                     'enabled': trig.enabled,
+                     'user': self.core.getUserName(trig.useriden),
                      }
-            for key in ('form', 'tag', 'prop'):
-                valu = info.pop(key, None)
-                if valu is not None:
-                    props[key] = valu
+
+            if trig.tag is not None:
+                props['tag'] = trig.tag
+            if trig.form is not None:
+                props['form'] = trig.form
+            if trig.prop is not None:
+                props['prop'] = trig.prop
 
             self._addRuntRows('syn:trigger', tnorm, props,
                               self._triggerRuntsByBuid, self._triggerRuntsByPropValu)

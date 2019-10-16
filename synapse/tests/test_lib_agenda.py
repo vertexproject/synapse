@@ -199,8 +199,8 @@ class AgendaTest(s_t_utils.SynTest):
 
                 appts = agenda.list()
                 self.len(1, appts)
-                self.eq(appts[0][1]['startcount'], 1)
-                self.eq(appts[0][1]['nexttime'], None)
+                self.eq(appts[0][1].startcount, 1)
+                self.eq(appts[0][1].nexttime, None)
 
                 # Schedule a query to run every Wednesday and Friday at 10:15am
                 guid = await agenda.add(rootiden, '[test:str=bar]', {s_tu.HOUR: 10, s_tu.MINUTE: 15},
@@ -294,12 +294,14 @@ class AgendaTest(s_t_utils.SynTest):
                 task = next(iter(core.boss.tasks.values()))
                 self.eq(task.info.get('query'), 'inet:ipv4=1 | sleep 120')
                 self.eq(task.info.get('iden'), guid)
-                appt_info = [info for g, info in agenda.list() if g == guid][0]
-                self.eq(appt_info['isrunning'], True)
+
+                appt = await agenda.get(guid)
+                self.eq(appt.isrunning, True)
                 await task.kill()
-                appt_info = [info for g, info in agenda.list() if g == guid][0]
-                self.eq(appt_info['isrunning'], False)
-                self.eq(appt_info['lastresult'], 'cancelled')
+
+                appt = await agenda.get(guid)
+                self.eq(appt.isrunning, False)
+                self.eq(appt.lastresult, 'cancelled')
                 await agenda.delete(guid)
 
                 # Test bad queries record exception
@@ -310,9 +312,10 @@ class AgendaTest(s_t_utils.SynTest):
                 unixtime += 60
                 await sync.wait()
                 sync.clear()
-                appt_info = [info for g, info in agenda.list() if g == guid][0]
-                self.eq(appt_info['isrunning'], False)
-                self.eq(appt_info['lastresult'], 'raised exception test exception')
+
+                appt = await agenda.get(guid)
+                self.eq(appt.isrunning, False)
+                self.eq(appt.lastresult, 'raised exception test exception')
 
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
@@ -342,7 +345,7 @@ class AgendaTest(s_t_utils.SynTest):
                 appts = agenda.list()
                 self.len(2, appts)
                 last_appt = [appt for (iden, appt) in appts if iden == guid3][0]
-                self.eq(last_appt['query'], '#bahhumbug')
+                self.eq(last_appt.query, '#bahhumbug')
 
     async def test_cron_perms(self):
 
