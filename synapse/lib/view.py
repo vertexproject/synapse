@@ -361,19 +361,3 @@ class View(s_base.Base):
         if self.parent is not None:
             trigs.extend(await self.parent.listTriggers())
         return trigs
-
-        #trigs.extend(
-        #for (iden, trig) in self.triggers.list():
-            #useriden = trig['useriden']
-            #user = self.core.auth.user(useriden)
-            #trig['username'] = '<unknown>' if user is None else user.name
-            #trig['inherited'] = False
-            #trigs.append((iden, trig))
-
-        #if self.parent is not None:
-            #inheritd = self.parent.listTriggers()
-            #for iden, trig in inheritd:
-                #trig['inherited'] = True
-            #trigs.extend(inheritd)
-
-        #return trigs
