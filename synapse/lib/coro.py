@@ -1,13 +1,16 @@
 '''
 Async/Coroutine related utilities.
 '''
+import queue
 import asyncio
 import inspect
 import logging
 import functools
+import multiprocessing
 
 logger = logging.getLogger(__name__)
 
+import synapse.exc as s_exc
 import synapse.glob as s_glob
 
 def iscoro(item):
@@ -132,3 +135,42 @@ def genrhelp(f):
     def func(*args, **kwargs):
         return GenrHelp(f(*args, **kwargs))
     return func
+
+def _exectodo(que, todo):
+    func, args, kwargs = todo
+    try:
+        que.put(func(*args, **kwargs))
+    except Exception as e:
+        que.put(e)
+
+async def spawn(todo, timeout=None, ctx=None):
+    '''
+    Run a todo (func, args, kwargs) tuple in a multiprocessing subprocess.
+    '''
+    if ctx is None:
+        ctx = multiprocessing.get_context('spawn')
+
+    que = ctx.Queue()
+    proc = ctx.Process(target=_exectodo, args=(que, todo))
+
+    def execspawn():
+        proc.start()
+        proc.join()
+        try:
+            return que.get(block=False)
+        except queue.Empty:
+            raise s_exc.SpawnExit(code=proc.exitcode)
+
+    try:
+
+        coro = executor(execspawn)
+
+        retn = await asyncio.wait_for(coro, timeout=timeout)
+        if isinstance(retn, Exception):
+            raise retn
+
+        return retn
+
+    except (asyncio.CancelledError, asyncio.TimeoutError):
+        proc.terminate()
+        raise
