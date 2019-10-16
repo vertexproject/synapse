@@ -186,6 +186,7 @@ class AgendaTest(s_t_utils.SynTest):
                 rootiden = 'aaaaa'
 
                 await self.asyncraises(ValueError, agenda.add(rootiden, '', {s_agenda.TimeUnit.MINUTE: 1}))
+                await self.asyncraises(s_exc.NoSuchIden, agenda.get('newp'))
 
                 # Schedule a one-shot 1 minute from now
                 await agenda.add(rootiden, '[test:str=foo]', {s_agenda.TimeUnit.MINUTE: 1})
@@ -375,6 +376,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.AuthDeny):
                     await proxy.disableCronJob(cron1)
+
                 await newb.addRule((True, ('cron', 'set')))
                 self.none(await proxy.disableCronJob(cron1))
 

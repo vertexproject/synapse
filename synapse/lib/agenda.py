@@ -278,14 +278,15 @@ class _Appt:
         )
 
     async def reqAllowed(self, user, perm):
+        if not await self.allowed(user, perm):
+            raise s_exc.AuthDeny(perm=perm)
+
+    async def allowed(self, user, perm):
 
         if user.iden == self.useriden:
-            return
+            return True
 
-        if user.allowed(perm):
-            return
-
-        raise s_exc.AuthDeny(perm=perm)
+        return user.allowed(perm)
 
     def __eq__(self, other):
         ''' For heap logic to sort upcoming events lower '''

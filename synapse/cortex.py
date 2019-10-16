@@ -238,8 +238,6 @@ class CoreApi(s_cell.CellApi):
             iden (bytes):  The iden of the cron job to be deleted
         '''
         cron = self.cell.agenda.appts.get(iden)
-        if cron is None:
-            raise s_exc.NoSuchIden()
         await cron.reqAllowed(self.user, ('cron', 'del'))
         await self.cell.agenda.delete(iden)
 
@@ -251,8 +249,6 @@ class CoreApi(s_cell.CellApi):
             iden (bytes):  The iden of the cron job to be changed
         '''
         cron = self.cell.agenda.appts.get(iden)
-        if cron is None:
-            raise s_exc.NoSuchIden()
         await cron.reqAllowed(self.user, ('cron', 'set'))
         await self.cell.agenda.mod(iden, query)
 
@@ -264,8 +260,6 @@ class CoreApi(s_cell.CellApi):
             iden (bytes):  The iden of the cron job to be changed
         '''
         cron = self.cell.agenda.appts.get(iden)
-        if cron is None:
-            raise s_exc.NoSuchIden()
         await cron.reqAllowed(self.user, ('cron', 'set'))
         await self.cell.agenda.enable(iden)
 
@@ -277,8 +271,6 @@ class CoreApi(s_cell.CellApi):
             iden (bytes):  The iden of the cron job to be changed
         '''
         cron = self.cell.agenda.appts.get(iden)
-        if cron is None:
-            raise s_exc.NoSuchIden()
         await cron.reqAllowed(self.user, ('cron', 'set'))
         await self.cell.agenda.disable(iden)
 
