@@ -506,7 +506,8 @@ class Slab(s_base.Base):
         self.dbnames = {}
 
         self.onfini(self._onCoFini)
-        self.schedCoro(self._runSyncLoop())
+        if not self.readonly:
+            self.schedCoro(self._runSyncLoop())
 
     def __repr__(self):
         return 'Slab: %r' % (self.path,)

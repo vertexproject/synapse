@@ -50,6 +50,7 @@ class Snap(s_base.Base):
         self.strict = True
         self.elevated = False
         self.canceled = False
+        self.readonly = False   # used in multiprocessing / readonly
 
         self.core = view.core
         self.view = view
@@ -489,6 +490,9 @@ class Snap(s_base.Base):
         Returns:
             s_node.Node: A Node object. It may return None if the snap is unable to add or lift the node.
         '''
+        if self.readonly:
+            mesg = 'The snapshot is in ready only mode.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         try:
 

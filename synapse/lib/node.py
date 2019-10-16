@@ -201,6 +201,10 @@ class Node:
         Returns:
             (bool): True if the property was changed.
         '''
+        if self.snap.readonly:
+            mesg = 'Cannot set property in read-only mode.'
+            raise s_exc.IsReadOnly(mesg=mesg)
+
         with s_editatom.EditAtom(self.snap.core.bldgbuids) as editatom:
             retn = await self._setops(name, valu, editatom, init)
             if not retn:
