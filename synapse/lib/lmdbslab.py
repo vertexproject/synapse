@@ -732,9 +732,15 @@ class Slab(s_base.Base):
     def initdb(self, name, dupsort=False):
         while True:
             try:
-                db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort)
-                self.dirty = True
-                self.forcecommit()
+                if self.readonly:
+                    # In a readonly environment, we can't make our own write transaction, but we
+                    # can have the lmdb module create one for us by not specifying the transaction
+                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort)
+                else:
+                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort)
+                    self.dirty = True
+                    self.forcecommit()
+
                 self.dbnames[name] = (db, dupsort)
                 return name
             except lmdb.MapFullError:
@@ -1025,7 +1031,6 @@ class Scan:
     '''
     def __init__(self, slab, db):
         self.slab = slab
-        print('SCAN ON %r FOR %r' % (slab, db,))
         self.db, self.dupsort = slab.dbnames.get(db, (None, False))
 
         self.atitem = None
@@ -1034,9 +1039,6 @@ class Scan:
 
     def __enter__(self):
         self.slab._acqXactForReading()
-        print('READONLY %r' % (self.slab.readonly,))
-        print(self.slab.xact.stat())
-        print('ENTER DB %r %r' % (self.slab.xact, self.db,))
         self.curs = self.slab.xact.cursor(db=self.db)
         self.slab.scans.add(self)
         return self
