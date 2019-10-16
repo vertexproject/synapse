@@ -143,7 +143,7 @@ def _exectodo(que, todo):
     except Exception as e:
         que.put(e)
 
-async def fork(todo, timeout=None, ctx=None):
+async def spawn(todo, timeout=None, ctx=None):
     '''
     Run a todo (func, args, kwargs) tuple in a multiprocessing subprocess.
     '''
@@ -153,7 +153,7 @@ async def fork(todo, timeout=None, ctx=None):
     que = ctx.Queue()
     proc = ctx.Process(target=_exectodo, args=(que, todo))
 
-    def execfork():
+    def execspawn():
         proc.start()
         proc.join()
         try:
@@ -163,7 +163,7 @@ async def fork(todo, timeout=None, ctx=None):
 
     try:
 
-        coro = executor(execfork)
+        coro = executor(execspawn)
 
         retn = await asyncio.wait_for(coro, timeout=timeout)
         if isinstance(retn, Exception):
