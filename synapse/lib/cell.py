@@ -457,6 +457,16 @@ class Cell(s_base.Base, s_telepath.Aware):
     def _getSessInfo(self, iden):
         return self.sessstor.gen(iden)
 
+    def getUserName(self, iden, defv='<unknown>'):
+        '''
+        Translate the user iden to a user name.
+        '''
+        # since this pattern is so common, utilitizing...
+        user = self.auth.user(iden)
+        if user is None:
+            return defv
+        return user.name
+
     async def genHttpSess(self, iden):
 
         # TODO age out http sessions

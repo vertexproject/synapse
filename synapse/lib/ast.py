@@ -2387,7 +2387,9 @@ class EditPropSet(Edit):
             if prop is None:
                 raise s_exc.NoSuchProp(name=name, form=node.form.name)
 
-            runt.allowed('prop:set', prop.full)
+            # runt node property permissions are enforced by the callback
+            if not node.isrunt:
+                runt.allowed('prop:set', prop.full)
 
             try:
                 await node.set(name, valu)
