@@ -162,7 +162,7 @@ class Snap(s_base.Base):
         runt = s_storm.Runtime(self, opts=opts, user=user)
         #self.core.stormrunts[runt.iden] = runt
         yield runt
-        self.core.stormrunts.pop(runt.iden, None)
+        #self.core.stormrunts.pop(runt.iden, None)
 
     async def iterStormPodes(self, text, opts=None, user=None):
         '''
@@ -849,3 +849,11 @@ class Snap(s_base.Base):
         envl = await self.layers[0].popNodeData(buid, name)
         if envl is not None:
             return envl.get('data')
+
+class SpawnSnap(Snap):
+    '''
+    A snap which is designed for use in a spawn storm query runtime.
+    '''
+    async def __anit__(self, view, user):
+        await Snap.__anit__(self, view, user)
+        self.readonly = True

@@ -145,6 +145,13 @@ class Layer(s_base.Base):
 
         self.onfini(self._onLayrFini)
 
+    def getSpawnInfo(self):
+        return {
+            'iden': self.iden,
+            'dirn': self.dirn,
+            #'info': self.info,
+        }
+
     async def _onLayrFini(self):
         [(await wind.fini()) for wind in self.windows]
 

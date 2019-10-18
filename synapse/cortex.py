@@ -515,9 +515,21 @@ class CoreApi(s_cell.CellApi):
         Yields:
             ((str,dict)): Storm messages.
         '''
-
         viewiden = None if opts is None else opts.get('view')
         view = await self._reqViewAllowed(viewiden)
+
+        if opts is not None and opts.get('spawn'):
+            opts.pop('spawn', None)
+            info = {
+                'view': await view.getSpawnInfo(),
+                'core': await self.cell.getSpawnInfo(),
+                'storm': {
+                    'opts': opts,
+                    'query': text,
+                }
+            }
+            todo = (s_storm.spawnstorm, (info,), {})
+            raise s_exc.DmonSpawn(todo=todo)
 
         async for mesg in view.streamstorm(text, opts, user=self.user):
             yield mesg
@@ -831,6 +843,14 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    async def getSpawnInfo(self):
+        return {
+            'iden': self.iden,
+            'dirn': self.dirn,
+            # TODO make getModelDefs include extended model
+            'model': await self.getModelDefs(),
+        }
 
     async def _initStormDmons(self):
 

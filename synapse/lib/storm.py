@@ -4,12 +4,17 @@ import argparse
 import collections
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
+import synapse.lib.boss as s_boss
+import synapse.lib.link as s_link
 import synapse.lib.node as s_node
+import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
@@ -1213,3 +1218,60 @@ class ScrapeCmd(Cmd):
 
             if self.opts.join:
                 yield node, path
+
+class SpawnCore(s_base.Base):
+
+    async def __anit__(self, spawninfo):
+
+        await s_base.Base.__anit__(self)
+
+        self.conf = {}
+        self.iden = spawninfo.get('iden')
+        self.dirn = spawninfo.get('dirn')
+
+        self.boss = await s_boss.Boss.anit()
+        self.onfini(self.boss.fini)
+
+        print('CORTEX AT: %r' % (self.dirn,))
+        self.model = s_datamodel.Model()
+        self.model.addDataModels(spawninfo.get('model'))
+
+        self.prox = await s_telepath.openurl(f'cell://{self.dirn}')
+        self.onfini(self.prox.fini)
+
+    def getStormQuery(self, text):
+        '''
+        Parse storm query text and return a Query object.
+        '''
+        import synapse.lib.grammar as s_grammar
+        query = s_grammar.Parser(text).query()
+        query.init(self)
+        return query
+
+    def _logStormQuery(self, *args, **kwargs):
+        pass
+
+class SpawnUser:
+
+    def __init__(self):
+        self.iden = 'asdf'
+
+    def allowed(self, perm):
+        return False
+
+async def spawnstorm(spawninfo):
+
+    coreinfo = spawninfo.get('core')
+    userinfo = spawninfo.get('user')
+    viewinfo = spawninfo.get('view')
+    storminfo = spawninfo.get('storm')
+
+    opts = storminfo.get('opts')
+    text = storminfo.get('query')
+
+    user = SpawnUser()
+
+    async with await SpawnCore.anit(coreinfo) as core:
+        async with await s_view.fromspawn(core, viewinfo) as view:
+            async for mesg in view.streamstorm(text, opts=opts, user=user):
+                yield mesg

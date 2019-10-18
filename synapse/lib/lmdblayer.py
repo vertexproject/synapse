@@ -29,6 +29,7 @@ class LmdbLayer(s_layer.Layer):
     A layer implements btree indexed storage for a cortex.
     '''
     # TODO: metadata for layer contents (only specific type / tag)
+    ctorname = 'synapse.lib.lmdblayer.LmdbLayer.anit'
 
     confdefs = (  # type: ignore
         ('lmdb:mapsize', {'type': 'int', 'defval': LMDB_LAYER_DEFAULT_MAP_SIZE}),

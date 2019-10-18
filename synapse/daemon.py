@@ -5,6 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -118,6 +119,91 @@ dmonwrap = (
     (types.AsyncGeneratorType, AsyncGenr),
     (types.GeneratorType, Genr),
 )
+
+def spawnexec(linkinfo, todo):
+    async def doit():
+        print('SPAWNEXEC LOOP: %r' % (asyncio.get_running_loop(),))
+        s_glob.iAmLoop()
+        link = await s_link.fromspawn(linkinfo)
+        await t2call(link, *todo)
+    asyncio.run(doit())
+
+async def t2call(link, meth, args, kwargs):
+    '''
+    Call the given meth(*args, **kwargs) and handle the response
+    to provide telepath task v2 events to the given link.
+    '''
+    try:
+
+        valu = meth(*args, **kwargs)
+
+        if s_coro.iscoro(valu):
+            valu = await valu
+
+        try:
+
+            if isinstance(valu, types.AsyncGeneratorType):
+                desc = 'async generator'
+
+                first = True
+                async for item in valu:
+
+                    if first:
+                        first = False
+                        await link.tx(('t2:genr', {}))
+
+                    await link.tx(('t2:yield', {'retn': (True, item)}))
+
+                await link.tx(('t2:yield', {'retn': None}))
+                return
+
+            elif isinstance(valu, types.GeneratorType):
+                desc = 'generator'
+
+                first = True
+                for item in valu:
+
+                    if first:
+                        first = False
+                        await link.tx(('t2:genr', {}))
+
+                    await link.tx(('t2:yield', {'retn': (True, item)}))
+
+                await link.tx(('t2:yield', {'retn': None}))
+                return
+
+        except s_exc.DmonSpawn as e:
+            raise
+
+        except Exception as e:
+            logger.exception(f'error during {desc} task: {repr(meth)}')
+            if not link.isfini:
+                retn = s_common.retnexc(e)
+                await link.tx(('t2:yield', {'retn': retn}))
+
+            return
+
+        if isinstance(valu, s_share.Share):
+            sess.onfini(valu)
+            info = s_reflect.getShareInfo(valu)
+            await link.tx(('t2:share', {'iden': valu.iden, 'sharinfo': info}))
+            return
+
+        await link.tx(('t2:fini', {'retn': (True, valu)}))
+
+    except s_exc.DmonSpawn as e:
+        todo = e.errinfo.get('todo')
+        linkinfo = link.getSpawnInfo()
+        dmontodo = (spawnexec, (linkinfo, todo), {})
+        await s_coro.spawn(dmontodo)
+        await link.fini()
+        return
+
+    except Exception as e:
+
+        if not link.isfini:
+            retn = s_common.retnexc(e)
+            await link.tx(('t2:fini', {'retn': retn}))
 
 class Daemon(s_base.Base):
 
@@ -388,54 +474,10 @@ class Daemon(s_base.Base):
                 logger.warning(f'{item!r} has no method: {methname}')
                 raise s_exc.NoSuchMeth(name=methname)
 
-            valu = meth(*args, **kwargs)
-
-            if s_coro.iscoro(valu):
-                valu = await valu
-
-            try:
-                if isinstance(valu, types.AsyncGeneratorType):
-                    desc = 'async generator'
-
-                    await link.tx(('t2:genr', {}))
-
-                    async for item in valu:
-                        await link.tx(('t2:yield', {'retn': (True, item)}))
-
-                    await link.tx(('t2:yield', {'retn': None}))
-                    return
-
-                elif isinstance(valu, types.GeneratorType):
-                    desc = 'generator'
-
-                    await link.tx(('t2:genr', {}))
-
-                    for item in valu:
-                        await link.tx(('t2:yield', {'retn': (True, item)}))
-
-                    await link.tx(('t2:yield', {'retn': None}))
-                    return
-
-            except Exception as e:
-                logger.exception(f'error during {desc} task: {methname}')
-                if not link.isfini:
-                    retn = s_common.retnexc(e)
-                    await link.tx(('t2:yield', {'retn': retn}))
-
-                return
-
-            if isinstance(valu, s_share.Share):
-                sess.onfini(valu)
-                info = s_reflect.getShareInfo(valu)
-                await link.tx(('t2:share', {'iden': valu.iden, 'sharinfo': info}))
-                return
-
-            await link.tx(('t2:fini', {'retn': (True, valu)}))
+            await t2call(link, meth, args, kwargs)
 
         except Exception as e:
-
             logger.exception('on t2:init: %r' % (mesg,))
-
             if not link.isfini:
                 retn = s_common.retnexc(e)
                 await link.tx(('t2:fini', {'retn': retn}))

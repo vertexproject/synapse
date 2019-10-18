@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import itertools
+import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -19,6 +20,7 @@ class View(s_base.Base):
     The view class is used to implement Copy-On-Write layers as well as
     interact with a subset of the layers configured in a Cortex.
     '''
+    snapctor = s_snap.Snap.anit
 
     async def __anit__(self, core, node):
         '''
@@ -33,31 +35,39 @@ class View(s_base.Base):
         self.core = core
 
         self.node = node
-        self.iden = node.name()
 
+        self.layers = []
         self.invalid = None
         self.parent = None  # The view this view was forked from
 
-        self.info = await node.dict()
+        # isolate some initialization to easily override for SpawnView.
+        await self._initViewInfo()
+        await self._initViewLayers()
+
+    async def _initViewInfo(self):
+
+        self.iden = self.node.name()
+
+        self.info = await self.node.dict()
         self.info.setdefault('owner', 'root')
         self.info.setdefault('layers', ())
 
         self.triggers = s_trigger.Triggers(self)
 
-        self.layers = []
+    async def _initViewLayers(self):
 
         for iden in self.info.get('layers'):
 
-            layr = core.layers.get(iden)
+            layr = self.core.layers.get(iden)
 
             if layr is None:
                 self.invalid = iden
                 logger.warning('view %r has missing layer %r' % (self.iden, iden))
                 continue
 
-            if not self.layers and layr.readonly:
-                self.invalid = iden
-                raise s_exc.ReadOnlyLayer(mesg=f'First layer {iden} must not be read-only')
+            #if not self.layers and layr.readonly:
+                #self.invalid = iden
+                #raise s_exc.ReadOnlyLayer(mesg=f'First layer {iden} must not be read-only')
 
             self.layers.append(layr)
 
@@ -188,7 +198,7 @@ class View(s_base.Base):
         if self.invalid is not None:
             raise s_exc.NoSuchLayer(iden=self.invalid)
 
-        return await s_snap.Snap.anit(self, user)
+        return await self.snapctor(self, user)
 
     def pack(self):
         return {
@@ -372,3 +382,57 @@ class View(s_base.Base):
             trigs.extend(inheritd)
 
         return trigs
+
+    async def getSpawnInfo(self):
+        return {
+            'iden': self.iden,
+            'layers': [l.getSpawnInfo() for l in self.layers]
+        }
+
+class SkelHiveNode(s_base.Base):
+
+    async def __anit__(self, path):
+        await s_base.Base.__anit__(self)
+        self.nodepath = path
+        self.nodename = path[-1]
+
+    def name(self):
+        return self.nodename
+
+    async def dict(self):
+        return {}
+
+    async def open(self, path):
+        full = self.nodepath + path
+        return await SkelHiveNode.anit(full)
+
+class SpawnView(View):
+    '''
+    A view for use by a spawned subprocess.
+    '''
+    snapctor = s_snap.SpawnSnap.anit
+
+    async def __anit__(self, core, info):
+        self.spawninfo = info
+        await View.__anit__(self, core, None)
+        self.readonly = True
+
+    async def _initViewInfo(self):
+        self.iden = self.spawninfo.get('iden')
+        self.info = self.spawninfo.get('info')
+
+    async def _initViewLayers(self):
+        import synapse.lib.lmdblayer as s_lmdblayer
+        for layrinfo in self.spawninfo.get('layers'):
+
+            iden = layrinfo.get('iden')
+            path = ('cortex', 'layers', iden)
+
+            node = await SkelHiveNode.anit(path)
+            layr = await s_lmdblayer.LmdbLayer.anit(self.core, node, readonly=True)
+
+            self.layers.append(layr)
+            self.onfini(layr.fini)
+
+async def fromspawn(core, info):
+    return await SpawnView.anit(core, info)
