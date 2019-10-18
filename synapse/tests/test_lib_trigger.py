@@ -19,11 +19,11 @@ class TrigTest(s_t_utils.SynTest):
                 rootiden = core.auth.getUserByName('root').iden
                 core.view.triggers.add('root', 'node:add', '[inet:user=1] | testcmd', info={'form': 'inet:ipv4'})
                 triggers = core.view.triggers.list()
-                self.eq(triggers[0][1].get('storm'), '[inet:user=1] | testcmd')
+                self.eq(triggers[0][1].storm, '[inet:user=1] | testcmd')
                 iden = triggers[0][0]
                 core.view.triggers.mod(iden, '[inet:user=2 .test:univ=4] | testcmd')
                 triggers = core.view.triggers.list()
-                self.eq(triggers[0][1].get('storm'), '[inet:user=2 .test:univ=4] | testcmd')
+                self.eq(triggers[0][1].storm, '[inet:user=2 .test:univ=4] | testcmd')
 
                 # Sad case
                 self.raises(s_exc.BadSyntax, core.view.triggers.mod, iden, ' | | badstorm ')
@@ -37,14 +37,14 @@ class TrigTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=fdir) as core:
                 triggers = core.view.triggers.list()
                 self.len(2, triggers)
-                self.eq(triggers[0][1].get('storm'), '[inet:user=2 .test:univ=4] | testcmd')
+                self.eq(triggers[0][1].storm, '[inet:user=2 .test:univ=4] | testcmd')
 
                 # Verify that the v0 trigger was migrated correctly
                 iden2, trig2 = triggers[1]
                 self.eq(iden2, 'ff' * 16)
-                self.eq(trig2['useriden'], rootiden)
-                self.eq(trig2['ver'], 1)
-                self.eq(trig2['storm'], 'testcmd')
+                self.eq(trig2.ver, 1)
+                self.eq(trig2.storm, 'testcmd')
+                self.eq(trig2.useriden, rootiden)
 
     async def test_trigger_basics(self):
 
@@ -201,7 +201,7 @@ class TrigTest(s_t_utils.SynTest):
                     await self.asyncraises(s_exc.AuthDeny, fred.updateTrigger(buid, '[ test:str=44 ]'))
 
                 # additional NoSuchIden failures
-                self.raises(s_exc.NoSuchIden, real.getTrigger, 'newp')
+                await self.asyncraises(s_exc.NoSuchIden, real.getTrigger('newp'))
                 await self.asyncraises(s_exc.NoSuchIden, real.delTrigger('newp'))
                 await self.asyncraises(s_exc.NoSuchIden, real.enableTrigger('newp'))
                 await self.asyncraises(s_exc.NoSuchIden, real.disableTrigger('newp'))
@@ -294,3 +294,16 @@ class TrigTest(s_t_utils.SynTest):
 
                 await newb.addRule((True, ('trigger', 'del')))
                 await proxy.delTrigger(trig1)
+
+    async def test_trigger_runts(self):
+
+        async with self.getTestCore() as core:
+
+            iden = await core.addTrigger('node:add', '[ test:int=1 ]', info={'form': 'test:str'})
+
+            nodes = await core.nodes('syn:trigger')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('doc'), '')
+
+            nodes = await core.nodes(f'syn:trigger={iden} [ :doc="hehe haha" ]')
+            self.eq(nodes[0].get('doc'), 'hehe haha')
