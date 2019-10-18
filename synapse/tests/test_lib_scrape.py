@@ -18,6 +18,10 @@ and BOB@WOOT.COM is another
 
     5.6.7.8:16
 
+    https://hehe.taxi/index.html
+
+    <https://hehe.taxi/mailbox>
+
 '''
 
 class ScrapeTest(s_t_utils.SynTest):
@@ -25,8 +29,8 @@ class ScrapeTest(s_t_utils.SynTest):
     def test_scrape(self):
 
         nodes = set(s_scrape.scrape(data0))
-
-        self.len(9, nodes)
+        print(nodes)
+        self.len(11, nodes)
         nodes.remove(('hash:md5', 'a' * 32))
         nodes.remove(('inet:ipv4', '1.2.3.4'))
         nodes.remove(('inet:ipv4', '5.6.7.8'))
@@ -36,6 +40,8 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:server', '5.6.7.8:16'))
         nodes.remove(('inet:email', 'BOB@WOOT.COM'))
         nodes.remove(('inet:email', 'visi@vertex.link'))
+        nodes.remove(('inet:url', 'https://hehe.taxi/index.html'))
+        nodes.remove(('inet:url', 'https://hehe.taxi/mailbox'))
         self.len(0, nodes)
 
         nodes = set(s_scrape.scrape(data0, 'inet:email'))
