@@ -29,7 +29,7 @@ class ScrapeTest(s_t_utils.SynTest):
     def test_scrape(self):
 
         nodes = set(s_scrape.scrape(data0))
-        print(nodes)
+
         self.len(11, nodes)
         nodes.remove(('hash:md5', 'a' * 32))
         nodes.remove(('inet:ipv4', '1.2.3.4'))
