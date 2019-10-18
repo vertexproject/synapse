@@ -228,8 +228,6 @@ class Node:
                 raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full, prop=name, valu=valu)
 
             await self.snap.core.runRuntPropSet(self, prop, valu)
-            self.props[prop.name] = valu
-
             return True
 
         curv = self.props.get(name)
