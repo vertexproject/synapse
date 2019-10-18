@@ -122,10 +122,10 @@ dmonwrap = (
 
 def spawnexec(linkinfo, todo):
     async def doit():
-        print('SPAWNEXEC LOOP: %r' % (asyncio.get_running_loop(),))
         s_glob.iAmLoop()
         link = await s_link.fromspawn(linkinfo)
         await t2call(link, *todo)
+        await link.fini()
     asyncio.run(doit())
 
 async def t2call(link, meth, args, kwargs):

@@ -508,6 +508,7 @@ class CoreApi(s_cell.CellApi):
             info = {
                 'view': await view.getSpawnInfo(),
                 'core': await self.cell.getSpawnInfo(),
+                'user': self.user.iden,
                 'storm': {
                     'opts': opts,
                     'query': text,

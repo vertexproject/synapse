@@ -12,6 +12,7 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
+import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
 import synapse.lib.node as s_node
 import synapse.lib.view as s_view
@@ -1239,6 +1240,14 @@ class SpawnCore(s_base.Base):
         self.prox = await s_telepath.openurl(f'cell://{self.dirn}')
         self.onfini(self.prox.fini)
 
+        self.hive = await s_hive.openurl(f'cell://{self.dirn}', name='*/hive')
+        self.onfini(self.hive.fini)
+
+        # TODO cortex configured for remote auth...
+        node = await self.hive.open(('auth',))
+        self.auth = await s_hive.HiveAuth.anit(node)
+        self.onfini(self.auth.fini)
+
     def getStormQuery(self, text):
         '''
         Parse storm query text and return a Query object.
@@ -1251,27 +1260,24 @@ class SpawnCore(s_base.Base):
     def _logStormQuery(self, *args, **kwargs):
         pass
 
-class SpawnUser:
-
-    def __init__(self):
-        self.iden = 'asdf'
-
-    def allowed(self, perm):
-        return False
-
 async def spawnstorm(spawninfo):
 
+    useriden = spawninfo.get('user')
+
     coreinfo = spawninfo.get('core')
-    userinfo = spawninfo.get('user')
     viewinfo = spawninfo.get('view')
     storminfo = spawninfo.get('storm')
 
     opts = storminfo.get('opts')
     text = storminfo.get('query')
 
-    user = SpawnUser()
-
     async with await SpawnCore.anit(coreinfo) as core:
+
+        user = core.auth.user(useriden)
+        if user is None:
+            raise s_exc.NoSuchUser(iden=useriden)
+
         async with await s_view.fromspawn(core, viewinfo) as view:
+
             async for mesg in view.streamstorm(text, opts=opts, user=user):
                 yield mesg

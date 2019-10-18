@@ -378,23 +378,6 @@ class View(s_base.Base):
             'layers': [l.getSpawnInfo() for l in self.layers]
         }
 
-class SkelHiveNode(s_base.Base):
-
-    async def __anit__(self, path):
-        await s_base.Base.__anit__(self)
-        self.nodepath = path
-        self.nodename = path[-1]
-
-    def name(self):
-        return self.nodename
-
-    async def dict(self):
-        return {}
-
-    async def open(self, path):
-        full = self.nodepath + path
-        return await SkelHiveNode.anit(full)
-
 class SpawnView(View):
     '''
     A view for use by a spawned subprocess.
@@ -411,13 +394,14 @@ class SpawnView(View):
         self.info = self.spawninfo.get('info')
 
     async def _initViewLayers(self):
+
         import synapse.lib.lmdblayer as s_lmdblayer
         for layrinfo in self.spawninfo.get('layers'):
 
             iden = layrinfo.get('iden')
             path = ('cortex', 'layers', iden)
 
-            node = await SkelHiveNode.anit(path)
+            node = await self.core.hive.open(path)
             layr = await s_lmdblayer.LmdbLayer.anit(self.core, node, readonly=True)
 
             self.layers.append(layr)
