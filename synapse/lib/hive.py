@@ -220,6 +220,9 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         return node.valu
 
+    async def exists(self, full):
+        return full in self.nodes
+
     def dir(self, full):
         '''
         List subnodes of the given Hive path.
@@ -310,9 +313,9 @@ class Hive(s_base.Base, s_telepath.Aware):
             step = node.kids.get(name)
             if step is None:
                 step = await self._initNodePath(node, path, None)
-                #print('STEP: %r %r' % (path, step))
+                # print('STEP: %r %r' % (path, step))
                 # hive add events alert the *parent* path of edits
-                #await node.fire('hive:add', path=path[:-1], name=name, valu=None)
+                # await node.fire('hive:add', path=path[:-1], name=name, valu=None)
 
             node = step
 

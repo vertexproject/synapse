@@ -446,6 +446,11 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         await self._initCellHttp()
 
+        # self.cellinfo, a HiveDict for general purpose persistent storage
+        node = await self.hive.open(('cellinfo', ))
+        self.cellinfo = await node.dict()
+        self.onfini(node)
+
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
 

@@ -143,7 +143,7 @@ class RemoteLayerConfigTest(s_t_utils.SynTest):
             rem1 = await core0.auth.addUser('remuser1')
 
             await rem1.setPasswd('beep')
-            await rem1.addRule((True, ('layer:lift', core0.iden)))
+            await rem1.addRule((True, ('layer:lift', core0.getLayer().iden)))
 
             # make a test:str node
             nodes = await core0.eval('[test:str=woot]').list()

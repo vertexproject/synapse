@@ -256,7 +256,7 @@ class View(s_base.Base):
         '''
         writlayr = await self.core.addLayer(**layrinfo)
 
-        viewiden = writlayr.iden
+        viewiden = s_common.guid()
         owner = layrinfo.get('owner', 'root')
         layeridens = [writlayr.iden] + [l.iden for l in self.layers]
 
