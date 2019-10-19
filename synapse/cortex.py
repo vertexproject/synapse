@@ -1221,7 +1221,7 @@ class Cortex(s_cell.Cell):
 
                         async def consume(x):
                             try:
-                                async for item in proxy.syncLayerSplices(layr.iden, x):
+                                async for item in proxy.syncLayerSplices(None, x):
                                     await q.put(item)
                             finally:
                                 await q.put(None)
@@ -1643,33 +1643,15 @@ class Cortex(s_cell.Cell):
             await self.cellinfo.set('defaultview', iden)
             self.view = view
 
-    async def _moveDict(self, oldpath, newpath):
-        '''
-        Move a dict-only hive node from old path to new path, doing nothing if old path doesn't exist
-
-        Returns:
-            True if the old path was present
-        '''
-        if not await self.hive.exists(oldpath):
-            return False
-
-        oldnode = await self.hive.open(oldpath)
-        oldinfo = await oldnode.dict()
-
-        newnode = await self.hive.open(newpath)
-        newinfo = await newnode.dict()
-
-        for name, valu in oldinfo.items():
-            await newinfo.set(name, valu)
-
-        await oldnode.pop(())
-        return True
-
     async def _migrateViewsLayers(self):
         '''
         Move directories and idens to current scheme where cortex, views, and layers all have unique idens
 
-        Note that this changes directories and hive data, not existing View or Layer objects
+        Note:
+            This changes directories and hive data, not existing View or Layer objects
+
+        TODO:  due to our migration policy, remove in 0.3.0
+
         '''
         # pre-hive -> hive layer directory migration first
         self._migrOrigLayer()
@@ -1685,25 +1667,21 @@ class Cortex(s_cell.Cell):
         oldviewiden = self.iden
         newviewiden = s_common.guid()
 
-        moved = await self._moveDict(('cortex', 'views', oldviewiden), ('cortex', 'views', newviewiden))
-        if moved:
-            logger.info('Migrated view from duplicate iden %s to new iden %s', oldviewiden, newviewiden)
-        else:
+        if not await self.hive.exists(('cortex', 'views', oldviewiden)):
             # No view info present; this is a fresh cortex
             return
 
+        await self.hive.rename(('cortex', 'views', oldviewiden), ('cortex', 'views', newviewiden))
+        logger.info('Migrated view from duplicate iden %s to new iden %s', oldviewiden, newviewiden)
+
         # Move view/layer metadata
-        moved = await self._moveDict(('cortex', 'layers', oldlayriden), ('cortex', 'layers', newlayriden))
-        if moved:
-            logger.info('Migrated layer from duplicate iden %s to new iden %s', oldlayriden, newlayriden)
+        await self.hive.rename(('cortex', 'layers', oldlayriden), ('cortex', 'layers', newlayriden))
+        logger.info('Migrated layer from duplicate iden %s to new iden %s', oldlayriden, newlayriden)
 
         # Move layer data
         oldpath = os.path.join(self.dirn, 'layers', oldlayriden)
         newpath = os.path.join(self.dirn, 'layers', newlayriden)
-        try:
-            os.rename(oldpath, newpath)
-        except OSError:
-            pass
+        os.rename(oldpath, newpath)
 
         # Replace all views' references to old layer iden with new layer iden
         node = await self.hive.open(('cortex', 'views'))
@@ -1784,6 +1762,11 @@ class Cortex(s_cell.Cell):
             Layer: A Layer object.
         '''
         if iden is None:
+            return self.view.layers[0]
+
+        # For backwards compatibility, resolve references to old layer iden == cortex.iden to the main layer
+        # TODO:  due to our migration policy, remove in 0.3.x
+        if iden == self.iden:
             return self.view.layers[0]
 
         return self.layers.get(iden)
@@ -1872,6 +1855,7 @@ class Cortex(s_cell.Cell):
             await self._layrFromNode(node)
 
     def _migrOrigLayer(self):
+        # TODO:  due to our migration policy, remove in 0.2.x
 
         oldpath = os.path.join(self.dirn, 'layers', '000-default')
         if not os.path.exists(oldpath):
