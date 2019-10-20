@@ -9,7 +9,6 @@ from unittest.mock import patch
 
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
-import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
 
 import synapse.tests.utils as s_t_utils

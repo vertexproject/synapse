@@ -793,6 +793,7 @@ class Cortex(s_cell.Cell):
         await self._migrateViewsLayers()
         await self._initCoreLayers()
         await self._initCoreViews()
+        await self._migrateLayerOffset()
         await self._checkLayerModels()
         await self._initCoreQueues()
 
@@ -1179,10 +1180,10 @@ class Cortex(s_cell.Cell):
 
     async def initCoreMirror(self, url):
         '''
-        Initialize this cortex as a down-stream mirror from a telepath url.
+        Initialize this cortex as a down-stream mirror from a telepath url, receiving splices from another cortex.
 
-        NOTE: This cortex *must* be initialized from a backup of the target
-              cortex!
+        Note:
+            This cortex *must* be initialized from a backup of the target cortex!
         '''
         self.schedCoro(self._initCoreMirror(url))
 
@@ -1213,7 +1214,7 @@ class Cortex(s_cell.Cell):
 
                     while not proxy.isfini:
 
-                        # gotta do this in the loop as welll...
+                        # gotta do this in the loop as well...
                         offs = await layr.getOffset(layr.iden)
 
                         # pump them into a queue so we can consume them in chunks
@@ -1692,6 +1693,26 @@ class Cortex(s_cell.Cell):
             await info.set('layers', newlayers)
 
         await self.cellinfo.set('defaultview', newviewiden)
+
+    async def _migrateLayerOffset(self):
+        '''
+        In case this is a downstream mirror, move the offsets for the old layr iden to the new layr iden
+
+        Precondition:
+            Layers and Views are initialized.  Mirror logic has not started
+
+        TODO:  due to our migration policy, remove in 0.3.0
+        '''
+        oldlayriden = self.iden
+        layr = self.getLayer()
+        newlayriden = layr.iden
+
+        offs = await layr.getOffset(oldlayriden)
+        if offs == 0:
+            return
+
+        await layr.setOffset(newlayriden, offs)
+        await layr.delOffset(oldlayriden)
 
     async def addView(self, iden, owner, layers):
 
