@@ -66,6 +66,11 @@ class Foo:
     def speed(self):
         return
 
+    async def sleepg(self, t=60):
+        yield ('init', {})
+        await asyncio.sleep(t)
+        yield ('fini', {})
+
     def genr(self):
         yield 10
         yield 20
@@ -846,3 +851,26 @@ class TeleTest(s_t_utils.SynTest):
             async with await s_telepath.Client.anit(url, conf=conf) as client:
                 await client.waitready()
                 self.true(client._t_proxy._link_poolsize, 2)
+
+    async def test_link_fini_breaking_tasks(self):
+        foo = Foo()
+
+        async with self.getTestDmon() as dmon:
+            dmon.share('foo', foo)
+            url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
+
+            # Validate the Proxy behavior then the client override
+            prox = await s_telepath.openurl(url)  # type: Foo
+
+            # Fire up an async generator which will yield a message then
+            # wait for a while
+            async for mesg in prox.sleepg(t=60):
+                self.eq(mesg, ('init', {}))
+                break
+
+            # Ensure that tearing down the client prompty tears down
+            # taskv2init coro due to the link being fini'd by the server.
+            with self.getAsyncLoggerStream('synapse.daemon',
+                                           'error during async generator task: sleepg') as stream:
+                await prox.fini()
+                self.true(await stream.wait(6))
