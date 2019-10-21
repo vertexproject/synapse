@@ -1713,7 +1713,6 @@ class Cortex(s_cell.Cell):
 
         TODO:  due to our migration policy, remove in 0.3.0
         '''
-        breakpoint()
         oldlayriden = self.iden
         layr = self.getLayer()
         newlayriden = layr.iden
