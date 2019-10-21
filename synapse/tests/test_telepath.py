@@ -859,7 +859,6 @@ class TeleTest(s_t_utils.SynTest):
             dmon.share('foo', foo)
             url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
 
-            # Validate the Proxy behavior then the client override
             prox = await s_telepath.openurl(url)  # type: Foo
 
             # Fire up an async generator which will yield a message then
