@@ -322,8 +322,8 @@ class View(s_base.Base):
         await self.core.fire('core:trigger:action', iden=iden, action='add')
         return iden
 
-    def getTrigger(self, iden):
-        return self.triggers.get(iden)
+    async def getTrigger(self, iden):
+        return await self.triggers.get(iden)
 
     async def delTrigger(self, iden):
         '''
@@ -353,22 +353,11 @@ class View(s_base.Base):
         self.triggers.disable(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='disable')
 
-    def listTriggers(self):
+    async def listTriggers(self):
         '''
         List all the triggers in the view.
         '''
-        trigs = []
-        for (iden, trig) in self.triggers.list():
-            useriden = trig['useriden']
-            user = self.core.auth.user(useriden)
-            trig['username'] = '<unknown>' if user is None else user.name
-            trig['inherited'] = False
-            trigs.append((iden, trig))
-
+        trigs = self.triggers.list()
         if self.parent is not None:
-            inheritd = self.parent.listTriggers()
-            for iden, trig in inheritd:
-                trig['inherited'] = True
-            trigs.extend(inheritd)
-
+            trigs.extend(await self.parent.listTriggers())
         return trigs

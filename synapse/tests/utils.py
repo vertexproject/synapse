@@ -338,8 +338,8 @@ class TestModule(s_module.CoreModule):
             for name, prop in form.props.items():
                 pfull = prop.full
                 self.core.addRuntLift(pfull, self._testRuntLift)
-        self.core.addRuntPropSet(self.model.prop('test:runt:lulz'), self._testRuntPropSetLulz)
-        self.core.addRuntPropDel(self.model.prop('test:runt:lulz'), self._testRuntPropDelLulz)
+        self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
+        self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
 
     async def _testModHealth(self, health):
         if self.healthy:
