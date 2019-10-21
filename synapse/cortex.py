@@ -506,8 +506,11 @@ class CoreApi(s_cell.CellApi):
         if opts is not None and opts.get('spawn'):
             opts.pop('spawn', None)
             info = {
-                'view': await view.getSpawnInfo(),
+                #'view': await view.getSpawnInfo(),
+
                 'core': await self.cell.getSpawnInfo(),
+
+                'view': view.iden,
                 'user': self.user.iden,
                 'storm': {
                     'opts': opts,
@@ -667,6 +670,12 @@ class CoreApi(s_cell.CellApi):
         await self._reqUserAllowed('model', 'tagprop', 'del')
         return await self.cell.delTagProp(name)
 
+    # APIs to support spawned cortexes
+    @s_cell.adminapi
+    async def runRuntLift(self, *args, **kwargs):
+        async for item in self.cell.runRuntLift(*args, **kwargs):
+            yield item
+
 class Cortex(s_cell.Cell):
     '''
     A Cortex implements the synapse hypergraph.
@@ -748,6 +757,11 @@ class Cortex(s_cell.Cell):
         self.layrctors = {}
         self.feedfuncs = {}
         self.stormcmds = {}
+
+        # differentiate these for spawning
+        self.storm_cmd_ctors = {}
+        self.storm_cmd_cdefs = {}
+
         self.stormvars = None  # type: s_hive.HiveDict
         self.stormrunts = {}
 
@@ -837,6 +851,14 @@ class Cortex(s_cell.Cell):
             'iden': self.iden,
             'dirn': self.dirn,
             # TODO make getModelDefs include extended model
+            'views': [v.getSpawnInfo() for v in self.views.values()],
+            'layers': [l.getSpawnInfo() for l in self.layers.values()],
+            'storm': {
+                'cmds': {
+                    'cdefs': list(self.storm_cmd_cdefs.items()),
+                    'ctors': list(self.storm_cmd_ctors.items()),
+                },
+            },
             'model': await self.getModelDefs(),
         }
 
@@ -939,6 +961,8 @@ class Cortex(s_cell.Cell):
 
         def ctor(argv):
             return s_storm.PureCmd(cdef, argv)
+
+        self.storm_cmd_cdefs[name] = cdef
 
         # TODO unify class ctors and func ctors vs briefs...
         def getCmdBrief():
@@ -1848,6 +1872,7 @@ class Cortex(s_cell.Cell):
             raise s_exc.BadCmdName(name=ctor.name)
 
         self.stormcmds[ctor.name] = ctor
+        self.storm_cmd_ctors[ctor.name] = ctor
 
     async def addStormDmon(self, ddef):
         '''

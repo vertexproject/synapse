@@ -65,10 +65,6 @@ class View(s_base.Base):
                 logger.warning('view %r has missing layer %r' % (self.iden, iden))
                 continue
 
-            #if not self.layers and layr.readonly:
-                #self.invalid = iden
-                #raise s_exc.ReadOnlyLayer(mesg=f'First layer {iden} must not be read-only')
-
             self.layers.append(layr)
 
     async def eval(self, text, opts=None, user=None):
@@ -372,40 +368,45 @@ class View(s_base.Base):
             trigs.extend(await self.parent.listTriggers())
         return trigs
 
-    async def getSpawnInfo(self):
+    def getSpawnInfo(self):
         return {
             'iden': self.iden,
-            'layers': [l.getSpawnInfo() for l in self.layers]
         }
 
-class SpawnView(View):
-    '''
-    A view for use by a spawned subprocess.
-    '''
-    snapctor = s_snap.SpawnSnap.anit
+#class SpawnView(View):
+    #'''
+    #A view for use by a spawned subprocess.
+    #'''
+    #snapctor = s_snap.SpawnSnap.anit
 
-    async def __anit__(self, core, info):
-        self.spawninfo = info
-        await View.__anit__(self, core, None)
-        self.readonly = True
+    #async def __anit__(self, core, info):
 
-    async def _initViewInfo(self):
-        self.iden = self.spawninfo.get('iden')
-        self.info = self.spawninfo.get('info')
+        #self.spawninfo = info
 
-    async def _initViewLayers(self):
+        #iden = info.get('iden')
+        #path = ('cortex', 'views', iden)
+        #node = await core.hive.open(path)
 
-        import synapse.lib.lmdblayer as s_lmdblayer
-        for layrinfo in self.spawninfo.get('layers'):
+        #await View.__anit__(self, core, node)
+        #self.readonly = True
 
-            iden = layrinfo.get('iden')
-            path = ('cortex', 'layers', iden)
+    #async def _initViewInfo(self):
+        #self.iden = self.spawninfo.get('iden')
+        #self.info = self.spawninfo.get('info')
 
-            node = await self.core.hive.open(path)
-            layr = await s_lmdblayer.LmdbLayer.anit(self.core, node, readonly=True)
+    #async def _initViewLayers(self):
 
-            self.layers.append(layr)
-            self.onfini(layr.fini)
+        #for layrinfo in self.spawninfo.get('layers'):
 
-async def fromspawn(core, info):
-    return await SpawnView.anit(core, info)
+            #iden = layrinfo.get('iden')
+            #path = ('cortex', 'layers', iden)
+
+            #ctorname = layrinfo.get('ctor')
+
+            #ctor = s_dyndeps.tryDynLocal(ctorname)
+
+            #node = await self.core.hive.open(path)
+            #layr = await ctor(self.core, node, readonly=True)
+
+            #self.layers.append(layr)
+            #self.onfini(layr.fini)

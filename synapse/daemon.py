@@ -196,7 +196,7 @@ async def t2call(link, meth, args, kwargs):
         linkinfo = link.getSpawnInfo()
         dmontodo = (spawnexec, (linkinfo, todo), {})
         await s_coro.spawn(dmontodo)
-        await link.fini()
+        #await link.fini()
         return
 
     except Exception as e:

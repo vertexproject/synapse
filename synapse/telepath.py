@@ -188,6 +188,9 @@ class GenrIter:
         self.proxy = proxy
         self.share = share
 
+    async def list(self):
+        return [x async for x in self]
+
     async def __aiter__(self):
 
         genr = await self.proxy.task(self.todo, name=self.share)

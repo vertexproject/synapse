@@ -50,7 +50,6 @@ class Snap(s_base.Base):
         self.strict = True
         self.elevated = False
         self.canceled = False
-        self.readonly = False   # used in multiprocessing / readonly
 
         self.core = view.core
         self.view = view
@@ -60,6 +59,9 @@ class Snap(s_base.Base):
         # it is optimal for a snap to have layers in "bottom up" order
         self.layers = list(reversed(view.layers))
         self.wlyr = self.layers[-1]
+
+        self.readonly = self.wlyr.readonly
+        #self.readonly = False   # used in multiprocessing / readonly
 
         # variables used by the storm runtime
         self.vars = {}

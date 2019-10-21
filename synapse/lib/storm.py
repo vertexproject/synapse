@@ -20,6 +20,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
+import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -1227,13 +1228,28 @@ class SpawnCore(s_base.Base):
         await s_base.Base.__anit__(self)
 
         self.conf = {}
+        self.views = {}
+        self.layers = {}
+        self.spawninfo = spawninfo
+
         self.iden = spawninfo.get('iden')
         self.dirn = spawninfo.get('dirn')
+
+        self.stormcmds = {}
+
+        for name, ctor in spawninfo['storm']['cmds']['ctors']:
+            self.stormcmds[name] = ctor
+
+        for name, cdef in spawninfo['storm']['cmds']['cdefs']:
+
+            def ctor(argv):
+                return PureCmd(cdef, argv)
+
+            self.stormcmds[name] = ctor
 
         self.boss = await s_boss.Boss.anit()
         self.onfini(self.boss.fini)
 
-        print('CORTEX AT: %r' % (self.dirn,))
         self.model = s_datamodel.Model()
         self.model.addDataModels(spawninfo.get('model'))
 
@@ -1248,6 +1264,37 @@ class SpawnCore(s_base.Base):
         self.auth = await s_hive.HiveAuth.anit(node)
         self.onfini(self.auth.fini)
 
+        for layrinfo in self.spawninfo.get('layers'):
+
+            iden = layrinfo.get('iden')
+            path = ('cortex', 'layers', iden)
+
+            ctorname = layrinfo.get('ctor')
+
+            ctor = s_dyndeps.tryDynLocal(ctorname)
+
+            node = await self.hive.open(path)
+            layr = await ctor(self, node, readonly=True)
+
+            self.onfini(layr)
+
+            self.layers[iden] = layr
+
+        for viewinfo in self.spawninfo.get('views'):
+
+            iden = viewinfo.get('iden')
+            path = ('cortex', 'views', iden)
+
+            node = await self.hive.open(path)
+            view = await s_view.View.anit(self, node)
+
+            self.onfini(view)
+
+            self.views[iden] = view
+
+        # initialize pass-through methods from the telepath proxy
+        self.runRuntLift = self.prox.runRuntLift
+
     def getStormQuery(self, text):
         '''
         Parse storm query text and return a Query object.
@@ -1260,12 +1307,15 @@ class SpawnCore(s_base.Base):
     def _logStormQuery(self, *args, **kwargs):
         pass
 
+    def getStormCmd(self, name):
+        return self.stormcmds.get(name)
+
 async def spawnstorm(spawninfo):
 
     useriden = spawninfo.get('user')
+    viewiden = spawninfo.get('view')
 
     coreinfo = spawninfo.get('core')
-    viewinfo = spawninfo.get('view')
     storminfo = spawninfo.get('storm')
 
     opts = storminfo.get('opts')
@@ -1277,7 +1327,9 @@ async def spawnstorm(spawninfo):
         if user is None:
             raise s_exc.NoSuchUser(iden=useriden)
 
-        async with await s_view.fromspawn(core, viewinfo) as view:
+        view = core.views.get(viewiden)
+        if view is None:
+            raise s_exc.NoSuchView(iden=viewiden)
 
-            async for mesg in view.streamstorm(text, opts=opts, user=user):
-                yield mesg
+        async for mesg in view.streamstorm(text, opts=opts, user=user):
+            yield mesg

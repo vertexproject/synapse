@@ -24,13 +24,15 @@ MAX_INDEX_LEN = 256
 # The layer map size can start much lower because the underlying slab auto-grows.
 LMDB_LAYER_DEFAULT_MAP_SIZE = 512 * s_const.mebibyte
 
+# for dyndeps
+async def ctor(*args, **kwargs):
+    return await LmdbLayer.anit(*args, **kwargs)
+
 class LmdbLayer(s_layer.Layer):
     '''
     A layer implements btree indexed storage for a cortex.
     '''
-    # TODO: metadata for layer contents (only specific type / tag)
-    ctorname = 'synapse.lib.lmdblayer.LmdbLayer.anit'
-
+    ctorname = 'synapse.lib.lmdblayer.ctor'
     confdefs = (  # type: ignore
         ('lmdb:mapsize', {'type': 'int', 'defval': LMDB_LAYER_DEFAULT_MAP_SIZE}),
         ('lmdb:maxsize', {'type': 'int', 'defval': None, 'doc': 'The largest the DB file will grow to'}),

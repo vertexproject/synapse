@@ -85,6 +85,7 @@ class Layer(s_base.Base):
     '''
     confdefs = ()
     readonly = False
+    ctorname = 'dyndep.path.goes.here'
 
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
@@ -149,7 +150,7 @@ class Layer(s_base.Base):
         return {
             'iden': self.iden,
             'dirn': self.dirn,
-            #'info': self.info,
+            'ctor': self.ctorname,
         }
 
     async def _onLayrFini(self):
