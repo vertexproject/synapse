@@ -33,6 +33,9 @@ class CellTest(s_t_utils.SynTest):
                 root = echo.auth.getUserByName('root')
                 await root.setPasswd('secretsauce')
 
+                self.eq('root', echo.getUserName(root.iden))
+                self.eq('<unknown>', echo.getUserName('derp'))
+
                 host, port = await echo.dmon.listen('tcp://127.0.0.1:0/')
 
                 url = f'tcp://127.0.0.1:{port}/echo00'

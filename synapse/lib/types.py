@@ -625,7 +625,7 @@ class Hex(Type):
         return self._normPyStr(s_common.ehex(valu))
 
     def indx(self, norm):
-        return s_common.uhex(norm)
+        return self._getIndxChop(s_common.uhex(norm))
 
 class IntBase(Type):
 

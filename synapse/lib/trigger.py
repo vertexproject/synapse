@@ -25,68 +25,6 @@ Conditions = set((
     'prop:set',
 ))
 
-@dataclasses.dataclass
-class Rule:
-    ver: int  # version: must be 1
-    cond: str  # condition from above list
-    useriden: str
-    storm: str  # storm query
-    viewiden: str # owning view
-    enabled: bool = True
-    form: Optional[str] = dataclasses.field(default=None) # form name
-    tag: Optional[str] = dataclasses.field(default=None) # tag name
-    prop: Optional[str] = dataclasses.field(default=None) # property name
-
-    def __post_init__(self):
-        if self.ver != 1:
-            raise s_exc.BadOptValu(mesg='Unexpected rule version')
-        if self.cond not in Conditions:
-            raise s_exc.BadOptValu(mesg='Invalid trigger condition')
-        if self.cond in ('node:add', 'node:del') and self.form is None:
-            raise s_exc.BadOptValu(mesg='form must be present for node:add or node:del')
-        if self.cond in ('node:add', 'node:del') and self.tag is not None:
-            raise s_exc.BadOptValu(mesg='tag must not be present for node:add or node:del')
-        if self.cond == 'prop:set' and (self.form is not None or self.tag is not None):
-            raise s_exc.BadOptValu(mesg='form and tag must not be present for prop:set')
-        if self.cond in ('tag:add', 'tag:del'):
-            if self.tag is None:
-                raise s_exc.BadOptValu(mesg='missing tag')
-            s_chop.validateTagMatch(self.tag)
-        if self.prop is not None and self.cond != 'prop:set':
-            raise s_exc.BadOptValu(mesg='prop parameter invalid')
-        if self.cond == 'prop:set' and self.prop is None:
-            raise s_exc.BadOptValu(mesg='missing prop parameter')
-
-    def en(self):
-        return s_msgpack.en(dataclasses.asdict(self))
-
-    async def execute(self, node, vars=None):
-        '''
-        Actually execute the query
-        '''
-        opts = {}
-
-        if not self.enabled:
-            return
-
-        if vars is not None:
-            opts['vars'] = vars
-
-        user = node.snap.core.auth.user(self.useriden)
-        if user is None:
-            logger.warning('Unknown user %s in stored trigger', self.useriden)
-            return
-
-        with s_provenance.claim('trig', cond=self.cond, form=self.form, tag=self.tag, prop=self.prop):
-
-            try:
-                await s_common.aspin(node.storm(self.storm, opts=opts, user=user))
-            except asyncio.CancelledError: # pragma: no cover
-                raise
-            except Exception:
-                logger.exception('Trigger encountered exception running storm query %s', self.storm)
-
-
 RecursionDepth = contextvars.ContextVar('RecursionDepth', default=0)
 
 class Triggers:
@@ -180,7 +118,7 @@ class Triggers:
                     await rule.execute(node, vars=vars)
 
     def _load_rule(self, iden, ver, cond, user, query, enabled, info):
-        rule = Rule(ver, cond, user, query, self.view.iden, enabled, **info)
+        rule = Rule(ver, cond, user, query, self.view.iden, enabled, triggers=self, iden=iden, **info)
 
         # Make sure the query parses
         self.view.core.getStormQuery(rule.storm)
@@ -221,7 +159,7 @@ class Triggers:
         raise s_exc.NoSuchCond(name=rule.cond)
 
     def list(self):
-        return [(iden, dataclasses.asdict(rule)) for iden, rule in self._rules.items()]
+        return list(self._rules.items())
 
     def mod(self, iden, query):
         rule = self._rules.get(iden)
@@ -301,11 +239,11 @@ class Triggers:
             globs.rem(rule.tag, rule)
             return
 
-    def get(self, iden):
+    async def get(self, iden):
         rule = self._rules.get(iden)
         if rule is None:
             raise s_exc.NoSuchIden(iden=iden)
-        return dataclasses.asdict(rule)
+        return rule
 
 class TriggerStorage:
 
@@ -372,3 +310,92 @@ class TriggerStorage:
 
     def delete(self, iden):
         self.core.slab.delete(iden.encode(), db=self.trigdb)
+
+@dataclasses.dataclass
+class Rule:
+    ver: int  # version: must be 1
+    cond: str  # condition from above list
+    useriden: str
+    storm: str  # storm query
+    viewiden: str # owning view
+    enabled: bool = True
+    doc: Optional[str] = dataclasses.field(default='') # documentation / description
+    form: Optional[str] = dataclasses.field(default=None) # form name
+    tag: Optional[str] = dataclasses.field(default=None) # tag name
+    prop: Optional[str] = dataclasses.field(default=None) # property name
+
+    iden: dataclasses.InitVar[str] = None
+    triggers: dataclasses.InitVar[Triggers] = None
+
+    def __post_init__(self, iden, triggers):
+
+        self.iden = iden
+        self.triggers = triggers
+
+        if self.ver != 1:
+            raise s_exc.BadOptValu(mesg='Unexpected rule version')
+        if self.cond not in Conditions:
+            raise s_exc.BadOptValu(mesg='Invalid trigger condition')
+        if self.cond in ('node:add', 'node:del') and self.form is None:
+            raise s_exc.BadOptValu(mesg='form must be present for node:add or node:del')
+        if self.cond in ('node:add', 'node:del') and self.tag is not None:
+            raise s_exc.BadOptValu(mesg='tag must not be present for node:add or node:del')
+        if self.cond == 'prop:set' and (self.form is not None or self.tag is not None):
+            raise s_exc.BadOptValu(mesg='form and tag must not be present for prop:set')
+        if self.cond in ('tag:add', 'tag:del'):
+            if self.tag is None:
+                raise s_exc.BadOptValu(mesg='missing tag')
+            s_chop.validateTagMatch(self.tag)
+        if self.prop is not None and self.cond != 'prop:set':
+            raise s_exc.BadOptValu(mesg='prop parameter invalid')
+        if self.cond == 'prop:set' and self.prop is None:
+            raise s_exc.BadOptValu(mesg='missing prop parameter')
+
+    def en(self):
+        return s_msgpack.en(dataclasses.asdict(self))
+
+    async def execute(self, node, vars=None):
+        '''
+        Actually execute the query
+        '''
+        opts = {}
+
+        if not self.enabled:
+            return
+
+        if vars is not None:
+            opts['vars'] = vars
+
+        user = node.snap.core.auth.user(self.useriden)
+        if user is None:
+            logger.warning('Unknown user %s in stored trigger', self.useriden)
+            return
+
+        with s_provenance.claim('trig', cond=self.cond, form=self.form, tag=self.tag, prop=self.prop):
+
+            try:
+                await s_common.aspin(node.storm(self.storm, opts=opts, user=user))
+            except asyncio.CancelledError: # pragma: no cover
+                raise
+            except Exception:
+                logger.exception('Trigger encountered exception running storm query %s', self.storm)
+
+    def pack(self):
+        return dataclasses.asdict(self)
+
+    async def reqAllowed(self, user, perm):
+        if not await self.allowed(user, perm):
+            raise s_exc.AuthDeny(perm=perm)
+
+    async def allowed(self, user, perm):
+        if user.iden == self.useriden:
+            return True
+
+        return user.allowed(perm)
+
+    async def setDoc(self, text):
+        self.doc = text
+        await self._save()
+
+    async def _save(self):
+        self.triggers.view.core.trigstor.stor(self.iden, self)

@@ -835,6 +835,54 @@ class LibGlobals(Lib):
                 ret.append((key, valu))
         return ret
 
+class LibVars(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'get': self._libVarsGet,
+            'set': self._libVarsSet,
+            'del': self._libVarsDel,
+            'list': self._libVarsList,
+        })
+
+    async def _libVarsGet(self, name, strip=False):
+        '''
+        Resolve a variable in a storm query
+        '''
+        if strip:
+            name = name.lstrip('$')
+
+        ret = self.runt.getVar(name)
+        if not ret:
+            mesg = f'No var with name: {name}'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name, strip=strip)
+
+        return ret
+
+    async def _libVarsSet(self, name, valu, strip=False):
+        '''
+        Set a variable in a storm query
+        '''
+        if strip:
+            name = name.lstrip('$')
+
+        self.runt.setVar(name, valu)
+
+    async def _libVarsDel(self, name, strip=False):
+        '''
+        Unset a variable in a storm query.
+        '''
+        if strip:
+            name = name.lstrip('$')
+
+        self.runt.vars.pop(name, None)
+
+    async def _libVarsList(self):
+        '''
+        List variables available in a storm query.
+        '''
+        return list(self.runt.vars.items())
+
 class Query(StormType):
     '''
     A storm primitive representing an embedded query.
@@ -983,6 +1031,10 @@ class Path(Prim):
         self.locls.update({
             'idens': self._methPathIdens,
             'trace': self._methPathTrace,
+            'getvar': self._methPathGetVar,
+            'setvar': self._methPathSetVar,
+            'delvar': self._methPathDelVar,
+            'listvars': self._methPathListVars,
         })
 
     async def _methPathIdens(self):
@@ -991,6 +1043,44 @@ class Path(Prim):
     async def _methPathTrace(self):
         trace = self.valu.trace()
         return Trace(trace)
+
+    async def _methPathGetVar(self, name, strip=False):
+        '''
+        Resolve a variable in the path of a storm query
+        '''
+        if strip:
+            name = name.lstrip('$')
+
+        ret = self.path.getVar(name)
+        if ret is s_common.novalu:
+            mesg = f'No var with name: {name}'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name, strip=strip)
+
+        return ret
+
+    async def _methPathSetVar(self, name, valu, strip=False):
+        '''
+        Set a variable in the path of a storm query
+        '''
+        if strip:
+            name = name.lstrip('$')
+
+        self.path.setVar(name, valu)
+
+    async def _methPathDelVar(self, name, strip=False):
+        '''
+        Unset a variable in the path of a storm query.
+        '''
+        if strip:
+            name = name.lstrip('$')
+
+        self.path.vars.pop(name, None)
+
+    async def _methPathListVars(self):
+        '''
+        List variables available in the path of a storm query.
+        '''
+        return list(self.path.vars.items())
 
 class Trace(Prim):
     '''

@@ -1284,7 +1284,8 @@ class PropPivotOut(PivotOper):
                 fname = prop.type.arraytype.name
                 if runt.snap.model.forms.get(fname) is None:
                     if not warned:
-                        await runt.snap.warn(f'The source property "{name}" array type "{fname}" is not a form. Cannot pivot.')
+                        await runt.snap.warn(
+                            f'The source property "{name}" array type "{fname}" is not a form. Cannot pivot.')
                         warned = True
                     continue
 
@@ -2387,7 +2388,9 @@ class EditPropSet(Edit):
             if prop is None:
                 raise s_exc.NoSuchProp(name=name, form=node.form.name)
 
-            runt.reqLayerAllowed(('prop:set', prop.full))
+            if not node.isrunt:
+                # runt node property permissions are enforced by the callback
+                runt.reqLayerAllowed(('prop:set', prop.full))
 
             try:
                 await node.set(name, valu)

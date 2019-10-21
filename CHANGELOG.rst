@@ -3,6 +3,44 @@ Synapse Changelog
 *****************
 
 
+v0.1.31 - 2019-11-04
+====================
+
+Feature
+--------
+- Allow a user to change their password via Telepath or HTTPAPI.
+  (`#1394 <https://github.com/vertexproject/synapse/pull/1394>`_)
+- Add the option to print rules related to a user's roles to the ``synapse.tools.cellauth`` tool.
+  (`#1390 <https://github.com/vertexproject/synapse/pull/1390>`_)
+- Add initial model for crypto currency support.
+  (`#1393 <https://github.com/vertexproject/synapse/pull/1393>`_)
+- Add initial model support for X509 certificates.
+  (`#1374 <https://github.com/vertexproject/synapse/pull/1374>`_)
+- Add ``:parent`` secondary property to ``geo:place`` form to allow for hierarchical ``geo:place`` node creation.
+  (`#1399 <https://github.com/vertexproject/synapse/pull/1399>`_)
+- Update Tornado to version 6.0.3.
+  (`#1391 <https://github.com/vertexproject/synapse/pull/1391>`_)
+- Add ``$lib.vars`` to StormTypes to provide a CRUD interface to Runtime variables.
+  (`#1396 <https://github.com/vertexproject/synapse/pull/1396>`_)
+- Add methods to the ``$path`` StormType to provide a CRUD interface to Path variables.
+  (`#1396 <https://github.com/vertexproject/synapse/pull/1396>`_)
+
+Bugfixes
+--------
+- ``HiveUser.setPasswd()`` now requires non-empty strings as input.
+  (`#1394 <https://github.com/vertexproject/synapse/pull/1394>`_)
+- Fix a bug related to the normalization of the ``inet:dns:name`` type which could introduce structural untruths into
+  the graph when normalizing a pure integer string as a DNS name.
+  (`#1395 <https://github.com/vertexproject/synapse/pull/1395>`_)
+- Fix a index generation bug related to Hex types not being properly truncated.
+  (`#1398 <https://github.com/vertexproject/synapse/pull/1398>`_)
+
+Improved Documentation
+----------------------
+- Update HTTP API documentation.
+  (`#1394 <https://github.com/vertexproject/synapse/pull/1394>`_)
+
+
 v0.1.30 - 2019-10-04
 ====================
 
