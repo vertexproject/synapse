@@ -50,9 +50,7 @@ class Beep:
 class Foo:
 
     def __init__(self):
-        self.genrwait = threading.Event()
-        self.retnwait = threading.Event()
-        self.genrexited = False
+        self.sleepg_evt = asyncio.Event()
 
     def bar(self, x, y):
         return x + y
@@ -67,8 +65,13 @@ class Foo:
         return
 
     async def sleepg(self, t=60):
+        self.sleepg_evt.clear()
         yield ('init', {})
-        await asyncio.sleep(t)
+        try:
+            await asyncio.sleep(t)
+        except asyncio.CancelledError:
+            self.sleepg_evt.set()
+            raise
         yield ('fini', {})
 
     def genr(self):
@@ -103,20 +106,6 @@ class Foo:
     def boom(self):
         return Boom()
 
-    def genrexit(self):
-
-        try:
-
-            yield 1000
-            self.genrwait.wait(timeout=2)
-            yield 2000
-            yield 3000
-
-        except GeneratorExit:
-            self.genrexited = True
-
-        finally:
-            self.retnwait.set()
 
 class TeleApi:
 
@@ -869,7 +858,14 @@ class TeleTest(s_t_utils.SynTest):
 
             # Ensure that tearing down the client prompty tears down
             # taskv2init coro due to the link being fini'd by the server.
+            # It is important that we validate these items BEFORE we
+            # teardwon the proxy, since the previous (<0.1.32) behaviour
+            # would hold onto cororoutines on the Daemon and not cancel
+            # the taskv2init coroutines until the Daemon was shut down.
             with self.getAsyncLoggerStream('synapse.daemon',
                                            'error during async generator task: sleepg') as stream:
                 await prox.fini()
+                # Ensure that the sleepg function got canceled.
+                self.true(await asyncio.wait_for(foo.sleepg_evt.wait(), timeout=6))
+                # Ensure we logged the cancellation.
                 self.true(await stream.wait(6))
