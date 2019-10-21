@@ -1464,7 +1464,7 @@ class Cortex(s_cell.Cell):
                         name, i, len(nameforms))
             count = 0
 
-            async for buid, valu in self.view.layers[0].iterFormRows(name):
+            async for buid, valu in self.getLayer().iterFormRows(name):
 
                 count += 1
                 tcount += 1
@@ -1703,6 +1703,7 @@ class Cortex(s_cell.Cell):
 
         TODO:  due to our migration policy, remove in 0.3.0
         '''
+        breakpoint()
         oldlayriden = self.iden
         layr = self.getLayer()
         newlayriden = layr.iden
@@ -2012,7 +2013,7 @@ class Cortex(s_cell.Cell):
                     offs = await core.getFeedOffs(iden)
 
                     while not self.isfini:
-                        layer = self.view.layers[0]
+                        layer = self.getLayer()
 
                         items = [x async for x in layer.splices(offs, 10000)]
 
@@ -2083,7 +2084,7 @@ class Cortex(s_cell.Cell):
 
                 async with await s_telepath.openurl(url) as tank:
 
-                    layer = self.view.layers[0]
+                    layer = self.getLayer()
 
                     iden = await tank.iden()
 
@@ -2120,7 +2121,7 @@ class Cortex(s_cell.Cell):
         # TODO:  what to do when write layer changes?
 
         # push splices for our main layer
-        layr = self.view.layers[0]
+        layr = self.getLayer()
 
         while not self.isfini:
             timeout = 2
@@ -2545,14 +2546,14 @@ class Cortex(s_cell.Cell):
             return await snap.addFeedData(name, items, seqn=seqn)
 
     async def getFeedOffs(self, iden):
-        return await self.view.layers[0].getOffset(iden)
+        return await self.getLayer().getOffset(iden)
 
     async def setFeedOffs(self, iden, offs):
         if offs < 0:
             mesg = 'Offset must be >= 0.'
             raise s_exc.BadConfValu(mesg=mesg, offs=offs, iden=iden)
 
-        return await self.view.layers[0].setOffset(iden, offs)
+        return await self.getLayer().setOffset(iden, offs)
 
     async def snap(self, user=None, view=None):
         '''
@@ -2684,7 +2685,7 @@ class Cortex(s_cell.Cell):
     async def stat(self):
         stats = {
             'iden': self.iden,
-            'layer': await self.view.layers[0].stat(),
+            'layer': await self.getLayer().stat(),
             'formcounts': self.counts,
         }
         return stats
