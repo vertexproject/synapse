@@ -206,6 +206,36 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.sorteq(nodes[0].tags, ('base', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
 
+    async def test_ast_var_in_deref(self):
+
+        async with self.getTestCore() as core:
+
+            q = '''
+            $d = $lib.dict(foo=bar, bar=baz, baz=biz)
+            for $key in $d {
+                [ test:str=$d.$key ]
+            }
+            '''
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+
+            q = '''
+            $bar = bar
+            $car = car
+
+            $f = var
+            $g = tar
+            $de = $lib.dict(car=$f, zar=$g)
+            $dd = $lib.dict(mar=$de)
+            $dc = $lib.dict(bar=$dd)
+            $db = $lib.dict(var=$dc)
+            $foo = $lib.dict(woot=$db)
+            [ test:str=$foo.woot.var.$bar.mar.$car ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('var', nodes[0].repr())
+
     async def test_ast_array_pivot(self):
 
         async with self.getTestCore() as core:

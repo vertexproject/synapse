@@ -28,6 +28,7 @@ terminalEnglishMap = {
     'COMMA': ',',
     'CONTINUE': 'continue',
     'CPPCOMMENT': 'c++ comment',
+    'DEREFMATCHNOSEP': 'key or variable',
     'DOLLAR': '$',
     'DOT': '.',
     'DOUBLEQUOTEDSTRING': 'double-quoted string',
@@ -198,6 +199,23 @@ class AstConverter(lark.Transformer):
         kids = [s_ast.VarValue(kids=[s_ast.Const(seg[1:])]) if seg[0] == '$' else s_ast.Const(seg)
                 for seg in segs]
         return kids
+
+    def varderef(self, kids):
+        assert kids
+        if not any(map(lambda v: '$' in v, kids[1:])):
+            newkids = self._convert_children(kids)
+            return s_ast.VarDeref(kids=newkids)
+        # build the tree from the leaf node up
+        oldkid = kids[0]
+        breakpoint()
+        for kid in kids[1:]:
+            if kid[0] == '$':
+                kid = s_ast.VarValue(kids=[s_ast.Const(kid[1:])])
+            else:
+                kid = s_ast.Const(kid)
+
+            oldkid = s_ast.VarDeref(kids=(oldkid, kid))
+        return oldkid
 
     def tagprop(self, kids):
         kids = self._convert_children(kids)
@@ -536,7 +554,7 @@ ruleClassMap = {
     'tagvalucond': s_ast.TagValuCond,
     'tagpropcond': s_ast.TagPropCond,
     'valuvar': s_ast.VarSetOper,
-    'varderef': s_ast.VarDeref,
+    # 'varderef': s_ast.VarDeref,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
     'univprop': s_ast.UnivProp

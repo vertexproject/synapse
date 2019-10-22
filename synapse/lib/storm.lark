@@ -166,12 +166,17 @@ NONQUOTEWORD: /[\w\-?][^ \t\n),=\]}|]*/
 // A value consisting of a name then 0 or more derefs and function calls
 _varvalu: "$" _varvaluatom
 
-_varvaluatom: varvalue | varderef | funccall
+_varvaluatom: varderef | varvalue | funccall
 varvalue: VARTOKN
 _varname: "$" VARTOKN
 VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
 
-varderef: _varvaluatom "." VARTOKN
+// Similar fashion to variables in tag matching
+varderef: _varvaluatom "." DEREFMATCHNOSEP DEREFMATCH*
+DEREFMATCH: ("." DEREFMATCHNOSEP)
+DEREFMATCHNOSEP: (_DEREFMATCHNOVAR | "$" VARTOKN)
+_DEREFMATCHNOVAR: /[\w*]+/
+
 funccall: _varvaluatom _callargs
 _callargs: "(" [_WS? (kwarg | _valu) (_WS? "," _WS? (kwarg | _valu))*] _WS? ["," _WS?] ")"
 kwarg: VARTOKN "=" _valu
