@@ -757,6 +757,8 @@ class Cortex(s_cell.Cell):
         self.axon = None  # type: s_axon.AxonApi
         self.axready = asyncio.Event()
 
+        self.view = None  # The default/main view
+
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
 
@@ -779,12 +781,13 @@ class Cortex(s_cell.Cell):
 
         # Initialize our storage and views
         await self._initCoreAxon()
+
+        await self._migrateViewsLayers()
         await self._initCoreLayers()
-        await self._checkLayerModels()
         await self._initCoreViews()
+        await self._migrateLayerOffset()
+        await self._checkLayerModels()
         await self._initCoreQueues()
-        # our "main" view has the same iden as we do
-        self.view = self.views.get(self.iden)
 
         self.provstor = await s_provenance.ProvStor.anit(self.dirn)
         self.onfini(self.provstor.fini)
@@ -1194,10 +1197,10 @@ class Cortex(s_cell.Cell):
 
     async def initCoreMirror(self, url):
         '''
-        Initialize this cortex as a down-stream mirror from a telepath url.
+        Initialize this cortex as a down-stream mirror from a telepath url, receiving splices from another cortex.
 
-        NOTE: This cortex *must* be initialized from a backup of the target
-              cortex!
+        Note:
+            This cortex *must* be initialized from a backup of the target cortex!
         '''
         self.schedCoro(self._initCoreMirror(url))
 
@@ -1228,7 +1231,7 @@ class Cortex(s_cell.Cell):
 
                     while not proxy.isfini:
 
-                        # gotta do this in the loop as welll...
+                        # gotta do this in the loop as well...
                         offs = await layr.getOffset(layr.iden)
 
                         # pump them into a queue so we can consume them in chunks
@@ -1236,7 +1239,7 @@ class Cortex(s_cell.Cell):
 
                         async def consume(x):
                             try:
-                                async for item in proxy.syncLayerSplices(layr.iden, x):
+                                async for item in proxy.syncLayerSplices(None, x):
                                     await q.put(item)
                             finally:
                                 await q.put(None)
@@ -1478,7 +1481,7 @@ class Cortex(s_cell.Cell):
                         name, i, len(nameforms))
             count = 0
 
-            async for buid, valu in self.view.layers[0].iterFormRows(name):
+            async for buid, valu in self.getLayer().iterFormRows(name):
 
                 count += 1
                 tcount += 1
@@ -1642,13 +1645,91 @@ class Cortex(s_cell.Cell):
 
     async def _initCoreViews(self):
 
+        defiden = self.cellinfo.get('defaultview')
+
         for iden, node in await self.hive.open(('cortex', 'views')):
             view = await s_view.View.anit(self, node)
             self.views[iden] = view
+            if iden == defiden:
+                self.view = view
 
-        # if we have no views, we are initializing.  add the main view.
-        if self.views.get(self.iden) is None:
-            await self.addView(self.iden, 'root', (self.iden,))
+        # if we have no views, we are initializing.  Add a default main view and layer.
+        if not self.views:
+            layr = await self.addLayer()
+            iden = s_common.guid()
+            view = await self.addView(iden, 'root', (layr.iden,))
+            await self.cellinfo.set('defaultview', iden)
+            self.view = view
+
+    async def _migrateViewsLayers(self):
+        '''
+        Move directories and idens to current scheme where cortex, views, and layers all have unique idens
+
+        Note:
+            This changes directories and hive data, not existing View or Layer objects
+
+        TODO:  due to our migration policy, remove in 0.3.0
+
+        '''
+        # pre-hive -> hive layer directory migration first
+        self._migrOrigLayer()
+
+        defiden = self.cellinfo.get('defaultview')
+        if defiden is not None:
+            # No need for migration; we're up-to-date
+            return
+
+        oldlayriden = self.iden
+        newlayriden = s_common.guid()
+
+        oldviewiden = self.iden
+        newviewiden = s_common.guid()
+
+        if not await self.hive.exists(('cortex', 'views', oldviewiden)):
+            # No view info present; this is a fresh cortex
+            return
+
+        await self.hive.rename(('cortex', 'views', oldviewiden), ('cortex', 'views', newviewiden))
+        logger.info('Migrated view from duplicate iden %s to new iden %s', oldviewiden, newviewiden)
+
+        # Move view/layer metadata
+        await self.hive.rename(('cortex', 'layers', oldlayriden), ('cortex', 'layers', newlayriden))
+        logger.info('Migrated layer from duplicate iden %s to new iden %s', oldlayriden, newlayriden)
+
+        # Move layer data
+        oldpath = os.path.join(self.dirn, 'layers', oldlayriden)
+        newpath = os.path.join(self.dirn, 'layers', newlayriden)
+        os.rename(oldpath, newpath)
+
+        # Replace all views' references to old layer iden with new layer iden
+        node = await self.hive.open(('cortex', 'views'))
+        for iden, viewnode in node:
+            info = await viewnode.dict()
+            layers = info.get('layers')
+            newlayers = [newlayriden if layr == oldlayriden else layr for layr in layers]
+            await info.set('layers', newlayers)
+
+        await self.cellinfo.set('defaultview', newviewiden)
+
+    async def _migrateLayerOffset(self):
+        '''
+        In case this is a downstream mirror, move the offsets for the old layr iden to the new layr iden
+
+        Precondition:
+            Layers and Views are initialized.  Mirror logic has not started
+
+        TODO:  due to our migration policy, remove in 0.3.0
+        '''
+        oldlayriden = self.iden
+        layr = self.getLayer()
+        newlayriden = layr.iden
+
+        offs = await layr.getOffset(oldlayriden)
+        if offs == 0:
+            return
+
+        await layr.setOffset(newlayriden, offs)
+        await layr.delOffset(oldlayriden)
 
     async def addView(self, iden, owner, layers):
 
@@ -1666,21 +1747,19 @@ class Cortex(s_cell.Cell):
     async def delView(self, iden):
         '''
         Delete a cortex view by iden.
+
+        Note:
+            This does not delete any of the view's layers
         '''
-        if iden == self.iden:
+        if iden == self.view.iden:
             raise s_exc.SynErr(mesg='cannot delete the main view')
 
         view = self.views.pop(iden, None)
         if view is None:
             raise s_exc.NoSuchView(iden=iden)
 
-        layeriden = view.iden if view.parent is not None and view.layers[0].iden == view.iden else None
-
         await self.hive.pop(('cortex', 'views', iden))
         await view.fini()
-
-        if layeriden is not None:
-            await self.delLayer(iden)
 
     async def delLayer(self, iden):
         layr = self.layers.get(iden, None)
@@ -1704,18 +1783,30 @@ class Cortex(s_cell.Cell):
             layers ([str]): A top-down list of of layer guids
             iden (str): The view iden (defaults to default view).
         '''
-        if iden is None:
-            iden = self.iden
-
-        view = self.views.get(iden)
+        view = self.getView(iden)
         if view is None:
             raise s_exc.NoSuchView(iden=iden)
 
         await view.setLayers(layers)
 
     def getLayer(self, iden=None):
+        '''
+        Get a Layer object.
+
+        Args:
+            iden (str): The layer iden to retrieve.
+
+        Returns:
+            Layer: A Layer object.
+        '''
         if iden is None:
-            iden = self.iden
+            return self.view.layers[0]
+
+        # For backwards compatibility, resolve references to old layer iden == cortex.iden to the main layer
+        # TODO:  due to our migration policy, remove in 0.3.x
+        if iden == self.iden:
+            return self.view.layers[0]
+
         return self.layers.get(iden)
 
     def getView(self, iden=None):
@@ -1729,7 +1820,8 @@ class Cortex(s_cell.Cell):
             View: A View object.
         '''
         if iden is None:
-            iden = self.iden
+            return self.view
+
         return self.views.get(iden)
 
     async def addLayer(self, **info):
@@ -1737,9 +1829,9 @@ class Cortex(s_cell.Cell):
         Add a Layer to the cortex.
 
         Args:
-            iden (str): optional iden. default: guid() )
-            type (str): optional type. default: lmdb )
-            owner (str): optional owner. default: root )
+            iden (str): optional iden. default: guid()
+            type (str): optional type. default: lmdb
+            owner (str): optional owner. default: root
             config (dict): type specific config options
         '''
         iden = info.pop('iden', None)
@@ -1800,13 +1892,8 @@ class Cortex(s_cell.Cell):
         for iden, node in node:
             await self._layrFromNode(node)
 
-        self._migrOrigLayer()
-
-        if self.layers.get(self.iden) is None:
-            # we have no layers.  initialize the default layer.
-            await self.addLayer(iden=self.iden)
-
     def _migrOrigLayer(self):
+        # TODO:  due to our migration policy, remove in 0.2.x
 
         oldpath = os.path.join(self.dirn, 'layers', '000-default')
         if not os.path.exists(oldpath):
@@ -1942,7 +2029,7 @@ class Cortex(s_cell.Cell):
                     offs = await core.getFeedOffs(iden)
 
                     while not self.isfini:
-                        layer = self.view.layers[0]
+                        layer = self.getLayer()
 
                         items = [x async for x in layer.splices(offs, 10000)]
 
@@ -2013,7 +2100,7 @@ class Cortex(s_cell.Cell):
 
                 async with await s_telepath.openurl(url) as tank:
 
-                    layer = self.view.layers[0]
+                    layer = self.getLayer()
 
                     iden = await tank.iden()
 
@@ -2050,7 +2137,7 @@ class Cortex(s_cell.Cell):
         # TODO:  what to do when write layer changes?
 
         # push splices for our main layer
-        layr = self.view.layers[0]
+        layr = self.getLayer()
 
         while not self.isfini:
             timeout = 2
@@ -2313,12 +2400,9 @@ class Cortex(s_cell.Cell):
             return self.view
 
         viewiden = opts.get('view')
-        if viewiden is None:
-            return self.view
-        else:
-            view = self.views.get(viewiden)
-            if view is None:
-                raise s_exc.NoSuchView(iden=viewiden)
+        view = self.getView(viewiden)
+        if view is None:
+            raise s_exc.NoSuchView(iden=viewiden)
 
         return view
 
@@ -2478,14 +2562,14 @@ class Cortex(s_cell.Cell):
             return await snap.addFeedData(name, items, seqn=seqn)
 
     async def getFeedOffs(self, iden):
-        return await self.view.layers[0].getOffset(iden)
+        return await self.getLayer().getOffset(iden)
 
     async def setFeedOffs(self, iden, offs):
         if offs < 0:
             mesg = 'Offset must be >= 0.'
             raise s_exc.BadConfValu(mesg=mesg, offs=offs, iden=iden)
 
-        return await self.view.layers[0].setOffset(iden, offs)
+        return await self.getLayer().setOffset(iden, offs)
 
     async def snap(self, user=None, view=None):
         '''
@@ -2617,7 +2701,7 @@ class Cortex(s_cell.Cell):
     async def stat(self):
         stats = {
             'iden': self.iden,
-            'layer': await self.view.layers[0].stat(),
+            'layer': await self.getLayer().stat(),
             'formcounts': self.counts,
         }
         return stats

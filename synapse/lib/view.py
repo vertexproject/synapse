@@ -266,7 +266,7 @@ class View(s_hive.AuthGater):
         writlayr = await self.core.addLayer(**layrinfo)
         self.onfini(writlayr)
 
-        viewiden = writlayr.iden
+        viewiden = s_common.guid()
         owner = layrinfo.get('owner', 'root')
         layeridens = [writlayr.iden] + [l.iden for l in self.layers]
 

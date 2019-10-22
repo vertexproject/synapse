@@ -9,6 +9,23 @@ from synapse.tests.utils import alist
 
 import synapse.lib.hive as s_hive
 
+tree0 = {
+    'kids': {
+        'hehe': {'value': 'haha'},
+        'hoho': {'value': 'huhu', 'kids': {
+            'foo': {'value': 99},
+        }},
+    }
+}
+
+tree1 = {
+    'kids': {
+        'hoho': {'value': 'huhu', 'kids': {
+            'foo': {'value': 99},
+        }}
+    }
+}
+
 class HiveTest(s_test.SynTest):
 
     async def test_hive_slab(self):
@@ -292,23 +309,6 @@ class HiveTest(s_test.SynTest):
 
     async def test_hive_saveload(self):
 
-        tree0 = {
-            'kids': {
-                'hehe': {'value': 'haha'},
-                'hoho': {'value': 'huhu', 'kids': {
-                    'foo': {'value': 99},
-                }},
-            }
-        }
-
-        tree1 = {
-            'kids': {
-                'hoho': {'value': 'huhu', 'kids': {
-                    'foo': {'value': 99},
-                }}
-            }
-        }
-
         async with self.getTestHive() as hive:
             await hive.loadHiveTree(tree0)
             self.eq('haha', await hive.get(('hehe',)))
@@ -454,3 +454,28 @@ class HiveTest(s_test.SynTest):
                     viewopts = {'view': view2.iden}
                     self.eq(2, await fredcore.count('test:int', opts=viewopts))
                     self.eq(1, await fredcore.count('test:int=11 [:loc=ru]', opts=viewopts))
+
+    async def test_hive_exists(self):
+        async with self.getTestHive() as hive:
+            await hive.loadHiveTree(tree0)
+            self.true(await hive.exists(('hoho', 'foo')))
+            self.false(await hive.exists(('hoho', 'food')))
+            self.false(await hive.exists(('newp', )))
+
+    async def test_hive_rename(self):
+        async with self.getTestHive() as hive:
+            await hive.loadHiveTree(tree0)
+            await self.asyncraises(s_exc.BadHivePath, hive.rename(('hehe', ), ('hoho', )))
+            await self.asyncraises(s_exc.BadHivePath, hive.rename(('newp', ), ('newp2', )))
+            await self.asyncraises(s_exc.BadHivePath, hive.rename(('hehe', ), ('hehe', 'foo')))
+
+            await hive.rename(('hehe', ), ('lolo', ))
+            self.eq('haha', await hive.get(('lolo', )))
+            self.false(await hive.exists(('hehe', )))
+
+            await hive.rename(('hoho', ), ('jojo', ))
+            self.false(await hive.exists(('hoho', )))
+            jojo = await hive.open(('jojo', ))
+            self.len(1, jojo.kids)
+            self.eq('huhu', jojo.valu)
+            self.eq(99, await hive.get(('jojo', 'foo')))
