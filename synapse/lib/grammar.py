@@ -28,6 +28,7 @@ terminalEnglishMap = {
     'COMMA': ',',
     'CONTINUE': 'continue',
     'CPPCOMMENT': 'c++ comment',
+    'DEREFMATCHNOSEP': 'key or variable',
     'DOLLAR': '$',
     'DOT': '.',
     'DOUBLEQUOTEDSTRING': 'double-quoted string',
@@ -198,6 +199,16 @@ class AstConverter(lark.Transformer):
         kids = [s_ast.VarValue(kids=[s_ast.Const(seg[1:])]) if seg[0] == '$' else s_ast.Const(seg)
                 for seg in segs]
         return kids
+
+    def varderef(self, kids):
+        assert kids and len(kids) == 2
+        newkid = kids[1]
+        if newkid[0] == '$':
+            tokencls = terminalClassMap.get(newkid.type, s_ast.Const)
+            newkid = s_ast.VarValue(kids=[tokencls(newkid[1:])])
+        else:
+            newkid = self._convert_child(kids[1])
+        return s_ast.VarDeref(kids=(kids[0], newkid))
 
     def tagprop(self, kids):
         kids = self._convert_children(kids)
@@ -458,6 +469,9 @@ def unescape(valu):
     assert isinstance(ret, str)
     return ret
 
+def massage_vartokn(x):
+    return s_ast.Const('' if not x else (x[1:-1] if x[0] == "'" else (unescape(x) if x[0] == '"' else x)))
+
 # For AstConverter, one-to-one replacements from lark to synapse AST
 terminalClassMap = {
     'ABSPROP': s_ast.AbsProp,
@@ -465,11 +479,12 @@ terminalClassMap = {
     'ALLTAGS': lambda _: s_ast.TagMatch(''),
     'BREAK': lambda _: s_ast.BreakOper(),
     'CONTINUE': lambda _: s_ast.ContinueOper(),
+    'DEREFMATCHNOSEP': massage_vartokn,
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),  # drop quotes and handle escape characters
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
-    'VARTOKN': lambda x: s_ast.Const('' if not x else (x[1:-1] if x[0] == "'" else (unescape(x) if x[0] == '"' else x)))
+    'VARTOKN': massage_vartokn,
 }
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
@@ -536,7 +551,6 @@ ruleClassMap = {
     'tagvalucond': s_ast.TagValuCond,
     'tagpropcond': s_ast.TagPropCond,
     'valuvar': s_ast.VarSetOper,
-    'varderef': s_ast.VarDeref,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
     'univprop': s_ast.UnivProp

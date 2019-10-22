@@ -534,6 +534,13 @@ _Queries = [
     '[ +#baz.faz:lol=20 ]',
     '#tag:somegeoloctypebecauseihatelife*near=($lat, $long)',
     '*$foo*near=20',
+    '[ test:str = $foo.woot.var.$bar.mar.$car ]',
+    'test:str = $foo.$\'space key\'.subkey',
+    '''
+    for $iterkey in $foo.$"bar key".$\'biz key\' {
+        inet:ipv4=$foo.$"bar key".$\'biz key\'.$iterkey
+    }
+    ''',
 ]
 
 # Generated with print_parse_list below
@@ -980,6 +987,9 @@ _ParseResults = [
     'Query: [EditTagPropSet: [TagProp: [Const: baz.faz, Const: lol], Const: =, Const: 20]]',
     'Query: [LiftTagProp: [TagProp: [Const: tag, Const: somegeoloctypebecauseihatelife], Const: near=, List: [VarValue: [Const: lat], VarValue: [Const: long]]]]',
     'Query: [LiftPropBy: [VarValue: [Const: foo], Const: near=, Const: 20]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, VarDeref: [VarDeref: [VarDeref: [VarDeref: [VarDeref: [VarValue: [Const: foo], Const: woot], Const: var], VarValue: [Const: bar]], Const: mar], VarValue: [Const: car]]]]',
+    'Query: [LiftPropBy: [Const: test:str, Const: =, VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: space key]], Const: subkey]]]',
+    'Query: [ForLoop: [Const: iterkey, VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: bar key]], VarValue: [Const: biz key]], SubQuery: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, VarDeref: [VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: bar key]], VarValue: [Const: biz key]], VarValue: [Const: iterkey]]]]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
