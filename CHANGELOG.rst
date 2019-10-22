@@ -3,7 +3,28 @@ Synapse Changelog
 *****************
 
 
-v0.1.31 - 2019-11-04
+v0.1.32 - 2019-10-22
+====================
+
+Feature
+--------
+- Add some asyncio friendly multiprocessing helpers for future use.
+  (`#1397 <https://github.com/vertexproject/synapse/pull/1397>`_)
+- Add initial support for ``syn:cron`` runtime only nodes to represent Cron tasks configured on a Cortex.
+  (`#1401 <https://github.com/vertexproject/synapse/pull/1401>`_)
+- Add a editable ``doc`` field on Cron tasks. This can be edited via Storm edit syntax on ``syn:cron:doc`` properties.
+  (`#1401 <https://github.com/vertexproject/synapse/pull/1401>`_)
+
+Bugfixes
+--------
+- Fix a Daemon issue where Link message coroutines were being scheduled on the Daemon, and not the Link object.  This
+  was preventing the proper cleanup of ``_onTaskV2Init`` coroutines for async generators when they were waiting for the
+  next item and the link had been fini'd.  Now, when a Link is fini'd, any free-running coroutines associated with
+  the a given Link will be cancelled.
+  (`#1404 <https://github.com/vertexproject/synapse/pull/1404>`_)
+
+
+v0.1.31 - 2019-10-11
 ====================
 
 Feature
