@@ -204,7 +204,6 @@ class AstConverter(lark.Transformer):
         if not any(map(lambda v: '$' in v, kids)):
             newkids = self._convert_children(kids)
             return s_ast.VarDeref(kids=newkids)
-        # build the tree from the leaf node up
         oldkid = kids[0]
         for kid in kids[1:]:
             if kid[0] == '$':
@@ -475,6 +474,9 @@ def unescape(valu):
     assert isinstance(ret, str)
     return ret
 
+def massage_vartokn(x):
+    return s_ast.Const('' if not x else (x[1:-1] if x[0] == "'" else (unescape(x) if x[0] == '"' else x)))
+
 # For AstConverter, one-to-one replacements from lark to synapse AST
 terminalClassMap = {
     'ABSPROP': s_ast.AbsProp,
@@ -482,12 +484,12 @@ terminalClassMap = {
     'ALLTAGS': lambda _: s_ast.TagMatch(''),
     'BREAK': lambda _: s_ast.BreakOper(),
     'CONTINUE': lambda _: s_ast.ContinueOper(),
+    'DEREFMATCHNOSEP': massage_vartokn,
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),  # drop quotes and handle escape characters
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
-    'VARTOKN': lambda x: s_ast.Const('' if not x else (x[1:-1] if x[0] == "'" else (unescape(x) if x[0] == '"' else x))),
-    'DEREFMATCHNOSEP': lambda x: s_ast.Const('' if not x else (x[1:-1] if x[0] == "'" else (unescape(x) if x[0] == '"' else x)))
+    'VARTOKN': massage_vartokn,
 }
 
 # For AstConverter, one-to-one replacements from lark to synapse AST

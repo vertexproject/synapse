@@ -270,6 +270,15 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('synapse', nodes[0].repr())
 
+            q = '''
+            $data = $lib.dict(foo=bar)
+            $key = nope
+            [test:str = $data.$key]
+            '''
+            mesgs = await s_test.alist(core.streamstorm(q))
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.eq(errs[0][0], 'BadPropValu')
+
     async def test_ast_array_pivot(self):
 
         async with self.getTestCore() as core:
