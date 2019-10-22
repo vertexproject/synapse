@@ -379,7 +379,7 @@ class View(s_hive.AuthGater):
 
         Note: this does not delete any layer storage.
         '''
-        await s_hive.AuthEntity.trash(self)
+        await s_hive.AuthGater.trash(self)
 
         for (iden, _) in self.triggers.list():
             self.triggers.delete(iden)

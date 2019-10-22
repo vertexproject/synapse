@@ -19,13 +19,13 @@ Manage permissions of users in a remote cell.
 outp = None
 
 denyallow = ['deny', 'allow']
-def reprrule(rule, authenti=None):
+def reprrule(rule, authgater=None):
     head = denyallow[rule[0]]
     text = '.'.join(rule[1])
-    if authenti is None:
+    if authgater is None:
         return f'{head}: {text}'
 
-    return f'{head}: {text} on {authenti}'
+    return f'{head}: {text} on {authgater}'
 
 async def printuser(user, details=False, cell=None):
 
@@ -50,9 +50,9 @@ async def printuser(user, details=False, cell=None):
         rrep = reprrule(rule)
         outp.printf(f'    {i} {rrep}')
 
-    for authenti, rules in user[1].get('entirules', {}).items():
+    for authgater, rules in user[1].get('gaterules', {}).items():
         for rule in rules:
-            rrep = reprrule(rule, authenti=authenti)
+            rrep = reprrule(rule, authgater=authgater)
             i += 1
             outp.printf(f'    {i} {rrep}')
 

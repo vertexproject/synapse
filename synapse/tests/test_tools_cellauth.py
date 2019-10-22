@@ -16,7 +16,7 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('the following arguments are required:')
 
             outp.clear()
-            argv = [coreurl, 'modify', '--adduser', 'foo', '--authentity', 'foo:bar']
+            argv = [coreurl, 'modify', '--adduser', 'foo', '--authgate', 'foo:bar']
             await s_cellauth.main(argv, outp)
             outp.expect('only valid with --addrule')
 
@@ -214,15 +214,8 @@ class CellAuthTest(s_t_utils.SynTest):
 
             outp.clear()
             viewiden = core.view.iden
-            authenti = f'View:{viewiden}'
-            argv = [coreurl, 'modify', '--addrule', nrule, name, '--authentity', authenti]
+            argv = [coreurl, 'modify', '--addrule', nrule, name, '--authgate', viewiden]
             await s_cellauth.main(argv, outp)
 
             outp.expect(f'adding rule to {name}: (False, [{rule!r}])')
-            outp.expect(f'deny: node:add on {authenti}')
-
-            outp.clear()
-            authenti = 'Not:a:authentity'
-            argv = [coreurl, 'modify', '--addrule', nrule, name, '--authentity', authenti]
-            await s_cellauth.main(argv, outp)
-            outp.expect('Invalid AuthEntity format')
+            outp.expect(f'deny: node:add on {viewiden}')

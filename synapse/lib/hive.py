@@ -943,7 +943,6 @@ class HiveAuth(s_base.Base):
         Return the HiveRuler (a HiveUser, HiveRole, GateUser, or GateRole) corresponding to the given name.
         If iden is not None, it returns the respective HiveRuler, creating one if not present.
         '''
-        breakpoint()
         if iden is not None:
             authgate = self.getAuthGate(iden)
             if authgate is None:
@@ -1049,7 +1048,7 @@ class AuthGate(s_base.Base):
                 logger.warning(f'Hive:  path {name} refers to unknown role')
                 continue
 
-            await self._addgateRole(role)
+            await self._addGateRole(role)
 
         async def fini():
             for gaterulr in itertools.chain(self.gateroles.values(), self.gateusers.values()):
@@ -1075,7 +1074,7 @@ class AuthGate(s_base.Base):
         # TODO:  make a storageless authgateuser to avoid filling hive with all these entries
         for user in self.auth._getUsersInRole(hiverole):
             if user.iden not in self.gateusers:
-                await self._addgateUser(user)
+                await self._addGateUser(user)
 
     async def getGateRole(self, hiverole):
         '''
@@ -1085,7 +1084,7 @@ class AuthGate(s_base.Base):
         if gaterole is not None:
             return gaterole
 
-        return await self._addgateRole(hiverole)
+        return await self._addGateRole(hiverole)
 
     async def _addGateUser(self, hiveuser):
         path = self.node.full + ('users', hiveuser.iden, )
@@ -1103,7 +1102,7 @@ class AuthGate(s_base.Base):
         if gateuser is not None:
             return gateuser
 
-        return await self._addgateUser(hiveuser)
+        return await self._addGateUser(hiveuser)
 
     async def delete(self):
         todelete = list(self.gateroles.values()) + list(self.gateusers.values())
@@ -1134,7 +1133,7 @@ class AuthGater(s_base.Base):
         Prerequisite: Object must be fini'd first
         '''
         assert self.isfini
-        await self.auth.delAuthGate(self.iden)
+        await self.authgate.auth.delAuthGate(self.iden)
 
     async def _reqUserAllowed(self, hiveuser, perm):
         '''
@@ -1243,15 +1242,22 @@ class GateRuler(HiveRuler):
     '''
     Store AuthGate-specific rules for a role or user
     '''
-    async def __anit__(self, node, gate, hiverulr):  # type: ignore
-        await HiveRuler.__anit__(self, node, gate.auth)
-        self.gate = gate
-        self.hiverulr = hiverulr  # an instance of HiveRole or HiveUser that has the rest of the metadata
-        gatename = gate.name
+    async def __anit__(self, node, authgate, hiverulr):  # type: ignore
+        '''
+        Args:
+            node (Node): HiveNode where this object persists
+            authgate (AuthGate): business logic object these rules apply to
+            hiverulr (HiveRulr): a reference to a HiveRole or HiveUser that has the rest of the metadata
+        '''
+        await HiveRuler.__anit__(self, node, authgate.auth)
+        self.gate = authgate
+        self.hiverulr = hiverulr
 
-        assert gatename not in hiverulr.gaterulr
+        gateiden = authgate.iden
+
+        assert gateiden not in hiverulr.gaterulr
         # Give the subject a reference to me for easy status querying
-        hiverulr.gaterulr[gatename] = self
+        hiverulr.gaterulr[gateiden] = self
         if node is not None:
             self.onfini(node)
         self._initFullRules()

@@ -352,7 +352,6 @@ class HiveTest(s_test.SynTest):
 
                 viewiden = view2.iden
                 layriden = view2.layers[0].iden
-                breakpoint()
 
                 # Add to a non-existent authgate
                 rule = (True, ('view', 'read', ))
@@ -420,7 +419,7 @@ class HiveTest(s_test.SynTest):
                 await view2.trash()
 
                 # Verify that trashing the view deletes the authgate from the hive
-                self.none(core.auth.getAuthgate(viewiden))
+                self.none(core.auth.getAuthGate(viewiden))
 
                 # Verify that trashing the write layer deletes the remaining rules and backing store
                 wlyr = view2.layers[0]

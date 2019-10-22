@@ -479,5 +479,5 @@ class Layer(s_hive.AuthGater):
         '''
         Delete the underlying storage
         '''
-        await s_hive.AuthEntity.trash(self)
+        await s_hive.AuthGater.trash(self)
         shutil.rmtree(self.dirn, ignore_errors=True)
