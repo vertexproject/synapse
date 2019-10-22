@@ -172,8 +172,7 @@ _varname: "$" VARTOKN
 VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
 
 // Similar fashion to variables in tag matching
-varderef: _varvaluatom "." DEREFMATCHNOSEP DEREFMATCH*
-DEREFMATCH: ("." DEREFMATCHNOSEP)
+varderef: _varvaluatom "." DEREFMATCHNOSEP
 DEREFMATCHNOSEP: (VARTOKN | "$" VARTOKN)
 
 funccall: _varvaluatom _callargs
