@@ -218,6 +218,10 @@ class AstTest(s_test.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(3, nodes)
+            reprs = list(map(lambda n: n.repr(), nodes))
+            self.isin('bar', reprs)
+            self.isin('baz', reprs)
+            self.isin('biz', reprs)
 
             q = '''
             $bar = bar
@@ -235,6 +239,36 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq('var', nodes[0].repr())
+
+            q = '''
+            $data = $lib.dict('vertex project'=foobar)
+            $"spaced key" = 'vertex project'
+            [ test:str = $data.$"spaced key" ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('foobar', nodes[0].repr())
+
+            q = '''
+            $data = $lib.dict('bar baz'=woot)
+            $'new key' = 'bar baz'
+            [ test:str = $data.$'new key' ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('woot', nodes[0].repr())
+
+            q = '''
+            $bottom = $lib.dict(lastkey=synapse)
+            $subdata = $lib.dict('bar baz'=$bottom)
+            $data = $lib.dict(vertex=$subdata)
+            $'new key' = 'bar baz'
+            $'over key' = vertex
+            [ test:str = $data.$'over key'.$"new key".lastkey ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('synapse', nodes[0].repr())
 
     async def test_ast_array_pivot(self):
 

@@ -201,17 +201,17 @@ class AstConverter(lark.Transformer):
         return kids
 
     def varderef(self, kids):
-        assert kids
-        if not any(map(lambda v: '$' in v, kids[1:])):
+        if not any(map(lambda v: '$' in v, kids)):
             newkids = self._convert_children(kids)
             return s_ast.VarDeref(kids=newkids)
         # build the tree from the leaf node up
         oldkid = kids[0]
         for kid in kids[1:]:
             if kid[0] == '$':
-                kid = s_ast.VarValue(kids=[s_ast.Const(kid[1:])])
+                tokencls = terminalClassMap.get(kid.type, s_ast.Const)
+                kid = s_ast.VarValue(kids=[tokencls(kid[1:])])
             else:
-                kid = s_ast.Const(kid)
+                kid = self._convert_child(kid)
 
             oldkid = s_ast.VarDeref(kids=(oldkid, kid))
         return oldkid
@@ -486,7 +486,8 @@ terminalClassMap = {
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
-    'VARTOKN': lambda x: s_ast.Const('' if not x else (x[1:-1] if x[0] == "'" else (unescape(x) if x[0] == '"' else x)))
+    'VARTOKN': lambda x: s_ast.Const('' if not x else (x[1:-1] if x[0] == "'" else (unescape(x) if x[0] == '"' else x))),
+    'DEREFMATCHNOSEP': lambda x: s_ast.Const('' if not x else (x[1:-1] if x[0] == "'" else (unescape(x) if x[0] == '"' else x)))
 }
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
@@ -553,7 +554,6 @@ ruleClassMap = {
     'tagvalucond': s_ast.TagValuCond,
     'tagpropcond': s_ast.TagPropCond,
     'valuvar': s_ast.VarSetOper,
-    # 'varderef': s_ast.VarDeref,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
     'univprop': s_ast.UnivProp
