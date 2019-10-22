@@ -207,7 +207,6 @@ class AstConverter(lark.Transformer):
             return s_ast.VarDeref(kids=newkids)
         # build the tree from the leaf node up
         oldkid = kids[0]
-        breakpoint()
         for kid in kids[1:]:
             if kid[0] == '$':
                 kid = s_ast.VarValue(kids=[s_ast.Const(kid[1:])])
