@@ -224,6 +224,15 @@ class AstTest(s_test.SynTest):
             self.isin('biz', reprs)
 
             q = '''
+            $data = $lib.dict(foo=$lib.dict(bar=$lib.dict(woot=final)))
+            $varkey=woot
+            [ test:str=$data.foo.bar.$varkey ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('final', nodes[0].repr())
+
+            q = '''
             $bar = bar
             $car = car
 
@@ -252,7 +261,7 @@ class AstTest(s_test.SynTest):
             q = '''
             $data = $lib.dict('bar baz'=woot)
             $'new key' = 'bar baz'
-            [ test:str = $data.$'new key' ]
+            [ test:str=$data.$'new key' ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -264,7 +273,7 @@ class AstTest(s_test.SynTest):
             $data = $lib.dict(vertex=$subdata)
             $'new key' = 'bar baz'
             $'over key' = vertex
-            [ test:str = $data.$'over key'.$"new key".lastkey ]
+            [ test:str=$data.$'over key'.$"new key".lastkey ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -273,7 +282,7 @@ class AstTest(s_test.SynTest):
             q = '''
             $data = $lib.dict(foo=bar)
             $key = nope
-            [test:str = $data.$key]
+            [ test:str=$data.$key ]
             '''
             mesgs = await s_test.alist(core.streamstorm(q))
             errs = [m[1] for m in mesgs if m[0] == 'err']

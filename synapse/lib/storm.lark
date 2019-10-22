@@ -166,7 +166,7 @@ NONQUOTEWORD: /[\w\-?][^ \t\n),=\]}|]*/
 // A value consisting of a name then 0 or more derefs and function calls
 _varvalu: "$" _varvaluatom
 
-_varvaluatom: varvalue |varderef | funccall
+_varvaluatom: varvalue | varderef | funccall
 varvalue: VARTOKN
 _varname: "$" VARTOKN
 VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING

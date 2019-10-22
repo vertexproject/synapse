@@ -201,19 +201,15 @@ class AstConverter(lark.Transformer):
         return kids
 
     def varderef(self, kids):
+        assert kids and len(kids) == 2
         if not any(map(lambda v: '$' in v, kids)):
             newkids = self._convert_children(kids)
             return s_ast.VarDeref(kids=newkids)
-        oldkid = kids[0]
-        for kid in kids[1:]:
-            if kid[0] == '$':
-                tokencls = terminalClassMap.get(kid.type, s_ast.Const)
-                kid = s_ast.VarValue(kids=[tokencls(kid[1:])])
-            else:
-                kid = self._convert_child(kid)
-
-            oldkid = s_ast.VarDeref(kids=(oldkid, kid))
-        return oldkid
+        newkid = kids[1]
+        if newkid[0] == '$':
+            tokencls = terminalClassMap.get(newkid.type, s_ast.Const)
+            newkid = s_ast.VarValue(kids=[tokencls(newkid[1:])])
+        return s_ast.VarDeref(kids=(kids[0], newkid))
 
     def tagprop(self, kids):
         kids = self._convert_children(kids)
