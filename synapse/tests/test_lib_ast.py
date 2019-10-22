@@ -218,10 +218,8 @@ class AstTest(s_test.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(3, nodes)
-            reprs = list(map(lambda n: n.repr(), nodes))
-            self.isin('bar', reprs)
-            self.isin('baz', reprs)
-            self.isin('biz', reprs)
+            reprs = set(map(lambda n: n.repr(), nodes))
+            self.eq(set(['bar', 'baz', 'biz']), reprs)
 
             q = '''
             $data = $lib.dict(foo=$lib.dict(bar=$lib.dict(woot=final)))
