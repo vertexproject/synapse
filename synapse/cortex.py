@@ -822,6 +822,16 @@ class Cortex(s_cell.Cell):
             await trig.reqAllowed(node.snap.user, ('trigger', 'set', 'doc'))
             await trig.setDoc(valu)
             node.props[prop.name] = valu
+            await self.fire('core:trigger:action', iden=iden, action='mod')
+
+        async def onSetTrigName(node, prop, valu):
+            valu = str(valu)
+            iden = node.ndef[1]
+            trig = await node.snap.view.triggers.get(iden)
+            await trig.reqAllowed(node.snap.user, ('trigger', 'set', 'name'))
+            await trig.setName(valu)
+            node.props[prop.name] = valu
+            await self.fire('core:trigger:action', iden=iden, action='mod')
 
         async def onSetCronDoc(node, prop, valu):
             valu = str(valu)
@@ -831,10 +841,22 @@ class Cortex(s_cell.Cell):
             await appt.setDoc(valu)
             node.props[prop.name] = valu
 
+        async def onSetCronName(node, prop, valu):
+            valu = str(valu)
+            iden = node.ndef[1]
+            appt = await self.agenda.get(iden)
+            await appt.reqAllowed(node.snap.user, ('cron', 'set', 'name'))
+            await appt.setName(valu)
+            node.props[prop.name] = valu
+
+        # TODO runt node lifting needs to become per view
         self.addRuntLift('syn:cron', self.agenda.onLiftRunts)
 
         self.addRuntPropSet('syn:cron:doc', onSetCronDoc)
+        self.addRuntPropSet('syn:cron:name', onSetCronName)
+
         self.addRuntPropSet('syn:trigger:doc', onSetTrigDoc)
+        self.addRuntPropSet('syn:trigger:name', onSetTrigName)
 
     async def _initStormDmons(self):
 

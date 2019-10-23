@@ -133,6 +133,7 @@ class SynModule(s_module.CoreModule):
 
             props = {'.created': now,
                      'doc': trig.doc,
+                     'name': trig.name,
                      'vers': trig.ver,
                      'cond': trig.cond,
                      'storm': trig.storm,
@@ -373,6 +374,9 @@ class SynModule(s_module.CoreModule):
                     ('doc', ('str', {}), {
                         'doc': 'A documentation string describing the trigger.',
                     }),
+                    ('name', ('str', {}), {
+                        'doc': 'A user friendly name/alias for the trigger.',
+                    }),
                     ('cond', ('str', {'strip': True, 'lower': True}), {
                         'doc': 'The trigger condition', 'ro': True,
                     }),
@@ -399,6 +403,9 @@ class SynModule(s_module.CoreModule):
 
                     ('doc', ('str', {}), {
                         'doc': 'A description of the cron job.'}),
+
+                    ('name', ('str', {}), {
+                        'doc': 'A user friendly name/alias for the cron job.'}),
 
                     ('storm', ('str', {}), {
                         'ro': True,
