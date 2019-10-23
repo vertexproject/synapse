@@ -35,7 +35,7 @@ _editoper: editnodeadd
             | editpropdel | editunivdel | edittagpropdel | edittagdel
 
 ///Parenthesis in an edit block don't have incoming nodes
-editparens: "(" _WS? editnodeadd _WS? _editoper? (_WS _editoper)* ")"
+editparens: "(" _WS? editnodeadd (_WS? _editoper)* _WS? ")"
 edittagadd: "+" tagname [_WS? "=" _WS? _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname
@@ -171,7 +171,10 @@ varvalue: VARTOKN
 _varname: "$" VARTOKN
 VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
 
-varderef: _varvaluatom "." VARTOKN
+// Similar fashion to variables in tag matching
+varderef: _varvaluatom "." DEREFMATCHNOSEP
+DEREFMATCHNOSEP: (VARTOKN | "$" VARTOKN)
+
 funccall: _varvaluatom _callargs
 _callargs: "(" [_WS? (kwarg | _valu) (_WS? "," _WS? (kwarg | _valu))*] _WS? ["," _WS?] ")"
 kwarg: VARTOKN "=" _valu

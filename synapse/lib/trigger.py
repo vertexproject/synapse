@@ -320,6 +320,7 @@ class Rule:
     viewiden: str # owning view
     enabled: bool = True
     doc: Optional[str] = dataclasses.field(default='') # documentation / description
+    name: Optional[str] = dataclasses.field(default='') # humon friendly name
     form: Optional[str] = dataclasses.field(default=None) # form name
     tag: Optional[str] = dataclasses.field(default=None) # tag name
     prop: Optional[str] = dataclasses.field(default=None) # property name
@@ -395,6 +396,10 @@ class Rule:
 
     async def setDoc(self, text):
         self.doc = text
+        await self._save()
+
+    async def setName(self, text):
+        self.name = text
         await self._save()
 
     async def _save(self):

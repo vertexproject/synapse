@@ -305,5 +305,10 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('doc'), '')
 
-            nodes = await core.nodes(f'syn:trigger={iden} [ :doc="hehe haha" ]')
+            nodes = await core.nodes(f'syn:trigger={iden} [ :doc="hehe haha" :name=visitrig ]')
             self.eq(nodes[0].get('doc'), 'hehe haha')
+            self.eq(nodes[0].get('name'), 'visitrig')
+
+            nodes = await core.nodes(f'syn:trigger={iden}')
+            self.eq(nodes[0].get('doc'), 'hehe haha')
+            self.eq(nodes[0].get('name'), 'visitrig')

@@ -19,6 +19,7 @@ TerminalPygMap = {
     'COMMA': p_t.Punctuation,
     'CONTINUE': p_t.Keyword,
     'CPPCOMMENT': p_t.Comment,
+    'DEREFMATCHNOSEP': p_t.Name,
     'DOLLAR': p_t.Punctuation,
     'DOT': p_t.Punctuation,
     'DOUBLEQUOTEDSTRING': p_t.Literal.String,

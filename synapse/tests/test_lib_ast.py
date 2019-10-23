@@ -206,6 +206,86 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.sorteq(nodes[0].tags, ('base', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
 
+    async def test_ast_var_in_deref(self):
+
+        async with self.getTestCore() as core:
+
+            q = '''
+            $d = $lib.dict(foo=bar, bar=baz, baz=biz)
+            for $key in $d {
+                [ test:str=$d.$key ]
+            }
+            '''
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+            reprs = set(map(lambda n: n.repr(), nodes))
+            self.eq(set(['bar', 'baz', 'biz']), reprs)
+
+            q = '''
+            $data = $lib.dict(foo=$lib.dict(bar=$lib.dict(woot=final)))
+            $varkey=woot
+            [ test:str=$data.foo.bar.$varkey ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('final', nodes[0].repr())
+
+            q = '''
+            $bar = bar
+            $car = car
+
+            $f = var
+            $g = tar
+            $de = $lib.dict(car=$f, zar=$g)
+            $dd = $lib.dict(mar=$de)
+            $dc = $lib.dict(bar=$dd)
+            $db = $lib.dict(var=$dc)
+            $foo = $lib.dict(woot=$db)
+            [ test:str=$foo.woot.var.$bar.mar.$car ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('var', nodes[0].repr())
+
+            q = '''
+            $data = $lib.dict('vertex project'=foobar)
+            $"spaced key" = 'vertex project'
+            [ test:str = $data.$"spaced key" ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('foobar', nodes[0].repr())
+
+            q = '''
+            $data = $lib.dict('bar baz'=woot)
+            $'new key' = 'bar baz'
+            [ test:str=$data.$'new key' ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('woot', nodes[0].repr())
+
+            q = '''
+            $bottom = $lib.dict(lastkey=synapse)
+            $subdata = $lib.dict('bar baz'=$bottom)
+            $data = $lib.dict(vertex=$subdata)
+            $'new key' = 'bar baz'
+            $'over key' = vertex
+            [ test:str=$data.$'over key'.$"new key".lastkey ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('synapse', nodes[0].repr())
+
+            q = '''
+            $data = $lib.dict(foo=bar)
+            $key = nope
+            [ test:str=$data.$key ]
+            '''
+            mesgs = await s_test.alist(core.streamstorm(q))
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.eq(errs[0][0], 'BadPropValu')
+
     async def test_ast_array_pivot(self):
 
         async with self.getTestCore() as core:

@@ -242,6 +242,7 @@ class _Appt:
     '''
     def __init__(self, stor, iden, recur, indx, query, useriden, recs, nexttime=None):
         self.doc = ''
+        self.name = ''
         self.stor = stor
         self.iden = iden
         self.recur = recur # does this appointment repeat
@@ -274,6 +275,7 @@ class _Appt:
         return buid, (
             ('*syn:cron', self.iden),
             ('doc', self.doc),
+            ('name', self.name),
             ('storm', self.query),
         )
 
@@ -289,6 +291,7 @@ class _Appt:
         return {
             'ver': 1,
             'doc': self.doc,
+            'name': self.name,
             'enabled': self.enabled,
             'recur': self.recur,
             'iden': self.iden,
@@ -311,6 +314,7 @@ class _Appt:
         recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
         appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['useriden'], recs, val['nexttime'])
         appt.doc = val.get('doc', '')
+        appt.name = val.get('name', '')
         appt.startcount = val['startcount']
         appt.laststarttime = val['laststarttime']
         appt.lastfinishtime = val['lastfinishtime']
@@ -373,6 +377,10 @@ class _Appt:
         Set the doc field of an appointment.
         '''
         self.doc = text
+        await self._save()
+
+    async def setName(self, text):
+        self.name = text
         await self._save()
 
     async def _save(self):
