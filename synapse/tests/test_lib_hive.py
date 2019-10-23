@@ -80,7 +80,18 @@ class HiveTest(s_test.SynTest):
 
                 self.none(await hive.get(('foo', 'bar', 'lulz')))
 
-                path = ('foo', 'bar')
+                oneditcount = 0
+
+                def onedit(valu):
+                    nonlocal oneditcount
+                    oneditcount += 1
+
+                hive.onedit(('baz', 'faz'), onedit)
+
+                await hive.set(('baz', ), 400)
+                self.eq(0, oneditcount)
+                await hive.set(('baz', 'faz'), 401)
+                self.eq(1, oneditcount)
 
     async def test_hive_telepath(self):
 
@@ -178,8 +189,6 @@ class HiveTest(s_test.SynTest):
 
                 await role.addRule((True, ('baz', 'faz')))
 
-                self.len(0, user.permcache)
-
                 self.true(user.allowed(('baz', 'faz'), elev=False))
                 self.true(user.allowed(('foo', 'bar'), elev=False))
 
@@ -212,7 +221,7 @@ class HiveTest(s_test.SynTest):
                 await self.asyncraises(s_exc.NoSuchRole, user.revoke('accountants'))
 
                 await user.revoke('ninjas')
-                self.false(user.allowed(('baz', 'faz'), elev=False))
+                self.none(user.allowed(('baz', 'faz'), elev=False))
 
                 await user.grant('ninjas')
                 self.true(user.allowed(('baz', 'faz'), elev=False))

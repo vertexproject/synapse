@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import itertools
 import collections
 
 import synapse.exc as s_exc
@@ -697,7 +696,7 @@ class HiveDict(s_base.Base):
     def get(self, name, onedit=None, default=None):
 
         # use hive.onedit() here to register for
-        # paths which potgateally dont exist yet
+        # paths which potentially dont exist yet
         if onedit is not None:
             full = self.node.full + (name,)
             self.hive.onedit(full, onedit, base=self)
@@ -741,8 +740,8 @@ class HiveDict(s_base.Base):
 # FIXME: move to separate file
 class HiveAuth(s_base.Base):
     '''
-    HiveAuth is a user authgatecation and authorization stored in a Hive.  Users
-    correspond to separate logins with different passwords and potgateally
+    HiveAuth is a user authentication and authorization stored in a Hive.  Users
+    correspond to separate logins with different passwords and potentially
     different privileges.
 
     Users are assigned "rules".  These rules are evaluated in order until a rule
@@ -756,9 +755,9 @@ class HiveAuth(s_base.Base):
     assign the same rules to multiple users.
 
     Authgates are objects that manage their own authorization.  Each
-    authgate has roles and users subkeys which contain rules specific to that
-    user or role for that authgate.  The roles and users of an authgate,
-    called gateRole and gateUser respectively, contain the iden of a role or
+    AuthGate has roles and users subkeys which contain rules specific to that
+    user or role for that AuthGate.  The roles and users of an AuthGate,
+    called GateRole and GateUser respectively, contain the iden of a role or
     user defined prior and rules specific to that role or user; they do not
     duplicate the metadata of the role or user.
 
@@ -798,6 +797,8 @@ class HiveAuth(s_base.Base):
         self.usersbyname = {}
         self.rolesbyname = {}
         self.authgates = {}
+
+        # TODO: listen for changes on role, users, authgates
 
         roles = await self.node.open(('roles',))
         for iden, node in roles:
@@ -940,8 +941,9 @@ class HiveAuth(s_base.Base):
 
     async def getRulerByName(self, name, iden=None):
         '''
-        Return the HiveRuler (a HiveUser, HiveRole, GateUser, or GateRole) corresponding to the given name.
-        If iden is not None, it returns the respective HiveRuler, creating one if not present.
+        Returns:
+            the HiveRuler (a HiveUser, HiveRole, GateUser, or GateRole) corresponding to the given name.
+            If iden is not None, it returns the HiveRole or HiveUser of the AuthGate with iden.
         '''
         if iden is not None:
             authgate = self.getAuthGate(iden)
@@ -984,7 +986,7 @@ class HiveAuth(s_base.Base):
 
     def _getUsersInRole(self, role):
         for user in self.users():
-            if role.iden in user.roles:
+            if role.iden in user.roleidens:
                 yield user
 
     async def delRole(self, name):
@@ -1004,13 +1006,13 @@ class HiveAuth(s_base.Base):
 
         await role.fini()
 
-        # directly set the nodes value and let events prop
+        # directly set the node's value and let events prop
         path = self.node.full + ('roles', role.iden)
         await self.node.hive.pop(path)
 
 class AuthGate(s_base.Base):
     '''
-    The rules engine (with persistence) for an AuthGater
+    The storage object for an AuthGater, owned by a HiveAuth
     '''
     async def __anit__(self, node, auth):
         await s_base.Base.__anit__(self)
@@ -1020,10 +1022,10 @@ class AuthGate(s_base.Base):
         self.type = node.valu
 
         self.node = node
-        self.gateroles = {} # iden -> HivegateRoles
-        self.gateusers = {} # iden -> HivegateUsers
 
-        # Load users first, as roles will populate users with no-rule entries
+        # TODO:  monitor users and roles nodes for changes behind my back
+        self.gateroles = {} # iden -> GateRoles
+        self.gateusers = {} # iden -> GateUsers
 
         usersnode = await node.open(('users',))
         self.onfini(usersnode)
@@ -1035,24 +1037,23 @@ class AuthGate(s_base.Base):
                 logger.warning(f'Hive:  path {name} refers to unknown user')
                 continue
 
-            gateuser = await GateUser.anit(gateusernode, self, user)
-            self.gateusers[user.iden] = gateuser
+            await GateUser.anit(gateusernode, self, user)
 
         rolesnode = await node.open(('roles',))
         self.onfini(rolesnode)
 
-        for name, _ in rolesnode:
+        for name, gaterolenode in rolesnode:
 
             role = self.auth.role(name)
             if role is None:  # pragma: no cover
                 logger.warning(f'Hive:  path {name} refers to unknown role')
                 continue
 
-            await self._addGateRole(role)
+            await GateRole.anit(gaterolenode, self, role)
 
         async def fini():
-            for gaterulr in itertools.chain(self.gateroles.values(), self.gateusers.values()):
-                await gaterulr.fini()
+            [await gaterulr.fini() for gaterulr in self.gateroles.values()]
+            [await gaterulr.fini() for gaterulr in self.gateusers.values()]
 
         self.onfini(fini)
 
@@ -1063,18 +1064,7 @@ class AuthGate(s_base.Base):
         node = await self.node.hive.open(path)
         gaterole = await GateRole.anit(node, self, hiverole)
 
-        await self._fillEmptyUsers(hiverole)
-
         return gaterole
-
-    async def _fillEmptyUsers(self, hiverole):
-        '''
-        Add empty gateusers to make a place where authgaterole rules can be combined and evaluated
-        '''
-        # TODO:  make a storageless authgateuser to avoid filling hive with all these entries
-        for user in self.auth._getUsersInRole(hiverole):
-            if user.iden not in self.gateusers:
-                await self._addGateUser(user)
 
     async def getGateRole(self, hiverole):
         '''
@@ -1152,21 +1142,39 @@ class AuthGater(s_base.Base):
         Returns (Optional[bool]):
             True if explicitly granted, False if denied, None if neither
         '''
-        # Check for an AuthGate-specific rule first
+        if hiveuser.locked:
+            return False
+
+        if hiveuser.admin and elev:
+            return True
+
+        # 1. local user rules: check for an AuthGate-specific rule first
         gaterulr = self.authgate.gateusers.get(hiveuser.iden)
-        if gaterulr is not None:
-            retn = gaterulr.permcache.get(perm)
+        if gaterulr:
+            retn = gaterulr.allowedLocal(perm)
             if retn is not None:
                 return retn
 
-        # FIXME:
-        # 1. local user rules
         # 2. global user rules
-        # 3. local role rules
-        # 4. global role rules
+        retn = hiveuser.allowedLocal(perm)
+        if retn is not None:
+            return retn
 
-        # Check the global (i.e. cortex-wide) rules
-        retn = hiveuser.allowed(perm, elev=elev, default=default)
+        idenset = set(hiveuser.roleidens)
+
+        # 3. local role rules: check for an AuthGate-specific role rule
+        for iden, gaterole in self.authgate.gateroles.items():
+            if iden in idenset:
+                retn = gaterole.allowedLocal(perm)
+            if retn is not None:
+                return retn
+
+        # 4. global role rules
+        for role in hiveuser.roles:
+            retn = role.allowedLocal(perm)
+            if retn is not None:
+                return retn
+
         return default if retn is None else retn
 
 class HiveRuler(s_base.Base):
@@ -1190,10 +1198,11 @@ class HiveRuler(s_base.Base):
         self.onfini(self.info)
         self.info.setdefault('rules', ())
         self.rules = self.info.get('rules', onedit=self._onRulesEdit)
+        self.permcache = s_cache.FixedCache(self._calcPermAllow)
 
-    async def _onRulesEdit(self, mesg):  # pragma: no cover
-        raise s_exc.NoSuchImpl(mesg='HiveRuler subclasses must implement _onRulesEdit',
-                               name='_onRulesEdit')
+    async def _onRulesEdit(self, mesg):
+        self.rules = self.info.get('rules')
+        self.permcache.clear()
 
     async def setName(self, name):
         self.name = name
@@ -1238,6 +1247,19 @@ class HiveRuler(s_base.Base):
 
         await self.info.set('rules', rules)
 
+    def _calcPermAllow(self, perm):
+
+        for rule in self.rules:
+            allow, path = rule
+            if perm[:len(path)] == path:
+                return allow
+
+    def allowedLocal(self, perm):
+        '''
+        Returns cached evaluation of my own rules only
+        '''
+        return self.permcache.get(perm)
+
 class GateRuler(HiveRuler):
     '''
     Store AuthGate-specific rules for a role or user
@@ -1258,12 +1280,7 @@ class GateRuler(HiveRuler):
         assert gateiden not in hiverulr.gaterulr
         # Give the subject a reference to me for easy status querying
         hiverulr.gaterulr[gateiden] = self
-        if node is not None:
-            self.onfini(node)
-        self._initFullRules()
-
-    def _initFullRules(self):  # pragma: no cover
-        raise s_exc.NoSuchImpl(mesg='GateRuler subclasses must implement _onRulesEdit')
+        self.onfini(node)
 
     async def delete(self):  # pragma: no cover
         raise s_exc.NoSuchImpl(mesg='GateRuler subclasses must implement delete')
@@ -1276,27 +1293,9 @@ class GateRole(GateRuler):
         authgate.gateroles[hiverulr.iden] = self
         await GateRuler.__anit__(self, node, authgate, hiverulr)
 
-    async def _onRulesEdit(self, mesg):
-        '''
-        Update rules, update all users in this authgate that
-        '''
-        self.rules = self.info.get('rules')
-        self._initFullRules()
-
-    def _initFullRules(self):
-        roleiden = self.hiverulr.iden
-        for gateuser in self.gate.gateusers.values():
-            if roleiden in gateuser.hiverulr.roles:
-                gateuser._initFullRules()
-
     async def delete(self):
         del self.gate.gateroles[self.iden]
         await self.node.pop(())
-
-        # Recalculate all the rules
-        for gateuser in self.gate.gateusers.values():
-            gateuser._initFullRules()
-
         await self.fini()
 
 class GateUser(GateRuler):
@@ -1304,47 +1303,13 @@ class GateUser(GateRuler):
     A bundle of rules specific to a particular AuthGate for a particular user
     '''
     async def __anit__(self, node, authgate, hiverulr):  # type: ignore
-        self.fullrules = []
-        self.permcache = s_cache.FixedCache(self._calcPermAllow)
         await GateRuler.__anit__(self, node, authgate, hiverulr)
-
-    def _calcPermAllow(self, key):
-        perm = key
-        for rule in self.fullrules:
-            allow, path = rule
-            if perm[:len(path)] == path:
-                return allow
-
-        return None
+        authgate.gateusers[hiverulr.iden] = self
 
     async def delete(self):
         del self.gate.gateusers[self.iden]
         await self.node.pop(())
         await self.fini()
-
-    async def _onRulesEdit(self, mesg):
-        self.rules = self.info.get('rules')
-        self._initFullRules()
-
-    def _clearFullRules(self):
-        self.fullrules.clear()
-        self.permcache.clear()
-
-    def _initFullRules(self):
-        self._clearFullRules()
-
-        for rule in self.rules:
-            self.fullrules.append(rule)
-
-        # We only care about role rules that apply to this AuthGate
-        for iden in self.hiverulr.roles:
-
-            gaterole = self.gate.gateroles.get(iden)
-            if gaterole is None:
-                continue
-
-            for rule in gaterole.rules:
-                self.fullrules.append(rule)
 
 class HiveRole(HiveRuler):
     '''
@@ -1353,14 +1318,6 @@ class HiveRole(HiveRuler):
     A role in HiveAuth exists to bundle rules together so that the same
     set of rules can be applied to multiple users.
     '''
-    async def _onRulesEdit(self, mesg):
-        self.rules = self.info.get('rules')
-
-        for user in self.auth.usersbyiden.values():
-            # Recalc all the users that have me as a role
-            if self.iden in user.roles:
-                user._initFullRules()
-
     def pack(self):
         # Filter out the boring empty nodes with no rules
         gaterules = {key: e.rules for key, e in self.gaterulr.items() if e.rules}
@@ -1376,7 +1333,7 @@ class HiveUser(HiveRuler):
     '''
     A user (could be human or computer) of the system within HiveAuth.
 
-    Cortex-wide rules are stored here.  AuthGate-specific rules for this user are stored in an HivegateUser.
+    Cortex-wide rules are stored here.  AuthGate-specific rules for this user are stored in an GateUser.
     '''
     async def __anit__(self, node, auth):
         await HiveRuler.__anit__(self, node, auth)
@@ -1388,7 +1345,8 @@ class HiveUser(HiveRuler):
         self.info.setdefault('locked', False)
         self.info.setdefault('archived', False)
 
-        self.roles = self.info.get('roles', onedit=self._onRolesEdit)
+        self.roleidens = self.info.get('roles', onedit=self._onRolesEdit)
+        self.roles = []
         self.admin = self.info.get('admin', onedit=self._onAdminEdit)
         self.locked = self.info.get('locked', onedit=self._onLockedEdit)
 
@@ -1402,10 +1360,7 @@ class HiveUser(HiveRuler):
         self.pvars = await pvars.dict()
 
         self.fullrules = []
-        self.permcache = s_cache.FixedCache(self._calcPermAllow)
-
-        self._initFullRules()
-        await self._updategateRulers()
+        self._onRolesEdit(None)
 
     def pack(self):
         return {
@@ -1413,7 +1368,7 @@ class HiveUser(HiveRuler):
             'name': self.name,
             'iden': self.node.name(),
             'rules': self.rules,
-            'roles': [r.iden for r in self.getRoles()],
+            'roles': self.roleidens,
             'admin': self.admin,
             'email': self.info.get('email'),
             'locked': self.locked,
@@ -1421,81 +1376,41 @@ class HiveUser(HiveRuler):
             'gaterules': {key: e.rules for key, e in self.gaterulr.items()}
         }
 
-    def _calcPermAllow(self, key):
-        perm = key
-
-        # Check the global (i.e. cortex-wide) rules
-        for rule in self.fullrules:
-            allow, path = rule
-            if perm[:len(path)] == path:
-                return allow
-
-        return None
-
-    def getRoles(self):
-        for iden in self.roles:
-            role = self.auth.role(iden)
-            if role is not None:
-                yield role
-
-    def _initFullRules(self):
-
-        self.fullrules.clear()
-        self.permcache.clear()
-
-        for rule in self.rules:
-            self.fullrules.append(rule)
-
-        for iden in self.roles:
-
-            role = self.auth.role(iden)
-
-            for rule in role.rules:
-                self.fullrules.append(rule)
-
-    async def _updategateRulers(self):
-        '''
-        Make gateuser placeholders for all authgates that use roles of which I'm a member.
-        '''
-        for iden in self.roles:
-            role = self.auth.role(iden)
-            for gaterulr in role.gaterulr.values():
-                await gaterulr.gate._fillEmptyUsers(role)
-
-        for gaterulr in self.gaterulr.values():
-            gaterulr._initFullRules()
-
-    async def _onRolesEdit(self, mesg):
-        '''
-        Update my rules and all my authgateRulers'.
-        '''
-        self.roles = self.info.get('roles')
-
-        self._initFullRules()
-        await self._updategateRulers()
-
-    async def _onRulesEdit(self, mesg):
-        self.rules = self.info.get('rules')
-        self._initFullRules()
-
-    async def _onAdminEdit(self, mesg):
-        self.admin = self.info.get('admin')
-        # no need to bump the cache/rules
-
-    async def _onLockedEdit(self, mesg):
-        self.locked = self.info.get('locked')
-
     def allowed(self, perm, elev=True, default=None):
-
         if self.locked:
             return False
 
         if self.admin and elev:
             return True
 
-        retn = self.permcache.get(perm)
+        retn = self.allowedLocal(perm)
+        if retn is not None:
+            return retn
 
-        return default if retn is None else retn
+        for role in self.roles:
+            retn = role.allowedLocal(perm)
+            if retn is not None:
+                return retn
+
+        return retn if retn else default
+
+    def getRoles(self):
+        return self.roles
+
+    def _onRolesEdit(self, mesg):
+        '''
+        Update my roles
+        '''
+        self.roleidens = self.info.get('roles')
+        self.roles = [self.auth.role(iden) for iden in self.roleidens]
+        self.permcache.clear()
+
+    async def _onAdminEdit(self, mesg):
+        self.admin = self.info.get('admin')
+        # no need to bump the cache, as admin check is not cached
+
+    async def _onLockedEdit(self, mesg):
+        self.locked = self.info.get('locked')
 
     async def grant(self, name, indx=None):
 
@@ -1507,7 +1422,7 @@ class HiveUser(HiveRuler):
 
     async def grantRole(self, role, indx=None):
 
-        roles = list(self.roles)
+        roles = list(self.roleidens)
         if role.iden in roles:
             return
 
@@ -1528,7 +1443,7 @@ class HiveUser(HiveRuler):
 
     async def revokeRole(self, role):
 
-        roles = list(self.roles)
+        roles = list(self.roleidens)
         if role.iden not in roles:
             return
 
