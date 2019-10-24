@@ -168,9 +168,9 @@ class CellTest(s_t_utils.SynTest):
                     await proxy.setHiveKey(('foo', 'bar'), [1, 2, 3, 4])
                     self.eq([1, 2, 3, 4], await proxy.getHiveKey(('foo', 'bar')))
                     self.isin('foo', await proxy.listHiveKey())
-                    self.eq(['bar'], await proxy.listHiveKey(('foo', )))
+                    self.eq(['bar'], await proxy.listHiveKey(('foo',)))
                     await proxy.popHiveKey(('foo', 'bar'))
-                    self.eq([], await proxy.listHiveKey(('foo', )))
+                    self.eq([], await proxy.listHiveKey(('foo',)))
 
                 # Ensure we can delete a rule by its item and index position
                 async with echo.getLocalProxy() as proxy:  # type: EchoAuthApi

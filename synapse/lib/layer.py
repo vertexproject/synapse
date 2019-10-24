@@ -101,7 +101,7 @@ class Layer(s_hive.AuthGater):
         self.core = core
         self.node = node
         self.iden = node.name()
-        await s_hive.AuthGater.__anit__(self, core.auth)
+        await s_hive.AuthGater.__anit__(self, self.core.auth)
         self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
         # splice windows...
@@ -249,7 +249,7 @@ class Layer(s_hive.AuthGater):
             if not regx.search(valu):
                 continue
 
-            yield (buid, )
+            yield (buid,)
 
     async def _liftByUnivRe(self, oper):
 
@@ -272,7 +272,7 @@ class Layer(s_hive.AuthGater):
             if not regx.search(valu):
                 continue
 
-            yield (buid, )
+            yield (buid,)
 
     async def _liftByPropRe(self, oper):
         # ('regex', (<form>, <prop>, <regex>, info))
@@ -297,7 +297,7 @@ class Layer(s_hive.AuthGater):
                 continue
 
             # yield buid, form, prop, valu
-            yield (buid, )
+            yield (buid,)
 
     # TODO: Hack until we get interval trees pushed all the way through
     def _cmprIval(self, item, othr):
@@ -328,7 +328,7 @@ class Layer(s_hive.AuthGater):
             if not self._cmprIval(ival, valu):
                 continue
 
-            yield (buid, )
+            yield (buid,)
 
     async def _liftByUnivIval(self, oper):
         _, prop, ival = oper[1]
@@ -348,7 +348,7 @@ class Layer(s_hive.AuthGater):
             if not self._cmprIval(ival, valu):
                 continue
 
-            yield (buid, )
+            yield (buid,)
 
     async def _liftByFormIval(self, oper):
         _, form, ival = oper[1]
@@ -368,7 +368,7 @@ class Layer(s_hive.AuthGater):
             if not self._cmprIval(ival, valu):
                 continue
 
-            yield (buid, )
+            yield (buid,)
 
     # The following functions are abstract methods that must be implemented by a subclass
 

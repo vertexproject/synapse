@@ -163,7 +163,7 @@ class Hive(s_base.Base, s_telepath.Aware):
         if trim:
             culls = [n for n in node.kids.keys() if n not in kidnames]
             for cullname in culls:
-                await node.pop((cullname, ))
+                await node.pop((cullname,))
 
     async def getHiveAuth(self):
         '''
@@ -273,7 +273,7 @@ class Hive(s_base.Base, s_telepath.Aware):
         root = await self.open(oldpath)
 
         for kidname in list(root.kids):
-            await self._rename(oldpath + (kidname, ), newpath + (kidname, ))
+            await self._rename(oldpath + (kidname,), newpath + (kidname,))
 
         await self.set(newpath, root.valu)
 
@@ -613,7 +613,7 @@ class TeleHive(Hive):
 
     async def _onHiveTree(self, mesg):
 
-        # get an gatere tree update at once
+        # get an entire tree update at once
         path = mesg[1].get('path')
         tree = mesg[1].get('tree')
 
@@ -746,7 +746,7 @@ class HiveAuth(s_base.Base):
     Users are assigned "rules".  These rules are evaluated in order until a rule
     matches.  Each rule is a tuple of boolean, and a rule path (a sequence of
     strings).  Rules that are prefixes of a privilege match, i.e.  a rule
-    ('foo', ) will match ('foo', 'bar').
+    ('foo',) will match ('foo', 'bar').
 
     Roles are just collections of rules.  When a user is "granted" a role those
     rules are assigned to that user.  Unlike in an RBAC system, users don't
@@ -1058,7 +1058,7 @@ class AuthGate(s_base.Base):
 
     async def _addGateRole(self, hiverole):
 
-        path = self.node.full + ('roles', hiverole.iden, )
+        path = self.node.full + ('roles', hiverole.iden)
         await self.node.hive.set(path, hiverole.name)
         node = await self.node.hive.open(path)
         gaterole = await GateRole.anit(node, self, hiverole)
@@ -1076,7 +1076,7 @@ class AuthGate(s_base.Base):
         return await self._addGateRole(hiverole)
 
     async def _addGateUser(self, hiveuser):
-        path = self.node.full + ('users', hiveuser.iden, )
+        path = self.node.full + ('users', hiveuser.iden)
         await self.node.hive.set(path, hiveuser.name)
         node = await self.node.hive.open(path)
         gateuser = await GateUser.anit(node, self, hiveuser)

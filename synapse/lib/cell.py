@@ -97,7 +97,7 @@ class CellApi(s_base.Base):
 
             Implement an API that requires a user to have a specific permission in order to execute it::
 
-                async def makeWidget(wvalu, wtype):
+                async def makeWidget(self, wvalu, wtype):
                     # This will throw if the user doesn't have the appropriate widget permission
                     await self._reqUserAllowed(('widget', wtype))
                     return await self.cell.makeWidget((wvalu, wtype))
@@ -326,7 +326,7 @@ class CellApi(s_base.Base):
         return (name, pack)
 
     async def getHealthCheck(self):
-        await self._reqUserAllowed(('health', ))
+        await self._reqUserAllowed(('health',))
         return await self.cell.getHealthCheck()
 
     @adminapi
@@ -440,7 +440,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         await self._initCellHttp()
 
         # self.cellinfo, a HiveDict for general purpose persistent storage
-        node = await self.hive.open(('cellinfo', ))
+        node = await self.hive.open(('cellinfo',))
         self.cellinfo = await node.dict()
         self.onfini(node)
 

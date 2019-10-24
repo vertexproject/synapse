@@ -88,7 +88,7 @@ class HiveTest(s_test.SynTest):
 
                 hive.onedit(('baz', 'faz'), onedit)
 
-                await hive.set(('baz', ), 400)
+                await hive.set(('baz',), 400)
                 self.eq(0, oneditcount)
                 await hive.set(('baz', 'faz'), 401)
                 self.eq(1, oneditcount)
@@ -276,7 +276,7 @@ class HiveTest(s_test.SynTest):
             node = await hive.open(('foo', 'bar'))
             await node.set(20)
 
-            self.eq(None, await hive.pop(('foo', )))
+            self.eq(None, await hive.pop(('foo',)))
             self.none(await hive.get(('foo', 'bar')))
 
     async def test_hive_tele_auth(self):
@@ -303,6 +303,7 @@ class HiveTest(s_test.SynTest):
 
             turl = self.getTestUrl(dmon, 'hive')
 
+            # User can't access after being locked
             await user.setLocked(True)
 
             with self.raises(s_exc.AuthDeny):
@@ -310,9 +311,11 @@ class HiveTest(s_test.SynTest):
 
             await user.setLocked(False)
 
+            # User can't access after being unlocked with wrong password
             with self.raises(s_exc.AuthDeny):
                 await s_hive.openurl(turl, user='root', passwd='newpnewp')
 
+            # User can access with correct password after being unlocked with
             async with await s_hive.openurl(turl, user='root', passwd='secret'):
                 await hive.open(('foo', 'bar'))
 
@@ -363,7 +366,7 @@ class HiveTest(s_test.SynTest):
                 layriden = view2.layers[0].iden
 
                 # Add to a non-existent authgate
-                rule = (True, ('view', 'read', ))
+                rule = (True, ('view', 'read'))
                 badiden = 'XXX'
                 await self.asyncraises(s_exc.NoSuchAuthGate, prox.addAuthRule('fred', rule, iden=badiden))
 
@@ -379,7 +382,7 @@ class HiveTest(s_test.SynTest):
 
                 # fred can write to forked view's write layer with explicit perm through role
 
-                rule = (True, ('prop:set', ))
+                rule = (True, ('prop:set',))
                 await prox.addAuthRule('friends', rule, iden=layriden)
 
                 # Before granting, still fails
@@ -396,7 +399,7 @@ class HiveTest(s_test.SynTest):
                 await prox.delAuthRule('friends', rule, iden=layriden)
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
 
-                rule = (True, ('node:add', ))
+                rule = (True, ('node:add',))
                 await prox.addAuthRule('fred', rule, iden=layriden)
                 self.eq(1, await fredcore.count('[test:int=12]', opts=viewopts))
 
@@ -413,7 +416,7 @@ class HiveTest(s_test.SynTest):
                 self.eq(3, await fredcore.count('test:int', opts=viewopts))
 
                 # Deleting a user that has a role with an Authgate-specific rule
-                rule = (True, ('prop:set', ))
+                rule = (True, ('prop:set',))
                 await prox.addAuthRule('friends', rule, iden=layriden)
                 self.eq(1, await fredcore.count('test:int=11 [:loc=sp]', opts=viewopts))
                 await prox.addUserRole('bobo', 'friends')
@@ -448,10 +451,10 @@ class HiveTest(s_test.SynTest):
                 await alist(core.eval('[test:int=10] [test:int=11]'))
                 viewiden = view2.iden
                 layriden = view2.layers[0].iden
-                rule = (True, ('view', 'read', ))
+                rule = (True, ('view', 'read',))
                 await prox.addAuthRule('fred', rule, iden=viewiden)
                 await prox.addAuthRole('friends')
-                rule = (True, ('prop:set', ))
+                rule = (True, ('prop:set',))
                 await prox.addAuthRule('friends', rule, iden=layriden)
                 await prox.addUserRole('fred', 'friends')
 
@@ -468,22 +471,22 @@ class HiveTest(s_test.SynTest):
             await hive.loadHiveTree(tree0)
             self.true(await hive.exists(('hoho', 'foo')))
             self.false(await hive.exists(('hoho', 'food')))
-            self.false(await hive.exists(('newp', )))
+            self.false(await hive.exists(('newp',)))
 
     async def test_hive_rename(self):
         async with self.getTestHive() as hive:
             await hive.loadHiveTree(tree0)
-            await self.asyncraises(s_exc.BadHivePath, hive.rename(('hehe', ), ('hoho', )))
-            await self.asyncraises(s_exc.BadHivePath, hive.rename(('newp', ), ('newp2', )))
-            await self.asyncraises(s_exc.BadHivePath, hive.rename(('hehe', ), ('hehe', 'foo')))
+            await self.asyncraises(s_exc.BadHivePath, hive.rename(('hehe',), ('hoho',)))
+            await self.asyncraises(s_exc.BadHivePath, hive.rename(('newp',), ('newp2',)))
+            await self.asyncraises(s_exc.BadHivePath, hive.rename(('hehe',), ('hehe', 'foo')))
 
-            await hive.rename(('hehe', ), ('lolo', ))
-            self.eq('haha', await hive.get(('lolo', )))
-            self.false(await hive.exists(('hehe', )))
+            await hive.rename(('hehe',), ('lolo',))
+            self.eq('haha', await hive.get(('lolo',)))
+            self.false(await hive.exists(('hehe',)))
 
-            await hive.rename(('hoho', ), ('jojo', ))
-            self.false(await hive.exists(('hoho', )))
-            jojo = await hive.open(('jojo', ))
+            await hive.rename(('hoho',), ('jojo',))
+            self.false(await hive.exists(('hoho',)))
+            jojo = await hive.open(('jojo',))
             self.len(1, jojo.kids)
             self.eq('huhu', jojo.valu)
             self.eq(99, await hive.get(('jojo', 'foo')))

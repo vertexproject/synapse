@@ -33,9 +33,9 @@ class View(s_hive.AuthGater):
         '''
         self.node = node
         self.iden = node.name()
-        await s_hive.AuthGater.__anit__(self, core.auth)
-
         self.core = core
+
+        await s_hive.AuthGater.__anit__(self, self.core.auth)
 
         self.invalid = None
         self.parent = None  # The view this view was forked from

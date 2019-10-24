@@ -14,7 +14,7 @@ import synapse.lib.output as s_output
 logger = logging.getLogger(__name__)
 
 desc = '''
-Manage permissions of users in a remote cell.
+Manage permissions of users, roles, and objects in a remote cell.
 '''
 outp = None
 
@@ -72,8 +72,8 @@ async def printuser(user, details=False, cell=None):
 
 async def handleModify(opts):
 
-    if opts.authgate and not opts.addrule:
-        outp.printf('--authgate option only valid with --addrule')
+    if opts.object and not opts.addrule:
+        outp.printf('--object option only valid with --addrule')
         return -1
 
     try:
@@ -137,7 +137,7 @@ async def handleModify(opts):
 
                 outp.printf(f'adding rule to {opts.name}: {rule!r}')
 
-                await cell.addAuthRule(opts.name, rule, indx=None, iden=opts.authgate)
+                await cell.addAuthRule(opts.name, rule, indx=None, iden=opts.object)
 
             if opts.delrule is not None:
                 outp.printf(f'deleting rule index: {opts.delrule}')
@@ -253,7 +253,7 @@ def makeargparser():
     muxp.add_argument('--addrule', help='Add the given rule to the user/role.')
     muxp.add_argument('--delrule', type=int, help='Delete the given rule number from the user/role.')
 
-    pars_mod.add_argument('--authgate', type=str, help='The Authgate to apply new rule to in kind:iden format')
+    pars_mod.add_argument('--object', type=str, help='The object to apply new rule to in kind:iden format')
 
     pars_mod.add_argument('name', help='The user/role to modify.')
     pars_mod.set_defaults(func=handleModify)

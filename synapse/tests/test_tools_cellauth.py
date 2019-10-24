@@ -16,7 +16,7 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('the following arguments are required:')
 
             outp.clear()
-            argv = [coreurl, 'modify', '--adduser', 'foo', '--authgate', 'foo:bar']
+            argv = [coreurl, 'modify', '--adduser', 'foo', '--object', 'foo:bar']
             await s_cellauth.main(argv, outp)
             outp.expect('only valid with --addrule')
 
@@ -214,7 +214,7 @@ class CellAuthTest(s_t_utils.SynTest):
 
             outp.clear()
             viewiden = core.view.iden
-            argv = [coreurl, 'modify', '--addrule', nrule, name, '--authgate', viewiden]
+            argv = [coreurl, 'modify', '--addrule', nrule, name, '--object', viewiden]
             await s_cellauth.main(argv, outp)
 
             outp.expect(f'adding rule to {name}: (False, [{rule!r}])')

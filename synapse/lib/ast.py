@@ -1284,8 +1284,8 @@ class PropPivotOut(PivotOper):
                 fname = prop.type.arraytype.name
                 if runt.snap.model.forms.get(fname) is None:
                     if not warned:
-                        await runt.snap.warn(
-                            f'The source property "{name}" array type "{fname}" is not a form. Cannot pivot.')
+                        mesg = f'The source property "{name}" array type "{fname}" is not a form. Cannot pivot.'
+                        await runt.snap.warn(mesg)
                         warned = True
                     continue
 

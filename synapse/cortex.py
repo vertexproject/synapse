@@ -103,8 +103,8 @@ class CoreApi(s_cell.CellApi):
         '''
         Adds a trigger to the cortex
 
-        # TODO: accept a view or layer param
         '''
+        # TODO: accept a view or layer param
         wlyr = self.cell.view.layers[0]
         await wlyr._reqUserAllowed(self.user, ('trigger', 'add'))
 
@@ -285,11 +285,10 @@ class CoreApi(s_cell.CellApi):
         '''
         crons = []
 
-        isallowed = await self.allowed(('cron', 'get'))
-        if not isallowed:
-            return []
-
         for iden, cron in self.cell.agenda.list():
+            isallowed = await cron.allowed(self.user, ('cron', 'get'))
+            if not isallowed:
+                continue
 
             info = cron.pack()
             info['username'] = self.cell.getUserName(cron.useriden)
