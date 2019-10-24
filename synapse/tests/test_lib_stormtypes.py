@@ -1088,3 +1088,32 @@ class StormTypesTest(s_test.SynTest):
             mesgs = [m for m in mesgs if m[0] == 'print']
             self.len(1, mesgs)
             self.stormIsInPrint("('testvar', 'test'), ('testkey', 'testvar')", mesgs)
+
+    async def test_feed(self):
+
+        async with self.getTestCore() as core:
+            data = [
+                (('test:str', 'hello'), {'props': {'tick': '2001'},
+                                         'tags': {'test': (None, None)}}),
+                (('test:str', 'stars'), {'props': {'tick': '3001'},
+                                         'tags': {}}),
+            ]
+            svars = {'data': data}
+            opts = {'vars': svars}
+            q = '$lib.feed.ingest("syn.nodes", $data)'
+            nodes = await core.nodes(q, opts)
+            self.eq(nodes, [])
+            self.len(2, await core.nodes('test:str'))
+            self.len(1, await core.nodes('test:str#test'))
+            self.len(1, await core.nodes('test:str:tick=3001'))
+
+            # Try seqn combo
+            guid = s_common.guid()
+            svars['guid'] = guid
+            svars['offs'] = 0
+            q = '''$seqn=$lib.feed.ingest("syn.nodes", $data, ($guid, $offs))
+            $lib.print("New offset: {seqn}", seqn=$seqn)
+            '''
+            mesgs = await alist(core.streamstorm(q, opts))
+            self.stormIsInPrint('New offset: 2', mesgs)
+            self.eq(2, await core.getFeedOffs(guid))
