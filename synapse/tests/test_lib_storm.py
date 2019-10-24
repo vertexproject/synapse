@@ -31,6 +31,12 @@ class StormTest(s_t_utils.SynTest):
 
                 await s_common.aspin(prox.eval('sudo | [ test:str=woot ]'))
 
+    async def test_storm_nosuchvar(self):
+
+        async with self.getTestCore() as core:
+            with self.raises(s_exc.NoSuchVar):
+                await core.nodes('[ inet:ipv4=$newp ]')
+
     async def test_storm_movetag(self):
 
         async with self.getTestCore() as core:

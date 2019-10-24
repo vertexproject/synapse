@@ -166,9 +166,13 @@ class Runtime:
         if varz is not None:
             self.vars.update(varz)
 
-        self.runtvars = set()
-        self.runtvars.update(self.vars.keys())
-        self.runtvars.update(self.ctors.keys())
+        self.varscope = {}
+
+        for name in self.vars.keys():
+            self.varscope[name] = {'runtsafe': True}
+
+        for name in self.ctors.keys():
+            self.varscope[name] = {'runtsafe': True}
 
         self.proxies = {}
         self.elevated = False
@@ -192,9 +196,13 @@ class Runtime:
         return prox
 
     def isRuntVar(self, name):
-        if name in self.runtvars:
-            return True
-        return False
+
+        info = self.varscope.get(name)
+        if info is None:
+            mesg = f'No such variable: "{name}"'
+            raise s_exc.NoSuchVar(mesg=mesg, name=name)
+
+        return info.get('runtsafe', False)
 
     async def printf(self, mesg):
         return await self.snap.printf(mesg)
@@ -301,8 +309,8 @@ class Runtime:
     def loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
         for oper in query.kids:
-            for name in oper.getRuntVars(self):
-                self.runtvars.add(name)
+            for name, info in oper.getScopeVars(self):
+                self.varscope[name] = info
 
     async def iterStormQuery(self, query, genr=None):
 

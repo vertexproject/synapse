@@ -106,10 +106,10 @@ class AstNode:
         for kid in self.kids:
             yield kid
 
-    def getRuntVars(self, runt):
+    def getScopeVars(self, runt):
         for kid in self.kids:
-            for name in kid.getRuntVars(runt):
-                yield name
+            for item in kid.getScopeVars(runt):
+                yield item
 
     def isRuntSafe(self, runt):
         return all(k.isRuntSafe(runt) for k in self.kids)
@@ -356,20 +356,19 @@ class SubQuery(Oper):
 
 class ForLoop(Oper):
 
-    def getRuntVars(self, runt):
+    def getScopeVars(self, runt):
 
-        if not self.kids[1].isRuntSafe(runt):
-            return
+        runtsafe = self.kids[1].isRuntSafe(runt)
 
         if isinstance(self.kids[0], VarList):
             for name in self.kids[0].value():
-                yield name
+                yield (name, {'runtsafe': runtsafe})
 
         else:
-            yield self.kids[0].value()
+            yield (self.kids[0].value(), {'runtsafe': runtsafe})
 
-        for name in self.kids[2].getRuntVars(runt):
-            yield name
+        for item in self.kids[2].getScopeVars(runt):
+            yield item
 
     async def run(self, runt, genr):
 
@@ -528,10 +527,12 @@ class VarSetOper(Oper):
             valu = await vkid.runtval(runt)
             runt.setVar(name, valu)
 
-    def getRuntVars(self, runt):
-        if not self.kids[1].isRuntSafe(runt):
-            return
-        yield self.kids[0].value()
+    def getScopeVars(self, runt):
+
+        name = self.kids[0].value()
+        runtsafe = self.kids[1].isRuntSafe(runt)
+
+        yield (name, {'runtsafe': runtsafe})
 
 class VarListSetOper(Oper):
 
@@ -566,13 +567,10 @@ class VarListSetOper(Oper):
 
             return
 
-    def getRuntVars(self, runt):
-
-        if not self.kids[1].isRuntSafe(runt):
-            return
-
+    def getScopeVars(self, runt):
+        runtsafe = self.kids[1].isRuntSafe(runt)
         for name in self.kids[0].value():
-            yield name
+            yield (name, {'runtsafe': runtsafe})
 
 class VarEvalOper(Oper):
     '''
