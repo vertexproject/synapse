@@ -2,13 +2,11 @@ import bz2
 import gzip
 import json
 import base64
-import asyncio
 import binascii
 import datetime
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.telepath as s_telepath
 
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
@@ -105,7 +103,7 @@ class LibDmon(Lib):
             raise s_exc.NoSuchIden(mesg=mesg)
 
         if dmon.ddef.get('user') != self.runt.user.iden:
-            self.runt.allowed('storm', 'dmon', 'del', iden)
+            self.runt.reqAllowed(('storm', 'dmon', 'del', iden))
 
         await self.runt.snap.core.delStormDmon(iden)
 
@@ -119,7 +117,7 @@ class LibDmon(Lib):
 
         $lib.dmon.add(${ myquery })
         '''
-        self.runt.allowed('storm', 'dmon', 'add')
+        self.runt.reqAllowed(('storm', 'dmon', 'add'))
 
         # closure style capture of runtime
         runtvars = {k: v for (k, v) in self.runt.vars.items() if s_msgpack.isok(v)}
@@ -150,7 +148,7 @@ class LibService(Lib):
 
     async def _libSvcAdd(self, name, url):
 
-        self.runt.allowed('storm', 'service', 'add')
+        self.runt.reqAllowed(('storm', 'service', 'add'))
         sdef = {
             'name': name,
             'url': url,
@@ -159,11 +157,11 @@ class LibService(Lib):
         return ssvc.sdef
 
     async def _libSvcDel(self, iden):
-        self.runt.allowed('storm', 'service', 'del')
+        self.runt.reqAllowed(('storm', 'service', 'del'))
         return await self.runt.snap.core.delStormSvc(iden)
 
     async def _libSvcGet(self, name):
-        self.runt.allowed('storm', 'service', 'get', name)
+        self.runt.reqAllowed(('storm', 'service', 'get', name))
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
@@ -171,7 +169,7 @@ class LibService(Lib):
         return ssvc
 
     async def _libSvcList(self):
-        self.runt.allowed('storm', 'service', 'list')
+        self.runt.reqAllowed(('storm', 'service', 'list'))
         retn = []
 
         for ssvc in self.runt.snap.core.getStormSvcs():
@@ -182,7 +180,7 @@ class LibService(Lib):
         return retn
 
     async def _libSvcWait(self, name):
-        self.runt.allowed('storm', 'service', 'get')
+        self.runt.reqAllowed(('storm', 'service', 'get'))
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
@@ -438,7 +436,7 @@ class LibQueue(Lib):
 
     async def _methQueueAdd(self, name):
 
-        self.runt.allowed('storm', 'queue', 'add')
+        self.runt.reqAllowed(('storm', 'queue', 'add'))
 
         info = self.runt.snap.core.multiqueue.queues.get(name)
         if info is not None:
@@ -466,13 +464,13 @@ class LibQueue(Lib):
             mesg = f'No queue named {name} exists.'
             raise s_exc.NoSuchName(mesg=mesg)
 
-        if (info.get('user') == self.runt.user.iden or
-            self.runt.allowed('storm', 'queue', 'del', name)):
+        if info.get('user') != self.runt.user.iden:
+            self.runt.reqAllowed(('storm', 'queue', 'del', name))
 
-            await self.runt.snap.core.multiqueue.rem(name)
+        await self.runt.snap.core.multiqueue.rem(name)
 
     async def _methQueueList(self):
-        self.runt.allowed('storm', 'lib', 'queue', 'list')
+        self.runt.reqAllowed(('storm', 'lib', 'queue', 'list'))
         return self.runt.snap.core.multiqueue.list()
 
 class Queue(StormType):
@@ -496,16 +494,15 @@ class Queue(StormType):
         })
 
     async def _methQueueCull(self, offs):
-        await self.allowed('storm', 'queue', self.name, 'get')
+        await self.reqAllowed(('storm', 'queue', self.name, 'get'))
 
         offs = intify(offs)
 
-        mque = self.runt.snap.core.multiqueue
         await self.runt.snap.core.multiqueue.cull(self.name, offs)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=True, size=None):
 
-        await self.allowed('storm', 'queue', self.name, 'get')
+        await self.reqAllowed(('storm', 'queue', self.name, 'get'))
 
         wait = intify(wait)
         cull = intify(cull)
@@ -520,17 +517,17 @@ class Queue(StormType):
             yield item
 
     async def _methQueuePuts(self, items, wait=False):
-        await self.allowed('storm', 'queue', self.name, 'put')
+        await self.reqAllowed(('storm', 'queue', self.name, 'put'))
         return self.runt.snap.core.multiqueue.puts(self.name, items)
 
-    async def allowed(self, *perm):
+    async def reqAllowed(self, perm):
         if self.info.get('user') == self.runt.user.iden:
             return
-        await self.runt.allowed(*perm)
+        await self.runt.reqAllowed(perm)
 
     async def _methQueueGet(self, offs=0, wait=True, cull=True):
 
-        await self.allowed('storm', 'queue', self.name, 'get')
+        await self.reqAllowed(('storm', 'queue', self.name, 'get'))
 
         offs = intify(offs)
         wait = intify(wait)
@@ -542,7 +539,7 @@ class Queue(StormType):
             return item
 
     async def _methQueuePut(self, item):
-        await self.allowed('storm', 'queue', self.name, 'put')
+        await self.reqAllowed(('storm', 'queue', self.name, 'put'))
         return self.runt.snap.core.multiqueue.put(self.name, item)
 
 class LibTelepath(Lib):
@@ -557,7 +554,7 @@ class LibTelepath(Lib):
         Open and return a telepath RPC proxy.
         '''
         scheme = url.split('://')[0]
-        self.runt.allowed(('storm', 'lib', 'telepath', 'open', scheme))
+        self.runt.reqAllowed(('storm', 'lib', 'telepath', 'open', scheme))
         return Proxy(await self.runt.getTeleProxy(url))
 
 class Proxy(StormType):
@@ -830,9 +827,6 @@ class LibGlobals(Lib):
             'list': self._methList,
         })
 
-    def _reqAllowed(self, perm, name):
-        self.runt.allowed(perm, name)
-
     def _reqStr(self, name):
         if not isinstance(name, str):
             mesg = 'The name of a persistent variable must be a string.'
@@ -840,25 +834,25 @@ class LibGlobals(Lib):
 
     async def _methGet(self, name, default=None):
         self._reqStr(name)
-        self._reqAllowed('storm:globals:get', name)
+        self.runt.reqAllowed(('storm:globals:get', name))
         return self._stormvars.get(name, default=default)
 
     async def _methPop(self, name, default=None):
         self._reqStr(name)
-        self._reqAllowed('storm:globals:pop', name)
+        self.runt.reqAllowed(('storm:globals:pop', name))
         return await self._stormvars.pop(name, default=default)
 
     async def _methSet(self, name, valu):
         self._reqStr(name)
-        self._reqAllowed('storm:globals:set', name)
+        self.runt.reqAllowed(('storm:globals:set', name))
         await self._stormvars.set(name, valu)
 
     async def _methList(self):
         ret = []
         for key, valu in list(self._stormvars.items()):
             try:
-                self._reqAllowed('storm:globals:get', key)
-            except s_exc.AuthDeny as e:
+                self.runt.reqAllowed(('storm:globals:get', key))
+            except s_exc.AuthDeny:
                 continue
             else:
                 ret.append((key, valu))
