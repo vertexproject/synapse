@@ -549,3 +549,38 @@ class StormTest(s_t_utils.SynTest):
             # Sad path
             q = 'inet:ipv4=1.2.3.4 | tee'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+    async def test_storm_yieldvalu(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+            buid0 = nodes[0].buid
+            iden0 = s_common.ehex(buid0)
+
+            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': (iden0,)}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            def genr():
+                yield iden0
+
+            async def agenr():
+                yield iden0
+
+            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': (iden0,)}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': buid0}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': genr()}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': agenr()}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))

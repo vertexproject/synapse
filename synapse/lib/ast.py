@@ -1,6 +1,8 @@
+import types
 import asyncio
 import fnmatch
 import logging
+import binascii
 import itertools
 import collections
 
@@ -8,6 +10,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
+import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
 import synapse.lib.provenance as s_provenance
@@ -664,6 +667,64 @@ class LiftOper(Oper):
 
             async for subn in self.lift(path):
                 yield subn, path.fork(subn)
+
+class YieldValu(LiftOper):
+
+    async def lift(self, runt):
+
+        valu = await self.kids[0].compute(runt)
+        async for node in self.yieldFromValu(runt, valu):
+            yield node
+
+    async def yieldFromValu(self, runt, valu):
+
+        # a little DWIM on what we get back...
+        # ( most common case will be stormtypes libs agenr -> iden|buid )
+
+        # buid list -> nodes
+        if isinstance(valu, bytes):
+            node = await runt.snap.getNodeByBuid(valu)
+            if node is not None:
+                yield node
+
+            return
+
+        # iden list -> nodes
+        if isinstance(valu, str):
+            try:
+                buid = s_common.uhex(valu)
+            except binascii.Error:
+                mesg = 'Yield string must by hex node iden. Got: %r' % (valu,)
+                raise s_exc.BadLiftValu(mesg=mesg)
+
+            node = await runt.snap.getNodeByBuid(buid)
+            if node is not None:
+                yield node
+
+            return
+
+        if isinstance(valu, types.AsyncGeneratorType):
+            async for item in valu:
+                async for node in self.yieldFromValu(runt, item):
+                    yield node
+            return
+
+        if isinstance(valu, types.GeneratorType):
+            for item in valu:
+                async for node in self.yieldFromValu(runt, item):
+                    yield node
+            return
+
+        if isinstance(valu, (list, tuple)):
+            for item in valu:
+                async for node in self.yieldFromValu(runt, item):
+                    yield node
+            return
+
+        if isinstance(valu, s_node.Node):
+            yield node
+            return
+
 
 class LiftTag(LiftOper):
 
