@@ -721,11 +721,6 @@ class YieldValu(LiftOper):
                     yield node
             return
 
-        if isinstance(valu, s_node.Node):
-            yield node
-            return
-
-
 class LiftTag(LiftOper):
 
     async def lift(self, runt):
