@@ -1284,6 +1284,17 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
+    async def test_mirror_offset_migration(self):
+        '''
+        0.1.0-mirror has previously mirrored from 0.1.0.  Make sure that the post-migrated mirror picks up from where
+        it left off after the layers changed idens
+        '''
+        with self.getAsyncLoggerStream('synapse.cortex', 'offset=6)') as stream:
+            async with self.getRegrCore('0.1.0') as core, self.getRegrCore('0.1.0-mirror') as coremirr:
+                url = core.getLocalUrl()
+                await coremirr.initCoreMirror(url)
+                self.true(await stream.wait(4))
+
 class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed
@@ -3746,6 +3757,27 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.delView(viewiden)
             await self.asyncraises(s_exc.NoSuchView, core.delView(viewiden))
 
+    async def test_cortex_view_opts(self):
+        '''
+        Test that the view opts work
+        '''
+        async with self.getTestCore() as core:
+            nodes = await alist(core.eval('[ test:int=11 ]'))
+            self.len(1, nodes)
+            viewiden = core.view.iden
+
+            nodes = await alist(core.eval('test:int=11', opts={'view': viewiden}))
+            self.len(1, nodes)
+
+            await self.agenraises(s_exc.NoSuchView, core.eval('test:int=11', opts={'view': 'NOTAVIEW'}))
+
+    async def test_cortex_getLayer(self):
+        async with self.getTestCore() as core:
+            layr = core.view.layers[0]
+            self.eq(layr, core.getLayer())
+            self.eq(layr, core.getLayer(core.iden))
+            self.none(core.getLayer('XXX'))
+
     async def test_cortex_cronjob_perms(self):
         async with self.getTestCore() as realcore:
             async with realcore.getLocalProxy() as core:
@@ -3802,3 +3834,4 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.eq(data[3][0], 'tag:del')
                 self.eq(data[3][1]['tag'], 'baz.faz')
+

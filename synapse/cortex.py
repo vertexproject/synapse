@@ -1444,12 +1444,11 @@ class Cortex(s_cell.Cell):
 
             if len(path) == 1:
                 # get the top layer for the default view
-                view = self.getView()
-                layr = view.layers[0]
+                layr = self.getLayer()
                 return await s_layer.LayerApi.anit(self, link, user, layr)
 
             if len(path) == 2:
-                layr = self.layers.get(path[1])
+                layr = self.getLayer(path[1])
                 if layr is None:
                     raise s_exc.NoSuchLayer(iden=path[1])
 
