@@ -753,17 +753,27 @@ class LmdbLayer(s_layer.Layer):
 
     async def getOffset(self, iden):
         '''
-        Note:  this method doesn't need to be async, but it is probable that future layer implementations would need it
-        to be async
+        Note:
+            This method doesn't need to be async, but it is probable that future layer implementations would need it to
+            be async
         '''
         return self.offs.get(iden)
 
     async def setOffset(self, iden, offs):
         '''
-        Note:  this method doesn't need to be async, but it is probable that future layer implementations would need it
-        to be async
+        Note:
+            This method doesn't need to be async, but it is probable that future layer implementations would need it to
+            be async
         '''
         return self.offs.set(iden, offs)
+
+    async def delOffset(self, iden):
+        '''
+        Note:
+            This method doesn't need to be async, but it is probable that future layer implementations would need it to
+            be async
+        '''
+        return self.offs.delete(iden)
 
     async def splices(self, offs, size):
         for _, mesg in self.splicelog.slice(offs, size):

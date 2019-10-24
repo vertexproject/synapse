@@ -10,6 +10,7 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
+import synapse.lib.slaboffs as s_slaboffs
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ class CryoTank(s_base.Base):
 
         self.slab = await s_lmdbslab.Slab.anit(path)
 
-        self.offs = s_lmdbslab.Offs(self.slab, 'offsets')
+        self.offs = s_slaboffs.SlabOffs(self.slab, 'offsets')
 
         self._items = s_slabseqn.SlabSeqn(self.slab, 'items')
         self._metrics = s_slabseqn.SlabSeqn(self.slab, 'metrics')

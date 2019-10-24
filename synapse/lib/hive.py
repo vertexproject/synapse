@@ -70,7 +70,7 @@ class Node(s_base.Base):
         full = self.full + path
         return await self.hive.open(full)
 
-    async def pop(self, path):
+    async def pop(self, path=()):
         full = self.full + path
         return await self.hive.pop(full)
 
@@ -220,6 +220,13 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         return node.valu
 
+    async def exists(self, full):
+        '''
+        Returns whether the Hive path has already been created.
+        '''
+
+        return full in self.nodes
+
     def dir(self, full):
         '''
         List subnodes of the given Hive path.
@@ -238,6 +245,34 @@ class Hive(s_base.Base, s_telepath.Aware):
             return None
 
         return node.dir()
+
+    async def rename(self, oldpath, newpath):
+        '''
+        Moves a node at oldpath and all its descendant nodes to newpath.  newpath must not exist
+        '''
+        if await self.exists(newpath):
+            raise s_exc.BadHivePath(mesg='path already exists')
+
+        if len(newpath) >= len(oldpath) and newpath[:len(oldpath)] == oldpath:
+            raise s_exc.BadHivePath(mesg='cannot move path into itself')
+
+        if not await self.exists(oldpath):
+            raise s_exc.BadHivePath(mesg=f'path {"/".join(oldpath)} does not exist')
+
+        await self._rename(oldpath, newpath)
+
+    async def _rename(self, oldpath, newpath):
+        '''
+        Same as rename, but no argument checking
+        '''
+        root = await self.open(oldpath)
+
+        for kidname in list(root.kids):
+            await self._rename(oldpath + (kidname, ), newpath + (kidname, ))
+
+        await self.set(newpath, root.valu)
+
+        await root.pop(())
 
     async def dict(self, full):
         '''
@@ -310,9 +345,6 @@ class Hive(s_base.Base, s_telepath.Aware):
             step = node.kids.get(name)
             if step is None:
                 step = await self._initNodePath(node, path, None)
-                #print('STEP: %r %r' % (path, step))
-                # hive add events alert the *parent* path of edits
-                #await node.fire('hive:add', path=path[:-1], name=name, valu=None)
 
             node = step
 
@@ -696,10 +728,10 @@ class HiveDict(s_base.Base):
 
         return retn
 
-#TODO
-#class HiveLock(s_base.Base):
-#class HiveSeqn(s_base.Base):
-#class HiveRules(s_base.Base): allow separate rules for different objects
+# TODO
+# class HiveLock(s_base.Base):
+# class HiveSeqn(s_base.Base):
+# class HiveRules(s_base.Base): allow separate rules for different objects
 
 class HiveAuth(s_base.Base):
 

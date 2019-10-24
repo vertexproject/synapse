@@ -1,5 +1,4 @@
 import asyncio
-import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -7,7 +6,23 @@ import synapse.common as s_common
 import synapse.tests.utils as s_test
 
 import synapse.lib.hive as s_hive
-import synapse.lib.lmdbslab as s_slab
+
+tree0 = {
+    'kids': {
+        'hehe': {'value': 'haha'},
+        'hoho': {'value': 'huhu', 'kids': {
+            'foo': {'value': 99},
+        }},
+    }
+}
+
+tree1 = {
+    'kids': {
+        'hoho': {'value': 'huhu', 'kids': {
+            'foo': {'value': 99},
+        }}
+    }
+}
 
 class HiveTest(s_test.SynTest):
 
@@ -278,23 +293,6 @@ class HiveTest(s_test.SynTest):
 
     async def test_hive_saveload(self):
 
-        tree0 = {
-            'kids': {
-                'hehe': {'value': 'haha'},
-                'hoho': {'value': 'huhu', 'kids': {
-                    'foo': {'value': 99},
-                }},
-            }
-        }
-
-        tree1 = {
-            'kids': {
-                'hoho': {'value': 'huhu', 'kids': {
-                    'foo': {'value': 99},
-                }}
-            }
-        }
-
         async with self.getTestHive() as hive:
             await hive.loadHiveTree(tree0)
             self.eq('haha', await hive.get(('hehe',)))
@@ -317,3 +315,28 @@ class HiveTest(s_test.SynTest):
             self.nn(tree['kids']['hehe']['kids']['haha'])
 
             self.eq(99, tree['kids']['hehe']['kids']['haha']['value'])
+
+    async def test_hive_exists(self):
+        async with self.getTestHive() as hive:
+            await hive.loadHiveTree(tree0)
+            self.true(await hive.exists(('hoho', 'foo')))
+            self.false(await hive.exists(('hoho', 'food')))
+            self.false(await hive.exists(('newp', )))
+
+    async def test_hive_rename(self):
+        async with self.getTestHive() as hive:
+            await hive.loadHiveTree(tree0)
+            await self.asyncraises(s_exc.BadHivePath, hive.rename(('hehe', ), ('hoho', )))
+            await self.asyncraises(s_exc.BadHivePath, hive.rename(('newp', ), ('newp2', )))
+            await self.asyncraises(s_exc.BadHivePath, hive.rename(('hehe', ), ('hehe', 'foo')))
+
+            await hive.rename(('hehe', ), ('lolo', ))
+            self.eq('haha', await hive.get(('lolo', )))
+            self.false(await hive.exists(('hehe', )))
+
+            await hive.rename(('hoho', ), ('jojo', ))
+            self.false(await hive.exists(('hoho', )))
+            jojo = await hive.open(('jojo', ))
+            self.len(1, jojo.kids)
+            self.eq('huhu', jojo.valu)
+            self.eq(99, await hive.get(('jojo', 'foo')))
