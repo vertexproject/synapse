@@ -1284,6 +1284,17 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
+    async def test_mirror_offset_migration(self):
+        '''
+        0.1.0-mirror has previously mirrored from 0.1.0.  Make sure that the post-migrated mirror picks up from where
+        it left off after the layers changed idens
+        '''
+        with self.getAsyncLoggerStream('synapse.cortex', 'offset=6)') as stream:
+            async with self.getRegrCore('0.1.0') as core, self.getRegrCore('0.1.0-mirror') as coremirr:
+                url = core.getLocalUrl()
+                await coremirr.initCoreMirror(url)
+                self.true(await stream.wait(4))
+
 class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed
@@ -3380,22 +3391,22 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=path00) as core00:
                 self.len(1, await core00.eval('[ test:str=core00 ]').list())
 
-                iden00 = core00.getCellIden()
+                iden00 = core00.getLayer().iden
 
             async with self.getTestCore(dirn=path01) as core01:
 
                 self.len(1, await core01.eval('[ test:str=core01 ]').list())
                 # Add a lmdb layer with core00's iden
                 await core01.addLayer(iden=iden00)
-                iden01 = core01.getCellIden()
+                iden01 = core01.getLayer().iden
                 # Set the default view for core01 to have a read layer with
                 # the iden from core00.
                 await core01.setViewLayers((iden01, iden00))
 
-            src = s_common.gendir(path00, 'layers', iden00)
-            dst = s_common.gendir(path01, 'layers', iden00)
             # Blow away the old layer at the destination and replace it
             # with our layer from core00
+            src = s_common.gendir(path00, 'layers', iden00)
+            dst = s_common.gendir(path01, 'layers', iden00)
             shutil.rmtree(dst)
             shutil.copytree(src, dst)
 
@@ -3411,10 +3422,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 nodes = await core.nodes('[test:str=woot]')
                 self.len(1, nodes)
 
-                cell_iden = core.getCellIden()
                 # Add the layer to the cortex and insert it into the default view stack
                 await core.addLayer(iden=iden)
-                await core.setViewLayers((cell_iden, iden))
+                await core.setViewLayers([layr.iden for layr in core.view.layers] + [iden])
 
                 # Modify the layer type
                 await core.hive.set(('cortex', 'layers', iden, 'type'), 'newp')
@@ -3742,14 +3752,31 @@ class CortexBasicTest(s_t_utils.SynTest):
             view2 = await core.view.fork()
 
             viewiden = view2.iden
-            layriden = view2.layers[0].iden
 
             # Can't delete a view twice
             await core.delView(viewiden)
             await self.asyncraises(s_exc.NoSuchView, core.delView(viewiden))
 
-            # A forked view deletes its write layer
-            await self.asyncraises(s_exc.NoSuchLayer, core.delLayer(layriden))
+    async def test_cortex_view_opts(self):
+        '''
+        Test that the view opts work
+        '''
+        async with self.getTestCore() as core:
+            nodes = await alist(core.eval('[ test:int=11 ]'))
+            self.len(1, nodes)
+            viewiden = core.view.iden
+
+            nodes = await alist(core.eval('test:int=11', opts={'view': viewiden}))
+            self.len(1, nodes)
+
+            await self.agenraises(s_exc.NoSuchView, core.eval('test:int=11', opts={'view': 'NOTAVIEW'}))
+
+    async def test_cortex_getLayer(self):
+        async with self.getTestCore() as core:
+            layr = core.view.layers[0]
+            self.eq(layr, core.getLayer())
+            self.eq(layr, core.getLayer(core.iden))
+            self.none(core.getLayer('XXX'))
 
     async def test_cortex_cronjob_perms(self):
         async with self.getTestCore() as realcore:
