@@ -253,7 +253,7 @@ def makeargparser():
     muxp.add_argument('--addrule', help='Add the given rule to the user/role.')
     muxp.add_argument('--delrule', type=int, help='Delete the given rule number from the user/role.')
 
-    pars_mod.add_argument('--object', type=str, help='The object to apply new rule to in kind:iden format')
+    pars_mod.add_argument('--object', type=str, help='The iden of the object to which to apply the new rule')
 
     pars_mod.add_argument('name', help='The user/role to modify.')
     pars_mod.set_defaults(func=handleModify)
