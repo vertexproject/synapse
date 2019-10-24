@@ -1370,6 +1370,7 @@ class Cortex(s_cell.Cell):
         self.addStormLib(('csv',), s_stormtypes.LibCsv)
         self.addStormLib(('str',), s_stormtypes.LibStr)
         self.addStormLib(('dmon',), s_stormtypes.LibDmon)
+        self.addStormLib(('feed',), s_stormtypes.LibFeed)
         self.addStormLib(('time',), s_stormtypes.LibTime)
         self.addStormLib(('user',), s_stormtypes.LibUser)
         self.addStormLib(('vars',), s_stormtypes.LibVars)
