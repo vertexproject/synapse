@@ -721,6 +721,12 @@ class YieldValu(LiftOper):
                     yield node
             return
 
+        if isinstance(valu, s_node.Node):
+            node = await runt.snap.getNodeByBuid(valu.buid)
+            if node is not None:
+                yield node
+            return
+
 class LiftTag(LiftOper):
 
     async def lift(self, runt):
