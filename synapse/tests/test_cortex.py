@@ -3834,4 +3834,3 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.eq(data[3][0], 'tag:del')
                 self.eq(data[3][1]['tag'], 'baz.faz')
-
