@@ -401,6 +401,29 @@ class LibCsv(Lib):
         row = [toprim(a) for a in args]
         await self.runt.snap.fire('csv:row', row=row, table=table)
 
+class LibFeed(Lib):
+    def addLibFuncs(self):
+        self.locls.update({
+            'ingest': self._libIngest,
+        })
+
+    async def _libIngest(self, name, data, seqn=None):
+        '''
+        Add nodes to the graph with a given ingest type.
+
+        Args:
+            name (str): Name of the ingest function to send data too.
+            data: Data to feed to the ingest function.
+            seqn: A tuple of (guid, offset) values used for tracking ingest data.
+
+        Notes:
+            This is using the Runtimes's Snap to call addFeedData().
+
+        Returns:
+            None or the sequence offset value.
+        '''
+        return await self.runt.snap.addFeedData(name, data, seqn)
+
 class LibQueue(Lib):
 
     def addLibFuncs(self):

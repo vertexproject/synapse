@@ -1380,6 +1380,7 @@ class Cortex(s_cell.Cell):
         self.addStormLib(('csv',), s_stormtypes.LibCsv)
         self.addStormLib(('str',), s_stormtypes.LibStr)
         self.addStormLib(('dmon',), s_stormtypes.LibDmon)
+        self.addStormLib(('feed',), s_stormtypes.LibFeed)
         self.addStormLib(('time',), s_stormtypes.LibTime)
         self.addStormLib(('user',), s_stormtypes.LibUser)
         self.addStormLib(('vars',), s_stormtypes.LibVars)
@@ -1451,12 +1452,11 @@ class Cortex(s_cell.Cell):
 
             if len(path) == 1:
                 # get the top layer for the default view
-                view = self.getView()
-                layr = view.layers[0]
+                layr = self.getLayer()
                 return await s_layer.LayerApi.anit(self, link, user, layr)
 
             if len(path) == 2:
-                layr = self.layers.get(path[1])
+                layr = self.getLayer(path[1])
                 if layr is None:
                     raise s_exc.NoSuchLayer(iden=path[1])
 

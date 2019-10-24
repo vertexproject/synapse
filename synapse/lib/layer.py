@@ -73,6 +73,9 @@ class LayerApi(s_cell.CellApi):
     async def setOffset(self, iden, valu):
         return await self.layr.setOffset(iden, valu)
 
+    async def delOffset(self, iden):
+        return await self.layr.delOffset(iden)
+
     async def splices(self, offs, size):
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.splices(offs, size):

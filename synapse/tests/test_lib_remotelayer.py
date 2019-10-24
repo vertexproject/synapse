@@ -112,6 +112,9 @@ class RemoteLayerTest(t_cortex.CortexTest):
             await layr.setOffset(iden, 200)
             self.eq(200, await layr.getOffset(iden))
 
+            await layr.delOffset(iden)
+            self.eq(0, await layr.getOffset(iden))
+
             self.ne((), tuple([x async for x in layr.splices(0, 200)]))
 
             self.eq(s_modelrev.maxvers, await layr.getModelVers())
