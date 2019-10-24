@@ -584,3 +584,6 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('yield $foo', opts={'vars': {'foo': agenr()}})
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            with self.raises(s_exc.BadLiftValu):
+                await core.nodes('yield $foo', opts={'vars': {'foo': 'asdf'}})
