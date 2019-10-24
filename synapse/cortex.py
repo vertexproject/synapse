@@ -1738,7 +1738,7 @@ class Cortex(s_cell.Cell):
         In case this is a downstream mirror, move the offsets for the old layr iden to the new layr iden
 
         Precondition:
-            Layers and Views are initialized.  Mirror logic has not started
+            Layers and Views are initialized.  Mirror logic has not started.
 
         TODO:  due to our migration policy, remove in 0.3.0
         '''

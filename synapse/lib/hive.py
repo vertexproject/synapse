@@ -733,7 +733,6 @@ class HiveDict(s_base.Base):
 
         return retn
 
-# TODO
 # class HiveLock(s_base.Base):
 # class HiveSeqn(s_base.Base):
 
