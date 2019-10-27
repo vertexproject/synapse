@@ -83,7 +83,7 @@ async def handleModify(opts):
     try:
         async with await s_telepath.openurl(opts.cellurl) as cell:
 
-            if cell._getSynVers() > min_authgate_vers:
+            if cell._getSynVers() >= min_authgate_vers:
                 cell_supports_authgate = True
 
             if opts.adduser:
