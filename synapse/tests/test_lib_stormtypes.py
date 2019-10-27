@@ -1120,8 +1120,11 @@ class StormTypesTest(s_test.SynTest):
 
             q = 'feed.list'
             mesgs = await alist(core.streamstorm(q))
-            for m in mesgs:
-                print(m)
+            self.stormIsInPrint('Storm feed list', mesgs)
+            self.stormIsInPrint('com.test.record', mesgs)
+            self.stormIsInPrint('No feed docstring', mesgs)
+            self.stormIsInPrint('syn.nodes', mesgs)
+            self.stormIsInPrint('Add nodes to the Cortex via the packed node format', mesgs)
 
             # TODO - Wait for YIELD keyword PR to update this
             # data = [
