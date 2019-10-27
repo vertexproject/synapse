@@ -24,10 +24,7 @@ _morenons: ( _WSCOMM? "|" _WSCOMM? | _WSCOMM) (_querystartcommand | _querystartn
     | ( _WSCOMM? "|" _WSCOMM? | _WSCOMM?) _querystartedit
 
 // Edit block: zero or more edit operations inside a single set of square brackets
-
-_editopers: "[" _WS? (_editopersstart | _editparensstart) _WS? "]"
-_editopersstart: _editoper [ ( _WS _editopersstart | _WS? _editparensstart) ]
-_editparensstart: editparens [ _WS (_editopersstart | _editparensstart) ]
+_editopers: "[" (_WS? (_editoper | editparens))* _WS? "]"
 
 ///A single edit operation
 _editoper: editnodeadd
@@ -35,7 +32,7 @@ _editoper: editnodeadd
             | editpropdel | editunivdel | edittagpropdel | edittagdel
 
 ///Parenthesis in an edit block don't have incoming nodes
-editparens: "(" _WS? editnodeadd (_WS? _editoper)* _WS? ")"
+editparens: "(" _WS? editnodeadd (_WS? (_editoper | editparens))* _WS? ")"
 edittagadd: "+" tagname [_WS? "=" _WS? _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname

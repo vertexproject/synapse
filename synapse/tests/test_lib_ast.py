@@ -286,6 +286,27 @@ class AstTest(s_test.SynTest):
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.eq(errs[0][0], 'BadPropValu')
 
+    async def test_ast_editparen_fromnodes(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]  [ (inet:dns:a=(vertex.link, $node.value()) +#foo ) ]')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.none(nodes[0].tags.get('foo'))
+            self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', 0x01020304)))
+            self.nn(nodes[1].tags.get('foo'))
+
+            # test nested
+            nodes = await core.nodes('[ inet:fqdn=woot.com ( ps:person="*" :name=visi (ps:contact="*" +#foo )) ]')
+            self.eq(nodes[0].ndef, ('inet:fqdn', 'woot.com'))
+
+            self.eq(nodes[1].ndef[0], 'ps:person')
+            self.eq(nodes[1].props.get('name'), 'visi')
+            self.none(nodes[1].tags.get('foo'))
+
+            self.eq(nodes[2].ndef[0], 'ps:contact')
+            self.nn(nodes[2].tags.get('foo'))
+
     async def test_ast_array_pivot(self):
 
         async with self.getTestCore() as core:
