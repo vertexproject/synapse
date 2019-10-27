@@ -404,8 +404,31 @@ class LibCsv(Lib):
 class LibFeed(Lib):
     def addLibFuncs(self):
         self.locls.update({
+            # 'genr': self._libGenr,
+            'list': self._libList,
             'ingest': self._libIngest,
         })
+    #
+    # async def _libGenr(self, name, data):
+    #     '''
+    #     Yield nodes being added to the graph by adding data with a given ingest type.
+    #
+    #     Args:
+    #         name (str): Name of the ingest function to send data too.
+    #         data: Data to feed to the ingest function.
+    #
+    #     Notes:
+    #         This is using the Runtimes's Snap to call addFeedNodes().
+    #         This only yields nodes if the feed function yields nodes.
+    #
+    #     Returns:
+    #         s_node.Node: An async generator that yields nodes.
+    #     '''
+    #     # TODO = permission checking...
+    #     return self.runt.snap.addFeedNodes(name, data)
+
+    async def _libList(self):
+        return await self.runt.snap.core.getFeedFuncs()
 
     async def _libIngest(self, name, data, seqn=None):
         '''
@@ -422,6 +445,7 @@ class LibFeed(Lib):
         Returns:
             None or the sequence offset value.
         '''
+        # TODO = permission checking...
         return await self.runt.snap.addFeedData(name, data, seqn)
 
 class LibQueue(Lib):

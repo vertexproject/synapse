@@ -1561,6 +1561,18 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(0, await proxy.count('test:pivtarg'))
             self.eq(1, await proxy.count('inet:user'))
 
+            # Test the getFeedFuncs commadn to enumerate feed functions.
+            ret = await proxy.getFeedFuncs()
+            resp = {rec.get('name'): rec for rec in ret}
+            self.isin('com.test.record', resp)
+            self.isin('syn.splice', resp)
+            self.isin('syn.nodes', resp)
+            self.isin('syn.ingest', resp)
+            rec = resp.get('syn.nodes')
+            self.eq(rec.get('name'), 'syn.nodes')
+            self.eq(rec.get('desc'), 'Add nodes to the Cortex via the packed node format.')
+            self.eq(rec.get('fulldoc'), 'Add nodes to the Cortex via the packed node format.')
+
     async def test_stormcmd(self):
 
         async with self.getTestCoreAndProxy() as (realcore, core):

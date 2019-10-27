@@ -1117,3 +1117,23 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await alist(core.streamstorm(q, opts))
             self.stormIsInPrint('New offset: 2', mesgs)
             self.eq(2, await core.getFeedOffs(guid))
+
+            q = 'feed.list'
+            mesgs = await alist(core.streamstorm(q))
+            for m in mesgs:
+                print(m)
+
+            # TODO - Wait for YIELD keyword PR to update this
+            # data = [
+            #     (('test:str', 'sup!'), {'props': {'tick': '2001'},
+            #                              'tags': {'test': (None, None)}}),
+            #     (('test:str', 'dawg'), {'props': {'tick': '3001'},
+            #                              'tags': {}}),
+            # ]
+            # svars['data'] = data
+            # q = '$genr=$lib.feed.genr("syn.nodes", $data) $lib.print($genr) yield $genr $lib.print($node) | spin'
+            # mesgs = await alist(core.streamstorm(q, opts))
+            # for m in mesgs:
+            #     if m[0] in ('prop:set', 'node:add', 'tag:add'):
+            #         continue
+            #     print(m)
