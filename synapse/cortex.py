@@ -446,6 +446,17 @@ class CoreApi(s_cell.CellApi):
                     yield node
 
     async def getFeedFuncs(self):
+        '''
+        Get a list of Cortex feed functions.
+
+        Notes:
+            Each feed dictinonary has the name of the feed function, the
+            full docstring for the feed function, and the first line of
+            the docstring broken out in their own keys for easy use.
+
+        Returns:
+            tuple: A tuple of dictionaries.
+        '''
         return await self.cell.getFeedFuncs()
 
     async def addFeedData(self, name, items, seqn=None):
