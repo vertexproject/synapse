@@ -1561,7 +1561,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(0, await proxy.count('test:pivtarg'))
             self.eq(1, await proxy.count('inet:user'))
 
-            # Test the getFeedFuncs commadn to enumerate feed functions.
+            # Test the getFeedFuncs command to enumerate feed functions.
             ret = await proxy.getFeedFuncs()
             resp = {rec.get('name'): rec for rec in ret}
             self.isin('com.test.record', resp)
