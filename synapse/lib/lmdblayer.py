@@ -73,7 +73,8 @@ class LmdbLayer(s_layer.Layer):
         self.onfini(self.layrslab.fini)
 
         self.spliceslab = await s_lmdbslab.Slab.anit(splicepath, max_dbs=128, map_size=mapsize, maxsize=maxsize,
-                                                     growsize=growsize, writemap=True, readahead=readahead, map_async=map_async)
+                                                     growsize=growsize, writemap=True, readahead=readahead,
+                                                     map_async=map_async)
         self.onfini(self.spliceslab.fini)
 
         self.dataslab = await s_lmdbslab.Slab.anit(datapath, map_async=True)
@@ -798,3 +799,14 @@ class LmdbLayer(s_layer.Layer):
         db = self.layrslab.initdb(name, dupsort)
         self.dbs[name] = db
         return db
+
+    async def trash(self):
+        '''
+        Delete the underlying storage
+
+        Note:  object must be fini'd first
+        '''
+        self.layrslab.trash()
+        self.spliceslab.trash()
+        self.dataslab.trash()
+        await s_layer.Layer.trash(self)

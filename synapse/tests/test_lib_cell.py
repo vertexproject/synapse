@@ -14,7 +14,7 @@ class EchoAuthApi(s_cell.CellApi):
         return self.user.admin
 
     async def icando(self, *path):
-        await self._reqUserAllowed(*path)
+        await self._reqUserAllowed(path)
         return True
 
 class EchoAuth(s_cell.Cell):
@@ -53,7 +53,7 @@ class CellTest(s_t_utils.SynTest):
                 root_url = f'tcp://root:secretsauce@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(root_url) as proxy:
                     self.true(await proxy.isadmin())
-                    self.true(await proxy.allowed('hehe', 'haha'))
+                    self.true(await proxy.allowed(('hehe', 'haha')))
 
                     # Auth data is reflected in the Dmon session
                     resp = await proxy.getDmonSessions()
@@ -69,9 +69,9 @@ class CellTest(s_t_utils.SynTest):
 
                 visi_url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(visi_url) as proxy:  # type: EchoAuthApi
-                    self.true(await proxy.allowed('foo', 'bar'))
+                    self.true(await proxy.allowed(('foo', 'bar')))
                     self.false(await proxy.isadmin())
-                    self.false(await proxy.allowed('hehe', 'haha'))
+                    self.false(await proxy.allowed(('hehe', 'haha')))
 
                     self.true(await proxy.icando('foo', 'bar'))
                     await self.asyncraises(s_exc.AuthDeny, proxy.icando('foo', 'newp'))
@@ -168,9 +168,9 @@ class CellTest(s_t_utils.SynTest):
                     await proxy.setHiveKey(('foo', 'bar'), [1, 2, 3, 4])
                     self.eq([1, 2, 3, 4], await proxy.getHiveKey(('foo', 'bar')))
                     self.isin('foo', await proxy.listHiveKey())
-                    self.eq(['bar'], await proxy.listHiveKey(('foo', )))
+                    self.eq(['bar'], await proxy.listHiveKey(('foo',)))
                     await proxy.popHiveKey(('foo', 'bar'))
-                    self.eq([], await proxy.listHiveKey(('foo', )))
+                    self.eq([], await proxy.listHiveKey(('foo',)))
 
                 # Ensure we can delete a rule by its item and index position
                 async with echo.getLocalProxy() as proxy:  # type: EchoAuthApi
@@ -228,7 +228,7 @@ class CellTest(s_t_utils.SynTest):
                 async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}/', **pconf) as proxy:
 
                     self.true(await proxy.isadmin())
-                    self.true(await proxy.allowed('hehe', 'haha'))
+                    self.true(await proxy.allowed(('hehe', 'haha')))
 
                 url = f'tcp://root@127.0.0.1:{port}/'
                 await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))

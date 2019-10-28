@@ -453,7 +453,7 @@ class CortexTest(s_t_utils.SynTest):
             # open a new snap, commiting the previous snap and do some lifts by univ prop
             async with await core.snap() as snap:
 
-                nodes = await alist(snap.getNodesBy('.created', ))
+                nodes = await alist(snap.getNodesBy('.created',))
                 self.len(1 + 1, nodes)
 
                 nodes = await alist(snap.getNodesBy('.created', node.get('.created')))
@@ -1519,7 +1519,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, proxy):
 
-            nodes = ((('inet:user', 'visi'), {}), )
+            nodes = ((('inet:user', 'visi'), {}),)
 
             nodes = await alist(proxy.addNodes(nodes))
             self.len(1, nodes)

@@ -1346,7 +1346,8 @@ class PropPivotOut(PivotOper):
                 fname = prop.type.arraytype.name
                 if runt.snap.model.forms.get(fname) is None:
                     if not warned:
-                        await runt.snap.warn(f'The source property "{name}" array type "{fname}" is not a form. Cannot pivot.')
+                        mesg = f'The source property "{name}" array type "{fname}" is not a form. Cannot pivot.'
+                        await runt.snap.warn(mesg)
                         warned = True
                     continue
 
@@ -2404,7 +2405,7 @@ class EditNodeAdd(Edit):
 
                 # must reach back first to trigger sudo / etc
                 if first:
-                    runt.allowed('node:add', name)
+                    runt.reqLayerAllowed(('node:add', ))
                     first = False
 
                 yield node, path
@@ -2423,7 +2424,7 @@ class EditNodeAdd(Edit):
             async for node, path in genr:
                 yield node, path
 
-            runt.allowed('node:add', name)
+            runt.reqLayerAllowed(('node:add', name))
 
             valu = await self.kids[2].runtval(runt)
 
@@ -2449,9 +2450,9 @@ class EditPropSet(Edit):
             if prop is None:
                 raise s_exc.NoSuchProp(name=name, form=node.form.name)
 
-            # runt node property permissions are enforced by the callback
             if not node.isrunt:
-                runt.allowed('prop:set', prop.full)
+                # runt node property permissions are enforced by the callback
+                runt.reqLayerAllowed(('prop:set', prop.full))
 
             try:
                 await node.set(name, valu)
@@ -2471,7 +2472,7 @@ class EditPropDel(Edit):
             if prop is None:
                 raise s_exc.NoSuchProp(name=name, form=node.form.name)
 
-            runt.allowed('prop:del', prop.full)
+            runt.reqLayerAllowed(('prop:del', prop.full))
 
             await node.pop(name)
 
@@ -2498,7 +2499,7 @@ class EditUnivDel(Edit):
                 if univ is None:
                     raise s_exc.NoSuchProp(name=name)
 
-            runt.allowed('prop:del', name)
+            runt.reqLayerAllowed(('prop:del', name))
 
             await node.pop(name)
             yield node, path
@@ -2520,7 +2521,7 @@ class EditTagAdd(Edit):
             for name in names:
                 parts = name.split('.')
 
-                runt.allowed('tag:add', *parts)
+                runt.reqLayerAllowed(('tag:add', *parts))
 
                 if hasval:
                     valu = await self.kids[1].compute(path)
@@ -2538,7 +2539,7 @@ class EditTagDel(Edit):
             name = await self.kids[0].compute(path)
             parts = name.split('.')
 
-            runt.allowed('tag:del', *parts)
+            runt.reqLayerAllowed(('tag:del', *parts))
 
             await node.delTag(name)
 
@@ -2561,7 +2562,7 @@ class EditTagPropSet(Edit):
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
-            runt.allowed('tag:add', *tagparts)
+            runt.reqLayerAllowed(('tag:add', *tagparts))
 
             try:
                 await node.setTagProp(tag, prop, valu)
@@ -2585,7 +2586,7 @@ class EditTagPropDel(Edit):
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
-            runt.allowed('tag:del', *tagparts)
+            runt.reqLayerAllowed(('tag:del', *tagparts))
 
             await node.delTagProp(tag, prop)
 
