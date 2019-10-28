@@ -152,8 +152,14 @@ class AstTest(s_test.SynTest):
             self.eq('zoo', nodes[2].get('hehe'))
 
             # Test for nonsensicalness
-            q = 'test:str=foo [(test:str=:hehe)]'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            q = 'test:str=baz [(test:str=:hehe +#visi)]'
+            nodes = await core.nodes(q)
+
+            self.eq(('test:str', 'baz'), nodes[0].ndef)
+            self.eq(('test:str', 'zoo'), nodes[1].ndef)
+
+            self.nn(nodes[1].tags.get('visi'))
+            self.none(nodes[0].tags.get('visi'))
 
     async def test_subquery_yield(self):
         async with self.getTestCore() as core:
