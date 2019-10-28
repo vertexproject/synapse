@@ -2392,7 +2392,7 @@ class EditNodeAdd(Edit):
 
             valu = await self.kids[2].runtval(runt)
 
-            for valu in form.type.getTypeVals(valu):
+            for valu in self.form.type.getTypeVals(valu):
                 try:
                     node = await runt.snap.addNode(self.name, valu)
                 except self.excignore:
