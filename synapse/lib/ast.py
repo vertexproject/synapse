@@ -2354,10 +2354,6 @@ class EditNodeAdd(Edit):
 
     async def run(self, runt, genr):
 
-        form = runt.snap.model.forms.get(self.name)
-        if form is None:
-            raise s_exc.NoSuchForm(name=self.name)
-
         # the behavior here is a bit complicated...
 
         # single value add (runtime computed per node )
