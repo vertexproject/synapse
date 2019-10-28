@@ -180,6 +180,10 @@ class AstTest(s_test.SynTest):
             self.eq(nodes[2].ndef[0], 'ps:contact')
             self.nn(nodes[2].tags.get('foo'))
 
+            user = await core.auth.addUser('newb')
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('[ (inet:ipv4=1.2.3.4 :asn=20) ]', user=user)
+
     async def test_subquery_yield(self):
 
         async with self.getTestCore() as core:

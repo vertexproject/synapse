@@ -2291,6 +2291,9 @@ class EditParens(Edit):
         nodeadd = self.kids[0]
         assert isinstance(nodeadd, EditNodeAdd)
 
+        formname = nodeadd.kids[0].value()
+        runt.reqLayerAllowed(('node:add', formname))
+
         # create an isolated generator for the add vs edit
         if nodeadd.isruntsafe(runt):
 
@@ -2341,7 +2344,11 @@ class EditNodeAdd(Edit):
         return self.kids[2].isRuntSafe(runt)
 
     async def addFromPath(self, path):
+        '''
+        Add a node using the context from path.
 
+        NOTE: CALLER MUST CHECK PERMS
+        '''
         valu = await self.kids[2].compute(path)
 
         for valu in self.form.type.getTypeVals(valu):
