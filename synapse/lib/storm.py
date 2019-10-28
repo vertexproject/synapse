@@ -138,6 +138,34 @@ class StormDmon(s_base.Base):
                 self.status = f'error: {e}'
                 await self.waitfini(timeout=1)
 
+class Scope:
+    '''
+    Create a "scope frame" for the runtime that may be used for
+    runtval/compute methods but will not dirty the real runtime
+    environment.
+    '''
+
+    def __init__(self, runt):
+        self.vars = {}
+        self.runt = runt
+
+        # steal some locals...
+        self.opts = runt.opts
+        self.snap = runt.snap
+        self.user = runt.user
+
+    def getVar(self, name, defv=None):
+        valu = self.vars.get(name, s_common.novalu)
+        if valu is not s_common.novalu:
+            return valu
+        return self.runt.getVar(name, defv=defv)
+
+    def setVar(self, name, valu):
+        self.vars[name] = valu
+
+    def scope(self):
+        return Scope(self)
+
 class Runtime:
     '''
     A Runtime represents the instance of a running query.
@@ -190,6 +218,9 @@ class Runtime:
         self.snap.onfini(prox.fini)
 
         return prox
+
+    def scope(self):
+        return Scope(self)
 
     def isRuntVar(self, name):
         if name in self.runtvars:

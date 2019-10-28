@@ -2621,3 +2621,60 @@ class IfStmt(Oper):
         if subq:
             async for item in subq.inline(runt, agen()):
                 yield item
+
+class Library(AstNode):
+    # library / module with vars and scope
+
+class Function(AstNode):
+    '''
+    ( name, args, body )
+
+    // use args/kwargs syntax
+    function bar(x, v=$(30)) {
+    }
+
+    # we auto-detect the behavior of the target function
+
+    # return a value
+    function bar(x, y) { return $(x + y) }
+
+    # incrementally yield values
+    function bar($x, $y) { yield $x yield $y }
+
+    # a function that produces nodes
+    function bar(x, y) { [ baz:faz=(x, y) ] }
+
+    $foo = $bar(10, v=20)
+    '''
+    async def prepare(self):
+        self.hasretn = False
+        self.hasyield = False
+
+    async def callfunc(self, runt, args, kwargs):
+
+        scope = runt.scope()
+
+        if len(args) != len(self.kids[1]):
+            raise Exception('BAD CALL ARG COUNT FIXME')
+
+        indx = 0
+        for param in self.kids[1]:
+            name = param.value()
+            scope.setVar(param.value(), args[indx])
+            indx += 1
+
+        genr = agen()
+
+        if self.hasretn:
+
+            try:
+
+                async for item in self.kids[2].run(scope, agen()):
+                    pass
+
+            except StormReturn as e:
+                return e.value
+
+            return None
+
+        return self.kids[2].run(scope, agen())
