@@ -1126,17 +1126,15 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('syn.nodes', mesgs)
             self.stormIsInPrint('Add nodes to the Cortex via the packed node format', mesgs)
 
-            # TODO - Wait for YIELD keyword PR to update this
-            # data = [
-            #     (('test:str', 'sup!'), {'props': {'tick': '2001'},
-            #                              'tags': {'test': (None, None)}}),
-            #     (('test:str', 'dawg'), {'props': {'tick': '3001'},
-            #                              'tags': {}}),
-            # ]
-            # svars['data'] = data
-            # q = '$genr=$lib.feed.genr("syn.nodes", $data) $lib.print($genr) yield $genr $lib.print($node) | spin'
-            # mesgs = await alist(core.streamstorm(q, opts))
-            # for m in mesgs:
-            #     if m[0] in ('prop:set', 'node:add', 'tag:add'):
-            #         continue
-            #     print(m)
+            data = [
+                (('test:str', 'sup!'), {'props': {'tick': '2001'},
+                                         'tags': {'test': (None, None)}}),
+                (('test:str', 'dawg'), {'props': {'tick': '3001'},
+                                         'tags': {}}),
+            ]
+            svars['data'] = data
+            q = '$genr=$lib.feed.genr("syn.nodes", $data) $lib.print($genr) yield $genr'
+            nodes = await core.nodes(q, opts=opts)
+            self.len(2, nodes)
+            self.eq({'sup!', 'dawg'},
+                    {n.ndef[1] for n in nodes})
