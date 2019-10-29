@@ -51,13 +51,13 @@ SETOPER: "=" | "?="
 _oper.1: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | vareval
      | filtoper | liftbytag
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return
-     | _liftprop | ifstmt
+     | _liftprop | ifstmt | yieldvalu
 
 BREAK: "break"
 RETURN: "return"
 CONTINUE: "continue"
 
-return: RETURN _WS [ _valu ]
+return: RETURN [ _WS _valu ]
 
 // A bare variable reference, useful for a function call
 vareval: _varvalu
@@ -73,6 +73,8 @@ YIELD: "yield"
 switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" baresubquery) | (casevalu _WSCOMM? baresubquery)) )* _WSCOMM? "}"
 casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | CASEVALU
 CASEVALU: /[^:\s][^:]*:/
+
+yieldvalu: YIELD _WS _valu
 
 ifstmt: "if" ifclause (_WSCOMM? "elif" ifclause)* [_WSCOMM? "else" _WSCOMM? baresubquery]
 // The stuff inside an if or elif
