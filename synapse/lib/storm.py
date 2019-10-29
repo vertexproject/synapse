@@ -62,10 +62,22 @@ stormcmds = (
             $lib.print('Storm daemon list:')
             for $info in $lib.dmon.list() {
                 $name = $info.name.ljust(20)
-                $lib.print("    {iden}:  ({name}): {status}", iden=$info.iden, name=$info.name, status=$info.status)
+                $lib.print("    {iden}:  ({name}): {status}", iden=$info.iden, name=$name, status=$info.status)
             }
         ''',
     },
+    {
+        'name': 'feed.list',
+        'descr': 'List the feed functions available in the Cortex',
+        'cmdrargs': (),
+        'storm': '''
+            $lib.print('Storm feed list:')
+            for $flinfo in $lib.feed.list() {
+                $flname = $flinfo.name.ljust(30)
+                $lib.print("    ({name}): {desc}", name=$flname, desc=$flinfo.desc)
+            }
+        '''
+    }
 )
 
 class StormDmon(s_base.Base):

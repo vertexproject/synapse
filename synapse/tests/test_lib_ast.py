@@ -137,7 +137,9 @@ class AstTest(s_test.SynTest):
             await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
 
     async def test_ast_editparens(self):
+
         async with self.getTestCore() as core:
+
             q = '[(test:str=foo)]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -151,11 +153,42 @@ class AstTest(s_test.SynTest):
             self.eq('zoo', nodes[1].get('hehe'))
             self.eq('zoo', nodes[2].get('hehe'))
 
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('[ (newp:newp=20 :hehe=10) ]')
+
             # Test for nonsensicalness
-            q = 'test:str=foo [(test:str=:hehe)]'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            q = 'test:str=baz [(test:str=:hehe +#visi)]'
+            nodes = await core.nodes(q)
+
+            self.eq(('test:str', 'baz'), nodes[0].ndef)
+            self.eq(('test:str', 'zoo'), nodes[1].ndef)
+
+            self.nn(nodes[1].tags.get('visi'))
+            self.none(nodes[0].tags.get('visi'))
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]  [ (inet:dns:a=(vertex.link, $node.value()) +#foo ) ]')
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.none(nodes[0].tags.get('foo'))
+            self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', 0x01020304)))
+            self.nn(nodes[1].tags.get('foo'))
+
+            # test nested
+            nodes = await core.nodes('[ inet:fqdn=woot.com ( ps:person="*" :name=visi (ps:contact="*" +#foo )) ]')
+            self.eq(nodes[0].ndef, ('inet:fqdn', 'woot.com'))
+
+            self.eq(nodes[1].ndef[0], 'ps:person')
+            self.eq(nodes[1].props.get('name'), 'visi')
+            self.none(nodes[1].tags.get('foo'))
+
+            self.eq(nodes[2].ndef[0], 'ps:contact')
+            self.nn(nodes[2].tags.get('foo'))
+
+            user = await core.auth.addUser('newb')
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('[ (inet:ipv4=1.2.3.4 :asn=20) ]', user=user)
 
     async def test_subquery_yield(self):
+
         async with self.getTestCore() as core:
             q = '[test:comp=(10,bar)] { -> test:int}'
             nodes = await core.nodes(q)
