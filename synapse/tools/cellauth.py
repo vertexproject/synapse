@@ -18,6 +18,8 @@ Manage permissions of users, roles, and objects in a remote cell.
 '''
 outp = None
 
+min_authgate_vers = (0, 1, 33)
+
 denyallow = ['deny', 'allow']
 def reprrule(rule, authgater=None):
     head = denyallow[rule[0]]
@@ -72,12 +74,17 @@ async def printuser(user, details=False, cell=None):
 
 async def handleModify(opts):
 
+    cell_supports_authgate = False
+
     if opts.object and not opts.addrule:
         outp.printf('--object option only valid with --addrule')
         return -1
 
     try:
         async with await s_telepath.openurl(opts.cellurl) as cell:
+
+            if cell._getSynVers() >= min_authgate_vers:
+                cell_supports_authgate = True
 
             if opts.adduser:
                 outp.printf(f'adding user: {opts.name}')
@@ -136,8 +143,10 @@ async def handleModify(opts):
                 rule = (allow, text.split('.'))
 
                 outp.printf(f'adding rule to {opts.name}: {rule!r}')
-
-                await cell.addAuthRule(opts.name, rule, indx=None, iden=opts.object)
+                if cell_supports_authgate:
+                    await cell.addAuthRule(opts.name, rule, indx=None, iden=opts.object)
+                else:
+                    await cell.addAuthRule(opts.name, rule, indx=None)
 
             if opts.delrule is not None:
                 outp.printf(f'deleting rule index: {opts.delrule}')
@@ -253,7 +262,8 @@ def makeargparser():
     muxp.add_argument('--addrule', help='Add the given rule to the user/role.')
     muxp.add_argument('--delrule', type=int, help='Delete the given rule number from the user/role.')
 
-    pars_mod.add_argument('--object', type=str, help='The iden of the object to which to apply the new rule')
+    pars_mod.add_argument('--object', type=str, help='The iden of the object to which to apply the new rule. Only '
+                                                     'supported on Cells running Synapse >= 0.1.33.')
 
     pars_mod.add_argument('name', help='The user/role to modify.')
     pars_mod.set_defaults(func=handleModify)
