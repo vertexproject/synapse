@@ -3552,7 +3552,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             ''')
             # dmon is now fully running
             msgs = await core.streamstorm('dmon.list').list()
-            self.stormIsInPrint('(wootdmon): running', msgs)
+            self.stormIsInPrint('(wootdmon            ): running', msgs)
 
             # make the dmon blow up
             await core.nodes('''
@@ -3560,7 +3560,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 for ($offs, $item) in $q.gets(size=1) { $q.cull($offs) }
             ''')
             msgs = await core.streamstorm('dmon.list').list()
-            self.stormIsInPrint('(wootdmon): error', msgs)
+            self.stormIsInPrint('(wootdmon            ): error', msgs)
 
     async def test_cortex_storm_dmon_exit(self):
 
