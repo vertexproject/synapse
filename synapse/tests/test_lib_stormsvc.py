@@ -144,6 +144,7 @@ class StormSvcTest(s_test.SynTest):
 
                 async with await s_cortex.Cortex.anit(dirn) as core:
 
+                    nodes = await core.nodes('$lib.service.wait(fake)')
                     nodes = await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
 
                     self.len(2, nodes)
