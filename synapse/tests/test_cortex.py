@@ -1561,6 +1561,18 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(0, await proxy.count('test:pivtarg'))
             self.eq(1, await proxy.count('inet:user'))
 
+            # Test the getFeedFuncs command to enumerate feed functions.
+            ret = await proxy.getFeedFuncs()
+            resp = {rec.get('name'): rec for rec in ret}
+            self.isin('com.test.record', resp)
+            self.isin('syn.splice', resp)
+            self.isin('syn.nodes', resp)
+            self.isin('syn.ingest', resp)
+            rec = resp.get('syn.nodes')
+            self.eq(rec.get('name'), 'syn.nodes')
+            self.eq(rec.get('desc'), 'Add nodes to the Cortex via the packed node format.')
+            self.eq(rec.get('fulldoc'), 'Add nodes to the Cortex via the packed node format.')
+
     async def test_stormcmd(self):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
@@ -3540,7 +3552,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             ''')
             # dmon is now fully running
             msgs = await core.streamstorm('dmon.list').list()
-            self.stormIsInPrint('(wootdmon): running', msgs)
+            self.stormIsInPrint('(wootdmon            ): running', msgs)
 
             # make the dmon blow up
             await core.nodes('''
@@ -3548,7 +3560,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 for ($offs, $item) in $q.gets(size=1) { $q.cull($offs) }
             ''')
             msgs = await core.streamstorm('dmon.list').list()
-            self.stormIsInPrint('(wootdmon): error', msgs)
+            self.stormIsInPrint('(wootdmon            ): error', msgs)
 
     async def test_cortex_storm_dmon_exit(self):
 
