@@ -357,6 +357,23 @@ class StormTypesTest(s_test.SynTest):
                     ('csv:row', {'row': ['test:str', '9876', '3001/01/01 00:00:00.000'],
                                  'table': 'mytable'}))
 
+            q = 'test:str $lib.csv.emit(:tick, :hehe)'
+            mesgs = await core.streamstorm(q, {'show': ('err', 'csv:row')}).list()
+            csv_rows = [m for m in mesgs if m[0] == 'csv:row']
+            self.len(2, csv_rows)
+            self.eq(csv_rows[0],
+                    ('csv:row', {'row': [978307200000, None], 'table': None}))
+            self.eq(csv_rows[1],
+                    ('csv:row', {'row': [32535216000000, None], 'table': None}))
+
+            # Sad path case...
+            q = '''$data=() $genr=$lib.feed.genr(syn.node, $data)
+            $lib.csv.emit($genr)
+            '''
+            mesgs = await core.streamstorm(q, {'show': ('err', 'csv:row')}).list()
+            err = mesgs[-2]
+            self.eq(err[1][0], 'NoSuchType')
+
     async def test_storm_node_iden(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:int=10 test:str=$node.iden() ] +test:str')
