@@ -153,6 +153,9 @@ class AstTest(s_test.SynTest):
             self.eq('zoo', nodes[1].get('hehe'))
             self.eq('zoo', nodes[2].get('hehe'))
 
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('[ (newp:newp=20 :hehe=10) ]')
+
             # Test for nonsensicalness
             q = 'test:str=baz [(test:str=:hehe +#visi)]'
             nodes = await core.nodes(q)
