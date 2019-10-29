@@ -445,6 +445,20 @@ class CoreApi(s_cell.CellApi):
 
                     yield node
 
+    async def getFeedFuncs(self):
+        '''
+        Get a list of Cortex feed functions.
+
+        Notes:
+            Each feed dictinonary has the name of the feed function, the
+            full docstring for the feed function, and the first line of
+            the docstring broken out in their own keys for easy use.
+
+        Returns:
+            tuple: A tuple of dictionaries.
+        '''
+        return await self.cell.getFeedFuncs()
+
     async def addFeedData(self, name, items, seqn=None):
 
         wlyr = self.cell.view.layers[0]
@@ -2212,7 +2226,25 @@ class Cortex(s_cell.Cell):
         '''
         return self.feedfuncs.get(name)
 
+    async def getFeedFuncs(self):
+        ret = []
+        for name, ctor in self.feedfuncs.items():
+            # TODO - Future support for feed functions defined via Storm.
+            doc = getattr(ctor, '__doc__')
+            if doc is None:
+                doc = 'No feed docstring'
+            doc = doc.strip()
+            desc = doc.split('\n')[0]
+            ret.append({'name': name,
+                        'desc': desc,
+                        'fulldoc': doc,
+                        })
+        return tuple(ret)
+
     async def _addSynNodes(self, snap, items):
+        '''
+        Add nodes to the Cortex via the packed node format.
+        '''
         async for node in snap.addNodes(items):
             yield node
 
