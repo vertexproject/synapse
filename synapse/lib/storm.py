@@ -9,6 +9,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
+import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
@@ -204,6 +205,12 @@ class Runtime:
         # used by the digraph projection logic
         self._graph_done = {}
         self._graph_want = collections.deque()
+
+    async def getStormModule(self, name):
+        return await self.snap.core.getStormModule(name)
+
+    async def getStormQuery(self, text):
+        return self.snap.core.getStormQuery(text)
 
     async def getTeleProxy(self, url, **opts):
 

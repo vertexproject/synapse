@@ -35,6 +35,9 @@ class StormBreak(StormCtrlFlow):
 class StormContinue(StormCtrlFlow):
     pass
 
+class StormReturn(StormCtrlFlow):
+    pass
+
 class AstNode:
     '''
     Base class for all nodes in the STORM abstract syntax tree.
@@ -2684,8 +2687,22 @@ class IfStmt(Oper):
             async for item in subq.inline(runt, agen()):
                 yield item
 
-class Library(AstNode):
-    # library / module with vars and scope
+class Return(Oper):
+
+    async def run(self, runt, genr):
+
+        valu = None
+
+        async for item in genr:
+            if len(self.kids):
+                valu = self.kids[0].compute(item[1])
+            raise s_exc.StormReturn(valu=valu)
+
+        # no items in pipeline (runtsafe) execute
+        if len(self.kids):
+            valu = self.kids[0].compute(runt)
+
+        raise s_exc.StormReturn(valu=valu)
 
 class Function(AstNode):
     '''
@@ -2712,10 +2729,16 @@ class Function(AstNode):
         self.hasretn = False
         self.hasyield = False
 
+        self.kidargs = []
+        self.kidkwargs = {}
+
     async def callfunc(self, runt, args, kwargs):
+        '''
+        Execute a function call using the given runtime.
 
+        This function may return a value / generator / async generator
+        '''
         scope = runt.scope()
-
         if len(args) != len(self.kids[1]):
             raise Exception('BAD CALL ARG COUNT FIXME')
 

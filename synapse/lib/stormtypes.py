@@ -8,6 +8,7 @@ import datetime
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.ast as s_ast
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
@@ -201,7 +202,30 @@ class LibBase(Lib):
             'fire': self._fire,
             'text': self._text,
             'print': self._print,
+            'import': self._libBaseImport,
         })
+
+    async def _libBaseImport(self, name):
+
+        mdef = await self.runt.getStormModule(name)
+        if mdef is None:
+            mesg = f'No storm module named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        text = mdef.get('storm')
+        query = await self.runt.getStormQuery(text)
+
+        scope = self.runt.scope()
+
+        # execute the query in a module scope
+        async for item in query.run(scope, s_ast.agen()):
+            pass
+
+        modlib = s_ast.Lib(self.runt)
+        modlib.locs.update(scope.vars)
+        modlib.locs['__module__'] = self.mdef
+
+        return modlib
 
     async def _set(self, *vals):
         return Set(set(vals))

@@ -428,3 +428,43 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:int=10 test:int=20 ]  $q=${#foo.bar}')
             self.len(2, nodes)
+
+    async def test_ast_module(self):
+
+        stormpkg = {
+            'name': 'foo',
+            'desc': 'The Foo Module',
+            'version': (0, 0, 1),
+            'modules': [
+                {
+                    'name': 'hehe.haha',
+                    'storm': '''
+                        $intval = $(10)
+
+                        function lolz() {
+                            return $($x + $y)
+                        }
+                    ''',
+                },
+                {
+                    'name': 'hehe.hoho',
+                    'storm': '''
+                    ''',
+                },
+            ],
+            'commands': [
+                {
+                    'name': 'foo.bar',
+                    'storm': '''
+                        $foolib = $lib.import(hehe.haha)
+                        [ test:int=$foolib.lolz(20, 30) ]
+                    ''',
+                },
+            ],
+        }
+
+        async with self.getTestCore() as core:
+            await core.addStormPkg(stormpkg)
+            nodes = await core.nodes('foo.bar')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 50))

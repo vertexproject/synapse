@@ -735,7 +735,9 @@ class Cortex(s_cell.Cell):
         self.layrctors = {}
         self.feedfuncs = {}
         self.stormcmds = {}
-        self.stormvars = None  # type: s_hive.HiveDict
+        self.stormmods = {}     # name: mdef
+        self.stormpkgs = {}     # name: pkgdef
+        self.stormvars = None   # type: s_hive.HiveDict
         self.stormrunts = {}
 
         self.svcsbyiden = {}
@@ -933,13 +935,17 @@ class Cortex(s_cell.Cell):
         await self._setStormCmd(cdef)
         await self.cmdhive.set(name, cdef)
 
-    async def _setStormCmd(self, cdef):
+    async def _reqStormCmd(self, cdef):
 
         name = cdef.get('name')
         if not s_grammar.isCmdName(name):
             raise s_exc.BadCmdName(name=name)
 
         self.getStormQuery(cdef.get('storm'))
+
+    async def _setStormCmd(self, cdef):
+
+        await self._reqStormCmd(cdef)
 
         def ctor(argv):
             return s_storm.PureCmd(cdef, argv)
@@ -950,6 +956,7 @@ class Cortex(s_cell.Cell):
 
         ctor.getCmdBrief = getCmdBrief
 
+        name = cdef.get('name')
         self.stormcmds[name] = ctor
 
     async def delStormCmd(self, name):
@@ -968,6 +975,56 @@ class Cortex(s_cell.Cell):
 
         await self.cmdhive.pop(name)
         self.stormcmds.pop(name, None)
+
+    async def addStormPkg(self, pkgdef):
+        '''
+        Add the given storm package to the cortex.
+
+        This will store the package for future use.
+        '''
+        await self.loadStormPkg(pkgdef)
+        name = pkgdef.get('name')
+        await self.pkghive.set(name, pkgdef)
+
+    async def getStormModule(self, name):
+        return self.stormmods.get(name)
+
+    async def loadStormPkg(self, pkgdef):
+        '''
+        Load a storm package into the storm library for this cortex.
+
+        NOTE: This will *not* store/persist the package (allowing service dynamism).
+        '''
+        # validate things first...
+        name = pkgdef.get('name')
+        if name is None:
+            raise Foo()
+
+        vers = pkgdef.get('version')
+        if vers is None:
+            raise Foo()
+
+        for mdef in pkgdef.get('modules', ()):
+
+            modname = mdef.get('name')
+            if modname is None:
+                raise Foo()
+
+            modtext = mdef.get('storm')
+            self.getStormQuery(modtext)
+
+        for cdef in pkgdef.get('commands', ()):
+            await self._reqStormCmd(cdef)
+
+        # now actually load...
+        self.stormpkgs[name] = pkgdef
+
+        for mdef in pkgdef.get('modules'):
+            modname = mdef.get('name')
+            self.stormmods[modname] = mdef
+
+        for cdef in pkgdef.get('commands', ()):
+            await self._setStormCmd(cdef)
 
     def getStormSvc(self, name):
 
@@ -1360,11 +1417,16 @@ class Cortex(s_cell.Cell):
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
         cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
+        pkghive = await self.hive.open(('cortex', 'storm', 'packages'))
 
         self.cmdhive = await cmdhive.dict()
+        self.pkghive = await pkghive.dict()
 
         for name, cdef in self.cmdhive.items():
             await self._trySetStormCmd(name, cdef)
+
+        for name, pkgdef in self.pkghive.items():
+            await self._tryLoadStormPkg(name, pkgdef)
 
     async def _trySetStormCmd(self, name, cdef):
         try:

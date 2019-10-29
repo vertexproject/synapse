@@ -51,7 +51,7 @@ SETOPER: "=" | "?="
 _oper.1: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | vareval
      | filtoper | liftbytag
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return
-     | _liftprop | ifstmt | yieldvalu
+     | _liftprop | ifstmt | yieldvalu | stormfunc
 
 BREAK: "break"
 RETURN: "return"
@@ -130,6 +130,12 @@ tagprop: "#" TAG ":" BASEPROP
 _ONLYTAGPROP: "#:"
 onlytagprop: _ONLYTAGPROP BASEPROP
 formtagprop: PROPNAME "#" TAG ":" BASEPROP
+
+FUNCNAME: /a-zA-Z_/
+_funcarg: (VARTOKN | kwarg)
+//funcargs: "(" _WS? [ _funcarg ( _WS? "," _WS? _funcarg)* ] _WS? ")"
+funcargs: "(" ")"
+stormfunc: "function" _WS FUNCNAME funcargs "{" query "}"
 
 stormcmd: CMDNAME [_WS stormcmdargs]
 stormcmdargs: _WS? _cmdargv (_WS _cmdargv)*
@@ -278,11 +284,3 @@ _expratom: _exprvalu | "(" exprsum ")"
 // Just like _valu, but doesn't allow valu lists or unquoted strings
 _exprvalu: NUMBER | _varvalu | relpropvalu | univpropvalu | tagvalu | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING | dollarexpr
-
-MODNAME: /[a-zA-Z_.]+/
-module: "module" MODNAME
-library: (valuvar | function)*
-
-FUNCNAME: /a-zA-Z_/
-funcargs: "(" [ _WS? (_varname | kwarg) ( _WS? "," _WS? (_varname, kwarg))* ] _WS? ")"
-function: "function" FUNCNAME funcargs "{" query "}"
