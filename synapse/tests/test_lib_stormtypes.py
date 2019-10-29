@@ -357,6 +357,23 @@ class StormTypesTest(s_test.SynTest):
                     ('csv:row', {'row': ['test:str', '9876', '3001/01/01 00:00:00.000'],
                                  'table': 'mytable'}))
 
+            q = 'test:str $lib.csv.emit(:tick, :hehe)'
+            mesgs = await core.streamstorm(q, {'show': ('err', 'csv:row')}).list()
+            csv_rows = [m for m in mesgs if m[0] == 'csv:row']
+            self.len(2, csv_rows)
+            self.eq(csv_rows[0],
+                    ('csv:row', {'row': [978307200000, None], 'table': None}))
+            self.eq(csv_rows[1],
+                    ('csv:row', {'row': [32535216000000, None], 'table': None}))
+
+            # Sad path case...
+            q = '''$data=() $genr=$lib.feed.genr(syn.node, $data)
+            $lib.csv.emit($genr)
+            '''
+            mesgs = await core.streamstorm(q, {'show': ('err', 'csv:row')}).list()
+            err = mesgs[-2]
+            self.eq(err[1][0], 'NoSuchType')
+
     async def test_storm_node_iden(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:int=10 test:str=$node.iden() ] +test:str')
@@ -1117,3 +1134,24 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await alist(core.streamstorm(q, opts))
             self.stormIsInPrint('New offset: 2', mesgs)
             self.eq(2, await core.getFeedOffs(guid))
+
+            q = 'feed.list'
+            mesgs = await alist(core.streamstorm(q))
+            self.stormIsInPrint('Storm feed list', mesgs)
+            self.stormIsInPrint('com.test.record', mesgs)
+            self.stormIsInPrint('No feed docstring', mesgs)
+            self.stormIsInPrint('syn.nodes', mesgs)
+            self.stormIsInPrint('Add nodes to the Cortex via the packed node format', mesgs)
+
+            data = [
+                (('test:str', 'sup!'), {'props': {'tick': '2001'},
+                                         'tags': {'test': (None, None)}}),
+                (('test:str', 'dawg'), {'props': {'tick': '3001'},
+                                         'tags': {}}),
+            ]
+            svars['data'] = data
+            q = '$genr=$lib.feed.genr("syn.nodes", $data) $lib.print($genr) yield $genr'
+            nodes = await core.nodes(q, opts=opts)
+            self.len(2, nodes)
+            self.eq({'sup!', 'dawg'},
+                    {n.ndef[1] for n in nodes})
