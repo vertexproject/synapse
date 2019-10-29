@@ -132,6 +132,10 @@ class AstConverter(lark.Transformer):
 
         return subq
 
+    def yieldvalu(self, kids):
+        kid = self._convert_child(kids[-1])
+        return s_ast.YieldValu(kids=[kid])
+
     @lark.v_args(meta=True)
     def query(self, kids, meta):
         kids = self._convert_children(kids)
