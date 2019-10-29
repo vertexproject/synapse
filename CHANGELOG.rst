@@ -37,7 +37,9 @@ Bugfixes
 - Allow values referenced off of a Node, which are not set on the Node, to be emitted through the ``$lib.csv.emit()``
   function.  These will be serialied with the ``synapse.tools.csvtool`` as zero length strings.
   (`#1413 <https://github.com/vertexproject/synapse/pull/1413>`_)
-
+- Allow ``synapse.tools.cellauth`` to work with older Synapse Cells which do not support the auth apis introduced
+  in #1384.
+  (`#1410 <https://github.com/vertexproject/synapse/pull/1410>`_)
 
 v0.1.32 - 2019-10-22
 ====================
