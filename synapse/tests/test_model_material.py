@@ -13,7 +13,7 @@ class MatTest(s_t_utils.SynTest):
                 n1_guid = guid()
                 node1 = await snap.addNode('mat:item', n1_guid,
                                            props={'name': "Visi's F16 Fighter Jet",
-                                                  'latlong': '0,0', 'spec': n0_guid
+                                                  'latlong': '0,0', 'spec': n0_guid,
                                                   'place': place})
 
                 f0 = await snap.addNode('file:bytes', '*')
