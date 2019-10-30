@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
@@ -144,5 +145,12 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
 
     async def deref(self, name):
         # method used by storm runtime library on deref
-        await self.client.waitready()
-        return getattr(self.client, name)
+        try:
+            await self.client.waitready()
+            return getattr(self.client, name)
+        except asyncio.TimeoutError:
+            mesg = 'Timeout waiting for storm service'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None
+        except AttributeError as e:
+            mesg = 'Error dereferencing storm service - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None
