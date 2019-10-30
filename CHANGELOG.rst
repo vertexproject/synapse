@@ -3,6 +3,18 @@ Synapse Changelog
 *****************
 
 
+v0.1.34 - 2019-10-30
+====================
+
+Bugfixes
+--------
+- Fix an issue where Storm Edit blocks could encounter exponential processing time when performing Storm query parsing.
+  (`#1414 <https://github.com/vertexproject/synapse/pull/1414>`_)
+- Fix an issue where the ``Cortex.getView()`` function did not return the default View when the Cortex iden was
+  provided as the ``iden`` argument.
+  (`#1414 <https://github.com/vertexproject/synapse/pull/1414>`_)
+
+
 v0.1.33 - 2019-10-29
 ====================
 
