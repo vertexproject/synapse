@@ -659,7 +659,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'asn': 3,
                 'loc': 'uS',
                 'dns:rev': 'vertex.link',
-                'latlong': '-50.12345, 150.56789'
+                'latlong': '-50.12345, 150.56789',
                 'place': place,
             }
             expected_props = {
