@@ -14,7 +14,7 @@
 //query: [_WSCOMM? "|"] _WSCOMM? (_querystartnon | _querystartedit | _querystartcommand)? _WSCOMM?
 //query: [_WSCOMM? "|"] _WSCOMM? _querystartnon | _querystartedit | _querystartcommand)? _WSCOMM?
 
-query: [_WSCOMM? "|" ] _WSCOMM? (_statement (_WSCOMM? "|" _statement)*)? _WSCOMM?
+query: [_WSCOMM? "|" ] _WSCOMM? (_statement (_WSCOMM? "|" _WSCOMM? _statement)*)? _WSCOMM?
 
 _opers: _oper (_WSCOMM _oper)*
 _statement: (_opers | stormcmd)
@@ -30,6 +30,7 @@ _statement: (_opers | stormcmd)
     //| ( _WSCOMM? "|" _WSCOMM? | _WSCOMM?) _querystartedit
 
 // Edit block: zero or more edit operations inside a single set of square brackets
+_editblocks: _editblock+
 _editblock: "[" _WS? _editopers _WS? "]"
 _editopers: _editoper (_WS _editoper)*
 
@@ -57,14 +58,13 @@ SETOPER: "=" | "?="
 _oper: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag
      | opervarlist | valuvar | vareval | filtoper | liftbytag
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return
-     | _liftprop | ifstmt | yieldvalu | _editblock | stormfunc
+     | _liftprop | ifstmt | yieldvalu | _editblocks | stormfunc
 
 BREAK: "break"
-RETURN: "return"
 CONTINUE: "continue"
 FUNCTION: "function"
 
-return: RETURN [ _WS _valu ]
+return.1: "return" [ _WS _valu ]
 
 // A bare variable reference, useful for a function call
 vareval: _varvalu
@@ -141,7 +141,7 @@ formtagprop: PROPNAME "#" TAG ":" BASEPROP
 _funcarg: (VARTOKN | kwarg)
 //funcargs: "(" _WS? [ _funcarg ( _WS? "," _WS? _funcarg)* ] _WS? ")"
 funcargs: "(" _WS? (VARTOKN (_WS? "," _WS? VARTOKN)*)? _WS? ")"
-stormfunc: FUNCTION _WS VARTOKN _WS? funcargs _WS? "{" query "}"
+stormfunc.1: FUNCTION _WS VARTOKN _WS? funcargs _WS? "{" query "}"
 
 stormcmd: CMDNAME [_WS stormcmdargs]
 stormcmdargs: _WS? _cmdargv (_WS _cmdargv)*

@@ -35,7 +35,7 @@ _Queries = [
     '[test:int?=4] [ test:int?=nonono ]',
     '[test:str=foo :tick?=2019 ]',
     '[test:str=a] switch $node.form() { hehe: {[+#baz]} }',
-    '[test:type10=2 :strprop=1] spin | test:type10 +$(:strprop) $foo=1 +$foo',
+    '[test:type10=2 :strprop=1] | spin | test:type10 +$(:strprop) $foo=1 +$foo',
     'inet:fqdn#xxx.xxxxxx.xxxx.xx for $tag in $node.tags(xxx.xxxxxx.*.xx) { <- edge:refs +#xx <- graph:cluster [ +#foo]  ->edge:refs }',
     ' +(syn:tag~=aka.*.mal.*)',
     '+(syn:tag^=aka or syn:tag^=cno or syn:tag^=rep)',
@@ -185,7 +185,7 @@ _Queries = [
     'help',
     'iden 2cdd997872b10a65407ad5fadfa28e0d',
     'iden deadb33f',
-    '$foo=42 iden deadb33f',
+    '$foo=42 | iden deadb33f',
     'inet:asn=10 | noderefs -of inet:ipv4 --join -d 3',
     'inet:dns:a +{ :ipv4 -> inet:ipv4 +:loc=us }',
     'inet:dns:a +{ :ipv4 -> inet:ipv4 -:loc=us }',
@@ -1009,8 +1009,8 @@ class GrammarTest(s_t_utils.SynTest):
         for i, query in enumerate(_Queries):
             try:
                 tree = parser.parse(query)
-                # print(f'#{i}: {query}')
-                # print(tree, '\n')
+                print(f'#{i}: {query}')
+                print(tree, '\n')
                 self.notin('_ambig', str(tree))
 
             except (lark.ParseError, lark.UnexpectedCharacters):

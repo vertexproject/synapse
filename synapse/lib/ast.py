@@ -2734,19 +2734,30 @@ class IfStmt(Oper):
 
 class Return(Oper):
 
+    #def __init__(self, kids=()):
+
     async def run(self, runt, genr):
 
+        print('RETURN ALIVE')
+        print(repr(self))
+
+        # fake out a generator...
+        for item in ():
+            yield item
+
         valu = None
-        async for item in genr:
-            if len(self.kids):
-                valu = self.kids[0].compute(item[1])
-            raise s_exc.StormReturn(valu=valu)
+        async for node, path in genr:
+            if self.kids:
+                valu = await self.kids[0].compute(path)
+
+            print('RETURNING %r' % (valu,))
+            raise StormReturn(valu)
 
         # no items in pipeline (runtsafe) execute
         if len(self.kids):
-            valu = self.kids[0].compute(runt)
+            valu = await self.kids[0].compute(runt)
 
-        raise s_exc.StormReturn(valu=valu)
+        raise StormReturn(valu)
 
 class FuncArgs(AstNode):
 
@@ -2774,14 +2785,13 @@ class Function(AstNode):
 
     $foo = $bar(10, v=20)
     '''
-    def prepare(self):
-
-        self.hasretn = self.hasAstClass(Return)
-
-        self.kidargs = []
-        self.kidkwargs = {}
+    #def prepare(self):
+        #self.kidargs = []
+        #self.kidkwargs = {}
 
     async def run(self, runt, genr):
+
+        self.hasretn = self.hasAstClass(Return)
 
         async def realfunc(*args, **kwargs):
             return await self.callfunc(runt, args, kwargs)
@@ -2798,35 +2808,40 @@ class Function(AstNode):
 
         This function may return a value / generator / async generator
         '''
-        scope = runt.scope()
+        #scope = runt.scope()
+        #query = self.kids[3]
+        funcrunt = await runt.getScopeRuntime(self.kids[3])
+        #with runt.snap.getStormRuntime() as funcrunt:
+            #funcrunt.loadRuntVars(query)
 
         argdefs = self.kids[2].value()
         if len(args) != len(argdefs):
             raise Exception('BAD CALL ARG COUNT FIXME')
 
         for i, name in enumerate(argdefs):
-            scope.setVar(name, args[i])
+            funcrunt.setVar(name, args[i])
 
         genr = agen()
 
         print('RUN HAS RETN: %r' % (self.hasretn,))
+        print(repr(self))
 
         if self.hasretn:
 
             try:
 
-                async for item in self.kids[3].run(scope, agen()):
+                async for item in self.kids[3].run(funcrunt, agen()):
                     pass
 
             except StormReturn as e:
-                print('STORM RETURN EXCEPTION %r' % (e.value,))
-                return e.value
+                print('STORM RETURN EXCEPTION %r' % (e.item,))
+                return e.item
 
             print('RETURNING NONE')
             return None
 
         async def nodegenr():
-            async for node, path in self.kids[3].run(scope, agen()):
+            async for node, path in self.kids[3].run(funcrunt, agen()):
                 yield node
 
         return nodegenr()

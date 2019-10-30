@@ -473,15 +473,18 @@ class AstTest(s_test.SynTest):
                     'name': 'hehe.haha',
                     'storm': '''
                         $intval = $(10)
-
                         function lolz(x, y) {
-                            return $($x + $y)
+                            return $( $x + $y )
                         }
                     ''',
                 },
                 {
                     'name': 'hehe.hoho',
                     'storm': '''
+                        function nodes (x, y) {
+                            [ test:str=$x ]
+                            [ test:str=$y ]
+                        }
                     ''',
                 },
             ],
@@ -490,14 +493,28 @@ class AstTest(s_test.SynTest):
                     'name': 'foo.bar',
                     'storm': '''
                         $foolib = $lib.import(hehe.haha)
-                        [ test:int=$foolib.lolz(20, 30) ]
+                        [ test:int=$foolib.lolz($(20), $(30)) ]
+                    ''',
+                },
+                {
+                    'name': 'test.nodes',
+                    'storm': '''
+                        $foolib = $lib.import(hehe.hoho)
+                        yield $foolib.nodes(asdf, qwer)
                     ''',
                 },
             ],
         }
 
         async with self.getTestCore() as core:
+
+            #query = core.getStormQuery(x)
+            #print(repr(query))
+            #return
             await core.addStormPkg(stormpkg)
             nodes = await core.nodes('foo.bar')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 50))
+
+            nodes = await core.nodes('test.nodes')
+            print(repr(nodes))

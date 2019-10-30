@@ -238,8 +238,8 @@ class Runtime:
 
         return prox
 
-    def scope(self):
-        return Scope(self)
+    #def scope(self):
+        #return Scope(self)
 
     def isRuntVar(self, name):
         if name in self.runtvars:
@@ -368,6 +368,11 @@ class Runtime:
             async for node, path in query.iterNodePaths(self, genr=genr):
                 self.tick()
                 yield node, path
+
+    async def getScopeRuntime(self, query):
+        runt = Runtime(self.snap, user=self.user)
+        runt.loadRuntVars(query)
+        return runt
 
 class Parser(argparse.ArgumentParser):
 

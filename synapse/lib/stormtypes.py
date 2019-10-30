@@ -215,15 +215,16 @@ class LibBase(Lib):
 
         text = mdef.get('storm')
         query = await self.runt.getStormQuery(text)
+        runt = await self.runt.getScopeRuntime(query)
 
-        scope = self.runt.scope()
+        #scope = self.runt.scope()
 
         # execute the query in a module scope
-        async for item in query.run(scope, s_ast.agen()):
+        async for item in query.run(runt, s_ast.agen()):
             pass
 
         modlib = Lib(self.runt)
-        modlib.locls.update(scope.vars)
+        modlib.locls.update(runt.vars)
         modlib.locls['__module__'] = mdef
 
         return modlib

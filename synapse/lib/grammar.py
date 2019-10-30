@@ -58,7 +58,6 @@ terminalEnglishMap = {
     'BASEPROP': 'base property name',
     'RBRACE': ']',
     'RELNAME': 'relative property',
-    'RETURN': 'return statement',
     'RPAR': ')',
     'RSQB': '}',
     'SETOPER': '= or ?=',
