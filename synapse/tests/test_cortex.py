@@ -3793,6 +3793,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             view = core.view
             self.eq(view, core.getView())
             self.eq(view, core.getView(view.iden))
+            self.eq(view, core.getView(core.iden))
             self.none(core.getView('xxx'))
 
     async def test_cortex_cronjob_perms(self):
