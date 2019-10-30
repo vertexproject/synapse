@@ -147,8 +147,10 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
         # method used by storm runtime library on deref
         try:
             await self.client.waitready()
+            return getattr(self.client, name)
         except asyncio.TimeoutError:
             mesg = 'Timeout waiting for storm service'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None
-
-        return getattr(self.client, name)
+        except AttributeError as e:
+            mesg = 'Error dereferencing storm service - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None
