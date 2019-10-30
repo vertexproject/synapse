@@ -86,6 +86,18 @@ class StormSvcTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchName):
                 await core.nodes('$lib.service.wait(newp)')
 
+            async with self.getTestDmon() as dmon:
+
+                dmon.share('real', RealService())
+                host, port = dmon.addr
+                lurl = f'tcp://127.0.0.1:{port}/real'
+
+                await core.nodes(f'service.add fake {lurl}')
+                await core.nodes('$lib.service.wait(fake)')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
+
     async def test_storm_svcs(self):
 
         with self.getTestDir() as dirn:
