@@ -1562,16 +1562,27 @@ class InetModelTest(s_t_utils.SynTest):
                 self.checkNode(node, (expected_ndef, expected_props))
 
     async def test_wifi_ap(self):
+
+        place = s_common.guid()
+
         formname = 'inet:wifi:ap'
         valu = ('The Best SSID2 ', '00:11:22:33:44:55')
+        props = {
+            'accuracy': '10km',
+            'latlong': (20, 30),
+            'place': place,
+        }
         expected_props = {
             'ssid': valu[0],
-            'bssid': valu[1]
+            'bssid': valu[1],
+            'latlong': (20.0, 30.0),
+            'accuracy': 10000000,
+            'place': place,
         }
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
-                node = await snap.addNode(formname, valu)
+                node = await snap.addNode(formname, valu, props=props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
     async def test_wifi_ssid(self):

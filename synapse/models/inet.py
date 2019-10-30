@@ -2219,6 +2219,10 @@ class InetModule(s_module.CoreModule):
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The best known latitude/longitude for the wireless access point.'}),
 
+                        ('accuracy', ('geo:dist', {}), {
+                            'doc': 'The reported accuracy of the latlong telemetry reading.',
+                        }),
+
                         ('place', ('geo:place', {}), {
                             'doc': 'The geo:place assocated with the latlong property.'}),
 
