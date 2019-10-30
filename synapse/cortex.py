@@ -1857,6 +1857,11 @@ class Cortex(s_cell.Cell):
         if iden is None:
             return self.view
 
+        # For backwards compatibility, resolve references to old view iden == cortex.iden to the main view
+        # TODO:  due to our migration policy, remove in 0.3.x
+        if iden == self.iden:
+            return self.view
+
         return self.views.get(iden)
 
     async def addLayer(self, **info):
