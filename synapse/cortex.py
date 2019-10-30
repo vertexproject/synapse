@@ -1384,7 +1384,7 @@ class Cortex(s_cell.Cell):
         try:
             await self._setStormCmd(cdef)
         except Exception as e:
-            logger.warning(f'Storm command ({name}) load failed: {e}')
+            logger.exception(f'Storm command ({name}) load failed: {e}')
 
     def _initStormLibs(self):
         '''

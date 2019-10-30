@@ -223,6 +223,9 @@ class GeoModule(s_module.CoreModule):
                         ('time', ('time', {}), {'ro': True,
                             'doc': 'The time the node was observed at location'}),
 
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place corresponding to the latlong property.'}),
+
                     )),
 
                     ('geo:place', {}, (
