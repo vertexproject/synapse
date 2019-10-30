@@ -1334,7 +1334,7 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_web_group(self):
         formname = 'inet:web:group'
         valu = ('vertex.link', 'CoolGroup')
-        place = s_common.place()
+        place = s_common.guid()
         input_props = {
             'name': 'The coolest group',
             'name:en': 'The coolest group (in english)',
