@@ -34,7 +34,7 @@ _editoper: editnodeadd
             | editparens
 
 ///Parenthesis in an edit block don't have incoming nodes
-editparens: "(" _WS? editnodeadd (_WS _editopers)* _WS? ")"
+editparens: "(" _WS? editnodeadd [ _WS _editopers ] _WS? ")"
 edittagadd: "+" tagname [_WS? "=" _WS? _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname

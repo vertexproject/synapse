@@ -3790,6 +3790,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(layr, core.getLayer(core.iden))
             self.none(core.getLayer('XXX'))
 
+            view = core.view
+            self.eq(view, core.getView())
+            self.eq(view, core.getView(view.iden))
+            self.eq(view, core.getView(core.iden))
+            self.none(core.getView('xxx'))
+
     async def test_cortex_cronjob_perms(self):
         async with self.getTestCore() as realcore:
             async with realcore.getLocalProxy() as core:
