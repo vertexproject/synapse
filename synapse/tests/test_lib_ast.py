@@ -474,7 +474,7 @@ class AstTest(s_test.SynTest):
                     'storm': '''
                         $intval = $(10)
 
-                        function lolz() {
+                        function lolz(x, y) {
                             return $($x + $y)
                         }
                     ''',

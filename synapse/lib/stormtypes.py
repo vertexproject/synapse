@@ -222,9 +222,9 @@ class LibBase(Lib):
         async for item in query.run(scope, s_ast.agen()):
             pass
 
-        modlib = s_ast.Lib(self.runt)
-        modlib.locs.update(scope.vars)
-        modlib.locs['__module__'] = self.mdef
+        modlib = Lib(self.runt)
+        modlib.locls.update(scope.vars)
+        modlib.locls['__module__'] = mdef
 
         return modlib
 
@@ -923,12 +923,12 @@ class LibVars(Lib):
             'list': self._libVarsList,
         })
 
-    async def _libVarsGet(self, name, strip=False):
+    async def _libVarsGet(self, name):
         '''
         Resolve a variable in a storm query
         '''
-        if strip:
-            name = name.lstrip('$')
+        if name.startswith('$'):
+            name = name[1:]
 
         ret = self.runt.getVar(name)
         if not ret:

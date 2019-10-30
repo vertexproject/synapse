@@ -105,6 +105,18 @@ class AstNode:
     def prepare(self):
         pass
 
+    def hasAstClass(self, clss):
+
+        for kid in self.kids:
+
+            if isinstance(kid, clss):
+                return True
+
+            if kid.hasAstClass(clss):
+                return True
+
+        return False
+
     def optimize(self):
         [k.optimize() for k in self.kids]
 
@@ -2725,7 +2737,6 @@ class Return(Oper):
     async def run(self, runt, genr):
 
         valu = None
-
         async for item in genr:
             if len(self.kids):
                 valu = self.kids[0].compute(item[1])
@@ -2736,6 +2747,11 @@ class Return(Oper):
             valu = self.kids[0].compute(runt)
 
         raise s_exc.StormReturn(valu=valu)
+
+class FuncArgs(AstNode):
+
+    def value(self):
+        return [k.value() for k in self.kids]
 
 class Function(AstNode):
     '''
@@ -2758,12 +2774,23 @@ class Function(AstNode):
 
     $foo = $bar(10, v=20)
     '''
-    async def prepare(self):
-        self.hasretn = False
-        self.hasyield = False
+    def prepare(self):
+
+        self.hasretn = self.hasAstClass(Return)
 
         self.kidargs = []
         self.kidkwargs = {}
+
+    async def run(self, runt, genr):
+
+        async def realfunc(*args, **kwargs):
+            return await self.callfunc(runt, args, kwargs)
+
+        name = self.kids[1].value()
+        runt.setVar(name, realfunc)
+
+        async for item in genr:
+            yield item
 
     async def callfunc(self, runt, args, kwargs):
         '''
@@ -2772,27 +2799,34 @@ class Function(AstNode):
         This function may return a value / generator / async generator
         '''
         scope = runt.scope()
-        if len(args) != len(self.kids[1]):
+
+        argdefs = self.kids[2].value()
+        if len(args) != len(argdefs):
             raise Exception('BAD CALL ARG COUNT FIXME')
 
-        indx = 0
-        for param in self.kids[1]:
-            name = param.value()
-            scope.setVar(param.value(), args[indx])
-            indx += 1
+        for i, name in enumerate(argdefs):
+            scope.setVar(name, args[i])
 
         genr = agen()
+
+        print('RUN HAS RETN: %r' % (self.hasretn,))
 
         if self.hasretn:
 
             try:
 
-                async for item in self.kids[2].run(scope, agen()):
+                async for item in self.kids[3].run(scope, agen()):
                     pass
 
             except StormReturn as e:
+                print('STORM RETURN EXCEPTION %r' % (e.value,))
                 return e.value
 
+            print('RETURNING NONE')
             return None
 
-        return self.kids[2].run(scope, agen())
+        async def nodegenr():
+            async for node, path in self.kids[3].run(scope, agen()):
+                yield node
+
+        return nodegenr()
