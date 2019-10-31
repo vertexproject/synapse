@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
@@ -132,7 +133,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
                 # TODO: I have a feeling this will run multiple times if the connection goes down
                 init = self.info.get('init', '')
                 if init:
-                    [x async for x in self.core.storm(init)]
+                    await s_common.aspin(self.core.storm(init))
 
             except asyncio.CancelledError:  # pragma: no cover
                 raise
@@ -143,7 +144,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
             fini = self.info.get('fini', '')
             if fini:
                 async def finifunc():
-                    [x async for x in self.core.storm(fini)]
+                    await s_common.aspin(self.core.storm(fini))
                 self.onfini(finifunc)
 
             for cdef in self.info.get('cmds', ()):
