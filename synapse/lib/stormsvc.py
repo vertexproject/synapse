@@ -130,7 +130,6 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
 
             self.info = await proxy.getStormSvcInfo()
             try:
-                # TODO: I have a feeling this will run multiple times if the connection goes down
                 init = self.info.get('init', '')
                 if init:
                     await s_common.aspin(self.core.storm(init))
