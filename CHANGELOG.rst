@@ -3,6 +3,56 @@ Synapse Changelog
 *****************
 
 
+v0.1.34 - 2019-10-30
+====================
+
+Bugfixes
+--------
+- Fix an issue where Storm Edit blocks could encounter exponential processing time when performing Storm query parsing.
+  (`#1414 <https://github.com/vertexproject/synapse/pull/1414>`_)
+- Fix an issue where the ``Cortex.getView()`` function did not return the default View when the Cortex iden was
+  provided as the ``iden`` argument.
+  (`#1414 <https://github.com/vertexproject/synapse/pull/1414>`_)
+
+
+v0.1.33 - 2019-10-29
+====================
+
+Feature
+--------
+- Allow variables to be used when dereferencing values inside of Storm.and
+  (`#1405 <https://github.com/vertexproject/synapse/pull/1405>`_)
+- Add ``$lib.feed.list()``, ``$lib.feed.ingest()``, and ``$lib.feed.genr()`` to StormTypes. These expose ingest
+  functions registered on a Cortex to Storm. The ``feed.list`` Storm command can be used to easily list feed functions.
+  (`#1408 <https://github.com/vertexproject/synapse/pull/1408>`_)
+  (`#1411 <https://github.com/vertexproject/synapse/pull/1411>`_)
+- Make the Cortex, View and Layer iden values unique.
+  (`#1402 <https://github.com/vertexproject/synapse/pull/1402>`_)
+- Allow objects (Views and Layers) to enforce permissions on themselves, as opposed to globally on a Cortex.
+  (`#1384 <https://github.com/vertexproject/synapse/pull/1384>`_)
+- Harmonized methods which take permissions - some took a tuple, some took `*path` arguments. Now, all methods take a
+  tuple for permissions.
+  (`#1384 <https://github.com/vertexproject/synapse/pull/1384>`_)
+- Add support for the ``yield`` keyword in Storm to allow it to yield values which come from a binary buid, a Node iden,
+  a raw Node object; or a an (async) generator which produces the previous values. This allows ``$lib.*`` functions to
+  be written which can inject Nodes into the Storm pipeline.
+  (`#1409 <https://github.com/vertexproject/synapse/pull/1409>`_)
+
+Bugfixes
+--------
+- Fix whitespace bug in Edit Parenthesis Storm grammer.
+  (`#1407 <https://github.com/vertexproject/synapse/pull/1407>`_)
+- Fix bug in the runt nodes representing triggers in a Cortex.
+  (`#1406 <https://github.com/vertexproject/synapse/pull/1406>`_)
+- Fix the Storm Edit Parenthesis behavior to allow the first EditNodeAdd AST element to support variables.
+  (`#1412 <https://github.com/vertexproject/synapse/pull/1412>`_)
+- Allow values referenced off of a Node, which are not set on the Node, to be emitted through the ``$lib.csv.emit()``
+  function.  These will be serialied with the ``synapse.tools.csvtool`` as zero length strings.
+  (`#1413 <https://github.com/vertexproject/synapse/pull/1413>`_)
+- Allow ``synapse.tools.cellauth`` to work with older Synapse Cells which do not support the auth apis introduced
+  in #1384.
+  (`#1410 <https://github.com/vertexproject/synapse/pull/1410>`_)
+
 v0.1.32 - 2019-10-22
 ====================
 

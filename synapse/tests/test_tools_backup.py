@@ -37,6 +37,7 @@ class BackupTest(s_t_utils.SynTest):
     async def test_backup(self):
 
         async with self.getTestCore() as core:
+            layriden = core.getLayer().iden
 
             await core.fini()  # Avoid having the same DB open twice
 
@@ -49,4 +50,4 @@ class BackupTest(s_t_utils.SynTest):
                 fpset = self.compare_dirs(core.dirn, dirn2, skipfns=['lock.mdb'])
 
                 # We expect the data.mdb file to be in the fpset
-                self.isin(f'/layers/{core.iden}/layer.lmdb/data.mdb', fpset)
+                self.isin(f'/layers/{layriden}/layer.lmdb/data.mdb', fpset)

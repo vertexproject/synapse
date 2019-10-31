@@ -3,12 +3,10 @@ import atexit
 import signal
 import asyncio
 import inspect
-import asyncio
 import logging
 import weakref
 import contextlib
 import collections
-import concurrent.futures
 
 if __debug__:
     import traceback
@@ -150,6 +148,8 @@ class Base:
             meth = getattr(item, '__exit__', None)
             if meth is not None:
                 return meth(None, None, None)
+
+        self.onfini(fini)
 
         entr = getattr(item, '__aenter__', None)
         if entr is not None:

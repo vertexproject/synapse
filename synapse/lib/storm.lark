@@ -18,24 +18,23 @@ _querystartcommand: stormcmd [ _WSCOMM? "|" _WSCOMM? (_querystartcommand |  _que
 // A query that starts with non-edit non-command
 _querystartnon: _oper _morenons?
 // A query that starts with an edit
-_querystartedit: _editopers _morenons?
+_querystartedit: _editblock _morenons?
 // The common bits that continue a query after _querystartnon or _querystart edit
 _morenons: ( _WSCOMM? "|" _WSCOMM? | _WSCOMM) (_querystartcommand | _querystartnon)
     | ( _WSCOMM? "|" _WSCOMM? | _WSCOMM?) _querystartedit
 
 // Edit block: zero or more edit operations inside a single set of square brackets
-
-_editopers: "[" _WS? (_editopersstart | _editparensstart) _WS? "]"
-_editopersstart: _editoper [ ( _WS _editopersstart | _WS? _editparensstart) ]
-_editparensstart: editparens [ _WS (_editopersstart | _editparensstart) ]
+_editblock: "[" _WS? _editopers _WS? "]"
+_editopers: _editoper (_WS _editoper)*
 
 ///A single edit operation
 _editoper: editnodeadd
             | editpropset | editunivset | edittagpropset | edittagadd
             | editpropdel | editunivdel | edittagpropdel | edittagdel
+            | editparens
 
 ///Parenthesis in an edit block don't have incoming nodes
-editparens: "(" _WS? editnodeadd _WS? _editoper? (_WS _editoper)* ")"
+editparens: "(" _WS? editnodeadd [ _WS _editopers ] _WS? ")"
 edittagadd: "+" tagname [_WS? "=" _WS? _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname
@@ -51,7 +50,7 @@ SETOPER: "=" | "?="
 _oper.1: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | vareval
      | filtoper | liftbytag
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE
-     | _liftprop | ifstmt
+     | _liftprop | ifstmt | yieldvalu
 
 BREAK: "break"
 CONTINUE: "continue"
@@ -70,6 +69,8 @@ YIELD: "yield"
 switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" baresubquery) | (casevalu _WSCOMM? baresubquery)) )* _WSCOMM? "}"
 casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | CASEVALU
 CASEVALU: /[^:\s][^:]*:/
+
+yieldvalu: YIELD _WS _valu
 
 ifstmt: "if" ifclause (_WSCOMM? "elif" ifclause)* [_WSCOMM? "else" _WSCOMM? baresubquery]
 // The stuff inside an if or elif

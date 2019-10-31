@@ -1,4 +1,5 @@
 import os
+import shutil
 import asyncio
 import pathlib
 import functools
@@ -65,31 +66,6 @@ class Hist:
         for lkey, byts in self.slab.scanByRange(lmin, lmax=lmax, db=self.db):
             tick = int.from_bytes(lkey, 'big')
             yield tick, s_msgpack.un(byts)
-
-class Offs:
-    '''
-
-    A helper for storing offset integers by iden. ( ported from synapse/lib/lmdb.py )
-
-    As with all slab objects, this is meant for single-thread async loop use.
-    '''
-    def __init__(self, slab, name):
-        self.slab = slab
-        self.db = slab.initdb(name)
-
-    def get(self, iden):
-
-        buid = s_common.uhex(iden)
-        byts = self.slab.get(buid, db=self.db)
-        if byts is None:
-            return 0
-
-        return int.from_bytes(byts, byteorder='big')
-
-    def set(self, iden, offs):
-        buid = s_common.uhex(iden)
-        byts = offs.to_bytes(length=8, byteorder='big')
-        self.slab.put(buid, byts, db=self.db)
 
 class SlabDict:
     '''
@@ -508,6 +484,17 @@ class Slab(s_base.Base):
 
         self.onfini(self._onCoFini)
         self.schedCoro(self._runSyncLoop())
+
+    def trash(self):
+        '''
+        Deletes underlying storage
+        '''
+        try:
+            os.unlink(self.optspath)
+        except FileNotFoundError:  # pragma: no cover
+            pass
+
+        shutil.rmtree(self.path, ignore_errors=True)
 
     def getNameAbrv(self, name):
         return SlabAbrv(self, name)

@@ -55,6 +55,7 @@ class BadCoreStore(SynErr):
 
 class BadCtorType(SynErr): pass
 class BadFormDef(SynErr): pass
+class BadHivePath(SynErr): pass
 class BadLiftValu(SynErr): pass
 class BadPropDef(SynErr): pass
 class BadTypeDef(SynErr): pass
@@ -145,6 +146,7 @@ class NoCertKey(SynErr):
 class ModAlreadyLoaded(SynErr): pass
 
 class NoSuchAct(SynErr): pass
+class NoSuchAuthGate(SynErr): pass
 class NoSuchCmd(SynErr): pass
 class NoSuchCmpr(SynErr): pass
 class NoSuchCond(SynErr): pass

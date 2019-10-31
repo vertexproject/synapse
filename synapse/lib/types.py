@@ -486,6 +486,10 @@ class Comp(Type):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
 
+        self.sepr = self.opts.get('sepr')
+        if self.sepr is not None:
+            self.setNormFunc(str, self._normPyStr)
+
         fields = self.opts.get('fields', ())
 
         # calc and save field offsets...
@@ -520,6 +524,9 @@ class Comp(Type):
         norm = tuple(norms)
         return norm, {'subs': subs, 'adds': adds}
 
+    def _normPyStr(self, text):
+        return self._normPyTuple(text.split(self.sepr))
+
     def repr(self, valu):
 
         vals = []
@@ -528,6 +535,10 @@ class Comp(Type):
         for valu, (name, typename) in zip(valu, fields):
             rval = self.tcache[name].repr(valu)
             vals.append(rval)
+
+        if self.sepr is not None:
+            return self.sepr.join(vals)
+
         return tuple(vals)
 
     def indx(self, norm):

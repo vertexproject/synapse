@@ -134,12 +134,12 @@ class HandlerBase:
 
         return True
 
-    async def reqAuthAllowed(self, *path):
+    async def reqAuthAllowed(self, path):
         '''
         Helper method that subclasses can use for user permission checking.
 
         Args:
-            *path: Permission path components to check.
+            path: Tuple of permission path components to check.
 
         Notes:
             This will call reqAuthUser() to ensure that there is a valid user.
@@ -153,7 +153,7 @@ class HandlerBase:
 
                 class ReqAuthHandler(s_httpapi.Handler):
                     async def get(self):
-                        if not await self.reqAuthAllowed('syn:test'):
+                        if not await self.reqAuthAllowed(('syn:test', )):
                             return
                      return self.sendRestRetn({'data': 'everything is awesome!'})
 
@@ -730,7 +730,7 @@ class ModelV1(Handler):
 class HealthCheckV1(Handler):
 
     async def get(self):
-        if not await self.reqAuthAllowed('health'):
+        if not await self.reqAuthAllowed(('health', )):
             return
         resp = await self.cell.getHealthCheck()
         return self.sendRestRetn(resp)
