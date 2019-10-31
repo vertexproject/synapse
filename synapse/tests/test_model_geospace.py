@@ -169,7 +169,7 @@ class GeoTest(s_t_utils.SynTest):
                          'parent': parent,
                          'loc': 'us.hehe.haha',
                          'latlong': '34.1341, -118.3215',
-                         'bbox': (2.11, 2.12, -4.88, -4.9),
+                         'bbox': '2.11, 2.12, -4.88, -4.9',
                          'radius': '1.337km'}
                 node = await snap.addNode('geo:place', guid, props)
                 self.eq(node.ndef[1], guid)
@@ -180,7 +180,9 @@ class GeoTest(s_t_utils.SynTest):
                 self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
                 self.eq(node.get('address'), '208 datong road, pudong district, shanghai, china')
                 self.eq(node.get('parent'), parent)
+
                 self.eq(node.get('bbox'), (2.11, 2.12, -4.88, -4.9))
+                self.eq(node.repr('bbox'), '2.11,2.12,-4.88,-4.9')
 
                 opts = {'vars': {'place': parent}}
                 nodes = await core.nodes('geo:place=$place', opts=opts)

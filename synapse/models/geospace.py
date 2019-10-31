@@ -206,7 +206,7 @@ class GeoModule(s_module.CoreModule):
                         'doc': 'A street/mailing address string.',
                     }),
 
-                    ('geo:bbox', ('comp', {'fields': (
+                    ('geo:bbox', ('comp', {'sepr': ',', 'fields': (
                                                 ('xmin', 'geo:longitude'),
                                                 ('xmax', 'geo:longitude'),
                                                 ('ymin', 'geo:latitude'),
