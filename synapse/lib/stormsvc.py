@@ -78,11 +78,15 @@ class StormSvc:
     _storm_svc_name = 'noname'
     _storm_svc_vers = (0, 0, 1)
     _storm_svc_cmds = ()
+    _storm_svc_init = ''
+    _storm_svc_fini = ''
 
     async def getStormSvcInfo(self):
         return {
             'name': self._storm_svc_name,
             'vers': self._storm_svc_vers,
+            'init': self._storm_svc_init,
+            'fini': self._storm_svc_fini,
             'cmds': await self.getStormSvcCmds(),
         }
 
@@ -124,6 +128,23 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
         if 'StormSvc' in names:
 
             self.info = await proxy.getStormSvcInfo()
+            try:
+                # TODO: I have a feeling this will run multiple times if the connection goes down
+                init = self.info.get('init', '')
+                if init:
+                    [x async for x in self.core.storm(init)]
+
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+
+            except Exception:
+                logger.exception(f'init failed for service {self.name} ({self.iden})')
+
+            fini = self.info.get('fini', '')
+            if fini:
+                async def finifunc():
+                    [x async for x in self.core.storm(fini)]
+                self.onfini(finifunc)
 
             for cdef in self.info.get('cmds', ()):
 

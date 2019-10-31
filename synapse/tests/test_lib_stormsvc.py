@@ -6,6 +6,8 @@ import synapse.tests.utils as s_test
 import synapse.lib.stormsvc as s_stormsvc
 
 class RealService(s_stormsvc.StormSvc):
+    _storm_svc_init = '$lib.queue.add(vertex)'
+    _storm_svc_fini = '$lib.queue.del(vertex)'
     _storm_svc_cmds = (
         {
             'name': 'ohhai',
@@ -25,6 +27,8 @@ class RealService(s_stormsvc.StormSvc):
         yield '123.123.123.123'
 
 class BoomService(s_stormsvc.StormSvc):
+    _storm_svc_init = '{'
+    _storm_svc_fini = '}'
     _storm_svc_cmds = (
         {
             'name': 'goboom',
@@ -119,6 +123,11 @@ class StormSvcTest(s_test.SynTest):
                     await core.nodes('$lib.service.wait(boom)')
                     await core.nodes('$lib.service.wait(lift)')
 
+                    # ensure that the initializer ran
+                    queue = core.multiqueue.list()
+                    self.len(1, queue)
+                    self.eq('vertex', queue[0]['name'])
+
                     self.nn(core.getStormCmd('ohhai'))
                     self.none(core.getStormCmd('goboom'))
 
@@ -160,4 +169,20 @@ class StormSvcTest(s_test.SynTest):
                     nodes = await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
                     self.len(2, nodes)
 
+                    # haven't deleted the service yet, so still should be there
+                    queue = core.multiqueue.list()
+                    self.len(1, queue)
+                    self.eq('vertex', queue[0]['name'])
+
                     await core.delStormSvc(iden)
+
+                    # ensure fini ran
+                    queue = core.multiqueue.list()
+                    self.len(0, queue)
+
+                    # specifically call teardown
+                    for svc in core.getStormSvcs():
+                        mesgs = await s_test.alist(core.streamstorm(f'service.del {svc.iden}'))
+                        mesgs = [m[1].get('mesg') for m in mesgs if m[0] == 'print']
+                        self.len(1, mesgs)
+                        self.isin(f'removed {svc.iden} ({svc.name})', mesgs[0])
