@@ -250,7 +250,7 @@ RELNAME: /\:\.?[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z0-9]+)*/
 BASEPROP: /[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z0-9]+)*/
 
 // The name of a storm command
-CMDNAME: /\b(?!(init|fini|function|return|break|continue|for|while|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/
+CMDNAME: /\b(?!(init|fini|function|return|yield|break|continue|for|while|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/
 
 // The entry point for a $(...) expression
 dollarexpr: _EXPRSTART _WSCOMM? expror _WSCOMM? ")"
