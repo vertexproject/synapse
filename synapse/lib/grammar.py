@@ -27,6 +27,8 @@ terminalEnglishMap = {
     'COLON': ':',
     'COMMA': ',',
     'CONTINUE': 'continue',
+    'FINI': 'fini',
+    'INIT': 'init',
     'CPPCOMMENT': 'c++ comment',
     'DEREFMATCHNOSEP': 'key or variable',
     'DOLLAR': '$',
