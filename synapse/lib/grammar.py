@@ -500,6 +500,8 @@ ruleClassMap = {
     'dollarexpr': s_ast.DollarExpr,
     'editnodeadd': s_ast.EditNodeAdd,
     'editparens': s_ast.EditParens,
+    'initblock': s_ast.InitBlock,
+    'finiblock': s_ast.FiniBlock,
     'editpropdel': s_ast.EditPropDel,
     'editpropset': s_ast.EditPropSet,
     'edittagadd': s_ast.EditTagAdd,

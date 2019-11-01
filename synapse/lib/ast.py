@@ -357,6 +357,48 @@ class SubQuery(Oper):
         async for item in self.kids[0].run(runt, genr):
             yield item
 
+class InitBlock(AstNode):
+    '''
+    init {
+        // stuff here runs *once* before the first node yield (even if there are no nodes)
+    }
+    '''
+
+    async def run(self, runt, genr):
+
+        subq = self.kids[0]
+
+        once = False
+        async for item in genr:
+
+            if not once:
+                async for innr in subq.run(runt, agen()):
+                    pass
+                once = True
+
+            yield item
+
+        if not once:
+            async for innr in subq.run(runt, agen()):
+                pass
+
+class FiniBlock(AstNode):
+    '''
+    fini {
+        // stuff here runs *once* after the last node yield (even if there are no nodes)
+    }
+    '''
+
+    async def run(self, runt, genr):
+
+        subq = self.kids[0]
+
+        async for item in genr:
+            yield item
+
+        async for innr in subq.run(runt, agen()):
+            pass
+
 class ForLoop(Oper):
 
     def getRuntVars(self, runt):

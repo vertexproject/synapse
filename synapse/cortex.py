@@ -1398,6 +1398,7 @@ class Cortex(s_cell.Cell):
         self.addStormLib(('user',), s_stormtypes.LibUser)
         self.addStormLib(('vars',), s_stormtypes.LibVars)
         self.addStormLib(('queue',), s_stormtypes.LibQueue)
+        self.addStormLib(('stats',), s_stormtypes.LibStats)
         self.addStormLib(('service',), s_stormtypes.LibService)
         self.addStormLib(('bytes',), s_stormtypes.LibBytes)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
