@@ -1446,7 +1446,7 @@ class Cortex(s_cell.Cell):
         try:
             await self._setStormCmd(cdef)
         except Exception as e:
-            logger.warning(f'Storm command ({name}) load failed: {e}')
+            logger.exception(f'Storm command load failed: {name}')
 
     def _initStormLibs(self):
         '''
@@ -1917,6 +1917,11 @@ class Cortex(s_cell.Cell):
             View: A View object.
         '''
         if iden is None:
+            return self.view
+
+        # For backwards compatibility, resolve references to old view iden == cortex.iden to the main view
+        # TODO:  due to our migration policy, remove in 0.3.x
+        if iden == self.iden:
             return self.view
 
         return self.views.get(iden)

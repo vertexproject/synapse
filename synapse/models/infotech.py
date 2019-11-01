@@ -329,6 +329,9 @@ class ItModule(s_module.CoreModule):
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'The last known location for the host.'
                     }),
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place where the host resides.',
+                    }),
                     ('os', ('it:prod:softver', {}), {
                         'doc': 'The operating system of the host.'
                     }),

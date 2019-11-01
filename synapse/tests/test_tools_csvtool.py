@@ -104,6 +104,7 @@ class CsvToolTest(s_t_utils.SynTest):
 
             await core.nodes('[ test:int=20 :loc=us ]')
             await core.nodes('[ test:int=30 :loc=cn ]')
+            await core.nodes('[ test:int=40 ]')
 
             url = core.getLocalUrl()
 
@@ -131,9 +132,9 @@ class CsvToolTest(s_t_utils.SynTest):
 
             await s_csvtool.main(argv, outp=outp)
 
-            outp.expect('Counted 2 nodes.')
-            outp.expect('2 csv rows')
+            outp.expect('Counted 3 nodes.')
+            outp.expect('3 csv rows')
 
             with open(csvpath, 'r') as fd:
                 rows = [row for row in csv.reader(fd)]
-                self.eq(rows, (['20', 'us'], ['30', 'cn']))
+                self.eq(rows, (['20', 'us'], ['30', 'cn'], ['40', '']))

@@ -1195,7 +1195,7 @@ class Text(Prim):
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):
 
-    if isinstance(valu, (str, tuple, list, dict, int)):
+    if isinstance(valu, (str, tuple, list, dict, int)) or valu is None:
         return valu
 
     if isinstance(valu, Prim):
@@ -1204,7 +1204,8 @@ def toprim(valu, path=None):
     if isinstance(valu, s_node.Node):
         return valu.ndef[1]
 
-    raise s_exc.NoSuchType(name=valu.__class__.__name__)
+    mesg = 'Unable to convert object to Storm primitive.'
+    raise s_exc.NoSuchType(mesg=mesg, name=valu.__class__.__name__)
 
 def fromprim(valu, path=None):
 
