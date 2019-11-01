@@ -1172,8 +1172,12 @@ class StormTypesTest(s_test.SynTest):
                 for ($name, $valu) in $tally {
                     [ test:comp=($valu, $name) ]
                 }
+
+                $lib.print('tally: foo={foo} baz={baz}', foo=$tally.get(foo), baz=$tally.get(baz))
             '''
-            nodes = await core.nodes(q)
+            mesgs = await core.streamstorm(q).list()
+            nodes = [m[1] for m in mesgs if m[0] == 'node']
             self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('test:comp', (2, 'foo')))
-            self.eq(nodes[1].ndef, ('test:comp', (4, 'bar')))
+            self.eq(nodes[0][0], ('test:comp', (2, 'foo')))
+            self.eq(nodes[1][0], ('test:comp', (4, 'bar')))
+            self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
