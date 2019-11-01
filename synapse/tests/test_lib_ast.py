@@ -461,3 +461,31 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:int=10 test:int=20 ]  $q=${#foo.bar}')
             self.len(2, nodes)
+
+    async def test_ast_initfini(self):
+
+        async with self.getTestCore() as core:
+
+            q = '''
+                init { $x = $(0) }
+
+                [ test:int=$x ]
+
+                init { $x = $( $x + 2 ) $lib.fire(lulz, x=$x) }
+
+                [ test:int=$x ]
+
+                [ +#foo ]
+
+                fini { $lib.print('xfini: {x}', x=$x) }
+            '''
+
+            msgs = await core.streamstorm(q).list()
+
+            types = [m[0] for m in msgs if m[0] in ('node', 'print', 'storm:fire')]
+            self.eq(types, ('storm:fire', 'node', 'node', 'print'))
+
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+
+            self.eq(nodes[0][0], ('test:int', 0))
+            self.eq(nodes[1][0], ('test:int', 2))

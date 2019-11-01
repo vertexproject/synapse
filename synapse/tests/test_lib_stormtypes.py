@@ -1155,3 +1155,29 @@ class StormTypesTest(s_test.SynTest):
             self.len(2, nodes)
             self.eq({'sup!', 'dawg'},
                     {n.ndef[1] for n in nodes})
+
+    async def test_lib_stormtypes_stats(self):
+
+        async with self.getTestCore() as core:
+
+            q = '''
+                $tally = $lib.stats.tally()
+
+                $tally.inc(foo)
+                $tally.inc(foo)
+
+                $tally.inc(bar)
+                $tally.inc(bar, 3)
+
+                for ($name, $valu) in $tally {
+                    [ test:comp=($valu, $name) ]
+                }
+
+                $lib.print('tally: foo={foo} baz={baz}', foo=$tally.get(foo), baz=$tally.get(baz))
+            '''
+            mesgs = await core.streamstorm(q).list()
+            nodes = [m[1] for m in mesgs if m[0] == 'node']
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('test:comp', (2, 'foo')))
+            self.eq(nodes[1][0], ('test:comp', (4, 'bar')))
+            self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
