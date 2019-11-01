@@ -542,6 +542,7 @@ _Queries = [
     }
     ''',
     ''' [(ou:org=c71cd602f73af5bed208da21012fdf54 :loc=us )]''',
+    'function x(y, z) { return $( $x - $y ) }',
 ]
 
 # Generated with print_parse_list below
@@ -992,6 +993,7 @@ _ParseResults = [
     'Query: [LiftPropBy: [Const: test:str, Const: =, VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: space key]], Const: subkey]]]',
     'Query: [ForLoop: [Const: iterkey, VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: bar key]], VarValue: [Const: biz key]], SubQuery: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, VarDeref: [VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: bar key]], VarValue: [Const: biz key]], VarValue: [Const: iterkey]]]]]]]',
     'Query: [EditParens: [EditNodeAdd: [AbsProp: ou:org, Const: =, Const: c71cd602f73af5bed208da21012fdf54], EditPropSet: [RelProp: [Const: :loc], Const: =, Const: us]]]',
+    'Query: [Function: [Const: x, FuncArgs: [Const: y, Const: z], Query: [Return: [DollarExpr: [ExprNode: [VarValue: [Const: x], Const: -, VarValue: [Const: y]]]]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
@@ -1009,8 +1011,8 @@ class GrammarTest(s_t_utils.SynTest):
         for i, query in enumerate(_Queries):
             try:
                 tree = parser.parse(query)
-                print(f'#{i}: {query}')
-                print(tree, '\n')
+                # print(f'#{i}: {query}')
+                # print(tree, '\n')
                 self.notin('_ambig', str(tree))
 
             except (lark.ParseError, lark.UnexpectedCharacters):

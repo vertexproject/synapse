@@ -2799,8 +2799,6 @@ class Function(AstNode):
         This function may return a value / generator / async generator
         '''
         funcrunt = await runt.getScopeRuntime(self.kids[3])
-        #with runt.snap.getStormRuntime() as funcrunt:
-            #funcrunt.loadRuntVars(query)
 
         argdefs = self.kids[2].value()
         if len(args) != len(argdefs):
