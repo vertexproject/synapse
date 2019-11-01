@@ -126,6 +126,15 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
 
             self.info = await proxy.getStormSvcInfo()
 
+            try:
+                await self.core.delStormSvcCmds(self.iden)
+
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+
+            except Exception as e:
+                logger.exception(f'delStormSvcCmds failed for service {self.name} ({self.iden})')
+
             for cdef in self.info.get('cmds', ()):
 
                 cdef.setdefault('cmdconf', {})

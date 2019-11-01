@@ -177,3 +177,4 @@ class StormSvcTest(s_test.SynTest):
                     self.len(2, nodes)
 
                     await core.delStormSvc(iden)
+                    self.none(core.getStormCmd('ohhai'))
