@@ -3,6 +3,31 @@ Synapse Changelog
 *****************
 
 
+v0.1.35 - 2019-11-01
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``:place`` secondary propeerties on forms with ``:latlong`` secondary properties to allow linking nodes to
+  ``geo:place`` nodes.
+  (`#1416 <https://github.com/vertexproject/synapse/pull/1416>`_)
+- Add a ``geo:bbox`` type to the datamodel to record a rectangular latitude and longitude bounding box, and a ``:bbox``
+  secondary property to ``geo:place`` nodes.
+  (`#1416 <https://github.com/vertexproject/synapse/pull/1416>`_)
+- Add ``init`` and ``fini`` Storm blocks, which can contain Storm which is executed **before** and **after** any nodes
+  would have been consumed.
+  (`#1417 <https://github.com/vertexproject/synapse/pull/1417>`_)
+- Add ``$lib.stats.tally()`` to Storm Types. This gets a ``Tally`` object that can currently be used to increment named
+  counts.
+  (`#1417 <https://github.com/vertexproject/synapse/pull/1417>`_)
+
+Bugfixes
+--------
+- Storm Service call timeouts produced an unclear TimeoutError for users. This has been replaced with a
+  StormRuntimeError.
+  (`#1415 <https://github.com/vertexproject/synapse/pull/1415>`_)
+
+
 v0.1.34 - 2019-10-30
 ====================
 
@@ -18,8 +43,8 @@ Bugfixes
 v0.1.33 - 2019-10-29
 ====================
 
-Feature
---------
+Features and Enhancements
+-------------------------
 - Allow variables to be used when dereferencing values inside of Storm.and
   (`#1405 <https://github.com/vertexproject/synapse/pull/1405>`_)
 - Add ``$lib.feed.list()``, ``$lib.feed.ingest()``, and ``$lib.feed.genr()`` to StormTypes. These expose ingest
@@ -56,8 +81,8 @@ Bugfixes
 v0.1.32 - 2019-10-22
 ====================
 
-Feature
---------
+Features and Enhancements
+-------------------------
 - Add some asyncio friendly multiprocessing helpers for future use.
   (`#1397 <https://github.com/vertexproject/synapse/pull/1397>`_)
 - Add initial support for ``syn:cron`` runtime only nodes to represent Cron tasks configured on a Cortex.
@@ -77,8 +102,8 @@ Bugfixes
 v0.1.31 - 2019-10-11
 ====================
 
-Feature
---------
+Features and Enhancements
+-------------------------
 - Allow a user to change their password via Telepath or HTTPAPI.
   (`#1394 <https://github.com/vertexproject/synapse/pull/1394>`_)
 - Add the option to print rules related to a user's roles to the ``synapse.tools.cellauth`` tool.
@@ -115,8 +140,8 @@ Improved Documentation
 v0.1.30 - 2019-10-04
 ====================
 
-Feature
---------
+Features and Enhancements
+-------------------------
 - Make the Telepath ``Proxy`` link pool size configurable, and expose that as a configuration value on the Telepath
   ``Client``.
   (`#1389 <https://github.com/vertexproject/synapse/pull/1389>`_)
