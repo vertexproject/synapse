@@ -2734,12 +2734,7 @@ class IfStmt(Oper):
 
 class Return(Oper):
 
-    #def __init__(self, kids=()):
-
     async def run(self, runt, genr):
-
-        print('RETURN ALIVE')
-        print(repr(self))
 
         # fake out a generator...
         for item in ():
@@ -2750,10 +2745,9 @@ class Return(Oper):
             if self.kids:
                 valu = await self.kids[0].compute(path)
 
-            print('RETURNING %r' % (valu,))
             raise StormReturn(valu)
 
-        # no items in pipeline (runtsafe) execute
+        # no items in pipeline... execute
         if len(self.kids):
             valu = await self.kids[0].compute(runt)
 
@@ -2785,10 +2779,6 @@ class Function(AstNode):
 
     $foo = $bar(10, v=20)
     '''
-    #def prepare(self):
-        #self.kidargs = []
-        #self.kidkwargs = {}
-
     async def run(self, runt, genr):
 
         self.hasretn = self.hasAstClass(Return)
@@ -2808,8 +2798,6 @@ class Function(AstNode):
 
         This function may return a value / generator / async generator
         '''
-        #scope = runt.scope()
-        #query = self.kids[3]
         funcrunt = await runt.getScopeRuntime(self.kids[3])
         #with runt.snap.getStormRuntime() as funcrunt:
             #funcrunt.loadRuntVars(query)

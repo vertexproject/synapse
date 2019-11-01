@@ -508,13 +508,10 @@ class AstTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            #query = core.getStormQuery(x)
-            #print(repr(query))
-            #return
             await core.addStormPkg(stormpkg)
+
             nodes = await core.nodes('foo.bar')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 50))
 
             nodes = await core.nodes('test.nodes')
-            print(repr(nodes))
