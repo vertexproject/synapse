@@ -1037,7 +1037,7 @@ class Cortex(s_cell.Cell):
 
         oldcmds = []
         for name, cdef in self.cmdhive.items():
-            cmdiden = cdef['cmdconf'].get('svciden','')
+            cmdiden = cdef['cmdconf'].get('svciden', '')
             if cmdiden == iden:
                 oldcmds.append(cdef.get('name'))
 
@@ -1395,7 +1395,7 @@ class Cortex(s_cell.Cell):
 
         oldcmds = []
         for name, cdef in self.cmdhive.items():
-            cmdiden = cdef['cmdconf'].get('svciden','')
+            cmdiden = cdef['cmdconf'].get('svciden', '')
             if self.stormservices.get(cmdiden) is None:
                 oldcmds.append(name)
             else:
