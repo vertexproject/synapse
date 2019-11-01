@@ -397,7 +397,12 @@ class ForLoop(Oper):
 
         async for node, path in genr:
 
-            async for item in s_coro.agen(await self.kids[1].compute(path)):
+            # TODO: remove when storm is all objects
+            valu = await self.kids[1].compute(path)
+            if isinstance(valu, dict):
+                valu = valu.items()
+
+            async for item in s_coro.agen(valu):
 
                 if isinstance(name, (list, tuple)):
 
@@ -432,7 +437,12 @@ class ForLoop(Oper):
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[1].isRuntSafe(runt):
 
-            async for item in s_coro.agen(await self.kids[1].runtval(runt)):
+            # TODO: remove when storm is all objects
+            valu = await self.kids[1].compute(runt)
+            if isinstance(valu, dict):
+                valu = valu.items()
+
+            async for item in s_coro.agen(valu):
 
                 if isinstance(name, (list, tuple)):
 
@@ -527,7 +537,7 @@ class CmdOper(Oper):
             async for item in scmd.execStormCmd(runt, genr):
                 yield item
 
-class VarSetOper(Oper):
+class SetVarOper(Oper):
 
     async def run(self, runt, genr):
 
@@ -550,6 +560,49 @@ class VarSetOper(Oper):
         if not self.kids[1].isRuntSafe(runt):
             return
         yield self.kids[0].value()
+
+class SetItemOper(Oper):
+    '''
+    $foo.bar = baz
+    $foo."bar baz" = faz
+    $foo.$bar = baz
+    '''
+    async def run(self, runt, genr):
+
+        vkid = self.kids[1]
+
+        count = 0
+        async for node, path in genr:
+
+            count += 1
+
+            item = s_stormtypes.fromprim(await self.kids[0].compute(path))
+
+            if not isinstance(item, s_stormtypes.StormType):
+                mesg = f'Item assignment not supported on: {item.__class__.__name__}'
+                raise s_exc.StormRuntimeError(mesg=mesg)
+
+            name = await self.kids[1].compute(path)
+            valu = await self.kids[2].compute(path)
+
+            # TODO: ditch this when storm goes full heavy object
+            await item.setitem(name, valu)
+
+            yield node, path
+
+        if count == 0 and vkid.isRuntSafe(runt):
+
+            item = s_stormtypes.fromprim(await self.kids[0].compute(runt))
+
+            if not isinstance(item, s_stormtypes.StormType):
+                mesg = f'Item assignment not supported on: {item.__class__.__name__}'
+                raise s_exc.StormRuntimeError(mesg=mesg)
+
+            name = await self.kids[1].compute(runt)
+            valu = await self.kids[2].compute(runt)
+
+            # TODO: ditch this when storm goes full heavy object
+            await item.setitem(name, valu)
 
 class VarListSetOper(Oper):
 

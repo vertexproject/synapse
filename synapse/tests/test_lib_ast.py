@@ -515,3 +515,28 @@ class AstTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:int', 50))
 
             nodes = await core.nodes('test.nodes')
+
+    async def test_ast_setitem(self):
+
+        async with self.getTestCore() as core:
+
+            q = '''
+                $x = asdf
+                $y = $lib.dict()
+
+                $y.foo = bar
+                $y."baz faz" = hehe
+                $y.$x = qwer
+
+                for ($name, $valu) in $y {
+                    [ test:str=$name test:str=$valu ]
+                }
+            '''
+            nodes = await core.nodes(q)
+            self.len(6, nodes)
+            self.eq(nodes[0].ndef[1], 'foo')
+            self.eq(nodes[1].ndef[1], 'bar')
+            self.eq(nodes[2].ndef[1], 'baz faz')
+            self.eq(nodes[3].ndef[1], 'hehe')
+            self.eq(nodes[4].ndef[1], 'asdf')
+            self.eq(nodes[5].ndef[1], 'qwer')
