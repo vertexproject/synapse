@@ -915,6 +915,8 @@ class Cortex(s_cell.Cell):
             except Exception as e:
                 logger.warning(f'initStormService ({iden}) failed: {e}')
 
+        self.on('service:event', func=self._runStormSvcEvent)
+
     async def _initCoreQueues(self):
         path = os.path.join(self.dirn, 'slabs', 'queues.lmdb')
 
@@ -1007,7 +1009,6 @@ class Cortex(s_cell.Cell):
 
         ssvc = await self._setStormSvc(sdef)
         await self.stormservices.set(iden, sdef)
-
         return ssvc
 
     async def delStormSvc(self, iden):
@@ -1015,6 +1016,7 @@ class Cortex(s_cell.Cell):
         Delete a registered storm service from the cortex.
         '''
 
+        await self.fire('service:event', iden=iden, evntname='del')
         sdef = await self.stormservices.pop(iden, None)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
@@ -1027,6 +1029,58 @@ class Cortex(s_cell.Cell):
         ssvc = self.svcsbyiden.pop(iden, None)
         if ssvc is not None:
             await ssvc.fini()
+
+    async def setStormSvcEvents(self, iden, edef):
+        '''
+        Set the event callbacks for a storm service. Extends the sdef dict
+
+        edef = {
+            <name> : {
+                'storm': <storm>
+            }
+        }
+
+        where <name> can be one of [add, del], where
+        add -- Run the given storm '*before* the service is first added (a la service.add), but not on a reconnect.
+        del -- Run the given storm *after* the service is removed (a la service.del), but not on a disconnect.
+        '''
+        sdef = self.stormservices.get(iden)
+        if sdef is None:
+            mesg = f'No storm service with iden: {iden}'
+            raise s_exc.NoSuchStormSvc(mesg=mesg)
+
+        sdef['evts'] = edef
+        await self.stormservices.set(iden, sdef)
+        return sdef
+
+    async def _runStormSvcEvent(self, event):
+        if self.isfini:
+            return
+
+        name = event[1].get('evntname')
+        if name is None:
+            mesg = f'Missing parameter <evntname> to storm service callback'
+            raise s_exc.BadArg(mesg=mesg)
+
+        iden = event[1].get('iden')
+        if iden is None:
+            mesg = f'Missing parameter <iden> to storm service {name} callback'
+            raise s_exc.BadArg(mesg=mesg)
+
+        sdef = self.stormservices.get(iden)
+        if sdef is None and name != 'del':
+            mesg = f'No storm service with iden: {iden}'
+            raise s_exc.NoSuchStormSvc(mesg=mesg)
+
+        if name == 'add' and sdef.get('added', False):
+            return
+
+        evnt = sdef.get('evts', {}).get(name, {}).get('storm')
+        if evnt is not None:
+            await s_common.aspin(self.storm(evnt, opts={'vars': {'cmdconf': {'svciden': iden}}}))
+
+        sdef['added'] = True
+        await self.stormservices.set(iden, sdef)
 
     async def _setStormSvc(self, sdef):
 

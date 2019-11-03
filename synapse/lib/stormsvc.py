@@ -2,7 +2,6 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
@@ -80,15 +79,13 @@ class StormSvc:
     _storm_svc_name = 'noname'
     _storm_svc_vers = (0, 0, 1)
     _storm_svc_cmds = ()
-    _storm_svc_init = ''
-    _storm_svc_fini = ''
+    _storm_svc_evts = {}
 
     async def getStormSvcInfo(self):
         return {
             'name': self._storm_svc_name,
             'vers': self._storm_svc_vers,
-            'init': self._storm_svc_init,
-            'fini': self._storm_svc_fini,
+            'evts': self._storm_svc_evts,
             'cmds': await self.getStormSvcCmds(),
         }
 
@@ -130,23 +127,6 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
         if 'StormSvc' in names:
 
             self.info = await proxy.getStormSvcInfo()
-            try:
-                init = self.info.get('init', '')
-                if init:
-                    await s_common.aspin(self.core.storm(init))
-
-            except asyncio.CancelledError:  # pragma: no cover
-                raise
-
-            except Exception:
-                logger.exception(f'init failed for service {self.name} ({self.iden})')
-
-            fini = self.info.get('fini', '')
-            if fini:
-                async def finifunc():
-                    await s_common.aspin(self.core.storm(fini))
-                self.onfini(finifunc)
-
             for cdef in self.info.get('cmds', ()):
 
                 cdef.setdefault('cmdconf', {})
@@ -158,9 +138,23 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
                 except asyncio.CancelledError:  # pragma: no cover
                     raise
 
-                except Exception as e:
+                except Exception:
                     name = cdef.get('name')
                     logger.exception(f'setStormCmd ({name}) failed for service {self.name} ({self.iden})')
+
+            evts = self.info.get('evts')
+            try:
+                if evts is not None:
+                    self.sdef = await self.core.setStormSvcEvents(self.iden, evts)
+
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+
+            except Exception:
+                name = cdef.get('name')
+                logger.exception(f'setStormCmd ({name}) failed for service {self.name} ({self.iden})')
+
+            await self.core.fire('service:event', iden=self.iden, evntname='add')
 
         self.ready.set()
 

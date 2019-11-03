@@ -17,6 +17,14 @@ class RealService(s_stormsvc.StormSvc):
             'storm': '[ inet:ipv4=1.2.3.4 :asn=$lib.service.get($cmdconf.svciden).asn() ]',
         },
     )
+    _storm_svc_evts = {
+        'add': {
+            'storm': '$lib.queue.add(vertex)',
+        },
+        'del': {
+            'storm': '$lib.queue.del(vertex)',
+        },
+    }
 
     async def asn(self):
         return 20
@@ -27,8 +35,6 @@ class RealService(s_stormsvc.StormSvc):
         yield '123.123.123.123'
 
 class BoomService(s_stormsvc.StormSvc):
-    _storm_svc_init = '{'
-    _storm_svc_fini = '}'
     _storm_svc_cmds = (
         {
             'name': 'goboom',
