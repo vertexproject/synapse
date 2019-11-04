@@ -915,8 +915,6 @@ class Cortex(s_cell.Cell):
             except Exception as e:
                 logger.warning(f'initStormService ({iden}) failed: {e}')
 
-        self.on('service:event', func=self._runStormSvcEvent)
-
     async def _initCoreQueues(self):
         path = os.path.join(self.dirn, 'slabs', 'queues.lmdb')
 
@@ -1016,7 +1014,7 @@ class Cortex(s_cell.Cell):
         Delete a registered storm service from the cortex.
         '''
 
-        await self.fire('service:event', iden=iden, evntname='del')
+        await self.runStormSvcEvent(iden, 'del')
         sdef = await self.stormservices.pop(iden, None)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
@@ -1053,34 +1051,29 @@ class Cortex(s_cell.Cell):
         await self.stormservices.set(iden, sdef)
         return sdef
 
-    async def _runStormSvcEvent(self, event):
+    async def runStormSvcEvent(self, iden, name):
         if self.isfini:
             return
 
-        name = event[1].get('evntname')
-        if name is None:
-            mesg = f'Missing parameter <evntname> to storm service callback'
-            raise s_exc.BadArg(mesg=mesg)
-
-        iden = event[1].get('iden')
-        if iden is None:
-            mesg = f'Missing parameter <iden> to storm service {name} callback'
-            raise s_exc.BadArg(mesg=mesg)
-
+        once = False
         sdef = self.stormservices.get(iden)
         if sdef is None and name != 'del':
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
 
-        if name == 'add' and sdef.get('added', False):
-            return
+        if name == 'add':
+            if sdef.get('added', False):
+                return
+            else:
+                once = True
 
         evnt = sdef.get('evts', {}).get(name, {}).get('storm')
         if evnt is not None:
             await s_common.aspin(self.storm(evnt, opts={'vars': {'cmdconf': {'svciden': iden}}}))
 
-        sdef['added'] = True
-        await self.stormservices.set(iden, sdef)
+        if once:
+            sdef['added'] = True
+            await self.stormservices.set(iden, sdef)
 
     async def _setStormSvc(self, sdef):
 
