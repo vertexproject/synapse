@@ -47,8 +47,8 @@ edittagpropdel: "-" tagprop
 SETOPER: "=" | "?="
 
 // The set of non-edit non-commands in storm
-_oper.1: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | valuvar | vareval
-     | filtoper | liftbytag
+_oper.1: initblock | finiblock | subquery | _formpivot | formjoin | formpivotin | formjoinin
+     | lifttagtag | opervarlist | valuvar | vareval | filtoper | liftbytag
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE
      | _liftprop | ifstmt | yieldvalu
 
@@ -71,6 +71,9 @@ casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | CASEVALU
 CASEVALU: /[^:\s][^:]*:/
 
 yieldvalu: YIELD _WS _valu
+
+initblock.1: "init" _WSCOMM? "{" query "}"
+finiblock.1: "fini" _WSCOMM? "{" query "}"
 
 ifstmt: "if" ifclause (_WSCOMM? "elif" ifclause)* [_WSCOMM? "else" _WSCOMM? baresubquery]
 // The stuff inside an if or elif

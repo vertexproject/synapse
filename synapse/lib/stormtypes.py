@@ -4,6 +4,7 @@ import json
 import base64
 import binascii
 import datetime
+import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -1166,6 +1167,50 @@ class Text(Prim):
 
     async def _methTextStr(self):
         return self.valu
+
+class LibStats(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'tally': self.tally,
+        })
+
+    async def tally(self):
+        return StatTally(path=self.path)
+
+class StatTally(Prim):
+    '''
+    A tally object.
+
+    $tally = $lib.stats.tally()
+
+    $tally.inc(foo)
+
+    for $name, $total in $tally {
+    }
+
+    '''
+    def __init__(self, path=None):
+
+        Prim.__init__(self, {}, path=path)
+
+        self.locls.update({
+            'inc': self.inc,
+            'get': self.get,
+        })
+
+        self.counters = collections.defaultdict(int)
+
+    async def __aiter__(self):
+        for name, valu in self.counters.items():
+            yield name, valu
+
+    async def inc(self, name, valu=1):
+        valu = intify(valu)
+        self.counters[name] += valu
+
+    async def get(self, name):
+        return self.counters.get(name, 0)
 
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):
