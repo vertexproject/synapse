@@ -1067,10 +1067,7 @@ class Cortex(s_cell.Cell):
             else:
                 once = True
 
-        try:
-            evnt = sdef.get('evts', {}).get(name, {}).get('storm')
-        except Exception:
-            breakpoint()
+        evnt = sdef.get('evts', {}).get(name, {}).get('storm')
         if evnt is not None:
             await s_common.aspin(self.storm(evnt, opts={'vars': {'cmdconf': {'svciden': iden}}}))
 
