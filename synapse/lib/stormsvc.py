@@ -156,6 +156,10 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
 
             try:
                 await self.core.runStormSvcEvent(self.iden, 'add')
+
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+
             except Exception:
                 name = cdef.get('name')
                 logger.exception(f'service.add storm hook ({name}) failed for service {self.name} ({self.iden})')
