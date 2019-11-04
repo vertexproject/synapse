@@ -39,6 +39,14 @@ class BoomService(s_stormsvc.StormSvc):
             'storm': ']',
         },
     )
+    _storm_svc_evts = {
+        'add': {
+            'storm': '[ inet:ipv4 = 8.8.8.8 ]',
+        },
+        'del': {
+            'storm': '[ inet:ipv4 = OVER9000 ]',
+        },
+    }
 
 class NoService:
     def lower(self):
@@ -52,6 +60,15 @@ class LifterService(s_stormsvc.StormSvc):
             'storm': 'inet:ipv4=1.2.3.4',
         },
     )
+
+    _storm_svc_evts = {
+        'add': {
+            'storm': '+[',
+        },
+        'del': {
+            'storm': '-}',
+        },
+    }
 
 class StormSvcTest(s_test.SynTest):
 
@@ -136,16 +153,31 @@ class StormSvcTest(s_test.SynTest):
                     await core.nodes(f'service.add boom {burl}')
                     await core.nodes(f'service.add lift {curl}')
 
+                    evts = {
+                        'add': {
+                            'storm': '$lib.queue.add(foo)',
+                        },
+                        'del': {
+                            'storm': '$lib.queue.del(foo)',
+                        },
+                    }
+                    with self.raises(s_exc.NoSuchStormSvc):
+                        await core.setStormSvcEvents(s_common.guid(), evts)
+
                     # force a wait for command loads
                     await core.nodes('$lib.service.wait(fake)')
                     await core.nodes('$lib.service.wait(prim)')
                     await core.nodes('$lib.service.wait(boom)')
                     await core.nodes('$lib.service.wait(lift)')
 
-                    # ensure that the initializer ran
+                    # ensure that the initializer ran, but only the initiailzers for
+                    # RealService and BoomService, since the others should have failed
                     queue = core.multiqueue.list()
                     self.len(1, queue)
                     self.eq('vertex', queue[0]['name'])
+                    nodes = await core.nodes('inet:ipv4=8.8.8.8')
+                    self.len(1, nodes)
+                    self.eq(nodes[0].ndef[1], 134744072)
 
                     self.nn(core.getStormCmd('ohhai'))
                     self.none(core.getStormCmd('goboom'))
@@ -167,6 +199,7 @@ class StormSvcTest(s_test.SynTest):
                     self.len(3, nodes)
 
                     # execute a pure storm service without inbound nodes
+                    # even though it has invalid add/del, it should still work
                     nodes = await core.nodes('lifter')
                     self.len(1, nodes)
 
@@ -206,3 +239,10 @@ class StormSvcTest(s_test.SynTest):
                         mesgs = [m[1].get('mesg') for m in mesgs if m[0] == 'print']
                         self.len(1, mesgs)
                         self.isin(f'removed {svc.iden} ({svc.name})', mesgs[0])
+
+                    self.len(0, core.getStormSvcs())
+                    # make sure all the dels ran, except for the BoomService (which should fail)
+                    nodes = await core.nodes('inet:ipv4')
+                    ans = set(['1.2.3.4', '5.5.5.5', '6.6.6.6', '8.8.8.8', '123.123.123.123'])
+                    reprs = set(map(lambda k: k.repr(), nodes))
+                    self.eq(ans, reprs)

@@ -152,9 +152,13 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
 
             except Exception:
                 name = cdef.get('name')
-                logger.exception(f'setStormCmd ({name}) failed for service {self.name} ({self.iden})')
+                logger.exception(f'setStormSvcEvents ({name}) failed for service {self.name} ({self.iden})')
 
-            await self.core.runStormSvcEvent(self.iden, 'add')
+            try:
+                await self.core.runStormSvcEvent(self.iden, 'add')
+            except Exception:
+                name = cdef.get('name')
+                logger.exception(f'service.add storm hook ({name}) failed for service {self.name} ({self.iden})')
 
         self.ready.set()
 

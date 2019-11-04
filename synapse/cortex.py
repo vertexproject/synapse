@@ -1014,7 +1014,11 @@ class Cortex(s_cell.Cell):
         Delete a registered storm service from the cortex.
         '''
 
-        await self.runStormSvcEvent(iden, 'del')
+        try:
+            await self.runStormSvcEvent(iden, 'del')
+        except Exception as e:
+            logger.warning(f'service.del hook for service {iden} failed with error: {e}')
+
         sdef = await self.stormservices.pop(iden, None)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
@@ -1052,9 +1056,6 @@ class Cortex(s_cell.Cell):
         return sdef
 
     async def runStormSvcEvent(self, iden, name):
-        if self.isfini:
-            return
-
         once = False
         sdef = self.stormservices.get(iden)
         if sdef is None:
