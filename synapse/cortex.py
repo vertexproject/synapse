@@ -1057,7 +1057,7 @@ class Cortex(s_cell.Cell):
 
         once = False
         sdef = self.stormservices.get(iden)
-        if sdef is None and name != 'del':
+        if sdef is None:
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
 
@@ -1067,7 +1067,10 @@ class Cortex(s_cell.Cell):
             else:
                 once = True
 
-        evnt = sdef.get('evts', {}).get(name, {}).get('storm')
+        try:
+            evnt = sdef.get('evts', {}).get(name, {}).get('storm')
+        except Exception:
+            breakpoint()
         if evnt is not None:
             await s_common.aspin(self.storm(evnt, opts={'vars': {'cmdconf': {'svciden': iden}}}))
 

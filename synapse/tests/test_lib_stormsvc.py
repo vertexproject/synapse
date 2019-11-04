@@ -6,8 +6,6 @@ import synapse.tests.utils as s_test
 import synapse.lib.stormsvc as s_stormsvc
 
 class RealService(s_stormsvc.StormSvc):
-    _storm_svc_init = '$lib.queue.add(vertex)'
-    _storm_svc_fini = '$lib.queue.del(vertex)'
     _storm_svc_cmds = (
         {
             'name': 'ohhai',
