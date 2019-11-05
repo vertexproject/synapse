@@ -545,6 +545,7 @@ _Queries = [
     'switch $a { "a": { } }',
     'switch $a { "test:str" : { } * : {}}',
     'switch $a { "test:this:works:" : { } * : {}}',
+    '''switch $a { 'single:quotes' : { } "doubele:quotes": {} noquotes: { } * : {}}''',
 ]
 
 # Generated with print_parse_list below
@@ -998,6 +999,7 @@ _ParseResults = [
     'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: a, SubQuery: [Query: []]]]]',
     'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:str, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]',
     'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:this:works:, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]',
+    "Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: 'single:quotes, SubQuery: [Query: []]], CaseEntry: [Const: doubele:quotes, SubQuery: [Query: []]], CaseEntry: [Const: noquotes, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]",
 ]
 
 class GrammarTest(s_t_utils.SynTest):
