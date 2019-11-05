@@ -31,20 +31,31 @@ class TrigTest(s_t_utils.SynTest):
 
                 # Manually store a v0 trigger
                 ruledict = {'ver': 0, 'cond': 'node:add', 'form': 'inet:ipv4', 'user': 'root', 'storm': 'testcmd'}
-                iden = b'\xff' * 16
-                core.slab.put(iden, s_msgpack.en(ruledict), db=core.trigstor.trigdb)
+                v0iden = b'\xff' * 15 + b'\xfe'
+                core.slab.put(v0iden, s_msgpack.en(ruledict), db=core.trigstor.trigdb)
+
+                # Manually store a v1 trigger with an old style view iden
+                ruledict = {'ver': 1, 'cond': 'node:add', 'useriden': 'root', 'storm': 'test:int',
+                            'viewiden': core.iden, 'form': 'inet:ipv4'}
+                v1iden = b'ff' * 16
+                core.slab.put(v1iden, s_msgpack.en(ruledict), db=core.trigstor.trigdb)
 
             async with self.getTestCore(dirn=fdir) as core:
                 triggers = core.view.triggers.list()
-                self.len(2, triggers)
+                self.len(3, triggers)
                 self.eq(triggers[0][1].storm, '[inet:user=2 .test:univ=4] | testcmd')
 
                 # Verify that the v0 trigger was migrated correctly
                 iden2, trig2 = triggers[1]
-                self.eq(iden2, 'ff' * 16)
+                self.eq(iden2, s_common.ehex(v0iden))
                 self.eq(trig2.ver, 1)
                 self.eq(trig2.storm, 'testcmd')
                 self.eq(trig2.useriden, rootiden)
+
+                # Verify that the v1 trigger was migrated correctly
+                iden3, trig3 = triggers[2]
+                self.eq(iden3, v1iden.decode())
+                self.eq(trig3.viewiden, core.view.iden)
 
     async def test_trigger_basics(self):
 
@@ -141,7 +152,8 @@ class TrigTest(s_t_utils.SynTest):
                     await core.addTrigger('tag:add', '[ +#count test:str=$tag ]', info={})
 
                 with self.raises(s_exc.BadOptValu):
-                    await core.addTrigger('tag:add', '[ +#count test:str=$tag ]', info={'tag': 'foo', 'prop': 'test:str'})
+                    info = {'tag': 'foo', 'prop': 'test:str'}
+                    await core.addTrigger('tag:add', '[ +#count test:str=$tag ]', info=info)
                 # bad tagmatch
                 with self.raises(s_exc.BadTag):
                     await core.addTrigger('tag:add', '[ +#count test:str=$tag ]', info={'tag': 'foo&baz'})

@@ -264,6 +264,8 @@ class TriggerStorage:
         Notes:
             v0 had two differences user was a username.  Replaced with iden of user as 'iden' field.
             Also 'iden' was storage as binary.  Now it is stored as hex string.
+
+        TODO:  due to our migration policy, remove in 0.2.0
         '''
         for iden, valu in self.core.slab.scanByFull(db=self.trigdb):
             ruledict = s_msgpack.un(valu)
@@ -288,8 +290,24 @@ class TriggerStorage:
             self.core.slab.pop(iden, db=self.trigdb)
             self.core.slab.put(newiden.encode(), s_msgpack.en(ruledict), db=self.trigdb)
 
+    def _migrate_old_view(self):
+        '''
+        Migrate from when cortex iden == view iden to where they are different
+
+        TODO:  due to our migration policy, remove in 0.3.0
+        '''
+        for iden, valu in self.core.slab.scanByFull(db=self.trigdb):
+            ruledict = s_msgpack.un(valu)
+
+            viewiden = ruledict.pop('viewiden', None)
+            if viewiden == self.core.iden:
+                viewiden = self.core.view.iden
+                ruledict['viewiden'] = viewiden
+                self.core.slab.put(iden, s_msgpack.en(ruledict), db=self.trigdb)
+
     def _load_all(self):
         self.migrate_v0_rules()
+        self._migrate_old_view()
         for iden, valu in self.core.slab.scanByFull(db=self.trigdb):
             try:
                 ruledict = s_msgpack.un(valu)
@@ -325,8 +343,8 @@ class Rule:
     tag: Optional[str] = dataclasses.field(default=None) # tag name
     prop: Optional[str] = dataclasses.field(default=None) # property name
 
-    iden: dataclasses.InitVar[str] = None
-    triggers: dataclasses.InitVar[Triggers] = None
+    iden: dataclasses.InitVar[Optional[str]] = None
+    triggers: dataclasses.InitVar[Optional[Triggers]] = None
 
     def __post_init__(self, iden, triggers):
 
