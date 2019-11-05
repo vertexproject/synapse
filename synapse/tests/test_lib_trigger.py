@@ -31,18 +31,12 @@ class TrigTest(s_t_utils.SynTest):
 
                 # Manually store a v0 trigger
                 ruledict = {'ver': 0, 'cond': 'node:add', 'form': 'inet:ipv4', 'user': 'root', 'storm': 'testcmd'}
-                v0iden = b'\xff' * 15 + b'\xfe'
+                v0iden = b'\xff' * 16
                 core.slab.put(v0iden, s_msgpack.en(ruledict), db=core.trigstor.trigdb)
-
-                # Manually store a v1 trigger with an old style view iden
-                ruledict = {'ver': 1, 'cond': 'node:add', 'useriden': 'root', 'storm': 'test:int',
-                            'viewiden': core.iden, 'form': 'inet:ipv4'}
-                v1iden = b'ff' * 16
-                core.slab.put(v1iden, s_msgpack.en(ruledict), db=core.trigstor.trigdb)
 
             async with self.getTestCore(dirn=fdir) as core:
                 triggers = core.view.triggers.list()
-                self.len(3, triggers)
+                self.len(2, triggers)
                 self.eq(triggers[0][1].storm, '[inet:user=2 .test:univ=4] | testcmd')
 
                 # Verify that the v0 trigger was migrated correctly
@@ -52,10 +46,14 @@ class TrigTest(s_t_utils.SynTest):
                 self.eq(trig2.storm, 'testcmd')
                 self.eq(trig2.useriden, rootiden)
 
-                # Verify that the v1 trigger was migrated correctly
-                iden3, trig3 = triggers[2]
-                self.eq(iden3, v1iden.decode())
-                self.eq(trig3.viewiden, core.view.iden)
+    async def test_view_migration(self):
+        '''
+        Make sure the trigger's view was migrated from iden=cortex.iden to its own
+        '''
+        async with self.getRegrCore('0.1.0-trigger') as core:
+            triggers = await core.view.listTriggers()
+            self.len(1, triggers)
+            self.eq(triggers[0][1].viewiden, core.view.iden)
 
     async def test_trigger_basics(self):
 
