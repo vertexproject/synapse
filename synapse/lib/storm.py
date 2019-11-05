@@ -490,19 +490,10 @@ class PureCmd(Cmd):
         opts['vars']['cmdopts'] = vars(self.opts)
 
         # run in an isolated runtime to prevent var leaks
-
-        count = 0
-        async for node, path in genr:
-            count += 1
-            async for item in node.storm(text, opts=opts, user=runt.user):
+        with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
+            subr.loadRuntVars(query)
+            async for item in subr.iterStormQuery(query, genr=genr):
                 yield item
-
-        if count == 0:
-            with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
-                subr.loadRuntVars(query)
-                if query.isRuntSafe(subr):
-                    async for item in subr.iterStormQuery(query):
-                        yield item
 
 class HelpCmd(Cmd):
     '''
