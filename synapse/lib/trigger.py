@@ -293,9 +293,8 @@ class TriggerStorage:
     def _migrate_old_view(self):
         '''
         Migrate from when cortex iden == view iden to where they are different
-
-        TODO:  due to our migration policy, remove in 0.3.0
         '''
+        # TODO:  due to our migration policy, remove in 0.3.0
         for iden, valu in self.core.slab.scanByFull(db=self.trigdb):
             ruledict = s_msgpack.un(valu)
 
