@@ -269,7 +269,7 @@ class AstConverter(lark.Transformer):
         assert len(kids) == 1
         kid = kids[0]
 
-        if kid.type == 'DOUBLEQUOTEDSTRING':
+        if kid.type in ('DOUBLEQUOTEDSTRING', 'SINGLEQUOTEDSTRING'):
             return self._convert_child(kid)
 
         return s_ast.Const(kid.value[:-1])  # drop the trailing ':'
