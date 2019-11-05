@@ -542,6 +542,9 @@ _Queries = [
     }
     ''',
     ''' [(ou:org=c71cd602f73af5bed208da21012fdf54 :loc=us )]''',
+    'switch $a { "a": { } }',
+    'switch $a { "test:str" : { } * : {}}',
+    'switch $a { "test:this:works:" : { } * : {}}',
 ]
 
 # Generated with print_parse_list below
@@ -992,6 +995,9 @@ _ParseResults = [
     'Query: [LiftPropBy: [Const: test:str, Const: =, VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: space key]], Const: subkey]]]',
     'Query: [ForLoop: [Const: iterkey, VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: bar key]], VarValue: [Const: biz key]], SubQuery: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, VarDeref: [VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: bar key]], VarValue: [Const: biz key]], VarValue: [Const: iterkey]]]]]]]',
     'Query: [EditParens: [EditNodeAdd: [AbsProp: ou:org, Const: =, Const: c71cd602f73af5bed208da21012fdf54], EditPropSet: [RelProp: [Const: :loc], Const: =, Const: us]]]',
+    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: a, SubQuery: [Query: []]]]]',
+    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:str, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]',
+    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:this:works:, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
