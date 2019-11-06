@@ -170,7 +170,7 @@ class StormSvcTest(s_test.SynTest):
                     await core.nodes('$lib.service.wait(boom)')
                     await core.nodes('$lib.service.wait(lift)')
 
-                    # ensure that the initializer ran, but only the initiailzers for
+                    # ensure that the initializer ran, but only the initializers for
                     # RealService and BoomService, since the others should have failed
                     queue = core.multiqueue.list()
                     self.len(1, queue)
