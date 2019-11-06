@@ -751,6 +751,7 @@ class Cortex(s_cell.Cell):
         self.stormcmds = {}
         self.stormvars = None  # type: s_hive.HiveDict
         self.stormrunts = {}
+        self.stormdmons = {}
 
         self.svcsbyiden = {}
         self.svcsbyname = {}
@@ -885,7 +886,6 @@ class Cortex(s_cell.Cell):
 
         node = await self.hive.open(('cortex', 'storm', 'dmons'))
 
-        self.stormdmons = {}
         self.stormdmonhive = await node.dict()
 
         for iden, ddef in self.stormdmonhive.items():
