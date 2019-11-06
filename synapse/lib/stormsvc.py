@@ -155,7 +155,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
                 logger.exception(f'setStormSvcEvents ({name}) failed for service {self.name} ({self.iden})')
 
             try:
-                await self.core.runStormSvcEvent(self.iden, 'add')
+                await self.core._runStormSvcAdd(self.iden)
 
             except asyncio.CancelledError:  # pragma: no cover
                 raise

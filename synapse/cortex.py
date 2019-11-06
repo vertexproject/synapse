@@ -1055,26 +1055,30 @@ class Cortex(s_cell.Cell):
         await self.stormservices.set(iden, sdef)
         return sdef
 
-    async def runStormSvcEvent(self, iden, name):
-        once = False
+    async def _runStormSvcAdd(self, iden):
         sdef = self.stormservices.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
 
-        if name == 'add':
-            if sdef.get('added', False):
-                return
-            else:
-                once = True
+        if sdef.get('added', False):
+            return
+
+        await self.runStormSvcEvent(iden, 'add')
+
+        sdef['added'] = True
+        await self.stormservices.set(iden, sdef)
+
+    async def runStormSvcEvent(self, iden, name):
+        sdef = self.stormservices.get(iden)
+        if sdef is None:
+            mesg = f'No storm service with iden: {iden}'
+            raise s_exc.NoSuchStormSvc(mesg=mesg)
 
         evnt = sdef.get('evts', {}).get(name, {}).get('storm')
-        if evnt is not None:
-            await s_common.aspin(self.storm(evnt, opts={'vars': {'cmdconf': {'svciden': iden}}}))
-
-        if once:
-            sdef['added'] = True
-            await self.stormservices.set(iden, sdef)
+        if evnt is None:
+            return
+        await s_common.aspin(self.storm(evnt, opts={'vars': {'cmdconf': {'svciden': iden}}}))
 
     async def _setStormSvc(self, sdef):
 
