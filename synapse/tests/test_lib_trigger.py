@@ -50,7 +50,7 @@ class TrigTest(s_t_utils.SynTest):
         '''
         Make sure the trigger's view was migrated from iden=cortex.iden to its own
         '''
-        async with self.getRegrCore('0.1.0-trigger') as core:
+        async with self.getRegrCore('0.1.32-trigger') as core:
             triggers = await core.view.listTriggers()
             self.len(1, triggers)
             self.eq(triggers[0][1].viewiden, core.view.iden)
