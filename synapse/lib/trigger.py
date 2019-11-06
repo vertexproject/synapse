@@ -264,9 +264,9 @@ class TriggerStorage:
         Notes:
             v0 had two differences user was a username.  Replaced with iden of user as 'iden' field.
             Also 'iden' was storage as binary.  Now it is stored as hex string.
-
-        TODO:  due to our migration policy, remove in 0.2.0
         '''
+        # TODO:  due to our migration policy, remove in 0.2.0
+
         for iden, valu in self.core.slab.scanByFull(db=self.trigdb):
             ruledict = s_msgpack.un(valu)
             ver = ruledict.get('ver')
