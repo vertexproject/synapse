@@ -2718,6 +2718,15 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(node.getTag('baz'))
                 self.nn(node.getTag('jaz'))
 
+            opts = {'vars': {'woot': 'lulz'}}
+            text = '''[test:str=c] $form=$node.form() switch $form { 'test:str': {[+#known]} *: {[+#unknown]} }'''
+            nodes = await core.eval(text, opts=opts).list()
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], 'c')
+            self.nn(node.getTag('known'))
+            self.none(node.getTag('unknown'))
+
     async def test_storm_tagvar(self):
 
         async with self.getTestCore() as core:
