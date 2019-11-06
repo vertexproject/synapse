@@ -68,7 +68,7 @@ baresubquery: "{" query "}"
 YIELD: "yield"
 switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" baresubquery) | (casevalu _WSCOMM? baresubquery)) )* _WSCOMM? "}"
 casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | CASEVALU
-CASEVALU: /[^:\s][^:]*:/
+CASEVALU: /[^:\s"][^:]*:/
 
 yieldvalu: YIELD _WS _valu
 
