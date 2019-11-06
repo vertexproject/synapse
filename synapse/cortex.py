@@ -1017,7 +1017,7 @@ class Cortex(s_cell.Cell):
         try:
             await self.runStormSvcEvent(iden, 'del')
         except Exception as e:
-            logger.warning(f'service.del hook for service {iden} failed with error: {e}')
+            logger.exception(f'service.del hook for service {iden} failed with error: {e}')
 
         sdef = await self.stormservices.pop(iden, None)
         if sdef is None:
@@ -1064,7 +1064,11 @@ class Cortex(s_cell.Cell):
         if sdef.get('added', False):
             return
 
-        await self.runStormSvcEvent(iden, 'add')
+        try:
+            await self.runStormSvcEvent(iden, 'add')
+        except Exception as e:
+            logger.exception(f'runStormSvcEvent service.add failed with error {e}')
+            return
 
         sdef['added'] = True
         await self.stormservices.set(iden, sdef)

@@ -1,3 +1,4 @@
+import contextlib
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
@@ -48,6 +49,22 @@ class BoomService(s_stormsvc.StormSvc):
         },
     }
 
+class DeadService(s_stormsvc.StormSvc):
+    _storm_svc_cmds = (
+        {
+            'name': 'dead',
+            'storm': '$#$#$#$#',
+        },
+    )
+    _storm_svc_evts = {
+        'add': {
+            'storm': 'inet:ipv4',
+        },
+        'del': {
+            'storm': 'inet:ipv4',
+        },
+    }
+
 class NoService:
     def lower(self):
         return 'asdf'
@@ -69,6 +86,15 @@ class LifterService(s_stormsvc.StormSvc):
             'storm': '-}',
         },
     }
+
+@contextlib.contextmanager
+def patchcore(core, attr, newfunc):
+    origvalu = getattr(core, attr)
+    try:
+        setattr(core, attr, newfunc)
+        yield
+    finally:
+        setattr(core, attr, origvalu)
 
 class StormSvcTest(s_test.SynTest):
 
@@ -135,6 +161,7 @@ class StormSvcTest(s_test.SynTest):
                 dmon.share('prim', NoService())
                 dmon.share('real', RealService())
                 dmon.share('boom', BoomService())
+                dmon.share('dead', DeadService())
                 dmon.share('lift', LifterService())
 
                 host, port = dmon.addr
@@ -143,6 +170,7 @@ class StormSvcTest(s_test.SynTest):
                 purl = f'tcp://127.0.0.1:{port}/prim'
                 burl = f'tcp://127.0.0.1:{port}/boom'
                 curl = f'tcp://127.0.0.1:{port}/lift'
+                durl = f'tcp://127.0.0.1:{port}/dead'
 
                 async with await s_cortex.Cortex.anit(dirn) as core:
 
@@ -163,6 +191,9 @@ class StormSvcTest(s_test.SynTest):
                     }
                     with self.raises(s_exc.NoSuchStormSvc):
                         await core.setStormSvcEvents(s_common.guid(), evts)
+
+                    with self.raises(s_exc.NoSuchStormSvc):
+                        await core._runStormSvcAdd(s_common.guid())
 
                     # force a wait for command loads
                     await core.nodes('$lib.service.wait(fake)')
@@ -246,3 +277,32 @@ class StormSvcTest(s_test.SynTest):
                     ans = set(['1.2.3.4', '5.5.5.5', '6.6.6.6', '8.8.8.8', '123.123.123.123'])
                     reprs = set(map(lambda k: k.repr(), nodes))
                     self.eq(ans, reprs)
+
+                    badiden = []
+                    async def badSetStormSvcEvents(iden, evts):
+                        badiden.append(iden)
+                        raise s_exc.SynErr('Kaboom')
+
+                    sdef = {
+                        'name': 'dead',
+                        'iden': s_common.guid(),
+                        'url': durl,
+                    }
+                    with patchcore(core, 'setStormSvcEvents', badSetStormSvcEvents):
+                        ssvc = await core.addStormSvc(sdef)
+                        await ssvc.ready.wait()
+                        await core.delStormSvc(ssvc.iden)
+
+                    self.len(1, badiden)
+                    self.eq(ssvc.iden, badiden.pop())
+
+                    async def badRunStormSvcAdd(iden):
+                        badiden.append(iden)
+                        raise s_exc.SynErr('Kaboom')
+
+                    with patchcore(core, '_runStormSvcAdd', badRunStormSvcAdd):
+                        ssvc = await core.addStormSvc(sdef)
+                        await ssvc.ready.wait()
+                        await core.delStormSvc(ssvc.iden)
+                    self.len(1, badiden)
+                    self.eq(ssvc.iden, badiden[0])
