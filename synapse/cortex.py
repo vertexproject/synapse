@@ -1016,6 +1016,8 @@ class Cortex(s_cell.Cell):
 
         try:
             await self.runStormSvcEvent(iden, 'del')
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
         except Exception as e:
             logger.exception(f'service.del hook for service {iden} failed with error: {e}')
 
@@ -1066,6 +1068,8 @@ class Cortex(s_cell.Cell):
 
         try:
             await self.runStormSvcEvent(iden, 'add')
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
         except Exception as e:
             logger.exception(f'runStormSvcEvent service.add failed with error {e}')
             return
