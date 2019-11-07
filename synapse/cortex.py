@@ -1007,13 +1007,19 @@ class Cortex(s_cell.Cell):
 
         ssvc = await self._setStormSvc(sdef)
         await self.stormservices.set(iden, sdef)
-
         return ssvc
 
     async def delStormSvc(self, iden):
         '''
         Delete a registered storm service from the cortex.
         '''
+
+        try:
+            await self.runStormSvcEvent(iden, 'del')
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception as e:
+            logger.exception(f'service.del hook for service {iden} failed with error: {e}')
 
         sdef = await self.stormservices.pop(iden, None)
         if sdef is None:
@@ -1027,6 +1033,60 @@ class Cortex(s_cell.Cell):
         ssvc = self.svcsbyiden.pop(iden, None)
         if ssvc is not None:
             await ssvc.fini()
+
+    async def setStormSvcEvents(self, iden, edef):
+        '''
+        Set the event callbacks for a storm service. Extends the sdef dict
+
+        edef = {
+            <name> : {
+                'storm': <storm>
+            }
+        }
+
+        where <name> can be one of [add, del], where
+        add -- Run the given storm '*before* the service is first added (a la service.add), but not on a reconnect.
+        del -- Run the given storm *after* the service is removed (a la service.del), but not on a disconnect.
+        '''
+        sdef = self.stormservices.get(iden)
+        if sdef is None:
+            mesg = f'No storm service with iden: {iden}'
+            raise s_exc.NoSuchStormSvc(mesg=mesg)
+
+        sdef['evts'] = edef
+        await self.stormservices.set(iden, sdef)
+        return sdef
+
+    async def _runStormSvcAdd(self, iden):
+        sdef = self.stormservices.get(iden)
+        if sdef is None:
+            mesg = f'No storm service with iden: {iden}'
+            raise s_exc.NoSuchStormSvc(mesg=mesg)
+
+        if sdef.get('added', False):
+            return
+
+        try:
+            await self.runStormSvcEvent(iden, 'add')
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception as e:
+            logger.exception(f'runStormSvcEvent service.add failed with error {e}')
+            return
+
+        sdef['added'] = True
+        await self.stormservices.set(iden, sdef)
+
+    async def runStormSvcEvent(self, iden, name):
+        sdef = self.stormservices.get(iden)
+        if sdef is None:
+            mesg = f'No storm service with iden: {iden}'
+            raise s_exc.NoSuchStormSvc(mesg=mesg)
+
+        evnt = sdef.get('evts', {}).get(name, {}).get('storm')
+        if evnt is None:
+            return
+        await s_common.aspin(self.storm(evnt, opts={'vars': {'cmdconf': {'svciden': iden}}}))
 
     async def _setStormSvc(self, sdef):
 

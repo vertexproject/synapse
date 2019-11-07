@@ -1,3 +1,4 @@
+import contextlib
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
@@ -15,6 +16,14 @@ class RealService(s_stormsvc.StormSvc):
             'storm': '[ inet:ipv4=1.2.3.4 :asn=$lib.service.get($cmdconf.svciden).asn() ]',
         },
     )
+    _storm_svc_evts = {
+        'add': {
+            'storm': '$lib.queue.add(vertex)',
+        },
+        'del': {
+            'storm': '$lib.queue.del(vertex)',
+        },
+    }
 
     async def asn(self):
         return 20
@@ -31,6 +40,30 @@ class BoomService(s_stormsvc.StormSvc):
             'storm': ']',
         },
     )
+    _storm_svc_evts = {
+        'add': {
+            'storm': '[ inet:ipv4 = 8.8.8.8 ]',
+        },
+        'del': {
+            'storm': '[ inet:ipv4 = OVER9000 ]',
+        },
+    }
+
+class DeadService(s_stormsvc.StormSvc):
+    _storm_svc_cmds = (
+        {
+            'name': 'dead',
+            'storm': '$#$#$#$#',
+        },
+    )
+    _storm_svc_evts = {
+        'add': {
+            'storm': 'inet:ipv4',
+        },
+        'del': {
+            'storm': 'inet:ipv4',
+        },
+    }
 
 class NoService:
     def lower(self):
@@ -44,6 +77,24 @@ class LifterService(s_stormsvc.StormSvc):
             'storm': 'inet:ipv4=1.2.3.4',
         },
     )
+
+    _storm_svc_evts = {
+        'add': {
+            'storm': '+[',
+        },
+        'del': {
+            'storm': '-}',
+        },
+    }
+
+@contextlib.contextmanager
+def patchcore(core, attr, newfunc):
+    origvalu = getattr(core, attr)
+    try:
+        setattr(core, attr, newfunc)
+        yield
+    finally:
+        setattr(core, attr, origvalu)
 
 class StormSvcTest(s_test.SynTest):
 
@@ -110,6 +161,7 @@ class StormSvcTest(s_test.SynTest):
                 dmon.share('prim', NoService())
                 dmon.share('real', RealService())
                 dmon.share('boom', BoomService())
+                dmon.share('dead', DeadService())
                 dmon.share('lift', LifterService())
 
                 host, port = dmon.addr
@@ -118,6 +170,7 @@ class StormSvcTest(s_test.SynTest):
                 purl = f'tcp://127.0.0.1:{port}/prim'
                 burl = f'tcp://127.0.0.1:{port}/boom'
                 curl = f'tcp://127.0.0.1:{port}/lift'
+                durl = f'tcp://127.0.0.1:{port}/dead'
 
                 async with await s_cortex.Cortex.anit(dirn) as core:
 
@@ -128,11 +181,34 @@ class StormSvcTest(s_test.SynTest):
                     await core.nodes(f'service.add boom {burl}')
                     await core.nodes(f'service.add lift {curl}')
 
+                    evts = {
+                        'add': {
+                            'storm': '$lib.queue.add(foo)',
+                        },
+                        'del': {
+                            'storm': '$lib.queue.del(foo)',
+                        },
+                    }
+                    with self.raises(s_exc.NoSuchStormSvc):
+                        await core.setStormSvcEvents(s_common.guid(), evts)
+
+                    with self.raises(s_exc.NoSuchStormSvc):
+                        await core._runStormSvcAdd(s_common.guid())
+
                     # force a wait for command loads
                     await core.nodes('$lib.service.wait(fake)')
                     await core.nodes('$lib.service.wait(prim)')
                     await core.nodes('$lib.service.wait(boom)')
                     await core.nodes('$lib.service.wait(lift)')
+
+                    # ensure that the initializer ran, but only the initializers for
+                    # RealService and BoomService, since the others should have failed
+                    queue = core.multiqueue.list()
+                    self.len(1, queue)
+                    self.eq('vertex', queue[0]['name'])
+                    nodes = await core.nodes('inet:ipv4=8.8.8.8')
+                    self.len(1, nodes)
+                    self.eq(nodes[0].ndef[1], 134744072)
 
                     self.nn(core.getStormCmd('ohhai'))
                     self.none(core.getStormCmd('goboom'))
@@ -154,6 +230,7 @@ class StormSvcTest(s_test.SynTest):
                     self.len(3, nodes)
 
                     # execute a pure storm service without inbound nodes
+                    # even though it has invalid add/del, it should still work
                     nodes = await core.nodes('lifter')
                     self.len(1, nodes)
 
@@ -176,4 +253,56 @@ class StormSvcTest(s_test.SynTest):
                     nodes = await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
                     self.len(2, nodes)
 
+                    # haven't deleted the service yet, so still should be there
+                    queue = core.multiqueue.list()
+                    self.len(1, queue)
+                    self.eq('vertex', queue[0]['name'])
+
                     await core.delStormSvc(iden)
+
+                    # ensure fini ran
+                    queue = core.multiqueue.list()
+                    self.len(0, queue)
+
+                    # specifically call teardown
+                    for svc in core.getStormSvcs():
+                        mesgs = await s_test.alist(core.streamstorm(f'service.del {svc.iden}'))
+                        mesgs = [m[1].get('mesg') for m in mesgs if m[0] == 'print']
+                        self.len(1, mesgs)
+                        self.isin(f'removed {svc.iden} ({svc.name})', mesgs[0])
+
+                    self.len(0, core.getStormSvcs())
+                    # make sure all the dels ran, except for the BoomService (which should fail)
+                    nodes = await core.nodes('inet:ipv4')
+                    ans = set(['1.2.3.4', '5.5.5.5', '6.6.6.6', '8.8.8.8', '123.123.123.123'])
+                    reprs = set(map(lambda k: k.repr(), nodes))
+                    self.eq(ans, reprs)
+
+                    badiden = []
+                    async def badSetStormSvcEvents(iden, evts):
+                        badiden.append(iden)
+                        raise s_exc.SynErr('Kaboom')
+
+                    sdef = {
+                        'name': 'dead',
+                        'iden': s_common.guid(),
+                        'url': durl,
+                    }
+                    with patchcore(core, 'setStormSvcEvents', badSetStormSvcEvents):
+                        ssvc = await core.addStormSvc(sdef)
+                        await ssvc.ready.wait()
+                        await core.delStormSvc(ssvc.iden)
+
+                    self.len(1, badiden)
+                    self.eq(ssvc.iden, badiden.pop())
+
+                    async def badRunStormSvcAdd(iden):
+                        badiden.append(iden)
+                        raise s_exc.SynErr('Kaboom')
+
+                    with patchcore(core, '_runStormSvcAdd', badRunStormSvcAdd):
+                        ssvc = await core.addStormSvc(sdef)
+                        await ssvc.ready.wait()
+                        await core.delStormSvc(ssvc.iden)
+                    self.len(1, badiden)
+                    self.eq(ssvc.iden, badiden[0])
