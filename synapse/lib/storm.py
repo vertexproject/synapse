@@ -545,7 +545,7 @@ class PureCmd(Cmd):
                 yield node, path
 
         opts = {'vars': cmdvars}
-        with runt.snap.getStormRuntime(user=runt.user) as subr:
+        with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
             subr.loadRuntVars(query)
             async for node, path in subr.iterStormQuery(query, genr=wrapgenr()):
                 path.finiframe()
