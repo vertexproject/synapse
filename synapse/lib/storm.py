@@ -158,26 +158,35 @@ class Scope:
     environment.
     '''
 
-    def __init__(self, runt):
-        self.vars = {}
-        self.runt = runt
+    def __init__(self, runt, root=None, scopevars=None):
 
-        # steal some locals...
-        self.opts = runt.opts
-        self.snap = runt.snap
-        self.user = runt.user
+        if scopevars is None:
+            self.vars = {}
+        else:
+            self.vars = scopevars.copy()
+
+        self.runt = runt
+        self.root = root
 
     def getVar(self, name, defv=None):
+
         valu = self.vars.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
+
+        if self.root is not None:
+            return self.root.getVar(name, defv=defv)
+
         return self.runt.getVar(name, defv=defv)
 
     def setVar(self, name, valu):
         self.vars[name] = valu
 
     def scope(self):
-        return Scope(self)
+        return Scope(self.runt, root=self)
+
+    def popscope(self):
+        return self.root
 
 class Runtime:
     '''
@@ -527,25 +536,22 @@ class PureCmd(Cmd):
         text = self.cdef.get('storm')
         query = runt.snap.core.getStormQuery(text)
 
-        opts = {'vars': runt.vars}
+        cmdvars = {
+            'cmdopts': vars(self.opts),
+            'cmdconf': self.cdef.get('cmdconf', {})
+        }
 
-        opts['vars']['cmdconf'] = self.cdef.get('cmdconf', {})
-        opts['vars']['cmdopts'] = vars(self.opts)
+        async def wrapgenr():
+            # wrap paths in a scope to isolate vars
+            async for node, path in genr:
+                yield node, path.scope(scopevars=cmdvars)
 
-        # run in an isolated runtime to prevent var leaks
-
-        count = 0
-        async for node, path in genr:
-            count += 1
-            async for item in node.storm(text, opts=opts, user=runt.user):
-                yield item
-
-        if count == 0:
-            with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
-                subr.loadRuntVars(query)
-                if query.isRuntSafe(subr):
-                    async for item in subr.iterStormQuery(query):
-                        yield item
+        opts = {'vars': cmdvars}
+        with runt.snap.getStormRuntime(user=runt.user) as subr:
+            subr.loadRuntVars(query)
+            async for node, scope in subr.iterStormQuery(query, genr=wrapgenr()):
+                # Strip one layer of scope (or NOP if new path)
+                yield node, scope.popscope()
 
 class HelpCmd(Cmd):
     '''

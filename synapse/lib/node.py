@@ -7,6 +7,7 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.types as s_types
+import synapse.lib.storm as s_storm
 
 import synapse.lib.editatom as s_editatom
 
@@ -746,6 +747,9 @@ class Path:
         self.traces.append(trace)
         return trace
 
+    def scope(self, scopevars=None):
+        return s_storm.Scope(self.runt, root=self, scopevars=scopevars)
+
     def getVar(self, name, defv=s_common.novalu):
 
         # check if the name is in our variables
@@ -792,6 +796,9 @@ class Path:
         [t.addFork(path) for t in self.traces]
 
         return path
+
+    def popscope(self):
+        return self
 
 class Trace:
     '''

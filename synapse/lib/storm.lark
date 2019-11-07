@@ -12,13 +12,12 @@
 
 // Entry point for an unadorned storm query
 
-query: [_WSCOMM? "|" ] _WSCOMM? (_statement (_WSCOMM? "|" _WSCOMM? _statement)*)? _WSCOMM?
+query: [_WSCOMM? "|" ] _WSCOMM? (_statement (_WSCOMM? "|" _WSCOMM? _statement)* _WSCOMM? )?
 
-_opers: _oper (_WSCOMM _oper)*
+_opers: ( _oper | _editblock ) ( (_WSCOMM _oper) | (_WSCOMM? _editblock) )*
 _statement: (_opers | stormcmd)
 
 // Edit block: zero or more edit operations inside a single set of square brackets
-_editblocks: _editblock+
 _editblock: "[" _WS? _editopers _WS? "]"
 _editopers: _editoper (_WS _editoper)*
 
@@ -42,16 +41,15 @@ edittagpropdel: "-" tagprop
 SETOPER: "=" | "?="
 
 // The set of non-edit non-commands in storm
-//_oper.1: subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag
 _oper: stormfunc | subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag
      | opervarlist | setitem | setvar | vareval | filtoper | liftbytag
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return
-     | _liftprop | ifstmt | yieldvalu | _editblocks
+     | _liftprop | ifstmt | yieldvalu
 
 BREAK: "break"
 CONTINUE: "continue"
 
-return.1: "return" [ _WS _valu ]
+return: "return" [ _WS _valu ]
 
 // A bare variable reference, useful for a function call
 vareval: _varvalu
