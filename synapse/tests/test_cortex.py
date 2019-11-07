@@ -399,7 +399,7 @@ class CortexTest(s_t_utils.SynTest):
                 'hehe': 'haha',
             },
 
-            'storm': 'if $cmdopts.domore { [ +#$cmdconf.hehe ] } [ +#$cmdopts.tagname ]',
+            'storm': '$foo=$(10) if $cmdopts.domore { [ +#$cmdconf.hehe ] } [ +#$cmdopts.tagname ]',
         }
 
         with self.getTestDir() as dirn:
@@ -417,6 +417,16 @@ class CortexTest(s_t_utils.SynTest):
 
                     self.true(nodes[0].tags.get('haha'))
                     self.true(nodes[0].tags.get('zoinks'))
+
+                    # test that cmdopts/cmdconf/locals dont leak
+                    with self.raises(s_exc.NoSuchVar):
+                        nodes = await core.nodes('[ inet:asn=11 ] | testcmd zoinks --domore | if ($cmdopts) {[ +#hascmdopts ]}')
+
+                    with self.raises(s_exc.NoSuchVar):
+                        nodes = await core.nodes('[ inet:asn=11 ] | testcmd zoinks --domore | if ($cmdconf) {[ +#hascmdconf ]}')
+
+                    with self.raises(s_exc.NoSuchVar):
+                        nodes = await core.nodes('[ inet:asn=11 ] | testcmd zoinks --domore | if ($foo) {[ +#hasfoo ]}')
 
             # make sure it's still loaded...
             async with await s_cortex.Cortex.anit(dirn) as core:
