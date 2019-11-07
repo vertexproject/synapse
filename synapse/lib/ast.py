@@ -2839,7 +2839,7 @@ class Function(AstNode):
         async def realfunc(*args, **kwargs):
             return await self.callfunc(runt, args, kwargs)
 
-        name = self.kids[1].value()
+        name = self.kids[0].value()
         runt.setVar(name, realfunc)
 
         async for item in genr:
@@ -2851,9 +2851,9 @@ class Function(AstNode):
 
         This function may return a value / generator / async generator
         '''
-        funcrunt = await runt.getScopeRuntime(self.kids[3])
+        funcrunt = await runt.getScopeRuntime(self.kids[2])
 
-        argdefs = self.kids[2].value()
+        argdefs = self.kids[1].value()
         if len(args) != len(argdefs):
             raise Exception('BAD CALL ARG COUNT FIXME')
 
@@ -2869,7 +2869,7 @@ class Function(AstNode):
 
             try:
 
-                async for item in self.kids[3].run(funcrunt, agen()):
+                async for item in self.kids[2].run(funcrunt, agen()):
                     pass
 
             except StormReturn as e:
@@ -2880,7 +2880,7 @@ class Function(AstNode):
             return None
 
         async def nodegenr():
-            async for node, path in self.kids[3].run(funcrunt, agen()):
+            async for node, path in self.kids[2].run(funcrunt, agen()):
                 yield node
 
         return nodegenr()

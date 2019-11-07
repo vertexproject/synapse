@@ -222,8 +222,6 @@ class LibBase(Lib):
         query = await self.runt.getStormQuery(text)
         runt = await self.runt.getScopeRuntime(query)
 
-        #scope = self.runt.scope()
-
         # execute the query in a module scope
         async for item in query.run(runt, s_ast.agen()):
             pass
