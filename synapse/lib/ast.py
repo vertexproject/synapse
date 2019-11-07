@@ -2862,9 +2862,6 @@ class Function(AstNode):
 
         genr = agen()
 
-        print('RUN HAS RETN: %r' % (self.hasretn,))
-        print(repr(self))
-
         if self.hasretn:
 
             try:
@@ -2873,10 +2870,8 @@ class Function(AstNode):
                     pass
 
             except StormReturn as e:
-                print('STORM RETURN EXCEPTION %r' % (e.item,))
                 return e.item
 
-            print('RETURNING NONE')
             return None
 
         async def nodegenr():

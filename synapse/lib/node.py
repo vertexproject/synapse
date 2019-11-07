@@ -728,6 +728,7 @@ class Path:
             self.node = nodes[-1]
 
         self.vars = vars
+        self.frames = []
         self.ctors = {}
 
         # "builtins" which are *not* vars
@@ -746,9 +747,6 @@ class Path:
         trace = Trace(self)
         self.traces.append(trace)
         return trace
-
-    def scope(self, scopevars=None):
-        return s_storm.Scope(self.runt, root=self, scopevars=scopevars)
 
     def getVar(self, name, defv=s_common.novalu):
 
@@ -797,8 +795,22 @@ class Path:
 
         return path
 
-    def popscope(self):
-        return self
+    def initframe(self, initvars=None):
+
+        # full copy for now...
+        framevars = self.vars.copy()
+        if initvars is not None:
+            framevars.update(initvars)
+
+        self.frames.append(self.vars)
+        self.vars = framevars
+
+    def finiframe(self):
+
+        if not self.frames:
+            return
+
+        self.vars = self.frames.pop()
 
 class Trace:
     '''

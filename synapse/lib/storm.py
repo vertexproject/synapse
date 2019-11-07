@@ -247,9 +247,6 @@ class Runtime:
 
         return prox
 
-    #def scope(self):
-        #return Scope(self)
-
     def isRuntVar(self, name):
         if name in self.runtvars:
             return True
@@ -544,14 +541,15 @@ class PureCmd(Cmd):
         async def wrapgenr():
             # wrap paths in a scope to isolate vars
             async for node, path in genr:
-                yield node, path.scope(scopevars=cmdvars)
+                path.initframe(initvars=cmdvars)
+                yield node, path
 
         opts = {'vars': cmdvars}
         with runt.snap.getStormRuntime(user=runt.user) as subr:
             subr.loadRuntVars(query)
-            async for node, scope in subr.iterStormQuery(query, genr=wrapgenr()):
-                # Strip one layer of scope (or NOP if new path)
-                yield node, scope.popscope()
+            async for node, path in subr.iterStormQuery(query, genr=wrapgenr()):
+                path.finiframe()
+                yield node, path
 
 class HelpCmd(Cmd):
     '''
