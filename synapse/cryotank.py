@@ -250,7 +250,7 @@ class CryoCell(s_cell.Cell):
 
     async def __anit__(self, dirn, conf=None, readonly=False):
 
-        await s_cell.Cell.__anit__(self, dirn)
+        await s_cell.Cell.__anit__(self, dirn, conf)
 
         self.dmon.share('cryotank', self)
 
