@@ -259,6 +259,41 @@ class SnapTest(s_t_utils.SynTest):
             self.len(1, await core0.eval('inet:ipv4:asn=42').list())
             self.len(0, await core1.eval('inet:ipv4:asn=42').list())
 
+    async def test_cortex_lift_layers_bad_filter_tagprop(self):
+        '''
+        Test a two layer cortex where a lift operation gives the wrong result, with tagprops
+        '''
+        async with self._getTestCoreMultiLayer() as (core0, core1):
+            for core in (core0, core1):
+                await core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
+
+            self.len(1, await core0.nodes('[ test:int=10 +#woot:score=20 ]'))
+            self.len(1, await core1.nodes('[ test:int=10 +#woot:score=40 ]'))
+
+            self.len(0, await core0.nodes('#woot:score=40'))
+            self.len(1, await core1.nodes('#woot:score=40'))
+
+            self.len(0, await core0.nodes('#:score=40'))
+            self.len(1, await core1.nodes('#:score=40'))
+
+            self.len(1, await core0.nodes('#woot:score=20'))
+            self.len(0, await core1.nodes('#woot:score=20'))
+
+            self.len(1, await core0.nodes('#:score=20'))
+            self.len(0, await core1.nodes('#:score=20'))
+
+            async with self.getTestCore() as core2:
+                await core2.addTagProp('score', ('int', {}), {'doc': 'hi there'})
+                for core in (core1, core0):
+                    config = {'url': core.getLocalUrl('*/layer')}
+                    layr = await core2.addLayer(type='remote', config=config)
+                    await core2.view.addLayer(layr)
+
+                self.len(1, await core2.nodes('#woot:score=40'))
+                self.len(1, await core2.nodes('#:score=40'))
+                self.len(0, await core2.nodes('#woot:score=20'))
+                self.len(0, await core2.nodes('#:score=20'))
+
     async def test_cortex_lift_layers_dup(self):
         '''
         Test a two layer cortex where a lift operation might give the same node twice incorrectly
@@ -277,6 +312,23 @@ class SnapTest(s_t_utils.SynTest):
             # now set one to a diff value that we will ask for but should be masked
             self.len(1, await core0.eval('[ inet:ipv4=1.2.3.4 :asn=99 ]').list())
             self.len(0, await core1.eval('inet:ipv4:asn=99').list())
+
+    async def test_cortex_lift_layers_dup_tagprop(self):
+        '''
+        Test a two layer cortex where a lift operation might give the same node twice incorrectly
+        '''
+        async with self._getTestCoreMultiLayer() as (core0, core1):
+            for core in (core0, core1):
+                await core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
+
+            self.len(1, await core1.nodes('[ test:int=10 +#woot:score=20 ]'))
+            self.len(1, await core0.nodes('[ test:int=10 +#woot:score=20 ]'))
+
+            self.len(1, await core1.nodes('#woot:score=20'))
+            self.len(1, await core1.nodes('#:score=20'))
+
+            self.len(1, await core0.nodes('[ test:int=10 +#woot:score=40 ]'))
+            self.len(0, await core1.nodes('#:score=40'))
 
     async def test_cortex_lift_bytype(self):
         async with self.getTestCore() as core:
