@@ -51,10 +51,9 @@ class CryoTank(s_base.Base):
 
         path = s_common.gendir(self.dirn, 'tank.lmdb')
 
-        self.slab = await s_lmdbslab.Slab.anit(path)
+        self.slab = await s_lmdbslab.Slab.anit(path, map_async=True)
 
         self.offs = s_slaboffs.SlabOffs(self.slab, 'offsets')
-
         self._items = s_slabseqn.SlabSeqn(self.slab, 'items')
         self._metrics = s_slabseqn.SlabSeqn(self.slab, 'metrics')
 
