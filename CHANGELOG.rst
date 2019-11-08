@@ -3,6 +3,27 @@ Synapse Changelog
 *****************
 
 
+v0.1.36 - 2019-11-07
+====================
+
+Features and Enhancements
+-------------------------
+- Add support for single quoted strings to the Storm ``switch`` case labels.
+  (`#1424 <https://github.com/vertexproject/synapse/pull/1424>`_)
+- Add StormSvc addition and deletion hooks so that a StormSvc can define commands that are executed when a service is
+  added to a Cortex or removed from a Cortex.
+  (`#1417 <https://github.com/vertexproject/synapse/pull/1417>`_)
+
+Bugfixes
+--------
+- Protect the ``Snap.addFeedNodes()`` API from a function ctor which isn't does not return an async generator.
+  (`#1421 <https://github.com/vertexproject/synapse/pull/1421>`_)
+- Fix an ambiguity in the Storm ``switch`` grammar which could have produced inconsistent results.
+  (`#1422 <https://github.com/vertexproject/synapse/pull/1422>`_)
+- Migrate stored trigger views to the new view iden.
+  (`#1423 <https://github.com/vertexproject/synapse/pull/1423>`_)
+
+
 v0.1.35 - 2019-11-01
 ====================
 
@@ -16,10 +37,10 @@ Features and Enhancements
   (`#1416 <https://github.com/vertexproject/synapse/pull/1416>`_)
 - Add ``init`` and ``fini`` Storm blocks, which can contain Storm which is executed **before** and **after** any nodes
   would have been consumed.
-  (`#1417 <https://github.com/vertexproject/synapse/pull/1417>`_)
+  (`#1418 <https://github.com/vertexproject/synapse/pull/1418>`_)
 - Add ``$lib.stats.tally()`` to Storm Types. This gets a ``Tally`` object that can currently be used to increment named
   counts.
-  (`#1417 <https://github.com/vertexproject/synapse/pull/1417>`_)
+  (`#1418 <https://github.com/vertexproject/synapse/pull/1418>`_)
 
 Bugfixes
 --------
