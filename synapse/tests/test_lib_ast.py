@@ -245,7 +245,7 @@ class AstTest(s_test.SynTest):
 
             q = '''
             $d = $lib.dict(foo=bar, bar=baz, baz=biz)
-            for $key in $d {
+            for ($key, $val) in $d {
                 [ test:str=$d.$key ]
             }
             '''
