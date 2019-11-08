@@ -247,13 +247,11 @@ class CryoCell(s_cell.Cell):
 
     confdefs = ()
 
-    async def __anit__(self, dirn):
+    async def __anit__(self, dirn, conf=None, readonly=False):
 
         await s_cell.Cell.__anit__(self, dirn)
 
         self.dmon.share('cryotank', self)
-
-        path = s_common.gendir(self.dirn, 'cryo.lmdb')
 
         self.names = await self.hive.open(('cryo', 'names'))
 
@@ -275,7 +273,7 @@ class CryoCell(s_cell.Cell):
     async def getCellApi(self, link, user, path):
 
         if not path:
-            return await CryoApi.anit(self, link, user)
+            return await self.cellapi.anit(self, link, user)
 
         if len(path) == 1:
             tank = await self.init(path[0])
