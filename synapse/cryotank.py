@@ -244,6 +244,7 @@ class CryoApi(s_cell.CellApi):
 class CryoCell(s_cell.Cell):
 
     cellapi = CryoApi
+    tankapi = TankApi
 
     confdefs = ()
 
@@ -277,7 +278,7 @@ class CryoCell(s_cell.Cell):
 
         if len(path) == 1:
             tank = await self.init(path[0])
-            return await TankApi.anit(tank, link, user)
+            return await self.tankapi.anit(tank, link, user)
 
         raise s_exc.NoSuchPath(path=path)
 
