@@ -41,8 +41,8 @@ edittagpropdel: "-" tagprop
 SETOPER: "=" | "?="
 
 // The set of non-edit non-commands in storm
-_oper: stormfunc | subquery | _formpivot | formjoin | formpivotin | formjoinin | lifttagtag
-     | opervarlist | setitem | setvar | vareval | filtoper | liftbytag
+_oper: stormfunc | initblock | finiblock | subquery | _formpivot | formjoin | formpivotin | formjoinin
+     | lifttagtag | opervarlist | setitem | setvar | vareval | filtoper | liftbytag
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return
      | _liftprop | ifstmt | yieldvalu
 
@@ -64,10 +64,13 @@ subquery: [YIELD _WS?] baresubquery
 baresubquery: "{" query "}"
 YIELD: "yield"
 switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" baresubquery) | (casevalu _WSCOMM? baresubquery)) )* _WSCOMM? "}"
-casevalu: (DOUBLEQUOTEDSTRING _WSCOMM? ":") | CASEVALU
-CASEVALU: /[^:\s][^:]*:/
+casevalu: ((DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING ) _WSCOMM? ":") | CASEVALU
+CASEVALU: /[^:\s"'][^:]*:/
 
 yieldvalu: YIELD _WS _valu
+
+initblock.1: "init" _WSCOMM? "{" query "}"
+finiblock.1: "fini" _WSCOMM? "{" query "}"
 
 ifstmt: "if" ifclause (_WSCOMM? "elif" ifclause)* [_WSCOMM? "else" _WSCOMM? baresubquery]
 // The stuff inside an if or elif

@@ -158,10 +158,7 @@ _Queries = [
     '[test:int=9 :loc=us.ओं]',
     '[test:int=99999]',
     '[test:pivcomp=(foo, 123)]',
-    '[test:str=a] switch $woot { hehe: {[+#baz]} }',
     '[test:str=beep test:str=boop]',
-    '[test:str=c] switch $woot { hehe: {[+#baz]} *: {[+#jaz]} }',
-    '[test:str=c] switch $woot { hehe: {[+#baz]} haha hoho: {[+#faz]} "lolz:lulz": {[+#jaz]} }',
     '[test:str=foo :tick=201808021201]',
     '[test:str=hehe] | iden abcd | count',
     '[test:str=hello]',
@@ -420,28 +417,6 @@ _Queries = [
     '''/* multi
          line */ test:int ''',
     '''
-        /* A
-            multiline
-            comment */
-        [ inet:ipv4=1.2.3.4 ] // this is a comment
-        // and this too...
-
-        switch $foo {
-
-            // The bar case...
-
-            bar: {
-                [ +#hehe.haha ]
-            }
-
-            /*
-                The
-                baz
-                case
-            */
-            baz faz: {}
-        } ''',
-    '''
         inet:fqdn | graph
                     --degrees 2
                     --filter { -#nope }
@@ -451,19 +426,6 @@ _Queries = [
                     --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
                     --form-pivot syn:tag {-> *}
                     --form-pivot * {-> #} ''',
-    '''
-        for $foo in $foos {
-
-            [ inet:ipv4=1.2.3.4 ]
-
-            switch $foo {
-                bar: { [ +#ohai ] break }
-                baz: { [ +#visi ] continue }
-            }
-
-            [ inet:ipv4=5.6.7.8 ]
-            [ +#hehe ]
-        } ''',
     '''
         for $foo in $foos {
 
@@ -544,6 +506,49 @@ _Queries = [
     ''' [(ou:org=c71cd602f73af5bed208da21012fdf54 :loc=us )]''',
     'function x(y, z) { return $( $x - $y ) }',
     '$name = asdf $foo = $lib.dict() $foo.bar = asdf $foo."bar baz" = asdf $foo.$name = asdf',
+    '[test:str=a] switch $node.form() { hehe: {[+#baz]} }',
+    '[test:str=a] switch $woot { hehe: {[+#baz]} }',
+    '[test:str=c] switch $woot { hehe: {[+#baz]} *: {[+#jaz]} }',
+    '[test:str=c] switch $woot { hehe: {[+#baz]} haha hoho: {[+#faz]} "lolz:lulz": {[+#jaz]} }',
+    '''
+        /* A
+            multiline
+            comment */
+        [ inet:ipv4=1.2.3.4 ] // this is a comment
+        // and this too...
+
+        switch $foo {
+
+            // The bar case...
+
+            bar: {
+                [ +#hehe.haha ]
+            }
+
+            /*
+                The
+                baz
+                case
+            */
+            baz faz: {}
+        } ''',
+    '''
+        for $foo in $foos {
+
+            [ inet:ipv4=1.2.3.4 ]
+
+            switch $foo {
+                bar: { [ +#ohai ] break }
+                baz: { [ +#visi ] continue }
+            }
+
+            [ inet:ipv4=5.6.7.8 ]
+            [ +#hehe ]
+        } ''',
+    'switch $a { "a": { } }',
+    'switch $a { "test:str" : { } * : {}}',
+    'switch $a { "test:this:works:" : { } * : {}}',
+    '''switch $a { 'single:quotes' : { } "doubele:quotes": {} noquotes: { } * : {}}''',
 ]
 
 # Generated with print_parse_list below
@@ -693,10 +698,7 @@ _ParseResults = [
     'Query: [EditNodeAdd: [AbsProp: test:int, Const: =, Const: 9], EditPropSet: [RelProp: [Const: :loc], Const: =, Const: us.ओं]]',
     'Query: [EditNodeAdd: [AbsProp: test:int, Const: =, Const: 99999]]',
     'Query: [EditNodeAdd: [AbsProp: test:pivcomp, Const: =, List: [Const: foo, Const: 123]]]',
-    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: a], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]]]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: beep], EditNodeAdd: [AbsProp: test:str, Const: =, Const: boop]]',
-    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: c], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]], CaseEntry: [SubQuery: [Query: [EditTagAdd: [TagName: [Const: jaz]]]]]]]',
-    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: c], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]], CaseEntry: [Const: haha hoho, SubQuery: [Query: [EditTagAdd: [TagName: [Const: faz]]]]], CaseEntry: [Const: lolz:lulz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: jaz]]]]]]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: foo], EditPropSet: [RelProp: [Const: :tick], Const: =, Const: 201808021201]]',
     "Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: hehe], CmdOper: [Const: iden, Const: ('abcd',)], CmdOper: [Const: count, Const: ()]]",
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: hello]]',
@@ -947,9 +949,7 @@ _ParseResults = [
     'Query: [LiftProp: [Const: test:int]]',
     'Query: [LiftProp: [Const: test:int]]',
     'Query: [LiftProp: [Const: test:int]]',
-    'Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: hehe.haha]]]]], CaseEntry: [Const: baz faz, SubQuery: [Query: []]]]]',
     "Query: [LiftProp: [Const: inet:fqdn], CmdOper: [Const: graph, Const: ('--degrees', '2', '--filter', '{ -#nope }', '--pivot', '{ <- meta:seen <- meta:source }', '--form-pivot', 'inet:fqdn', '{<- * | limit 20}', '--form-pivot', 'inet:fqdn', '{-> * | limit 20}', '--form-filter', 'inet:fqdn', '{-inet:fqdn:issuffix=1}', '--form-pivot', 'syn:tag', '{-> *}', '--form-pivot', '*', '{-> #}')]]",
-    'Query: [ForLoop: [Const: foo, VarValue: [Const: foos], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: ohai]], BreakOper: []]]], CaseEntry: [Const: baz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: visi]], ContinueOper: []]]]], EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 5.6.7.8], EditTagAdd: [TagName: [Const: hehe]]]]]]',
     "Query: [ForLoop: [Const: foo, VarValue: [Const: foos], SubQuery: [Query: [VarListSetOper: [VarList: ['fqdn', 'ipv4'], FuncCall: [VarDeref: [VarValue: [Const: foo], Const: split], CallArgs: [Const: |], CallKwargs: []]], EditNodeAdd: [AbsProp: inet:dns:a, Const: =, List: [VarValue: [Const: fqdn], VarValue: [Const: ipv4]]]]]]]",
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [], CallKwargs: []], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False, EditTagAdd: [VarValue: [Const: tag]]]]]]',
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [Const: fo*], CallKwargs: []], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False, EditTagDel: [VarValue: [Const: tag]]]]]]',
@@ -996,6 +996,16 @@ _ParseResults = [
     'Query: [EditParens: [EditNodeAdd: [AbsProp: ou:org, Const: =, Const: c71cd602f73af5bed208da21012fdf54], EditPropSet: [RelProp: [Const: :loc], Const: =, Const: us]]]',
     'Query: [Function: [Const: x, FuncArgs: [Const: y, Const: z], Query: [Return: [DollarExpr: [ExprNode: [VarValue: [Const: x], Const: -, VarValue: [Const: y]]]]]]]',
     'Query: [SetVarOper: [Const: name, Const: asdf], SetVarOper: [Const: foo, FuncCall: [VarDeref: [VarValue: [Const: lib], Const: dict], CallArgs: [], CallKwargs: []]], SetItemOper: [VarValue: [Const: foo], Const: bar, Const: asdf], SetItemOper: [VarValue: [Const: foo], Const: bar baz, Const: asdf], SetItemOper: [VarValue: [Const: foo], VarValue: [Const: name], Const: asdf]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: a], SwitchCase: [FuncCall: [VarDeref: [VarValue: [Const: node], Const: form], CallArgs: [], CallKwargs: []], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]]]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: a], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]]]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: c], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]], CaseEntry: [SubQuery: [Query: [EditTagAdd: [TagName: [Const: jaz]]]]]]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: c], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]], CaseEntry: [Const: haha hoho, SubQuery: [Query: [EditTagAdd: [TagName: [Const: faz]]]]], CaseEntry: [Const: lolz:lulz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: jaz]]]]]]]',
+    'Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: hehe.haha]]]]], CaseEntry: [Const: baz faz, SubQuery: [Query: []]]]]',
+    'Query: [ForLoop: [Const: foo, VarValue: [Const: foos], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: ohai]], BreakOper: []]]], CaseEntry: [Const: baz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: visi]], ContinueOper: []]]]], EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 5.6.7.8], EditTagAdd: [TagName: [Const: hehe]]]]]]',
+    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: a, SubQuery: [Query: []]]]]',
+    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:str, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]',
+    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:this:works:, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]',
+    "Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: single:quotes, SubQuery: [Query: []]], CaseEntry: [Const: doubele:quotes, SubQuery: [Query: []]], CaseEntry: [Const: noquotes, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]",
 ]
 
 class GrammarTest(s_t_utils.SynTest):
@@ -1177,3 +1187,6 @@ def gen_parse_list():
 def print_parse_list():
     for i in gen_parse_list():
         print(f'    {repr(i)},')
+
+if __name__ == '__main__':
+    print_parse_list()

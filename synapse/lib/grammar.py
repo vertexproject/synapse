@@ -27,6 +27,8 @@ terminalEnglishMap = {
     'COLON': ':',
     'COMMA': ',',
     'CONTINUE': 'continue',
+    'FINI': 'fini',
+    'INIT': 'init',
     'CPPCOMMENT': 'c++ comment',
     'DEREFMATCHNOSEP': 'key or variable',
     'DOLLAR': '$',
@@ -269,7 +271,7 @@ class AstConverter(lark.Transformer):
         assert len(kids) == 1
         kid = kids[0]
 
-        if kid.type == 'DOUBLEQUOTEDSTRING':
+        if kid.type in ('DOUBLEQUOTEDSTRING', 'SINGLEQUOTEDSTRING'):
             return self._convert_child(kid)
 
         return s_ast.Const(kid.value[:-1])  # drop the trailing ':'
@@ -502,6 +504,8 @@ ruleClassMap = {
     'dollarexpr': s_ast.DollarExpr,
     'editnodeadd': s_ast.EditNodeAdd,
     'editparens': s_ast.EditParens,
+    'initblock': s_ast.InitBlock,
+    'finiblock': s_ast.FiniBlock,
     'editpropdel': s_ast.EditPropDel,
     'editpropset': s_ast.EditPropSet,
     'edittagadd': s_ast.EditTagAdd,

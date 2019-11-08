@@ -4,6 +4,8 @@ import asyncio
 import contextlib
 import collections
 
+import synapse.exc as s_exc
+
 import synapse.lib.coro as s_coro
 
 from synapse.tests.utils import alist
@@ -42,6 +44,18 @@ class SnapTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 nodes = await alist(snap.addFeedNodes('test.genr', []))
                 self.len(2, nodes)
+
+            # Sad path test
+            async def notagenr(snap, items):
+                pass
+
+            core.setFeedFunc('syn.notagenr', notagenr)
+
+            with self.raises(s_exc.BadCtorType) as cm:
+                await alist(snap.addFeedNodes('syn.notagenr', []))
+
+            self.eq(cm.exception.get('mesg'),
+                    "feed func returned a <class 'coroutine'>, not an async generator.")
 
     async def test_same_node_different_object(self):
         '''

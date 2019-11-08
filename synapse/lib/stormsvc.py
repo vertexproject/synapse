@@ -79,11 +79,13 @@ class StormSvc:
     _storm_svc_name = 'noname'
     _storm_svc_vers = (0, 0, 1)
     _storm_svc_cmds = ()
+    _storm_svc_evts = {}
 
     async def getStormSvcInfo(self):
         return {
             'name': self._storm_svc_name,
             'vers': self._storm_svc_vers,
+            'evts': self._storm_svc_evts,
             'cmds': await self.getStormSvcCmds(),
         }
 
@@ -125,7 +127,6 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
         if 'StormSvc' in names:
 
             self.info = await proxy.getStormSvcInfo()
-
             for cdef in self.info.get('cmds', ()):
 
                 cdef.setdefault('cmdconf', {})
@@ -137,9 +138,29 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
                 except asyncio.CancelledError:  # pragma: no cover
                     raise
 
-                except Exception as e:
+                except Exception:
                     name = cdef.get('name')
                     logger.exception(f'setStormCmd ({name}) failed for service {self.name} ({self.iden})')
+
+            evts = self.info.get('evts')
+            try:
+                if evts is not None:
+                    self.sdef = await self.core.setStormSvcEvents(self.iden, evts)
+
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+
+            except Exception:
+                logger.exception(f'setStormSvcEvents failed for service {self.name} ({self.iden})')
+
+            try:
+                await self.core._runStormSvcAdd(self.iden)
+
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+
+            except Exception:
+                logger.exception(f'service.add storm hook failed for service {self.name} ({self.iden})')
 
         self.ready.set()
 

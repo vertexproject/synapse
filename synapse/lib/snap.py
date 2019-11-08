@@ -449,7 +449,14 @@ class Snap(s_base.Base):
 
         logger.info(f'adding feed nodes ({name}): {len(items)}')
 
-        async for node in func(self, items):
+        genr = func(self, items)
+        if not isinstance(genr, types.AsyncGeneratorType):
+            if isinstance(genr, types.CoroutineType):
+                genr.close()
+            mesg = f'feed func returned a {type(genr)}, not an async generator.'
+            raise s_exc.BadCtorType(mesg=mesg, name=name)
+
+        async for node in genr:
             yield node
 
     async def addFeedData(self, name, items, seqn=None):
