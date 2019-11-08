@@ -92,6 +92,30 @@ class Lib(StormType):
         ctor = slib[2].get('ctor', Lib)
         return ctor(self.runt, name=path)
 
+class LibPkg(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'add': self._libPkgAdd,
+            #'get': self._libPkgGet,
+            'del': self._libPkgDel,
+            'list': self._libPkgList,
+        })
+
+    async def _libPkgAdd(self, pkgdef):
+        self.runt.reqAllowed(('storm', 'pkg', 'add'))
+        await self.runt.snap.core.addStormPkg(pkgdef)
+
+    #async def _libPkgGet(self, iden):
+        #return await self.runt.snap.core.getStormPkg(iden)
+
+    async def _libPkgDel(self, iden):
+        self.runt.reqAllowed(('storm', 'pkg', 'del'))
+        return await self.runt.snap.core.delStormPkg(iden)
+
+    async def _libPkgList(self):
+        return await self.runt.snap.core.getStormPkgs()
+
 class LibDmon(Lib):
 
     def addLibFuncs(self):
@@ -794,6 +818,7 @@ class Set(Prim):
             'rem': self._methSetRem,
             'rems': self._methSetRems,
             'list': self._methSetList,
+            'size': self._methSetSize,
         })
 
     def __iter__(self):
@@ -803,6 +828,9 @@ class Set(Prim):
     async def __aiter__(self):
         for item in self.valu:
             yield item
+
+    async def _methSetSize(self):
+        return len(self.valu)
 
     async def _methSetAdd(self, *items):
         [self.valu.add(i) for i in items]
@@ -826,6 +854,7 @@ class List(Prim):
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update({
+            'size': self._methListSize,
             'index': self._methListIndex,
             'length': self._methListLength,
             'append': self._methListAppend,
@@ -849,6 +878,9 @@ class List(Prim):
         '''
         Return the length of the list.
         '''
+        return len(self.valu)
+
+    async def _methListSize(self):
         return len(self.valu)
 
 class StormHiveDict(Prim):
@@ -954,11 +986,8 @@ class LibVars(Lib):
         '''
         Resolve a variable in a storm query
         '''
-        if name.startswith('$'):
-            name = name.lstrip('$')
-
-        ret = self.runt.getVar(name)
-        if not ret:
+        ret = self.runt.getVar(name, defv=s_common.novalu)
+        if ret is s_common.novalu:
             mesg = f'No var with name: {name}'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name)
 
@@ -968,18 +997,12 @@ class LibVars(Lib):
         '''
         Set a variable in a storm query
         '''
-        if name.startswith('$'):
-            name = name.lstrip('$')
-
         self.runt.setVar(name, valu)
 
     async def _libVarsDel(self, name):
         '''
         Unset a variable in a storm query.
         '''
-        if name.startswith('$'):
-            name = name.lstrip('$')
-
         self.runt.vars.pop(name, None)
 
     async def _libVarsList(self):
@@ -1143,7 +1166,7 @@ class PathVars(Prim):
         if valu is not s_common.novalu:
             return valu
 
-        mesg = 'No var with name: {name}.'
+        mesg = f'No var with name: {name}.'
         raise s_exc.StormRuntimeError(mesg=mesg)
 
     async def setitem(self, name, valu):

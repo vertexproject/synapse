@@ -77,6 +77,58 @@ stormcmds = (
                 $lib.print("    ({name}): {desc}", name=$flname, desc=$flinfo.desc)
             }
         '''
+    },
+    {
+        'name': 'pkg.list',
+        'descr': 'List the storm packages loaded in the cortex.',
+        'cmdrargs': (),
+        'storm': '''
+            $pkgs = $lib.pkg.list()
+
+            if $($pkgs.size() = 0) {
+
+                $lib.print('No storm packages installed.')
+
+            } else {
+                $lib.print('Loaded storm packages:')
+                for $pkg in $pkgs {
+                    $lib.print("{iden}: {name} {vers}", iden=$pkg.iden, name=$pkg.name, vers=$pkg.version)
+                }
+            }
+        '''
+    },
+    {
+        'name': 'pkg.del',
+        'descr': 'Remove a storm package from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'The package id (or id prefix) to remove.'}),
+        ),
+        'storm': '''
+
+            $pkgs = $lib.set()
+
+            for $pkg in $lib.pkg.list() {
+                if $pkg.iden.startswith($cmdopts.iden) {
+                    $pkgs.add($pkg.iden)
+                }
+            }
+
+            if $($pkgs.size() = 0) {
+
+                $lib.print('No package IDs match "{iden}". Aborting.', iden=$cmdopts.iden)
+
+            } elif $($pkgs.size() = 1) {
+
+                $iden = $pkgs.list().index(0)
+                $lib.print('Removing package: {iden}', iden=$iden)
+                $lib.pkg.del($iden)
+
+            } else {
+
+                $lib.print('Multiple package IDs match "{iden}". Aborting.', iden=$cmdopts.iden)
+
+            }
+        '''
     }
 )
 
@@ -546,7 +598,9 @@ class PureCmd(Cmd):
 
         opts = {'vars': cmdvars}
         with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
+
             subr.loadRuntVars(query)
+
             async for node, path in subr.iterStormQuery(query, genr=wrapgenr()):
                 path.finiframe()
                 yield node, path

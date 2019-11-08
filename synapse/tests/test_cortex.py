@@ -386,9 +386,9 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_cortex_pure_cmds(self):
 
-        cdef = {
+        cdef0 = {
 
-            'name': 'testcmd',
+            'name': 'testcmd0',
 
             'cmdargs': (
                 ('tagname', {}),
@@ -402,46 +402,67 @@ class CortexTest(s_t_utils.SynTest):
             'storm': '$foo=$(10) if $cmdopts.domore { [ +#$cmdconf.hehe ] } [ +#$cmdopts.tagname ]',
         }
 
+        cdef1 = {
+            'name': 'testcmd1',
+            'cmdargs': (
+                ('name', {}),
+            ),
+            'storm': '''
+                $varname = $cmdopts.name
+                $realname = $path.vars.$varname
+                if $realname {
+                    [ inet:user=$realname ] | testcmd0 lulz
+                }
+            ''',
+        }
+
         with self.getTestDir() as dirn:
 
             async with await s_cortex.Cortex.anit(dirn) as core:
 
                 async with core.getLocalProxy() as prox:
 
-                    await prox.setStormCmd(cdef)
+                    await prox.setStormCmd(cdef0)
+                    await prox.setStormCmd(cdef1)
 
-                    nodes = await core.nodes('[ inet:asn=10 ] | testcmd zoinks')
+                    nodes = await core.nodes('[ inet:asn=10 ] | testcmd0 zoinks')
                     self.true(nodes[0].tags.get('zoinks'))
 
-                    nodes = await core.nodes('[ inet:asn=11 ] | testcmd zoinks --domore')
+                    nodes = await core.nodes('[ inet:asn=11 ] | testcmd0 zoinks --domore')
 
                     self.true(nodes[0].tags.get('haha'))
                     self.true(nodes[0].tags.get('zoinks'))
 
                     # test that cmdopts/cmdconf/locals dont leak
                     with self.raises(s_exc.NoSuchVar):
-                        nodes = await core.nodes('[ inet:asn=11 ] | testcmd zoinks --domore | if ($cmdopts) {[ +#hascmdopts ]}')
+                        nodes = await core.nodes('[ inet:asn=11 ] | testcmd0 zoinks --domore | if ($cmdopts) {[ +#hascmdopts ]}')
 
                     with self.raises(s_exc.NoSuchVar):
-                        nodes = await core.nodes('[ inet:asn=11 ] | testcmd zoinks --domore | if ($cmdconf) {[ +#hascmdconf ]}')
+                        nodes = await core.nodes('[ inet:asn=11 ] | testcmd0 zoinks --domore | if ($cmdconf) {[ +#hascmdconf ]}')
 
                     with self.raises(s_exc.NoSuchVar):
-                        nodes = await core.nodes('[ inet:asn=11 ] | testcmd zoinks --domore | if ($foo) {[ +#hasfoo ]}')
+                        nodes = await core.nodes('[ inet:asn=11 ] | testcmd0 zoinks --domore | if ($foo) {[ +#hasfoo ]}')
+
+                    # test nested storm commands
+                    nodes = await core.nodes('[ inet:email=visi@vertex.link ] $username = :user | testcmd1 username')
+                    self.len(2, nodes)
+                    self.eq(nodes[0].ndef, ('inet:user', 'visi'))
+                    self.nn(nodes[0].tags.get('lulz'))
 
             # make sure it's still loaded...
             async with await s_cortex.Cortex.anit(dirn) as core:
 
                 async with core.getLocalProxy() as prox:
 
-                    await core.nodes('[ inet:asn=30 ] | testcmd zoinks')
+                    await core.nodes('[ inet:asn=30 ] | testcmd0 zoinks')
 
-                    await prox.delStormCmd('testcmd')
+                    await prox.delStormCmd('testcmd0')
 
                     with self.raises(s_exc.NoSuchCmd):
                         await prox.delStormCmd('newpcmd')
 
                     with self.raises(s_exc.NoSuchName):
-                        await core.nodes('[ inet:asn=31 ] | testcmd zoinks')
+                        await core.nodes('[ inet:asn=31 ] | testcmd0 zoinks')
 
     async def test_base_types2(self):
 
@@ -2093,7 +2114,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.eval('[ ps:person="*" edge:has=($node, (inet:fqdn,woot.com)) ]').list()
             self.len(2, nodes)
-            self.eq('edge:has', nodes[1].ndef[0])
+            self.eq('edge:has', nodes[0].ndef[0])
 
             nodes = await core.eval('[test:str=test] [ edge:refs=($node,(test:int, 1234)) ] -test:str').list()
             self.len(1, nodes)
@@ -2841,7 +2862,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             q = 'inet:ipv4=1.2.3.4 for $tag in $node.tags() { [test:str=$tag] }'  # noqa: E501
             nodes = await core.nodes(q)
-            self.eq([n.ndef[0] for n in nodes], [*['inet:ipv4', 'test:str'] * 3])
+            self.eq([n.ndef[0] for n in nodes], [*['test:str', 'inet:ipv4'] * 3])
 
     async def test_storm_whileloop(self):
 
@@ -2967,7 +2988,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = '[test:type10=1 :intprop=24] $val=:intprop [test:int=$(1 + $val)]'
             nodes = await core.nodes(q)
             self.len(2, nodes)
-            self.eq(nodes[1].ndef, ('test:int', 25))
+            self.eq(nodes[0].ndef, ('test:int', 25))
 
             # Test invalid comparisons
             q = '$val=(1,2,3) [test:str=$("foo" = $val)]'
@@ -2984,7 +3005,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = '[test:str=foo :hehe=42] [test:str=$(not :hehe<42)]'
             nodes = await core.nodes(q)
             self.len(2, nodes)
-            self.eq(nodes[1].ndef, ('test:str', '1'))
+            self.eq(nodes[0].ndef, ('test:str', '1'))
 
     async def test_storm_filter_vars(self):
         '''

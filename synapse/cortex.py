@@ -668,6 +668,20 @@ class CoreApi(s_cell.CellApi):
         await self._reqUserAllowed(('model', 'tagprop', 'del'))
         return await self.cell.delTagProp(name)
 
+    async def addStormPkg(self, pkgdef):
+        await self._reqUserAllowed(('storm', 'pkg', 'add'))
+        return await self.cell.addStormPkg(pkgdef)
+
+    async def delStormPkg(self, iden):
+        await self._reqUserAllowed(('storm', 'pkg', 'del'))
+        return await self.cell.delStormPkg(iden)
+
+    #async def getStormPkg(self, iden):
+        #return await self.cell.getStormPkg(iden)
+
+    async def getStormPkgs(self):
+        return await self.cell.getStormPkgs()
+
 class Cortex(s_cell.Cell):
     '''
     A Cortex implements the synapse hypergraph.
@@ -973,6 +987,9 @@ class Cortex(s_cell.Cell):
         name = cdef.get('name')
         self.stormcmds[name] = ctor
 
+    async def _popStormCmd(self, name):
+        self.stormcmds.pop(name, None)
+
     async def delStormCmd(self, name):
         '''
         Remove a previously set pure storm command.
@@ -984,7 +1001,7 @@ class Cortex(s_cell.Cell):
 
         cdef = self.cmdhive.get(name)
         if cdef is None:
-            mesg = f'The storm command is not dynamic.'
+            mesg = f'The storm command ({name}) is not dynamic.'
             raise s_exc.CantDelCmd(mesg=mesg)
 
         await self.cmdhive.pop(name)
@@ -997,8 +1014,22 @@ class Cortex(s_cell.Cell):
         This will store the package for future use.
         '''
         await self.loadStormPkg(pkgdef)
-        name = pkgdef.get('name')
-        await self.pkghive.set(name, pkgdef)
+        iden = pkgdef.get('iden')
+        await self.pkghive.set(iden, pkgdef)
+
+    async def delStormPkg(self, iden):
+        '''
+        Delete a storm package by iden.
+        '''
+        pkgdef = await self.pkghive.pop(iden, None)
+        if pkgdef is None:
+            mesg = f'No storm package iden: {iden}.'
+            raise s_exc.NoSuchPkg(mesg=mesg)
+
+        await self.dropStormPkg(pkgdef)
+
+    async def getStormPkgs(self):
+        return list(self.pkghive.values())
 
     async def getStormModule(self, name):
         return self.stormmods.get(name)
@@ -1012,13 +1043,23 @@ class Cortex(s_cell.Cell):
         # validate things first...
         name = pkgdef.get('name')
         if name is None:
-            raise Foo()
+            mesg = 'Package definition has no "name" field.'
+            raise s_exc.BadPkgDef(mesg=mesg)
 
         vers = pkgdef.get('version')
         if vers is None:
-            raise Foo()
+            mesg = 'Package definition has no "version" field.'
+            raise s_exc.BadPkgDef(mesg=mesg)
 
-        for mdef in pkgdef.get('modules', ()):
+        iden = pkgdef.get('iden')
+        if iden is None:
+            mesg = 'Package definition has no "iden" field.'
+            raise s_exc.BadPkgDef(mesg=mesg)
+
+        mods = pkgdef.get('modules', ())
+        cmds = pkgdef.get('commands', ())
+
+        for mdef in mods:
 
             modname = mdef.get('name')
             if modname is None:
@@ -1027,18 +1068,30 @@ class Cortex(s_cell.Cell):
             modtext = mdef.get('storm')
             self.getStormQuery(modtext)
 
-        for cdef in pkgdef.get('commands', ()):
+        for cdef in cmds:
             await self._reqStormCmd(cdef)
 
         # now actually load...
-        self.stormpkgs[name] = pkgdef
+        self.stormpkgs[iden] = pkgdef
 
-        for mdef in pkgdef.get('modules'):
+        for mdef in mods:
             modname = mdef.get('name')
             self.stormmods[modname] = mdef
 
-        for cdef in pkgdef.get('commands', ()):
+        for cdef in cmds:
             await self._setStormCmd(cdef)
+
+    async def dropStormPkg(self, pkgdef):
+        '''
+        Reverse the process of loadStormPkg()
+        '''
+        for mdef in pkgdef.get('modules', ()):
+            modname = mdef.get('name')
+            self.stormmods.pop(modname, None)
+
+        for cdef in pkgdef.get('commands', ()):
+            name = cdef.get('name')
+            await self._popStormCmd(name)
 
     def getStormSvc(self, name):
 
@@ -1454,6 +1507,7 @@ class Cortex(s_cell.Cell):
         '''
         self.addStormLib(('csv',), s_stormtypes.LibCsv)
         self.addStormLib(('str',), s_stormtypes.LibStr)
+        self.addStormLib(('pkg',), s_stormtypes.LibPkg)
         self.addStormLib(('dmon',), s_stormtypes.LibDmon)
         self.addStormLib(('feed',), s_stormtypes.LibFeed)
         self.addStormLib(('time',), s_stormtypes.LibTime)

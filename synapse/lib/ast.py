@@ -2515,10 +2515,11 @@ class EditNodeAdd(Edit):
                     runt.reqLayerAllowed(('node:add', self.name))
                     first = False
 
-                yield node, path
-
+                # must use/resolve all variables from path before yield
                 async for item in self.addFromPath(path):
                     yield item
+
+                yield node, path
 
         else:
 
@@ -2801,7 +2802,7 @@ class Return(Oper):
             raise StormReturn(valu)
 
         # no items in pipeline... execute
-        if len(self.kids):
+        if self.kids:
             valu = await self.kids[0].compute(runt)
 
         raise StormReturn(valu)

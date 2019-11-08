@@ -1031,12 +1031,6 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'test'))
 
-            opts = {'vars': {'testvar': 'test'}}
-            text = '$testkey="$testvar" [ test:str=$lib.vars.get($testkey) ]'
-            nodes = await core.nodes(text, opts=opts)
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'test'))
-
             text = '$testkey=testvar [ test:str=$lib.vars.get($testkey) ]'
             mesgs = await alist(core.streamstorm(text))
             errs = [m[1] for m in mesgs if m[0] == 'err']
@@ -1046,12 +1040,6 @@ class StormTypesTest(s_test.SynTest):
             self.isin('No var with name: testvar', err[1].get('mesg'))
 
             opts = {'vars': {'testkey': 'testvar'}}
-            text = '$lib.vars.set($testkey, test) [ test:str=$lib.vars.get(testvar) ]'
-            nodes = await core.nodes(text, opts=opts)
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'test'))
-
-            opts = {'vars': {'testkey': '$testvar'}}
             text = '$lib.vars.set($testkey, test) [ test:str=$lib.vars.get(testvar) ]'
             nodes = await core.nodes(text, opts=opts)
             self.len(1, nodes)
@@ -1067,7 +1055,7 @@ class StormTypesTest(s_test.SynTest):
             self.isin('No var with name: testvar', err[1].get('mesg'))
 
             opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
-            text = '$lib.vars.del("$testvar") [ test:str=$lib.vars.get($testkey) ]'
+            text = '$lib.vars.del(testvar) [ test:str=$lib.vars.get($testkey) ]'
             mesgs = await alist(core.streamstorm(text, opts=opts))
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
