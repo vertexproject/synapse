@@ -146,6 +146,22 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(0, await core.nodes('#foo.bar:score=100'))
                 self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
 
+                # test for adding two tags with the same prop to the same node
+                nodes = await core.nodes('[ test:int=10 +#foo:score=20 +#bar:score=20 ]')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.eq(20, nodes[0].getTagProp('bar', 'score'))
+                nodes = await core.nodes('[ test:int=10 -#bar:score ]')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.false(nodes[0].hasTagProp('bar', 'score'))
+                nodes = await core.nodes('#:score')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.false(nodes[0].hasTagProp('bar', 'score'))
+
+                await core.nodes('test:int=10 [ -#foo -#bar ]')
+
                 with self.raises(s_exc.NoSuchCmpr):
                     await core.nodes('test:int=10 +#foo.bar:score*newp=66')
 
