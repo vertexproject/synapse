@@ -37,7 +37,7 @@ class Node:
         self.tagprops = {}
 
         # raw prop -> layer it was set at
-        self.proplayr = collections.defaultdict(lambda: self.snap.wlyr, proplayr or {})
+        self.proplayr = proplayr or {}
 
         # self.buid may be None during initial node construction...
         if rawprops is not None:

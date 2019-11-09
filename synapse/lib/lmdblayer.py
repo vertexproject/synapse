@@ -97,7 +97,7 @@ class LmdbLayer(s_layer.Layer):
         self.byuniv = await self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
 
         # tagprop indexes...
-        self.by_tp_pi = await self.initdb('by_tp_pi', dupsort=True)       # <abrv(prop)><indx> = <buid>
+        self.by_tp_pi = await self.initdb('by_tp_pi', dupsort=True)       # <abrv(prop)><indx> = <buid> + tag
         self.by_tp_tpi = await self.initdb('by_tp_tpi', dupsort=True)     # <abrv(#tag:prop)><indx> = <buid>
         self.by_tp_ftpi = await self.initdb('by_tp_ftpi', dupsort=True)   # <abrv(form#tag:prop)><indx> = <buid>
 
@@ -405,16 +405,17 @@ class LmdbLayer(s_layer.Layer):
         byts = s_msgpack.en((valu, indx))
 
         curb = self.layrslab.replace(bpkey, byts, db=self.bybuid)
+        pval = buid + tag.encode()
         if curb is not None:
 
             curv, curi = s_msgpack.un(curb)
 
-            self.layrslab.delete(abrv_p + curi, val=buid, db=self.by_tp_pi)
+            self.layrslab.delete(abrv_p + curi, val=pval, db=self.by_tp_pi)
             self.layrslab.delete(abrv_tp + curi, val=buid, db=self.by_tp_tpi)
             self.layrslab.delete(abrv_ftp + curi, val=buid, db=self.by_tp_ftpi)
 
         if indx is not None:
-            self.layrslab.put(abrv_p + indx, buid, dupdata=True, db=self.by_tp_pi)
+            self.layrslab.put(abrv_p + indx, pval, dupdata=True, db=self.by_tp_pi)
             self.layrslab.put(abrv_tp + indx, buid, dupdata=True, db=self.by_tp_tpi)
             self.layrslab.put(abrv_ftp + indx, buid, dupdata=True, db=self.by_tp_ftpi)
 
@@ -441,7 +442,7 @@ class LmdbLayer(s_layer.Layer):
 
         curv, curi = s_msgpack.un(curb)
 
-        self.layrslab.delete(abrv_p + curi, val=buid, db=self.by_tp_pi)
+        self.layrslab.delete(abrv_p + curi, val=buid + tag.encode(), db=self.by_tp_pi)
         self.layrslab.delete(abrv_tp + curi, val=buid, db=self.by_tp_tpi)
         self.layrslab.delete(abrv_ftp + curi, val=buid, db=self.by_tp_ftpi)
 
@@ -595,10 +596,13 @@ class LmdbLayer(s_layer.Layer):
         # #:prop
         name = prop
         db = self.by_tp_pi
+        BLEN = 32
+        keyprop = None
 
         # #tag:prop
         if tag is not None:
             name = f'#{tag}:{prop}'
+            keyprop = name
             db = self.by_tp_tpi
 
         # form#tag:prop
@@ -608,31 +612,34 @@ class LmdbLayer(s_layer.Layer):
 
         abrv = self.getNameAbrv(name)
 
+        def extract_keyprop(valu):
+            return f'#{valu[BLEN:].decode()}:{name}'
+
         if iops is None:
-            for lkey, buid in self.layrslab.scanByPref(abrv, db=db):
-                yield (buid,)
+            for lkey, valu in self.layrslab.scanByPref(abrv, db=db):
+                yield (valu[:BLEN], keyprop or extract_keyprop(valu))
             return
 
         for iopr in iops:
 
             if iopr[0] == 'eq':
-                for lkey, buid in self.layrslab.scanByDups(abrv + iopr[1], db=db):
-                    yield (buid,)
+                for lkey, valu in self.layrslab.scanByDups(abrv + iopr[1], db=db):
+                    yield (valu[:BLEN], keyprop or extract_keyprop(valu))
                 continue
 
             if iopr[0] == 'pref':
-                for lkey, buid in self.layrslab.scanByPref(abrv + iopr[1], db=db):
-                    yield (buid,)
+                for lkey, valu in self.layrslab.scanByPref(abrv + iopr[1], db=db):
+                    yield (valu[:BLEN], keyprop or extract_keyprop(valu))
                 continue
 
             if iopr[0] == 'range':
                 kmin = abrv + iopr[1][0]
                 kmax = abrv + iopr[1][1]
-                for lkey, buid in self.layrslab.scanByRange(kmin, kmax, db=db):
-                    yield (buid,)
+                for lkey, valu in self.layrslab.scanByRange(kmin, kmax, db=db):
+                    yield (valu[:BLEN], keyprop or extract_keyprop(valu))
                 continue
 
-            #pragma: no cover
+            # pragma: no cover
             mesg = f'No such index function for tag props: {iopr[0]}'
             raise s_exc.NoSuchName(name=iopr[0], mesg=mesg)
 

@@ -176,10 +176,37 @@ class Layer(s_hive.AuthGater):
 
             yield wind
 
+    def _calcKeyProp(self, lops, props):
+        lop = lops[0]
+        kind, parms = lop
+        if kind == 'indx':
+            fields = parms[1].split(b'\x00')
+            if parms[0] == 'byuniv':
+                return fields[0].decode()
+            if parms[0] == 'byprop':
+                if not fields[1]:
+                    return '*' + fields[0].decode()
+                else:
+                    return fields[1].decode()
+        elif kind == 'prop:re':
+            return parms[1]
+        elif kind == 'form:re':
+            return '*' + parms[0]
+        elif kind == 'univ:re':
+            return parms[0]
+        elif kind == 'univ:ival':
+            return parms[1]
+        elif kind == 'form:ival':
+            return '*' + parms[1]
+        elif kind == 'prop:ival':
+            return parms[1]
+
+        assert 0
+
     async def getLiftRows(self, lops):
         '''
         Returns:
-            Iterable[Tuple[bytes, Dict[str, Any]]]:  yield a stream of tuple (buid, propdict)
+            Iterable[Tuple[bytes, str, Dict[str, Any]]]:  yield a stream of tuple (buid, keyprop, propdict)
         '''
         for oper in lops:
 
@@ -189,8 +216,15 @@ class Layer(s_hive.AuthGater):
 
             async for row in func(oper):
                 buid = row[0]
+                keyprop = None
+
+                # FIXME
+                if len(row) > 1:
+                    keyprop = row[1]
+
                 props = await self.getBuidProps(buid)
-                yield (buid, props)
+                keyprop = keyprop or self._calcKeyProp(lops, props)
+                yield (buid, keyprop, props)
 
     async def stor(self, sops, splices=None):
         '''

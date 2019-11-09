@@ -214,7 +214,7 @@ class Snap(s_base.Base):
                 ('indx', ('byuniv', pref, iops)),
             )
 
-        async for row, node in self.getLiftNodes(lops, '#' + name, cmpf=cmpf):
+        async for row, node in self.getLiftNodes(lops, cmpf=cmpf):
             yield node
 
     async def _getNodesByTagProp(self, name, tag=None, form=None, valu=None, cmpr='='):
@@ -226,13 +226,11 @@ class Snap(s_base.Base):
 
         cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
 
-        full = f'#{tag}:{name}'
-
         lops = (('tag:prop', {'form': form, 'tag': tag, 'prop': name}),)
         if valu is not None:
             lops[0][1]['iops'] = prop.type.getIndxOps(valu, cmpr)
 
-        async for row, node in self.getLiftNodes(lops, full, cmpf=cmpf):
+        async for row, node in self.getLiftNodes(lops, cmpf=cmpf):
             yield node
 
     async def _getNodesByFormTag(self, name, tag, valu=None, cmpr='='):
@@ -259,16 +257,15 @@ class Snap(s_base.Base):
             ('indx', ('byprop', fenc + tenc, iops)),
         )
 
-        # a small speed optimization...
-        rawprop = '#' + tag
+        # Small optimization:  directly yield the node from getLiftNode if no filter
         if filt is None:
 
-            async for row, node in self.getLiftNodes(lops, rawprop):
+            async for row, node in self.getLiftNodes(lops):
                 yield node
 
             return
 
-        async for row, node in self.getLiftNodes(lops, rawprop):
+        async for row, node in self.getLiftNodes(lops):
 
             valu = node.getTag(tag)
 
@@ -352,7 +349,7 @@ class Snap(s_base.Base):
 
         cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
 
-        async for row, node in self.getLiftNodes(lops, prop.name, cmpf):
+        async for row, node in self.getLiftNodes(lops, cmpf):
             yield node
 
     async def _getNodesByType(self, name, valu=None, addform=True):
@@ -365,12 +362,12 @@ class Snap(s_base.Base):
             form = self.model.forms.get(name)
             if form is not None:
                 lops = form.getLiftOps(valu)
-                async for row, node in self.getLiftNodes(lops, '*' + form.name):
+                async for row, node in self.getLiftNodes(lops):
                     yield node
 
         for prop in self.model.getPropsByType(name):
             lops = prop.getLiftOps(valu)
-            async for row, node in self.getLiftNodes(lops, prop.name):
+            async for row, node in self.getLiftNodes(lops):
                 yield node
 
     async def getNodesByArray(self, name, valu, cmpr='='):
@@ -394,7 +391,7 @@ class Snap(s_base.Base):
 
         #TODO post-lift cmpr filter
         #cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
-        async for row, node in self.getLiftNodes(lops, prop.name):
+        async for row, node in self.getLiftNodes(lops):
             yield node
 
     async def addNode(self, name, valu, props=None):
@@ -661,9 +658,9 @@ class Snap(s_base.Base):
 
         await self.wlyr.stor(sops, splices=splices)
 
-    async def getLiftNodes(self, lops, rawprop, cmpf=None):
+    async def getLiftNodes(self, lops, cmpf=None):
         genr = self.getLiftRows(lops)
-        async for node in self.getRowNodes(genr, rawprop, cmpf):
+        async for node in self.getRowNodes(genr, cmpf):
             yield node
 
     async def getRuntNodes(self, full, valu=None, cmpr='='):
@@ -687,10 +684,10 @@ class Snap(s_base.Base):
             (tuple): (layer_indx, (buid, ...)) rows.
         '''
         for layeridx, layr in enumerate(self.layers):
-            async for x in layr.getLiftRows(lops):
-                yield layeridx, x
+            async for buidrawprops in layr.getLiftRows(lops):
+                yield layeridx, buidrawprops
 
-    async def getRowNodes(self, rows, rawprop, cmpf=None):
+    async def getRowNodes(self, rows, cmpf=None):
         '''
         Join a row generator into (row, Node()) tuples.
 
@@ -698,22 +695,18 @@ class Snap(s_base.Base):
 
         Args:
             rows: A generator of (layer_idx, (buid, ...)) tuples.
-            rawprop(str):  "raw" propname e.g. if a tag, starts with "#".  Used
-                for filtering so that we skip the props for a buid if we're
-                asking from a higher layer than the row was from (and hence,
-                we'll presumable get/have gotten the row when that layer is
-                lifted.
             cmpf (func): A comparison function used to filter nodes.
         Yields:
             (tuple): (row, node)
         '''
         count = 0
+
         async for origlayer, row in rows:
             count += 1
             if not count % 5:
                 await asyncio.sleep(0)  # give other tasks some time
 
-            buid, rawprops = row
+            buid, keyprop, rawprops = row
             node = self.livenodes.get(buid)
 
             if node is None:
@@ -739,15 +732,14 @@ class Snap(s_base.Base):
                 self.livenodes[buid] = node
 
             # If the node's prop I'm filtering on came from a different layer, skip it
-            rawrawprop = ('*' if rawprop == node.form.name else '') + rawprop
-            if node.proplayr[rawrawprop] != self.layers[origlayer]:
+            if node.proplayr[keyprop] != self.layers[origlayer]:
                 continue
 
             if cmpf:
-                if rawprop == node.form.name:
+                if keyprop[0] == '*':
                     valu = node.ndef[1]
                 else:
-                    valu = node.get(rawprop)
+                    valu = node.get(keyprop)
                 if valu is None:
                     # cmpr required to evaluate something; cannot know if this
                     # node is valid or not without the prop being present.

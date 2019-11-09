@@ -151,10 +151,12 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
                 self.eq(20, nodes[0].getTagProp('bar', 'score'))
+
                 nodes = await core.nodes('[ test:int=10 -#bar:score ]')
                 self.len(1, nodes)
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
                 self.false(nodes[0].hasTagProp('bar', 'score'))
+
                 nodes = await core.nodes('#:score')
                 self.len(1, nodes)
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
