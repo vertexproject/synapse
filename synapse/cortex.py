@@ -822,6 +822,9 @@ class Cortex(s_cell.Cell):
 
         await self._initRuntFuncs()
 
+        cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
+        self.cmdhive = await cmdhive.dict()
+
         # Finalize coremodule loading & give stormservices a shot to load
         await self._initCoreMods()
         await self._initStormSvcs()
@@ -1451,10 +1454,6 @@ class Cortex(s_cell.Cell):
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
     async def _initPureStormCmds(self):
-
-        cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
-
-        self.cmdhive = await cmdhive.dict()
 
         oldcmds = []
         for name, cdef in self.cmdhive.items():
