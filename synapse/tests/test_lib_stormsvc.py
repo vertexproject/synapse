@@ -26,18 +26,16 @@ class NewServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
     )
 
 class ChangingService(s_cell.Cell):
-    updated = False
-
-    async def __anit__(self, dirn, conf=None):
-
-        self.updated = conf.get('updated')
-        await s_cell.Cell.__anit__(self, dirn, conf=conf)
+    confdefs = (
+        ('updated', {'type': 'bool', 'defval': False,
+                     'doc': 'If true, serve new cell api'}),
+    )
 
     async def getTeleApi(self, link, mesg, path):
 
         user = self._getCellUser(mesg)
 
-        if self.updated:
+        if self.conf.get('updated'):
             return await NewServiceAPI.anit(self, link, user)
         else:
             return await OldServiceAPI.anit(self, link, user)
@@ -346,9 +344,17 @@ class StormSvcTest(s_test.SynTest):
                     self.len(1, badiden)
                     self.eq(ssvc.iden, badiden[0])
 
+    async def test_storm_svc_restarts(self):
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestDmon() as dmon:
+
+                async with await s_cortex.Cortex.anit(dirn) as core:
+
                     with self.getTestDir() as svcd:
 
-                        chng = await ChangingService.anit(svcd, {'updated': False})
+                        chng = await ChangingService.anit(svcd)
                         chng.dmon.share('chng', chng)
 
                         root = chng.auth.getUserByName('root')
@@ -382,3 +388,14 @@ class StormSvcTest(s_test.SynTest):
                         self.nn(core.getStormCmd('newcmd'))
 
                         await chngd.fini()
+
+                        cdef=OldServiceAPI._storm_svc_cmds[0]
+                        cdef['cmdconf'] = {'svciden': 'fakeiden'}
+                        await core.setStormCmd(cdef)
+
+                        self.nn(core.getStormCmd('oldcmd'))
+
+                async with await s_cortex.Cortex.anit(dirn) as core:
+
+                    self.none(core.getStormCmd('oldcmd'))
+                    self.nn(core.getStormCmd('newcmd'))

@@ -174,7 +174,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
 
         async def unready():
             self.ready.clear()
-            await self.core.fire("stormsvc:client:unready")
+            await self.core.fire("stormsvc:client:unready", iden=self.iden)
 
         proxy.onfini(unready)
 
