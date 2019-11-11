@@ -8,65 +8,48 @@ import synapse.tests.utils as s_test
 
 import synapse.lib.config as s_config
 
+confdefs = (
+    ('ikey', {'type': 'int', 'defval': 1},),
+    ('skey', {'type': 'str', 'defval': '1'},),
+    ('bkey', {'type': 'bool', 'defval': False},),
+    ('dkey', {'type': 'dict', 'defval': {'hehe': 'haha'}},),
+    ('lkey1', {'type': 'list', 'defval': [{'hehe': 'haha'}]},),
+    ('lkey2', {'type': 'list'}),
+    ('fkey', {'type': 'float', 'defval': 1.2}),
+    ('namespace:args:key', {'type': 'int', 'defval': None, 'doc': 'words are cool!'}),
+    ('namesapce:args:some_key', {'type': 'int', 'defval': None, 'doc': 'another key!'})
+)
+defvals = {'ikey': 1, 'skey': '1', 'bkey': False, 'fkey': 1.2,
+           'dkey': {'hehe': 'haha'},
+           'lkey1': [{'hehe': 'haha'}],
+           }
 
 class Config2Test(s_test.SynTest):
-    def setUp(self) -> None:
-        self.confdefs = (  # type: ignore
 
-            ('modules', {
-                'type': 'list', 'defval': (),
-                'doc': 'A list of module classes to load.'
-            }),
+    async def test_argparse(self):
 
-            ('storm:log', {
-                'type': 'bool', 'defval': False,
-                'doc': 'Log storm queries via system logger.'
-            }),
+        parser, parsed_names = s_config.makeArgParser(confdefs)
 
-            ('storm:log:level', {
-                'type': 'int',
-                'defval': logging.WARNING,
-                'doc': 'Logging log level to emit storm logs at.'
-            }),
+        halp = parser.format_help()
+        print(halp)
+        opts = parser.parse_args([])
+        print(opts)
+        data = vars(opts)
 
-            ('splice:sync', {
-                'type': 'str', 'defval': None,
-                'doc': 'A telepath URL for an upstream cortex.'
-            }),
+        for k, v in list(data.items()):
+            if v is s_common.novalu:
+                print(f'dropping: {k} because it was not set and has no default.')
+                data.pop(k, None)
 
-            ('splice:cryotank', {
-                'type': 'str', 'defval': None,
-                'doc': 'A telepath URL for a cryotank used to archive splices.'
-            }),
-
-            ('feeds', {
-                'type': 'dict', 'defval': {},
-                'doc': 'A dictionary of things.'
-            }),
-
-            ('cron:enable', {
-                'type': 'bool',
-                'doc': 'Enable cron jobs running.'
-            }),
-
-            ('haha', {'doc': 'words', 'defval': 1234})
-
-        )
+        from pprint import pprint
+        pprint(data)
+        d = {}
+        for k, v in data.items():
+            d[parsed_names.get(k)] = v
+        pprint(d)
 
     async def test_config2(self):
-        confdefs = (
-            ('ikey', {'type': 'int', 'defval': 1},),
-            ('skey', {'type': 'str', 'defval': '1'},),
-            ('bkey', {'type': 'bool', 'defval': False},),
-            ('dkey', {'type': 'dict', 'defval': {'hehe': 'haha'}},),
-            ('lkey1', {'type': 'list', 'defval': [{'hehe': 'haha'}]},),
-            ('lkey2', {'type': 'list'}),
-            ('fkey', {'type': 'float', 'defval': 1.2})
-        )
-        defvals = {'ikey': 1, 'skey': '1', 'bkey': False, 'fkey': 1.2,
-                   'dkey': {'hehe': 'haha'},
-                   'lkey1': [{'hehe': 'haha'}],
-                   }
+
         conf = s_config.Config2(confdefs=confdefs)
         self.eq(conf.conf, defvals)
 

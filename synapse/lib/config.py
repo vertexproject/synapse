@@ -2,6 +2,7 @@ import os
 import copy
 import typing
 import logging
+import argparse
 
 import yaml
 
@@ -9,6 +10,37 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 logger = logging.getLogger(__name__)
+
+
+argparse_map = {
+    'int': int,
+    'str': str,
+    'bool': bool,
+    'float': float,
+}
+
+def makeArgParser(confdefs, *args, **kwargs) -> (argparse.ArgumentParser, dict):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--test')
+    parsed_names = {}
+    for (name, conf) in confdefs:
+        print('Confdef data:', name, conf)
+        akwargs = {'help': conf.get('doc'),
+                   }
+        atyp = argparse_map.get(conf.get('type'), s_common.novalu)
+        if atyp is not s_common.novalu:
+            akwargs['type'] = atyp
+        defval = conf.get('defval', s_common.novalu)
+        akwargs['default'] = defval
+
+        parsed_name = name.replace(':', '-')
+        replace_name = name.replace(':', '_')
+        parsed_names[replace_name] = name
+        argname = '--' + parsed_name
+        print('add_argument data', argname, akwargs)
+        parser.add_argument(argname, **akwargs)
+
+    return parser, parsed_names
 
 class ConfTypes(object):
     def __init__(self):
