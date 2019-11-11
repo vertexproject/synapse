@@ -4,10 +4,48 @@
 #
 version: 2.1
 
-orbs:
-  codecov: codecov/codecov@1.0.5
-
 commands:
+  do_report_coverage:
+    description: "Codecov report upload"
+    steps:
+      - run:
+          name: Upload Coverage Results
+          command: |
+            # Activate the venv so that codecov bash uploader finds coverage
+            . venv/bin/activate
+            # Use the codecov call from the codecov orb..
+            curl -s https://codecov.io/bash | bash -s -- \
+              -t "${CODECOV_TOKEN}" \
+              -n "${CODECOV_PREFIX}${PYVERS}node${CIRCLE_NODE_INDEX}" \
+              -F "${CODECOV_FLAG}" \
+              -Z || echo 'Codecov upload failed'
+
+  do_venv_setup:
+    description: "Setup venv for testing"
+    steps:
+      - run:
+          name: setup venv
+          command: |
+            python3 -m venv --copies venv
+            . venv/bin/activate
+            python3 -m pip install -U wheel pip pytest pytest-cov pycodestyle
+
+      - run:
+          name: install synapse
+          command: |
+            . venv/bin/activate
+            python3 -m pip install -e .
+
+  do_test_execution:
+    description: "Execute unit tests via pytest"
+    steps:
+      - run:
+          name: run tests
+          command: |
+            . venv/bin/activate
+            mkdir test-reports
+            circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
+
   test_steps_doc:
     description: "Documentation test steps"
     steps:
@@ -67,18 +105,7 @@ commands:
           keys:
             - v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
-      - run:
-          name: setup venv
-          command: |
-            python3 -m venv --copies venv
-            . venv/bin/activate
-            python3 -m pip install -U wheel pip pytest pytest-cov pycodestyle
-
-      - run:
-          name: install synapse
-          command: |
-            . venv/bin/activate
-            python3 -m pip install -e .
+      - do_venv_setup
 
       - save_cache:
           paths:
@@ -92,18 +119,8 @@ commands:
             pycodestyle --max-line-length=120 --select E111,E101,E201,E202,E203,E221,E222,E223,E224,E225,E226,E227,E228,E231,E241,E242,E251,E303,E304,E502,E711,E712,E713,E714,E721,E741,E742,E743,W191,W291,W293,W292,W391,W602,W603 synapse
             pycodestyle --max-line-length=120 --select E111,E101,E201,E202,E203,E221,E222,E223,E224,E225,E226,E227,E228,E231,E241,E242,E251,E303,E304,E502,E711,E712,E713,E714,E721,E741,E742,E743,W191,W291,W293,W292,W391,W602,W603 scripts
 
-      - run:
-          name: run tests
-          command: |
-            . venv/bin/activate
-            mkdir test-reports
-            circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
-            python -m coverage xml -i
-
-      -  codecov/upload:
-           file: /home/circleci/repo/coverage.xml
-           upload_name: ${PYVERS}node${CIRCLE_NODE_INDEX}
-           flags: linux
+      - do_test_execution
+      - do_report_coverage
 
       - store_test_results:
           path: test-reports
@@ -120,36 +137,15 @@ commands:
           keys:
             - v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
-      - run:
-          name: setup venv
-          command: |
-            python3 -m venv --copies venv
-            . venv/bin/activate
-            python3 -m pip install -U wheel pip pytest pytest-cov pycodestyle
-
-      - run:
-          name: install synapse
-          command: |
-            . venv/bin/activate
-            python3 -m pip install -e .
+      - do_venv_setup
 
       - save_cache:
           paths:
             - ./venv
           key: v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
-      - run:
-          name: run tests
-          command: |
-            . venv/bin/activate
-            mkdir test-reports
-            circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
-            python -m coverage xml -i
-
-      -  codecov/upload:
-           file: /Users/distiller/repo/coverage.xml
-           upload_name: osx${PYVERS}node${CIRCLE_NODE_INDEX}
-           flags: osx
+      - do_test_execution
+      - do_report_coverage
 
       - store_test_results:
           path: test-reports
@@ -285,8 +281,10 @@ jobs:
       xcode: "10.2.0"
 
     environment:
-      COVERAGE_ARGS: --cov synapse --no-cov-on-fail
       PYVERS: 3.7
+      CODECOV_FLAG: osx
+      CODECOV_PREFIX: osx
+      COVERAGE_ARGS: --cov synapse --no-cov-on-fail
 
     working_directory: /Users/distiller/repo
 
@@ -298,9 +296,10 @@ jobs:
     docker:
       - image: circleci/python:3.7
         environment:
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
           PYVERS: 3.7
+          CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
 
     working_directory: ~/repo
 
@@ -353,14 +352,15 @@ workflows:
             tags:
               only: /.*/
             branches:
-              only: /.*/
+               only: /.*/
 
       - osx37:
           filters:
             tags:
               only: /.*/
             branches:
-              only: /.*/
+              only:
+                - master
 
       - python37:
           filters:

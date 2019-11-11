@@ -8,6 +8,7 @@ import logging
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
@@ -72,7 +73,8 @@ class LmdbLayer(s_layer.Layer):
         self.onfini(self.layrslab.fini)
 
         self.spliceslab = await s_lmdbslab.Slab.anit(splicepath, max_dbs=128, map_size=mapsize, maxsize=maxsize,
-                                                     growsize=growsize, writemap=True, readahead=readahead, map_async=map_async)
+                                                     growsize=growsize, writemap=True, readahead=readahead,
+                                                     map_async=map_async)
         self.onfini(self.spliceslab.fini)
 
         self.dataslab = await s_lmdbslab.Slab.anit(datapath, map_async=True)
@@ -87,9 +89,21 @@ class LmdbLayer(s_layer.Layer):
 
         self.dbs = {}
 
+        self.name2offs = await self.initdb('name2offs')
+        self.offs2name = await self.initdb('offs2name')
+
         self.bybuid = await self.initdb('bybuid') # <buid><prop>=<valu>
         self.byprop = await self.initdb('byprop', dupsort=True) # <form>00<prop>00<indx>=<buid>
         self.byuniv = await self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
+
+        # tagprop indexes...
+        self.by_tp_pi = await self.initdb('by_tp_pi', dupsort=True)       # <abrv(prop)><indx> = <buid>
+        self.by_tp_tpi = await self.initdb('by_tp_tpi', dupsort=True)     # <abrv(#tag:prop)><indx> = <buid>
+        self.by_tp_ftpi = await self.initdb('by_tp_ftpi', dupsort=True)   # <abrv(form#tag:prop)><indx> = <buid>
+
+        self.name2abrv = await self.initdb('name2abrv')
+        self.abrv2name = await self.initdb('abrv2name')
+
         offsdb = await self.initdb('offsets')
         self.offs = s_slaboffs.SlabOffs(self.layrslab, offsdb)
         self.splicelog = s_slabseqn.SlabSeqn(self.spliceslab, 'splices')
@@ -99,6 +113,36 @@ class LmdbLayer(s_layer.Layer):
             'pref': self._rowsByPref,
             'range': self._rowsByRange,
         }
+
+    @s_cache.memoize(10000)
+    def getNameAbrv(self, name):
+        '''
+        Create or return a layer specific abbreviation for the given name.
+        '''
+        utf8 = name.encode()
+
+        abrv = self.layrslab.get(utf8, db=self.name2abrv)
+        if abrv is not None:
+            return abrv
+
+        nexi = self.metadict.get('nameabrv', 0)
+        self.metadict.set('nameabrv', nexi + 1)
+
+        abrv = s_common.int64en(nexi)
+
+        self.layrslab.put(utf8, abrv, db=self.name2abrv)
+        self.layrslab.put(abrv, utf8, db=self.abrv2name)
+
+        return abrv
+
+    s_cache.memoize(10000)
+    def getAbrvName(self, abrv):
+
+        byts = self.layrslab.get(abrv, db=self.abrv2name)
+        if byts is None:
+            return None
+
+        return byts.decode()
 
     async def popNodeData(self, buid, name):
         utf8 = name.encode()
@@ -341,6 +385,78 @@ class LmdbLayer(s_layer.Layer):
             self.layrslab.put(newb + proputf8, lval, db=self.bybuid)
             self.layrslab.delete(lkey, db=self.bybuid)
 
+    async def hasTagProp(self, name):
+        abrv = self.getNameAbrv(name)
+        for item in self.layrslab.scanByPref(abrv, db=self.by_tp_pi):
+            return True
+        return False
+
+    def _storTagPropSet(self, oper):
+
+        _, (buid, form, tag, prop, valu, indx, info) = oper
+
+        tagprop = f'#{tag}:{prop}'
+
+        abrv_p = self.getNameAbrv(prop)
+        abrv_tp = self.getNameAbrv(tagprop)
+        abrv_ftp = self.getNameAbrv(f'{form}{tagprop}')
+
+        bpkey = buid + tagprop.encode()
+        byts = s_msgpack.en((valu, indx))
+
+        curb = self.layrslab.replace(bpkey, byts, db=self.bybuid)
+        if curb is not None:
+
+            curv, curi = s_msgpack.un(curb)
+
+            self.layrslab.delete(abrv_p + curi, val=buid, db=self.by_tp_pi)
+            self.layrslab.delete(abrv_tp + curi, val=buid, db=self.by_tp_tpi)
+            self.layrslab.delete(abrv_ftp + curi, val=buid, db=self.by_tp_ftpi)
+
+        if indx is not None:
+            self.layrslab.put(abrv_p + indx, buid, dupdata=True, db=self.by_tp_pi)
+            self.layrslab.put(abrv_tp + indx, buid, dupdata=True, db=self.by_tp_tpi)
+            self.layrslab.put(abrv_ftp + indx, buid, dupdata=True, db=self.by_tp_ftpi)
+
+        self._putBuidCache(buid, tagprop, valu)
+
+    def _storTagPropDel(self, oper):
+
+        _, (buid, form, tag, prop, info) = oper
+
+        tagprop = f'#{tag}:{prop}'
+
+        abrv_p = self.getNameAbrv(prop)
+        abrv_tp = self.getNameAbrv(tagprop)
+        abrv_ftp = self.getNameAbrv(f'{form}{tagprop}')
+
+        bpkey = buid + tagprop.encode()
+
+        curb = self.layrslab.pop(bpkey, db=self.bybuid)
+
+        # this *should* be completely impossible
+        if curb is None: # pragma: no cover
+            logger.warning('_storTagPropDel has no current value!')
+            return
+
+        curv, curi = s_msgpack.un(curb)
+
+        self.layrslab.delete(abrv_p + curi, val=buid, db=self.by_tp_pi)
+        self.layrslab.delete(abrv_tp + curi, val=buid, db=self.by_tp_tpi)
+        self.layrslab.delete(abrv_ftp + curi, val=buid, db=self.by_tp_ftpi)
+
+        self._popBuidCache(buid, tagprop)
+
+    def _putBuidCache(self, buid, prop, valu):
+        cacheval = self.buidcache.get(buid)
+        if cacheval is not None:
+            cacheval[prop] = valu
+
+    def _popBuidCache(self, buid, prop):
+        cacheval = self.buidcache.get(buid)
+        if cacheval is not None:
+            cacheval.pop(prop, None)
+
     def _storPropSet(self, oper):
 
         _, (buid, form, prop, valu, indx, info) = oper
@@ -362,9 +478,7 @@ class LmdbLayer(s_layer.Layer):
 
         bpkey = buid + prop.encode()
 
-        cacheval = self.buidcache.get(buid)
-        if cacheval is not None:
-            cacheval[prop] = valu
+        self._putBuidCache(buid, prop, valu)
 
         self._storPropSetCommon(buid, penc, bpkey, pvpref, univ, valu, indx)
 
@@ -395,17 +509,34 @@ class LmdbLayer(s_layer.Layer):
             oldv, oldi = s_msgpack.un(byts)
             if oldi is not None:
 
-                self.layrslab.delete(pvpref + oldi, pvvalu, db=self.byprop)
+                if isinstance(oldi, bytes):
 
-                if univ:
-                    self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
+                    self.layrslab.delete(pvpref + oldi, pvvalu, db=self.byprop)
+                    if univ:
+                        self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
+
+                else:
+                    for oldibyts in oldi:
+                        self.layrslab.delete(pvpref + oldibyts, pvvalu, db=self.byprop)
+                        if univ:
+                            self.layrslab.delete(penc + oldibyts, pvvalu, db=self.byuniv)
 
         if indx is not None:
 
-            self.layrslab.put(pvpref + indx, pvvalu, dupdata=True, db=self.byprop)
+            if isinstance(indx, bytes):
 
-            if univ:
-                self.layrslab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
+                self.layrslab.put(pvpref + indx, pvvalu, dupdata=True, db=self.byprop)
+
+                if univ:
+                    self.layrslab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
+
+            else:
+
+                for indxbyts in indx:
+                    self.layrslab.put(pvpref + indxbyts, pvvalu, dupdata=True, db=self.byprop)
+
+                    if univ:
+                        self.layrslab.put(penc + indxbyts, pvvalu, dupdata=True, db=self.byuniv)
 
     def _storPropDel(self, oper):
 
@@ -434,14 +565,76 @@ class LmdbLayer(s_layer.Layer):
         pvvalu = s_msgpack.en((buid,))
 
         if oldi is not None:
-            self.layrslab.delete(fenc + penc + oldi, pvvalu, db=self.byprop)
 
-            if univ:
-                self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
+            if isinstance(oldi, bytes):
+
+                self.layrslab.delete(fenc + penc + oldi, pvvalu, db=self.byprop)
+
+                if univ:
+                    self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
+
+            else:
+                for oldibyts in oldi:
+
+                    self.layrslab.delete(fenc + penc + oldibyts, pvvalu, db=self.byprop)
+
+                    if univ:
+                        self.layrslab.delete(penc + oldibyts, pvvalu, db=self.byuniv)
 
     async def _storSplices(self, splices):
         info = self.splicelog.save(splices)
         return info.get('orig')
+
+    async def _liftByTagProp(self, oper):
+
+        tag = oper[1].get('tag')
+        form = oper[1].get('form')
+        prop = oper[1].get('prop')
+        iops = oper[1].get('iops')
+
+        # #:prop
+        name = prop
+        db = self.by_tp_pi
+
+        # #tag:prop
+        if tag is not None:
+            name = f'#{tag}:{prop}'
+            db = self.by_tp_tpi
+
+        # form#tag:prop
+        if form is not None:
+            name = f'{form}#{tag}:{prop}'
+            db = self.by_tp_ftpi
+
+        abrv = self.getNameAbrv(name)
+
+        if iops is None:
+            for lkey, buid in self.layrslab.scanByPref(abrv, db=db):
+                yield (buid,)
+            return
+
+        for iopr in iops:
+
+            if iopr[0] == 'eq':
+                for lkey, buid in self.layrslab.scanByDups(abrv + iopr[1], db=db):
+                    yield (buid,)
+                continue
+
+            if iopr[0] == 'pref':
+                for lkey, buid in self.layrslab.scanByPref(abrv + iopr[1], db=db):
+                    yield (buid,)
+                continue
+
+            if iopr[0] == 'range':
+                kmin = abrv + iopr[1][0]
+                kmax = abrv + iopr[1][1]
+                for lkey, buid in self.layrslab.scanByRange(kmin, kmax, db=db):
+                    yield (buid,)
+                continue
+
+            #pragma: no cover
+            mesg = f'No such index function for tag props: {iopr[0]}'
+            raise s_exc.NoSuchName(name=iopr[0], mesg=mesg)
 
     async def _liftByIndx(self, oper):
         # ('indx', (<dbname>, <prefix>, (<indxopers>...))
@@ -561,17 +754,27 @@ class LmdbLayer(s_layer.Layer):
 
     async def getOffset(self, iden):
         '''
-        Note:  this method doesn't need to be async, but it is probable that future layer implementations would need it
-        to be async
+        Note:
+            This method doesn't need to be async, but it is probable that future layer implementations would need it to
+            be async
         '''
         return self.offs.get(iden)
 
     async def setOffset(self, iden, offs):
         '''
-        Note:  this method doesn't need to be async, but it is probable that future layer implementations would need it
-        to be async
+        Note:
+            This method doesn't need to be async, but it is probable that future layer implementations would need it to
+            be async
         '''
         return self.offs.set(iden, offs)
+
+    async def delOffset(self, iden):
+        '''
+        Note:
+            This method doesn't need to be async, but it is probable that future layer implementations would need it to
+            be async
+        '''
+        return self.offs.delete(iden)
 
     async def splices(self, offs, size):
         for _, mesg in self.splicelog.slice(offs, size):
@@ -596,3 +799,14 @@ class LmdbLayer(s_layer.Layer):
         db = self.layrslab.initdb(name, dupsort)
         self.dbs[name] = db
         return db
+
+    async def trash(self):
+        '''
+        Delete the underlying storage
+
+        Note:  object must be fini'd first
+        '''
+        self.layrslab.trash()
+        self.spliceslab.trash()
+        self.dataslab.trash()
+        await s_layer.Layer.trash(self)

@@ -329,9 +329,21 @@ class ItModule(s_module.CoreModule):
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'The last known location for the host.'
                     }),
-
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place where the host resides.',
+                    }),
                     ('os', ('it:prod:softver', {}), {
-                        'doc': 'The operating system of the host.'}),
+                        'doc': 'The operating system of the host.'
+                    }),
+                    ('manu', ('str', {}), {
+                        'doc': 'The manufacturer of the host.',
+                    }),
+                    ('model', ('str', {}), {
+                        'doc': 'The product model of the host.',
+                    }),
+                    ('serial', ('str', {}), {
+                        'doc': 'The serial number of the host.',
+                    }),
                 )),
                 ('it:hosturl', {}, (
                     ('host', ('it:host', {}), {

@@ -14,24 +14,30 @@ import synapse.lib.output as s_output
 logger = logging.getLogger(__name__)
 
 desc = '''
-Admin users in a remote cell.
+Manage permissions of users, roles, and objects in a remote cell.
 '''
 outp = None
 
+min_authgate_vers = (0, 1, 33)
+
 denyallow = ['deny', 'allow']
-def reprrule(rule):
+def reprrule(rule, authgater=None):
     head = denyallow[rule[0]]
     text = '.'.join(rule[1])
-    return f'{head}: {text}'
+    if authgater is None:
+        return f'{head}: {text}'
 
-def printuser(user):
+    return f'{head}: {text} on {authgater}'
+
+async def printuser(user, details=False, cell=None):
 
     admin = user[1].get('admin')
     authtype = user[1].get('type')
 
     outp.printf(f'{user[0]}')
     outp.printf(f'type: {authtype}')
-    outp.printf(f'admin: {admin}')
+    if admin is not None:
+        outp.printf(f'admin: {admin}')
 
     if authtype == 'user':
         locked = user[1].get('locked')
@@ -39,9 +45,18 @@ def printuser(user):
 
     outp.printf('rules:')
 
-    for i, rule in enumerate(user[1].get('rules')):
+    i = 0
+
+    for rule in user[1].get('rules'):
+        i += 1
         rrep = reprrule(rule)
         outp.printf(f'    {i} {rrep}')
+
+    for authgater, rules in user[1].get('gaterules', {}).items():
+        for rule in rules:
+            rrep = reprrule(rule, authgater=authgater)
+            i += 1
+            outp.printf(f'    {i} {rrep}')
 
     outp.printf('')
 
@@ -51,9 +66,25 @@ def printuser(user):
         for rolename in sorted(user[1].get('roles')):
             outp.printf(f'    role: {rolename}')
 
+            if details:
+                role = await cell.getAuthInfo(rolename)
+                for i, rule in enumerate(role[1].get('rules', ())):
+                    rrep = reprrule(rule)
+                    outp.printf(f'        {i} {rrep}')
+
 async def handleModify(opts):
+
+    cell_supports_authgate = False
+
+    if opts.object and not opts.addrule:
+        outp.printf('--object option only valid with --addrule')
+        return -1
+
     try:
         async with await s_telepath.openurl(opts.cellurl) as cell:
+
+            if cell._getSynVers() >= min_authgate_vers:
+                cell_supports_authgate = True
 
             if opts.adduser:
                 outp.printf(f'adding user: {opts.name}')
@@ -61,7 +92,7 @@ async def handleModify(opts):
 
             if opts.deluser:
                 outp.printf(f'deleting user: {opts.name}')
-                user = await cell.delAuthUser(opts.name)
+                await cell.delAuthUser(opts.name)
 
             if opts.addrole:
                 outp.printf(f'adding role: {opts.name}')
@@ -69,7 +100,7 @@ async def handleModify(opts):
 
             if opts.delrole:
                 outp.printf(f'deleting role: {opts.name}')
-                user = await cell.delAuthRole(opts.name)
+                await cell.delAuthRole(opts.name)
 
             if opts.passwd:
                 outp.printf(f'setting passwd for: {opts.name}')
@@ -112,7 +143,10 @@ async def handleModify(opts):
                 rule = (allow, text.split('.'))
 
                 outp.printf(f'adding rule to {opts.name}: {rule!r}')
-                await cell.addAuthRule(opts.name, rule, indx=None)
+                if cell_supports_authgate:
+                    await cell.addAuthRule(opts.name, rule, indx=None, iden=opts.object)
+                else:
+                    await cell.addAuthRule(opts.name, rule, indx=None)
 
             if opts.delrule is not None:
                 outp.printf(f'deleting rule index: {opts.delrule}')
@@ -120,11 +154,11 @@ async def handleModify(opts):
 
             try:
                 user = await cell.getAuthInfo(opts.name)
-            except s_exc.NoSuchName as e:
+            except s_exc.NoSuchName:
                 outp.printf(f'no such user: {opts.name}')
                 return 1
 
-            printuser(user)
+            await printuser(user)
 
     except Exception as e:  # pragma: no cover
 
@@ -148,7 +182,7 @@ async def handleList(opts):
                         outp.printf(f'no such user: {opts.name}')
                         return 1
 
-                    printuser(user)
+                    await printuser(user, cell=cell, details=opts.detail)
                 return 0
 
             outp.printf(f'getting users and roles')
@@ -201,6 +235,8 @@ def makeargparser():
     # list
     pars_list = subpars.add_parser('list', help='List users/roles')
     pars_list.add_argument('name', nargs='*', default=None, help='The name of the user/role to list')
+    pars_list.add_argument('-d', '--detail', default=False, action='store_true',
+                           help='Show rule details for roles associated with a user.')
     pars_list.set_defaults(func=handleList)
 
     # create / modify / delete
@@ -225,6 +261,9 @@ def makeargparser():
 
     muxp.add_argument('--addrule', help='Add the given rule to the user/role.')
     muxp.add_argument('--delrule', type=int, help='Delete the given rule number from the user/role.')
+
+    pars_mod.add_argument('--object', type=str, help='The iden of the object to which to apply the new rule. Only '
+                                                     'supported on Cells running Synapse >= 0.1.33.')
 
     pars_mod.add_argument('name', help='The user/role to modify.')
     pars_mod.set_defaults(func=handleModify)

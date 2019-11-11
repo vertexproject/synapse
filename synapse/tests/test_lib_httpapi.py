@@ -1,4 +1,5 @@
 import json
+import asyncio
 import aiohttp
 
 import synapse.lib.httpapi as s_httpapi
@@ -24,7 +25,7 @@ class HttpApiTest(s_tests.SynTest):
 
         class ReqAuthHandler(s_httpapi.Handler):
             async def get(self):
-                if not await self.reqAuthAllowed('syn:test'):
+                if not await self.reqAuthAllowed(('syn:test', )):
                     return
                 return self.sendRestRetn({'data': 'everything is awesome!'})
 
@@ -187,6 +188,55 @@ class HttpApiTest(s_tests.SynTest):
 
             self.len(0, newb.getRoles())
             self.none(core.auth.getRoleByName('bobs'))
+
+    async def test_http_passwd(self):
+        async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            root = core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            newb = await core.auth.addUser('newb')
+            await newb.setPasswd('newb')
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+                url = f'https://localhost:{port}/api/v1/auth/password/{newb.iden}'
+                # Admin can change the newb password
+                async with sess.post(url, json={'passwd': 'words'}) as resp:
+                    item = await resp.json()
+                    self.eq(item.get('status'), 'ok')
+
+                # must have content
+                async with sess.post(url) as resp:
+                    item = await resp.json()
+                    self.eq(item.get('status'), 'err')
+                    self.isin('Invalid JSON content.', (item.get('mesg')))
+
+                # password must be valid
+                async with sess.post(url, json={'passwd': ''}) as resp:
+                    item = await resp.json()
+                    self.eq(item.get('status'), 'err')
+                    self.eq(item.get('code'), 'BadArg')
+
+                url = f'https://localhost:{port}/api/v1/auth/password/1234'
+                # User iden must be valid
+                async with sess.post(url, json={'passwd': 'words'}) as resp:
+                    item = await resp.json()
+                    self.isin('User does not exist', (item.get('mesg')))
+
+            async with self.getHttpSess(auth=('newb', 'words'), port=port) as sess:
+                # newb can change their own password
+                url = f'https://localhost:{port}/api/v1/auth/password/{newb.iden}'
+                async with sess.post(url, json={'passwd': 'newb'}) as resp:
+                    item = await resp.json()
+                    self.eq(item.get('status'), 'ok')
+
+                # non-admin newb cannot change someone elses password
+                url = f'https://localhost:{port}/api/v1/auth/password/{root.iden}'
+                async with sess.post(url, json={'passwd': 'newb'}) as resp:
+                    item = await resp.json()
+                    self.eq(item.get('status'), 'ok')
 
     async def test_http_auth(self):
         '''
@@ -559,6 +609,52 @@ class HttpApiTest(s_tests.SynTest):
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
 
+    async def test_http_watch(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+
+            await visi.setPasswd('secret')
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            # with no session user...
+            async with self.getHttpSess() as sess:
+
+                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/watch') as sock:
+                    await sock.send_json({'tags': ['test.visi']})
+                    mesg = await sock.receive_json()
+                    self.eq('errx', mesg['type'])
+                    self.eq('AuthDeny', mesg['data']['code'])
+
+                async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq('visi', retn['result']['name'])
+
+                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/watch') as sock:
+                    await sock.send_json({'tags': ['test.visi']})
+                    mesg = await sock.receive_json()
+                    self.eq('errx', mesg['type'])
+                    self.eq('AuthDeny', mesg['data']['code'])
+
+                await visi.addRule((True, ('watch',)))
+
+                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/watch') as sock:
+
+                    await sock.send_json({'tags': ['test.visi']})
+                    mesg = await sock.receive_json()
+
+                    self.eq('init', mesg['type'])
+
+                    await core.nodes('[ test:str=woot +#test.visi ]')
+
+                    mesg = await sock.receive_json()
+
+                    self.eq('tag:add', mesg['type'])
+                    self.eq('test.visi', mesg['data']['tag'])
+
     async def test_http_storm(self):
 
         async with self.getTestCore() as core:
@@ -638,3 +734,31 @@ class HttpApiTest(s_tests.SynTest):
                         node = json.loads(byts)
 
                     self.eq(0x01020304, node[0][1])
+
+    async def test_healthcheck(self):
+        async with self.getTestCore() as core:
+            # Run http instead of https for this test
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            root = core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            url = f'https://localhost:{port}/api/v1/healthcheck'
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+                async with sess.get(url) as resp:
+                    result = await resp.json()
+                    self.eq(result.get('status'), 'ok')
+                    snfo = result.get('result')
+                    self.isinstance(snfo, dict)
+                    self.eq(snfo.get('status'), 'nominal')
+
+            user = await core.auth.addUser('user')
+            await user.setPasswd('beep')
+            async with self.getHttpSess(auth=('user', 'beep'), port=port) as sess:
+                async with sess.get(url) as resp:
+                    result = await resp.json()
+                    self.eq(result.get('status'), 'err')
+                await user.addRule((True, ('health',)))
+                async with sess.get(url) as resp:
+                    result = await resp.json()
+                    self.eq(result.get('status'), 'ok')

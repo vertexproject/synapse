@@ -22,6 +22,7 @@ class TelcoModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 # tel:mob:tac
                 oguid = s_common.guid()
+                place = s_common.guid()
                 props = {'manu': 'Acme Corp',
                          'model': 'eYephone 9000',
                          'internal': 'spYphone 9000',
@@ -67,6 +68,7 @@ class TelcoModelTest(s_t_utils.SynTest):
                 # tel:mob:cell
                 node = await snap.addNode('tel:mob:cell', (('001', '02'), 3, 4), {'radio': 'Pirate  ',
                                                                                   'latlong': (0, 0),
+                                                                                  'place': place,
                                                                                   'loc': 'us.ca.la'})
                 self.eq(node.get('carrier'), ('001', '02'))
                 self.eq(node.get('carrier:mcc'), '001')
@@ -76,12 +78,14 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.eq(node.get('loc'), 'us.ca.la')
                 self.eq(node.get('radio'), 'pirate')
                 self.eq(node.get('latlong'), (0.0, 0.0))
+                self.eq(node.get('place'), place)
 
                 # tel:mob:telem
                 guid = s_common.guid()
                 softguid = s_common.guid()
                 props = {'time': '2001',
                          'latlong': (-1, 1),
+                         'place': place,
                          'loc': 'us',
                          'accuracy': '100mm',
                          'cell': (('001', '02'), 3, 4),
@@ -106,6 +110,7 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], guid)
                 self.eq(node.get('time'), 978307200000)
                 self.eq(node.get('latlong'), (-1.0, 1.0))
+                self.eq(node.get('place'), place)
                 self.eq(node.get('loc'), 'us')
                 self.eq(node.get('accuracy'), 100)
                 self.eq(node.get('cell'), (('001', '02'), 3, 4))

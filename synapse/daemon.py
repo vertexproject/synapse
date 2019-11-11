@@ -26,6 +26,7 @@ class Sess(s_base.Base):
         self.items = {}
         self.iden = s_common.guid()
         self.user = None
+        self.conninfo = {}
 
     def getSessItem(self, name):
         return self.items.get(name)
@@ -35,6 +36,16 @@ class Sess(s_base.Base):
 
     def popSessItem(self, name):
         return self.items.pop(name, None)
+
+    def pack(self):
+        ret = {'items': {name: f'{item.__module__}.{item.__class__.__name__}' for name, item in self.items.items()},
+               'conninfo': self.conninfo,
+               }
+        if self.user:
+            ret['user'] = {'iden': self.user.iden,
+                           'name': self.user.name,
+                           }
+        return ret
 
 class Genr(s_share.Share):
 
@@ -199,6 +210,9 @@ class Daemon(s_base.Base):
         except Exception:
             logger.exception(f'onTeleShare() error for: {name}')
 
+    async def getSessInfo(self):
+        return [sess.pack() for sess in self.sessions.values()]
+
     async def _onDmonFini(self):
         for s in self.listenservers:
             try:
@@ -229,7 +243,7 @@ class Daemon(s_base.Base):
                     return
 
                 coro = self._onLinkMesg(link, mesg)
-                self.schedCoro(coro)
+                link.schedCoro(coro)
 
         self.schedCoro(rxloop())
 
@@ -298,6 +312,7 @@ class Daemon(s_base.Base):
             link.onfini(sess.fini)
 
             self.sessions[sess.iden] = sess
+            sess.conninfo = link.getAddrInfo()
 
             link.set('sess', sess)
 
@@ -362,7 +377,6 @@ class Daemon(s_base.Base):
                 raise s_exc.NoSuchObj(name=name)
 
             s_scope.set('sess', sess)
-            # TODO set user....
 
             methname, args, kwargs = todo
 
@@ -412,10 +426,8 @@ class Daemon(s_base.Base):
 
             if isinstance(valu, s_share.Share):
                 sess.onfini(valu)
-                iden = s_common.guid()
-                sess.setSessItem(iden, valu)
                 info = s_reflect.getShareInfo(valu)
-                await link.tx(('t2:share', {'iden': iden, 'sharinfo': info}))
+                await link.tx(('t2:share', {'iden': valu.iden, 'sharinfo': info}))
                 return
 
             await link.tx(('t2:fini', {'retn': (True, valu)}))

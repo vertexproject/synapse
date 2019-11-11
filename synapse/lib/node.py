@@ -34,6 +34,7 @@ class Node:
         self.tags = {}
         self.props = {}
         self.univs = {}
+        self.tagprops = {}
 
         # raw prop -> layer it was set at
         self.proplayr = collections.defaultdict(lambda: self.snap.wlyr, proplayr or {})
@@ -105,6 +106,13 @@ class Node:
 
             # check for tag encoding
             if p0 == '#':
+
+                # proptag...
+                if ':' in prop:
+                    tag, prop = prop[1:].split(':', 1)
+                    self.tagprops[(tag, prop)] = valu
+                    continue
+
                 self.tags[prop[1:]] = valu
                 continue
 
@@ -118,10 +126,14 @@ class Node:
         Returns:
             (tuple): An (iden, info) node tuple.
         '''
+        tagprops = collections.defaultdict(dict)
+        [tagprops[tag].__setitem__(prop, valu) for (tag, prop), valu in self.tagprops.items()]
+
         node = (self.ndef, {
             'iden': self.iden(),
             'tags': self.tags,
             'props': self.props,
+            'tagprops': tagprops,
         })
 
         if dorepr:
@@ -131,6 +143,7 @@ class Node:
                 node[1]['repr'] = self.repr()
 
             node[1]['reprs'] = self.reprs()
+            node[1]['tagpropreprs'] = self.tagpropreprs()
 
         return node
 
@@ -150,22 +163,29 @@ class Node:
         '''
         retn = []
 
-        for name, valu in self.props.items():
+        refs = self.form.getRefsOut()
 
-            pobj = self.form.props.get(name)
-
-            if isinstance(pobj.type, s_types.Ndef):
-                retn.append((name, valu))
+        for name, dest in refs.get('prop', ()):
+            valu = self.props.get(name)
+            if valu is None:
                 continue
 
-            if self.snap.model.forms.get(pobj.type.name) is None:
+            retn.append((name, (dest, valu)))
+
+        for name in refs.get('ndef', ()):
+            valu = self.props.get(name)
+            if valu is None:
+                continue
+            retn.append((name, valu))
+
+        for name, dest in refs.get('array', ()):
+
+            valu = self.props.get(name)
+            if valu is None:
                 continue
 
-            ndef = (pobj.type.name, valu)
-            if ndef == self.ndef:
-                continue
-
-            retn.append((name, ndef))
+            for item in valu:
+                retn.append((name, (dest, item)))
 
         return retn
 
@@ -202,10 +222,13 @@ class Node:
             return False
 
         if self.isrunt:
+
             if prop.info.get('ro'):
-                raise s_exc.IsRuntForm(mesg='Cannot set read-only props on runt nodes',
-                                       form=self.form.full, prop=name, valu=valu)
-            return await self.snap.core.runRuntPropSet(self, prop, valu)
+                mesg = 'Cannot set read-only props on runt nodes'
+                raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full, prop=name, valu=valu)
+
+            await self.snap.core.runRuntPropSet(self, prop, valu)
+            return True
 
         curv = self.props.get(name)
 
@@ -361,6 +384,27 @@ class Node:
 
         return reps
 
+    def tagpropreprs(self):
+        '''
+        Return a dictionary of repr values for tagprops whose repr is different than
+        the system mode value.
+        '''
+        reps = collections.defaultdict(dict)
+
+        for (tag, name), valu in self.tagprops.items():
+
+            prop = self.form.modl.tagprop(name)
+            if prop is None:
+                continue
+
+            rval = prop.type.repr(valu)
+            if rval is None or rval == valu:
+                continue
+
+            reps[tag][name] = rval
+
+        return dict(reps)
+
     def hasTag(self, name):
         name = s_chop.tag(name)
         return name in self.tags
@@ -469,7 +513,7 @@ class Node:
 
         await self._setTagProp(name, norm, indx, info)
 
-        await self.snap.core.runTagAdd(self, name, norm)
+        await self.snap.view.runTagAdd(self, name, norm)
 
         return True
 
@@ -491,6 +535,8 @@ class Node:
 
         pref = name + '.'
 
+        tagprops = [x for x in self.tagprops.keys() if x[0] == name]
+
         subtags = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
         subtags.sort(reverse=True)
 
@@ -499,18 +545,82 @@ class Node:
         for sublen, subtag in subtags:
             valu = self.tags.pop(subtag, None)
             removed.append((subtag, valu))
+            tagprops.extend([x for x in self.tagprops.keys() if x[0] == subtag])
 
         removed.append((name, curv))
 
         info = {'univ': True}
         sops = [('prop:del', (self.buid, self.form.name, '#' + t, info)) for (t, v) in removed]
+        sops.extend([('tag:prop:del', (self.buid, self.form.name, tag, prop, {})) for (tag, prop) in tagprops])
 
         # fire all the splices
         splices = [self.snap.splice('tag:del', ndef=self.ndef, tag=t, valu=v) for (t, v) in removed]
         await self.snap.stor(sops, splices)
 
         # fire all the handlers / triggers
-        [await self.snap.core.runTagDel(self, t, v) for (t, v) in removed]
+        [await self.snap.view.runTagDel(self, t, v) for (t, v) in removed]
+
+    def hasTagProp(self, tag, prop):
+        '''
+        Check if a #foo.bar:baz tag property exists on the node.
+        '''
+        return (tag, prop) in self.tagprops
+
+    def getTagProp(self, tag, prop, defval=None):
+        '''
+        Return the value (or defval) of the given tag property.
+        '''
+        return self.tagprops.get((tag, prop), defval)
+
+    async def setTagProp(self, tag, name, valu):
+        '''
+        Set the value of the given tag property.
+        '''
+        if not self.hasTag(tag):
+            await self.addTag(tag)
+
+        prop = self.snap.model.getTagProp(name)
+        if prop is None:
+            raise s_exc.NoSuchTagProp(name=name)
+
+        try:
+            norm, info = prop.type.norm(valu)
+        except Exception as e:
+            mesg = f'Bad property value: #{tag}:{prop.name}={valu!r}'
+            return await self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, name=prop.name, valu=valu, emesg=str(e))
+
+        indx = prop.type.indx(norm)
+
+        tagkey = (tag, name)
+        curv = self.tagprops.get(tagkey)
+
+        sops = (
+            ('tag:prop:set', (self.buid, self.form.name, tag, prop.name, norm, indx, {})),
+        )
+
+        splices = (
+            self.snap.splice('tag:prop:set', ndef=self.ndef, tag=tag, prop=prop.name, valu=norm, curv=curv),
+        )
+
+        await self.snap.stor(sops, splices)
+
+        self.tagprops[tagkey] = norm
+
+    async def delTagProp(self, tag, name):
+
+        curv = self.tagprops.pop((tag, name), s_common.novalu)
+        if curv is s_common.novalu:
+            return False
+
+        sops = (
+            ('tag:prop:del', (self.buid, self.form.name, tag, name, {})),
+        )
+
+        splices = (
+            self.snap.splice('tag:prop:del', ndef=self.ndef, tag=tag, prop=name, valu=curv),
+        )
+
+        await self.snap.stor(sops, splices)
 
     async def delete(self, force=False):
         '''
@@ -579,7 +689,11 @@ class Node:
         await self.snap.stor(sops, [splice])
 
         self.snap.livenodes.pop(self.buid)
-        self.snap.core.pokeFormCount(formname, -1)
+
+        # If the node was originally in the main layer and our current write layer is the main layer,
+        # decrement the form count
+        if self.snap.wlyr == self.proplayr['*' + self.form.name] == self.snap.core.view.layers[0]:
+            self.snap.core.pokeFormCount(formname, -1)
 
         await self.form.wasDeleted(self)
 
@@ -756,7 +870,7 @@ def tags(pode, leaf=False):
 
 def tagsnice(pode):
     '''
-    Get all the leaf tags and the tags that have values
+    Get all the leaf tags and the tags that have values or tagprops.
 
     Args:
         pode (tuple): A packed node.
@@ -764,8 +878,11 @@ def tagsnice(pode):
     Returns:
         list: A list of tag strings.
     '''
-    tags = pode[1]['tags']
-    return _tagscommon(pode, False)
+    ret = _tagscommon(pode, False)
+    for tag in pode[1].get('tagprops', {}):
+        if tag not in ret:
+            ret.append(tag)
+    return ret
 
 def _tagscommon(pode, leafonly):
     '''
@@ -911,3 +1028,36 @@ def reprTag(pode, tag):
     maxt = s_time.repr(valu[1])
     valu = f'({mint}, {maxt})'
     return valu
+
+def reprTagProps(pode, tag):
+    '''
+    Get the human readable values for any tagprops on a tag for a given node.
+
+    Args:
+        pode (tuple): A packed node.
+        tag (str): The tag to get the tagprops reprs for.
+
+    Notes:
+        The human readable value is only available if the node came from a
+        storm query execution where the ``repr`` key was passed into the
+        ``opts`` argument with a True value.
+
+        If the tag does not have any tagprops associated with it, this returns an empty list.
+
+    Returns:
+        list: A list of tuples, containing the name of the tagprop and the repr value.
+    '''
+    ret = []
+    exists = pode[1]['tags'].get(tag)
+    if exists is None:
+        return ret
+    tagprops = pode[1].get('tagprops', {}).get(tag)
+    if tagprops is None:
+        return ret
+    for prop, valu in tagprops.items():
+        rval = pode[1].get('tagpropreprs', {}).get(tag, {}).get(prop)
+        if rval is not None:
+            ret.append((prop, rval))
+        else:
+            ret.append((prop, str(valu)))
+    return sorted(ret, key=lambda x: x[0])

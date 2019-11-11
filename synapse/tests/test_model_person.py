@@ -42,7 +42,7 @@ class PsModelTest(s_t_utils.SynTest):
                     'dob': '2000',
                     'img': file0,
                     'nick': 'acid burn',
-                    # 'guidname': '', # fixme guid aliases
+                    'person': person0,
                     'name': 'Эммануэль брат Гольдштейн',
                     'name:sur': 'Гольдштейн',
                     'name:middle': 'брат',
@@ -53,6 +53,7 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('img'), file0)
                 self.eq(node.get('dob'), 946684800000)
                 self.eq(node.get('nick'), 'acid burn')
+                self.eq(node.get('person'), person0)
                 self.eq(node.get('name'), 'эммануэль брат гольдштейн')
                 self.eq(node.get('name:sur'), 'гольдштейн')
                 self.eq(node.get('name:middle'), 'брат')

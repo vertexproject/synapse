@@ -30,10 +30,10 @@ _Queries = [
     '''#tag.$"escaped \\"string\\""''',
     '''+#tag.$"escaped \\"string\\"".*''',
     '''[+#tag.$"escaped \\"string\\""]''',
+    r'''test:str $"some\bvar"=$node.repr()''',
     '$x = 0 while $($x < 10) { $x=$($x+1) [test:int=$x] }',
     '[test:int?=4] [ test:int?=nonono ]',
     '[test:str=foo :tick?=2019 ]',
-    '[test:str=a] switch $node.form() { hehe: {[+#baz]} }',
     '[test:type10=2 :strprop=1] spin | test:type10 +$(:strprop) $foo=1 +$foo',
     'inet:fqdn#xxx.xxxxxx.xxxx.xx for $tag in $node.tags(xxx.xxxxxx.*.xx) { <- edge:refs +#xx <- graph:cluster [ +#foo]  ->edge:refs }',
     ' +(syn:tag~=aka.*.mal.*)',
@@ -157,10 +157,7 @@ _Queries = [
     '[test:int=9 :loc=us.ओं]',
     '[test:int=99999]',
     '[test:pivcomp=(foo, 123)]',
-    '[test:str=a] switch $woot { hehe: {[+#baz]} }',
     '[test:str=beep test:str=boop]',
-    '[test:str=c] switch $woot { hehe: {[+#baz]} *: {[+#jaz]} }',
-    '[test:str=c] switch $woot { hehe: {[+#baz]} haha hoho: {[+#faz]} "lolz:lulz": {[+#jaz]} }',
     '[test:str=foo :tick=201808021201]',
     '[test:str=hehe] | iden abcd | count',
     '[test:str=hello]',
@@ -419,28 +416,6 @@ _Queries = [
     '''/* multi
          line */ test:int ''',
     '''
-        /* A
-            multiline
-            comment */
-        [ inet:ipv4=1.2.3.4 ] // this is a comment
-        // and this too...
-
-        switch $foo {
-
-            // The bar case...
-
-            bar: {
-                [ +#hehe.haha ]
-            }
-
-            /*
-                The
-                baz
-                case
-            */
-            baz faz: {}
-        } ''',
-    '''
         inet:fqdn | graph
                     --degrees 2
                     --filter { -#nope }
@@ -450,19 +425,6 @@ _Queries = [
                     --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
                     --form-pivot syn:tag {-> *}
                     --form-pivot * {-> #} ''',
-    '''
-        for $foo in $foos {
-
-            [ inet:ipv4=1.2.3.4 ]
-
-            switch $foo {
-                bar: { [ +#ohai ] break }
-                baz: { [ +#visi ] continue }
-            }
-
-            [ inet:ipv4=5.6.7.8 ]
-            [ +#hehe ]
-        } ''',
     '''
         for $foo in $foos {
 
@@ -520,7 +482,70 @@ _Queries = [
     'if $foo {[+#woot]} elif $(1-1) {[+#nowoot]} else {[+#nonowoot] }',
     '$foo=$(1 or 0 and 0)',
     '$foo=$(not 1 and 1)',
-    '$foo=$(not 1 > 1)'
+    '$foo=$(not 1 > 1)',
+    '#:lol',
+    '#baz.faz:lol',
+    'foo:bar#baz.faz:lol',
+    '#:lol=20',
+    '#baz.faz:lol=20',
+    'foo:bar#baz.faz:lol=20',
+    '+#foo.bar:lol',
+    '+#foo.bar:lol=20',
+    '[ -#baz.faz:lol ]',
+    '[ +#baz.faz:lol=20 ]',
+    '#tag:somegeoloctypebecauseihatelife*near=($lat, $long)',
+    '*$foo*near=20',
+    '[ test:str = $foo.woot.var.$bar.mar.$car ]',
+    'test:str = $foo.$\'space key\'.subkey',
+    '''
+    for $iterkey in $foo.$"bar key".$\'biz key\' {
+        inet:ipv4=$foo.$"bar key".$\'biz key\'.$iterkey
+    }
+    ''',
+    ''' [(ou:org=c71cd602f73af5bed208da21012fdf54 :loc=us )]''',
+    '[test:str=a] switch $node.form() { hehe: {[+#baz]} }',
+    '[test:str=a] switch $woot { hehe: {[+#baz]} }',
+    '[test:str=c] switch $woot { hehe: {[+#baz]} *: {[+#jaz]} }',
+    '[test:str=c] switch $woot { hehe: {[+#baz]} haha hoho: {[+#faz]} "lolz:lulz": {[+#jaz]} }',
+    '''
+        /* A
+            multiline
+            comment */
+        [ inet:ipv4=1.2.3.4 ] // this is a comment
+        // and this too...
+
+        switch $foo {
+
+            // The bar case...
+
+            bar: {
+                [ +#hehe.haha ]
+            }
+
+            /*
+                The
+                baz
+                case
+            */
+            baz faz: {}
+        } ''',
+    '''
+        for $foo in $foos {
+
+            [ inet:ipv4=1.2.3.4 ]
+
+            switch $foo {
+                bar: { [ +#ohai ] break }
+                baz: { [ +#visi ] continue }
+            }
+
+            [ inet:ipv4=5.6.7.8 ]
+            [ +#hehe ]
+        } ''',
+    'switch $a { "a": { } }',
+    'switch $a { "test:str" : { } * : {}}',
+    'switch $a { "test:this:works:" : { } * : {}}',
+    '''switch $a { 'single:quotes' : { } "doubele:quotes": {} noquotes: { } * : {}}''',
 ]
 
 # Generated with print_parse_list below
@@ -542,10 +567,10 @@ _ParseResults = [
     'Query: [LiftTag: [TagName: [Const: tag, VarValue: [Const: "escaped \\"string\\""]]]]',
     'Query: [FiltOper: [Const: +, TagCond: [TagMatch: [Const: tag, VarValue: [Const: "escaped \\"string\\""], Const: *]]]]',
     'Query: [EditTagAdd: [TagName: [Const: tag, VarValue: [Const: "escaped \\"string\\""]]]]',
+    'Query: [LiftProp: [Const: test:str], VarSetOper: [Const: some\x08var, FuncCall: [VarDeref: [VarValue: [Const: node], Const: repr], CallArgs: [], CallKwargs: []]]]',
     'Query: [VarSetOper: [Const: x, Const: 0], WhileLoop: [DollarExpr: [ExprNode: [VarValue: [Const: x], Const: <, Const: 10]], SubQuery: [Query: [VarSetOper: [Const: x, DollarExpr: [ExprNode: [VarValue: [Const: x], Const: +, Const: 1]]], EditNodeAdd: [AbsProp: test:int, Const: =, VarValue: [Const: x]]]]]]',
     'Query: [EditNodeAdd: [AbsProp: test:int, Const: ?=, Const: 4], EditNodeAdd: [AbsProp: test:int, Const: ?=, Const: nonono]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: foo], EditPropSet: [RelProp: [Const: :tick], Const: ?=, Const: 2019]]',
-    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: a], SwitchCase: [FuncCall: [VarDeref: [VarValue: [Const: node], Const: form], CallArgs: [], CallKwargs: []], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]]]]',
     'Query: [EditNodeAdd: [AbsProp: test:type10, Const: =, Const: 2], EditPropSet: [RelProp: [Const: :strprop], Const: =, Const: 1], CmdOper: [Const: spin, Const: ()], LiftProp: [Const: test:type10], FiltOper: [Const: +, DollarExpr: [RelPropValue: [RelProp: [Const: :strprop]]]], VarSetOper: [Const: foo, Const: 1], FiltOper: [Const: +, VarValue: [Const: foo]]]',
     'Query: [LiftFormTag: [Const: inet:fqdn, TagName: [Const: xxx.xxxxxx.xxxx.xx]], ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [Const: xxx.xxxxxx.*.xx], CallKwargs: []], SubQuery: [Query: [PivotInFrom: [AbsProp: edge:refs], isjoin=False, FiltOper: [Const: +, TagCond: [TagMatch: [Const: xx]]], PivotInFrom: [AbsProp: graph:cluster], isjoin=False, EditTagAdd: [TagName: [Const: foo]], FormPivot: [AbsProp: edge:refs], isjoin=False]]]]',
     'Query: [FiltOper: [Const: +, AbsPropCond: [AbsProp: syn:tag, Const: ~=, Const: aka.*.mal.*]]]',
@@ -577,8 +602,8 @@ _ParseResults = [
     'Query: [LiftProp: [Const: .created]]',
     'Query: [LiftPropBy: [Const: .created, Const: <, Const: 2010]]',
     'Query: [LiftPropBy: [Const: .created, Const: >, Const: 2010]]',
-    'Query: [LiftPropBy: [Const: .created, Const: *range=, List: [Const: 2010, Const: ?]]]',
-    'Query: [LiftPropBy: [Const: .created, Const: *range=, List: [Const: 2010, Const: 3001]]]',
+    'Query: [LiftPropBy: [Const: .created, Const: range=, List: [Const: 2010, Const: ?]]]',
+    'Query: [LiftPropBy: [Const: .created, Const: range=, List: [Const: 2010, Const: 3001]]]',
     'Query: [LiftPropBy: [Const: .created, Const: =, Const: 2001]]',
     'Query: [LiftPropBy: [Const: .created, Const: =, Const: {created}]]',
     'Query: [LiftProp: [Const: .seen], EditUnivDel: [UnivProp: [Const: .seen]]]',
@@ -669,29 +694,26 @@ _ParseResults = [
     'Query: [EditNodeAdd: [AbsProp: test:int, Const: =, Const: 9], EditPropSet: [RelProp: [Const: :loc], Const: =, Const: us.ओं]]',
     'Query: [EditNodeAdd: [AbsProp: test:int, Const: =, Const: 99999]]',
     'Query: [EditNodeAdd: [AbsProp: test:pivcomp, Const: =, List: [Const: foo, Const: 123]]]',
-    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: a], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]]]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: beep], EditNodeAdd: [AbsProp: test:str, Const: =, Const: boop]]',
-    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: c], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]], CaseEntry: [SubQuery: [Query: [EditTagAdd: [TagName: [Const: jaz]]]]]]]',
-    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: c], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]], CaseEntry: [Const: haha hoho, SubQuery: [Query: [EditTagAdd: [TagName: [Const: faz]]]]], CaseEntry: [Const: lolz:lulz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: jaz]]]]]]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: foo], EditPropSet: [RelProp: [Const: :tick], Const: =, Const: 201808021201]]',
     "Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: hehe], CmdOper: [Const: iden, Const: ('abcd',)], CmdOper: [Const: count, Const: ()]]",
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: hello]]',
-    'Query: [LiftProp: [Const: edge:refs], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :n1]], Const: *range=, List: [List: [Const: test:comp, List: [Const: 1000, Const: green]], List: [Const: test:comp, List: [Const: 3000, Const: ham]]]]]]',
+    'Query: [LiftProp: [Const: edge:refs], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :n1]], Const: range=, List: [List: [Const: test:comp, List: [Const: 1000, Const: green]], List: [Const: test:comp, List: [Const: 3000, Const: ham]]]]]]',
     'Query: [LiftProp: [Const: edge:refs]]',
     'Query: [LiftProp: [Const: edge:wentto]]',
     'Query: [LiftPropBy: [Const: file:bytes:size, Const: =, Const: 4]]',
     'Query: [ForLoop: [Const: fqdn, VarValue: [Const: fqdns], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:fqdn, Const: =, VarValue: [Const: fqdn]]]]]]',
     "Query: [ForLoop: [VarList: ['fqdn', 'ipv4'], VarValue: [Const: dnsa], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:dns:a, Const: =, List: [VarValue: [Const: fqdn], VarValue: [Const: ipv4]]]]]]]",
     "Query: [ForLoop: [VarList: ['fqdn', 'ipv4', 'boom'], VarValue: [Const: dnsa], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:dns:a, Const: =, List: [VarValue: [Const: fqdn], VarValue: [Const: ipv4]]]]]]]",
-    'Query: [LiftProp: [Const: geo:place], FiltOper: [Const: +, AbsPropCond: [AbsProp: geo:place:latlong, Const: *near=, List: [List: [Const: 34.1, Const: -118.3], Const: 10km]]]]',
-    'Query: [LiftProp: [Const: geo:place], FiltOper: [Const: -, RelPropCond: [RelPropValue: [RelProp: [Const: :latlong]], Const: *near=, List: [List: [Const: 34.1, Const: -118.3], Const: 50m]]]]',
-    'Query: [LiftPropBy: [Const: geo:place:latlong, Const: *near=, List: [List: [Const: 34.118560, Const: -118.300370], Const: 2600m]]]',
-    'Query: [LiftPropBy: [Const: geo:place:latlong, Const: *near=, List: [List: [Const: 34.118560, Const: -118.300370], Const: 50m]]]',
-    'Query: [LiftPropBy: [Const: geo:place:latlong, Const: *near=, List: [List: [Const: 0, Const: 0], Const: 50m]]]',
-    'Query: [LiftPropBy: [Const: geo:place:latlong, Const: *near=, List: [List: [Const: 34.1, Const: -118.3], Const: 10km]]]',
+    'Query: [LiftProp: [Const: geo:place], FiltOper: [Const: +, AbsPropCond: [AbsProp: geo:place:latlong, Const: near=, List: [List: [Const: 34.1, Const: -118.3], Const: 10km]]]]',
+    'Query: [LiftProp: [Const: geo:place], FiltOper: [Const: -, RelPropCond: [RelPropValue: [RelProp: [Const: :latlong]], Const: near=, List: [List: [Const: 34.1, Const: -118.3], Const: 50m]]]]',
+    'Query: [LiftPropBy: [Const: geo:place:latlong, Const: near=, List: [List: [Const: 34.118560, Const: -118.300370], Const: 2600m]]]',
+    'Query: [LiftPropBy: [Const: geo:place:latlong, Const: near=, List: [List: [Const: 34.118560, Const: -118.300370], Const: 50m]]]',
+    'Query: [LiftPropBy: [Const: geo:place:latlong, Const: near=, List: [List: [Const: 0, Const: 0], Const: 50m]]]',
+    'Query: [LiftPropBy: [Const: geo:place:latlong, Const: near=, List: [List: [Const: 34.1, Const: -118.3], Const: 10km]]]',
     'Query: [LiftPropBy: [Const: geo:place, Const: =, VarValue: [Const: place]], PivotInFrom: [AbsProp: edge:has], isjoin=False, PivotIn: [], isjoin=False]',
     'Query: [LiftPropBy: [Const: geo:place, Const: =, VarValue: [Const: place]], PivotInFrom: [AbsProp: edge:has], isjoin=False, PivotInFrom: [AbsProp: ps:person], isjoin=False]',
-    'Query: [LiftPropBy: [Const: geo:place, Const: =, Const: abcd], VarSetOper: [Const: latlong, RelPropValue: [RelProp: [Const: :latlong]]], VarSetOper: [Const: radius, RelPropValue: [RelProp: [Const: :radius]]], CmdOper: [Const: spin, Const: ()], LiftPropBy: [Const: tel:mob:telem:latlong, Const: *near=, List: [VarValue: [Const: latlong], Const: 3km]]]',
+    'Query: [LiftPropBy: [Const: geo:place, Const: =, Const: abcd], VarSetOper: [Const: latlong, RelPropValue: [RelProp: [Const: :latlong]]], VarSetOper: [Const: radius, RelPropValue: [RelProp: [Const: :radius]]], CmdOper: [Const: spin, Const: ()], LiftPropBy: [Const: tel:mob:telem:latlong, Const: near=, List: [VarValue: [Const: latlong], Const: 3km]]]',
     "Query: [LiftPropBy: [Const: graph:cluster, Const: =, Const: abcd], CmdOper: [Const: noderefs, Const: ('-d', '2', '--join')]]",
     'Query: [CmdOper: [Const: help, Const: ()]]',
     "Query: [CmdOper: [Const: iden, Const: ('2cdd997872b10a65407ad5fadfa28e0d',)]]",
@@ -714,7 +736,7 @@ _ParseResults = [
     'Query: [LiftPropBy: [Const: inet:dns:a, Const: =, List: [Const: woot.com, Const: 1.2.3.4]], EditPropSet: [UnivProp: [Const: .seen], Const: =, List: [Const: 2015, Const: 2018]]]',
     'Query: [LiftPropBy: [Const: inet:dns:query, Const: =, List: [Const: tcp://1.2.3.4, Const: , Const: 1]], PropPivot: [RelPropValue: [RelProp: [Const: :name]], AbsProp: inet:fqdn], isjoin=False]',
     'Query: [LiftPropBy: [Const: inet:dns:query, Const: =, List: [Const: tcp://1.2.3.4, Const: foo*.haha.com, Const: 1]], PropPivot: [RelPropValue: [RelProp: [Const: :name]], AbsProp: inet:fqdn], isjoin=False]',
-    'Query: [LiftProp: [Const: inet:fqdn], FiltOper: [Const: +, TagCond: [TagMatch: [Const: bad]]], VarSetOper: [Const: fqdnbad, TagPropValue: [TagName: [Const: bad]]], FormPivot: [AbsProp: inet:dns:a:fqdn], isjoin=False, FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, VarValue: [Const: fqdnbad]]]]',
+    'Query: [LiftProp: [Const: inet:fqdn], FiltOper: [Const: +, TagCond: [TagMatch: [Const: bad]]], VarSetOper: [Const: fqdnbad, TagValue: [TagName: [Const: bad]]], FormPivot: [AbsProp: inet:dns:a:fqdn], isjoin=False, FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, VarValue: [Const: fqdnbad]]]]',
     'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: woot.com], FormPivot: [AbsProp: inet:dns:a], isjoin=False, FormPivot: [AbsProp: inet:ipv4], isjoin=False]',
     'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: woot.com], FormPivot: [AbsProp: inet:dns:a], isjoin=False]',
     'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: woot.com], CmdOper: [Const: delnode, Const: ()]]',
@@ -769,15 +791,15 @@ _ParseResults = [
     'Query: [LiftProp: [Const: test:comp], FiltOper: [Const: +, AndCond: [RelPropCond: [RelPropValue: [RelProp: [Const: :hehe]], Const: <, Const: 2], RelPropCond: [RelPropValue: [RelProp: [Const: :haha]], Const: =, Const: test]]]]',
     'Query: [LiftProp: [Const: test:comp], FiltOper: [Const: +, OrCond: [RelPropCond: [RelPropValue: [RelProp: [Const: :hehe]], Const: <, Const: 2], TagCond: [TagMatch: [Const: meep.gorp]]]]]',
     'Query: [LiftProp: [Const: test:comp], FiltOper: [Const: +, OrCond: [RelPropCond: [RelPropValue: [RelProp: [Const: :hehe]], Const: <, Const: 2], RelPropCond: [RelPropValue: [RelProp: [Const: :haha]], Const: =, Const: test]]]]',
-    'Query: [LiftProp: [Const: test:comp], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :haha]], Const: *range=, List: [Const: grinch, Const: meanone]]]]',
-    'Query: [LiftProp: [Const: test:comp], FiltOper: [Const: +, AbsPropCond: [AbsProp: test:comp, Const: *range=, List: [List: [Const: 1024, Const: grinch], List: [Const: 4096, Const: zemeanone]]]]]',
+    'Query: [LiftProp: [Const: test:comp], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :haha]], Const: range=, List: [Const: grinch, Const: meanone]]]]',
+    'Query: [LiftProp: [Const: test:comp], FiltOper: [Const: +, AbsPropCond: [AbsProp: test:comp, Const: range=, List: [List: [Const: 1024, Const: grinch], List: [Const: 4096, Const: zemeanone]]]]]',
     'Query: [LiftProp: [Const: test:comp], PivotOut: [], isjoin=False, CmdOper: [Const: uniq, Const: ()], CmdOper: [Const: count, Const: ()]]',
     'Query: [LiftProp: [Const: test:comp], PivotOut: [], isjoin=False]',
     'Query: [LiftProp: [Const: test:comp], FormPivot: [AbsProp: test:int], isjoin=False]',
     'Query: [LiftPropBy: [Const: test:comp:haha, Const: ~=, Const: ^lulz]]',
     'Query: [LiftPropBy: [Const: test:comp:haha, Const: ~=, Const: ^zerg]]',
     'Query: [LiftFormTag: [Const: test:comp, TagName: [Const: bar]], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :hehe]], Const: =, Const: 1010]], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :haha]], Const: =, Const: test10]], FiltOper: [Const: +, TagCond: [TagMatch: [Const: bar]]]]',
-    'Query: [LiftProp: [Const: test:guid], FiltOper: [Const: +, AbsPropCond: [AbsProp: test:guid, Const: *range=, List: [Const: abcd, Const: dcbe]]]]',
+    'Query: [LiftProp: [Const: test:guid], FiltOper: [Const: +, AbsPropCond: [AbsProp: test:guid, Const: range=, List: [Const: abcd, Const: dcbe]]]]',
     "Query: [LiftProp: [Const: test:guid], CmdOper: [Const: max, Const: ('tick',)]]",
     "Query: [LiftProp: [Const: test:guid], CmdOper: [Const: min, Const: ('tick',)]]",
     'Query: [LiftProp: [Const: test:int], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :loc]], Const: =, Const: ]]]',
@@ -796,7 +818,7 @@ _ParseResults = [
     'Query: [LiftProp: [Const: test:int], FiltOper: [Const: +, AbsPropCond: [AbsProp: test:int, Const: <, Const: 30]]]',
     'Query: [LiftProp: [Const: test:int], FiltOper: [Const: +, AbsPropCond: [AbsProp: test:int, Const: <=, Const: 30]]]',
     'Query: [LiftPropBy: [Const: test:int, Const: <=, Const: 20]]',
-    'Query: [LiftProp: [Const: test:int], CmdOper: [Const: noderefs, Const: ()], FiltOper: [Const: +, AbsPropCond: [AbsProp: test:comp, Const: *range=, List: [List: [Const: 1000, Const: grinch], List: [Const: 4000, Const: whoville]]]]]',
+    'Query: [LiftProp: [Const: test:int], CmdOper: [Const: noderefs, Const: ()], FiltOper: [Const: +, AbsPropCond: [AbsProp: test:comp, Const: range=, List: [List: [Const: 1000, Const: grinch], List: [Const: 4000, Const: whoville]]]]]',
     'Query: [LiftPropBy: [Const: test:int:loc, Const: =, Const: ]]',
     'Query: [LiftPropBy: [Const: test:int:loc, Const: =, Const: u]]',
     'Query: [LiftPropBy: [Const: test:int:loc, Const: =, Const: us]]',
@@ -833,7 +855,7 @@ _ParseResults = [
     'Query: [LiftPropBy: [Const: test:pivcomp, Const: =, List: [Const: foo, Const: bar]], PropPivot: [RelPropValue: [RelProp: [Const: :lulz]], AbsProp: test:str], isjoin=True]',
     'Query: [LiftPropBy: [Const: test:pivcomp, Const: =, List: [Const: foo, Const: bar]], PropPivot: [RelPropValue: [RelProp: [Const: :lulz]], AbsProp: test:str], isjoin=False]',
     'Query: [LiftPropBy: [Const: test:pivcomp, Const: =, List: [Const: foo, Const: bar]], PropPivot: [RelPropValue: [RelProp: [Const: :targ]], AbsProp: test:pivtarg], isjoin=False]',
-    'Query: [LiftPropBy: [Const: test:pivcomp, Const: =, List: [Const: hehe, Const: haha]], VarSetOper: [Const: ticktock, TagPropValue: [TagName: [Const: foo]]], FormPivot: [AbsProp: test:pivtarg], isjoin=False, FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, VarValue: [Const: ticktock]]]]',
+    'Query: [LiftPropBy: [Const: test:pivcomp, Const: =, List: [Const: hehe, Const: haha]], VarSetOper: [Const: ticktock, TagValue: [TagName: [Const: foo]]], FormPivot: [AbsProp: test:pivtarg], isjoin=False, FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, VarValue: [Const: ticktock]]]]',
     'Query: [LiftPropBy: [Const: test:pivcomp, Const: =, List: [Const: hehe, Const: haha]]]',
     'Query: [LiftPropBy: [Const: test:pivtarg, Const: =, Const: hehe], EditPropSet: [UnivProp: [Const: .seen], Const: =, Const: 2015]]',
     'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, TagCond: [TagMatch: [Const: *]]]]',
@@ -846,9 +868,9 @@ _ParseResults = [
     'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, TagValuCond: [TagMatch: [Const: foo], Const: @=, List: [Const: 2014, Const: 20141231]]]]',
     'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, TagValuCond: [TagMatch: [Const: foo], Const: @=, List: [Const: 2015, Const: 2018]]]]',
     'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, TagValuCond: [TagMatch: [Const: foo], Const: @=, Const: 2016]]]',
-    'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :.seen]], Const: *range=, List: [List: [Const: 20090601, Const: 20090701], List: [Const: 20110905, Const: 20110906]]]]]',
-    'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :bar]], Const: *range=, List: [List: [Const: test:str, Const: c], List: [Const: test:str, Const: q]]]]]',
-    'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :tick]], Const: *range=, List: [Const: 19701125, Const: 20151212]]]]',
+    'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :.seen]], Const: range=, List: [List: [Const: 20090601, Const: 20090701], List: [Const: 20110905, Const: 20110906]]]]]',
+    'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :bar]], Const: range=, List: [List: [Const: test:str, Const: c], List: [Const: test:str, Const: q]]]]]',
+    'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :tick]], Const: range=, List: [Const: 19701125, Const: 20151212]]]]',
     'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :tick]], Const: =, List: [VarValue: [Const: test], Const: +- 2day]]]]',
     'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :tick]], Const: =, List: [Const: 2015, Const: +1 day]]]]',
     'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :tick]], Const: =, List: [Const: 20150102, Const: -3 day]]]]',
@@ -895,7 +917,7 @@ _ParseResults = [
     "Query: [LiftPropBy: [Const: test:str, Const: =, Const: 123], CmdOper: [Const: noderefs, Const: ('--traverse-edge',)]]",
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: 123], CmdOper: [Const: noderefs, Const: ()]]',
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: 1234], LiftPropBy: [Const: test:str, Const: =, Const: duck], LiftPropBy: [Const: test:str, Const: =, Const: knight]]',
-    'Query: [LiftPropBy: [Const: test:str, Const: =, Const: a], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :tick]], Const: *range=, List: [Const: 20000101, Const: 20101201]]]]',
+    'Query: [LiftPropBy: [Const: test:str, Const: =, Const: a], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :tick]], Const: range=, List: [Const: 20000101, Const: 20101201]]]]',
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: bar], FormPivot: [AbsProp: test:pivcomp:lulz], isjoin=True]',
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: bar], FormPivot: [AbsProp: test:pivcomp:lulz], isjoin=False]',
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: bar], PivotIn: [], isjoin=True]',
@@ -914,8 +936,8 @@ _ParseResults = [
     "Query: [LiftPropBy: [Const: test:str, Const: =, Const: pennywise], CmdOper: [Const: noderefs, Const: ('-d', '3', '--omit-traversal-tag=omit.nopiv', '--omit-traversal-tag=test')]]",
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: visi], PivotToTags: [TagMatch: [Const: *]], isjoin=False]',
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: visi], PivotToTags: [TagMatch: [Const: foo.*]], isjoin=False]',
-    'Query: [LiftPropBy: [Const: test:str, Const: =, Const: woot], VarSetOper: [Const: foo, TagPropValue: [TagName: [Const: foo]]], FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, VarValue: [Const: foo]]]]',
-    'Query: [LiftPropBy: [Const: test:str, Const: =, Const: woot], FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, TagPropValue: [TagName: [Const: bar]]]]]',
+    'Query: [LiftPropBy: [Const: test:str, Const: =, Const: woot], VarSetOper: [Const: foo, TagValue: [TagName: [Const: foo]]], FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, VarValue: [Const: foo]]]]',
+    'Query: [LiftPropBy: [Const: test:str, Const: =, Const: woot], FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, TagValue: [TagName: [Const: bar]]]]]',
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: woot], FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, List: [Const: 2012, Const: 2015]]]]',
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: woot], FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, Const: 2012]]]',
     'Query: [LiftPropBy: [Const: test:str, Const: ~=, Const: zip]]',
@@ -923,9 +945,7 @@ _ParseResults = [
     'Query: [LiftProp: [Const: test:int]]',
     'Query: [LiftProp: [Const: test:int]]',
     'Query: [LiftProp: [Const: test:int]]',
-    'Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: hehe.haha]]]]], CaseEntry: [Const: baz faz, SubQuery: [Query: []]]]]',
     "Query: [LiftProp: [Const: inet:fqdn], CmdOper: [Const: graph, Const: ('--degrees', '2', '--filter', '{ -#nope }', '--pivot', '{ <- meta:seen <- meta:source }', '--form-pivot', 'inet:fqdn', '{<- * | limit 20}', '--form-pivot', 'inet:fqdn', '{-> * | limit 20}', '--form-filter', 'inet:fqdn', '{-inet:fqdn:issuffix=1}', '--form-pivot', 'syn:tag', '{-> *}', '--form-pivot', '*', '{-> #}')]]",
-    'Query: [ForLoop: [Const: foo, VarValue: [Const: foos], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: ohai]], BreakOper: []]]], CaseEntry: [Const: baz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: visi]], ContinueOper: []]]]], EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 5.6.7.8], EditTagAdd: [TagName: [Const: hehe]]]]]]',
     "Query: [ForLoop: [Const: foo, VarValue: [Const: foos], SubQuery: [Query: [VarListSetOper: [VarList: ['fqdn', 'ipv4'], FuncCall: [VarDeref: [VarValue: [Const: foo], Const: split], CallArgs: [Const: |], CallKwargs: []]], EditNodeAdd: [AbsProp: inet:dns:a, Const: =, List: [VarValue: [Const: fqdn], VarValue: [Const: ipv4]]]]]]]",
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [], CallKwargs: []], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False, EditTagAdd: [VarValue: [Const: tag]]]]]]',
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [Const: fo*], CallKwargs: []], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False, EditTagDel: [VarValue: [Const: tag]]]]]]',
@@ -954,6 +974,32 @@ _ParseResults = [
     'Query: [VarSetOper: [Const: foo, DollarExpr: [ExprNode: [Const: 1, Const: or, ExprNode: [Const: 0, Const: and, Const: 0]]]]]',
     'Query: [VarSetOper: [Const: foo, DollarExpr: [ExprNode: [UnaryExprNode: [Const: not, Const: 1], Const: and, Const: 1]]]]',
     'Query: [VarSetOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, ExprNode: [Const: 1, Const: >, Const: 1]]]]]',
+    'Query: [LiftOnlyTagProp: [OnlyTagProp: [Const: lol]]]',
+    'Query: [LiftTagProp: [TagProp: [Const: baz.faz, Const: lol]]]',
+    'Query: [LiftFormTagProp: [FormTagProp: [Const: foo:bar, Const: baz.faz, Const: lol]]]',
+    'Query: [LiftOnlyTagProp: [OnlyTagProp: [Const: lol], Const: =, Const: 20]]',
+    'Query: [LiftTagProp: [TagProp: [Const: baz.faz, Const: lol], Const: =, Const: 20]]',
+    'Query: [LiftFormTagProp: [FormTagProp: [Const: foo:bar, Const: baz.faz, Const: lol], Const: =, Const: 20]]',
+    'Query: [FiltOper: [Const: +, HasTagPropCond: [TagProp: [Const: foo.bar, Const: lol]]]]',
+    'Query: [FiltOper: [Const: +, TagPropCond: [TagProp: [Const: foo.bar, Const: lol], Const: =, Const: 20]]]',
+    'Query: [EditTagPropDel: [TagProp: [Const: baz.faz, Const: lol]]]',
+    'Query: [EditTagPropSet: [TagProp: [Const: baz.faz, Const: lol], Const: =, Const: 20]]',
+    'Query: [LiftTagProp: [TagProp: [Const: tag, Const: somegeoloctypebecauseihatelife], Const: near=, List: [VarValue: [Const: lat], VarValue: [Const: long]]]]',
+    'Query: [LiftPropBy: [VarValue: [Const: foo], Const: near=, Const: 20]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, VarDeref: [VarDeref: [VarDeref: [VarDeref: [VarDeref: [VarValue: [Const: foo], Const: woot], Const: var], VarValue: [Const: bar]], Const: mar], VarValue: [Const: car]]]]',
+    'Query: [LiftPropBy: [Const: test:str, Const: =, VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: space key]], Const: subkey]]]',
+    'Query: [ForLoop: [Const: iterkey, VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: bar key]], VarValue: [Const: biz key]], SubQuery: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, VarDeref: [VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: bar key]], VarValue: [Const: biz key]], VarValue: [Const: iterkey]]]]]]]',
+    'Query: [EditParens: [EditNodeAdd: [AbsProp: ou:org, Const: =, Const: c71cd602f73af5bed208da21012fdf54], EditPropSet: [RelProp: [Const: :loc], Const: =, Const: us]]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: a], SwitchCase: [FuncCall: [VarDeref: [VarValue: [Const: node], Const: form], CallArgs: [], CallKwargs: []], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]]]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: a], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]]]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: c], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]], CaseEntry: [SubQuery: [Query: [EditTagAdd: [TagName: [Const: jaz]]]]]]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: c], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]], CaseEntry: [Const: haha hoho, SubQuery: [Query: [EditTagAdd: [TagName: [Const: faz]]]]], CaseEntry: [Const: lolz:lulz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: jaz]]]]]]]',
+    'Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: hehe.haha]]]]], CaseEntry: [Const: baz faz, SubQuery: [Query: []]]]]',
+    'Query: [ForLoop: [Const: foo, VarValue: [Const: foos], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: ohai]], BreakOper: []]]], CaseEntry: [Const: baz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: visi]], ContinueOper: []]]]], EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 5.6.7.8], EditTagAdd: [TagName: [Const: hehe]]]]]]',
+    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: a, SubQuery: [Query: []]]]]',
+    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:str, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]',
+    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:this:works:, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]',
+    "Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: single:quotes, SubQuery: [Query: []]], CaseEntry: [Const: doubele:quotes, SubQuery: [Query: []]], CaseEntry: [Const: noquotes, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]",
 ]
 
 class GrammarTest(s_t_utils.SynTest):
@@ -1018,6 +1064,56 @@ class GrammarTest(s_t_utils.SynTest):
         parser = s_grammar.Parser(query)
         self.raises(s_exc.BadSyntax, parser.query)
 
+    async def test_quotes(self):
+
+        # Test vectors
+        queries = ((r'''[test:str="WORDS \"THINGS STUFF.\""]''', 'WORDS "THINGS STUFF."'),
+                   (r'''[test:str='WORDS "THINGS STUFF."']''', 'WORDS "THINGS STUFF."'),
+                   (r'''[test:str="\""]''', '"'),
+                   (r'''[test:str="hello\\world!"]''', 'hello\\world!'),
+                   (r'''[test:str="hello\\\"world!"]''', 'hello\\"world!'),
+                   # Single quoted string
+                   (r'''[test:str='hello\\\"world!']''', 'hello\\\\\\"world!'),
+                   (r'''[test:str='hello\t"world!']''', 'hello\\t"world!'),
+                   # TAB
+                   (r'''[test:str="hello\tworld!"]''', 'hello\tworld!'),
+                   (r'''[test:str="hello\\tworld!"]''', 'hello\\tworld!'),
+                   (r'''[test:str="hello\\\tworld!"]''', 'hello\\\tworld!'),
+                   # LF / Newline
+                   (r'''[test:str="hello\nworld!"]''', 'hello\nworld!'),
+                   (r'''[test:str="hello\\nworld!"]''', 'hello\\nworld!'),
+                   (r'''[test:str="hello\\\nworld!"]''', 'hello\\\nworld!'),
+                   # CR / Carriage returns
+                   (r'''[test:str="hello\rworld!"]''', 'hello\rworld!'),
+                   (r'''[test:str="hello\\rworld!"]''', 'hello\\rworld!'),
+                   (r'''[test:str="hello\\\rworld!"]''', 'hello\\\rworld!'),
+                   # single quote escape
+                   (r'''[test:str="hello\'world!"]''', '''hello'world!'''),
+                   (r'''[test:str="hello'world!"]''', '''hello'world!'''),  # escape isn't technically required
+                   # BEL
+                   (r'''[test:str="hello\aworld!"]''', '''hello\aworld!'''),
+                   # BS
+                   (r'''[test:str="hello\bworld!"]''', '''hello\bworld!'''),
+                   # FF
+                   (r'''[test:str="hello\fworld!"]''', '''hello\fworld!'''),
+                   # VT
+                   (r'''[test:str="hello\vworld!"]''', '''hello\vworld!'''),
+                   # \xhh - hex
+                   (r'''[test:str="hello\xffworld!"]''', '''hello\xffworld!'''),
+                   # \ooo - octal
+                   (r'''[test:str="hello\040world!"]''', '''hello world!'''),
+                   # Items encoded as a python literal object wrapped in quotes
+                   # are not turned into their corresponding item, they are
+                   # treated as strings.
+                   (r'''[test:str="{'key': 'valu'}"]''', '''{'key': 'valu'}'''),
+                   )
+
+        async with self.getTestCore() as core:
+            for (query, valu) in queries:
+                nodes = await core.nodes(query)
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef[1], valu)
+
     def test_isre_funcs(self):
 
         self.true(s_grammar.isCmdName('testcmd'))
@@ -1040,6 +1136,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.false(s_grammar.isUnivName('test:str.haha.hehe'))
         self.true(s_grammar.isUnivName('.foo:x'))
         self.true(s_grammar.isUnivName('.x:foo'))
+        self.true(s_grammar.isUnivName('._haha'))
 
         self.true(s_grammar.isFormName('test:str'))
         self.true(s_grammar.isFormName('t2:str'))
@@ -1054,6 +1151,8 @@ class GrammarTest(s_t_utils.SynTest):
 
         self.true(s_grammar.isPropName('test:str'))
         self.true(s_grammar.isPropName('test:str:tick'))
+        self.true(s_grammar.isPropName('test:str:_tick'))
+        self.true(s_grammar.isPropName('_test:str:_tick'))
         self.true(s_grammar.isPropName('test:str:str123'))
         self.true(s_grammar.isPropName('test:str:123str'))
         self.true(s_grammar.isPropName('test:str:123:456'))
@@ -1082,3 +1181,6 @@ def gen_parse_list():
 def print_parse_list():
     for i in gen_parse_list():
         print(f'    {repr(i)},')
+
+if __name__ == '__main__':
+    print_parse_list()

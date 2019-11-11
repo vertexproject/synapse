@@ -463,7 +463,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             self.printf('No cron jobs found')
             return
         self.printf(
-                f'{"user":10} {"iden":10} {"en?":3} {"rpt?":4} {"now?":4} {"err?":4} '
+            f'{"user":10} {"iden":10} {"en?":3} {"rpt?":4} {"now?":4} {"err?":4} '
             f'{"# start":7} {"last start":16} {"last end":16} {"query"}')
 
         for iden, cron in cronlist:

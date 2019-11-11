@@ -141,6 +141,8 @@ testmodel = {
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
 
+        ('test:arrayprop', ('guid', {}), {}),
+
         ('test:comp', ('comp', {'fields': (
             ('hehe', 'test:int'),
             ('haha', 'test:lower'))
@@ -166,10 +168,14 @@ testmodel = {
 
     'univs': (
         ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
+        ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
     ),
 
     'forms': (
 
+        ('test:arrayprop', {}, (
+            ('ints', ('array', {'type': 'test:int'}), {}),
+        )),
         ('test:type10', {}, (
 
             ('intprop', ('int', {'min': 20, 'max': 30}), {
@@ -318,6 +324,9 @@ class TestModule(s_module.CoreModule):
 
         self.core.addStormLib(('test',), LibTst)
 
+        self.healthy = True
+        self.core.addHealthFunc(self._testModHealth)
+
         self._runtsByBuid = {}
         self._runtsByPropValu = collections.defaultdict(list)
         await self._initTestRunts()
@@ -329,8 +338,16 @@ class TestModule(s_module.CoreModule):
             for name, prop in form.props.items():
                 pfull = prop.full
                 self.core.addRuntLift(pfull, self._testRuntLift)
-        self.core.addRuntPropSet(self.model.prop('test:runt:lulz'), self._testRuntPropSetLulz)
-        self.core.addRuntPropDel(self.model.prop('test:runt:lulz'), self._testRuntPropDelLulz)
+        self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
+        self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
+
+    async def _testModHealth(self, health):
+        if self.healthy:
+            health.update(self.getModName(), 'nominal',
+                          'Test module is healthy', data={'beep': 0})
+        else:
+            health.update(self.getModName(), 'failed',
+                          'Test module is unhealthy', data={'beep': 1})
 
     async def addTestRecords(self, snap, items):
         for name in items:

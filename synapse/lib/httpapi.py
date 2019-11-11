@@ -1,5 +1,6 @@
 import json
 import base64
+import asyncio
 import logging
 
 from urllib.parse import urlparse
@@ -133,12 +134,12 @@ class HandlerBase:
 
         return True
 
-    async def reqAuthAllowed(self, *path):
+    async def reqAuthAllowed(self, path):
         '''
         Helper method that subclasses can use for user permission checking.
 
         Args:
-            *path: Permission path components to check.
+            path: Tuple of permission path components to check.
 
         Notes:
             This will call reqAuthUser() to ensure that there is a valid user.
@@ -152,7 +153,7 @@ class HandlerBase:
 
                 class ReqAuthHandler(s_httpapi.Handler):
                     async def get(self):
-                        if not await self.reqAuthAllowed('syn:test'):
+                        if not await self.reqAuthAllowed(('syn:test', )):
                             return
                      return self.sendRestRetn({'data': 'everything is awesome!'})
 
@@ -243,7 +244,21 @@ class HandlerBase:
         return await self.user() is not None
 
 class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
-    pass
+
+    async def xmit(self, name, **info):
+        await self.write_message(json.dumps({'type': name, 'data': info}))
+
+    async def _reqUserAllow(self, perm):
+
+        user = await self.user()
+        if user is None:
+            mesg = 'Session is not authenticated.'
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm)
+
+        if not user.allowed(perm):
+            ptxt = '.'.join(perm)
+            mesg = f'Permission denied: {ptxt}.'
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm)
 
 class Handler(HandlerBase, t_web.RequestHandler):
     pass
@@ -298,6 +313,45 @@ class StormV1(Handler):
         async for mesg in self.cell.streamstorm(query, opts=opts, user=user):
             self.write(json.dumps(mesg))
             await self.flush()
+
+class WatchSockV1(WebSocket):
+    '''
+    A web-socket based API endpoint for distributing cortex events.
+    '''
+    async def onWatchMesg(self, byts):
+
+        try:
+
+            wdef = json.loads(byts)
+            iden = wdef.get('view', self.cell.view.iden)
+
+            perm = ('watch', 'view', iden)
+            await self._reqUserAllow(perm)
+
+            async with self.cell.watcher(wdef) as watcher:
+
+                await self.xmit('init')
+
+                async for mesg in watcher:
+                    await self.xmit(mesg[0], **mesg[1])
+
+                # pragma: no cover
+                # (this would only happen on slow-consumer)
+                await self.xmit('fini')
+
+        except s_exc.SynErr as e:
+
+            text = e.get('mesg', str(e))
+            await self.xmit('errx', code=e.__class__.__name__, mesg=text)
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception as e:
+            await self.xmit('errx', code=e.__class__.__name__, mesg=str(e))
+
+    async def on_message(self, byts):
+        self.cell.schedCoro(self.onWatchMesg(byts))
 
 class LoginV1(Handler):
 
@@ -408,6 +462,33 @@ class AuthUserV1(Handler):
         if archived is not None:
             await user.setArchived(bool(archived))
 
+        self.sendRestRetn(user.pack())
+
+class AuthUserPasswdV1(Handler):
+
+    async def post(self, iden):
+
+        if not await self.reqAuthUser():
+            return
+        current_user = await self.user()
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        user = self.cell.auth.user(iden)
+        if user is None:
+            self.sendRestErr('NoSuchUser', f'User does not exist: {iden}')
+            return
+
+        password = body.get('passwd')
+
+        if current_user.admin or current_user.iden == user.iden:
+            try:
+                await user.setPasswd(password)
+            except s_exc.BadArg as e:
+                self.sendRestErr('BadArg', e.get('mesg'))
+                return
         self.sendRestRetn(user.pack())
 
 class AuthRoleV1(Handler):
@@ -644,4 +725,12 @@ class ModelV1(Handler):
             return
 
         resp = await self.cell.getModelDict()
+        return self.sendRestRetn(resp)
+
+class HealthCheckV1(Handler):
+
+    async def get(self):
+        if not await self.reqAuthAllowed(('health', )):
+            return
+        resp = await self.cell.getHealthCheck()
         return self.sendRestRetn(resp)

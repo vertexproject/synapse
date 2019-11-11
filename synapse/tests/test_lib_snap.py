@@ -4,6 +4,8 @@ import asyncio
 import contextlib
 import collections
 
+import synapse.exc as s_exc
+
 import synapse.lib.coro as s_coro
 
 from synapse.tests.utils import alist
@@ -42,6 +44,18 @@ class SnapTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 nodes = await alist(snap.addFeedNodes('test.genr', []))
                 self.len(2, nodes)
+
+            # Sad path test
+            async def notagenr(snap, items):
+                pass
+
+            core.setFeedFunc('syn.notagenr', notagenr)
+
+            with self.raises(s_exc.BadCtorType) as cm:
+                await alist(snap.addFeedNodes('syn.notagenr', []))
+
+            self.eq(cm.exception.get('mesg'),
+                    "feed func returned a <class 'coroutine'>, not an async generator.")
 
     async def test_same_node_different_object(self):
         '''
@@ -263,3 +277,11 @@ class SnapTest(s_t_utils.SynTest):
             # now set one to a diff value that we will ask for but should be masked
             self.len(1, await core0.eval('[ inet:ipv4=1.2.3.4 :asn=99 ]').list())
             self.len(0, await core1.eval('inet:ipv4:asn=99').list())
+
+    async def test_cortex_lift_bytype(self):
+        async with self.getTestCore() as core:
+            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
+            nodes = await core.nodes('inet:ipv4*type=1.2.3.4')
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', 0x01020304)))

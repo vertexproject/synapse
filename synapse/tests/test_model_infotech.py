@@ -53,6 +53,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
     async def test_it_forms_simple(self):
         async with self.getTestCore() as core:
+            place = s_common.guid()
             async with await core.snap() as snap:
                 node = await snap.addNode('it:hostname', 'Bobs Computer')
                 self.eq(node.ndef[1], 'bobs computer')
@@ -63,7 +64,11 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'desc': 'Bobs paperweight',
                     'ipv4': '1.2.3.4',
                     'latlong': '0.0, 0.0',
+                    'place': place,
                     'os': sver0,
+                    'manu': 'Dull',
+                    'model': 'Lutitude 8249',
+                    'serial': '111-222',
                 }
                 node = await snap.addNode('it:host', host0, hprops)
                 self.eq(node.ndef[1], host0)
@@ -71,6 +76,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('desc'), 'Bobs paperweight')
                 self.eq(node.get('ipv4'), 0x01020304)
                 self.eq(node.get('latlong'), (0.0, 0.0))
+                self.eq(node.get('place'), place)
                 self.eq(node.get('os'), sver0)
 
                 node = await snap.addNode('it:hosturl', (host0, 'http://vertex.ninja/cool.php'))
