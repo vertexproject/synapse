@@ -389,7 +389,7 @@ class StormSvcTest(s_test.SynTest):
 
                         await chngd.fini()
 
-                        cdef=OldServiceAPI._storm_svc_cmds[0]
+                        cdef = OldServiceAPI._storm_svc_cmds[0]
                         cdef['cmdconf'] = {'svciden': 'fakeiden'}
                         await core.setStormCmd(cdef)
 
