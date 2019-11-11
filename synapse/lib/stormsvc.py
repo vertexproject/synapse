@@ -172,6 +172,12 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
             except Exception:
                 logger.exception(f'service.add storm hook failed for service {self.name} ({self.iden})')
 
+        async def unready():
+            self.ready.clear()
+            await self.core.fire("stormsvc:client:unready")
+
+        proxy.onfini(unready)
+
         self.ready.set()
 
     async def deref(self, name):
