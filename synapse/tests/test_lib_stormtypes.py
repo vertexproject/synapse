@@ -456,6 +456,16 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 3))
 
+            q = '''$set = $lib.set(a, b, c)
+            for $v in $set {
+                $lib.print('set valu: {v}', v=$v)
+            }
+            '''
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('set valu: a', mesgs)
+            self.stormIsInPrint('set valu: b', mesgs)
+            self.stormIsInPrint('set valu: c', mesgs)
+
     async def test_storm_path(self):
         async with self.getTestCore() as core:
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
