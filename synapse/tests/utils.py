@@ -979,7 +979,7 @@ class SynTest(unittest.TestCase):
                 yield core, prox
 
     @contextlib.asynccontextmanager
-    async def getTestCryo(self, dirn):
+    async def getTestCryo(self, dirn=None):
         '''
         Get a simple test Cryocell as an async context manager.
 
