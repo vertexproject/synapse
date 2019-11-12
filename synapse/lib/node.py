@@ -795,14 +795,25 @@ class Path:
 
         return path
 
-    def initframe(self, initvars=None):
+    def clone(self):
+        path = Path(self.runt, self.vars, self.nodes)
+        path.traces = list(self.traces)
+        path.frames = list(self.frames)
+        return path
+
+    def initframe(self, initvars=None, initrunt=None):
 
         # full copy for now...
         framevars = self.vars.copy()
         if initvars is not None:
             framevars.update(initvars)
 
-        self.frames.append(self.vars)
+        if initrunt is None:
+            initrunt = self.runt
+
+        self.frames.append((self.vars, self.runt))
+
+        self.runt = initrunt
         self.vars = framevars
 
     def finiframe(self):
@@ -810,7 +821,7 @@ class Path:
         if not self.frames:
             return
 
-        self.vars = self.frames.pop()
+        (self.vars, self.runt) = self.frames.pop()
 
 class Trace:
     '''

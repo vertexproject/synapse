@@ -177,6 +177,7 @@ class StormSvcTest(s_test.SynTest):
                 'name': 'lulz',
                 'storm': '''
                     $test=(asdf, qwer)
+
                     for $t in $test {
                         $lib.print($test)
                     }
@@ -184,9 +185,6 @@ class StormSvcTest(s_test.SynTest):
             }
 
             await core.setStormCmd(cdef)
-
-            #async for mesg in core.streamstorm('[ test:str=asdf ] | lulz'):
-                #print(repr(mesg))
 
             nodes = await core.nodes('[ test:str=asdf ] | lulz')
 

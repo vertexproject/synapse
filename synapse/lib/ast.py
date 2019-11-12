@@ -462,7 +462,9 @@ class ForLoop(Oper):
 
                 try:
 
-                    newg = agen((node, path))
+                    # since it's possible to "multiply" the (node, path)
+                    # we must make a clone of the path to prevent yield-then-use.
+                    newg = agen((node, path.clone()))
                     async for item in subq.inline(runt, newg):
                         yield item
 
