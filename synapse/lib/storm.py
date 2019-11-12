@@ -203,43 +203,6 @@ class StormDmon(s_base.Base):
                 self.status = f'error: {e}'
                 await self.waitfini(timeout=1)
 
-class Scope:
-    '''
-    Create a "scope frame" for the runtime that may be used for
-    runtval/compute methods but will not dirty the real runtime
-    environment.
-    '''
-
-    def __init__(self, runt, root=None, scopevars=None):
-
-        if scopevars is None:
-            self.vars = {}
-        else:
-            self.vars = scopevars.copy()
-
-        self.runt = runt
-        self.root = root
-
-    def getVar(self, name, defv=None):
-
-        valu = self.vars.get(name, s_common.novalu)
-        if valu is not s_common.novalu:
-            return valu
-
-        if self.root is not None:
-            return self.root.getVar(name, defv=defv)
-
-        return self.runt.getVar(name, defv=defv)
-
-    def setVar(self, name, valu):
-        self.vars[name] = valu
-
-    def scope(self):
-        return Scope(self.runt, root=self)
-
-    def popscope(self):
-        return self.root
-
 class Runtime:
     '''
     A Runtime represents the instance of a running query.
@@ -590,14 +553,14 @@ class PureCmd(Cmd):
             'cmdconf': self.cdef.get('cmdconf', {})
         }
 
-        async def wrapgenr():
-            # wrap paths in a scope to isolate vars
-            async for node, path in genr:
-                path.initframe(initvars=cmdvars)
-                yield node, path
-
         opts = {'vars': cmdvars}
         with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
+
+            async def wrapgenr():
+                # wrap paths in a scope to isolate vars
+                async for node, path in genr:
+                    path.initframe(initvars=cmdvars, initrunt=subr)
+                    yield node, path
 
             subr.loadRuntVars(query)
 
