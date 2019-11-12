@@ -169,6 +169,27 @@ class StormSvcTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
 
+    async def test_storm_cmd_scope(self):
+
+        async with self.getTestCore() as core:
+
+            cdef = {
+                'name': 'lulz',
+                'storm': '''
+                    $test=(asdf, qwer)
+                    for $t in $test {
+                        $lib.print($test)
+                    }
+                '''
+            }
+
+            await core.setStormCmd(cdef)
+
+            #async for mesg in core.streamstorm('[ test:str=asdf ] | lulz'):
+                #print(repr(mesg))
+
+            nodes = await core.nodes('[ test:str=asdf ] | lulz')
+
     async def test_storm_svcs(self):
 
         with self.getTestDir() as dirn:
