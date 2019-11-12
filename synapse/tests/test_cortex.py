@@ -2873,6 +2873,19 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.eq([n.ndef[0] for n in nodes], [*['test:str', 'inet:ipv4'] * 3])
 
+            # non-runsafe iteration over a dictionary
+            q = '''$dict=$lib.dict(key1=valu1, key2=valu2) [(test:str=test1) (test:str=test2)]
+            for ($key, $valu) in $dict {
+                [:hehe=$valu]
+            }
+            '''
+            nodes = await core.nodes(q)
+            # Each input node is yielded *twice* from the runtime
+            self.len(4, nodes)
+            self.eq({'test1', 'test2'}, {n.ndef[1] for n in nodes})
+            for node in nodes:
+                self.eq(node.get('hehe'), 'valu2')
+
     async def test_storm_whileloop(self):
 
         async with self.getTestCore() as core:
