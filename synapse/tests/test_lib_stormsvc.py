@@ -348,54 +348,52 @@ class StormSvcTest(s_test.SynTest):
 
         with self.getTestDir() as dirn:
 
-            async with self.getTestDmon() as dmon:
+            async with await s_cortex.Cortex.anit(dirn) as core:
 
-                async with await s_cortex.Cortex.anit(dirn) as core:
+                with self.getTestDir() as svcd:
 
-                    with self.getTestDir() as svcd:
+                    chng = await ChangingService.anit(svcd)
+                    chng.dmon.share('chng', chng)
 
-                        chng = await ChangingService.anit(svcd)
-                        chng.dmon.share('chng', chng)
+                    root = chng.auth.getUserByName('root')
+                    await root.setPasswd('root')
 
-                        root = chng.auth.getUserByName('root')
-                        await root.setPasswd('root')
+                    info = await chng.dmon.listen('tcp://127.0.0.1:0/')
+                    host, port = info
 
-                        info = await chng.dmon.listen('tcp://127.0.0.1:0/')
-                        host, port = info
+                    curl = f'tcp://root:root@127.0.0.1:{port}/chng'
 
-                        curl = f'tcp://root:root@127.0.0.1:{port}/chng'
+                    await core.nodes(f'service.add chng {curl}')
+                    await core.nodes('$lib.service.wait(chng)')
 
-                        await core.nodes(f'service.add chng {curl}')
-                        await core.nodes('$lib.service.wait(chng)')
+                    self.nn(core.getStormCmd('oldcmd'))
+                    self.none(core.getStormCmd('newcmd'))
 
-                        self.nn(core.getStormCmd('oldcmd'))
-                        self.none(core.getStormCmd('newcmd'))
+                    waiter = core.waiter(1, 'stormsvc:client:unready')
 
-                        waiter = core.waiter(1, 'stormsvc:client:unready')
+                    await chng.fini()
 
-                        await chng.fini()
+                    self.true(await waiter.wait(10))
 
-                        self.true(await waiter.wait(10))
+                    chngd = await ChangingService.anit(svcd, {'updated': True})
+                    chngd.dmon.share('chng', chngd)
 
-                        chngd = await ChangingService.anit(svcd, {'updated': True})
-                        chngd.dmon.share('chng', chngd)
+                    info = await chngd.dmon.listen(f'tcp://127.0.0.1:{port}/')
 
-                        info = await chngd.dmon.listen(f'tcp://127.0.0.1:{port}/')
-
-                        await core.nodes('$lib.service.wait(chng)')
-
-                        self.none(core.getStormCmd('oldcmd'))
-                        self.nn(core.getStormCmd('newcmd'))
-
-                        await chngd.fini()
-
-                        cdef = OldServiceAPI._storm_svc_cmds[0]
-                        cdef['cmdconf'] = {'svciden': 'fakeiden'}
-                        await core.setStormCmd(cdef)
-
-                        self.nn(core.getStormCmd('oldcmd'))
-
-                async with await s_cortex.Cortex.anit(dirn) as core:
+                    await core.nodes('$lib.service.wait(chng)')
 
                     self.none(core.getStormCmd('oldcmd'))
                     self.nn(core.getStormCmd('newcmd'))
+
+                    await chngd.fini()
+
+                    cdef = OldServiceAPI._storm_svc_cmds[0]
+                    cdef['cmdconf'] = {'svciden': 'fakeiden'}
+                    await core.setStormCmd(cdef)
+
+                    self.nn(core.getStormCmd('oldcmd'))
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+
+                self.none(core.getStormCmd('oldcmd'))
+                self.nn(core.getStormCmd('newcmd'))
