@@ -443,7 +443,7 @@ class ForLoop(Oper):
             # TODO: remove when storm is all objects
             valu = await self.kids[1].compute(path)
             if isinstance(valu, dict):
-                valu = valu.items()
+                valu = list(valu.items())
 
             async for item in s_coro.agen(valu):
 
