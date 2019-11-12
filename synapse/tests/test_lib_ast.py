@@ -567,6 +567,25 @@ class AstTest(s_test.SynTest):
             self.eq(nodes[4].ndef[1], 'asdf')
             self.eq(nodes[5].ndef[1], 'qwer')
 
+            # non-runtsafe test
+            q = '''$dict = $lib.dict()
+            [(test:str=key1 :hehe=val1) (test:str=key2 :hehe=val2)]
+            $key=$node.value()
+            $dict.$key=:hehe
+            fini {
+                $lib.fire(event, dict=$dict)
+            }
+            '''
+            mesgs = await core.streamstorm(q).list()
+            stormfire = [m for m in mesgs if m[0] == 'storm:fire']
+            self.len(1, stormfire)
+            self.eq(stormfire[0][1].get('data').get('dict'),
+                    {'key1': 'val1', 'key2': 'val2'})
+
+            # TODO sad path tests
+            # These are triggered in the SetItemOper when the target
+            # item is not a storm primitive
+
     async def test_ast_initfini(self):
 
         async with self.getTestCore() as core:
