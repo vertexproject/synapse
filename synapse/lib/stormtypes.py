@@ -240,8 +240,6 @@ class LibBase(Lib):
 
         mdef = self.runt.getStormMod(name)
         if mdef is None:
-            print(repr(self.runt.snap.mods))
-            print(repr(self.runt.snap.core.stormmods))
             mesg = f'No storm module named {name}.'
             raise s_exc.NoSuchName(mesg=mesg)
 
