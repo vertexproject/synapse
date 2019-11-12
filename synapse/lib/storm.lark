@@ -12,10 +12,18 @@
 
 // Entry point for an unadorned storm query
 
-query: [_WSCOMM? "|" ] _WSCOMM? (_statement (_WSCOMM? "|" _WSCOMM? _statement)* _WSCOMM? )?
+// Entry point for an unadorned storm query
+query: [_WSCOMM? "|"] _WSCOMM? (_querystartnon | _querystartedit | _querystartcommand)? _WSCOMM?
 
-_opers: ( _oper | _editblock ) ( (_WSCOMM _oper) | (_WSCOMM? _editblock) )*
-_statement: (_opers | stormcmd)
+// A query that starts with a command
+_querystartcommand: stormcmd [ _WSCOMM? "|" _WSCOMM? (_querystartcommand |  _querystartnon | _querystartedit) ]
+// A query that starts with non-edit non-command
+_querystartnon: _oper _morenons?
+// A query that starts with an edit
+_querystartedit: _editblock _morenons?
+// The common bits that continue a query after _querystartnon or _querystart edit
+_morenons: ( _WSCOMM? "|" _WSCOMM? | _WSCOMM) (_querystartcommand | _querystartnon)
+    | ( _WSCOMM? "|" _WSCOMM? | _WSCOMM?) _querystartedit
 
 // Edit block: zero or more edit operations inside a single set of square brackets
 _editblock: "[" _WS? _editopers _WS? "]"
