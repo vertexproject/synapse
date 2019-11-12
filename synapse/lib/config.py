@@ -19,12 +19,12 @@ argparse_map = {
     'float': float,
 }
 
-def makeArgParser(confdefs, *args, **kwargs) -> (argparse.ArgumentParser, dict):
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--test')
-    parsed_names = {}
+def getCellConfdefs(ctor):
+    return ctor.confdefs + ctor.bootdefs + ctor.confbase
+
+def makeArgParser(parser, confdefs) -> (argparse.ArgumentParser, dict):
+    conf_names = {}
     for (name, conf) in confdefs:
-        print('Confdef data:', name, conf)
         akwargs = {'help': conf.get('doc'),
                    }
         atyp = argparse_map.get(conf.get('type'), s_common.novalu)
@@ -35,12 +35,24 @@ def makeArgParser(confdefs, *args, **kwargs) -> (argparse.ArgumentParser, dict):
 
         parsed_name = name.replace(':', '-')
         replace_name = name.replace(':', '_')
-        parsed_names[replace_name] = name
+        conf_names[replace_name] = name
         argname = '--' + parsed_name
-        print('add_argument data', argname, akwargs)
         parser.add_argument(argname, **akwargs)
 
-    return parser, parsed_names
+    return conf_names
+
+def getConfFromOpts(opts, conf_names):
+    data = vars(opts)
+    for k, v in list(data.items()):
+        if v is s_common.novalu:
+            data.pop(k, None)
+    d = {}
+    for k, v in data.items():
+        nname = conf_names.get(k)
+        if nname is None:
+            continue
+        d[conf_names.get(k)] = v
+    return d
 
 class ConfTypes(object):
     def __init__(self):

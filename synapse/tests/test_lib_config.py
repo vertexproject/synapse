@@ -1,8 +1,10 @@
 import os
 import logging
+import argparse
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_test
 
@@ -17,7 +19,7 @@ confdefs = (
     ('lkey2', {'type': 'list'}),
     ('fkey', {'type': 'float', 'defval': 1.2}),
     ('namespace:args:key', {'type': 'int', 'defval': None, 'doc': 'words are cool!'}),
-    ('namesapce:args:some_key', {'type': 'int', 'defval': None, 'doc': 'another key!'})
+    ('namesapce:args:some_key', {'type': 'int', 'defval': 1324, 'doc': 'another key!'})
 )
 defvals = {'ikey': 1, 'skey': '1', 'bkey': False, 'fkey': 1.2,
            'dkey': {'hehe': 'haha'},
@@ -28,25 +30,50 @@ class Config2Test(s_test.SynTest):
 
     async def test_argparse(self):
 
-        parser, parsed_names = s_config.makeArgParser(confdefs)
+        pars = argparse.ArgumentParser()
+        conf_names = s_config.makeArgParser(pars, confdefs)
 
-        halp = parser.format_help()
-        print(halp)
-        opts = parser.parse_args([])
+        help_str = pars.format_help()
+        print(help_str)
+        opts = pars.parse_args([])
+        conf = s_config.getConfFromOpts(opts, conf_names)
+        self.eq(conf, {'bkey': False,
+                       'dkey': {'hehe': 'haha'},
+                       'fkey': 1.2,
+                       'ikey': 1,
+                       'lkey1': [{'hehe': 'haha'}],
+                       'namesapce:args:some_key': 1324,
+                       'namespace:args:key': None,
+                       'skey': '1'}
+                )
+
+    async def test_argparse2(self):
+        print('...')
+
+        https = os.getenv('SYN_CORTEX_HTTPS', '4443')
+        telep = os.getenv('SYN_CORTEX_TELEPATH', 'tcp://0.0.0.0:27492/')
+        telen = os.getenv('SYN_CORTEX_NAME', None)
+        mirror = os.getenv('SYN_CORTEX_MIRROR', None)
+
+        defs = s_config.getCellConfdefs(s_cortex.Cortex)
+        pars = argparse.ArgumentParser(prog='synapse.servesr.cortex')
+        pars.add_argument('--telepath', default=telep, help='The telepath URL to listen on.')
+        pars.add_argument('--https', default=https, dest='port', type=int,
+                          help='The port to bind for the HTTPS/REST API.')
+        pars.add_argument('--mirror', default=mirror,
+                          help='Mirror splices from the given cortex. (we must be a backup!)')
+        pars.add_argument('--name', default=telen, help='The (optional) additional name to share the Cortex as.')
+        pars.add_argument('coredir', help='The directory for the cortex to use for storage.')
+
+        conf_names = s_config.makeArgParser(pars, defs,)
+
+        help_str = pars.format_help()
+        print(help_str)
+
+        opts = pars.parse_args(['./hehe'])
         print(opts)
-        data = vars(opts)
-
-        for k, v in list(data.items()):
-            if v is s_common.novalu:
-                print(f'dropping: {k} because it was not set and has no default.')
-                data.pop(k, None)
-
-        from pprint import pprint
-        pprint(data)
-        d = {}
-        for k, v in data.items():
-            d[parsed_names.get(k)] = v
-        pprint(d)
+        conf = s_config.getConfFromOpts(opts, conf_names)
+        print(conf)
 
     async def test_config2(self):
 
@@ -96,7 +123,6 @@ class Config2Test(s_test.SynTest):
         # Our original confdefs defvals are unchanged
         conf2 = s_config.Config2(confdefs=confdefs)
         self.eq(conf2.conf, defvals)
-
 
 class ConfTest(s_test.SynTest):
 
