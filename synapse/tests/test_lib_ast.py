@@ -613,3 +613,7 @@ class AstTest(s_test.SynTest):
 
             self.eq(nodes[0][0], ('test:int', 0))
             self.eq(nodes[1][0], ('test:int', 2))
+
+            nodes = await core.nodes('init { [ test:int=20 ] }')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 20))

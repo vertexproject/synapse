@@ -388,14 +388,15 @@ class InitBlock(AstNode):
 
             if not once:
                 async for innr in subq.run(runt, agen()):
-                    pass  # pragma: no cover
+                    yield innr
+
                 once = True
 
             yield item
 
         if not once:
             async for innr in subq.run(runt, agen()):
-                pass  # pragma: no cover
+                yield innr
 
 class FiniBlock(AstNode):
     '''
@@ -412,7 +413,7 @@ class FiniBlock(AstNode):
             yield item
 
         async for innr in subq.run(runt, agen()):
-            pass  # pragma: no cover
+            yield innr
 
 class ForLoop(Oper):
 
