@@ -279,8 +279,8 @@ class Runtime:
         self._graph_done = {}
         self._graph_want = collections.deque()
 
-    async def getStormModule(self, name):
-        return await self.snap.core.getStormModule(name)
+    def getStormMod(self, name):
+        return self.snap.getStormMod(name)
 
     async def getStormQuery(self, text):
         return self.snap.core.getStormQuery(text)

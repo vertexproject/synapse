@@ -16,6 +16,23 @@ class RealService(s_stormsvc.StormSvc):
             'storm': '[ inet:ipv4=1.2.3.4 :asn=$lib.service.get($cmdconf.svciden).asn() ]',
         },
     )
+
+    _storm_svc_pkgs = (
+        {
+            'name': 'foo',
+            'version': (0, 0, 1),
+            'modules': (
+                {'name': 'foo.bar', 'storm': 'function asdf(x, y) { return $($x + $y) }'},
+            ),
+            'commands': (
+                {
+                    'name': 'foobar',
+                    'storm': '$bar = $lib.import(foo.bar) :asn = $bar.asdf(:asn, $(20))',
+                },
+            )
+        },
+    )
+
     _storm_svc_evts = {
         'add': {
             'storm': '$lib.queue.add(vertex)',
@@ -228,6 +245,9 @@ class StormSvcTest(s_test.SynTest):
 
                     nodes = await core.nodes('for $ipv4 in $lib.service.get(fake).ipv4s() { [inet:ipv4=$ipv4] }')
                     self.len(3, nodes)
+
+                    nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ] | foobar | +:asn=40')
+                    self.len(1, nodes)
 
                     # execute a pure storm service without inbound nodes
                     # even though it has invalid add/del, it should still work

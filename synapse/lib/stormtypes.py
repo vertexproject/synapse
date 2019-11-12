@@ -238,7 +238,7 @@ class LibBase(Lib):
 
     async def _libBaseImport(self, name):
 
-        mdef = await self.runt.getStormModule(name)
+        mdef = self.runt.getStormMod(name)
         if mdef is None:
             mesg = f'No storm module named {name}.'
             raise s_exc.NoSuchName(mesg=mesg)

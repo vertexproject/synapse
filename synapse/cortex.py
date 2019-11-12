@@ -676,11 +676,11 @@ class CoreApi(s_cell.CellApi):
         await self._reqUserAllowed(('storm', 'pkg', 'del'))
         return await self.cell.delStormPkg(iden)
 
-    #async def getStormPkg(self, iden):
-        #return await self.cell.getStormPkg(iden)
-
     async def getStormPkgs(self):
         return await self.cell.getStormPkgs()
+
+    async def getStormPkg(self, name):
+        return self.cell.getStormPkg(name)
 
 class Cortex(s_cell.Cell):
     '''
@@ -1014,24 +1014,30 @@ class Cortex(s_cell.Cell):
         This will store the package for future use.
         '''
         await self.loadStormPkg(pkgdef)
-        iden = pkgdef.get('iden')
-        await self.pkghive.set(iden, pkgdef)
+        name = pkgdef.get('name')
+        await self.pkghive.set(name, pkgdef)
 
-    async def delStormPkg(self, iden):
+    async def delStormPkg(self, name):
         '''
-        Delete a storm package by iden.
+        Delete a storm package by name.
         '''
-        pkgdef = await self.pkghive.pop(iden, None)
+        pkgdef = await self.pkghive.pop(name, None)
         if pkgdef is None:
-            mesg = f'No storm package iden: {iden}.'
+            mesg = f'No storm package: {name}.'
             raise s_exc.NoSuchPkg(mesg=mesg)
 
         await self.dropStormPkg(pkgdef)
 
+    async def getStormPkg(self, name):
+        return self.stormpkgs.get(name)
+
     async def getStormPkgs(self):
         return list(self.pkghive.values())
 
-    async def getStormModule(self, name):
+    async def getStormMods(self):
+        return self.stormmods
+
+    async def getStormMod(self, name):
         return self.stormmods.get(name)
 
     async def loadStormPkg(self, pkgdef):
@@ -1051,11 +1057,6 @@ class Cortex(s_cell.Cell):
             mesg = 'Package definition has no "version" field.'
             raise s_exc.BadPkgDef(mesg=mesg)
 
-        iden = pkgdef.get('iden')
-        if iden is None:
-            mesg = 'Package definition has no "iden" field.'
-            raise s_exc.BadPkgDef(mesg=mesg)
-
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
 
@@ -1072,11 +1073,17 @@ class Cortex(s_cell.Cell):
             await self._reqStormCmd(cdef)
 
         # now actually load...
-        self.stormpkgs[iden] = pkgdef
+        self.stormpkgs[name] = pkgdef
 
+        # copy the mods dict and smash the ref so
+        # updates are atomic and dont effect running
+        # storm queries.
+        mods = self.stormmods.copy()
         for mdef in mods:
             modname = mdef.get('name')
-            self.stormmods[modname] = mdef
+            mods[modname] = mdef
+
+        self.stormmods = mods
 
         for cdef in cmds:
             await self._setStormCmd(cdef)
