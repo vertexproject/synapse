@@ -357,6 +357,23 @@ class StormTypesTest(s_test.SynTest):
                     ('csv:row', {'row': ['test:str', '9876', '3001/01/01 00:00:00.000'],
                                  'table': 'mytable'}))
 
+            q = 'test:str $lib.csv.emit(:tick, :hehe)'
+            mesgs = await core.streamstorm(q, {'show': ('err', 'csv:row')}).list()
+            csv_rows = [m for m in mesgs if m[0] == 'csv:row']
+            self.len(2, csv_rows)
+            self.eq(csv_rows[0],
+                    ('csv:row', {'row': [978307200000, None], 'table': None}))
+            self.eq(csv_rows[1],
+                    ('csv:row', {'row': [32535216000000, None], 'table': None}))
+
+            # Sad path case...
+            q = '''$data=() $genr=$lib.feed.genr(syn.node, $data)
+            $lib.csv.emit($genr)
+            '''
+            mesgs = await core.streamstorm(q, {'show': ('err', 'csv:row')}).list()
+            err = mesgs[-2]
+            self.eq(err[1][0], 'NoSuchType')
+
     async def test_storm_node_iden(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:int=10 test:str=$node.iden() ] +test:str')
@@ -1088,3 +1105,79 @@ class StormTypesTest(s_test.SynTest):
             mesgs = [m for m in mesgs if m[0] == 'print']
             self.len(1, mesgs)
             self.stormIsInPrint("('testvar', 'test'), ('testkey', 'testvar')", mesgs)
+
+    async def test_feed(self):
+
+        async with self.getTestCore() as core:
+            data = [
+                (('test:str', 'hello'), {'props': {'tick': '2001'},
+                                         'tags': {'test': (None, None)}}),
+                (('test:str', 'stars'), {'props': {'tick': '3001'},
+                                         'tags': {}}),
+            ]
+            svars = {'data': data}
+            opts = {'vars': svars}
+            q = '$lib.feed.ingest("syn.nodes", $data)'
+            nodes = await core.nodes(q, opts)
+            self.eq(nodes, [])
+            self.len(2, await core.nodes('test:str'))
+            self.len(1, await core.nodes('test:str#test'))
+            self.len(1, await core.nodes('test:str:tick=3001'))
+
+            # Try seqn combo
+            guid = s_common.guid()
+            svars['guid'] = guid
+            svars['offs'] = 0
+            q = '''$seqn=$lib.feed.ingest("syn.nodes", $data, ($guid, $offs))
+            $lib.print("New offset: {seqn}", seqn=$seqn)
+            '''
+            mesgs = await alist(core.streamstorm(q, opts))
+            self.stormIsInPrint('New offset: 2', mesgs)
+            self.eq(2, await core.getFeedOffs(guid))
+
+            q = 'feed.list'
+            mesgs = await alist(core.streamstorm(q))
+            self.stormIsInPrint('Storm feed list', mesgs)
+            self.stormIsInPrint('com.test.record', mesgs)
+            self.stormIsInPrint('No feed docstring', mesgs)
+            self.stormIsInPrint('syn.nodes', mesgs)
+            self.stormIsInPrint('Add nodes to the Cortex via the packed node format', mesgs)
+
+            data = [
+                (('test:str', 'sup!'), {'props': {'tick': '2001'},
+                                         'tags': {'test': (None, None)}}),
+                (('test:str', 'dawg'), {'props': {'tick': '3001'},
+                                         'tags': {}}),
+            ]
+            svars['data'] = data
+            q = '$genr=$lib.feed.genr("syn.nodes", $data) $lib.print($genr) yield $genr'
+            nodes = await core.nodes(q, opts=opts)
+            self.len(2, nodes)
+            self.eq({'sup!', 'dawg'},
+                    {n.ndef[1] for n in nodes})
+
+    async def test_lib_stormtypes_stats(self):
+
+        async with self.getTestCore() as core:
+
+            q = '''
+                $tally = $lib.stats.tally()
+
+                $tally.inc(foo)
+                $tally.inc(foo)
+
+                $tally.inc(bar)
+                $tally.inc(bar, 3)
+
+                for ($name, $valu) in $tally {
+                    [ test:comp=($valu, $name) ]
+                }
+
+                $lib.print('tally: foo={foo} baz={baz}', foo=$tally.get(foo), baz=$tally.get(baz))
+            '''
+            mesgs = await core.streamstorm(q).list()
+            nodes = [m[1] for m in mesgs if m[0] == 'node']
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('test:comp', (2, 'foo')))
+            self.eq(nodes[1][0], ('test:comp', (4, 'bar')))
+            self.stormIsInPrint('tally: foo=2 baz=0', mesgs)

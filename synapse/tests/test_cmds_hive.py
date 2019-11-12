@@ -50,7 +50,7 @@ class CmdHiveTest(s_t_utils.SynTest):
                 self.true(outp.expect('foo/bar:\n' + _json_output))
 
                 outp.clear()
-                await core.setHiveKey(('bin', ), b'1234')
+                await core.setHiveKey(('bin',), b'1234')
                 await cmdr.runCmdLine('hive get bin')
                 self.true(outp.expect("bin:\nb'1234'"))
 

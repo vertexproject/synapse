@@ -27,7 +27,10 @@ terminalEnglishMap = {
     'COLON': ':',
     'COMMA': ',',
     'CONTINUE': 'continue',
+    'FINI': 'fini',
+    'INIT': 'init',
     'CPPCOMMENT': 'c++ comment',
+    'DEREFMATCHNOSEP': 'key or variable',
     'DOLLAR': '$',
     'DOT': '.',
     'DOUBLEQUOTEDSTRING': 'double-quoted string',
@@ -131,6 +134,10 @@ class AstConverter(lark.Transformer):
 
         return subq
 
+    def yieldvalu(self, kids):
+        kid = self._convert_child(kids[-1])
+        return s_ast.YieldValu(kids=[kid])
+
     @lark.v_args(meta=True)
     def query(self, kids, meta):
         kids = self._convert_children(kids)
@@ -199,6 +206,16 @@ class AstConverter(lark.Transformer):
                 for seg in segs]
         return kids
 
+    def varderef(self, kids):
+        assert kids and len(kids) == 2
+        newkid = kids[1]
+        if newkid[0] == '$':
+            tokencls = terminalClassMap.get(newkid.type, s_ast.Const)
+            newkid = s_ast.VarValue(kids=[tokencls(newkid[1:])])
+        else:
+            newkid = self._convert_child(kids[1])
+        return s_ast.VarDeref(kids=(kids[0], newkid))
+
     def tagprop(self, kids):
         kids = self._convert_children(kids)
         return s_ast.TagProp(kids=kids)
@@ -252,7 +269,7 @@ class AstConverter(lark.Transformer):
         assert len(kids) == 1
         kid = kids[0]
 
-        if kid.type == 'DOUBLEQUOTEDSTRING':
+        if kid.type in ('DOUBLEQUOTEDSTRING', 'SINGLEQUOTEDSTRING'):
             return self._convert_child(kid)
 
         return s_ast.Const(kid.value[:-1])  # drop the trailing ':'
@@ -458,6 +475,9 @@ def unescape(valu):
     assert isinstance(ret, str)
     return ret
 
+def massage_vartokn(x):
+    return s_ast.Const('' if not x else (x[1:-1] if x[0] == "'" else (unescape(x) if x[0] == '"' else x)))
+
 # For AstConverter, one-to-one replacements from lark to synapse AST
 terminalClassMap = {
     'ABSPROP': s_ast.AbsProp,
@@ -465,11 +485,12 @@ terminalClassMap = {
     'ALLTAGS': lambda _: s_ast.TagMatch(''),
     'BREAK': lambda _: s_ast.BreakOper(),
     'CONTINUE': lambda _: s_ast.ContinueOper(),
+    'DEREFMATCHNOSEP': massage_vartokn,
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),  # drop quotes and handle escape characters
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
-    'VARTOKN': lambda x: s_ast.Const('' if not x else (x[1:-1] if x[0] == "'" else (unescape(x) if x[0] == '"' else x)))
+    'VARTOKN': massage_vartokn,
 }
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
@@ -481,6 +502,8 @@ ruleClassMap = {
     'dollarexpr': s_ast.DollarExpr,
     'editnodeadd': s_ast.EditNodeAdd,
     'editparens': s_ast.EditParens,
+    'initblock': s_ast.InitBlock,
+    'finiblock': s_ast.FiniBlock,
     'editpropdel': s_ast.EditPropDel,
     'editpropset': s_ast.EditPropSet,
     'edittagadd': s_ast.EditTagAdd,
@@ -536,7 +559,6 @@ ruleClassMap = {
     'tagvalucond': s_ast.TagValuCond,
     'tagpropcond': s_ast.TagPropCond,
     'valuvar': s_ast.VarSetOper,
-    'varderef': s_ast.VarDeref,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
     'univprop': s_ast.UnivProp

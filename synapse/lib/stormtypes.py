@@ -2,18 +2,18 @@ import bz2
 import gzip
 import json
 import base64
-import asyncio
 import binascii
 import datetime
+import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.telepath as s_telepath
 
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.provenance as s_provenance
 
 def intify(x):
 
@@ -105,7 +105,7 @@ class LibDmon(Lib):
             raise s_exc.NoSuchIden(mesg=mesg)
 
         if dmon.ddef.get('user') != self.runt.user.iden:
-            self.runt.allowed('storm', 'dmon', 'del', iden)
+            self.runt.reqAllowed(('storm', 'dmon', 'del', iden))
 
         await self.runt.snap.delStormDmon(iden)
 
@@ -119,7 +119,7 @@ class LibDmon(Lib):
 
         $lib.dmon.add(${ myquery })
         '''
-        self.runt.allowed('storm', 'dmon', 'add')
+        self.runt.reqAllowed(('storm', 'dmon', 'add'))
 
         # closure style capture of runtime
         runtvars = {k: v for (k, v) in self.runt.vars.items() if s_msgpack.isok(v)}
@@ -150,7 +150,7 @@ class LibService(Lib):
 
     async def _libSvcAdd(self, name, url):
 
-        self.runt.allowed('storm', 'service', 'add')
+        self.runt.reqAllowed(('storm', 'service', 'add'))
         sdef = {
             'name': name,
             'url': url,
@@ -171,7 +171,7 @@ class LibService(Lib):
         return ssvc
 
     async def _libSvcList(self):
-        self.runt.allowed('storm', 'service', 'list')
+        self.runt.reqAllowed(('storm', 'service', 'list'))
         retn = []
 
         for ssvc in self.runt.snap.getStormSvcs():
@@ -404,6 +404,59 @@ class LibCsv(Lib):
         row = [toprim(a) for a in args]
         await self.runt.snap.fire('csv:row', row=row, table=table)
 
+class LibFeed(Lib):
+    def addLibFuncs(self):
+        self.locls.update({
+            'genr': self._libGenr,
+            'list': self._libList,
+            'ingest': self._libIngest,
+        })
+
+    async def _libGenr(self, name, data):
+        '''
+        Yield nodes being added to the graph by adding data with a given ingest type.
+
+        Args:
+            name (str): Name of the ingest function to send data too.
+            data: Data to feed to the ingest function.
+
+        Notes:
+            This is using the Runtimes's Snap to call addFeedNodes().
+            This only yields nodes if the feed function yields nodes.
+            If the generator is not entirely consumed there is no guarantee
+            that all of the nodes which should be made by the feed function
+            will be made.
+
+        Returns:
+            s_node.Node: An async generator that yields nodes.
+        '''
+        self.runt.reqLayerAllowed(('feed:data', *name.split('.')))
+        with s_provenance.claim('feed:data', name=name):
+            return self.runt.snap.addFeedNodes(name, data)
+
+    async def _libList(self):
+        return await self.runt.snap.core.getFeedFuncs()
+
+    async def _libIngest(self, name, data, seqn=None):
+        '''
+        Add nodes to the graph with a given ingest type.
+
+        Args:
+            name (str): Name of the ingest function to send data too.
+            data: Data to feed to the ingest function.
+            seqn: A tuple of (guid, offset) values used for tracking ingest data.
+
+        Notes:
+            This is using the Runtimes's Snap to call addFeedData().
+
+        Returns:
+            None or the sequence offset value.
+        '''
+
+        self.runt.reqLayerAllowed(('feed:data', *name.split('.')))
+        with s_provenance.claim('feed:data', name=name):
+            return await self.runt.snap.addFeedData(name, data, seqn)
+
 class LibQueue(Lib):
 
     def addLibFuncs(self):
@@ -416,7 +469,7 @@ class LibQueue(Lib):
 
     async def _methQueueAdd(self, name):
 
-        self.runt.allowed('storm', 'queue', 'add')
+        self.runt.reqAllowed(('storm', 'queue', 'add'))
 
         info = await self.core.getCoreQueue(name)
         if info is not None:
@@ -471,14 +524,14 @@ class Queue(StormType):
         })
 
     async def _methQueueCull(self, offs):
-        await self.allowed('storm', 'queue', self.name, 'get')
+        await self.reqAllowed(('storm', 'queue', self.name, 'get'))
 
         offs = intify(offs)
         self.runt.snap.cullCoreQueue(self.name, offs)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=True, size=None):
 
-        await self.allowed('storm', 'queue', self.name, 'get')
+        await self.reqAllowed(('storm', 'queue', self.name, 'get'))
 
         wait = intify(wait)
         cull = intify(cull)
@@ -494,14 +547,14 @@ class Queue(StormType):
         await self.allowed('storm', 'queue', self.name, 'put')
         return self.runt.snap.putsCoreQueue(name, items)
 
-    async def allowed(self, *perm):
+    async def reqAllowed(self, perm):
         if self.info.get('user') == self.runt.user.iden:
             return
-        await self.runt.allowed(*perm)
+        await self.runt.reqAllowed(perm)
 
     async def _methQueueGet(self, offs=0, wait=True, cull=True):
 
-        await self.allowed('storm', 'queue', self.name, 'get')
+        await self.reqAllowed(('storm', 'queue', self.name, 'get'))
 
         offs = intify(offs)
         wait = intify(wait)
@@ -526,7 +579,7 @@ class LibTelepath(Lib):
         Open and return a telepath RPC proxy.
         '''
         scheme = url.split('://')[0]
-        self.runt.allowed(('storm', 'lib', 'telepath', 'open', scheme))
+        self.runt.reqAllowed(('storm', 'lib', 'telepath', 'open', scheme))
         return Proxy(await self.runt.getTeleProxy(url))
 
 class Proxy(StormType):
@@ -799,9 +852,6 @@ class LibGlobals(Lib):
             'list': self._methList,
         })
 
-    def _reqAllowed(self, perm, name):
-        self.runt.allowed(perm, name)
-
     def _reqStr(self, name):
         if not isinstance(name, str):
             mesg = 'The name of a persistent variable must be a string.'
@@ -809,25 +859,25 @@ class LibGlobals(Lib):
 
     async def _methGet(self, name, default=None):
         self._reqStr(name)
-        self._reqAllowed('storm:globals:get', name)
+        self.runt.reqAllowed(('storm:globals:get', name))
         return self._stormvars.get(name, default=default)
 
     async def _methPop(self, name, default=None):
         self._reqStr(name)
-        self._reqAllowed('storm:globals:pop', name)
+        self.runt.reqAllowed(('storm:globals:pop', name))
         return await self._stormvars.pop(name, default=default)
 
     async def _methSet(self, name, valu):
         self._reqStr(name)
-        self._reqAllowed('storm:globals:set', name)
+        self.runt.reqAllowed(('storm:globals:set', name))
         await self._stormvars.set(name, valu)
 
     async def _methList(self):
         ret = []
         for key, valu in list(self._stormvars.items()):
             try:
-                self._reqAllowed('storm:globals:get', key)
-            except s_exc.AuthDeny as e:
+                self.runt.reqAllowed(('storm:globals:get', key))
+            except s_exc.AuthDeny:
                 continue
             else:
                 ret.append((key, valu))
@@ -1111,10 +1161,54 @@ class Text(Prim):
     async def _methTextStr(self):
         return self.valu
 
+class LibStats(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'tally': self.tally,
+        })
+
+    async def tally(self):
+        return StatTally(path=self.path)
+
+class StatTally(Prim):
+    '''
+    A tally object.
+
+    $tally = $lib.stats.tally()
+
+    $tally.inc(foo)
+
+    for $name, $total in $tally {
+    }
+
+    '''
+    def __init__(self, path=None):
+
+        Prim.__init__(self, {}, path=path)
+
+        self.locls.update({
+            'inc': self.inc,
+            'get': self.get,
+        })
+
+        self.counters = collections.defaultdict(int)
+
+    async def __aiter__(self):
+        for name, valu in self.counters.items():
+            yield name, valu
+
+    async def inc(self, name, valu=1):
+        valu = intify(valu)
+        self.counters[name] += valu
+
+    async def get(self, name):
+        return self.counters.get(name, 0)
+
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):
 
-    if isinstance(valu, (str, tuple, list, dict, int)):
+    if isinstance(valu, (str, tuple, list, dict, int)) or valu is None:
         return valu
 
     if isinstance(valu, Prim):
@@ -1123,7 +1217,8 @@ def toprim(valu, path=None):
     if isinstance(valu, s_node.Node):
         return valu.ndef[1]
 
-    raise s_exc.NoSuchType(name=valu.__class__.__name__)
+    mesg = 'Unable to convert object to Storm primitive.'
+    raise s_exc.NoSuchType(mesg=mesg, name=valu.__class__.__name__)
 
 def fromprim(valu, path=None):
 

@@ -8,12 +8,13 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.hive as s_hive
 import synapse.lib.snap as s_snap
 import synapse.lib.trigger as s_trigger
 
 logger = logging.getLogger(__name__)
 
-class View(s_base.Base):
+class View(s_hive.AuthGater):
     '''
     A view represents a cortex as seen from a specific set of layers.
 
@@ -21,6 +22,8 @@ class View(s_base.Base):
     interact with a subset of the layers configured in a Cortex.
     '''
     snapctor = s_snap.Snap.anit
+
+    authgatetype = 'view'
 
     async def __anit__(self, core, node):
         '''
@@ -30,15 +33,17 @@ class View(s_base.Base):
             core (Cortex):  The cortex that owns the view.
             node (HiveNode): The hive node containing the view info.
         '''
-        await s_base.Base.__anit__(self)
+        self.node = node
 
+        self.iden = node.name()
         self.core = core
 
-        self.node = node
+        await s_hive.AuthGater.__anit__(self, self.core.auth)
 
         self.layers = []
         self.invalid = None
         self.parent = None  # The view this view was forked from
+        self.worldreadable = True  # Default read permissions of this view
 
         # isolate some initialization to easily override for SpawnView.
         await self._initViewInfo()
@@ -66,6 +71,12 @@ class View(s_base.Base):
                 continue
 
             self.layers.append(layr)
+
+    def allowed(self, hiveuser, perm, elev=True, default=None):
+        if self.worldreadable and perm == ('view', 'read'):
+            default = True
+
+        return s_hive.AuthGater.allowed(self, hiveuser, perm, elev=elev, default=default)
 
     async def eval(self, text, opts=None, user=None):
         '''
@@ -261,12 +272,14 @@ class View(s_base.Base):
             new view object, with an iden the same as the new write layer iden
         '''
         writlayr = await self.core.addLayer(**layrinfo)
+        self.onfini(writlayr)
 
-        viewiden = writlayr.iden
+        viewiden = s_common.guid()
         owner = layrinfo.get('owner', 'root')
         layeridens = [writlayr.iden] + [l.iden for l in self.layers]
 
         view = await self.core.addView(viewiden, owner, layeridens)
+        view.worldreadable = False
         view.parent = self
 
         return view
@@ -367,6 +380,17 @@ class View(s_base.Base):
         if self.parent is not None:
             trigs.extend(await self.parent.listTriggers())
         return trigs
+
+    async def trash(self):
+        '''
+        Delete the underlying storage for the view.
+
+        Note: this does not delete any layer storage.
+        '''
+        await s_hive.AuthGater.trash(self)
+
+        for (iden, _) in self.triggers.list():
+            self.triggers.delete(iden)
 
     def getSpawnInfo(self):
         return {

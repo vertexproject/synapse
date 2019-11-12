@@ -1,6 +1,8 @@
+import types
 import asyncio
 import fnmatch
 import logging
+import binascii
 import itertools
 import collections
 
@@ -8,6 +10,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
+import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
 import synapse.lib.provenance as s_provenance
@@ -354,6 +357,48 @@ class SubQuery(Oper):
         async for item in self.kids[0].run(runt, genr):
             yield item
 
+class InitBlock(AstNode):
+    '''
+    init {
+        // stuff here runs *once* before the first node yield (even if there are no nodes)
+    }
+    '''
+
+    async def run(self, runt, genr):
+
+        subq = self.kids[0]
+
+        once = False
+        async for item in genr:
+
+            if not once:
+                async for innr in subq.run(runt, agen()):
+                    pass  # pragma: no cover
+                once = True
+
+            yield item
+
+        if not once:
+            async for innr in subq.run(runt, agen()):
+                pass  # pragma: no cover
+
+class FiniBlock(AstNode):
+    '''
+    fini {
+        // stuff here runs *once* after the last node yield (even if there are no nodes)
+    }
+    '''
+
+    async def run(self, runt, genr):
+
+        subq = self.kids[0]
+
+        async for item in genr:
+            yield item
+
+        async for innr in subq.run(runt, agen()):
+            pass  # pragma: no cover
+
 class ForLoop(Oper):
 
     def getRuntVars(self, runt):
@@ -664,6 +709,65 @@ class LiftOper(Oper):
 
             async for subn in self.lift(path):
                 yield subn, path.fork(subn)
+
+class YieldValu(LiftOper):
+
+    async def lift(self, runt):
+
+        valu = await self.kids[0].compute(runt)
+        async for node in self.yieldFromValu(runt, valu):
+            yield node
+
+    async def yieldFromValu(self, runt, valu):
+
+        # a little DWIM on what we get back...
+        # ( most common case will be stormtypes libs agenr -> iden|buid )
+
+        # buid list -> nodes
+        if isinstance(valu, bytes):
+            node = await runt.snap.getNodeByBuid(valu)
+            if node is not None:
+                yield node
+
+            return
+
+        # iden list -> nodes
+        if isinstance(valu, str):
+            try:
+                buid = s_common.uhex(valu)
+            except binascii.Error:
+                mesg = 'Yield string must by hex node iden. Got: %r' % (valu,)
+                raise s_exc.BadLiftValu(mesg=mesg)
+
+            node = await runt.snap.getNodeByBuid(buid)
+            if node is not None:
+                yield node
+
+            return
+
+        if isinstance(valu, types.AsyncGeneratorType):
+            async for item in valu:
+                async for node in self.yieldFromValu(runt, item):
+                    yield node
+            return
+
+        if isinstance(valu, types.GeneratorType):
+            for item in valu:
+                async for node in self.yieldFromValu(runt, item):
+                    yield node
+            return
+
+        if isinstance(valu, (list, tuple)):
+            for item in valu:
+                async for node in self.yieldFromValu(runt, item):
+                    yield node
+            return
+
+        if isinstance(valu, s_node.Node):
+            node = await runt.snap.getNodeByBuid(valu.buid)
+            if node is not None:
+                yield node
+            return
 
 class LiftTag(LiftOper):
 
@@ -1284,7 +1388,8 @@ class PropPivotOut(PivotOper):
                 fname = prop.type.arraytype.name
                 if runt.model.forms.get(fname) is None:
                     if not warned:
-                        await runt.snap.warn(f'The source property "{name}" array type "{fname}" is not a form. Cannot pivot.')
+                        mesg = f'The source property "{name}" array type "{fname}" is not a form. Cannot pivot.'
+                        await runt.snap.warn(mesg)
                         warned = True
                     continue
 
@@ -2284,42 +2389,81 @@ class Edit(Oper):
     pass
 
 class EditParens(Edit):
+
     async def run(self, runt, genr):
 
         nodeadd = self.kids[0]
         assert isinstance(nodeadd, EditNodeAdd)
 
-        if not nodeadd.isruntsafe(runt):
-            mesg = 'First node add in edit parentheses must not be dependent on incoming nodes'
-            raise s_exc.StormRuntimeError(mesg=mesg)
+        formname = nodeadd.kids[0].value()
+        runt.reqLayerAllowed(('node:add', formname))
 
-        # Luke, let the nodes flow through you
-        async for item in genr:
-            yield item
+        # create an isolated generator for the add vs edit
+        if nodeadd.isruntsafe(runt):
 
-        # Run the opers once with no incoming nodes
-        genr = agen()
+            # Luke, let the (node,path) tuples flow through you
+            async for item in genr:
+                yield item
 
-        for oper in self.kids:
-            genr = oper.run(runt, genr)
+            # isolated runtime stack...
+            genr = agen()
+            for oper in self.kids:
+                genr = oper.run(runt, genr)
 
-        async for item in genr:
-            yield item
+            async for item in genr:
+                yield item
+
+        else:
+
+            # do a little genr-jig.
+            async for node, path in genr:
+
+                yield node, path
+
+                async def editgenr():
+                    async for item in nodeadd.addFromPath(path):
+                        yield item
+
+                fullgenr = editgenr()
+                for oper in self.kids[1:]:
+                    fullgenr = oper.run(runt, fullgenr)
+
+                async for item in fullgenr:
+                    yield item
 
 class EditNodeAdd(Edit):
+
+    def prepare(self):
+
+        oper = self.kids[1].value()
+        self.name = self.kids[0].value()
+
+        self.form = self.core.model.form(self.name)
+        if self.form is None:
+            raise s_exc.NoSuchForm(name=self.name)
+
+        self.excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
 
     def isruntsafe(self, runt):
         return self.kids[2].isRuntSafe(runt)
 
+    async def addFromPath(self, path):
+        '''
+        Add a node using the context from path.
+
+        NOTE: CALLER MUST CHECK PERMS
+        '''
+        valu = await self.kids[2].compute(path)
+
+        for valu in self.form.type.getTypeVals(valu):
+            try:
+                newn = await path.runt.snap.addNode(self.name, valu)
+            except self.excignore:
+                pass
+            else:
+                yield newn, path.runt.initPath(newn)
+
     async def run(self, runt, genr):
-
-        name = self.kids[0].value()
-        oper = self.kids[1].value()
-        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
-
-        form = runt.model.forms.get(name)
-        if form is None:
-            raise s_exc.NoSuchForm(name=name)
 
         # the behavior here is a bit complicated...
 
@@ -2342,33 +2486,27 @@ class EditNodeAdd(Edit):
 
                 # must reach back first to trigger sudo / etc
                 if first:
-                    runt.allowed('node:add', name)
+                    runt.reqLayerAllowed(('node:add', self.name))
                     first = False
 
                 yield node, path
 
-                valu = await self.kids[2].compute(path)
-
-                for valu in form.type.getTypeVals(valu):
-                    try:
-                        newn = await runt.snap.addNode(name, valu)
-                    except excignore:
-                        pass
-                    else:
-                        yield newn, runt.initPath(newn)
+                async for item in self.addFromPath(path):
+                    yield item
 
         else:
+
             async for node, path in genr:
                 yield node, path
 
-            runt.allowed('node:add', name)
+            runt.reqLayerAllowed(('node:add', self.name))
 
             valu = await self.kids[2].runtval(runt)
 
-            for valu in form.type.getTypeVals(valu):
+            for valu in self.form.type.getTypeVals(valu):
                 try:
-                    node = await runt.snap.addNode(name, valu)
-                except excignore:
+                    node = await runt.snap.addNode(self.name, valu)
+                except self.excignore:
                     continue
                 yield node, runt.initPath(node)
 
@@ -2387,9 +2525,9 @@ class EditPropSet(Edit):
             if prop is None:
                 raise s_exc.NoSuchProp(name=name, form=node.form.name)
 
-            # runt node property permissions are enforced by the callback
             if not node.isrunt:
-                runt.allowed('prop:set', prop.full)
+                # runt node property permissions are enforced by the callback
+                runt.reqLayerAllowed(('prop:set', prop.full))
 
             try:
                 await node.set(name, valu)
@@ -2409,7 +2547,7 @@ class EditPropDel(Edit):
             if prop is None:
                 raise s_exc.NoSuchProp(name=name, form=node.form.name)
 
-            runt.allowed('prop:del', prop.full)
+            runt.reqLayerAllowed(('prop:del', prop.full))
 
             await node.pop(name)
 
@@ -2436,7 +2574,7 @@ class EditUnivDel(Edit):
                 if univ is None:
                     raise s_exc.NoSuchProp(name=name)
 
-            runt.allowed('prop:del', name)
+            runt.reqLayerAllowed(('prop:del', name))
 
             await node.pop(name)
             yield node, path
@@ -2458,7 +2596,7 @@ class EditTagAdd(Edit):
             for name in names:
                 parts = name.split('.')
 
-                runt.allowed('tag:add', *parts)
+                runt.reqLayerAllowed(('tag:add', *parts))
 
                 if hasval:
                     valu = await self.kids[1].compute(path)
@@ -2476,7 +2614,7 @@ class EditTagDel(Edit):
             name = await self.kids[0].compute(path)
             parts = name.split('.')
 
-            runt.allowed('tag:del', *parts)
+            runt.reqLayerAllowed(('tag:del', *parts))
 
             await node.delTag(name)
 
@@ -2499,7 +2637,7 @@ class EditTagPropSet(Edit):
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
-            runt.allowed('tag:add', *tagparts)
+            runt.reqLayerAllowed(('tag:add', *tagparts))
 
             try:
                 await node.setTagProp(tag, prop, valu)
@@ -2523,7 +2661,7 @@ class EditTagPropDel(Edit):
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
-            runt.allowed('tag:del', *tagparts)
+            runt.reqLayerAllowed(('tag:del', *tagparts))
 
             await node.delTagProp(tag, prop)
 

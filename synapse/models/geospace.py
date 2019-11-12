@@ -205,6 +205,14 @@ class GeoModule(s_module.CoreModule):
                     ('geo:address', ('str', {'lower': 1, 'onespace': 1, 'strip': True}), {
                         'doc': 'A street/mailing address string.',
                     }),
+
+                    ('geo:bbox', ('comp', {'sepr': ',', 'fields': (
+                                                ('xmin', 'geo:longitude'),
+                                                ('xmax', 'geo:longitude'),
+                                                ('ymin', 'geo:latitude'),
+                                                ('ymax', 'geo:latitude'))}), {
+                        'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.',
+                    }),
                 ),
 
                 'forms': (
@@ -222,6 +230,9 @@ class GeoModule(s_module.CoreModule):
 
                         ('time', ('time', {}), {'ro': True,
                             'doc': 'The time the node was observed at location'}),
+
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place corresponding to the latlong property.'}),
 
                     )),
 
@@ -244,6 +255,9 @@ class GeoModule(s_module.CoreModule):
 
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The lat/long position for the place.'}),
+
+                        ('bbox', ('geo:bbox', {}), {
+                            'doc': 'A bounding box which encompases the place.'}),
 
                         ('radius', ('geo:dist', {}), {
                             'doc': 'An approximate radius to use for bounding box calculation.'}),

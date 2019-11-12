@@ -318,15 +318,21 @@ class TelcoModule(s_module.CoreModule):
                     ('cid', ('int', {}), {'doc': 'Cell ID'}),
                     ('radio', ('str', {'lower': 1, 'onespace': 1}), {'doc': 'Cell radio type.'}),
                     ('latlong', ('geo:latlong', {}), {'doc': 'Last known location of the cell site.'}),
+
                     ('loc', ('loc', {}), {
-                        'doc': 'Location the cell is operated at.'
-                    }),
+                        'doc': 'Location at which the cell is operated.'}),
+
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place associated with the latlong property.'}),
                 )),
 
                 ('tel:mob:telem', {}, (
 
                     ('time', ('time', {}), {}),
                     ('latlong', ('geo:latlong', {}), {}),
+
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place representing the location of the mobile telemetry sample.'}),
 
                     ('loc', ('loc', {}), {
                         'doc': 'The geo-political location of the mobile telemetry sample.',

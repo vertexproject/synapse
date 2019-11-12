@@ -4,6 +4,7 @@ cortex construction.
 
 Note:  this interface is subject to change between minor revisions.
 '''
+import shutil
 import asyncio
 import logging
 import contextlib
@@ -16,6 +17,7 @@ import synapse.exc as s_exc
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
+import synapse.lib.hive as s_hive
 import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
 
@@ -35,31 +37,31 @@ class LayerApi(s_cell.CellApi):
         self.storperm = ('layer:stor', self.layr.iden)
 
     async def getLiftRows(self, lops):
-        await self._reqUserAllowed(*self.liftperm)
+        await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.getLiftRows(lops):
             yield item
 
     async def iterFormRows(self, form):
-        await self._reqUserAllowed(*self.liftperm)
+        await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.iterFormRows(form):
             yield item
 
     async def iterPropRows(self, form, prop):
-        await self._reqUserAllowed(*self.liftperm)
+        await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.iterPropRows(form, prop):
             yield item
 
     async def iterUnivRows(self, univ):
-        await self._reqUserAllowed(*self.liftperm)
+        await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.iterUnivRows(univ):
             yield item
 
     async def stor(self, sops, splices=None):
-        await self._reqUserAllowed(*self.storperm)
+        await self._reqUserAllowed(self.storperm)
         return await self.layr.stor(sops, splices=splices)
 
     async def getBuidProps(self, buid):
-        await self._reqUserAllowed(*self.liftperm)
+        await self._reqUserAllowed(self.liftperm)
         return await self.layr.getBuidProps(buid)
 
     async def getModelVers(self):
@@ -71,21 +73,26 @@ class LayerApi(s_cell.CellApi):
     async def setOffset(self, iden, valu):
         return await self.layr.setOffset(iden, valu)
 
+    async def delOffset(self, iden):
+        return await self.layr.delOffset(iden)
+
     async def splices(self, offs, size):
-        await self._reqUserAllowed(*self.liftperm)
+        await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.splices(offs, size):
             yield item
 
     async def hasTagProp(self, name):
         return await self.layr.hasTagProp(name)
 
-class Layer(s_base.Base):
+class Layer(s_hive.AuthGater):
     '''
     The base class for a cortex layer.
     '''
     confdefs = ()
     readonly = False
     ctorname = 'dyndep.path.goes.here'
+
+    authgatetype = 'layr'
 
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
@@ -98,6 +105,7 @@ class Layer(s_base.Base):
         self.core = core
         self.node = node
         self.iden = node.name()
+        await s_hive.AuthGater.__anit__(self, self.core.auth)
         self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
         # splice windows...
@@ -252,7 +260,7 @@ class Layer(s_base.Base):
             if not regx.search(valu):
                 continue
 
-            yield (buid, )
+            yield (buid,)
 
     async def _liftByUnivRe(self, oper):
 
@@ -275,7 +283,7 @@ class Layer(s_base.Base):
             if not regx.search(valu):
                 continue
 
-            yield (buid, )
+            yield (buid,)
 
     async def _liftByPropRe(self, oper):
         # ('regex', (<form>, <prop>, <regex>, info))
@@ -300,7 +308,7 @@ class Layer(s_base.Base):
                 continue
 
             # yield buid, form, prop, valu
-            yield (buid, )
+            yield (buid,)
 
     # TODO: Hack until we get interval trees pushed all the way through
     def _cmprIval(self, item, othr):
@@ -331,7 +339,7 @@ class Layer(s_base.Base):
             if not self._cmprIval(ival, valu):
                 continue
 
-            yield (buid, )
+            yield (buid,)
 
     async def _liftByUnivIval(self, oper):
         _, prop, ival = oper[1]
@@ -351,7 +359,7 @@ class Layer(s_base.Base):
             if not self._cmprIval(ival, valu):
                 continue
 
-            yield (buid, )
+            yield (buid,)
 
     async def _liftByFormIval(self, oper):
         _, form, ival = oper[1]
@@ -371,7 +379,7 @@ class Layer(s_base.Base):
             if not self._cmprIval(ival, valu):
                 continue
 
-            yield (buid, )
+            yield (buid,)
 
     # The following functions are abstract methods that must be implemented by a subclass
 
@@ -480,3 +488,10 @@ class Layer(s_base.Base):
     async def iterNodeData(self, buid): # pragma: no cover
         for x in (): yield x
         raise NotImplementedError
+
+    async def trash(self):
+        '''
+        Delete the underlying storage
+        '''
+        await s_hive.AuthGater.trash(self)
+        shutil.rmtree(self.dirn, ignore_errors=True)

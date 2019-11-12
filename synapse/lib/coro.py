@@ -146,6 +146,18 @@ def _exectodo(que, todo):
 async def spawn(todo, timeout=None, ctx=None):
     '''
     Run a todo (func, args, kwargs) tuple in a multiprocessing subprocess.
+
+    Args:
+        todo (tuple): A tuple of function, *args, and **kwargs.
+        timeout (int): The timeout to wait for the todo function to finish.
+        ctx (multiprocess.Context): A optional multiprocessing context object.
+
+    Notes:
+        The contents of the todo tuple must be able to be pickled for execution.
+        This means that locally bound functions are not eligible targets for spawn.
+
+    Returns:
+        The return value of executing the todo function.
     '''
     if ctx is None:
         ctx = multiprocessing.get_context('spawn')

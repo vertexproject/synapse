@@ -329,7 +329,7 @@ class Daemon(s_base.Base):
                     return
 
                 coro = self._onLinkMesg(link, mesg)
-                self.schedCoro(coro)
+                link.schedCoro(coro)
 
         self.schedCoro(rxloop())
 
