@@ -816,9 +816,7 @@ class YieldValu(LiftOper):
             return
 
         if isinstance(valu, types.AsyncGeneratorType):
-            print('ASYNC GENR')
             async for item in valu:
-                print('ITEM %r' % (item,))
                 async for node in self.yieldFromValu(runt, item):
                     yield node
             return
