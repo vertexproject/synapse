@@ -445,6 +445,9 @@ class ForLoop(Oper):
             if isinstance(valu, dict):
                 valu = list(valu.items())
 
+            if valu is None:
+                valu = ()
+
             async for item in s_coro.agen(valu):
 
                 if isinstance(name, (list, tuple)):
@@ -484,8 +487,12 @@ class ForLoop(Oper):
 
             # TODO: remove when storm is all objects
             valu = await self.kids[1].compute(runt)
+
             if isinstance(valu, dict):
                 valu = list(valu.items())
+
+            if valu is None:
+                valu = ()
 
             async for item in s_coro.agen(valu):
 
@@ -790,6 +797,10 @@ class YieldValu(LiftOper):
             yield node
 
     async def yieldFromValu(self, runt, valu):
+
+        # there is nothing in None... ;)
+        if valu is None:
+            return
 
         # a little DWIM on what we get back...
         # ( most common case will be stormtypes libs agenr -> iden|buid )
