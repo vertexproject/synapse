@@ -142,7 +142,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
                     raise
 
                 except Exception:
-                    name = cdef.get('name')
+                    name = pdef.get('name')
                     logger.exception(f'addStormPkg ({name}) failed for service {self.name} ({self.iden})')
 
             for cdef in self.info.get('cmds', ()):
