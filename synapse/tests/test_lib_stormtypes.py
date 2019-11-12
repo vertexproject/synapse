@@ -151,6 +151,19 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = [m async for m in prox.storm("$lib.print('woot at: {s} {num}', s=hello, num=$(42+43))")]
                 self.stormIsInPrint('woot at: hello 85', mesgs)
 
+            # lib.sorted()
+            q = '''
+                $set = $lib.set(c, b, a)
+                for $x in $lib.sorted($set) {
+                    [ test:str=$x ]
+                }
+            '''
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+            self.eq(nodes[0].ndef[1], 'a')
+            self.eq(nodes[1].ndef[1], 'b')
+            self.eq(nodes[2].ndef[1], 'c')
+
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:str=woot ] [ test:int=$node.isform(test:str) ] +test:int')
@@ -296,6 +309,11 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('[ test:comp=(10,lol) ] $x=$node.ndef().index(1).index(1) [ test:str=$x ]')
             self.eq(nodes[0].ndef, ('test:str', 'lol'))
 
+            q = 'test:comp | limit 1 | $size = $node.ndef().size() [test:int=$size] +test:int'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 2))
+
             # sad case - index out of bounds.
             mesgs = await core.streamstorm('test:comp=(10,lol) $x=$node.ndef().index(2)').list()
             errs = [m[1] for m in mesgs if m[0] == 'err']
@@ -433,19 +451,10 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(tuple(sorted(nodes[0].get('data'))), ())
 
-            q = '''
-                $set = $lib.set(c, b, a)
-                for $x in $lib.sorted($set) {
-                    [ test:str=$x ]
-                }
-            '''
+            q = '$set = $lib.set(a, b, c) [test:int=$set.size()]'
             nodes = await core.nodes(q)
-
-            self.len(3, nodes)
-
-            self.eq(nodes[0].ndef[1], 'a')
-            self.eq(nodes[1].ndef[1], 'b')
-            self.eq(nodes[2].ndef[1], 'c')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 3))
 
     async def test_storm_path(self):
         async with self.getTestCore() as core:
