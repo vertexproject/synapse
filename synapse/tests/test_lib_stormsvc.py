@@ -188,6 +188,27 @@ class StormSvcTest(s_test.SynTest):
 
             nodes = await core.nodes('[ test:str=asdf ] | lulz')
 
+    async def test_storm_pkg_persist(self):
+
+        pkg = {
+            'name': 'foobar',
+            'version': (0, 0, 1),
+            'modules': (
+                {'name': 'hehe.haha', 'storm': 'function add(x, y) { return $($x + $y) }'},
+            ),
+            'commands': (
+                {'name': 'foobar', 'storm': '$haha = $lib.import(hehe.haha) [ inet:asn=$haha.add($(10), $(20)) ]'},
+            ),
+        }
+        with self.getTestDir() as dirn:
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+                await core.addStormPkg(pkg)
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+                nodes = await core.nodes('foobar')
+                self.eq(nodes[0].ndef, ('inet:asn', 30))
+
     async def test_storm_svcs(self):
 
         with self.getTestDir() as dirn:

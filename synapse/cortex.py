@@ -794,7 +794,6 @@ class Cortex(s_cell.Cell):
 
         await self._initCoreHive()
         self._initSplicers()
-        await self._initStormCmds()
         self._initStormLibs()
         self._initFeedFuncs()
         self._initFormCounts()
@@ -808,6 +807,7 @@ class Cortex(s_cell.Cell):
         mods.extend(self.conf.get('modules'))
         await self._loadCoreMods(mods)
         await self._loadExtModel()
+        await self._initStormCmds()
 
         # Initialize our storage and views
         await self._initCoreAxon()
@@ -1040,6 +1040,16 @@ class Cortex(s_cell.Cell):
     async def getStormMod(self, name):
         return self.stormmods.get(name)
 
+    async def _tryLoadStormPkg(self, pkgdef):
+        try:
+            await self.loadStormPkg(pkgdef)
+        except asyncio.CancelledError:
+            raise
+
+        except Exception as e:
+            name = pkgdef.get('name')
+            logger.exception('error loading pkg: {name}')
+
     async def loadStormPkg(self, pkgdef):
         '''
         Load a storm package into the storm library for this cortex.
@@ -1078,12 +1088,12 @@ class Cortex(s_cell.Cell):
         # copy the mods dict and smash the ref so
         # updates are atomic and dont effect running
         # storm queries.
-        mods = self.stormmods.copy()
+        stormmods = self.stormmods.copy()
         for mdef in mods:
             modname = mdef.get('name')
-            mods[modname] = mdef
+            stormmods[modname] = mdef
 
-        self.stormmods = mods
+        self.stormmods = stormmods
 
         for cdef in cmds:
             await self._setStormCmd(cdef)
@@ -1560,7 +1570,7 @@ class Cortex(s_cell.Cell):
             await self._trySetStormCmd(name, cdef)
 
         for name, pkgdef in self.pkghive.items():
-            await self._tryLoadStormPkg(name, pkgdef)
+            await self._tryLoadStormPkg(pkgdef)
 
     async def _trySetStormCmd(self, name, cdef):
         try:

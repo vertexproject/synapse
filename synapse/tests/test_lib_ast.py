@@ -493,8 +493,10 @@ class AstTest(s_test.SynTest):
                 {
                     'name': 'foo.bar',
                     'storm': '''
-                        $foolib = $lib.import(hehe.haha)
-                        [ test:int=$foolib.lolz($(20), $(30)) ]
+                        init {
+                            $foolib = $lib.import(hehe.haha)
+                            [ test:int=$foolib.lolz($(20), $(30)) ]
+                        }
                     ''',
                 },
                 {
@@ -518,6 +520,7 @@ class AstTest(s_test.SynTest):
             await core.addStormPkg(stormpkg)
 
             nodes = await core.nodes('foo.bar')
+
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 50))
 
