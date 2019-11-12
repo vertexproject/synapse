@@ -80,17 +80,22 @@ class StormSvc:
     _storm_svc_vers = (0, 0, 1)
     _storm_svc_cmds = ()
     _storm_svc_evts = {}
+    _storm_svc_pkgs = {}
 
     async def getStormSvcInfo(self):
         return {
             'name': self._storm_svc_name,
             'vers': self._storm_svc_vers,
             'evts': self._storm_svc_evts,
+            'pkgs': await self.getStormSvcPkgs(),
             'cmds': await self.getStormSvcCmds(),
         }
 
     async def getStormSvcCmds(self):
         return self._storm_svc_cmds
+
+    async def getStormSvcPkgs(self):
+        return self._storm_svc_pkgs
 
 class StormSvcClient(s_base.Base, s_stormtypes.StormType):
     '''
@@ -127,6 +132,19 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
         if 'StormSvc' in names:
 
             self.info = await proxy.getStormSvcInfo()
+
+            for pdef in self.info.get('pkgs', ()):
+
+                try:
+                    await self.core.addStormPkg(pdef)
+
+                except asyncio.CancelledError:  # pragma: no cover
+                    raise
+
+                except Exception:
+                    name = cdef.get('name')
+                    logger.exception(f'addStormPkg ({name}) failed for service {self.name} ({self.iden})')
+
             for cdef in self.info.get('cmds', ()):
 
                 cdef.setdefault('cmdconf', {})

@@ -54,7 +54,10 @@ class Snap(s_base.Base):
         self.core = view.core
         self.view = view
         self.user = user
+
         self.model = self.core.model
+
+        self.mods = await self.core.getStormMods()
 
         # it is optimal for a snap to have layers in "bottom up" order
         self.layers = list(reversed(view.layers))
@@ -75,6 +78,9 @@ class Snap(s_base.Base):
         self.onfini(self.stack.close)
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
+
+    def getStormMod(self, name):
+        return self.mods.get(name)
 
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):
