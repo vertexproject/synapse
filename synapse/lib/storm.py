@@ -390,8 +390,8 @@ class Runtime:
                 self.tick()
                 yield node, path
 
-    async def getScopeRuntime(self, query):
-        runt = Runtime(self.snap, user=self.user)
+    async def getScopeRuntime(self, query, opts=None):
+        runt = Runtime(self.snap, user=self.user, opts=opts)
         runt.loadRuntVars(query)
         return runt
 

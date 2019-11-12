@@ -188,6 +188,23 @@ class StormSvcTest(s_test.SynTest):
 
             nodes = await core.nodes('[ test:str=asdf ] | lulz')
 
+    async def test_storm_func_scope(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+
+                function foo (x) {
+                    [ test:str=$x ]
+                }
+
+                yield $foo(asdf)
+
+            ''')
+
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'asdf'))
+
     async def test_storm_pkg_persist(self):
 
         pkg = {

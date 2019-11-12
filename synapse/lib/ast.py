@@ -793,7 +793,6 @@ class YieldValu(LiftOper):
 
         # a little DWIM on what we get back...
         # ( most common case will be stormtypes libs agenr -> iden|buid )
-
         # buid list -> nodes
         if isinstance(valu, bytes):
             node = await runt.snap.getNodeByBuid(valu)
@@ -817,7 +816,9 @@ class YieldValu(LiftOper):
             return
 
         if isinstance(valu, types.AsyncGeneratorType):
+            print('ASYNC GENR')
             async for item in valu:
+                print('ITEM %r' % (item,))
                 async for node in self.yieldFromValu(runt, item):
                     yield node
             return
@@ -2871,7 +2872,7 @@ class Function(AstNode):
     function bar(x, y) { return $(x + y) }
 
     # incrementally yield values
-    function bar($x, $y) { yield $x yield $y }
+    function bar(x, y) { yield $x yield $y }
 
     # a function that produces nodes
     function bar(x, y) { [ baz:faz=(x, y) ] }
@@ -2891,20 +2892,25 @@ class Function(AstNode):
         async for item in genr:
             yield item
 
+    def getRuntVars(self, runt):
+        yield self.kids[0].value()
+
     async def callfunc(self, runt, args, kwargs):
         '''
         Execute a function call using the given runtime.
 
         This function may return a value / generator / async generator
         '''
-        funcrunt = await runt.getScopeRuntime(self.kids[2])
-
         argdefs = self.kids[1].value()
         if len(args) != len(argdefs):
             raise Exception('BAD CALL ARG COUNT FIXME')
 
+        argvars = {}
         for i, name in enumerate(argdefs):
-            funcrunt.setVar(name, args[i])
+            argvars[name] = args[i]
+
+        opts = {'vars': argvars}
+        funcrunt = await runt.getScopeRuntime(self.kids[2], opts=opts)
 
         genr = agen()
 
