@@ -567,6 +567,47 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
             await core.addStormPkg(foo_stormpkg)
 
+            # No arguments
+            q = '''
+            function hello() {
+                return "hello"
+            }
+            $retn=$hello()
+            $lib.print('retn is: {retn}', retn=$retn)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('retn is: hello', msgs)
+
+            # Simple echo function
+            q = '''
+            function echo(arg) {
+                return $arg
+            }
+            [(test:str=foo) (test:str=bar)]
+            $retn=$echo($node.value())
+            $lib.print('retn is: {retn}', retn=$retn)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('retn is: foo', msgs)
+            self.stormIsInPrint('retn is: bar', msgs)
+
+            # Return value from a function based on a node value
+            # inside of the function
+            q = '''
+            function echo(arg) {
+                $lib.print('arg is {arg}', arg=$arg)
+                [(test:str=1234) (test:str=5678)]
+                return $node.value()
+            }
+            [(test:str=foo) (test:str=bar)]
+            $retn=$echo($node.value())
+            $lib.print('retn is: {retn}', retn=$retn)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('arg is foo', msgs)
+            self.stormIsInPrint('arg is bar', msgs)
+            self.stormIsInPrint('retn is: 1234', msgs)
+
             # Allow plumbing through args as keywords
             q = '''
             $test=$lib.import(test)
@@ -638,8 +679,6 @@ class AstTest(s_test.SynTest):
             $haha=$test.pprint('hello', 'world', 'goodbye', 'newp')
             '''
             msgs = await core.streamstorm(q).list()
-            for m in msgs:
-                print(m)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
             self.eq(erfo[1][1].get('name'), 'pprint')
