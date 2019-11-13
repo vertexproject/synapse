@@ -27,7 +27,13 @@ class RealService(s_stormsvc.StormSvc):
             'commands': (
                 {
                     'name': 'foobar',
-                    'storm': '$bar = $lib.import(foo.bar) :asn = $bar.asdf(:asn, $(20))',
+                    'storm': '''
+                    // Import the foo.bar module
+                    $bar = $lib.import(foo.bar)
+                    // Set :asn to the output of the asdf function defined
+                    // in foo.bar module.
+                    [:asn = $bar.asdf(:asn, $(20))]
+                    ''',
                 },
             )
         },
