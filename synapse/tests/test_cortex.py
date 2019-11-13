@@ -1604,6 +1604,21 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(rec.get('desc'), 'Add nodes to the Cortex via the packed node format.')
             self.eq(rec.get('fulldoc'), 'Add nodes to the Cortex via the packed node format.')
 
+            # Test the stormpkg apis
+            otherpkg = {
+                'name': 'foosball',
+                'version': (0, 0, 1),
+            }
+            self.none(await proxy.addStormPkg(otherpkg))
+            pkgs = await proxy.getStormPkgs()
+            self.len(1, pkgs)
+            self.eq(pkgs, [otherpkg])
+            pkg = await proxy.getStormPkg('foosball')
+            self.eq(pkg, otherpkg)
+            self.none(await proxy.delStormPkg('foosball'))
+            pkgs = await proxy.getStormPkgs()
+            self.len(0, pkgs)
+
     async def test_stormcmd(self):
 
         async with self.getTestCoreAndProxy() as (realcore, core):

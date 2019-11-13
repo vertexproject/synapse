@@ -680,7 +680,7 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.getStormPkgs()
 
     async def getStormPkg(self, name):
-        return self.cell.getStormPkg(name)
+        return await self.cell.getStormPkg(name)
 
 class Cortex(s_cell.Cell):
     '''
