@@ -2900,15 +2900,15 @@ class Function(AstNode):
     async def run(self, runt, genr):
 
         self.hasretn = self.hasAstClass(Return)
+        self.name = self.kids[0].value()
 
         async def realfunc(*args, **kwargs):
             return await self.callfunc(runt, args, kwargs)
 
-        name = self.kids[0].value()
-        runt.setVar(name, realfunc)
+        runt.setVar(self.name, realfunc)
 
         async for node, path in genr:
-            path.setVar(name, realfunc)
+            path.setVar(self.name, realfunc)
             yield node, path
 
     def getRuntVars(self, runt):
@@ -2921,24 +2921,44 @@ class Function(AstNode):
         This function may return a value / generator / async generator
         '''
         argdefs = self.kids[1].value()
-        if len(args) != len(argdefs):
-            raise Exception('BAD CALL ARG COUNT FIXME')
 
-        argvars = {}
-        for i, name in enumerate(argdefs):
-            argvars[name] = args[i]
+        # join args and kwargs together...
+        real_args = {}
+        for name, arg in s_common.iterzip(argdefs, args, fillvalue=s_common.novalu):
+            if arg is s_common.novalu:
+                break
+            if name is s_common.novalu:
+                raise s_exc.StormRuntimeError(mesg='Extra positional arguments provided',
+                                              name=self.name, valu=arg)
+            real_args[name] = arg
+        if kwargs:
+            for name in argdefs:
+                if name in real_args:
+                    continue
+                valu = kwargs.pop(name, s_common.novalu)
+                if valu is s_common.novalu:
+                    continue
+                real_args[name] = valu
 
-        opts = {'vars': argvars}
+        if kwargs:
+            raise s_exc.StormRuntimeError(mesg='Unused kwargs provided',
+                                          name=self.name, kwargs=list(kwargs.keys()))
+
+        if len(real_args) != len(argdefs):
+            raise s_exc.StormRuntimeError(mesg='Bad call argument length',
+                                          name=self.name, args=real_args,
+                                          expected=len(argdefs), got=len(real_args)
+                                          )
+
+        opts = {'vars': real_args}
         funcrunt = await runt.getScopeRuntime(self.kids[2], opts=opts)
-
-        genr = agen()
 
         if self.hasretn:
 
             try:
 
                 async for item in self.kids[2].run(funcrunt, agen()):
-                    pass
+                    pass  # pragma: no cover
 
             except StormReturn as e:
                 return e.item

@@ -249,7 +249,7 @@ class LibBase(Lib):
 
         # execute the query in a module scope
         async for item in query.run(runt, s_ast.agen()):
-            pass
+            pass  # pragma: no cover
 
         modlib = Lib(self.runt)
         modlib.locls.update(runt.vars)

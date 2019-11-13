@@ -2,6 +2,61 @@ import synapse.exc as s_exc
 
 import synapse.tests.utils as s_test
 
+foo_stormpkg = {
+    'name': 'foo',
+    'desc': 'The Foo Module',
+    'version': (0, 0, 1),
+    'modules': [
+        {
+            'name': 'hehe.haha',
+            'storm': '''
+                $intval = $(10)
+                function lolz(x, y) {
+                    return $( $x + $y )
+                }
+            ''',
+        },
+        {
+            'name': 'hehe.hoho',
+            'storm': '''
+                function nodes (x, y) {
+                    [ test:str=$x ]
+                    [ test:str=$y ]
+                }
+            ''',
+        },
+        {
+            'name': 'test',
+            'storm': '''
+            function pprint(arg1, arg2, arg3) {
+                $lib.print('arg1: {arg1}', arg1=$arg1)
+                $lib.print('arg2: {arg2}', arg2=$arg2)
+                $lib.print('arg3: {arg3}', arg3=$arg3)
+                return
+            }
+            '''
+        }
+    ],
+    'commands': [
+        {
+            'name': 'foo.bar',
+            'storm': '''
+                init {
+                    $foolib = $lib.import(hehe.haha)
+                    [ test:int=$foolib.lolz($(20), $(30)) ]
+                }
+            ''',
+        },
+        {
+            'name': 'test.nodes',
+            'storm': '''
+                $foolib = $lib.import(hehe.hoho)
+                yield $foolib.nodes(asdf, qwer)
+            ''',
+        },
+    ],
+}
+
 class AstTest(s_test.SynTest):
 
     async def test_try_set(self):
@@ -467,50 +522,6 @@ class AstTest(s_test.SynTest):
 
     async def test_lib_ast_module(self):
 
-        stormpkg = {
-            'name': 'foo',
-            'desc': 'The Foo Module',
-            'version': (0, 0, 1),
-            'modules': [
-                {
-                    'name': 'hehe.haha',
-                    'storm': '''
-                        $intval = $(10)
-                        function lolz(x, y) {
-                            return $( $x + $y )
-                        }
-                    ''',
-                },
-                {
-                    'name': 'hehe.hoho',
-                    'storm': '''
-                        function nodes (x, y) {
-                            [ test:str=$x ]
-                            [ test:str=$y ]
-                        }
-                    ''',
-                },
-            ],
-            'commands': [
-                {
-                    'name': 'foo.bar',
-                    'storm': '''
-                        init {
-                            $foolib = $lib.import(hehe.haha)
-                            [ test:int=$foolib.lolz($(20), $(30)) ]
-                        }
-                    ''',
-                },
-                {
-                    'name': 'test.nodes',
-                    'storm': '''
-                        $foolib = $lib.import(hehe.hoho)
-                        yield $foolib.nodes(asdf, qwer)
-                    ''',
-                },
-            ],
-        }
-
         otherpkg = {
             'name': 'foosball',
             'version': (0, 0, 1),
@@ -518,7 +529,7 @@ class AstTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.addStormPkg(stormpkg)
+            await core.addStormPkg(foo_stormpkg)
 
             nodes = await core.nodes('foo.bar')
 
@@ -551,6 +562,88 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchName):
                 nodes = await core.nodes('test.nodes')
+
+    async def test_function(self):
+        async with self.getTestCore() as core:
+            await core.addStormPkg(foo_stormpkg)
+
+            # Allow plumbing through args as keywords
+            q = '''
+            $test=$lib.import(test)
+            $haha=$test.pprint('hello', 'world', arg3='goodbye')
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('arg1: hello', msgs)
+            self.stormIsInPrint('arg2: world', msgs)
+            self.stormIsInPrint('arg3: goodbye', msgs)
+            # Allow plumbing through args out of order
+            q = '''
+            $test=$lib.import(test)
+            $haha=$test.pprint(arg3='goodbye', arg1='hello', arg2='world')
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('arg1: hello', msgs)
+            self.stormIsInPrint('arg2: world', msgs)
+            self.stormIsInPrint('arg3: goodbye', msgs)
+
+            # Too few args are problematic
+            q = '''
+            $test=$lib.import(test)
+            $haha=$test.pprint('hello', 'world')
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('name'), 'pprint')
+            self.eq(erfo[1][1].get('expected'), 3)
+            self.eq(erfo[1][1].get('got'), 2)
+
+            # Too few args are problematic - kwargs edition
+            q = '''
+            $test=$lib.import(test)
+            $haha=$test.pprint(arg1='hello', arg2='world')
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('name'), 'pprint')
+            self.eq(erfo[1][1].get('expected'), 3)
+            self.eq(erfo[1][1].get('got'), 2)
+
+            # unused kwargs are fatal
+            q = '''
+            $test=$lib.import(test)
+            $haha=$test.pprint('hello', 'world', arg3='world', arg4='newp')
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('name'), 'pprint')
+            self.eq(erfo[1][1].get('kwargs'), ['arg4'])
+
+            # kwargs which duplicate a positional arg is fatal
+            q = '''
+            $test=$lib.import(test)
+            $haha=$test.pprint('hello', 'world', arg1='hello')
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('name'), 'pprint')
+            self.eq(erfo[1][1].get('kwargs'), ['arg1'])
+
+            # Too many args are fatal too
+            q = '''
+            $test=$lib.import(test)
+            $haha=$test.pprint('hello', 'world', 'goodbye', 'newp')
+            '''
+            msgs = await core.streamstorm(q).list()
+            for m in msgs:
+                print(m)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('name'), 'pprint')
+            self.eq(erfo[1][1].get('valu'), 'newp')
 
     async def test_ast_setitem(self):
 
