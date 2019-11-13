@@ -788,13 +788,22 @@ class LiftOper(Oper):
             async for subn in self.lift(path):
                 yield subn, path.fork(subn)
 
-class YieldValu(LiftOper):
+class YieldValu(Oper):
 
-    async def lift(self, runt):
+    async def run(self, runt, genr):
 
-        valu = await self.kids[0].compute(runt)
-        async for node in self.yieldFromValu(runt, valu):
-            yield node
+        node = None
+
+        async for node, path in genr:
+            valu = await self.kids[0].compute(path)
+            async for subn in self.yieldFromValu(runt, valu):
+                yield subn, runt.initPath(subn)
+            yield node, path
+
+        if node is None and self.kids[0].isRuntSafe(runt):
+            valu = await self.kids[0].compute(runt)
+            async for subn in self.yieldFromValu(runt, valu):
+                yield subn, runt.initPath(subn)
 
     async def yieldFromValu(self, runt, valu):
 
@@ -2898,8 +2907,9 @@ class Function(AstNode):
         name = self.kids[0].value()
         runt.setVar(name, realfunc)
 
-        async for item in genr:
-            yield item
+        async for node, path in genr:
+            path.setVar(name, realfunc)
+            yield node, path
 
     def getRuntVars(self, runt):
         yield self.kids[0].value()
