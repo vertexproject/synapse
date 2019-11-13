@@ -469,7 +469,6 @@ class AstTest(s_test.SynTest):
 
         stormpkg = {
             'name': 'foo',
-            'iden': 'f07ac8c690ed660f3c1373d8f1dfc0b6',
             'desc': 'The Foo Module',
             'version': (0, 0, 1),
             'modules': [
@@ -513,9 +512,8 @@ class AstTest(s_test.SynTest):
         }
 
         otherpkg = {
-            'name': 'bar',
+            'name': 'foosball',
             'version': (0, 0, 1),
-            'iden': 'f07ac8c690ed660f3c1373d8f1ffffff',
         }
 
         async with self.getTestCore() as core:
@@ -528,22 +526,28 @@ class AstTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:int', 50))
 
             nodes = await core.nodes('test.nodes')
+            self.len(2, nodes)
+            self.eq({('test:str', 'asdf'), ('test:str', 'qwer')},
+                    {n.ndef for n in nodes})
 
             msgs = await core.streamstorm('pkg.list').list()
-            self.stormIsInPrint('foo (0, 0, 1)', msgs)
+            self.stormIsInPrint('foo                             : (0, 0, 1)', msgs)
 
             msgs = await core.streamstorm('pkg.del asdf').list()
-            self.stormIsInPrint('No package IDs match "asdf". Aborting.', msgs)
+            self.stormIsInPrint('No package names match "asdf". Aborting.', msgs)
 
             await core.addStormPkg(otherpkg)
-            msgs = await core.streamstorm('pkg.del f07').list()
-            self.stormIsInPrint('Multiple package IDs match "f07". Aborting.', msgs)
+            msgs = await core.streamstorm('pkg.list').list()
+            self.stormIsInPrint('foosball', msgs)
 
-            msgs = await core.streamstorm(f'pkg.del f07ac8c690ed660f3c1373d8f1ffffff').list()
-            self.stormIsInPrint('Removing package: f07ac8c690ed660f3c1373d8f1ffffff', msgs)
+            msgs = await core.streamstorm('pkg.del foo').list()
+            self.stormIsInPrint('Multiple package names match "foo". Aborting.', msgs)
 
-            msgs = await core.streamstorm(f'pkg.del f07ac8c690ed660f3c1373d8f1dfc0b6').list()
-            self.stormIsInPrint('Removing package: f07ac8c690ed660f3c1373d8f1dfc0b6', msgs)
+            msgs = await core.streamstorm(f'pkg.del foosball').list()
+            self.stormIsInPrint('Removing package: foosball', msgs)
+
+            msgs = await core.streamstorm(f'pkg.del foo').list()
+            self.stormIsInPrint('Removing package: foo', msgs)
 
             with self.raises(s_exc.NoSuchName):
                 nodes = await core.nodes('test.nodes')
