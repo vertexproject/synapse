@@ -22,7 +22,7 @@ class RealService(s_stormsvc.StormSvc):
             'name': 'foo',
             'version': (0, 0, 1),
             'modules': (
-                {'name': 'foo.bar', 'storm': 'function asdf(x, y) { return $($x + $y) }'},
+                {'name': 'foo.bar', 'storm': 'function asdf(x, y) { return ($($x + $y)) }'},
             ),
             'commands': (
                 {
@@ -238,7 +238,7 @@ class StormSvcTest(s_test.SynTest):
             'name': 'foobar',
             'version': (0, 0, 1),
             'modules': (
-                {'name': 'hehe.haha', 'storm': 'function add(x, y) { return $($x + $y) }'},
+                {'name': 'hehe.haha', 'storm': 'function add(x, y) { return ($($x + $y)) }'},
             ),
             'commands': (
                 {'name': 'foobar', 'storm': '$haha = $lib.import(hehe.haha) [ inet:asn=$haha.add($(10), $(20)) ]'},

@@ -48,7 +48,7 @@ TerminalPygMap = {
     'PROPS': p_t.Name,
     'RBRACE': p_t.Punctuation,
     'RELNAME': p_t.Name,
-    'RETURN': p_t.Keyword,
+    '_RETURN': p_t.Keyword,
     'RPAR': p_t.Punctuation,
     'RSQB': p_t.Punctuation,
     'SETOPER': p_t.Operator,

@@ -12,7 +12,7 @@ foo_stormpkg = {
             'storm': '''
                 $intval = $(10)
                 function lolz(x, y) {
-                    return $( $x + $y )
+                    return ($( $x + $y ))
                 }
             ''',
         },
@@ -32,7 +32,7 @@ foo_stormpkg = {
                 $lib.print('arg1: {arg1}', arg1=$arg1)
                 $lib.print('arg2: {arg2}', arg2=$arg2)
                 $lib.print('arg3: {arg3}', arg3=$arg3)
-                return
+                return()
             }
             '''
         }
@@ -570,7 +570,7 @@ class AstTest(s_test.SynTest):
             # No arguments
             q = '''
             function hello() {
-                return "hello"
+                return ("hello")
             }
             $retn=$hello()
             $lib.print('retn is: {retn}', retn=$retn)
@@ -581,7 +581,7 @@ class AstTest(s_test.SynTest):
             # Simple echo function
             q = '''
             function echo(arg) {
-                return $arg
+                return ($arg)
             }
             [(test:str=foo) (test:str=bar)]
             $retn=$echo($node.value())
@@ -597,7 +597,7 @@ class AstTest(s_test.SynTest):
             function echo(arg) {
                 $lib.print('arg is {arg}', arg=$arg)
                 [(test:str=1234) (test:str=5678)]
-                return $node.value()
+                return ($node.value())
             }
             [(test:str=foo) (test:str=bar)]
             $retn=$echo($node.value())

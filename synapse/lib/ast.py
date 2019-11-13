@@ -2887,7 +2887,7 @@ class Function(AstNode):
     # we auto-detect the behavior of the target function
 
     # return a value
-    function bar(x, y) { return $(x + y) }
+    function bar(x, y) { return ($(x + y)) }
 
     # incrementally yield values
     function bar(x, y) { yield $x yield $y }
