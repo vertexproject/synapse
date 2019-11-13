@@ -2856,7 +2856,7 @@ class Return(Oper):
 
         # fake out a generator...
         for item in ():
-            yield item
+            yield item  # pragma: no cover
 
         valu = None
         async for node, path in genr:
