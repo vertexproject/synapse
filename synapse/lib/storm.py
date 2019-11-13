@@ -92,7 +92,7 @@ stormcmds = (
             } else {
                 $lib.print('Loaded storm packages:')
                 for $pkg in $pkgs {
-                    $lib.print("{iden}: {name} {vers}", iden=$pkg.iden, name=$pkg.name, vers=$pkg.version)
+                    $lib.print("{name}: {vers}", name=$pkg.name.ljust(32), vers=$pkg.version)
                 }
             }
         '''
@@ -101,31 +101,31 @@ stormcmds = (
         'name': 'pkg.del',
         'descr': 'Remove a storm package from the cortex.',
         'cmdargs': (
-            ('iden', {'help': 'The package id (or id prefix) to remove.'}),
+            ('name', {'help': 'The name (or name prefix) of the package to remove.'}),
         ),
         'storm': '''
 
             $pkgs = $lib.set()
 
             for $pkg in $lib.pkg.list() {
-                if $pkg.iden.startswith($cmdopts.iden) {
-                    $pkgs.add($pkg.iden)
+                if $pkg.name.startswith($cmdopts.name) {
+                    $pkgs.add($pkg.name)
                 }
             }
 
             if $($pkgs.size() = 0) {
 
-                $lib.print('No package IDs match "{iden}". Aborting.', iden=$cmdopts.iden)
+                $lib.print('No package names match "{name}". Aborting.', name=$cmdopts.name)
 
             } elif $($pkgs.size() = 1) {
 
-                $iden = $pkgs.list().index(0)
-                $lib.print('Removing package: {iden}', iden=$iden)
-                $lib.pkg.del($iden)
+                $name = $pkgs.list().index(0)
+                $lib.print('Removing package: {name}', name=$name)
+                $lib.pkg.del($name)
 
             } else {
 
-                $lib.print('Multiple package IDs match "{iden}". Aborting.', iden=$cmdopts.iden)
+                $lib.print('Multiple package names match "{name}". Aborting.', name=$cmdopts.name)
 
             }
         '''
