@@ -13,6 +13,7 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 _Queries = [
+    'function echo(arg) { return ($arg) }',
     '$var=tag1 #base.$var',
     'test:str $var=tag1 +#base.$var@=2014',
     'test:str $var=tag1 -> #base.$var',
@@ -504,7 +505,7 @@ _Queries = [
     }
     ''',
     ''' [(ou:org=c71cd602f73af5bed208da21012fdf54 :loc=us )]''',
-    'function x(y, z) { return $( $x - $y ) }',
+    'function x(y, z) { return ($( $x - $y ) ) }',
     '$name = asdf $foo = $lib.dict() $foo.bar = asdf $foo."bar baz" = asdf $foo.$name = asdf',
     '[test:str=a] switch $node.form() { hehe: {[+#baz]} }',
     '[test:str=a] switch $woot { hehe: {[+#baz]} }',

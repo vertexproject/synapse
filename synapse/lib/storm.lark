@@ -57,7 +57,8 @@ _oper: stormfunc | initblock | finiblock | subquery | _formpivot | formjoin | fo
 BREAK: "break"
 CONTINUE: "continue"
 
-return: "return" [ _WS _valu ]
+RETURN: "return"
+return: RETURN _WS? "("[ _WS? _valu ] _WS?")"
 
 // A bare variable reference, useful for a function call
 vareval: _varvalu
