@@ -129,7 +129,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
             self.info = await proxy.getStormSvcInfo()
 
             try:
-                await self.core.delStormSvcCmds(self.iden)
+                await self.core._delStormSvcCmds(self.iden)
 
             except asyncio.CancelledError:  # pragma: no cover
                 raise

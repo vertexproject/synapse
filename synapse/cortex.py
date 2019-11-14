@@ -1030,7 +1030,7 @@ class Cortex(s_cell.Cell):
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
 
-        await self.delStormSvcCmds(iden)
+        await self._delStormSvcCmds(iden)
 
         name = sdef.get('name')
         if name is not None:
@@ -1040,7 +1040,7 @@ class Cortex(s_cell.Cell):
         if ssvc is not None:
             await ssvc.fini()
 
-    async def delStormSvcCmds(self, iden):
+    async def _delStormSvcCmds(self, iden):
         '''
         Delete a storm service's commands from the cortex.
         '''
