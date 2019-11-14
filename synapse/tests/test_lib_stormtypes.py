@@ -431,6 +431,15 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(tuple(sorted(nodes[0].get('data'))), ())
 
+            q = '''
+                $set = $lib.set()
+                $set.add(foo)
+                if $set.has(foo) { [ test:str=asdf ] }
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'asdf'))
+
     async def test_storm_path(self):
         async with self.getTestCore() as core:
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
