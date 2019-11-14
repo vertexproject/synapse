@@ -104,7 +104,21 @@ class StormTypesTest(s_test.SynTest):
             self.len(2, await core.nodes('#faz'))
 
     async def test_storm_lib_base(self):
+        pdef = {
+            'name': 'foo',
+            'desc': 'test',
+            'version': (0, 0, 1),
+            'modules': [
+                {
+                    'name': 'test',
+                    'storm': 'function f(a) { return ($a) }',
+                }
+            ],
+            'commands': [
+            ],
+        }
         async with self.getTestCore() as core:
+            await core.addStormPkg(pdef)
             nodes = await core.nodes('[ inet:asn=$lib.min(20, 0x30) ]')
             self.len(1, nodes)
             self.eq(20, nodes[0].ndef[1])
@@ -163,6 +177,16 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].ndef[1], 'a')
             self.eq(nodes[1].ndef[1], 'b')
             self.eq(nodes[2].ndef[1], 'c')
+
+            # $lib.import
+            q = '$test = $lib.import(test) $lib.print($test)'
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('stormtypes.Lib object', msgs)
+            q = '$test = $lib.import(newp)'
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'NoSuchName')
+            self.eq(erfo[1][1].get('name'), 'newp')
 
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:

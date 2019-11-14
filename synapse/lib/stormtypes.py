@@ -241,7 +241,7 @@ class LibBase(Lib):
         mdef = self.runt.getStormMod(name)
         if mdef is None:
             mesg = f'No storm module named {name}.'
-            raise s_exc.NoSuchName(mesg=mesg)
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
 
         text = mdef.get('storm')
         query = await self.runt.getStormQuery(text)
