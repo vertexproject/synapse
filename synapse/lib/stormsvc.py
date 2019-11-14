@@ -133,6 +133,15 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
 
             self.info = await proxy.getStormSvcInfo()
 
+            try:
+                await self.core._delStormSvcCmds(self.iden)
+
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+
+            except Exception as e:
+                logger.exception(f'delStormSvcCmds failed for service {self.name} ({self.iden})')
+
             for pdef in self.info.get('pkgs', ()):
 
                 try:
@@ -179,6 +188,12 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
 
             except Exception:
                 logger.exception(f'service.add storm hook failed for service {self.name} ({self.iden})')
+
+        async def unready():
+            self.ready.clear()
+            await self.core.fire("stormsvc:client:unready", iden=self.iden)
+
+        proxy.onfini(unready)
 
         self.ready.set()
 

@@ -4,7 +4,41 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_test
+
+import synapse.lib.cell as s_cell
 import synapse.lib.stormsvc as s_stormsvc
+
+
+class OldServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
+    _storm_svc_cmds = (
+        {
+            'name': 'oldcmd',
+            'storm': '[ inet:ipv4=1.2.3.4 ]',
+        },
+    )
+
+class NewServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
+    _storm_svc_cmds = (
+        {
+            'name': 'newcmd',
+            'storm': '[ inet:ipv4=5.6.7.8 ]',
+        },
+    )
+
+class ChangingService(s_cell.Cell):
+    confdefs = (
+        ('updated', {'type': 'bool', 'defval': False,
+                     'doc': 'If true, serve new cell api'}),
+    )
+
+    async def getTeleApi(self, link, mesg, path):
+
+        user = self._getCellUser(mesg)
+
+        if self.conf.get('updated'):
+            return await NewServiceAPI.anit(self, link, user)
+        else:
+            return await OldServiceAPI.anit(self, link, user)
 
 class RealService(s_stormsvc.StormSvc):
     _storm_svc_cmds = (
@@ -383,6 +417,9 @@ class StormSvcTest(s_test.SynTest):
 
                     await core.delStormSvc(iden)
 
+                    # make sure stormcmd got deleted
+                    self.none(core.getStormCmd('ohhai'))
+
                     # ensure fini ran
                     queue = core.multiqueue.list()
                     self.len(0, queue)
@@ -429,3 +466,57 @@ class StormSvcTest(s_test.SynTest):
                         await core.delStormSvc(ssvc.iden)
                     self.len(1, badiden)
                     self.eq(ssvc.iden, badiden[0])
+
+    async def test_storm_svc_restarts(self):
+
+        with self.getTestDir() as dirn:
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+
+                with self.getTestDir() as svcd:
+
+                    chng = await ChangingService.anit(svcd)
+                    chng.dmon.share('chng', chng)
+
+                    root = chng.auth.getUserByName('root')
+                    await root.setPasswd('root')
+
+                    info = await chng.dmon.listen('tcp://127.0.0.1:0/')
+                    host, port = info
+
+                    curl = f'tcp://root:root@127.0.0.1:{port}/chng'
+
+                    await core.nodes(f'service.add chng {curl}')
+                    await core.nodes('$lib.service.wait(chng)')
+
+                    self.nn(core.getStormCmd('oldcmd'))
+                    self.none(core.getStormCmd('newcmd'))
+
+                    waiter = core.waiter(1, 'stormsvc:client:unready')
+
+                    await chng.fini()
+
+                    self.true(await waiter.wait(10))
+
+                    chngd = await ChangingService.anit(svcd, {'updated': True})
+                    chngd.dmon.share('chng', chngd)
+
+                    info = await chngd.dmon.listen(f'tcp://127.0.0.1:{port}/')
+
+                    await core.nodes('$lib.service.wait(chng)')
+
+                    self.none(core.getStormCmd('oldcmd'))
+                    self.nn(core.getStormCmd('newcmd'))
+
+                    await chngd.fini()
+
+                    cdef = OldServiceAPI._storm_svc_cmds[0]
+                    cdef['cmdconf'] = {'svciden': 'fakeiden'}
+                    await core.setStormCmd(cdef)
+
+                    self.nn(core.getStormCmd('oldcmd'))
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+
+                self.none(core.getStormCmd('oldcmd'))
+                self.nn(core.getStormCmd('newcmd'))

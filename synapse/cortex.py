@@ -838,9 +838,15 @@ class Cortex(s_cell.Cell):
 
         await self._initRuntFuncs()
 
+        cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
+        pkghive = await self.hive.open(('cortex', 'storm', 'packages'))
+        self.cmdhive = await cmdhive.dict()
+        self.pkghive = await pkghive.dict()
+
         # Finalize coremodule loading & give stormservices a shot to load
         await self._initCoreMods()
         await self._initStormSvcs()
+        await self._initPureStormCmds()
 
         # Now start agenda and dmons after all coremodules have finished
         # loading and services have gotten a shot to be registerd.
@@ -1153,6 +1159,8 @@ class Cortex(s_cell.Cell):
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
 
+        await self._delStormSvcCmds(iden)
+
         name = sdef.get('name')
         if name is not None:
             self.svcsbyname.pop(name, None)
@@ -1160,6 +1168,20 @@ class Cortex(s_cell.Cell):
         ssvc = self.svcsbyiden.pop(iden, None)
         if ssvc is not None:
             await ssvc.fini()
+
+    async def _delStormSvcCmds(self, iden):
+        '''
+        Delete a storm service's commands from the cortex.
+        '''
+
+        oldcmds = []
+        for name, cdef in self.cmdhive.items():
+            cmdiden = cdef.get('cmdconf', {}).get('svciden')
+            if cmdiden == iden:
+                oldcmds.append(cdef.get('name'))
+
+        for name in oldcmds:
+            await self.delStormCmd(name)
 
     async def setStormSvcEvents(self, iden, edef):
         '''
@@ -1560,14 +1582,17 @@ class Cortex(s_cell.Cell):
         for cdef in s_storm.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
-        cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
-        pkghive = await self.hive.open(('cortex', 'storm', 'packages'))
-
-        self.cmdhive = await cmdhive.dict()
-        self.pkghive = await pkghive.dict()
-
+    async def _initPureStormCmds(self):
+        oldcmds = []
         for name, cdef in self.cmdhive.items():
-            await self._trySetStormCmd(name, cdef)
+            cmdiden = cdef.get('cmdconf', {}).get('svciden')
+            if cmdiden and self.stormservices.get(cmdiden) is None:
+                oldcmds.append(name)
+            else:
+                await self._trySetStormCmd(name, cdef)
+
+        for name in oldcmds:
+            await self.cmdhive.pop(name)
 
         for name, pkgdef in self.pkghive.items():
             await self._tryLoadStormPkg(pkgdef)
