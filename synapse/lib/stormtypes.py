@@ -815,8 +815,9 @@ class Set(Prim):
         Prim.__init__(self, set(valu), path=path)
         self.locls.update({
             'add': self._methSetAdd,
-            'adds': self._methSetAdds,
+            'has': self._methSetHas,
             'rem': self._methSetRem,
+            'adds': self._methSetAdds,
             'rems': self._methSetRems,
             'list': self._methSetList,
             'size': self._methSetSize,
@@ -832,6 +833,9 @@ class Set(Prim):
 
     async def _methSetSize(self):
         return len(self.valu)
+
+    async def _methSetHas(self, item):
+        return item in self.valu
 
     async def _methSetAdd(self, *items):
         [self.valu.add(i) for i in items]
