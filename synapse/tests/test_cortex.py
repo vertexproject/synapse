@@ -3946,25 +3946,35 @@ class CortexBasicTest(s_t_utils.SynTest):
                 },
             ],
         }
-        async with self.getTestCore() as core:
-            # await core.addStormPkg(base_pkg)
-            pkg = copy.deepcopy(base_pkg)
-            pkg.pop('name')
-            with self.raises(s_exc.BadPkgDef) as cm:
-                await core.addStormPkg(pkg)
-            self.eq(cm.exception.get('mesg'),
-                    'Package definition has no "name" field.')
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                # await core.addStormPkg(base_pkg)
+                pkg = copy.deepcopy(base_pkg)
+                pkg.pop('name')
+                with self.raises(s_exc.BadPkgDef) as cm:
+                    await core.addStormPkg(pkg)
+                self.eq(cm.exception.get('mesg'),
+                        'Package definition has no "name" field.')
 
-            pkg = copy.deepcopy(base_pkg)
-            pkg.pop('version')
-            with self.raises(s_exc.BadPkgDef) as cm:
-                await core.addStormPkg(pkg)
-            self.eq(cm.exception.get('mesg'),
-                    'Package definition has no "version" field.')
+                pkg = copy.deepcopy(base_pkg)
+                pkg.pop('version')
+                with self.raises(s_exc.BadPkgDef) as cm:
+                    await core.addStormPkg(pkg)
+                self.eq(cm.exception.get('mesg'),
+                        'Package definition has no "version" field.')
 
-            pkg = copy.deepcopy(base_pkg)
-            pkg['modules'][0].pop('name')
-            with self.raises(s_exc.BadPkgDef) as cm:
-                await core.addStormPkg(pkg)
-            self.eq(cm.exception.get('mesg'),
-                    'Package module is missing a name.')
+                pkg = copy.deepcopy(base_pkg)
+                pkg['modules'][0].pop('name')
+                with self.raises(s_exc.BadPkgDef) as cm:
+                    await core.addStormPkg(pkg)
+                self.eq(cm.exception.get('mesg'),
+                        'Package module is missing a name.')
+
+                pkg = copy.deepcopy(base_pkg)
+                pkg.pop('version')
+                await core.pkghive.set('boom_pkg', pkg)
+
+            with self.getAsyncLoggerStream('synapse.cortex',
+                                           'Error loading pkg') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    self.true(await stream.wait(6))
