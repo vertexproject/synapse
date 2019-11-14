@@ -382,6 +382,8 @@ class InitBlock(AstNode):
     async def run(self, runt, genr):
 
         subq = self.kids[0]
+        if not subq.isRuntSafe(runt):
+            raise s_exc.StormRuntimeError(mesg='Init block query must be runtsafe')
 
         once = False
         async for item in genr:
@@ -408,6 +410,9 @@ class FiniBlock(AstNode):
     async def run(self, runt, genr):
 
         subq = self.kids[0]
+
+        if not subq.isRuntSafe(runt):
+            raise s_exc.StormRuntimeError(mesg='Fini block query must be runtsafe')
 
         async for item in genr:
             yield item

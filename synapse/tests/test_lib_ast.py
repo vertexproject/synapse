@@ -759,3 +759,87 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('init { [ test:int=20 ] }')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 20))
+
+            # init and fini blocks may also yield nodes
+            q = '''
+            init {
+                [(test:str=init1 :hehe=hi)]
+            }
+            $hehe=:hehe
+            [test:str=init2 :hehe=$hehe]
+            '''
+            nodes = await core.nodes(q)
+            self.eq(nodes[0].ndef, ('test:str', 'init1'))
+            self.eq(nodes[0].get('hehe'), 'hi')
+            self.eq(nodes[1].ndef, ('test:str', 'init2'))
+            self.eq(nodes[1].get('hehe'), 'hi')
+
+            # Non-runtsafe init fails to execute
+            q = '''
+            test:str^=init +:hehe $hehe=:hehe
+            init {
+                [test:str=$hehe]
+            }
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('mesg'), 'Init block query must be runtsafe')
+
+            # Runtsafe init works and can yield nodes, this has inbound nodes as well
+            q = '''
+            test:str^=init
+            $hehe="const"
+            init {
+                [test:str=$hehe]
+            }
+            '''
+            nodes = await core.nodes(q)
+            self.eq(nodes[0].ndef, ('test:str', 'const'))
+            self.eq(nodes[1].ndef, ('test:str', 'init1'))
+            self.eq(nodes[2].ndef, ('test:str', 'init2'))
+
+            # runtsafe fini with a node example which works
+            q = '''
+            [test:str=fini1 :hehe=bye]
+            $hehe="hehe"
+            fini {
+                [(test:str=fini2 :hehe=$hehe)]
+            }
+            '''
+            nodes = await core.nodes(q)
+            self.eq(nodes[0].ndef, ('test:str', 'fini1'))
+            self.eq(nodes[0].get('hehe'), 'bye')
+            self.eq(nodes[1].ndef, ('test:str', 'fini2'))
+            self.eq(nodes[1].get('hehe'), 'hehe')
+
+            # Non-runtsafe fini example which fails
+            q = '''
+            [test:str=fini3 :hehe="number3"]
+            $hehe=:hehe
+            fini {
+                [(test:str=fini4 :hehe=$hehe)]
+            }
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('mesg'), 'Fini block query must be runtsafe')
+
+            # Tally use - case example for counting
+            q = '''
+            init {
+                $tally = $lib.stats.tally()
+            }
+            test:int $tally.inc('node') | spin |
+            fini {
+                for ($name, $total) in $tally {
+                    $lib.fire(name=$name, total=$total)
+                }
+            }
+            '''
+            msgs = await core.streamstorm(q).list()
+            firs = [m for m in msgs if m[0] == 'storm:fire']
+            self.len(1, firs)
+            evnt = firs[0]
+            self.eq(evnt[1].get('data'), {'total': 3})
