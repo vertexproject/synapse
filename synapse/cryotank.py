@@ -51,10 +51,9 @@ class CryoTank(s_base.Base):
 
         path = s_common.gendir(self.dirn, 'tank.lmdb')
 
-        self.slab = await s_lmdbslab.Slab.anit(path)
+        self.slab = await s_lmdbslab.Slab.anit(path, map_async=True, **conf)
 
         self.offs = s_slaboffs.SlabOffs(self.slab, 'offsets')
-
         self._items = s_slabseqn.SlabSeqn(self.slab, 'items')
         self._metrics = s_slabseqn.SlabSeqn(self.slab, 'metrics')
 
@@ -298,7 +297,7 @@ class CryoCell(s_cell.Cell):
 
         iden = s_common.guid()
 
-        logger.info('Creating new tank: %s', name)
+        logger.info('Creating new tank: [%s][%s]', name, iden)
 
         path = s_common.genpath(self.dirn, 'tanks', iden)
 

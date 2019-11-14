@@ -1,7 +1,7 @@
-
 import synapse.common as s_common
 import synapse.cryotank as s_cryotank
 
+import synapse.lib.const as s_const
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -88,3 +88,19 @@ class CryoTest(s_t_utils.SynTest):
                 self.len(2, await alist(prox.slice(0, 9999)))
 
                 self.len(1, await alist(prox.metrics(0)))
+
+    async def test_cryo_init(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCryo(dirn) as cryo:
+                # test passing conf data in through init directly
+                tank = await cryo.init('conftest', conf={'map_size': s_const.mebibyte * 64})
+                self.eq(tank.slab.mapsize, s_const.mebibyte * 64)
+                _, conf = await cryo.hive.get(('cryo', 'names', 'conftest'))
+                self.eq(conf, {'map_size': s_const.mebibyte * 64})
+
+            # And the data was persisted
+            async with self.getTestCryo(dirn) as cryo:
+                tank = cryo.tanks.get('conftest')
+                self.eq(tank.slab.mapsize, s_const.mebibyte * 64)
+                _, conf = await cryo.hive.get(('cryo', 'names', 'conftest'))
+                self.eq(conf, {'map_size': s_const.mebibyte * 64})
