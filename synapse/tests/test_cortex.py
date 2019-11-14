@@ -1618,6 +1618,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(await proxy.delStormPkg('foosball'))
             pkgs = await proxy.getStormPkgs()
             self.len(0, pkgs)
+            await self.asyncraises(s_exc.NoSuchPkg, proxy.delStormPkg('foosball'))
 
     async def test_stormcmd(self):
 
