@@ -608,6 +608,22 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('arg is bar', msgs)
             self.stormIsInPrint('retn is: 1234', msgs)
 
+            # Return values may be conditional
+            q = '''function cond(arg) {
+                if $arg {
+                    return ($arg)
+                } else {
+                    // No action....
+                }
+            }
+            [(test:int=0) (test:int=1)]
+            $retn=$cond($node.value())
+            $lib.print('retn is: {retn}', retn=$retn)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('retn is: None', msgs)
+            self.stormIsInPrint('retn is: 1', msgs)
+
             # Allow plumbing through args as keywords
             q = '''
             $test=$lib.import(test)
