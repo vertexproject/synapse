@@ -740,9 +740,26 @@ class AstTest(s_test.SynTest):
             self.eq(stormfire[0][1].get('data').get('dict'),
                     {'key1': 'val1', 'key2': 'val2'})
 
-            # TODO sad path tests
-            # These are triggered in the SetItemOper when the target
-            # item is not a storm primitive
+            # The default StormType does not support item assignment
+            q = '''
+            $set=$lib.set()
+            $set.foo="bar"
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('mesg'), 'Set does not support assignment.')
+
+            # Some types we have in the runtime cannot be converted to StormTypes
+            q = '''
+            function f(a){ return() }
+            $f.newp="newp"
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'NoSuchType')
+            self.eq(erfo[1][1].get('mesg'),
+                    'Unable to convert python primitive to StormType.')
 
     async def test_ast_initfini(self):
 

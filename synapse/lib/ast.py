@@ -635,10 +635,6 @@ class SetItemOper(Oper):
 
             item = s_stormtypes.fromprim(await self.kids[0].compute(path))
 
-            if not isinstance(item, s_stormtypes.StormType):
-                mesg = f'Item assignment not supported on: {item.__class__.__name__}'
-                raise s_exc.StormRuntimeError(mesg=mesg)
-
             name = await self.kids[1].compute(path)
             valu = await self.kids[2].compute(path)
 
@@ -650,10 +646,6 @@ class SetItemOper(Oper):
         if count == 0 and vkid.isRuntSafe(runt):
 
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt))
-
-            if not isinstance(item, s_stormtypes.StormType):
-                mesg = f'Item assignment not supported on: {item.__class__.__name__}'
-                raise s_exc.StormRuntimeError(mesg=mesg)
 
             name = await self.kids[1].compute(runt)
             valu = await self.kids[2].compute(runt)

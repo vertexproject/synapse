@@ -1313,9 +1313,6 @@ def fromprim(valu, path=None):
     if isinstance(valu, s_node.Path):
         return Path(valu, path=path)
 
-    if isinstance(valu, StormType):
-        return valu
-
     if isinstance(valu, (tuple, list)):
         return List(valu, path=path)
 
@@ -1325,4 +1322,8 @@ def fromprim(valu, path=None):
     if isinstance(valu, bytes):
         return Bytes(valu, path=path)
 
-    raise s_exc.NoSuchType(name=valu.__class__.__name__)
+    if isinstance(valu, StormType):
+        return valu
+
+    mesg = 'Unable to convert python primitive to StormType.'
+    raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)
