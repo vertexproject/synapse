@@ -749,10 +749,14 @@ class Set(Prim):
         self.locls.update({
             'add': self._methSetAdd,
             'adds': self._methSetAdds,
+            'has': self._methSetHas,
             'rem': self._methSetRem,
             'rems': self._methSetRems,
             'list': self._methSetList,
         })
+
+    async def _methSetHas(self, item):
+        return item in self.valu
 
     async def _methSetAdd(self, *items):
         [self.valu.add(i) for i in items]
