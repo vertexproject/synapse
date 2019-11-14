@@ -191,5 +191,5 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
             mesg = 'Timeout waiting for storm service'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None
         except AttributeError as e:
-            mesg = 'Error dereferencing storm service - {str(e)}'
+            mesg = f'Error dereferencing storm service - {str(e)}'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None

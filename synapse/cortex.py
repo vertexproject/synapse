@@ -1048,7 +1048,7 @@ class Cortex(s_cell.Cell):
 
         except Exception as e:
             name = pkgdef.get('name')
-            logger.exception('error loading pkg: {name}')
+            logger.exception(f'Error loading pkg: {name}, {str(e)}')
 
     async def loadStormPkg(self, pkgdef):
         '''

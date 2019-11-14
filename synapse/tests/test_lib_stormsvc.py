@@ -63,6 +63,22 @@ class BoomService(s_stormsvc.StormSvc):
             'storm': ']',
         },
     )
+
+    _storm_svc_pkgs = (
+        {
+            'name': 'boom',
+            'version': (0, 0, 1),
+            'modules': (
+                {'name': 'blah', 'storm': '+}'},
+            ),
+            'commands': (
+                {
+                    'name': 'badcmd',
+                    'storm': ' --++{',
+                },
+            ),
+        },
+    )
     _storm_svc_evts = {
         'add': {
             'storm': '[ inet:ipv4 = 8.8.8.8 ]',
@@ -332,6 +348,9 @@ class StormSvcTest(s_test.SynTest):
 
                     nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ] | foobar | +:asn=40')
                     self.len(1, nodes)
+
+                    self.none(await core.getStormPkg('boom'))
+                    self.none(core.getStormCmd('badcmd'))
 
                     # execute a pure storm service without inbound nodes
                     # even though it has invalid add/del, it should still work
