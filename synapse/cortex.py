@@ -1074,7 +1074,7 @@ class Cortex(s_cell.Cell):
 
             modname = mdef.get('name')
             if modname is None:
-                raise s_exc.BadPkgDef('Package module is missing a name',
+                raise s_exc.BadPkgDef(mesg='Package module is missing a name.',
                                       package=name)
             modtext = mdef.get('storm')
             self.getStormQuery(modtext)

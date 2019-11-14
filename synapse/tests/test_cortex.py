@@ -1,3 +1,4 @@
+import copy
 import time
 import shutil
 import asyncio
@@ -3921,3 +3922,49 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.eq(data[3][0], 'tag:del')
                 self.eq(data[3][1]['tag'], 'baz.faz')
+
+    async def test_stormpkg_sad(self):
+        base_pkg = {
+            'name': 'boom',
+            'desc': 'The boom Module',
+            'version': (0, 0, 1),
+            'modules': [
+                {
+                    'name': 'boom.mod',
+                    'storm': '''
+                    function f(a) {return ($a)}
+                    ''',
+                },
+            ],
+            'commands': [
+                {
+                    'name': 'boom.cmd',
+                    'storm': '''
+                    $boomlib = $lib.import(boom.mod)
+                    $retn = $boomlib.f($arg)
+                    ''',
+                },
+            ],
+        }
+        async with self.getTestCore() as core:
+            # await core.addStormPkg(base_pkg)
+            pkg = copy.deepcopy(base_pkg)
+            pkg.pop('name')
+            with self.raises(s_exc.BadPkgDef) as cm:
+                await core.addStormPkg(pkg)
+            self.eq(cm.exception.get('mesg'),
+                    'Package definition has no "name" field.')
+
+            pkg = copy.deepcopy(base_pkg)
+            pkg.pop('version')
+            with self.raises(s_exc.BadPkgDef) as cm:
+                await core.addStormPkg(pkg)
+            self.eq(cm.exception.get('mesg'),
+                    'Package definition has no "version" field.')
+
+            pkg = copy.deepcopy(base_pkg)
+            pkg['modules'][0].pop('name')
+            with self.raises(s_exc.BadPkgDef) as cm:
+                await core.addStormPkg(pkg)
+            self.eq(cm.exception.get('mesg'),
+                    'Package module is missing a name.')
