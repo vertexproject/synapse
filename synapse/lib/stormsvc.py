@@ -80,17 +80,22 @@ class StormSvc:
     _storm_svc_vers = (0, 0, 1)
     _storm_svc_cmds = ()
     _storm_svc_evts = {}
+    _storm_svc_pkgs = {}
 
     async def getStormSvcInfo(self):
         return {
             'name': self._storm_svc_name,
             'vers': self._storm_svc_vers,
             'evts': self._storm_svc_evts,
+            'pkgs': await self.getStormSvcPkgs(),
             'cmds': await self.getStormSvcCmds(),
         }
 
     async def getStormSvcCmds(self):
         return self._storm_svc_cmds
+
+    async def getStormSvcPkgs(self):
+        return self._storm_svc_pkgs
 
 class StormSvcClient(s_base.Base, s_stormtypes.StormType):
     '''
@@ -136,6 +141,18 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
 
             except Exception as e:
                 logger.exception(f'delStormSvcCmds failed for service {self.name} ({self.iden})')
+
+            for pdef in self.info.get('pkgs', ()):
+
+                try:
+                    await self.core.addStormPkg(pdef)
+
+                except asyncio.CancelledError:  # pragma: no cover
+                    raise
+
+                except Exception:
+                    name = pdef.get('name')
+                    logger.exception(f'addStormPkg ({name}) failed for service {self.name} ({self.iden})')
 
             for cdef in self.info.get('cmds', ()):
 
@@ -188,6 +205,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
         except asyncio.TimeoutError:
             mesg = 'Timeout waiting for storm service'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None
-        except AttributeError as e:
-            mesg = 'Error dereferencing storm service - {str(e)}'
+        except AttributeError as e:  # pragma: no cover
+            # possible client race condition seen in the real world
+            mesg = f'Error dereferencing storm service - {str(e)}'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None

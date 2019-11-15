@@ -50,6 +50,29 @@ class RealService(s_stormsvc.StormSvc):
             'storm': '[ inet:ipv4=1.2.3.4 :asn=$lib.service.get($cmdconf.svciden).asn() ]',
         },
     )
+
+    _storm_svc_pkgs = (
+        {
+            'name': 'foo',
+            'version': (0, 0, 1),
+            'modules': (
+                {'name': 'foo.bar', 'storm': 'function asdf(x, y) { return ($($x + $y)) }'},
+            ),
+            'commands': (
+                {
+                    'name': 'foobar',
+                    'storm': '''
+                    // Import the foo.bar module
+                    $bar = $lib.import(foo.bar)
+                    // Set :asn to the output of the asdf function defined
+                    // in foo.bar module.
+                    [:asn = $bar.asdf(:asn, $(20))]
+                    ''',
+                },
+            )
+        },
+    )
+
     _storm_svc_evts = {
         'add': {
             'storm': '$lib.queue.add(vertex)',
@@ -72,6 +95,22 @@ class BoomService(s_stormsvc.StormSvc):
         {
             'name': 'goboom',
             'storm': ']',
+        },
+    )
+
+    _storm_svc_pkgs = (
+        {
+            'name': 'boom',
+            'version': (0, 0, 1),
+            'modules': (
+                {'name': 'blah', 'storm': '+}'},
+            ),
+            'commands': (
+                {
+                    'name': 'badcmd',
+                    'storm': ' --++{',
+                },
+            ),
         },
     )
     _storm_svc_evts = {
@@ -186,6 +225,84 @@ class StormSvcTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
 
+    async def test_storm_cmd_scope(self):
+
+        async with self.getTestCore() as core:
+
+            cdef = {
+                'name': 'lulz',
+                'storm': '''
+                    $test=(asdf, qwer)
+
+                    for $t in $test {
+                        $lib.print($test)
+                    }
+                '''
+            }
+
+            await core.setStormCmd(cdef)
+
+            nodes = await core.nodes('[ test:str=asdf ] | lulz')
+
+    async def test_storm_func_scope(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+
+                function foo (x) {
+                    [ test:str=$x ]
+                }
+
+                yield $foo(asdf)
+
+            ''')
+
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'asdf'))
+
+            scmd = {
+                'name': 'foocmd',
+                'storm': '''
+
+                    function lulz (lulztag) {
+                        [ test:str=$lulztag ]
+                    }
+
+                    for $tag in $node.tags() {
+                        yield $lulz($tag)
+                    }
+
+                ''',
+            }
+
+            await core.setStormCmd(scmd)
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#visi ] | foocmd')
+            self.eq(nodes[0].ndef, ('test:str', 'visi'))
+            self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
+
+    async def test_storm_pkg_persist(self):
+
+        pkg = {
+            'name': 'foobar',
+            'version': (0, 0, 1),
+            'modules': (
+                {'name': 'hehe.haha', 'storm': 'function add(x, y) { return ($($x + $y)) }'},
+            ),
+            'commands': (
+                {'name': 'foobar', 'storm': '$haha = $lib.import(hehe.haha) [ inet:asn=$haha.add($(10), $(20)) ]'},
+            ),
+        }
+        with self.getTestDir() as dirn:
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+                await core.addStormPkg(pkg)
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+                nodes = await core.nodes('foobar')
+                self.eq(nodes[0].ndef, ('inet:asn', 30))
+
     async def test_storm_svcs(self):
 
         with self.getTestDir() as dirn:
@@ -262,6 +379,12 @@ class StormSvcTest(s_test.SynTest):
 
                     nodes = await core.nodes('for $ipv4 in $lib.service.get(fake).ipv4s() { [inet:ipv4=$ipv4] }')
                     self.len(3, nodes)
+
+                    nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ] | foobar | +:asn=40')
+                    self.len(1, nodes)
+
+                    self.none(await core.getStormPkg('boom'))
+                    self.none(core.getStormCmd('badcmd'))
 
                     # execute a pure storm service without inbound nodes
                     # even though it has invalid add/del, it should still work

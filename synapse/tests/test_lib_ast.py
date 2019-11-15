@@ -2,6 +2,61 @@ import synapse.exc as s_exc
 
 import synapse.tests.utils as s_test
 
+foo_stormpkg = {
+    'name': 'foo',
+    'desc': 'The Foo Module',
+    'version': (0, 0, 1),
+    'modules': [
+        {
+            'name': 'hehe.haha',
+            'storm': '''
+                $intval = $(10)
+                function lolz(x, y) {
+                    return ($( $x + $y ))
+                }
+            ''',
+        },
+        {
+            'name': 'hehe.hoho',
+            'storm': '''
+                function nodes (x, y) {
+                    [ test:str=$x ]
+                    [ test:str=$y ]
+                }
+            ''',
+        },
+        {
+            'name': 'test',
+            'storm': '''
+            function pprint(arg1, arg2, arg3) {
+                $lib.print('arg1: {arg1}', arg1=$arg1)
+                $lib.print('arg2: {arg2}', arg2=$arg2)
+                $lib.print('arg3: {arg3}', arg3=$arg3)
+                return()
+            }
+            '''
+        }
+    ],
+    'commands': [
+        {
+            'name': 'foo.bar',
+            'storm': '''
+                init {
+                    $foolib = $lib.import(hehe.haha)
+                    [ test:int=$foolib.lolz($(20), $(30)) ]
+                }
+            ''',
+        },
+        {
+            'name': 'test.nodes',
+            'storm': '''
+                $foolib = $lib.import(hehe.hoho)
+                yield $foolib.nodes(asdf, qwer)
+            ''',
+        },
+    ],
+}
+
 class AstTest(s_test.SynTest):
 
     async def test_try_set(self):
@@ -245,7 +300,7 @@ class AstTest(s_test.SynTest):
 
             q = '''
             $d = $lib.dict(foo=bar, bar=baz, baz=biz)
-            for $key in $d {
+            for ($key, $val) in $d {
                 [ test:str=$d.$key ]
             }
             '''
@@ -462,6 +517,247 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[ test:int=10 test:int=20 ]  $q=${#foo.bar}')
             self.len(2, nodes)
 
+    async def test_lib_ast_module(self):
+
+        otherpkg = {
+            'name': 'foosball',
+            'version': (0, 0, 1),
+        }
+
+        async with self.getTestCore() as core:
+
+            await core.addStormPkg(foo_stormpkg)
+
+            nodes = await core.nodes('foo.bar')
+
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 50))
+
+            nodes = await core.nodes('test.nodes')
+            self.len(2, nodes)
+            self.eq({('test:str', 'asdf'), ('test:str', 'qwer')},
+                    {n.ndef for n in nodes})
+
+            msgs = await core.streamstorm('pkg.list').list()
+            self.stormIsInPrint('foo                             : (0, 0, 1)', msgs)
+
+            msgs = await core.streamstorm('pkg.del asdf').list()
+            self.stormIsInPrint('No package names match "asdf". Aborting.', msgs)
+
+            await core.addStormPkg(otherpkg)
+            msgs = await core.streamstorm('pkg.list').list()
+            self.stormIsInPrint('foosball', msgs)
+
+            msgs = await core.streamstorm('pkg.del foo').list()
+            self.stormIsInPrint('Multiple package names match "foo". Aborting.', msgs)
+
+            msgs = await core.streamstorm(f'pkg.del foosball').list()
+            self.stormIsInPrint('Removing package: foosball', msgs)
+
+            msgs = await core.streamstorm(f'pkg.del foo').list()
+            self.stormIsInPrint('Removing package: foo', msgs)
+
+            with self.raises(s_exc.NoSuchName):
+                nodes = await core.nodes('test.nodes')
+
+    async def test_function(self):
+        async with self.getTestCore() as core:
+            await core.addStormPkg(foo_stormpkg)
+
+            # No arguments
+            q = '''
+            function hello() {
+                return ("hello")
+            }
+            $retn=$hello()
+            $lib.print('retn is: {retn}', retn=$retn)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('retn is: hello', msgs)
+
+            # Simple echo function
+            q = '''
+            function echo(arg) {
+                return ($arg)
+            }
+            [(test:str=foo) (test:str=bar)]
+            $retn=$echo($node.value())
+            $lib.print('retn is: {retn}', retn=$retn)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('retn is: foo', msgs)
+            self.stormIsInPrint('retn is: bar', msgs)
+
+            # Return value from a function based on a node value
+            # inside of the function
+            q = '''
+            function echo(arg) {
+                $lib.print('arg is {arg}', arg=$arg)
+                [(test:str=1234) (test:str=5678)]
+                return ($node.value())
+            }
+            [(test:str=foo) (test:str=bar)]
+            $retn=$echo($node.value())
+            $lib.print('retn is: {retn}', retn=$retn)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('arg is foo', msgs)
+            self.stormIsInPrint('arg is bar', msgs)
+            self.stormIsInPrint('retn is: 1234', msgs)
+
+            # Return values may be conditional
+            q = '''function cond(arg) {
+                if $arg {
+                    return ($arg)
+                } else {
+                    // No action....
+                }
+            }
+            [(test:int=0) (test:int=1)]
+            $retn=$cond($node.value())
+            $lib.print('retn is: {retn}', retn=$retn)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('retn is: None', msgs)
+            self.stormIsInPrint('retn is: 1', msgs)
+
+            # Allow plumbing through args as keywords
+            q = '''
+            $test=$lib.import(test)
+            $haha=$test.pprint('hello', 'world', arg3='goodbye')
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('arg1: hello', msgs)
+            self.stormIsInPrint('arg2: world', msgs)
+            self.stormIsInPrint('arg3: goodbye', msgs)
+            # Allow plumbing through args out of order
+            q = '''
+            $test=$lib.import(test)
+            $haha=$test.pprint(arg3='goodbye', arg1='hello', arg2='world')
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('arg1: hello', msgs)
+            self.stormIsInPrint('arg2: world', msgs)
+            self.stormIsInPrint('arg3: goodbye', msgs)
+
+            # Too few args are problematic
+            q = '''
+            $test=$lib.import(test)
+            $haha=$test.pprint('hello', 'world')
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('name'), 'pprint')
+            self.eq(erfo[1][1].get('expected'), 3)
+            self.eq(erfo[1][1].get('got'), 2)
+
+            # Too few args are problematic - kwargs edition
+            q = '''
+            $test=$lib.import(test)
+            $haha=$test.pprint(arg1='hello', arg2='world')
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('name'), 'pprint')
+            self.eq(erfo[1][1].get('expected'), 3)
+            self.eq(erfo[1][1].get('got'), 2)
+
+            # unused kwargs are fatal
+            q = '''
+            $test=$lib.import(test)
+            $haha=$test.pprint('hello', 'world', arg3='world', arg4='newp')
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('name'), 'pprint')
+            self.eq(erfo[1][1].get('kwargs'), ['arg4'])
+
+            # kwargs which duplicate a positional arg is fatal
+            q = '''
+            $test=$lib.import(test)
+            $haha=$test.pprint('hello', 'world', arg1='hello')
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('name'), 'pprint')
+            self.eq(erfo[1][1].get('kwargs'), ['arg1'])
+
+            # Too many args are fatal too
+            q = '''
+            $test=$lib.import(test)
+            $haha=$test.pprint('hello', 'world', 'goodbye', 'newp')
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('name'), 'pprint')
+            self.eq(erfo[1][1].get('valu'), 'newp')
+
+    async def test_ast_setitem(self):
+
+        async with self.getTestCore() as core:
+
+            q = '''
+                $x = asdf
+                $y = $lib.dict()
+
+                $y.foo = bar
+                $y."baz faz" = hehe
+                $y.$x = qwer
+
+                for ($name, $valu) in $y {
+                    [ test:str=$name test:str=$valu ]
+                }
+            '''
+            nodes = await core.nodes(q)
+            self.len(6, nodes)
+            self.eq(nodes[0].ndef[1], 'foo')
+            self.eq(nodes[1].ndef[1], 'bar')
+            self.eq(nodes[2].ndef[1], 'baz faz')
+            self.eq(nodes[3].ndef[1], 'hehe')
+            self.eq(nodes[4].ndef[1], 'asdf')
+            self.eq(nodes[5].ndef[1], 'qwer')
+
+            # non-runtsafe test
+            q = '''$dict = $lib.dict()
+            [(test:str=key1 :hehe=val1) (test:str=key2 :hehe=val2)]
+            $key=$node.value()
+            $dict.$key=:hehe
+            fini {
+                $lib.fire(event, dict=$dict)
+            }
+            '''
+            mesgs = await core.streamstorm(q).list()
+            stormfire = [m for m in mesgs if m[0] == 'storm:fire']
+            self.len(1, stormfire)
+            self.eq(stormfire[0][1].get('data').get('dict'),
+                    {'key1': 'val1', 'key2': 'val2'})
+
+            # The default StormType does not support item assignment
+            q = '''
+            $set=$lib.set()
+            $set.foo="bar"
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('mesg'), 'Set does not support assignment.')
+
+            # Some types we have in the runtime cannot be converted to StormTypes
+            q = '''
+            function f(a){ return() }
+            $f.newp="newp"
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'NoSuchType')
+            self.eq(erfo[1][1].get('mesg'),
+                    'Unable to convert python primitive to StormType.')
+
     async def test_ast_initfini(self):
 
         async with self.getTestCore() as core:
@@ -489,3 +785,91 @@ class AstTest(s_test.SynTest):
 
             self.eq(nodes[0][0], ('test:int', 0))
             self.eq(nodes[1][0], ('test:int', 2))
+
+            nodes = await core.nodes('init { [ test:int=20 ] }')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 20))
+
+            # init and fini blocks may also yield nodes
+            q = '''
+            init {
+                [(test:str=init1 :hehe=hi)]
+            }
+            $hehe=:hehe
+            [test:str=init2 :hehe=$hehe]
+            '''
+            nodes = await core.nodes(q)
+            self.eq(nodes[0].ndef, ('test:str', 'init1'))
+            self.eq(nodes[0].get('hehe'), 'hi')
+            self.eq(nodes[1].ndef, ('test:str', 'init2'))
+            self.eq(nodes[1].get('hehe'), 'hi')
+
+            # Non-runtsafe init fails to execute
+            q = '''
+            test:str^=init +:hehe $hehe=:hehe
+            init {
+                [test:str=$hehe]
+            }
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('mesg'), 'Init block query must be runtsafe')
+
+            # Runtsafe init works and can yield nodes, this has inbound nodes as well
+            q = '''
+            test:str^=init
+            $hehe="const"
+            init {
+                [test:str=$hehe]
+            }
+            '''
+            nodes = await core.nodes(q)
+            self.eq(nodes[0].ndef, ('test:str', 'const'))
+            self.eq(nodes[1].ndef, ('test:str', 'init1'))
+            self.eq(nodes[2].ndef, ('test:str', 'init2'))
+
+            # runtsafe fini with a node example which works
+            q = '''
+            [test:str=fini1 :hehe=bye]
+            $hehe="hehe"
+            fini {
+                [(test:str=fini2 :hehe=$hehe)]
+            }
+            '''
+            nodes = await core.nodes(q)
+            self.eq(nodes[0].ndef, ('test:str', 'fini1'))
+            self.eq(nodes[0].get('hehe'), 'bye')
+            self.eq(nodes[1].ndef, ('test:str', 'fini2'))
+            self.eq(nodes[1].get('hehe'), 'hehe')
+
+            # Non-runtsafe fini example which fails
+            q = '''
+            [test:str=fini3 :hehe="number3"]
+            $hehe=:hehe
+            fini {
+                [(test:str=fini4 :hehe=$hehe)]
+            }
+            '''
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('mesg'), 'Fini block query must be runtsafe')
+
+            # Tally use - case example for counting
+            q = '''
+            init {
+                $tally = $lib.stats.tally()
+            }
+            test:int $tally.inc('node') | spin |
+            fini {
+                for ($name, $total) in $tally {
+                    $lib.fire(name=$name, total=$total)
+                }
+            }
+            '''
+            msgs = await core.streamstorm(q).list()
+            firs = [m for m in msgs if m[0] == 'storm:fire']
+            self.len(1, firs)
+            evnt = firs[0]
+            self.eq(evnt[1].get('data'), {'total': 3})

@@ -104,7 +104,21 @@ class StormTypesTest(s_test.SynTest):
             self.len(2, await core.nodes('#faz'))
 
     async def test_storm_lib_base(self):
+        pdef = {
+            'name': 'foo',
+            'desc': 'test',
+            'version': (0, 0, 1),
+            'modules': [
+                {
+                    'name': 'test',
+                    'storm': 'function f(a) { return ($a) }',
+                }
+            ],
+            'commands': [
+            ],
+        }
         async with self.getTestCore() as core:
+            await core.addStormPkg(pdef)
             nodes = await core.nodes('[ inet:asn=$lib.min(20, 0x30) ]')
             self.len(1, nodes)
             self.eq(20, nodes[0].ndef[1])
@@ -150,6 +164,29 @@ class StormTypesTest(s_test.SynTest):
 
                 mesgs = [m async for m in prox.storm("$lib.print('woot at: {s} {num}', s=hello, num=$(42+43))")]
                 self.stormIsInPrint('woot at: hello 85', mesgs)
+
+            # lib.sorted()
+            q = '''
+                $set = $lib.set(c, b, a)
+                for $x in $lib.sorted($set) {
+                    [ test:str=$x ]
+                }
+            '''
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+            self.eq(nodes[0].ndef[1], 'a')
+            self.eq(nodes[1].ndef[1], 'b')
+            self.eq(nodes[2].ndef[1], 'c')
+
+            # $lib.import
+            q = '$test = $lib.import(test) $lib.print($test)'
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('stormtypes.Lib object', msgs)
+            q = '$test = $lib.import(newp)'
+            msgs = await core.streamstorm(q).list()
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'NoSuchName')
+            self.eq(erfo[1][1].get('name'), 'newp')
 
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:
@@ -294,7 +331,12 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[1].ndef, ('test:int', 3))
 
             nodes = await core.nodes('[ test:comp=(10,lol) ] $x=$node.ndef().index(1).index(1) [ test:str=$x ]')
-            self.eq(nodes[1].ndef, ('test:str', 'lol'))
+            self.eq(nodes[0].ndef, ('test:str', 'lol'))
+
+            q = 'test:comp | limit 1 | $size = $node.ndef().size() [test:int=$size] +test:int'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 2))
 
             # sad case - index out of bounds.
             mesgs = await core.streamstorm('test:comp=(10,lol) $x=$node.ndef().index(2)').list()
@@ -389,7 +431,9 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'hehehaha'))
 
     async def test_storm_set(self):
+
         async with self.getTestCore() as core:
+
             await core.nodes('[inet:ipv4=1.2.3.4 :asn=20]')
             await core.nodes('[inet:ipv4=5.6.7.8 :asn=30]')
 
@@ -431,6 +475,21 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(tuple(sorted(nodes[0].get('data'))), ())
 
+            q = '$set = $lib.set(a, b, c) [test:int=$set.size()]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 3))
+
+            q = '''$set = $lib.set(a, b, c)
+            for $v in $set {
+                $lib.print('set valu: {v}', v=$v)
+            }
+            '''
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('set valu: a', mesgs)
+            self.stormIsInPrint('set valu: b', mesgs)
+            self.stormIsInPrint('set valu: c', mesgs)
+
             q = '''
                 $set = $lib.set()
                 $set.add(foo)
@@ -460,18 +519,12 @@ class StormTypesTest(s_test.SynTest):
             self.eq(tuple(sorted(nodes[0].get('data'))), idens)
 
             opts = {'vars': {'testvar': 'test'}}
-            text = "[ test:str='123' ] $testkey=testvar [ test:str=$path.getvar($testkey) ]"
+            text = "[ test:str='123' ] $testkey=testvar [ test:str=$path.vars.$testkey ]"
             nodes = await core.nodes(text, opts=opts)
             self.len(2, nodes)
-            self.eq(nodes[1].ndef, ('test:str', 'test'))
+            self.eq(nodes[0].ndef, ('test:str', 'test'))
 
-            opts = {'vars': {'testvar': 'test'}}
-            text = "[ test:str='123' ] $testkey='$testvar' [ test:str=$path.getvar($testkey, strip=True) ]"
-            nodes = await core.nodes(text, opts=opts)
-            self.len(2, nodes)
-            self.eq(nodes[1].ndef, ('test:str', 'test'))
-
-            text = "[ test:str='123' ] [ test:str=$path.getvar(testkey) ]"
+            text = "[ test:str='123' ] [ test:str=$path.vars.testkey ]"
             mesgs = await alist(core.streamstorm(text))
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
@@ -480,51 +533,23 @@ class StormTypesTest(s_test.SynTest):
             self.isin('No var with name: testkey', err[1].get('mesg'))
 
             opts = {'vars': {'testkey': 'testvar'}}
-            text = "[ test:str='123' ] $path.setvar($testkey, test) [ test:str=$testvar ]"
+            text = "[ test:str='123' ] $path.vars.$testkey = test [ test:str=$testvar ]"
             nodes = await core.nodes(text, opts=opts)
             self.len(2, nodes)
-            self.eq(nodes[1].ndef, ('test:str', 'test'))
-
-            opts = {'vars': {'testkey': '$testvar'}}
-            text = "[ test:str='123' ] $path.setvar($testkey, test, strip=True) [ test:str=$testvar ]"
-            nodes = await core.nodes(text, opts=opts)
-            self.len(2, nodes)
-            self.eq(nodes[1].ndef, ('test:str', 'test'))
+            self.eq(nodes[0].ndef, ('test:str', 'test'))
+            self.eq(nodes[1].ndef, ('test:str', '123'))
 
             opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
             text = '''
                 [ test:str='123' ]
-                $lib.vars.del(testvar)
-                $path.delvar(testvar)
-                [ test:str=$path.getvar($testkey) ]'''
+                for ($name, $valu) in $path.vars {
+                    $lib.print('{name}={valu}', name=$name, valu=$valu)
+                }
+            '''
+            msgs = await alist(core.streamstorm(text, opts=opts))
 
-            mesgs = await alist(core.streamstorm(text, opts=opts))
-            errs = [m[1] for m in mesgs if m[0] == 'err']
-            self.len(1, errs)
-            err = errs[0]
-            self.eq(err[0], 'StormRuntimeError')
-            self.isin('No var with name: testvar', err[1].get('mesg'))
-
-            opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
-            text = '''
-                [ test:str='123' ]
-                $lib.vars.del(testvar)
-                $path.delvar(\'$testvar\', strip=True)
-                [ test:str=$path.getvar($testkey) ]'''
-
-            mesgs = await alist(core.streamstorm(text, opts=opts))
-            errs = [m[1] for m in mesgs if m[0] == 'err']
-            self.len(1, errs)
-            err = errs[0]
-            self.eq(err[0], 'StormRuntimeError')
-            self.isin('No var with name: testvar', err[1].get('mesg'))
-
-            opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
-            text = "[ test:str='123' ] $lib.print($path.listvars())"
-            mesgs = await alist(core.streamstorm(text, opts=opts))
-            mesgs = [m for m in mesgs if m[0] == 'print']
-            self.len(1, mesgs)
-            self.stormIsInPrint("('testvar', 'test'), ('testkey', 'testvar')", mesgs)
+            self.stormIsInPrint('testvar=test', msgs)
+            self.stormIsInPrint('testkey=testvar', msgs)
 
     async def test_storm_trace(self):
         async with self.getTestCore() as core:
@@ -976,8 +1001,8 @@ class StormTypesTest(s_test.SynTest):
 
             nodes = await core.nodes('test:int=20 [ test:str=$node.data.pop(woot) ]')
 
-            self.none(await nodes[0].getData('woot'))
-            self.eq(nodes[1].ndef, ('test:str', 'woot'))
+            self.none(await nodes[1].getData('woot'))
+            self.eq(nodes[0].ndef, ('test:str', 'woot'))
 
     async def test_storm_lib_bytes(self):
 
@@ -1064,12 +1089,6 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'test'))
 
-            opts = {'vars': {'testvar': 'test'}}
-            text = '$testkey=\'$testvar\' [ test:str=$lib.vars.get($testkey, strip=True) ]'
-            nodes = await core.nodes(text, opts=opts)
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'test'))
-
             text = '$testkey=testvar [ test:str=$lib.vars.get($testkey) ]'
             mesgs = await alist(core.streamstorm(text))
             errs = [m[1] for m in mesgs if m[0] == 'err']
@@ -1084,12 +1103,6 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'test'))
 
-            opts = {'vars': {'testkey': '$testvar'}}
-            text = '$lib.vars.set($testkey, test, strip=True) [ test:str=$lib.vars.get(testvar) ]'
-            nodes = await core.nodes(text, opts=opts)
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'test'))
-
             opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
             text = '$lib.vars.del(testvar) [ test:str=$lib.vars.get($testkey) ]'
             mesgs = await alist(core.streamstorm(text, opts=opts))
@@ -1100,7 +1113,7 @@ class StormTypesTest(s_test.SynTest):
             self.isin('No var with name: testvar', err[1].get('mesg'))
 
             opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
-            text = '$lib.vars.del(\'$testvar\', strip=True) [ test:str=$lib.vars.get($testkey) ]'
+            text = '$lib.vars.del(testvar) [ test:str=$lib.vars.get($testkey) ]'
             mesgs = await alist(core.streamstorm(text, opts=opts))
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
