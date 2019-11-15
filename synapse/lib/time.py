@@ -6,6 +6,8 @@ import datetime
 
 import synapse.exc as s_exc
 
+EPOCH = datetime.datetime(1970, 1, 1)
+
 def parse(text, base=None, chop=False):
     '''
     Parse a time string into an epoch millis value.
@@ -45,8 +47,7 @@ def parse(text, base=None, chop=False):
         raise s_exc.BadTypeValu(valu=text, name='time',
                                 mesg='Unknown time format')
 
-    epoch = datetime.datetime(1970, 1, 1)
-    return int((dt - epoch).total_seconds() * 1000)
+    return int((dt - EPOCH).total_seconds() * 1000)
 
 def repr(tick, pack=False):
     '''

@@ -21,7 +21,7 @@ distrepr = (
     (10.0, 'cm'),
 )
 
-class Dist(s_types.Type):
+class Dist(s_types.IntBase):
 
     def postTypeInit(self):
         self.setNormFunc(int, self._normPyInt)
@@ -89,9 +89,9 @@ class LatLong(s_types.Type):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
 
-        self.setCmprCtor('*near=', self._cmprNear)
-        self.setLiftHintCmprCtor('*near=', self._cmprNear)
-        self.indxcmpr['*near='] = self._indxNear
+        self.setCmprCtor('near=', self._cmprNear)
+        self.setLiftHintCmprCtor('near=', self._cmprNear)
+        self.indxcmpr['near='] = self._indxNear
 
     def _normCmprValu(self, valu):
         latlong, dist = valu
@@ -201,6 +201,18 @@ class GeoModule(s_module.CoreModule):
 
                     ('geo:place', ('guid', {}), {
                         'doc': 'A GUID for a geographic place.'}),
+
+                    ('geo:address', ('str', {'lower': 1, 'onespace': 1, 'strip': True}), {
+                        'doc': 'A street/mailing address string.',
+                    }),
+
+                    ('geo:bbox', ('comp', {'sepr': ',', 'fields': (
+                                                ('xmin', 'geo:longitude'),
+                                                ('xmax', 'geo:longitude'),
+                                                ('ymin', 'geo:latitude'),
+                                                ('ymax', 'geo:latitude'))}), {
+                        'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.',
+                    }),
                 ),
 
                 'forms': (
@@ -219,6 +231,9 @@ class GeoModule(s_module.CoreModule):
                         ('time', ('time', {}), {'ro': True,
                             'doc': 'The time the node was observed at location'}),
 
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place corresponding to the latlong property.'}),
+
                     )),
 
                     ('geo:place', {}, (
@@ -226,14 +241,23 @@ class GeoModule(s_module.CoreModule):
                         ('name', ('str', {'lower': 1, 'onespace': 1}), {
                             'doc': 'The name of the place.'}),
 
+                        ('parent', ('geo:place', {}), {
+                            'doc': 'A parent place, possibly from reverse geocoding.'}),
+
                         ('desc', ('str', {}), {
                             'doc': 'A long form description of the place.'}),
 
                         ('loc', ('loc', {}), {
                             'doc': 'The geo-political location string for the node.'}),
 
+                        ('address', ('geo:address', {}), {
+                            'doc': 'The street/mailing address for the place.'}),
+
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The lat/long position for the place.'}),
+
+                        ('bbox', ('geo:bbox', {}), {
+                            'doc': 'A bounding box which encompases the place.'}),
 
                         ('radius', ('geo:dist', {}), {
                             'doc': 'An approximate radius to use for bounding box calculation.'}),

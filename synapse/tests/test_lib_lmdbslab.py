@@ -9,7 +9,6 @@ from unittest.mock import patch
 
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
-import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
 
 import synapse.tests.utils as s_t_utils
@@ -399,6 +398,145 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab.dropdb('foo')
                 self.false(slab.dbexists('foo'))
                 self.gt(slab.mapsize, before_mapsize)
+
+    async def test_lmdb_multiqueue(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                mque = slab.getMultiQueue('test')
+
+                self.false(mque.exists('woot'))
+
+                with self.raises(s_exc.NoSuchName):
+                    await mque.rem('woot')
+
+                with self.raises(s_exc.NoSuchName):
+                    await mque.get('woot', 0)
+
+                with self.raises(s_exc.NoSuchName):
+                    mque.put('woot', 'lulz')
+
+                with self.raises(s_exc.NoSuchName):
+                    mque.status('woot')
+
+                mque.add('woot', {'some': 'info'})
+
+                self.true(mque.exists('woot'))
+
+                self.eq(0, mque.put('woot', 'hehe'))
+                self.eq(1, mque.put('woot', 'haha'))
+                self.eq(2, mque.put('woot', 'hoho'))
+
+                self.eq(3, mque.size('woot'))
+
+                self.eq((0, 'hehe'), await mque.get('woot', 0))
+                self.eq((1, 'haha'), await mque.get('woot', 1))
+                self.eq((1, 'haha'), await mque.get('woot', 0))
+
+                self.eq((-1, None), await mque.get('woot', 1000, cull=False))
+
+                self.eq(2, mque.size('woot'))
+
+                status = mque.list()
+                self.len(1, status)
+                self.eq(status[0], {'name': 'woot',
+                                    'meta': {'some': 'info'},
+                                    'size': 2,
+                                    'offs': 3,
+                                    })
+
+                await mque.cull('woot', -1)
+                self.eq(mque.status('woot'), status[0])
+
+                self.raises(s_exc.DupName, mque.add, 'woot', {})
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                mque = slab.getMultiQueue('test')
+
+                self.eq(2, mque.size('woot'))
+                self.eq(3, mque.offset('woot'))
+
+                self.eq(((1, 'haha'), ), [x async for x in mque.gets('woot', 0, size=1)])
+                self.eq(((1, 'haha'), (2, 'hoho')), [x async for x in mque.gets('woot', 0)])
+
+                data = []
+                evnt = asyncio.Event()
+
+                async def getswait():
+                    async for item in mque.gets('woot', 0, wait=True):
+
+                        if item[1] is None:
+                            break
+
+                        data.append(item)
+
+                        if item[1] == 'hoho':
+                            evnt.set()
+
+                task = slab.schedCoro(getswait())
+
+                await asyncio.wait_for(evnt.wait(), 2)
+
+                self.eq(data, ((1, 'haha'), (2, 'hoho')))
+
+                mque.put('woot', 'lulz')
+                mque.put('woot', None)
+
+                await asyncio.wait_for(task, 2)
+
+                self.eq(data, ((1, 'haha'), (2, 'hoho'), (3, 'lulz')))
+
+                self.true(mque.exists('woot'))
+
+                self.eq((2, 'hoho'), await mque.get('woot', 2))
+
+                mque.put('woot', 'huhu')
+
+                await mque.rem('woot')
+
+                self.false(mque.exists('woot'))
+
+    async def test_slababrv(self):
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                abrv = s_lmdbslab.SlabAbrv(slab, 'test')
+
+                valu = abrv.nameToAbrv('hehe')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x00')
+                valu = abrv.nameToAbrv('haha')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
+
+                name = abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x01')
+                self.eq(name, 'haha')
+
+                self.none(abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
+
+            # And persistence
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                abrv = s_lmdbslab.SlabAbrv(slab, 'test')
+                # recall first
+                name = abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x00')
+                self.eq(name, 'hehe')
+
+                name = abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x01')
+                self.eq(name, 'haha')
+                # Remaking them makes the values we already had
+                valu = abrv.nameToAbrv('hehe')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x00')
+
+                valu = abrv.nameToAbrv('haha')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
+
+                # And we still have no valu for 02
+                self.none(abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
 
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 

@@ -56,4 +56,6 @@ class SlabSeqn(s_t_utils.SynTest):
             retn = tuple(seqn.iter(0))
             self.len(9, retn)
 
+            self.eq('foo', seqn.getByIndxByts(b'\x00' * 8))
+
             await slab.fini()

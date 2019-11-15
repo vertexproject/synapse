@@ -58,7 +58,10 @@ class EconTest(s_utils.SynTest):
                 econ:acct:payment="*"
 
                     :to:contact={bycont}
+                    :to:coinaddr=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+
                     :from:contact={fromcont}
+                    :from:coinaddr=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
 
                     :from:pay:card={card.ndef[1]}
 

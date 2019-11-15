@@ -14,6 +14,7 @@ import synapse.lib.base as s_base
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
+import synapse.lib.types as s_types
 import synapse.lib.editatom as s_editatom
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ class Snap(s_base.Base):
     ('print', {}),
     '''
 
-    async def __anit__(self, core, layers, user):
+    async def __anit__(self, view, user):
         '''
         Args:
             core (cortex):  the cortex
@@ -50,12 +51,13 @@ class Snap(s_base.Base):
         self.elevated = False
         self.canceled = False
 
-        self.core = core
+        self.core = view.core
+        self.view = view
         self.user = user
-        self.model = core.model
+        self.model = self.core.model
 
         # it is optimal for a snap to have layers in "bottom up" order
-        self.layers = list(reversed(layers))
+        self.layers = list(reversed(view.layers))
         self.wlyr = self.layers[-1]
 
         # variables used by the storm runtime
@@ -72,7 +74,7 @@ class Snap(s_base.Base):
 
         self.onfini(self.stack.close)
         self.changelog = []
-        self.tagtype = core.model.type('ival')
+        self.tagtype = self.core.model.type('ival')
 
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):
@@ -215,6 +217,24 @@ class Snap(s_base.Base):
         async for row, node in self.getLiftNodes(lops, '#' + name, cmpf=cmpf):
             yield node
 
+    async def _getNodesByTagProp(self, name, tag=None, form=None, valu=None, cmpr='='):
+
+        prop = self.model.getTagProp(name)
+        if prop is None:
+            mesg = f'No tag property named {name}'
+            raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
+
+        cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
+
+        full = f'#{tag}:{name}'
+
+        lops = (('tag:prop', {'form': form, 'tag': tag, 'prop': name}),)
+        if valu is not None:
+            lops[0][1]['iops'] = prop.type.getIndxOps(valu, cmpr)
+
+        async for row, node in self.getLiftNodes(lops, full, cmpf=cmpf):
+            yield node
+
     async def _getNodesByFormTag(self, name, tag, valu=None, cmpr='='):
 
         filt = None
@@ -271,9 +291,22 @@ class Snap(s_base.Base):
             await self.printf(f'get nodes by: {full} {cmpr} {valu!r}')
 
         # special handling for by type (*type=) here...
-        if cmpr == '*type=':
+        if cmpr == 'type=':
             async for node in self._getNodesByType(full, valu=valu):
                 yield node
+            return
+
+        # special case "try equal" which doesnt bail on invalid values
+        if cmpr == '?=':
+
+            try:
+                async for item in self.getNodesBy(full, valu=valu, cmpr='='):
+                    yield item
+            except asyncio.CancelledError: # pragma: no cover
+                raise
+            except Exception:
+                return
+
             return
 
         if full.startswith('#'):
@@ -340,6 +373,30 @@ class Snap(s_base.Base):
             async for row, node in self.getLiftNodes(lops, prop.name):
                 yield node
 
+    async def getNodesByArray(self, name, valu, cmpr='='):
+        '''
+        Yield nodes by an array property with *items* matching <cmpr> <valu>
+        '''
+
+        prop = self.model.props.get(name)
+        if prop is None:
+            mesg = f'No property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg)
+
+        if not isinstance(prop.type, s_types.Array):
+            mesg = f'Prop ({name}) is not an array type.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        iops = prop.type.arraytype.getIndxOps(valu, cmpr=cmpr)
+
+        prefix = prop.pref + b'\x01'
+        lops = (('indx', (prop.dbname, prefix, iops)),)
+
+        #TODO post-lift cmpr filter
+        #cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
+        async for row, node in self.getLiftNodes(lops, prop.name):
+            yield node
+
     async def addNode(self, name, valu, props=None):
         '''
         Add a node by form name and value with optional props.
@@ -362,7 +419,7 @@ class Snap(s_base.Base):
             retn = await self._addNodeFnib(fnib, props=props)
             return retn
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError: # pragma: no cover
             raise
 
         except Exception:
@@ -392,7 +449,14 @@ class Snap(s_base.Base):
 
         logger.info(f'adding feed nodes ({name}): {len(items)}')
 
-        async for node in func(self, items):
+        genr = func(self, items)
+        if not isinstance(genr, types.AsyncGeneratorType):
+            if isinstance(genr, types.CoroutineType):
+                genr.close()
+            mesg = f'feed func returned a {type(genr)}, not an async generator.'
+            raise s_exc.BadCtorType(mesg=mesg, name=name)
+
+        async for node in genr:
             yield node
 
     async def addFeedData(self, name, items, seqn=None):
@@ -692,3 +756,22 @@ class Snap(s_base.Base):
                     continue
 
             yield row, node
+
+    async def getNodeData(self, buid, name, defv=None):
+        envl = await self.layers[0].getNodeData(buid, name, defv=defv)
+        if envl is not None:
+            return envl.get('data')
+        return defv
+
+    async def setNodeData(self, buid, name, item):
+        envl = {'user': self.user.iden, 'time': s_common.now(), 'data': item}
+        return await self.layers[0].setNodeData(buid, name, envl)
+
+    async def iterNodeData(self, buid):
+        async for item in self.layers[0].iterNodeData(buid):
+            yield item
+
+    async def popNodeData(self, buid, name):
+        envl = await self.layers[0].popNodeData(buid, name)
+        if envl is not None:
+            return envl.get('data')

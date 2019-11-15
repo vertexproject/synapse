@@ -3,12 +3,10 @@ import atexit
 import signal
 import asyncio
 import inspect
-import asyncio
 import logging
 import weakref
 import contextlib
 import collections
-import concurrent.futures
 
 if __debug__:
     import traceback
@@ -112,6 +110,12 @@ class Base:
             self.tid = s_threads.iden()
             self.call_stack = traceback.format_stack()  # For cleanup debugging
 
+        if object.__getattribute__(self, 'anitted') is True:
+            # The Base has already been anitted. This allows a class to treat
+            # multiple Base objects as a mixin and __anit__ themselves without
+            # smashing fini or event handlers from the others.
+            return
+
         self.isfini = False
         self.anitted = True  # For assertion purposes
         self.finievt = None
@@ -144,6 +148,8 @@ class Base:
             meth = getattr(item, '__exit__', None)
             if meth is not None:
                 return meth(None, None, None)
+
+        self.onfini(fini)
 
         entr = getattr(item, '__aenter__', None)
         if entr is not None:

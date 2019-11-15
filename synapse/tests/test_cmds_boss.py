@@ -42,7 +42,7 @@ class CmdBossTest(s_t_utils.SynTest):
 
             outp.clear()
             await cmdr.runCmdLine('kill')
-            outp.expect('no iden given to kill')
+            outp.expect('Kill a running task/query within the cortex.')
 
             outp.clear()
             await cmdr.runCmdLine('kill %s' % (iden,))
@@ -56,9 +56,9 @@ class CmdBossTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
 
-            await realcore.auth.addUser('test')
+            await realcore.auth.addUser('bond')
 
-            async with realcore.getLocalProxy(user='test') as tcore:
+            async with realcore.getLocalProxy(user='bond') as tcore:
 
                 evnt = asyncio.Event()
 
@@ -91,10 +91,31 @@ class CmdBossTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.AuthDeny, tcore.kill(iden))
                 toutp.clear()
                 await tcmdr.runCmdLine('kill %s' % (iden,))
-                self.true(toutp.expect('no matching process found. aborting.'))
+                self.true(toutp.expect('no matching process found.'))
 
-                # Tear down the task as a real user
-                outp.clear()
-                await cmdr.runCmdLine('kill %s' % (iden,))
-                outp.expect('kill status: True')
+                # Try a kill with a numeric identifier - this won't match
+                toutp.clear()
+                await tcmdr.runCmdLine('kill 123412341234')
+                self.true(toutp.expect('no matching process found', False))
+
+                # Specify the iden arg multiple times
+                toutp.clear()
+                await tcmdr.runCmdLine('kill 123412341234 deadb33f')
+                self.true(toutp.expect('unrecognized arguments', False))
+
+                # Give user explicit permissions to list
+                await core.addAuthRule('bond', (True, ('task', 'get')))
+
+                # List now that the user has permissions
+                toutp.clear()
+                await tcmdr.runCmdLine('ps')
+                self.true(toutp.expect('1 tasks found.'))
+
+                # Give user explicit license to kill
+                await core.addAuthRule('bond', (True, ('task', 'del')))
+
+                # Kill the task as the user
+                toutp.clear()
+                await tcmdr.runCmdLine('kill %s' % (iden,))
+                toutp.expect('kill status: True')
                 self.true(task.done())

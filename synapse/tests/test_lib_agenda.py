@@ -186,6 +186,7 @@ class AgendaTest(s_t_utils.SynTest):
                 rootiden = 'aaaaa'
 
                 await self.asyncraises(ValueError, agenda.add(rootiden, '', {s_agenda.TimeUnit.MINUTE: 1}))
+                await self.asyncraises(s_exc.NoSuchIden, agenda.get('newp'))
 
                 # Schedule a one-shot 1 minute from now
                 await agenda.add(rootiden, '[test:str=foo]', {s_agenda.TimeUnit.MINUTE: 1})
@@ -199,8 +200,8 @@ class AgendaTest(s_t_utils.SynTest):
 
                 appts = agenda.list()
                 self.len(1, appts)
-                self.eq(appts[0][1]['startcount'], 1)
-                self.eq(appts[0][1]['nexttime'], None)
+                self.eq(appts[0][1].startcount, 1)
+                self.eq(appts[0][1].nexttime, None)
 
                 # Schedule a query to run every Wednesday and Friday at 10:15am
                 guid = await agenda.add(rootiden, '[test:str=bar]', {s_tu.HOUR: 10, s_tu.MINUTE: 15},
@@ -294,12 +295,14 @@ class AgendaTest(s_t_utils.SynTest):
                 task = next(iter(core.boss.tasks.values()))
                 self.eq(task.info.get('query'), 'inet:ipv4=1 | sleep 120')
                 self.eq(task.info.get('iden'), guid)
-                appt_info = [info for g, info in agenda.list() if g == guid][0]
-                self.eq(appt_info['isrunning'], True)
+
+                appt = await agenda.get(guid)
+                self.eq(appt.isrunning, True)
                 await task.kill()
-                appt_info = [info for g, info in agenda.list() if g == guid][0]
-                self.eq(appt_info['isrunning'], False)
-                self.eq(appt_info['lastresult'], 'cancelled')
+
+                appt = await agenda.get(guid)
+                self.eq(appt.isrunning, False)
+                self.eq(appt.lastresult, 'cancelled')
                 await agenda.delete(guid)
 
                 # Test bad queries record exception
@@ -310,9 +313,10 @@ class AgendaTest(s_t_utils.SynTest):
                 unixtime += 60
                 await sync.wait()
                 sync.clear()
-                appt_info = [info for g, info in agenda.list() if g == guid][0]
-                self.eq(appt_info['isrunning'], False)
-                self.eq(appt_info['lastresult'], 'raised exception test exception')
+
+                appt = await agenda.get(guid)
+                self.eq(appt.isrunning, False)
+                self.eq(appt.lastresult, 'raised exception test exception')
 
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
@@ -342,4 +346,68 @@ class AgendaTest(s_t_utils.SynTest):
                 appts = agenda.list()
                 self.len(2, appts)
                 last_appt = [appt for (iden, appt) in appts if iden == guid3][0]
-                self.eq(last_appt['query'], '#bahhumbug')
+                self.eq(last_appt.query, '#bahhumbug')
+
+    async def test_cron_perms(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            newb = await core.auth.addUser('newb')
+            async with core.getLocalProxy(user='visi') as proxy:
+
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.addCronJob('inet:ipv4', {'hour': 2})
+
+                await visi.addRule((True, ('cron', 'add')))
+                cron0 = await proxy.addCronJob('inet:ipv4', {'hour': 2})
+                cron1 = await proxy.addCronJob('inet:ipv6', {'hour': 2})
+
+                await proxy.delCronJob(cron0)
+
+            async with core.getLocalProxy(user='newb') as proxy:
+
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.delCronJob(cron1)
+
+                self.eq(await proxy.listCronJobs(), ())
+                await newb.addRule((True, ('cron', 'get')))
+                self.len(1, await proxy.listCronJobs())
+
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.disableCronJob(cron1)
+
+                await newb.addRule((True, ('cron', 'set')))
+                self.none(await proxy.disableCronJob(cron1))
+
+                await newb.addRule((True, ('cron', 'del')))
+                await proxy.delCronJob(cron1)
+
+    async def test_agenda_runts(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('cron', 'add')))
+
+            async with core.getLocalProxy(user='visi') as proxy:
+                cron0 = await proxy.addCronJob('inet:ipv4', {'hour': 2})
+
+                nodes = await core.nodes('syn:cron')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('syn:cron', cron0))
+                self.eq(nodes[0].get('doc'), '')
+                self.eq(nodes[0].get('name'), '')
+                self.eq(nodes[0].get('storm'), 'inet:ipv4')
+
+                nodes = await core.nodes(f'syn:cron={cron0} [ :doc=hehe :name=haha ]')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('syn:cron', cron0))
+                self.eq(nodes[0].get('doc'), 'hehe')
+                self.eq(nodes[0].get('name'), 'haha')
+
+                nodes = await core.nodes(f'syn:cron={cron0}')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('syn:cron', cron0))
+                self.eq(nodes[0].get('doc'), 'hehe')
+                self.eq(nodes[0].get('name'), 'haha')

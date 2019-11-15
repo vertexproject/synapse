@@ -939,6 +939,10 @@ class InetModule(s_module.CoreModule):
                         'ex': '(http://foo.com/,http://bar.com/)'
                     }),
 
+                    ('inet:url:mirror', ('comp', {'fields': (('of', 'inet:url'), ('at', 'inet:url'))}), {
+                        'doc': 'A URL mirror site.',
+                    }),
+
                     ('inet:user', ('str', {'lower': True}), {
                         'doc': 'A username string.'
                     }),
@@ -1463,6 +1467,9 @@ class InetModule(s_module.CoreModule):
                         ('loc', ('loc', {}), {'defval': '??',
                             'doc': 'The geo-political location string for the IPv4.'}),
 
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place assocated with the latlong property.'}),
+
                         ('type', ('str', {}), {'defval': '??',
                             'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
 
@@ -1481,6 +1488,9 @@ class InetModule(s_module.CoreModule):
 
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The last known latitude/longitude for the node'}),
+
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place assocated with the latlong property.'}),
 
                         ('dns:rev', ('inet:fqdn', {}), {
                             'doc': 'The most current DNS reverse lookup for the IPv6.'}),
@@ -1690,6 +1700,17 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:url:mirror', {}, (
+                        ('of', ('inet:url', {}), {
+                            'ro': True,
+                            'doc': 'The URL being mirrored.',
+                        }),
+                        ('at', ('inet:url', {}), {
+                            'ro': True,
+                            'doc': 'The URL of the mirror.',
+                        }),
+                    )),
+
                     ('inet:user', {}, ()),
 
                     ('inet:search:query', {}, (
@@ -1736,6 +1757,9 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The last known latitude/longitude for the node'
+                        }),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place assocated with the latlong property.'
                         }),
                         ('loc', ('loc', {}), {
                             'doc': 'A self-declared location for the account.'
@@ -1942,6 +1966,9 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The last known latitude/longitude for the node'
+                        }),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place assocated with the latlong property.'
                         }),
                         ('signup', ('time', {}), {
                             'doc': 'The date and time the group was created on the site.'
@@ -2191,6 +2218,13 @@ class InetModule(s_module.CoreModule):
 
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The best known latitude/longitude for the wireless access point.'}),
+
+                        ('accuracy', ('geo:dist', {}), {
+                            'doc': 'The reported accuracy of the latlong telemetry reading.',
+                        }),
+
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place assocated with the latlong property.'}),
 
                         ('loc', ('loc', {}), {'defval': '??',
                             'doc': 'The geo-political location string for the wireless access point.'}),

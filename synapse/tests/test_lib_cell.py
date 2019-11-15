@@ -1,3 +1,4 @@
+import os
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -13,7 +14,7 @@ class EchoAuthApi(s_cell.CellApi):
         return self.user.admin
 
     async def icando(self, *path):
-        await self._reqUserAllowed(*path)
+        await self._reqUserAllowed(path)
         return True
 
 class EchoAuth(s_cell.Cell):
@@ -32,6 +33,9 @@ class CellTest(s_t_utils.SynTest):
                 root = echo.auth.getUserByName('root')
                 await root.setPasswd('secretsauce')
 
+                self.eq('root', echo.getUserName(root.iden))
+                self.eq('<unknown>', echo.getUserName('derp'))
+
                 host, port = await echo.dmon.listen('tcp://127.0.0.1:0/')
 
                 url = f'tcp://127.0.0.1:{port}/echo00'
@@ -49,7 +53,15 @@ class CellTest(s_t_utils.SynTest):
                 root_url = f'tcp://root:secretsauce@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(root_url) as proxy:
                     self.true(await proxy.isadmin())
-                    self.true(await proxy.allowed('hehe', 'haha'))
+                    self.true(await proxy.allowed(('hehe', 'haha')))
+
+                    # Auth data is reflected in the Dmon session
+                    resp = await proxy.getDmonSessions()
+                    self.len(1, resp)
+                    info = resp[0]
+                    self.eq(info.get('items'), {None: 'synapse.tests.test_lib_cell.EchoAuthApi'})
+                    self.eq(info.get('user').get('name'), 'root')
+                    self.eq(info.get('user').get('iden'), root.iden)
 
                 user = await echo.auth.addUser('visi')
                 await user.setPasswd('foo')
@@ -57,9 +69,9 @@ class CellTest(s_t_utils.SynTest):
 
                 visi_url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(visi_url) as proxy:  # type: EchoAuthApi
-                    self.true(await proxy.allowed('foo', 'bar'))
+                    self.true(await proxy.allowed(('foo', 'bar')))
                     self.false(await proxy.isadmin())
-                    self.false(await proxy.allowed('hehe', 'haha'))
+                    self.false(await proxy.allowed(('hehe', 'haha')))
 
                     self.true(await proxy.icando('foo', 'bar'))
                     await self.asyncraises(s_exc.AuthDeny, proxy.icando('foo', 'newp'))
@@ -93,7 +105,26 @@ class CellTest(s_t_utils.SynTest):
                     val = await proxy.listHiveKey(('foo', 'bar'))
                     self.eq(('baz', 'faz', 'haz'), val)
 
+                    # visi user can change visi user pass
+                    await proxy.setUserPasswd('visi', 'foobar')
+                    # non admin visi user cannot change root user pass
+                    with self.raises(s_exc.AuthDeny):
+                        await proxy.setUserPasswd('root', 'coolstorybro')
+                    # cannot change a password for a non existent user
+                    with self.raises(s_exc.NoSuchUser):
+                        await proxy.setUserPasswd('newp', 'new[')
+
+                # New password works
+                visi_url = f'tcp://visi:foobar@127.0.0.1:{port}/echo00'
+                async with await s_telepath.openurl(visi_url) as proxy:  # type: EchoAuthApi
+                    info = await proxy.getCellUser()
+                    print(info)
+
                 async with await s_telepath.openurl(root_url) as proxy:  # type: EchoAuthApi
+
+                    # root user can change visi user pass
+                    await proxy.setUserPasswd('visi', 'foo')
+                    visi_url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
 
                     await proxy.setUserLocked('visi', True)
                     info = await proxy.getAuthInfo('visi')
@@ -137,9 +168,26 @@ class CellTest(s_t_utils.SynTest):
                     await proxy.setHiveKey(('foo', 'bar'), [1, 2, 3, 4])
                     self.eq([1, 2, 3, 4], await proxy.getHiveKey(('foo', 'bar')))
                     self.isin('foo', await proxy.listHiveKey())
-                    self.eq(['bar'], await proxy.listHiveKey(('foo', )))
+                    self.eq(['bar'], await proxy.listHiveKey(('foo',)))
                     await proxy.popHiveKey(('foo', 'bar'))
-                    self.eq([], await proxy.listHiveKey(('foo', )))
+                    self.eq([], await proxy.listHiveKey(('foo',)))
+
+                # Ensure we can delete a rule by its item and index position
+                async with echo.getLocalProxy() as proxy:  # type: EchoAuthApi
+                    rule = (True, ('hive:set', 'foo', 'bar'))
+                    self.isin(rule, user.rules)
+                    await proxy.delAuthRule('visi', rule)
+                    self.notin(rule, user.rules)
+                    # Removing a non-existing rule by *rule* has no consequence
+                    await proxy.delAuthRule('visi', rule)
+
+                    rule = user.rules[0]
+                    self.isin(rule, user.rules)
+                    await proxy.delAuthRuleIndx('visi', 0)
+                    self.notin(rule, user.rules)
+                    # Sad path around cell deletion
+                    await self.asyncraises(s_exc.BadArg, proxy.delAuthRuleIndx('visi', -1))
+                    await self.asyncraises(s_exc.BadArg, proxy.delAuthRuleIndx('visi', 1000000))
 
     async def test_cell_unix_sock(self):
 
@@ -165,11 +213,10 @@ class CellTest(s_t_utils.SynTest):
     async def test_cell_nonstandard_admin(self):
         boot = {
             'auth:admin': 'pennywise:cottoncandy',
-            'type': 'echoauth',
         }
         pconf = {'user': 'pennywise', 'passwd': 'cottoncandy'}
 
-        with self.getTestDir('cellauth') as dirn:
+        with self.getTestDir() as dirn:
 
             s_common.yamlsave(boot, dirn, 'boot.yaml')
             async with await EchoAuth.anit(dirn) as echo:
@@ -181,7 +228,7 @@ class CellTest(s_t_utils.SynTest):
                 async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}/', **pconf) as proxy:
 
                     self.true(await proxy.isadmin())
-                    self.true(await proxy.allowed('hehe', 'haha'))
+                    self.true(await proxy.allowed(('hehe', 'haha')))
 
                 url = f'tcp://root@127.0.0.1:{port}/'
                 await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
@@ -213,6 +260,9 @@ class CellTest(s_t_utils.SynTest):
                 async with cell.getLocalProxy() as prox:
 
                     self.eq('root', (await prox.getCellUser())['name'])
+                    snfo = await prox.getDmonSessions()
+                    self.len(1, snfo)
+                    self.eq(snfo[0].get('user').get('name'), 'root')
 
                     with self.raises(s_exc.NoSuchUser):
                         await prox.setCellUser(s_common.guid())
@@ -222,5 +272,35 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await prox.setCellUser(user['iden']))
                     self.eq('visi', (await prox.getCellUser())['name'])
 
+                    # setCellUser propagates his change to the Daemon Sess object.
+                    # But we have to use the daemon directly to get that info
+                    snfo = await cell.dmon.getSessInfo()
+                    self.len(1, snfo)
+                    self.eq(snfo[0].get('user').get('name'), 'visi')
+
                     with self.raises(s_exc.AuthDeny):
                         await prox.setCellUser(s_common.guid())
+
+    async def test_cell_hiveboot(self):
+
+        with self.getTestDir() as dirn:
+
+            tree = {
+                'kids': {
+                    'hehe': {'value': 'haha'},
+                }
+            }
+
+            bootpath = os.path.join(dirn, 'hiveboot.yaml')
+
+            s_common.yamlsave(tree, bootpath)
+
+            async with await s_cell.Cell.anit(dirn) as cell:
+                self.eq('haha', await cell.hive.get(('hehe',)))
+
+            # test that the file does not load again
+            tree['kids']['redbaloons'] = {'value': 99}
+            s_common.yamlsave(tree, bootpath)
+
+            async with await s_cell.Cell.anit(dirn) as cell:
+                self.none(await cell.hive.get(('redbaloons',)))

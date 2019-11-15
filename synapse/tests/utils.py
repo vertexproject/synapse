@@ -49,11 +49,13 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
+import synapse.lib.hive as s_hive
 import synapse.lib.const as s_const
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
+import synapse.lib.lmdbslab as s_slab
 import synapse.lib.thishost as s_thishost
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -139,6 +141,8 @@ testmodel = {
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
 
+        ('test:arrayprop', ('guid', {}), {}),
+
         ('test:comp', ('comp', {'fields': (
             ('hehe', 'test:int'),
             ('haha', 'test:lower'))
@@ -164,10 +168,14 @@ testmodel = {
 
     'univs': (
         ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
+        ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
     ),
 
     'forms': (
 
+        ('test:arrayprop', {}, (
+            ('ints', ('array', {'type': 'test:int'}), {}),
+        )),
         ('test:type10', {}, (
 
             ('intprop', ('int', {'min': 20, 'max': 30}), {
@@ -316,6 +324,9 @@ class TestModule(s_module.CoreModule):
 
         self.core.addStormLib(('test',), LibTst)
 
+        self.healthy = True
+        self.core.addHealthFunc(self._testModHealth)
+
         self._runtsByBuid = {}
         self._runtsByPropValu = collections.defaultdict(list)
         await self._initTestRunts()
@@ -327,8 +338,16 @@ class TestModule(s_module.CoreModule):
             for name, prop in form.props.items():
                 pfull = prop.full
                 self.core.addRuntLift(pfull, self._testRuntLift)
-        self.core.addRuntPropSet(self.model.prop('test:runt:lulz'), self._testRuntPropSetLulz)
-        self.core.addRuntPropDel(self.model.prop('test:runt:lulz'), self._testRuntPropDelLulz)
+        self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
+        self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
+
+    async def _testModHealth(self, health):
+        if self.healthy:
+            health.update(self.getModName(), 'nominal',
+                          'Test module is healthy', data={'beep': 0})
+        else:
+            health.update(self.getModName(), 'failed',
+                          'Test module is unhealthy', data={'beep': 1})
 
     async def addTestRecords(self, snap, items):
         for name in items:
@@ -776,7 +795,19 @@ class SynTest(unittest.TestCase):
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
     @contextlib.asynccontextmanager
-    async def getTestAxon(self):
+    async def getTestAxon(self, dirn=None):
+        '''
+        Get a test Axon as an async context manager.
+
+        Returns:
+            s_axon.Axon: A Axon object.
+        '''
+        if dirn is not None:
+            async with await s_axon.Axon.anit(dirn) as axon:
+                yield axon
+
+            return
+
         with self.getTestDir() as dirn:
             async with await s_axon.Axon.anit(dirn) as axon:
                 yield axon
@@ -911,7 +942,7 @@ class SynTest(unittest.TestCase):
             s_cortex.Cortex: A Cortex object.
         '''
         if conf is None:
-            conf = {}
+            conf = {'layer:lmdb:map_async': True}
 
         conf = copy.deepcopy(conf)
 
@@ -948,13 +979,31 @@ class SynTest(unittest.TestCase):
                 yield core, prox
 
     @contextlib.asynccontextmanager
-    async def getTestCryo(self):
+    async def getTestCryo(self, dirn=None):
+        '''
+        Get a simple test Cryocell as an async context manager.
+
+        Returns:
+            s_cryotank.CryoCell: Test cryocell.
+        '''
+        if dirn is not None:
+            async with await s_cryotank.CryoCell.anit(dirn) as cryo:
+                yield cryo
+
+            return
+
         with self.getTestDir() as dirn:
             async with await s_cryotank.CryoCell.anit(dirn) as cryo:
                 yield cryo
 
     @contextlib.asynccontextmanager
     async def getTestCryoAndProxy(self):
+        '''
+        Get a test Cryocell and the Telepath Proxy to it.
+
+        Returns:
+            (s_cryotank: CryoCell, s_cryotank.CryoApi): The CryoCell and a Proxy representing a CryoApi object.
+        '''
         async with self.getTestCryo() as cryo:
             async with cryo.getLocalProxy() as prox:
                 yield cryo, prox
@@ -1640,3 +1689,40 @@ class SynTest(unittest.TestCase):
         idel = await core.auth.addUser('icandel')
         await idel.grant('deleter')
         await idel.setPasswd('secret')
+
+    @contextlib.asynccontextmanager
+    async def getTestHive(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestHiveFromDirn(dirn) as hive:
+                yield hive
+
+    @contextlib.asynccontextmanager
+    async def getTestHiveFromDirn(self, dirn):
+
+        import synapse.lib.const as s_const
+        map_size = s_const.gibibyte
+
+        async with await s_slab.Slab.anit(dirn, map_size=map_size) as slab:
+
+            async with await s_hive.SlabHive.anit(slab) as hive:
+
+                yield hive
+
+    @contextlib.asynccontextmanager
+    async def getTestHiveDmon(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestHiveFromDirn(dirn) as hive:
+                async with self.getTestDmon() as dmon:
+                    dmon.share('hive', hive)
+                    yield dmon
+
+    @contextlib.asynccontextmanager
+    async def getTestTeleHive(self):
+
+        async with self.getTestHiveDmon() as dmon:
+
+            turl = self.getTestUrl(dmon, 'hive')
+
+            async with await s_hive.openurl(turl) as hive:
+
+                yield hive

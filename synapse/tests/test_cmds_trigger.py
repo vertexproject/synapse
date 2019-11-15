@@ -134,3 +134,56 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await cmdr.runCmdLine('trigger add Node:add test:str {[ test:int=99 ] | spin }')
             await s_common.aspin(core.eval('[ test:str=foo4 ]'))
             await self.agenlen(1, core.eval('test:int=99'))
+
+            # Test manipulating triggers as another user
+            await realcore.auth.addUser('bond')
+
+            async with realcore.getLocalProxy(user='bond') as tcore:
+
+                toutp = self.getTestOutp()
+                tcmdr = await s_cmdr.getItemCmdr(tcore, outp=toutp)
+
+                await tcmdr.runCmdLine('trigger list')
+                self.true(toutp.expect('No triggers found'))
+
+                await tcmdr.runCmdLine(f'trigger mod {goodbuid2} {{[ test:str=yep ]}}')
+                self.true(toutp.expect('provided iden does not match'))
+
+                toutp.clear()
+                await tcmdr.runCmdLine(f'trigger disable {goodbuid2}')
+                self.true(toutp.expect('provided iden does not match'))
+
+                toutp.clear()
+                await tcmdr.runCmdLine(f'trigger enable {goodbuid2}')
+                self.true(toutp.expect('provided iden does not match'))
+
+                toutp.clear()
+                await tcmdr.runCmdLine(f'trigger del {goodbuid2}')
+                self.true(toutp.expect('provided iden does not match'))
+
+                # Give explicit perm
+                await core.addAuthRule('bond', (True, ('trigger', 'get')))
+
+                toutp.clear()
+                await tcmdr.runCmdLine('trigger list')
+                self.true(toutp.expect('root'))
+
+                await core.addAuthRule('bond', (True, ('trigger', 'set')))
+
+                toutp.clear()
+                await tcmdr.runCmdLine(f'trigger mod {goodbuid2} {{[ test:str=yep ]}}')
+                self.true(toutp.expect('Modified trigger'))
+
+                toutp.clear()
+                await tcmdr.runCmdLine(f'trigger disable {goodbuid2}')
+                self.true(toutp.expect('Disabled trigger '))
+
+                toutp.clear()
+                await tcmdr.runCmdLine(f'trigger enable {goodbuid2}')
+                self.true(toutp.expect('Enabled trigger '))
+
+                await core.addAuthRule('bond', (True, ('trigger', 'del')))
+
+                toutp.clear()
+                await tcmdr.runCmdLine(f'trigger del {goodbuid2}')
+                self.true(toutp.expect('Deleted trigger '))

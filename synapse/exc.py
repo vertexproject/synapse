@@ -16,7 +16,7 @@ class SynErr(Exception):
     def items(self):
         return {k: v for k, v in self.errinfo.items()}
 
-    def get(self, name):
+    def get(self, name, defv=None):
         '''
         Return a value from the errinfo dict.
 
@@ -28,7 +28,7 @@ class SynErr(Exception):
                 blah = e.get('blah')
 
         '''
-        return self.errinfo.get(name)
+        return self.errinfo.get(name, defv)
 
 class AuthDeny(SynErr): pass
 
@@ -47,12 +47,15 @@ class BadConfValu(SynErr):
     '''
     pass
 
+class NeedConfValu(SynErr): pass
+
 class BadCoreStore(SynErr):
     '''The storage layer has encountered an error'''
     pass
 
 class BadCtorType(SynErr): pass
 class BadFormDef(SynErr): pass
+class BadHivePath(SynErr): pass
 class BadLiftValu(SynErr): pass
 class BadPropDef(SynErr): pass
 class BadTypeDef(SynErr): pass
@@ -65,6 +68,7 @@ class BadArg(SynErr):
 class BadFileExt(SynErr): pass
 class BadIndxValu(SynErr): pass
 class BadMesgVers(SynErr): pass
+class BadMesgFormat(SynErr): pass
 class BadOperArg(SynErr):
     ''' Improper storm function arguments '''
     pass
@@ -82,7 +86,10 @@ class BadTag(SynErr): pass
 class BadTime(SynErr): pass
 class BadUrl(SynErr): pass
 
+class CantDelCmd(SynErr): pass
 class CantDelNode(SynErr): pass
+class CantDelProp(SynErr): pass
+class CantDelUniv(SynErr): pass
 class CantDelRootUser(SynErr): pass
 class CantRevLayer(SynErr): pass
 class CliFini(SynErr):
@@ -108,10 +115,12 @@ class DataAlreadyExists(SynErr):
     pass
 
 class DbOutOfSpace(SynErr): pass
+class DupName(SynErr): pass
 class DupFileName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupRoleName(SynErr): pass
 class DupUserName(SynErr): pass
+class DupStormSvc(SynErr): pass
 
 class FileExists(SynErr): pass
 
@@ -125,6 +134,8 @@ class IsFini(SynErr): pass
 class IsReadOnly(SynErr): pass
 class IsRuntForm(SynErr): pass
 
+class LayerInUse(SynErr): pass
+
 class LinkErr(SynErr): pass
 class LinkShutDown(LinkErr): pass
 
@@ -135,6 +146,8 @@ class NoCertKey(SynErr):
 class ModAlreadyLoaded(SynErr): pass
 
 class NoSuchAct(SynErr): pass
+class NoSuchAuthGate(SynErr): pass
+class NoSuchCmd(SynErr): pass
 class NoSuchCmpr(SynErr): pass
 class NoSuchCond(SynErr): pass
 class NoSuchCtor(SynErr): pass
@@ -157,17 +170,21 @@ class NoSuchOpt(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchPivot(SynErr): pass
 class NoSuchProp(SynErr): pass
+class NoSuchUniv(SynErr): pass
 class NoSuchRole(SynErr): pass
 class NoSuchStor(SynErr): pass
 class NoSuchType(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchVar(SynErr): pass
 class NoSuchView(SynErr): pass
+class NoSuchTagProp(SynErr): pass
+class NoSuchStormSvc(SynErr): pass
 
 class ParserExit(SynErr):
     ''' Raised by synapse.lib.cmd.Parser on Parser exit() '''
     pass
 
+class SpawnExit(SynErr): pass
 
 class ReadOnlyLayer(SynErr): pass
 class ReadOnlyProp(SynErr): pass
@@ -186,3 +203,5 @@ class StepTimeout(SynErr):
 
 class StormRuntimeError(SynErr): pass
 class StormVarListError(StormRuntimeError): pass
+
+class TeleRedir(SynErr): pass

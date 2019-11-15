@@ -26,15 +26,18 @@ def parse(argv):
 
     return pars.parse_args(argv)
 
-async def main(argv, outp=s_output.stdout):
+async def main(argv, outp=s_output.stdout, axonctor=None):
 
     opts = parse(argv)
+
+    if axonctor is None:
+        axonctor = s_axon.Axon.anit
 
     s_common.setlogging(logger)
 
     outp.printf('starting axon: %s' % (opts.axondir,))
 
-    axon = await s_axon.Axon.anit(opts.axondir)
+    axon = await axonctor(opts.axondir)
 
     try:
 

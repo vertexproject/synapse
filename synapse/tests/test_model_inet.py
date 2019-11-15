@@ -477,7 +477,7 @@ class InetModelTest(s_t_utils.SynTest):
 
                 # Remove the FQDN's suffix status and make sure its children lose zone status
                 n3 = await snap.addNode(formname, 'vertex.link', props={'issuffix': False})
-                iszone(n3)     # vertex.link should now be a zone becuase we removed its suffix status
+                iszone(n3)     # vertex.link should now be a zone because we removed its suffix status
                 n0 = await snap.getNodeByNdef((formname, 'abc.vertex.link'))
                 n1 = await snap.getNodeByNdef((formname, 'def.vertex.link'))
                 n2 = await snap.getNodeByNdef((formname, 'g.def.vertex.link'))
@@ -654,11 +654,13 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(t.norm(0xFFFFFFFF + 1), (0, info))
 
             # Form Tests ======================================================
+            place = s_common.guid()
             input_props = {
                 'asn': 3,
                 'loc': 'uS',
                 'dns:rev': 'vertex.link',
-                'latlong': '-50.12345, 150.56789'
+                'latlong': '-50.12345, 150.56789',
+                'place': place,
             }
             expected_props = {
                 'asn': 3,
@@ -666,6 +668,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'type': 'unicast',
                 'dns:rev': 'vertex.link',
                 'latlong': (-50.12345, 150.56789),
+                'place': place,
             }
             valu_str = '1.2.3.4'
             valu_int = 16909060
@@ -724,11 +727,14 @@ class InetModelTest(s_t_utils.SynTest):
             # Form Tests ======================================================
             async with await core.snap() as snap:
 
+                place = s_common.guid()
+
                 valu_str = '::fFfF:1.2.3.4'
                 input_props = {
                     'loc': 'cool',
                     'latlong': '0,2',
                     'dns:rev': 'vertex.link',
+                    'place': place,
                 }
                 expected_props = {
                     'asn': 0,
@@ -736,6 +742,7 @@ class InetModelTest(s_t_utils.SynTest):
                     'loc': 'cool',
                     'latlong': (0.0, 2.0),
                     'dns:rev': 'vertex.link',
+                    'place': place,
                 }
                 expected_ndef = (formname, valu_str.lower())
                 node = await snap.addNode(formname, valu_str, props=input_props)
@@ -1135,6 +1142,25 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    async def test_url_mirror(self):
+        url0 = 'http://vertex.link'
+        url1 = 'http://vtx.lk'
+        opts = {'vars': {'url0': url0, 'url1': url1}}
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:url:mirror=($url0, $url1) ]', opts=opts)
+
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:url:mirror', (url0, url1)))
+            self.eq(nodes[0].get('at'), 'http://vtx.lk')
+            self.eq(nodes[0].get('of'), 'http://vertex.link')
+
+            with self.raises(s_exc.ReadOnlyProp):
+                nodes = await core.nodes('inet:url:mirror=($url0, $url1) [ :at=http://newp.com ]', opts=opts)
+
+            with self.raises(s_exc.ReadOnlyProp):
+                nodes = await core.nodes('inet:url:mirror=($url0, $url1) [ :of=http://newp.com ]', opts=opts)
+
     async def test_urlredir(self):
         formname = 'inet:urlredir'
         valu = ('https://vertex.link/idk', 'https://cool.vertex.link:443/something_else')
@@ -1177,12 +1203,14 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(t.norm(('VerTex.linK', 'PerSon1')), (enorm, edata))
 
             # Form Tests
+            place = s_common.guid()
             valu = ('blogs.Vertex.link', 'Brutus')
             input_props = {
                 'avatar': 'sha256:' + 64 * 'a',
                 'dob': -64836547200000,
                 'email': 'brutus@vertex.link',
                 'latlong': '0,0',
+                'place': place,
                 'loc': 'sol',
                 'name': 'ካሳር',
                 'name:en': 'brutus',
@@ -1204,6 +1232,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'site': valu[0].lower(),
                 'user': valu[1].lower(),
                 'latlong': (0.0, 0.0),
+                'place': place,
                 'phone': '5555555555',
                 'realname': 'брут',
                 'signup:client': 'tcp://0.0.0.4',
@@ -1305,6 +1334,7 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_web_group(self):
         formname = 'inet:web:group'
         valu = ('vertex.link', 'CoolGroup')
+        place = s_common.guid()
         input_props = {
             'name': 'The coolest group',
             'name:en': 'The coolest group (in english)',
@@ -1314,6 +1344,7 @@ class InetModelTest(s_t_utils.SynTest):
             'webpage': 'https://vertex.link/CoolGroup/page',
             'loc': 'the internet',
             'latlong': '0,0',
+            'place': place,
             'signup': 0,
             'signup:client': '0.0.0.0',
         }
@@ -1328,6 +1359,7 @@ class InetModelTest(s_t_utils.SynTest):
             'webpage': 'https://vertex.link/CoolGroup/page',
             'loc': 'the internet',
             'latlong': (0.0, 0.0),
+            'place': place,
             'signup': 0,
             'signup:client': 'tcp://0.0.0.0',
             'signup:client:ipv4': 0
@@ -1530,16 +1562,27 @@ class InetModelTest(s_t_utils.SynTest):
                 self.checkNode(node, (expected_ndef, expected_props))
 
     async def test_wifi_ap(self):
+
+        place = s_common.guid()
+
         formname = 'inet:wifi:ap'
         valu = ('The Best SSID2 ', '00:11:22:33:44:55')
+        props = {
+            'accuracy': '10km',
+            'latlong': (20, 30),
+            'place': place,
+        }
         expected_props = {
             'ssid': valu[0],
-            'bssid': valu[1]
+            'bssid': valu[1],
+            'latlong': (20.0, 30.0),
+            'accuracy': 10000000,
+            'place': place,
         }
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
-                node = await snap.addNode(formname, valu)
+                node = await snap.addNode(formname, valu, props=props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
     async def test_wifi_ssid(self):
