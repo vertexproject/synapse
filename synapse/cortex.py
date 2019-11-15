@@ -1043,14 +1043,11 @@ class Cortex(s_cell.Cell):
     async def getStormMods(self):
         return self.stormmods
 
-    async def getStormMod(self, name):
-        return self.stormmods.get(name)
-
     async def _tryLoadStormPkg(self, pkgdef):
         try:
             await self.loadStormPkg(pkgdef)
         except asyncio.CancelledError:
-            raise
+            raise  # pragma: no cover
 
         except Exception as e:
             name = pkgdef.get('name', '')

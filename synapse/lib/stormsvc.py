@@ -205,6 +205,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
         except asyncio.TimeoutError:
             mesg = 'Timeout waiting for storm service'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None
-        except AttributeError as e:
+        except AttributeError as e:  # pragma: no cover
+            # possible client race condition seen in the real world
             mesg = f'Error dereferencing storm service - {str(e)}'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None
