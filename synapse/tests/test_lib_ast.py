@@ -374,9 +374,6 @@ class AstTest(s_test.SynTest):
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.eq(errs[0][0], 'BadPropValu')
 
-            nodes = await core.nodes('$foo = $lib.dict() for $name in $foo.bar { [ test:str=$name ] }')
-            self.len(0, nodes)
-
     async def test_ast_array_pivot(self):
 
         async with self.getTestCore() as core:

@@ -2903,6 +2903,20 @@ class CortexBasicTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq(node.get('hehe'), 'valu2')
 
+            # None values don't yield anything
+            q = '''$foo = $lib.dict()
+            for $name in $foo.bar { [ test:str=$name ] }
+            '''
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
+
+            # Even with a inbound node, zero loop iterations will not yield inbound nodes.
+            q = '''test:str=test1 $foo = $lib.dict()
+            for $name in $foo.bar { [ test:str=$name ] }
+            '''
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
+
     async def test_storm_whileloop(self):
 
         async with self.getTestCore() as core:
