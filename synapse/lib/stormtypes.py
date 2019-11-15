@@ -98,7 +98,6 @@ class LibPkg(Lib):
     def addLibFuncs(self):
         self.locls.update({
             'add': self._libPkgAdd,
-            #'get': self._libPkgGet,
             'del': self._libPkgDel,
             'list': self._libPkgList,
         })
@@ -107,12 +106,9 @@ class LibPkg(Lib):
         self.runt.reqAllowed(('storm', 'pkg', 'add'))
         await self.runt.snap.core.addStormPkg(pkgdef)
 
-    #async def _libPkgGet(self, iden):
-        #return await self.runt.snap.core.getStormPkg(iden)
-
-    async def _libPkgDel(self, iden):
+    async def _libPkgDel(self, name):
         self.runt.reqAllowed(('storm', 'pkg', 'del'))
-        return await self.runt.snap.core.delStormPkg(iden)
+        return await self.runt.snap.core.delStormPkg(name)
 
     async def _libPkgList(self):
         return await self.runt.snap.core.getStormPkgs()
