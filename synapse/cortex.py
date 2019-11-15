@@ -1157,6 +1157,7 @@ class Cortex(s_cell.Cell):
             raise s_exc.NoSuchStormSvc(mesg=mesg)
 
         await self._delStormSvcCmds(iden)
+        await self._delStormSvcPkgs(iden)
 
         name = sdef.get('name')
         if name is not None:
@@ -1166,6 +1167,21 @@ class Cortex(s_cell.Cell):
         if ssvc is not None:
             await ssvc.fini()
 
+    async def _delStormSvcPkgs(self, iden):
+        '''
+        Delete storm packages associated with a service.
+        '''
+        oldpkgs = []
+        for name, pdef in self.pkghive.items():
+            pkgiden = pdef.get('svciden')
+            if pkgiden and pkgiden == iden:
+                oldpkgs.append(pdef)
+
+        for pkg in oldpkgs:
+            name = pkg.get('name')
+            if name:
+                await self.delStormPkg(name)
+
     async def _delStormSvcCmds(self, iden):
         '''
         Delete a storm service's commands from the cortex.
@@ -1174,7 +1190,7 @@ class Cortex(s_cell.Cell):
         oldcmds = []
         for name, cdef in self.cmdhive.items():
             cmdiden = cdef.get('cmdconf', {}).get('svciden')
-            if cmdiden == iden:
+            if cmdiden and cmdiden == iden:
                 oldcmds.append(cdef.get('name'))
 
         for name in oldcmds:
