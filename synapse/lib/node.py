@@ -1,3 +1,4 @@
+import copy
 import logging
 import collections
 
@@ -796,9 +797,11 @@ class Path:
         return path
 
     def clone(self):
-        path = Path(self.runt, self.vars, self.nodes)
+        path = Path(self.runt,
+                    copy.copy(self.vars),
+                    copy.copy(self.nodes),)
         path.traces = list(self.traces)
-        path.frames = list(self.frames)
+        path.frames = [(copy.copy(vars), runt) for (vars, runt) in self.frames]
         return path
 
     def initframe(self, initvars=None, initrunt=None):
