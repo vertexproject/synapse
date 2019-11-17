@@ -78,7 +78,6 @@ class StormSvc:
 
     _storm_svc_name = 'noname'
     _storm_svc_vers = (0, 0, 1)
-    _storm_svc_cmds = ()
     _storm_svc_evts = {}
     _storm_svc_pkgs = {}
 
@@ -88,11 +87,7 @@ class StormSvc:
             'vers': self._storm_svc_vers,
             'evts': self._storm_svc_evts,
             'pkgs': await self.getStormSvcPkgs(),
-            'cmds': await self.getStormSvcCmds(),
         }
-
-    async def getStormSvcCmds(self):
-        return self._storm_svc_cmds
 
     async def getStormSvcPkgs(self):
         return self._storm_svc_pkgs
@@ -132,16 +127,6 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
         if 'StormSvc' in names:
             self.info = await proxy.getStormSvcInfo()
 
-            # cleanup old cmds and packages on init
-            try:
-                await self.core._delStormSvcCmds(self.iden)
-
-            except asyncio.CancelledError:  # pragma: no cover
-                raise
-
-            except Exception as e:
-                logger.exception(f'_delStormSvcCmds failed for service {self.name} ({self.iden})')
-
             try:
                 await self.core._delStormSvcPkgs(self.iden)
 
@@ -165,22 +150,6 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
                 except Exception:
                     name = pdef.get('name')
                     logger.exception(f'addStormPkg ({name}) failed for service {self.name} ({self.iden})')
-
-            # Register new cmds
-            for cdef in self.info.get('cmds', ()):
-
-                cdef.setdefault('cmdconf', {})
-
-                try:
-                    cdef['cmdconf']['svciden'] = self.iden
-                    await self.core.setStormCmd(cdef)
-
-                except asyncio.CancelledError:  # pragma: no cover
-                    raise
-
-                except Exception:
-                    name = cdef.get('name')
-                    logger.exception(f'setStormCmd ({name}) failed for service {self.name} ({self.iden})')
 
             # Set events and fire as needed
             evts = self.info.get('evts')

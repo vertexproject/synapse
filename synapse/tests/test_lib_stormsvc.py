@@ -24,6 +24,10 @@ old_pkg = {
             'name': 'old.baz',
             'storm': '$baz = $lib.import(old.baz) [:asn = $baz.baz(:asn, $(20))]',
         },
+        {
+            'name': 'oldcmd',
+            'storm': '[ inet:ipv4=1.2.3.4 ]',
+        },
     )
 }
 
@@ -43,8 +47,13 @@ new_old_pkg = {
             'name': 'new.baz',
             'storm': '$baz = $lib.import(new.baz) [:asn = $baz.baz(:asn)]',
         },
+        {
+            'name': 'newcmd',
+            'storm': '[ inet:ipv4=5.6.7.8 ]',
+        },
     )
 }
+
 new_pkg = {
     'name': 'new',
     'version': (0, 0, 1),
@@ -69,23 +78,13 @@ new_pkg = {
 }
 
 class OldServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
-    _storm_svc_cmds = (
-        {
-            'name': 'oldcmd',
-            'storm': '[ inet:ipv4=1.2.3.4 ]',
-        },
-    )
+    _storm_svc_name = 'chng'
     _storm_svc_pkgs = (
         old_pkg,
     )
 
 class NewServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
-    _storm_svc_cmds = (
-        {
-            'name': 'newcmd',
-            'storm': '[ inet:ipv4=5.6.7.8 ]',
-        },
-    )
+    _storm_svc_name = 'chng'
     _storm_svc_pkgs = (
         new_old_pkg,
         new_pkg,
@@ -107,16 +106,7 @@ class ChangingService(s_cell.Cell):
             return await OldServiceAPI.anit(self, link, user)
 
 class RealService(s_stormsvc.StormSvc):
-    _storm_svc_cmds = (
-        {
-            'name': 'ohhai',
-            'cmdopts': (
-                ('--verbose', {'default': False, 'action': 'store_true'}),
-            ),
-            'storm': '[ inet:ipv4=1.2.3.4 :asn=$lib.service.get($cmdconf.svciden).asn() ]',
-        },
-    )
-
+    _storm_svc_name = 'real'
     _storm_svc_pkgs = (
         {
             'name': 'foo',
@@ -134,6 +124,13 @@ class RealService(s_stormsvc.StormSvc):
                     // in foo.bar module.
                     [:asn = $bar.asdf(:asn, $(20))]
                     ''',
+                },
+                {
+                    'name': 'ohhai',
+                    'cmdopts': (
+                        ('--verbose', {'default': False, 'action': 'store_true'}),
+                    ),
+                    'storm': '[ inet:ipv4=1.2.3.4 :asn=$lib.service.get($cmdconf.svciden).asn() ]',
                 },
             )
         },
@@ -157,13 +154,7 @@ class RealService(s_stormsvc.StormSvc):
         yield '123.123.123.123'
 
 class BoomService(s_stormsvc.StormSvc):
-    _storm_svc_cmds = (
-        {
-            'name': 'goboom',
-            'storm': ']',
-        },
-    )
-
+    _storm_svc_name = 'boom'
     _storm_svc_pkgs = (
         {
             'name': 'boom',
@@ -175,6 +166,10 @@ class BoomService(s_stormsvc.StormSvc):
                 {
                     'name': 'badcmd',
                     'storm': ' --++{',
+                },
+                {
+                    'name': 'goboom',
+                    'storm': ']',
                 },
             ),
         },
@@ -189,10 +184,17 @@ class BoomService(s_stormsvc.StormSvc):
     }
 
 class DeadService(s_stormsvc.StormSvc):
-    _storm_svc_cmds = (
+    _storm_svc_name = 'dead'
+    _storm_svc_pkgs = (
         {
             'name': 'dead',
-            'storm': '$#$#$#$#',
+            'version': (0, 0, 1),
+            'commands': (
+                {
+                    'name': 'dead',
+                    'storm': '$#$#$#$#',
+                },
+            ),
         },
     )
     _storm_svc_evts = {
@@ -209,14 +211,20 @@ class NoService:
         return 'asdf'
 
 class LifterService(s_stormsvc.StormSvc):
-    _storm_svc_cmds = (
+    _storm_svc_name = 'lifter'
+    _storm_svc_pkgs = (
         {
             'name': 'lifter',
-            'desc': 'Lift inet:ipv4=1.2.3.4',
-            'storm': 'inet:ipv4=1.2.3.4',
+            'version': (0, 0, 1),
+            'commands': (
+                {
+                    'name': 'lifter',
+                    'desc': 'Lift inet:ipv4=1.2.3.4',
+                    'storm': 'inet:ipv4=1.2.3.4',
+                },
+            ),
         },
     )
-
     _storm_svc_evts = {
         'add': {
             'storm': '+[',
@@ -550,7 +558,7 @@ class StormSvcTest(s_test.SynTest):
                         pkg = await core.getStormPkg('old')
                         self.eq(pkg.get('version'), (0, 1, 0))
 
-                    cdef = OldServiceAPI._storm_svc_cmds[0]
+                    cdef = OldServiceAPI._storm_svc_pkgs[0].get('commands')[-1]
                     cdef['cmdconf'] = {'svciden': 'fakeiden'}
                     await core.setStormCmd(cdef)
                     self.nn(core.getStormCmd('oldcmd'))

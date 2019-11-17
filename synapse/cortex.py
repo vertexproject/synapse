@@ -1072,7 +1072,9 @@ class Cortex(s_cell.Cell):
 
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
+        svciden = pkgdef.get('svciden')
 
+        # Validate storm contents from modules and commands
         for mdef in mods:
 
             modname = mdef.get('name')
@@ -1083,6 +1085,9 @@ class Cortex(s_cell.Cell):
             self.getStormQuery(modtext)
 
         for cdef in cmds:
+            cdef.setdefault('cmdconf', {})
+            if svciden:
+                cdef['cmdconf']['svciden'] = svciden
             await self._reqStormCmd(cdef)
 
         # now actually load...
@@ -1156,7 +1161,6 @@ class Cortex(s_cell.Cell):
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
 
-        await self._delStormSvcCmds(iden)
         await self._delStormSvcPkgs(iden)
 
         name = sdef.get('name')
@@ -1181,20 +1185,6 @@ class Cortex(s_cell.Cell):
             name = pkg.get('name')
             if name:
                 await self.delStormPkg(name)
-
-    async def _delStormSvcCmds(self, iden):
-        '''
-        Delete a storm service's commands from the cortex.
-        '''
-
-        oldcmds = []
-        for name, cdef in self.cmdhive.items():
-            cmdiden = cdef.get('cmdconf', {}).get('svciden')
-            if cmdiden and cmdiden == iden:
-                oldcmds.append(cdef.get('name'))
-
-        for name in oldcmds:
-            await self.delStormCmd(name)
 
     async def setStormSvcEvents(self, iden, edef):
         '''
@@ -1605,6 +1595,7 @@ class Cortex(s_cell.Cell):
                 await self._trySetStormCmd(name, cdef)
 
         for name in oldcmds:
+            logger.warning(f'Removing old command: [{name}]')
             await self.cmdhive.pop(name)
 
         for name, pkgdef in self.pkghive.items():
