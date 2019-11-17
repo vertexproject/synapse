@@ -300,7 +300,7 @@ class StormSvcTest(s_test.SynTest):
                 await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
 
     async def test_storm_cmd_scope(self):
-
+        # TODO - Fix me / move me - what is this tests purpose in life?
         async with self.getTestCore() as core:
 
             cdef = {
