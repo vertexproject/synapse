@@ -708,6 +708,44 @@ class AstTest(s_test.SynTest):
             self.eq(erfo[1][1].get('name'), 'pprint')
             self.eq(erfo[1][1].get('valu'), 'newp')
 
+    async def test_ast_function_scope(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+
+                function foo (x) {
+                    [ test:str=$x ]
+                }
+
+                yield $foo(asdf)
+
+            ''')
+
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'asdf'))
+
+            scmd = {
+                'name': 'foocmd',
+                'storm': '''
+
+                    function lulz (lulztag) {
+                        [ test:str=$lulztag ]
+                    }
+
+                    for $tag in $node.tags() {
+                        yield $lulz($tag)
+                    }
+
+                ''',
+            }
+
+            await core.setStormCmd(scmd)
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#visi ] | foocmd')
+            self.eq(nodes[0].ndef, ('test:str', 'visi'))
+            self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
+
     async def test_ast_setitem(self):
 
         async with self.getTestCore() as core:

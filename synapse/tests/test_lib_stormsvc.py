@@ -310,44 +310,6 @@ class StormSvcTest(s_test.SynTest):
 
             nodes = await core.nodes('[ test:str=asdf ] | lulz')
 
-    async def test_storm_func_scope(self):
-
-        async with self.getTestCore() as core:
-
-            nodes = await core.nodes('''
-
-                function foo (x) {
-                    [ test:str=$x ]
-                }
-
-                yield $foo(asdf)
-
-            ''')
-
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'asdf'))
-
-            scmd = {
-                'name': 'foocmd',
-                'storm': '''
-
-                    function lulz (lulztag) {
-                        [ test:str=$lulztag ]
-                    }
-
-                    for $tag in $node.tags() {
-                        yield $lulz($tag)
-                    }
-
-                ''',
-            }
-
-            await core.setStormCmd(scmd)
-
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#visi ] | foocmd')
-            self.eq(nodes[0].ndef, ('test:str', 'visi'))
-            self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
-
     async def test_storm_pkg_persist(self):
 
         pkg = {
