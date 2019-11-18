@@ -723,9 +723,6 @@ class AstTest(s_test.SynTest):
             for idx, out in enumerate(expected):
                 self.stormIsInPrint(out, msgs)
                 self.eq(out, prints[idx][1]['mesg'])
-            self.stormIsInPrint('this should be first', msgs)
-            self.stormIsInPrint('toreturn called', msgs)
-            self.stormIsInPrint('got foobar', msgs)
 
             # test that we the functions in a module don't pollute our own runts
             q = '''
