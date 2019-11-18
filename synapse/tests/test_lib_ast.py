@@ -36,21 +36,6 @@ foo_stormpkg = {
             }
             '''
         },
-        {
-            'name': 'funcnest',
-            'storm': '''
-                function outer(outarg) {
-                    $lib.print('outer')
-                    $inner($outarg)
-                    return ($outarg)
-                }
-
-                function inner(inarg) {
-                    $lib.print('inner')
-                    return ($outarg)
-                }
-            '''
-        },
     ],
     'commands': [
         {
