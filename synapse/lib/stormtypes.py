@@ -9,6 +9,7 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.ast as s_ast
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
@@ -49,6 +50,10 @@ class StormType:
         self.ctors = {}
         self.locls = {}
 
+    async def setitem(self, name, valu):
+        mesg = f'{self.__class__.__name__} does not support assignment.'
+        raise s_exc.StormRuntimeError(mesg=mesg)
+
     async def deref(self, name):
 
         locl = self.locls.get(name, s_common.novalu)
@@ -87,6 +92,26 @@ class Lib(StormType):
 
         ctor = slib[2].get('ctor', Lib)
         return ctor(self.runt, name=path)
+
+class LibPkg(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'add': self._libPkgAdd,
+            'del': self._libPkgDel,
+            'list': self._libPkgList,
+        })
+
+    async def _libPkgAdd(self, pkgdef):
+        self.runt.reqAllowed(('storm', 'pkg', 'add'))
+        await self.runt.snap.core.addStormPkg(pkgdef)
+
+    async def _libPkgDel(self, name):
+        self.runt.reqAllowed(('storm', 'pkg', 'del'))
+        return await self.runt.snap.core.delStormPkg(name)
+
+    async def _libPkgList(self):
+        return await self.runt.snap.core.getStormPkgs()
 
 class LibDmon(Lib):
 
@@ -203,7 +228,34 @@ class LibBase(Lib):
             'fire': self._fire,
             'text': self._text,
             'print': self._print,
+            'sorted': self._sorted,
+            'import': self._libBaseImport,
         })
+
+    async def _libBaseImport(self, name):
+
+        mdef = self.runt.getStormMod(name)
+        if mdef is None:
+            mesg = f'No storm module named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+        text = mdef.get('storm')
+        query = await self.runt.getStormQuery(text)
+        runt = await self.runt.getScopeRuntime(query)
+
+        # execute the query in a module scope
+        async for item in query.run(runt, s_ast.agen()):
+            pass  # pragma: no cover
+
+        modlib = Lib(self.runt)
+        modlib.locls.update(runt.vars)
+        modlib.locls['__module__'] = mdef
+
+        return modlib
+
+    async def _sorted(self, valu):
+        for item in sorted(valu):
+            yield item
 
     async def _set(self, *vals):
         return Set(set(vals))
@@ -254,6 +306,7 @@ class LibBase(Lib):
 
     async def _dict(self, **kwargs):
         return kwargs
+        # TODO: return Dict(kwargs)
 
     async def _fire(self, name, **info):
         await self.runt.snap.fire('storm:fire', type=name, data=info)
@@ -732,6 +785,16 @@ class Bytes(Prim):
 
 class Dict(Prim):
 
+    def __iter__(self):
+        return self.valu.items()
+
+    async def __aiter__(self):
+        for item in self.valu.items():
+            yield item
+
+    async def setitem(self, name, valu):
+        self.valu[name] = valu
+
     async def deref(self, name):
         return self.valu.get(name)
 
@@ -741,11 +804,27 @@ class Set(Prim):
         Prim.__init__(self, set(valu), path=path)
         self.locls.update({
             'add': self._methSetAdd,
-            'adds': self._methSetAdds,
+            'has': self._methSetHas,
             'rem': self._methSetRem,
+            'adds': self._methSetAdds,
             'rems': self._methSetRems,
             'list': self._methSetList,
+            'size': self._methSetSize,
         })
+
+    def __iter__(self):
+        for item in self.valu:
+            yield item
+
+    async def __aiter__(self):
+        for item in self.valu:
+            yield item
+
+    async def _methSetSize(self):
+        return len(self.valu)
+
+    async def _methSetHas(self, item):
+        return item in self.valu
 
     async def _methSetAdd(self, *items):
         [self.valu.add(i) for i in items]
@@ -769,6 +848,7 @@ class List(Prim):
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update({
+            'size': self._methListSize,
             'index': self._methListIndex,
             'length': self._methListLength,
             'append': self._methListAppend,
@@ -792,6 +872,9 @@ class List(Prim):
         '''
         Return the length of the list.
         '''
+        return len(self.valu)
+
+    async def _methListSize(self):
         return len(self.valu)
 
 class StormHiveDict(Prim):
@@ -893,36 +976,27 @@ class LibVars(Lib):
             'list': self._libVarsList,
         })
 
-    async def _libVarsGet(self, name, strip=False):
+    async def _libVarsGet(self, name):
         '''
         Resolve a variable in a storm query
         '''
-        if strip:
-            name = name.lstrip('$')
-
-        ret = self.runt.getVar(name)
-        if not ret:
+        ret = self.runt.getVar(name, defv=s_common.novalu)
+        if ret is s_common.novalu:
             mesg = f'No var with name: {name}'
-            raise s_exc.StormRuntimeError(mesg=mesg, name=name, strip=strip)
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
 
         return ret
 
-    async def _libVarsSet(self, name, valu, strip=False):
+    async def _libVarsSet(self, name, valu):
         '''
         Set a variable in a storm query
         '''
-        if strip:
-            name = name.lstrip('$')
-
         self.runt.setVar(name, valu)
 
-    async def _libVarsDel(self, name, strip=False):
+    async def _libVarsDel(self, name):
         '''
         Unset a variable in a storm query.
         '''
-        if strip:
-            name = name.lstrip('$')
-
         self.runt.vars.pop(name, None)
 
     async def _libVarsList(self):
@@ -1072,6 +1146,36 @@ class Node(Prim):
     async def _methNodeIden(self):
         return self.valu.iden()
 
+class PathVars(Prim):
+    '''
+    Put the storm deref/setitem/iter convention on top of path variables.
+    '''
+
+    def __init__(self, path):
+        Prim.__init__(self, None, path=path)
+
+    async def deref(self, name):
+
+        valu = self.path.getVar(name)
+        if valu is not s_common.novalu:
+            return valu
+
+        mesg = f'No var with name: {name}.'
+        raise s_exc.StormRuntimeError(mesg=mesg)
+
+    async def setitem(self, name, valu):
+        self.path.setVar(name, valu)
+
+    def __iter__(self):
+        # prevent "edit while iter" issues
+        for item in list(self.path.vars.items()):
+            yield item
+
+    async def __aiter__(self):
+        # prevent "edit while iter" issues
+        for item in list(self.path.vars.items()):
+            yield item
+
 class Path(Prim):
 
     def __init__(self, node, path=None):
@@ -1079,10 +1183,8 @@ class Path(Prim):
         self.locls.update({
             'idens': self._methPathIdens,
             'trace': self._methPathTrace,
-            'getvar': self._methPathGetVar,
-            'setvar': self._methPathSetVar,
-            'delvar': self._methPathDelVar,
             'listvars': self._methPathListVars,
+            'vars': PathVars(path),
         })
 
     async def _methPathIdens(self):
@@ -1091,38 +1193,6 @@ class Path(Prim):
     async def _methPathTrace(self):
         trace = self.valu.trace()
         return Trace(trace)
-
-    async def _methPathGetVar(self, name, strip=False):
-        '''
-        Resolve a variable in the path of a storm query
-        '''
-        if strip:
-            name = name.lstrip('$')
-
-        ret = self.path.getVar(name)
-        if ret is s_common.novalu:
-            mesg = f'No var with name: {name}'
-            raise s_exc.StormRuntimeError(mesg=mesg, name=name, strip=strip)
-
-        return ret
-
-    async def _methPathSetVar(self, name, valu, strip=False):
-        '''
-        Set a variable in the path of a storm query
-        '''
-        if strip:
-            name = name.lstrip('$')
-
-        self.path.setVar(name, valu)
-
-    async def _methPathDelVar(self, name, strip=False):
-        '''
-        Unset a variable in the path of a storm query.
-        '''
-        if strip:
-            name = name.lstrip('$')
-
-        self.path.vars.pop(name, None)
 
     async def _methPathListVars(self):
         '''
@@ -1232,9 +1302,6 @@ def fromprim(valu, path=None):
     if isinstance(valu, s_node.Path):
         return Path(valu, path=path)
 
-    if isinstance(valu, StormType):
-        return valu
-
     if isinstance(valu, (tuple, list)):
         return List(valu, path=path)
 
@@ -1244,4 +1311,8 @@ def fromprim(valu, path=None):
     if isinstance(valu, bytes):
         return Bytes(valu, path=path)
 
-    raise s_exc.NoSuchType(name=valu.__class__.__name__)
+    if isinstance(valu, StormType):
+        return valu
+
+    mesg = 'Unable to convert python primitive to StormType.'
+    raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)

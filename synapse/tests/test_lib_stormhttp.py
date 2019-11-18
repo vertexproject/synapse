@@ -13,7 +13,7 @@ class StormHttpTest(s_test.SynTest):
                 )
                 $url = $lib.str.format("http://127.0.0.1:{port}/api/v1/model", port=$port)
 
-                for $name in $lib.inet.http.get($url, headers=$hdr).json().result.forms {
+                for ($name, $fdef) in $lib.inet.http.get($url, headers=$hdr).json().result.forms {
                     [ test:str=$name ]
                 }
             '''

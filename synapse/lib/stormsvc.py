@@ -78,19 +78,19 @@ class StormSvc:
 
     _storm_svc_name = 'noname'
     _storm_svc_vers = (0, 0, 1)
-    _storm_svc_cmds = ()
     _storm_svc_evts = {}
+    _storm_svc_pkgs = {}
 
     async def getStormSvcInfo(self):
         return {
             'name': self._storm_svc_name,
             'vers': self._storm_svc_vers,
             'evts': self._storm_svc_evts,
-            'cmds': await self.getStormSvcCmds(),
+            'pkgs': await self.getStormSvcPkgs(),
         }
 
-    async def getStormSvcCmds(self):
-        return self._storm_svc_cmds
+    async def getStormSvcPkgs(self):
+        return self._storm_svc_pkgs
 
 class StormSvcClient(s_base.Base, s_stormtypes.StormType):
     '''
@@ -125,23 +125,33 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
         names = [c.rsplit('.', 1)[-1] for c in clss]
 
         if 'StormSvc' in names:
-
             self.info = await proxy.getStormSvcInfo()
-            for cdef in self.info.get('cmds', ()):
 
-                cdef.setdefault('cmdconf', {})
+            try:
+                await self.core._delStormSvcPkgs(self.iden)
+
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+
+            except Exception as e:
+                logger.exception(f'_delStormSvcPkgs failed for service {self.name} ({self.iden})')
+
+            # Register new packages
+            for pdef in self.info.get('pkgs', ()):
 
                 try:
-                    cdef['cmdconf']['svciden'] = self.iden
-                    await self.core.setStormCmd(cdef)
+                    # push the svciden in the package metadata for later reference.
+                    pdef['svciden'] = self.iden
+                    await self.core.addStormPkg(pdef)
 
                 except asyncio.CancelledError:  # pragma: no cover
                     raise
 
                 except Exception:
-                    name = cdef.get('name')
-                    logger.exception(f'setStormCmd ({name}) failed for service {self.name} ({self.iden})')
+                    name = pdef.get('name')
+                    logger.exception(f'addStormPkg ({name}) failed for service {self.name} ({self.iden})')
 
+            # Set events and fire as needed
             evts = self.info.get('evts')
             try:
                 if evts is not None:
@@ -162,6 +172,12 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
             except Exception:
                 logger.exception(f'service.add storm hook failed for service {self.name} ({self.iden})')
 
+        async def unready():
+            self.ready.clear()
+            await self.core.fire("stormsvc:client:unready", iden=self.iden)
+
+        proxy.onfini(unready)
+
         self.ready.set()
 
     async def deref(self, name):
@@ -172,6 +188,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
         except asyncio.TimeoutError:
             mesg = 'Timeout waiting for storm service'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None
-        except AttributeError as e:
-            mesg = 'Error dereferencing storm service - {str(e)}'
+        except AttributeError as e:  # pragma: no cover
+            # possible client race condition seen in the real world
+            mesg = f'Error dereferencing storm service - {str(e)}'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name) from None

@@ -1,3 +1,4 @@
+import copy
 import logging
 import collections
 
@@ -7,6 +8,7 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.types as s_types
+import synapse.lib.storm as s_storm
 
 import synapse.lib.editatom as s_editatom
 
@@ -731,6 +733,7 @@ class Path:
             self.node = nodes[-1]
 
         self.vars = vars
+        self.frames = []
         self.ctors = {}
 
         # "builtins" which are *not* vars
@@ -796,6 +799,36 @@ class Path:
         [t.addFork(path) for t in self.traces]
 
         return path
+
+    def clone(self):
+        path = Path(self.runt,
+                    copy.copy(self.vars),
+                    copy.copy(self.nodes),)
+        path.traces = list(self.traces)
+        path.frames = [(copy.copy(vars), runt) for (vars, runt) in self.frames]
+        return path
+
+    def initframe(self, initvars=None, initrunt=None):
+
+        # full copy for now...
+        framevars = self.vars.copy()
+        if initvars is not None:
+            framevars.update(initvars)
+
+        if initrunt is None:
+            initrunt = self.runt
+
+        self.frames.append((self.vars, self.runt))
+
+        self.runt = initrunt
+        self.vars = framevars
+
+    def finiframe(self):
+
+        if not self.frames:
+            return
+
+        (self.vars, self.runt) = self.frames.pop()
 
 class Trace:
     '''

@@ -4,18 +4,138 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_test
+
+import synapse.lib.cell as s_cell
 import synapse.lib.stormsvc as s_stormsvc
 
-class RealService(s_stormsvc.StormSvc):
-    _storm_svc_cmds = (
+old_pkg = {
+    'name': 'old',
+    'version': (0, 0, 1),
+    'modules': (
+        {'name': 'old.bar', 'storm': 'function bar(x, y) { return ($($x + $y)) }'},
+        {'name': 'old.baz', 'storm': 'function baz(x, y) { return ($($x + $y)) }'},
+    ),
+    'commands': (
         {
-            'name': 'ohhai',
-            'cmdopts': (
-                ('--verbose', {'default': False, 'action': 'store_true'}),
-            ),
-            'storm': '[ inet:ipv4=1.2.3.4 :asn=$lib.service.get($cmdconf.svciden).asn() ]',
+            'name': 'old.bar',
+            'storm': '$bar = $lib.import(old.bar) [:asn = $bar.bar(:asn, $(20))]',
+        },
+        {
+            'name': 'old.baz',
+            'storm': '$baz = $lib.import(old.baz) [:asn = $baz.baz(:asn, $(20))]',
+        },
+        {
+            'name': 'oldcmd',
+            'storm': '[ inet:ipv4=1.2.3.4 ]',
         },
     )
+}
+
+new_old_pkg = {
+    'name': 'old',
+    'version': (0, 1, 0),
+    'modules': (
+        {'name': 'old.bar', 'storm': 'function bar(x, y) { return ($($x + $y)) }'},
+        {'name': 'new.baz', 'storm': 'function baz(x) { return ($($x + 20)) }'},
+    ),
+    'commands': (
+        {
+            'name': 'old.bar',
+            'storm': '$bar = $lib.import(old.bar) [:asn = $bar.bar(:asn, $(20))]',
+        },
+        {
+            'name': 'new.baz',
+            'storm': '$baz = $lib.import(new.baz) [:asn = $baz.baz(:asn)]',
+        },
+        {
+            'name': 'newcmd',
+            'storm': '[ inet:ipv4=5.6.7.8 ]',
+        },
+    )
+}
+
+new_pkg = {
+    'name': 'new',
+    'version': (0, 0, 1),
+    'modules': (
+        {'name': 'echo', 'storm': '''function echo(arg1, arg2) {
+                                        $lib.print("{arg1}={arg2}", arg1=$arg1, arg2=$arg2)
+                                        return ()
+                                    }
+                                  '''
+         },
+    ),
+    'commands': (
+        {
+            'name': 'runtecho',
+            'storm': '''$echo = $lib.import(echo)
+                        for ($key, $valu) in $lib.runt.vars() {
+                                $echo.echo($key, $valu)
+                        }
+                    ''',
+        },
+    )
+}
+
+class OldServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
+    _storm_svc_name = 'chng'
+    _storm_svc_pkgs = (
+        old_pkg,
+    )
+
+class NewServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
+    _storm_svc_name = 'chng'
+    _storm_svc_pkgs = (
+        new_old_pkg,
+        new_pkg,
+    )
+
+class ChangingService(s_cell.Cell):
+    confdefs = (
+        ('updated', {'type': 'bool', 'defval': False,
+                     'doc': 'If true, serve new cell api'}),
+    )
+
+    async def getTeleApi(self, link, mesg, path):
+
+        user = self._getCellUser(mesg)
+
+        if self.conf.get('updated'):
+            return await NewServiceAPI.anit(self, link, user)
+        else:
+            return await OldServiceAPI.anit(self, link, user)
+
+class RealService(s_stormsvc.StormSvc):
+    _storm_svc_name = 'real'
+    _storm_svc_pkgs = (
+        {
+            'name': 'foo',
+            'version': (0, 0, 1),
+            'modules': (
+                {'name': 'foo.bar', 'storm': 'function asdf(x, y) { return ($($x + $y)) }'},
+            ),
+            'commands': (
+                {
+                    'name': 'foobar',
+                    'storm': '''
+                    // Import the foo.bar module
+                    $bar = $lib.import(foo.bar)
+                    // Set :asn to the output of the asdf function defined
+                    // in foo.bar module.
+                    [:asn = $bar.asdf(:asn, $(20))]
+                    ''',
+                },
+                {
+                    'name': 'ohhai',
+                    'cmdopts': (
+                        ('--verbose', {'default': False, 'action': 'store_true'}),
+                    ),
+                    'storm': '[ inet:ipv4=1.2.3.4 :asn=$lib.service.get($cmdconf.svciden).asn() ]',
+                },
+            )
+        },
+    )
+
     _storm_svc_evts = {
         'add': {
             'storm': '$lib.queue.add(vertex)',
@@ -34,10 +154,24 @@ class RealService(s_stormsvc.StormSvc):
         yield '123.123.123.123'
 
 class BoomService(s_stormsvc.StormSvc):
-    _storm_svc_cmds = (
+    _storm_svc_name = 'boom'
+    _storm_svc_pkgs = (
         {
-            'name': 'goboom',
-            'storm': ']',
+            'name': 'boom',
+            'version': (0, 0, 1),
+            'modules': (
+                {'name': 'blah', 'storm': '+}'},
+            ),
+            'commands': (
+                {
+                    'name': 'badcmd',
+                    'storm': ' --++{',
+                },
+                {
+                    'name': 'goboom',
+                    'storm': ']',
+                },
+            ),
         },
     )
     _storm_svc_evts = {
@@ -50,10 +184,17 @@ class BoomService(s_stormsvc.StormSvc):
     }
 
 class DeadService(s_stormsvc.StormSvc):
-    _storm_svc_cmds = (
+    _storm_svc_name = 'dead'
+    _storm_svc_pkgs = (
         {
             'name': 'dead',
-            'storm': '$#$#$#$#',
+            'version': (0, 0, 1),
+            'commands': (
+                {
+                    'name': 'dead',
+                    'storm': '$#$#$#$#',
+                },
+            ),
         },
     )
     _storm_svc_evts = {
@@ -70,14 +211,20 @@ class NoService:
         return 'asdf'
 
 class LifterService(s_stormsvc.StormSvc):
-    _storm_svc_cmds = (
+    _storm_svc_name = 'lifter'
+    _storm_svc_pkgs = (
         {
             'name': 'lifter',
-            'desc': 'Lift inet:ipv4=1.2.3.4',
-            'storm': 'inet:ipv4=1.2.3.4',
+            'version': (0, 0, 1),
+            'commands': (
+                {
+                    'name': 'lifter',
+                    'desc': 'Lift inet:ipv4=1.2.3.4',
+                    'storm': 'inet:ipv4=1.2.3.4',
+                },
+            ),
         },
     )
-
     _storm_svc_evts = {
         'add': {
             'storm': '+[',
@@ -151,6 +298,46 @@ class StormSvcTest(s_test.SynTest):
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
+
+    async def test_storm_cmd_scope(self):
+        # TODO - Fix me / move me - what is this tests purpose in life?
+        async with self.getTestCore() as core:
+
+            cdef = {
+                'name': 'lulz',
+                'storm': '''
+                    $test=(asdf, qwer)
+
+                    for $t in $test {
+                        $lib.print($test)
+                    }
+                '''
+            }
+
+            await core.setStormCmd(cdef)
+
+            nodes = await core.nodes('[ test:str=asdf ] | lulz')
+
+    async def test_storm_pkg_persist(self):
+
+        pkg = {
+            'name': 'foobar',
+            'version': (0, 0, 1),
+            'modules': (
+                {'name': 'hehe.haha', 'storm': 'function add(x, y) { return ($($x + $y)) }'},
+            ),
+            'commands': (
+                {'name': 'foobar', 'storm': '$haha = $lib.import(hehe.haha) [ inet:asn=$haha.add($(10), $(20)) ]'},
+            ),
+        }
+        with self.getTestDir() as dirn:
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+                await core.addStormPkg(pkg)
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+                nodes = await core.nodes('foobar')
+                self.eq(nodes[0].ndef, ('inet:asn', 30))
 
     async def test_storm_svcs(self):
 
@@ -229,6 +416,12 @@ class StormSvcTest(s_test.SynTest):
                     nodes = await core.nodes('for $ipv4 in $lib.service.get(fake).ipv4s() { [inet:ipv4=$ipv4] }')
                     self.len(3, nodes)
 
+                    nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ] | foobar | +:asn=40')
+                    self.len(1, nodes)
+
+                    self.none(await core.getStormPkg('boom'))
+                    self.none(core.getStormCmd('badcmd'))
+
                     # execute a pure storm service without inbound nodes
                     # even though it has invalid add/del, it should still work
                     nodes = await core.nodes('lifter')
@@ -259,6 +452,9 @@ class StormSvcTest(s_test.SynTest):
                     self.eq('vertex', queue[0]['name'])
 
                     await core.delStormSvc(iden)
+
+                    # make sure stormcmd got deleted
+                    self.none(core.getStormCmd('ohhai'))
 
                     # ensure fini ran
                     queue = core.multiqueue.list()
@@ -306,3 +502,77 @@ class StormSvcTest(s_test.SynTest):
                         await core.delStormSvc(ssvc.iden)
                     self.len(1, badiden)
                     self.eq(ssvc.iden, badiden[0])
+
+    async def test_storm_svc_restarts(self):
+
+        with self.getTestDir() as dirn:
+            async with await s_cortex.Cortex.anit(dirn) as core:
+                with self.getTestDir() as svcd:
+                    async with await ChangingService.anit(svcd) as chng:
+                        chng.dmon.share('chng', chng)
+
+                        root = chng.auth.getUserByName('root')
+                        await root.setPasswd('root')
+
+                        info = await chng.dmon.listen('tcp://127.0.0.1:0/')
+                        host, port = info
+
+                        curl = f'tcp://root:root@127.0.0.1:{port}/chng'
+
+                        await core.nodes(f'service.add chng {curl}')
+                        await core.nodes('$lib.service.wait(chng)')
+
+                        self.nn(core.getStormCmd('oldcmd'))
+                        self.nn(core.getStormCmd('old.bar'))
+                        self.nn(core.getStormCmd('old.baz'))
+                        self.none(core.getStormCmd('new.baz'))
+                        self.none(core.getStormCmd('runtecho'))
+                        self.none(core.getStormCmd('newcmd'))
+                        self.isin('old', core.stormpkgs)
+                        self.isin('old.bar', core.stormmods)
+                        self.isin('old.baz', core.stormmods)
+                        pkg = await core.getStormPkg('old')
+                        self.eq(pkg.get('version'), (0, 0, 1))
+
+                        waiter = core.waiter(1, 'stormsvc:client:unready')
+
+                    self.true(await waiter.wait(10))
+                    async with await ChangingService.anit(svcd, {'updated': True}) as chng:
+                        chng.dmon.share('chng', chng)
+                        _ = await chng.dmon.listen(f'tcp://127.0.0.1:{port}/')
+
+                        await core.nodes('$lib.service.wait(chng)')
+
+                        self.nn(core.getStormCmd('newcmd'))
+                        self.nn(core.getStormCmd('new.baz'))
+                        self.nn(core.getStormCmd('old.bar'))
+                        self.nn(core.getStormCmd('runtecho'))
+                        self.none(core.getStormCmd('oldcmd'))
+                        self.none(core.getStormCmd('old.baz'))
+                        self.isin('old', core.stormpkgs)
+                        self.isin('new', core.stormpkgs)
+                        self.isin('echo', core.stormmods)
+                        self.isin('old.bar', core.stormmods)
+                        self.isin('new.baz', core.stormmods)
+                        self.notin('old.baz', core.stormmods)
+                        pkg = await core.getStormPkg('old')
+                        self.eq(pkg.get('version'), (0, 1, 0))
+
+                    cdef = OldServiceAPI._storm_svc_pkgs[0].get('commands')[-1]
+                    cdef['cmdconf'] = {'svciden': 'fakeiden'}
+                    await core.setStormCmd(cdef)
+                    self.nn(core.getStormCmd('oldcmd'))
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+                self.nn(core.getStormCmd('newcmd'))
+                self.nn(core.getStormCmd('new.baz'))
+                self.nn(core.getStormCmd('old.bar'))
+                self.nn(core.getStormCmd('runtecho'))
+                self.none(core.getStormCmd('oldcmd'))
+                self.none(core.getStormCmd('old.baz'))
+                self.isin('old', core.stormpkgs)
+                self.isin('new', core.stormpkgs)
+                self.isin('echo', core.stormmods)
+                self.isin('old.bar', core.stormmods)
+                self.isin('new.baz', core.stormmods)
+                self.notin('old.baz', core.stormmods)

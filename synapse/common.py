@@ -542,8 +542,8 @@ def debase64(b):
 def makedirs(path, mode=0o777):
     os.makedirs(path, mode=mode, exist_ok=True)
 
-def iterzip(*args):
-    return itertools.zip_longest(*args)
+def iterzip(*args, fillvalue=None):
+    return itertools.zip_longest(*args, fillvalue=fillvalue)
 
 def setlogging(mlogger, defval=None):
     '''
