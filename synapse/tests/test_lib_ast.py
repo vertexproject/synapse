@@ -35,7 +35,22 @@ foo_stormpkg = {
                 return()
             }
             '''
-        }
+        },
+        {
+            'name': 'funcnest',
+            'storm': '''
+                function outer(outarg) {
+                    $lib.print('outer')
+                    $inner($outarg)
+                    return ($outarg)
+                }
+
+                function inner(inarg) {
+                    $lib.print('inner')
+                    return ($outarg)
+                }
+            '''
+        },
     ],
     'commands': [
         {
@@ -639,6 +654,101 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('arg1: hello', msgs)
             self.stormIsInPrint('arg2: world', msgs)
             self.stormIsInPrint('arg3: goodbye', msgs)
+
+            # Basic function chaining
+            q = '''
+            function inner() {
+                $lib.print("inner vertex")
+                return ("foobarbazbiz")
+            }
+
+            function outer() {
+                return ($inner())
+            }
+
+            $output = $outer()
+            $lib.print($output)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('inner vertex', msgs)
+            self.stormIsInPrint('foobarbazbiz', msgs)
+
+            # return a directly called function
+            q = '''
+            function woot(arg1) {
+                return ( $($arg1 + 1) )
+            }
+
+            function squee(arg2) {
+                return ($woot($arg2))
+            }
+            $output = $squee(17)
+            $lib.print('output is {a}', a=$output)
+            '''
+
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('output is 18', msgs)
+
+            # recursive functions
+            q = '''
+            function recurse(cond, count) {
+                if $( $cond = 15 ) {
+                    return ($count)
+                }
+                return ($recurse( $($cond - 1), $($count + 1) ))
+            }
+            $output = $recurse(21, 0)
+            $lib.print('final recursive output is {out}', out=$output)
+            '''
+
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('final recursive output is 6', msgs)
+
+            # return a function (not a value, but a ref to the function itself)
+            q = '''
+            function toreturn() {
+                $lib.print("toreturn called")
+                return ("foobar")
+            }
+
+            function wrapper() {
+                return ($toreturn)
+            }
+
+            $func = $wrapper()
+            $output = $func()
+            $lib.print("got {out}", out=$output)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('toreturn called', msgs)
+            self.stormIsInPrint('got foobar', msgs)
+
+            # test that we the functions in a module don't pollute our own runts
+            q = '''
+            $test=$lib.import(test)
+            $lib.print($outer("1337"))
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('', msgs)
+
+            # make sure we can set variables to the results of other functions in the same query
+            q = '''
+            function baz(arg1) {
+                $lib.print('arg1={a}', a=$arg1)
+                return ($arg1)
+            }
+            function bar(arg2) {
+                $lib.print('arg2={a}', a=$arg2)
+                $retz = $baz($arg2)
+                return ($retz)
+            }
+            $foo = $bar("hehe")
+            $lib.print($foo)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('arg2=hehe', msgs)
+            self.stormIsInPrint('arg1=hehe', msgs)
+            self.stormIsInPrint('hehe', msgs)
 
             # Too few args are problematic
             q = '''

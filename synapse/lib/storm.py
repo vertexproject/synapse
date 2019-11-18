@@ -235,6 +235,8 @@ class Runtime:
         self.runtvars.update(self.vars.keys())
         self.runtvars.update(self.ctors.keys())
 
+        self.runtfuncs = set()
+
         self.proxies = {}
         self.elevated = False
 
@@ -373,6 +375,8 @@ class Runtime:
         # do a quick pass to determine which vars are per-node.
         for oper in query.kids:
             for name in oper.getRuntVars(self):
+                if isinstance(oper, s_ast.Function):
+                    self.runtfuncs.add(name)
                 self.runtvars.add(name)
 
     async def iterStormQuery(self, query, genr=None):
@@ -393,6 +397,9 @@ class Runtime:
     async def getScopeRuntime(self, query, opts=None):
         runt = Runtime(self.snap, user=self.user, opts=opts)
         runt.loadRuntVars(query)
+        for name in self.runtfuncs:
+            runt.runtfuncs.add(name)
+            runt.vars[name] = self.vars.get(name)
         return runt
 
 class Parser(argparse.ArgumentParser):
