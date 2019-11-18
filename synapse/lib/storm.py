@@ -1325,6 +1325,7 @@ class SpawnCore(s_base.Base):
         self.dirn = spawninfo.get('dirn')
 
         self.stormcmds = {}
+        self.stormmods = spawninfo['storm']['mods']
 
         for name, ctor in spawninfo['storm']['cmds']['ctors']:
             self.stormcmds[name] = ctor
@@ -1398,6 +1399,9 @@ class SpawnCore(s_base.Base):
 
     def getStormCmd(self, name):
         return self.stormcmds.get(name)
+
+    async def getStormMods(self):
+        return self.stormmods
 
 async def spawnstorm(spawninfo):
 

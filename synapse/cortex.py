@@ -905,6 +905,7 @@ class Cortex(s_cell.Cell):
                     'cdefs': list(self.storm_cmd_cdefs.items()),
                     'ctors': list(self.storm_cmd_ctors.items()),
                 },
+                'mods': await self.getStormMods()
             },
             'model': await self.getModelDefs(),
         }
@@ -1034,8 +1035,6 @@ class Cortex(s_cell.Cell):
         def ctor(argv):
             return s_storm.PureCmd(cdef, argv)
 
-        self.storm_cmd_cdefs[name] = cdef
-
         # TODO unify class ctors and func ctors vs briefs...
         def getCmdBrief():
             return cdef.get('descr', 'No description').split('\n')[0]
@@ -1044,6 +1043,7 @@ class Cortex(s_cell.Cell):
 
         name = cdef.get('name')
         self.stormcmds[name] = ctor
+        self.storm_cmd_cdefs[name] = cdef
 
     async def _popStormCmd(self, name):
         self.stormcmds.pop(name, None)
