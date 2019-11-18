@@ -716,10 +716,18 @@ class AstTest(s_test.SynTest):
             }
 
             $func = $wrapper()
+            $lib.print("this should be first")
             $output = $func()
             $lib.print("got {out}", out=$output)
             '''
             msgs = await core.streamstorm(q).list()
+            expected = ['this should be first', 'toreturn called', 'got foobar']
+            prints = list(filter(lambda m: m[0] == 'print', msgs))
+            self.eq(len(prints), len(expected))
+            for idx, out in enumerate(expected):
+                self.stormIsInPrint(out, msgs)
+                self.eq(out, prints[idx][1]['mesg'])
+            self.stormIsInPrint('this should be first', msgs)
             self.stormIsInPrint('toreturn called', msgs)
             self.stormIsInPrint('got foobar', msgs)
 
@@ -729,7 +737,8 @@ class AstTest(s_test.SynTest):
             $lib.print($outer("1337"))
             '''
             msgs = await core.streamstorm(q).list()
-            self.stormIsInPrint('', msgs)
+            for msg in msgs:
+                self.ne('print', msg[0])
 
             # make sure we can set variables to the results of other functions in the same query
             q = '''
@@ -739,16 +748,16 @@ class AstTest(s_test.SynTest):
             }
             function bar(arg2) {
                 $lib.print('arg2={a}', a=$arg2)
-                $retz = $baz($arg2)
-                return ($retz)
+                $retn = $baz($arg2)
+                return ($retn)
             }
             $foo = $bar("hehe")
             $lib.print($foo)
             '''
             msgs = await core.streamstorm(q).list()
-            self.stormIsInPrint('arg2=hehe', msgs)
-            self.stormIsInPrint('arg1=hehe', msgs)
             self.stormIsInPrint('hehe', msgs)
+            self.stormIsInPrint('arg1=hehe', msgs)
+            self.stormIsInPrint('arg2=hehe', msgs)
 
             # Too few args are problematic
             q = '''

@@ -400,6 +400,7 @@ class Runtime:
         for name in self.runtfuncs:
             runt.runtfuncs.add(name)
             runt.vars[name] = self.vars.get(name)
+            runt.runtvars.add(name)
         return runt
 
 class Parser(argparse.ArgumentParser):
