@@ -78,7 +78,6 @@ class StormSvc:
 
     _storm_svc_name = 'noname'
     _storm_svc_vers = (0, 0, 1)
-    _storm_svc_cmds = ()
     _storm_svc_evts = {}
     _storm_svc_pkgs = {}
 
@@ -88,11 +87,7 @@ class StormSvc:
             'vers': self._storm_svc_vers,
             'evts': self._storm_svc_evts,
             'pkgs': await self.getStormSvcPkgs(),
-            'cmds': await self.getStormSvcCmds(),
         }
-
-    async def getStormSvcCmds(self):
-        return self._storm_svc_cmds
 
     async def getStormSvcPkgs(self):
         return self._storm_svc_pkgs
@@ -130,21 +125,23 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
         names = [c.rsplit('.', 1)[-1] for c in clss]
 
         if 'StormSvc' in names:
-
             self.info = await proxy.getStormSvcInfo()
 
             try:
-                await self.core._delStormSvcCmds(self.iden)
+                await self.core._delStormSvcPkgs(self.iden)
 
             except asyncio.CancelledError:  # pragma: no cover
                 raise
 
             except Exception as e:
-                logger.exception(f'delStormSvcCmds failed for service {self.name} ({self.iden})')
+                logger.exception(f'_delStormSvcPkgs failed for service {self.name} ({self.iden})')
 
+            # Register new packages
             for pdef in self.info.get('pkgs', ()):
 
                 try:
+                    # push the svciden in the package metadata for later reference.
+                    pdef['svciden'] = self.iden
                     await self.core.addStormPkg(pdef)
 
                 except asyncio.CancelledError:  # pragma: no cover
@@ -154,21 +151,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.StormType):
                     name = pdef.get('name')
                     logger.exception(f'addStormPkg ({name}) failed for service {self.name} ({self.iden})')
 
-            for cdef in self.info.get('cmds', ()):
-
-                cdef.setdefault('cmdconf', {})
-
-                try:
-                    cdef['cmdconf']['svciden'] = self.iden
-                    await self.core.setStormCmd(cdef)
-
-                except asyncio.CancelledError:  # pragma: no cover
-                    raise
-
-                except Exception:
-                    name = cdef.get('name')
-                    logger.exception(f'setStormCmd ({name}) failed for service {self.name} ({self.iden})')
-
+            # Set events and fire as needed
             evts = self.info.get('evts')
             try:
                 if evts is not None:
