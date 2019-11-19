@@ -101,7 +101,7 @@ class Snap(s_base.Base):
     def getStormSvc(self, iden):
         return self.core.getStormSvc(iden)
 
-    def getStormSvcs(self, iden):
+    def getStormSvcs(self):
         return self.core.getStormSvcs()
 
     def getStormCmd(self, name):
@@ -114,19 +114,15 @@ class Snap(s_base.Base):
 
     async def getCoreQueue(self, name):
         return await self.core.getCoreQueue(name)
-        #await self.core.multiqueue.get(name)
 
     async def delCoreQueue(self, name):
         return await self.core.delCoreQueue(name)
-        #await self.core.multiqueue.rem(name)
 
     async def getCoreQueues(self):
         return await self.core.getCoreQueues()
-        #return self.runt.snap.core.multiqueue.list()
 
     async def cullCoreQueue(self, name, offs):
         return await self.core.cullCoreQueue(name, offs)
-        #await self.core.multiqueue.cull(self.name, offs)
 
     async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
         async for item in self.core.getsCoreQueue(name, offs, cull=cull, wait=wait, size=size):

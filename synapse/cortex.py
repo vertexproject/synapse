@@ -1022,7 +1022,7 @@ class Cortex(s_cell.Cell):
         return self.multiqueue.add(name)
 
     async def delCoreQueue(self, name):
-        return self.multiqueue.rem(name)
+        return await self.multiqueue.rem(name)
 
     async def getCoreQueue(self, name):
         return self.multiqueue.status(name)

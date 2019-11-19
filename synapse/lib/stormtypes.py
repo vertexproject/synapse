@@ -184,11 +184,11 @@ class LibService(Lib):
         return ssvc.sdef
 
     async def _libSvcDel(self, iden):
-        self.runt.allowed('storm', 'service', 'del')
+        self.runt.reqAllowed(('storm', 'service', 'del'))
         return await self.runt.snap.delStormSvc(iden)
 
     async def _libSvcGet(self, name):
-        self.runt.allowed('storm', 'service', 'get', name)
+        self.runt.reqAllowed(('storm', 'service', 'get', name))
         ssvc = self.runt.snap.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
@@ -207,7 +207,7 @@ class LibService(Lib):
         return retn
 
     async def _libSvcWait(self, name):
-        self.runt.allowed('storm', 'service', 'get')
+        self.runt.reqAllowed(('storm', 'service', 'get'))
         ssvc = self.runt.snap.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
@@ -536,17 +536,17 @@ class LibQueue(Lib):
 
     async def _methQueueDel(self, name):
 
-        info = self.snap.getCoreQueue(name)
+        info = await self.runt.snap.getCoreQueue(name)
         if info is None:
             mesg = f'No queue named {name} exists.'
             raise s_exc.NoSuchName(mesg=mesg)
 
         if (info.get('user') == self.runt.user.iden or
-            self.runt.allowed('storm', 'queue', 'del', name)):
-            self.runt.snap.delCoreQueue(name)
+            self.runt.reqAllowed(('storm', 'queue', 'del', name))):
+            await self.runt.snap.delCoreQueue(name)
 
     async def _methQueueList(self):
-        self.runt.allowed('storm', 'lib', 'queue', 'list')
+        self.runt.reqAllowed(('storm', 'lib', 'queue', 'list'))
         return self.runt.snap.getCoreQueues()
 
 class Queue(StormType):
