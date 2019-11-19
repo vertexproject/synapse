@@ -3,6 +3,43 @@ Synapse Changelog
 *****************
 
 
+v0.1.37 - 2019-11-19
+====================
+
+Features and Enhancements
+-------------------------
+- Allow CryoCell and CryoTank Telepath APIs to be overridden by subclasses.
+  (`#1426 <https://github.com/vertexproject/synapse/pull/1426>`_)
+- Add ``.has()`` method to the Set Stormtype to allow for set membership checking.
+  (`#1429 <https://github.com/vertexproject/synapse/pull/1429>`_)
+- Set map_async to True for Cryotank slabs.
+  (`#1427 <https://github.com/vertexproject/synapse/pull/1427>`_)
+- Push the Cryotank conf value into the lmdbslab ``**kwargs``.
+  (`#1427 <https://github.com/vertexproject/synapse/pull/1427>`_)
+- Add user defined functions to Storm.
+  (`#1419 <https://github.com/vertexproject/synapse/pull/1419>`_)
+- Add packages to Storm, which may define importable command blocks or pure Storm commands.  Storm services no longer
+  deliver commands via a separate data structure and must deliver then via Storm packages.
+  (`#1419 <https://github.com/vertexproject/synapse/pull/1419>`_)
+  (`#1430 <https://github.com/vertexproject/synapse/pull/1430>`_)
+- Allow StormSvc's to deliver packages as part of their service configuration.
+  (`#1419 <https://github.com/vertexproject/synapse/pull/1419>`_)
+- Add setitem support to StormTypes.
+  (`#1419 <https://github.com/vertexproject/synapse/pull/1419>`_)
+
+Bugfixes
+--------
+- Fix a bug in the CryoCell ``__anit__`` call signature. Fix the CryoCell ``getCellApi()`` method to use referneces to
+  ``self`` instead of direct classes to resolved Telepath APIs.
+  (`#1426 <https://github.com/vertexproject/synapse/pull/1426>`_)
+- Fix variable scoping issue with Pure Storm commands.
+  (`#1419 <https://github.com/vertexproject/synapse/pull/1419>`_)
+- Fix variale scoping issue for Storm init and fini blocks by restricting them to only be runtsafe.
+  (`#1419 <https://github.com/vertexproject/synapse/pull/1419>`_)
+- Fix edit block order of operations issue.
+  (`#1419 <https://github.com/vertexproject/synapse/pull/1419>`_)
+
+
 v0.1.36 - 2019-11-07
 ====================
 
