@@ -523,7 +523,6 @@ class CoreApi(s_cell.CellApi):
         if opts is not None and opts.get('spawn'):
             opts.pop('spawn', None)
             info = {
-                #'view': await view.getSpawnInfo(),
 
                 'core': await self.cell.getSpawnInfo(),
 

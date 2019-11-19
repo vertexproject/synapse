@@ -142,15 +142,14 @@ async def t2call(link, meth, args, kwargs):
 
         try:
 
+            first = True
             if isinstance(valu, types.AsyncGeneratorType):
-                desc = 'async generator'
 
-                first = True
                 async for item in valu:
 
                     if first:
-                        first = False
                         await link.tx(('t2:genr', {}))
+                        first = False
 
                     await link.tx(('t2:yield', {'retn': (True, item)}))
 
@@ -158,14 +157,12 @@ async def t2call(link, meth, args, kwargs):
                 return
 
             elif isinstance(valu, types.GeneratorType):
-                desc = 'generator'
 
-                first = True
                 for item in valu:
 
                     if first:
-                        first = False
                         await link.tx(('t2:genr', {}))
+                        first = False
 
                     await link.tx(('t2:yield', {'retn': (True, item)}))
 
@@ -176,7 +173,11 @@ async def t2call(link, meth, args, kwargs):
             raise
 
         except Exception as e:
-            logger.exception(f'error during {desc} task: {repr(meth)}')
+
+            if first:
+                await link.tx(('t2:genr', {}))
+
+            logger.exception('error during task: {meth}')
             if not link.isfini:
                 retn = s_common.retnexc(e)
                 await link.tx(('t2:yield', {'retn': retn}))
@@ -184,10 +185,10 @@ async def t2call(link, meth, args, kwargs):
             return
 
         if isinstance(valu, s_share.Share):
-            sess.onfini(valu)
+
             info = s_reflect.getShareInfo(valu)
             await link.tx(('t2:share', {'iden': valu.iden, 'sharinfo': info}))
-            return
+            return valu
 
         await link.tx(('t2:fini', {'retn': (True, valu)}))
 
@@ -196,11 +197,10 @@ async def t2call(link, meth, args, kwargs):
         linkinfo = link.getSpawnInfo()
         dmontodo = (spawnexec, (linkinfo, todo), {})
         await s_coro.spawn(dmontodo)
-        #await link.fini()
         return
 
     except Exception as e:
-
+        logger.exception('error during task: {meth}')
         if not link.isfini:
             retn = s_common.retnexc(e)
             await link.tx(('t2:fini', {'retn': retn}))
@@ -474,7 +474,9 @@ class Daemon(s_base.Base):
                 logger.warning(f'{item!r} has no method: {methname}')
                 raise s_exc.NoSuchMeth(name=methname)
 
-            await t2call(link, meth, args, kwargs)
+            sessitem = await t2call(link, meth, args, kwargs)
+            if sessitem is not None:
+                sess.onfini(sessitem)
 
         except Exception as e:
             logger.exception('on t2:init: %r' % (mesg,))
