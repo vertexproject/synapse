@@ -2886,9 +2886,6 @@ class Function(AstNode):
     # return a value
     function bar(x, y) { return ($(x + y)) }
 
-    # incrementally yield values
-    function bar(x, y) { yield $x yield $y }
-
     # a function that produces nodes
     function bar(x, y) { [ baz:faz=(x, y) ] }
 
