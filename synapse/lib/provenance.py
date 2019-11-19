@@ -68,8 +68,10 @@ def claim(typ, **info):
     '''
     stack = s_task.varget('provstack')
 
-    if len(stack) > 256:  # pragma: no cover
-        raise s_exc.RecursionLimitHit(mesg='Hit provenance claim recursion limit', type=typ, info=info)
+    if len(stack) > 256:
+        baseframe = stack.provs[1]
+        raise s_exc.RecursionLimitHit(mesg='Hit provenance claim recursion limit',
+                                      type=typ, info=info, baseframe=baseframe)
 
     stack.push(typ, **info)
 
