@@ -70,8 +70,9 @@ def claim(typ, **info):
 
     if len(stack) > 256:
         baseframe = stack.provs[1]
+        recent_frames = stack.provs[-6:]
         raise s_exc.RecursionLimitHit(mesg='Hit provenance claim recursion limit',
-                                      type=typ, info=info, baseframe=baseframe)
+                                      type=typ, info=info, baseframe=baseframe, recent_frames=recent_frames)
 
     stack.push(typ, **info)
 

@@ -81,3 +81,7 @@ class ProvenanceTest(s_t_utils.SynTest):
             name, args = baseframe
             self.eq(name, 'storm')
             self.eq(args[0], ('q', q))
+            recent_frames = cm.exception.get('recent_frames')
+            self.len(6, recent_frames)
+            for frame in recent_frames:
+                self.eq(frame, ('stormcmd', (('argv', ()), ('name', 'uniq'))))
