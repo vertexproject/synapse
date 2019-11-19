@@ -521,14 +521,7 @@ class LibQueue(Lib):
         })
 
     async def _methQueueAdd(self, name):
-
         self.runt.reqAllowed(('storm', 'queue', 'add'))
-
-        info = await self.core.getCoreQueue(name)
-        if info is not None:
-            mesg = f'A queue named {name} already exists.'
-            raise s_exc.DupName(mesg=mesg)
-
         info = await self.runt.snap.addCoreQueue(name)
         return Queue(self.runt, name, info)
 

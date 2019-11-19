@@ -709,6 +709,26 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.runRuntLift(*args, **kwargs):
             yield item
 
+    @s_cell.adminapi
+    async def hasCoreQueue(self, name):
+        return await self.cell.hasCoreQueue(name)
+
+    @s_cell.adminapi
+    async def addCoreQueue(self, name):
+        return await self.cell.addCoreQueue(name)
+
+    @s_cell.adminapi
+    async def delCoreQueue(self, name):
+        return await self.cell.delCoreQueue(name)
+
+    @s_cell.adminapi
+    async def getCoreQueue(self, name):
+        return await self.cell.getCoreQueue(name)
+
+    @s_cell.adminapi
+    async def getCoreQueues(self):
+        return await self.cell.getCoreQueues()
+
 class Cortex(s_cell.Cell):
     '''
     A Cortex implements the synapse hypergraph.
@@ -994,6 +1014,21 @@ class Cortex(s_cell.Cell):
         self.onfini(slab.fini)
 
         self.multiqueue = slab.getMultiQueue('cortex:queue')
+
+    async def hasCoreQueue(self, name):
+        return self.multiqueue.exists(name)
+
+    async def addCoreQueue(self, name):
+        return self.multiqueue.add(name)
+
+    async def delCoreQueue(self, name):
+        return self.multiqueue.rem(name)
+
+    async def getCoreQueue(self, name):
+        return self.multiqueue.status(name)
+
+    async def getCoreQueues(self):
+        return self.multiqueue.list()
 
     async def setStormCmd(self, cdef):
         '''
