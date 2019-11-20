@@ -25,6 +25,7 @@ class MatModule(s_module.CoreModule):
                         'doc': 'The mat:spec of which this item is an instance.',
                     }),
 
+                    ('place', ('geo:place', {}), {'doc': 'The most recent place the item is known to reside.'}),
                     ('latlong', ('geo:latlong', {}), {'doc': 'The last known lat/long location of the node'}),
 
                     # TODO add baseline things like dimensions / mass / etc?

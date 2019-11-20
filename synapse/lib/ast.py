@@ -1,6 +1,8 @@
+import types
 import asyncio
 import fnmatch
 import logging
+import binascii
 import itertools
 import collections
 
@@ -8,6 +10,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
+import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
 import synapse.lib.provenance as s_provenance
@@ -30,6 +33,9 @@ class StormBreak(StormCtrlFlow):
     pass
 
 class StormContinue(StormCtrlFlow):
+    pass
+
+class StormReturn(StormCtrlFlow):
     pass
 
 class AstNode:
@@ -98,6 +104,18 @@ class AstNode:
 
     def prepare(self):
         pass
+
+    def hasAstClass(self, clss):
+
+        for kid in self.kids:
+
+            if isinstance(kid, clss):
+                return True
+
+            if kid.hasAstClass(clss):
+                return True
+
+        return False
 
     def optimize(self):
         [k.optimize() for k in self.kids]
@@ -354,6 +372,54 @@ class SubQuery(Oper):
         async for item in self.kids[0].run(runt, genr):
             yield item
 
+class InitBlock(AstNode):
+    '''
+    init {
+        // stuff here runs *once* before the first node yield (even if there are no nodes)
+    }
+    '''
+
+    async def run(self, runt, genr):
+
+        subq = self.kids[0]
+        if not subq.isRuntSafe(runt):
+            raise s_exc.StormRuntimeError(mesg='Init block query must be runtsafe')
+
+        once = False
+        async for item in genr:
+
+            if not once:
+                async for innr in subq.run(runt, agen()):
+                    yield innr
+
+                once = True
+
+            yield item
+
+        if not once:
+            async for innr in subq.run(runt, agen()):
+                yield innr
+
+class FiniBlock(AstNode):
+    '''
+    fini {
+        // stuff here runs *once* after the last node yield (even if there are no nodes)
+    }
+    '''
+
+    async def run(self, runt, genr):
+
+        subq = self.kids[0]
+
+        if not subq.isRuntSafe(runt):
+            raise s_exc.StormRuntimeError(mesg='Fini block query must be runtsafe')
+
+        async for item in genr:
+            yield item
+
+        async for innr in subq.run(runt, agen()):
+            yield innr
+
 class ForLoop(Oper):
 
     def getScopeVars(self, runt):
@@ -378,7 +444,15 @@ class ForLoop(Oper):
 
         async for node, path in genr:
 
-            async for item in s_coro.agen(await self.kids[1].compute(path)):
+            # TODO: remove when storm is all objects
+            valu = await self.kids[1].compute(path)
+            if isinstance(valu, dict):
+                valu = list(valu.items())
+
+            if valu is None:
+                valu = ()
+
+            async for item in s_coro.agen(valu):
 
                 if isinstance(name, (list, tuple)):
 
@@ -396,7 +470,9 @@ class ForLoop(Oper):
 
                 try:
 
-                    newg = agen((node, path))
+                    # since it's possible to "multiply" the (node, path)
+                    # we must make a clone of the path to prevent yield-then-use.
+                    newg = agen((node, path.clone()))
                     async for item in subq.inline(runt, newg):
                         yield item
 
@@ -413,7 +489,16 @@ class ForLoop(Oper):
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[1].isRuntSafe(runt):
 
-            async for item in s_coro.agen(await self.kids[1].runtval(runt)):
+            # TODO: remove when storm is all objects
+            valu = await self.kids[1].compute(runt)
+
+            if isinstance(valu, dict):
+                valu = list(valu.items())
+
+            if valu is None:
+                valu = ()
+
+            async for item in s_coro.agen(valu):
 
                 if isinstance(name, (list, tuple)):
 
@@ -508,7 +593,7 @@ class CmdOper(Oper):
             async for item in scmd.execStormCmd(runt, genr):
                 yield item
 
-class VarSetOper(Oper):
+class SetVarOper(Oper):
 
     async def run(self, runt, genr):
 
@@ -533,6 +618,41 @@ class VarSetOper(Oper):
         runtsafe = self.kids[1].isRuntSafe(runt)
 
         yield (name, {'runtsafe': runtsafe})
+
+class SetItemOper(Oper):
+    '''
+    $foo.bar = baz
+    $foo."bar baz" = faz
+    $foo.$bar = baz
+    '''
+    async def run(self, runt, genr):
+
+        vkid = self.kids[1]
+
+        count = 0
+        async for node, path in genr:
+
+            count += 1
+
+            item = s_stormtypes.fromprim(await self.kids[0].compute(path))
+
+            name = await self.kids[1].compute(path)
+            valu = await self.kids[2].compute(path)
+
+            # TODO: ditch this when storm goes full heavy object
+            await item.setitem(name, valu)
+
+            yield node, path
+
+        if count == 0 and vkid.isRuntSafe(runt):
+
+            item = s_stormtypes.fromprim(await self.kids[0].compute(runt))
+
+            name = await self.kids[1].compute(runt)
+            valu = await self.kids[2].compute(runt)
+
+            # TODO: ditch this when storm goes full heavy object
+            await item.setitem(name, valu)
 
 class VarListSetOper(Oper):
 
@@ -662,6 +782,77 @@ class LiftOper(Oper):
 
             async for subn in self.lift(path):
                 yield subn, path.fork(subn)
+
+class YieldValu(Oper):
+
+    async def run(self, runt, genr):
+
+        node = None
+
+        async for node, path in genr:
+            valu = await self.kids[0].compute(path)
+            async for subn in self.yieldFromValu(runt, valu):
+                yield subn, runt.initPath(subn)
+            yield node, path
+
+        if node is None and self.kids[0].isRuntSafe(runt):
+            valu = await self.kids[0].compute(runt)
+            async for subn in self.yieldFromValu(runt, valu):
+                yield subn, runt.initPath(subn)
+
+    async def yieldFromValu(self, runt, valu):
+
+        # there is nothing in None... ;)
+        if valu is None:
+            return
+
+        # a little DWIM on what we get back...
+        # ( most common case will be stormtypes libs agenr -> iden|buid )
+        # buid list -> nodes
+        if isinstance(valu, bytes):
+            node = await runt.snap.getNodeByBuid(valu)
+            if node is not None:
+                yield node
+
+            return
+
+        # iden list -> nodes
+        if isinstance(valu, str):
+            try:
+                buid = s_common.uhex(valu)
+            except binascii.Error:
+                mesg = 'Yield string must by hex node iden. Got: %r' % (valu,)
+                raise s_exc.BadLiftValu(mesg=mesg)
+
+            node = await runt.snap.getNodeByBuid(buid)
+            if node is not None:
+                yield node
+
+            return
+
+        if isinstance(valu, types.AsyncGeneratorType):
+            async for item in valu:
+                async for node in self.yieldFromValu(runt, item):
+                    yield node
+            return
+
+        if isinstance(valu, types.GeneratorType):
+            for item in valu:
+                async for node in self.yieldFromValu(runt, item):
+                    yield node
+            return
+
+        if isinstance(valu, (list, tuple)):
+            for item in valu:
+                async for node in self.yieldFromValu(runt, item):
+                    yield node
+            return
+
+        if isinstance(valu, s_node.Node):
+            node = await runt.snap.getNodeByBuid(valu.buid)
+            if node is not None:
+                yield node
+            return
 
 class LiftTag(LiftOper):
 
@@ -2283,42 +2474,81 @@ class Edit(Oper):
     pass
 
 class EditParens(Edit):
+
     async def run(self, runt, genr):
 
         nodeadd = self.kids[0]
         assert isinstance(nodeadd, EditNodeAdd)
 
-        if not nodeadd.isruntsafe(runt):
-            mesg = 'First node add in edit parentheses must not be dependent on incoming nodes'
-            raise s_exc.StormRuntimeError(mesg=mesg)
+        formname = nodeadd.kids[0].value()
+        runt.reqLayerAllowed(('node:add', formname))
 
-        # Luke, let the nodes flow through you
-        async for item in genr:
-            yield item
+        # create an isolated generator for the add vs edit
+        if nodeadd.isruntsafe(runt):
 
-        # Run the opers once with no incoming nodes
-        genr = agen()
+            # Luke, let the (node,path) tuples flow through you
+            async for item in genr:
+                yield item
 
-        for oper in self.kids:
-            genr = oper.run(runt, genr)
+            # isolated runtime stack...
+            genr = agen()
+            for oper in self.kids:
+                genr = oper.run(runt, genr)
 
-        async for item in genr:
-            yield item
+            async for item in genr:
+                yield item
+
+        else:
+
+            # do a little genr-jig.
+            async for node, path in genr:
+
+                yield node, path
+
+                async def editgenr():
+                    async for item in nodeadd.addFromPath(path):
+                        yield item
+
+                fullgenr = editgenr()
+                for oper in self.kids[1:]:
+                    fullgenr = oper.run(runt, fullgenr)
+
+                async for item in fullgenr:
+                    yield item
 
 class EditNodeAdd(Edit):
+
+    def prepare(self):
+
+        oper = self.kids[1].value()
+        self.name = self.kids[0].value()
+
+        self.form = self.core.model.form(self.name)
+        if self.form is None:
+            raise s_exc.NoSuchForm(name=self.name)
+
+        self.excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
 
     def isruntsafe(self, runt):
         return self.kids[2].isRuntSafe(runt)
 
+    async def addFromPath(self, path):
+        '''
+        Add a node using the context from path.
+
+        NOTE: CALLER MUST CHECK PERMS
+        '''
+        valu = await self.kids[2].compute(path)
+
+        for valu in self.form.type.getTypeVals(valu):
+            try:
+                newn = await path.runt.snap.addNode(self.name, valu)
+            except self.excignore:
+                pass
+            else:
+                yield newn, path.runt.initPath(newn)
+
     async def run(self, runt, genr):
-
-        name = self.kids[0].value()
-        oper = self.kids[1].value()
-        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper == '?=' else ()
-
-        form = runt.snap.model.forms.get(name)
-        if form is None:
-            raise s_exc.NoSuchForm(name=name)
 
         # the behavior here is a bit complicated...
 
@@ -2341,33 +2571,28 @@ class EditNodeAdd(Edit):
 
                 # must reach back first to trigger sudo / etc
                 if first:
-                    runt.reqLayerAllowed(('node:add', ))
+                    runt.reqLayerAllowed(('node:add', self.name))
                     first = False
+
+                # must use/resolve all variables from path before yield
+                async for item in self.addFromPath(path):
+                    yield item
 
                 yield node, path
 
-                valu = await self.kids[2].compute(path)
-
-                for valu in form.type.getTypeVals(valu):
-                    try:
-                        newn = await runt.snap.addNode(name, valu)
-                    except excignore:
-                        pass
-                    else:
-                        yield newn, runt.initPath(newn)
-
         else:
+
             async for node, path in genr:
                 yield node, path
 
-            runt.reqLayerAllowed(('node:add', name))
+            runt.reqLayerAllowed(('node:add', self.name))
 
             valu = await self.kids[2].runtval(runt)
 
-            for valu in form.type.getTypeVals(valu):
+            for valu in self.form.type.getTypeVals(valu):
                 try:
-                    node = await runt.snap.addNode(name, valu)
-                except excignore:
+                    node = await runt.snap.addNode(self.name, valu)
+                except self.excignore:
                     continue
                 yield node, runt.initPath(node)
 
@@ -2619,3 +2844,121 @@ class IfStmt(Oper):
         if subq:
             async for item in subq.inline(runt, agen()):
                 yield item
+
+class Return(Oper):
+
+    async def run(self, runt, genr):
+
+        # fake out a generator...
+        for item in ():
+            yield item  # pragma: no cover
+
+        valu = None
+        async for node, path in genr:
+            if self.kids:
+                valu = await self.kids[0].compute(path)
+
+            raise StormReturn(valu)
+
+        # no items in pipeline... execute
+        if self.kids:
+            valu = await self.kids[0].compute(runt)
+
+        raise StormReturn(valu)
+
+class FuncArgs(AstNode):
+
+    def value(self):
+        return [k.value() for k in self.kids]
+
+class Function(AstNode):
+    '''
+    ( name, args, body )
+
+    // use args/kwargs syntax
+    function bar(x, v=$(30)) {
+    }
+
+    # we auto-detect the behavior of the target function
+
+    # return a value
+    function bar(x, y) { return ($(x + y)) }
+
+    # a function that produces nodes
+    function bar(x, y) { [ baz:faz=(x, y) ] }
+
+    $foo = $bar(10, v=20)
+    '''
+    async def run(self, runt, genr):
+
+        self.hasretn = self.hasAstClass(Return)
+        self.name = self.kids[0].value()
+
+        async def realfunc(*args, **kwargs):
+            return await self.callfunc(runt, args, kwargs)
+
+        runt.setVar(self.name, realfunc)
+
+        async for node, path in genr:
+            path.setVar(self.name, realfunc)
+            yield node, path
+
+    def getRuntVars(self, runt):
+        yield self.kids[0].value()
+
+    async def callfunc(self, runt, args, kwargs):
+        '''
+        Execute a function call using the given runtime.
+
+        This function may return a value / generator / async generator
+        '''
+        argdefs = self.kids[1].value()
+
+        # join args and kwargs together...
+        real_args = {}
+        for name, arg in s_common.iterzip(argdefs, args, fillvalue=s_common.novalu):
+            if arg is s_common.novalu:
+                break
+            if name is s_common.novalu:
+                raise s_exc.StormRuntimeError(mesg='Extra positional arguments provided',
+                                              name=self.name, valu=arg)
+            real_args[name] = arg
+        if kwargs:
+            for name in argdefs:
+                if name in real_args:
+                    continue
+                valu = kwargs.pop(name, s_common.novalu)
+                if valu is s_common.novalu:
+                    continue
+                real_args[name] = valu
+
+        if kwargs:
+            raise s_exc.StormRuntimeError(mesg='Unused kwargs provided',
+                                          name=self.name, kwargs=list(kwargs.keys()))
+
+        if len(real_args) != len(argdefs):
+            raise s_exc.StormRuntimeError(mesg='Bad call argument length',
+                                          name=self.name, args=real_args,
+                                          expected=len(argdefs), got=len(real_args)
+                                          )
+
+        opts = {'vars': real_args}
+        funcrunt = await runt.getScopeRuntime(self.kids[2], opts=opts)
+
+        if self.hasretn:
+
+            try:
+
+                async for item in self.kids[2].run(funcrunt, agen()):
+                    pass  # pragma: no cover
+
+            except StormReturn as e:
+                return e.item
+
+            return None
+
+        async def nodegenr():
+            async for node, path in self.kids[2].run(funcrunt, agen()):
+                yield node
+
+        return nodegenr()

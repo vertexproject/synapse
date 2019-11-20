@@ -1,3 +1,4 @@
+import copy
 import time
 import shutil
 import asyncio
@@ -386,9 +387,9 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_cortex_pure_cmds(self):
 
-        cdef = {
+        cdef0 = {
 
-            'name': 'testcmd',
+            'name': 'testcmd0',
 
             'cmdargs': (
                 ('tagname', {}),
@@ -399,7 +400,21 @@ class CortexTest(s_t_utils.SynTest):
                 'hehe': 'haha',
             },
 
-            'storm': 'if $cmdopts.domore { [ +#$cmdconf.hehe ] } [ +#$cmdopts.tagname ]',
+            'storm': '$foo=$(10) if $cmdopts.domore { [ +#$cmdconf.hehe ] } [ +#$cmdopts.tagname ]',
+        }
+
+        cdef1 = {
+            'name': 'testcmd1',
+            'cmdargs': (
+                ('name', {}),
+            ),
+            'storm': '''
+                $varname = $cmdopts.name
+                $realname = $path.vars.$varname
+                if $realname {
+                    [ inet:user=$realname ] | testcmd0 lulz
+                }
+            ''',
         }
 
         with self.getTestDir() as dirn:
@@ -408,30 +423,47 @@ class CortexTest(s_t_utils.SynTest):
 
                 async with core.getLocalProxy() as prox:
 
-                    await prox.setStormCmd(cdef)
+                    await prox.setStormCmd(cdef0)
+                    await prox.setStormCmd(cdef1)
 
-                    nodes = await core.nodes('[ inet:asn=10 ] | testcmd zoinks')
+                    nodes = await core.nodes('[ inet:asn=10 ] | testcmd0 zoinks')
                     self.true(nodes[0].tags.get('zoinks'))
 
-                    nodes = await core.nodes('[ inet:asn=11 ] | testcmd zoinks --domore')
+                    nodes = await core.nodes('[ inet:asn=11 ] | testcmd0 zoinks --domore')
 
                     self.true(nodes[0].tags.get('haha'))
                     self.true(nodes[0].tags.get('zoinks'))
+
+                    # test that cmdopts/cmdconf/locals dont leak
+                    with self.raises(s_exc.NoSuchVar):
+                        nodes = await core.nodes('[ inet:asn=11 ] | testcmd0 zoinks --domore | if ($cmdopts) {[ +#hascmdopts ]}')
+
+                    with self.raises(s_exc.NoSuchVar):
+                        nodes = await core.nodes('[ inet:asn=11 ] | testcmd0 zoinks --domore | if ($cmdconf) {[ +#hascmdconf ]}')
+
+                    with self.raises(s_exc.NoSuchVar):
+                        nodes = await core.nodes('[ inet:asn=11 ] | testcmd0 zoinks --domore | if ($foo) {[ +#hasfoo ]}')
+
+                    # test nested storm commands
+                    nodes = await core.nodes('[ inet:email=visi@vertex.link ] $username = :user | testcmd1 username')
+                    self.len(2, nodes)
+                    self.eq(nodes[0].ndef, ('inet:user', 'visi'))
+                    self.nn(nodes[0].tags.get('lulz'))
 
             # make sure it's still loaded...
             async with await s_cortex.Cortex.anit(dirn) as core:
 
                 async with core.getLocalProxy() as prox:
 
-                    await core.nodes('[ inet:asn=30 ] | testcmd zoinks')
+                    await core.nodes('[ inet:asn=30 ] | testcmd0 zoinks')
 
-                    await prox.delStormCmd('testcmd')
+                    await prox.delStormCmd('testcmd0')
 
                     with self.raises(s_exc.NoSuchCmd):
                         await prox.delStormCmd('newpcmd')
 
                     with self.raises(s_exc.NoSuchName):
-                        await core.nodes('[ inet:asn=31 ] | testcmd zoinks')
+                        await core.nodes('[ inet:asn=31 ] | testcmd0 zoinks')
 
     async def test_base_types2(self):
 
@@ -1561,6 +1593,34 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(0, await proxy.count('test:pivtarg'))
             self.eq(1, await proxy.count('inet:user'))
 
+            # Test the getFeedFuncs command to enumerate feed functions.
+            ret = await proxy.getFeedFuncs()
+            resp = {rec.get('name'): rec for rec in ret}
+            self.isin('com.test.record', resp)
+            self.isin('syn.splice', resp)
+            self.isin('syn.nodes', resp)
+            self.isin('syn.ingest', resp)
+            rec = resp.get('syn.nodes')
+            self.eq(rec.get('name'), 'syn.nodes')
+            self.eq(rec.get('desc'), 'Add nodes to the Cortex via the packed node format.')
+            self.eq(rec.get('fulldoc'), 'Add nodes to the Cortex via the packed node format.')
+
+            # Test the stormpkg apis
+            otherpkg = {
+                'name': 'foosball',
+                'version': (0, 0, 1),
+            }
+            self.none(await proxy.addStormPkg(otherpkg))
+            pkgs = await proxy.getStormPkgs()
+            self.len(1, pkgs)
+            self.eq(pkgs, [otherpkg])
+            pkg = await proxy.getStormPkg('foosball')
+            self.eq(pkg, otherpkg)
+            self.none(await proxy.delStormPkg('foosball'))
+            pkgs = await proxy.getStormPkgs()
+            self.len(0, pkgs)
+            await self.asyncraises(s_exc.NoSuchPkg, proxy.delStormPkg('foosball'))
+
     async def test_stormcmd(self):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
@@ -2071,7 +2131,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.eval('[ ps:person="*" edge:has=($node, (inet:fqdn,woot.com)) ]').list()
             self.len(2, nodes)
-            self.eq('edge:has', nodes[1].ndef[0])
+            self.eq('edge:has', nodes[0].ndef[0])
 
             nodes = await core.eval('[test:str=test] [ edge:refs=($node,(test:int, 1234)) ] -test:str').list()
             self.len(1, nodes)
@@ -2706,6 +2766,15 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(node.getTag('baz'))
                 self.nn(node.getTag('jaz'))
 
+            opts = {'vars': {'woot': 'lulz'}}
+            text = '''[test:str=c] $form=$node.form() switch $form { 'test:str': {[+#known]} *: {[+#unknown]} }'''
+            nodes = await core.eval(text, opts=opts).list()
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], 'c')
+            self.nn(node.getTag('known'))
+            self.none(node.getTag('unknown'))
+
     async def test_storm_tagvar(self):
 
         async with self.getTestCore() as core:
@@ -2819,7 +2888,34 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             q = 'inet:ipv4=1.2.3.4 for $tag in $node.tags() { [test:str=$tag] }'  # noqa: E501
             nodes = await core.nodes(q)
-            self.eq([n.ndef[0] for n in nodes], [*['inet:ipv4', 'test:str'] * 3])
+            self.eq([n.ndef[0] for n in nodes], [*['test:str', 'inet:ipv4'] * 3])
+
+            # non-runsafe iteration over a dictionary
+            q = '''$dict=$lib.dict(key1=valu1, key2=valu2) [(test:str=test1) (test:str=test2)]
+            for ($key, $valu) in $dict {
+                [:hehe=$valu]
+            }
+            '''
+            nodes = await core.nodes(q)
+            # Each input node is yielded *twice* from the runtime
+            self.len(4, nodes)
+            self.eq({'test1', 'test2'}, {n.ndef[1] for n in nodes})
+            for node in nodes:
+                self.eq(node.get('hehe'), 'valu2')
+
+            # None values don't yield anything
+            q = '''$foo = $lib.dict()
+            for $name in $foo.bar { [ test:str=$name ] }
+            '''
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
+
+            # Even with a inbound node, zero loop iterations will not yield inbound nodes.
+            q = '''test:str=test1 $foo = $lib.dict()
+            for $name in $foo.bar { [ test:str=$name ] }
+            '''
+            nodes = await core.nodes(q)
+            self.len(0, nodes)
 
     async def test_storm_whileloop(self):
 
@@ -2945,7 +3041,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = '[test:type10=1 :intprop=24] $val=:intprop [test:int=$(1 + $val)]'
             nodes = await core.nodes(q)
             self.len(2, nodes)
-            self.eq(nodes[1].ndef, ('test:int', 25))
+            self.eq(nodes[0].ndef, ('test:int', 25))
 
             # Test invalid comparisons
             q = '$val=(1,2,3) [test:str=$("foo" = $val)]'
@@ -2962,7 +3058,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = '[test:str=foo :hehe=42] [test:str=$(not :hehe<42)]'
             nodes = await core.nodes(q)
             self.len(2, nodes)
-            self.eq(nodes[1].ndef, ('test:str', '1'))
+            self.eq(nodes[0].ndef, ('test:str', '1'))
 
     async def test_storm_filter_vars(self):
         '''
@@ -2992,7 +3088,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             # expression filter, non-runtsafe, true path
-            q = '[test:type10=2 :strprop=1] spin | test:type10 +$(:strprop)'
+            q = '[test:type10=2 :strprop=1] | spin | test:type10 +$(:strprop)'
             nodes = await core.nodes(q)
             self.len(2, nodes)
 
@@ -3540,7 +3636,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             ''')
             # dmon is now fully running
             msgs = await core.streamstorm('dmon.list').list()
-            self.stormIsInPrint('(wootdmon): running', msgs)
+            self.stormIsInPrint('(wootdmon            ): running', msgs)
 
             # make the dmon blow up
             await core.nodes('''
@@ -3548,7 +3644,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 for ($offs, $item) in $q.gets(size=1) { $q.cull($offs) }
             ''')
             msgs = await core.streamstorm('dmon.list').list()
-            self.stormIsInPrint('(wootdmon): error', msgs)
+            self.stormIsInPrint('(wootdmon            ): error', msgs)
 
     async def test_cortex_storm_dmon_exit(self):
 
@@ -3778,6 +3874,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(layr, core.getLayer(core.iden))
             self.none(core.getLayer('XXX'))
 
+            view = core.view
+            self.eq(view, core.getView())
+            self.eq(view, core.getView(view.iden))
+            self.eq(view, core.getView(core.iden))
+            self.none(core.getView('xxx'))
+
     async def test_cortex_cronjob_perms(self):
         async with self.getTestCore() as realcore:
             async with realcore.getLocalProxy() as core:
@@ -3834,3 +3936,59 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.eq(data[3][0], 'tag:del')
                 self.eq(data[3][1]['tag'], 'baz.faz')
+
+    async def test_stormpkg_sad(self):
+        base_pkg = {
+            'name': 'boom',
+            'desc': 'The boom Module',
+            'version': (0, 0, 1),
+            'modules': [
+                {
+                    'name': 'boom.mod',
+                    'storm': '''
+                    function f(a) {return ($a)}
+                    ''',
+                },
+            ],
+            'commands': [
+                {
+                    'name': 'boom.cmd',
+                    'storm': '''
+                    $boomlib = $lib.import(boom.mod)
+                    $retn = $boomlib.f($arg)
+                    ''',
+                },
+            ],
+        }
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                # await core.addStormPkg(base_pkg)
+                pkg = copy.deepcopy(base_pkg)
+                pkg.pop('name')
+                with self.raises(s_exc.BadPkgDef) as cm:
+                    await core.addStormPkg(pkg)
+                self.eq(cm.exception.get('mesg'),
+                        'Package definition has no "name" field.')
+
+                pkg = copy.deepcopy(base_pkg)
+                pkg.pop('version')
+                with self.raises(s_exc.BadPkgDef) as cm:
+                    await core.addStormPkg(pkg)
+                self.eq(cm.exception.get('mesg'),
+                        'Package definition has no "version" field.')
+
+                pkg = copy.deepcopy(base_pkg)
+                pkg['modules'][0].pop('name')
+                with self.raises(s_exc.BadPkgDef) as cm:
+                    await core.addStormPkg(pkg)
+                self.eq(cm.exception.get('mesg'),
+                        'Package module is missing a name.')
+
+                pkg = copy.deepcopy(base_pkg)
+                pkg.pop('version')
+                await core.pkghive.set('boom_pkg', pkg)
+
+            with self.getAsyncLoggerStream('synapse.cortex',
+                                           'Error loading pkg') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    self.true(await stream.wait(6))

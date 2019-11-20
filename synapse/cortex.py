@@ -445,6 +445,20 @@ class CoreApi(s_cell.CellApi):
 
                     yield node
 
+    async def getFeedFuncs(self):
+        '''
+        Get a list of Cortex feed functions.
+
+        Notes:
+            Each feed dictinonary has the name of the feed function, the
+            full docstring for the feed function, and the first line of
+            the docstring broken out in their own keys for easy use.
+
+        Returns:
+            tuple: A tuple of dictionaries.
+        '''
+        return await self.cell.getFeedFuncs()
+
     async def addFeedData(self, name, items, seqn=None):
 
         wlyr = self.cell.view.layers[0]
@@ -654,6 +668,20 @@ class CoreApi(s_cell.CellApi):
         await self._reqUserAllowed(('model', 'tagprop', 'del'))
         return await self.cell.delTagProp(name)
 
+    async def addStormPkg(self, pkgdef):
+        await self._reqUserAllowed(('storm', 'pkg', 'add'))
+        return await self.cell.addStormPkg(pkgdef)
+
+    async def delStormPkg(self, iden):
+        await self._reqUserAllowed(('storm', 'pkg', 'del'))
+        return await self.cell.delStormPkg(iden)
+
+    async def getStormPkgs(self):
+        return await self.cell.getStormPkgs()
+
+    async def getStormPkg(self, name):
+        return await self.cell.getStormPkg(name)
+
 class Cortex(s_cell.Cell):
     '''
     A Cortex implements the synapse hypergraph.
@@ -735,8 +763,11 @@ class Cortex(s_cell.Cell):
         self.layrctors = {}
         self.feedfuncs = {}
         self.stormcmds = {}
-        self.stormvars = None  # type: s_hive.HiveDict
+        self.stormmods = {}     # name: mdef
+        self.stormpkgs = {}     # name: pkgdef
+        self.stormvars = None   # type: s_hive.HiveDict
         self.stormrunts = {}
+        self.stormdmons = {}
 
         self.svcsbyiden = {}
         self.svcsbyname = {}
@@ -763,7 +794,6 @@ class Cortex(s_cell.Cell):
 
         await self._initCoreHive()
         self._initSplicers()
-        await self._initStormCmds()
         self._initStormLibs()
         self._initFeedFuncs()
         self._initFormCounts()
@@ -777,6 +807,7 @@ class Cortex(s_cell.Cell):
         mods.extend(self.conf.get('modules'))
         await self._loadCoreMods(mods)
         await self._loadExtModel()
+        await self._initStormCmds()
 
         # Initialize our storage and views
         await self._initCoreAxon()
@@ -807,9 +838,15 @@ class Cortex(s_cell.Cell):
 
         await self._initRuntFuncs()
 
+        cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
+        pkghive = await self.hive.open(('cortex', 'storm', 'packages'))
+        self.cmdhive = await cmdhive.dict()
+        self.pkghive = await pkghive.dict()
+
         # Finalize coremodule loading & give stormservices a shot to load
         await self._initCoreMods()
         await self._initStormSvcs()
+        await self._initPureStormCmds()
 
         # Now start agenda and dmons after all coremodules have finished
         # loading and services have gotten a shot to be registerd.
@@ -871,7 +908,6 @@ class Cortex(s_cell.Cell):
 
         node = await self.hive.open(('cortex', 'storm', 'dmons'))
 
-        self.stormdmons = {}
         self.stormdmonhive = await node.dict()
 
         for iden, ddef in self.stormdmonhive.items():
@@ -933,13 +969,17 @@ class Cortex(s_cell.Cell):
         await self._setStormCmd(cdef)
         await self.cmdhive.set(name, cdef)
 
-    async def _setStormCmd(self, cdef):
+    async def _reqStormCmd(self, cdef):
 
         name = cdef.get('name')
         if not s_grammar.isCmdName(name):
             raise s_exc.BadCmdName(name=name)
 
         self.getStormQuery(cdef.get('storm'))
+
+    async def _setStormCmd(self, cdef):
+
+        await self._reqStormCmd(cdef)
 
         def ctor(argv):
             return s_storm.PureCmd(cdef, argv)
@@ -950,7 +990,11 @@ class Cortex(s_cell.Cell):
 
         ctor.getCmdBrief = getCmdBrief
 
+        name = cdef.get('name')
         self.stormcmds[name] = ctor
+
+    async def _popStormCmd(self, name):
+        self.stormcmds.pop(name, None)
 
     async def delStormCmd(self, name):
         '''
@@ -963,11 +1007,116 @@ class Cortex(s_cell.Cell):
 
         cdef = self.cmdhive.get(name)
         if cdef is None:
-            mesg = f'The storm command is not dynamic.'
+            mesg = f'The storm command ({name}) is not dynamic.'
             raise s_exc.CantDelCmd(mesg=mesg)
 
         await self.cmdhive.pop(name)
         self.stormcmds.pop(name, None)
+
+    async def addStormPkg(self, pkgdef):
+        '''
+        Add the given storm package to the cortex.
+
+        This will store the package for future use.
+        '''
+        await self.loadStormPkg(pkgdef)
+        name = pkgdef.get('name')
+        await self.pkghive.set(name, pkgdef)
+
+    async def delStormPkg(self, name):
+        '''
+        Delete a storm package by name.
+        '''
+        pkgdef = await self.pkghive.pop(name, None)
+        if pkgdef is None:
+            mesg = f'No storm package: {name}.'
+            raise s_exc.NoSuchPkg(mesg=mesg)
+
+        await self.dropStormPkg(pkgdef)
+
+    async def getStormPkg(self, name):
+        return self.stormpkgs.get(name)
+
+    async def getStormPkgs(self):
+        return list(self.pkghive.values())
+
+    async def getStormMods(self):
+        return self.stormmods
+
+    async def _tryLoadStormPkg(self, pkgdef):
+        try:
+            await self.loadStormPkg(pkgdef)
+        except asyncio.CancelledError:
+            raise  # pragma: no cover
+
+        except Exception as e:
+            name = pkgdef.get('name', '')
+            logger.exception(f'Error loading pkg: {name}, {str(e)}')
+
+    async def loadStormPkg(self, pkgdef):
+        '''
+        Load a storm package into the storm library for this cortex.
+
+        NOTE: This will *not* store/persist the package (allowing service dynamism).
+        '''
+        # validate things first...
+        name = pkgdef.get('name')
+        if name is None:
+            mesg = 'Package definition has no "name" field.'
+            raise s_exc.BadPkgDef(mesg=mesg)
+
+        vers = pkgdef.get('version')
+        if vers is None:
+            mesg = 'Package definition has no "version" field.'
+            raise s_exc.BadPkgDef(mesg=mesg)
+
+        mods = pkgdef.get('modules', ())
+        cmds = pkgdef.get('commands', ())
+        svciden = pkgdef.get('svciden')
+
+        # Validate storm contents from modules and commands
+        for mdef in mods:
+
+            modname = mdef.get('name')
+            if modname is None:
+                raise s_exc.BadPkgDef(mesg='Package module is missing a name.',
+                                      package=name)
+            modtext = mdef.get('storm')
+            self.getStormQuery(modtext)
+
+        for cdef in cmds:
+            cdef.setdefault('cmdconf', {})
+            if svciden:
+                cdef['cmdconf']['svciden'] = svciden
+            await self._reqStormCmd(cdef)
+
+        # now actually load...
+        self.stormpkgs[name] = pkgdef
+
+        # copy the mods dict and smash the ref so
+        # updates are atomic and dont effect running
+        # storm queries.
+        stormmods = self.stormmods.copy()
+        for mdef in mods:
+            modname = mdef.get('name')
+            stormmods[modname] = mdef
+
+        self.stormmods = stormmods
+
+        for cdef in cmds:
+            await self._setStormCmd(cdef)
+
+    async def dropStormPkg(self, pkgdef):
+        '''
+        Reverse the process of loadStormPkg()
+        '''
+        for mdef in pkgdef.get('modules', ()):
+            modname = mdef.get('name')
+            self.stormmods.pop(modname, None)
+
+        for cdef in pkgdef.get('commands', ()):
+            name = cdef.get('name')
+            await self._popStormCmd(name)
 
     def getStormSvc(self, name):
 
@@ -993,7 +1142,6 @@ class Cortex(s_cell.Cell):
 
         ssvc = await self._setStormSvc(sdef)
         await self.stormservices.set(iden, sdef)
-
         return ssvc
 
     async def delStormSvc(self, iden):
@@ -1001,10 +1149,19 @@ class Cortex(s_cell.Cell):
         Delete a registered storm service from the cortex.
         '''
 
+        try:
+            await self.runStormSvcEvent(iden, 'del')
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception as e:
+            logger.exception(f'service.del hook for service {iden} failed with error: {e}')
+
         sdef = await self.stormservices.pop(iden, None)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
+
+        await self._delStormSvcPkgs(iden)
 
         name = sdef.get('name')
         if name is not None:
@@ -1013,6 +1170,75 @@ class Cortex(s_cell.Cell):
         ssvc = self.svcsbyiden.pop(iden, None)
         if ssvc is not None:
             await ssvc.fini()
+
+    async def _delStormSvcPkgs(self, iden):
+        '''
+        Delete storm packages associated with a service.
+        '''
+        oldpkgs = []
+        for name, pdef in self.pkghive.items():
+            pkgiden = pdef.get('svciden')
+            if pkgiden and pkgiden == iden:
+                oldpkgs.append(pdef)
+
+        for pkg in oldpkgs:
+            name = pkg.get('name')
+            if name:
+                await self.delStormPkg(name)
+
+    async def setStormSvcEvents(self, iden, edef):
+        '''
+        Set the event callbacks for a storm service. Extends the sdef dict
+
+        edef = {
+            <name> : {
+                'storm': <storm>
+            }
+        }
+
+        where <name> can be one of [add, del], where
+        add -- Run the given storm '*before* the service is first added (a la service.add), but not on a reconnect.
+        del -- Run the given storm *after* the service is removed (a la service.del), but not on a disconnect.
+        '''
+        sdef = self.stormservices.get(iden)
+        if sdef is None:
+            mesg = f'No storm service with iden: {iden}'
+            raise s_exc.NoSuchStormSvc(mesg=mesg)
+
+        sdef['evts'] = edef
+        await self.stormservices.set(iden, sdef)
+        return sdef
+
+    async def _runStormSvcAdd(self, iden):
+        sdef = self.stormservices.get(iden)
+        if sdef is None:
+            mesg = f'No storm service with iden: {iden}'
+            raise s_exc.NoSuchStormSvc(mesg=mesg)
+
+        if sdef.get('added', False):
+            return
+
+        try:
+            await self.runStormSvcEvent(iden, 'add')
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception as e:
+            logger.exception(f'runStormSvcEvent service.add failed with error {e}')
+            return
+
+        sdef['added'] = True
+        await self.stormservices.set(iden, sdef)
+
+    async def runStormSvcEvent(self, iden, name):
+        sdef = self.stormservices.get(iden)
+        if sdef is None:
+            mesg = f'No storm service with iden: {iden}'
+            raise s_exc.NoSuchStormSvc(mesg=mesg)
+
+        evnt = sdef.get('evts', {}).get(name, {}).get('storm')
+        if evnt is None:
+            return
+        await s_common.aspin(self.storm(evnt, opts={'vars': {'cmdconf': {'svciden': iden}}}))
 
     async def _setStormSvc(self, sdef):
 
@@ -1359,18 +1585,27 @@ class Cortex(s_cell.Cell):
         for cdef in s_storm.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
-        cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
-
-        self.cmdhive = await cmdhive.dict()
-
+    async def _initPureStormCmds(self):
+        oldcmds = []
         for name, cdef in self.cmdhive.items():
-            await self._trySetStormCmd(name, cdef)
+            cmdiden = cdef.get('cmdconf', {}).get('svciden')
+            if cmdiden and self.stormservices.get(cmdiden) is None:
+                oldcmds.append(name)
+            else:
+                await self._trySetStormCmd(name, cdef)
+
+        for name in oldcmds:
+            logger.warning(f'Removing old command: [{name}]')
+            await self.cmdhive.pop(name)
+
+        for name, pkgdef in self.pkghive.items():
+            await self._tryLoadStormPkg(pkgdef)
 
     async def _trySetStormCmd(self, name, cdef):
         try:
             await self._setStormCmd(cdef)
         except Exception as e:
-            logger.warning(f'Storm command ({name}) load failed: {e}')
+            logger.exception(f'Storm command load failed: {name}')
 
     def _initStormLibs(self):
         '''
@@ -1378,12 +1613,14 @@ class Cortex(s_cell.Cell):
         '''
         self.addStormLib(('csv',), s_stormtypes.LibCsv)
         self.addStormLib(('str',), s_stormtypes.LibStr)
+        self.addStormLib(('pkg',), s_stormtypes.LibPkg)
         self.addStormLib(('dmon',), s_stormtypes.LibDmon)
         self.addStormLib(('feed',), s_stormtypes.LibFeed)
         self.addStormLib(('time',), s_stormtypes.LibTime)
         self.addStormLib(('user',), s_stormtypes.LibUser)
         self.addStormLib(('vars',), s_stormtypes.LibVars)
         self.addStormLib(('queue',), s_stormtypes.LibQueue)
+        self.addStormLib(('stats',), s_stormtypes.LibStats)
         self.addStormLib(('service',), s_stormtypes.LibService)
         self.addStormLib(('bytes',), s_stormtypes.LibBytes)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
@@ -1843,6 +2080,11 @@ class Cortex(s_cell.Cell):
         if iden is None:
             return self.view
 
+        # For backwards compatibility, resolve references to old view iden == cortex.iden to the main view
+        # TODO:  due to our migration policy, remove in 0.3.x
+        if iden == self.iden:
+            return self.view
+
         return self.views.get(iden)
 
     async def addLayer(self, **info):
@@ -2212,7 +2454,25 @@ class Cortex(s_cell.Cell):
         '''
         return self.feedfuncs.get(name)
 
+    async def getFeedFuncs(self):
+        ret = []
+        for name, ctor in self.feedfuncs.items():
+            # TODO - Future support for feed functions defined via Storm.
+            doc = getattr(ctor, '__doc__')
+            if doc is None:
+                doc = 'No feed docstring'
+            doc = doc.strip()
+            desc = doc.split('\n')[0]
+            ret.append({'name': name,
+                        'desc': desc,
+                        'fulldoc': doc,
+                        })
+        return tuple(ret)
+
     async def _addSynNodes(self, snap, items):
+        '''
+        Add nodes to the Cortex via the packed node format.
+        '''
         async for node in snap.addNodes(items):
             yield node
 

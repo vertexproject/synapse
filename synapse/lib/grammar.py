@@ -27,6 +27,8 @@ terminalEnglishMap = {
     'COLON': ':',
     'COMMA': ',',
     'CONTINUE': 'continue',
+    'FINI': 'fini',
+    'INIT': 'init',
     'CPPCOMMENT': 'c++ comment',
     'DEREFMATCHNOSEP': 'key or variable',
     'DOLLAR': '$',
@@ -42,6 +44,7 @@ terminalEnglishMap = {
     'EXPRTIMES': '*',
     'FILTPREFIX': '+ or -',
     'FOR': 'for',
+    'FUNCTION': 'function',
     'IF': 'if',
     'IN': 'in',
     'LBRACE': '[',
@@ -74,6 +77,7 @@ terminalEnglishMap = {
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
     '_ONLYTAGPROP': '#:',
+    '_RETURN': 'return',
     '_RIGHTJOIN': '-+>',
     '_RIGHTPIVOT': '->',
     '_WS': 'whitespace',
@@ -131,6 +135,10 @@ class AstConverter(lark.Transformer):
         subq.text = self.text[spos:epos]
 
         return subq
+
+    def yieldvalu(self, kids):
+        kid = self._convert_child(kids[-1])
+        return s_ast.YieldValu(kids=[kid])
 
     @lark.v_args(meta=True)
     def query(self, kids, meta):
@@ -263,7 +271,7 @@ class AstConverter(lark.Transformer):
         assert len(kids) == 1
         kid = kids[0]
 
-        if kid.type == 'DOUBLEQUOTEDSTRING':
+        if kid.type in ('DOUBLEQUOTEDSTRING', 'SINGLEQUOTEDSTRING'):
             return self._convert_child(kid)
 
         return s_ast.Const(kid.value[:-1])  # drop the trailing ':'
@@ -496,6 +504,8 @@ ruleClassMap = {
     'dollarexpr': s_ast.DollarExpr,
     'editnodeadd': s_ast.EditNodeAdd,
     'editparens': s_ast.EditParens,
+    'initblock': s_ast.InitBlock,
+    'finiblock': s_ast.FiniBlock,
     'editpropdel': s_ast.EditPropDel,
     'editpropset': s_ast.EditPropSet,
     'edittagadd': s_ast.EditTagAdd,
@@ -522,6 +532,7 @@ ruleClassMap = {
     'formpivot_pivottotags': s_ast.PivotToTags,
     'formpivotin_': s_ast.PivotIn,
     'formpivotin_pivotinfrom': s_ast.PivotInFrom,
+    'funcargs': s_ast.FuncArgs,
     'hasabspropcond': s_ast.HasAbsPropCond,
     'hasrelpropcond': s_ast.HasRelPropCond,
     'hastagpropcond': s_ast.HasTagPropCond,
@@ -540,17 +551,20 @@ ruleClassMap = {
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
+    'return': s_ast.Return,
     'relprop': s_ast.RelProp,
     'relpropcond': s_ast.RelPropCond,
     'relpropvalu': s_ast.RelPropValue,
     'relpropvalue': s_ast.RelPropValue,
+    'setitem': s_ast.SetItemOper,
+    'setvar': s_ast.SetVarOper,
     'stormcmd': lambda kids: s_ast.CmdOper(kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(tuple()))),
+    'stormfunc': s_ast.Function,
     'tagcond': s_ast.TagCond,
     'tagvalu': s_ast.TagValue,
     'tagpropvalu': s_ast.TagPropValue,
     'tagvalucond': s_ast.TagValuCond,
     'tagpropcond': s_ast.TagPropCond,
-    'valuvar': s_ast.VarSetOper,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
     'univprop': s_ast.UnivProp

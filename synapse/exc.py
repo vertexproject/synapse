@@ -32,6 +32,7 @@ class SynErr(Exception):
 
 class AuthDeny(SynErr): pass
 
+class BadPkgDef(SynErr): pass
 class BadCmdName(SynErr): pass
 class BadCmprValu(SynErr): pass
 class BadCmprType(SynErr):
@@ -148,6 +149,7 @@ class ModAlreadyLoaded(SynErr): pass
 class NoSuchAct(SynErr): pass
 class NoSuchAuthGate(SynErr): pass
 class NoSuchCmd(SynErr): pass
+class NoSuchPkg(SynErr): pass
 class NoSuchCmpr(SynErr): pass
 class NoSuchCond(SynErr): pass
 class NoSuchCtor(SynErr): pass

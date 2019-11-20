@@ -9,6 +9,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
+import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
@@ -61,10 +62,74 @@ stormcmds = (
             $lib.print('Storm daemon list:')
             for $info in $lib.dmon.list() {
                 $name = $info.name.ljust(20)
-                $lib.print("    {iden}:  ({name}): {status}", iden=$info.iden, name=$info.name, status=$info.status)
+                $lib.print("    {iden}:  ({name}): {status}", iden=$info.iden, name=$name, status=$info.status)
             }
         ''',
     },
+    {
+        'name': 'feed.list',
+        'descr': 'List the feed functions available in the Cortex',
+        'cmdrargs': (),
+        'storm': '''
+            $lib.print('Storm feed list:')
+            for $flinfo in $lib.feed.list() {
+                $flname = $flinfo.name.ljust(30)
+                $lib.print("    ({name}): {desc}", name=$flname, desc=$flinfo.desc)
+            }
+        '''
+    },
+    {
+        'name': 'pkg.list',
+        'descr': 'List the storm packages loaded in the cortex.',
+        'cmdrargs': (),
+        'storm': '''
+            $pkgs = $lib.pkg.list()
+
+            if $($pkgs.size() = 0) {
+
+                $lib.print('No storm packages installed.')
+
+            } else {
+                $lib.print('Loaded storm packages:')
+                for $pkg in $pkgs {
+                    $lib.print("{name}: {vers}", name=$pkg.name.ljust(32), vers=$pkg.version)
+                }
+            }
+        '''
+    },
+    {
+        'name': 'pkg.del',
+        'descr': 'Remove a storm package from the cortex.',
+        'cmdargs': (
+            ('name', {'help': 'The name (or name prefix) of the package to remove.'}),
+        ),
+        'storm': '''
+
+            $pkgs = $lib.set()
+
+            for $pkg in $lib.pkg.list() {
+                if $pkg.name.startswith($cmdopts.name) {
+                    $pkgs.add($pkg.name)
+                }
+            }
+
+            if $($pkgs.size() = 0) {
+
+                $lib.print('No package names match "{name}". Aborting.', name=$cmdopts.name)
+
+            } elif $($pkgs.size() = 1) {
+
+                $name = $pkgs.list().index(0)
+                $lib.print('Removing package: {name}', name=$name)
+                $lib.pkg.del($name)
+
+            } else {
+
+                $lib.print('Multiple package names match "{name}". Aborting.', name=$cmdopts.name)
+
+            }
+        '''
+    }
 )
 
 class StormDmon(s_base.Base):
@@ -180,6 +245,12 @@ class Runtime:
         # used by the digraph projection logic
         self._graph_done = {}
         self._graph_want = collections.deque()
+
+    def getStormMod(self, name):
+        return self.snap.getStormMod(name)
+
+    async def getStormQuery(self, text):
+        return self.snap.core.getStormQuery(text)
 
     async def getTeleProxy(self, url, **opts):
 
@@ -326,6 +397,11 @@ class Runtime:
             async for node, path in query.iterNodePaths(self, genr=genr):
                 self.tick()
                 yield node, path
+
+    async def getScopeRuntime(self, query, opts=None):
+        runt = Runtime(self.snap, user=self.user, opts=opts)
+        runt.loadRuntVars(query)
+        return runt
 
 class Parser(argparse.ArgumentParser):
 
@@ -480,25 +556,25 @@ class PureCmd(Cmd):
         text = self.cdef.get('storm')
         query = runt.snap.core.getStormQuery(text)
 
-        opts = {'vars': runt.vars}
+        cmdvars = {
+            'cmdopts': vars(self.opts),
+            'cmdconf': self.cdef.get('cmdconf', {})
+        }
 
-        opts['vars']['cmdconf'] = self.cdef.get('cmdconf', {})
-        opts['vars']['cmdopts'] = vars(self.opts)
+        opts = {'vars': cmdvars}
+        with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
 
-        # run in an isolated runtime to prevent var leaks
+            async def wrapgenr():
+                # wrap paths in a scope to isolate vars
+                async for node, path in genr:
+                    path.initframe(initvars=cmdvars, initrunt=subr)
+                    yield node, path
 
-        count = 0
-        async for node, path in genr:
-            count += 1
-            async for item in node.storm(text, opts=opts, user=runt.user):
-                yield item
+            subr.loadRuntVars(query)
 
-        if count == 0:
-            with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
-                subr.loadRuntVars(query)
-                if query.isRuntSafe(subr):
-                    async for item in subr.iterStormQuery(query):
-                        yield item
+            async for node, path in subr.iterStormQuery(query, genr=wrapgenr()):
+                path.finiframe()
+                yield node, path
 
 class HelpCmd(Cmd):
     '''

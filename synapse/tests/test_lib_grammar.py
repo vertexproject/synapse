@@ -158,10 +158,7 @@ _Queries = [
     '[test:int=9 :loc=us.ओं]',
     '[test:int=99999]',
     '[test:pivcomp=(foo, 123)]',
-    '[test:str=a] switch $woot { hehe: {[+#baz]} }',
     '[test:str=beep test:str=boop]',
-    '[test:str=c] switch $woot { hehe: {[+#baz]} *: {[+#jaz]} }',
-    '[test:str=c] switch $woot { hehe: {[+#baz]} haha hoho: {[+#faz]} "lolz:lulz": {[+#jaz]} }',
     '[test:str=foo :tick=201808021201]',
     '[test:str=hehe] | iden abcd | count',
     '[test:str=hello]',
@@ -420,28 +417,6 @@ _Queries = [
     '''/* multi
          line */ test:int ''',
     '''
-        /* A
-            multiline
-            comment */
-        [ inet:ipv4=1.2.3.4 ] // this is a comment
-        // and this too...
-
-        switch $foo {
-
-            // The bar case...
-
-            bar: {
-                [ +#hehe.haha ]
-            }
-
-            /*
-                The
-                baz
-                case
-            */
-            baz faz: {}
-        } ''',
-    '''
         inet:fqdn | graph
                     --degrees 2
                     --filter { -#nope }
@@ -451,19 +426,6 @@ _Queries = [
                     --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
                     --form-pivot syn:tag {-> *}
                     --form-pivot * {-> #} ''',
-    '''
-        for $foo in $foos {
-
-            [ inet:ipv4=1.2.3.4 ]
-
-            switch $foo {
-                bar: { [ +#ohai ] break }
-                baz: { [ +#visi ] continue }
-            }
-
-            [ inet:ipv4=5.6.7.8 ]
-            [ +#hehe ]
-        } ''',
     '''
         for $foo in $foos {
 
@@ -542,33 +504,81 @@ _Queries = [
     }
     ''',
     ''' [(ou:org=c71cd602f73af5bed208da21012fdf54 :loc=us )]''',
+    'function x(y, z) { return ($( $x - $y ) ) }',
+    'function echo(arg) { return ($arg) }',
+    'function a(arg){}',
+    'function a (arg) {return ( ) }',
+    '$name = asdf $foo = $lib.dict() $foo.bar = asdf $foo."bar baz" = asdf $foo.$name = asdf',
+    '[test:str=a] switch $node.form() { hehe: {[+#baz]} }',
+    '[test:str=a] switch $woot { hehe: {[+#baz]} }',
+    '[test:str=c] switch $woot { hehe: {[+#baz]} *: {[+#jaz]} }',
+    '[test:str=c] switch $woot { hehe: {[+#baz]} haha hoho: {[+#faz]} "lolz:lulz": {[+#jaz]} }',
+    '''
+        /* A
+            multiline
+            comment */
+        [ inet:ipv4=1.2.3.4 ] // this is a comment
+        // and this too...
+
+        switch $foo {
+
+            // The bar case...
+
+            bar: {
+                [ +#hehe.haha ]
+            }
+
+            /*
+                The
+                baz
+                case
+            */
+            baz faz: {}
+        } ''',
+    '''
+        for $foo in $foos {
+
+            [ inet:ipv4=1.2.3.4 ]
+
+            switch $foo {
+                bar: { [ +#ohai ] break }
+                baz: { [ +#visi ] continue }
+            }
+
+            [ inet:ipv4=5.6.7.8 ]
+            [ +#hehe ]
+        } ''',
+    'switch $a { "a": { } }',
+    'switch $a { "test:str" : { } * : {}}',
+    'switch $a { "test:this:works:" : { } * : {}}',
+    '''switch $a { 'single:quotes' : { } "doubele:quotes": {} noquotes: { } * : {}}''',
 ]
 
 # Generated with print_parse_list below
 _ParseResults = [
-    'Query: [VarSetOper: [Const: var, Const: tag1], LiftTag: [TagName: [Const: base, VarValue: [Const: var]]]]',
-    'Query: [LiftProp: [Const: test:str], VarSetOper: [Const: var, Const: tag1], FiltOper: [Const: +, TagValuCond: [TagMatch: [Const: base, VarValue: [Const: var]], Const: @=, Const: 2014]]]',
-    'Query: [LiftProp: [Const: test:str], VarSetOper: [Const: var, Const: tag1], PivotToTags: [TagMatch: [Const: base, VarValue: [Const: var]]], isjoin=False]',
-    'Query: [VarSetOper: [Const: var, Const: hehe], EditNodeAdd: [AbsProp: test:str, Const: =, Const: foo], EditPropSet: [RelProp: [VarValue: [Const: var]], Const: =, Const: heval]]',
-    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: heval], LiftProp: [Const: test:str], VarSetOper: [Const: var, Const: hehe], FiltOper: [Const: +, HasRelPropCond: [RelProp: [VarValue: [Const: var]]]]]',
-    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: foo], EditPropSet: [RelProp: [Const: :tick], Const: =, Const: 2019], VarSetOper: [Const: var, Const: tick], EditPropDel: [RelProp: [VarValue: [Const: var]]]]',
-    'Query: [LiftPropBy: [Const: test:str, Const: =, Const: foo], VarSetOper: [Const: var, Const: hehe], PropPivot: [RelPropValue: [RelProp: [VarValue: [Const: var]]], AbsProp: test:str], isjoin=False]',
-    'Query: [LiftPropBy: [Const: test:str, Const: =, Const: foo], VarSetOper: [Const: var, Const: seen], EditPropSet: [UnivProp: [VarValue: [Const: var]], Const: =, Const: 2019]]',
-    'Query: [LiftProp: [Const: test:str], VarSetOper: [Const: var, Const: seen], FiltOper: [Const: +, HasRelPropCond: [UnivProp: [VarValue: [Const: var]]]]]',
-    'Query: [LiftPropBy: [Const: test:str, Const: =, Const: foo], VarSetOper: [Const: var, Const: seen], EditUnivDel: [UnivProp: [VarValue: [Const: var]]], CmdOper: [Const: spin, Const: ()], LiftPropBy: [Const: test:str, Const: =, Const: foo]]',
-    'Query: [VarSetOper: [Const: var, Const: hehe], EditNodeAdd: [AbsProp: test:str, Const: =, Const: foo], EditPropSet: [RelProp: [VarValue: [Const: hehe]], Const: =, Const: heval]]',
+    'Query: [SetVarOper: [Const: var, Const: tag1], LiftTag: [TagName: [Const: base, VarValue: [Const: var]]]]',
+    'Query: [LiftProp: [Const: test:str], SetVarOper: [Const: var, Const: tag1], FiltOper: [Const: +, TagValuCond: [TagMatch: [Const: base, VarValue: [Const: var]], Const: @=, Const: 2014]]]',
+    'Query: [LiftProp: [Const: test:str], SetVarOper: [Const: var, Const: tag1], PivotToTags: [TagMatch: [Const: base, VarValue: [Const: var]]], isjoin=False]',
+    'Query: [SetVarOper: [Const: var, Const: hehe], EditNodeAdd: [AbsProp: test:str, Const: =, Const: foo], EditPropSet: [RelProp: [VarValue: [Const: var]], Const: =, Const: heval]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: heval], LiftProp: [Const: test:str], SetVarOper: [Const: var, Const: hehe], FiltOper: [Const: +, HasRelPropCond: [RelProp: [VarValue: [Const: var]]]]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: foo], EditPropSet: [RelProp: [Const: :tick], Const: =, Const: 2019], SetVarOper: [Const: var, Const: tick], EditPropDel: [RelProp: [VarValue: [Const: var]]]]',
+    'Query: [LiftPropBy: [Const: test:str, Const: =, Const: foo], SetVarOper: [Const: var, Const: hehe], PropPivot: [RelPropValue: [RelProp: [VarValue: [Const: var]]], AbsProp: test:str], isjoin=False]',
+    'Query: [LiftPropBy: [Const: test:str, Const: =, Const: foo], SetVarOper: [Const: var, Const: seen], EditPropSet: [UnivProp: [VarValue: [Const: var]], Const: =, Const: 2019]]',
+    'Query: [LiftProp: [Const: test:str], SetVarOper: [Const: var, Const: seen], FiltOper: [Const: +, HasRelPropCond: [UnivProp: [VarValue: [Const: var]]]]]',
+    'Query: [LiftPropBy: [Const: test:str, Const: =, Const: foo], SetVarOper: [Const: var, Const: seen], EditUnivDel: [UnivProp: [VarValue: [Const: var]]], CmdOper: [Const: spin, Const: ()], LiftPropBy: [Const: test:str, Const: =, Const: foo]]',
+    'Query: [SetVarOper: [Const: var, Const: hehe], EditNodeAdd: [AbsProp: test:str, Const: =, Const: foo], EditPropSet: [RelProp: [VarValue: [Const: hehe]], Const: =, Const: heval]]',
     'Query: [LiftTag: [TagName: [Const: tag, VarValue: [Const: bar]]]]',
     'Query: [FiltOper: [Const: +, TagCond: [TagMatch: [Const: tag, VarValue: [Const: bar]]]]]',
     'Query: [FiltOper: [Const: +, TagCond: [TagMatch: [Const: tag, VarValue: [Const: bar], Const: *]]]]',
     'Query: [LiftTag: [TagName: [Const: tag, VarValue: [Const: "escaped \\"string\\""]]]]',
     'Query: [FiltOper: [Const: +, TagCond: [TagMatch: [Const: tag, VarValue: [Const: "escaped \\"string\\""], Const: *]]]]',
     'Query: [EditTagAdd: [TagName: [Const: tag, VarValue: [Const: "escaped \\"string\\""]]]]',
-    'Query: [LiftProp: [Const: test:str], VarSetOper: [Const: some\x08var, FuncCall: [VarDeref: [VarValue: [Const: node], Const: repr], CallArgs: [], CallKwargs: []]]]',
-    'Query: [VarSetOper: [Const: x, Const: 0], WhileLoop: [DollarExpr: [ExprNode: [VarValue: [Const: x], Const: <, Const: 10]], SubQuery: [Query: [VarSetOper: [Const: x, DollarExpr: [ExprNode: [VarValue: [Const: x], Const: +, Const: 1]]], EditNodeAdd: [AbsProp: test:int, Const: =, VarValue: [Const: x]]]]]]',
+    'Query: [LiftProp: [Const: test:str], SetVarOper: [Const: some\x08var, FuncCall: [VarDeref: [VarValue: [Const: node], Const: repr], CallArgs: [], CallKwargs: []]]]',
+    'Query: [SetVarOper: [Const: x, Const: 0], WhileLoop: [DollarExpr: [ExprNode: [VarValue: [Const: x], Const: <, Const: 10]], SubQuery: [Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [VarValue: [Const: x], Const: +, Const: 1]]], EditNodeAdd: [AbsProp: test:int, Const: =, VarValue: [Const: x]]]]]]',
     'Query: [EditNodeAdd: [AbsProp: test:int, Const: ?=, Const: 4], EditNodeAdd: [AbsProp: test:int, Const: ?=, Const: nonono]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: foo], EditPropSet: [RelProp: [Const: :tick], Const: ?=, Const: 2019]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: a], SwitchCase: [FuncCall: [VarDeref: [VarValue: [Const: node], Const: form], CallArgs: [], CallKwargs: []], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]]]]',
-    'Query: [EditNodeAdd: [AbsProp: test:type10, Const: =, Const: 2], EditPropSet: [RelProp: [Const: :strprop], Const: =, Const: 1], CmdOper: [Const: spin, Const: ()], LiftProp: [Const: test:type10], FiltOper: [Const: +, DollarExpr: [RelPropValue: [RelProp: [Const: :strprop]]]], VarSetOper: [Const: foo, Const: 1], FiltOper: [Const: +, VarValue: [Const: foo]]]',
+    'Query: [EditNodeAdd: [AbsProp: test:type10, Const: =, Const: 2], EditPropSet: [RelProp: [Const: :strprop], Const: =, Const: 1], CmdOper: [Const: spin, Const: ()], LiftProp: [Const: test:type10], FiltOper: [Const: +, DollarExpr: [RelPropValue: [RelProp: [Const: :strprop]]]], SetVarOper: [Const: foo, Const: 1], FiltOper: [Const: +, VarValue: [Const: foo]]]',
     'Query: [LiftFormTag: [Const: inet:fqdn, TagName: [Const: xxx.xxxxxx.xxxx.xx]], ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [Const: xxx.xxxxxx.*.xx], CallKwargs: []], SubQuery: [Query: [PivotInFrom: [AbsProp: edge:refs], isjoin=False, FiltOper: [Const: +, TagCond: [TagMatch: [Const: xx]]], PivotInFrom: [AbsProp: graph:cluster], isjoin=False, EditTagAdd: [TagName: [Const: foo]], FormPivot: [AbsProp: edge:refs], isjoin=False]]]]',
     'Query: [FiltOper: [Const: +, AbsPropCond: [AbsProp: syn:tag, Const: ~=, Const: aka.*.mal.*]]]',
     'Query: [FiltOper: [Const: +, OrCond: [OrCond: [AbsPropCond: [AbsProp: syn:tag, Const: ^=, Const: aka], AbsPropCond: [AbsProp: syn:tag, Const: ^=, Const: cno]], AbsPropCond: [AbsProp: syn:tag, Const: ^=, Const: rep]]]]',
@@ -593,8 +603,8 @@ _ParseResults = [
     'Query: [LiftTag: [TagName: [Const: test.bar]], FiltOper: [Const: -, TagCond: [TagMatch: [Const: test]]], PivotOut: [], isjoin=False]',
     'Query: [LiftTag: [TagName: [Const: test.bar]], FiltOper: [Const: -, TagCond: [TagMatch: [Const: test]]], PivotIn: [], isjoin=True]',
     'Query: [LiftTag: [TagName: [Const: test.bar]], FiltOper: [Const: -, TagCond: [TagMatch: [Const: test]]], PivotIn: [], isjoin=False]',
-    'Query: [VarSetOper: [Const: bar, Const: 5.5.5.5], EditNodeAdd: [AbsProp: inet:ipv4, Const: =, VarValue: [Const: bar]]]',
-    'Query: [VarSetOper: [Const: blah, FuncCall: [VarDeref: [VarValue: [Const: lib], Const: dict], CallArgs: [], CallKwargs: [CallKwarg: [Const: foo, Const: vertex.link]]]], EditNodeAdd: [AbsProp: inet:fqdn, Const: =, VarDeref: [VarValue: [Const: blah], Const: foo]]]',
+    'Query: [SetVarOper: [Const: bar, Const: 5.5.5.5], EditNodeAdd: [AbsProp: inet:ipv4, Const: =, VarValue: [Const: bar]]]',
+    'Query: [SetVarOper: [Const: blah, FuncCall: [VarDeref: [VarValue: [Const: lib], Const: dict], CallArgs: [], CallKwargs: [CallKwarg: [Const: foo, Const: vertex.link]]]], EditNodeAdd: [AbsProp: inet:fqdn, Const: =, VarDeref: [VarValue: [Const: blah], Const: foo]]]',
     "Query: [VarListSetOper: [VarList: ['tick', 'tock'], UnivPropValue: [UnivProp: [Const: .seen]]]]",
     'Query: [LiftProp: [Const: .created]]',
     'Query: [LiftPropBy: [Const: .created, Const: <, Const: 2010]]',
@@ -691,10 +701,7 @@ _ParseResults = [
     'Query: [EditNodeAdd: [AbsProp: test:int, Const: =, Const: 9], EditPropSet: [RelProp: [Const: :loc], Const: =, Const: us.ओं]]',
     'Query: [EditNodeAdd: [AbsProp: test:int, Const: =, Const: 99999]]',
     'Query: [EditNodeAdd: [AbsProp: test:pivcomp, Const: =, List: [Const: foo, Const: 123]]]',
-    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: a], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]]]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: beep], EditNodeAdd: [AbsProp: test:str, Const: =, Const: boop]]',
-    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: c], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]], CaseEntry: [SubQuery: [Query: [EditTagAdd: [TagName: [Const: jaz]]]]]]]',
-    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: c], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]], CaseEntry: [Const: haha hoho, SubQuery: [Query: [EditTagAdd: [TagName: [Const: faz]]]]], CaseEntry: [Const: lolz:lulz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: jaz]]]]]]]',
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: foo], EditPropSet: [RelProp: [Const: :tick], Const: =, Const: 201808021201]]',
     "Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: hehe], CmdOper: [Const: iden, Const: ('abcd',)], CmdOper: [Const: count, Const: ()]]",
     'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: hello]]',
@@ -713,12 +720,12 @@ _ParseResults = [
     'Query: [LiftPropBy: [Const: geo:place:latlong, Const: near=, List: [List: [Const: 34.1, Const: -118.3], Const: 10km]]]',
     'Query: [LiftPropBy: [Const: geo:place, Const: =, VarValue: [Const: place]], PivotInFrom: [AbsProp: edge:has], isjoin=False, PivotIn: [], isjoin=False]',
     'Query: [LiftPropBy: [Const: geo:place, Const: =, VarValue: [Const: place]], PivotInFrom: [AbsProp: edge:has], isjoin=False, PivotInFrom: [AbsProp: ps:person], isjoin=False]',
-    'Query: [LiftPropBy: [Const: geo:place, Const: =, Const: abcd], VarSetOper: [Const: latlong, RelPropValue: [RelProp: [Const: :latlong]]], VarSetOper: [Const: radius, RelPropValue: [RelProp: [Const: :radius]]], CmdOper: [Const: spin, Const: ()], LiftPropBy: [Const: tel:mob:telem:latlong, Const: near=, List: [VarValue: [Const: latlong], Const: 3km]]]',
+    'Query: [LiftPropBy: [Const: geo:place, Const: =, Const: abcd], SetVarOper: [Const: latlong, RelPropValue: [RelProp: [Const: :latlong]]], SetVarOper: [Const: radius, RelPropValue: [RelProp: [Const: :radius]]], CmdOper: [Const: spin, Const: ()], LiftPropBy: [Const: tel:mob:telem:latlong, Const: near=, List: [VarValue: [Const: latlong], Const: 3km]]]',
     "Query: [LiftPropBy: [Const: graph:cluster, Const: =, Const: abcd], CmdOper: [Const: noderefs, Const: ('-d', '2', '--join')]]",
     'Query: [CmdOper: [Const: help, Const: ()]]',
     "Query: [CmdOper: [Const: iden, Const: ('2cdd997872b10a65407ad5fadfa28e0d',)]]",
     "Query: [CmdOper: [Const: iden, Const: ('deadb33f',)]]",
-    "Query: [VarSetOper: [Const: foo, Const: 42], CmdOper: [Const: iden, Const: ('deadb33f',)]]",
+    "Query: [SetVarOper: [Const: foo, Const: 42], CmdOper: [Const: iden, Const: ('deadb33f',)]]",
     "Query: [LiftPropBy: [Const: inet:asn, Const: =, Const: 10], CmdOper: [Const: noderefs, Const: ('-of', 'inet:ipv4', '--join', '-d', '3')]]",
     'Query: [LiftProp: [Const: inet:dns:a], FiltOper: [Const: +, SubqCond: [Query: [PropPivot: [RelPropValue: [RelProp: [Const: :ipv4]], AbsProp: inet:ipv4], isjoin=False, FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :loc]], Const: =, Const: us]]]]]]',
     'Query: [LiftProp: [Const: inet:dns:a], FiltOper: [Const: +, SubqCond: [Query: [PropPivot: [RelPropValue: [RelProp: [Const: :ipv4]], AbsProp: inet:ipv4], isjoin=False, FiltOper: [Const: -, RelPropCond: [RelPropValue: [RelProp: [Const: :loc]], Const: =, Const: us]]]]]]',
@@ -728,15 +735,15 @@ _ParseResults = [
     'Query: [LiftPropBy: [Const: inet:dns:a, Const: =, List: [Const: woot.com, Const: 12.34.56.78]], EditPropSet: [UnivProp: [Const: .seen], Const: =, List: [Const: 201708010123, Const: 201708100456]]]',
     'Query: [LiftPropBy: [Const: inet:dns:a, Const: =, List: [Const: woot.com, Const: 12.34.56.78]], EditPropSet: [UnivProp: [Const: .seen], Const: =, List: [Const: 201708010123, Const: ?]]]',
     'Query: [LiftProp: [Const: inet:dns:a]]',
-    'Query: [LiftPropBy: [Const: inet:dns:a, Const: =, List: [Const: woot.com, Const: 1.2.3.4]], VarSetOper: [Const: hehe, RelPropValue: [RelProp: [Const: :fqdn]]], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :fqdn]], Const: =, VarValue: [Const: hehe]]]]',
-    'Query: [LiftPropBy: [Const: inet:dns:a, Const: =, List: [Const: woot.com, Const: 1.2.3.4]], VarSetOper: [Const: hehe, RelPropValue: [RelProp: [Const: :fqdn]]], FiltOper: [Const: -, RelPropCond: [RelPropValue: [RelProp: [Const: :fqdn]], Const: =, VarValue: [Const: hehe]]]]',
-    'Query: [LiftPropBy: [Const: inet:dns:a, Const: =, List: [Const: woot.com, Const: 1.2.3.4]], VarSetOper: [Const: hehe, RelPropValue: [RelProp: [Const: :fqdn]]], LiftPropBy: [Const: inet:fqdn, Const: =, VarValue: [Const: hehe]]]',
-    'Query: [LiftPropBy: [Const: inet:dns:a, Const: =, List: [Const: woot.com, Const: 1.2.3.4]], VarSetOper: [Const: newp, UnivPropValue: [UnivProp: [Const: .seen]]]]',
-    'Query: [LiftPropBy: [Const: inet:dns:a, Const: =, List: [Const: woot.com, Const: 1.2.3.4]], VarSetOper: [Const: seen, UnivPropValue: [UnivProp: [Const: .seen]]], PropPivot: [RelPropValue: [RelProp: [Const: :fqdn]], AbsProp: inet:fqdn], isjoin=False, EditPropSet: [UnivProp: [Const: .seen], Const: =, VarValue: [Const: seen]]]',
+    'Query: [LiftPropBy: [Const: inet:dns:a, Const: =, List: [Const: woot.com, Const: 1.2.3.4]], SetVarOper: [Const: hehe, RelPropValue: [RelProp: [Const: :fqdn]]], FiltOper: [Const: +, RelPropCond: [RelPropValue: [RelProp: [Const: :fqdn]], Const: =, VarValue: [Const: hehe]]]]',
+    'Query: [LiftPropBy: [Const: inet:dns:a, Const: =, List: [Const: woot.com, Const: 1.2.3.4]], SetVarOper: [Const: hehe, RelPropValue: [RelProp: [Const: :fqdn]]], FiltOper: [Const: -, RelPropCond: [RelPropValue: [RelProp: [Const: :fqdn]], Const: =, VarValue: [Const: hehe]]]]',
+    'Query: [LiftPropBy: [Const: inet:dns:a, Const: =, List: [Const: woot.com, Const: 1.2.3.4]], SetVarOper: [Const: hehe, RelPropValue: [RelProp: [Const: :fqdn]]], LiftPropBy: [Const: inet:fqdn, Const: =, VarValue: [Const: hehe]]]',
+    'Query: [LiftPropBy: [Const: inet:dns:a, Const: =, List: [Const: woot.com, Const: 1.2.3.4]], SetVarOper: [Const: newp, UnivPropValue: [UnivProp: [Const: .seen]]]]',
+    'Query: [LiftPropBy: [Const: inet:dns:a, Const: =, List: [Const: woot.com, Const: 1.2.3.4]], SetVarOper: [Const: seen, UnivPropValue: [UnivProp: [Const: .seen]]], PropPivot: [RelPropValue: [RelProp: [Const: :fqdn]], AbsProp: inet:fqdn], isjoin=False, EditPropSet: [UnivProp: [Const: .seen], Const: =, VarValue: [Const: seen]]]',
     'Query: [LiftPropBy: [Const: inet:dns:a, Const: =, List: [Const: woot.com, Const: 1.2.3.4]], EditPropSet: [UnivProp: [Const: .seen], Const: =, List: [Const: 2015, Const: 2018]]]',
     'Query: [LiftPropBy: [Const: inet:dns:query, Const: =, List: [Const: tcp://1.2.3.4, Const: , Const: 1]], PropPivot: [RelPropValue: [RelProp: [Const: :name]], AbsProp: inet:fqdn], isjoin=False]',
     'Query: [LiftPropBy: [Const: inet:dns:query, Const: =, List: [Const: tcp://1.2.3.4, Const: foo*.haha.com, Const: 1]], PropPivot: [RelPropValue: [RelProp: [Const: :name]], AbsProp: inet:fqdn], isjoin=False]',
-    'Query: [LiftProp: [Const: inet:fqdn], FiltOper: [Const: +, TagCond: [TagMatch: [Const: bad]]], VarSetOper: [Const: fqdnbad, TagValue: [TagName: [Const: bad]]], FormPivot: [AbsProp: inet:dns:a:fqdn], isjoin=False, FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, VarValue: [Const: fqdnbad]]]]',
+    'Query: [LiftProp: [Const: inet:fqdn], FiltOper: [Const: +, TagCond: [TagMatch: [Const: bad]]], SetVarOper: [Const: fqdnbad, TagValue: [TagName: [Const: bad]]], FormPivot: [AbsProp: inet:dns:a:fqdn], isjoin=False, FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, VarValue: [Const: fqdnbad]]]]',
     'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: woot.com], FormPivot: [AbsProp: inet:dns:a], isjoin=False, FormPivot: [AbsProp: inet:ipv4], isjoin=False]',
     'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: woot.com], FormPivot: [AbsProp: inet:dns:a], isjoin=False]',
     'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: woot.com], CmdOper: [Const: delnode, Const: ()]]',
@@ -855,7 +862,7 @@ _ParseResults = [
     'Query: [LiftPropBy: [Const: test:pivcomp, Const: =, List: [Const: foo, Const: bar]], PropPivot: [RelPropValue: [RelProp: [Const: :lulz]], AbsProp: test:str], isjoin=True]',
     'Query: [LiftPropBy: [Const: test:pivcomp, Const: =, List: [Const: foo, Const: bar]], PropPivot: [RelPropValue: [RelProp: [Const: :lulz]], AbsProp: test:str], isjoin=False]',
     'Query: [LiftPropBy: [Const: test:pivcomp, Const: =, List: [Const: foo, Const: bar]], PropPivot: [RelPropValue: [RelProp: [Const: :targ]], AbsProp: test:pivtarg], isjoin=False]',
-    'Query: [LiftPropBy: [Const: test:pivcomp, Const: =, List: [Const: hehe, Const: haha]], VarSetOper: [Const: ticktock, TagValue: [TagName: [Const: foo]]], FormPivot: [AbsProp: test:pivtarg], isjoin=False, FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, VarValue: [Const: ticktock]]]]',
+    'Query: [LiftPropBy: [Const: test:pivcomp, Const: =, List: [Const: hehe, Const: haha]], SetVarOper: [Const: ticktock, TagValue: [TagName: [Const: foo]]], FormPivot: [AbsProp: test:pivtarg], isjoin=False, FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, VarValue: [Const: ticktock]]]]',
     'Query: [LiftPropBy: [Const: test:pivcomp, Const: =, List: [Const: hehe, Const: haha]]]',
     'Query: [LiftPropBy: [Const: test:pivtarg, Const: =, Const: hehe], EditPropSet: [UnivProp: [Const: .seen], Const: =, Const: 2015]]',
     'Query: [LiftProp: [Const: test:str], FiltOper: [Const: +, TagCond: [TagMatch: [Const: *]]]]',
@@ -936,7 +943,7 @@ _ParseResults = [
     "Query: [LiftPropBy: [Const: test:str, Const: =, Const: pennywise], CmdOper: [Const: noderefs, Const: ('-d', '3', '--omit-traversal-tag=omit.nopiv', '--omit-traversal-tag=test')]]",
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: visi], PivotToTags: [TagMatch: [Const: *]], isjoin=False]',
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: visi], PivotToTags: [TagMatch: [Const: foo.*]], isjoin=False]',
-    'Query: [LiftPropBy: [Const: test:str, Const: =, Const: woot], VarSetOper: [Const: foo, TagValue: [TagName: [Const: foo]]], FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, VarValue: [Const: foo]]]]',
+    'Query: [LiftPropBy: [Const: test:str, Const: =, Const: woot], SetVarOper: [Const: foo, TagValue: [TagName: [Const: foo]]], FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, VarValue: [Const: foo]]]]',
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: woot], FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, TagValue: [TagName: [Const: bar]]]]]',
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: woot], FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, List: [Const: 2012, Const: 2015]]]]',
     'Query: [LiftPropBy: [Const: test:str, Const: =, Const: woot], FiltOper: [Const: +, RelPropCond: [RelPropValue: [UnivProp: [Const: .seen]], Const: @=, Const: 2012]]]',
@@ -945,37 +952,35 @@ _ParseResults = [
     'Query: [LiftProp: [Const: test:int]]',
     'Query: [LiftProp: [Const: test:int]]',
     'Query: [LiftProp: [Const: test:int]]',
-    'Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: hehe.haha]]]]], CaseEntry: [Const: baz faz, SubQuery: [Query: []]]]]',
     "Query: [LiftProp: [Const: inet:fqdn], CmdOper: [Const: graph, Const: ('--degrees', '2', '--filter', '{ -#nope }', '--pivot', '{ <- meta:seen <- meta:source }', '--form-pivot', 'inet:fqdn', '{<- * | limit 20}', '--form-pivot', 'inet:fqdn', '{-> * | limit 20}', '--form-filter', 'inet:fqdn', '{-inet:fqdn:issuffix=1}', '--form-pivot', 'syn:tag', '{-> *}', '--form-pivot', '*', '{-> #}')]]",
-    'Query: [ForLoop: [Const: foo, VarValue: [Const: foos], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: ohai]], BreakOper: []]]], CaseEntry: [Const: baz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: visi]], ContinueOper: []]]]], EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 5.6.7.8], EditTagAdd: [TagName: [Const: hehe]]]]]]',
     "Query: [ForLoop: [Const: foo, VarValue: [Const: foos], SubQuery: [Query: [VarListSetOper: [VarList: ['fqdn', 'ipv4'], FuncCall: [VarDeref: [VarValue: [Const: foo], Const: split], CallArgs: [Const: |], CallKwargs: []]], EditNodeAdd: [AbsProp: inet:dns:a, Const: =, List: [VarValue: [Const: fqdn], VarValue: [Const: ipv4]]]]]]]",
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [], CallKwargs: []], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False, EditTagAdd: [VarValue: [Const: tag]]]]]]',
     'Query: [ForLoop: [Const: tag, FuncCall: [VarDeref: [VarValue: [Const: node], Const: tags], CallArgs: [Const: fo*], CallKwargs: []], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False, EditTagDel: [VarValue: [Const: tag]]]]]]',
     'Query: [EditNodeAdd: [AbsProp: inet:email:message, Const: =, Const: *], EditPropSet: [RelProp: [Const: :to], Const: =, Const: woot@woot.com], EditPropSet: [RelProp: [Const: :from], Const: =, Const: visi@vertex.link], EditPropSet: [RelProp: [Const: :replyto], Const: =, Const: root@root.com], EditPropSet: [RelProp: [Const: :subject], Const: =, Const: hi there], EditPropSet: [RelProp: [Const: :date], Const: =, Const: 2015], EditPropSet: [RelProp: [Const: :body], Const: =, Const: there are mad sploitz here!], EditPropSet: [RelProp: [Const: :bytes], Const: =, Const: *], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:email:message:link, Const: =, List: [VarValue: [Const: node], Const: https://www.vertex.link]]]], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:email:message:attachment, Const: =, List: [VarValue: [Const: node], Const: *]], FiltOper: [Const: -, HasAbsPropCond: [AbsProp: inet:email:message]], EditPropSet: [RelProp: [Const: :name], Const: =, Const: sploit.exe]]], SubQuery: [Query: [EditNodeAdd: [AbsProp: edge:has, Const: =, List: [VarValue: [Const: node], List: [Const: inet:email:header, List: [Const: to, Const: Visi Kensho <visi@vertex.link>]]]]]]]',
-    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprNode: [Const: 1, Const: /, Const: 3]]]]',
-    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprNode: [Const: 1, Const: *, Const: 3]]]]',
-    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 1, Const: *, Const: 3], Const: +, Const: 2]]]]',
-    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprNode: [Const: 1, Const: -, ExprNode: [Const: 3.2, Const: /, Const: -3.2]]]]]',
-    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprNode: [Const: 1, Const: +, ExprNode: [Const: 3, Const: /, Const: 2]]]]]',
-    'Query: [VarSetOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 1, Const: +, Const: 3], Const: /, Const: 2]]]]',
-    'Query: [VarSetOper: [Const: foo, Const: 42], VarSetOper: [Const: foo2, Const: 43], VarSetOper: [Const: x, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: *, VarValue: [Const: foo2]]]]]',
-    'Query: [VarSetOper: [Const: yep, DollarExpr: [ExprNode: [Const: 42, Const: <, Const: 43]]]]',
-    'Query: [VarSetOper: [Const: yep, DollarExpr: [ExprNode: [Const: 42, Const: >, Const: 43]]]]',
-    'Query: [VarSetOper: [Const: yep, DollarExpr: [ExprNode: [Const: 42, Const: >=, Const: 43]]]]',
-    'Query: [VarSetOper: [Const: yep, DollarExpr: [ExprNode: [ExprNode: [Const: 42, Const: +, Const: 4], Const: <=, ExprNode: [Const: 43, Const: *, Const: 43]]]]]',
-    'Query: [VarSetOper: [Const: foo, Const: 4.3], VarSetOper: [Const: bar, Const: 4.2], VarSetOper: [Const: baz, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: +, VarValue: [Const: bar]]]]]',
-    'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1], VarSetOper: [Const: foo, UnivPropValue: [UnivProp: [Const: .created]]], VarSetOper: [Const: bar, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: +, Const: 1]]]]',
-    'Query: [VarSetOper: [Const: x, DollarExpr: [FuncCall: [VarDeref: [VarDeref: [VarValue: [Const: lib], Const: time], Const: offset], CallArgs: [Const: 2 days], CallKwargs: []]]]]',
-    'Query: [VarSetOper: [Const: foo, Const: 1], VarSetOper: [Const: bar, Const: 2], LiftPropBy: [Const: inet:ipv4, Const: =, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: +, VarValue: [Const: bar]]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 1, Const: /, Const: 3]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 1, Const: *, Const: 3]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 1, Const: *, Const: 3], Const: +, Const: 2]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 1, Const: -, ExprNode: [Const: 3.2, Const: /, Const: -3.2]]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 1, Const: +, ExprNode: [Const: 3, Const: /, Const: 2]]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 1, Const: +, Const: 3], Const: /, Const: 2]]]]',
+    'Query: [SetVarOper: [Const: foo, Const: 42], SetVarOper: [Const: foo2, Const: 43], SetVarOper: [Const: x, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: *, VarValue: [Const: foo2]]]]]',
+    'Query: [SetVarOper: [Const: yep, DollarExpr: [ExprNode: [Const: 42, Const: <, Const: 43]]]]',
+    'Query: [SetVarOper: [Const: yep, DollarExpr: [ExprNode: [Const: 42, Const: >, Const: 43]]]]',
+    'Query: [SetVarOper: [Const: yep, DollarExpr: [ExprNode: [Const: 42, Const: >=, Const: 43]]]]',
+    'Query: [SetVarOper: [Const: yep, DollarExpr: [ExprNode: [ExprNode: [Const: 42, Const: +, Const: 4], Const: <=, ExprNode: [Const: 43, Const: *, Const: 43]]]]]',
+    'Query: [SetVarOper: [Const: foo, Const: 4.3], SetVarOper: [Const: bar, Const: 4.2], SetVarOper: [Const: baz, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: +, VarValue: [Const: bar]]]]]',
+    'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1], SetVarOper: [Const: foo, UnivPropValue: [UnivProp: [Const: .created]]], SetVarOper: [Const: bar, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: +, Const: 1]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [FuncCall: [VarDeref: [VarDeref: [VarValue: [Const: lib], Const: time], Const: offset], CallArgs: [Const: 2 days], CallKwargs: []]]]]',
+    'Query: [SetVarOper: [Const: foo, Const: 1], SetVarOper: [Const: bar, Const: 2], LiftPropBy: [Const: inet:ipv4, Const: =, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: +, VarValue: [Const: bar]]]]]',
     'Query: []',
     "Query: [CmdOper: [Const: hehe.haha, Const: ('--size', '10', '--query', 'foo_bar.stuff:baz')]]",
     'Query: [IfStmt: [IfClause: [VarValue: [Const: foo], SubQuery: [Query: [EditTagAdd: [TagName: [Const: woot]]]]]]]',
     'Query: [IfStmt: [IfClause: [VarValue: [Const: foo], SubQuery: [Query: [EditTagAdd: [TagName: [Const: woot]]]]], SubQuery: [Query: [EditTagAdd: [TagName: [Const: nowoot]]]]]]',
     'Query: [IfStmt: [IfClause: [VarValue: [Const: foo], SubQuery: [Query: [EditTagAdd: [TagName: [Const: woot]]]]], IfClause: [DollarExpr: [ExprNode: [Const: 1, Const: -, Const: 1]], SubQuery: [Query: [EditTagAdd: [TagName: [Const: nowoot]]]]]]]',
     'Query: [IfStmt: [IfClause: [VarValue: [Const: foo], SubQuery: [Query: [EditTagAdd: [TagName: [Const: woot]]]]], IfClause: [DollarExpr: [ExprNode: [Const: 1, Const: -, Const: 1]], SubQuery: [Query: [EditTagAdd: [TagName: [Const: nowoot]]]]], SubQuery: [Query: [EditTagAdd: [TagName: [Const: nonowoot]]]]]]',
-    'Query: [VarSetOper: [Const: foo, DollarExpr: [ExprNode: [Const: 1, Const: or, ExprNode: [Const: 0, Const: and, Const: 0]]]]]',
-    'Query: [VarSetOper: [Const: foo, DollarExpr: [ExprNode: [UnaryExprNode: [Const: not, Const: 1], Const: and, Const: 1]]]]',
-    'Query: [VarSetOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, ExprNode: [Const: 1, Const: >, Const: 1]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprNode: [Const: 1, Const: or, ExprNode: [Const: 0, Const: and, Const: 0]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprNode: [UnaryExprNode: [Const: not, Const: 1], Const: and, Const: 1]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, ExprNode: [Const: 1, Const: >, Const: 1]]]]]',
     'Query: [LiftOnlyTagProp: [OnlyTagProp: [Const: lol]]]',
     'Query: [LiftTagProp: [TagProp: [Const: baz.faz, Const: lol]]]',
     'Query: [LiftFormTagProp: [FormTagProp: [Const: foo:bar, Const: baz.faz, Const: lol]]]',
@@ -992,6 +997,21 @@ _ParseResults = [
     'Query: [LiftPropBy: [Const: test:str, Const: =, VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: space key]], Const: subkey]]]',
     'Query: [ForLoop: [Const: iterkey, VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: bar key]], VarValue: [Const: biz key]], SubQuery: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, VarDeref: [VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: bar key]], VarValue: [Const: biz key]], VarValue: [Const: iterkey]]]]]]]',
     'Query: [EditParens: [EditNodeAdd: [AbsProp: ou:org, Const: =, Const: c71cd602f73af5bed208da21012fdf54], EditPropSet: [RelProp: [Const: :loc], Const: =, Const: us]]]',
+    'Query: [Function: [Const: x, FuncArgs: [Const: y, Const: z], Query: [Return: [DollarExpr: [ExprNode: [VarValue: [Const: x], Const: -, VarValue: [Const: y]]]]]]]',
+    'Query: [Function: [Const: echo, FuncArgs: [Const: arg], Query: [Return: [VarValue: [Const: arg]]]]]',
+    'Query: [Function: [Const: a, FuncArgs: [Const: arg], Query: []]]',
+    'Query: [Function: [Const: a, FuncArgs: [Const: arg], Query: [Return: []]]]',
+    'Query: [SetVarOper: [Const: name, Const: asdf], SetVarOper: [Const: foo, FuncCall: [VarDeref: [VarValue: [Const: lib], Const: dict], CallArgs: [], CallKwargs: []]], SetItemOper: [VarValue: [Const: foo], Const: bar, Const: asdf], SetItemOper: [VarValue: [Const: foo], Const: bar baz, Const: asdf], SetItemOper: [VarValue: [Const: foo], VarValue: [Const: name], Const: asdf]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: a], SwitchCase: [FuncCall: [VarDeref: [VarValue: [Const: node], Const: form], CallArgs: [], CallKwargs: []], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]]]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: a], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]]]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: c], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]], CaseEntry: [SubQuery: [Query: [EditTagAdd: [TagName: [Const: jaz]]]]]]]',
+    'Query: [EditNodeAdd: [AbsProp: test:str, Const: =, Const: c], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]], CaseEntry: [Const: haha hoho, SubQuery: [Query: [EditTagAdd: [TagName: [Const: faz]]]]], CaseEntry: [Const: lolz:lulz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: jaz]]]]]]]',
+    'Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: hehe.haha]]]]], CaseEntry: [Const: baz faz, SubQuery: [Query: []]]]]',
+    'Query: [ForLoop: [Const: foo, VarValue: [Const: foos], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: ohai]], BreakOper: []]]], CaseEntry: [Const: baz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: visi]], ContinueOper: []]]]], EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 5.6.7.8], EditTagAdd: [TagName: [Const: hehe]]]]]]',
+    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: a, SubQuery: [Query: []]]]]',
+    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:str, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]',
+    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:this:works:, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]',
+    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: single:quotes, SubQuery: [Query: []]], CaseEntry: [Const: doubele:quotes, SubQuery: [Query: []]], CaseEntry: [Const: noquotes, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
@@ -1173,3 +1193,6 @@ def gen_parse_list():
 def print_parse_list():
     for i in gen_parse_list():
         print(f'    {repr(i)},')
+
+if __name__ == '__main__':
+    print_parse_list()

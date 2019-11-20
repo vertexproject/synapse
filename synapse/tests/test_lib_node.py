@@ -1,4 +1,7 @@
+import collections
+
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.node as s_node
 
@@ -266,7 +269,7 @@ class NodeTest(s_t_utils.SynTest):
                 nodepaths = await alist(node.storm('-> test:int [:loc=$foo]', opts={'vars': {'foo': 'us'}}))
                 self.eq(nodepaths[0][0].props.get('loc'), 'us')
 
-                path = nodepaths[0][1].fork(node)
+                path = nodepaths[0][1].fork(node)  # type: s_node.Path
                 path.vars['zed'] = 'ca'
 
                 # Path present, opts not present
@@ -285,6 +288,76 @@ class NodeTest(s_t_utils.SynTest):
                                                path=path))
                 self.eq(nodes[0][0].props.get('loc'), 'ca')
                 self.eq(path.vars.get('bar'), 'ru')
+
+                # Path can push / pop vars in frames
+                self.eq(path.getVar('bar'), 'ru')
+                self.eq(path.getVar('key'), s_common.novalu)
+                self.len(0, path.frames)
+                path.initframe({'key': 'valu'})
+                self.len(1, path.frames)
+                # self.none(path.getVar('bar'))
+                self.eq(path.getVar('bar'), 'ru')
+                self.eq(path.getVar('key'), 'valu')
+                path.finiframe()
+                self.len(0, path.frames)
+                self.eq(path.getVar('bar'), 'ru')
+                self.eq(path.getVar('key'), s_common.novalu)
+
+                # Path can push / pop a runt as well
+                # This example is *just* a test example to show the variable movement,
+                # not as actual runtime movement..
+                runt = path.runt
+                path.initframe({'key': 'valu'}, initrunt='runt')
+                self.eq(path.runt, 'runt')
+                self.true(path.frames[0][1] is runt)
+                path.finiframe()
+                self.true(path.runt is runt)
+
+                # Path clone() creates a fully independent Path object
+                pcln = path.clone()
+                # Ensure that path vars are independent
+                pcln.setVar('bar', 'us')
+                self.eq(pcln.getVar('bar'), 'us')
+                self.eq(path.getVar('bar'), 'ru')
+                # Ensure the path nodes are independent
+                self.eq(len(pcln.nodes), len(path.nodes))
+                pcln.nodes.pop(-1)
+                self.ne(len(pcln.nodes), len(path.nodes))
+
+                # push a frame and clone it - ensure clone mods do not
+                # modify the original path
+                path.initframe({'key': 'valu'})
+                self.len(1, path.frames)
+                pcln = path.clone()
+                self.len(1, pcln.frames)
+                self.eq(path.getVar('key'), 'valu')
+                self.eq(pcln.getVar('key'), 'valu')
+                pcln.finiframe()
+                path.finiframe()
+                pcln.setVar('bar', 'us')
+                self.eq(pcln.getVar('bar'), 'us')
+                self.eq(path.getVar('bar'), 'ru')
+                self.eq(pcln.getVar('key'), s_common.novalu)
+                self.eq(path.getVar('key'), s_common.novalu)
+
+        # Ensure that path clone() behavior in storm is as expected
+        # with a real-world style test..
+        async with self.getTestCore() as core:
+            await core.nodes('[test:int=1 test:int=2]')
+            q = '''test:int
+            $x = $node.value()
+            for $var in (1, 2) { } // The forloop here is used as a node multiplier
+            $x = $( $x + 1 )
+            $lib.fire(test, valu=$node.value(), x=$x)
+            -test:int'''
+            msgs = await core.streamstorm(q).list()
+            data = collections.defaultdict(set)
+            for m in msgs:
+                if m[0] == 'storm:fire':
+                    for k, v in m[1].get('data').items():
+                        data[k].add(v)
+            self.eq(dict(data),
+                    {'valu': {1, 2}, 'x': {2, 3}})
 
     async def test_node_repr(self):
 

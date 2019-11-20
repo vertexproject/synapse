@@ -3,11 +3,144 @@ Synapse Changelog
 *****************
 
 
+v0.1.37 - 2019-11-19
+====================
+
+Features and Enhancements
+-------------------------
+- Allow CryoCell and CryoTank Telepath APIs to be overridden by subclasses.
+  (`#1426 <https://github.com/vertexproject/synapse/pull/1426>`_)
+- Add ``.has()`` method to the Set Stormtype to allow for set membership checking.
+  (`#1429 <https://github.com/vertexproject/synapse/pull/1429>`_)
+- Set map_async to True for Cryotank slabs.
+  (`#1427 <https://github.com/vertexproject/synapse/pull/1427>`_)
+- Push the Cryotank conf value into the lmdbslab ``**kwargs``.
+  (`#1427 <https://github.com/vertexproject/synapse/pull/1427>`_)
+- Add user defined functions to Storm.
+  (`#1419 <https://github.com/vertexproject/synapse/pull/1419>`_)
+- Add packages to Storm, which may define importable command blocks or pure Storm commands.  Storm services no longer
+  deliver commands via a separate data structure and must deliver then via Storm packages.
+  (`#1419 <https://github.com/vertexproject/synapse/pull/1419>`_)
+  (`#1430 <https://github.com/vertexproject/synapse/pull/1430>`_)
+- Allow StormSvc's to deliver packages as part of their service configuration.
+  (`#1419 <https://github.com/vertexproject/synapse/pull/1419>`_)
+- Add setitem support to StormTypes.
+  (`#1419 <https://github.com/vertexproject/synapse/pull/1419>`_)
+
+Bugfixes
+--------
+- Fix a bug in the CryoCell ``__anit__`` call signature. Fix the CryoCell ``getCellApi()`` method to use referneces to
+  ``self`` instead of direct classes to resolved Telepath APIs.
+  (`#1426 <https://github.com/vertexproject/synapse/pull/1426>`_)
+- Fix variable scoping issue with Pure Storm commands.
+  (`#1419 <https://github.com/vertexproject/synapse/pull/1419>`_)
+- Fix variale scoping issue for Storm init and fini blocks by restricting them to only be runtsafe.
+  (`#1419 <https://github.com/vertexproject/synapse/pull/1419>`_)
+- Fix edit block order of operations issue.
+  (`#1419 <https://github.com/vertexproject/synapse/pull/1419>`_)
+
+
+v0.1.36 - 2019-11-07
+====================
+
+Features and Enhancements
+-------------------------
+- Add support for single quoted strings to the Storm ``switch`` case labels.
+  (`#1424 <https://github.com/vertexproject/synapse/pull/1424>`_)
+- Add StormSvc addition and deletion hooks so that a StormSvc can define commands that are executed when a service is
+  added to a Cortex or removed from a Cortex.
+  (`#1417 <https://github.com/vertexproject/synapse/pull/1417>`_)
+
+Bugfixes
+--------
+- Protect the ``Snap.addFeedNodes()`` API from a function ctor which isn't does not return an async generator.
+  (`#1421 <https://github.com/vertexproject/synapse/pull/1421>`_)
+- Fix an ambiguity in the Storm ``switch`` grammar which could have produced inconsistent results.
+  (`#1422 <https://github.com/vertexproject/synapse/pull/1422>`_)
+- Migrate stored trigger views to the new view iden.
+  (`#1423 <https://github.com/vertexproject/synapse/pull/1423>`_)
+
+
+v0.1.35 - 2019-11-01
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``:place`` secondary propeerties on forms with ``:latlong`` secondary properties to allow linking nodes to
+  ``geo:place`` nodes.
+  (`#1416 <https://github.com/vertexproject/synapse/pull/1416>`_)
+- Add a ``geo:bbox`` type to the datamodel to record a rectangular latitude and longitude bounding box, and a ``:bbox``
+  secondary property to ``geo:place`` nodes.
+  (`#1416 <https://github.com/vertexproject/synapse/pull/1416>`_)
+- Add ``init`` and ``fini`` Storm blocks, which can contain Storm which is executed **before** and **after** any nodes
+  would have been consumed.
+  (`#1418 <https://github.com/vertexproject/synapse/pull/1418>`_)
+- Add ``$lib.stats.tally()`` to Storm Types. This gets a ``Tally`` object that can currently be used to increment named
+  counts.
+  (`#1418 <https://github.com/vertexproject/synapse/pull/1418>`_)
+
+Bugfixes
+--------
+- Storm Service call timeouts produced an unclear TimeoutError for users. This has been replaced with a
+  StormRuntimeError.
+  (`#1415 <https://github.com/vertexproject/synapse/pull/1415>`_)
+
+
+v0.1.34 - 2019-10-30
+====================
+
+Bugfixes
+--------
+- Fix an issue where Storm Edit blocks could encounter exponential processing time when performing Storm query parsing.
+  (`#1414 <https://github.com/vertexproject/synapse/pull/1414>`_)
+- Fix an issue where the ``Cortex.getView()`` function did not return the default View when the Cortex iden was
+  provided as the ``iden`` argument.
+  (`#1414 <https://github.com/vertexproject/synapse/pull/1414>`_)
+
+
+v0.1.33 - 2019-10-29
+====================
+
+Features and Enhancements
+-------------------------
+- Allow variables to be used when dereferencing values inside of Storm.and
+  (`#1405 <https://github.com/vertexproject/synapse/pull/1405>`_)
+- Add ``$lib.feed.list()``, ``$lib.feed.ingest()``, and ``$lib.feed.genr()`` to StormTypes. These expose ingest
+  functions registered on a Cortex to Storm. The ``feed.list`` Storm command can be used to easily list feed functions.
+  (`#1408 <https://github.com/vertexproject/synapse/pull/1408>`_)
+  (`#1411 <https://github.com/vertexproject/synapse/pull/1411>`_)
+- Make the Cortex, View and Layer iden values unique.
+  (`#1402 <https://github.com/vertexproject/synapse/pull/1402>`_)
+- Allow objects (Views and Layers) to enforce permissions on themselves, as opposed to globally on a Cortex.
+  (`#1384 <https://github.com/vertexproject/synapse/pull/1384>`_)
+- Harmonized methods which take permissions - some took a tuple, some took `*path` arguments. Now, all methods take a
+  tuple for permissions.
+  (`#1384 <https://github.com/vertexproject/synapse/pull/1384>`_)
+- Add support for the ``yield`` keyword in Storm to allow it to yield values which come from a binary buid, a Node iden,
+  a raw Node object; or a an (async) generator which produces the previous values. This allows ``$lib.*`` functions to
+  be written which can inject Nodes into the Storm pipeline.
+  (`#1409 <https://github.com/vertexproject/synapse/pull/1409>`_)
+
+Bugfixes
+--------
+- Fix whitespace bug in Edit Parenthesis Storm grammer.
+  (`#1407 <https://github.com/vertexproject/synapse/pull/1407>`_)
+- Fix bug in the runt nodes representing triggers in a Cortex.
+  (`#1406 <https://github.com/vertexproject/synapse/pull/1406>`_)
+- Fix the Storm Edit Parenthesis behavior to allow the first EditNodeAdd AST element to support variables.
+  (`#1412 <https://github.com/vertexproject/synapse/pull/1412>`_)
+- Allow values referenced off of a Node, which are not set on the Node, to be emitted through the ``$lib.csv.emit()``
+  function.  These will be serialied with the ``synapse.tools.csvtool`` as zero length strings.
+  (`#1413 <https://github.com/vertexproject/synapse/pull/1413>`_)
+- Allow ``synapse.tools.cellauth`` to work with older Synapse Cells which do not support the auth apis introduced
+  in #1384.
+  (`#1410 <https://github.com/vertexproject/synapse/pull/1410>`_)
+
 v0.1.32 - 2019-10-22
 ====================
 
-Feature
---------
+Features and Enhancements
+-------------------------
 - Add some asyncio friendly multiprocessing helpers for future use.
   (`#1397 <https://github.com/vertexproject/synapse/pull/1397>`_)
 - Add initial support for ``syn:cron`` runtime only nodes to represent Cron tasks configured on a Cortex.
@@ -27,8 +160,8 @@ Bugfixes
 v0.1.31 - 2019-10-11
 ====================
 
-Feature
---------
+Features and Enhancements
+-------------------------
 - Allow a user to change their password via Telepath or HTTPAPI.
   (`#1394 <https://github.com/vertexproject/synapse/pull/1394>`_)
 - Add the option to print rules related to a user's roles to the ``synapse.tools.cellauth`` tool.
@@ -65,8 +198,8 @@ Improved Documentation
 v0.1.30 - 2019-10-04
 ====================
 
-Feature
---------
+Features and Enhancements
+-------------------------
 - Make the Telepath ``Proxy`` link pool size configurable, and expose that as a configuration value on the Telepath
   ``Client``.
   (`#1389 <https://github.com/vertexproject/synapse/pull/1389>`_)
