@@ -90,7 +90,7 @@ class Snap(s_base.Base):
 
     async def getCoreAxon(self):
         await self.core.axready.wait()
-        return self.runt.snap.core.axon
+        return self.core.axon
 
     async def addStormSvc(self, sdef):
         return await self.core.addStormSvc(sdef)
@@ -107,13 +107,16 @@ class Snap(s_base.Base):
     def getStormCmd(self, name):
         return self.core.getStormCmd(name)
 
-    async def addCoreQueue(self, name):
-        info = {'user': self.user.iden, 'time': s_common.now()}
-        self.core.multiqueue.add(name, info)
-        return info
+    async def addCoreQueue(self, name, info):
+        info['user'] = self.user.iden
+        info['time'] = s_common.now()
+        return await self.core.addCoreQueue(name, info)
 
     async def getCoreQueue(self, name):
         return await self.core.getCoreQueue(name)
+
+    async def hasCoreQueue(self, name):
+        return await self.core.hasCoreQueue(name)
 
     async def delCoreQueue(self, name):
         return await self.core.delCoreQueue(name)
@@ -126,16 +129,13 @@ class Snap(s_base.Base):
 
     async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
         async for item in self.core.getsCoreQueue(name, offs, cull=cull, wait=wait, size=size):
-        #async for item in mque.gets(name, offs, cull=cull, wait=wait, size=size):
             yield item
 
     async def putsCoreQueue(self, name, items):
         return await self.core.putsCoreQueue(name, items)
-        #return self.runt.snap.core.multiqueue.puts(name, items)
 
     async def putCoreQueue(self, name, item):
         return await self.core.putCoreQueue(name, item)
-        #return self.runt.snap.core.multiqueue.put(name, item)
 
     def getStormVars(self):
         return self.core.stormvars

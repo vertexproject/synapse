@@ -363,7 +363,7 @@ class Runtime:
 
         '''
         if self._allowed(perms):
-            return
+            return True
 
         perm = '.'.join(perms)
         mesg = f'User must have permission {perm}'

@@ -522,7 +522,7 @@ class LibQueue(Lib):
 
     async def _methQueueAdd(self, name):
         self.runt.reqAllowed(('storm', 'queue', 'add'))
-        info = await self.runt.snap.addCoreQueue(name)
+        info = await self.runt.snap.addCoreQueue(name, {})
         return Queue(self.runt, name, info)
 
     async def _methQueueGet(self, name):
@@ -536,18 +536,19 @@ class LibQueue(Lib):
 
     async def _methQueueDel(self, name):
 
-        info = await self.runt.snap.getCoreQueue(name)
-        if info is None:
+        if not await self.runt.snap.hasCoreQueue(name):
             mesg = f'No queue named {name} exists.'
             raise s_exc.NoSuchName(mesg=mesg)
+
+        info = await self.runt.snap.getCoreQueue(name)
 
         if (info.get('user') == self.runt.user.iden or
             self.runt.reqAllowed(('storm', 'queue', 'del', name))):
             await self.runt.snap.delCoreQueue(name)
 
     async def _methQueueList(self):
-        self.runt.reqAllowed(('storm', 'lib', 'queue', 'list'))
-        return self.runt.snap.getCoreQueues()
+        self.runt.reqAllowed(('storm', 'queue', 'list'))
+        return await self.runt.snap.getCoreQueues()
 
 class Queue(StormType):
     '''
@@ -570,14 +571,14 @@ class Queue(StormType):
         })
 
     async def _methQueueCull(self, offs):
-        await self.reqAllowed(('storm', 'queue', self.name, 'get'))
+        self.reqAllowed(('storm', 'queue', self.name, 'get'))
 
         offs = intify(offs)
-        self.runt.snap.cullCoreQueue(self.name, offs)
+        await self.runt.snap.cullCoreQueue(self.name, offs)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=True, size=None):
 
-        await self.reqAllowed(('storm', 'queue', self.name, 'get'))
+        self.reqAllowed(('storm', 'queue', self.name, 'get'))
 
         wait = intify(wait)
         cull = intify(cull)
@@ -590,17 +591,17 @@ class Queue(StormType):
             yield item
 
     async def _methQueuePuts(self, items, wait=False):
-        await self.allowed('storm', 'queue', self.name, 'put')
-        return self.runt.snap.putsCoreQueue(name, items)
+        self.reqAllowed(('storm', 'queue', self.name, 'put'))
+        return await self.runt.snap.putsCoreQueue(self.name, items)
 
-    async def reqAllowed(self, perm):
+    def reqAllowed(self, perm):
         if self.info.get('user') == self.runt.user.iden:
             return
-        await self.runt.reqAllowed(perm)
+        self.runt.reqAllowed(perm)
 
     async def _methQueueGet(self, offs=0, wait=True, cull=True):
 
-        await self.reqAllowed(('storm', 'queue', self.name, 'get'))
+        self.reqAllowed(('storm', 'queue', self.name, 'get'))
 
         offs = intify(offs)
         wait = intify(wait)
@@ -610,8 +611,8 @@ class Queue(StormType):
             return item
 
     async def _methQueuePut(self, item):
-        await self.allowed('storm', 'queue', self.name, 'put')
-        return self.runt.snap.putCoreQueue(name, item)
+        self.reqAllowed(('storm', 'queue', self.name, 'put'))
+        return await self.runt.snap.putCoreQueue(self.name, item)
 
 class LibTelepath(Lib):
 

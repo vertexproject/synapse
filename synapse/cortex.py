@@ -710,12 +710,12 @@ class CoreApi(s_cell.CellApi):
             yield item
 
     @s_cell.adminapi
-    async def hasCoreQueue(self, name):
-        return await self.cell.hasCoreQueue(name)
+    async def addCoreQueue(self, name, info):
+        return await self.cell.addCoreQueue(name, info)
 
     @s_cell.adminapi
-    async def addCoreQueue(self, name):
-        return await self.cell.addCoreQueue(name)
+    async def hasCoreQueue(self, name):
+        return await self.cell.hasCoreQueue(name)
 
     @s_cell.adminapi
     async def delCoreQueue(self, name):
@@ -728,6 +728,23 @@ class CoreApi(s_cell.CellApi):
     @s_cell.adminapi
     async def getCoreQueues(self):
         return await self.cell.getCoreQueues()
+
+    @s_cell.adminapi
+    async def coreQueueGets(self, name, offs=0, wait=True, cull=True, size=None):
+        async for item in self.cell.coreQueueGets(name, offs=offs, wait=wait, cull=cull, size=size):
+            yield item
+
+    @s_cell.adminapi
+    async def putCoreQueue(self, name, item):
+        return await self.cell.putCoreQueue(name, item)
+
+    @s_cell.adminapi
+    async def putsCoreQueue(self, name, items):
+        return await self.cell.putsCoreQueue(name, items)
+
+    @s_cell.adminapi
+    async def cullCoreQueue(self, name, offs):
+        return await self.cell.cullCoreQueue(name, offs)
 
 class Cortex(s_cell.Cell):
     '''
@@ -1015,11 +1032,12 @@ class Cortex(s_cell.Cell):
 
         self.multiqueue = slab.getMultiQueue('cortex:queue')
 
+    async def addCoreQueue(self, name, info):
+        self.multiqueue.add(name, info)
+        return info
+
     async def hasCoreQueue(self, name):
         return self.multiqueue.exists(name)
-
-    async def addCoreQueue(self, name):
-        return self.multiqueue.add(name)
 
     async def delCoreQueue(self, name):
         return await self.multiqueue.rem(name)
@@ -1029,6 +1047,19 @@ class Cortex(s_cell.Cell):
 
     async def getCoreQueues(self):
         return self.multiqueue.list()
+
+    async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
+        async for item in self.multiqueue.gets(name, offs, cull=cull, wait=wait, size=size):
+            yield item
+
+    async def putCoreQueue(self, name, item):
+        return self.multiqueue.put(name, item)
+
+    async def putsCoreQueue(self, name, items):
+        return self.multiqueue.puts(name, items)
+
+    async def cullCoreQueue(self, name, offs):
+        return await self.multiqueue.cull(name, offs)
 
     async def setStormCmd(self, cdef):
         '''
