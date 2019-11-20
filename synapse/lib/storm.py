@@ -433,7 +433,7 @@ class Runtime:
 
     async def propBackGlobals(self, runt):
         for name in runt.globals:
-            if name in self.modulefuncs:
+            if name in self.modulefuncs or name == 'lib':
                 # don't override our parent's version of a function
                 continue
             self.vars[name] = runt.vars[name]

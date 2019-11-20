@@ -2961,6 +2961,7 @@ class Function(AstNode):
 
         async def nodegenr():
             async for node, path in self.kids[2].run(funcrunt, agen()):
+                await runt.propBackGlobals(funcrunt)
                 yield node
 
         return nodegenr()

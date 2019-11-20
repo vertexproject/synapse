@@ -68,6 +68,23 @@ foo_stormpkg = {
             }
             ''',
         },
+        {
+            'name': 'yieldsforever',
+            'storm': '''
+            $splat = 18
+            function rockbottom(arg1) {
+                [test:str = $arg1]
+            }
+
+            function middlechild(arg2) {
+                yield $rockbottom($arg2)
+            }
+
+            function yieldme(arg3) {
+                yield $middlechild($arg3)
+            }
+            ''',
+        },
     ],
     'commands': [
         {
@@ -828,6 +845,7 @@ class AstTest(s_test.SynTest):
             $lib.print($hehe)
             $retn = $lib.import(importnest).outer(True, $(90))
             $lib.print($retn)
+            $lib.print("counter is {c}", c$counter)
             '''
             msgs = await core.streamstorm(q).list()
             prints = list(filter(lambda m: m[0] == 'print', msgs))
@@ -841,6 +859,44 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('counter is 0', msgs)
             self.stormIsInPrint('foobar is 90', msgs)
             self.stormIsInPrint('(Run: 0) we got back foo', msgs)
+
+            # yields all the way down, no imports
+            q = '''
+            $count = 0
+            function baz(arg3) {
+                [ test:str = $arg3 ]
+                $count = $( $count + 1)
+                [ test:str = "cool" ]
+            }
+
+            function bar(arg2) {
+                yield $baz($arg2)
+            }
+
+            function foo(arg1) {
+                yield $bar($arg1)
+            }
+
+            yield $foo("bleeeergh")
+            yield $foo("bloooop")
+            $lib.print("nodes added: {c}", c=$count)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('nodes added: 1', msgs)
+            self.stormIsInPrint('nodes added: 2', msgs)
+
+            # yields across an import boundary
+            q = '''
+            $test = $lib.import(yieldsforever)
+            yield $test.yieldme("yieldsforimports")
+            $lib.print($node.value())
+            $lib.print("splat shouldn't exist, but we got {s}", s=$splat)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('yieldsforimports', msgs)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'NoSuchVar')
+            self.eq(erfo[1][1].get('name'), 'splat')
 
             # Too few args are problematic
             q = '''
