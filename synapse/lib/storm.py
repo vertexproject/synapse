@@ -239,6 +239,9 @@ class Runtime:
         for name in self.ctors.keys():
             self.varscope[name] = {'runtsafe': True}
 
+        self.varscope['node'] = {'runtsafe': False}
+        self.varscope['path'] = {'runtsafe': False}
+
         self.proxies = {}
         self.elevated = False
 
