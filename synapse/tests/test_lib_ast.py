@@ -842,7 +842,6 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('foobar is 90', msgs)
             self.stormIsInPrint('(Run: 0) we got back foo', msgs)
 
-
             # Too few args are problematic
             q = '''
             $test=$lib.import(test)
