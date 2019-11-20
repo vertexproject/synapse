@@ -824,6 +824,9 @@ class Set(Prim):
             'size': self._methSetSize,
         })
 
+    def __len__(self):
+        return len(self.valu)
+
     def __iter__(self):
         for item in self.valu:
             yield item
@@ -833,7 +836,7 @@ class Set(Prim):
             yield item
 
     async def _methSetSize(self):
-        return len(self.valu)
+        return len(self)
 
     async def _methSetHas(self, item):
         return item in self.valu
@@ -866,6 +869,17 @@ class List(Prim):
             'append': self._methListAppend,
         })
 
+    def __len__(self):
+        return len(self.valu)
+
+    def __iter__(self):
+        for item in self.valu:
+            yield item
+
+    async def __aiter__(self):
+        for item in self:
+            yield item
+
     async def _methListAppend(self, valu):
         self.valu.append(valu)
 
@@ -887,7 +901,7 @@ class List(Prim):
         return len(self.valu)
 
     async def _methListSize(self):
-        return len(self.valu)
+        return len(self)
 
 class StormHiveDict(Prim):
     # A Storm API for a HiveDict
