@@ -226,6 +226,7 @@ class LibBase(Lib):
             'dict': self._dict,
             'guid': self._guid,
             'fire': self._fire,
+            'list': self._list,
             'text': self._text,
             'print': self._print,
             'sorted': self._sorted,
@@ -259,6 +260,10 @@ class LibBase(Lib):
 
     async def _set(self, *vals):
         return Set(set(vals))
+
+    async def _list(self, *vals):
+        valu = [toprim(valu) for val in vals]
+        return List(valu)
 
     async def _text(self, *args):
         valu = ''.join(args)
