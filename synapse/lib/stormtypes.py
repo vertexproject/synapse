@@ -1172,6 +1172,8 @@ class PathVars(Prim):
 
     async def setitem(self, name, valu):
         self.path.setVar(name, valu)
+        # if the runtime doesn't have this var yet
+        self.path.runt.setVarScope(name, runtsafe=False)
 
     def __iter__(self):
         # prevent "edit while iter" issues

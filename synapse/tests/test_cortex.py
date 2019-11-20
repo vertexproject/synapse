@@ -3639,10 +3639,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.stormIsInPrint('(wootdmon            ): running', msgs)
 
             # make the dmon blow up
-            await core.nodes('''
-                $lib.queue.get(boom).put(hehe)
-                for ($offs, $item) in $q.gets(size=1) { $q.cull($offs) }
-            ''')
+            await core.nodes('$lib.queue.get(boom).put(hehe)')
             msgs = await core.streamstorm('dmon.list').list()
             self.stormIsInPrint('(wootdmon            ): error', msgs)
 

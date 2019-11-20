@@ -2564,26 +2564,25 @@ class EditNodeAdd(Edit):
         # case 2: <query> [ foo:bar=($node, 20) ]
         # case 2: <query> $blah=:baz [ foo:bar=($blah, 20) ]
 
-        if not self.isruntsafe(runt):
+        once = True
+        async for node, path in genr:
 
-            first = True
-            async for node, path in genr:
+            if once:
+                runt.reqLayerAllowed(('node:add', self.name))
+                runtsafe = self.isruntsafe(runt)
+                once = False
 
-                # must reach back first to trigger sudo / etc
-                if first:
-                    runt.reqLayerAllowed(('node:add', self.name))
-                    first = False
-
+            if not runtsafe:
                 # must use/resolve all variables from path before yield
                 async for item in self.addFromPath(path):
                     yield item
 
-                yield node, path
+            yield node, path
 
-        else:
+        if once:
+            runtsafe = self.isruntsafe(runt)
 
-            async for node, path in genr:
-                yield node, path
+        if runtsafe:
 
             runt.reqLayerAllowed(('node:add', self.name))
 
@@ -2903,8 +2902,9 @@ class Function(AstNode):
             path.setVar(self.name, realfunc)
             yield node, path
 
-    def getRuntVars(self, runt):
-        yield self.kids[0].value()
+    def getScopeVars(self, runt):
+        name = self.kids[0].value()
+        yield (name, {'runtsafe': True})
 
     async def callfunc(self, runt, args, kwargs):
         '''

@@ -249,6 +249,10 @@ class Runtime:
         self._graph_done = {}
         self._graph_want = collections.deque()
 
+    def setVarScope(self, name, **info):
+        info.setdefault('runtsafe', False)
+        self.varscope[name] = info
+
     def getStormMod(self, name):
         return self.snap.getStormMod(name)
 
