@@ -75,6 +75,10 @@ class Snap(s_base.Base):
         self.buidcache = collections.deque(maxlen=100000)  # Keeps alive the most recently accessed node objects
         self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
 
+        def onprint(event):
+            self.core.prints.append(event)
+        self.on('print', onprint)
+
         self.onfini(self.stack.close)
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
@@ -88,6 +92,7 @@ class Snap(s_base.Base):
             user = self.user
 
         runt = s_storm.Runtime(self, opts=opts, user=user)
+        runt.isModuleRunt = True
         self.core.stormrunts[runt.iden] = runt
         yield runt
         self.core.stormrunts.pop(runt.iden, None)

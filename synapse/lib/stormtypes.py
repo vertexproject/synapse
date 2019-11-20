@@ -55,7 +55,6 @@ class StormType:
         raise s_exc.StormRuntimeError(mesg=mesg)
 
     async def deref(self, name):
-
         locl = self.locls.get(name, s_common.novalu)
         if locl is not s_common.novalu:
             return locl
@@ -240,17 +239,18 @@ class LibBase(Lib):
             raise s_exc.NoSuchName(mesg=mesg, name=name)
 
         text = mdef.get('storm')
+
         query = await self.runt.getStormQuery(text)
-        runt = await self.runt.getScopeRuntime(query)
+        runt = await self.runt.getScopeRuntime(query, imported=True)
 
         # execute the query in a module scope
         async for item in query.run(runt, s_ast.agen()):
             pass  # pragma: no cover
 
+        runt.isModuleRunt = True
         modlib = Lib(self.runt)
         modlib.locls.update(runt.vars)
         modlib.locls['__module__'] = mdef
-
         return modlib
 
     async def _sorted(self, valu):

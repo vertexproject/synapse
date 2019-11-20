@@ -234,8 +234,8 @@ class Runtime:
         self.runtvars = set()
         self.runtvars.update(self.vars.keys())
         self.runtvars.update(self.ctors.keys())
-
-        self.runtfuncs = set()
+        self.isModuleRunt = False
+        self.globals = set()
 
         self.proxies = {}
         self.elevated = False
@@ -375,8 +375,6 @@ class Runtime:
         # do a quick pass to determine which vars are per-node.
         for oper in query.kids:
             for name in oper.getRuntVars(self):
-                if isinstance(oper, s_ast.Function):
-                    self.runtfuncs.add(name)
                 self.runtvars.add(name)
 
     async def iterStormQuery(self, query, genr=None):
@@ -394,14 +392,25 @@ class Runtime:
                 self.tick()
                 yield node, path
 
-    async def getScopeRuntime(self, query, opts=None):
+    async def getScopeRuntime(self, query, opts=None, imported=False):
         runt = Runtime(self.snap, user=self.user, opts=opts)
+        if not imported:
+            if self.isModuleRunt:
+                # have the parent scope smash it's vars in first
+                runt.globals = set(self.runtvars)
+                runt.vars.update(self.vars)
+                runt.runtvars.update(self.runtvars)
+            else:
+                # pass down the globals you were handed
+                runt.globals = set(self.globals)
+                for name in self.globals:
+                    runt.vars[name] = self.vars[name]
         runt.loadRuntVars(query)
-        for name in self.runtfuncs:
-            runt.runtfuncs.add(name)
-            runt.vars[name] = self.vars.get(name)
-            runt.runtvars.add(name)
         return runt
+
+    async def propBackGlobals(self, runt):
+        for name in runt.globals:
+            self.vars[name] = runt.vars[name]
 
 class Parser(argparse.ArgumentParser):
 
