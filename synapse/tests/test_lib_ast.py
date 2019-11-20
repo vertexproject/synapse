@@ -42,11 +42,6 @@ foo_stormpkg = {
             $counter = 0
             $foobar = 0
 
-            function allthethings(arg5) {
-                [ test:str = $arg5 ]
-                return ("foobar")
-            }
-
             function inner(arg2, add) {
                 $foobar = $( $foobar + $add )
                 $lib.print('counter is {c}', c=$counter)

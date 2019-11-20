@@ -402,7 +402,7 @@ class Runtime:
         runt.isImport = impd
         if not impd:  # respect the import boundary
 
-            # if we are a top level module with globals we need to push down
+            # if we are a top level module we need to
             # push down our runtvars
             if self.isModuleRunt:
                 for name in self.runtvars:
@@ -413,7 +413,7 @@ class Runtime:
                         runt.runtvars.add(name)
                         runt.vars[name] = self.vars[name]
 
-            # propagate down all the global variables and module level functions
+            # propagate down all the global variables
             for name in self.globals:
                 if name not in self.modulefuncs and name != 'lib':
                     runt.vars[name] = self.vars[name]
@@ -421,7 +421,9 @@ class Runtime:
                     runt.runtvars.add(name)
 
             # regardless of module level, we have to reload the module functions
-            # we were given so they run with the right runt
+            # we were given so they run with the right runt. We need this so we have
+            # the whole function telescoping going on, and module level variables get
+            # set to the right values
             runt.modulefuncs = dict(self.modulefuncs)
             for name, oper in self.modulefuncs.items():
                 runt.runtvars.add(name)
