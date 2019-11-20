@@ -235,7 +235,9 @@ class Runtime:
         self.runtvars.update(self.vars.keys())
         self.runtvars.update(self.ctors.keys())
         self.isModuleRunt = False
+        self.isImport = False
         self.globals = set()
+        self.modulefuncs = {}
 
         self.proxies = {}
         self.elevated = False
@@ -375,6 +377,8 @@ class Runtime:
         # do a quick pass to determine which vars are per-node.
         for oper in query.kids:
             for name in oper.getRuntVars(self):
+                if self.isModuleRunt and isinstance(oper, s_ast.Function):
+                    self.modulefuncs[name] = oper
                 self.runtvars.add(name)
 
     async def iterStormQuery(self, query, genr=None):
@@ -392,24 +396,46 @@ class Runtime:
                 self.tick()
                 yield node, path
 
-    async def getScopeRuntime(self, query, opts=None, imported=False):
+    async def getScopeRuntime(self, query, opts=None, impd=False, modl=False):
         runt = Runtime(self.snap, user=self.user, opts=opts)
-        if not imported:
+        runt.isModuleRunt = modl
+        runt.isImport = impd
+        if not impd:  # respect the import boundary
+
+            # if we are a top level module with globals we need to push down
+            # push down our runtvars
             if self.isModuleRunt:
-                # have the parent scope smash it's vars in first
-                runt.globals = set(self.runtvars)
-                runt.vars.update(self.vars)
-                runt.runtvars.update(self.runtvars)
-            else:
-                # pass down the globals you were handed
-                runt.globals = set(self.globals)
-                for name in self.globals:
+                for name in self.runtvars:
+                    if name not in self.vars:
+                        continue
+                    if name not in self.modulefuncs and name != 'lib':
+                        runt.globals.add(name)
+                        runt.runtvars.add(name)
+                        runt.vars[name] = self.vars[name]
+
+            # propagate down all the global variables and module level functions
+            for name in self.globals:
+                if name not in self.modulefuncs and name != 'lib':
                     runt.vars[name] = self.vars[name]
+                    runt.globals.add(name)
+                    runt.runtvars.add(name)
+
+            # regardless of module level, we have to reload the module functions
+            # we were given so they run with the right runt
+            runt.modulefuncs = dict(self.modulefuncs)
+            for name, oper in self.modulefuncs.items():
+                runt.runtvars.add(name)
+                async for item in oper.run(runt, s_ast.agen()):
+                    pass  # pragma: no cover
+
         runt.loadRuntVars(query)
         return runt
 
     async def propBackGlobals(self, runt):
         for name in runt.globals:
+            if name in self.modulefuncs:
+                # don't override our parent's version of a function
+                continue
             self.vars[name] = runt.vars[name]
 
 class Parser(argparse.ArgumentParser):

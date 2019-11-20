@@ -47,13 +47,8 @@ foo_stormpkg = {
                 return ("foobar")
             }
 
-            function noret(arg3) {
-                $lib.print("called noret")
-                $counter = $( $counter + 1 )
-            }
-
-            function inner(arg2) {
-                $foobar = $( $foobar + 2 )
+            function inner(arg2, add) {
+                $foobar = $( $foobar + $add )
                 $lib.print('counter is {c}', c=$counter)
                 if $( $arg2 ) {
                     $retn = "foo"
@@ -63,11 +58,11 @@ foo_stormpkg = {
                 return ($retn)
             }
 
-            function outer(arg1) {
+            function outer(arg1, add) {
                 $strbase = $lib.str.format("(Run: {c}) we got back ", c=$counter)
-                $reti = $inner($arg1)
+                $reti = $inner($arg1, $add)
                 $mesg = $lib.str.concat($strbase, $reti)
-                $counter = $( $counter + 1 )
+                $counter = $( $counter + $add )
                 $lib.print("foobar is {foobar}", foobar=$foobar)
                 return ($mesg)
             }
@@ -611,74 +606,6 @@ class AstTest(s_test.SynTest):
     async def test_function(self):
         async with self.getTestCore() as core:
             await core.addStormPkg(foo_stormpkg)
-            # module level global variables should be accessible to chained functions
-            q = '''
-            $biz = 0
-
-            function bar() {
-                $var1 = "subwoot"
-                $var2 = "neato burrito"
-                $biz = $( $biz + 10 )
-                $lib.print($var2)
-                return ("done")
-            }
-
-            function foo() {
-                $var1 = "doublewoot"
-                $retn = $bar()
-                $retn2 = $bar()
-                $lib.print($var1)
-                $lib.print("biz is now {biz}", biz=$biz)
-                $lib.print($retn2)
-                return ($retn)
-            }
-            $lib.print($foo())
-            '''
-            msgs = await core.streamstorm(q).list()
-            prints = list(filter(lambda m: m[0] == 'print', msgs))
-            self.len(4, prints)
-            self.stormIsInPrint("neato burrito", msgs)
-            self.stormIsInPrint("done", msgs)
-            self.stormIsInPrint("doublewoot", msgs)
-            self.stormIsInPrint("biz is now 10", msgs)
-
-            # call an import and have it's module local variables be mapped in to its own scope
-            q = '''
-            $test = $lib.import(importnest)
-            $haha = $test.outer(False)
-            $lib.print($haha)
-            $hehe = $test.outer(True)
-            $lib.print($hehe)
-            $retn = $lib.import(importnest).outer(True)
-            $lib.print($retn)
-            '''
-            msgs = await core.streamstorm(q).list()
-            prints = list(filter(lambda m: m[0] == 'print', msgs))
-            self.len(6, prints)
-            self.stormIsInPrint('counter is 0', msgs)
-            self.stormIsInPrint('(Run: 0) we got back bar', msgs)
-            self.stormIsInPrint('counter is 1', msgs)
-            self.stormIsInPrint('(Run: 1) we got back foo', msgs)
-            self.stormIsInPrint('counter is 0', msgs)
-            self.stormIsInPrint('(Run: 0) we got back foo', msgs)
-
-            # closures
-            q = '''
-            $testvar = 99
-            function foo() {
-                $wat = 9
-                function bar() {
-                    $lib.print($wat)
-                    $testvar = 98
-                    return "look ma, closures"
-                }
-
-                return $wat()
-            }
-            $lib.print($foo())
-            $lib.print("testvar is {testvar}", testvar=$testvar)
-            '''
-            msgs = await core.streamstorm(q).list()
 
             # No arguments
             q = '''
@@ -829,6 +756,41 @@ class AstTest(s_test.SynTest):
                 self.stormIsInPrint(out, msgs)
                 self.eq(out, prints[idx][1]['mesg'])
 
+            # module level global variables should be accessible to chained functions
+            q = '''
+            $biz = 0
+
+            function bar() {
+                $var1 = "subwoot"
+                $var2 = "neato burrito"
+                $biz = $( $biz + 10 )
+                $lib.print($var2)
+                return ("done")
+            }
+
+            function boop() {
+                $retz = $bar()
+                return ($retz)
+            }
+
+            function foo() {
+                $var1 = "doublewoot"
+                $retn = $bar()
+                $lib.print($var1)
+                return ($retn)
+            }
+            $lib.print($foo())
+            $lib.print($boop())
+            $lib.print("biz is now {biz}", biz=$biz)
+            '''
+            msgs = await core.streamstorm(q).list()
+            prints = list(filter(lambda m: m[0] == 'print', msgs))
+            self.len(6, prints)
+            self.stormIsInPrint("neato burrito", msgs)
+            self.stormIsInPrint("done", msgs)
+            self.stormIsInPrint("doublewoot", msgs)
+            self.stormIsInPrint("biz is now 20", msgs)
+
             # test that we the functions in a module don't pollute our own runts
             q = '''
             $test=$lib.import(test)
@@ -856,6 +818,30 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('hehe', msgs)
             self.stormIsInPrint('arg1=hehe', msgs)
             self.stormIsInPrint('arg2=hehe', msgs)
+
+            # call an import and have it's module local variables be mapped in to its own scope
+            q = '''
+            $test = $lib.import(importnest)
+            $haha = $test.outer(False, $(33))
+            $lib.print($haha)
+            $hehe = $test.outer(True, $(17))
+            $lib.print($hehe)
+            $retn = $lib.import(importnest).outer(True, $(90))
+            $lib.print($retn)
+            '''
+            msgs = await core.streamstorm(q).list()
+            prints = list(filter(lambda m: m[0] == 'print', msgs))
+            self.len(9, prints)
+            self.stormIsInPrint('counter is 0', msgs)
+            self.stormIsInPrint('foobar is 33', msgs)
+            self.stormIsInPrint('(Run: 0) we got back bar', msgs)
+            self.stormIsInPrint('counter is 33', msgs)
+            self.stormIsInPrint('foobar is 50', msgs)
+            self.stormIsInPrint('(Run: 33) we got back foo', msgs)
+            self.stormIsInPrint('counter is 0', msgs)
+            self.stormIsInPrint('foobar is 90', msgs)
+            self.stormIsInPrint('(Run: 0) we got back foo', msgs)
+
 
             # Too few args are problematic
             q = '''

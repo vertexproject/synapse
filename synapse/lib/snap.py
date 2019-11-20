@@ -75,10 +75,6 @@ class Snap(s_base.Base):
         self.buidcache = collections.deque(maxlen=100000)  # Keeps alive the most recently accessed node objects
         self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
 
-        def onprint(event):
-            self.core.prints.append(event)
-        self.on('print', onprint)
-
         self.onfini(self.stack.close)
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
