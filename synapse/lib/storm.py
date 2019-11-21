@@ -178,7 +178,7 @@ class StormDmon(s_base.Base):
 
         dmoniden = self.ddef.get('iden')
 
-        def _print(evnt):
+        def dmonPrint(evnt):
             mesg = evnt[1].get('mesg', '')
             logger.info(f'StormDmon - {dmoniden} - {mesg}')
 
@@ -188,7 +188,7 @@ class StormDmon(s_base.Base):
 
                 self.status = 'running'
                 async with await self.core.snap(user=self.user) as snap:
-                    snap.on('print', _print)
+                    snap.on('print', dmonPrint)
 
                     async for nodepath in snap.storm(text, opts=opts, user=self.user):
                         # all storm tasks yield often to prevent latency
