@@ -1039,25 +1039,26 @@ class AstTest(s_test.SynTest):
                     function lolol() {
                         $lib = "pure lulz"
                         $lolol = "don't do this"
-                        return ($lib)
+                        return ($lolol)
                     }
                     $neato = 0
                     $myvar = $lolol()
                     $lib.print($myvar)
                     '''
                     query = core.getStormQuery(q)
+                    runt.loadRuntVars(query)
                     async for item in query.run(runt, s_ast.agen()):
                         pass
-                    runt.runtvars.pop()
                     func = list(filter(lambda o: isinstance(o, s_ast.Function), query.kids))[0]
-                    funcrunt = await runt.getScopeRuntime(func)
-                    funcrunt.globals.add('lib')
+                    oldfunc = runt.vars['lolol']
+                    funcrunt = await runt.getScopeRuntime(func.kids[2])
+                    async for item in func.run(funcrunt, s_ast.agen()):
+                        pass
                     funcrunt.globals.add('nope')
-
+                    funcrunt.globals.add('lolol')
+                    self.eq(oldfunc, runt.vars['lolol'])
                     await runt.propBackGlobals(funcrunt)
-
                     self.notin('nope', runt.runtvars)
-                    self.notin('lib', runt.runtvars)
 
     async def test_ast_setitem(self):
 
