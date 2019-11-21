@@ -169,7 +169,7 @@ class StormDmon(s_base.Base):
 
         name = self.ddef.get('name', 'storm dmon')
 
-        await self.core.boss.promote('storm:dmon', user=self.user.iden, info={'iden': self.iden, 'name': name})
+        await self.core.boss.promote('storm:dmon', user=self.user, info={'iden': self.iden, 'name': name})
 
         s_scope.set('storm:dmon', self.iden)
 
@@ -178,12 +178,17 @@ class StormDmon(s_base.Base):
 
         dmoniden = self.ddef.get('iden')
 
+        def dmonPrint(evnt):
+            mesg = evnt[1].get('mesg', '')
+            logger.info(f'StormDmon - {dmoniden} - {mesg}')
+
         while not self.isfini:
 
             try:
 
                 self.status = 'running'
                 async with await self.core.snap(user=self.user) as snap:
+                    snap.on('print', dmonPrint)
 
                     async for nodepath in snap.storm(text, opts=opts, user=self.user):
                         # all storm tasks yield often to prevent latency
