@@ -880,6 +880,28 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('nodes added: 1', msgs)
             self.stormIsInPrint('nodes added: 2', msgs)
 
+            # make sure we can't override the base lib object
+            q = '''
+            function wat(arg1) {
+                $lib.print($arg1)
+                $lib.print("We should have inherited the one true lib")
+                return ("Hi :)")
+            }
+            function override() {
+                $lib = "The new lib"
+                $retn = $wat($lib)
+                return ($retn)
+            }
+
+            $lib.print($override())
+            $lib.print("NO OVERRIDES FOR YOU")
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('The new lib', msgs)
+            self.stormIsInPrint('We should have inherited the one true lib', msgs)
+            self.stormIsInPrint('Hi :)', msgs)
+            self.stormIsInPrint('NO OVERRIDES FOR YOU', msgs)
+
             # yields across an import boundary
             q = '''
             $test = $lib.import(yieldsforever)
