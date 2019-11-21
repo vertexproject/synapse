@@ -169,7 +169,7 @@ class StormDmon(s_base.Base):
 
         name = self.ddef.get('name', 'storm dmon')
 
-        await self.core.boss.promote('storm:dmon', user=self.user.iden, info={'iden': self.iden, 'name': name})
+        await self.core.boss.promote('storm:dmon', user=self.user, info={'iden': self.iden, 'name': name})
 
         s_scope.set('storm:dmon', self.iden)
 

@@ -3591,9 +3591,15 @@ class CortexBasicTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             async with await s_cortex.Cortex.anit(dirn) as core:
-                await core.nodes('$lib.queue.add(visi)')
-                ddef = {'storm': '$lib.queue.get(visi).put(done) for $tick in $lib.time.ticker(1) {}'}
-                await core.addStormDmon(ddef)
+                async with core.getLocalProxy() as prox:
+                    await core.nodes('$lib.queue.add(visi)')
+                    ddef = {'storm': '$lib.queue.get(visi).put(done) for $tick in $lib.time.ticker(1) {}'}
+                    dmon = await core.addStormDmon(ddef)
+                    # Storm dmons are promoted as tasks
+                    retn = await prox.ps()
+                    dmon_tasks = [task for task in retn if task.get('name') == 'storm:dmon']
+                    self.len(1, dmon_tasks)
+                    self.eq(dmon_tasks[0].get('info').get('iden'), dmon.iden)
 
             async with await s_cortex.Cortex.anit(dirn) as core:
                 # two entries means he ran twice ( once on add and once on restart )
