@@ -247,7 +247,6 @@ class LibBase(Lib):
         async for item in query.run(runt, s_ast.agen()):
             pass  # pragma: no cover
 
-        runt.isModuleRunt = True
         modlib = Lib(self.runt)
         modlib.locls.update(runt.vars)
         modlib.locls['__module__'] = mdef

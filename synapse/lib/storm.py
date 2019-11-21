@@ -235,7 +235,6 @@ class Runtime:
         self.runtvars.update(self.vars.keys())
         self.runtvars.update(self.ctors.keys())
         self.isModuleRunt = False
-        self.isImport = False
         self.globals = set()
         self.modulefuncs = {}
 
@@ -397,21 +396,26 @@ class Runtime:
                 yield node, path
 
     async def getScopeRuntime(self, query, opts=None, impd=False, modl=False):
+        '''
+        Derive a new runt off of an existing runt. It will pass down any global level vars. It has to
+        re run the oper.run function on any function opers so that it gets the correct context of
+        variable values and functions.
+        '''
         runt = Runtime(self.snap, user=self.user, opts=opts)
         runt.isModuleRunt = modl
-        runt.isImport = impd
         if not impd:  # respect the import boundary
 
             # if we are a top level module we need to
             # push down our runtvars
             if self.isModuleRunt:
                 for name in self.runtvars:
-                    if name not in self.vars:
+                    valu = self.vars.get(name, s_common.novalu)
+                    if valu is s_common.novalu:
                         continue
                     if name not in self.modulefuncs and name != 'lib':
                         runt.globals.add(name)
                         runt.runtvars.add(name)
-                        runt.vars[name] = self.vars[name]
+                        runt.vars[name] = valu
 
             # propagate down all the global variables
             for name in self.globals:
@@ -434,11 +438,20 @@ class Runtime:
         return runt
 
     async def propBackGlobals(self, runt):
+        '''
+        From a called runt, propagate the vars we know to be global to the module back up into
+        the calling runt. *Don't* propagate any functions, since those need the context of
+        which runt they're being called from, and just for safety dont' mess with the base lib
+        object.
+        '''
         for name in runt.globals:
+            valu = runt.vars.get(name, s_common.novalu)
+            if valu is s_common.novalu:
+                continue
             if name in self.modulefuncs or name == 'lib':
                 # don't override our parent's version of a function
                 continue
-            self.vars[name] = runt.vars[name]
+            self.vars[name] = valu
 
 class Parser(argparse.ArgumentParser):
 
