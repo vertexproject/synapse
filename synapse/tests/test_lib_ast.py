@@ -764,6 +764,7 @@ class AstTest(s_test.SynTest):
             msgs = await core.streamstorm(q).list()
             expected = ['this should be first', 'toreturn called', 'got foobar']
             prints = list(filter(lambda m: m[0] == 'print', msgs))
+            breakpoint()
             self.eq(len(prints), len(expected))
             for idx, out in enumerate(expected):
                 self.stormIsInPrint(out, msgs)
@@ -804,7 +805,7 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint("doublewoot", msgs)
             self.stormIsInPrint("biz is now 20", msgs)
 
-            # test that we the functions in a module don't pollute our own runts
+            # test that the functions in a module don't pollute our own runts
             q = '''
             $test=$lib.import(test)
             $lib.print($outer("1337"))
@@ -813,7 +814,7 @@ class AstTest(s_test.SynTest):
             for msg in msgs:
                 self.ne('print', msg[0])
 
-            # make sure we can set variables to the results of other functions in the same query
+            # make sure can set variables to the results of other functions in the same query
             q = '''
             function baz(arg1) {
                 $lib.print('arg1={a}', a=$arg1)
@@ -880,6 +881,28 @@ class AstTest(s_test.SynTest):
             msgs = await core.streamstorm(q).list()
             self.stormIsInPrint('nodes added: 1', msgs)
             self.stormIsInPrint('nodes added: 2', msgs)
+
+            # make sure local variables don't pollute up
+
+            q = '''
+            $global = $(346)
+            function bar(arg1) {
+                $lib.print("arg1 is {arg}", arg=$arg1)
+                return ($arg1)
+            }
+            function foo(arg2) {
+                $wat = $( $arg2 + 99 )
+                $retn = $bar($wat)
+                return ($retn)
+            }
+            $lib.print("retn is {ans}", ans=$( $foo($global)) )
+            $lib.print("this should not print, but {wat}", wat=$wat)
+            '''
+            msgs = await core.streamstorm(q).list()
+            prints = list(filter(lambda m: m[0] == 'print', msgs))
+            self.len(2, prints)
+            self.stormIsInPrint('arg1 is 445', msgs)
+            self.stormIsInPrint('retn is 445', msgs)
 
             # make sure we can't override the base lib object
             q = '''

@@ -395,14 +395,15 @@ class Runtime:
                 self.tick()
                 yield node, path
 
-    async def getScopeRuntime(self, query, opts=None, impd=False, modl=False):
+    async def getScopeRuntime(self, query, opts=None, impd=False):
         '''
         Derive a new runt off of an existing runt. It will pass down any global level vars. It has to
         re run the oper.run function on any function opers so that it gets the correct context of
         variable values and functions.
         '''
         runt = Runtime(self.snap, user=self.user, opts=opts)
-        runt.isModuleRunt = modl
+        # imported implies module level
+        runt.isModuleRunt = impd
         if not impd:  # respect the import boundary
 
             # if we are a top level module we need to
