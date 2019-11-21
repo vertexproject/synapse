@@ -1,5 +1,6 @@
 import synapse.exc as s_exc
 
+import synapse.lib.ast as s_ast
 import synapse.tests.utils as s_test
 
 foo_stormpkg = {
@@ -902,6 +903,28 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('Hi :)', msgs)
             self.stormIsInPrint('NO OVERRIDES FOR YOU', msgs)
 
+            # don't override defined functions
+            q = '''
+            function nooverride(arg1) {
+                $lib.print($arg1)
+                return ("foobar")
+            }
+
+            function naughty() {
+                $lib = "neato"
+                $nooverride = $nooverride($lib)
+                return ($nooverride)
+            }
+
+            $lib.print($naughty())
+            $lib.print($nooverride("recovered"))
+            '''
+
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('neato', msgs)
+            self.stormIsInPrint('foobar', msgs)
+            self.stormIsInPrint('recovered', msgs)
+
             # yields across an import boundary
             q = '''
             $test = $lib.import(yieldsforever)
@@ -1009,6 +1032,32 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#visi ] | foocmd')
             self.eq(nodes[0].ndef, ('test:str', 'visi'))
             self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
+
+            async with await core.snap() as snap:
+                with snap.getStormRuntime() as runt:
+                    q = '''
+                    function lolol() {
+                        $lib = "pure lulz"
+                        $lolol = "don't do this"
+                        return ($lib)
+                    }
+                    $neato = 0
+                    $myvar = $lolol()
+                    $lib.print($myvar)
+                    '''
+                    query = core.getStormQuery(q)
+                    async for item in query.run(runt, s_ast.agen()):
+                        pass
+                    runt.runtvars.pop()
+                    func = list(filter(lambda o: isinstance(o, s_ast.Function), query.kids))[0]
+                    funcrunt = await runt.getScopeRuntime(func)
+                    funcrunt.globals.add('lib')
+                    funcrunt.globals.add('nope')
+
+                    await runt.propBackGlobals(funcrunt)
+
+                    self.notin('nope', runt.runtvars)
+                    self.notin('lib', runt.runtvars)
 
     async def test_ast_setitem(self):
 

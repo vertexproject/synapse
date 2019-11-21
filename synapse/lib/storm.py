@@ -439,10 +439,10 @@ class Runtime:
 
     async def propBackGlobals(self, runt):
         '''
-        From a called runt, propagate the vars we know to be global to the module back up into
-        the calling runt. *Don't* propagate any functions, since those need the context of
-        which runt they're being called from, and just for safety dont' mess with the base lib
-        object.
+        From a called runt (passed in by parameter), propagate the vars we know to be global
+        to the module back up into the calling runt. *Don't* propagate any functions, since
+        those need the context of which runt they're being called from, and just for safety
+        don't mess with the base lib object.
         '''
         for name in runt.globals:
             valu = runt.vars.get(name, s_common.novalu)
