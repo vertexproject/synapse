@@ -1,3 +1,4 @@
+import json
 import synapse.exc as s_exc
 
 import synapse.lib.ast as s_ast
@@ -748,7 +749,9 @@ class AstTest(s_test.SynTest):
             # return a function (not a value, but a ref to the function itself)
             q = '''
             function toreturn() {
-                $lib.print("toreturn called")
+                $lib.time.sleep(1)
+                $lib.print('[{now}, "toreturn called"]', now=$($lib.time.now()))
+                $lib.time.sleep(1)
                 return ("foobar")
             }
 
@@ -757,18 +760,19 @@ class AstTest(s_test.SynTest):
             }
 
             $func = $wrapper()
-            $lib.print("this should be first")
+            $lib.print('[{now}, "this should be first"]', now=$($lib.time.now()))
             $output = $func()
-            $lib.print("got {out}", out=$output)
+            $lib.print('[{now}, "got {out}"]', now=$($lib.time.now()), out=$output)
             '''
             msgs = await core.streamstorm(q).list()
-            expected = ['this should be first', 'toreturn called', 'got foobar']
             prints = list(filter(lambda m: m[0] == 'print', msgs))
-            breakpoint()
-            self.eq(len(prints), len(expected))
-            for idx, out in enumerate(expected):
-                self.stormIsInPrint(out, msgs)
-                self.eq(out, prints[idx][1]['mesg'])
+            self.eq(len(prints), 3)
+
+            jmsgs = list(map(lambda m: json.loads(m[1]['mesg']), prints))
+            omsgs = sorted(jmsgs, key=lambda m: m[0])
+            self.eq(omsgs[0][1], 'this should be first')
+            self.eq(omsgs[1][1], 'toreturn called')
+            self.eq(omsgs[2][1], 'got foobar')
 
             # module level global variables should be accessible to chained functions
             q = '''
