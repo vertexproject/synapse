@@ -3632,6 +3632,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 $lib.queue.add(boom)
 
                 $lib.dmon.add(${
+                    $lib.print('Starting wootdmon')
                     $lib.queue.get(visi).put(blah)
                     for ($offs, $item) in $lib.queue.get(boom).gets(wait=1) {
                         [ inet:ipv4=$item ]
