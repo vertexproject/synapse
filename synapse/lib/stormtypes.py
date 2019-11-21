@@ -262,8 +262,7 @@ class LibBase(Lib):
         return Set(set(vals))
 
     async def _list(self, *vals):
-        valu = [toprim(valu) for val in vals]
-        return List(valu)
+        return List(list(vals))
 
     async def _text(self, *args):
         valu = ''.join(args)
@@ -898,9 +897,13 @@ class List(Prim):
         '''
         Return the length of the list.
         '''
-        return len(self.valu)
+        # TODO - Remove this v0.3.0
+        return len(self)
 
     async def _methListSize(self):
+        '''
+        Return the length of the list.
+        '''
         return len(self)
 
 class StormHiveDict(Prim):
@@ -1329,6 +1332,7 @@ def fromprim(valu, path=None):
         return Path(valu, path=path)
 
     if isinstance(valu, (tuple, list)):
+        # FIXME - List() has methods which are incompatible with a Python tuple.
         return List(valu, path=path)
 
     if isinstance(valu, dict):
