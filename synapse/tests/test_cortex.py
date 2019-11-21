@@ -3546,7 +3546,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(layr.lockmemory)
 
     async def test_cortex_storm_lib_dmon(self):
-        async with self.getTestCoreAndProxy() as (core, prox):
+        async with self.getTestCore() as core:
             nodes = await core.nodes('''
 
                 $lib.print(hi)
