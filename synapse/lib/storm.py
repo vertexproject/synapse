@@ -400,6 +400,11 @@ class Runtime:
                 self.tick()
                 yield node, path
 
+    def canPropName(self, name):
+        if name not in self.modulefuncs and name not in self.ctors:
+            return True
+        return False
+
     async def getScopeRuntime(self, query, opts=None, impd=False):
         '''
         Derive a new runt off of an existing runt. It will pass down any global level vars. It has to
@@ -418,14 +423,14 @@ class Runtime:
                     valu = self.vars.get(name, s_common.novalu)
                     if valu is s_common.novalu:
                         continue
-                    if name not in self.modulefuncs and name != 'lib':
+                    if self.canPropName(name):
                         runt.globals.add(name)
                         runt.runtvars.add(name)
                         runt.vars[name] = valu
 
             # propagate down all the global variables
             for name in self.globals:
-                if name not in self.modulefuncs and name != 'lib':
+                if self.canPropName(name):
                     runt.vars[name] = self.vars[name]
                     runt.globals.add(name)
                     runt.runtvars.add(name)
@@ -454,7 +459,7 @@ class Runtime:
             valu = runt.vars.get(name, s_common.novalu)
             if valu is s_common.novalu:
                 continue
-            if name in self.modulefuncs or name == 'lib':
+            if not self.canPropName(name):
                 # don't override our parent's version of a function
                 continue
             self.vars[name] = valu
