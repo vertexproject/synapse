@@ -512,7 +512,7 @@ _Queries = [
     '[test:str=a] switch $node.form() { hehe: {[+#baz]} }',
     '[test:str=a] switch $woot { hehe: {[+#baz]} }',
     '[test:str=c] switch $woot { hehe: {[+#baz]} *: {[+#jaz]} }',
-    '[test:str=c] switch $woot { hehe: {[+#baz]} haha hoho: {[+#faz]} "lolz:lulz": {[+#jaz]} }',
+    '[test:str=c] switch $woot { hehe: {[+#baz]} "haha hoho": {[+#faz]} "lolz:lulz": {[+#jaz]} }',
     '''
         /* A
             multiline
@@ -533,7 +533,7 @@ _Queries = [
                 baz
                 case
             */
-            baz faz: {}
+            'baz faz': {}
         } ''',
     '''
         for $foo in $foos {
@@ -549,9 +549,10 @@ _Queries = [
             [ +#hehe ]
         } ''',
     'switch $a { "a": { } }',
-    'switch $a { "test:str" : { } * : {}}',
+    'switch $a { "test:str" : { } *: {}}',
     'switch $a { "test:this:works:" : { } * : {}}',
     '''switch $a { 'single:quotes' : { } "doubele:quotes": {} noquotes: { } * : {}}''',
+    'switch $category { } switch $type { *: { } }',
 ]
 
 # Generated with print_parse_list below
@@ -1009,9 +1010,11 @@ _ParseResults = [
     'Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: hehe.haha]]]]], CaseEntry: [Const: baz faz, SubQuery: [Query: []]]]]',
     'Query: [ForLoop: [Const: foo, VarValue: [Const: foos], SubQuery: [Query: [EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: ohai]], BreakOper: []]]], CaseEntry: [Const: baz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: visi]], ContinueOper: []]]]], EditNodeAdd: [AbsProp: inet:ipv4, Const: =, Const: 5.6.7.8], EditTagAdd: [TagName: [Const: hehe]]]]]]',
     'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: a, SubQuery: [Query: []]]]]',
-    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:str, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]',
-    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:this:works:, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]',
-    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: single:quotes, SubQuery: [Query: []]], CaseEntry: [Const: doubele:quotes, SubQuery: [Query: []]], CaseEntry: [Const: noquotes, SubQuery: [Query: []]], CaseEntry: [Const: * , SubQuery: [Query: []]]]]',
+
+    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:str, SubQuery: [Query: []]], CaseEntry: [SubQuery: [Query: []]]]]',
+    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:this:works:, SubQuery: [Query: []]], CaseEntry: [SubQuery: [Query: []]]]]',
+    'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: single:quotes, SubQuery: [Query: []]], CaseEntry: [Const: doubele:quotes, SubQuery: [Query: []]], CaseEntry: [Const: noquotes, SubQuery: [Query: []]], CaseEntry: [SubQuery: [Query: []]]]]',
+    'Query: [SwitchCase: [VarValue: [Const: category]], SwitchCase: [VarValue: [Const: type], CaseEntry: [SubQuery: [Query: []]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):

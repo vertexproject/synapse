@@ -1854,7 +1854,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                    baz
                    case
                 */
-                baz faz: {}
+                'baz faz': {}
             }
             '''
             opts = {'vars': {'foo': 'bar'}}
@@ -2738,7 +2738,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(node.getTag('jaz'))
 
             opts = {'vars': {'woot': 'haha hoho'}}
-            text = '[test:str=b] switch $woot { hehe: {[+#baz]} haha hoho: {[+#faz]} "lolz:lulz": {[+#jaz]} }'
+            text = '[test:str=b] switch $woot { hehe: {[+#baz]} "haha hoho": {[+#faz]} "lolz:lulz": {[+#jaz]} }'
             nodes = await core.eval(text, opts=opts).list()
             self.len(1, nodes)
             for node in nodes:
@@ -2748,7 +2748,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(node.getTag('jaz'))
 
             opts = {'vars': {'woot': 'lolz:lulz'}}
-            text = '[test:str=c] switch $woot { hehe: {[+#baz]} haha hoho: {[+#faz]} "lolz:lulz": {[+#jaz]} }'
+            text = "[test:str=c] switch $woot { hehe: {[+#baz]} 'haha hoho': {[+#faz]} 'lolz:lulz': {[+#jaz]} }"
             nodes = await core.eval(text, opts=opts).list()
             self.len(1, nodes)
             for node in nodes:
