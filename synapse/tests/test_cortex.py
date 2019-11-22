@@ -1626,10 +1626,14 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCoreAndProxy() as (realcore, core):
 
             msgs = await alist(core.storm('|help'))
-            self.printed(msgs, 'help: List available commands and a brief description for each.')
+            self.printed(msgs, 'package: synapse')
+            self.printed(msgs, 'help')
+            self.printed(msgs, ': List available commands and a brief description for each.')
 
             msgs = await alist(core.storm('help'))
-            self.printed(msgs, 'help: List available commands and a brief description for each.')
+            self.printed(msgs, 'package: synapse')
+            self.printed(msgs, 'help')
+            self.printed(msgs, ': List available commands and a brief description for each.')
 
             await alist(core.eval('[ inet:user=visi inet:user=whippit ]'))
 
