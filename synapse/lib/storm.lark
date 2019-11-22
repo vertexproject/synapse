@@ -72,9 +72,9 @@ whileloop: "while" _WS _valu _WS? baresubquery
 subquery: [YIELD _WS?] baresubquery
 baresubquery: "{" query "}"
 YIELD: "yield"
-switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (("*" _WS? ":" baresubquery) | (casevalu _WSCOMM? baresubquery)) )* _WSCOMM? "}"
-casevalu: ((DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING ) _WSCOMM? ":") | CASEVALU
-CASEVALU: /[^:\s"'][^:]*:/
+switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE) _WSCOMM? ":" _WSCOMM? baresubquery)* _WSCOMM? "}"
+DEFAULTCASE: "*"
+CASEBARE: /(?!\*)([^:\s"']+)/
 
 yieldvalu: YIELD _WS _valu
 
