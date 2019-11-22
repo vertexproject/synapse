@@ -19,7 +19,7 @@ terminalEnglishMap = {
     'ALLTAGS': '#',
     'AND': 'and',
     'BREAK': 'break',
-    'CASEVALU': 'case value',
+    'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
     'CMDNAME': 'command name',
     'CMPR': 'comparison operator',
