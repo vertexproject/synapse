@@ -145,6 +145,7 @@ class StormDmon(s_base.Base):
         self.ddef = ddef
 
         self.task = None
+        self.loop_task = None
         self.user = core.auth.user(ddef.get('user'))
 
         self.count = 0
@@ -153,6 +154,8 @@ class StormDmon(s_base.Base):
         async def fini():
             if self.task is not None:
                 self.task.cancel()
+            if self.loop_task is not None:
+                self.loop_task.cancel()
 
         self.onfini(fini)
 
@@ -166,21 +169,38 @@ class StormDmon(s_base.Base):
         return retn
 
     async def _run(self):
-
         name = self.ddef.get('name', 'storm dmon')
+        info = {'iden': self.iden, 'name': name}
+        await self.core.boss.promote('storm:dmon:main', user=self.user, info=info)
+        while not self.isfini:
+            try:
+                logger.info(f'Dmon loop starting ({self.iden})')
+                synt = await self.core.boss.execute(self._innr_run(),
+                                                    name='storm:dmon:loop',
+                                                    user=self.user,
+                                                    info=info)
+                self.loop_task = synt.task
+                await synt.waitfini()
+            except asyncio.CancelledError:
+                logger.warning(f'Dmon main cancelled ({self.iden})')
+                if self.loop_task:
+                    self.loop_task.cancel()
+                raise
+            except Exception as e:  # pragma: no cover
+                logger.exception(f'Dmon error during loop task execution ({self.iden})')
+                self.status = f'error: {e}'
+                await self.waitfini(timeout=1)
 
-        await self.core.boss.promote('storm:dmon', user=self.user, info={'iden': self.iden, 'name': name})
+    async def _innr_run(self):
 
         s_scope.set('storm:dmon', self.iden)
 
         text = self.ddef.get('storm')
         opts = self.ddef.get('stormopts')
 
-        dmoniden = self.ddef.get('iden')
-
         def dmonPrint(evnt):
             mesg = evnt[1].get('mesg', '')
-            logger.info(f'StormDmon - {dmoniden} - {mesg}')
+            logger.info(f'Dmon - {self.iden} - {mesg}')
 
         while not self.isfini:
 
@@ -195,16 +215,17 @@ class StormDmon(s_base.Base):
                         self.count += 1
                         await asyncio.sleep(0)
 
-                    logger.warning(f'dmon query exited: {dmoniden}')
+                    logger.warning(f'Dmon query exited: {self.iden}')
 
                     self.status = 'exited'
                     await self.waitfini(timeout=1)
 
             except asyncio.CancelledError as e:
+                logger.warning(f'Dmon loop cancelled ({self.iden})')
                 raise
 
             except Exception as e:
-                logger.exception(f'dmon error ({self.iden}): {e}')
+                logger.exception(f'Dmon error ({self.iden})')
                 self.status = f'error: {e}'
                 await self.waitfini(timeout=1)
 

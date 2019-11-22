@@ -3595,11 +3595,34 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.nodes('$lib.queue.add(visi)')
                     ddef = {'storm': '$lib.queue.get(visi).put(done) for $tick in $lib.time.ticker(1) {}'}
                     dmon = await core.addStormDmon(ddef)
-                    # Storm dmons are promoted as tasks
+                    # Storm task pairs are promoted as tasks
                     retn = await prox.ps()
-                    dmon_tasks = [task for task in retn if task.get('name') == 'storm:dmon']
-                    self.len(1, dmon_tasks)
-                    self.eq(dmon_tasks[0].get('info').get('iden'), dmon.iden)
+                    dmon_loop_tasks = [task for task in retn if task.get('name') == 'storm:dmon:loop']
+                    dmon_main_tasks = [task for task in retn if task.get('name') == 'storm:dmon:main']
+                    self.len(1, dmon_loop_tasks)
+                    self.len(1, dmon_main_tasks)
+                    self.eq(dmon_loop_tasks[0].get('info').get('iden'), dmon.iden)
+                    self.eq(dmon_main_tasks[0].get('info').get('iden'), dmon.iden)
+                    # We can kill the loop task and it will respawn
+                    mpid = dmon_main_tasks[0].get('iden')
+                    lpid = dmon_loop_tasks[0].get('iden')
+                    self.true(await prox.kill(lpid))
+                    await asyncio.sleep(0)
+                    retn = await prox.ps()
+                    dmon_loop_tasks = [task for task in retn if task.get('name') == 'storm:dmon:loop']
+                    dmon_main_tasks = [task for task in retn if task.get('name') == 'storm:dmon:main']
+                    self.len(1, dmon_loop_tasks)
+                    self.len(1, dmon_main_tasks)
+                    self.eq(dmon_main_tasks[0].get('iden'), mpid)
+                    self.ne(dmon_loop_tasks[0].get('iden'), lpid)
+                    # If we kill the main task, there is no respawn
+                    self.true(await prox.kill(mpid))
+                    await asyncio.sleep(0)
+                    retn = await prox.ps()
+                    dmon_loop_tasks = [task for task in retn if task.get('name') == 'storm:dmon:loop']
+                    dmon_main_tasks = [task for task in retn if task.get('name') == 'storm:dmon:main']
+                    self.len(0, dmon_loop_tasks)
+                    self.len(0, dmon_main_tasks)
 
             async with await s_cortex.Cortex.anit(dirn) as core:
                 # two entries means he ran twice ( once on add and once on restart )
