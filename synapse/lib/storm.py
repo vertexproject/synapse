@@ -186,8 +186,8 @@ class StormDmon(s_base.Base):
                 if self.loop_task:
                     self.loop_task.cancel()
                 raise
-            except Exception as e:
-                logger.exception('Error encountered during loop task execution')
+            except Exception as e:  # pragma: no cover
+                logger.exception(f'Dmon error during loop task execution ({self.iden})')
                 self.status = f'error: {e}'
                 await self.waitfini(timeout=1)
 
