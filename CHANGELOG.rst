@@ -18,6 +18,9 @@ Features and Enhancements
   (`#1434 <https://github.com/vertexproject/synapse/pull/1434>`_)
 - Add ``:loc`` secondary property to ``mat:item``, ``it:host``, and ``geo:nloc`` forms.
   (`#1437 <https://github.com/vertexproject/synapse/pull/1437>`_)
+- Split a Storm Daemon task into two components; a ``storm:dmon:main`` and ``storm:dmon:loop`` task. Killing the
+  ``storm:dmon:loop`` task will cause the ``storm:dmon:main`` task to respawn the inner task executing Storm.
+  (`#1436 <https://github.com/vertexproject/synapse/pull/1436>`_)
 
 Bugfixes
 --------
@@ -28,7 +31,7 @@ Bugfixes
   (`#1435 <https://github.com/vertexproject/synapse/pull/1435>`_)
 - Fix an bug producing an ambiguity in the Storm ``switch`` case statement.  This bugfix does require switch case
   statements with a space in them to be enclosed in single or double quotes.
-  (`#1437 <https://github.com/vertexproject/synapse/pull/1437>`_)
+  (`#1438 <https://github.com/vertexproject/synapse/pull/1438>`_)
 
 
 v0.1.37 - 2019-11-19
