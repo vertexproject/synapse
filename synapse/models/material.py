@@ -28,6 +28,10 @@ class MatModule(s_module.CoreModule):
                     ('place', ('geo:place', {}), {'doc': 'The most recent place the item is known to reside.'}),
                     ('latlong', ('geo:latlong', {}), {'doc': 'The last known lat/long location of the node'}),
 
+                    ('loc', ('loc', {}), {
+                        'doc': 'The geo-political location string for the node.',
+                    }),
+
                     # TODO add baseline things like dimensions / mass / etc?
                 )),
 
