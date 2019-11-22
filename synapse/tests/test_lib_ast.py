@@ -1,5 +1,7 @@
+import json
 import synapse.exc as s_exc
 
+import synapse.lib.ast as s_ast
 import synapse.tests.utils as s_test
 
 foo_stormpkg = {
@@ -35,7 +37,51 @@ foo_stormpkg = {
                 return()
             }
             '''
-        }
+        },
+        {
+            'name': 'importnest',
+            'storm': '''
+            $counter = 0
+            $foobar = 0
+
+            function inner(arg2, add) {
+                $foobar = $( $foobar + $add )
+                $lib.print('counter is {c}', c=$counter)
+                if $( $arg2 ) {
+                    $retn = "foo"
+                } else {
+                    $retn = "bar"
+                }
+                return ($retn)
+            }
+
+            function outer(arg1, add) {
+                $strbase = $lib.str.format("(Run: {c}) we got back ", c=$counter)
+                $reti = $inner($arg1, $add)
+                $mesg = $lib.str.concat($strbase, $reti)
+                $counter = $( $counter + $add )
+                $lib.print("foobar is {foobar}", foobar=$foobar)
+                return ($mesg)
+            }
+            ''',
+        },
+        {
+            'name': 'yieldsforever',
+            'storm': '''
+            $splat = 18
+            function rockbottom(arg1) {
+                [test:str = $arg1]
+            }
+
+            function middlechild(arg2) {
+                yield $rockbottom($arg2)
+            }
+
+            function yieldme(arg3) {
+                yield $middlechild($arg3)
+            }
+            ''',
+        },
     ],
     'commands': [
         {
@@ -651,6 +697,274 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('arg2: world', msgs)
             self.stormIsInPrint('arg3: goodbye', msgs)
 
+            # Basic function chaining
+            q = '''
+            function inner() {
+                $lib.print("inner vertex")
+                return ("foobarbazbiz")
+            }
+
+            function outer() {
+                return ($inner())
+            }
+
+            $output = $outer()
+            $lib.print($output)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('inner vertex', msgs)
+            self.stormIsInPrint('foobarbazbiz', msgs)
+
+            # return a directly called function
+            q = '''
+            function woot(arg1) {
+                return ( $($arg1 + 1) )
+            }
+
+            function squee(arg2) {
+                return ($woot($arg2))
+            }
+            $output = $squee(17)
+            $lib.print('output is {a}', a=$output)
+            '''
+
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('output is 18', msgs)
+
+            # recursive functions
+            q = '''
+            function recurse(cond, count) {
+                if $( $cond = 15 ) {
+                    return ($count)
+                }
+                return ($recurse( $($cond - 1), $($count + 1) ))
+            }
+            $output = $recurse(21, 0)
+            $lib.print('final recursive output is {out}', out=$output)
+            '''
+
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('final recursive output is 6', msgs)
+
+            # return a function (not a value, but a ref to the function itself)
+            q = '''
+            function toreturn() {
+                $lib.time.sleep(1)
+                $lib.print('[{now}, "toreturn called"]', now=$($lib.time.now()))
+                $lib.time.sleep(1)
+                return ("foobar")
+            }
+
+            function wrapper() {
+                return ($toreturn)
+            }
+
+            $func = $wrapper()
+            $lib.print('[{now}, "this should be first"]', now=$($lib.time.now()))
+            $output = $func()
+            $lib.print('[{now}, "got {out}"]', now=$($lib.time.now()), out=$output)
+            '''
+            msgs = await core.streamstorm(q).list()
+            prints = list(filter(lambda m: m[0] == 'print', msgs))
+            self.eq(len(prints), 3)
+
+            jmsgs = list(map(lambda m: json.loads(m[1]['mesg']), prints))
+            omsgs = sorted(jmsgs, key=lambda m: m[0])
+            self.eq(omsgs[0][1], 'this should be first')
+            self.eq(omsgs[1][1], 'toreturn called')
+            self.eq(omsgs[2][1], 'got foobar')
+
+            # module level global variables should be accessible to chained functions
+            q = '''
+            $biz = 0
+
+            function bar() {
+                $var1 = "subwoot"
+                $var2 = "neato burrito"
+                $biz = $( $biz + 10 )
+                $lib.print($var2)
+                return ("done")
+            }
+
+            function boop() {
+                $retz = $bar()
+                return ($retz)
+            }
+
+            function foo() {
+                $var1 = "doublewoot"
+                $retn = $bar()
+                $lib.print($var1)
+                return ($retn)
+            }
+            $lib.print($foo())
+            $lib.print($boop())
+            $lib.print("biz is now {biz}", biz=$biz)
+            '''
+            msgs = await core.streamstorm(q).list()
+            prints = list(filter(lambda m: m[0] == 'print', msgs))
+            self.len(6, prints)
+            self.stormIsInPrint("neato burrito", msgs)
+            self.stormIsInPrint("done", msgs)
+            self.stormIsInPrint("doublewoot", msgs)
+            self.stormIsInPrint("biz is now 20", msgs)
+
+            # test that the functions in a module don't pollute our own runts
+            q = '''
+            $test=$lib.import(test)
+            $lib.print($outer("1337"))
+            '''
+            msgs = await core.streamstorm(q).list()
+            for msg in msgs:
+                self.ne('print', msg[0])
+
+            # make sure can set variables to the results of other functions in the same query
+            q = '''
+            function baz(arg1) {
+                $lib.print('arg1={a}', a=$arg1)
+                return ($arg1)
+            }
+            function bar(arg2) {
+                $lib.print('arg2={a}', a=$arg2)
+                $retn = $baz($arg2)
+                return ($retn)
+            }
+            $foo = $bar("hehe")
+            $lib.print($foo)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('hehe', msgs)
+            self.stormIsInPrint('arg1=hehe', msgs)
+            self.stormIsInPrint('arg2=hehe', msgs)
+
+            # call an import and have it's module local variables be mapped in to its own scope
+            q = '''
+            $test = $lib.import(importnest)
+            $haha = $test.outer(False, $(33))
+            $lib.print($haha)
+            $hehe = $test.outer(True, $(17))
+            $lib.print($hehe)
+            $retn = $lib.import(importnest).outer(True, $(90))
+            $lib.print($retn)
+            $lib.print("counter is {c}", c$counter)
+            '''
+            msgs = await core.streamstorm(q).list()
+            prints = list(filter(lambda m: m[0] == 'print', msgs))
+            self.len(9, prints)
+            self.stormIsInPrint('counter is 0', msgs)
+            self.stormIsInPrint('foobar is 33', msgs)
+            self.stormIsInPrint('(Run: 0) we got back bar', msgs)
+            self.stormIsInPrint('counter is 33', msgs)
+            self.stormIsInPrint('foobar is 50', msgs)
+            self.stormIsInPrint('(Run: 33) we got back foo', msgs)
+            self.stormIsInPrint('counter is 0', msgs)
+            self.stormIsInPrint('foobar is 90', msgs)
+            self.stormIsInPrint('(Run: 0) we got back foo', msgs)
+
+            # yields all the way down, no imports
+            q = '''
+            $count = 0
+            function baz(arg3) {
+                [ test:str = $arg3 ]
+                $count = $( $count + 1)
+                [ test:str = "cool" ]
+            }
+
+            function bar(arg2) {
+                yield $baz($arg2)
+            }
+
+            function foo(arg1) {
+                yield $bar($arg1)
+            }
+
+            yield $foo("bleeeergh")
+            yield $foo("bloooop")
+            $lib.print("nodes added: {c}", c=$count)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('nodes added: 1', msgs)
+            self.stormIsInPrint('nodes added: 2', msgs)
+
+            # make sure local variables don't pollute up
+
+            q = '''
+            $global = $(346)
+            function bar(arg1) {
+                $lib.print("arg1 is {arg}", arg=$arg1)
+                return ($arg1)
+            }
+            function foo(arg2) {
+                $wat = $( $arg2 + 99 )
+                $retn = $bar($wat)
+                return ($retn)
+            }
+            $lib.print("retn is {ans}", ans=$( $foo($global)) )
+            $lib.print("this should not print, but {wat}", wat=$wat)
+            '''
+            msgs = await core.streamstorm(q).list()
+            prints = list(filter(lambda m: m[0] == 'print', msgs))
+            self.len(2, prints)
+            self.stormIsInPrint('arg1 is 445', msgs)
+            self.stormIsInPrint('retn is 445', msgs)
+
+            # make sure we can't override the base lib object
+            q = '''
+            function wat(arg1) {
+                $lib.print($arg1)
+                $lib.print("We should have inherited the one true lib")
+                return ("Hi :)")
+            }
+            function override() {
+                $lib = "The new lib"
+                $retn = $wat($lib)
+                return ($retn)
+            }
+
+            $lib.print($override())
+            $lib.print("NO OVERRIDES FOR YOU")
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('The new lib', msgs)
+            self.stormIsInPrint('We should have inherited the one true lib', msgs)
+            self.stormIsInPrint('Hi :)', msgs)
+            self.stormIsInPrint('NO OVERRIDES FOR YOU', msgs)
+
+            # don't override defined functions
+            q = '''
+            function nooverride(arg1) {
+                $lib.print($arg1)
+                return ("foobar")
+            }
+
+            function naughty() {
+                $lib = "neato"
+                $nooverride = $nooverride($lib)
+                return ($nooverride)
+            }
+
+            $lib.print($naughty())
+            $lib.print($nooverride("recovered"))
+            '''
+
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('neato', msgs)
+            self.stormIsInPrint('foobar', msgs)
+            self.stormIsInPrint('recovered', msgs)
+
+            # yields across an import boundary
+            q = '''
+            $test = $lib.import(yieldsforever)
+            yield $test.yieldme("yieldsforimports")
+            $lib.print($node.value())
+            $lib.print("splat shouldn't exist, but we got {s}", s=$splat)
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('yieldsforimports', msgs)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'NoSuchVar')
+            self.eq(erfo[1][1].get('name'), 'splat')
+
             # Too few args are problematic
             q = '''
             $test=$lib.import(test)
@@ -745,6 +1059,33 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#visi ] | foocmd')
             self.eq(nodes[0].ndef, ('test:str', 'visi'))
             self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
+
+            async with await core.snap() as snap:
+                with snap.getStormRuntime() as runt:
+                    q = '''
+                    function lolol() {
+                        $lib = "pure lulz"
+                        $lolol = "don't do this"
+                        return ($lolol)
+                    }
+                    $neato = 0
+                    $myvar = $lolol()
+                    $lib.print($myvar)
+                    '''
+                    query = core.getStormQuery(q)
+                    runt.loadRuntVars(query)
+                    async for item in query.run(runt, s_ast.agen()):
+                        pass
+                    func = list(filter(lambda o: isinstance(o, s_ast.Function), query.kids))[0]
+                    oldfunc = runt.vars['lolol']
+                    funcrunt = await runt.getScopeRuntime(func.kids[2])
+                    async for item in func.run(funcrunt, s_ast.agen()):
+                        pass
+                    funcrunt.globals.add('nope')
+                    funcrunt.globals.add('lolol')
+                    self.eq(oldfunc, runt.vars['lolol'])
+                    await runt.propBackGlobals(funcrunt)
+                    self.notin('nope', runt.runtvars)
 
     async def test_ast_setitem(self):
 
