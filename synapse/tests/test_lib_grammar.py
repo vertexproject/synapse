@@ -13,6 +13,8 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 _Queries = [
+    '$foo=$(1 or 1 or 0)',
+    '$foo=$(1 and 1 and 0)',
     '$var=tag1 #base.$var',
     'test:str $var=tag1 +#base.$var@=2014',
     'test:str $var=tag1 -> #base.$var',
@@ -557,6 +559,8 @@ _Queries = [
 
 # Generated with print_parse_list below
 _ParseResults = [
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprNode: [ExprNode: [Const: 1, Const: or, Const: 1], Const: or, Const: 0]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprNode: [ExprNode: [Const: 1, Const: and, Const: 1], Const: and, Const: 0]]]]',
     'Query: [SetVarOper: [Const: var, Const: tag1], LiftTag: [TagName: [Const: base, VarValue: [Const: var]]]]',
     'Query: [LiftProp: [Const: test:str], SetVarOper: [Const: var, Const: tag1], FiltOper: [Const: +, TagValuCond: [TagMatch: [Const: base, VarValue: [Const: var]], Const: @=, Const: 2014]]]',
     'Query: [LiftProp: [Const: test:str], SetVarOper: [Const: var, Const: tag1], PivotToTags: [TagMatch: [Const: base, VarValue: [Const: var]]], isjoin=False]',

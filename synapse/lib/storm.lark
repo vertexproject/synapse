@@ -276,10 +276,10 @@ OR: "or"
 AND: "and"
 
 // Expression rules in increasing order of precedence (modeled on Python's order)
-?expror: exprand | exprand _WSCOMM? OR _WSCOMM? exprand
-?exprand: exprnot | exprnot _WSCOMM? AND _WSCOMM? exprnot
+?expror: exprand | expror _WSCOMM? OR _WSCOMM? exprand
+?exprand: exprnot | exprand _WSCOMM? AND _WSCOMM? exprnot
 ?exprnot: exprcmp | NOT _WSCOMM? exprcmp
-?exprcmp: exprsum | exprsum _WSCOMM? (EXPRCMPR) _WSCOMM? exprsum
+?exprcmp: exprsum | exprcmp _WSCOMM? EXPRCMPR _WSCOMM? exprsum
 ?exprsum: exprproduct | exprsum _WSCOMM? (EXPRPLUS | EXPRMINUS) _WSCOMM? exprproduct
 ?exprproduct: _expratom | exprproduct _WSCOMM? (EXPRTIMES | EXPRDIVIDE) _WSCOMM? _expratom
 _expratom: _exprvalu | "(" exprsum ")"
