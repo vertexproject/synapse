@@ -1237,3 +1237,74 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0][0], ('test:comp', (2, 'foo')))
             self.eq(nodes[1][0], ('test:comp', (4, 'bar')))
             self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
+
+    async def test_lib_stormtypes_task(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            derp = await core.auth.addUser('derp')
+
+            await visi.addRule((True, ('storm', 'queue', 'add')))
+            await derp.addRule((True, ('storm', 'queue', 'add')))
+
+            await core.nodes('$lib.queue.add(visi)', user=visi)
+            await core.nodes('$lib.queue.add(derp)', user=derp)
+
+            async def visifunc():
+                await core.nodes('$lib.queue.get(visi).put(visihello) for $valu in (1, 2, 3, 4) { $lib.time.sleep(200) }', user=visi)
+
+            async def derpfunc():
+                await core.nodes('$lib.queue.get(derp).put(derphello) for $valu in (1, 2, 3, 4) { $lib.time.sleep(200) }', user=derp)
+
+            core.schedCoro(visifunc())
+            core.schedCoro(derpfunc())
+
+            await core.nodes('$lib.queue.get(visi)', user=visi)
+            await core.nodes('$lib.queue.get(derp)', user=derp)
+
+            msgs = await core.streamstorm('for $task in $lib.task.list() { $lib.print($task) }', user=visi).list()
+            self.stormIsInPrint('visihello', msgs)
+            self.stormIsNotInPrint('derphello', msgs)
+
+            with self.raises(s_exc.NoSuchTask):
+                await core.nodes('$lib.task.get(asdf)', user=visi)
+
+            await core.nodes('''
+                for $task in $lib.task.list() {
+                    $testtask = $lib.task.get($task.iden)
+                }
+            ''')
+
+            await visi.addRule((True, ('storm', 'task', 'list')))
+
+            msgs = await core.streamstorm('for $task in $lib.task.list() { $lib.print($task) }', user=visi).list()
+
+            self.stormIsInPrint('visihello', msgs)
+            self.stormIsInPrint('derphello', msgs)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('''
+                    for $task in $lib.task.list() {
+                        if $( $task.stack.index(0).name = "derpfunc" ) {
+                            $lib.task.kill($task.iden)
+                        }
+                    }
+                ''', user=visi)
+
+            await core.nodes('''
+                    for $task in $lib.task.list() {
+                        if $( $task.stack.index(0).name = "visifunc" ) {
+                            $lib.task.kill($task.iden)
+                        }
+                    }
+                ''', user=visi)
+
+            await visi.addRule((True, ('storm', 'task', 'kill')))
+            await core.nodes('''
+                    for $task in $lib.task.list() {
+                        if $( $task.stack.index(0).name = "derpfunc" ) {
+                            $lib.task.kill($task.iden)
+                        }
+                    }
+                ''', user=visi)

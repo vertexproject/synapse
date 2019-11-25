@@ -175,6 +175,7 @@ class NoSuchProp(SynErr): pass
 class NoSuchUniv(SynErr): pass
 class NoSuchRole(SynErr): pass
 class NoSuchStor(SynErr): pass
+class NoSuchTask(SynErr): pass
 class NoSuchType(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchVar(SynErr): pass

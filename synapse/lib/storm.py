@@ -129,7 +129,7 @@ stormcmds = (
 
             }
         '''
-    }
+    },
 )
 
 class StormDmon(s_base.Base):
@@ -362,6 +362,9 @@ class Runtime:
         perm = '.'.join(perms)
         mesg = f'User must have permission {perm}'
         raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
+
+    def allowed(self, perms):
+        return self._allowed(perms)
 
     @s_cache.memoize(size=100)
     def _allowed(self, perms, ask_layer=False):

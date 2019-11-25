@@ -20,7 +20,6 @@ srv6re = regex.compile(r'^\[([a-f0-9:]+)\]:(\d+)$')
 
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 
-
 def getAddrType(ip):
 
     if ip.is_multicast:

@@ -98,6 +98,32 @@ class Task(s_base.Base):
 
         return pask
 
+    def packV2(self):
+
+        stack = []
+        frames = self.task.get_stack()
+        for frame in frames:
+            stack.append({
+                'name': frame.f_code.co_name,
+                'file': frame.f_code.co_filename,
+                'line': frame.f_lineno,
+            })
+
+        pask = {
+            'iden': self.iden,
+            'name': self.name,
+            'info': self.info,
+            'tick': self.tick,
+            'user': 'root',
+            'kids': {i: k.packV2() for i, k in self.kids.items()},
+            'stack': stack,
+        }
+
+        if self.user is not None:
+            pask['user'] = self.user.iden
+
+        return pask
+
 def loop():
     try:
         return asyncio.get_running_loop()

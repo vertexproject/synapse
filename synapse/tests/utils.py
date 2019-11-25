@@ -1526,6 +1526,17 @@ class SynTest(unittest.TestCase):
         print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
         self.isin(mesg, print_str)
 
+    def stormIsNotInPrint(self, mesg, mesgs):
+        '''
+        Check if a string is present in all of the print messages from a stream of storm messages.
+
+        Args:
+            mesg (str): A string to check.
+            mesgs (list): A list of storm messages.
+        '''
+        print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
+        self.notin(mesg, print_str)
+
     def stormIsInWarn(self, mesg, mesgs):
         '''
         Check if a string is present in all of the warn messages from a stream of storm messages.

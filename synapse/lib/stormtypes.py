@@ -112,6 +112,49 @@ class LibPkg(Lib):
     async def _libPkgList(self):
         return await self.runt.snap.core.getStormPkgs()
 
+class LibTask(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'get': self._libTaskGet,
+            'list': self._libTaskList,
+            'kill': self._libTaskKill,
+        })
+
+    async def _libTaskGet(self, iden):
+
+        allowed = self.runt.allowed(('storm', 'task', 'list'))
+        info = await self.runt.snap.core.getCellTask(iden)
+        if allowed or info.get('user') == self.runt.user.iden:
+            return info
+
+        mesg = f'No task with iden: {iden}'
+        raise s_exc.NoSuchTask(mesg=mesg)
+
+    async def _libTaskList(self):
+
+        allowed = self.runt.allowed(('storm', 'task', 'list'))
+        retn = []
+        for info in await self.runt.snap.core.getCellTasks():
+            if allowed or info.get('user') == self.runt.user.iden:
+                retn.append(info)
+        return retn
+
+    async def _libTaskKill(self, iden):
+
+        allowed = self.runt.allowed(('storm', 'task', 'kill'))
+
+        info = await self.runt.snap.core.getCellTask(iden)
+        if info is None:
+            mesg = f'No task with iden: {iden}'
+            raise s_exc.NoSuchTask(mesg=mesg)
+
+        if not allowed and info.get('user') != self.runt.user.iden:
+            mesg = 'Not allowed to kill the task.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        await self.runt.snap.core.killCellTask(iden)
+
 class LibDmon(Lib):
 
     def addLibFuncs(self):

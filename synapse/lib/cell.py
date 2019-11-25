@@ -333,6 +333,18 @@ class CellApi(s_base.Base):
     async def getDmonSessions(self):
         return await self.cell.getDmonSessions()
 
+    @adminapi
+    async def getCellTask(self, iden):
+        return await self.cell.getCellTask(iden)
+
+    @adminapi
+    async def getCellTasks(self):
+        return await self.cell.getCellTasks()
+
+    @adminapi
+    async def killCellTask(self, iden):
+        return await self.cell.killCellTask(iden)
+
 class PassThroughApi(CellApi):
     '''
     Class that passes through methods made on it to its cell.
@@ -464,6 +476,23 @@ class Cell(s_base.Base, s_telepath.Aware):
         if user is None:
             return defv
         return user.name
+
+    async def getCellTask(self, iden):
+        task = self.boss.get(iden)
+        if task is None:
+            mesg = f'No task with iden: {iden}'
+            raise s_exc.NoSuchTask(mesg=mesg)
+        return task.packV2()
+
+    async def getCellTasks(self):
+        return [t.packV2() for t in self.boss.ps()]
+
+    async def killCellTask(self, iden):
+        task = self.boss.get(iden)
+        if task is None:
+            mesg = f'No task with iden: {iden}'
+            raise s_exc.NoSuchTask(mesg=mesg)
+        return await task.kill()
 
     async def genHttpSess(self, iden):
 
