@@ -20,6 +20,7 @@ import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.queue as s_queue
+import synapse.lib.spawn as s_spawn
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
 import synapse.lib.dyndeps as s_dyndeps
@@ -533,7 +534,7 @@ class CoreApi(s_cell.CellApi):
                     'query': text,
                 }
             }
-            todo = (s_storm.spawnstorm, (info,), {})
+            todo = (s_spawn.spawnstorm, (info,), {})
             raise s_exc.DmonSpawn(todo=todo)
 
         async for mesg in view.streamstorm(text, opts, user=self.user):
