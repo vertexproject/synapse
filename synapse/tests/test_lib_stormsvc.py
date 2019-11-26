@@ -388,6 +388,12 @@ class StormSvcTest(s_test.SynTest):
                     await core.nodes('$lib.service.wait(boom)')
                     await core.nodes('$lib.service.wait(lift)')
 
+                    # check that new commands are displayed properly in help
+                    msgs = await core.streamstorm('help').list()
+                    self.stormIsInPrint('service: fake', msgs)
+                    self.stormIsInPrint('package: foo', msgs)
+                    self.stormIsInPrint('foobar', msgs)
+
                     # ensure that the initializer ran, but only the initializers for
                     # RealService and BoomService, since the others should have failed
                     queue = core.multiqueue.list()

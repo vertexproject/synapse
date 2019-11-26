@@ -593,38 +593,42 @@ class HelpCmd(Cmd):
             pkgmap = {}
 
             for pkg in stormpkgs:
-                svciden = pkg['svciden']
+                svciden = pkg.get('svciden')
+                pkgname = pkg.get('name')
+
+                for cmd in pkg.get('commands', []):
+                    pkgmap[cmd.get('name')] = pkgname
+
                 ssvc = runt.snap.core.getStormSvc(svciden)
-                sname = ssvc.sdef['name']
-
-                pkgsvcs[pkg['name']] = f'{sname} ({svciden})'
-
-                for cmd in pkg['commands']:
-                    pkgmap[cmd['name']] = pkg['name']
+                if ssvc is not None:
+                    pkgsvcs[pkgname] = f'{ssvc.name} ({svciden})'
 
             if stormcmds:
                 maxlen = max(len(x[0]) for x in stormcmds)
 
                 for name, ctor in stormcmds:
                     cmdinfo = f'{name:<{maxlen}}: {ctor.getCmdBrief()}'
-                    pkgcmds.setdefault(pkgmap.get(name, 'corecmds'), []).append(cmdinfo)
+                    pkgcmds.setdefault(pkgmap.get(name, 'synapse'), []).append(cmdinfo)
             
-            await runt.printf(f'package: synapse')
+                await runt.printf(f'package: synapse')
 
-            for cmd in pkgcmds.pop('corecmds', []):
-                await runt.printf(cmd)
-
-            await runt.printf('')
-
-            for name, cmds in sorted(list(pkgcmds.items())):
-                svcname = pkgsvcs[name]
-                await runt.printf(f'service: {svcname}')
-                await runt.printf(f'package: {name}')
-
-                for cmd in cmds:
+                for cmd in pkgcmds.pop('synapse', []):
                     await runt.printf(cmd)
 
                 await runt.printf('')
+
+                for name, cmds in sorted(pkgcmds.items()):
+                    svcinfo = pkgsvcs.get(name)
+
+                    if svcinfo:
+                        await runt.printf(f'service: {svcinfo}')
+
+                    await runt.printf(f'package: {name}')
+
+                    for cmd in cmds:
+                        await runt.printf(cmd)
+
+                    await runt.printf('')
 
         await runt.printf('For detailed help on any command, use <cmd> --help')
 
