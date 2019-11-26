@@ -55,7 +55,6 @@ class StormType:
         raise s_exc.StormRuntimeError(mesg=mesg)
 
     async def deref(self, name):
-
         locl = self.locls.get(name, s_common.novalu)
         if locl is not s_common.novalu:
             return locl
@@ -226,6 +225,7 @@ class LibBase(Lib):
             'dict': self._dict,
             'guid': self._guid,
             'fire': self._fire,
+            'list': self._list,
             'text': self._text,
             'print': self._print,
             'sorted': self._sorted,
@@ -240,8 +240,9 @@ class LibBase(Lib):
             raise s_exc.NoSuchName(mesg=mesg, name=name)
 
         text = mdef.get('storm')
+
         query = await self.runt.getStormQuery(text)
-        runt = await self.runt.getScopeRuntime(query)
+        runt = await self.runt.getScopeRuntime(query, impd=True)
 
         # execute the query in a module scope
         async for item in query.run(runt, s_ast.agen()):
@@ -250,7 +251,6 @@ class LibBase(Lib):
         modlib = Lib(self.runt)
         modlib.locls.update(runt.vars)
         modlib.locls['__module__'] = mdef
-
         return modlib
 
     async def _sorted(self, valu):
@@ -259,6 +259,9 @@ class LibBase(Lib):
 
     async def _set(self, *vals):
         return Set(set(vals))
+
+    async def _list(self, *vals):
+        return List(list(vals))
 
     async def _text(self, *args):
         valu = ''.join(args)
@@ -806,6 +809,9 @@ class Set(Prim):
             'size': self._methSetSize,
         })
 
+    def __len__(self):
+        return len(self.valu)
+
     def __iter__(self):
         for item in self.valu:
             yield item
@@ -815,7 +821,7 @@ class Set(Prim):
             yield item
 
     async def _methSetSize(self):
-        return len(self.valu)
+        return len(self)
 
     async def _methSetHas(self, item):
         return item in self.valu
@@ -848,6 +854,17 @@ class List(Prim):
             'append': self._methListAppend,
         })
 
+    def __len__(self):
+        return len(self.valu)
+
+    def __iter__(self):
+        for item in self.valu:
+            yield item
+
+    async def __aiter__(self):
+        for item in self:
+            yield item
+
     async def _methListAppend(self, valu):
         self.valu.append(valu)
 
@@ -866,10 +883,14 @@ class List(Prim):
         '''
         Return the length of the list.
         '''
-        return len(self.valu)
+        # TODO - Remove this v0.3.0
+        return len(self)
 
     async def _methListSize(self):
-        return len(self.valu)
+        '''
+        Return the length of the list.
+        '''
+        return len(self)
 
 class StormHiveDict(Prim):
     # A Storm API for a HiveDict
@@ -1297,6 +1318,7 @@ def fromprim(valu, path=None):
         return Path(valu, path=path)
 
     if isinstance(valu, (tuple, list)):
+        # FIXME - List() has methods which are incompatible with a Python tuple.
         return List(valu, path=path)
 
     if isinstance(valu, dict):

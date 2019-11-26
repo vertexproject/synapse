@@ -3,6 +3,37 @@ Synapse Changelog
 *****************
 
 
+v0.1.38 - 2019-11-22
+====================
+
+Features and Enhancements
+-------------------------
+- Add the query text to the error message when a remote Storm query encounters a fatal exception.
+  (`#1432 <https://github.com/vertexproject/synapse/pull/1432>`_)
+- Add provenance claim information to provenance recursion errors for better debugging of provenance issues.
+  (`#1432 <https://github.com/vertexproject/synapse/pull/1432>`_)
+- Capture ``print`` events from inside of a Storm Daemon and log those to the ``synapse.lib.storm`` logger.
+  (`#1434 <https://github.com/vertexproject/synapse/pull/1434>`_)
+- Add ``$lib.list()`` to StormTypes to allow construction of a List StormType.
+  (`#1434 <https://github.com/vertexproject/synapse/pull/1434>`_)
+- Add ``:loc`` secondary property to ``mat:item``, ``it:host``, and ``geo:nloc`` forms.
+  (`#1437 <https://github.com/vertexproject/synapse/pull/1437>`_)
+- Split a Storm Daemon task into two components; a ``storm:dmon:main`` and ``storm:dmon:loop`` task. Killing the
+  ``storm:dmon:loop`` task will cause the ``storm:dmon:main`` task to respawn the inner task executing Storm.
+  (`#1436 <https://github.com/vertexproject/synapse/pull/1436>`_)
+
+Bugfixes
+--------
+- Fix a bug where a Storm Daemon coroutine was promoted to a Synapse Task with an incorrect user value.
+  (`#1435 <https://github.com/vertexproject/synapse/pull/1435>`_)
+- Fix a Storm Runtime variable scoping issue preventing Storm functions from calling other Storm functions in the same
+  scope they are declared in.
+  (`#1435 <https://github.com/vertexproject/synapse/pull/1435>`_)
+- Fix an bug producing an ambiguity in the Storm ``switch`` case statement.  This bugfix does require switch case
+  statements with a space in them to be enclosed in single or double quotes.
+  (`#1438 <https://github.com/vertexproject/synapse/pull/1438>`_)
+
+
 v0.1.37 - 2019-11-19
 ====================
 
