@@ -609,7 +609,7 @@ class HelpCmd(Cmd):
                 for name, ctor in stormcmds:
                     cmdinfo = f'{name:<{maxlen}}: {ctor.getCmdBrief()}'
                     pkgcmds.setdefault(pkgmap.get(name, 'synapse'), []).append(cmdinfo)
-            
+
                 await runt.printf(f'package: synapse')
 
                 for cmd in pkgcmds.pop('synapse', []):
