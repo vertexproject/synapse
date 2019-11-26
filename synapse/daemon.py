@@ -140,6 +140,8 @@ async def t2call(link, meth, args, kwargs):
         if s_coro.iscoro(valu):
             valu = await valu
 
+        #print('t2 call %r %r %r -> %r' % (meth, args, kwargs, valu))
+
         try:
 
             first = True
@@ -152,6 +154,9 @@ async def t2call(link, meth, args, kwargs):
                         first = False
 
                     await link.tx(('t2:yield', {'retn': (True, item)}))
+
+                if first:
+                    await link.tx(('t2:genr', {}))
 
                 await link.tx(('t2:yield', {'retn': None}))
                 return
@@ -166,6 +171,9 @@ async def t2call(link, meth, args, kwargs):
 
                     await link.tx(('t2:yield', {'retn': (True, item)}))
 
+                if first:
+                    await link.tx(('t2:genr', {}))
+
                 await link.tx(('t2:yield', {'retn': None}))
                 return
 
@@ -177,7 +185,7 @@ async def t2call(link, meth, args, kwargs):
             if first:
                 await link.tx(('t2:genr', {}))
 
-            logger.exception('error during task: {meth}')
+            logger.exception(f'error during task: {meth}')
             if not link.isfini:
                 retn = s_common.retnexc(e)
                 await link.tx(('t2:yield', {'retn': retn}))

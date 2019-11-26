@@ -3,6 +3,7 @@ import asyncio
 import logging
 import contextlib
 import collections
+import multiprocessing
 
 from collections.abc import Mapping
 
@@ -747,6 +748,11 @@ class CoreApi(s_cell.CellApi):
     async def cullCoreQueue(self, name, offs):
         return await self.cell.cullCoreQueue(name, offs)
 
+    @s_cell.adminapi
+    async def iterSpawnInfo(self):
+        async for mesg in self.cell.iterSpawnInfo():
+            yield mesg
+
 class Cortex(s_cell.Cell):
     '''
     A Cortex implements the synapse hypergraph.
@@ -828,6 +834,7 @@ class Cortex(s_cell.Cell):
         self.layrctors = {}
         self.feedfuncs = {}
         self.stormcmds = {}
+        self.spawnchans = []
 
         # differentiate these for spawning
         self.storm_cmd_ctors = {}
@@ -930,6 +937,8 @@ class Cortex(s_cell.Cell):
         self._initPushLoop()
         self._initFeedLoops()
 
+        await self._initSpawnCores()
+
     async def getSpawnInfo(self):
         return {
             'iden': self.iden,
@@ -946,6 +955,54 @@ class Cortex(s_cell.Cell):
             },
             'model': await self.getModelDefs(),
         }
+
+    async def iterSpawnInfo(self):
+        async with self._getSpawnChan() as chan:
+            yield await self.getSpawnInfo()
+            async for mesg in chan:
+                yield await self.getSpawnInfo()
+
+    async def _initSpawnCores(self):
+
+        ctx = multiprocessing.get_context('spawn')
+
+        todo = ctx.Queue()
+
+        info = {
+            'dirn': self.dirn,
+            'todo': ctx.Queue(),
+        }
+
+        todo = (s_spawn.spawncore, (info,), {})
+        coro = s_coro.spawn(todo, ctx=ctx)
+
+        self.schedCoro(coro)
+
+    @contextlib.asynccontextmanager
+    async def _getSpawnChan(self):
+        wind = await s_queue.Window.anit()
+        self.spawnchans.append(wind)
+        yield wind
+        self.spawnchans.remove(wind)
+
+    async def fireSpawnSync(self):
+        [await c.put(True) for c in self.spawnchans]
+
+    async def fireSyncEvent(self, name, **info):
+        '''
+        All changes to the cortex's persistent storage should
+        eventually be propigated via events plumbed here.
+        '''
+        try:
+
+            func = self.syncfuncs.get(name)
+            func(name, info)
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception as e:
+            logger.exc()
 
     async def _initRuntFuncs(self):
 

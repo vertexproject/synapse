@@ -1,4 +1,7 @@
+import asyncio
+
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
@@ -100,6 +103,30 @@ class SpawnCore(s_base.Base):
 
     async def getStormMods(self):
         return self.stormmods
+
+def spawncore(info):
+
+    async def doit(info):
+
+        s_glob.iAmLoop()
+
+        print('HI FROM SPAWNCORE')
+
+        dirn = info.get('dirn')
+        todo = info.get('todo')
+
+        async with await s_telepath.openurl(f'cell://{dirn}') as prox:
+
+            print('GOT A CORTEX!')
+
+            #async for info in core.iterSpawnInfo():
+                #print('GOT AN INFO %r' % (info,))
+
+        #link = await s_link.fromspawn(linkinfo)
+        #await t2call(link, *todo)
+        #await link.fini()
+
+    asyncio.run(doit(info))
 
 async def spawnstorm(spawninfo):
 
