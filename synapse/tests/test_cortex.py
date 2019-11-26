@@ -1626,10 +1626,32 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCoreAndProxy() as (realcore, core):
 
             msgs = await alist(core.storm('|help'))
-            self.printed(msgs, 'help: List available commands and a brief description for each.')
+            self.printed(msgs, 'package: synapse')
+            self.stormIsInPrint('help', msgs)
+            self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
 
             msgs = await alist(core.storm('help'))
-            self.printed(msgs, 'help: List available commands and a brief description for each.')
+            self.printed(msgs, 'package: synapse')
+            self.stormIsInPrint('help', msgs)
+            self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
+
+            # test that storm package commands that didn't come from
+            # a storm service are displayed
+            otherpkg = {
+                'name': 'foosball',
+                'version': (0, 0, 1),
+                'commands': ({
+                    'name': 'testcmd',
+                    'descr': 'test command',
+                    'storm': '[ inet:ipv4=1.2.3.4 ]',
+                },)
+            }
+            self.none(await core.addStormPkg(otherpkg))
+
+            msgs = await alist(core.storm('help'))
+            self.printed(msgs, 'package: foosball')
+            self.stormIsInPrint('testcmd', msgs)
+            self.stormIsInPrint(': test command', msgs)
 
             await alist(core.eval('[ inet:user=visi inet:user=whippit ]'))
 
