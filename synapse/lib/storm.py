@@ -145,6 +145,7 @@ class StormDmon(s_base.Base):
         self.ddef = ddef
 
         self.task = None
+        self.loop_task = None
         self.user = core.auth.user(ddef.get('user'))
 
         self.count = 0
@@ -153,6 +154,8 @@ class StormDmon(s_base.Base):
         async def fini():
             if self.task is not None:
                 self.task.cancel()
+            if self.loop_task is not None:
+                self.loop_task.cancel()
 
         self.onfini(fini)
 
@@ -166,17 +169,38 @@ class StormDmon(s_base.Base):
         return retn
 
     async def _run(self):
-
         name = self.ddef.get('name', 'storm dmon')
+        info = {'iden': self.iden, 'name': name}
+        await self.core.boss.promote('storm:dmon:main', user=self.user, info=info)
+        while not self.isfini:
+            try:
+                logger.info(f'Dmon loop starting ({self.iden})')
+                synt = await self.core.boss.execute(self._innr_run(),
+                                                    name='storm:dmon:loop',
+                                                    user=self.user,
+                                                    info=info)
+                self.loop_task = synt.task
+                await synt.waitfini()
+            except asyncio.CancelledError:
+                logger.warning(f'Dmon main cancelled ({self.iden})')
+                if self.loop_task:
+                    self.loop_task.cancel()
+                raise
+            except Exception as e:  # pragma: no cover
+                logger.exception(f'Dmon error during loop task execution ({self.iden})')
+                self.status = f'error: {e}'
+                await self.waitfini(timeout=1)
 
-        await self.core.boss.promote('storm:dmon', user=self.user.iden, info={'iden': self.iden, 'name': name})
+    async def _innr_run(self):
 
         s_scope.set('storm:dmon', self.iden)
 
         text = self.ddef.get('storm')
         opts = self.ddef.get('stormopts')
 
-        dmoniden = self.ddef.get('iden')
+        def dmonPrint(evnt):
+            mesg = evnt[1].get('mesg', '')
+            logger.info(f'Dmon - {self.iden} - {mesg}')
 
         while not self.isfini:
 
@@ -184,22 +208,24 @@ class StormDmon(s_base.Base):
 
                 self.status = 'running'
                 async with await self.core.snap(user=self.user) as snap:
+                    snap.on('print', dmonPrint)
 
                     async for nodepath in snap.storm(text, opts=opts, user=self.user):
                         # all storm tasks yield often to prevent latency
                         self.count += 1
                         await asyncio.sleep(0)
 
-                    logger.warning(f'dmon query exited: {dmoniden}')
+                    logger.warning(f'Dmon query exited: {self.iden}')
 
                     self.status = 'exited'
                     await self.waitfini(timeout=1)
 
             except asyncio.CancelledError as e:
+                logger.warning(f'Dmon loop cancelled ({self.iden})')
                 raise
 
             except Exception as e:
-                logger.exception(f'dmon error ({self.iden}): {e}')
+                logger.exception(f'Dmon error ({self.iden})')
                 self.status = f'error: {e}'
                 await self.waitfini(timeout=1)
 
@@ -234,6 +260,9 @@ class Runtime:
         self.runtvars = set()
         self.runtvars.update(self.vars.keys())
         self.runtvars.update(self.ctors.keys())
+        self.isModuleRunt = False
+        self.globals = set()
+        self.modulefuncs = {}
 
         self.proxies = {}
         self.elevated = False
@@ -373,6 +402,8 @@ class Runtime:
         # do a quick pass to determine which vars are per-node.
         for oper in query.kids:
             for name in oper.getRuntVars(self):
+                if self.isModuleRunt and isinstance(oper, s_ast.Function):
+                    self.modulefuncs[name] = oper
                 self.runtvars.add(name)
 
     async def iterStormQuery(self, query, genr=None):
@@ -390,10 +421,69 @@ class Runtime:
                 self.tick()
                 yield node, path
 
-    async def getScopeRuntime(self, query, opts=None):
+    def canPropName(self, name):
+        if name not in self.modulefuncs and name not in self.ctors:
+            return True
+        return False
+
+    async def getScopeRuntime(self, query, opts=None, impd=False):
+        '''
+        Derive a new runt off of an existing runt. It will pass down any global level vars. It has to
+        re run the oper.run function on any function opers so that it gets the correct context of
+        variable values and functions.
+        '''
         runt = Runtime(self.snap, user=self.user, opts=opts)
+        # imported implies module level
+        runt.isModuleRunt = impd
+        if not impd:  # respect the import boundary
+
+            # if we are a top level module we need to
+            # push down our runtvars
+            if self.isModuleRunt:
+                for name in self.runtvars:
+                    valu = self.vars.get(name, s_common.novalu)
+                    if valu is s_common.novalu:
+                        continue
+                    if self.canPropName(name):
+                        runt.globals.add(name)
+                        runt.runtvars.add(name)
+                        runt.vars[name] = valu
+
+            # propagate down all the global variables
+            for name in self.globals:
+                if self.canPropName(name):
+                    runt.vars[name] = self.vars[name]
+                    runt.globals.add(name)
+                    runt.runtvars.add(name)
+
+            # regardless of module level, we have to reload the module functions
+            # we were given so they run with the right runt. We need this so we have
+            # the whole function telescoping going on, and module level variables get
+            # set to the right values
+            runt.modulefuncs = dict(self.modulefuncs)
+            for name, oper in self.modulefuncs.items():
+                runt.runtvars.add(name)
+                async for item in oper.run(runt, s_ast.agen()):
+                    pass  # pragma: no cover
+
         runt.loadRuntVars(query)
         return runt
+
+    async def propBackGlobals(self, runt):
+        '''
+        From a called runt (passed in by parameter), propagate the vars we know to be global
+        to the module back up into the calling runt. *Don't* propagate any functions, since
+        those need the context of which runt they're being called from, and just for safety
+        don't mess with the base lib object.
+        '''
+        for name in runt.globals:
+            valu = runt.vars.get(name, s_common.novalu)
+            if valu is s_common.novalu:
+                continue
+            if not self.canPropName(name):
+                # don't override our parent's version of a function
+                continue
+            self.vars[name] = valu
 
 class Parser(argparse.ArgumentParser):
 

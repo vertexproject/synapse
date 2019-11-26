@@ -142,7 +142,8 @@ class GeoTest(s_t_utils.SynTest):
             stamp = -0
 
             place = s_common.guid()
-            props = {'place': place}
+            props = {'place': place,
+                     'loc': 'us.hehe.haha'}
 
             async with await core.snap() as snap:
                 node = await snap.addNode('geo:nloc', (ndef, latlong, stamp), props=props)
@@ -152,6 +153,7 @@ class GeoTest(s_t_utils.SynTest):
                 self.eq(node.get('latlong'), (0.0, 0.0))
                 self.eq(node.get('time'), 0)
                 self.eq(node.get('place'), place)
+                self.eq(node.get('loc'), 'us.hehe.haha')
                 self.nn(await snap.getNodeByNdef(('inet:ipv4', 0)))
 
             # geo:place

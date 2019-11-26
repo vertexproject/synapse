@@ -2943,10 +2943,8 @@ class Function(AstNode):
                                           name=self.name, args=real_args,
                                           expected=len(argdefs), got=len(real_args)
                                           )
-
         opts = {'vars': real_args}
         funcrunt = await runt.getScopeRuntime(self.kids[2], opts=opts)
-
         if self.hasretn:
 
             try:
@@ -2956,11 +2954,14 @@ class Function(AstNode):
 
             except StormReturn as e:
                 return e.item
+            finally:
+                await runt.propBackGlobals(funcrunt)
 
             return None
 
         async def nodegenr():
             async for node, path in self.kids[2].run(funcrunt, agen()):
+                await runt.propBackGlobals(funcrunt)
                 yield node
 
         return nodegenr()
