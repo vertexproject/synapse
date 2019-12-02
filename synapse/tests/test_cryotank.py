@@ -89,6 +89,10 @@ class CryoTest(s_t_utils.SynTest):
 
                 self.len(1, await alist(lprox.metrics(0)))
 
+            # Delete apis
+            self.false(await prox.delete('newp'))
+            self.true(await prox.delete('lulz'))
+
     async def test_cryo_init(self):
         with self.getTestDir() as dirn:
             async with self.getTestCryo(dirn) as cryo:
