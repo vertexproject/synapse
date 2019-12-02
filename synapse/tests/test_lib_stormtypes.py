@@ -1212,6 +1212,15 @@ class StormTypesTest(s_test.SynTest):
             self.eq({'sup!', 'dawg'},
                     {n.ndef[1] for n in nodes})
 
+            # Ingest bad data
+            data = [
+                (('test:int', 'newp'), {}),
+            ]
+            svars['data'] = data
+            q = '$lib.feed.ingest("syn.nodes", $data)'
+            msgs = await core.streamstorm(q, opts).list()
+            self.stormIsInWarn("BadPropValu: Error adding node: test:int 'newp'", msgs)
+
     async def test_lib_stormtypes_stats(self):
 
         async with self.getTestCore() as core:

@@ -502,7 +502,10 @@ class LibFeed(Lib):
             seqn: A tuple of (guid, offset) values used for tracking ingest data.
 
         Notes:
-            This is using the Runtimes's Snap to call addFeedData().
+            This is using the Runtimes's Snap to call addFeedData(), after setting
+            the snap.strict mode to False. This will cause node creation and property
+            setting to produce warning messages, instead of causing the Storm Runtime
+            to be torn down.
 
         Returns:
             None or the sequence offset value.
@@ -510,7 +513,11 @@ class LibFeed(Lib):
 
         self.runt.reqLayerAllowed(('feed:data', *name.split('.')))
         with s_provenance.claim('feed:data', name=name):
-            return await self.runt.snap.addFeedData(name, data, seqn)
+            strict = self.runt.snap.strict
+            self.runt.snap.strict = False
+            retn = await self.runt.snap.addFeedData(name, data, seqn)
+            self.runt.snap.strict = strict
+        return retn
 
 class LibQueue(Lib):
 
