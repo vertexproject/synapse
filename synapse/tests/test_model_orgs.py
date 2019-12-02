@@ -45,9 +45,11 @@ class OuModelTest(s_t_utils.SynTest):
                 guid0 = s_common.guid()
                 name = '\u21f1\u21f2 Inc.'
                 normname = '\u21f1\u21f2 inc.'
+                altnames = ('altarrowname', 'otheraltarrow', )
                 oprops = {
                     'loc': 'US.CA',
                     'name': name,
+                    'names': altnames,
                     'alias': 'arrow',
                     'phone': '+15555555555',
                     'sic': '0119',
@@ -61,6 +63,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], guid0),
                 self.eq(node.get('loc'), 'us.ca')
                 self.eq(node.get('name'), normname)
+                self.eq(node.get('names'), altnames)
                 self.eq(node.get('alias'), 'arrow')
                 self.eq(node.get('phone'), '15555555555')
                 self.eq(node.get('sic'), '0119')
@@ -70,8 +73,14 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('founded'), 1420070400000)
                 self.eq(node.get('disolved'), 1546300800000)
 
-                node = (await alist(snap.getNodesBy('ou:name', name)))[0]
-                self.eq(node.ndef[1], normname)
+                nodes = (await alist(snap.getNodesBy('ou:name')))
+                self.sorteq([x.ndef[1] for x in nodes], (normname,) + altnames)
+
+                nodes = await alist(snap.getNodesBy('ou:org:names', 'otheraltarrow', cmpr='contains='))
+                self.len(1, nodes)
+
+                nodes = await alist(snap.getNodesBy('ou:org:names', name, cmpr='contains='))
+                self.len(0, nodes)  # primary ou:org:name is not in ou:org:names
 
                 person0 = s_common.guid()
                 mprops = {
