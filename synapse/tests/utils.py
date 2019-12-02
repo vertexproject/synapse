@@ -997,14 +997,14 @@ class SynTest(unittest.TestCase):
                 yield cryo
 
     @contextlib.asynccontextmanager
-    async def getTestCryoAndProxy(self):
+    async def getTestCryoAndProxy(self, dirn=None):
         '''
         Get a test Cryocell and the Telepath Proxy to it.
 
         Returns:
             (s_cryotank: CryoCell, s_cryotank.CryoApi): The CryoCell and a Proxy representing a CryoApi object.
         '''
-        async with self.getTestCryo() as cryo:
+        async with self.getTestCryo(dirn=dirn) as cryo:
             async with cryo.getLocalProxy() as prox:
                 yield cryo, prox
 
