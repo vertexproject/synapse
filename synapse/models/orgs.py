@@ -237,6 +237,9 @@ class OuModule(s_module.CoreModule):
                     ('place', ('geo:place', ()), {
                         'doc': 'The geo:place node where the conference was held.',
                     }),
+                    ('url', ('inet:url', ()), {
+                        'doc': 'The inet:url node for the conference website.',
+                    }),
                 )),
                 ('ou:conference:attendee', {}, (
                     ('conference', ('ou:conference', {}), {
