@@ -172,7 +172,8 @@ class OuModelTest(s_t_utils.SynTest):
                     'base': 'arrowcon',
                     'start': '20180301',
                     'end': '20180303',
-                    'place': place0
+                    'place': place0,
+                    'url': 'http://arrowcon.org/2018',
                 }
                 node = await snap.addNode('ou:conference', c0, cprops)
                 self.eq(node.ndef[1], c0)
@@ -182,6 +183,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('start'), 1519862400000)
                 self.eq(node.get('end'), 1520035200000)
                 self.eq(node.get('place'), place0)
+                self.eq(node.get('url'), 'http://arrowcon.org/2018')
 
                 cprops = {
                     'arrived': '201803010800',
