@@ -96,7 +96,6 @@ class CryoTest(s_t_utils.SynTest):
             # Re-open the tank and ensure that the deleted tank is not present.
             async with self.getTestCryoAndProxy(dirn=dirn) as (cryo, prox):
                 tanks = await prox.list()
-                print(tanks)
                 self.len(1, tanks)
                 self.eq('foo', tanks[0][0])
 
