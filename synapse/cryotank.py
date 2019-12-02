@@ -238,7 +238,7 @@ class CryoApi(s_cell.CellApi):
 
     @s_cell.adminapi
     async def delete(self, name):
-        return self.cell.delete(name)
+        return await self.cell.delete(name)
 
 class CryoCell(s_cell.Cell):
 
@@ -325,9 +325,9 @@ class CryoCell(s_cell.Cell):
         if tank is None:
             return False
 
-        await self.names.pop(name)
+        await self.names.pop((name,))
 
-        tank.fini()
+        await tank.fini()
         shutil.rmtree(tank.dirn, ignore_errors=True)
 
         return True
