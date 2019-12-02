@@ -63,7 +63,7 @@ class StormType:
         if ctor is not None:
             return ctor(path=self.path)
 
-        raise s_exc.NoSuchName(name=name)
+        raise s_exc.NoSuchName(name=name, styp=self.__class__.__name__)
 
 class Lib(StormType):
 
@@ -210,7 +210,7 @@ class LibService(Lib):
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
-            raise s_exc.NoSuchName(mesg=mesg)
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
 
         await ssvc.ready.wait()
 
@@ -548,7 +548,7 @@ class LibQueue(Lib):
         info = self.runt.snap.core.multiqueue.queues.get(name)
         if info is None:
             mesg = f'No queue named {name}.'
-            raise s_exc.NoSuchName(mesg=mesg)
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
 
         return Queue(self.runt, name, info)
 
@@ -557,7 +557,7 @@ class LibQueue(Lib):
         info = self.runt.snap.core.multiqueue.queues.get(name)
         if info is None:
             mesg = f'No queue named {name} exists.'
-            raise s_exc.NoSuchName(mesg=mesg)
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
 
         if info.get('user') != self.runt.user.iden:
             self.runt.reqAllowed(('storm', 'queue', 'del', name))
@@ -662,7 +662,7 @@ class Proxy(StormType):
 
         if name[0] == '_':
             mesg = f'No proxy method named {name}'
-            raise s_exc.NoSuchName(mesg=mesg)
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
 
         return getattr(self.proxy, name, None)
 
