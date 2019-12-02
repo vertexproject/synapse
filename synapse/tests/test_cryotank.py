@@ -60,34 +60,34 @@ class CryoTest(s_t_utils.SynTest):
             self.eq(4, await prox.offset('foo', iden))
 
             # test the direct tank share....
-            async with cryo.getLocalProxy(share='cryotank/foo') as prox:
+            async with cryo.getLocalProxy(share='cryotank/foo') as lprox:
 
-                items = await alist(prox.slice(1, 3))
+                items = await alist(lprox.slice(1, 3))
 
                 self.eq(items[0][1][0], 'baz')
 
-                self.len(4, await alist(prox.slice(0, 9999)))
+                self.len(4, await alist(lprox.slice(0, 9999)))
 
-                await prox.puts(cryodata)
+                await lprox.puts(cryodata)
 
-                self.len(6, await alist(prox.slice(0, 9999)))
+                self.len(6, await alist(lprox.slice(0, 9999)))
 
                 # test offset storage and updating
                 iden = s_common.guid()
-                self.eq(0, await prox.offset(iden))
-                self.eq(2, await prox.puts(cryodata, seqn=(iden, 0)))
-                self.eq(2, await prox.offset(iden))
+                self.eq(0, await lprox.offset(iden))
+                self.eq(2, await lprox.puts(cryodata, seqn=(iden, 0)))
+                self.eq(2, await lprox.offset(iden))
 
             # test the new open share
-            async with cryo.getLocalProxy(share='cryotank/lulz') as prox:
+            async with cryo.getLocalProxy(share='cryotank/lulz') as lprox:
 
-                self.len(0, await alist(prox.slice(0, 9999)))
+                self.len(0, await alist(lprox.slice(0, 9999)))
 
-                await prox.puts(cryodata)
+                await lprox.puts(cryodata)
 
-                self.len(2, await alist(prox.slice(0, 9999)))
+                self.len(2, await alist(lprox.slice(0, 9999)))
 
-                self.len(1, await alist(prox.metrics(0)))
+                self.len(1, await alist(lprox.metrics(0)))
 
     async def test_cryo_init(self):
         with self.getTestDir() as dirn:
