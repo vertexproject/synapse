@@ -326,7 +326,6 @@ class CryoCell(s_cell.Cell):
             return False
 
         await self.names.pop((name,))
-
         await tank.fini()
         shutil.rmtree(tank.dirn, ignore_errors=True)
 
