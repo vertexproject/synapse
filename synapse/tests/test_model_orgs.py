@@ -74,7 +74,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('disolved'), 1546300800000)
 
                 nodes = (await alist(snap.getNodesBy('ou:name')))
-                self.sorteq([x.ndef[1] for x in nodes], (normname,)+altnames)
+                self.sorteq([x.ndef[1] for x in nodes], (normname,) + altnames)
 
                 nodes = await alist(snap.getNodesBy('ou:org:names', 'otheraltarrow', cmpr='contains='))
                 self.len(1, nodes)
