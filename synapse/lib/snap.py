@@ -429,6 +429,13 @@ class Snap(s_base.Base):
         except asyncio.CancelledError: # pragma: no cover
             raise
 
+        except s_exc.SynErr as e:
+            mesg = f'Error adding node: {name} {valu!r} {props!r}'
+            mesg = ', '.join((mesg, e.get('mesg', '')))
+            info = e.items()
+            info.pop('mesg', None)
+            await self._raiseOnStrict(e.__class__, mesg, **info)
+
         except Exception:
 
             mesg = f'Error adding node: {name} {valu!r} {props!r}'
