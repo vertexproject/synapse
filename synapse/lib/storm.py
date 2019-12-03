@@ -689,10 +689,51 @@ class HelpCmd(Cmd):
             yield item
 
         if not self.opts.command:
-            for name, ctor in sorted(runt.snap.core.getStormCmds()):
-                await runt.printf('%.20s: %s' % (name, ctor.getCmdBrief()))
+            stormcmds = sorted(runt.snap.core.getStormCmds())
+            stormpkgs = await runt.snap.core.getStormPkgs()
 
-        await runt.printf('')
+            pkgsvcs = {}
+            pkgcmds = {}
+            pkgmap = {}
+
+            for pkg in stormpkgs:
+                svciden = pkg.get('svciden')
+                pkgname = pkg.get('name')
+
+                for cmd in pkg.get('commands', []):
+                    pkgmap[cmd.get('name')] = pkgname
+
+                ssvc = runt.snap.core.getStormSvc(svciden)
+                if ssvc is not None:
+                    pkgsvcs[pkgname] = f'{ssvc.name} ({svciden})'
+
+            if stormcmds:
+                maxlen = max(len(x[0]) for x in stormcmds)
+
+                for name, ctor in stormcmds:
+                    cmdinfo = f'{name:<{maxlen}}: {ctor.getCmdBrief()}'
+                    pkgcmds.setdefault(pkgmap.get(name, 'synapse'), []).append(cmdinfo)
+
+                await runt.printf(f'package: synapse')
+
+                for cmd in pkgcmds.pop('synapse', []):
+                    await runt.printf(cmd)
+
+                await runt.printf('')
+
+                for name, cmds in sorted(pkgcmds.items()):
+                    svcinfo = pkgsvcs.get(name)
+
+                    if svcinfo:
+                        await runt.printf(f'service: {svcinfo}')
+
+                    await runt.printf(f'package: {name}')
+
+                    for cmd in cmds:
+                        await runt.printf(cmd)
+
+                    await runt.printf('')
+
         await runt.printf('For detailed help on any command, use <cmd> --help')
 
 class LimitCmd(Cmd):
