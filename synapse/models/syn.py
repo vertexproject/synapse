@@ -21,12 +21,17 @@ class SynModule(s_module.CoreModule):
         self._triggerRuntsByBuid = {}
         self._triggerRuntsByPropValu = collections.defaultdict(list)
 
+        # Static runt data for commands
+        self._cmdRuntsByBuid = {}
+        self._cmdRuntsByPropValu = collections.defaultdict(list)
+
         # Add runt lift helpers
         for form, lifter in (('syn:type', self._synModelLift),
                              ('syn:form', self._synModelLift),
                              ('syn:prop', self._synModelLift),
                              ('syn:tagprop', self._synModelLift),
                              ('syn:trigger', self._synTriggerLift),
+                             ('syn:cmd', self._synCmdLift),
                              ):
             form = self.model.form(form)
             self.core.addRuntLift(form.full, lifter)
@@ -39,6 +44,18 @@ class SynModule(s_module.CoreModule):
         self.core.on('core:tagprop:change', self._onCoreModelChange)
         self.core.on('core:extmodel:change', self._onCoreModelChange)
         self.core.on('core:trigger:action', self._onCoreTriggerMod)
+        self.core.on('core:cmd:change', self._onCoreCmdChange)
+
+    def _onCoreCmdChange(self, event):
+        '''
+        Clear the cached command rows.
+        '''
+        if not self._cmdRuntsByBuid:
+            return
+        # Discard previously cached data. It will be computed upon the next
+        # lift that needs it.
+        self._cmdRuntsByBuid.clear()
+        self._cmdRuntsByPropValu.clear()
 
     def _onCoreTriggerMod(self, event):
         '''
@@ -61,6 +78,25 @@ class SynModule(s_module.CoreModule):
         # lift that needs it.
         self._modelRuntsByBuid.clear()
         self._modelRuntsByPropValu.clear()
+
+    async def _synCmdLift(self, full, valu=None, cmpr=None):
+        if not self._cmdRuntsByBuid:
+            await self._initCmdRunts()
+
+        if cmpr is not None and cmpr != '=':
+            raise s_exc.BadCmprValu(mesg='Command runtime nodes only support equality comparator.',
+                                    cmpr=cmpr)
+
+        if valu is None:
+            buids = self._cmdRuntsByPropValu.get(full, ())
+        else:
+            prop = self.model.prop(full)
+            valu, _ = prop.type.norm(valu)
+            buids = self._cmdRuntsByPropValu.get((full, valu), ())
+
+        rowsets = [(buid, self._cmdRuntsByBuid.get(buid, ())) for buid in buids]
+        for buid, rows in rowsets:
+            yield buid, rows
 
     async def _synTriggerLift(self, full, valu=None, cmpr=None):
         if not self._triggerRuntsByBuid:
@@ -123,6 +159,42 @@ class SynModule(s_module.CoreModule):
             # Can the secondary property be indexed for lift?
             if self.model.prop(prop).type.indx(propvalu):
                 propcache[(prop, propvalu)].append(buid)
+
+    async def _initCmdRunts(self):
+        now = s_common.now()
+        typeform = self.model.form('syn:cmd')
+        for pkg in await self.core.getStormPkgs():
+
+            svciden = pkg.get('svciden')
+            pkgname = pkg.get('name')
+
+            for cmd in pkg.get('commands', []):
+
+                tnorm, _ = typeform.type.norm(cmd.get('name'))
+                forms = cmd.get('forms', {})
+
+                props = {'.created': now}
+
+                descr = cmd.get('descr')
+                if descr:
+                    props['doc'] = cmd.get('descr').strip().split('\n')[0]
+
+                inputs = forms.get('input')
+                if inputs:
+                    props['input'] = inputs
+
+                outputs = forms.get('output')
+                if outputs:
+                    props['output'] = outputs
+
+                if svciden:
+                    props['svciden'] = svciden
+
+                if pkgname:
+                    props['package'] = pkgname
+
+                self._addRuntRows('syn:cmd', tnorm, props,
+                                 self._cmdRuntsByBuid, self._cmdRuntsByPropValu)
 
     async def _initTriggerRunts(self):
         now = s_common.now()
@@ -299,6 +371,9 @@ class SynModule(s_module.CoreModule):
                 ('syn:trigger', ('guid', {}), {
                     'doc': 'A Cortex trigger.'
                 }),
+                ('syn:cmd', ('str', {'strip': True}), {
+                    'doc': 'A Synapse storm command.'
+                }),
             ),
 
             'forms': (
@@ -411,6 +486,18 @@ class SynModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The storm query executed by the cron job.'}),
 
+                )),
+                ('syn:cmd', {'runt': True}, (
+                    ('doc', ('str', {'strip': True}), {
+                        'doc': 'Description of the command.'}),
+                    ('package', ('str', {'strip': True}), {
+                        'doc': 'Storm package which provided the command.'}),
+                    ('svciden', ('str', {'strip': True}), {
+                        'doc': 'Storm service iden which provided the package.'}),
+                    ('input', ('array', {'type': 'str'}), {
+                        'doc': 'The list of forms accepted by the command as input.', 'ro': True}),
+                    ('output', ('array', {'type': 'str'}), {
+                        'doc': 'The list of forms produced by the command as output.', 'ro': True}),
                 )),
             ),
         }),)

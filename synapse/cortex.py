@@ -993,8 +993,12 @@ class Cortex(s_cell.Cell):
         name = cdef.get('name')
         self.stormcmds[name] = ctor
 
+        await self.fire('core:cmd:change', cmd=name, act='add')
+
     async def _popStormCmd(self, name):
         self.stormcmds.pop(name, None)
+
+        await self.fire('core:cmd:change', cmd=name, act='del')
 
     async def delStormCmd(self, name):
         '''
@@ -1012,6 +1016,8 @@ class Cortex(s_cell.Cell):
 
         await self.cmdhive.pop(name)
         self.stormcmds.pop(name, None)
+
+        await self.fire('core:cmd:change', cmd=name, act='del')
 
     async def addStormPkg(self, pkgdef):
         '''
