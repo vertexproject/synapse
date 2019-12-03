@@ -163,21 +163,28 @@ class SynModule(s_module.CoreModule):
     async def _initCmdRunts(self):
         now = s_common.now()
         typeform = self.model.form('syn:cmd')
-        for pkg in await self.core.getStormPkgs():
+        pkgmap = {}
 
+        for pkg in await self.core.getStormPkgs():
             svciden = pkg.get('svciden')
             pkgname = pkg.get('name')
 
             for cmd in pkg.get('commands', []):
+                pkgmap[cmd.get('name')] = {'pkgname': pkgname,
+                                           'svciden': svciden,
+                                           'forms': cmd.get('forms', {}),
+                                           }
 
-                tnorm, _ = typeform.type.norm(cmd.get('name'))
-                forms = cmd.get('forms', {})
+        for name, ctor in self.core.getStormCmds():
+            tnorm, _ = typeform.type.norm(name)
 
-                props = {'.created': now}
+            props = {'.created': now,
+                     'doc': ctor.getCmdBrief(),
+                     }
 
-                descr = cmd.get('descr')
-                if descr:
-                    props['doc'] = cmd.get('descr').strip().split('\n')[0]
+            pkg = pkgmap.get(name)
+            if pkg:
+                forms = pkg.get('forms', {})
 
                 inputs = forms.get('input')
                 if inputs:
@@ -187,14 +194,16 @@ class SynModule(s_module.CoreModule):
                 if outputs:
                     props['output'] = outputs
 
+                svciden = pkg.get('svciden')
                 if svciden:
                     props['svciden'] = svciden
 
+                pkgname = pkg.get('pkgname')
                 if pkgname:
                     props['package'] = pkgname
 
-                self._addRuntRows('syn:cmd', tnorm, props,
-                                 self._cmdRuntsByBuid, self._cmdRuntsByPropValu)
+            self._addRuntRows('syn:cmd', tnorm, props,
+                              self._cmdRuntsByBuid, self._cmdRuntsByPropValu)
 
     async def _initTriggerRunts(self):
         now = s_common.now()

@@ -986,7 +986,7 @@ class Cortex(s_cell.Cell):
 
         # TODO unify class ctors and func ctors vs briefs...
         def getCmdBrief():
-            return cdef.get('descr', 'No description').split('\n')[0]
+            return cdef.get('descr', 'No description').strip().split('\n')[0]
 
         ctor.getCmdBrief = getCmdBrief
 

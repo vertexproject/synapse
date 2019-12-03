@@ -377,7 +377,19 @@ class SynModelTest(s_t_utils.SynTest):
             url = f'tcp://127.0.0.1:{port}/test'
 
             async with self.getTestCore() as core:
-                nodes = await core.nodes('syn:cmd')
+                nodes = await core.nodes('syn:cmd=help')
+                self.len(1, nodes)
+
+                self.eq(nodes[0].ndef, ('syn:cmd', 'help'))
+                self.eq(nodes[0].get('doc'), 'List available commands and ' \
+                                             'a brief description for each.')
+
+                self.none(nodes[0].get('input'))
+                self.none(nodes[0].get('output'))
+                self.none(nodes[0].get('package'))
+                self.none(nodes[0].get('svciden'))
+
+                nodes = await core.nodes('syn:cmd +:package')
                 self.len(0, nodes)
 
                 await core.nodes(f'service.add test {url}')
@@ -386,7 +398,7 @@ class SynModelTest(s_t_utils.SynTest):
                 await core.nodes('$lib.service.wait(test)')
 
                 # check that runt nodes for new commands are created
-                nodes = await core.nodes('syn:cmd')
+                nodes = await core.nodes('syn:cmd +:package')
                 self.len(2, nodes)
 
                 self.eq(nodes[0].ndef, ('syn:cmd', 'foobar'))
@@ -397,7 +409,7 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[0].get('svciden'), iden)
 
                 self.eq(nodes[1].ndef, ('syn:cmd', 'ohhai'))
-                self.none(nodes[1].get('doc'))
+                self.eq(nodes[1].get('doc'), 'No description')
                 self.none(nodes[1].get('input'))
                 self.eq(nodes[1].get('output'), ('inet:ipv4',))
                 self.eq(nodes[1].get('package'), 'foo')
@@ -409,5 +421,5 @@ class SynModelTest(s_t_utils.SynTest):
                 await core.nodes(f'service.del {iden}')
 
                 # check that runt nodes for the commands are gone
-                nodes = await core.nodes('syn:cmd')
+                nodes = await core.nodes('syn:cmd +:package')
                 self.len(0, nodes)
