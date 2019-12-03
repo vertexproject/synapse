@@ -3,6 +3,40 @@ Synapse Changelog
 *****************
 
 
+v0.1.39 - 2019-12-03
+====================
+
+Features and Enhancements
+-------------------------
+
+- Group Storm commands which came from Storm packages together when the ``storm help`` command is issued.
+  (`#1440 <https://github.com/vertexproject/synapse/pull/1440>`_)
+- Add the secondary property ``:url`` to the ``ou:conference`` form to track ``inet:url`` nodes associated with a
+  conference.
+  (`#1441 <https://github.com/vertexproject/synapse/pull/1441>`_)
+- Add ``:names`` as a secondary property to ``ou:org`` to allow tracking multiple, secondary names for an organization.
+  (`#1444 <https://github.com/vertexproject/synapse/pull/1444>`_)
+- The StormType ``$lib.ingest.feed()`` now places the runtime Snap into less-strict mode during execution to prevent
+  potentially data causing the Storm runtime to be torn down. Errors during node creation or property sets will now
+  cause ``warn`` messages to be emitted in the message stream.
+  (`#1442 <https://github.com/vertexproject/synapse/pull/1442>`_)
+
+Bugfixes
+--------
+- Fix an issue where Storm command names were truncated when the ``storm help`` command was issued.
+  (`#1440 <https://github.com/vertexproject/synapse/pull/1440>`_)
+- Fix a Storm grammar issue that disallowed ``$(1 and 1 and 0)`` style of expressions.
+  (`#1439 <https://github.com/vertexproject/synapse/pull/1439>`_)
+- Fix the CryoApi and CryoCell ``delete()`` APIs used to remove a Cryotank from a CryoCell.
+  (`#1443 <https://github.com/vertexproject/synapse/pull/1443>`_)
+- Make NoSuchName errors in StormTypes more friendly by always including the missing name.
+  (`#1445 <https://github.com/vertexproject/synapse/pull/1445>`_)
+- When deferencing a value off of a StormType, if a NoSuchName was thrown it was unclear what type of object was being
+  deferenced, which could lead to difficult to debug Storm code.  The NoSuchName errors now includes the class name
+  of the object to assist with debugging those errors.
+  (`#1445 <https://github.com/vertexproject/synapse/pull/1445>`_)
+
+
 v0.1.38 - 2019-11-22
 ====================
 
