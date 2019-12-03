@@ -415,6 +415,9 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[1].get('package'), 'foo')
                 self.eq(nodes[1].get('svciden'), iden)
 
+                nodes = await core.nodes('syn:cmd +:input*[=inet:ipv4]')
+                self.len(1, nodes)
+
                 # sad path lift
                 await self.asyncraises(s_exc.BadCmprValu, core.nodes('syn:cmd~="beep"'))
 
