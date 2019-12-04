@@ -332,6 +332,9 @@ class ItModule(s_module.CoreModule):
                     ('place', ('geo:place', {}), {
                         'doc': 'The place where the host resides.',
                     }),
+                    ('loc', ('loc', {}), {
+                        'doc': 'The geo-political location string for the node.',
+                    }),
                     ('os', ('it:prod:softver', {}), {
                         'doc': 'The operating system of the host.'
                     }),

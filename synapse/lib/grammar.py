@@ -19,7 +19,7 @@ terminalEnglishMap = {
     'ALLTAGS': '#',
     'AND': 'and',
     'BREAK': 'break',
-    'CASEVALU': 'case value',
+    'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
     'CMDNAME': 'command name',
     'CMPR': 'comparison operator',
@@ -257,7 +257,7 @@ class AstConverter(lark.Transformer):
 
         for casekid, sqkid in zip(it, it):
             subquery = self._convert_child(sqkid)
-            if casekid.valu == '*':
+            if casekid.type == 'DEFAULTCASE':
                 caseentry = s_ast.CaseEntry(kids=[subquery])
             else:
                 casekid = self._convert_child(casekid)
@@ -266,15 +266,6 @@ class AstConverter(lark.Transformer):
             newkids.append(caseentry)
 
         return s_ast.SwitchCase(newkids)
-
-    def casevalu(self, kids):
-        assert len(kids) == 1
-        kid = kids[0]
-
-        if kid.type in ('DOUBLEQUOTEDSTRING', 'SINGLEQUOTEDSTRING'):
-            return self._convert_child(kid)
-
-        return s_ast.Const(kid.value[:-1])  # drop the trailing ':'
 
 
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:

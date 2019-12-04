@@ -159,7 +159,7 @@ class View(s_hive.AuthGater):
                 raise
 
             except Exception as e:
-                logger.exception('Error during storm execution')
+                logger.exception(f'Error during storm execution for {{ {text} }}')
                 enfo = s_common.err(e)
                 enfo[1].pop('esrc', None)
                 enfo[1].pop('ename', None)

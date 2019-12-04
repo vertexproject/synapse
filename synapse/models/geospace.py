@@ -240,6 +240,9 @@ class GeoModule(s_module.CoreModule):
                         ('place', ('geo:place', {}), {
                             'doc': 'The place corresponding to the latlong property.'}),
 
+                        ('loc', ('loc', {}), {
+                            'doc': 'The geo-political location string for the node.'}),
+
                     )),
 
                     ('geo:place', {}, (

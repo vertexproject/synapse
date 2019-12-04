@@ -88,6 +88,7 @@ class Snap(s_base.Base):
             user = self.user
 
         runt = s_storm.Runtime(self, opts=opts, user=user)
+        runt.isModuleRunt = True
         self.core.stormrunts[runt.iden] = runt
         yield runt
         self.core.stormrunts.pop(runt.iden, None)
@@ -427,6 +428,13 @@ class Snap(s_base.Base):
 
         except asyncio.CancelledError: # pragma: no cover
             raise
+
+        except s_exc.SynErr as e:
+            mesg = f'Error adding node: {name} {valu!r} {props!r}'
+            mesg = ', '.join((mesg, e.get('mesg', '')))
+            info = e.items()
+            info.pop('mesg', None)
+            await self._raiseOnStrict(e.__class__, mesg, **info)
 
         except Exception:
 

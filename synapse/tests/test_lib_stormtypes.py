@@ -326,20 +326,54 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_list(self):
         async with self.getTestCore() as core:
-            nodes = await core.nodes('$v=(foo,bar,baz) [ test:str=$v.index(1) test:int=$v.length() ]')
+            # Base List object behavior
+            q = '''// $lib.list ctor
+            $list=$lib.list(1,2,3)
+            // __len__
+            $lib.print('List size is {len}', len=$lib.len($list))
+            // aiter/iter method
+            $sum = $(0)
+            for $valu in $list {
+                $sum = $( $sum + $valu)
+            }
+            $lib.print('Sum is {sum}', sum=$sum)
+            // Append method
+            $list.append(4)
+            // size method
+            $lib.print('List size is now {len}', len=$list.size())
+            // Access the values by index
+            $lib.print('List[0]={zero}, List[-1]={neg1}', zero=$list.index(0), neg1=$list.index(-1))
+            $sum = $(0)
+            for $valu in $list {
+                $sum = $( $sum + $valu)
+            }
+            $lib.print('Sum is now {sum}', sum=$sum)
+            // Empty lists may also be made
+            $elst=$lib.list()
+            $lib.print('elst size is {len}', len=$lib.len($elst))
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('List size is 3', msgs)
+            self.stormIsInPrint('Sum is 6', msgs)
+            self.stormIsInPrint('List[0]=1, List[-1]=4', msgs)
+            self.stormIsInPrint('List size is now 4', msgs)
+            self.stormIsInPrint('Sum is now 10', msgs)
+            self.stormIsInPrint('elst size is 0', msgs)
+
+            # Convert primitive python objects to List objects
+            q = '$v=(foo,bar,baz) [ test:str=$v.index(1) test:int=$v.length() ]'
+            nodes = await core.nodes(q)
             self.eq(nodes[0].ndef, ('test:str', 'bar'))
             self.eq(nodes[1].ndef, ('test:int', 3))
 
-            nodes = await core.nodes('[ test:comp=(10,lol) ] $x=$node.ndef().index(1).index(1) [ test:str=$x ]')
+            # Python Tuples can be treated like a List object for accessing via data inside of.
+            q = '[ test:comp=(10,lol) ] $x=$node.ndef().index(1).index(1) [ test:str=$x ]'
+            nodes = await core.nodes(q)
             self.eq(nodes[0].ndef, ('test:str', 'lol'))
 
-            q = 'test:comp | limit 1 | $size = $node.ndef().size() [test:int=$size] +test:int'
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:int', 2))
-
             # sad case - index out of bounds.
-            mesgs = await core.streamstorm('test:comp=(10,lol) $x=$node.ndef().index(2)').list()
+            q = 'test:comp=(10,lol) $x=$node.ndef().index(2)'
+            mesgs = await core.streamstorm(q).list()
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
             self.eq(errs[0][0], 'StormRuntimeError')
@@ -1177,6 +1211,17 @@ class StormTypesTest(s_test.SynTest):
             self.len(2, nodes)
             self.eq({'sup!', 'dawg'},
                     {n.ndef[1] for n in nodes})
+
+            # Ingest bad data
+            data = [
+                (('test:int', 'newp'), {}),
+            ]
+            svars['data'] = data
+            q = '$lib.feed.ingest("syn.nodes", $data)'
+            msgs = await core.streamstorm(q, opts).list()
+            self.stormIsInWarn("BadPropValu: Error adding node: test:int 'newp'", msgs)
+            errs = [m for m in msgs if m[0] == 'err']
+            self.len(0, errs)
 
     async def test_lib_stormtypes_stats(self):
 

@@ -3,6 +3,71 @@ Synapse Changelog
 *****************
 
 
+v0.1.39 - 2019-12-03
+====================
+
+Features and Enhancements
+-------------------------
+
+- Group Storm commands which came from Storm packages together when the ``storm help`` command is issued.
+  (`#1440 <https://github.com/vertexproject/synapse/pull/1440>`_)
+- Add the secondary property ``:url`` to the ``ou:conference`` form to track ``inet:url`` nodes associated with a
+  conference.
+  (`#1441 <https://github.com/vertexproject/synapse/pull/1441>`_)
+- Add ``:names`` as a secondary property to ``ou:org`` to allow tracking multiple, secondary names for an organization.
+  (`#1444 <https://github.com/vertexproject/synapse/pull/1444>`_)
+- The StormType ``$lib.ingest.feed()`` now places the runtime Snap into less-strict mode during execution to prevent
+  potentially data causing the Storm runtime to be torn down. Errors during node creation or property sets will now
+  cause ``warn`` messages to be emitted in the message stream.
+  (`#1442 <https://github.com/vertexproject/synapse/pull/1442>`_)
+
+Bugfixes
+--------
+- Fix an issue where Storm command names were truncated when the ``storm help`` command was issued.
+  (`#1440 <https://github.com/vertexproject/synapse/pull/1440>`_)
+- Fix a Storm grammar issue that disallowed ``$(1 and 1 and 0)`` style of expressions.
+  (`#1439 <https://github.com/vertexproject/synapse/pull/1439>`_)
+- Fix the CryoApi and CryoCell ``delete()`` APIs used to remove a Cryotank from a CryoCell.
+  (`#1443 <https://github.com/vertexproject/synapse/pull/1443>`_)
+- Make NoSuchName errors in StormTypes more friendly by always including the missing name.
+  (`#1445 <https://github.com/vertexproject/synapse/pull/1445>`_)
+- When deferencing a value off of a StormType, if a NoSuchName was thrown it was unclear what type of object was being
+  deferenced, which could lead to difficult to debug Storm code.  The NoSuchName errors now includes the class name
+  of the object to assist with debugging those errors.
+  (`#1445 <https://github.com/vertexproject/synapse/pull/1445>`_)
+
+
+v0.1.38 - 2019-11-22
+====================
+
+Features and Enhancements
+-------------------------
+- Add the query text to the error message when a remote Storm query encounters a fatal exception.
+  (`#1432 <https://github.com/vertexproject/synapse/pull/1432>`_)
+- Add provenance claim information to provenance recursion errors for better debugging of provenance issues.
+  (`#1432 <https://github.com/vertexproject/synapse/pull/1432>`_)
+- Capture ``print`` events from inside of a Storm Daemon and log those to the ``synapse.lib.storm`` logger.
+  (`#1434 <https://github.com/vertexproject/synapse/pull/1434>`_)
+- Add ``$lib.list()`` to StormTypes to allow construction of a List StormType.
+  (`#1434 <https://github.com/vertexproject/synapse/pull/1434>`_)
+- Add ``:loc`` secondary property to ``mat:item``, ``it:host``, and ``geo:nloc`` forms.
+  (`#1437 <https://github.com/vertexproject/synapse/pull/1437>`_)
+- Split a Storm Daemon task into two components; a ``storm:dmon:main`` and ``storm:dmon:loop`` task. Killing the
+  ``storm:dmon:loop`` task will cause the ``storm:dmon:main`` task to respawn the inner task executing Storm.
+  (`#1436 <https://github.com/vertexproject/synapse/pull/1436>`_)
+
+Bugfixes
+--------
+- Fix a bug where a Storm Daemon coroutine was promoted to a Synapse Task with an incorrect user value.
+  (`#1435 <https://github.com/vertexproject/synapse/pull/1435>`_)
+- Fix a Storm Runtime variable scoping issue preventing Storm functions from calling other Storm functions in the same
+  scope they are declared in.
+  (`#1435 <https://github.com/vertexproject/synapse/pull/1435>`_)
+- Fix an bug producing an ambiguity in the Storm ``switch`` case statement.  This bugfix does require switch case
+  statements with a space in them to be enclosed in single or double quotes.
+  (`#1438 <https://github.com/vertexproject/synapse/pull/1438>`_)
+
+
 v0.1.37 - 2019-11-19
 ====================
 
