@@ -36,7 +36,7 @@ class Dist(s_types.IntBase):
         except Exception:
             raise s_exc.BadTypeValu(valu=text, name=self.name,
                                     mesg='Dist requires a valid float and dist '
-                                         'unit, no valid float found')
+                                         'unit, no valid float found') from None
 
         unit, off = s_grammar.nom(text, off, s_grammar.alphaset)
 
