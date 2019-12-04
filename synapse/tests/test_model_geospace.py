@@ -132,6 +132,7 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(t.repr(1000000), '1.0 km')
 
             self.raises(s_exc.BadTypeValu, t.norm, '1.3 pc')
+            self.raises(s_exc.BadTypeValu, t.norm, 'foo')
 
             # geo:nloc
             formname = 'geo:nloc'
