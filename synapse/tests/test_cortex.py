@@ -1626,10 +1626,32 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCoreAndProxy() as (realcore, core):
 
             msgs = await alist(core.storm('|help'))
-            self.printed(msgs, 'help: List available commands and a brief description for each.')
+            self.printed(msgs, 'package: synapse')
+            self.stormIsInPrint('help', msgs)
+            self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
 
             msgs = await alist(core.storm('help'))
-            self.printed(msgs, 'help: List available commands and a brief description for each.')
+            self.printed(msgs, 'package: synapse')
+            self.stormIsInPrint('help', msgs)
+            self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
+
+            # test that storm package commands that didn't come from
+            # a storm service are displayed
+            otherpkg = {
+                'name': 'foosball',
+                'version': (0, 0, 1),
+                'commands': ({
+                    'name': 'testcmd',
+                    'descr': 'test command',
+                    'storm': '[ inet:ipv4=1.2.3.4 ]',
+                },)
+            }
+            self.none(await core.addStormPkg(otherpkg))
+
+            msgs = await alist(core.storm('help'))
+            self.printed(msgs, 'package: foosball')
+            self.stormIsInPrint('testcmd', msgs)
+            self.stormIsInPrint(': test command', msgs)
 
             await alist(core.eval('[ inet:user=visi inet:user=whippit ]'))
 
@@ -1854,7 +1876,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                    baz
                    case
                 */
-                baz faz: {}
+                'baz faz': {}
             }
             '''
             opts = {'vars': {'foo': 'bar'}}
@@ -2738,7 +2760,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(node.getTag('jaz'))
 
             opts = {'vars': {'woot': 'haha hoho'}}
-            text = '[test:str=b] switch $woot { hehe: {[+#baz]} haha hoho: {[+#faz]} "lolz:lulz": {[+#jaz]} }'
+            text = '[test:str=b] switch $woot { hehe: {[+#baz]} "haha hoho": {[+#faz]} "lolz:lulz": {[+#jaz]} }'
             nodes = await core.eval(text, opts=opts).list()
             self.len(1, nodes)
             for node in nodes:
@@ -2748,7 +2770,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(node.getTag('jaz'))
 
             opts = {'vars': {'woot': 'lolz:lulz'}}
-            text = '[test:str=c] switch $woot { hehe: {[+#baz]} haha hoho: {[+#faz]} "lolz:lulz": {[+#jaz]} }'
+            text = "[test:str=c] switch $woot { hehe: {[+#baz]} 'haha hoho': {[+#faz]} 'lolz:lulz': {[+#jaz]} }"
             nodes = await core.eval(text, opts=opts).list()
             self.len(1, nodes)
             for node in nodes:
@@ -3591,9 +3613,38 @@ class CortexBasicTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             async with await s_cortex.Cortex.anit(dirn) as core:
-                await core.nodes('$lib.queue.add(visi)')
-                ddef = {'storm': '$lib.queue.get(visi).put(done) for $tick in $lib.time.ticker(1) {}'}
-                await core.addStormDmon(ddef)
+                async with core.getLocalProxy() as prox:
+                    await core.nodes('$lib.queue.add(visi)')
+                    ddef = {'storm': '$lib.queue.get(visi).put(done) for $tick in $lib.time.ticker(1) {}'}
+                    dmon = await core.addStormDmon(ddef)
+                    # Storm task pairs are promoted as tasks
+                    retn = await prox.ps()
+                    dmon_loop_tasks = [task for task in retn if task.get('name') == 'storm:dmon:loop']
+                    dmon_main_tasks = [task for task in retn if task.get('name') == 'storm:dmon:main']
+                    self.len(1, dmon_loop_tasks)
+                    self.len(1, dmon_main_tasks)
+                    self.eq(dmon_loop_tasks[0].get('info').get('iden'), dmon.iden)
+                    self.eq(dmon_main_tasks[0].get('info').get('iden'), dmon.iden)
+                    # We can kill the loop task and it will respawn
+                    mpid = dmon_main_tasks[0].get('iden')
+                    lpid = dmon_loop_tasks[0].get('iden')
+                    self.true(await prox.kill(lpid))
+                    await asyncio.sleep(0)
+                    retn = await prox.ps()
+                    dmon_loop_tasks = [task for task in retn if task.get('name') == 'storm:dmon:loop']
+                    dmon_main_tasks = [task for task in retn if task.get('name') == 'storm:dmon:main']
+                    self.len(1, dmon_loop_tasks)
+                    self.len(1, dmon_main_tasks)
+                    self.eq(dmon_main_tasks[0].get('iden'), mpid)
+                    self.ne(dmon_loop_tasks[0].get('iden'), lpid)
+                    # If we kill the main task, there is no respawn
+                    self.true(await prox.kill(mpid))
+                    await asyncio.sleep(0)
+                    retn = await prox.ps()
+                    dmon_loop_tasks = [task for task in retn if task.get('name') == 'storm:dmon:loop']
+                    dmon_main_tasks = [task for task in retn if task.get('name') == 'storm:dmon:main']
+                    self.len(0, dmon_loop_tasks)
+                    self.len(0, dmon_main_tasks)
 
             async with await s_cortex.Cortex.anit(dirn) as core:
                 # two entries means he ran twice ( once on add and once on restart )
@@ -3626,6 +3677,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 $lib.queue.add(boom)
 
                 $lib.dmon.add(${
+                    $lib.print('Starting wootdmon')
                     $lib.queue.get(visi).put(blah)
                     for ($offs, $item) in $lib.queue.get(boom).gets(wait=1) {
                         [ inet:ipv4=$item ]

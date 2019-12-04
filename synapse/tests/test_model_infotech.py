@@ -69,6 +69,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'manu': 'Dull',
                     'model': 'Lutitude 8249',
                     'serial': '111-222',
+                    'loc': 'us.hehe.haha',
                 }
                 node = await snap.addNode('it:host', host0, hprops)
                 self.eq(node.ndef[1], host0)
@@ -78,6 +79,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('latlong'), (0.0, 0.0))
                 self.eq(node.get('place'), place)
                 self.eq(node.get('os'), sver0)
+                self.eq(node.get('loc'), 'us.hehe.haha')
 
                 node = await snap.addNode('it:hosturl', (host0, 'http://vertex.ninja/cool.php'))
                 self.eq(node.ndef[1], (host0, 'http://vertex.ninja/cool.php'))
