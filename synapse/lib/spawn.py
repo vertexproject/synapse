@@ -1,16 +1,182 @@
 import asyncio
+import contextlib
+import collections
+import multiprocessing
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
+import synapse.common as s_common
+import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
+import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
+import synapse.lib.link as s_link
 import synapse.lib.view as s_view
+
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
+
+def corework(spawninfo, todo, done):
+
+    async def workloop():
+
+        s_glob.iAmLoop()
+
+        async with await SpawnCore.anit(spawninfo) as core:
+
+            async def storm(item):
+
+                useriden = item.get('user')
+                viewiden = item.get('view')
+
+                storminfo = item.get('storm')
+
+                opts = storminfo.get('opts')
+                text = storminfo.get('query')
+
+                user = core.auth.user(useriden)
+                if user is None:
+                    raise s_exc.NoSuchUser(iden=useriden)
+
+                view = core.views.get(viewiden)
+                if view is None:
+                    raise s_exc.NoSuchView(iden=viewiden)
+
+                async for mesg in view.streamstorm(text, opts=opts, user=user):
+                    yield mesg
+
+            while not core.isfini:
+
+                item = await s_coro.executor(todo.get)
+                if item is None:
+                    return
+
+                link = await s_link.fromspawn(item.get('link'))
+
+                await s_daemon.t2call(link, storm, (item,), {})
+
+                wasfini = link.isfini
+
+                await link.fini()
+
+                await s_coro.executor(done.put, wasfini)
+
+    asyncio.run(workloop())
+
+class SpawnProc(s_base.Base):
+    '''
+    '''
+    async def __anit__(self, core):
+
+        await s_base.Base.__anit__(self)
+
+        self.core = core
+        self.iden = s_common.guid()
+
+        self.ready = asyncio.Event()
+        self.mpctx = multiprocessing.get_context('spawn')
+
+        self.todo = self.mpctx.Queue()
+        self.done = self.mpctx.Queue()
+
+        self.obsolete = False
+
+        spawninfo = await core.getSpawnInfo()
+
+        # avoid blocking the ioloop during process construction
+        def getproc():
+            self.proc = self.mpctx.Process(target=corework, args=(spawninfo, self.todo, self.done))
+            self.proc.start()
+
+        await s_coro.executor(getproc)
+
+        def killproc():
+            self.proc.terminate()
+            self.proc.join()
+
+        async def fini():
+            await s_coro.executor(killproc)
+
+        self.onfini(fini)
+
+    async def retire(self):
+        self.obsolete = True
+
+    async def xact(self, mesg):
+        def doit():
+            self.todo.put(mesg)
+            return self.done.get()
+        return await s_coro.executor(doit)
+
+class SpawnPool(s_base.Base):
+
+    async def __anit__(self, core):
+
+        await s_base.Base.__anit__(self)
+
+        self.core = core
+
+        self.poolsize = await core.getConfOpt('spawn:poolsize')
+
+        self.spawns = {}
+        self.spawnq = collections.deque()
+
+        async def fini():
+            await self.kill()
+
+        self.onfini(fini)
+
+    async def bump(self):
+        [await s.retire() for s in list(self.spawns.values())]
+        [await s.fini() for s in self.spawnq]
+        self.spawnq.clear()
+
+    async def kill(self):
+        self.spawnq.clear()
+        [await s.fini() for s in list(self.spawns.values())]
+
+    @contextlib.asynccontextmanager
+    async def get(self):
+
+        if self.isfini: # pragma: no cover
+            raise s_exc.IsFini()
+
+        proc = None
+
+        if self.spawnq:
+            proc = self.spawnq.popleft()
+
+        if proc is None:
+            proc = await self._new()
+
+        yield proc
+
+        await self._put(proc)
+
+    async def _put(self, proc):
+
+        if not proc.obsolete and len(self.spawnq) < self.poolsize:
+            self.spawnq.append(proc)
+            return
+
+        await proc.fini()
+
+    async def _new(self):
+
+        proc = await SpawnProc.anit(self.core)
+
+        self.spawns[proc.iden] = proc
+
+        async def fini():
+            self.spawns.pop(proc.iden, None)
+
+        proc.onfini(fini)
+
+        return proc
 
 class SpawnCore(s_base.Base):
 
@@ -103,51 +269,3 @@ class SpawnCore(s_base.Base):
 
     async def getStormMods(self):
         return self.stormmods
-
-def spawncore(info):
-
-    async def doit(info):
-
-        s_glob.iAmLoop()
-
-        print('HI FROM SPAWNCORE')
-
-        dirn = info.get('dirn')
-        todo = info.get('todo')
-
-        async with await s_telepath.openurl(f'cell://{dirn}') as prox:
-
-            print('GOT A CORTEX!')
-
-            #async for info in core.iterSpawnInfo():
-                #print('GOT AN INFO %r' % (info,))
-
-        #link = await s_link.fromspawn(linkinfo)
-        #await t2call(link, *todo)
-        #await link.fini()
-
-    asyncio.run(doit(info))
-
-async def spawnstorm(spawninfo):
-
-    useriden = spawninfo.get('user')
-    viewiden = spawninfo.get('view')
-
-    coreinfo = spawninfo.get('core')
-    storminfo = spawninfo.get('storm')
-
-    opts = storminfo.get('opts')
-    text = storminfo.get('query')
-
-    async with await SpawnCore.anit(coreinfo) as core:
-
-        user = core.auth.user(useriden)
-        if user is None:
-            raise s_exc.NoSuchUser(iden=useriden)
-
-        view = core.views.get(viewiden)
-        if view is None:
-            raise s_exc.NoSuchView(iden=viewiden)
-
-        async for mesg in view.streamstorm(text, opts=opts, user=user):
-            yield mesg

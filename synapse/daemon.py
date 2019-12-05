@@ -178,15 +178,17 @@ async def t2call(link, meth, args, kwargs):
                 return
 
         except s_exc.DmonSpawn as e:
-            raise
+            return
 
         except Exception as e:
 
-            if first:
-                await link.tx(('t2:genr', {}))
+            logger.exception(f'error during task: {meth.__name__}')
 
-            logger.exception(f'error during task: {meth}')
             if not link.isfini:
+
+                if first:
+                    await link.tx(('t2:genr', {}))
+
                 retn = s_common.retnexc(e)
                 await link.tx(('t2:yield', {'retn': retn}))
 
@@ -201,14 +203,10 @@ async def t2call(link, meth, args, kwargs):
         await link.tx(('t2:fini', {'retn': (True, valu)}))
 
     except s_exc.DmonSpawn as e:
-        todo = e.errinfo.get('todo')
-        linkinfo = link.getSpawnInfo()
-        dmontodo = (spawnexec, (linkinfo, todo), {})
-        await s_coro.spawn(dmontodo)
         return
 
     except Exception as e:
-        logger.exception('error during task: {meth}')
+        logger.exception(f'error during task: {meth.__name__}')
         if not link.isfini:
             retn = s_common.retnexc(e)
             await link.tx(('t2:fini', {'retn': retn}))
@@ -334,6 +332,7 @@ class Daemon(s_base.Base):
 
                 mesg = await link.rx()
                 if mesg is None:
+                    await link.fini()
                     return
 
                 coro = self._onLinkMesg(link, mesg)
@@ -351,7 +350,8 @@ class Daemon(s_base.Base):
 
             await func(link, mesg)
 
-        except Exception:
+        except Exception as e:
+            print(repr(e))
             logger.exception('Dmon.onLinkMesg Handler: %.80r' % (mesg,))
 
     async def _onShareFini(self, link, mesg):
@@ -471,6 +471,7 @@ class Daemon(s_base.Base):
                 raise s_exc.NoSuchObj(name=name)
 
             s_scope.set('sess', sess)
+            s_scope.set('link', link)
 
             methname, args, kwargs = todo
 

@@ -81,6 +81,7 @@ async def linksock():
 async def fromspawn(spawninfo):
     sock = spawninfo.get('sock')
     info = spawninfo.get('info', {})
+    info['spawn'] = True
     reader, writer = await asyncio.open_connection(sock=sock)
     return await Link.anit(reader, writer, info=info)
 
@@ -127,6 +128,7 @@ class Link(s_base.Base):
 
         async def fini():
             self.writer.close()
+            await self.writer.wait_closed()
 
         self.onfini(fini)
 

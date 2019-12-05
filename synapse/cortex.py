@@ -21,6 +21,7 @@ import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.queue as s_queue
+import synapse.lib.scope as s_scope
 import synapse.lib.spawn as s_spawn
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
@@ -523,11 +524,12 @@ class CoreApi(s_cell.CellApi):
         view = await self._getViewFromOpts(opts)
 
         if opts is not None and opts.get('spawn'):
+
+            link = s_scope.get('link')
+
             opts.pop('spawn', None)
             info = {
-
-                'core': await self.cell.getSpawnInfo(),
-
+                'link': link.getSpawnInfo(),
                 'view': view.iden,
                 'user': self.user.iden,
                 'storm': {
@@ -535,8 +537,12 @@ class CoreApi(s_cell.CellApi):
                     'query': text,
                 }
             }
-            todo = (s_spawn.spawnstorm, (info,), {})
-            raise s_exc.DmonSpawn(todo=todo)
+
+            async with self.cell.spawnpool.get() as proc:
+                if await proc.xact(info):
+                    await link.fini()
+
+            raise s_exc.DmonSpawn()
 
         async for mesg in view.streamstorm(text, opts, user=self.user):
             yield mesg
@@ -748,11 +754,6 @@ class CoreApi(s_cell.CellApi):
     async def cullCoreQueue(self, name, offs):
         return await self.cell.cullCoreQueue(name, offs)
 
-    @s_cell.adminapi
-    async def iterSpawnInfo(self):
-        async for mesg in self.cell.iterSpawnInfo():
-            yield mesg
-
 class Cortex(s_cell.Cell):
     '''
     A Cortex implements the synapse hypergraph.
@@ -814,6 +815,10 @@ class Cortex(s_cell.Cell):
             'type': 'str', 'defval': None,
             'doc': 'A telepath URL for a remote axon.',
         }),
+        ('spawn:poolsize', {
+            'type': 'int', 'defval': 8,
+            'doc': 'The max number of spare processes to keep around in the storm spawn pool.',
+        }),
     )
 
     cellapi = CoreApi
@@ -834,7 +839,7 @@ class Cortex(s_cell.Cell):
         self.layrctors = {}
         self.feedfuncs = {}
         self.stormcmds = {}
-        self.spawnchans = []
+        self.spawnpool = None
 
         # differentiate these for spawning
         self.storm_cmd_ctors = {}
@@ -937,7 +942,16 @@ class Cortex(s_cell.Cell):
         self._initPushLoop()
         self._initFeedLoops()
 
-        await self._initSpawnCores()
+        self.spawnpool = await s_spawn.SpawnPool.anit(self)
+        self.onfini(self.spawnpool)
+
+    async def bumpSpawnPool(self):
+        if self.spawnpool is not None:
+            await self.spawnpool.bump()
+
+    async def killSpawnPool(self):
+        if self.spawnpool is not None:
+            await self.spawnpool.kill()
 
     async def getSpawnInfo(self):
         return {
@@ -955,54 +969,6 @@ class Cortex(s_cell.Cell):
             },
             'model': await self.getModelDefs(),
         }
-
-    async def iterSpawnInfo(self):
-        async with self._getSpawnChan() as chan:
-            yield await self.getSpawnInfo()
-            async for mesg in chan:
-                yield await self.getSpawnInfo()
-
-    async def _initSpawnCores(self):
-
-        ctx = multiprocessing.get_context('spawn')
-
-        todo = ctx.Queue()
-
-        info = {
-            'dirn': self.dirn,
-            'todo': ctx.Queue(),
-        }
-
-        todo = (s_spawn.spawncore, (info,), {})
-        coro = s_coro.spawn(todo, ctx=ctx)
-
-        self.schedCoro(coro)
-
-    @contextlib.asynccontextmanager
-    async def _getSpawnChan(self):
-        wind = await s_queue.Window.anit()
-        self.spawnchans.append(wind)
-        yield wind
-        self.spawnchans.remove(wind)
-
-    async def fireSpawnSync(self):
-        [await c.put(True) for c in self.spawnchans]
-
-    async def fireSyncEvent(self, name, **info):
-        '''
-        All changes to the cortex's persistent storage should
-        eventually be propigated via events plumbed here.
-        '''
-        try:
-
-            func = self.syncfuncs.get(name)
-            func(name, info)
-
-        except asyncio.CancelledError:
-            raise
-
-        except Exception as e:
-            logger.exc()
 
     async def _initRuntFuncs(self):
 
@@ -1168,8 +1134,11 @@ class Cortex(s_cell.Cell):
         self.stormcmds[name] = ctor
         self.storm_cmd_cdefs[name] = cdef
 
+        await self.bumpSpawnPool()
+
     async def _popStormCmd(self, name):
         self.stormcmds.pop(name, None)
+        await self.bumpSpawnPool()
 
     async def delStormCmd(self, name):
         '''
@@ -1187,6 +1156,7 @@ class Cortex(s_cell.Cell):
 
         await self.cmdhive.pop(name)
         self.stormcmds.pop(name, None)
+        await self.bumpSpawnPool()
 
     async def addStormPkg(self, pkgdef):
         '''
@@ -1281,6 +1251,8 @@ class Cortex(s_cell.Cell):
         for cdef in cmds:
             await self._setStormCmd(cdef)
 
+        await self.bumpSpawnPool()
+
     async def dropStormPkg(self, pkgdef):
         '''
         Reverse the process of loadStormPkg()
@@ -1292,6 +1264,8 @@ class Cortex(s_cell.Cell):
         for cdef in pkgdef.get('commands', ()):
             name = cdef.get('name')
             await self._popStormCmd(name)
+
+        await self.bumpSpawnPool()
 
     def getStormSvc(self, name):
 
@@ -1317,6 +1291,7 @@ class Cortex(s_cell.Cell):
 
         ssvc = await self._setStormSvc(sdef)
         await self.stormservices.set(iden, sdef)
+        await self.bumpSpawnPool()
         return ssvc
 
     async def delStormSvc(self, iden):
@@ -1345,6 +1320,8 @@ class Cortex(s_cell.Cell):
         ssvc = self.svcsbyiden.pop(iden, None)
         if ssvc is not None:
             await ssvc.fini()
+
+        await self.bumpSpawnPool()
 
     async def _delStormSvcPkgs(self, iden):
         '''
@@ -1462,6 +1439,8 @@ class Cortex(s_cell.Cell):
             except Exception as e:
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
 
+        await self.bumpSpawnPool()
+
     @contextlib.asynccontextmanager
     async def watcher(self, wdef):
 
@@ -1531,6 +1510,7 @@ class Cortex(s_cell.Cell):
         await self.extprops.set(f'{form}:{prop}', (form, prop, tdef, info))
         await self.fire('core:extmodel:change',
                         form=form, prop=prop, act='add', type='formprop')
+        await self.bumpSpawnPool()
 
     async def delFormProp(self, form, prop):
         '''
@@ -1552,6 +1532,7 @@ class Cortex(s_cell.Cell):
         await self.extprops.pop(full, None)
         await self.fire('core:extmodel:change',
                         form=form, prop=prop, act='del', type='formprop')
+        await self.bumpSpawnPool()
 
     async def delUnivProp(self, prop):
         '''
@@ -1571,6 +1552,7 @@ class Cortex(s_cell.Cell):
         self.model.delUnivProp(prop)
         await self.extunivs.pop(prop, None)
         await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
+        await self.bumpSpawnPool()
 
     async def addTagProp(self, name, tdef, info):
 
@@ -1581,6 +1563,7 @@ class Cortex(s_cell.Cell):
 
         await self.exttagprops.set(name, (name, tdef, info))
         await self.fire('core:tagprop:change', name=name, act='add')
+        await self.bumpSpawnPool()
 
     async def delTagProp(self, name):
 
@@ -1598,6 +1581,7 @@ class Cortex(s_cell.Cell):
 
         await self.exttagprops.pop(name, None)
         await self.fire('core:tagprop:change', name=name, act='del')
+        await self.bumpSpawnPool()
 
     async def _onCoreFini(self):
         '''
@@ -2180,6 +2164,7 @@ class Cortex(s_cell.Cell):
         view = await s_view.View.anit(self, node)
         self.views[iden] = view
 
+        await self.bumpSpawnPool()
         return view
 
     async def delView(self, iden):
@@ -2199,6 +2184,8 @@ class Cortex(s_cell.Cell):
         await self.hive.pop(('cortex', 'views', iden))
         await view.fini()
 
+        await self.bumpSpawnPool()
+
     async def delLayer(self, iden):
         layr = self.layers.get(iden, None)
         if layr is None:
@@ -2214,6 +2201,7 @@ class Cortex(s_cell.Cell):
 
         # TODO: actually delete the storage for the data
         await layr.fini()
+        await self.bumpSpawnPool()
 
     async def setViewLayers(self, layers, iden=None):
         '''
@@ -2226,6 +2214,7 @@ class Cortex(s_cell.Cell):
             raise s_exc.NoSuchView(iden=iden)
 
         await view.setLayers(layers)
+        await self.bumpSpawnPool()
 
     def getLayer(self, iden=None):
         '''
@@ -2293,7 +2282,11 @@ class Cortex(s_cell.Cell):
         for name, valu in info.get('config', {}).items():
             await layrconf.set(name, valu)
 
-        return await self._layrFromNode(node)
+        layr = await self._layrFromNode(node)
+
+        await self.bumpSpawnPool()
+
+        return layr
 
     async def joinTeleLayer(self, url, indx=None):
         '''

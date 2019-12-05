@@ -452,6 +452,9 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         self.onfini(fini)
 
+    async def getConfOpt(self, name):
+        return self.conf.get(name)
+
     def _getSessInfo(self, iden):
         return self.sessstor.gen(iden)
 
