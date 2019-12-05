@@ -540,6 +540,7 @@ class WhileLoop(Oper):
                     newg = agen((node, path))
                     async for item in subq.inline(runt, newg):
                         yield item
+                        await asyncio.sleep(0)
 
                 except StormBreak as e:
                     if e.item is not None:
@@ -559,6 +560,7 @@ class WhileLoop(Oper):
                 try:
                     async for jtem in subq.inline(runt, agen()):
                         yield jtem
+                        await asyncio.sleep(0)
 
                 except StormBreak as e:
                     if e.item is not None:
@@ -2581,6 +2583,7 @@ class EditNodeAdd(Edit):
                     yield item
 
                 yield node, path
+                await asyncio.sleep(0)
 
         else:
 
@@ -2597,6 +2600,7 @@ class EditNodeAdd(Edit):
                 except self.excignore:
                     continue
                 yield node, runt.initPath(node)
+                await asyncio.sleep(0)
 
 class EditPropSet(Edit):
 
@@ -2624,6 +2628,8 @@ class EditPropSet(Edit):
 
             yield node, path
 
+            await asyncio.sleep(0)
+
 class EditPropDel(Edit):
 
     async def run(self, runt, genr):
@@ -2640,6 +2646,8 @@ class EditPropDel(Edit):
             await node.pop(name)
 
             yield node, path
+
+            await asyncio.sleep(0)
 
 class EditUnivDel(Edit):
 
@@ -2667,6 +2675,8 @@ class EditUnivDel(Edit):
             await node.pop(name)
             yield node, path
 
+            await asyncio.sleep(0)
+
 class EditTagAdd(Edit):
 
     async def run(self, runt, genr):
@@ -2693,6 +2703,8 @@ class EditTagAdd(Edit):
 
             yield node, path
 
+            await asyncio.sleep(0)
+
 class EditTagDel(Edit):
 
     async def run(self, runt, genr):
@@ -2707,6 +2719,8 @@ class EditTagDel(Edit):
             await node.delTag(name)
 
             yield node, path
+
+            await asyncio.sleep(0)
 
 class EditTagPropSet(Edit):
     '''
@@ -2736,6 +2750,8 @@ class EditTagPropSet(Edit):
 
             yield node, path
 
+            await asyncio.sleep(0)
+
 class EditTagPropDel(Edit):
     '''
     [ -#foo.bar:baz ]
@@ -2754,6 +2770,8 @@ class EditTagPropDel(Edit):
             await node.delTagProp(tag, prop)
 
             yield node, path
+
+            await asyncio.sleep(0)
 
 class BreakOper(AstNode):
 

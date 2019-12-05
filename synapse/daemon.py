@@ -120,14 +120,6 @@ dmonwrap = (
     (types.GeneratorType, Genr),
 )
 
-def spawnexec(linkinfo, todo):
-    async def doit():
-        s_glob.iAmLoop()
-        link = await s_link.fromspawn(linkinfo)
-        await t2call(link, *todo)
-        await link.fini()
-    asyncio.run(doit())
-
 async def t2call(link, meth, args, kwargs):
     '''
     Call the given meth(*args, **kwargs) and handle the response
@@ -350,8 +342,10 @@ class Daemon(s_base.Base):
 
             await func(link, mesg)
 
-        except Exception as e:
-            print(repr(e))
+        except asyncio.CancelledError:
+            raise
+
+        except Exception:
             logger.exception('Dmon.onLinkMesg Handler: %.80r' % (mesg,))
 
     async def _onShareFini(self, link, mesg):
