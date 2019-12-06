@@ -639,21 +639,27 @@ class Snap(s_base.Base):
         '''
 
         for (formname, formvalu), forminfo in nodedefs:
+            try:
+                props = forminfo.get('props')
 
-            props = forminfo.get('props')
+                # remove any universal created props...
+                if props is not None:
+                    props.pop('.created', None)
 
-            # remove any universal created props...
-            if props is not None:
-                props.pop('.created', None)
+                node = await self.addNode(formname, formvalu, props=props)
+                if node is not None:
+                    tags = forminfo.get('tags')
+                    if tags is not None:
+                        for tag, asof in tags.items():
+                            await node.addTag(tag, valu=asof)
 
-            node = await self.addNode(formname, formvalu, props=props)
-            if node is not None:
-                tags = forminfo.get('tags')
-                if tags is not None:
-                    for tag, asof in tags.items():
-                        await node.addTag(tag, valu=asof)
+                yield node
 
-            yield node
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+
+            except Exception as e:
+                logger.exception(f'Error making node: [{formname}={formvalu}]')
 
     async def stor(self, sops, splices=None):
 
