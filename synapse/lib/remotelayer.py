@@ -7,6 +7,7 @@ import logging
 import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
+import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,9 @@ class RemoteLayer(s_layer.Layer):
         # a remote layer may never be revd
         self.proxy = None
         self.canrev = False
+
+        # Disable buid caching
+        self.buidcache = s_cache.LruDict(size=0)
 
         self.ready = asyncio.Event()
         await self._fireTeleTask()
@@ -72,7 +76,8 @@ class RemoteLayer(s_layer.Layer):
 
             except Exception:
                 logger.exception('remote layer reconnect failure')
-                await asyncio.sleep(1)
+
+            await self.waitfini(1)
 
     async def _readyPlayerOne(self):
         timeout = self.conf.get('readywait')
@@ -81,7 +86,6 @@ class RemoteLayer(s_layer.Layer):
     async def stor(self, sops, splices=None):
         raise s_exc.ReadOnlyLayer(mesg='Remote layer does not support writing')
 
-    # Hack to get around issue that telepath is not async-generator-transparent
     async def getBuidProps(self, buid):
         await self._readyPlayerOne()
         return await self.proxy.getBuidProps(buid)
@@ -126,3 +130,11 @@ class RemoteLayer(s_layer.Layer):
     async def setOffset(self, iden, valu):
         await self._readyPlayerOne()
         return await self.proxy.setOffset(iden, valu)
+
+    async def delOffset(self, iden):
+        await self._readyPlayerOne()
+        return await self.proxy.delOffset(iden)
+
+    async def hasTagProp(self, name):
+        await self._readyPlayerOne()
+        return await self.proxy.hasTagProp(name)

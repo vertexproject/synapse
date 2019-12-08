@@ -204,6 +204,11 @@ def genfile(*paths):
         If the file already exists, the fd returned is opened in ``r+b`` mode.
         Otherwise, the fd is opened in ``w+b`` mode.
 
+        The file position is set to the start of the file.  The user is
+        responsible for truncating (``fd.truncate()``) if the existing file
+        contents are not desired, or seeking to the end (``fd.seek(0, 2)``)
+        to append.
+
     Returns:
         io.BufferedRandom: A file-object which can be read/written too.
     '''
@@ -232,7 +237,8 @@ def lockfile(path):
         path (str): A path to a lock file.
 
     Examples:
-        Get the lock on a file and dostuff while having the lock:
+
+        Get the lock on a file and dostuff while having the lock::
 
             path = '/hehe/haha.lock'
             with lockfile(path):
@@ -294,6 +300,11 @@ def jsload(*paths):
             return None
 
         return json.loads(byts.decode('utf8'))
+
+def jslines(*paths):
+    with genfile(*paths) as fd:
+        for line in fd:
+            yield json.loads(line)
 
 def jssave(js, *paths):
     path = genpath(*paths)
@@ -531,8 +542,8 @@ def debase64(b):
 def makedirs(path, mode=0o777):
     os.makedirs(path, mode=mode, exist_ok=True)
 
-def iterzip(*args):
-    return itertools.zip_longest(*args)
+def iterzip(*args, fillvalue=None):
+    return itertools.zip_longest(*args, fillvalue=fillvalue)
 
 def setlogging(mlogger, defval=None):
     '''

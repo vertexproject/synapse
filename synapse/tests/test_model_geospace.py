@@ -19,6 +19,7 @@ geotestmodel = {
         ('test:latlong', {}, (
             ('lat', ('geo:latitude', {}), {}),
             ('long', ('geo:longitude', {}), {}),
+            ('dist', ('geo:dist', {}), {}),
         )),
     ),
 }
@@ -140,13 +141,19 @@ class GeoTest(s_t_utils.SynTest):
             latlong = ('0.000000000', '0')
             stamp = -0
 
+            place = s_common.guid()
+            props = {'place': place,
+                     'loc': 'us.hehe.haha'}
+
             async with await core.snap() as snap:
-                node = await snap.addNode('geo:nloc', (ndef, latlong, stamp))
+                node = await snap.addNode('geo:nloc', (ndef, latlong, stamp), props=props)
                 self.eq(node.ndef[1], (('inet:ipv4', 0), (0.0, 0.0), stamp))
                 self.eq(node.get('ndef'), ('inet:ipv4', 0))
                 self.eq(node.get('ndef:form'), 'inet:ipv4')
                 self.eq(node.get('latlong'), (0.0, 0.0))
                 self.eq(node.get('time'), 0)
+                self.eq(node.get('place'), place)
+                self.eq(node.get('loc'), 'us.hehe.haha')
                 self.nn(await snap.getNodeByNdef(('inet:ipv4', 0)))
 
             # geo:place
@@ -157,10 +164,14 @@ class GeoTest(s_t_utils.SynTest):
 
             async with await core.snap() as snap:
                 guid = s_common.guid()
+                parent = s_common.guid()
                 props = {'name': 'Vertex  HQ',
                          'desc': 'The place where Vertex Project hangs out at!',
+                         'address': '208 Datong Road, Pudong District, Shanghai, China',
+                         'parent': parent,
                          'loc': 'us.hehe.haha',
                          'latlong': '34.1341, -118.3215',
+                         'bbox': '2.11, 2.12, -4.88, -4.9',
                          'radius': '1.337km'}
                 node = await snap.addNode('geo:place', guid, props)
                 self.eq(node.ndef[1], guid)
@@ -169,6 +180,15 @@ class GeoTest(s_t_utils.SynTest):
                 self.eq(node.get('latlong'), (34.13409999, -118.3215))
                 self.eq(node.get('radius'), 1337000)
                 self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
+                self.eq(node.get('address'), '208 datong road, pudong district, shanghai, china')
+                self.eq(node.get('parent'), parent)
+
+                self.eq(node.get('bbox'), (2.11, 2.12, -4.88, -4.9))
+                self.eq(node.repr('bbox'), '2.11,2.12,-4.88,-4.9')
+
+                opts = {'vars': {'place': parent}}
+                nodes = await core.nodes('geo:place=$place', opts=opts)
+                self.len(1, nodes)
 
     async def test_near(self):
         async with self.getTestCore() as core:
@@ -259,10 +279,35 @@ class GeoTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             await core.loadCoreModule('synapse.tests.test_model_geospace.GeoTstModule')
             # Lift behavior for a node whose has a latlong as their primary property
-            nodes = await core.eval('[test:latlong=(10, 10) test:latlong=(10.1, 10.1) test:latlong=(3, 3)]').list()
+            nodes = await core.eval('[(test:latlong=(10, 10) :dist=10m) '
+                                    '(test:latlong=(10.1, 10.1) :dist=20m) '
+                                    '(test:latlong=(3, 3) :dist=5m)]').list()
             self.len(3, nodes)
 
             nodes = await core.eval('test:latlong*near=((10, 10), 5km)').list()
             self.len(1, nodes)
             nodes = await core.eval('test:latlong*near=((10, 10), 30km)').list()
             self.len(2, nodes)
+
+            # Ensure geo:dist inherits from IntBase correctly
+            nodes = await core.nodes('test:latlong +:dist>5m')
+            self.len(2, nodes)
+            nodes = await core.nodes('test:latlong +:dist>=5m')
+            self.len(3, nodes)
+            nodes = await core.nodes('test:latlong +:dist<5m')
+            self.len(0, nodes)
+            nodes = await core.nodes('test:latlong +:dist<=5m')
+            self.len(1, nodes)
+            nodes = await core.nodes('test:latlong:dist>5m')
+            self.len(2, nodes)
+            nodes = await core.nodes('test:latlong:dist>=5m')
+            self.len(3, nodes)
+            nodes = await core.nodes('test:latlong:dist<5m')
+            self.len(0, nodes)
+            nodes = await core.nodes('test:latlong:dist<=5m')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:latlong +:dist*range=(8m, 10m)')
+            self.len(1, nodes)
+            nodes = await core.nodes('test:latlong:dist*range=(8m, 10m)')
+            self.len(1, nodes)

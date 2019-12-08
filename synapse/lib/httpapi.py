@@ -1,5 +1,6 @@
 import json
 import base64
+import asyncio
 import logging
 
 from urllib.parse import urlparse
@@ -7,6 +8,7 @@ from urllib.parse import urlparse
 import tornado.web as t_web
 import tornado.websocket as t_websocket
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
@@ -132,6 +134,49 @@ class HandlerBase:
 
         return True
 
+    async def reqAuthAllowed(self, path):
+        '''
+        Helper method that subclasses can use for user permission checking.
+
+        Args:
+            path: Tuple of permission path components to check.
+
+        Notes:
+            This will call reqAuthUser() to ensure that there is a valid user.
+            If the cell is insecure, this will return True.  If this returns
+            False, the handler should return since the the status code and
+            resulting error message will already have been sent.
+
+        Examples:
+
+            Define a handler which checks for ``syn:test`` permission::
+
+                class ReqAuthHandler(s_httpapi.Handler):
+                    async def get(self):
+                        if not await self.reqAuthAllowed(('syn:test', )):
+                            return
+                     return self.sendRestRetn({'data': 'everything is awesome!'})
+
+        Returns:
+            bool: True if the user is allowed; False if the user is not allowed.
+
+        Raises:
+            s_exc.AuthDeny: If the permission is not allowed.
+
+        '''
+        if self.cell.insecure:  # pragma: no cover
+            return True
+
+        if not await self.reqAuthUser():
+            return False
+
+        user = await self.user()
+        if not user.allowed(path):
+            mesg = f'User {user.iden} ({user.name}) must have permission {".".join(path)}'
+            self.sendRestErr('AuthDeny', mesg)
+            return False
+        return True
+
     async def sess(self, gen=True):
 
         if self._web_sess is None:
@@ -142,7 +187,7 @@ class HandlerBase:
                 return None
 
             if iden is None:
-                iden = s_common.guid()
+                iden = s_common.guid().encode()
                 opts = {'expires_days': 14, 'secure': True, 'httponly': True}
                 self.set_secure_cookie('sess', iden, **opts)
 
@@ -199,12 +244,29 @@ class HandlerBase:
         return await self.user() is not None
 
 class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
-    pass
+
+    async def xmit(self, name, **info):
+        await self.write_message(json.dumps({'type': name, 'data': info}))
+
+    async def _reqUserAllow(self, perm):
+
+        user = await self.user()
+        if user is None:
+            mesg = 'Session is not authenticated.'
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm)
+
+        if not user.allowed(perm):
+            ptxt = '.'.join(perm)
+            mesg = f'Permission denied: {ptxt}.'
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm)
 
 class Handler(HandlerBase, t_web.RequestHandler):
     pass
 
 class StormNodesV1(Handler):
+
+    async def post(self):
+        return await self.get()
 
     async def get(self):
 
@@ -229,6 +291,9 @@ class StormNodesV1(Handler):
 
 class StormV1(Handler):
 
+    async def post(self):
+        return await self.get()
+
     async def get(self):
 
         if not await self.reqAuthUser():
@@ -248,6 +313,45 @@ class StormV1(Handler):
         async for mesg in self.cell.streamstorm(query, opts=opts, user=user):
             self.write(json.dumps(mesg))
             await self.flush()
+
+class WatchSockV1(WebSocket):
+    '''
+    A web-socket based API endpoint for distributing cortex events.
+    '''
+    async def onWatchMesg(self, byts):
+
+        try:
+
+            wdef = json.loads(byts)
+            iden = wdef.get('view', self.cell.view.iden)
+
+            perm = ('watch', 'view', iden)
+            await self._reqUserAllow(perm)
+
+            async with self.cell.watcher(wdef) as watcher:
+
+                await self.xmit('init')
+
+                async for mesg in watcher:
+                    await self.xmit(mesg[0], **mesg[1])
+
+                # pragma: no cover
+                # (this would only happen on slow-consumer)
+                await self.xmit('fini')
+
+        except s_exc.SynErr as e:
+
+            text = e.get('mesg', str(e))
+            await self.xmit('errx', code=e.__class__.__name__, mesg=text)
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception as e:
+            await self.xmit('errx', code=e.__class__.__name__, mesg=str(e))
+
+    async def on_message(self, byts):
+        self.cell.schedCoro(self.onWatchMesg(byts))
 
 class LoginV1(Handler):
 
@@ -280,7 +384,21 @@ class AuthUsersV1(Handler):
         if not await self.reqAuthUser():
             return
 
-        self.sendRestRetn([u.pack() for u in self.cell.auth.users()])
+        try:
+
+            archived = int(self.get_argument('archived', default='0'))
+            if archived not in (0, 1):
+                return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.')
+
+        except Exception as e:
+            return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.')
+
+        if archived:
+            self.sendRestRetn([u.pack() for u in self.cell.auth.users()])
+            return
+
+        self.sendRestRetn([u.pack() for u in self.cell.auth.users() if not u.info.get('archived')])
+        return
 
 class AuthRolesV1(Handler):
 
@@ -340,6 +458,37 @@ class AuthUserV1(Handler):
         if admin is not None:
             await user.setAdmin(bool(admin))
 
+        archived = body.get('archived')
+        if archived is not None:
+            await user.setArchived(bool(archived))
+
+        self.sendRestRetn(user.pack())
+
+class AuthUserPasswdV1(Handler):
+
+    async def post(self, iden):
+
+        if not await self.reqAuthUser():
+            return
+        current_user = await self.user()
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        user = self.cell.auth.user(iden)
+        if user is None:
+            self.sendRestErr('NoSuchUser', f'User does not exist: {iden}')
+            return
+
+        password = body.get('passwd')
+
+        if current_user.admin or current_user.iden == user.iden:
+            try:
+                await user.setPasswd(password)
+            except s_exc.BadArg as e:
+                self.sendRestErr('BadArg', e.get('mesg'))
+                return
         self.sendRestRetn(user.pack())
 
 class AuthRoleV1(Handler):
@@ -513,7 +662,35 @@ class AuthAddRoleV1(Handler):
         self.sendRestRetn(role.pack())
         return
 
+class AuthDelRoleV1(Handler):
+
+    async def post(self):
+
+        if not await self.reqAuthAdmin():
+            return
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        name = body.get('name')
+        if name is None:
+            self.sendRestErr('MissingField', 'The delrole API requires a "name" argument.')
+            return
+
+        role = self.cell.auth.getRoleByName(name)
+        if role is None:
+            return self.sendRestErr('NoSuchRole', f'The role {name} does not exist!')
+
+        await self.cell.auth.delRole(name)
+
+        self.sendRestRetn(None)
+        return
+
 class ModelNormV1(Handler):
+
+    async def post(self):
+        return await self.get()
 
     async def get(self):
 
@@ -531,16 +708,29 @@ class ModelNormV1(Handler):
             self.sendRestErr('MissingField', 'The property normalization API requires a prop name.')
             return
 
-        prop = self.cell.model.props.get(propname)
-        if prop is None:
-            return self.sendRestErr('NoSuchProp', 'The property {propname} does not exist.')
-
         try:
-            valu, info = prop.type.norm(propvalu)
-            self.sendRestRetn({'norm': valu, 'info': info})
-
-        except asyncio.CancelledError:
-            raise
-
+            valu, info = await self.cell.getPropNorm(propname, propvalu)
+        except s_exc.NoSuchProp:
+            return self.sendRestErr('NoSuchProp', 'The property {propname} does not exist.')
         except Exception as e:
             return self.sendRestExc(e)
+        else:
+            self.sendRestRetn({'norm': valu, 'info': info})
+
+class ModelV1(Handler):
+
+    async def get(self):
+
+        if not await self.reqAuthUser():
+            return
+
+        resp = await self.cell.getModelDict()
+        return self.sendRestRetn(resp)
+
+class HealthCheckV1(Handler):
+
+    async def get(self):
+        if not await self.reqAuthAllowed(('health', )):
+            return
+        resp = await self.cell.getHealthCheck()
+        return self.sendRestRetn(resp)

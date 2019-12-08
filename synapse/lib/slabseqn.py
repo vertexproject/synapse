@@ -74,9 +74,8 @@ class SlabSeqn:
 
         origindx = self.indx
         self.indx = indx
-        return {'indx': indx, 'size': size, 'count': len(items), 'time': tick, 'took': took}
 
-        return origindx
+        return {'indx': indx, 'size': size, 'count': len(items), 'time': tick, 'took': took, 'orig': origindx}
 
     def append(self, item):
 
@@ -146,3 +145,8 @@ class SlabSeqn:
 
             if i == imax:
                 break
+
+    def getByIndxByts(self, indxbyts):
+        byts = self.slab.get(indxbyts, db=self.db)
+        if byts is not None:
+            return s_msgpack.un(byts)

@@ -5,14 +5,229 @@ import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.ast as s_ast
+import synapse.lib.base as s_base
+import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.scope as s_scope
+import synapse.lib.types as s_types
+import synapse.lib.scrape as s_scrape
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
+
+stormcmds = (
+    {
+        'name': 'queue.add',
+        'descr': 'Add a queue to the cortex.',
+        'cmdargs': (
+            ('name', {'help': 'The name of the new queue.'}),
+        ),
+        'storm': '''
+            $lib.queue.add($cmdopts.name)
+            $lib.print("queue added: {name}", name=$cmdopts.name)
+        ''',
+    },
+    {
+        'name': 'queue.del',
+        'descr': 'Remove a queue from the cortex.',
+        'cmdargs': (
+            ('name', {'help': 'The name of the queue to remove.'}),
+        ),
+        'storm': '''
+            $lib.queue.del($cmdopts.name)
+            $lib.print("queue removed: {name}", name=$cmdopts.name)
+        ''',
+    },
+    {
+        'name': 'queue.list',
+        'descr': 'List the queues in the cortex.',
+        'storm': '''
+            $lib.print('Storm queue list:')
+            for $info in $lib.queue.list() {
+                $name = $info.name.ljust(32)
+                $lib.print("    {name}:  size: {size} offs: {offs}", name=$name, size=$info.size, offs=$info.offs)
+            }
+        ''',
+    },
+    {
+        'name': 'dmon.list',
+        'descr': 'List the storm daemon queries running in the cortex.',
+        'cmdargs': (),
+        'storm': '''
+            $lib.print('Storm daemon list:')
+            for $info in $lib.dmon.list() {
+                $name = $info.name.ljust(20)
+                $lib.print("    {iden}:  ({name}): {status}", iden=$info.iden, name=$name, status=$info.status)
+            }
+        ''',
+    },
+    {
+        'name': 'feed.list',
+        'descr': 'List the feed functions available in the Cortex',
+        'cmdrargs': (),
+        'storm': '''
+            $lib.print('Storm feed list:')
+            for $flinfo in $lib.feed.list() {
+                $flname = $flinfo.name.ljust(30)
+                $lib.print("    ({name}): {desc}", name=$flname, desc=$flinfo.desc)
+            }
+        '''
+    },
+    {
+        'name': 'pkg.list',
+        'descr': 'List the storm packages loaded in the cortex.',
+        'cmdrargs': (),
+        'storm': '''
+            $pkgs = $lib.pkg.list()
+
+            if $($pkgs.size() = 0) {
+
+                $lib.print('No storm packages installed.')
+
+            } else {
+                $lib.print('Loaded storm packages:')
+                for $pkg in $pkgs {
+                    $lib.print("{name}: {vers}", name=$pkg.name.ljust(32), vers=$pkg.version)
+                }
+            }
+        '''
+    },
+    {
+        'name': 'pkg.del',
+        'descr': 'Remove a storm package from the cortex.',
+        'cmdargs': (
+            ('name', {'help': 'The name (or name prefix) of the package to remove.'}),
+        ),
+        'storm': '''
+
+            $pkgs = $lib.set()
+
+            for $pkg in $lib.pkg.list() {
+                if $pkg.name.startswith($cmdopts.name) {
+                    $pkgs.add($pkg.name)
+                }
+            }
+
+            if $($pkgs.size() = 0) {
+
+                $lib.print('No package names match "{name}". Aborting.', name=$cmdopts.name)
+
+            } elif $($pkgs.size() = 1) {
+
+                $name = $pkgs.list().index(0)
+                $lib.print('Removing package: {name}', name=$name)
+                $lib.pkg.del($name)
+
+            } else {
+
+                $lib.print('Multiple package names match "{name}". Aborting.', name=$cmdopts.name)
+
+            }
+        '''
+    }
+)
+
+class StormDmon(s_base.Base):
+    '''
+    A background storm runtime which is restarted by the cortex.
+    '''
+    async def __anit__(self, core, iden, ddef):
+
+        await s_base.Base.__anit__(self)
+
+        self.core = core
+        self.iden = iden
+        self.ddef = ddef
+
+        self.task = None
+        self.loop_task = None
+        self.user = core.auth.user(ddef.get('user'))
+
+        self.count = 0
+        self.status = 'initializing'
+
+        async def fini():
+            if self.task is not None:
+                self.task.cancel()
+            if self.loop_task is not None:
+                self.loop_task.cancel()
+
+        self.onfini(fini)
+
+    async def run(self):
+        self.task = self.schedCoro(self._run())
+
+    def pack(self):
+        retn = dict(self.ddef)
+        retn['count'] = self.count
+        retn['status'] = self.status
+        return retn
+
+    async def _run(self):
+        name = self.ddef.get('name', 'storm dmon')
+        info = {'iden': self.iden, 'name': name}
+        await self.core.boss.promote('storm:dmon:main', user=self.user, info=info)
+        while not self.isfini:
+            try:
+                logger.info(f'Dmon loop starting ({self.iden})')
+                synt = await self.core.boss.execute(self._innr_run(),
+                                                    name='storm:dmon:loop',
+                                                    user=self.user,
+                                                    info=info)
+                self.loop_task = synt.task
+                await synt.waitfini()
+            except asyncio.CancelledError:
+                logger.warning(f'Dmon main cancelled ({self.iden})')
+                if self.loop_task:
+                    self.loop_task.cancel()
+                raise
+            except Exception as e:  # pragma: no cover
+                logger.exception(f'Dmon error during loop task execution ({self.iden})')
+                self.status = f'error: {e}'
+                await self.waitfini(timeout=1)
+
+    async def _innr_run(self):
+
+        s_scope.set('storm:dmon', self.iden)
+
+        text = self.ddef.get('storm')
+        opts = self.ddef.get('stormopts')
+
+        def dmonPrint(evnt):
+            mesg = evnt[1].get('mesg', '')
+            logger.info(f'Dmon - {self.iden} - {mesg}')
+
+        while not self.isfini:
+
+            try:
+
+                self.status = 'running'
+                async with await self.core.snap(user=self.user) as snap:
+                    snap.on('print', dmonPrint)
+
+                    async for nodepath in snap.storm(text, opts=opts, user=self.user):
+                        # all storm tasks yield often to prevent latency
+                        self.count += 1
+                        await asyncio.sleep(0)
+
+                    logger.warning(f'Dmon query exited: {self.iden}')
+
+                    self.status = 'exited'
+                    await self.waitfini(timeout=1)
+
+            except asyncio.CancelledError as e:
+                logger.warning(f'Dmon loop cancelled ({self.iden})')
+                raise
+
+            except Exception as e:
+                logger.exception(f'Dmon error ({self.iden})')
+                self.status = f'error: {e}'
+                await self.waitfini(timeout=1)
 
 class Runtime:
     '''
@@ -25,7 +240,7 @@ class Runtime:
 
         self.vars = {}
         self.ctors = {
-            'lib': s_stormtypes.Lib,
+            'lib': s_stormtypes.LibBase,
         }
 
         self.opts = opts
@@ -45,17 +260,39 @@ class Runtime:
         self.runtvars = set()
         self.runtvars.update(self.vars.keys())
         self.runtvars.update(self.ctors.keys())
+        self.isModuleRunt = False
+        self.globals = set()
+        self.modulefuncs = {}
 
+        self.proxies = {}
         self.elevated = False
 
         # used by the digraph projection logic
         self._graph_done = {}
         self._graph_want = collections.deque()
 
+    def getStormMod(self, name):
+        return self.snap.getStormMod(name)
+
+    async def getStormQuery(self, text):
+        return self.snap.core.getStormQuery(text)
+
+    async def getTeleProxy(self, url, **opts):
+
+        flat = tuple(sorted(opts.items()))
+        prox = self.proxies.get((url, flat))
+        if prox is not None:
+            return prox
+
+        prox = await s_telepath.openurl(url, **opts)
+
+        self.proxies[(url, flat)] = prox
+        self.snap.onfini(prox.fini)
+
+        return prox
+
     def isRuntVar(self, name):
         if name in self.runtvars:
-            return True
-        if name in self.vars:
             return True
         return False
 
@@ -127,43 +364,126 @@ class Runtime:
             if node is not None:
                 yield node, self.initPath(node)
 
+    def reqLayerAllowed(self, perms):
+        if self._allowed(perms, ask_layer=True):
+            return
+
+        perm = '.'.join(perms)
+        mesg = f'User must have permission {perm} on write layer'
+        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
+
+    def reqAllowed(self, perms):
+        '''
+        Raise AuthDeny if user doesn't have global permissions and write layer permissions
+
+        '''
+        if self._allowed(perms):
+            return
+
+        perm = '.'.join(perms)
+        mesg = f'User must have permission {perm}'
+        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
+
     @s_cache.memoize(size=100)
-    def allowed(self, *args):
+    def _allowed(self, perms, ask_layer=False):
+        '''
+        Note:
+            Caching results is acceptable because the cache lifetime is that of a single query
+        '''
+        if self.user is None or self.user.admin or self.elevated:
+            return True
 
-        # a user will be set by auth subsystem if enabled
-        if self.user is None:
-            return
+        if ask_layer:
+            return self.snap.wlyr.allowed(self.user, perms)
+        else:
+            return self.user.allowed(perms)
 
-        if self.user.admin:
-            return
+    def loadRuntVars(self, query):
+        # do a quick pass to determine which vars are per-node.
+        for oper in query.kids:
+            for name in oper.getRuntVars(self):
+                if self.isModuleRunt and isinstance(oper, s_ast.Function):
+                    self.modulefuncs[name] = oper
+                self.runtvars.add(name)
 
-        if self.elevated:
-            return
-
-        if self.user.allowed(args):
-            return
-
-        # fails will not be cached...
-        perm = '.'.join(args)
-        raise s_exc.AuthDeny(perm=perm, user=self.user.name)
-
-    async def iterStormQuery(self, query):
+    async def iterStormQuery(self, query, genr=None):
 
         with s_provenance.claim('storm', q=query.text, user=self.user.iden):
 
-            # do a quick pass to determine which vars are per-node.
-            for oper in query.kids:
-                for name in oper.getRuntVars(self):
-                    self.runtvars.add(name)
+            self.loadRuntVars(query)
 
             # init any options from the query
             # (but dont override our own opts)
             for name, valu in query.opts.items():
                 self.opts.setdefault(name, valu)
 
-            async for node, path in query.iterNodePaths(self):
+            async for node, path in query.iterNodePaths(self, genr=genr):
                 self.tick()
                 yield node, path
+
+    def canPropName(self, name):
+        if name not in self.modulefuncs and name not in self.ctors:
+            return True
+        return False
+
+    async def getScopeRuntime(self, query, opts=None, impd=False):
+        '''
+        Derive a new runt off of an existing runt. It will pass down any global level vars. It has to
+        re run the oper.run function on any function opers so that it gets the correct context of
+        variable values and functions.
+        '''
+        runt = Runtime(self.snap, user=self.user, opts=opts)
+        # imported implies module level
+        runt.isModuleRunt = impd
+        if not impd:  # respect the import boundary
+
+            # if we are a top level module we need to
+            # push down our runtvars
+            if self.isModuleRunt:
+                for name in self.runtvars:
+                    valu = self.vars.get(name, s_common.novalu)
+                    if valu is s_common.novalu:
+                        continue
+                    if self.canPropName(name):
+                        runt.globals.add(name)
+                        runt.runtvars.add(name)
+                        runt.vars[name] = valu
+
+            # propagate down all the global variables
+            for name in self.globals:
+                if self.canPropName(name):
+                    runt.vars[name] = self.vars[name]
+                    runt.globals.add(name)
+                    runt.runtvars.add(name)
+
+            # regardless of module level, we have to reload the module functions
+            # we were given so they run with the right runt. We need this so we have
+            # the whole function telescoping going on, and module level variables get
+            # set to the right values
+            runt.modulefuncs = dict(self.modulefuncs)
+            for name, oper in self.modulefuncs.items():
+                runt.runtvars.add(name)
+                async for item in oper.run(runt, s_ast.agen()):
+                    pass  # pragma: no cover
+
+        runt.loadRuntVars(query)
+        return runt
+
+    async def propBackGlobals(self, runt):
+        '''
+        From a called runt (passed in by parameter), propagate the vars we know to be global
+        to the module back up into the calling runt. *Don't* propagate any functions, since
+        those need the context of which runt they're being called from, and just for safety
+        don't mess with the base lib object.
+        '''
+        for name in runt.globals:
+            valu = runt.vars.get(name, s_common.novalu)
+            if valu is s_common.novalu:
+                continue
+            if not self.canPropName(name):
+                # don't override our parent's version of a function
+                continue
+            self.vars[name] = valu
 
 class Parser(argparse.ArgumentParser):
 
@@ -228,8 +548,14 @@ class Cmd:
     def getCmdBrief(cls):
         return cls.__doc__.strip().split('\n')[0]
 
+    def getName(self):
+        return self.name
+
+    def getDescr(self):
+        return self.__class__.__doc__
+
     def getArgParser(self):
-        return Parser(prog=self.name, descr=self.__class__.__doc__)
+        return Parser(prog=self.getName(), descr=self.getDescr())
 
     async def hasValidOpts(self, snap):
 
@@ -245,6 +571,92 @@ class Cmd:
     async def execStormCmd(self, runt, genr):
         ''' Abstract base method '''
         raise s_exc.NoSuchImpl('Subclass must implement execStormCmd')
+        for item in genr:
+            yield item
+
+    def getStormEval(self, runt, name):
+        '''
+        Construct an evaluator function that takes a path and returns a value.
+        This allows relative / absolute props and variables.
+        '''
+        if name.startswith('$'):
+            varn = name[1:]
+            def func(path):
+                return path.getVar(varn, defv=None)
+            return func
+
+        if name.startswith(':'):
+            prop = name[1:]
+            def func(path):
+                return path.node.get(prop)
+            return func
+
+        if name.startswith('.'):
+            def func(path):
+                return path.node.get(name)
+            return func
+
+        form = runt.snap.core.model.form(name)
+        if form is not None:
+            def func(path):
+                if path.node.form != form:
+                    return None
+                return path.node.ndef[1]
+            return func
+
+        prop = runt.snap.core.model.prop(name)
+        if prop is not None:
+            def func(path):
+                if path.node.form != prop.form:
+                    return None
+                return path.node.get(prop.name)
+            return func
+
+        mesg = 'Unknown prop/variable syntax'
+        raise s_exc.BadSyntax(mesg=mesg, valu=name)
+
+class PureCmd(Cmd):
+
+    def __init__(self, cdef, argv):
+        self.cdef = cdef
+        Cmd.__init__(self, argv)
+
+    def getDescr(self):
+        return self.cdef.get('descr', 'no documentation provided')
+
+    def getName(self):
+        return self.cdef.get('name')
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        for name, opts in self.cdef.get('cmdargs', ()):
+            pars.add_argument(name, **opts)
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        text = self.cdef.get('storm')
+        query = runt.snap.core.getStormQuery(text)
+
+        cmdvars = {
+            'cmdopts': vars(self.opts),
+            'cmdconf': self.cdef.get('cmdconf', {})
+        }
+
+        opts = {'vars': cmdvars}
+        with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
+
+            async def wrapgenr():
+                # wrap paths in a scope to isolate vars
+                async for node, path in genr:
+                    path.initframe(initvars=cmdvars, initrunt=subr)
+                    yield node, path
+
+            subr.loadRuntVars(query)
+
+            async for node, path in subr.iterStormQuery(query, genr=wrapgenr()):
+                path.finiframe()
+                yield node, path
 
 class HelpCmd(Cmd):
     '''
@@ -263,10 +675,51 @@ class HelpCmd(Cmd):
             yield item
 
         if not self.opts.command:
-            for name, ctor in sorted(runt.snap.core.getStormCmds()):
-                await runt.printf('%.20s: %s' % (name, ctor.getCmdBrief()))
+            stormcmds = sorted(runt.snap.core.getStormCmds())
+            stormpkgs = await runt.snap.core.getStormPkgs()
 
-        await runt.printf('')
+            pkgsvcs = {}
+            pkgcmds = {}
+            pkgmap = {}
+
+            for pkg in stormpkgs:
+                svciden = pkg.get('svciden')
+                pkgname = pkg.get('name')
+
+                for cmd in pkg.get('commands', []):
+                    pkgmap[cmd.get('name')] = pkgname
+
+                ssvc = runt.snap.core.getStormSvc(svciden)
+                if ssvc is not None:
+                    pkgsvcs[pkgname] = f'{ssvc.name} ({svciden})'
+
+            if stormcmds:
+                maxlen = max(len(x[0]) for x in stormcmds)
+
+                for name, ctor in stormcmds:
+                    cmdinfo = f'{name:<{maxlen}}: {ctor.getCmdBrief()}'
+                    pkgcmds.setdefault(pkgmap.get(name, 'synapse'), []).append(cmdinfo)
+
+                await runt.printf(f'package: synapse')
+
+                for cmd in pkgcmds.pop('synapse', []):
+                    await runt.printf(cmd)
+
+                await runt.printf('')
+
+                for name, cmds in sorted(pkgcmds.items()):
+                    svcinfo = pkgsvcs.get(name)
+
+                    if svcinfo:
+                        await runt.printf(f'service: {svcinfo}')
+
+                    await runt.printf(f'package: {name}')
+
+                    for cmd in cmds:
+                        await runt.printf(cmd)
+
+                    await runt.printf('')
+
         await runt.printf('For detailed help on any command, use <cmd> --help')
 
 class LimitCmd(Cmd):
@@ -329,7 +782,7 @@ class UniqCmd(Cmd):
 
 class MaxCmd(Cmd):
     '''
-    Consume nodes and yield only the one node with the highest value for a property.
+    Consume nodes and yield only the one node with the highest value for a property or variable.
 
     Examples:
 
@@ -337,13 +790,15 @@ class MaxCmd(Cmd):
 
         file:bytes +#foo.bar | max file:bytes:size
 
+        file:bytes +#foo.bar +.seen ($tick, $tock) = .seen | max $tick
+
     '''
 
     name = 'max'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('propname')
+        pars.add_argument('name')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -351,31 +806,19 @@ class MaxCmd(Cmd):
         maxvalu = None
         maxitem = None
 
-        pname = self.opts.propname
-        prop = None
-        if not pname.startswith((':', '.')):
-            # Are we a full prop name?
-            prop = runt.snap.core.model.prop(pname)
-            if prop is None or prop.isform:
-                mesg = f'{self.name} argument requires a relative secondary ' \
-                    f'property name or a full path to the secondary property.'
-                raise s_exc.BadSyntax(mesg=mesg, valu=pname)
-
-        if prop:
-            name = prop.name
-            form = prop.form
-        else:
-            form = None
-            name = pname.strip(':')
+        func = self.getStormEval(runt, self.opts.name)
 
         async for node, path in genr:
 
-            if form and node.form is not form:
-                continue
-
-            valu = node.get(name)
+            valu = func(path)
             if valu is None:
                 continue
+
+            # Specifically if the name given is a ival property,
+            # we want to max on upper bound of the ival.
+            prop = node.form.prop(self.opts.name)
+            if prop and isinstance(prop.type, s_types.Ival):
+                valu = valu[1]
 
             if maxvalu is None or valu > maxvalu:
                 maxvalu = valu
@@ -394,12 +837,13 @@ class MinCmd(Cmd):
 
         file:bytes +#foo.bar | min file:bytes:size
 
+        file:bytes +#foo.bar +.seen ($tick, $tock) = .seen | min $tick
     '''
     name = 'min'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('propname')
+        pars.add_argument('name')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -407,29 +851,11 @@ class MinCmd(Cmd):
         minvalu = None
         minitem = None
 
-        pname = self.opts.propname
-        prop = None
-        if not pname.startswith((':', '.')):
-            # Are we a full prop name?
-            prop = runt.snap.core.model.prop(pname)
-            if prop is None or prop.isform:
-                mesg = f'{self.name} argument requires a relative secondary ' \
-                    f'property name or a full path to the secondary property.'
-                raise s_exc.BadSyntax(mesg=mesg, valu=pname)
-
-        if prop:
-            name = prop.name
-            form = prop.form
-        else:
-            form = None
-            name = pname.strip(':')
+        func = self.getStormEval(runt, self.opts.name)
 
         async for node, path in genr:
 
-            if form and node.form is not form:
-                continue
-
-            valu = node.get(name)
+            valu = func(path)
             if valu is None:
                 continue
 
@@ -470,9 +896,9 @@ class DelNodeCmd(Cmd):
 
             # make sure we can delete the tags...
             for tag in node.tags.keys():
-                runt.allowed('tag:del', *tag.split('.'))
+                runt.reqLayerAllowed(('tag:del', *tag.split('.')))
 
-            runt.allowed('node:del', node.form.name)
+            runt.reqLayerAllowed(('node:del', node.form.name))
 
             await node.delete(force=self.opts.force)
 
@@ -496,7 +922,7 @@ class SudoCmd(Cmd):
     name = 'sudo'
 
     async def execStormCmd(self, runt, genr):
-        runt.allowed('storm', 'cmd', 'sudo')
+        runt.reqAllowed(('storm', 'cmd', 'sudo'))
         runt.elevate()
         async for item in genr:
             yield item
@@ -622,7 +1048,7 @@ class ReIndexCmd(Cmd):
                     valu = node.get(tname)
                     if valu is None:
                         continue
-                    await runt.snap.core.runTagAdd(node, name, valu)
+                    await runt.snap.view.runTagAdd(node, name, valu)
 
                 yield node, path
 
@@ -887,3 +1313,116 @@ class GraphCmd(Cmd):
 
         async for node, path in subg.run(runt, genr):
             yield node, path
+
+class TeeCmd(Cmd):
+    '''
+    Execute multiple Storm queries on each node in the input stream, emitting
+    the output commands in order they are given.
+
+    Examples:
+
+        # Perform a pivot out and pivot in on a inet:ivp4 node
+        inet:ipv4=1.2.3.4 | tee { -> * } { <- * }
+
+        # Also emit the inbound node
+        inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }
+
+    '''
+    name = 'tee'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+
+        pars.add_argument('--join', '-j', default=False, action='store_true',
+                          help='Emit inbound nodes after processing storm queries.')
+
+        pars.add_argument('query', nargs='*',
+                          help='Specify a query to execute on the input nodes.')
+
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if not self.opts.query:
+            raise s_exc.StormRuntimeError(mesg='Tee command must take at least one query as input.',
+                                          name=self.name)
+
+        async for node, path in genr:  # type: s_node.Node, s_node.Path
+
+            for query in self.opts.query:
+                query = query[1:-1]
+                # This does update path with any vars set in the last npath (node.storm behavior)
+                async for nnode, npath in node.storm(query, user=runt.user, path=path):
+                    yield nnode, npath
+
+            if self.opts.join:
+                yield node, path
+
+class ScrapeCmd(Cmd):
+    '''
+    Use textual properties of existing nodes to find other easily recognizable nodes.
+
+    Examples:
+
+        inet:search:query | scrape
+
+        # Scrape inbound node properties and make edge:refs nodes to the new nodes.
+        inet:search:query | scrape --refs
+
+        # Scrape the :text prop from the inbound nodes.
+        inet:search:query | scrape --props text
+    '''
+
+    name = 'scrape'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+
+        pars.add_argument('--props', '-p', nargs='+', type=str, default=[],
+                          help='Specify relative properties to scrape')
+        pars.add_argument('--refs', '-r', default=False, action='store_true',
+                          help='Create edge:refs to any scraped nodes from the source node')
+        pars.add_argument('-j', '--join', default=False, action='store_true',
+                          help='Include source nodes in the output of the command.')
+
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        async for node, path in genr:  # type: s_node.Node, s_node.Path
+
+            # repr all prop vals and try to scrape nodes from them
+            reprs = node.reprs()
+
+            # make sure any provided props are valid
+            for fprop in self.opts.props:
+                if node.form.props.get(fprop, None) is None:
+                    raise s_exc.BadOptValu(mesg=f'{fprop} not a valid prop for {node.ndef[1]}',
+                                           name='props', valu=self.opts.props)
+
+            # if a list of props haven't been specified, then default to ALL of them
+            proplist = self.opts.props
+            if not proplist:
+                proplist = [k for k in node.props.keys()]
+
+            for prop in proplist:
+                val = node.props.get(prop)
+                if val is None:
+                    await runt.snap.printf(f'No prop ":{prop}" for {node.ndef}')
+                    continue
+
+                # use the repr val or the system mode val as appropriate
+                sval = reprs.get(prop, val)
+
+                for form, valu in s_scrape.scrape(sval):
+                    nnode = await node.snap.addNode(form, valu)
+                    npath = path.fork(nnode)
+                    yield nnode, npath
+
+                    if self.opts.refs:
+                        rnode = await node.snap.addNode('edge:refs', (node.ndef, nnode.ndef))
+                        rpath = path.fork(rnode)
+                        yield rnode, rpath
+
+            if self.opts.join:
+                yield node, path

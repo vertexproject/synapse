@@ -20,6 +20,7 @@ line to run a *single* async unit test.  pytest works fine though.
 import io
 import os
 import sys
+import copy
 import types
 import shutil
 import asyncio
@@ -35,6 +36,8 @@ import unittest.mock as mock
 
 import aiohttp
 
+from prompt_toolkit.formatted_text import FormattedText
+
 import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.glob as s_glob
@@ -46,11 +49,13 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
+import synapse.lib.hive as s_hive
 import synapse.lib.const as s_const
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
+import synapse.lib.lmdbslab as s_slab
 import synapse.lib.thishost as s_thishost
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -136,6 +141,8 @@ testmodel = {
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
 
+        ('test:arrayprop', ('guid', {}), {}),
+
         ('test:comp', ('comp', {'fields': (
             ('hehe', 'test:int'),
             ('haha', 'test:lower'))
@@ -161,10 +168,14 @@ testmodel = {
 
     'univs': (
         ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
+        ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
     ),
 
     'forms': (
 
+        ('test:arrayprop', {}, (
+            ('ints', ('array', {'type': 'test:int'}), {}),
+        )),
         ('test:type10', {}, (
 
             ('intprop', ('int', {'min': 20, 'max': 30}), {
@@ -222,6 +233,7 @@ testmodel = {
             ('bar', ('ndef', {}), {}),
             ('baz', ('nodeprop', {}), {}),
             ('tick', ('test:time', {}), {}),
+            ('hehe', ('str', {}), {}),
         )),
 
         ('test:migr', {}, (
@@ -283,6 +295,22 @@ class TestCmd(s_storm.Cmd):
         async for node, path in genr:
             yield node, path
 
+class TestEchoCmd(s_storm.Cmd):
+    '''A command to echo a using getStormEval'''
+    name = 'testechocmd'
+
+    def getArgParser(self):
+        pars = s_storm.Cmd.getArgParser(self)
+        pars.add_argument('valu', help='valu to echo')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+        func = self.getStormEval(runt, self.opts.valu)
+
+        async for node, path in genr:
+            ret = func(path)
+            await runt.snap.printf(f'Echo: [{ret}]')
+            yield node, path
 
 class TestModule(s_module.CoreModule):
     testguid = '8f1401de15918358d5247e21ca29a814'
@@ -296,6 +324,9 @@ class TestModule(s_module.CoreModule):
 
         self.core.addStormLib(('test',), LibTst)
 
+        self.healthy = True
+        self.core.addHealthFunc(self._testModHealth)
+
         self._runtsByBuid = {}
         self._runtsByPropValu = collections.defaultdict(list)
         await self._initTestRunts()
@@ -307,8 +338,16 @@ class TestModule(s_module.CoreModule):
             for name, prop in form.props.items():
                 pfull = prop.full
                 self.core.addRuntLift(pfull, self._testRuntLift)
-        self.core.addRuntPropSet(self.model.prop('test:runt:lulz'), self._testRuntPropSetLulz)
-        self.core.addRuntPropDel(self.model.prop('test:runt:lulz'), self._testRuntPropDelLulz)
+        self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
+        self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
+
+    async def _testModHealth(self, health):
+        if self.healthy:
+            health.update(self.getModName(), 'nominal',
+                          'Test module is healthy', data={'beep': 0})
+        else:
+            health.update(self.getModName(), 'failed',
+                          'Test module is unhealthy', data={'beep': 1})
 
     async def addTestRecords(self, snap, items):
         for name in items:
@@ -406,7 +445,9 @@ class TestModule(s_module.CoreModule):
         )
 
     def getStormCmds(self):
-        return (TestCmd,)
+        return (TestCmd,
+                TestEchoCmd,
+                )
 
 class TstEnv:
 
@@ -640,9 +681,6 @@ class SynTest(unittest.TestCase):
             if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
                 setattr(self, s, s_glob.synchelp(attr))
 
-    def setUp(self):
-        self.alt_write_layer = None  # Subclass hook to override the top layer
-
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
         self.eq(node.ndef, ex_ndef)
@@ -757,7 +795,19 @@ class SynTest(unittest.TestCase):
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
     @contextlib.asynccontextmanager
-    async def getTestAxon(self):
+    async def getTestAxon(self, dirn=None):
+        '''
+        Get a test Axon as an async context manager.
+
+        Returns:
+            s_axon.Axon: A Axon object.
+        '''
+        if dirn is not None:
+            async with await s_axon.Axon.anit(dirn) as axon:
+                yield axon
+
+            return
+
         with self.getTestDir() as dirn:
             async with await s_axon.Axon.anit(dirn) as axon:
                 yield axon
@@ -775,13 +825,126 @@ class SynTest(unittest.TestCase):
         with mock.patch('synapse.lib.cmdr.getItemCmdr', getTestCmdr):
             yield
 
+    @contextlib.contextmanager
+    def withCliPromptMockExtendOutp(self, outp):
+        '''
+        Context manager to mock our use of Prompt Toolkit's print_formatted_text function and
+        extend the lines to an an output object.
+
+        Args:
+            outp (TstOutPut): The outp to extend.
+
+        Notes:
+            This extends the outp with the lines AFTER the context manager has exited.
+
+        Returns:
+            mock.MagicMock: Yields a mock.MagicMock object.
+        '''
+        with self.withCliPromptMock() as patch:
+            yield patch
+        self.extendOutpFromPatch(outp, patch)
+
+    @contextlib.contextmanager
+    def withCliPromptMock(self):
+        '''
+        Context manager to mock our use of Prompt Toolkit's print_formatted_text function.
+
+        Returns:
+            mock.MagicMock: Yields a mock.MagikMock object.
+        '''
+        with mock.patch('synapse.lib.cli.print_formatted_text',
+                        mock.MagicMock(return_value=None)) as patch:  # type: mock.MagicMock
+            yield patch
+
+    def getMagicPromptLines(self, patch):
+        '''
+        Get the text lines from a MagicMock object from withCliPromptMock.
+
+        Args:
+            patch (mock.MagicMock): The MagicMock object from withCliPromptMock.
+
+        Returns:
+            list: A list of lines.
+        '''
+        self.true(patch.called, 'Assert prompt was called')
+        lines = []
+        for args in patch.call_args_list:
+            arg = args[0][0]
+            if isinstance(arg, str):
+                lines.append(arg)
+                continue
+            if isinstance(arg, FormattedText):
+                color, text = arg[0]
+                lines.append(text)
+                continue
+            raise ValueError(f'Unknown arg: {type(arg)}/{arg}')
+        return lines
+
+    def getMagicPromptColors(self, patch):
+        '''
+        Get the colored lines from a MagicMock object from withCliPromptMock.
+
+        Args:
+            patch (mock.MagicMock): The MagicMock object from withCliPromptMock.
+
+        Returns:
+            list: A list of tuples, containing color and line data.
+        '''
+        self.true(patch.called, 'Assert prompt was called')
+        lines = []
+        for args in patch.call_args_list:
+            arg = args[0][0]
+            if isinstance(arg, str):
+                continue
+            if isinstance(arg, FormattedText):
+                color, text = arg[0]
+                lines.append((color, text))
+                continue
+            raise ValueError(f'Unknown arg: {type(arg)}/{arg}')
+        return lines
+
+    def extendOutpFromPatch(self, outp, patch):
+        '''
+        Extend an Outp with lines from a magicMock object from withCliPromptMock.
+
+        Args:
+            outp (TstOutPut): The outp to extend.
+            patch (mock.MagicMock): The patch object.
+
+        Returns:
+            None: Returns none.
+        '''
+        lines = self.getMagicPromptLines(patch)
+        [outp.printf(line) for line in lines]
+
+    @contextlib.asynccontextmanager
+    async def getTestReadWriteCores(self, conf=None, dirn=None):
+        '''
+        Get a read/write core pair.
+
+        Notes:
+            By default, this returns the same cortex.  It is expected that
+            a test which needs two distinct Cortexes implements the bridge
+            themselves.
+
+        Returns:
+            (s_cortex.Cortex, s_cortex.Cortex): A tuple of Cortex objects.
+        '''
+        async with self.getTestCore(conf=conf, dirn=dirn) as core:
+            yield core, core
+
     @contextlib.asynccontextmanager
     async def getTestCore(self, conf=None, dirn=None):
         '''
-        Return a simple test Cortex.
+        Get a simple test Cortex as an async context manager.
+
+        Returns:
+            s_cortex.Cortex: A Cortex object.
         '''
         if conf is None:
-            conf = {}
+            conf = {'layer:lmdb:map_async': True}
+
+        conf = copy.deepcopy(conf)
 
         mods = conf.get('modules')
 
@@ -804,20 +967,44 @@ class SynTest(unittest.TestCase):
 
     @contextlib.asynccontextmanager
     async def getTestCoreAndProxy(self, conf=None, dirn=None):
+        '''
+        Get a test Cortex and the Telepath Proxy to it.
+
+        Returns:
+            (s_cortex.Cortex, s_cortex.CoreApi): The Cortex and a Proxy representing a CoreApi object.
+        '''
         async with self.getTestCore(conf=conf, dirn=dirn) as core:
             core.conf['storm:log'] = True
             async with core.getLocalProxy() as prox:
                 yield core, prox
 
     @contextlib.asynccontextmanager
-    async def getTestCryo(self):
+    async def getTestCryo(self, dirn=None):
+        '''
+        Get a simple test Cryocell as an async context manager.
+
+        Returns:
+            s_cryotank.CryoCell: Test cryocell.
+        '''
+        if dirn is not None:
+            async with await s_cryotank.CryoCell.anit(dirn) as cryo:
+                yield cryo
+
+            return
+
         with self.getTestDir() as dirn:
             async with await s_cryotank.CryoCell.anit(dirn) as cryo:
                 yield cryo
 
     @contextlib.asynccontextmanager
-    async def getTestCryoAndProxy(self):
-        async with self.getTestCryo() as cryo:
+    async def getTestCryoAndProxy(self, dirn=None):
+        '''
+        Get a test Cryocell and the Telepath Proxy to it.
+
+        Returns:
+            (s_cryotank: CryoCell, s_cryotank.CryoApi): The CryoCell and a Proxy representing a CryoApi object.
+        '''
+        async with self.getTestCryo(dirn=dirn) as cryo:
             async with cryo.getLocalProxy() as prox:
                 yield cryo, prox
 
@@ -853,7 +1040,7 @@ class SynTest(unittest.TestCase):
         return await s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
     @contextlib.contextmanager
-    def getTestDir(self, mirror=None, copyfrom=None):
+    def getTestDir(self, mirror=None, copyfrom=None, chdir=False):
         '''
         Get a temporary directory for test purposes.
         This destroys the directory afterwards.
@@ -873,25 +1060,32 @@ class SynTest(unittest.TestCase):
         Returns:
             str: The path to a temporary directory.
         '''
+        curd = os.getcwd()
         tempdir = tempfile.mkdtemp()
 
         try:
 
+            dstpath = tempdir
+
             if mirror is not None:
                 srcpath = self.getTestFilePath(mirror)
-                dstpath = os.path.join(tempdir, 'mirror')
+                dstpath = os.path.join(dstpath, 'mirror')
                 shutil.copytree(srcpath, dstpath)
-                yield dstpath
 
             elif copyfrom is not None:
-                dstpath = os.path.join(tempdir, 'mirror')
+                dstpath = os.path.join(dstpath, 'mirror')
                 shutil.copytree(copyfrom, dstpath)
-                yield dstpath
 
-            else:
-                yield tempdir
+            if chdir:
+                os.chdir(dstpath)
+
+            yield dstpath
 
         finally:
+
+            if chdir:
+                os.chdir(curd)
+
             shutil.rmtree(tempdir, ignore_errors=True)
 
     def getTestFilePath(self, *names):
@@ -914,7 +1108,7 @@ class SynTest(unittest.TestCase):
 
                 with self.getLoggerStream('synapse.foo.bar') as stream:
                     # Do something that triggers a log message
-                    doSomthing()
+                    doSomething()
 
                 stream.seek(0)
                 mesgs = stream.read()
@@ -924,7 +1118,7 @@ class SynTest(unittest.TestCase):
 
                 with self.getLoggerStream('synapse.foo.bar', 'big badda boom happened') as stream:
                     # Do something that triggers a log message
-                    doSomthing()
+                    doSomething()
                     stream.wait(timeout=10)  # Wait for the mesg to be written to the stream
 
                 stream.seek(0)
@@ -935,7 +1129,7 @@ class SynTest(unittest.TestCase):
 
                 with self.getLoggerStream('synapse.foo.bar', 'big badda boom happened') as stream:
                     # Do something that triggers a log message
-                    doSomthing()
+                    doSomething()
                     stream.wait(timeout=10)
                     stream.setMesg('yo dawg')  # This will now wait for the 'yo dawg' string to be written.
                     stream.wait(timeout=10)
@@ -964,6 +1158,35 @@ class SynTest(unittest.TestCase):
 
     @contextlib.contextmanager
     def getAsyncLoggerStream(self, logname, mesg=''):
+        '''
+        Async version of getLoggerStream.
+
+        Args:
+            logname (str): Name of the logger to get.
+            mesg (str): A string which, if provided, sets the StreamEvent event if a message
+            containing the string is written to the log.
+
+        Notes:
+            The event object mixed in for the AsyncStreamEvent is a asyncio.Event object.
+            This requires the user to await the Event specific calls as neccesary.
+
+        Examples:
+            Do an action and wait for a specific log message to be written::
+
+                with self.getAsyncLoggerStream('synapse.foo.bar',
+                                               'big badda boom happened') as stream:
+                    # Do something that triggers a log message
+                    await doSomething()
+                    # Wait for the mesg to be written to the stream
+                    await stream.wait(timeout=10)
+
+                stream.seek(0)
+                mesgs = stream.read()
+                # Do something with messages
+
+        Returns:
+            AsyncStreamEvent: An AsyncStreamEvent object.
+        '''
         stream = AsyncStreamEvent()
         stream.setMesg(mesg)
         handler = logging.StreamHandler(stream)
@@ -977,10 +1200,39 @@ class SynTest(unittest.TestCase):
             slogger.removeHandler(handler)
 
     @contextlib.asynccontextmanager
-    async def getHttpSess(self):
+    async def getHttpSess(self, auth=None, port=None):
+        '''
+        Get an aiohttp ClientSession with a CookieJar.
+
+        Args:
+            auth (str, str): A tuple of username and password information for http auth.
+            port (int): Port number to connect to.
+
+        Notes:
+            If auth and port are provided, the session will login to a Synapse cell
+            hosted at localhost:port.
+
+        Returns:
+            aiohttp.ClientSession: An aiohttp.ClientSession object.
+        '''
+
         jar = aiohttp.CookieJar(unsafe=True)
         conn = aiohttp.TCPConnector(ssl=False)
+
         async with aiohttp.ClientSession(cookie_jar=jar, connector=conn) as sess:
+
+            if auth is not None:
+
+                if port is None: # pragma: no cover
+                    raise Exception('getHttpSess requires port for auth')
+
+                user, passwd = auth
+                async with sess.post(f'https://localhost:{port}/api/v1/login',
+                                     json={'user': user, 'passwd': passwd}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq(user, retn['result']['name'])
+
             yield sess
 
     @contextlib.contextmanager
@@ -1437,3 +1689,40 @@ class SynTest(unittest.TestCase):
         idel = await core.auth.addUser('icandel')
         await idel.grant('deleter')
         await idel.setPasswd('secret')
+
+    @contextlib.asynccontextmanager
+    async def getTestHive(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestHiveFromDirn(dirn) as hive:
+                yield hive
+
+    @contextlib.asynccontextmanager
+    async def getTestHiveFromDirn(self, dirn):
+
+        import synapse.lib.const as s_const
+        map_size = s_const.gibibyte
+
+        async with await s_slab.Slab.anit(dirn, map_size=map_size) as slab:
+
+            async with await s_hive.SlabHive.anit(slab) as hive:
+
+                yield hive
+
+    @contextlib.asynccontextmanager
+    async def getTestHiveDmon(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestHiveFromDirn(dirn) as hive:
+                async with self.getTestDmon() as dmon:
+                    dmon.share('hive', hive)
+                    yield dmon
+
+    @contextlib.asynccontextmanager
+    async def getTestTeleHive(self):
+
+        async with self.getTestHiveDmon() as dmon:
+
+            turl = self.getTestUrl(dmon, 'hive')
+
+            async with await s_hive.openurl(turl) as hive:
+
+                yield hive

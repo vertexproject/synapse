@@ -42,7 +42,7 @@ class PsModelTest(s_t_utils.SynTest):
                     'dob': '2000',
                     'img': file0,
                     'nick': 'acid burn',
-                    # 'guidname': '', # fixme guid aliases
+                    'person': person0,
                     'name': 'Эммануэль брат Гольдштейн',
                     'name:sur': 'Гольдштейн',
                     'name:middle': 'брат',
@@ -53,6 +53,7 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('img'), file0)
                 self.eq(node.get('dob'), 946684800000)
                 self.eq(node.get('nick'), 'acid burn')
+                self.eq(node.get('person'), person0)
                 self.eq(node.get('name'), 'эммануэль брат гольдштейн')
                 self.eq(node.get('name:sur'), 'гольдштейн')
                 self.eq(node.get('name:middle'), 'брат')
@@ -112,29 +113,3 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('phone:fax'), '12345678910')
                 self.eq(node.get('phone:work'), '12345678910')
                 self.eq(node.get('address'), '1 iron suit drive, san francisco, ca, 22222, usa')
-
-class Fixme():
-
-    def test_model_person(self):
-
-        with self.getRamCore() as core:
-
-            node = core.formTufoByProp('ps:person:guidname', 'person123', name='cool')
-            person = node[1].get('ps:person')
-
-            node = core.getTufoByProp('ps:person', person)
-            self.eq(node[1].get('ps:person'), person)
-            self.eq(node[1].get('ps:person:guidname'), 'person123')
-            self.eq(node[1].get('ps:person:name'), 'cool')
-
-    def test_model_persona(self):
-
-        with self.getRamCore() as core:
-
-            node = core.formTufoByProp('ps:persona:guidname', 'persona456', name='cool')
-            persona = node[1].get('ps:persona')
-
-            node = core.getTufoByProp('ps:persona', persona)
-            self.eq(node[1].get('ps:persona'), persona)
-            self.eq(node[1].get('ps:persona:guidname'), 'persona456')
-            self.eq(node[1].get('ps:persona:name'), 'cool')

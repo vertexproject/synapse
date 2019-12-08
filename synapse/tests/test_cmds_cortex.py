@@ -1,14 +1,14 @@
 import os
-import regex
 import asyncio
 
-import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.encoding as s_encoding
 
 import synapse.tests.utils as s_t_utils
+
+from synapse.tests.utils import alist
 
 
 class CmdCoreTest(s_t_utils.SynTest):
@@ -19,7 +19,9 @@ class CmdCoreTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
 
-            await self.agenlen(1, core.eval("[ test:str=abcd :tick=2015 +#cool ]"))
+            await realcore.addTagProp('score', ('int', {}), {})
+
+            await self.agenlen(1, core.eval("[ test:str=abcd :tick=2015 +#cool]"))
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
@@ -84,6 +86,12 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine('storm --show print,foo:bar test:str=abcd')
+            self.false(outp.expect(':tick = 2015/01/01 00:00:00.000', throw=False))
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --hide-tags --hide-props test:str=abcd')
             self.false(outp.expect(':tick = 2015/01/01 00:00:00.000', throw=False))
             self.false(outp.expect('#cool', throw=False))
@@ -99,12 +107,11 @@ class CmdCoreTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --bad')
-            outp.expect('BadSyntax')
+            outp.expect('Syntax Error')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm newpz')
-            outp.expect('err')
             outp.expect('NoSuchName')
 
             outp = self.getTestOutp()
@@ -129,7 +136,97 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.false(outp.expect('#bar ', throw=False))
             outp.expect('complete. 1 nodes')
 
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine('storm [ test:str=foo +#bar:score=22 +#bar.baz:score=0 ]')
+            self.true(outp.expect('#bar:score = 22', throw=False))
+            self.true(outp.expect('#bar.baz = (2015/01/01 00:00:00.000, ?)', throw=False))
+            self.true(outp.expect('#bar.baz:score = 0', throw=False))
+            self.false(outp.expect('#bar ', throw=False))
+            outp.expect('complete. 1 nodes')
+
+            # Warning test
+            guid = s_common.guid()
+            podes = await alist(core.eval(f'[test:guid={guid}]'))
+            podes = await alist(core.eval(f'[test:edge=(("test:guid", {guid}), ("test:str", abcd))]'))
+
+            q = 'storm test:str=abcd <- test:edge :n1:form -> *'
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine(q)
+            e = 'WARNING: The source property "n1:form" type "str" is not a form. Cannot pivot.'
+            self.true(outp.expect(e))
+
+            # Err case
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine('storm test:str -> test:newp')
+            self.true(outp.expect('ERROR'))
+            self.true(outp.expect('NoSuchProp'))
+            self.true(outp.expect('test:newp'))
+
+            # Cancelled case
+            evnt = asyncio.Event()
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+
+            def setEvt(event):
+                smsg = event[1].get('mesg')
+                if smsg[0] == 'node':
+                    evnt.set()
+
+            async def runLongStorm():
+                with cmdr.onWith('storm:mesg', setEvt):
+                    await cmdr.runCmdLine('storm .created | sleep 10')
+
+            task = realcore.schedCoro(runLongStorm())
+            self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+            ps = await core.ps()
+            self.len(1, ps)
+            iden = ps[0].get('iden')
+            await core.kill(iden)
+            await asyncio.sleep(0)
+            self.true(outp.expect('query canceled.'))
+            self.true(task.done())
+
+            # Color test
+            outp.clear()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine(f'storm test:{"x"*50} -> * -> $')
+            outp.expect('-> *')
+            outp.expect('Syntax Error')
+
+            outp.clear()
+            with self.withCliPromptMock() as patch:
+                cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+                cmdr.colorsenabled = True
+                await cmdr.runCmdLine('storm [#foo]')
+                await cmdr.runCmdLine('storm test:str ->')
+            lines = self.getMagicPromptColors(patch)
+            clines = []
+            for (color, text) in lines:
+                if text.startswith('Syntax Error:'):
+                    text = 'Syntax Error'
+                clines.append((color, text))
+            self.isin(('#6faef2', '[#foo]'), clines)
+            self.isin(('#6faef2', ' ^'), clines)
+            self.isin(('#ff0066', 'Syntax Error'), clines)
+            self.isin(('#6faef2', 'test:str ->'), clines)
+            self.isin(('#6faef2', '           ^'), clines)
+
+            # Test that trying to print an \r doesn't assert (prompt_toolkit bug)
+            # https://github.com/prompt-toolkit/python-prompt-toolkit/issues/915
+            await core.addNode('test:str', 'foo', props={'hehe': 'windows\r\nwindows\r\n'})
+            await cmdr.runCmdLine('storm test:str=foo')
+            self.true(1)
+
     async def test_log(self):
+
+        def check_locs_cleanup(cobj):
+            keys = list(cobj.locs.keys())
+            for key in keys:
+                if key.startswith('log:'):
+                    self.fail(f'Key with "log:" prefix found. [{key}]')
 
         async with self.getTestCoreAndProxy() as (realcore, core):
 
@@ -140,10 +237,18 @@ class CmdCoreTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('log --on --format jsonl')
                 fp = cmdr.locs.get('log:fp')
                 await cmdr.runCmdLine('storm [test:str=hi :tick=2018 +#haha.hehe]')
+
+                # Try calling on a second time - this has no effect on the
+                # state of cmdr, but prints a warning
+                await cmdr.runCmdLine('log --on --format jsonl')
+
                 await cmdr.runCmdLine('log --off')
                 await cmdr.fini()
+                check_locs_cleanup(cmdr)
 
                 self.true(outp.expect('Starting logfile'))
+                e = 'Must call --off to disable current file before starting a new file.'
+                self.true(outp.expect(e))
                 self.true(outp.expect('Closing logfile'))
                 self.true(os.path.isfile(fp))
 
@@ -162,6 +267,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('storm [test:str="I am a message!" :tick=1999 +#oh.my] ')
                 await cmdr.runCmdLine('log --off')
                 await cmdr.fini()
+                check_locs_cleanup(cmdr)
 
                 self.true(os.path.isfile(fp))
                 with s_common.genfile(fp) as fd:
@@ -171,98 +277,104 @@ class CmdCoreTest(s_t_utils.SynTest):
 
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+                # Our default format is mpk
+                fp = os.path.join(dirn, 'loggyMcNodeFace.mpk')
+                await cmdr.runCmdLine(f'log --on --nodes-only --path {fp}')
+                fp = cmdr.locs.get('log:fp')
+                await cmdr.runCmdLine('storm [test:str="I am a message!" :tick=1999 +#oh.my] ')
+                await cmdr.runCmdLine('log --off')
+                await cmdr.fini()
+                check_locs_cleanup(cmdr)
+
+                self.true(os.path.isfile(fp))
+                with s_common.genfile(fp) as fd:
+                    genr = s_encoding.iterdata(fd, close_fd=False, format='mpk')
+                    objs = list(genr)
+                self.eq(objs[0][0], ('test:str', 'I am a message!'))
+
+                outp = self.getTestOutp()
+                cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 await cmdr.runCmdLine('log --on --off')
                 await cmdr.fini()
-                self.true(outp.expect('Pick one'))
+                self.true(outp.expect('log: error: argument --off: not allowed with argument --on'))
 
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 await cmdr.runCmdLine('log')
                 await cmdr.fini()
-                self.true(outp.expect('Pick one'))
-
-    async def test_ps_kill(self):
-
-        async with self.getTestCoreAndProxy() as (realcore, core):
-
-            evnt = asyncio.Event()
-
-            outp = self.getTestOutp()
-            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-
-            await cmdr.runCmdLine('ps')
-
-            self.true(outp.expect('0 tasks found.'))
-
-            async def runLongStorm():
-                async for _ in core.storm('[ test:str=foo test:str=bar ] | sleep 10'):
-                    evnt.set()
-
-            task = realcore.schedCoro(runLongStorm())
-
-            self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
-
-            outp.clear()
-            await cmdr.runCmdLine('ps')
-            self.true(outp.expect('1 tasks found.'))
-            self.true(outp.expect('start time: 2'))
-
-            regx = regex.compile('task iden: ([a-f0-9]{32})')
-            match = regx.match(str(outp))
-
-            iden = match.groups()[0]
-
-            outp.clear()
-            await cmdr.runCmdLine('kill %s' % (iden,))
-
-            outp.expect('kill status: True')
-            self.true(task.done())
-
-            outp.clear()
-            await cmdr.runCmdLine('ps')
-            self.true(outp.expect('0 tasks found.'))
-
-        async with self.getTestCoreAndProxy() as (realcore, core):
-
-            await realcore.auth.addUser('test')
-
-            async with realcore.getLocalProxy(user='test') as tcore:
-
-                evnt = asyncio.Event()
-
-                async def runLongStorm():
-                    async for mesg in core.storm('[ test:str=foo test:str=bar ] | sleep 10'):
-                        evnt.set()
+                self.true(outp.expect('log: error: one of the arguments --on --off is required'))
 
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+                await cmdr.runCmdLine('log --on --splices-only --nodes-only')
+                await cmdr.fini()
+                e = 'log: error: argument --nodes-only: not allowed with argument --splices-only'
+                self.true(outp.expect(e))
 
-                toutp = self.getTestOutp()
-                tcmdr = await s_cmdr.getItemCmdr(tcore, outp=toutp)
+                # Bad internal state
+                outp = self.getTestOutp()
+                cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+                await cmdr.runCmdLine('log --on --nodes-only')
+                cmdr.locs['log:fmt'] = 'newp'
+                with self.getAsyncLoggerStream('synapse.cmds.cortex',
+                                                     'Unknown encoding format: newp') as stream:
+                    await cmdr.runCmdLine('storm test:str')
+                    self.true(await stream.wait(2))
 
-                task = realcore.schedCoro(runLongStorm())
-                self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+                await cmdr.fini()
 
-                outp.clear()
-                await cmdr.runCmdLine('ps')
-                self.true(outp.expect('1 tasks found.'))
+    async def test_storm_save_nodes(self):
 
-                regx = regex.compile('task iden: ([a-f0-9]{32})')
-                match = regx.match(str(outp))
-                iden = match.groups()[0]
+        async with self.getTestCoreAndProxy() as (core, prox):
 
-                toutp.clear()
-                await tcmdr.runCmdLine('ps')
-                self.true(toutp.expect('0 tasks found.'))
+            dirn = s_common.gendir(core.dirn, 'junk')
+            path = os.path.join(dirn, 'nodes.jsonl')
 
-                # Try killing from the unprivileged user
-                await self.asyncraises(s_exc.AuthDeny, tcore.kill(iden))
-                toutp.clear()
-                await tcmdr.runCmdLine('kill %s' % (iden,))
-                self.true(toutp.expect('no matching process found. aborting.'))
+            await core.nodes('[ test:int=20 test:int=30 ]')
 
-                # Tear down the task as a real user
-                outp.clear()
-                await cmdr.runCmdLine('kill %s' % (iden,))
-                outp.expect('kill status: True')
-                self.true(task.done())
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
+            await cmdr.runCmdLine(f'storm --save-nodes {path} test:int')
+            outp.expect('2 nodes')
+
+            jsdata = [item for item in s_common.jslines(path)]
+            self.len(2, jsdata)
+            self.eq(jsdata[0][0], ('test:int', 20))
+
+    async def test_storm_file_optfile(self):
+
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            dirn = s_common.gendir(core.dirn, 'junk')
+
+            optsfile = os.path.join(dirn, 'woot.json')
+            stormfile = os.path.join(dirn, 'woot.storm')
+
+            with s_common.genfile(stormfile) as fd:
+                fd.write(b'[ inet:fqdn=$hehe ]')
+
+            with s_common.genfile(optsfile) as fd:
+                fd.write(b'{"vars": {"hehe": "woot.com"}}')
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
+
+            await cmdr.runCmdLine(f'storm --optsfile {optsfile} --file {stormfile}')
+            self.true(outp.expect('inet:fqdn=woot.com'))
+
+            # Sad path cases
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
+            await cmdr.runCmdLine(f'storm --file {stormfile} --optsfile {optsfile} .created')
+            self.true(outp.expect('Cannot use a storm file and manual query together.'))
+            self.false(outp.expect('inet:fqdn=woot.com', throw=False))
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
+            await cmdr.runCmdLine(f'storm --file {stormfile} --optsfile newp')
+            self.true(outp.expect('optsfile not found'))
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
+            await cmdr.runCmdLine(f'storm --file newp --optsfile {optsfile}')
+            self.true(outp.expect('file not found'))

@@ -1,5 +1,6 @@
 import hashlib
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.msgpack as s_msgpack
@@ -69,3 +70,18 @@ class ProvenanceTest(s_t_utils.SynTest):
             provstacks = await alist(core.provStacks(0, 1000))
             correct = [(idens[0], prov1), (idens[3], prov2), (idens[5], prov3), (idens[7], prov4)]
             self.eq(provstacks, correct)
+
+            # Force recursion exception to be thrown
+            q = '.created ' + '| uniq' * 257
+            with self.raises(s_exc.RecursionLimitHit) as cm:
+                _ = await real.nodes(q)
+            self.eq(cm.exception.get('type'), 'stormcmd')
+            self.eq(cm.exception.get('info'), {'name': 'uniq', 'argv': ()})
+            baseframe = cm.exception.get('baseframe')
+            name, args = baseframe
+            self.eq(name, 'storm')
+            self.eq(args[0], ('q', q))
+            recent_frames = cm.exception.get('recent_frames')
+            self.len(6, recent_frames)
+            for frame in recent_frames:
+                self.eq(frame, ('stormcmd', (('argv', ()), ('name', 'uniq'))))

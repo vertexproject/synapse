@@ -15,7 +15,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:org', ('guid', {}), {
                     'doc': 'A GUID for a human organization such as a company or military unit',
                 }),
-                ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z]+$'}), {
+                ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z_]+$'}), {
                     'doc': 'An alias for the org GUID',
                     'ex': 'vertexproject',
                 }),
@@ -66,6 +66,9 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('name', ('ou:name', {}), {
                         'doc': 'The localized name of an organization.',
+                    }),
+                    ('names', ('array', {'type': 'ou:name'}), {
+                       'doc': 'A list of alternate names for the organization.',
                     }),
                     ('alias', ('ou:alias', {}), {
                         'doc': 'The default alias for an organization'
@@ -236,6 +239,9 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('place', ('geo:place', ()), {
                         'doc': 'The geo:place node where the conference was held.',
+                    }),
+                    ('url', ('inet:url', ()), {
+                        'doc': 'The inet:url node for the conference website.',
                     }),
                 )),
                 ('ou:conference:attendee', {}, (

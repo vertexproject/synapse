@@ -1,23 +1,30 @@
 import os
 import json
-import time
+import signal
 import asyncio
+import logging
 import traceback
 import collections
 
 import regex
 
-from prompt_toolkit import PromptSession
+from prompt_toolkit import PromptSession, print_formatted_text
+from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.eventloop.defaults import use_asyncio_event_loop
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
-import synapse.lib.syntax as s_syntax
+import synapse.lib.grammar as s_grammar
+import synapse.lib.version as s_version
+
+logger = logging.getLogger(__name__)
+
 
 class Cmd:
     '''
@@ -71,11 +78,11 @@ class Cmd:
         '''
         off = 0
 
-        _, off = s_syntax.nom(text, off, s_syntax.whites)
+        _, off = s_grammar.nom(text, off, s_grammar.whites)
 
-        name, off = s_syntax.meh(text, off, s_syntax.whites)
+        name, off = s_grammar.meh(text, off, s_grammar.whites)
 
-        _, off = s_syntax.nom(text, off, s_syntax.whites)
+        _, off = s_grammar.nom(text, off, s_grammar.whites)
 
         opts = {}
 
@@ -91,7 +98,7 @@ class Cmd:
             if defval is not None:
                 opts[snam] = defval
 
-            if synt[1].get('type') in ('list', 'kwlist'):
+            if synt[1].get('type') == 'list':
                 opts[snam] = []
 
         def atswitch(t, o):
@@ -100,7 +107,7 @@ class Cmd:
             if not text.startswith('-', o):
                 return None, o
 
-            name, x = s_syntax.meh(t, o, s_syntax.whites)
+            name, x = s_grammar.meh(t, o, s_grammar.whites)
             swit = switches.get(name)
             if swit is None:
                 return None, o
@@ -109,7 +116,7 @@ class Cmd:
 
         while off < len(text):
 
-            _, off = s_syntax.nom(text, off, s_syntax.whites)
+            _, off = s_grammar.nom(text, off, s_grammar.whites)
 
             swit, off = atswitch(text, off)
             if swit is not None:
@@ -118,18 +125,18 @@ class Cmd:
                 snam = swit[0].strip('-')
 
                 if styp == 'valu':
-                    valu, off = s_syntax.parse_cmd_string(text, off)
+                    valu, off = s_grammar.parse_cmd_string(text, off)
                     opts[snam] = valu
 
                 elif styp == 'list':
-                    valu, off = s_syntax.parse_cmd_string(text, off)
+                    valu, off = s_grammar.parse_cmd_string(text, off)
                     if not isinstance(valu, list):
                         valu = valu.split(',')
                     opts[snam].extend(valu)
 
                 elif styp == 'enum':
                     vals = swit[1].get('enum:vals')
-                    valu, off = s_syntax.parse_cmd_string(text, off)
+                    valu, off = s_grammar.parse_cmd_string(text, off)
                     if valu not in vals:
                         raise s_exc.BadSyntax(mesg='%s (%s)' % (swit[0], '|'.join(vals)),
                                                    text=text)
@@ -158,18 +165,13 @@ class Cmd:
                 valu = []
 
                 while off < len(text):
-                    item, off = s_syntax.parse_cmd_string(text, off)
+                    item, off = s_grammar.parse_cmd_string(text, off)
                     valu.append(item)
 
                 opts[synt[0]] = valu
                 break
 
-            if styp == 'kwlist':
-                kwlist, off = s_syntax.parse_cmd_kwlist(text, off)
-                opts[snam] = kwlist
-                break
-
-            valu, off = s_syntax.parse_cmd_string(text, off)
+            valu, off = s_grammar.parse_cmd_string(text, off)
             opts[synt[0]] = valu
 
         return opts
@@ -191,8 +193,8 @@ class Cmd:
             return ''
         return self.__doc__
 
-    def printf(self, mesg, addnl=True):
-        return self._cmd_cli.printf(mesg, addnl=addnl)
+    def printf(self, mesg, addnl=True, color=None):
+        return self._cmd_cli.printf(mesg, addnl=addnl, color=color)
 
     async def runCmdOpts(self, opts):
         '''
@@ -240,6 +242,7 @@ class Cli(s_base.Base):
 
         self.outp = outp
         self.locs = locs
+        self.cmdtask = None  # type: asyncio.Task
 
         self.sess = None
         self.vi_mode = _inputrc_enables_vi_mode()
@@ -247,9 +250,19 @@ class Cli(s_base.Base):
         self.item = item    # whatever object we are commanding
 
         self.echoline = False
+        self.colorsenabled = False
 
         if isinstance(self.item, s_base.Base):
             self.item.onfini(self._onItemFini)
+
+        self.locs['syn:local:version'] = s_version.verstring
+
+        if isinstance(self.item, s_telepath.Proxy):
+            version = self.item._getSynVers()
+            if version is None:  # pragma: no cover
+                self.locs['syn:remote:version'] = 'Remote Synapse version unavailable'
+            else:
+                self.locs['syn:remote:version'] = '.'.join([str(v) for v in version])
 
         self.cmds = {}
         self.cmdprompt = 'cli> '
@@ -266,6 +279,18 @@ class Cli(s_base.Base):
         self.printf('connection closed...')
 
         await self.fini()
+
+    async def addSignalHandlers(self):
+        '''
+        Register SIGINT signal handler with the ioloop to cancel the currently running cmdloop task.
+        '''
+
+        def sigint():
+            self.printf('<ctrl-c>')
+            if self.cmdtask is not None:
+                self.cmdtask.cancel()
+
+        self.loop.add_signal_handler(signal.SIGINT, sigint)
 
     def get(self, name, defval=None):
         return self.locs.get(name, defval)
@@ -288,8 +313,16 @@ class Cli(s_base.Base):
             retn = await self.sess.prompt(text, async_=True, vi_mode=self.vi_mode, enable_open_in_editor=True)
             return retn
 
-    def printf(self, mesg, addnl=True):
-        return self.outp.printf(mesg, addnl=addnl)
+    def printf(self, mesg, addnl=True, color=None):
+        if not self.colorsenabled:
+            return self.outp.printf(mesg, addnl=addnl)
+
+        # print_formatted_text can't handle \r
+        mesg = mesg.replace('\r', '')
+
+        if color is not None:
+            mesg = FormattedText([(color, mesg)])
+        return print_formatted_text(mesg)
 
     def addCmdClass(self, ctor, **opts):
         '''
@@ -328,8 +361,9 @@ class Cli(s_base.Base):
 
             # FIXME completion
 
+            self.cmdtask = None
+
             try:
-                task = None
 
                 line = await self.prompt()
                 if not line:
@@ -339,7 +373,9 @@ class Cli(s_base.Base):
                 if not line:
                     continue
 
-                await self.runCmdLine(line)
+                coro = self.runCmdLine(line)
+                self.cmdtask = self.schedCoro(coro)
+                await self.cmdtask
 
             except KeyboardInterrupt:
 
@@ -356,13 +392,13 @@ class Cli(s_base.Base):
                 self.printf(s)
 
             finally:
-                if task is not None:
-                    task.cancel()
+                if self.cmdtask is not None:
+                    self.cmdtask.cancel()
                     try:
-                        task.result(2)
+                        self.cmdtask.result()
                     except asyncio.CancelledError:
                         # Wait a beat to let any remaining nodes to print out before we print the prompt
-                        time.sleep(1)
+                        await asyncio.sleep(1)
                     except Exception:
                         pass
 
@@ -477,6 +513,9 @@ class CmdLocals(Cmd):
     async def runCmdOpts(self, opts):
         ret = {}
         for k, v in self._cmd_cli.locs.items():
-            ret[k] = repr(v)
+            if isinstance(v, (int, str)):
+                ret[k] = v
+            else:
+                ret[k] = repr(v)
         mesg = json.dumps(ret, indent=2, sort_keys=True)
         self.printf(mesg)

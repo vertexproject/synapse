@@ -35,7 +35,7 @@ class CertDir:
 
     Notes:
         * All certificates will be loaded from and written to ~/.syn/certs by default. Set the envvar SYN_CERT_DIR to
-        override.
+          override.
         * All certificate generation methods create 4096 bit RSA keypairs.
         * All certificate signing methods use sha256 as the signature algorithm.
         * CertDir does not currently support signing CA CSRs.
@@ -873,6 +873,7 @@ class CertDir:
         Save a certificate in PEM format to a file outside the certdir.
         '''
         with s_common.genfile(path) as fd:
+            fd.truncate(0)
             fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
 
     def savePkeyPem(self, pkey, path):
@@ -880,6 +881,7 @@ class CertDir:
         Save a private key in PEM format to a file outside the certdir.
         '''
         with s_common.genfile(path) as fd:
+            fd.truncate(0)
             fd.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
 
     def _checkDupFile(self, path):
@@ -922,6 +924,7 @@ class CertDir:
         self._checkDupFile(csrpath)
 
         with s_common.genfile(csrpath) as fd:
+            fd.truncate(0)
             fd.write(crypto.dump_certificate_request(crypto.FILETYPE_PEM, xcsr))
 
         if outp is not None:
@@ -969,6 +972,7 @@ class CertDir:
         self._checkDupFile(path)
 
         with s_common.genfile(path) as fd:
+            fd.truncate(0)
             fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
 
         return path
@@ -978,6 +982,7 @@ class CertDir:
         self._checkDupFile(path)
 
         with s_common.genfile(path) as fd:
+            fd.truncate(0)
             fd.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
 
         return path
@@ -987,6 +992,7 @@ class CertDir:
         self._checkDupFile(path)
 
         with s_common.genfile(path) as fd:
+            fd.truncate(0)
             fd.write(cert.export())
 
         return path

@@ -188,7 +188,7 @@ epub_exclude_files = ['search.html']
 def run_apidoc(_):
     from sphinx.ext.apidoc import main
 
-    args = ['-M', '-o', './autodocs', '../synapse', ]
+    args = ['-M', '--no-toc', '-o', './synapse/autodocs', '../synapse', ]
     ignores = ['../synapse/tests']
     args.extend(ignores)
     main(args)
@@ -200,10 +200,11 @@ def run_modeldoc(_):
     synbd = os.path.split(abssynf)[0]  # Split off __init__
     synpd = os.path.split(synbd)[0]  # split off the synapse module directory
     args = ['python', '-m', 'synapse.tools.autodoc', '--doc-model',
-            '--savedir', './docs/autodocs']
+            '--savedir', './docs/synapse/autodocs']
     subprocess.run(args, cwd=synpd)
 
 def convert_ipynb(_):
+    import synapse.common as s_common
     import nbconvert.nbconvertapp as nba
     cwd = os.getcwd()
     for fdir, dirs, fns in os.walk(cwd):
@@ -211,9 +212,13 @@ def convert_ipynb(_):
             dirs.remove('.ipynb_checkpoints')
         for fn in fns:
             if fn.endswith('.ipynb'):
+                tick = s_common.now()
                 fp = os.path.join(fdir, fn)
                 args = ['--execute', '--template', './vertex.tpl', '--to', 'rst', fp]
                 nba.main(args)
+                tock = s_common.now()
+                took = (tock - tick) / 1000
+                print(f'convert_ipynb: Notebook {fn} execution took {took} seconds.')
 
 def setup(app):
     # app.add_stylesheet('theme_overrides.css')

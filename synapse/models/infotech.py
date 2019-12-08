@@ -54,7 +54,7 @@ class SemVer(s_types.Type):
                 'patch': patch}
         return valu, {'subs': subs}
 
-    def repr(self, valu, defval=None):
+    def repr(self, valu):
         major, minor, patch = s_version.unpackVersion(valu)
         valu = s_version.fmtVersion(major, minor, patch)
         return valu
@@ -301,6 +301,16 @@ class ItModule(s_module.CoreModule):
                 ('it:app:snort:hit', ('guid', {}), {
                     'doc': 'An instance of a snort rule hit.',
                 }),
+                ('it:reveng:function', ('guid', {}), {
+                    'doc': 'A function inside an executable.',
+                }),
+                ('it:reveng:filefunc', ('comp', {'fields': (('file', 'file:bytes'), ('function', 'it:reveng:function'))}), {
+                    'doc': 'An instance of a function in an executable.',
+                }),
+                ('it:reveng:funcstr', ('comp', {'fields': (('function', 'it:reveng:function'), ('string', 'str'))}), {
+                    'doc': 'A reference to a string inside a function.',
+                }),
+
             ),
             'forms': (
                 ('it:hostname', {}, ()),
@@ -319,9 +329,24 @@ class ItModule(s_module.CoreModule):
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'The last known location for the host.'
                     }),
-
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place where the host resides.',
+                    }),
+                    ('loc', ('loc', {}), {
+                        'doc': 'The geo-political location string for the node.',
+                    }),
                     ('os', ('it:prod:softver', {}), {
-                        'doc': 'The operating system of the host.'}),
+                        'doc': 'The operating system of the host.'
+                    }),
+                    ('manu', ('str', {}), {
+                        'doc': 'The manufacturer of the host.',
+                    }),
+                    ('model', ('str', {}), {
+                        'doc': 'The product model of the host.',
+                    }),
+                    ('serial', ('str', {}), {
+                        'doc': 'The serial number of the host.',
+                    }),
                 )),
                 ('it:hosturl', {}, (
                     ('host', ('it:host', {}), {
@@ -909,7 +934,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:app:snort:hit', {}, (
                     ('rule', ('it:app:snort:rule', {}), {
-                        'doc': 'The yara rule that matched the file.'}),
+                        'doc': 'The snort rule that matched the file.'}),
                     ('flow', ('inet:flow', {}), {
                         'doc': 'The inet:flow that matched the snort rule.'}),
                     ('src', ('inet:addr', {}), {
@@ -954,6 +979,33 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file that matched the yara rule.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The most recent version of the rule evaluated as a match.'}),
+                )),
+
+                ('it:reveng:function', {}, (
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the function'}),
+                    ('description', ('str', {}), {
+                        'doc': 'Notes concerning the function'}),
+                )),
+
+                ('it:reveng:filefunc', {}, (
+                    ('function', ('it:reveng:function', {}), {
+                        'ro': True,
+                        'doc': 'The guid matching the function'}),
+                    ('file', ('file:bytes', {}), {
+                        'ro': True,
+                        'doc': 'The file that contains the function.'}),
+                    ('va', ('int', {}), {
+                        'doc': 'The virtual address of the first codeblock of the function'}),
+                )),
+
+                ('it:reveng:funcstr', {}, (
+                    ('function', ('it:reveng:function', {}), {
+                        'ro': True,
+                        'doc': 'The guid matching the function'}),
+                    ('string', ('str', {}), {
+                        'ro': True,
+                        'doc': 'The string that the function references.'}),
                 )),
 
             ),

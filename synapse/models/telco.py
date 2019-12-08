@@ -35,7 +35,7 @@ class Phone(s_types.Type):
             info = s_l_phone.getPhoneInfo(int(digs))
         except Exception as e:  # pragma: no cover
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Failed to get phone info')
+                                    mesg='Failed to get phone info') from None
         cc = info.get('cc')
         if cc is not None:
             subs['loc'] = cc
@@ -67,7 +67,7 @@ class Phone(s_types.Type):
             )
         return s_types.Type.indxByEq(self, valu)
 
-    def repr(self, valu, defval=None):
+    def repr(self, valu):
         # FIXME implement more geo aware reprs
         # XXX geo-aware reprs are practically a function of cc which
         # XXX the raw value may only have after doing a s_l_phone lookup
@@ -318,15 +318,29 @@ class TelcoModule(s_module.CoreModule):
                     ('cid', ('int', {}), {'doc': 'Cell ID'}),
                     ('radio', ('str', {'lower': 1, 'onespace': 1}), {'doc': 'Cell radio type.'}),
                     ('latlong', ('geo:latlong', {}), {'doc': 'Last known location of the cell site.'}),
+
                     ('loc', ('loc', {}), {
-                        'doc': 'Location the cell is operated at.'
-                    }),
+                        'doc': 'Location at which the cell is operated.'}),
+
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place associated with the latlong property.'}),
                 )),
 
                 ('tel:mob:telem', {}, (
 
                     ('time', ('time', {}), {}),
                     ('latlong', ('geo:latlong', {}), {}),
+
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place representing the location of the mobile telemetry sample.'}),
+
+                    ('loc', ('loc', {}), {
+                        'doc': 'The geo-political location of the mobile telemetry sample.',
+                    }),
+
+                    ('accuracy', ('geo:dist', {}), {
+                        'doc': 'The reported accuracy of the latlong telemetry reading.',
+                    }),
 
                     # telco specific data
                     ('cell', ('tel:mob:cell', {}), {}),

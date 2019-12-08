@@ -12,6 +12,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.encoding as s_encoding
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,10 @@ def getItems(*paths):
             if not isinstance(item, list):
                 item = [item]
             items.append((path, item))
+        elif path.endswith('.jsonl'):
+            with s_common.genfile(path) as fd:
+                item = list(s_encoding.iterdata(fd, False, format='jsonl'))
+                items.append((path, item))
         elif path.endswith(('.yaml', '.yml')):
             item = s_common.yamlload(path)
             if not isinstance(item, list):
@@ -66,7 +71,7 @@ async def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=100
         outp.printf(f'Took [{tock - tick}] seconds.')
 
     if debug:
-        await s_cmdr.runItemCmdr(core, outp)
+        await s_cmdr.runItemCmdr(core, outp, True)
 
 async def main(argv, outp=None):
 
@@ -106,7 +111,7 @@ async def main(argv, outp=None):
 
 def makeargparser():
     desc = 'Command line tool for ingesting data into a cortex'
-    pars = argparse.ArgumentParser('synapse.tools.ingest', description=desc)
+    pars = argparse.ArgumentParser('synapse.tools.feed', description=desc)
 
     muxp = pars.add_mutually_exclusive_group(required=True)
     muxp.add_argument('--cortex', '-c', type=str,

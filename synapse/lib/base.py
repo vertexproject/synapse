@@ -1,8 +1,8 @@
 import gc
 import atexit
 import signal
-import inspect
 import asyncio
+import inspect
 import logging
 import weakref
 import contextlib
@@ -110,6 +110,12 @@ class Base:
             self.tid = s_threads.iden()
             self.call_stack = traceback.format_stack()  # For cleanup debugging
 
+        if object.__getattribute__(self, 'anitted') is True:
+            # The Base has already been anitted. This allows a class to treat
+            # multiple Base objects as a mixin and __anit__ themselves without
+            # smashing fini or event handlers from the others.
+            return
+
         self.isfini = False
         self.anitted = True  # For assertion purposes
         self.finievt = None
@@ -142,6 +148,8 @@ class Base:
             meth = getattr(item, '__exit__', None)
             if meth is not None:
                 return meth(None, None, None)
+
+        self.onfini(fini)
 
         entr = getattr(item, '__aenter__', None)
         if entr is not None:
@@ -331,7 +339,7 @@ class Base:
 
         for func in self._syn_links:
             try:
-                ret.append(await func(mesg))
+                ret.append(await s_coro.ornot(func, mesg))
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -448,7 +456,7 @@ class Base:
             This function is *not* threadsafe and must be run on the Base's event loop
 
         Returns:
-            An asyncio.Task
+            asyncio.Task: An asyncio.Task object.
 
         '''
         import synapse.lib.provenance as s_provenance  # avoid import cycle
@@ -479,18 +487,37 @@ class Base:
         return task
 
     def schedCallSafe(self, func, *args, **kwargs):
+        '''
+        Schedule a function to run as soon as possible on the same event loop that this Base is running on.
+
+        This function does *not* pend on the function completion.
+
+        Args:
+            func:
+            *args:
+            **kwargs:
+
+        Notes:
+            This method may called from outside of the event loop on a different thread.
+
+        Returns:
+            concurrent.futures.Future: A Future representing the eventual function execution.
+        '''
         def real():
             return func(*args, **kwargs)
         return self.loop.call_soon_threadsafe(real)
 
     def schedCoroSafe(self, coro):
         '''
-        Schedules a coroutine to run as soon as possible on the same event loop that this Base is running on
+        Schedules a coroutine to run as soon as possible on the same event loop that this Base is running on.
 
         This function does *not* pend on coroutine completion.
 
-        Note:
+        Notes:
             This method may be run outside the event loop on a different thread.
+
+        Returns:
+            concurrent.futures.Future: A Future representing the eventual coroutine execution.
         '''
         return self.loop.call_soon_threadsafe(self.schedCoro, coro)
 

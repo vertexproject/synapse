@@ -10,11 +10,10 @@ import synapse.lib.remotelayer as s_remotelayer
 import synapse.tests.utils as s_t_utils
 import synapse.tests.test_cortex as t_cortex
 
-class RemoteLayerTest(s_t_utils.SynTest):
+class RemoteLayerTest(t_cortex.CortexTest):
 
     @contextlib.asynccontextmanager
     async def getTestCore(self, conf=None, dirn=None):
-
         # make remote core from provided dirn for repeatability
         dirn0 = None
         if dirn is not None:
@@ -22,6 +21,15 @@ class RemoteLayerTest(s_t_utils.SynTest):
 
         async with self.getRemoteCores(dirn0=dirn0, conf1=conf, dirn1=dirn) as (core0, core1):
             yield core1
+
+    @contextlib.asynccontextmanager
+    async def getTestReadWriteCores(self, conf=None, dirn=None):
+        dirn0 = None
+        if dirn is not None:
+            dirn0 = s_common.gendir(dirn, 'remotecore')
+
+        async with self.getRemoteCores(dirn0=dirn0, conf1=conf, dirn1=dirn) as (core0, core1):
+            yield core1, core0
 
     @contextlib.asynccontextmanager
     async def getRemoteCores(self, conf0=None, conf1=None, dirn0=None, dirn1=None):
@@ -34,6 +42,37 @@ class RemoteLayerTest(s_t_utils.SynTest):
                 layr = await core1.addLayer(type='remote', config=conf)
                 await core1.view.addLayer(layr)
                 yield core0, core1
+
+    async def test_remote_formcounts(self):
+        async with self.getRemoteCores() as (core0, core1):
+            self.none(core0.counts.get('test:str'))
+            self.none(core1.counts.get('test:str'))
+
+            self.len(2, await core0.nodes('[(test:str=1) (test:str=2)]'))
+            self.eq(core0.counts.get('test:str'), 2)
+            self.none(core1.counts.get('test:str'))
+
+            self.len(2, await core1.nodes('[(test:str=2) (test:str=3)]'))
+            self.eq(core0.counts.get('test:str'), 2)
+            self.eq(core1.counts.get('test:str'), 1)
+
+            nodes = await core1.nodes('test:str [+#hehe.haha]')
+            self.len(3, nodes)
+            for node in nodes:
+                self.true(node.hasTag('hehe.haha'))
+
+            self.none(core0.counts.get('syn:tag'))
+            self.eq(core1.counts.get('syn:tag'), 2)
+
+            self.len(2, await core0.nodes('test:str'))
+
+            # Delete all nodes from core1's perspective
+            self.len(0, await  core1.nodes('test:str | delnode --force'))
+            self.eq(core0.counts.get('test:str'), 2)
+            self.eq(core1.counts.get('test:str'), 0)
+
+            self.len(2, await core0.nodes('test:str'))
+            self.len(2, await core1.nodes('test:str'))
 
     async def test_cortex_readonly_toplayer(self):
         '''
@@ -61,6 +100,7 @@ class RemoteLayerTest(s_t_utils.SynTest):
 
             self.len(1, [x async for x in layr.iterFormRows('test:str')])
             self.len(1, [x async for x in layr.iterPropRows('test:str', 'tick')])
+            self.len(2, [x async for x in layr.iterUnivRows('.created')])
 
             iden = s_common.guid()
 
@@ -72,19 +112,16 @@ class RemoteLayerTest(s_t_utils.SynTest):
             await layr.setOffset(iden, 200)
             self.eq(200, await layr.getOffset(iden))
 
+            await layr.delOffset(iden)
+            self.eq(0, await layr.getOffset(iden))
+
             self.ne((), tuple([x async for x in layr.splices(0, 200)]))
 
             self.eq(s_modelrev.maxvers, await layr.getModelVers())
             await self.asyncraises(s_exc.SynErr, layr.setModelVers((9, 9, 9)))
 
-    async def test_splice_generation(self):
-        self.skip('test_splice_generation directly uses layers')
-
-    async def test_splice_cryo(self):
-        self.skip('test_splice_generation directly uses layers')
-
-    async def test_splice_sync(self):
-        self.skip('test_splice_sync directly uses events')
+    async def test_cortex_iter_props(self):
+        self.skip('test_cortex_iter_props directly uses layers')
 
     async def test_cortex_remote_reconn(self):
 
@@ -109,7 +146,7 @@ class RemoteLayerConfigTest(s_t_utils.SynTest):
             rem1 = await core0.auth.addUser('remuser1')
 
             await rem1.setPasswd('beep')
-            await rem1.addRule((True, ('layer:lift', core0.iden)))
+            await rem1.addRule((True, ('layer:lift', core0.getLayer().iden)))
 
             # make a test:str node
             nodes = await core0.eval('[test:str=woot]').list()

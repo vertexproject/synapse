@@ -2,6 +2,7 @@
 A few speed optimized (lockless) cache helpers.  Use carefully.
 '''
 import asyncio
+import functools
 import collections
 
 import regex
@@ -10,22 +11,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 def memoize(size=10000):
-
-    def decor(f):
-
-        def callback(args):
-            return f(*args)
-
-        cache = FixedCache(callback, size=size)
-
-        def wrap(*args):
-            return cache.get(args)
-
-        wrap.cache = cache
-
-        return wrap
-
-    return decor
+    return functools.lru_cache(maxsize=size)
 
 class FixedCache:
 
@@ -98,6 +84,62 @@ class FixedCache:
         self.fifo.clear()
         self.cache.clear()
 
+class LruDict(collections.abc.MutableMapping):
+    '''
+    Maintains the last n accessed keys
+    '''
+    def __init__(self, size=10000):
+        self.data = collections.OrderedDict()
+        self.maxsize = size
+        self.disabled = not self.maxsize
+
+    def __getitem__(self, key):
+        valu = self.data.__getitem__(key)
+        self.data.move_to_end(key)
+        return valu
+
+    def get(self, key, default=None):
+        '''
+        Note:  we override default impl from parent to avoid costly KeyError
+        '''
+        valu = self.data.get(key, default)
+        if key in self.data:
+            self.data.move_to_end(key)
+        return valu
+
+    def __setitem__(self, key, valu):
+        if self.disabled:
+            return
+        self.data[key] = valu
+        self.data.move_to_end(key)
+        if len(self.data) > self.maxsize:
+            self.data.popitem(last=False)
+
+    def __delitem__(self, key):
+        '''
+        Ignore attempts to delete keys that may have already been flushed
+        '''
+        if key in self.data:
+            del self.data[key]
+
+    def __len__(self):
+        return len(self.data)
+
+    def __iter__(self):
+        return iter(self.data)
+
+    def items(self):
+        return self.data.items()
+
+    def values(self):
+        return self.data.values()
+
+    def __contains__(self, item):
+        '''
+        Note:  we override default impl from parent to avoid costly KeyError
+        '''
+        return item in self.data
+
 # Search for instances of escaped double or single asterisks
 # https://regex101.com/r/fOdmF2/1
 ReRegex = regex.compile(r'(\\\*\\\*)|(\\\*)')
@@ -116,7 +158,7 @@ def regexizeTagGlob(tag):
 
         The returned string does not contain a starting '^' or trailing '$'.
     '''
-    return ReRegex.sub(lambda m: r'[^.]+?' if m.group(1) is None else r'.+', regex.escape(tag))
+    return ReRegex.sub(lambda m: r'([^.]+?)' if m.group(1) is None else r'(.+)', regex.escape(tag))
 
 @memoize()
 def getTagGlobRegx(name):

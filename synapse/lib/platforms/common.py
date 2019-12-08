@@ -51,7 +51,7 @@ def getLibC():
     '''
     Return a ctypes reference to libc
     '''
-    return ctypes.CDLL(c_util.find_library('c'))
+    return ctypes.CDLL(c_util.find_library('c'), use_errno=True)
 
 def initHostInfo():
     return {}

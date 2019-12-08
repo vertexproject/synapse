@@ -2,6 +2,8 @@ import inspect
 
 import logging
 
+import synapse.lib.version as s_version
+
 logger = logging.getLogger(__name__)
 
 clsskip = set([object])
@@ -64,17 +66,23 @@ def getShareInfo(item):
     Returns:
         dict: A dictionary of methods requiring special handling by the proxy.
     '''
-    info = getattr(item, '_syn_sharinfo', None)
+    key = f'_syn_sharinfo_{item.__class__.__module__}_{item.__class__.__qualname__}'
+    info = getattr(item, key, None)
     if info is not None:
         return info
 
     meths = {}
-    info = {'meths': meths}
+    info = {'meths': meths,
+            'syn:version': s_version.version,
+            'classes': getClsNames(item),
+            }
 
     for name in dir(item):
+
         if name.startswith('_'):
             continue
-        attr = getattr(item, name)
+
+        attr = getattr(item, name, None)
         if not callable(attr):
             continue
 
@@ -91,12 +99,12 @@ def getShareInfo(item):
             meths[name] = {'genr': True}
 
     try:
-        setattr(item, '_syn_sharinfo', info)
+        setattr(item, key, info)
     except Exception as e:  # pragma: no cover
         logger.exception(f'Failed to set magic on {item}')
 
     try:
-        setattr(item.__class__, '_syn_sharinfo', info)
+        setattr(item.__class__, key, info)
     except Exception as e:  # pragma: no cover
         logger.exception(f'Failed to set magic on {item.__class__}')
 

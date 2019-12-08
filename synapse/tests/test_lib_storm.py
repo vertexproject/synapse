@@ -301,12 +301,15 @@ class StormTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 # Ensure each node we make has its own discrete created time.
                 await asyncio.sleep(0.01)
-                node = await snap.addNode('test:guid', '*', {'tick': '2015'})
+                node = await snap.addNode('test:guid', '*', {'tick': '2015',
+                                                             '.seen': '2015'})
                 minc = node.get('.created')
                 await asyncio.sleep(0.01)
-                node = await snap.addNode('test:guid', '*', {'tick': '2016'})
+                node = await snap.addNode('test:guid', '*', {'tick': '2016',
+                                                             '.seen': '2016'})
                 await asyncio.sleep(0.01)
-                node = await snap.addNode('test:guid', '*', {'tick': '2017'})
+                node = await snap.addNode('test:guid', '*', {'tick': '2017',
+                                                             '.seen': '2017'})
                 await asyncio.sleep(0.01)
                 node = await snap.addNode('test:str', '1', {'tick': '2016'})
 
@@ -359,15 +362,235 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), midval)
 
+            # Variables evaluated
+            nodes = await core.eval('test:guid ($tick, $tock) = .seen | min $tick').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), minval)
+
+            nodes = await core.eval('test:guid ($tick, $tock) = .seen | max $tock').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), maxval)
+
+            text = '''[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 ]
+                      { +inet:ipv4=1.2.3.4 [ :asn=10 ] }
+                      { +inet:ipv4=5.6.7.8 [ :asn=20 ] }
+                      $asn = :asn | min $asn'''
+
+            nodes = await core.nodes(text)
+            self.len(1, nodes)
+            self.eq(0x01020304, nodes[0].ndef[1])
+
+            text = '''[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 ]
+                      { +inet:ipv4=1.2.3.4 [ :asn=10 ] }
+                      { +inet:ipv4=5.6.7.8 [ :asn=20 ] }
+                      $asn = :asn | max $asn'''
+
+            nodes = await core.nodes(text)
+            self.len(1, nodes)
+            self.eq(0x05060708, nodes[0].ndef[1])
+
             # Sad paths where there are no nodes which match the specified values.
             await self.agenlen(0, core.eval('test:guid | max :newp'))
             await self.agenlen(0, core.eval('test:guid | min :newp'))
+
             # Sad path for a form, not a property; and does not exist at all
-            await self.agenraises(s_exc.BadSyntax,
-                                  core.eval('test:guid | max test:guid'))
-            await self.agenraises(s_exc.BadSyntax,
-                                  core.eval('test:guid | min test:guid'))
             await self.agenraises(s_exc.BadSyntax,
                                   core.eval('test:guid | max test:newp'))
             await self.agenraises(s_exc.BadSyntax,
                                   core.eval('test:guid | min test:newp'))
+
+            # Ensure that max evaluates ival properties as the upper bound.
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:guid', '*', {'tick': '2015',
+                                                             '.seen': (minval, maxval)})
+                await node.addTag('maxtest')
+                node = await snap.addNode('test:guid', '*', {'tick': '2016',
+                                                             '.seen': (midval, midval + 1)})
+                await node.addTag('maxtest')
+
+            nodes = await core.eval('#maxtest | max .seen').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), minval)
+
+    async def test_getstormeval(self):
+
+        # Use testechocmd to exercise all of Cmd.getStormEval
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'fancystr',
+                                          {'tick': 1234,
+                                           'hehe': 'haha',
+                                           '.seen': '3001'})
+
+            q = 'test:str $foo=:tick | testechocmd $foo'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[1234]', mesgs)
+
+            q = 'test:str| testechocmd :tick'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[1234]', mesgs)
+
+            q = 'test:str| testechocmd .seen'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[(32535216000000, 32535216000001)]', mesgs)
+
+            q = 'test:str| testechocmd test:str'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[fancystr]', mesgs)
+
+            q = 'test:str| testechocmd test:str:hehe'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[haha]', mesgs)
+
+            q = 'test:str| testechocmd test:int'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[None]', mesgs)
+
+            q = 'test:str| testechocmd test:int:loc'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('[None]', mesgs)
+
+            q = 'test:str| testechocmd test:newp'
+            mesgs = await core.streamstorm(q).list()
+            errs = [m for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            self.eq(errs[0][1][0], 'BadSyntax')
+
+    async def test_scrape(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                guid = s_common.guid()
+                snode = await snap.addNode('inet:search:query', guid,
+                                          {'text': 'what about 1.2.3.4',
+                                           'time': '2019-04-04 17:03',
+                                           'engine': 'google',
+                                            })
+                bnode = await snap.addNode('inet:banner', ('tcp://2.4.6.8:80', 'this is a test foo@bar.com'))
+
+            q = 'inet:search:query | scrape -p text engine'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            q = 'inet:search:query | scrape --refs'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, ('edge:refs', (snode.ndef, nodes[0].ndef)))
+
+            q = 'inet:search:query | scrape --join'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, snode.ndef)
+
+            # invalid prop
+            q = 'inet:search:query | scrape -p engine foobarbaz'
+            await self.asyncraises(s_exc.BadOptValu, core.nodes(q))
+
+            # different forms, same prop name
+            q = 'inet:search:query inet:banner | scrape -p text'
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+
+            # one has it, but the other doesn't, so boom
+            q = 'inet:search:query inet:banner | scrape -p engine'
+            await self.asyncraises(s_exc.BadOptValu, core.nodes(q))
+
+            await core.nodes('[inet:search:query="*"]')
+            mesgs = await alist(core.streamstorm('inet:search:query | scrape --props text'))
+            self.stormIsInPrint('No prop ":text" for', mesgs)
+
+    async def test_tee(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                guid = s_common.guid()
+                node = await snap.addNode('edge:refs', (('media:news', guid), ('inet:ipv4', '1.2.3.4')))
+                node = await snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+
+            q = 'inet:ipv4=1.2.3.4 | tee { -> * }'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:asn', 0))
+
+            q = 'inet:ipv4=1.2.3.4 | tee --join { -> * }'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:asn', 0))
+            self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
+
+            q = 'inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }'
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+            self.eq(nodes[0].ndef, ('inet:asn', 0))
+            self.eq(nodes[1].ndef[0], ('inet:dns:a'))
+            self.eq(nodes[2].ndef, ('inet:ipv4', 0x01020304))
+
+            q = 'inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * } { -> edge:refs:n2 :n1 -> * }'
+            nodes = await core.nodes(q)
+            self.len(4, nodes)
+            self.eq(nodes[0].ndef, ('inet:asn', 0))
+            self.eq(nodes[1].ndef[0], ('inet:dns:a'))
+            self.eq(nodes[2].ndef[0], ('media:news'))
+            self.eq(nodes[3].ndef, ('inet:ipv4', 0x01020304))
+
+            # Empty queries are okay - they will just return the input node
+            q = 'inet:ipv4=1.2.3.4 | tee {}'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            # Subqueries are okay too but will just yield the input back out
+            q = 'inet:ipv4=1.2.3.4 | tee {{ -> * }}'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            # Sad path
+            q = 'inet:ipv4=1.2.3.4 | tee'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+    async def test_storm_yieldvalu(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+            buid0 = nodes[0].buid
+            iden0 = s_common.ehex(buid0)
+
+            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': (iden0,)}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            def genr():
+                yield iden0
+
+            async def agenr():
+                yield iden0
+
+            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': (iden0,)}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': buid0}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': genr()}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': agenr()}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': nodes[0]}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+
+            nodes = await core.nodes('yield $foo', opts={'vars': {'foo': None}})
+            self.len(0, nodes)
+
+            with self.raises(s_exc.BadLiftValu):
+                await core.nodes('yield $foo', opts={'vars': {'foo': 'asdf'}})

@@ -1,6 +1,5 @@
 import os
 import sys
-import json
 import asyncio
 import logging
 import argparse
@@ -17,23 +16,28 @@ def parse(argv):
 
     https = os.getenv('SYN_AXON_HTTPS', '4443')
     telep = os.getenv('SYN_AXON_TELEPATH', 'tcp://0.0.0.0:27492/')
+    telen = os.getenv('SYN_AXON_NAME', None)
 
     pars = argparse.ArgumentParser(prog='synapse.servers.axon')
     pars.add_argument('--telepath', default=telep, help='The telepath URL to listen on.')
     pars.add_argument('--https', default=https, dest='port', type=int, help='The port to bind for the HTTPS/REST API.')
+    pars.add_argument('--name', default=telen, help='The (optional) additional name to share the Axon as.')
     pars.add_argument('axondir', help='The directory for the axon to use for storage.')
 
     return pars.parse_args(argv)
 
-async def main(argv, outp=s_output.stdout):
+async def main(argv, outp=s_output.stdout, axonctor=None):
 
     opts = parse(argv)
+
+    if axonctor is None:
+        axonctor = s_axon.Axon.anit
 
     s_common.setlogging(logger)
 
     outp.printf('starting axon: %s' % (opts.axondir,))
 
-    axon = await s_axon.Axon.anit(opts.axondir)
+    axon = await axonctor(opts.axondir)
 
     try:
 
@@ -42,6 +46,10 @@ async def main(argv, outp=s_output.stdout):
 
         outp.printf('...axon API (https): %s' % (opts.port,))
         await axon.addHttpsPort(opts.port)
+
+        if opts.name:
+            outp.printf(f'...axon additional share name: {opts.name}')
+            axon.dmon.share(opts.name, axon)
 
         return axon
 

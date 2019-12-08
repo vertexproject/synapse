@@ -4,9 +4,7 @@ import logging
 import ipaddress
 import email.utils
 
-
 import regex
-
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -168,7 +166,7 @@ class Cidr6(s_types.StrBase):
         try:
             network = ipaddress.IPv6Network(valu)
         except Exception as e:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=e)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
         norm = str(network)
         info = {
@@ -194,7 +192,7 @@ class Email(s_types.StrBase):
             fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
             usernorm, userinfo = self.modl.type('inet:user').norm(user)
         except Exception as e:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=e)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
         norm = f'{usernorm}@{fqdnnorm}'
         info = {
@@ -209,6 +207,26 @@ class Fqdn(s_types.Type):
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
+
+    def _ctorCmprEq(self, text):
+        if text == '':
+            # Asking if a +inet:fqdn='' is a odd filter, but
+            # the intuitive answer for that filter is to return False
+            def cmpr(valu):
+                return False
+            return cmpr
+
+        if text[0] == '*':
+            cval = text[1:]
+            def cmpr(valu):
+                return valu.endswith(cval)
+            return cmpr
+
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return norm == valu
+        return cmpr
 
     def _normPyStr(self, valu):
 
@@ -233,8 +251,9 @@ class Fqdn(s_types.Type):
         try:
             valu = valu.encode('idna').decode('utf8').lower()
         except UnicodeError:
+            mesg = 'Failed to encode/decode the value with idna/utf8.'
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Failed to encode/decode the value with idna/utf8.')
+                                    mesg=mesg) from None
 
         parts = valu.split('.', 1)
         subs = {'host': parts[0]}
@@ -267,19 +286,11 @@ class Fqdn(s_types.Type):
 
         return s_types.Type.indxByEq(self, valu)
 
-    def repr(self, valu, defval=None):
-
+    def repr(self, valu):
         try:
-
-            text = valu.encode('utf8').decode('idna')
-            if text != valu:
-                return text
-
+            return valu.encode('utf8').decode('idna')
         except UnicodeError:
-            logger.exception('Failed to IDNA decode ACE prefixed inet:fqdn')
-
-        return defval
-
+            return valu
 
 class IPv4(s_types.Type):
     '''
@@ -309,28 +320,30 @@ class IPv4(s_types.Type):
 
         return s_types.Type._ctorCmprEq(self, valu)
 
-    def getTypeVals(self, text):
+    def getTypeVals(self, valu):
 
-        if text.find('/') != -1:
+        if isinstance(valu, str):
 
-            minv, maxv = self.getCidrRange(text)
-            while minv < maxv:
-                yield minv
-                minv += 1
+            if valu.find('/') != -1:
 
-            return
+                minv, maxv = self.getCidrRange(valu)
+                while minv < maxv:
+                    yield minv
+                    minv += 1
 
-        if text.find('-') != -1:
+                return
 
-            minv, maxv = self.getNetRange(text)
+            if valu.find('-') != -1:
 
-            while minv <= maxv:
-                yield minv
-                minv += 1
+                minv, maxv = self.getNetRange(valu)
 
-            return
+                while minv <= maxv:
+                    yield minv
+                    minv += 1
 
-        yield text
+                return
+
+        yield valu
 
     def _normPyInt(self, valu):
         norm = valu & 0xffffffff
@@ -349,7 +362,7 @@ class IPv4(s_types.Type):
             byts = socket.inet_aton(valu)
         except OSError as e:
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg=str(e))
+                                    mesg=str(e)) from None
 
         norm = int.from_bytes(byts, 'big')
         return self._normPyInt(norm)
@@ -357,7 +370,7 @@ class IPv4(s_types.Type):
     def indx(self, norm):
         return norm.to_bytes(4, 'big')
 
-    def repr(self, norm, defval=None):
+    def repr(self, norm):
         return socket.inet_ntoa(self.indx(norm))
 
     def getNetRange(self, text):
@@ -426,7 +439,7 @@ class IPv6(s_types.Type):
             return ipaddress.IPv6Address(valu).compressed, {'subs': subs}
 
         except Exception as e:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e))
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
 class IPv4Range(s_types.Range):
 
@@ -500,8 +513,9 @@ class Rfc2822Addr(s_types.StrBase):
             name, addr = email.utils.parseaddr(valu)
         except Exception as e:  # pragma: no cover
             # not sure we can ever really trigger this with a string as input
+            mesg = f'email.utils.parsaddr failed: {str(e)}'
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='email.utils.parsaddr failed: %s' % (e,))
+                                    mesg=mesg) from None
 
         subs = {}
         if name:
@@ -528,6 +542,21 @@ class Url(s_types.StrBase):
         s_types.StrBase.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
+    def _ctorCmprEq(self, text):
+        if text == '':
+            # Asking if a +inet:url='' is a odd filter, but
+            # the intuitive answer for that filter is to return False
+            def cmpr(valu):
+                return False
+            return cmpr
+
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return norm == valu
+
+        return cmpr
+
     def _normPyStr(self, valu):
         orig = valu
         subs = {}
@@ -544,7 +573,7 @@ class Url(s_types.StrBase):
             subs['proto'] = proto
         except Exception:
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                    mesg='Invalid/Missing protocol')
+                                    mesg='Invalid/Missing protocol') from None
 
         # Query params first
         queryrem = ''
@@ -908,6 +937,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A URL that redirects to another URL, such as via a URL shortening service '
                                'or an HTTP 302 response.',
                         'ex': '(http://foo.com/,http://bar.com/)'
+                    }),
+
+                    ('inet:url:mirror', ('comp', {'fields': (('of', 'inet:url'), ('at', 'inet:url'))}), {
+                        'doc': 'A URL mirror site.',
                     }),
 
                     ('inet:user', ('str', {'lower': True}), {
@@ -1434,6 +1467,9 @@ class InetModule(s_module.CoreModule):
                         ('loc', ('loc', {}), {'defval': '??',
                             'doc': 'The geo-political location string for the IPv4.'}),
 
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place assocated with the latlong property.'}),
+
                         ('type', ('str', {}), {'defval': '??',
                             'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
 
@@ -1452,6 +1488,9 @@ class InetModule(s_module.CoreModule):
 
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The last known latitude/longitude for the node'}),
+
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place assocated with the latlong property.'}),
 
                         ('dns:rev', ('inet:fqdn', {}), {
                             'doc': 'The most current DNS reverse lookup for the IPv6.'}),
@@ -1661,6 +1700,17 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:url:mirror', {}, (
+                        ('of', ('inet:url', {}), {
+                            'ro': True,
+                            'doc': 'The URL being mirrored.',
+                        }),
+                        ('at', ('inet:url', {}), {
+                            'ro': True,
+                            'doc': 'The URL of the mirror.',
+                        }),
+                    )),
+
                     ('inet:user', {}, ()),
 
                     ('inet:search:query', {}, (
@@ -1707,6 +1757,9 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The last known latitude/longitude for the node'
+                        }),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place assocated with the latlong property.'
                         }),
                         ('loc', ('loc', {}), {
                             'doc': 'A self-declared location for the account.'
@@ -1913,6 +1966,9 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The last known latitude/longitude for the node'
+                        }),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place assocated with the latlong property.'
                         }),
                         ('signup', ('time', {}), {
                             'doc': 'The date and time the group was created on the site.'
@@ -2162,6 +2218,13 @@ class InetModule(s_module.CoreModule):
 
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The best known latitude/longitude for the wireless access point.'}),
+
+                        ('accuracy', ('geo:dist', {}), {
+                            'doc': 'The reported accuracy of the latlong telemetry reading.',
+                        }),
+
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The geo:place assocated with the latlong property.'}),
 
                         ('loc', ('loc', {}), {'defval': '??',
                             'doc': 'The geo-political location string for the wireless access point.'}),

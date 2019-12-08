@@ -240,7 +240,10 @@ class _Appt:
     Each such entry has a list of ApptRecs.  Each time the appointment is scheduled, the nexttime of the appointment is
     the lowest nexttime of all its ApptRecs.
     '''
-    def __init__(self, iden, recur, indx, query, useriden, recs, nexttime=None):
+    def __init__(self, stor, iden, recur, indx, query, useriden, recs, nexttime=None):
+        self.doc = ''
+        self.name = ''
+        self.stor = stor
         self.iden = iden
         self.recur = recur # does this appointment repeat
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
@@ -267,6 +270,15 @@ class _Appt:
         self.lastresult = None
         self.enabled = True
 
+    def getRuntInfo(self):
+        buid = s_common.buid(('syn:cron', self.iden))
+        return buid, (
+            ('*syn:cron', self.iden),
+            ('doc', self.doc),
+            ('name', self.name),
+            ('storm', self.query),
+        )
+
     def __eq__(self, other):
         ''' For heap logic to sort upcoming events lower '''
         return (self.nexttime, self.indx) == (other.nexttime, other.indx)
@@ -278,6 +290,8 @@ class _Appt:
     def pack(self):
         return {
             'ver': 1,
+            'doc': self.doc,
+            'name': self.name,
             'enabled': self.enabled,
             'recur': self.recur,
             'iden': self.iden,
@@ -294,15 +308,18 @@ class _Appt:
         }
 
     @classmethod
-    def unpack(cls, val):
+    def unpack(cls, stor, val):
         if val['ver'] != 1:
             raise s_exc.BadStorageVersion(mesg=f"Found version {val['ver']}")  # pragma: no cover
         recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
-        appt = cls(val['iden'], val['recur'], val['indx'], val['query'], val['useriden'], recs, val['nexttime'])
+        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['useriden'], recs, val['nexttime'])
+        appt.doc = val.get('doc', '')
+        appt.name = val.get('name', '')
         appt.startcount = val['startcount']
         appt.laststarttime = val['laststarttime']
         appt.lastfinishtime = val['lastfinishtime']
         appt.lastresult = val['lastresult']
+        appt.enabled = val['enabled']
 
         return appt
 
@@ -344,6 +361,31 @@ class _Appt:
             self.nexttime = None
             return
 
+    async def reqAllowed(self, user, perm):
+        if not await self.allowed(user, perm):
+            mesg = 'User does not own or have permissions to cron job.'
+            raise s_exc.AuthDeny(perm=perm, mesg=mesg)
+
+    async def allowed(self, user, perm):
+        if user.iden == self.useriden:
+            return True
+
+        return user.allowed(perm)
+
+    async def setDoc(self, text):
+        '''
+        Set the doc field of an appointment.
+        '''
+        self.doc = text
+        await self._save()
+
+    async def setName(self, text):
+        self.name = text
+        await self._save()
+
+    async def _save(self):
+        await self.stor._storeAppt(self)
+
 class Agenda(s_base.Base):
     '''
     Organize and execute all the scheduled storm queries in a cortex.
@@ -368,7 +410,22 @@ class Agenda(s_base.Base):
         self._schedtask = None  # The task of the scheduler loop.  Doesn't run until we're enabled
         await self._load_all()
 
-    async def enable(self):
+    async def onLiftRunts(self, full, valu=None, cmpr=None):
+
+        if valu is None:
+            for iden, cjob in self.appts.items():
+                yield cjob.getRuntInfo()
+
+            return
+
+        iden = str(valu)
+        cjob = self.appts.get(iden)
+        if cjob is None:
+            return
+
+        yield cjob.getRuntInfo()
+
+    async def start(self):
         '''
         Enable cron jobs to start running, start the scheduler loop
 
@@ -378,16 +435,12 @@ class Agenda(s_base.Base):
         if self.enabled:
             return
 
-        to_delete = []
         for iden, appt in self.appts.items():
             try:
                 self.core.getStormQuery(appt.query)
             except Exception as e:
                 logger.warning('Invalid appointment %r found in storage: %r.  Disabling.', iden, e)
                 appt.enabled = False
-
-        for iden in to_delete:
-            await self.delete(iden)
 
         self._schedtask = self.schedCoro(self._scheduleLoop())
         self.enabled = True
@@ -399,7 +452,7 @@ class Agenda(s_base.Base):
         to_delete = []
         for iden, val in self._hivedict.items():
             try:
-                appt = _Appt.unpack(val)
+                appt = _Appt.unpack(self, val)
                 if appt.iden != iden:
                     raise s_exc.InconsistentStorage(mesg='iden inconsistency')
                 self._addappt(iden, appt)
@@ -452,9 +505,9 @@ class Agenda(s_base.Base):
             yield newdict
 
     def list(self):
-        return [(iden, (appt.pack())) for (iden, appt) in self.appts.items()]
+        return list(self.appts.items())
 
-    async def add(self, useriden, query: str, reqs, incunit=None, incvals=None):
+    async def add(self, useriden, query: str, reqs, incunit=None, incvals=None, doc=''):
         '''
         Persistently adds an appointment
 
@@ -507,12 +560,38 @@ class Agenda(s_base.Base):
                 incvals = (incvals, )
             recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
 
-        appt = _Appt(iden, recur, indx, query, useriden, recs)
+        appt = _Appt(self, iden, recur, indx, query, useriden, recs)
         self._addappt(iden, appt)
+
+        appt.doc = doc
 
         await self._storeAppt(appt)
 
         return iden
+
+    async def get(self, iden):
+
+        appt = self.appts.get(iden)
+        if appt is not None:
+            return appt
+
+        mesg = f'No cron job with id: {iden}'
+        raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
+
+    async def enable(self, iden):
+        appt = self.appts.get(iden)
+        if appt is None:
+            raise s_exc.NoSuchIden()
+
+        await self.mod(iden, appt.query)
+
+    async def disable(self, iden):
+        appt = self.appts.get(iden)
+        if appt is None:
+            raise s_exc.NoSuchIden()
+
+        appt.enabled = False
+        await self._storeAppt(appt)
 
     async def mod(self, iden, query):
         '''
@@ -596,7 +675,10 @@ class Agenda(s_base.Base):
             logger.warning('Unknown user %s in stored appointment', appt.useriden)
             await self._markfailed(appt)
             return
-        await self.core.boss.execute(self._runJob(user, appt), f'Agenda {appt.iden}', user)
+        await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user,
+                                     info={'iden': appt.iden,
+                                           'query': appt.query,
+                                           })
 
     async def _markfailed(self, appt):
         appt.lastfinishtime = appt.laststarttime = time.time()

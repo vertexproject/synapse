@@ -189,7 +189,11 @@ class GenrIter:
         self.share = share
 
     async def __aiter__(self):
+
         genr = await self.proxy.task(self.todo, name=self.share)
+        if genr is None:
+            return
+
         async for item in genr:
             yield item
 
@@ -243,6 +247,7 @@ class Proxy(s_base.Base):
 
         self.sess = None
         self.links = collections.deque()
+        self._link_poolsize = 4
 
         self.synack = None
         self.syndone = asyncio.Event()
@@ -271,6 +276,34 @@ class Proxy(s_base.Base):
 
         self.onfini(fini)
         self.link.onfini(self.fini)
+
+    def _getSynVers(self):
+        '''
+        Helper method to retrieve the remote Synapse version from Proxy.
+
+        Notes:
+            This will return None if the synapse version was not supplied
+            during the Telepath handshake.
+
+        Returns:
+            tuple: A tuple of major, minor, patch information as integers.
+        '''
+        version = self.sharinfo.get('syn:version')
+        return version
+
+    def _getClasses(self):
+        '''
+        Helper method to retrieve the classes that comprise the remote object.
+
+        Notes:
+            This will return None if the class version was not supplied
+            during the Telepath handshake.
+
+        Returns:
+            tuple: A tuple of strings containing the class paths for the remote object.
+        '''
+        classes = self.sharinfo.get('classes')
+        return classes
 
     async def getPoolLink(self):
 
@@ -312,8 +345,8 @@ class Proxy(s_base.Base):
         if link.isfini:
             return
 
-        # a pool of 4 max for now...
-        if len(self.links) >= 4:
+        # If we've exceeded our poolsize, discard the current link.
+        if len(self.links) >= self._link_poolsize:
             return await link.fini()
 
         self.links.append(link)
@@ -554,6 +587,169 @@ class Proxy(s_base.Base):
         setattr(self, name, meth)
         return meth
 
+class Client(s_base.Base):
+    '''
+    A Telepath client object which reconnects and allows waiting for link up.
+
+    conf = {
+        'timeout': 10,
+        'retrysleep': 0.2,
+        'link_poolsize': 4,
+    }
+
+    '''
+    async def __anit__(self, url, opts=None, conf=None, onlink=None):
+
+        await s_base.Base.__anit__(self)
+
+        if conf is None:
+            conf = {}
+
+        if opts is None:
+            opts = {}
+
+        self._t_url = url
+        self._t_urls = collections.deque()
+
+        self._t_opts = opts
+        self._t_conf = conf
+
+        #TODO chop user/passwd out of url and set in opts
+
+        self._t_proxy = None
+        self._t_ready = asyncio.Event()
+        self._t_onlink = onlink
+
+        async def fini():
+            if self._t_proxy is not None:
+                await self._t_proxy.fini()
+            self._t_ready.set()
+
+        self.onfini(fini)
+
+        await self._fireLinkLoop()
+
+    def _initUrlDeque(self):
+        self._t_urls.clear()
+        if isinstance(self._t_url, str):
+            self._t_urls.append(self._t_url)
+            return
+        self._t_urls.extend(self._t_url)
+
+    def _getNextUrl(self):
+        # TODO url list in deque
+        if not self._t_urls:
+            self._initUrlDeque()
+        return self._t_urls.popleft()
+
+    def _setNextUrl(self, url):
+        self._t_urls.appendleft(url)
+
+    async def _fireLinkLoop(self):
+        self._t_proxy = None
+        self._t_ready.clear()
+        self.schedCoro(self._teleLinkLoop())
+
+    async def _teleLinkLoop(self):
+
+        while not self.isfini:
+
+            url = self._getNextUrl()
+
+            try:
+                await self._initTeleLink(url)
+                self._t_ready.set()
+                return
+
+            except s_exc.TeleRedir as e:
+                self._setNextUrl(e.errinfo.get('url'))
+                continue
+
+            except asyncio.CancelledError:
+                raise
+
+            except Exception as e:
+                logger.warning(f'telepath client ({url}): {e}')
+                await self.waitfini(timeout=self._t_conf.get('retrysleep', 0.2))
+
+    async def _initTeleLink(self, url):
+        if self._t_proxy is not None:
+            await self._t_proxy.fini()
+
+        self._t_proxy = await openurl(url, **self._t_opts)
+        async def fini():
+            await self._fireLinkLoop()
+
+        self._t_proxy.onfini(fini)
+        self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
+
+        if self._t_onlink is not None:
+            await self._t_onlink(self._t_proxy)
+
+    async def task(self, todo, name=None):
+        # implement the main workhorse method for a proxy to allow Method
+        # objects to use us as the proxy.
+        while not self.isfini:
+            try:
+                await self.waitready()
+
+                # there is a small race where the daemon may fini the proxy
+                # account for that here...
+                if self._t_proxy is None or self._t_proxy.isfini:
+                    self._t_ready.clear()
+                    continue
+
+                return await self._t_proxy.task(todo, name=name)
+
+            except s_exc.TeleRedir as e:
+                url = e.errinfo.get('url')
+                self._setNextUrl(url)
+                logger.warning(f'telepath task redirected: ({url})')
+                await self._t_proxy.fini()
+
+    async def waitready(self):
+        await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', 10))
+
+    def __getattr__(self, name):
+
+        info = self._t_proxy.methinfo.get(name)
+        if info is not None and info.get('genr'):
+            meth = GenrMethod(self, name)
+            setattr(self, name, meth)
+            return meth
+
+        meth = Method(self, name)
+        setattr(self, name, meth)
+        return meth
+
+    def _getSynVers(self):
+        '''
+        Helper method to retrieve the remote Synapse version from Client
+        for the currently connected Proxy.
+
+        Notes:
+            This will return None if the synapse version was not supplied
+            during the Telepath handshake.
+
+        Returns:
+            tuple: A tuple of major, minor, patch information as integers.
+        '''
+        return self._t_proxy._getSynVers()
+
+    def _getClasses(self):
+        '''
+        Helper method to retrieve the classes that comprise the remote object
+        for the currently connected Proxy.
+
+        Notes:
+            This will return None if the class version was not supplied
+            during the Telepath handshake.
+
+        Returns:
+            tuple: A tuple of strings containing the class paths for the remote object.
+        '''
+        return self._t_proxy._getClasses()
+
 def alias(name):
     '''
     Resolve a telepath alias via ~/.syn/aliases.yaml
@@ -646,8 +842,8 @@ async def openurl(url, **opts):
     if scheme == 'cell':
         # cell:///path/to/celldir:share
         # cell://rel/path/to/celldir:share
-        name = '*'
         path = info.get('path')
+        name = info.get('name', '*')
 
         # support cell://<relpath>/<to>/<cell>
         # by detecting host...
@@ -669,7 +865,8 @@ async def openurl(url, **opts):
 
     else:
 
-        name = info.get('path')[1:]
+        path = info.get('path')
+        name = info.get('name', path[1:])
 
         sslctx = None
         if scheme == 'ssl':

@@ -1,7 +1,7 @@
-.. _quickstart:
-
 .. toctree::
     :titlesonly:
+
+.. _quickstart:
 
 Getting Started
 ###############
@@ -22,7 +22,7 @@ The Synapse release process creates several docker containers for use in product
     A Synapse Cortex server image which uses the volume /vertex/storage for storage.
 
 *vertexproject/synapse*
-    The Synapse base image with installed dependencies.  This image is mostly useful as a base image for custom entrypoints.
+    The Synapse base image with installed dependencies.  This image is mostly useful as a base image for custom entry points.
 
 Each Synapse release will build and upload tagged images to Docker Hub.  It is strongly recommended that docker based deployments specify specific version tags.
 
@@ -39,6 +39,8 @@ From Github
 -----------
 
 For development and tracking pre-release Synapse versions, use the Github repo (https://github.com/vertexproject/synapse) to checkout the Synapse source code.  Using a git checkout of the master branch in production deployments is strongly discouraged.
+
+.. _quick_start_cortex:
 
 Starting a Cortex
 =================
@@ -78,6 +80,8 @@ The following docker-compose.yml file can be used to deploy a Cortex server usin
 
 The server may then be started using typical docker-compose commands or more advanced orchestration.
 
+.. _initial-roles:
+
 Adding Initial Users/Roles/Rules
 ================================
 
@@ -86,7 +90,7 @@ To prepare for sharing a Cortex via telepath or HTTP, roles and users should be 
     python -m synapse.tools.cellauth cell://cortex modify visi --adduser
     python -m synapse.tools.cellauth cell://cortex modify visi --passwd secretsauce
     python -m synapse.tools.cellauth cell://cortex modify visi --addrule node:add
-    python -m synapse.tools.cellauth cell://cortex modify visi --addrule node:set
+    python -m synapse.tools.cellauth cell://cortex modify visi --addrule prop:set
     python -m synapse.tools.cellauth cell://cortex modify visi --addrule tag:add
 
 Additionally, users may be granted the ``storm.cmd.sudo`` permission to allow them to use the Storm ``sudo`` command to execute queries as a super-user.  Keep in mind that any user with access to the ``sudo`` command can bypass all Storm permissions.::
@@ -105,11 +109,11 @@ Granular permissions based on types of nodes and tags may be used to create role
 *node:add.<form>*
      Add a specific form of node.  (ex. ``node:add.inet:ipv4``)
 
-*node:set*
+*prop:set*
      Set any property.
 
-*node:set.<prop>*
-     Set a specific property.  (ex. ``node:set.inet:ipv4:loc``)
+*prop:set.<prop>*
+     Set a specific property.  (ex. ``prop:set.inet:ipv4:loc``)
 
 *node:del*
      Delete any form of node.
@@ -127,7 +131,7 @@ Granular permissions based on types of nodes and tags may be used to create role
       Remove any tag from a node.
 
 *tag:del.<tag>*
-     Remove a specific tag or subtag to a node. (ex. ``tag:add.foo.bar``)
+     Remove a specific tag or subtag to a node. (ex. ``tag:del.foo.bar``)
 
 Remote Access
 =============
@@ -149,8 +153,17 @@ From here, the remote user is free to use the "storm" command to execute queries
 Cortex Backups
 ==============
 
-It is strongly recommended that you regularly backup production Cortex instances.  The Synapse backup tool (synapse.tools.backup) may be used to create a snapshot of a running Cortex without the need to bring the service down or interrupt availability.  It is important to avoid standard file copy operations on running LMDB files due to potentially causing sparse file expansion or producing a corrupt copy.  LMDB makes use of sparse files which allocate file block storage only when the blocks are written to.  This means a file copy tool which is not sparse-file aware can inadvertantly cause massive file expansion during copy.  Once a backup is created ( and has not been loaded by a Cortex ) it is safe to zip/copy the backup files normally.::
+It is strongly recommended that you regularly backup production Cortex instances.  The Synapse backup tool (synapse.tools.backup) may be used to create a snapshot of a running Cortex without the need to bring the service down or interrupt availability.  It is important to avoid standard file copy operations on running LMDB files due to potentially causing sparse file expansion or producing a corrupt copy.  LMDB makes use of sparse files which allocate file block storage only when the blocks are written to.  This means a file copy tool which is not sparse-file aware can inadvertently cause massive file expansion during copy.  Once a backup is created ( and has not been loaded by a Cortex ) it is safe to zip/copy the backup files normally.::
 
     python -m synapse.tools.backup /path/to/cortex /path/to/backup
+
+The newly created directory ``/path/to/backup`` is a full backup of the **Cortex** in ``/path/to/cortex``.  To restore from backup, replace the ``/path/to/cortex`` folder with the
+``/path/to/backup`` folder and start the server as normal.::
+
+    mv /path/to/cortex /path/to/cortex_old
+    mv /path/to/backup /path/to/cortex
+    python -m synapse.servers.cortex /path/to/cortex
+
+See :ref:`quick_start_cortex` for details on running a **Cortex** server.
 
 .. _Index:              ../index.html

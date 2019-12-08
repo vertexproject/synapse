@@ -1,7 +1,10 @@
 import os
+import shutil
+import asyncio
 import pathlib
 import functools
-import contextlib
+import threading
+import collections
 
 import logging
 logger = logging.getLogger(__name__)
@@ -13,14 +16,21 @@ import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.coro as s_coro
+import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.thishost as s_thishost
+import synapse.lib.thisplat as s_thisplat
 
 COPY_CHUNKSIZE = 512
-PROGRESS_PERIOD = COPY_CHUNKSIZE * 128
+PROGRESS_PERIOD = COPY_CHUNKSIZE * 1024
 
 # By default, double the map size each time we run out of space, until this amount, and then we only increase by that
 MAX_DOUBLE_SIZE = 100 * s_const.gibibyte
+
+int64min = s_common.int64en(0)
+int64max = s_common.int64en(0xffffffffffffffff)
 
 class LmdbDatabase():
     def __init__(self, db, dupsort):
@@ -57,31 +67,6 @@ class Hist:
             tick = int.from_bytes(lkey, 'big')
             yield tick, s_msgpack.un(byts)
 
-class Offs:
-    '''
-
-    A helper for storing offset integers by iden. ( ported from synapse/lib/lmdb.py )
-
-    As with all slab objects, this is meant for single-thread async loop use.
-    '''
-    def __init__(self, slab, name):
-        self.slab = slab
-        self.db = slab.initdb(name)
-
-    def get(self, iden):
-
-        buid = s_common.uhex(iden)
-        byts = self.slab.get(buid, db=self.db)
-        if byts is None:
-            return 0
-
-        return int.from_bytes(byts, byteorder='big')
-
-    def set(self, iden, offs):
-        buid = s_common.uhex(iden)
-        byts = offs.to_bytes(length=8, byteorder='big')
-        self.slab.put(buid, byts, db=self.db)
-
 class SlabDict:
     '''
     A dictionary-like object which stores it's props in a slab via a prefix.
@@ -105,6 +90,9 @@ class SlabDict:
             props[name] = s_msgpack.un(lval)
 
         return props
+
+    def keys(self):
+        return self.info.keys()
 
     def items(self):
         '''
@@ -143,6 +131,7 @@ class SlabDict:
         lkey = self.pref + name.encode('utf8')
         self.slab.put(lkey, byts, db=self.db)
         self.info[name] = valu
+        return valu
 
     def pop(self, name, defval=None):
         '''
@@ -159,6 +148,212 @@ class SlabDict:
         lkey = self.pref + name.encode('utf8')
         self.slab.pop(lkey, db=self.db)
         return valu
+
+    def inc(self, name, valu=1):
+        curv = self.info.get(name, 0)
+        curv += valu
+        self.set(name, curv)
+        return curv
+
+class SlabAbrv:
+    '''
+    A utility for translating arbitrary name strings into fixed with id bytes
+    '''
+
+    def __init__(self, slab, name):
+
+        self.slab = slab
+        self.name2abrv = slab.initdb(f'{name}:name2abrv')
+        self.abrv2name = slab.initdb(f'{name}:abrv2name')
+
+        self.offs = 0
+
+        item = self.slab.last(db=self.abrv2name)
+        if item is not None:
+            self.offs = s_common.int64un(item[0])
+
+    @s_cache.memoize(10000)
+    def abrvToName(self, abrv):
+        byts = self.slab.get(abrv, db=self.abrv2name)
+        if byts is not None:
+            return byts.decode()
+
+    @s_cache.memoize(10000)
+    def nameToAbrv(self, name):
+
+        lkey = name.encode()
+        abrv = self.slab.get(lkey, db=self.name2abrv)
+        if abrv is not None:
+            return abrv
+
+        abrv = s_common.int64en(self.offs)
+
+        self.offs += 1
+
+        self.slab.put(lkey, abrv, db=self.name2abrv)
+        self.slab.put(abrv, lkey, db=self.abrv2name)
+
+        return abrv
+
+class MultiQueue:
+    '''
+    Allows creation/consumption of multiple durable queues in a slab.
+    '''
+    def __init__(self, slab, name):
+
+        self.slab = slab
+
+        self.abrv = slab.getNameAbrv(f'{name}:abrv')
+        self.qdata = self.slab.initdb(f'{name}:qdata')
+
+        self.sizes = SlabDict(self.slab, db=self.slab.initdb(f'{name}:sizes'))
+        self.queues = SlabDict(self.slab, db=self.slab.initdb(f'{name}:meta'))
+        self.offsets = SlabDict(self.slab, db=self.slab.initdb(f'{name}:offs'))
+
+        self.waiters = collections.defaultdict(asyncio.Event)
+
+    def list(self):
+        return [self.status(n) for n in self.queues.keys()]
+
+    def status(self, name):
+
+        meta = self.queues.get(name)
+        if meta is None:
+            mesg = f'No queue named {name}'
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+        return {
+            'name': name,
+            'meta': meta,
+            'size': self.sizes.get(name),
+            'offs': self.offsets.get(name),
+        }
+
+    def exists(self, name):
+        return self.queues.get(name) is not None
+
+    def size(self, name):
+        return self.sizes.get(name)
+
+    def offset(self, name):
+        return self.offsets.get(name)
+
+    def add(self, name, info):
+
+        if self.queues.get(name) is not None:
+            mesg = f'A queue exists with the name {name}.'
+            raise s_exc.DupName(mesg=mesg, name=name)
+
+        item = self.queues.get(name)
+        if item is None:
+            self.queues.set(name, info)
+            self.sizes.set(name, 0)
+            self.offsets.set(name, 0)
+
+    async def rem(self, name):
+
+        if self.queues.get(name) is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+        await self.cull(name, 0xffffffffffffffff)
+
+        self.queues.pop(name)
+        self.offsets.pop(name)
+
+        evnt = self.waiters.pop(name, None)
+        if evnt is not None:
+            evnt.set()
+
+    async def get(self, name, offs, wait=False, cull=True):
+        '''
+        Return (nextoffs, item) tuple or (-1, None) for the given offset.
+        '''
+        async for itemoffs, item in self.gets(name, offs, wait=wait, cull=cull):
+            return itemoffs, item
+        return -1, None
+
+    def put(self, name, item):
+        return self.puts(name, (item,))
+
+    def puts(self, name, items):
+
+        if self.queues.get(name) is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+        abrv = self.abrv.nameToAbrv(name)
+
+        offs = retn = self.offsets.get(name, 0)
+
+        for item in items:
+
+            self.slab.put(abrv + s_common.int64en(offs), s_msgpack.en(item), db=self.qdata)
+
+            self.sizes.inc(name, 1)
+            offs = self.offsets.inc(name, 1)
+
+        # wake the sleepers
+        evnt = self.waiters.get(name)
+        if evnt is not None:
+            evnt.set()
+
+        return retn
+
+    async def gets(self, name, offs, size=None, cull=False, wait=False):
+        '''
+        Yield (offs, item) tuples from the message queue.
+        '''
+
+        if self.queues.get(name) is None:
+            mesg = f'No queue named {name}.'
+            raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+        if cull and offs > 0:
+            await self.cull(name, offs - 1)
+
+        abrv = self.abrv.nameToAbrv(name)
+
+        count = 0
+
+        while not self.slab.isfini:
+
+            indx = s_common.int64en(offs)
+
+            for lkey, lval in self.slab.scanByRange(abrv + indx, abrv + int64max, db=self.qdata):
+
+                offs = s_common.int64un(lkey[8:])
+
+                yield offs, s_msgpack.un(lval)
+
+                offs += 1   # in case of wait, we're at next offset
+                count += 1
+
+                if size is not None and count >= size:
+                    return
+
+            if not wait:
+                return
+
+            evnt = self.waiters[name]
+            evnt.clear()
+
+            await evnt.wait()
+
+    async def cull(self, name, offs):
+        '''
+        Remove up-to (and including) the queue entry at offs.
+        '''
+        if offs < 0:
+            return
+
+        indx = s_common.int64en(offs)
+        abrv = self.abrv.nameToAbrv(name)
+
+        for lkey, lval in self.slab.scanByRange(abrv + int64min, abrv + indx, db=self.qdata):
+            self.slab.delete(lkey, db=self.qdata)
+            self.sizes.set(name, self.sizes.get(name) - 1)
+            await asyncio.sleep(0)
 
 class GuidStor:
 
@@ -210,13 +405,14 @@ class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
     '''
-    COMMIT_PERIOD = 1.0  # time between commits
+    COMMIT_PERIOD = 0.5  # time between commits
 
     async def __anit__(self, path, **kwargs):
 
         await s_base.Base.__anit__(self)
 
         kwargs.setdefault('map_size', s_const.gibibyte)
+        kwargs.setdefault('lockmemory', False)
 
         opts = kwargs
 
@@ -248,6 +444,7 @@ class Slab(s_base.Base):
         self.growsize = opts.pop('growsize', None)
 
         self.readonly = opts.get('readonly', False)
+        self.lockmemory = opts.pop('lockmemory', False)
 
         self.mapsize = _mapsizeround(mapsize)
         if self.maxsize is not None:
@@ -266,8 +463,53 @@ class Slab(s_base.Base):
         else:
             self._initCoXact()
 
+        self.resizeevent = threading.Event()  # triggered when a resize event occurred
+        self.lockdoneevent = asyncio.Event()  # triggered when a memory locking finished
+
+        # LMDB layer uses these for status reporting
+        self.locking_memory = False
+        self.prefaulting = False
+        self.max_could_lock = 0
+        self.lock_progress = 0
+        self.lock_goal = 0
+
+        if self.lockmemory:
+            async def memlockfini():
+                self.resizeevent.set()
+                await self.memlocktask
+            self.memlocktask = s_coro.executor(self._memorylockloop)
+            self.onfini(memlockfini)
+
+        self.dbnames = {}
+
         self.onfini(self._onCoFini)
         self.schedCoro(self._runSyncLoop())
+
+    def trash(self):
+        '''
+        Deletes underlying storage
+        '''
+        try:
+            os.unlink(self.optspath)
+        except FileNotFoundError:  # pragma: no cover
+            pass
+
+        shutil.rmtree(self.path, ignore_errors=True)
+
+    def getNameAbrv(self, name):
+        return SlabAbrv(self, name)
+
+    def getMultiQueue(self, name):
+        return MultiQueue(self, name)
+
+    def statinfo(self):
+        return {
+            'locking_memory': self.locking_memory,  # whether the memory lock loop was started and hasn't ended
+            'max_could_lock': self.max_could_lock,  # the maximum this system could lock
+            'lock_progress': self.lock_progress,  # how much we've locked so far
+            'lock_goal': self.lock_goal,  # how much we want to lock
+            'prefaulting': self.prefaulting  # whether we are right meow prefaulting
+        }
 
     def _acqXactForReading(self):
         if not self.readonly:
@@ -293,6 +535,16 @@ class Slab(s_base.Base):
             opts['maxsize'] = self.maxsize
         s_common.yamlmod(opts, self.optspath)
 
+    async def _syncLoopOnce(self):
+        try:
+            # do this from the loop thread only to avoid recursion
+            await self.fire('commit')
+            self.forcecommit()
+
+        except lmdb.MapFullError:
+            self._handle_mapfull()
+            # There's no need to re-try self.forcecommit as _growMapSize does it
+
     async def _runSyncLoop(self):
         while not self.isfini:
             await self.waitfini(timeout=self.COMMIT_PERIOD)
@@ -300,20 +552,28 @@ class Slab(s_base.Base):
                 # There's no reason to forcecommit on fini, because there's a separate handler to already do that
                 break
 
-            try:
-                self.forcecommit()
-
-            except lmdb.MapFullError:
-                self._handle_mapfull()
-                # There's no need to re-try self.forcecommit as _growMapSize does it
+            await self._syncLoopOnce()
 
     async def _onCoFini(self):
         assert s_glob.iAmLoop()
-        self._finiCoXact()
+
+        await self.fire('commit')
+
+        while True:
+            try:
+                self._finiCoXact()
+            except lmdb.MapFullError:
+                self._handle_mapfull()
+                continue
+            break
         self.lenv.close()
         del self.lenv
 
     def _finiCoXact(self):
+        '''
+        Note:
+            This method may raise a MapFullError
+        '''
 
         assert s_glob.iAmLoop()
 
@@ -329,13 +589,6 @@ class Slab(s_base.Base):
 
         del self.xact
         self.xact = None
-
-    def grow(self, size=None):
-        '''
-        Close out the current transaction and resize the memory map.
-        '''
-        with self._noCoXact():
-            self._growMapSize(size=size)
 
     def _growMapSize(self, size=None):
         mapsize = self.mapsize
@@ -360,16 +613,140 @@ class Slab(s_base.Base):
         self.lenv.set_mapsize(mapsize)
         self.mapsize = mapsize
 
+        self.resizeevent.set()
+
         return self.mapsize
 
-    def initdb(self, name, dupsort=False):
-        with self._noCoXact():
-            while True:
+    def _memorylockloop(self):
+        '''
+        Separate thread loop that manages the prefaulting and locking of the memory backing the data file
+        '''
+        if not s_thishost.get('hasmemlocking'):
+            return
+        MAX_TOTAL_PERCENT = .90  # how much of all the RAM to take
+        MAX_LOCK_AT_ONCE = s_const.gibibyte
+
+        # Calculate a reasonable maximum amount of memory to lock
+
+        s_thisplat.maximizeMaxLockedMemory()
+        locked_ulimit = s_thisplat.getMaxLockedMemory()
+        if locked_ulimit < s_const.gibibyte // 2:
+            logger.warning(
+                'Operating system limit of maximum amount of locked memory (currently %d) is \n'
+                'too low for optimal performance.', locked_ulimit)
+
+        logger.debug('memory locking thread started')
+
+        # Note:  available might be larger than max_total in a container
+        max_total = s_thisplat.getTotalMemory()
+        available = s_thisplat.getAvailableMemory()
+
+        PAGESIZE = 4096
+        max_to_lock = (min(locked_ulimit,
+                           int(max_total * MAX_TOTAL_PERCENT),
+                           int(available * MAX_TOTAL_PERCENT)) // PAGESIZE) * PAGESIZE
+
+        self.max_could_lock = max_to_lock
+
+        path = self.path.absolute() / 'data.mdb'  # Path to the file that gets mapped
+        fh = open(path, 'r+b')
+        fileno = fh.fileno()
+
+        prev_memend = 0  # The last end of the file mapping, so we can start from there
+
+        # Avoid spamming messages
+        first_end = True
+        limit_warned = False
+        self.locking_memory = True
+
+        self.resizeevent.set()
+
+        while not self.isfini:
+
+            self.resizeevent.wait()
+            if self.isfini:
+                break
+
+            self.schedCallSafe(self.lockdoneevent.clear)
+            self.resizeevent.clear()
+
+            memstart, memlen = s_thisplat.getFileMappedRegion(path)
+            if memlen > max_to_lock:
+                memlen = max_to_lock
+                if not limit_warned:
+                    logger.warning('memory locking limit reached')
+                    limit_warned = True
+                # Even in the event that we've hit our limit we still have to loop because further mmaps may cause
+                # the base address to change, necessitating relocking what we can
+
+            # The file might be a little bit smaller than the map because rounding (and mmap fails if you give it a
+            # too-long length)
+            filesize = os.fstat(fileno).st_size
+            goal_end = memstart + min(memlen, filesize)
+            self.lock_goal = goal_end
+
+            self.lock_progress = 0
+            prev_memend = memstart
+
+            # Actually do the prefaulting and locking.  Only do it a chunk at a time to maintain responsiveness.
+            while prev_memend < goal_end:
+                new_memend = min(prev_memend + MAX_LOCK_AT_ONCE, goal_end)
+                memlen = new_memend - prev_memend
+                PROT = 1 # PROT_READ
+                FLAGS = 0x8001  # MAP_POPULATE | MAP_SHARED (Linux only)  (for fast prefaulting)
                 try:
-                    db = self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
-                    return LmdbDatabase(db, dupsort)
-                except lmdb.MapFullError:
-                    self._growMapSize()
+                    self.prefaulting = True
+                    with s_thisplat.mmap(0, length=new_memend - prev_memend, prot=PROT, flags=FLAGS, fd=fileno,
+                                         offset=prev_memend - memstart):
+                        s_thisplat.mlock(prev_memend, memlen)
+                finally:
+                    self.prefaulting = False
+
+                prev_memend = new_memend
+                self.lock_progress = prev_memend - memstart
+
+            if first_end:
+                first_end = False
+                logger.info('completed prefaulting and locking slab')
+
+            self.schedCallSafe(self.lockdoneevent.set)
+
+        self.locking_memory = False
+        logger.debug('memory locking thread ended')
+
+    def initdb(self, name, dupsort=False):
+        while True:
+            try:
+                db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort)
+                self.dirty = True
+                self.forcecommit()
+                self.dbnames[name] = (db, dupsort)
+                return name
+            except lmdb.MapFullError:
+                self._handle_mapfull()
+
+    def dropdb(self, name):
+        '''
+        Deletes an **entire database** (i.e. a table), losing all data.
+        '''
+        if self.readonly:
+            raise s_exc.IsReadOnly()
+
+        while True:
+            try:
+                if not self.dbexists(name):
+                    return
+
+                self.initdb(name)
+                db, dupsort = self.dbnames.pop(name)
+
+                self.dirty = True
+                self.xact.drop(db, delete=True)
+                self.forcecommit()
+                return
+
+            except lmdb.MapFullError:
+                self._handle_mapfull()
 
     def dbexists(self, name):
         '''
@@ -378,38 +755,33 @@ class Slab(s_base.Base):
         valu = self.get(name.encode())
         return valu is not None
 
-    @contextlib.contextmanager
-    def _noCoXact(self):
-        if not self.readonly or self.txnrefcount:
-            self._finiCoXact()
-        yield None
-        if not self.readonly or self.txnrefcount:
-            self._initCoXact()
-
-    def get(self, lkey, db=_DefaultDB):
+    def get(self, lkey, db=None):
         self._acqXactForReading()
+        realdb, dupsort = self.dbnames.get(db, (None, False))
         try:
-            return self.xact.get(lkey, db=db.db)
+            return self.xact.get(lkey, db=realdb)
         finally:
             self._relXactForReading()
 
-    def last(self, db=_DefaultDB):
+    def last(self, db=None):
         '''
         Return the last key/value pair from the given db.
         '''
         self._acqXactForReading()
+        realdb, dupsort = self.dbnames.get(db, (None, False))
         try:
-            with self.xact.cursor(db=db.db) as curs:
+            with self.xact.cursor(db=realdb) as curs:
                 if not curs.last():
                     return None
                 return curs.key(), curs.value()
         finally:
             self._relXactForReading()
 
-    def stat(self, db=_DefaultDB):
+    def stat(self, db=None):
         self._acqXactForReading()
+        realdb, dupsort = self.dbnames.get(db, (None, False))
         try:
-            return self.xact.stat(db=db.db)
+            return self.xact.stat(db=realdb)
         finally:
             self._relXactForReading()
 
@@ -524,8 +896,7 @@ class Slab(s_base.Base):
         if self.readonly:
             raise s_exc.IsReadOnly()
 
-        if db is None:
-            db = _DefaultDB
+        realdb, dupsort = self.dbnames.get(db, (None, False))
 
         try:
             self.dirty = True
@@ -533,12 +904,12 @@ class Slab(s_base.Base):
             if not self.recovering:
                 self._logXactOper(calling_func, lkey, *args, db=db, **kwargs)
 
-            return xact_func(self.xact, lkey, *args, db=db.db, **kwargs)
+            return xact_func(self.xact, lkey, *args, db=realdb, **kwargs)
 
         except lmdb.MapFullError:
             return self._handle_mapfull()
 
-    def putmulti(self, kvpairs, dupdata=False, append=False, db=_DefaultDB):
+    def putmulti(self, kvpairs, dupdata=False, append=False, db=None):
         '''
         Returns:
             Tuple of number of items consumed, number of items added
@@ -550,30 +921,26 @@ class Slab(s_base.Base):
         if not isinstance(kvpairs, list):
             kvpairs = list(kvpairs)
 
+        realdb, dupsort = self.dbnames.get(db, (None, False))
+
         try:
             self.dirty = True
 
             if not self.recovering:
                 self._logXactOper(self.putmulti, kvpairs, dupdata=dupdata, append=append, db=db)
 
-            with self.xact.cursor(db=db.db) as curs:
+            with self.xact.cursor(db=realdb) as curs:
                 return curs.putmulti(kvpairs, dupdata=dupdata, append=append)
 
         except lmdb.MapFullError:
             return self._handle_mapfull()
 
-    def dropdb(self, db):
-        '''
-        Deletes an **entire database** (i.e. a table), losing all data.
-        '''
-        self.xact.drop(db.db, delete=True)
-
-    def copydb(self, sourcedb, destslab, destdbname=None, progresscb=None):
+    def copydb(self, sourcedbname, destslab, destdbname=None, progresscb=None):
         '''
         Copy an entire database in this slab to a new database in potentially another slab.
 
         Args:
-            sourcedb (LmdbDatabase): which database in this slab to copy rows from
+            sourcedbname (str): name of the db in the source environment
             destslab (LmdbSlab): which slab to copy rows to
             destdbname (str): the name of the database to copy rows to in destslab
             progresscb (Callable[int]):  if not None, this function will be periodically called with the number of rows
@@ -586,18 +953,21 @@ class Slab(s_base.Base):
             If any rows already exist in the target database, this method returns an error.  This means that one cannot
             use destdbname=None unless there are no explicit databases in the destination slab.
         '''
-        destdb = destslab.initdb(destdbname, sourcedb.dupsort)
+        sourcedb, dupsort = self.dbnames.get(sourcedbname)
 
-        statdict = destslab.stat(db=destdb)
+        destslab.initdb(destdbname, dupsort)
+        destdb, _ = destslab.dbnames.get(destdbname)
+
+        statdict = destslab.stat(db=destdbname)
         if statdict['entries'] > 0:
             raise s_exc.DataAlreadyExists()
 
         rowcount = 0
 
-        for chunk in s_common.chunks(self.scanByFull(db=sourcedb), COPY_CHUNKSIZE):
-            ccount, acount = destslab.putmulti(chunk, dupdata=True, append=True, db=destdb)
+        for chunk in s_common.chunks(self.scanByFull(db=sourcedbname), COPY_CHUNKSIZE):
+            ccount, acount = destslab.putmulti(chunk, dupdata=True, append=True, db=destdbname)
             if ccount != len(chunk) or acount != len(chunk):
-                raise s_exc.BadCoreStore(mesg='Unexpected number of values written')
+                raise s_exc.BadCoreStore(mesg='Unexpected number of values written')  # pragma: no cover
 
             rowcount += len(chunk)
             if progresscb is not None and 0 == (rowcount % PROGRESS_PERIOD):
@@ -639,11 +1009,8 @@ class Scan:
     A state-object used by Slab.  Not to be instantiated directly.
     '''
     def __init__(self, slab, db):
-        if db is None:
-            db = _DefaultDB
         self.slab = slab
-        self.db = db.db
-        self.dupsort = db.dupsort
+        self.db, self.dupsort = slab.dbnames.get(db, (None, False))
 
         self.atitem = None
         self.bumped = False

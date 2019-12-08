@@ -83,21 +83,25 @@ def synchelp(f):
     '''
     The synchelp decorator allows the transparent execution of
     a coroutine using the global loop from a thread other than
-    the event loop:
+    the event loop.  In both use cases, teh actual work is done
+    by the global event loop.
 
-    @s_glob.synchelp
-    async def stuff(x, y):
-        ...
+    Examples:
 
-    # From within the global event loop, the standard await:
+        Use as a decorator::
 
-    valu = await stuff(x, y)
+            @s_glob.synchelp
+            async def stuff(x, y):
+                await dostuff()
 
-    # From a worker thread, outside the event loop:
+        Calling the stuff function as regular async code using the standard await syntax::
 
-    valu = stuff(x, y)
+            valu = await stuff(x, y)
 
-    # In both cases, the actual work is done by the global loop.
+        Calling the stuff function as regular sync code outside of the event loop thread::
+
+            valu = stuff(x, y)
+
     '''
     def wrap(*args, **kwargs):
 

@@ -1,5 +1,6 @@
 import synapse.lib.base as s_base
 import synapse.lib.reflect as s_reflect
+import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
 
@@ -30,13 +31,18 @@ class ReflectTest(s_t_utils.SynTest):
         self.isin('synapse.tests.test_lib_reflect.Foo', names)
 
     async def test_telemeth(self):
-        self.none(getattr(Echo, '_syn_sharinfo', None))
+        self.none(getattr(Echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None))
         async with self.getTestDmon() as dmon:
             echo = await Echo.anit()
             dmon.share('echo', echo)
-            self.none(getattr(echo, '_syn_sharinfo', None))
-            self.none(getattr(Echo, '_syn_sharinfo', None))
+            self.none(getattr(echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None))
+            self.none(getattr(Echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None))
             async with await self.getTestProxy(dmon, 'echo') as proxy:
                 pass
-            self.isinstance(getattr(echo, '_syn_sharinfo', None), dict)
-            self.isinstance(getattr(Echo, '_syn_sharinfo', None), dict)
+            self.isinstance(getattr(echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None), dict)
+            self.isinstance(getattr(Echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo', None), dict)
+
+            sharinfo = getattr(echo, '_syn_sharinfo_synapse.tests.test_lib_reflect_Echo')
+            self.eq(sharinfo.get('syn:version'), s_version.version)
+            self.eq(sharinfo.get('classes'),
+                    ['synapse.tests.test_lib_reflect.Echo', 'synapse.lib.base.Base'])

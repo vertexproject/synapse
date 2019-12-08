@@ -53,7 +53,7 @@ def hexstr(text):
         # checking in C without using regex
         s_common.uhex(text)
     except (binascii.Error, ValueError) as e:
-        raise s_exc.BadTypeValu(valu=text, name='hexstr', mesg=str(e))
+        raise s_exc.BadTypeValu(valu=text, name='hexstr', mesg=str(e)) from None
     return text
 
 def onespace(text):

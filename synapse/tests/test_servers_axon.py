@@ -1,8 +1,5 @@
 import hashlib
 
-import synapse.common as s_common
-import synapse.telepath as s_telepath
-
 import synapse.servers.axon as s_s_axon
 
 import synapse.tests.utils as s_t_utils
@@ -17,12 +14,17 @@ class AxonServerTest(s_t_utils.SynTest):
 
             outp = self.getTestOutp()
 
-            argv = [dirn, '--telepath', 'tcp://127.0.0.1:0/', '--https', '0']
+            argv = [dirn,
+                    '--telepath', 'tcp://127.0.0.1:0/',
+                    '--https', '0',
+                    '--name', 'teleaxon']
             async with await s_s_axon.main(argv, outp=outp) as axon:
                 async with axon.getLocalProxy() as proxy:
                     async with await proxy.upload() as fd:
                         await fd.write(b'asdfasdf')
                         await fd.save()
+
+                self.true(axon.dmon.shared.get('teleaxon') is axon)
 
             # And data persists...
             async with await s_s_axon.main(argv, outp=outp) as axon:

@@ -10,6 +10,7 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
+import synapse.lib.slaboffs as s_slaboffs
 
 logger = logging.getLogger(__name__)
 
@@ -50,10 +51,9 @@ class CryoTank(s_base.Base):
 
         path = s_common.gendir(self.dirn, 'tank.lmdb')
 
-        self.slab = await s_lmdbslab.Slab.anit(path)
+        self.slab = await s_lmdbslab.Slab.anit(path, map_async=True, **conf)
 
-        self.offs = s_lmdbslab.Offs(self.slab, 'offsets')
-
+        self.offs = s_slaboffs.SlabOffs(self.slab, 'offsets')
         self._items = s_slabseqn.SlabSeqn(self.slab, 'items')
         self._metrics = s_slabseqn.SlabSeqn(self.slab, 'metrics')
 
@@ -238,21 +238,20 @@ class CryoApi(s_cell.CellApi):
 
     @s_cell.adminapi
     async def delete(self, name):
-        return self.cell.delete(name)
+        return await self.cell.delete(name)
 
 class CryoCell(s_cell.Cell):
 
     cellapi = CryoApi
+    tankapi = TankApi
 
     confdefs = ()
 
-    async def __anit__(self, dirn):
+    async def __anit__(self, dirn, conf=None, readonly=False):
 
-        await s_cell.Cell.__anit__(self, dirn)
+        await s_cell.Cell.__anit__(self, dirn, conf)
 
         self.dmon.share('cryotank', self)
-
-        path = s_common.gendir(self.dirn, 'cryo.lmdb')
 
         self.names = await self.hive.open(('cryo', 'names'))
 
@@ -274,11 +273,11 @@ class CryoCell(s_cell.Cell):
     async def getCellApi(self, link, user, path):
 
         if not path:
-            return await CryoApi.anit(self, link, user)
+            return await self.cellapi.anit(self, link, user)
 
         if len(path) == 1:
             tank = await self.init(path[0])
-            return await TankApi.anit(tank, link, user)
+            return await self.tankapi.anit(tank, link, user)
 
         raise s_exc.NoSuchPath(path=path)
 
@@ -298,7 +297,7 @@ class CryoCell(s_cell.Cell):
 
         iden = s_common.guid()
 
-        logger.info('Creating new tank: %s', name)
+        logger.info('Creating new tank: [%s][%s]', name, iden)
 
         path = s_common.genpath(self.dirn, 'tanks', iden)
 
@@ -326,9 +325,8 @@ class CryoCell(s_cell.Cell):
         if tank is None:
             return False
 
-        await self.names.pop(name)
-
-        tank.fini()
+        await self.names.pop((name,))
+        await tank.fini()
         shutil.rmtree(tank.dirn, ignore_errors=True)
 
         return True

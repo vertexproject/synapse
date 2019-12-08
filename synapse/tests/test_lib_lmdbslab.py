@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.thisplat as s_thisplat
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -21,7 +22,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             path = os.path.join(dirn, 'test.lmdb')
 
-            slab = await s_lmdbslab.Slab.anit(path, map_size=1000000)
+            await self.asyncraises(s_exc.BadArg, s_lmdbslab.Slab.anit(path, map_size=None))
+
+            slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
 
             foo = slab.initdb('foo')
             bar = slab.initdb('bar', dupsort=True)
@@ -87,13 +90,16 @@ class LmdbSlabTest(s_t_utils.SynTest):
             path2 = os.path.join(dirn, 'test2.lmdb')
             async with await s_lmdbslab.Slab.anit(path2, map_size=512 * 1024) as slab2:
                 with patch('synapse.lib.lmdbslab.PROGRESS_PERIOD', 2):
+
                     self.eq(4, slab.copydb(foo2, slab2, destdbname='foo2', progresscb=progfunc))
                     self.gt(vardict.get('prog', 0), 0)
 
             # Test slab.drop and slab.dbexists
             self.true(slab.dbexists('foo2'))
-            slab.dropdb(foo2)
+            slab.dropdb('foo2')
             self.false(slab.dbexists('foo2'))
+
+            self.none(slab.dropdb('notadb'))
 
             # start a scan and then fini the whole db...
             scan = slab.scanByPref(b'\x00', db=foo)
@@ -103,22 +109,41 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             self.raises(s_exc.IsFini, next, scan)
 
+    async def test_lmdbslab_maxsize(self):
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'test.lmdb')
+
+            my_maxsize = 400000
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, maxsize=my_maxsize) as slab:
+                foo = slab.initdb('foo', dupsort=True)
+                byts = b'\x00' * 256
+
+                # Trigger an out-of-space
+                with self.raises(s_exc.DbOutOfSpace):
+
+                    for i in range(400):
+                        slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
+
+            # lets ensure our maxsize persisted and it caps the mapsize
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, readonly=True) as newdb:
+                self.eq(my_maxsize, newdb.mapsize)
+                self.eq(my_maxsize, newdb.maxsize)
+
     async def test_lmdbslab_grow(self):
 
         with self.getTestDir() as dirn:
 
             path = os.path.join(dirn, 'test.lmdb')
-            my_maxsize = 400000
 
-            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000, maxsize=my_maxsize) as slab:
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
 
                 foo = slab.initdb('foo', dupsort=True)
                 foo2 = slab.initdb('foo2', dupsort=False)
 
                 byts = b'\x00' * 256
                 for i in range(100):
-                    slab.put(s_common.guid().encode('utf8'), byts, db=foo)
-                    slab.put(s_common.guid().encode('utf8'), byts, db=foo2)
+                    slab.put(s_common.guid(i).encode('utf8'), byts, db=foo)
+                    slab.put(s_common.guid(1000 + i).encode('utf8'), byts, db=foo2)
 
                 count = 0
                 for _, _ in slab.scanByRange(b'', db=foo):
@@ -130,14 +155,14 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 for i in range(50):
                     next(iter)
 
-                multikey = b'\xff\xff\xff\xfe' + s_common.guid().encode('utf8')
+                multikey = b'\xff\xff\xff\xfe' + s_common.guid(2000).encode('utf8')
                 mapsize = slab.mapsize
                 count = 0
 
                 # Write until we grow
                 while mapsize == slab.mapsize:
                     count += 1
-                    rv = slab.put(multikey, s_common.guid().encode('utf8') + byts, dupdata=True, db=foo)
+                    rv = slab.put(multikey, s_common.guid(count + 100000).encode('utf8') + byts, dupdata=True, db=foo)
                     self.true(rv)
 
                 self.eq(50 + count, sum(1 for _ in iter))
@@ -151,36 +176,24 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 iter2 = slab.scanByFull(db=foo2)
                 next(iter2)
 
-                multikey = b'\xff\xff\xff\xff' + s_common.guid().encode('utf8')
+                multikey = b'\xff\xff\xff\xff' + s_common.guid(i + 150000).encode('utf8')
                 for i in range(200):
-                    slab.put(multikey, s_common.guid().encode('utf8') + byts, dupdata=True, db=foo)
+                    slab.put(multikey, s_common.guid(i + 200000).encode('utf8') + byts, dupdata=True, db=foo)
 
                 self.eq(count - 1, sum(1 for _ in iter))
                 self.eq(99, sum(1 for _ in iter2))
 
-                # Trigger an out-of-space
-                try:
-                    for i in range(400):
-                        slab.put(b'\xff\xff\xff\xff' + s_common.guid().encode('utf8'), byts, db=foo)
-
-                    # Should have hit a DbOutOfSpace exception
-                    self.true(0)
-
-                except s_exc.DbOutOfSpace:
-                    pass
-
             # lets ensure our mapsize / growsize persisted, and make sure readonly works
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, readonly=True) as newdb:
-                self.eq(my_maxsize, newdb.mapsize)
 
                 self.eq(10000, newdb.growsize)
-                self.eq(my_maxsize, newdb.maxsize)
                 foo = newdb.initdb('foo', dupsort=True)
                 for _, _ in newdb.scanByRange(b'', db=foo):
                     count += 1
-                self.gt(count, 300)
+                self.gt(count, 200)
 
                 # Make sure readonly is really readonly
+                self.raises(s_exc.IsReadOnly, newdb.dropdb, 'foo')
                 self.raises(s_exc.IsReadOnly, newdb.put, b'1234', b'3456')
                 self.raises(s_exc.IsReadOnly, newdb.replace, b'1234', b'3456')
                 self.raises(s_exc.IsReadOnly, newdb.pop, b'1234')
@@ -196,8 +209,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
                         async with await s_lmdbslab.Slab.anit(path, map_size=100000) as slab:
                             foo = slab.initdb('foo', dupsort=True)
                             mapsize = slab.mapsize
+                            count = 0
                             while mapsize == slab.mapsize:
-                                slab.put(b'abcd', s_common.guid().encode('utf8') + byts, dupdata=True, db=foo)
+                                count += 1
+                                slab.put(b'abcd', s_common.guid(count).encode('utf8') + byts, dupdata=True, db=foo)
                     asyncio.run(lotsofwrites(path))
 
                 proc = multiprocessing.Process(target=anotherproc, args=(path, ))
@@ -251,7 +266,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 key = b'foo'
                 for i in range(100):
-                    slab.put(key, s_common.guid().encode('utf8'), db=foo)
+                    slab.put(key, s_common.guid(i).encode('utf8'), db=foo)
 
                 count = 0
                 for _, _ in slab.scanByRange(b'', db=foo):
@@ -264,10 +279,12 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     next(iter)
 
                 # Trigger a bump by writing a bunch; make sure we're not writing into the middle of the scan
-                multikey = b'\xff\xff\xff\xff' + s_common.guid().encode('utf8')
+                multikey = b'\xff\xff\xff\xff' + s_common.guid(200).encode('utf8')
                 mapsize = slab.mapsize
+                count = 0
                 while mapsize == slab.mapsize:
-                    slab.put(multikey, s_common.guid().encode('utf8') + b'0' * 256, dupdata=True, db=foo)
+                    count += 1
+                    slab.put(multikey, s_common.guid(count).encode('utf8') + b'0' * 256, dupdata=True, db=foo)
 
                 # we wrote 100, read 60.  We should read only another 40
                 self.len(40, list(iter))
@@ -307,7 +324,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
     async def test_slab_initdb_grow(self):
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'slab.lmdb')
-            async with await s_lmdbslab.Slab.anit(path, map_size=1024) as slab:
+            async with await s_lmdbslab.Slab.anit(path, map_size=1024, lockmemory=True) as slab:
                 [slab.initdb(str(i)) for i in range(10)]
 
     def test_slab_math(self):
@@ -327,11 +344,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
             path = os.path.join(dirn, 'test.lmdb')
             byts = b'\x00' * 256
 
-            async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000) as slab:
+            count = 0
+            async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000, lockmemory=True) as slab:
                 foo = slab.initdb('foo')
-                slab.put(b'abcd', s_common.guid().encode('utf8') + byts, db=foo)
+                slab.put(b'abcd', s_common.guid(count).encode('utf8') + byts, db=foo)
                 await asyncio.sleep(1.1)
-                slab.put(b'abcd', s_common.guid().encode('utf8') + byts, db=foo)
+                count += 1
+                slab.put(b'abcd', s_common.guid(count).encode('utf8') + byts, db=foo)
 
             # If we got here we're good
             self.true(True)
@@ -340,34 +359,197 @@ class LmdbSlabTest(s_t_utils.SynTest):
         '''
         forcecommit in runSyncLoop can very occasionally trigger a mapfull
         '''
-        fake_confdefs = (  # type: ignore
+        fake_confdefs = (
             ('lmdb:mapsize', {'type': 'int', 'defval': s_const.mebibyte}),
             ('lmdb:maxsize', {'type': 'int', 'defval': None}),
             ('lmdb:growsize', {'type': 'int', 'defval': 128 * s_const.kibibyte}),
             ('lmdb:readahead', {'type': 'bool', 'defval': True}),
         )
         with patch('synapse.lib.lmdblayer.LmdbLayer.confdefs', fake_confdefs):
-            batchsize = 1000
-            numbatches = 4
+            batchsize = 4000
+            numbatches = 2
             async with self.getTestCore() as core:
+                before_mapsize = core.view.layers[0].layrslab.mapsize
                 for i in range(numbatches):
                     async with await core.snap() as snap:
                         ips = ((('test:int', i * 1000000 + x), {'props': {'loc': 'us'}}) for x in range(batchsize))
                         await alist(snap.addNodes(ips))
+                        # Wait for the syncloop to run
+                        await asyncio.sleep(1.1)
 
-                await alist(core.streamstorm('test:int:loc=us | delnode'))
+                # Verify that it hit
+                self.gt(core.view.layers[0].layrslab.mapsize, before_mapsize)
 
-                async def lotsOfWrites():
-                    for i in range(numbatches):
-                        async with await core.snap() as snap:
-                            ips = ((('test:int', 20_000_000 + i * 1000000 + x), {'props': {'loc': 'cn'}})
-                                   for x in range(batchsize))
-                            await alist(snap.addNodes(ips))
-                        await asyncio.sleep(0.1)
+    async def test_slab_mapfull_drop(self):
+        '''
+        Test a mapfull in the middle of a dropdb
+        '''
+        with self.getTestDir() as dirn:
 
-                task = core.schedCoro(lotsOfWrites())
+            path = os.path.join(dirn, 'test.lmdb')
+            data = [i.to_bytes(4, 'little') for i in range(400)]
 
-                nodes_left = await alist(core.eval('test:int:loc=us'))
-                self.len(0, nodes_left)
+            async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000) as slab:
+                slab.initdb('foo')
+                kvpairs = [(x, x) for x in data]
+                slab.putmulti(kvpairs)
+                slab.forcecommit()
+                before_mapsize = slab.mapsize
+                slab.dropdb('foo')
+                self.false(slab.dbexists('foo'))
+                self.gt(slab.mapsize, before_mapsize)
 
-                await task
+    async def test_lmdb_multiqueue(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                mque = slab.getMultiQueue('test')
+
+                self.false(mque.exists('woot'))
+
+                with self.raises(s_exc.NoSuchName):
+                    await mque.rem('woot')
+
+                with self.raises(s_exc.NoSuchName):
+                    await mque.get('woot', 0)
+
+                with self.raises(s_exc.NoSuchName):
+                    mque.put('woot', 'lulz')
+
+                with self.raises(s_exc.NoSuchName):
+                    mque.status('woot')
+
+                mque.add('woot', {'some': 'info'})
+
+                self.true(mque.exists('woot'))
+
+                self.eq(0, mque.put('woot', 'hehe'))
+                self.eq(1, mque.put('woot', 'haha'))
+                self.eq(2, mque.put('woot', 'hoho'))
+
+                self.eq(3, mque.size('woot'))
+
+                self.eq((0, 'hehe'), await mque.get('woot', 0))
+                self.eq((1, 'haha'), await mque.get('woot', 1))
+                self.eq((1, 'haha'), await mque.get('woot', 0))
+
+                self.eq((-1, None), await mque.get('woot', 1000, cull=False))
+
+                self.eq(2, mque.size('woot'))
+
+                status = mque.list()
+                self.len(1, status)
+                self.eq(status[0], {'name': 'woot',
+                                    'meta': {'some': 'info'},
+                                    'size': 2,
+                                    'offs': 3,
+                                    })
+
+                await mque.cull('woot', -1)
+                self.eq(mque.status('woot'), status[0])
+
+                self.raises(s_exc.DupName, mque.add, 'woot', {})
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                mque = slab.getMultiQueue('test')
+
+                self.eq(2, mque.size('woot'))
+                self.eq(3, mque.offset('woot'))
+
+                self.eq(((1, 'haha'), ), [x async for x in mque.gets('woot', 0, size=1)])
+                self.eq(((1, 'haha'), (2, 'hoho')), [x async for x in mque.gets('woot', 0)])
+
+                data = []
+                evnt = asyncio.Event()
+
+                async def getswait():
+                    async for item in mque.gets('woot', 0, wait=True):
+
+                        if item[1] is None:
+                            break
+
+                        data.append(item)
+
+                        if item[1] == 'hoho':
+                            evnt.set()
+
+                task = slab.schedCoro(getswait())
+
+                await asyncio.wait_for(evnt.wait(), 2)
+
+                self.eq(data, ((1, 'haha'), (2, 'hoho')))
+
+                mque.put('woot', 'lulz')
+                mque.put('woot', None)
+
+                await asyncio.wait_for(task, 2)
+
+                self.eq(data, ((1, 'haha'), (2, 'hoho'), (3, 'lulz')))
+
+                self.true(mque.exists('woot'))
+
+                self.eq((2, 'hoho'), await mque.get('woot', 2))
+
+                mque.put('woot', 'huhu')
+
+                await mque.rem('woot')
+
+                self.false(mque.exists('woot'))
+
+    async def test_slababrv(self):
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                abrv = s_lmdbslab.SlabAbrv(slab, 'test')
+
+                valu = abrv.nameToAbrv('hehe')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x00')
+                valu = abrv.nameToAbrv('haha')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
+
+                name = abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x01')
+                self.eq(name, 'haha')
+
+                self.none(abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
+
+            # And persistence
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                abrv = s_lmdbslab.SlabAbrv(slab, 'test')
+                # recall first
+                name = abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x00')
+                self.eq(name, 'hehe')
+
+                name = abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x01')
+                self.eq(name, 'haha')
+                # Remaking them makes the values we already had
+                valu = abrv.nameToAbrv('hehe')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x00')
+
+                valu = abrv.nameToAbrv('haha')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
+
+                # And we still have no valu for 02
+                self.none(abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
+
+class LmdbSlabMemLockTest(s_t_utils.SynTest):
+
+    async def test_lmdbslabmemlock(self):
+        self.thisHostMust(hasmemlocking=True)
+
+        beforelockmem = s_thisplat.getCurrentLockedMemory()
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True) as lmdbslab:
+
+                self.true(await asyncio.wait_for(lmdbslab.lockdoneevent.wait(), 8))
+                lockmem = s_thisplat.getCurrentLockedMemory()
+                self.ge(lockmem - beforelockmem, 4000)

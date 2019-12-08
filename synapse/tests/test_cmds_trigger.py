@@ -1,3 +1,5 @@
+import unittest.mock as mock
+
 import synapse.common as s_common
 
 import synapse.lib.cmdr as s_cmdr
@@ -13,6 +15,9 @@ class CmdTriggersTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
 
+            await cmdr.runCmdLine('trigger list')
+            self.true(outp.expect('No triggers found'))
+
             await cmdr.runCmdLine('trigger add Node:add test:str {[ test:int=1 ] }')
             await s_common.aspin(core.eval('[ test:str=foo ]'))
             await self.agenlen(1, core.eval('test:int'))
@@ -22,15 +27,23 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('#count'))
             await self.agenlen(1, core.eval('test:str=footag.bar'))
 
-            await cmdr.runCmdLine('trigger add prop:set test:type10:intprop {[ test:int=6 ]}')
-            await s_common.aspin(core.eval('[ test:type10=1 :intprop=25 ]'))
-            await self.agenlen(1, core.eval('test:int=6'))
-
+            await cmdr.runCmdLine('trigger add prop:set --disabled test:type10:intprop {[ test:int=6 ]}')
             await cmdr.runCmdLine('trigger list')
             self.true(outp.expect('user'))
             self.true(outp.expect('root'))
             goodbuid = outp.mesgs[-2].split()[1][:6]
             goodbuid2 = outp.mesgs[-1].split()[1][:6]
+
+            # Trigger is created disabled, so no nodes yet
+            await self.agenlen(0, core.eval('test:int=6'))
+            waiter = realcore.waiter(1, 'core:trigger:action')
+            await cmdr.runCmdLine(f'trigger enable {goodbuid2}')
+            evnts = await waiter.wait(1)
+            self.eq(evnts[0][1].get('action'), 'enable')
+
+            # Trigger is enabled, so it should fire
+            await s_common.aspin(core.eval('[ test:type10=1 :intprop=25 ]'))
+            await self.agenlen(1, core.eval('test:int=6'))
 
             await cmdr.runCmdLine(f'trigger del {goodbuid}')
             self.true(outp.expect('Deleted trigger'))
@@ -38,10 +51,28 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await cmdr.runCmdLine(f'trigger del deadbeef12341234')
             self.true(outp.expect('does not match'))
 
+            outp.clear()
+            await cmdr.runCmdLine(f'trigger enable deadbeef12341234')
+            self.true(outp.expect('does not match'))
+
+            outp.clear()
+            await cmdr.runCmdLine(f'trigger disable deadbeef12341234')
+            self.true(outp.expect('does not match'))
+
+            waiter = realcore.waiter(1, 'core:trigger:action')
+            await cmdr.runCmdLine(f'trigger disable {goodbuid2}')
+            self.true(outp.expect('Disabled trigger'))
+            evnts = await waiter.wait(1)
+            self.eq(evnts[0][1].get('action'), 'disable')
+
+            await cmdr.runCmdLine(f'trigger enable {goodbuid2}')
+            self.true(outp.expect('Enabled trigger'))
+
             await cmdr.runCmdLine(f'trigger mod {goodbuid2} {{[ test:str=different ]}}')
             self.true(outp.expect('Modified trigger'))
 
-            await cmdr.runCmdLine(f'trigger mod deadbeef12341234')
+            outp.clear()
+            await cmdr.runCmdLine('trigger mod deadbeef12341234 {#foo}')
             self.true(outp.expect('does not match'))
 
             await cmdr.runCmdLine('trigger add tag:add #another {[ +#count2 ]}')
@@ -103,3 +134,56 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await cmdr.runCmdLine('trigger add Node:add test:str {[ test:int=99 ] | spin }')
             await s_common.aspin(core.eval('[ test:str=foo4 ]'))
             await self.agenlen(1, core.eval('test:int=99'))
+
+            # Test manipulating triggers as another user
+            await realcore.auth.addUser('bond')
+
+            async with realcore.getLocalProxy(user='bond') as tcore:
+
+                toutp = self.getTestOutp()
+                tcmdr = await s_cmdr.getItemCmdr(tcore, outp=toutp)
+
+                await tcmdr.runCmdLine('trigger list')
+                self.true(toutp.expect('No triggers found'))
+
+                await tcmdr.runCmdLine(f'trigger mod {goodbuid2} {{[ test:str=yep ]}}')
+                self.true(toutp.expect('provided iden does not match'))
+
+                toutp.clear()
+                await tcmdr.runCmdLine(f'trigger disable {goodbuid2}')
+                self.true(toutp.expect('provided iden does not match'))
+
+                toutp.clear()
+                await tcmdr.runCmdLine(f'trigger enable {goodbuid2}')
+                self.true(toutp.expect('provided iden does not match'))
+
+                toutp.clear()
+                await tcmdr.runCmdLine(f'trigger del {goodbuid2}')
+                self.true(toutp.expect('provided iden does not match'))
+
+                # Give explicit perm
+                await core.addAuthRule('bond', (True, ('trigger', 'get')))
+
+                toutp.clear()
+                await tcmdr.runCmdLine('trigger list')
+                self.true(toutp.expect('root'))
+
+                await core.addAuthRule('bond', (True, ('trigger', 'set')))
+
+                toutp.clear()
+                await tcmdr.runCmdLine(f'trigger mod {goodbuid2} {{[ test:str=yep ]}}')
+                self.true(toutp.expect('Modified trigger'))
+
+                toutp.clear()
+                await tcmdr.runCmdLine(f'trigger disable {goodbuid2}')
+                self.true(toutp.expect('Disabled trigger '))
+
+                toutp.clear()
+                await tcmdr.runCmdLine(f'trigger enable {goodbuid2}')
+                self.true(toutp.expect('Enabled trigger '))
+
+                await core.addAuthRule('bond', (True, ('trigger', 'del')))
+
+                toutp.clear()
+                await tcmdr.runCmdLine(f'trigger del {goodbuid2}')
+                self.true(toutp.expect('Deleted trigger '))
