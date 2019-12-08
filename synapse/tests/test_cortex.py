@@ -2614,8 +2614,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Put bad data in
             with self.getAsyncLoggerStream('synapse.lib.snap',
-                                           "Error adding node: test:str ('newp', 'newp')") as stream:
-                await core1.addFeedData('syn.nodes', [(('test:str', ('newp', 'newp')), {})])
+                                           "Error making node: [test:str=newp]") as stream:
+                await core1.addFeedData('syn.nodes', [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})])
                 self.true(await stream.wait(6))
 
     async def test_stat(self):
