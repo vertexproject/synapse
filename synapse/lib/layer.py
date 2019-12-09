@@ -89,7 +89,6 @@ class Layer(s_hive.AuthGater):
     The base class for a cortex layer.
     '''
     confdefs = ()
-    readonly = False
     ctorname = 'dyndep.path.goes.here'
 
     authgatetype = 'layr'

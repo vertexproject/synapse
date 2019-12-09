@@ -70,6 +70,10 @@ class View(s_hive.AuthGater):
                 logger.warning('view %r has missing layer %r' % (self.iden, iden))
                 continue
 
+            if not self.layers and layr.readonly:
+                self.invalid = iden
+                raise s_exc.ReadOnlyLayer(mesg=f'First layer {iden} must not be read-only')
+
             self.layers.append(layr)
 
     def allowed(self, hiveuser, perm, elev=True, default=None):
@@ -396,41 +400,3 @@ class View(s_hive.AuthGater):
         return {
             'iden': self.iden,
         }
-
-#class SpawnView(View):
-    #'''
-    #A view for use by a spawned subprocess.
-    #'''
-    #snapctor = s_snap.SpawnSnap.anit
-
-    #async def __anit__(self, core, info):
-
-        #self.spawninfo = info
-
-        #iden = info.get('iden')
-        #path = ('cortex', 'views', iden)
-        #node = await core.hive.open(path)
-
-        #await View.__anit__(self, core, node)
-        #self.readonly = True
-
-    #async def _initViewInfo(self):
-        #self.iden = self.spawninfo.get('iden')
-        #self.info = self.spawninfo.get('info')
-
-    #async def _initViewLayers(self):
-
-        #for layrinfo in self.spawninfo.get('layers'):
-
-            #iden = layrinfo.get('iden')
-            #path = ('cortex', 'layers', iden)
-
-            #ctorname = layrinfo.get('ctor')
-
-            #ctor = s_dyndeps.tryDynLocal(ctorname)
-
-            #node = await self.core.hive.open(path)
-            #layr = await ctor(self.core, node, readonly=True)
-
-            #self.layers.append(layr)
-            #self.onfini(layr.fini)
