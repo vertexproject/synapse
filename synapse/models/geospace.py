@@ -31,7 +31,13 @@ class Dist(s_types.IntBase):
         return valu, {}
 
     def _normPyStr(self, text):
-        valu, off = s_grammar.parse_float(text, 0)
+        try:
+            valu, off = s_grammar.parse_float(text, 0)
+        except Exception:
+            raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                    mesg='Dist requires a valid float and dist '
+                                         'unit, no valid float found') from None
+
         unit, off = s_grammar.nom(text, off, s_grammar.alphaset)
 
         mult = units.get(unit.lower())
