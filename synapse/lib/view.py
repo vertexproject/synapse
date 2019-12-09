@@ -70,10 +70,6 @@ class View(s_hive.AuthGater):
                 logger.warning('view %r has missing layer %r' % (self.iden, iden))
                 continue
 
-            if not self.layers and layr.readonly:
-                self.invalid = iden
-                raise s_exc.ReadOnlyLayer(mesg=f'First layer {iden} must not be read-only')
-
             self.layers.append(layr)
 
     def allowed(self, hiveuser, perm, elev=True, default=None):
@@ -228,13 +224,11 @@ class View(s_hive.AuthGater):
             raise s_exc.ReadOnlyLayer(mesg='May not change layers of forked view')
 
         if indx is None:
-            if not self.layers and layr.readonly:
-                raise s_exc.ReadOnlyLayer(mesg=f'First layer {layr.iden} must not be read-only')
             self.layers.append(layr)
+
         else:
-            if indx == 0 and layr.readonly:
-                raise s_exc.ReadOnlyLayer(mesg=f'First layer {layr.iden} must not be read-only')
             self.layers.insert(indx, layr)
+
         await self.info.set('layers', [l.iden for l in self.layers])
 
     async def setLayers(self, layers):
