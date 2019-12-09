@@ -849,7 +849,6 @@ class Cortex(s_cell.Cell):
         self.stormpkgs = {}     # name: pkgdef
         self.stormvars = None   # type: s_hive.HiveDict
 
-        self.stormrunts = {}
         self.stormdmons = {}
 
         self.svcsbyiden = {}
