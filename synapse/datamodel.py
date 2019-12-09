@@ -644,7 +644,7 @@ class Model:
         Returns:
             A list of one model definition compatible with addDataModels that represents the current data model
         '''
-        return self._modeldef
+        return [('all', self._modeldef)]
 
     def getModelDefs(self):
         return self.modeldefs
