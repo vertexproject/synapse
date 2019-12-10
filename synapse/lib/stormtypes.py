@@ -557,7 +557,7 @@ class LibQueue(Lib):
             await self.runt.snap.delCoreQueue(name)
 
     async def _methQueueList(self):
-        self.runt.reqAllowed(('storm', 'queue', 'list'))
+        self.runt.reqAllowed(('storm', 'lib', 'queue', 'list'))
         return await self.runt.snap.getCoreQueues()
 
 class Queue(StormType):
