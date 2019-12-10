@@ -7,7 +7,6 @@ import binascii
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_test
 
@@ -118,6 +117,7 @@ class StormTypesTest(s_test.SynTest):
             ],
         }
         async with self.getTestCore() as core:
+
             await core.addStormPkg(pdef)
             nodes = await core.nodes('[ inet:asn=$lib.min(20, 0x30) ]')
             self.len(1, nodes)
@@ -187,6 +187,48 @@ class StormTypesTest(s_test.SynTest):
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'NoSuchName')
             self.eq(erfo[1][1].get('name'), 'newp')
+
+    async def test_storm_lib_query(self):
+        async with self.getTestCore() as core:
+            # basic
+            q = '''
+            $foo = ${ [test:str=theevalthatmendo] }
+            $foo.exec()
+            '''
+            await core.nodes(q)
+            nodes = await core.nodes('test:str=theevalthatmendo')
+            self.len(1, nodes)
+
+            # make sure our scope goes down
+            q = '''
+            $bar = ${ [test:str=$foo] }
+
+            $foo = "this little node went to market"
+            $bar.exec()
+            $foo = "this little node stayed home"
+            $bar.exec()
+            $foo = "this little node had roast beef"
+            $bar.exec()
+            '''
+            msgs = await core.streamstorm(q).list()
+            nodes = [m for m in msgs if m[0] == 'node:add']
+            self.len(3, nodes)
+            self.eq(nodes[0][1]['ndef'], ('test:str', 'this little node went to market'))
+            self.eq(nodes[1][1]['ndef'], ('test:str', 'this little node stayed home'))
+            self.eq(nodes[2][1]['ndef'], ('test:str', 'this little node had roast beef'))
+
+            # but that it doesn't come back up
+            q = '''
+            $foo = "that is one neato burrito"
+            $baz = ${ $bar=$lib.str.concat(wompwomp, $lib.guid()) }
+            $baz.exec()
+            $lib.print($bar)
+            [ test:str=$foo ]
+            '''
+
+            msgs = await core.streamstorm(q).list()
+            prints = [m for m in msgs if m[0] == 'print']
+            self.len(0, prints)
 
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:

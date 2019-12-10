@@ -1044,18 +1044,27 @@ class Query(StormType):
     '''
     A storm primitive representing an embedded query.
     '''
-    def __init__(self, text, opts, path=None):
+    def __init__(self, text, opts, runt, path=None):
 
         StormType.__init__(self, path=path)
 
         self.text = text
         self.opts = opts
+        self.runt = runt
 
         self.locls.update({
+            'exec': self._methQueryExec,
         })
 
     def __str__(self):
         return self.text
+
+    async def _methQueryExec(self):
+        query = await self.runt.getStormQuery(self.text)
+        subrunt = await self.runt.getScopeRuntime(query)
+        async for item in query.run(subrunt, genr=s_ast.agen()):
+            pass  # pragma: no cover
+        await self.runt.propBackGlobals(subrunt)
 
 class NodeData(Prim):
 
