@@ -163,7 +163,7 @@ class Query(AstNode):
 
         if rules not in (False, None):
             if rules is True:
-                rules = {'degrees': None, 'pivots': ('-> *',)}
+                rules = {'degrees': None, 'refs': True}
 
             subgraph = SubGraph(rules)
 
@@ -242,6 +242,8 @@ class SubGraph:
         self.rules.setdefault('forms', {})
         self.rules.setdefault('pivots', ())
         self.rules.setdefault('filters', ())
+
+        self.rules.setdefault('refs', True)
         self.rules.setdefault('degrees', 1)
 
     async def omit(self, node):
@@ -271,7 +273,16 @@ class SubGraph:
         self.omits[node.buid] = False
         return False
 
-    async def pivots(self, node):
+    async def pivots(self, runt, node):
+
+        if self.rules.get('refs'):
+
+            for prop, ndef in node.getNodeRefs():
+                pivonode = await node.snap.getNodeByNdef(ndef)
+                if pivonode is None:
+                    continue
+
+                yield (pivonode, runt.initPath(pivonode))
 
         for pivq in self.rules.get('pivots'):
 
@@ -320,7 +331,7 @@ class SubGraph:
                 edges = set()
                 ndist = tdist + 1
 
-                async for pivn, pivp in self.pivots(tnode):
+                async for pivn, pivp in self.pivots(runt, tnode):
 
                     if await self.omit(pivn):
                         continue
