@@ -1021,6 +1021,10 @@ class StormTypesTest(s_test.SynTest):
                 await root.addAuthRule('synapse', rule, indx=None)
                 msgs = await alist(core.streamstorm('queue.add synq', user=synu))
                 self.stormIsInPrint('queue added: synq', msgs)
+
+                rule = (True, ('storm', 'queue', 'synq', 'put'))
+                await root.addAuthRule('synapse', rule, indx=None)
+
                 await core.nodes('$q = $lib.queue.get(synq) $q.puts((bar, baz))', user=synu)
 
                 # now let's see our other user fail to add things
