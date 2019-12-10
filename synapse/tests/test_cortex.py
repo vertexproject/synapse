@@ -96,7 +96,6 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('test:int +#foo.bar'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score=20'))
-                # self.len(1, await core.nodes('test:int +#foo.bar:score?=20'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score<=30'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score>=10'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score*range=(10, 30)'))
@@ -131,18 +130,24 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('#foo.bar:score>=90'))
                 self.len(1, await core.nodes('#foo.bar:score*range=(90, 110)'))
 
-                # test that removing it explicitly behaves as intended
+                # remove the tag
                 await core.nodes('test:int=10 [ -#foo.bar ]')
                 self.len(0, await core.nodes('#foo.bar:score'))
                 self.len(0, await core.nodes('#foo.bar:score=100'))
                 self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
 
-                # add it back in to remove by whole tag...
+                # remove just the tagprop
                 await core.nodes('test:int=10 [ +#foo.bar:score=100 ]')
-                self.len(1, await core.nodes('#foo.bar:score=100'))
+                await core.nodes('test:int=10 [ -#foo.bar:score ]')
+                self.len(0, await core.nodes('#foo.bar:score'))
+                self.len(0, await core.nodes('#foo.bar:score=100'))
+                self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
 
-                # test that removing the tag removes all props indexes
-                await core.nodes('test:int=10 [ -#foo.bar ]')
+                # remove a higher-level tag
+                await core.nodes('test:int=10 [ +#foo.bar:score=100 ]')
+                nodes = await core.nodes('test:int=10 [ -#foo ]')
+                self.len(0, nodes[0].tagprops)
+                self.len(0, await core.nodes('#foo'))
                 self.len(0, await core.nodes('#foo.bar:score'))
                 self.len(0, await core.nodes('#foo.bar:score=100'))
                 self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
@@ -1432,6 +1437,19 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(idens, ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
                                     'd7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849'))
 
+            await prox.addNode('edge:refs', (('test:int', 10), ('test:int', 20)))
+
+            nodes = [n async for n in prox.eval('edge:refs', opts=opts)]
+
+            self.len(3, nodes)
+            self.eq(nodes[0][0][0], 'edge:refs')
+            edges = nodes[0][1]['path']['edges']
+            idens = list(sorted(e[0] for e in edges))
+            self.eq(idens, (
+                '2ff879e667e9cca52f1c78485f7864c4c5a242c67d4b90105210dde8edf3c068',
+                '979b56497b5fd75813676738172c2f435aee3e4bdcf43930843eba5b34bb06fc',
+            ))
+
     async def test_splice_cryo(self):
 
         async with self.getTestCryo() as cryo:
@@ -2196,7 +2214,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(0, await core.storm('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } > 2 ').list())
 
     async def test_cortex_in(self):
+
         async with self.getTestCore() as core:
+
             async with await core.snap() as snap:
                 await snap.addNode('test:str', 'a')
                 await snap.addNode('test:str', 'b')

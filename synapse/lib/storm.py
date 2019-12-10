@@ -280,10 +280,6 @@ class Runtime:
         self.proxies = {}
         self.elevated = False
 
-        # used by the digraph projection logic
-        self._graph_done = {}
-        self._graph_want = collections.deque()
-
     def getStormMod(self, name):
         return self.snap.getStormMod(name)
 

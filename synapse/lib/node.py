@@ -7,8 +7,6 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
-import synapse.lib.types as s_types
-import synapse.lib.storm as s_storm
 
 import synapse.lib.editatom as s_editatom
 
@@ -558,6 +556,8 @@ class Node:
         info = {'univ': True}
         sops = [('prop:del', (self.buid, self.form.name, '#' + t, info)) for (t, v) in removed]
         sops.extend([('tag:prop:del', (self.buid, self.form.name, tag, prop, {})) for (tag, prop) in tagprops])
+
+        [self.tagprops.pop(tp) for tp in tagprops]
 
         # fire all the splices
         splices = [self.snap.splice('tag:del', ndef=self.ndef, tag=t, valu=v) for (t, v) in removed]
