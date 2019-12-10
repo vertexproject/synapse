@@ -5,6 +5,7 @@ import regex  # type: ignore
 import synapse.exc as s_exc
 
 import synapse.lib.ast as s_ast
+import synapse.lib.cache as s_cache
 import synapse.lib.datfile as s_datfile
 
 # TL;DR:  *rules* are the internal nodes of an abstract syntax tree (AST), *terminals* are the leaves
@@ -335,6 +336,13 @@ class Parser:
         newtree = AstConverter(self.text).transform(tree)
         assert isinstance(newtree, s_ast.Const)
         return newtree.valu
+
+@s_cache.memoize(size=100)
+def parseQuery(text):
+    '''
+    Parse a storm query and return the Lark AST.  Cached here to speed up unit tests
+    '''
+    return Parser(text).query()
 
 # TODO:  commonize with storm.lark
 scmdre = regex.compile('[a-z][a-z0-9.]+')
