@@ -96,7 +96,6 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('test:int +#foo.bar'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score=20'))
-                # self.len(1, await core.nodes('test:int +#foo.bar:score?=20'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score<=30'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score>=10'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score*range=(10, 30)'))
@@ -131,18 +130,24 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('#foo.bar:score>=90'))
                 self.len(1, await core.nodes('#foo.bar:score*range=(90, 110)'))
 
-                # test that removing it explicitly behaves as intended
+                # remove the tag
                 await core.nodes('test:int=10 [ -#foo.bar ]')
                 self.len(0, await core.nodes('#foo.bar:score'))
                 self.len(0, await core.nodes('#foo.bar:score=100'))
                 self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
 
-                # add it back in to remove by whole tag...
+                # remove just the tagprop
                 await core.nodes('test:int=10 [ +#foo.bar:score=100 ]')
-                self.len(1, await core.nodes('#foo.bar:score=100'))
+                await core.nodes('test:int=10 [ -#foo.bar:score ]')
+                self.len(0, await core.nodes('#foo.bar:score'))
+                self.len(0, await core.nodes('#foo.bar:score=100'))
+                self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
 
-                # test that removing the tag removes all props indexes
-                await core.nodes('test:int=10 [ -#foo.bar ]')
+                # remove a higher-level tag
+                await core.nodes('test:int=10 [ +#foo.bar:score=100 ]')
+                nodes = await core.nodes('test:int=10 [ -#foo ]')
+                self.len(0, nodes[0].tagprops)
+                self.len(0, await core.nodes('#foo'))
                 self.len(0, await core.nodes('#foo.bar:score'))
                 self.len(0, await core.nodes('#foo.bar:score=100'))
                 self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
