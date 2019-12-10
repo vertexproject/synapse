@@ -101,14 +101,3 @@ class Window(s_base.Base):
             await self.fini()
 
         return True
-
-async def iterMpQueue(q, base):
-
-    aq = asyncio.Queue()
-    loop = asyncio.get_running_loop()
-
-    def fill():
-        while not base.isfini:
-            item = q.get()
-
-    base.schedCoro(s_coro.executor(fill))
