@@ -618,7 +618,7 @@ class Queue(StormType):
     async def reqAllowed(self, perm):
         if self.info.get('user') == self.runt.user.iden:
             return
-        await self.runt.reqAllowed(perm)
+        self.runt.reqAllowed(perm)
 
     async def _methQueueGet(self, offs=0, wait=True, cull=True):
 

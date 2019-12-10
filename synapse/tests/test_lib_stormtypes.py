@@ -1004,6 +1004,44 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('for ($offs, $name) in $lib.queue.get(doit).gets(size=2) { [test:str=$name] }')
             self.len(2, nodes)
 
+            # test other users who have access to this queue can do things to it
+            async with core.getLocalProxy() as root:
+                # add users
+                await root.addAuthUser('synapse')
+                await root.addAuthUser('wootuser')
+
+                synu = core.auth.getUserByName('synapse')
+                woot = core.auth.getUserByName('wootuser')
+
+                # make a queue
+                with self.raises(s_exc.AuthDeny):
+                    await core.nodes('queue.add synq', user=synu)
+
+                rule = (True, ('storm', 'queue', 'add'))
+                await root.addAuthRule('synapse', rule, indx=None)
+                msgs = await alist(core.streamstorm('queue.add synq', user=synu))
+                self.stormIsInPrint('queue added: synq', msgs)
+                await core.nodes('$q = $lib.queue.get(synq) $q.puts((bar, baz))', user=synu)
+
+                # now let's see our other user fail to add things
+                with self.raises(s_exc.AuthDeny):
+                    await core.nodes('$lib.queue.get(synq).get()', user=woot)
+
+                rule = (True, ('storm', 'queue', 'synq', 'get'))
+                await root.addAuthRule('wootuser', rule, indx=None)
+
+                msgs = await alist(core.streamstorm('$lib.print($lib.queue.get(synq).get(wait=False))'))
+                self.stormIsInPrint("(0, 'bar')", msgs)
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.nodes('$lib.queue.del(synq)', user=woot)
+
+                rule = (True, ('storm', 'queue', 'del', 'synq'))
+                await root.addAuthRule('wootuser', rule, indx=None)
+                await core.nodes('$lib.queue.del(synq)', user=woot)
+                with self.raises(s_exc.NoSuchName):
+                    await core.nodes('$lib.queue.get(synq)')
+
     async def test_storm_node_data(self):
 
         async with self.getTestCore() as core:
