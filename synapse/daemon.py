@@ -342,7 +342,7 @@ class Daemon(s_base.Base):
 
             await func(link, mesg)
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError: # pragma: no cover
             raise
 
         except Exception:

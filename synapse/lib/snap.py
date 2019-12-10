@@ -867,11 +867,3 @@ class Snap(s_base.Base):
         envl = await self.layers[0].popNodeData(buid, name)
         if envl is not None:
             return envl.get('data')
-
-class SpawnSnap(Snap):
-    '''
-    A snap which is designed for use in a spawn storm query runtime.
-    '''
-    async def __anit__(self, view, user):
-        await Snap.__anit__(self, view, user)
-        self.readonly = True
