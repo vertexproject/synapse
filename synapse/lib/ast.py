@@ -243,7 +243,7 @@ class SubGraph:
         self.rules.setdefault('pivots', ())
         self.rules.setdefault('filters', ())
 
-        self.rules.setdefault('refs', True)
+        self.rules.setdefault('refs', False)
         self.rules.setdefault('degrees', 1)
 
     async def omit(self, node):
@@ -273,7 +273,7 @@ class SubGraph:
         self.omits[node.buid] = False
         return False
 
-    async def pivots(self, runt, node):
+    async def pivots(self, runt, node, path):
 
         if self.rules.get('refs'):
 
@@ -282,7 +282,7 @@ class SubGraph:
                 if pivonode is None:
                     continue
 
-                yield (pivonode, runt.initPath(pivonode))
+                yield (pivonode, path.fork(pivonode))
 
         for pivq in self.rules.get('pivots'):
 
@@ -331,7 +331,7 @@ class SubGraph:
                 edges = set()
                 ndist = tdist + 1
 
-                async for pivn, pivp in self.pivots(runt, tnode):
+                async for pivn, pivp in self.pivots(runt, tnode, tpath):
 
                     if await self.omit(pivn):
                         continue

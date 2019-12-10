@@ -2209,7 +2209,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(0, await core.storm('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } > 2 ').list())
 
     async def test_cortex_in(self):
+
         async with self.getTestCore() as core:
+
             async with await core.snap() as snap:
                 await snap.addNode('test:str', 'a')
                 await snap.addNode('test:str', 'b')
