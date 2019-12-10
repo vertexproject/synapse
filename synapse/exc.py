@@ -186,7 +186,14 @@ class ParserExit(SynErr):
     ''' Raised by synapse.lib.cmd.Parser on Parser exit() '''
     pass
 
-class DmonSpawn(SynErr): pass
+class DmonSpawn(SynErr):
+    '''
+    Raised by a dispatched telepath method that has answered the call
+    using a spawned process. ( control flow that is compatible with
+    aborting standard calls, generators, and async generators ).
+    '''
+    pass
+
 class SpawnExit(SynErr): pass
 
 class ReadOnlyLayer(SynErr): pass

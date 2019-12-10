@@ -132,8 +132,6 @@ async def t2call(link, meth, args, kwargs):
         if s_coro.iscoro(valu):
             valu = await valu
 
-        #print('t2 call %r %r %r -> %r' % (meth, args, kwargs, valu))
-
         try:
 
             first = True
@@ -169,7 +167,7 @@ async def t2call(link, meth, args, kwargs):
                 await link.tx(('t2:yield', {'retn': None}))
                 return
 
-        except s_exc.DmonSpawn as e:
+        except s_exc.DmonSpawn:
             return
 
         except Exception as e:
