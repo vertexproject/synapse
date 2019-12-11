@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+import copy
 import contextlib
 import collections
 
@@ -2751,7 +2752,7 @@ class Cortex(s_cell.Cell):
         '''
         Parse storm query text and return a Query object.
         '''
-        query = s_grammar.Parser(text).query()
+        query = copy.deepcopy(s_grammar.parseQuery(text))
         query.init(self)
         return query
 
