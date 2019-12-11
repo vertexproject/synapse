@@ -230,7 +230,7 @@ class StormTypesTest(s_test.SynTest):
             prints = [m for m in msgs if m[0] == 'print']
             self.len(0, prints)
 
-            # make sure returns 
+            # make sure returns
             q = '''
             $foo = $(10)
             $bar = ${ return ( $($foo+1) ) }
