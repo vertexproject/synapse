@@ -220,6 +220,14 @@ class CmdCoreTest(s_t_utils.SynTest):
             await cmdr.runCmdLine('storm test:str=foo')
             self.true(1)
 
+            await realcore.nodes('[ inet:ipv4=1.2.3.4 +#visi.woot ]')
+
+            # test that the storm --spawn option
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine('storm --spawn inet:ipv4=1.2.3.4')
+            outp.expect('#visi.woot')
+
     async def test_log(self):
 
         def check_locs_cleanup(cobj):
