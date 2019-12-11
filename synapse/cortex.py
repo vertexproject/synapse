@@ -957,6 +957,11 @@ class Cortex(s_cell.Cell):
         return {
             'iden': self.iden,
             'dirn': self.dirn,
+            'conf': {
+                'storm:log': self.conf.get('storm:log', False),
+                'storm:log:level': self.conf.get('storm:log:level', logging.INFO),
+            },
+            'loglevel': logger.getEffectiveLevel(),
             # TODO make getModelDefs include extended model
             'views': [v.getSpawnInfo() for v in self.views.values()],
             'layers': [l.getSpawnInfo() for l in self.layers.values()],

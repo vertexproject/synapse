@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import contextlib
 import collections
 import multiprocessing
@@ -20,6 +21,8 @@ import synapse.lib.view as s_view
 import synapse.lib.storm as s_storm
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
+
+logger = logging.getLogger(__name__)
 
 def corework(spawninfo, todo, done):
 
@@ -185,11 +188,14 @@ class SpawnCore(s_base.Base):
 
         await s_base.Base.__anit__(self)
 
-        self.conf = {}
         self.views = {}
         self.layers = {}
         self.spawninfo = spawninfo
+        # This logging call is okay to run since we're executing in
+        # our own process space and no logging has been configured.
+        s_common.setlogging(logger, spawninfo.get('loglevel'))
 
+        self.conf = spawninfo.get('conf')
         self.iden = spawninfo.get('iden')
         self.dirn = spawninfo.get('dirn')
 
@@ -262,8 +268,13 @@ class SpawnCore(s_base.Base):
         query.init(self)
         return query
 
-    def _logStormQuery(self, *args, **kwargs):
-        pass
+    def _logStormQuery(self, text, user):
+        '''
+        Log a storm query.
+        '''
+        if self.conf.get('storm:log'):
+            lvl = self.conf.get('storm:log:level')
+            logger.log(lvl, 'Executing spawned storm query {%s} as [%s]', text, user.name)
 
     def getStormCmd(self, name):
         return self.stormcmds.get(name)

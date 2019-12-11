@@ -1,11 +1,15 @@
+import logging
 import synapse.tests.utils as s_test
 
 class CoreSpawnTest(s_test.SynTest):
 
     async def test_cortex_spawn_telepath(self):
+        conf = {
+            'storm:log': True,
+            'storm:log:level': logging.INFO,
+        }
 
-        async with self.getTestCore() as core:
-
+        async with self.getTestCore(conf=conf) as core:
             pkgdef = {
                 'name': 'spawn',
                 'version': (0, 0, 1),
