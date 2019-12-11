@@ -1062,9 +1062,14 @@ class Query(StormType):
     async def _methQueryExec(self):
         query = await self.runt.getStormQuery(self.text)
         subrunt = await self.runt.getScopeRuntime(query)
-        async for item in query.run(subrunt, genr=s_ast.agen()):
-            pass  # pragma: no cover
-        await self.runt.propBackGlobals(subrunt)
+
+        try:
+            async for item in query.run(subrunt, genr=s_ast.agen()):
+                pass  # pragma: no cover
+        except s_ast.StormReturn as e:
+            return e.item
+        finally:
+            await self.runt.propBackGlobals(subrunt)
 
 class NodeData(Prim):
 

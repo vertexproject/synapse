@@ -230,6 +230,16 @@ class StormTypesTest(s_test.SynTest):
             prints = [m for m in msgs if m[0] == 'print']
             self.len(0, prints)
 
+            # make sure returns 
+            q = '''
+            $foo = $(10)
+            $bar = ${ return ( $($foo+1) ) }
+            [test:int=$bar.exec()]
+            '''
+            msgs = await core.streamstorm(q).list()
+            nodes = [m for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:str=woot ] [ test:int=$node.isform(test:str) ] +test:int')
