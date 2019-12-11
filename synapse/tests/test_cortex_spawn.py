@@ -65,8 +65,6 @@ class CoreSpawnTest(s_test.SynTest):
 
                 # Test a pure storm commands
                 msgs = await prox.storm('inet:fqdn=vertex.link | passthrough', opts=opts).list()
-                for m in msgs:
-                    print(m)
                 self.stormIsInPrint("('inet:fqdn', 'vertex.link')", msgs)
 
                 # test adding model extensions
