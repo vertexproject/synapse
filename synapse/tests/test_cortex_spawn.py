@@ -6,6 +6,20 @@ class CoreSpawnTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            pkgdef = {
+                'name': 'spawn',
+                'version': (0, 0, 1),
+                'commands': (
+                    {
+                        'name': 'passthrough',
+                        'desc': 'passthrough input nodes and print their ndef',
+                        'storm': '$lib.print($node.ndef())',
+                    },
+                ),
+            }
+
+            await core.addStormPkg(pkgdef)
+
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
 
             async with core.getLocalProxy() as prox:
@@ -48,6 +62,12 @@ class CoreSpawnTest(s_test.SynTest):
                     ('inet:fqdn', 'vertex.link'),
                     ('inet:ipv4', 16909060),
                 ))
+
+                # Test a pure storm commands
+                msgs = await prox.storm('inet:fqdn=vertex.link | passthrough', opts=opts).list()
+                for m in msgs:
+                    print(m)
+                self.stormIsInPrint("('inet:fqdn', 'vertex.link')", msgs)
 
                 # test adding model extensions
                 #await core.addFormProp('inet:ipv4', '_woot', ('int', {}), {})

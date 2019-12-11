@@ -17,6 +17,7 @@ import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
 import synapse.lib.view as s_view
 
+import synapse.lib.storm as s_storm
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 
@@ -201,7 +202,7 @@ class SpawnCore(s_base.Base):
         for name, cdef in spawninfo['storm']['cmds']['cdefs']:
 
             def ctor(argv):
-                return PureCmd(cdef, argv)
+                return s_storm.PureCmd(cdef, argv)
 
             self.stormcmds[name] = ctor
 
