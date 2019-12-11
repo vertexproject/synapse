@@ -1,3 +1,4 @@
+import os
 import asyncio
 import logging
 import contextlib
@@ -25,6 +26,10 @@ import synapse.lib.grammar as s_grammar
 logger = logging.getLogger(__name__)
 
 def corework(spawninfo, todo, done):
+
+    # This logging call is okay to run since we're executing in
+    # our own process space and no logging has been configured.
+    s_common.setlogging(logger, spawninfo.get('loglevel'))
 
     async def workloop():
 
@@ -108,6 +113,7 @@ class SpawnProc(s_base.Base):
         self.onfini(fini)
 
     async def retire(self):
+        logger.debug(f'Proc {self.proc.pid} marked obsolete')
         self.obsolete = True
 
     async def xact(self, mesg):
@@ -173,6 +179,8 @@ class SpawnPool(s_base.Base):
 
         proc = await SpawnProc.anit(self.core)
 
+        logger.debug(f'New spawnProc with pid {proc.proc.pid}')
+
         self.spawns[proc.iden] = proc
 
         async def fini():
@@ -188,12 +196,10 @@ class SpawnCore(s_base.Base):
 
         await s_base.Base.__anit__(self)
 
+        self.pid = os.getpid()
         self.views = {}
         self.layers = {}
         self.spawninfo = spawninfo
-        # This logging call is okay to run since we're executing in
-        # our own process space and no logging has been configured.
-        s_common.setlogging(logger, spawninfo.get('loglevel'))
 
         self.conf = spawninfo.get('conf')
         self.iden = spawninfo.get('iden')
@@ -274,7 +280,7 @@ class SpawnCore(s_base.Base):
         '''
         if self.conf.get('storm:log'):
             lvl = self.conf.get('storm:log:level')
-            logger.log(lvl, 'Executing spawned storm query {%s} as [%s]', text, user.name)
+            logger.log(lvl, 'Executing spawn storm query {%s} as [%s] from [%s]', text, user.name, self.pid)
 
     def getStormCmd(self, name):
         return self.stormcmds.get(name)
