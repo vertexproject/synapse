@@ -3,6 +3,28 @@ Synapse Changelog
 *****************
 
 
+v0.1.40 - 2019-12-10
+====================
+
+Features and Enhancements
+-------------------------
+- Add a refs flag to the graph rules which allow getting all refs including edges and make this the default behavior
+  when ``graph`` option is set to ``True`` when calling ``storm()/eval()`` apis.
+  (`#1453q <https://github.com/vertexproject/synapse/pull/1453>`_)
+
+Bugfixes
+--------
+- Make error messages for ``geo:dist`` type normalization more understanble.
+  (`#1447 <https://github.com/vertexproject/synapse/pull/1447>`_)
+- Fix permissions checks for Storm queue objects being made by non-object owners.
+  (`#1452 <https://github.com/vertexproject/synapse/pull/1452>`_)
+
+Improved Documentation
+----------------------
+- Some small wordsmithing.
+  (`#1449 <https://github.com/vertexproject/synapse/pull/1449>`_)
+
+
 v0.1.39 - 2019-12-03
 ====================
 
