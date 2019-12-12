@@ -6,15 +6,16 @@ import synapse.tests.utils as s_t_utils
 
 import synapse.tools.csvtool as s_csvtool
 
-csvfile = b'''ipv4,fqdn,notes
-1.2.3.4,vertex.link,malware
-8.8.8.8,google.com,whitelist
+csvfile = b'''fqdn,email,tag
+vertex.link,,mytag
+google.com,myemail@email.com,
+yahoo.com,foo@bar.com,mytag
 '''
 
 csvstorm = b'''
-    for ($ipv4, $fqdn, $note) in $rows {
+    for ($fqdn, $email, $tag) in $rows {
         $lib.print("oh hai")
-        [ inet:dns:a=($fqdn,$ipv4) ]
+        [ inet:dns:soa=$lib.guid() :fqdn=$fqdn :email?=$email +#$tag ]
     }
 '''
 
@@ -48,7 +49,7 @@ class CsvToolTest(s_t_utils.SynTest):
 
             await s_csvtool.main(argv, outp=outp)
             outp.expect('oh hai')
-            outp.expect('2 nodes (9 created)')
+            outp.expect('3 nodes (15 created)')
 
     async def test_csvtool_local(self):
 
@@ -68,7 +69,7 @@ class CsvToolTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
 
             await s_csvtool.main(argv, outp=outp)
-            outp.expect('2 nodes (9 created)')
+            outp.expect('3 nodes (15 created)')
 
     async def test_csvtool_cli(self):
 
@@ -96,7 +97,7 @@ class CsvToolTest(s_t_utils.SynTest):
                     await s_csvtool.main(argv, outp=outp)
 
             outp.expect('inet:fqdn=google.com')
-            outp.expect('2 nodes (9 created)')
+            outp.expect('3 nodes (15 created)')
 
     async def test_csvtool_export(self):
 
