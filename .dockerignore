@@ -1,5 +1,6 @@
 # vim:set ft=gitignore:
 
+cells/
 build/
 localdata/
 
