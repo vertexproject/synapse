@@ -230,7 +230,7 @@ class StormTypesTest(s_test.SynTest):
             prints = [m for m in msgs if m[0] == 'print']
             self.len(0, prints)
 
-            # make sure returns
+            # make sure returns work
             q = '''
             $foo = $(10)
             $bar = ${ return ( $($foo+1) ) }
@@ -239,6 +239,24 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.streamstorm(q).list()
             nodes = [m for m in msgs if m[0] == 'node']
             self.len(1, nodes)
+            self.eq(nodes[0][1][0], ('test:int', 11))
+
+            # make sure it inherits the runt it's created in, not exec'd in
+            q = '''
+            $foo = ${$lib.print("look ma, my runt") $bing = $(0) }
+
+            function foofunc() {
+                $bing = $(99)
+                yield $foo.exec()
+                $lib.print("bing is now {bing}", bing=$bing)
+                return ($(0))
+            }
+
+            $foofunc()
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('look ma, my runt', msgs)
+            self.stormIsInPrint('bing is now 99', msgs)
 
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:
