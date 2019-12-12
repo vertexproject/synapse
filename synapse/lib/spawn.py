@@ -91,10 +91,17 @@ class SpawnProc(s_base.Base):
 
         self.todo = self.mpctx.Queue()
         self.done = self.mpctx.Queue()
+        self.procstat = None
 
         self.obsolete = False
 
         spawninfo = await core.getSpawnInfo()
+
+        def reaploop():
+            '''
+            Simply wait for the process to complete (run from a separate thread)
+            '''
+            self.procstat = self.proc.join()
 
         # avoid blocking the ioloop during process construction
         def getproc():
@@ -102,13 +109,10 @@ class SpawnProc(s_base.Base):
             self.proc.start()
 
         await s_coro.executor(getproc)
-
-        def killproc():
-            self.proc.terminate()
-            self.proc.join()
+        s_coro.executor(reaploop)
 
         async def fini():
-            await s_coro.executor(killproc)
+            self.proc.terminate()
 
         self.onfini(fini)
 
