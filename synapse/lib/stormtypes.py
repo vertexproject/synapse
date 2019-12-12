@@ -2,6 +2,7 @@ import bz2
 import gzip
 import json
 import base64
+import asyncio
 import binascii
 import datetime
 import collections
@@ -1068,6 +1069,8 @@ class Query(StormType):
                 pass  # pragma: no cover
         except s_ast.StormReturn as e:
             return e.item
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
         finally:
             await self.runt.propBackGlobals(subrunt)
 

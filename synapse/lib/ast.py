@@ -2965,6 +2965,8 @@ class Function(AstNode):
 
             except StormReturn as e:
                 return e.item
+            except asyncio.CancelledError: # pragma: no cover
+                raise
             finally:
                 await runt.propBackGlobals(funcrunt)
 
