@@ -3111,6 +3111,20 @@ class CortexBasicTest(s_t_utils.SynTest):
             await _test('$(not 1 and 1)', 0)  # not > and
             await _test('$(not 1 > 1)', 1)  # cmp > not
 
+            opts = {'vars': {'none': None}}
+            # runtsafe
+            nodes = await core.nodes('if $($none) {[test:str=yep]}', opts=opts)
+            self.len(0, nodes)
+
+            # non-runtsafe
+            nodes = await core.nodes('[test:int=42] if $($none) {[test:str=$node]} else {spin}', opts=opts)
+            self.len(0, nodes)
+
+            nodes = await core.nodes('if $(not $none) {[test:str=yep]}', opts=opts)
+            self.len(1, nodes)
+            nodes = await core.nodes('[test:int=42] if $(not $none) {[test:str=yep]} else {spin}', opts=opts)
+            self.len(2, nodes)
+
             # TODO:  implement move-along mechanism
             # await _test('$(1 / 0)', 0)
 

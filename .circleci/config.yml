@@ -103,14 +103,14 @@ commands:
 
       - restore_cache:
           keys:
-            - v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+            - v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - do_venv_setup
 
       - save_cache:
           paths:
             - ./venv
-          key: v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+          key: v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - run:
           name: syntax
