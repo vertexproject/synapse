@@ -97,7 +97,7 @@ class SpawnProc(s_base.Base):
 
         spawninfo = await core.getSpawnInfo()
 
-        def reaploop():
+        def reapwaiter():
             '''
             Simply wait for the process to complete (run from a separate thread)
             '''
@@ -109,7 +109,7 @@ class SpawnProc(s_base.Base):
             self.proc.start()
 
         await s_coro.executor(getproc)
-        s_coro.executor(reaploop)
+        s_coro.executor(reapwaiter)
 
         async def fini():
             self.proc.terminate()
