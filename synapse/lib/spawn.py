@@ -112,6 +112,9 @@ class SpawnProc(s_base.Base):
         s_coro.executor(reapwaiter)
 
         async def fini():
+            self.todo.close()
+            self.done.put_nowait(None)
+            self.done.close()
             self.proc.terminate()
 
         self.onfini(fini)
