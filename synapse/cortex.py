@@ -539,6 +539,25 @@ class CoreApi(s_cell.CellApi):
                 }
             }
 
+            # promote ourself to a synapse task
+            # try:
+            #     synt = await self.cell.boss.promote('storm:spawn', user=self.user, info={'query': text})
+            #
+            #     async with self.cell.spawnpool.get() as proc:
+            #         if await proc.xact(info):
+            #             await link.fini()
+            # except asyncio.CancelledError as e:
+            #     logging.exception('Cancelled!')
+            #     # raise s_exc.DmonSpawn() from e
+            # except Exception as e:
+            #     logging.exception('BULLET TO THE BRAIN')
+            #     # raise
+            # finally:
+            #
+            #     raise s_exc.DmonSpawn()
+
+            synt = await self.cell.boss.promote('storm:spawn', user=self.user, info={'query': text})
+            logger.info(f'PROMOTED TO {synt.iden}')
             async with self.cell.spawnpool.get() as proc:
                 if await proc.xact(info):
                     await link.fini()

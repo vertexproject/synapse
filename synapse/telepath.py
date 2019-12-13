@@ -445,7 +445,7 @@ class Proxy(s_base.Base):
                         mesg = await link.rx()
                         if mesg is None:
                             return
-
+                        print(mesg)
                         assert mesg[0] == 't2:yield'
 
                         retn = mesg[1].get('retn')

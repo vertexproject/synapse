@@ -136,9 +136,9 @@ async def t2call(link, meth, args, kwargs):
 
             first = True
             if isinstance(valu, types.AsyncGeneratorType):
-
+                logger.info(f'{valu} is an asyncgen!')
                 async for item in valu:
-
+                    logger.info(f'ITEM: {item}')
                     if first:
                         await link.tx(('t2:genr', {}))
                         first = False
