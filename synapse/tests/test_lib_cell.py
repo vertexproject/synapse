@@ -66,6 +66,9 @@ class CellTest(s_t_utils.SynTest):
                 user = await echo.auth.addUser('visi')
                 await user.setPasswd('foo')
                 await user.addRule((True, ('foo', 'bar')))
+                testrole = await echo.auth.addRole('testrole')
+                privrole = await echo.auth.addRole('privrole')
+                await user.grant('testrole')
 
                 visi_url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(visi_url) as proxy:  # type: EchoAuthApi
@@ -73,6 +76,22 @@ class CellTest(s_t_utils.SynTest):
                     self.false(await proxy.isadmin())
                     self.false(await proxy.allowed(('hehe', 'haha')))
 
+                    # User can get authinfo data for themselves and their roles
+                    uatm = await proxy.getAuthInfo('visi')
+                    self.eq(uatm[0], 'visi')
+                    self.eq(uatm[1].get('iden'), user.iden)
+                    self.eq(uatm[1].get('roles'), ('testrole',))
+                    self.eq(uatm[1].get('rules'), ((True, ('foo', 'bar')),))
+                    ratm = await proxy.getAuthInfo('testrole')
+                    self.eq(ratm[0], 'testrole')
+                    self.eq(ratm[1].get('iden'), testrole.iden)
+
+                    # User cannot get authinfo for other items since they are
+                    # not an admin or do not have those roles.
+                    await self.asyncraises(s_exc.AuthDeny, proxy.getAuthInfo('root'))
+                    await self.asyncraises(s_exc.AuthDeny, proxy.getAuthInfo('privrole'))
+
+                    # Basic auth checks
                     self.true(await proxy.icando('foo', 'bar'))
                     await self.asyncraises(s_exc.AuthDeny, proxy.icando('foo', 'newp'))
 
@@ -118,7 +137,7 @@ class CellTest(s_t_utils.SynTest):
                 visi_url = f'tcp://visi:foobar@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(visi_url) as proxy:  # type: EchoAuthApi
                     info = await proxy.getCellUser()
-                    print(info)
+                    self.eq(info.get('name'), 'visi')
 
                 async with await s_telepath.openurl(root_url) as proxy:  # type: EchoAuthApi
 
