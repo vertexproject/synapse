@@ -15,6 +15,7 @@ if isinstance(pakr, m_fallback.Packer):  # pragma: no cover
 unpacker_kwargs = {
     'raw': False,
     'use_list': False,
+    'strict_map_key': False,
     'max_buffer_size': 2**32 - 1,
     'unicode_errors': 'surrogatepass'
 }
@@ -58,7 +59,7 @@ def un(byts):
         obj: The de-serialized object
     '''
     # This uses a subset of unpacker_kwargs
-    return msgpack.loads(byts, use_list=False, raw=False, unicode_errors='surrogatepass')
+    return msgpack.loads(byts, use_list=False, raw=False, strict_map_key=False, unicode_errors='surrogatepass')
 
 def isok(item):
     '''

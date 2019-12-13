@@ -28,6 +28,7 @@ commands:
           command: |
             python3 -m venv --copies venv
             . venv/bin/activate
+            python3 -m pip install msgpack==1.0.0rc1
             python3 -m pip install -U wheel pip pytest pytest-cov pycodestyle
 
       - run:
