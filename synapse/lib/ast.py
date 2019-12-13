@@ -2310,11 +2310,11 @@ class DollarExpr(RunValue, Cond):
     '''
     async def compute(self, path):
         assert len(self.kids) == 1
-        return s_stormtypes.intify(await self.kids[0].compute(path))
+        return s_stormtypes.intOrNoneify(await self.kids[0].compute(path))
 
     async def runtval(self, runt):
         assert len(self.kids) == 1
-        return s_stormtypes.intify(await self.kids[0].runtval(runt))
+        return s_stormtypes.intOrNoneify(await self.kids[0].runtval(runt))
 
     async def getCondEval(self, runt):
 
