@@ -556,17 +556,23 @@ class CoreApi(s_cell.CellApi):
             #
             #     raise s_exc.DmonSpawn()
 
-            try:
-                synt = await self.cell.boss.promote('storm:spawn', user=self.user, info={'query': text})
-                logger.info(f'PROMOTED TO {synt.iden}')
-                async with self.cell.spawnpool.get() as proc:
+            synt = await self.cell.boss.promote('storm:spawn',
+                                                user=self.user,
+                                                info={'query': text})
+            logger.info(f'PROMOTED TO {synt.iden}')
+            async with self.cell.spawnpool.get() as proc:
+                try:
                     if await proc.xact(info):
                         await link.fini()
-            except asyncio.CancelledError as e:
-                raise s_exc.DmonSpawn(mesg='Cancelled spawn') from e
-            except Exception as e:
-                logger.exception('KILLED?!?!')
-                raise s_exc.DmonSpawn(mesg=str(e)) from e
+                except Exception as e:
+                    logger.exception('Error during spawned Storm execution.')
+                    if not self.cell.isfini:
+                        logger.info(f'EXPLICLT TEARDOWN FOR {link}')
+                        await link.fini()
+                        logger.info(f'EXPLICLT TEARDOWN FOR {proc}')
+                        await proc.fini()
+                    raise s_exc.DmonSpawn(mesg=str(e)) from e
+
             raise s_exc.DmonSpawn(mesg='Spawn complete')
 
         async for mesg in view.streamstorm(text, opts, user=self.user):

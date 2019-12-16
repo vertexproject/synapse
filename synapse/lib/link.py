@@ -179,7 +179,6 @@ class Link(s_base.Base):
         if self.isfini:
             raise s_exc.IsFini()
 
-        logger.info(f'{self}:tx: mesg={mesg}')
         byts = s_msgpack.en(mesg)
         try:
 

@@ -136,9 +136,7 @@ async def t2call(link, meth, args, kwargs):
 
             first = True
             if isinstance(valu, types.AsyncGeneratorType):
-                logger.info(f'{valu} is an asyncgen!')
                 async for item in valu:
-                    logger.info(f'ITEM: {item}')
                     if first:
                         await link.tx(('t2:genr', {}))
                         first = False
@@ -167,7 +165,12 @@ async def t2call(link, meth, args, kwargs):
                 await link.tx(('t2:yield', {'retn': None}))
                 return
 
-        except s_exc.DmonSpawn:
+        except s_exc.DmonSpawn as e:
+            cause = e.__cause__
+            if cause:
+                # Um....do some error handling here? Or something?
+                logger.warning('OH MY')
+                logger.warning(cause)
             return
 
         except Exception as e:
