@@ -554,21 +554,21 @@ class StormTest(s_t_utils.SynTest):
             q = 'tee { inet:ipv4=1.2.3.4 } { inet:ipv4 -> * }'
             nodes = await core.nodes(q)
             self.len(2, nodes)
-            exp = (
+            exp = {
                 ('inet:asn', 0),
                 ('inet:ipv4', 0x01020304),
-            )
-            self.sorteq(exp, [x.ndef for x in nodes])
+            }
+            self.eq(exp, {x.ndef for x in nodes})
 
             q = '$foo=woot.com tee { inet:ipv4=1.2.3.4 } { inet:fqdn=$foo <- * }'
             nodes = await core.nodes(q)
             self.len(3, nodes)
-            exp = (
+            exp = {
                 ('inet:ipv4', 0x01020304),
                 ('inet:fqdn', 'woot.com'),
                 ('inet:dns:a', ('woot.com', 0x01020304)),
-            )
-            self.sorteq(exp, [x.ndef for x in nodes])
+            }
+            self.eq(exp, {n.ndef for n in nodes})
 
             q = (
                 f'$foo=5 tee '
@@ -584,11 +584,11 @@ class StormTest(s_t_utils.SynTest):
             q = 'inet:fqdn=nothere.com tee { inet:ipv4=1.2.3.4 } { inet:ipv4 -> * }'
             nodes = await core.nodes(q)
             self.len(2, nodes)
-            exp = (
+            exp = {
                 ('inet:asn', 0),
                 ('inet:ipv4', 0x01020304),
-            )
-            self.sorteq(exp, [x.ndef for x in nodes])
+            }
+            self.eq(exp, {x.ndef for x in nodes})
 
             q = 'tee'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
