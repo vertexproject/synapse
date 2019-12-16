@@ -21,7 +21,8 @@ Bugfixes
   (`#1463 <https://github.com/vertexproject/synapse/pull/1463>`_)
 - Added an empty layer migration to prevent Cortex downgrading prior to v0.1.41. This is to prevent a user from running
   a Cortex on older code, as reverting a Cortex created/used with a Synapse version greater than or equal to v0.1.33 and
-  v0.1.34 can result in apparent data loss. Data is not actually lost but would require non-trivial effort to recover.
+  v0.1.34, to a version prior than those, can result in apparent data loss. Data is not actually lost but would require
+  non-trivial effort to recover.
   (`#1458 <https://github.com/vertexproject/synapse/pull/1458>`_)
 
 Improved Documentation
