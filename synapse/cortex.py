@@ -567,9 +567,7 @@ class CoreApi(s_cell.CellApi):
                 except Exception as e:
                     logger.exception('Error during spawned Storm execution.')
                     if not self.cell.isfini:
-                        logger.info(f'EXPLICLT TEARDOWN FOR {link}')
                         await link.fini()
-                        logger.info(f'EXPLICLT TEARDOWN FOR {proc}')
                         await proc.fini()
                     raise s_exc.DmonSpawn(mesg=str(e)) from e
 
