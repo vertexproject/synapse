@@ -816,6 +816,7 @@ class Cortex(s_cell.Cell):
         await self._migrateViewsLayers()
         await self._initCoreLayers()
         await self._initCoreViews()
+        self.onfini(self._finiStor)
         await self._migrateLayerOffset()
         await self._checkLayerModels()
         await self._initCoreQueues()
@@ -826,12 +827,10 @@ class Cortex(s_cell.Cell):
 
         self.addHealthFunc(self._cortexHealth)
 
-        async def fini():
-            await asyncio.gather(*[view.fini() for view in self.views.values()])
-            await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
+        async def finidmon():
             await asyncio.gather(*[dmon.fini() for dmon in self.stormdmons.values()])
 
-        self.onfini(fini)
+        self.onfini(finidmon)
 
         self.trigstor = s_trigger.TriggerStorage(self)
         self.agenda = await s_agenda.Agenda.anit(self)
@@ -859,6 +858,10 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    async def _finiStor(self):
+        await asyncio.gather(*[view.fini() for view in self.views.values()])
+        await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
 
     async def _initRuntFuncs(self):
 

@@ -3,6 +3,35 @@ Synapse Changelog
 *****************
 
 
+v0.1.41 - 2019-12-16
+====================
+
+Features and Enhancements
+-------------------------
+- Allow Storm expression syntax to handle None values gracefully for comparison purposes.
+  (`#1459 <https://github.com/vertexproject/synapse/pull/1459>`_)
+
+Bugfixes
+--------
+- Fix a bug where removal of a tagprop didn't update the Node object in memory.
+  (`#1454 <https://github.com/vertexproject/synapse/pull/1454>`_)
+- Speed up unit test execution by adding an additional Storm parsing cache.
+  (`#1455 <https://github.com/vertexproject/synapse/pull/1455>`_)
+- Bump CircleCI cache keys due to a bad multidict release poisoning build caches.
+  (`#1463 <https://github.com/vertexproject/synapse/pull/1463>`_)
+- Added an empty layer migration to prevent Cortex downgrading prior to v0.1.41. This is to prevent a user from running
+  a Cortex on older code, as reverting a Cortex created/used with a Synapse version greater than or equal to v0.1.33 and
+  v0.1.34, to a version prior than those, can result in apparent data loss. Data is not actually lost but would require
+  non-trivial effort to recover.
+  (`#1458 <https://github.com/vertexproject/synapse/pull/1458>`_)
+
+Improved Documentation
+----------------------
+- Fix a broken link. Thank you aaronst for the bug report.
+  (`#1448 <https://github.com/vertexproject/synapse/pull/1448>`_)
+  (`#1463 <https://github.com/vertexproject/synapse/pull/1463>`_)
+
+
 v0.1.40 - 2019-12-10
 ====================
 
@@ -10,7 +39,7 @@ Features and Enhancements
 -------------------------
 - Add a refs flag to the graph rules which allow getting all refs including edges and make this the default behavior
   when ``graph`` option is set to ``True`` when calling ``storm()/eval()`` apis.
-  (`#1453q <https://github.com/vertexproject/synapse/pull/1453>`_)
+  (`#1453 <https://github.com/vertexproject/synapse/pull/1453>`_)
 
 Bugfixes
 --------
