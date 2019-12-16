@@ -550,6 +550,40 @@ class StormTest(s_t_utils.SynTest):
             q = 'inet:ipv4=1.2.3.4 | tee'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
+            # Runtsafe tee
+            q = 'tee { inet:ipv4=1.2.3.4 } { inet:ipv4 -> * }'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            exp = (
+                ('inet:asn', 0),
+                ('inet:ipv4', 0x01020304),
+            )
+            self.sorteq(exp, [x.ndef for x in nodes])
+
+            q = '$foo=woot.com tee { inet:ipv4=1.2.3.4 } { inet:fqdn=$foo <- * }'
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+            exp = (
+                ('inet:ipv4', 0x01020304),
+                ('inet:fqdn', 'woot.com'),
+                ('inet:dns:a', ('woot.com', 0x01020304)),
+            )
+            self.sorteq(exp, [x.ndef for x in nodes])
+
+            q = (
+                f'$foo=5 tee '
+                f'{{ spin | [ inet:asn=3 ] }} '
+                f'{{ spin | [ inet:asn=4 ] $lib.print("made asn node: {{node}}", node=$node) }} '
+                f'{{ spin | [ inet:asn=$foo ] }}'
+            )
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint("made asn node: Node{(('inet:asn', 4)", mesgs)
+            nodes = await core.nodes('inet:asn>=3')
+            self.len(3, nodes)
+
+            q = 'tee'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
     async def test_storm_yieldvalu(self):
 
         async with self.getTestCore() as core:
