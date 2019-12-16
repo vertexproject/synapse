@@ -581,6 +581,15 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:asn>=3')
             self.len(3, nodes)
 
+            q = 'inet:fqdn=nothere.com tee { inet:ipv4=1.2.3.4 } { inet:ipv4 -> * }'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            exp = (
+                ('inet:asn', 0),
+                ('inet:ipv4', 0x01020304),
+            )
+            self.sorteq(exp, [x.ndef for x in nodes])
+
             q = 'tee'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 

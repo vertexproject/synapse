@@ -1343,15 +1343,33 @@ class TeeCmd(Cmd):
             raise s_exc.StormRuntimeError(mesg='Tee command must take at least one query as input.',
                                           name=self.name)
 
-        async for node, path in genr:  # type: s_node.Node, s_node.Path
+        async def wrapgenr():
+            hasnodes = False
+            async for wnode, wpath in genr:
+                hasnodes = True
+                yield wnode, wpath
 
-            for query in self.opts.query:
-                query = query[1:-1]
-                # This does update path with any vars set in the last npath (node.storm behavior)
-                async for nnode, npath in node.storm(query, user=runt.user, path=path):
-                    yield nnode, npath
+            if not hasnodes:
+                yield None, None
 
-            if self.opts.join:
+        async for node, path in wrapgenr():  # type: s_node.Node, s_node.Path
+
+            for text in self.opts.query:
+                text = text[1:-1]
+
+                if node is None:
+                    query = await runt.getStormQuery(text)
+                    opts = {'vars': runt.vars, }
+                    with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
+                        async for nnode, npath in subr.iterStormQuery(query):
+                            yield nnode, npath
+
+                else:
+                    # This does update path with any vars set in the last npath (node.storm behavior)
+                    async for nnode, npath in node.storm(text, user=runt.user, path=path):
+                        yield nnode, npath
+
+            if self.opts.join and node is not None:
                 yield node, path
 
 class ScrapeCmd(Cmd):
