@@ -39,11 +39,11 @@ class ModelRev:
 
             if not layr.canrev and vers != version:
                 mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) can not be updated.'
-                raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg)
+                raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
 
             if vers > version:
                 mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) is from the future!'
-                raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg)
+                raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
 
             # realistically all layers are probably at the same version... but...
             layers.append(layr)
