@@ -32,6 +32,11 @@ def intify(x):
 
     return int(x)
 
+def intOrNoneify(x):
+    if x is None:
+        return None
+    return intify(x)
+
 def kwarg_format(text, **kwargs):
     '''
     Replaces instances curly-braced argument names in text with their values
