@@ -34,7 +34,7 @@ commands:
           name: install synapse
           command: |
             . venv/bin/activate
-            python3 -m pip install -U -e .
+            python3 -m pip install --upgrade-strategy=eager -e .
 
   do_test_execution:
     description: "Execute unit tests via pytest"
