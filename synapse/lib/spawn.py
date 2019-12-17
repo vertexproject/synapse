@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+import threading
 import contextlib
 import collections
 import multiprocessing
@@ -72,7 +73,11 @@ def corework(spawninfo, todo, done):
 
                 await link.fini()
 
-                await s_coro.executor(done.put, wasfini)
+                # Nic tmp
+                def finitask():
+                    done.put(wasfini)
+
+                await s_coro.executor(finitask)
 
     asyncio.run(workloop())
 
@@ -96,11 +101,18 @@ class SpawnProc(s_base.Base):
         self.obsolete = False
 
         spawninfo = await core.getSpawnInfo()
+        self.finievent = threading.Event()
 
-        def reapwaiter():
+        def finiwaiter():
             '''
             Simply wait for the process to complete (run from a separate thread)
             '''
+            self.finievent.wait()
+            self.todo.close()
+            self.done.close()
+            self.todo.join_thread()
+            self.done.join_thread()
+            self.proc.terminate()
             self.procstat = self.proc.join()
 
         # avoid blocking the ioloop during process construction
@@ -109,13 +121,10 @@ class SpawnProc(s_base.Base):
             self.proc.start()
 
         await s_coro.executor(getproc)
-        s_coro.executor(reapwaiter)
+        s_coro.executor(finiwaiter)
 
         async def fini():
-            self.todo.close()
-            self.done.put_nowait(None)
-            self.done.close()
-            self.proc.terminate()
+            self.finievent.set()
 
         self.onfini(fini)
 

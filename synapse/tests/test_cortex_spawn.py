@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import synapse.tests.utils as s_test
 
@@ -70,6 +71,18 @@ class CoreSpawnTest(s_test.SynTest):
                 # Test a pure storm commands
                 msgs = await prox.storm('inet:fqdn=vertex.link | passthrough', opts=opts).list()
                 self.stormIsInPrint("('inet:fqdn', 'vertex.link')", msgs)
+
+                async def taskfunc(i):
+                    print(f'start {i}')
+                    await prox.storm('test:int=1 | sleep 1', opts=opts).list()
+                    print(f'done {i}')
+
+                n = 20
+                tasks = [taskfunc(i) for i in range(n)]
+                try:
+                    await asyncio.wait_for(asyncio.gather(*tasks), timeout=16000)
+                except asyncio.TimeoutError:
+                    print('timed out')
 
                 # test adding model extensions
                 #await core.addFormProp('inet:ipv4', '_woot', ('int', {}), {})
