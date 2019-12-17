@@ -163,17 +163,6 @@ class SynModule(s_module.CoreModule):
     async def _initCmdRunts(self):
         now = s_common.now()
         typeform = self.model.form('syn:cmd')
-        pkgmap = {}
-
-        for pkg in await self.core.getStormPkgs():
-            svciden = pkg.get('svciden')
-            pkgname = pkg.get('name')
-
-            for cmd in pkg.get('commands', []):
-                pkgmap[cmd.get('name')] = {'pkgname': pkgname,
-                                           'svciden': svciden,
-                                           'forms': cmd.get('forms', {}),
-                                           }
 
         for name, ctor in self.core.getStormCmds():
             tnorm, _ = typeform.type.norm(name)
@@ -182,25 +171,21 @@ class SynModule(s_module.CoreModule):
                      'doc': ctor.getCmdBrief(),
                      }
 
-            pkg = pkgmap.get(name)
-            if pkg:
-                forms = pkg.get('forms', {})
+            forms = ctor.forms
 
-                inputs = forms.get('input')
-                if inputs:
-                    props['input'] = inputs
+            inputs = forms.get('input')
+            if inputs:
+                props['input'] = inputs
 
-                outputs = forms.get('output')
-                if outputs:
-                    props['output'] = outputs
+            outputs = forms.get('output')
+            if outputs:
+                props['output'] = outputs
 
-                svciden = pkg.get('svciden')
-                if svciden:
-                    props['svciden'] = svciden
+            if ctor.svciden:
+                props['svciden'] = ctor.svciden
 
-                pkgname = pkg.get('pkgname')
-                if pkgname:
-                    props['package'] = pkgname
+            if ctor.pkgname:
+                props['package'] = ctor.pkgname
 
             self._addRuntRows('syn:cmd', tnorm, props,
                               self._cmdRuntsByBuid, self._cmdRuntsByPropValu)
@@ -501,11 +486,11 @@ class SynModule(s_module.CoreModule):
                         'doc': 'Description of the command.'}),
                     ('package', ('str', {'strip': True}), {
                         'doc': 'Storm package which provided the command.'}),
-                    ('svciden', ('str', {'strip': True}), {
+                    ('svciden', ('guid', {'strip': True}), {
                         'doc': 'Storm service iden which provided the package.'}),
-                    ('input', ('array', {'type': 'str'}), {
+                    ('input', ('array', {'type': 'syn:form'}), {
                         'doc': 'The list of forms accepted by the command as input.', 'ro': True}),
-                    ('output', ('array', {'type': 'str'}), {
+                    ('output', ('array', {'type': 'syn:form'}), {
                         'doc': 'The list of forms produced by the command as output.', 'ro': True}),
                 )),
             ),

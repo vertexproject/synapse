@@ -534,6 +534,9 @@ class Cmd:
         cmd --help
     '''
     name = 'cmd'
+    pkgname = ''
+    svciden = ''
+    forms = {}
 
     def __init__(self, argv):
         self.opts = None
