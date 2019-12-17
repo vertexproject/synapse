@@ -166,11 +166,10 @@ async def t2call(link, meth, args, kwargs):
                 return
 
         except s_exc.DmonSpawn as e:
-            cause = e.__cause__
-            if cause:
-                # Um....do some error handling here? Or something?
-                logger.warning('OH MY')
-                logger.warning(cause)
+            context = e.__context__
+            if context:
+                logger.error(f'Error during DmonSpawn call: {repr(context)}')
+                await link.fini()
             return
 
         except Exception as e:
@@ -196,6 +195,10 @@ async def t2call(link, meth, args, kwargs):
         await link.tx(('t2:fini', {'retn': (True, valu)}))
 
     except s_exc.DmonSpawn as e:
+        context = e.__context__
+        if context:
+            logger.error(f'Error during DmonSpawn call: {repr(context)}')
+            await link.fini()
         return
 
     except Exception as e:
