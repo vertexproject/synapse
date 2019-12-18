@@ -2,6 +2,8 @@ import bz2
 import gzip
 import json
 import base64
+import asyncio
+import logging
 import binascii
 import datetime
 import collections
@@ -15,6 +17,8 @@ import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.provenance as s_provenance
+
+logger = logging.getLogger(__name__)
 
 def intify(x):
 
@@ -1049,18 +1053,38 @@ class Query(StormType):
     '''
     A storm primitive representing an embedded query.
     '''
-    def __init__(self, text, opts, path=None):
+    def __init__(self, text, opts, runt, path=None):
 
         StormType.__init__(self, path=path)
 
         self.text = text
         self.opts = opts
+        self.runt = runt
 
         self.locls.update({
+            'exec': self._methQueryExec,
         })
 
     def __str__(self):
         return self.text
+
+    async def _methQueryExec(self):
+        query = await self.runt.getStormQuery(self.text)
+        subrunt = await self.runt.getScopeRuntime(query)
+
+        logger.info(f'Executing storm query via exec() {{{self.text}}} as [{self.runt.user.name}]')
+        cancelled = False
+        try:
+            async for item in query.run(subrunt, genr=s_ast.agen()):
+                pass  # pragma: no cover
+        except s_ast.StormReturn as e:
+            return e.item
+        except asyncio.CancelledError:  # pragma: no cover
+            cancelled = True
+            raise
+        finally:
+            if not cancelled:
+                await self.runt.propBackGlobals(subrunt)
 
 class NodeData(Prim):
 

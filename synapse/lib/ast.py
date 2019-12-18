@@ -2105,11 +2105,11 @@ class EmbedQuery(RunValue):
 
     async def runtval(self, runt):
         opts = {'vars': dict(runt.vars)}
-        return s_stormtypes.Query(self.text, opts)
+        return s_stormtypes.Query(self.text, opts, runt)
 
     async def compute(self, path):
         opts = {'vars': dict(path.vars)}
-        return s_stormtypes.Query(self.text, opts)
+        return s_stormtypes.Query(self.text, opts, path.runt, path=path)
 
 class Value(RunValue):
 
@@ -2965,6 +2965,8 @@ class Function(AstNode):
 
             except StormReturn as e:
                 return e.item
+            except asyncio.CancelledError: # pragma: no cover
+                raise
             finally:
                 await runt.propBackGlobals(funcrunt)
 
