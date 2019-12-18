@@ -726,6 +726,12 @@ class Str(Prim):
         })
 
     async def _methEncode(self, encoding='utf8'):
+        '''
+        Encoding a text values to bytes.
+
+        Args:
+            encoding (str): Encoding to use. Defaults to utf8.
+        '''
         return self.valu.encode(encoding)
 
     async def _methStrSplit(self, text):
@@ -765,6 +771,12 @@ class Bytes(Prim):
         })
 
     async def _methDecode(self, encoding='utf8'):
+        '''
+        Decode a bytes to a string.
+
+        Args:
+            encoding (str): The encoding to use when decoding the bytes.
+        '''
         return self.valu.decode(encoding)
 
     async def _methBunzip(self):
