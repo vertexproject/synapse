@@ -196,6 +196,16 @@ class SynModelTest(s_t_utils.SynTest):
             # form is a prop, two universal properties (+2 test univ) and two model secondary properties.
             self.true(len(nodes) >= 7)
 
+            # explicit pivot works...
+            nodes = await core.nodes('syn:prop:form=test:comp :form -> syn:form | uniq')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('syn:form', 'test:comp'))
+
+            # implicit pivot fails...
+            nodes = await core.nodes('syn:prop:form=test:comp -> syn:form | uniq')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('syn:form', 'test:comp'))
+
             # Go from a syn:type to a syn:form to a syn:prop with a filter
             q = 'syn:type:subof=comp +syn:type:doc~=".*fake.*" -> syn:form:type -> syn:prop:form'
             nodes = await core.eval(q).list()
