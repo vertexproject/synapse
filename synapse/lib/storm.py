@@ -532,6 +532,19 @@ class Cmd:
     Example:
 
         cmd --help
+
+    Note:
+        'forms' may be overridden to provide information on the synapse forms
+        which are possible input/output. Example:
+
+        {
+            'input': [
+                'inet:ipv4',
+            ],
+            'output': [
+                'geo:place',
+            ],
+        }
     '''
     name = 'cmd'
     pkgname = ''
