@@ -3,6 +3,7 @@ import gzip
 import json
 import base64
 import asyncio
+import logging
 import binascii
 import datetime
 import collections
@@ -16,6 +17,8 @@ import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.provenance as s_provenance
+
+logger = logging.getLogger(__name__)
 
 def intify(x):
 
@@ -1068,6 +1071,8 @@ class Query(StormType):
     async def _methQueryExec(self):
         query = await self.runt.getStormQuery(self.text)
         subrunt = await self.runt.getScopeRuntime(query)
+
+        logger.info(f'Executing storm query via exec() {{{self.text}}} as [{self.runt.user.name}]')
 
         try:
             async for item in query.run(subrunt, genr=s_ast.agen()):
