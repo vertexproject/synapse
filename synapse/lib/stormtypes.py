@@ -1073,16 +1073,18 @@ class Query(StormType):
         subrunt = await self.runt.getScopeRuntime(query)
 
         logger.info(f'Executing storm query via exec() {{{self.text}}} as [{self.runt.user.name}]')
-
+        cancelled = False
         try:
             async for item in query.run(subrunt, genr=s_ast.agen()):
                 pass  # pragma: no cover
         except s_ast.StormReturn as e:
             return e.item
         except asyncio.CancelledError:  # pragma: no cover
+            cancelled = True
             raise
         finally:
-            await self.runt.propBackGlobals(subrunt)
+            if not cancelled:
+                await self.runt.propBackGlobals(subrunt)
 
 class NodeData(Prim):
 
