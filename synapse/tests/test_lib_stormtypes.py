@@ -1185,6 +1185,19 @@ class StormTypesTest(s_test.SynTest):
                      },
                     {n.ndef[1] for n in nodes})
 
+            # Encoding/decoding errors are caught
+            q = '$valu="valu" $valu.encode("utf16").decode()'
+            msgs = await core.streamstorm(q).list()
+            errs = [m for m in msgs if m[0] == 'err']
+            self.len(1, errs)
+            self.eq(errs[0][1][0], 'StormRuntimeError')
+
+            q = '$valu="str.ॐ.valu" $buf=$valu.encode(ascii)'
+            msgs = await core.streamstorm(q).list()
+            errs = [m for m in msgs if m[0] == 'err']
+            self.len(1, errs)
+            self.eq(errs[0][1][0], 'StormRuntimeError')
+
     async def test_storm_lib_base64(self):
 
         async with self.getTestCore() as core:
