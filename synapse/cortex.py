@@ -548,8 +548,7 @@ class CoreApi(s_cell.CellApi):
                     if await proc.xact(info):
                         await link.fini()
             except Exception as e:
-                pid = proc.proc.pid % 219 if proc.proc else None
-                logger.exception('Error during spawned Storm execution. pid=%s', pid)
+                logger.exception('Error during spawned Storm execution.')
                 if not self.cell.isfini:
                     if proc:
                         await proc.fini()

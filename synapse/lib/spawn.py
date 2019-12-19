@@ -168,7 +168,7 @@ class SpawnProc(s_base.Base):
         info.append(f'isfini={self.isfini}')
         info.append(f'iden={self.iden}')
         info.append(f'obsolete={self.obsolete}')
-        if self.proc:
+        if self.proc and not self.proc._closed:
             info.append(f'proc={self.proc.pid}')
         else:
             info.append('proc=None')

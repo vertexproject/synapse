@@ -98,21 +98,18 @@ class CoreSpawnTest(s_test.SynTest):
 
                 donecount = 0
 
-                import os
-                print(f'{{ {os.getpid() % 219}:writing node', flush=True)
                 await prox.storm('[test:int=1]').list()
                 await asyncio.sleep(2)
-                print(f'}} {os.getpid() % 219}:done writing node', flush=True)
 
                 async def taskfunc(i):
                     nonlocal donecount
-                    msgs = await prox.storm('test:int=1 | sleep 45', opts=opts).list()
+                    msgs = await prox.storm('test:int=1 | sleep 3', opts=opts).list()
                     # if len(nodes) == 3:
                     #     donecount += 1
-                    print(msgs)
-                    print('taskfunc done')
+                    # print(msgs)
+                    # print('taskfunc done')
 
-                n = 1
+                n = 50
                 tasks = [taskfunc(i) for i in range(n)]
                 try:
                     await asyncio.wait_for(asyncio.gather(*tasks), timeout=16000)
