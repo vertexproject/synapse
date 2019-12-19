@@ -77,10 +77,16 @@ def corework(spawninfo, todo, done):
                 await link.fini()
 
                 # Nic tmp
-                def finitask():
-                    done.put(wasfini)
+                def donetask():
+                    try:
+                        print(f'{{ {os.getpid() % 219}:done put {wasfini}', flush=True)
+                        done.put(wasfini)
+                        print(f'}} {os.getpid() % 219}:done put done', flush=True)
+                    except Exception:
+                        logger.exception('donetask')
 
-                await s_coro.executor(finitask)
+                await s_coro.executor(donetask)
+                print(f'{os.getpid()%219} donetask done')
                 # await s_coro.executor(done.put, wasfini)
 
     asyncio.run(workloop())
@@ -94,6 +100,7 @@ class SpawnProc(s_base.Base):
 
         self.core = core
         self.iden = s_common.guid()
+        self.proc = None
 
         self.ready = asyncio.Event()
         self.mpctx = multiprocessing.get_context('spawn')
@@ -115,13 +122,14 @@ class SpawnProc(s_base.Base):
             Simply wait for the process to complete (run from a separate thread)
             '''
             self.finievent.wait()
+            print('finiwaiter awakened!!!!')
             self.todo.close()
             self.done.close()
-            self.todo.join_thread()
-            self.done.join_thread()
+            # self.todo.join_thread()
+            # self.done.join_thread()
             self.proc.terminate()
             self.procstat = self.proc.join()
-            self.threadpool.shutdown()
+            print('End finiwaiter!!!!')
 
         # avoid blocking the ioloop during process construction
         def getproc():
@@ -132,12 +140,11 @@ class SpawnProc(s_base.Base):
         self.executor(finiwaiter)
 
         async def fini():
-            self.finievent.set()
+            print(f'spawnproc fini {self.proc.pid%219 if self.proc else None}{{', flush=True)
             self.obsolete = True
-            self.todo.close()
-            self.done.put_nowait(None)
-            self.done.close()
-            self.proc.terminate()
+            self.finievent.set()
+            self.threadpool.shutdown()
+            print(f'spawnproc fini {self.proc.pid%219 if self.proc else None} }}')
 
         self.onfini(fini)
 
@@ -160,9 +167,18 @@ class SpawnProc(s_base.Base):
     async def xact(self, mesg):
 
         def doit():
-            self.todo.put(mesg)
-            return self.done.get()
-        return await self.executor(doit)
+            try:
+                self.todo.put(mesg)
+                print(f'> {self.proc.pid%219}: done.empty={self.done.empty()}', flush=True)
+                rv = self.done.get()
+                print(f'< {self.proc.pid%219}', flush=True)
+                return rv
+            except Exception:
+                logger.exception('spawn thread')
+        print(f'{{ {self.proc.pid%219}: executor doit', flush=True)
+        rv = await self.executor(doit)
+        print(f'}} {self.proc.pid%219}: executor doit done', flush=True)
+        return rv
 
     def executor(self, func, *args, **kwargs):
         def real():
@@ -194,6 +210,7 @@ class SpawnPool(s_base.Base):
         self.spawnq.clear()
 
     async def kill(self):
+        print('SpawnPool kill')
         self.spawnq.clear()
         [await s.fini() for s in list(self.spawns.values())]
 

@@ -438,7 +438,7 @@ class Slab(s_base.Base):
 
         opts.setdefault('max_dbs', 128)
         opts.setdefault('writemap', True)
-        print(mdbpath, opts)
+        # print(mdbpath, opts)
 
         self.maxsize = opts.pop('maxsize', None)
         self.growsize = opts.pop('growsize', None)
@@ -519,7 +519,7 @@ class Slab(s_base.Base):
         if not self.readonly:
             return self.xact
         if not self.txnrefcount:
-            print(f'{{ {os.getpid() % 219}:acq xact', flush=True)
+            # print(f'{{ {os.getpid() % 219}:acq xact', flush=True)
             self._initCoXact()
 
         self.txnrefcount += 1
@@ -530,7 +530,7 @@ class Slab(s_base.Base):
             return
         self.txnrefcount -= 1
         if not self.txnrefcount:
-            print(f'}} {os.getpid() % 219}:rel xact', flush=True)
+            # print(f'}} {os.getpid() % 219}:rel xact', flush=True)
             self._finiCoXact()
 
     def _saveOptsFile(self):
@@ -592,7 +592,7 @@ class Slab(s_base.Base):
         if self.xact is None:
             return
 
-        print(f'{os.getpid() % 219}: COMMIT {self.path}', flush=True)
+        # print(f'{os.getpid() % 219}: COMMIT {self.path}', flush=True)
         self.xact.commit()
 
         self.xactops.clear()

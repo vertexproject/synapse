@@ -4,7 +4,6 @@ import logging
 import copy
 import contextlib
 import collections
-import multiprocessing
 
 from collections.abc import Mapping
 
@@ -539,9 +538,9 @@ class CoreApi(s_cell.CellApi):
                 }
             }
 
-            synt = await self.cell.boss.promote('storm:spawn',
-                                                user=self.user,
-                                                info={'query': text})
+            await self.cell.boss.promote('storm:spawn',
+                                         user=self.user,
+                                         info={'query': text})
             proc = None
             mesg = 'Spawn complete'
             try:
@@ -549,12 +548,11 @@ class CoreApi(s_cell.CellApi):
                     if await proc.xact(info):
                         await link.fini()
             except Exception as e:
-                logger.exception('Error during spawned Storm execution.')
+                pid = proc.proc.pid % 219 if proc.proc else None
+                logger.exception('Error during spawned Storm execution. pid=%s', pid)
                 if not self.cell.isfini:
-                    # Have the IO loop teardown the
-                    # process at its convenience.
                     if proc:
-                        self.schedCoro(proc.fini())
+                        await proc.fini()
                 mesg = repr(e)
                 raise
             finally:
@@ -1786,7 +1784,7 @@ class Cortex(s_cell.Cell):
     async def _trySetStormCmd(self, name, cdef):
         try:
             await self._setStormCmd(cdef)
-        except Exception as e:
+        except Exception:
             logger.exception(f'Storm command load failed: {name}')
 
     def _initStormLibs(self):
