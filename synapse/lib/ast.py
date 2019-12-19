@@ -1396,8 +1396,7 @@ class FormPivot(PivotOper):
 
                 refsvalu = node.get(refsname)
                 if refsvalu is not None:
-                    pivo = await runt.snap.getNodeByNdef((refsform, refsvalu))
-                    if pivo is not None:
+                    async for pivo in runt.snap.getNodesBy(refsform, refsvalu):
                         yield pivo, path.fork(pivo)
 
             for refsname, refsform in refs.get('array'):
