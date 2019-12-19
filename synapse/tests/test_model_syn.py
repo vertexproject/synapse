@@ -420,6 +420,14 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[1].get('package'), 'foo')
                 self.eq(nodes[1].get('svciden'), iden)
 
+                # Pivot from cmds to their forms
+                nodes = await core.nodes('syn:cmd=foobar -> *')
+                self.len(3, nodes)
+                nodes = await core.nodes('syn:cmd=foobar :input -> *')
+                self.len(2, nodes)
+                nodes = await core.nodes('syn:cmd=foobar :output -> *')
+                self.len(1, nodes)
+
                 nodes = await core.nodes('syn:cmd +:input*[=inet:ipv4]')
                 self.len(1, nodes)
 
