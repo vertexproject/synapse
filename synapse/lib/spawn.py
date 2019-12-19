@@ -91,8 +91,8 @@ class SpawnProc(s_base.Base):
 
         self.todo = self.mpctx.Queue()
         self.done = self.mpctx.Queue()
+        self.proc = None  # type: multiprocessing.Process
         self.procstat = None
-
         self.obsolete = False
 
         spawninfo = await core.getSpawnInfo()
@@ -112,6 +112,7 @@ class SpawnProc(s_base.Base):
         s_coro.executor(reapwaiter)
 
         async def fini():
+            self.obsolete = True
             self.todo.close()
             self.done.put_nowait(None)
             self.done.close()
@@ -119,8 +120,20 @@ class SpawnProc(s_base.Base):
 
         self.onfini(fini)
 
+    def __repr__(self):  # pragma: no cover
+        info = [self.__class__.__module__ + '.' + self.__class__.__name__]
+        info.append(f'at {hex(id(self))}')
+        info.append(f'isfini={self.isfini}')
+        info.append(f'iden={self.iden}')
+        info.append(f'obsolete={self.obsolete}')
+        if self.proc:
+            info.append(f'proc={self.proc.pid}')
+        else:
+            info.append('proc=None')
+        return '<{}>'.format(' '.join(info))
+
     async def retire(self):
-        logger.debug(f'Proc {self.proc.pid} marked obsolete')
+        logger.debug(f'Proc {self} marked obsolete')
         self.obsolete = True
 
     async def xact(self, mesg):
@@ -158,6 +171,12 @@ class SpawnPool(s_base.Base):
 
     @contextlib.asynccontextmanager
     async def get(self):
+        '''
+        Get a SpawnProc instance; either from the pool or a new process.
+
+        Returns:
+            SpawnProc: Yields a SpawnProc.  This is placed back into the pool if no exceptions occur.
+        '''
 
         if self.isfini: # pragma: no cover
             raise s_exc.IsFini()
@@ -186,7 +205,7 @@ class SpawnPool(s_base.Base):
 
         proc = await SpawnProc.anit(self.core)
 
-        logger.debug(f'New spawnProc with pid {proc.proc.pid}')
+        logger.debug(f'Made new SpawnProc {proc}')
 
         self.spawns[proc.iden] = proc
 

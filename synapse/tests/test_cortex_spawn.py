@@ -22,8 +22,6 @@ class CoreSpawnTest(s_test.SynTest):
                 ),
             }
 
-            await core.addStormPkg(pkgdef)
-
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
 
             async with core.getLocalProxy() as prox:
@@ -67,9 +65,31 @@ class CoreSpawnTest(s_test.SynTest):
                     ('inet:ipv4', 16909060),
                 ))
 
+                # Test a python cmd that came in via a ctor
+                msgs = await prox.storm('inet:ipv4=1.2.3.4 | testechocmd :asn', opts=opts).list()
+                self.stormIsInPrint('Echo: [0]', msgs)
+                podes = [m[1] for m in msgs if m[0] == 'node']
+                self.len(1, podes)
+
+                # Add a stormpkg - this should fini the spawnpool spawnprocs
+                procs = [p for p in core.spawnpool.spawns.values()]
+                self.isin(len(procs), (1, 2, 3))
+
+                await core.addStormPkg(pkgdef)
+
+                for proc in procs:
+                    self.true(await proc.waitfini(6))
+
+                self.len(0, core.spawnpool.spawnq)
+                self.len(0, core.spawnpool.spawns)
+
                 # Test a pure storm commands
                 msgs = await prox.storm('inet:fqdn=vertex.link | passthrough', opts=opts).list()
                 self.stormIsInPrint("('inet:fqdn', 'vertex.link')", msgs)
+
+                # No guarantee that we've gotten the proc back into
+                # the pool so we cannot check the size of spawnq
+                self.len(1, core.spawnpool.spawns)
 
                 # test adding model extensions
                 #await core.addFormProp('inet:ipv4', '_woot', ('int', {}), {})
