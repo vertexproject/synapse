@@ -570,18 +570,21 @@ class StormTest(s_t_utils.SynTest):
             }
             self.eq(exp, {n.ndef for n in nodes})
 
+            # Variables are scoped down into the sub runtime
             q = (
                 f'$foo=5 tee '
-                f'{{ spin | [ inet:asn=3 ] }} '
-                f'{{ spin | [ inet:asn=4 ] $lib.print("made asn node: {{node}}", node=$node) }} '
-                f'{{ spin | [ inet:asn=$foo ] }}'
+                f'{{ [ inet:asn=3 ] }} '
+                f'{{ [ inet:asn=4 ] $lib.print("made asn node: {{node}}", node=$node) }} '
+                f'{{ [ inet:asn=$foo ] }}'
             )
-            mesgs = await core.streamstorm(q).list()
-            self.stormIsInPrint("made asn node: Node{(('inet:asn', 4)", mesgs)
-            nodes = await core.nodes('inet:asn>=3')
-            self.len(3, nodes)
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint("made asn node: Node{(('inet:asn', 4)", msgs)
+            podes = [m[1] for m in msgs if m[0] == 'node']
+            self.eq({('inet:asn', 3), ('inet:asn', 4), ('inet:asn', 5)},
+                    {p[0] for p in podes})
 
-            q = 'inet:fqdn=nothere.com tee { inet:ipv4=1.2.3.4 } { inet:ipv4 -> * }'
+            # lift a non-existent node and feed to tee.
+            q = 'inet:fqdn=newp.com tee { inet:ipv4=1.2.3.4 } { inet:ipv4 -> * }'
             nodes = await core.nodes(q)
             self.len(2, nodes)
             exp = {
