@@ -175,11 +175,11 @@ class SynModule(s_module.CoreModule):
 
             inputs = forms.get('input')
             if inputs:
-                props['input'] = inputs
+                props['input'] = tuple(inputs)
 
             outputs = forms.get('output')
             if outputs:
-                props['output'] = outputs
+                props['output'] = tuple(outputs)
 
             if ctor.svciden:
                 props['svciden'] = ctor.svciden
