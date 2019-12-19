@@ -423,10 +423,15 @@ class SynModelTest(s_t_utils.SynTest):
                 # Pivot from cmds to their forms
                 nodes = await core.nodes('syn:cmd=foobar -> *')
                 self.len(3, nodes)
+                self.eq({('syn:form', 'inet:ipv4'), ('syn:form', 'inet:ipv6'), ('syn:form', 'inet:fqdn')},
+                        {n.ndef for n in nodes})
                 nodes = await core.nodes('syn:cmd=foobar :input -> *')
                 self.len(2, nodes)
+                self.eq({('syn:form', 'inet:ipv4'), ('syn:form', 'inet:ipv6')},
+                        {n.ndef for n in nodes})
                 nodes = await core.nodes('syn:cmd=foobar :output -> *')
                 self.len(1, nodes)
+                self.eq(('syn:form', 'inet:fqdn'), nodes[0].ndef)
 
                 nodes = await core.nodes('syn:cmd +:input*[=inet:ipv4]')
                 self.len(1, nodes)
