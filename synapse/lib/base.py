@@ -353,7 +353,7 @@ class Base:
             return
 
         for task in self._active_tasks.copy():
-            # print(f'Base._kill_active_tasks: canceling task {task})')
+            # print(f'{str(type(self))} Base._kill_active_tasks: canceling task)')
 
             task.cancel()
             try:

@@ -101,17 +101,18 @@ class CoreSpawnTest(s_test.SynTest):
                 import os
                 print(f'{{ {os.getpid() % 219}:writing node', flush=True)
                 await prox.storm('[test:int=1]').list()
-                # await asyncio.sleep(2)
+                await asyncio.sleep(2)
                 print(f'}} {os.getpid() % 219}:done writing node', flush=True)
 
                 async def taskfunc(i):
                     nonlocal donecount
-                    nodes = await prox.storm('test:int=1 | sleep 1', opts=opts).list()
-                    if len(nodes) == 3:
-                        donecount += 1
+                    msgs = await prox.storm('test:int=1 | sleep 45', opts=opts).list()
+                    # if len(nodes) == 3:
+                    #     donecount += 1
+                    print(msgs)
                     print('taskfunc done')
 
-                n = 6
+                n = 1
                 tasks = [taskfunc(i) for i in range(n)]
                 try:
                     await asyncio.wait_for(asyncio.gather(*tasks), timeout=16000)
@@ -121,7 +122,7 @@ class CoreSpawnTest(s_test.SynTest):
                 # tmp
                 # self.eq(donecount, n)
 
-                await asyncio.sleep(1)
+                await asyncio.sleep(3)
                 print('End of test', flush=True)
 
                 # test adding model extensions

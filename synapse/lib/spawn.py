@@ -117,18 +117,32 @@ class SpawnProc(s_base.Base):
         spawninfo = await core.getSpawnInfo()
         self.finievent = threading.Event()
 
+        @s_common.firethread
+        def procwaiter():
+            self.procstat = self.proc.join()
+            self.proc.close()
+            if not self.isfini:
+                self.schedCoroSafe(self.fini())
+
+        @s_common.firethread
         def finiwaiter():
             '''
             Simply wait for the process to complete (run from a separate thread)
             '''
             self.finievent.wait()
             print('finiwaiter awakened!!!!')
+            self.todo.put(None)
             self.todo.close()
+            self.done.put(None)
             self.done.close()
-            # self.todo.join_thread()
-            # self.done.join_thread()
-            self.proc.terminate()
-            self.procstat = self.proc.join()
+            self.todo.join_thread()
+            self.done.join_thread()
+            if self.procstat is None:
+                try:
+                    self.proc.terminate()
+                except ValueError:
+                    pass
+            self.threadpool.shutdown()
             print('End finiwaiter!!!!')
 
         # avoid blocking the ioloop during process construction
@@ -137,14 +151,14 @@ class SpawnProc(s_base.Base):
             self.proc.start()
 
         await self.executor(getproc)
-        self.executor(finiwaiter)
+        finiwaiter()
+        procwaiter()
 
         async def fini():
-            print(f'spawnproc fini {self.proc.pid%219 if self.proc else None}{{', flush=True)
+            print(f'spawnproc fini {{', flush=True)
             self.obsolete = True
             self.finievent.set()
-            self.threadpool.shutdown()
-            print(f'spawnproc fini {self.proc.pid%219 if self.proc else None} }}')
+            print(f'spawnproc fini  }}')
 
         self.onfini(fini)
 
