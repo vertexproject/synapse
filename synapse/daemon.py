@@ -136,9 +136,7 @@ async def t2call(link, meth, args, kwargs):
 
             first = True
             if isinstance(valu, types.AsyncGeneratorType):
-
                 async for item in valu:
-
                     if first:
                         await link.tx(('t2:genr', {}))
                         first = False
@@ -167,7 +165,11 @@ async def t2call(link, meth, args, kwargs):
                 await link.tx(('t2:yield', {'retn': None}))
                 return
 
-        except s_exc.DmonSpawn:
+        except s_exc.DmonSpawn as e:
+            context = e.__context__
+            if context:
+                logger.error(f'Error during DmonSpawn call: {repr(context)}')
+                await link.fini()
             return
 
         except Exception as e:
@@ -193,6 +195,10 @@ async def t2call(link, meth, args, kwargs):
         await link.tx(('t2:fini', {'retn': (True, valu)}))
 
     except s_exc.DmonSpawn as e:
+        context = e.__context__
+        if context:
+            logger.error(f'Error during DmonSpawn call: {repr(context)}')
+            await link.fini()
         return
 
     except Exception as e:

@@ -539,11 +539,26 @@ class CoreApi(s_cell.CellApi):
                 }
             }
 
-            async with self.cell.spawnpool.get() as proc:
-                if await proc.xact(info):
-                    await link.fini()
-
-            raise s_exc.DmonSpawn()
+            synt = await self.cell.boss.promote('storm:spawn',
+                                                user=self.user,
+                                                info={'query': text})
+            proc = None
+            mesg = 'Spawn complete'
+            try:
+                async with self.cell.spawnpool.get() as proc:
+                    if await proc.xact(info):
+                        await link.fini()
+            except Exception as e:
+                logger.exception('Error during spawned Storm execution.')
+                if not self.cell.isfini:
+                    # Have the IO loop teardown the
+                    # process at its convenience.
+                    if proc:
+                        self.schedCoro(proc.fini())
+                mesg = repr(e)
+                raise
+            finally:
+                raise s_exc.DmonSpawn(mesg=mesg)
 
         async for mesg in view.streamstorm(text, opts, user=self.user):
             yield mesg
