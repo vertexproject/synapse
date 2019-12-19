@@ -1491,9 +1491,7 @@ class PropPivotOut(PivotOper):
                     continue
 
                 for item in valu:
-
-                    pivo = await runt.snap.getNodeByNdef((fname, item))
-                    if pivo is not None:
+                    async for pivo in runt.snap.getNodesBy(fname, item):
                         yield pivo, path.fork(pivo)
 
                 continue
