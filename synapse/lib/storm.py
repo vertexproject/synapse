@@ -533,18 +533,24 @@ class Cmd:
 
         cmd --help
 
-    Note:
-        'forms' may be overridden to provide information on the synapse forms
-        which are possible input/output. Example:
+    Notes:
+        Python Cmd implementers may override the ``forms`` attribute with a dictionary to provide information
+        about Synapse forms which are possible input and output nodes that a Cmd may recognize.
 
-        {
-            'input': [
-                'inet:ipv4',
-            ],
-            'output': [
-                'geo:place',
-            ],
-        }
+        Example:
+
+            ::
+
+                {
+                    'input': (
+                        'inet:ipv4',
+                        'tel:mob:telem',
+                    ),
+                    'output': (
+                        'geo:place',
+                    ),
+                }
+
     '''
     name = 'cmd'
     pkgname = ''
