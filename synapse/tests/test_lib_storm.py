@@ -550,6 +550,52 @@ class StormTest(s_t_utils.SynTest):
             q = 'inet:ipv4=1.2.3.4 | tee'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
+            # Runtsafe tee
+            q = 'tee { inet:ipv4=1.2.3.4 } { inet:ipv4 -> * }'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            exp = {
+                ('inet:asn', 0),
+                ('inet:ipv4', 0x01020304),
+            }
+            self.eq(exp, {x.ndef for x in nodes})
+
+            q = '$foo=woot.com tee { inet:ipv4=1.2.3.4 } { inet:fqdn=$foo <- * }'
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+            exp = {
+                ('inet:ipv4', 0x01020304),
+                ('inet:fqdn', 'woot.com'),
+                ('inet:dns:a', ('woot.com', 0x01020304)),
+            }
+            self.eq(exp, {n.ndef for n in nodes})
+
+            # Variables are scoped down into the sub runtime
+            q = (
+                f'$foo=5 tee '
+                f'{{ [ inet:asn=3 ] }} '
+                f'{{ [ inet:asn=4 ] $lib.print("made asn node: {{node}}", node=$node) }} '
+                f'{{ [ inet:asn=$foo ] }}'
+            )
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint("made asn node: Node{(('inet:asn', 4)", msgs)
+            podes = [m[1] for m in msgs if m[0] == 'node']
+            self.eq({('inet:asn', 3), ('inet:asn', 4), ('inet:asn', 5)},
+                    {p[0] for p in podes})
+
+            # lift a non-existent node and feed to tee.
+            q = 'inet:fqdn=newp.com tee { inet:ipv4=1.2.3.4 } { inet:ipv4 -> * }'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            exp = {
+                ('inet:asn', 0),
+                ('inet:ipv4', 0x01020304),
+            }
+            self.eq(exp, {x.ndef for x in nodes})
+
+            q = 'tee'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
     async def test_storm_yieldvalu(self):
 
         async with self.getTestCore() as core:
