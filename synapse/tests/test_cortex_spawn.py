@@ -72,17 +72,31 @@ class CoreSpawnTest(s_test.SynTest):
                 msgs = await prox.storm('inet:fqdn=vertex.link | passthrough', opts=opts).list()
                 self.stormIsInPrint("('inet:fqdn', 'vertex.link')", msgs)
 
-                async def taskfunc(i):
-                    print(f'start {i}')
-                    await prox.storm('test:int=1 | sleep 1', opts=opts).list()
-                    print(f'done {i}')
+                await asyncio.sleep(2)
+                print('-------')
 
-                n = 20
+                donecount = 0
+
+                import os
+                print(f'{{ {os.getpid() % 219}:writing node', flush=True)
+                await prox.storm('[test:int=1]').list()
+                # await asyncio.sleep(2)
+                print(f'}} {os.getpid() % 219}:done writing node', flush=True)
+
+                async def taskfunc(i):
+                    nonlocal donecount
+                    nodes = await prox.storm('test:int=1 | sleep 1', opts=opts).list()
+                    if len(nodes) == 3:
+                        donecount += 1
+
+                n = 10
                 tasks = [taskfunc(i) for i in range(n)]
                 try:
                     await asyncio.wait_for(asyncio.gather(*tasks), timeout=16000)
                 except asyncio.TimeoutError:
                     print('timed out')
+                    self.false(1)
+                self.eq(donecount, n)
 
                 # test adding model extensions
                 #await core.addFormProp('inet:ipv4', '_woot', ('int', {}), {})

@@ -5,6 +5,7 @@ import threading
 import contextlib
 import collections
 import multiprocessing
+import concurrent.futures
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -67,7 +68,9 @@ def corework(spawninfo, todo, done):
 
                 link = await s_link.fromspawn(item.get('link'))
 
+                print(f'{{ {os.getpid() % 219}:start storm', flush=True)
                 await s_daemon.t2call(link, storm, (item,), {})
+                print(f'}} {os.getpid() % 219}:end storm', flush=True)
 
                 wasfini = link.isfini
 
@@ -78,6 +81,7 @@ def corework(spawninfo, todo, done):
                     done.put(wasfini)
 
                 await s_coro.executor(finitask)
+                # await s_coro.executor(done.put, wasfini)
 
     asyncio.run(workloop())
 
@@ -93,6 +97,9 @@ class SpawnProc(s_base.Base):
 
         self.ready = asyncio.Event()
         self.mpctx = multiprocessing.get_context('spawn')
+        name = f'SpawnProc#{self.iden[:8]}'
+
+        self.threadpool = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix=name)
 
         self.todo = self.mpctx.Queue()
         self.done = self.mpctx.Queue()
@@ -114,14 +121,15 @@ class SpawnProc(s_base.Base):
             self.done.join_thread()
             self.proc.terminate()
             self.procstat = self.proc.join()
+            self.threadpool.shutdown()
 
         # avoid blocking the ioloop during process construction
         def getproc():
             self.proc = self.mpctx.Process(target=corework, args=(spawninfo, self.todo, self.done))
             self.proc.start()
 
-        await s_coro.executor(getproc)
-        s_coro.executor(finiwaiter)
+        await self.executor(getproc)
+        self.executor(finiwaiter)
 
         async def fini():
             self.finievent.set()
@@ -133,10 +141,17 @@ class SpawnProc(s_base.Base):
         self.obsolete = True
 
     async def xact(self, mesg):
+
         def doit():
             self.todo.put(mesg)
             return self.done.get()
-        return await s_coro.executor(doit)
+        return await self.executor(doit)
+
+    def executor(self, func, *args, **kwargs):
+        def real():
+            return func(*args, **kwargs)
+
+        return asyncio.get_running_loop().run_in_executor(self.threadpool, real)
 
 class SpawnPool(s_base.Base):
 
