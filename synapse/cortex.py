@@ -990,15 +990,22 @@ class Cortex(s_cell.Cell):
 
         # TODO unify class ctors and func ctors vs briefs...
         def getCmdBrief():
-            return cdef.get('descr', 'No description').split('\n')[0]
+            return cdef.get('descr', 'No description').strip().split('\n')[0]
 
         ctor.getCmdBrief = getCmdBrief
+        ctor.pkgname = cdef.get('pkgname')
+        ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
+        ctor.forms = cdef.get('forms', {})
 
         name = cdef.get('name')
         self.stormcmds[name] = ctor
 
+        await self.fire('core:cmd:change', cmd=name, act='add')
+
     async def _popStormCmd(self, name):
         self.stormcmds.pop(name, None)
+
+        await self.fire('core:cmd:change', cmd=name, act='del')
 
     async def delStormCmd(self, name):
         '''
@@ -1016,6 +1023,8 @@ class Cortex(s_cell.Cell):
 
         await self.cmdhive.pop(name)
         self.stormcmds.pop(name, None)
+
+        await self.fire('core:cmd:change', cmd=name, act='del')
 
     async def addStormPkg(self, pkgdef):
         '''
@@ -1092,6 +1101,9 @@ class Cortex(s_cell.Cell):
             cdef.setdefault('cmdconf', {})
             if svciden:
                 cdef['cmdconf']['svciden'] = svciden
+
+            cdef['pkgname'] = name
+
             await self._reqStormCmd(cdef)
 
         # now actually load...

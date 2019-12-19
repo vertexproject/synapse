@@ -1,7 +1,43 @@
 import synapse.exc as s_exc
 import synapse.cortex as s_cortex
 
+import synapse.lib.stormsvc as s_stormsvc
+
 import synapse.tests.utils as s_t_utils
+
+class TestService(s_stormsvc.StormSvc):
+    _storm_svc_name = 'test'
+    _storm_svc_pkgs = (
+        {
+            'name': 'foo',
+            'version': (0, 0, 1),
+            'commands': (
+                {
+                    'name': 'foobar',
+                    'descr': 'foobar is a great service',
+                    'forms': {
+                        'input': [
+                            'inet:ipv4',
+                            'inet:ipv6',
+                        ],
+                        'output': [
+                            'inet:fqdn',
+                        ],
+                    },
+                    'storm': '',
+                },
+                {
+                    'name': 'ohhai',
+                    'forms': {
+                        'output': [
+                            'inet:ipv4',
+                        ],
+                    },
+                    'storm': '',
+                },
+            )
+        },
+    )
 
 class SynModelTest(s_t_utils.SynTest):
 
@@ -336,3 +372,62 @@ class SynModelTest(s_t_utils.SynTest):
 
             # Sad path lifts
             await self.asyncraises(s_exc.BadCmprValu, core.nodes('syn:trigger:storm~="beep"'))
+
+    async def test_syn_cmd_runts(self):
+
+        async with self.getTestDmon() as dmon:
+
+            dmon.share('test', TestService())
+            host, port = dmon.addr
+            url = f'tcp://127.0.0.1:{port}/test'
+
+            async with self.getTestCore() as core:
+                nodes = await core.nodes('syn:cmd=help')
+                self.len(1, nodes)
+
+                self.eq(nodes[0].ndef, ('syn:cmd', 'help'))
+                self.eq(nodes[0].get('doc'), 'List available commands and '
+                                             'a brief description for each.')
+
+                self.none(nodes[0].get('input'))
+                self.none(nodes[0].get('output'))
+                self.none(nodes[0].get('package'))
+                self.none(nodes[0].get('svciden'))
+
+                nodes = await core.nodes('syn:cmd +:package')
+                self.len(0, nodes)
+
+                await core.nodes(f'service.add test {url}')
+                iden = core.getStormSvcs()[0].iden
+
+                await core.nodes('$lib.service.wait(test)')
+
+                # check that runt nodes for new commands are created
+                nodes = await core.nodes('syn:cmd +:package')
+                self.len(2, nodes)
+
+                self.eq(nodes[0].ndef, ('syn:cmd', 'foobar'))
+                self.eq(nodes[0].get('doc'), 'foobar is a great service')
+                self.eq(nodes[0].get('input'), ('inet:ipv4', 'inet:ipv6'))
+                self.eq(nodes[0].get('output'), ('inet:fqdn',))
+                self.eq(nodes[0].get('package'), 'foo')
+                self.eq(nodes[0].get('svciden'), iden)
+
+                self.eq(nodes[1].ndef, ('syn:cmd', 'ohhai'))
+                self.eq(nodes[1].get('doc'), 'No description')
+                self.none(nodes[1].get('input'))
+                self.eq(nodes[1].get('output'), ('inet:ipv4',))
+                self.eq(nodes[1].get('package'), 'foo')
+                self.eq(nodes[1].get('svciden'), iden)
+
+                nodes = await core.nodes('syn:cmd +:input*[=inet:ipv4]')
+                self.len(1, nodes)
+
+                # sad path lift
+                await self.asyncraises(s_exc.BadCmprValu, core.nodes('syn:cmd~="beep"'))
+
+                await core.nodes(f'service.del {iden}')
+
+                # check that runt nodes for the commands are gone
+                nodes = await core.nodes('syn:cmd +:package')
+                self.len(0, nodes)

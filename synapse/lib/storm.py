@@ -532,8 +532,30 @@ class Cmd:
     Example:
 
         cmd --help
+
+    Notes:
+        Python Cmd implementers may override the ``forms`` attribute with a dictionary to provide information
+        about Synapse forms which are possible input and output nodes that a Cmd may recognize.
+
+        Example:
+
+            ::
+
+                {
+                    'input': (
+                        'inet:ipv4',
+                        'tel:mob:telem',
+                    ),
+                    'output': (
+                        'geo:place',
+                    ),
+                }
+
     '''
     name = 'cmd'
+    pkgname = ''
+    svciden = ''
+    forms = {}
 
     def __init__(self, argv):
         self.opts = None
@@ -1312,8 +1334,9 @@ class GraphCmd(Cmd):
 
 class TeeCmd(Cmd):
     '''
-    Execute multiple Storm queries on each node in the input stream, emitting
-    the output commands in order they are given.
+    Execute multiple Storm queries on each node in the input stream, joining output streams together.
+
+    Commands are executed in order they are given.
 
     Examples:
 
