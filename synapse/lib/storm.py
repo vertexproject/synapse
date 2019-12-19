@@ -1334,8 +1334,9 @@ class GraphCmd(Cmd):
 
 class TeeCmd(Cmd):
     '''
-    Execute multiple Storm queries on each node in the input stream, emitting
-    the output commands in order they are given.
+    Execute multiple Storm queries on each node in the input stream, joining output streams together.
+
+    Commands are executed in order they are given.
 
     Examples:
 
