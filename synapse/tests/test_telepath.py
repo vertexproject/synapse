@@ -863,7 +863,7 @@ class TeleTest(s_t_utils.SynTest):
             # would hold onto cororoutines on the Daemon and not cancel
             # the taskv2init coroutines until the Daemon was shut down.
             with self.getAsyncLoggerStream('synapse.daemon',
-                                           'error during task: sleepg') as stream:
+                                           'task sleepg') as stream:
                 await prox.fini()
                 # Ensure that the sleepg function got canceled.
                 self.true(await asyncio.wait_for(foo.sleepg_evt.wait(), timeout=6))
