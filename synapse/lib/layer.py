@@ -81,6 +81,11 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.splices(offs, size):
             yield item
 
+    async def splicesBack(self, offs, size):
+        await self._reqUserAllowed(self.liftperm)
+        async for item in self.layr.splicesBack(offs, size):
+            yield item
+
     async def hasTagProp(self, name):
         return await self.layr.hasTagProp(name)
 

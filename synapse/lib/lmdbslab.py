@@ -830,6 +830,20 @@ class Slab(s_base.Base):
 
                 yield lkey, lval
 
+    def scanByRangeBack(self, lmax, lmin=None, db=None):
+
+        with ScanBack(self, db) as scan:
+
+            if not scan.set_range(lmax):
+                return
+
+            for lkey, lval in scan.iternext():
+
+                if lmin is not None and lkey < lmin:
+                    return
+
+                yield lkey, lval
+
     def scanByFull(self, db=None):
 
         with Scan(self, db) as scan:
@@ -1111,3 +1125,87 @@ class Scan:
         if not self.bumped:
             self.curs.close()
             self.bumped = True
+
+class ScanBack(Scan):
+    '''
+    A state-object used by Slab.  Not to be instantiated directly.
+
+    Scans backwards.
+    '''
+    def first(self):
+
+        if not self.curs.last():
+            return False
+
+        if self.dupsort:
+            self.iterfunc = functools.partial(lmdb.Cursor.iterprev_dup, keys=True)
+        else:
+            self.iterfunc = lmdb.Cursor.iterprev
+
+        self.genr = self.curs.iterprev()
+
+        self.atitem = next(self.genr)
+        return True
+
+    def set_key(self, lkey):
+
+        if not self.curs.set_key(lkey):
+            return False
+
+        # set_key for a scan is only logical if it's a dup scan
+        if self.dupsort:
+            if not self.curs.last_dup():
+                return False
+
+            self.iterfunc = functools.partial(lmdb.Cursor.iterprev_dup, keys=True)
+        else:
+            self.iterfunc = lmdb.Cursor.iterprev
+
+        self.genr = self.iterfunc(self.curs)
+        self.atitem = next(self.genr)
+        return True
+
+    def set_range(self, lkey):
+
+        if not self.curs.set_range(lkey):
+            if not self.curs.last():
+                return False
+
+        self.iterfunc = lmdb.Cursor.iterprev
+
+        self.genr = self.iterfunc(self.curs)
+        self.atitem = next(self.genr)
+
+        if not self.atitem[0] <= lkey:
+            self.atitem = next(self.genr)
+
+        return True
+
+    def iternext(self):
+
+        try:
+
+            while True:
+
+                yield self.atitem
+
+                if self.bumped:
+
+                    if self.slab.isfini:
+                        raise s_exc.IsFini()
+
+                    self.bumped = False
+
+                    self.curs = self.slab.xact.cursor(db=self.db)
+                    if self.dupsort:
+                        self.curs.set_range_dup(*self.atitem)
+                    else:
+                        self.curs.set_range(self.atitem[0])
+
+                    self.genr = self.iterfunc(self.curs)
+                    next(self.genr)
+
+                self.atitem = next(self.genr)
+
+        except StopIteration:
+            return
