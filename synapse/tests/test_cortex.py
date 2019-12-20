@@ -2471,7 +2471,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.ge(len(await alist(prox.splicesBack(5, 1000))), 5)
 
-
     async def test_node_repr(self):
 
         async with self.getTestCore() as core:

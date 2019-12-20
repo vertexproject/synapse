@@ -55,7 +55,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             items = list(slab.scanByDups(b'\x00\x02', db=bar))
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'zomg')))
 
-            # reverse tests
+            # backwards scan tests
 
             items = list(slab.scanByRangeBack(b'\x00\x03', db=foo))
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
