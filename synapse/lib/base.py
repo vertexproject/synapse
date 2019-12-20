@@ -353,7 +353,6 @@ class Base:
             return
 
         for task in self._active_tasks.copy():
-            # print(f'{str(type(self))} Base._kill_active_tasks: canceling task)')
 
             task.cancel()
             try:
@@ -394,7 +393,7 @@ class Base:
 
         try:
             await self._kill_active_tasks()
-        except:
+        except Exception:
             logger.exception(f'{self} - Exception during _kill_active_tasks')
 
         for fini in self._fini_funcs:
@@ -575,7 +574,7 @@ class Base:
 
             # .. fire thread that will cause foo:bar events
 
-            events = waiter.wait(timeout=3)
+            events = await waiter.wait(timeout=3)
 
             if events == None:
                 # handle the timout case...

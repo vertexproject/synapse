@@ -59,7 +59,6 @@ class Task(s_base.Base):
         for task in list(self.kids.values()):
             await task.fini()
 
-        print('_OnTaskFini cancelling')
         self.task.cancel()
 
         try:

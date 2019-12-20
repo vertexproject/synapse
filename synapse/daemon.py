@@ -174,7 +174,10 @@ async def t2call(link, meth, args, kwargs):
 
         except Exception as e:
 
-            logger.exception(f'error during task: {meth.__name__}')
+            if isinstance(e, asyncio.CancelledError):
+                logger.info('t2call task %s cancelled', meth.__name__)
+            else:
+                logger.exception(f'error during task: {meth.__name__}')
 
             if not link.isfini:
 

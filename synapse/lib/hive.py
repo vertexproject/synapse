@@ -598,9 +598,12 @@ class TeleHive(Hive):
         return iden, evnt
 
     async def _runHiveLoop(self):
-        while not self.isfini:
-            async for mesg in self.proxy.edits():
-                await self.mesgbus.dist(mesg)
+        try:
+            while not self.isfini:
+                async for mesg in self.proxy.edits():
+                    await self.mesgbus.dist(mesg)
+        except asyncio.CancelledError:
+            pass
 
     async def _onHiveSet(self, mesg):
         path = mesg[1].get('path')

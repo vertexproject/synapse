@@ -68,26 +68,13 @@ def corework(spawninfo, todo, done):
 
                 link = await s_link.fromspawn(item.get('link'))
 
-                print(f'{{ {os.getpid() % 219}:start storm', flush=True)
                 await s_daemon.t2call(link, storm, (item,), {})
-                print(f'}} {os.getpid() % 219}:end storm', flush=True)
 
                 wasfini = link.isfini
 
                 await link.fini()
 
-                # Nic tmp
-                def donetask():
-                    try:
-                        print(f'{{ {os.getpid() % 219}:done put {wasfini}', flush=True)
-                        done.put(wasfini)
-                        print(f'}} {os.getpid() % 219}:done put done', flush=True)
-                    except Exception:
-                        logger.exception('donetask')
-
-                await s_coro.executor(donetask)
-                print(f'{os.getpid()%219} donetask done')
-                # await s_coro.executor(done.put, wasfini)
+                await s_coro.executor(done.put, wasfini)
 
     asyncio.run(workloop())
 
@@ -127,10 +114,9 @@ class SpawnProc(s_base.Base):
         @s_common.firethread
         def finiwaiter():
             '''
-            Simply wait for the process to complete (run from a separate thread)
+            Wait for the process to complete on another thread, then cleanup
             '''
             self.finievent.wait()
-            print('finiwaiter awakened!!!!')
             self.todo.put(None)
             self.todo.close()
             self.done.put(None)
@@ -143,7 +129,6 @@ class SpawnProc(s_base.Base):
                 except ValueError:
                     pass
             self.threadpool.shutdown()
-            print('End finiwaiter!!!!')
 
         # avoid blocking the ioloop during process construction
         def getproc():
@@ -155,10 +140,8 @@ class SpawnProc(s_base.Base):
         procwaiter()
 
         async def fini():
-            print(f'spawnproc fini {{', flush=True)
             self.obsolete = True
             self.finievent.set()
-            print(f'spawnproc fini  }}')
 
         self.onfini(fini)
 
@@ -181,17 +164,11 @@ class SpawnProc(s_base.Base):
     async def xact(self, mesg):
 
         def doit():
-            try:
-                self.todo.put(mesg)
-                print(f'> {self.proc.pid%219}: done.empty={self.done.empty()}', flush=True)
-                rv = self.done.get()
-                print(f'< {self.proc.pid%219}', flush=True)
-                return rv
-            except Exception:
-                logger.exception('spawn thread')
-        print(f'{{ {self.proc.pid%219}: executor doit', flush=True)
+            self.todo.put(mesg)
+            rv = self.done.get()
+            return rv
+
         rv = await self.executor(doit)
-        print(f'}} {self.proc.pid%219}: executor doit done', flush=True)
         return rv
 
     def executor(self, func, *args, **kwargs):
@@ -219,12 +196,15 @@ class SpawnPool(s_base.Base):
         self.onfini(fini)
 
     async def bump(self):
+        if not self.spawns:
+            return
         [await s.retire() for s in list(self.spawns.values())]
         [await s.fini() for s in self.spawnq]
         self.spawnq.clear()
 
     async def kill(self):
-        print('SpawnPool kill')
+        if not self.spawns:
+            return
         self.spawnq.clear()
         [await s.fini() for s in list(self.spawns.values())]
 
@@ -313,7 +293,7 @@ class SpawnCore(s_base.Base):
         self.onfini(self.prox.fini)
 
         self.hive = await s_hive.openurl(f'cell://{self.dirn}', name='*/hive')
-        self.onfini(self.hive.fini)
+        self.onfini(self.hive)
 
         # TODO cortex configured for remote auth...
         node = await self.hive.open(('auth',))

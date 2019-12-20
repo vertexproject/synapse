@@ -318,7 +318,6 @@ class Runtime:
         pass
 
     def cancel(self):
-        breakpoint()
         self.task.cancel()
 
     def initPath(self, node):
