@@ -799,12 +799,45 @@ class Slab(s_base.Base):
 
             yield from scan.iternext()
 
+    def scanByDupsBack(self, lkey, db=None):
+
+        with ScanBack(self, db) as scan:
+
+            if not scan.set_key(lkey):
+                return
+
+            yield from scan.iternext()
+
     def scanByPref(self, byts, db=None):
 
         with Scan(self, db) as scan:
 
             if not scan.set_range(byts):
                 return
+
+            size = len(byts)
+            for lkey, lval in scan.iternext():
+
+                if lkey[:size] != byts:
+                    return
+
+                yield lkey, lval
+
+    def scanByPrefBack(self, byts, db=None):
+
+        with ScanBack(self, db) as scan:
+
+            intoff = int.from_bytes(byts, "big")
+            intoff += 1
+            try:
+                nextbyts = intoff.to_bytes(len(byts), "big")
+
+                if not scan.set_range(nextbyts):
+                    return
+
+            except OverflowError:
+                if not scan.last():
+                    return
 
             size = len(byts)
             for lkey, lval in scan.iternext():
@@ -847,6 +880,16 @@ class Slab(s_base.Base):
     def scanByFull(self, db=None):
 
         with Scan(self, db) as scan:
+
+            if not scan.first():
+                return
+
+            for lkey, lval in scan.iternext():
+                yield lkey, lval
+
+    def scanByFullBack(self, db=None):
+
+        with ScanBack(self, db) as scan:
 
             if not scan.first():
                 return

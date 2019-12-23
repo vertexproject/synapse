@@ -31,7 +31,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             slab.put(b'\x00\x01', b'hehe', db=foo)
             slab.put(b'\x00\x02', b'haha', db=foo)
-            slab.put(b'\x00\x04', b'hoho', db=foo)
+            slab.put(b'\x01\x03', b'hoho', db=foo)
 
             slab.put(b'\x00\x01', b'hehe', dupdata=True, db=bar)
             slab.put(b'\x00\x02', b'haha', dupdata=True, db=bar)
@@ -47,15 +47,18 @@ class LmdbSlabTest(s_t_utils.SynTest):
             self.eq(b'hehe', slab.get(b'\x00\x01', db=foo))
 
             items = list(slab.scanByPref(b'\x00', db=foo))
-            self.eq(items, ((b'\x00\x01', b'hehe'), (b'\x00\x02', b'haha'), (b'\x00\x04', b'hoho')))
+            self.eq(items, ((b'\x00\x01', b'hehe'), (b'\x00\x02', b'haha')))
 
-            items = list(slab.scanByRange(b'\x00\x02', b'\x00\x04', db=foo))
-            self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x04', b'hoho')))
+            items = list(slab.scanByRange(b'\x00\x02', b'\x01\x03', db=foo))
+            self.eq(items, ((b'\x00\x02', b'haha'), (b'\x01\x03', b'hoho')))
 
             items = list(slab.scanByDups(b'\x00\x02', db=bar))
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'zomg')))
 
             # backwards scan tests
+
+            items = list(slab.scanByPrefBack(b'\x00', db=foo))
+            self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
 
             items = list(slab.scanByRangeBack(b'\x00\x03', db=foo))
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
@@ -63,11 +66,17 @@ class LmdbSlabTest(s_t_utils.SynTest):
             items = list(slab.scanByRangeBack(b'\x00\x03', b'\x00\x02', db=foo))
             self.eq(items, ((b'\x00\x02', b'haha'), ))
 
-            items = list(slab.scanByRangeBack(b'\x00\x04', b'\x00\x02', db=foo))
-            self.eq(items, ((b'\x00\x04', b'hoho'), (b'\x00\x02', b'haha')))
+            items = list(slab.scanByRangeBack(b'\x01\x03', b'\x00\x02', db=foo))
+            self.eq(items, ((b'\x01\x03', b'hoho'), (b'\x00\x02', b'haha')))
 
-            items = list(slab.scanByRangeBack(b'\x00\x05', b'\x00\x02', db=foo))
-            self.eq(items, ((b'\x00\x04', b'hoho'), (b'\x00\x02', b'haha')))
+            items = list(slab.scanByRangeBack(b'\x01\x05', b'\x00\x02', db=foo))
+            self.eq(items, ((b'\x01\x03', b'hoho'), (b'\x00\x02', b'haha')))
+
+            items = list(slab.scanByDupsBack(b'\x00\x02', db=bar))
+            self.eq(items, ((b'\x00\x02', b'zomg'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'haha')))
+
+            items = list(slab.scanByFullBack(db=foo))
+            self.eq(items, ((b'\x01\x03', b'hoho'), (b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
 
             # ok... lets start a scan and then rip out the xact...
             scan = slab.scanByPref(b'\x00', db=foo)
@@ -76,7 +85,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             slab.forcecommit()
 
             items = list(scan)
-            self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x04', b'hoho')))
+            self.eq(items, ((b'\x00\x02', b'haha'),))
 
             # to test iternext_dup, lets do the same with a dup scan
             scan = slab.scanByDups(b'\x00\x02', db=bar)
@@ -88,8 +97,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
             self.eq(items, ((b'\x00\x02', b'visi'), (b'\x00\x02', b'zomg')))
 
             # do the same with backwards scanning
-            scan = slab.scanByRangeBack(b'\x00\x05', db=foo)
-            self.eq((b'\x00\x04', b'hoho'), next(scan))
+            scan = slab.scanByRangeBack(b'\x01\x03', db=foo)
+            self.eq((b'\x01\x03', b'hoho'), next(scan))
 
             slab.forcecommit()
 

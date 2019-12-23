@@ -2467,9 +2467,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await alist(prox.eval('[ test:str=foo ]'))
 
-                self.ge(len(await alist(prox.splices(0, 1000))), 3)
+                splicelist = await alist(prox.splices(0, 1000))
+                self.ge(len(splicelist), 3)
 
-                self.ge(len(await alist(prox.splicesBack(5, 1000))), 5)
+                # should get the same splices in reverse order
+                splicelist.reverse()
+                self.eq(await alist(prox.splicesBack(len(splicelist), 1000)), splicelist)
 
     async def test_node_repr(self):
 
