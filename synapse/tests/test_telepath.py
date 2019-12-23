@@ -859,13 +859,14 @@ class TeleTest(s_t_utils.SynTest):
             # Ensure that tearing down the client prompty tears down
             # taskv2init coro due to the link being fini'd by the server.
             # It is important that we validate these items BEFORE we
-            # teardwon the proxy, since the previous (<0.1.32) behaviour
-            # would hold onto cororoutines on the Daemon and not cancel
+            # teardown the proxy, since the previous (<0.1.32) behaviour
+            # would hold onto coroutines on the Daemon and not cancel
             # the taskv2init coroutines until the Daemon was shut down.
             with self.getAsyncLoggerStream('synapse.daemon',
                                            'task sleepg') as stream:
                 await prox.fini()
                 # Ensure that the sleepg function got canceled.
+                await asyncio.sleep(1)
                 self.true(await asyncio.wait_for(foo.sleepg_evt.wait(), timeout=6))
                 # Ensure we logged the cancellation.
                 self.true(await stream.wait(6))
