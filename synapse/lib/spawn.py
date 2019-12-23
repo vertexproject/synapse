@@ -91,8 +91,8 @@ class SpawnProc(s_base.Base):
 
         self.ready = asyncio.Event()
         self.mpctx = multiprocessing.get_context('spawn')
-        name = f'SpawnProc#{self.iden[:8]}'
 
+        name = f'SpawnProc#{self.iden[:8]}'
         self.threadpool = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix=name)
 
         self.todo = self.mpctx.Queue()
@@ -106,6 +106,9 @@ class SpawnProc(s_base.Base):
 
         @s_common.firethread
         def procwaiter():
+            '''
+            Wait for child process to exit
+            '''
             self.procstat = self.proc.join()
             self.proc.close()
             if not self.isfini:
@@ -114,7 +117,7 @@ class SpawnProc(s_base.Base):
         @s_common.firethread
         def finiwaiter():
             '''
-            Wait for the process to complete on another thread, then cleanup
+            Wait for the SpawnProc to complete on another thread (so we can block)
             '''
             self.finievent.wait()
             self.todo.put(None)

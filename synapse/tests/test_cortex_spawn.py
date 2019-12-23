@@ -1,3 +1,5 @@
+import os
+import signal
 import asyncio
 import logging
 import synapse.tests.utils as s_test
@@ -102,18 +104,31 @@ class CoreSpawnTest(s_test.SynTest):
 
                 async def taskfunc(i):
                     nonlocal donecount
-                    podes = await prox.eval('test:int=1 | sleep 1', opts=opts).list()
-                    if len(podes) == 1:
+                    msgs = await prox.storm('test:int=1 | sleep 3', opts=opts).list()
+                    if len(msgs) == 3:
                         donecount += 1
 
                 n = 8
                 tasks = [taskfunc(i) for i in range(n)]
                 try:
-                    await asyncio.wait_for(asyncio.gather(*tasks), timeout=60)
+                    await asyncio.wait_for(asyncio.gather(*tasks), timeout=30)
                 except asyncio.TimeoutError:
                     self.false(1)
 
                 self.eq(donecount, n)
+
+                # test kill -9 ing a spawn proc
+
+                victimpid = core.spawnpool.spawnq[0].proc.pid
+                sig = signal.SIGKILL
+
+                async def taskfunc2():
+                    await prox.storm('test:int=1 | sleep 15', opts=opts).list()
+
+                await core.schedCoro(taskfunc2())
+                await asyncio.sleep(1)
+                os.kill(victimpid, sig)
+                await asyncio.sleep(1)
 
                 # test adding model extensions
                 await core.addFormProp('inet:ipv4', '_woot', ('int', {}), {})
@@ -122,3 +137,4 @@ class CoreSpawnTest(s_test.SynTest):
                 podes = await prox.eval('inet:ipv4=1.2.3.4', opts=opts).list()
                 self.len(1, podes)
                 self.eq(podes[0][1]['props'].get('_woot'), 10)
+                await asyncio.sleep(3)

@@ -168,7 +168,8 @@ async def t2call(link, meth, args, kwargs):
         except s_exc.DmonSpawn as e:
             context = e.__context__
             if context:
-                logger.error(f'Error during DmonSpawn call: {repr(context)}')
+                if not isinstance(context, asyncio.CancelledError):
+                    logger.error(f'Error during DmonSpawn call: {repr(context)}')
                 await link.fini()
             return
 

@@ -548,7 +548,8 @@ class CoreApi(s_cell.CellApi):
                     if await proc.xact(info):
                         await link.fini()
             except Exception as e:
-                logger.exception('Error during spawned Storm execution.')
+                if not isinstance(e, asyncio.CancelledError):
+                    logger.exception('Error during spawned Storm execution.')
                 if not self.cell.isfini:
                     if proc:
                         await proc.fini()
