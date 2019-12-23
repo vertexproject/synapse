@@ -168,11 +168,9 @@ class SpawnProc(s_base.Base):
 
         def doit():
             self.todo.put(mesg)
-            rv = self.done.get()
-            return rv
+            return self.done.get()
 
-        rv = await self.executor(doit)
-        return rv
+        return await self.executor(doit)
 
     def executor(self, func, *args, **kwargs):
         def real():

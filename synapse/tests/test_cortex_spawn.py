@@ -137,4 +137,3 @@ class CoreSpawnTest(s_test.SynTest):
                 podes = await prox.eval('inet:ipv4=1.2.3.4', opts=opts).list()
                 self.len(1, podes)
                 self.eq(podes[0][1]['props'].get('_woot'), 10)
-                await asyncio.sleep(3)
