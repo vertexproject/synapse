@@ -169,7 +169,7 @@ async def t2call(link, meth, args, kwargs):
             context = e.__context__
             if context:
                 if not isinstance(context, asyncio.CancelledError):
-                    logger.error(f'Error during DmonSpawn call: {repr(context)}')
+                    logger.error('Error during DmonSpawn call: %r', context)
                 await link.fini()
             return
 
@@ -178,7 +178,7 @@ async def t2call(link, meth, args, kwargs):
             if isinstance(e, asyncio.CancelledError):
                 logger.info('t2call task %s cancelled', meth.__name__)
             else:
-                logger.exception(f'error during task: {meth.__name__}')
+                logger.exception('error during task %s', meth.__name__)
 
             if not link.isfini:
 
@@ -201,12 +201,12 @@ async def t2call(link, meth, args, kwargs):
     except s_exc.DmonSpawn as e:
         context = e.__context__
         if context:
-            logger.error(f'Error during DmonSpawn call: {repr(context)}')
+            logger.error('Error during DmonSpawn call: %r', context)
             await link.fini()
         return
 
     except Exception as e:
-        logger.exception(f'error during task: {meth.__name__}')
+        logger.exception('error during task: %s', meth.__name__)
         if not link.isfini:
             retn = s_common.retnexc(e)
             await link.tx(('t2:fini', {'retn': retn}))
@@ -261,7 +261,7 @@ class Daemon(s_base.Base):
                 server = await s_link.unixlisten(path, self._onLinkInit)
             except Exception as e:
                 if 'path too long' in str(e):
-                    logger.error(f'unix:// exceeds OS supported UNIX socket path length: {path}')
+                    logger.error('unix:// exceeds OS supported UNIX socket path length: %s', path)
                 raise
 
         else:
@@ -300,7 +300,7 @@ class Daemon(s_base.Base):
             self.shared[name] = item
 
         except Exception:
-            logger.exception(f'onTeleShare() error for: {name}')
+            logger.exception('onTeleShare() error for: %s)', name)
 
     async def getSessInfo(self):
         return [sess.pack() for sess in self.sessions.values()]
@@ -482,7 +482,7 @@ class Daemon(s_base.Base):
 
             meth = getattr(item, methname, None)
             if meth is None:
-                logger.warning(f'{item!r} has no method: {methname}')
+                logger.warning('%r has no method: %r', item, methname)
                 raise s_exc.NoSuchMeth(name=methname)
 
             sessitem = await t2call(link, meth, args, kwargs)
@@ -517,7 +517,7 @@ class Daemon(s_base.Base):
 
             meth = getattr(item, methname, None)
             if meth is None:
-                logger.warning(f'{item!r} has no method: {methname}')
+                logger.warning('%r has no method: %s', item, methname)
                 raise s_exc.NoSuchMeth(name=methname)
 
             valu = await self._runTodoMeth(link, meth, args, kwargs)
@@ -546,7 +546,7 @@ class Daemon(s_base.Base):
 
         except Exception as e:
 
-            logger.exception('on task:init: %r' % (mesg,))
+            logger.exception('on task:init: %r', mesg)
 
             retn = s_common.retnexc(e)
 

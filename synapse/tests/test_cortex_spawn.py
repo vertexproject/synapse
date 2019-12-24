@@ -108,10 +108,10 @@ class CoreSpawnTest(s_test.SynTest):
                     if len(msgs) == 3:
                         donecount += 1
 
-                n = 8
+                n = 4
                 tasks = [taskfunc(i) for i in range(n)]
                 try:
-                    await asyncio.wait_for(asyncio.gather(*tasks), timeout=30)
+                    await asyncio.wait_for(asyncio.gather(*tasks), timeout=40)
                 except asyncio.TimeoutError:
                     self.false(1)
 
@@ -134,6 +134,10 @@ class CoreSpawnTest(s_test.SynTest):
                 await core.addFormProp('inet:ipv4', '_woot', ('int', {}), {})
                 await core.nodes('[inet:ipv4=1.2.3.4 :_woot=10]')
                 await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
-                podes = await prox.eval('inet:ipv4=1.2.3.4', opts=opts).list()
-                self.len(1, podes)
-                self.eq(podes[0][1]['props'].get('_woot'), 10)
+                msgs = await prox.storm('inet:ipv4=1.2.3.4', opts=opts).list()
+                self.len(3, msgs)
+                self.eq(msgs[1][1][1]['props'].get('_woot'), 10)
+                # TODO:  implement TODO in core.getModelDefs
+                # msgs = await prox.storm('inet:ipv4:_woot=10', opts=opts).list()
+                # self.len(3, msgs)
+                # self.eq(msgs[1][1][1]['props'].get('_woot'), 10)

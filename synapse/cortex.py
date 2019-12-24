@@ -1885,7 +1885,7 @@ class Cortex(s_cell.Cell):
 
     async def getModelDefs(self):
         defs = self.model.getModelDefs()
-        # TODO add an extended model def
+        # TODO add extended model defs
         return defs
 
     def _initFormCounts(self):
