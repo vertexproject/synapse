@@ -1,3 +1,5 @@
+.. highlight:: none
+
 .. _glossary:
 
 Synapse Glossary
@@ -83,7 +85,7 @@ The set of Storm-specific operator symbols or expressions used to evaluate (comp
 Constructor
 -----------
 
-Within Synapse, code that defines how a :ref:`gloss-prop` of a given :ref:`gloss-type` can be constructed to ensure that the property is well-formed for its type. Also known as a :ref:`gloss-ctor` for short. Constructors support :ref:`gloss-type-norm` and :ref:`gloss-type-enforce`.
+Within Synapse, code that defines how a :ref:`gloss-prop` value of a given :ref:`gloss-type` can be constructed to ensure that the value is well-formed for its type. Also known as a :ref:`gloss-ctor` for short. Constructors support :ref:`gloss-type-norm` and :ref:`gloss-type-enforce`.
 
 .. _gloss-cortex:
 
@@ -122,6 +124,13 @@ Derived Property
 -----------------
 
 See :ref:`gloss-prop-derived`.
+
+.. _gloss-directed-graph:
+
+Directed Graph
+--------------
+
+See :ref:`gloss-graph-directed`.
 
 E
 =
@@ -210,14 +219,18 @@ See :ref:`gloss-guid`.
 Graph
 -----
 
-TBD
+A graph is a mathematical structure used to model pairwise relations between objects. Graphs consist of vertices (or nodes) that represent objects and edges that connect exactly two vertices in some type of relationship. Nodes and edges in a graph are typically represented by dots or circles conneted by lines.
+
+See :ref:`bkd-graphs-hypergraphs` for additional detail on graphs and hypergraphs.
 
 .. _gloss-graph-directed:
 
 Graph, Directed
 ---------------
 
-TBD
+A directed graph is a :ref:`gloss-graph` where the edges representing relationships between nodes have a "direction". Given node X and node Y connected by edge E, the relationship is valid for X -> E -> Y butnot Y -> E -> X. For example, the relationship "Fred owns bank account #01234567" is valid, but "bank account #01234567 owns Fred" does not. Nodes and edges in a directed graph are typically represented by dots or circles connected by arrows.
+
+See :ref:`bkd-graphs-hypergraphs` for additional detail on graphs and hypergraphs.
 
 .. _gloss-guid:
 
@@ -241,14 +254,16 @@ TBD
 Hyperedge
 ---------
 
-TBD
+A hyperedge is an edge within a :ref:`gloss-hypergraph` that can join any number of nodes (vs. a :ref:`gloss-graph` or :ref:`gloss-directed-graph` where an edge joins exactly two nodes). A hyperedges joining an arbitrary number of nodes can be difficult to visualize in flat, two-dimensional space; for this reason hyperedges are often represented as a line or "boundary" encircling a set of nodes, thus "joining" those nodes into a related group.
 
 .. _gloss-hypergraph:
 
 Hypergraph
 ----------
 
-TBD
+A hypergraph is a generalization of a :ref:`gloss-graph` in which an edge can join any number of nodes. If a :ref:`gloss-directed-graph`` where edges join exactly two nodes is two-dimensional, then a hypergraph where a :ref:`gloss-hyperedge` can join any number (n-number) of nodes is n-dimensional.
+
+See :ref:`bkd-graphs-hypergraphs` for additional detail on graphs and hypergraphs.
 
 I
 =
@@ -282,14 +297,14 @@ K
 Knowledge, Fused
 ----------------
 
-TBD
+If a form within the Synapse data model has a "range" of time elements (i.e., an interval such as "first seen" / "last seen"), the form typically represents **fused knowledge** - a period of time during which an object, relationship, or event was known to exist. Forms representing fused knowledge can be thought of as combining *n* number of instance knowledge observations. ``inet:dns:query``, ``inet:dns:a``, and ``inet:whois:email`` forms are examples of fused knowledge.
 
 .. _gloss-know-inst:
 
 Knowledge, Instance
 -------------------
 
-TBD
+If a form within the Synapse data model has a specific time element (i.e., a single date/time value), the form typically represents **instance knowledge** - a single instance or occurrence of an object, relationship, or event. ``inet:dns:request`` and ``inet:whois:rec`` forms are examples of instance knowledge.
 
 L
 =
@@ -401,14 +416,14 @@ See the :ref:`data-props` section in :ref:`data-model-terms` for additional deta
 Property, Derived
 -----------------
 
-TBD
+Within Synapse, a derived property is one that can be extracted (derived) from a node's primary property. For example, the domain ``inet:fqdn=www.google.com`` can be used to derive ``inet:fqdn=google.com`` and ``inet:fqdn=com``; the DNS A record ``inet:dns:a=(woot.com, 1.2.3.4)`` can be used to derive ``inet:fqdn=woot.com`` and ``inet:ipv4=1.2.3.4``. Synapse will automatically set any secondary properties that can be derived from a node's primary property (i.e., ``inet:dns:a:fqdn=woot.com``). Because they are derived from primary properties, derived properties are always read-only (i.e., cannot be modified once set).
 
 .. _gloss-prop-primary:
 
 Property, Primary
 -----------------
 
-Within Synapse, a primary property is the property that defines a given :ref:`gloss-form` in the data model. The primary property of a form must be selected / defined such that the value of that property is unique across all possible instances of that form.
+Within Synapse, a primary property is the property that defines a given :ref:`gloss-form` in the data model. The primary property of a form must be selected / defined such that the value of that property is unique across all possible instances of that form. Primary properties are always read-only (i.e., cannot be modified once set).
 
 .. _gloss-prop-relative:
 
