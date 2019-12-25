@@ -201,7 +201,7 @@ TBD
 Filter
 ------
 
-Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A filter operation downselects a subset of nodes following a lift operation. See also :ref:`gloss-lift`and :ref:`gloss-pivot`.
+Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A filter operation downselects a subset of nodes following a lift operation. See also :ref:`gloss-lift` and :ref:`gloss-pivot`.
 
 .. _gloss-form:
 
@@ -305,7 +305,7 @@ A hyperedge is an edge within a :ref:`gloss-hypergraph` that can join any number
 Hypergraph
 ----------
 
-A hypergraph is a generalization of a :ref:`gloss-graph` in which an edge can join any number of nodes. If a :ref:`gloss-directed-graph`` where edges join exactly two nodes is two-dimensional, then a hypergraph where a :ref:`gloss-hyperedge` can join any number (n-number) of nodes is n-dimensional.
+A hypergraph is a generalization of a :ref:`gloss-graph` in which an edge can join any number of nodes. If a :ref:`gloss-directed-graph` where edges join exactly two nodes is two-dimensional, then a hypergraph where a :ref:`gloss-hyperedge` can join any number (n-number) of nodes is n-dimensional.
 
 See :ref:`bkd-graphs-hypergraphs` for additional detail on graphs and hypergraphs.
 
@@ -372,7 +372,7 @@ See :ref:`gloss-tag-leaf`.
 Lift
 ----
 
-Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A lift is a read operation that selects a set of nodes from the Cortex. See also :ref:`gloss-filter`and :ref:`gloss-pivot`.
+Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A lift is a read operation that selects a set of nodes from the Cortex. See also :ref:`gloss-filter` and :ref:`gloss-pivot`.
 
 M
 =
@@ -439,7 +439,7 @@ TBD
 Pivot
 -----
 
-Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A pivot operation allows navigation of the hypergraph following a lift operation by moving from a set of nodes with a specified property value (or values) to a set of nodes with that same property value(s).  See also :ref:`gloss-lift`and :ref:`gloss-filter`.
+Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A pivot operation allows navigation of the hypergraph following a lift operation by moving from a set of nodes with a specified property value (or values) to a set of nodes with that same property value(s).  See also :ref:`gloss-lift` and :ref:`gloss-filter`.
 
 .. _gloss-primary-prop:
 
