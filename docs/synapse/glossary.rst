@@ -27,6 +27,13 @@ TBD
 B
 =
 
+.. _gloss-base-tag:
+
+Base Tag
+--------
+
+See :ref:`gloss-tag-base`.
+
 .. _gloss-binary-uniq-id:
 
 Binary Unique Identifier
@@ -75,10 +82,17 @@ The set of common operator symbols used to evaluate (compare) values in Storm. S
 
 .. _gloss-comp-op-extended:
 
-Extended Comparison Operator
-----------------------------
+Comparison Operator, Extended
+-----------------------------
 
 The set of Storm-specific operator symbols or expressions used to evaluate (compare) values in Storm based on custom or Storm-specific criteria. Extended comparison operators include regular expression (``~=``), time / interval (``@=``), set membership (``*in=``), tag (``#``), and so on.
+
+.. _gloss-comp-form:
+
+Composite Form
+--------------
+
+See :ref:`gloss-form-comp`.
 
 .. _gloss-constructor:
 
@@ -118,12 +132,28 @@ Data Model
 
 See :ref:`gloss-model-data`.
 
+.. _gloss-deconflictable:
+
+Deconflictable
+--------------
+
+Within Synapse, a term typically used with respect to :ref:`gloss-node` creation. A node is deconflictable if, upon node creation, Synapse can determine whether the node already exists within a Cortex (i.e., the node creation attempt is deconflicted against existing nodes). For example, on attempting to create the node ``inet:fqdn=woot.com`` Synapse can deconflict the node by checking whether a node of the same form with the same primary property already exists.
+
+Whether a node is deconflictable is often an issue with GUID forms. A :ref:`gloss-guid-form` whose primary property is an arbitrary GUID is not deconflictable. A GUID form whose primary property is generated from a defined or predictable set of strings (such as a subset of the form's secondary property values) may be deconflictable. See the :ref:`type-guid` section of the :ref:`storm-ref-type-specific` document for additional detail.
+
 .. _gloss-derived-prop:
 
 Derived Property
 -----------------
 
 See :ref:`gloss-prop-derived`.
+
+.. _gloss-directed-edge:
+
+Directed Edge
+-------------
+
+See :ref:`gloss-edge-directed`.
 
 .. _gloss-directed-graph:
 
@@ -140,14 +170,21 @@ E
 Edge
 ----
 
-TBD
+In a traditional :ref:`gloss-graph`, an edge is used to connect exactly two nodes (vertexes). Compare with :ref:`gloss-hyperedge`.
 
 .. _gloss-edge-directed:
 
 Edge, Directed
 --------------
 
-TBD
+In a :ref:`gloss-directed-graph`, a directed edge is used to connect exactly two nodes (vertexes) in a one-way relationship. Compare with :ref:`gloss-hyperedge`.
+
+.. _gloss-extended-comp-op:
+
+Extended Comparison Operator
+----------------------------
+
+See :ref:`gloss-comp-op-extended`.
 
 F
 =
@@ -164,7 +201,7 @@ TBD
 Filter
 ------
 
-TBD
+Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A filter operation downselects a subset of nodes following a lift operation. See also :ref:`gloss-lift`and :ref:`gloss-pivot`.
 
 .. _gloss-form:
 
@@ -173,7 +210,7 @@ Form
 
 Within Synapse, a form is the definition of an object in the Synapse data model. A form acts as a "template" that specifies how to create an object (:ref:`gloss-node`) within a Cortex. A form consists of (at minimum) a :ref:`gloss-prop-primary` and its associated :ref:`gloss-type`. Depending on the form, it may also have various secondary properties with associated types.
 
-See the :ref:`data-form` section in :ref:`data-model-terms` for additional detail.
+See the :ref:`data-form` section in the :ref:`data-model-terms` document for additional detail.
 
 
 .. _gloss-form-comp:
@@ -181,21 +218,21 @@ See the :ref:`data-form` section in :ref:`data-model-terms` for additional detai
 Form, Composite
 ---------------
 
-TBD
+Within Synapse, a category of form whose primary property is an ordered set of typed values. Examples include DNS A records (``inet:dns:a``) and web-based accounts (``inet:web:acct``).
 
 .. _gloss-form-guid:
 
 Form, GUID
 ----------
 
-TBD
+In the Synpase :ref:`gloss-data-model`, a specialized case of a :ref:`gloss-simple-form` whose primary property is a :ref:`gloss-guid`. The GUID can be either arbitrary (in which case it is **not** considered :ref:`gloss-deconflictable`) or constructed from a specified set of values (with the goal of being :ref:`gloss-deconflictable`). Examples include file execution data (e.g., ``inet:file:exec:read``) or articles (``media:news``).
 
 .. _gloss-form-simple:
 
 Form, Simple
 ------------
 
-TBD
+In the Synapse :ref:`gloss-data-model`, a category of form whose primary property is a single typed value. Examples include domains (``inet:fqdn``) or hashes (e.g., ``hash:md5``).
 
 .. _gloss-fused-know:
 
@@ -238,6 +275,13 @@ GUID
 ----
 
 Short for Globally Unique Identifier. Within Synapse, a GUID is a :ref:`gloss-type` specified as a 128-bit value that is unique within a given Cortex. GUIDs are used as primary properties for forms that cannot be uniquely represented by a specific value or set of values. Not to be confused with the Microsoft-specific definition of GUID, which is a 128-bit value with a specific format (see https://msdn.microsoft.com/en-us/library/aa373931.aspx).
+
+.. _gloss-guid-form:
+
+GUID Form
+---------
+
+See :ref:`gloss-form-guid`.
 
 H
 =
@@ -316,12 +360,19 @@ Layer
 
 TBD
 
+.. _gloss-leaf-tag:
+
+Leaf Tag
+--------
+
+See :ref:`gloss-tag-leaf`.
+
 .. _gloss-lift:
 
 Lift
 ----
 
-TBD
+Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A lift is a read operation that selects a set of nodes from the Cortex. See also :ref:`gloss-filter`and :ref:`gloss-pivot`.
 
 M
 =
@@ -331,21 +382,21 @@ M
 Model
 -----
 
-TBD
+Within Synapse, a system or systems used to represent data and / or assertions in a structured manner. A well-designed model allows efficient and meaningful exploration of the data to identify both known and potentially arbitrary or discoverable relationships.
 
 .. _gloss-model-analytical:
 
 Model, Analytical
 -----------------
 
-TBD
+Within Synapse, the set of tags (:ref:`gloss-tag`) representing analytical assessments or assertions that can be applied to objects in a :ref:`gloss-cortex`.
 
 .. _gloss-model-data:
 
 Model, Data
 -----------
 
-TBD
+Within Synapse, the set of forms (:ref:`gloss-form`) that define the objects that can be represented in a :ref:`gloss-cortex`.
 
 N
 =
@@ -362,7 +413,9 @@ Pronounced "en-deff". Short for **node definition.** A node’s :ref:`gloss-form
 Node
 ----
 
-TBD
+A node is a unique object within a :ref:`gloss-cortex`. Where a :ref:`gloss-form` is a template that defines the charateristics of a given object, a node is a specific instance of that type of object. For example, ``inet:fqdn`` is a form; ``inet:fqdn=woot.com`` is a node.
+
+See :ref;`data-node` in the :ref:`data-model-terms` document for additional detail.
 
 .. _gloss-node-def:
 
@@ -386,14 +439,7 @@ TBD
 Pivot
 -----
 
-TBD
-
-.. _gloss-prefix-index:
-
-Prefix Indexing
----------------
-
-TBD
+Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A pivot operation allows navigation of the hypergraph following a lift operation by moving from a set of nodes with a specified property value (or values) to a set of nodes with that same property value(s).  See also :ref:`gloss-lift`and :ref:`gloss-filter`.
 
 .. _gloss-primary-prop:
 
@@ -409,7 +455,7 @@ Property
 
 Within Synapse, a properties are individual elements that define a :ref:`gloss-form` or (along with their specific values) that comprise a :ref:`gloss-node`. Every property in Synapse must have a defined :ref:`gloss-type`.
 
-See the :ref:`data-props` section in :ref:`data-model-terms` for additional detail.
+See the :ref:`data-props` section in the :ref:`data-model-terms` document for additional detail.
 
 .. _gloss-prop-derived:
 
@@ -467,6 +513,13 @@ Repr
 
 Short for "representation". The repr of a :ref:`gloss-prop` defines how the property should be displayed, where the display format differs from the storage format. For example, date/time values in Synapse are stored in epoch milliseconds but are displayed in human-friendly "yyyy/mm/dd hh:mm:ss.mmm" format.
 
+.. _gloss-root-tag:
+
+Root Tag
+--------
+
+See :ref:`gloss-tag-root`.
+
 S
 =
 
@@ -485,6 +538,13 @@ Service
 
 TBD
 
+.. _gloss-simple-form:
+
+Simple Form
+-----------
+
+See :ref:`gloss-form-simple`.
+
 .. _gloss-slab:
 
 Slab
@@ -498,6 +558,13 @@ Splice
 ------
 
 TBD
+
+.. _gloss-standard-comp-op:
+
+Standard Comparison Operator
+----------------------------
+
+See :ref:`gloss-comp-op-standard`.
 
 .. _gloss-storm:
 
@@ -514,42 +581,46 @@ T
 Tag
 ---
 
-TBD
+Within Synapse, a tag is a label applied to a node that provides additional context about the node. Tags typically represent assessments or judgements about the data represented by the node.
+
+See the :ref:`data-tag` section in the :ref:`data-model-terms` document for additional detail.
 
 .. _gloss-tag-base:
 
 Tag, Base
 ---------
 
-TBD
+Within Synapse, the lowest (rightmost) tag element in a tag hierarchy. For example, in the tag ``#foo.bar.baz``, ``baz`` is the base tag.
 
 .. _gloss-tag-leaf:
 
 Tag, Leaf
 ---------
 
-TBD
+Another term form :ref:`gloss-base-tag`.
 
 .. _gloss-tag-root:
 
 Tag, Root
 ---------
 
-TBD
+Within Synapse, the highest (leftmost) tag element in a tag hierarchy. For example, in the tag ``#foo.bar.baz``, ``foo`` is the root tag.
 
 .. _gloss-traverse:
 
 Traverse
 --------
 
-TBD
+In a :ref:`gloss-graph` or :ref:`gloss-directed-graph`, traversal refers to navigating the data in the graph by pathing along the edges between nodes. In a :ref:`gloss-hypergraph`, because there are no edges, navigation between nodes is performed using a :ref:`gloss-pivot`.
 
 .. _gloss-type:
 
 Type
 ----
 
-Within Synapse, a type is the definition of a data element within the data model. A type describes what the element is and enforces how it should look, including how it should be normalized, if necessary, for both storage (including indexing) and representation (display). See the :ref:`data-type` section in :ref:`data-model-terms` for additional detail.
+Within Synapse, a type is the definition of a data element within the data model. A type describes what the element is and enforces how it should look, including how it should be normalized, if necessary, for both storage (including indexing) and representation (display).
+
+See the :ref:`data-type` section in the :ref:`data-model-terms` document for additional detail.
 
 .. _gloss-type-base:
 
@@ -603,13 +674,6 @@ V
 
 Variable
 --------
-
-TBD
-
-.. _gloss-vertex:
-
-Vertex
-------
 
 TBD
 
