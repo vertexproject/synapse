@@ -615,21 +615,21 @@ See the :ref:`data-tag` section in the :ref:`data-model-terms` document for addi
 Tag, Base
 ---------
 
-Within Synapse, the lowest (rightmost) tag element in a tag hierarchy. For example, in the tag ``#foo.bar.baz``, ``baz`` is the base tag.
+Within Synapse, the lowest (rightmost) tag element in a tag hierarchy. For example, for the tag ``#foo.bar.baz``, ``baz`` is the base tag.
 
 .. _gloss-tag-leaf:
 
 Tag, Leaf
 ---------
 
-Another term form :ref:`gloss-base-tag`.
+The full tag path / longest tag in a given tag hierarchy. For example, for the tag ``#foo.bar.baz``, ``foo.bar.baz`` is the leaf tag.
 
 .. _gloss-tag-root:
 
 Tag, Root
 ---------
 
-Within Synapse, the highest (leftmost) tag element in a tag hierarchy. For example, in the tag ``#foo.bar.baz``, ``foo`` is the root tag.
+Within Synapse, the highest (leftmost) tag element in a tag hierarchy. For example, for the tag ``#foo.bar.baz``, ``foo`` is the root tag.
 
 .. _gloss-traverse:
 
