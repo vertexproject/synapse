@@ -872,13 +872,23 @@ class YieldValu(Oper):
 class LiftTag(LiftOper):
 
     async def lift(self, runt):
+
         cmpr = '='
         valu = None
+
         tag = await self.kids[0].compute(runt)
+
         if len(self.kids) == 3:
+
             cmpr = await self.kids[1].compute(runt)
             valu = await self.kids[2].compute(runt)
-        async for node in runt.snap._getNodesByTag(tag, valu=valu, cmpr=cmpr):
+
+            async for node in runt.snap.liftByTagValu(tag, cmpr, valu):
+                yield node
+
+            return
+
+        async for node in runt.snap.liftByTag(tag):
             yield node
 
 class LiftByArray(LiftOper):
@@ -981,7 +991,7 @@ class LiftTagTag(LiftOper):
                 continue
 
             done.add(tagname)
-            async for node in runt.snap._getNodesByTag(tagname, valu=valu, cmpr=cmpr):
+            async for node in runt.snap.liftByTag(tagname, valu=valu, cmpr=cmpr):
                 if node.form.name == 'syn:tag':
                     todo.append((node, None, '='))
                     continue
@@ -1002,7 +1012,7 @@ class LiftFormTag(LiftOper):
             cmpr = self.kids[2].value()
             valu = await self.kids[3].compute(runt)
 
-        async for node in runt.snap._getNodesByFormTag(form, tag, valu=valu, cmpr=cmpr):
+        async for node in runt.snap.liftByTag(tag, form=form):#, valu=valu, cmpr=cmpr):
             yield node
 
 class LiftProp(LiftOper):
@@ -1038,7 +1048,7 @@ class LiftProp(LiftOper):
 
                     if hint[0] == 'tag':
                         tagname = hint[1].get('name')
-                        async for node in runt.snap._getNodesByFormTag(name, tagname):
+                        async for node in runt.snap.liftByTag(tagname, form=name):
                             yield node
                         return
 
@@ -1088,7 +1098,7 @@ class PivotOut(PivotOper):
             # <syn:tag> -> * is "from tags to nodes with tags"
             if node.form.name == 'syn:tag':
 
-                async for pivo in runt.snap._getNodesByTag(node.ndef[1]):
+                async for pivo in runt.snap.liftByTag(node.ndef[1]):
                     yield pivo, path.fork(pivo)
 
                 continue
@@ -2628,7 +2638,7 @@ class EditPropSet(Edit):
             if prop is None:
                 raise s_exc.NoSuchProp(name=name, form=node.form.name)
 
-            if not node.isrunt:
+            if not node.form.isrunt:
                 # runt node property permissions are enforced by the callback
                 runt.reqLayerAllowed(('prop:set', prop.full))
 

@@ -39,8 +39,8 @@ class Migration(s_base.Base):
 
         self.ndefdelay = None
 
-        for layr in layers:
-            await self.enter_context(layr.disablingBuidCache())
+        #for layr in layers:
+            #await self.enter_context(layr.disablingBuidCache())
 
     @contextlib.asynccontextmanager
     async def getTempSlab(self):

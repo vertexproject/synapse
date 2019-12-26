@@ -9,6 +9,7 @@ import regex
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.chop as s_chop
+import synapse.lib.layer as s_layer
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
 import synapse.lib.module as s_module
@@ -205,6 +206,8 @@ class Email(s_types.StrBase):
 
 class Fqdn(s_types.Type):
 
+    stortype = s_layer.STOR_TYPE_UTF8
+
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
 
@@ -265,26 +268,26 @@ class Fqdn(s_types.Type):
 
         return valu, {'subs': subs}
 
-    def indx(self, norm):
-        return norm[::-1].encode('utf8')
+    #def indx(self, norm):
+        #return norm[::-1].encode('utf8')
 
-    def indxByEq(self, valu):
+    #def indxByEq(self, valu):
 
-        if valu == '':
-            raise s_exc.BadLiftValu(valu=valu, name=self.name,
-                                    mesg='Cannot generate fqdn index bytes for a empty string.')
+        #if valu == '':
+            #raise s_exc.BadLiftValu(valu=valu, name=self.name,
+                                    #mesg='Cannot generate fqdn index bytes for a empty string.')
 
-        if valu[0] == '*':
-            indx = valu[1:][::-1].encode('utf8')
-            return (
-                ('pref', indx),
-            )
+        #if valu[0] == '*':
+            #indx = valu[1:][::-1].encode('utf8')
+            #return (
+                #('pref', indx),
+            #)
 
-        if valu.find('*') != -1:
-            raise s_exc.BadLiftValu(valu=valu, name=self.name,
-                                    mesg='Wild card may only appear at the beginning.')
+        #if valu.find('*') != -1:
+            #raise s_exc.BadLiftValu(valu=valu, name=self.name,
+                                    #mesg='Wild card may only appear at the beginning.')
 
-        return s_types.Type.indxByEq(self, valu)
+        #return s_types.Type.indxByEq(self, valu)
 
     def repr(self, valu):
         try:
@@ -292,10 +295,14 @@ class Fqdn(s_types.Type):
         except UnicodeError:
             return valu
 
+import synapse.lib.layer as s_layer
+
 class IPv4(s_types.Type):
     '''
     The base type for an IPv4 address.
     '''
+    stortype = s_layer.STOR_TYPE_U32
+
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
@@ -367,8 +374,8 @@ class IPv4(s_types.Type):
         norm = int.from_bytes(byts, 'big')
         return self._normPyInt(norm)
 
-    def indx(self, norm):
-        return norm.to_bytes(4, 'big')
+    #def indx(self, norm):
+        #return norm.to_bytes(4, 'big')
 
     def repr(self, norm):
         return socket.inet_ntoa(self.indx(norm))
@@ -387,6 +394,8 @@ class IPv4(s_types.Type):
 
         minv = norm & mask[0]
         return minv, minv + mask[1]
+
+    #def _storLiftEq(self, cmpr, valu):
 
     def indxByEq(self, valu):
 

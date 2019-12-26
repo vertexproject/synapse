@@ -1,6 +1,7 @@
 import synapse.exc as s_exc
 
 import synapse.lib.gis as s_gis
+import synapse.lib.layer as s_layer
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.grammar as s_grammar
@@ -47,9 +48,6 @@ class Dist(s_types.IntBase):
 
         return int(valu * mult), {}
 
-    def indx(self, norm):
-        return norm.to_bytes(8, 'big')
-
     def repr(self, norm):
 
         for base, unit in distrepr:
@@ -69,6 +67,7 @@ class Latitude(s_types.Type):
         self.setNormFunc(float, self._normFloat)
 
     def _normFloat(self, valu):
+
         if valu > 90.0 or valu < -90.0:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Latitude may only be -90.0 to 90.0')
@@ -85,10 +84,12 @@ class Latitude(s_types.Type):
                                     mesg='Invalid float format')
         return self._normFloat(valu)
 
-    def indx(self, norm):
-        return int(norm * Latitude.SCALE + Latitude.SPACE).to_bytes(5, 'big')
+    #def indx(self, norm):
+        #return int(norm * Latitude.SCALE + Latitude.SPACE).to_bytes(5, 'big')
 
 class LatLong(s_types.Type):
+
+    stortype = s_layer.STOR_TYPE_LATLONG
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
@@ -96,8 +97,11 @@ class LatLong(s_types.Type):
         self.setNormFunc(tuple, self._normPyTuple)
 
         self.setCmprCtor('near=', self._cmprNear)
-        self.setLiftHintCmprCtor('near=', self._cmprNear)
-        self.indxcmpr['near='] = self._indxNear
+        #self.setLiftHintCmprCtor('near=', self._cmprNear)
+        self.storlifts.update({
+            'near=': self._storLiftNear,
+        })
+        #self.indxcmpr['near='] = self._indxNear
 
     def _normCmprValu(self, valu):
         latlong, dist = valu
@@ -113,19 +117,24 @@ class LatLong(s_types.Type):
             return False
         return cmpr
 
-    def _indxNear(self, valu):
-        (lat, long), dist = self._normCmprValu(valu)
-        latmin, latmax, longmin, longmax = s_gis.bbox(lat, long, dist)
+    def _storLiftNear(self, cmpr, valu):
+        latlong = self.norm(valu[0])[0]
+        dist = self.modl.type('geo:dist').norm(valu[1])[0]
+        return ((cmpr, (latlong, dist), self.stortype),)
 
-        latmin, longmin = self.norm((latmin, longmin))[0]
-        latmax, longmax = self.norm((latmax, longmax))[0]
+    #def _indxNear(self, valu):
+        #(lat, long), dist = self._normCmprValu(valu)
+        #latmin, latmax, longmin, longmax = s_gis.bbox(lat, long, dist)
 
-        minv = self.indx((latmin, longmin))
-        maxv = self.indx((latmax, longmax))
+        #latmin, longmin = self.norm((latmin, longmin))[0]
+        #latmax, longmax = self.norm((latmax, longmax))[0]
 
-        return (
-            ('range', (minv, maxv)),
-        )
+        #minv = self.indx((latmin, longmin))
+        #maxv = self.indx((latmax, longmax))
+
+        #return (
+            #('range', (minv, maxv)),
+        #)
 
     def _normPyStr(self, valu):
         valu = tuple(valu.strip().split(','))
@@ -145,8 +154,8 @@ class LatLong(s_types.Type):
 
         return (latv, lonv), {'subs': {'lat': latv, 'lon': lonv}}
 
-    def indx(self, valu):
-        return self.modl.type('geo:latitude').indx(valu[0]) + self.modl.type('geo:longitude').indx(valu[1])
+    #def indx(self, valu):
+        #return self.modl.type('geo:latitude').indx(valu[0]) + self.modl.type('geo:longitude').indx(valu[1])
 
     def repr(self, norm):
         return f'{norm[0]},{norm[1]}'
@@ -178,8 +187,8 @@ class Longitude(s_types.Type):
 
         return valu, {}
 
-    def indx(self, norm):
-        return int(norm * Longitude.SCALE + Longitude.SPACE).to_bytes(5, 'big')
+    #def indx(self, norm):
+        #return int(norm * Longitude.SCALE + Longitude.SPACE).to_bytes(5, 'big')
 
 class GeoModule(s_module.CoreModule):
 

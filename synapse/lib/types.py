@@ -11,6 +11,7 @@ import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
+import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,8 @@ tagre = regex.compile(r'(\w+\.)*\w+')
 class Type:
 
     _opt_defs = ()
-    _lift_v2 = False
+    #_lift_v2 = False
+    stortype = None
 
     def __init__(self, modl, name, info, opts):
         '''
@@ -64,7 +66,20 @@ class Type:
 
         self.setNormFunc(s_node.Node, self._normStormNode)
 
+        self.storlifts = {
+            '=': self._storLiftNorm,
+        }
+
         self.postTypeInit()
+
+    def _storLiftNorm(self, cmpr, valu):
+        # NOTE: this may also be used for any other supported
+        #       lift operation that requires a simple norm(valu)
+        norm, info = self.norm(valu)
+        return ((cmpr, norm, self.stortype),)
+
+    def getStorCmprs(self, cmpr, valu):
+        return self.storlifts[cmpr](cmpr, valu)
 
     def getCompOffs(self, name):
         '''
@@ -573,6 +588,8 @@ class FieldHelper(collections.defaultdict):
 
 class Guid(Type):
 
+    stortype = s_layer.STOR_TYPE_GUID
+
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyList)
@@ -599,6 +616,8 @@ class Guid(Type):
 
 class Hex(Type):
 
+    stortype = s_layer.STOR_TYPE_UTF8
+
     _opt_defs = (
         ('size', 0),
     )
@@ -615,15 +634,15 @@ class Hex(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(bytes, self._normPyBytes)
 
-    def indxByEq(self, valu):
-        if isinstance(valu, str) and valu.endswith('*'):
-            valu = valu.rstrip('*')
-            norm = s_chop.hexstr(valu)
-            return (
-                ('pref', self.indx(norm)),
-            )
+    #def indxByEq(self, valu):
+        #if isinstance(valu, str) and valu.endswith('*'):
+            #valu = valu.rstrip('*')
+            #norm = s_chop.hexstr(valu)
+            #return (
+                #('pref', self.indx(norm)),
+            #)
 
-        return Type.indxByEq(self, valu)
+        #return Type.indxByEq(self, valu)
 
     def _normPyStr(self, valu):
         valu = s_chop.hexstr(valu)
@@ -635,8 +654,19 @@ class Hex(Type):
     def _normPyBytes(self, valu):
         return self._normPyStr(s_common.ehex(valu))
 
-    def indx(self, norm):
-        return self._getIndxChop(s_common.uhex(norm))
+    #def indx(self, norm):
+        #return self._getIndxChop(s_common.uhex(norm))
+
+intstors = {
+    (1, True): s_layer.STOR_TYPE_I8,
+    (2, True): s_layer.STOR_TYPE_I16,
+    (4, True): s_layer.STOR_TYPE_I32,
+    (8, True): s_layer.STOR_TYPE_I64,
+    (1, False): s_layer.STOR_TYPE_U8,
+    (2, False): s_layer.STOR_TYPE_U16,
+    (4, False): s_layer.STOR_TYPE_U32,
+    (8, False): s_layer.STOR_TYPE_U64,
+}
 
 class IntBase(Type):
 
@@ -650,55 +680,71 @@ class IntBase(Type):
         self.setCmprCtor('>', self._ctorCmprGt)
         self.setCmprCtor('<', self._ctorCmprLt)
 
-        self.indxcmpr['>='] = self.indxByGe
-        self.indxcmpr['<='] = self.indxByLe
+        #self.indxcmpr['>='] = self.indxByGe
+        #self.indxcmpr['<='] = self.indxByLe
+        #self.indxcmpr['>'] = self.indxByGt
+        #self.indxcmpr['<'] = self.indxByLt
 
-        self.indxcmpr['>'] = self.indxByGt
-        self.indxcmpr['<'] = self.indxByLt
+        self.storlifts.update({
+            '<': self._storLiftNorm,
+            '>': self._storLiftNorm,
+            '<=': self._storLiftNorm,
+            '>=': self._storLiftNorm,
+            'range=': self._storLiftRange,
+        })
 
-    def indxByGe(self, valu):
+    def _storLiftRange(self, cmpr, valu):
+        minv, minfo = self.norm(valu[0])
+        maxv, maxfo = self.norm(valu[1])
+        return ((cmpr, (minv, maxv), self.stortype),)
 
-        norm, info = self.norm(valu)
+    #async def liftByPropValu(self, snap, prop, cmpr, valu):
+        #async for node in snap.liftByPropValu(prop.form.name, prop.name, cmpr, valu):
+            #yield node
 
-        indx = self.indx(norm)
-        imax = b'\xff' * len(indx)
+    #def indxByGe(self, valu):
 
-        return (
-            ('range', (indx, imax)),
-        )
+        #norm, info = self.norm(valu)
 
-    def indxByLe(self, valu):
+        #indx = self.indx(norm)
+        #imax = b'\xff' * len(indx)
 
-        norm, info = self.norm(valu)
+        #return (
+            #('range', (indx, imax)),
+        #)
 
-        indx = self.indx(norm)
-        imin = b'\x00' * len(indx)
+    #def indxByLe(self, valu):
 
-        return (
-            ('range', (imin, indx)),
-        )
+        #norm, info = self.norm(valu)
 
-    def indxByGt(self, valu):
+        #indx = self.indx(norm)
+        #imin = b'\x00' * len(indx)
 
-        norm, info = self.norm(valu)
+        #return (
+            #('range', (imin, indx)),
+        #)
 
-        indx = self.indx(norm + 1)
-        imax = b'\xff' * len(indx)
+    #def indxByGt(self, valu):
 
-        return (
-            ('range', (indx, imax)),
-        )
+        #norm, info = self.norm(valu)
 
-    def indxByLt(self, valu):
+        #indx = self.indx(norm + 1)
+        #imax = b'\xff' * len(indx)
 
-        norm, info = self.norm(valu)
+        #return (
+            #('range', (indx, imax)),
+        #)
 
-        indx = self.indx(norm - 1)
-        imin = b'\x00' * len(indx)
+    #def indxByLt(self, valu):
 
-        return (
-            ('range', (imin, indx)),
-        )
+        #norm, info = self.norm(valu)
+
+        #indx = self.indx(norm - 1)
+        #imin = b'\x00' * len(indx)
+
+        #return (
+            #('range', (imin, indx)),
+        #)
 
     def _ctorCmprGe(self, text):
         norm, info = self.norm(text)
@@ -743,6 +789,10 @@ class Int(IntBase):
 
         self.size = self.opts.get('size')
         self.signed = self.opts.get('signed')
+        self.stortype = intstors.get((self.size, self.signed))
+        if self.stortype is None:
+            mesg = 'Invalid integer size.'
+            raise s_exc.BadTypeDef(mesg=mesg)
 
         self.enumnorm = {}
         self.enumrepr = {}
@@ -832,8 +882,8 @@ class Int(IntBase):
 
         return valu, {}
 
-    def indx(self, valu):
-        return (valu + self._indx_offset).to_bytes(self.size, 'big')
+    #def indx(self, valu):
+        #return (valu + self._indx_offset).to_bytes(self.size, 'big')
 
     def repr(self, norm):
 
@@ -847,6 +897,7 @@ class Ival(Type):
     '''
     An interval, i.e. a range, of times
     '''
+    stortype = s_layer.STOR_TYPE_IVAL
 
     def postTypeInit(self):
         self.futsize = 0x7fffffffffffffff
@@ -906,14 +957,14 @@ class Ival(Type):
 
         return cmpr
 
-    def getLiftOps(self, tabl, cmpr, oper):
-        if cmpr != '@=':
-            return None
-        form, prop, valu = oper
-        norm, _ = self.norm(valu)
-        return (
-            (tabl + ':ival', (form, prop, norm)),
-        )
+    #def getLiftOps(self, tabl, cmpr, oper):
+        #if cmpr != '@=':
+            #return None
+        #form, prop, valu = oper
+        #norm, _ = self.norm(valu)
+        #return (
+            #(tabl + ':ival', (form, prop, norm)),
+        #)
 
     def _normPyInt(self, valu):
         minv, _ = self.timetype._normPyInt(valu)
@@ -967,15 +1018,15 @@ class Ival(Type):
         maxt = max(oldv[1], newv[1])
         return (mint, maxt)
 
-    def indx(self, norm):
+    #def indx(self, norm):
 
-        if norm is None:
-            return b''
+        #if norm is None:
+            #return b''
 
-        indx = self.timetype.indx(norm[0])
-        indx += self.timetype.indx(norm[1])
+        #indx = self.timetype.indx(norm[0])
+        #indx += self.timetype.indx(norm[1])
 
-        return indx
+        #return indx
 
     def repr(self, norm):
         mint = self.timetype.repr(norm[0])
@@ -987,7 +1038,7 @@ class Loc(Type):
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
         self.setCmprCtor('^=', self._ctorCmprPref)
-        self.indxcmpr['^='] = self.indxByPref
+        #self.indxcmpr['^='] = self.indxByPref
         self.setLiftHintCmprCtor('^=', self._ctorCmprPref)
 
     def _normPyStr(self, valu):
@@ -1002,18 +1053,18 @@ class Loc(Type):
         norm = '.'.join(norms)
         return norm, {}
 
-    def indx(self, norm):
-        parts = norm.split('.')
-        valu = '\x00'.join(parts) + '\x00'
-        return valu.encode('utf8', 'surrogatepass')
+    #def indx(self, norm):
+        #parts = norm.split('.')
+        #valu = '\x00'.join(parts) + '\x00'
+        #return valu.encode('utf8', 'surrogatepass')
 
-    def indxByPref(self, valu):
-        norm, info = self.norm(valu)
-        indx = self.indx(norm)
+    #def indxByPref(self, valu):
+        #norm, info = self.norm(valu)
+        #indx = self.indx(norm)
 
-        return (
-            ('pref', indx.strip(b'\x00')),
-        )
+        #return (
+            #('pref', indx.strip(b'\x00')),
+        #)
 
     @s_cache.memoize()
     def stems(self, valu):
@@ -1043,6 +1094,8 @@ class Loc(Type):
 
 class Ndef(Type):
 
+    stortype = s_layer.STOR_TYPE_MSGP
+
     def postTypeInit(self):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
@@ -1068,8 +1121,8 @@ class Ndef(Type):
 
         return norm, {'adds': adds, 'subs': subs}
 
-    def indx(self, norm):
-        return s_common.buid(norm)
+    #def indx(self, norm):
+        #return s_common.buid(norm)
 
     def repr(self, norm):
         formname, formvalu = norm
@@ -1081,6 +1134,8 @@ class Ndef(Type):
         return (formname, repv)
 
 class Edge(Type):
+
+    stortype = s_layer.STOR_TYPE_MSGP
 
     def getCompOffs(self, name):
         return self.fieldoffs.get(name)
@@ -1133,8 +1188,8 @@ class Edge(Type):
         n1, n2 = valu
         return self._initEdgeBase(n1, n2)
 
-    def indx(self, norm):
-        return s_common.buid(norm)
+    #def indx(self, norm):
+        #return s_common.buid(norm)
 
     def repr(self, norm):
         n1, n2 = norm
@@ -1143,6 +1198,8 @@ class Edge(Type):
         return (n1repr, n2repr)
 
 class TimeEdge(Edge):
+
+    stortype = s_layer.STOR_TYPE_MSGP
 
     def getCompOffs(self, name):
         return self.fieldoffs.get(name)
@@ -1179,6 +1236,8 @@ class TimeEdge(Edge):
 
 class Data(Type):
 
+    stortype = s_layer.STOR_TYPE_MSGP
+
     def norm(self, valu):
         byts = s_msgpack.en(valu)
         return s_msgpack.un(byts), {}
@@ -1187,6 +1246,8 @@ class Data(Type):
         return None
 
 class NodeProp(Type):
+
+    stortype = s_layer.STOR_TYPE_MSGP
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
@@ -1214,6 +1275,8 @@ class NodeProp(Type):
         return s_common.buid(norm)
 
 class Range(Type):
+
+    stortype = s_layer.STOR_TYPE_MSGP
 
     _opt_defs = (
         ('type', None),
@@ -1264,6 +1327,7 @@ class StrBase(Type):
     '''
     Base class for types which index/behave like strings.
     '''
+    stortype = s_layer.STOR_TYPE_UTF8
 
     def postTypeInit(self):
         self.indxcmpr['^='] = self.indxByPref
@@ -1360,11 +1424,11 @@ class Tag(StrBase):
         StrBase.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
-    def indxByPref(self, valu):
-        norm, info = self.norm(valu)
-        return (
-            ('pref', norm.encode('utf8')[:248]),
-        )
+    #def indxByPref(self, valu):
+        #norm, info = self.norm(valu)
+        #return (
+            #('pref', norm.encode('utf8')[:248]),
+        #)
 
     def _normPyStr(self, text):
 
@@ -1388,6 +1452,8 @@ class Tag(StrBase):
 
 class Time(IntBase):
 
+    stortype = s_layer.STOR_TYPE_TIME
+
     _opt_defs = (
         ('ismin', False),
         ('ismax', False),
@@ -1400,17 +1466,17 @@ class Time(IntBase):
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
 
-        self.indxcmpr['@='] = self.indxByIval
+        #self.indxcmpr['@='] = self.indxByIval
         self.setCmprCtor('@=', self._ctorCmprAt)
 
         self.ismin = self.opts.get('ismin')
         self.ismax = self.opts.get('ismax')
 
-    def indxByIval(self, valu):
-        norm, _ = self.modl.types.get('ival').norm(valu)
-        if norm[1] != self.futsize:
-            norm = (norm[0], norm[1] - 1)
-        return self.indxByRange(norm)
+    #def indxByIval(self, valu):
+        #norm, _ = self.modl.types.get('ival').norm(valu)
+        #if norm[1] != self.futsize:
+            #norm = (norm[0], norm[1] - 1)
+        #return self.indxByRange(norm)
 
     def _ctorCmprAt(self, valu):
         return self.modl.types.get('ival')._ctorCmprAt(valu)
@@ -1470,10 +1536,10 @@ class Time(IntBase):
 
         return s_time.repr(valu)
 
-    def indx(self, norm):
+    #def indx(self, norm):
         # offset to prevent pre-epoch negative values from
         # wreaking havoc with the btree range indexing...
-        return (norm + 0x8000000000000000).to_bytes(8, 'big')
+        #return (norm + 0x8000000000000000).to_bytes(8, 'big')
 
     def _getLiftValu(self, valu, relto=None):
 
@@ -1538,31 +1604,31 @@ class Time(IntBase):
 
         return _tick, _tock
 
-    def _indxTimeRange(self, mint, maxt):
-        minv, _ = self.norm(mint)
-        maxv, _ = self.norm(maxt)
-        return (
-            ('range', (self.indx(minv), self.indx(maxv))),
-        )
+    #def _indxTimeRange(self, mint, maxt):
+        #minv, _ = self.norm(mint)
+        #maxv, _ = self.norm(maxt)
+        #return (
+            #('range', (self.indx(minv), self.indx(maxv))),
+        #)
 
-    def indxByRange(self, valu):
-        '''
-        Override default ``range=`` handler to account for relative computation.
-        '''
+    #def indxByRange(self, valu):
+        #'''
+        #Override default ``range=`` handler to account for relative computation.
+        #'''
 
-        if not isinstance(valu, (list, tuple)):
-            raise s_exc.BadCmprValu(valu=valu, cmpr='range=')
+        #if not isinstance(valu, (list, tuple)):
+            #raise s_exc.BadCmprValu(valu=valu, cmpr='range=')
 
-        if len(valu) != 2:
-            raise s_exc.BadCmprValu(valu=valu, cmpr='range=')
+        #if len(valu) != 2:
+            #raise s_exc.BadCmprValu(valu=valu, cmpr='range=')
 
-        tick, tock = self.getTickTock(valu)
+        #tick, tock = self.getTickTock(valu)
 
-        if tick > tock:
+        #if tick > tock:
             # User input has requested a nullset
-            return ()
+            #return ()
 
-        return self._indxTimeRange(tick, tock)
+        #return self._indxTimeRange(tick, tock)
 
     def _ctorCmprRange(self, vals):
         '''

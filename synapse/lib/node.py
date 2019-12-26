@@ -18,34 +18,40 @@ class Node:
 
     NOTE: This object is for local Cortex use during a single Xact.
     '''
-    def __init__(self, snap, buid=None, rawprops=None, proplayr=None):
-
+    #def __init__(self, snap, buid=None, rawprops=None, proplayr=None):
+    def __init__(self, snap, sode):
         self.snap = snap
+        self.sode = sode
 
-        self.buid = buid
+        self.buid = sode[0]
 
-        self.init = False  # True if the node is being added.
+        #self.init = False  # True if the node is being added.
 
         # if set, the node is complete.
-        self.ndef = None
-        self.form = None
-        self.isrunt = None
+        self.ndef = sode[1].get('ndef')
+        self.form = snap.model.form(self.ndef[0])
 
-        self.tags = {}
-        self.props = {}
         self.univs = {}
         self.tagprops = {}
 
+        self.tags = sode[1].get('tags')
+        if self.tags is None:
+            self.tags = {}
+
+        self.props = sode[1].get('props')
+        if self.props is None:
+            self.props = {}
+
         # raw prop -> layer it was set at
-        self.proplayr = collections.defaultdict(lambda: self.snap.wlyr, proplayr or {})
+        #self.proplayr = collections.defaultdict(lambda: self.snap.wlyr, proplayr or {})
 
         # self.buid may be None during initial node construction...
-        if rawprops is not None:
-            self._loadNodeData(rawprops)
+        #if rawprops is not None:
+            #self._loadNodeData(rawprops)
 
-        if self.ndef is not None:
-            self.form = self.snap.model.form(self.ndef[0])
-            self.isrunt = self.form.isrunt
+        #if self.ndef is not None:
+            #self.form = self.snap.model.form(self.ndef[0])
+            #self.isrunt = self.form.isrunt
 
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
@@ -93,31 +99,31 @@ class Node:
     def iden(self):
         return s_common.ehex(self.buid)
 
-    def _loadNodeData(self, rawprops):
+    #def _loadNodeData(self, rawprops):
 
-        for prop, valu in rawprops:
+        #for prop, valu in rawprops:
 
-            p0 = prop[0]
+            #p0 = prop[0]
 
             # check for primary property
-            if p0 == '*':
-                self.ndef = (prop[1:], valu)
-                continue
+            #if p0 == '*':
+                #self.ndef = (prop[1:], valu)
+                #continue
 
             # check for tag encoding
-            if p0 == '#':
+            #if p0 == '#':
 
                 # proptag...
-                if ':' in prop:
-                    tag, prop = prop[1:].split(':', 1)
-                    self.tagprops[(tag, prop)] = valu
-                    continue
+                #if ':' in prop:
+                    #tag, prop = prop[1:].split(':', 1)
+                    #self.tagprops[(tag, prop)] = valu
+                    #continue
 
-                self.tags[prop[1:]] = valu
-                continue
+                #self.tags[prop[1:]] = valu
+                #continue
 
             # otherwise, it's a regular property!
-            self.props[prop] = valu
+            #self.props[prop] = valu
 
     def pack(self, dorepr=False):
         '''
@@ -205,17 +211,17 @@ class Node:
             mesg = 'Cannot set property in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        with s_editatom.EditAtom(self.snap.core.bldgbuids) as editatom:
-            retn = await self._setops(name, valu, editatom, init)
-            if not retn:
-                return False
-            await editatom.commit(self.snap)
-            return True
+        #with s_editatom.EditAtom(self.snap.core.bldgbuids) as editatom:
+            #retn = await self._setops(name, valu, editatom, init)
+            #if not retn:
+                #return False
+            #await editatom.commit(self.snap)
+            #return True
 
-    async def _setops(self, name, valu, editatom, init=False):
-        '''
-        Generate operations to set a property on a node.
-        '''
+    #async def _setops(self, name, valu, editatom, init=False):
+        #'''
+        #Generate operations to set a property on a node.
+        #'''
         prop = self.form.prop(name)
         if prop is None:
 
@@ -225,7 +231,7 @@ class Node:
             await self.snap.warn(f'NoSuchProp: name={name}')
             return False
 
-        if self.isrunt:
+        if self.form.isrunt:
 
             if prop.info.get('ro'):
                 mesg = 'Cannot set read-only props on runt nodes'
@@ -263,18 +269,23 @@ class Node:
             if curv == norm:
                 return False
 
-        sops = prop.getSetOps(self.buid, norm)
+        #sops = prop.getSetOps(self.buid, norm)
 
-        editatom.sops.extend(sops)
+        #editatom.sops.extend(sops)
 
         # self.props[prop.name] = norm
-        editatom.npvs.append((self, prop, curv, norm))
+        #editatom.npvs.append((self, prop, curv, norm))
+
+        info = {'form': prop.form.name, 'props': (
+            (prop.name, norm, prop.type.stortype),
+        )}
+        await self.snap.wlyr.setStorNode(self.buid, info, {})
 
         # do we have any auto nodes to add?
-        auto = self.snap.model.form(prop.type.name)
-        if auto is not None:
-            buid = s_common.buid((auto.name, norm))
-            await self.snap._addNodeFnibOps((auto, norm, info, buid), editatom)
+        #auto = self.snap.model.form(prop.type.name)
+        #if auto is not None:
+            #buid = s_common.buid((auto.name, norm))
+            #await self.snap._addNodeFnibOps((auto, norm, info, buid), editatom)
 
         # does the type think we have special auto nodes to add?
         # ( used only for adds which do not meet the above block )
@@ -328,7 +339,7 @@ class Node:
             await self.snap.warn(f'No Such Property: {name}')
             return False
 
-        if self.isrunt:
+        if self.form.isrunt:
             if prop.info.get('ro'):
                 raise s_exc.IsRuntForm(mesg='Cannot delete read-only props on runt nodes',
                                        form=self.form.full, prop=name)
@@ -449,7 +460,7 @@ class Node:
             None: This returns None.
         '''
 
-        if self.isrunt:
+        if self.form.isrunt:
             raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.',
                                    form=self.form.full, tag=tag)
 
@@ -494,15 +505,24 @@ class Node:
         if valu == curv:
             return
 
-        indx = self.snap.model.types['ival'].indx(valu)
-        info = {'univ': True}
-        await self._setTagProp(name, valu, indx, info)
+        #indx = self.snap.model.types['ival'].indx(valu)
+        #info = {'univ': True}
+        #await self._setTagProp(name, valu, indx, info)
+        #await self._setTagProp(name, valu, indx, info)
 
-    async def _setTagProp(self, name, norm, indx, info):
+    async def _setTagProp(self, name, norm): #, indx, info):
         self.tags[name] = norm
-        splice = self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
-        self.proplayr['#' + name] = self.snap.wlyr
-        await self.snap.stor((('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),), [splice])
+        #splice = self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
+        #self.proplayr['#' + name] = self.snap.wlyr
+        #await self.snap.stor((('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),), [splice])
+        info = {
+            'form': self.form.name,
+            'tags': (
+                (name, norm),
+            ),
+        }
+        # TODO: move this up to allow batching
+        await self.snap.wlyr.setStorNode(self.buid, info, {})
 
     async def _addTagRaw(self, name, norm):
 
@@ -515,7 +535,8 @@ class Node:
         else:
             indx = self.snap.model.types['ival'].indx(norm)
 
-        await self._setTagProp(name, norm, indx, info)
+        #await self._setTagProp(name, norm, indx, info)
+        await self._setTagProp(name, norm)
 
         await self.snap.view.runTagAdd(self, name, norm)
 
@@ -529,7 +550,7 @@ class Node:
 
         name = '.'.join(path)
 
-        if self.isrunt:
+        if self.form.isrunt:
             raise s_exc.IsRuntForm(mesg='Cannot delete tags from runt nodes.',
                                    form=self.form.full, tag=tag)
 
@@ -656,7 +677,7 @@ class Node:
 
         formname, formvalu = self.ndef
 
-        if self.isrunt:
+        if self.form.isrunt:
             raise s_exc.IsRuntForm(mesg='Cannot delete runt nodes',
                                    form=formname, valu=formvalu)
 
@@ -671,7 +692,7 @@ class Node:
             # refuse to delete tag nodes with existing tags
             if self.form.name == 'syn:tag':
 
-                async for _ in self.snap._getNodesByTag(self.ndef[1]):  # NOQA
+                async for _ in self.snap.liftByTag(self.ndef[1]):  # NOQA
                     mesg = 'Nodes still have this tag.'
                     return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
 

@@ -157,14 +157,14 @@ class SlabDict:
 
 class SlabAbrv:
     '''
-    A utility for translating arbitrary name strings into fixed with id bytes
+    A utility for translating arbitrary bytes into fixed with id bytes
     '''
 
     def __init__(self, slab, name):
 
         self.slab = slab
-        self.name2abrv = slab.initdb(f'{name}:name2abrv')
-        self.abrv2name = slab.initdb(f'{name}:abrv2name')
+        self.name2abrv = slab.initdb(f'{name}:byts2abrv')
+        self.abrv2name = slab.initdb(f'{name}:abrv2byts')
 
         self.offs = 0
 
@@ -173,16 +173,15 @@ class SlabAbrv:
             self.offs = s_common.int64un(item[0])
 
     @s_cache.memoize(10000)
-    def abrvToName(self, abrv):
+    def abrvToByts(self, abrv):
         byts = self.slab.get(abrv, db=self.abrv2name)
         if byts is not None:
             return byts.decode()
 
     @s_cache.memoize(10000)
-    def nameToAbrv(self, name):
+    def bytsToAbrv(self, byts):
 
-        lkey = name.encode()
-        abrv = self.slab.get(lkey, db=self.name2abrv)
+        abrv = self.slab.get(byts, db=self.name2abrv)
         if abrv is not None:
             return abrv
 
@@ -190,10 +189,15 @@ class SlabAbrv:
 
         self.offs += 1
 
-        self.slab.put(lkey, abrv, db=self.name2abrv)
-        self.slab.put(abrv, lkey, db=self.abrv2name)
+        self.slab.put(byts, abrv, db=self.name2abrv)
+        self.slab.put(abrv, byts, db=self.abrv2name)
 
         return abrv
+
+    @s_cache.memoize(10000)
+    def bytsToInt(self, byts):
+        abrv = self.bytsToAbrv(byts)
+        return s_common.int64un(abrv)
 
 class MultiQueue:
     '''

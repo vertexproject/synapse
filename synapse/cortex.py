@@ -875,6 +875,7 @@ class Cortex(s_cell.Cell):
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
 
+        await self._initCoreXact()
         await self._initCoreHive()
         self._initSplicers()
         self._initStormLibs()
@@ -898,13 +899,13 @@ class Cortex(s_cell.Cell):
         await self._migrateViewsLayers()
         await self._initCoreLayers()
         await self._initCoreViews()
-        await self._migrateLayerOffset()
+        #await self._migrateLayerOffset()
         await self._checkLayerModels()
         await self._initCoreQueues()
 
         self.provstor = await s_provenance.ProvStor.anit(self.dirn)
         self.onfini(self.provstor.fini)
-        self.provstor.migratePre010(self.view.layers[0])
+        #self.provstor.migratePre010(self.view.layers[0])
 
         self.addHealthFunc(self._cortexHealth)
 
@@ -944,6 +945,25 @@ class Cortex(s_cell.Cell):
 
         self.spawnpool = await s_spawn.SpawnPool.anit(self)
         self.onfini(self.spawnpool)
+
+    async def _initCoreXact(self):
+        # all cortex changes *must* go through a transaction handler
+        self.xacthands = {
+            'layer:add': self._xactAddLayer,
+            'layer:del': self._onDelLayer,
+            'view:add': self._xactViewAdd,
+            'view:del': self._xactViewDel,
+        }
+
+    async def addCoreXact(self, mesg):
+        await self._execCoreXactMesg(mesg)
+
+    async def _execCoreXactMesg(self, mesg):
+        print('_execCoreXactMesg %r' % (mesg,))
+        await self.xacthands.get(mesg[0])(mesg)
+
+    async def _onDelLayer(self, mesg):
+        print('DEL LAYER %r' % (mesg,))
 
     async def bumpSpawnPool(self):
         if self.spawnpool is not None:
@@ -2160,17 +2180,25 @@ class Cortex(s_cell.Cell):
 
     async def addView(self, iden, owner, layers):
 
+        # TODO validate values here!
+        await self.addCoreXact(('view:add', {'iden': iden, 'owner': owner, 'layers': layers}))
+
+        await self.bumpSpawnPool()
+        return self.views.get(iden)
+
+    async def _xactViewAdd(self, mesg):
+
+        iden = mesg[1].get('iden')
+        owner = mesg[1].get('owner')
+        layers = mesg[1].get('layers')
+
         node = await self.hive.open(('cortex', 'views', iden))
         info = await node.dict()
 
         await info.set('owner', owner)
         await info.set('layers', layers)
 
-        view = await s_view.View.anit(self, node)
-        self.views[iden] = view
-
-        await self.bumpSpawnPool()
-        return view
+        self.views[iden] = await s_view.View.anit(self, node)
 
     async def delView(self, iden):
         '''
@@ -2182,14 +2210,21 @@ class Cortex(s_cell.Cell):
         if iden == self.view.iden:
             raise s_exc.SynErr(mesg='cannot delete the main view')
 
+        self.addCoreXact(('view:del', {'iden': iden}))
+
+        await self.bumpSpawnPool()
+
+    async def _xactViewDel(self, mesg):
+
+        iden = mesg[1].get('iden')
+
         view = self.views.pop(iden, None)
         if view is None:
+            # TODO probably need a retn convention here...
             raise s_exc.NoSuchView(iden=iden)
 
         await self.hive.pop(('cortex', 'views', iden))
         await view.fini()
-
-        await self.bumpSpawnPool()
 
     async def delLayer(self, iden):
         layr = self.layers.get(iden, None)
@@ -2271,9 +2306,22 @@ class Cortex(s_cell.Cell):
             owner (str): optional owner. default: root
             config (dict): type specific config options
         '''
+        iden = s_common.guid()
+        info.setdefault('iden', iden)
+
+        await self.addCoreXact(('layer:add', info))
+
+        print('ADD LAYER: %r' % (info,))
+
+        return self.getLayer(iden)
+
+    async def _xactAddLayer(self, mesg):
+
+        print('XACT ADD LAYER')
+
+        name, info = mesg
+
         iden = info.pop('iden', None)
-        if iden is None:
-            iden = s_common.guid()
 
         node = await self.hive.open(('cortex', 'layers', iden))
 
@@ -2287,10 +2335,13 @@ class Cortex(s_cell.Cell):
         for name, valu in info.get('config', {}).items():
             await layrconf.set(name, valu)
 
-        layr = await self._layrFromNode(node)
+        path = s_common.gendir(self.dirn, 'layers', iden)
+        layr = await s_layer.Layer.anit(iden, path)
+
+        self.layers[iden] = layr
+        #layr = await self._layrFromNode(node)
 
         await self.bumpSpawnPool()
-
         return layr
 
     async def joinTeleLayer(self, url, indx=None):
@@ -2331,7 +2382,13 @@ class Cortex(s_cell.Cell):
 
         # TODO eventually hold this and watch for changes
         for iden, node in node:
-            await self._layrFromNode(node)
+            #await self._layrFromNode(node)
+            path = s_common.gendir(self.dirn, 'layers', iden)
+            layr = await s_layer.Layer.anit(iden, path)
+
+            self.onfini(layr)
+
+            self.layers[iden] = layr
 
     def _migrOrigLayer(self):
         # TODO:  due to our migration policy, remove in 0.2.x

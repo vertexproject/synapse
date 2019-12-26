@@ -4,6 +4,7 @@ cortex construction.
 
 Note:  this interface is subject to change between minor revisions.
 '''
+import os
 import shutil
 import asyncio
 import logging
@@ -11,303 +12,753 @@ import contextlib
 
 import regex
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.exc as s_exc
-
+import synapse.lib.gis as s_gis
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.hive as s_hive
 import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
 
+import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.slabseqn as s_slabseqn
+
+
 logger = logging.getLogger(__name__)
 
 FAIR_ITERS = 10  # every this many rows, yield CPU to other tasks
 BUID_CACHE_SIZE = 10000
 
-class LayerApi(s_cell.CellApi):
+import synapse.lib.msgpack as s_msgpack
 
-    async def __anit__(self, core, link, user, layr):
+#class LayerApi(s_cell.CellApi):
 
-        await s_cell.CellApi.__anit__(self, core, link, user)
+    #async def __anit__(self, core, link, user, layr):
 
+        #await s_cell.CellApi.__anit__(self, core, link, user)
+
+        #self.layr = layr
+        #self.liftperm = ('layer:lift', self.layr.iden)
+        #self.storperm = ('layer:stor', self.layr.iden)
+
+    #async def getLiftRows(self, lops):
+        #await self._reqUserAllowed(self.liftperm)
+        #async for item in self.layr.getLiftRows(lops):
+            #yield item
+
+    #async def iterFormRows(self, form):
+        #await self._reqUserAllowed(self.liftperm)
+        #async for item in self.layr.iterFormRows(form):
+            #yield item
+
+    #async def iterPropRows(self, form, prop):
+        #await self._reqUserAllowed(self.liftperm)
+        #async for item in self.layr.iterPropRows(form, prop):
+            #yield item
+
+    #async def iterUnivRows(self, univ):
+        #await self._reqUserAllowed(self.liftperm)
+        #async for item in self.layr.iterUnivRows(univ):
+            #yield item
+
+    #async def stor(self, sops, splices=None):
+        #await self._reqUserAllowed(self.storperm)
+        #return await self.layr.stor(sops, splices=splices)
+
+    #async def getBuidProps(self, buid):
+        #await self._reqUserAllowed(self.liftperm)
+        #return await self.layr.getBuidProps(buid)
+
+    #async def getModelVers(self):
+        #return await self.layr.getModelVers()
+
+    #async def getOffset(self, iden):
+        #return await self.layr.getOffset(iden)
+
+    #async def setOffset(self, iden, valu):
+        #return await self.layr.setOffset(iden, valu)
+
+    #async def delOffset(self, iden):
+        #return await self.layr.delOffset(iden)
+
+    #async def splices(self, offs, size):
+        #await self._reqUserAllowed(self.liftperm)
+        #async for item in self.layr.splices(offs, size):
+            #yield item
+
+    #async def hasTagProp(self, name):
+        #return await self.layr.hasTagProp(name)
+
+STOR_TYPE_UTF8 = 1
+
+STOR_TYPE_U8 = 2
+STOR_TYPE_U16 = 3
+STOR_TYPE_U32 = 4
+STOR_TYPE_U64 = 5
+
+STOR_TYPE_I8 = 6
+STOR_TYPE_I16 = 7
+STOR_TYPE_I32 = 8
+STOR_TYPE_I64 = 9
+
+STOR_TYPE_GUID = 10
+STOR_TYPE_TIME = 11
+STOR_TYPE_IVAL = 12
+STOR_TYPE_MSGP = 13
+STOR_TYPE_LATLONG = 14
+
+#STOR_TYPE_FIXED     = ??
+#STOR_TYPE_TOMB      = ??
+
+STOR_FLAG_ARRAY = 0x8000
+
+# Splices - (<type>, <buid>, <edit>, {meta})
+# The meta dict is desiged to encapuslate the things that make the splice
+# specific to one cortex, allowing them to be optionally stripped when replicating
+# to a downstream (but non-mirror) cortex.
+
+# splice types...
+SPLICE_NODE_ADD = 0     # (<type>, <buid>, (<form>, <valu>), {})
+SPLICE_NODE_DEL = 1     # (<type>, <buid>, (<form>, <valu>), {})
+SPLICE_PROP_SET = 2     # (<type>, <buid>, (<form>, <prop>, <valu>, <oldv>), {})
+SPLICE_PROP_DEL = 3     # (<type>, <buid>, (<form>, <prop>, <oldv>), {})
+SPLICE_TAG_ADD = 4      # (<type>, <buid>, (<form>, <tag>, <valu>, <oldv>), {})
+SPLICE_TAG_DEL = 5      # (<type>, <buid>, (<form>, <tag>, <oldv>), {})
+SPLICE_TAGPROP_SET = 6  # (<type>, <buid>, (<form>, <tag>, <prop>, <valu>, <oldv>), {})
+SPLICE_TAGPROP_DEL = 7  # (<type>, <buid>, (<form>, <tag>, <prop>, <oldv>), {})
+
+class StorType:
+
+    def __init__(self, layr, stortype):
         self.layr = layr
-        self.liftperm = ('layer:lift', self.layr.iden)
-        self.storperm = ('layer:stor', self.layr.iden)
+        self.stortype = stortype
 
-    async def getLiftRows(self, lops):
-        await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.getLiftRows(lops):
-            yield item
+        self.lifters = {}
 
-    async def iterFormRows(self, form):
-        await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.iterFormRows(form):
-            yield item
+    def lift(self, prop, cmpr, valu):
 
-    async def iterPropRows(self, form, prop):
-        await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.iterPropRows(form, prop):
-            yield item
+        indx = self.indx(valu)
+        func = self.lifters.get(cmpr)
 
-    async def iterUnivRows(self, univ):
-        await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.iterUnivRows(univ):
-            yield item
+        if func is None:
+            raise s_exc.NoSuchCmpr()
 
-    async def stor(self, sops, splices=None):
-        await self._reqUserAllowed(self.storperm)
-        return await self.layr.stor(sops, splices=splices)
+        for buid in func(prop, valu):
+            yield buid
 
-    async def getBuidProps(self, buid):
-        await self._reqUserAllowed(self.liftperm)
-        return await self.layr.getBuidProps(buid)
+    def indx(self, valu):
+        raise NotImplemented
 
-    async def getModelVers(self):
-        return await self.layr.getModelVers()
+class StorTypeUtf8(StorType):
 
-    async def getOffset(self, iden):
-        return await self.layr.getOffset(iden)
+    def __init__(self, layr):
+        StorType.__init__(self, layr, STOR_TYPE_UTF8)
+        self.lifters.update({
+            '=': self._liftUtf8Eq,
+            '^=': self._liftUtf8Prefix,
+        })
 
-    async def setOffset(self, iden, valu):
-        return await self.layr.setOffset(iden, valu)
+    def _liftUtf8Eq(self, prop, valu):
+        indx = self._getIndxByts(valu)
+        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+        for lkey, buid in self.layr.layrslab.scanByDups(abrv + indx, db=self.layr.byprop):
+            yield buid
 
-    async def delOffset(self, iden):
-        return await self.layr.delOffset(iden)
+    def _liftUtf8Prefix(self, prop, valu):
+        indx = self._getIndxByts(valu)
+        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+        for lkey, buid in self.layr.layrslab.scanByPrefix(abrv + indx, db=self.layr.byprop):
+            yield buid
 
-    async def splices(self, offs, size):
-        await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.splices(offs, size):
-            yield item
+    def _getIndxByts(self, valu):
 
-    async def hasTagProp(self, name):
-        return await self.layr.hasTagProp(name)
+        indx = valu.encode('utf8', 'surrogatepass')
 
-class Layer(s_hive.AuthGater):
+        # cut down an index value to 256 bytes...
+        if len(indx) <= 256:
+            return indx
+
+        base = indx[:248]
+        sufx = xxhash.xxh64(indx).digest()
+        return base + sufx
+
+    def indx(self, valu):
+        yield self._getIndxByts(valu)
+
+class StorTypeInt(StorType):
+
+    def __init__(self, layr, stortype, size, signed):
+
+        StorType.__init__(self, layr, stortype)
+
+        self.size = size
+        self.signed = signed
+
+        self.offset = 0
+        if signed:
+            self.offset = 2 ** ((self.size * 8) - 1) - 1
+
+        self.lifters.update({
+            '=': self._liftIntEq,
+            '<': self._liftIntLt,
+            '>': self._liftIntGt,
+            '<=': self._liftIntLe,
+            '>=': self._liftIntGe,
+            'range=': self._liftIntRange,
+        })
+
+        self.zerobyts = b'\x00' * self.size
+        self.fullbyts = b'\xff' * self.size
+
+    def getIntIndx(self, valu):
+        return (valu + self.offset).to_bytes(self.size, 'big')
+
+    def indx(self, valu):
+        yield self.getIntIndx(valu)
+
+    def _liftIntEq(self, prop, valu):
+        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+        indx = (valu + self.offset).to_bytes(self.size, 'big')
+        for lkey, buid in self.layr.layrslab.scanByDups(abrv + indx, db=self.layr.byprop):
+            yield buid
+
+    def _liftIntGt(self, prop, valu):
+        for buid in self._liftIntGe(form, prop, valu + 1):
+            yield buid
+
+    def _liftIntGe(self, prop, valu):
+        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+        pkeymin = abrv + (valu + self.offset).to_bytes(self.size, 'big')
+        pkeymax = abrv + self.fullbyts
+        for lkey, buid in self.layr.layrslab.scanByRange(pkeymin, pkeymax, db=self.layr.byprop):
+            yield buid
+
+    def _liftIntLt(self, prop, valu):
+        for buid in self._liftIntLe(form, prop, valu - 1):
+            yield buid
+
+    def _liftIntLe(self, prop, valu):
+        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+        pkeymin = abrv + self.zerobyts
+        pkeymax = abrv + (valu + self.offset).to_bytes(self.size, 'big')
+        for lkey, buid in self.layr.layrslab.scanByRange(pkeymin, pkeymax, db=self.layr.byprop):
+            yield buid
+
+    def _liftIntRange(self, prop, valu):
+        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+        pkeymin = abrv + valu[0].to_bytes(self.size, 'big')
+        pkeymax = abrv + valu[1].to_bytes(self.size, 'big')
+        for lkey, buid in self.layr.layrslab.scanByRange(pkeymin, pkeymax, db=self.layr.byprop):
+            yield buid
+
+class StorTypeGuid(StorType):
+
+    def __init__(self, layr):
+        StorType.__init__(self, layr, STOR_TYPE_GUID)
+        self.lifters.update({
+            '=': self._liftGuidEq,
+        })
+
+    def _liftGuidEq(self, prop, valu):
+        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+        indx = s_common.uhex(valu)
+        for lkey, buid in self.layr.layrslab.scanByDups(abrv + indx, db=self.layr.byprop):
+            yield buid
+
+    def indx(self, valu):
+        yield s_common.uhex(valu)
+
+class StorTypeTime(StorTypeInt):
+    def __init__(self, layr):
+        StorTypeInt.__init__(self, layr, STOR_TYPE_TIME, 8, True)
+
+class StorTypeIval(StorType):
+
+    def __init__(self, layr):
+        StorType.__init__(self, layr, STOR_TYPE_IVAL)
+        self.timetype = StorTypeTime(layr)
+        self.lifters.update({
+            '=': self._liftIvalEq,
+            #'<': self._liftIvalLt,
+            #'>': self._liftIvalGt,
+            #'>=': self._liftIvalGe,
+            #'<=': self._liftIvalLe,
+            '@=': self._liftIvalAt,
+        })
+
+    def _liftIvalEq(self, prop, valu):
+        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+        indx = self.timetype.getIntIndx(valu[0]) + self.timetype.getIntIndx(valu[1])
+        for lkey, buid in self.layr.layrslab.scanByDups(abrv + indx, db=self.layr.byprop):
+            yield buid
+
+    def _liftIvalAt(self, prop, valu):
+
+        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+        indx = self.timetype.getIntIndx(valu[0])
+
+        for lkey, buid in self.layr.layrslab.scanByPrefix(abrv + indx, db=self.layr.byprop):
+            tick = s_common.int64un(lkey[32:40])
+            tock = s_common.int64un(lkey[40:48])
+
+            if tick > valu[1]:
+                continue
+
+            if tock < valu[0]:
+                continue
+
+            yield buid
+
+    def indx(self, valu):
+        yield self.timetype.getIntIndx(valu[0]) + self.timetype.getIntIndx(valu[1])
+
+class StorTypeMsgp(StorType):
+
+    def __init__(self, layr):
+        StorType.__init__(self, layr, STOR_TYPE_MSGP)
+        self.lifters.update({
+            '=': self._liftMsgpEq,
+        })
+
+    def _liftMsgpEq(self, prop, valu):
+        indx = s_common.buid(valu)
+        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+        for lkey, buid in self.layr.layrslab.scanByDups(abrv + indx, db=self.layr.byprop):
+            yield buid
+
+    def indx(self, valu):
+        yield s_common.buid(valu)
+
+class StorTypeLatLon(StorType):
+
+    def __init__(self, layr):
+        StorType.__init__(self, layr, STOR_TYPE_LATLONG)
+
+        self.scale = 10 ** 8
+        self.latspace = 90 * 10 ** 8
+        self.lonspace = 180 * 10 ** 8
+
+        self.lifters.update({
+            '=': self._liftLatLonEq,
+            'near=': self._liftLatLonNear,
+        })
+
+    def _liftLatLonEq(self, prop, valu):
+        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+        indx = self._getLatLonIndx(valu)
+        for lkey, buid in self.layr.layrslab.scanByDups(abrv + indx, db=self.layr.byprop):
+            yield buid
+
+    def _liftLatLonNear(self, prop, valu):
+
+        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+
+        (lat, lon), dist = valu
+
+        latscale = (lat * self.scale) + self.latspace
+        lonscale = (lon * self.scale) + self.lonspace
+
+        latmin, latmax, lonmin, lonmax = s_gis.bbox(lat, lon, dist)
+
+        lonminindx = int(((lonmin * self.scale) + self.lonspace)).to_bytes(5, 'big')
+        lonmaxindx = int(((lonmax * self.scale) + self.lonspace)).to_bytes(5, 'big')
+
+        latminindx = int(((latmin * self.scale) + self.latspace)).to_bytes(5, 'big')
+        latmaxindx = int(((latmax * self.scale) + self.latspace)).to_bytes(5, 'big')
+
+        # scan by lon range and down-select the results to matches.
+        for lkey, buid in self.layr.layrslab.scanByRange(abrv + lonminindx, abrv + lonmaxindx, db=self.layr.byprop):
+
+            # lkey = <abrv> <lonindx> <latindx>
+
+            # limit results to the bounding box before unpacking...
+            latbyts = lkey[13:18]
+
+            if latbyts > latmaxindx:
+                continue
+
+            if latbyts < latminindx:
+                continue
+
+            lonbyts = lkey[8:13]
+
+            latvalu = (int.from_bytes(latbyts, 'big') - self.latspace) / self.scale
+            lonvalu = (int.from_bytes(lonbyts, 'big') - self.lonspace) / self.scale
+
+            if s_gis.haversine((lat, lon), (latvalu, lonvalu)) <= dist:
+                yield buid
+
+    def _getLatLonIndx(self, latlong):
+        # yield index bytes in lon/lat order to allow cheap optimial indexing
+        latindx = int(((latlong[0] * self.scale) + self.latspace)).to_bytes(5, 'big')
+        lonindx = int(((latlong[1] * self.scale) + self.lonspace)).to_bytes(5, 'big')
+        return lonindx + latindx
+
+    def indx(self, valu):
+        # yield index bytes in lon/lat order to allow cheap optimial indexing
+        yield self._getLatLonIndx(valu)
+
+class Layer(s_base.Base):
     '''
     The base class for a cortex layer.
     '''
     confdefs = ()
-    ctorname = 'dyndep.path.goes.here'
-
-    authgatetype = 'layr'
 
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, core, node, readonly=False):
+    async def __anit__(self, iden, dirn, conf=None, readonly=False):
 
         await s_base.Base.__anit__(self)
+
+        self.dirn = dirn
+        self.iden = iden
         self.readonly = readonly
 
-        self.core = core
-        self.node = node
-        self.iden = node.name()
-        await s_hive.AuthGater.__anit__(self, self.core.auth)
-        self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
+        if conf is None:
+            conf = {}
+
+        confpath = s_common.genpath(self.dirn, 'layer.yaml')
+        if os.path.isfile(confpath):
+            [conf.setdefault(k, v) for (k, v) in s_common.yamlload(confpath).items()]
+
+        self.conf = s_common.config(conf, self.confdefs)
+
+        #self.core = core
+        #self.node = node
+        #self.iden = node.name()
+        #await s_hive.AuthGater.__anit__(self, self.core.auth)
+        #self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
         # splice windows...
-        self.windows = []
+        #self.windows = []
 
-        self.info = await node.dict()
-        self.info.setdefault('owner', 'root')
+        #self.info = await node.dict()
+        #self.info.setdefault('owner', 'root')
 
-        self.owner = self.info.get('owner')
+        #self.owner = self.info.get('owner')
 
-        self.conf = await (await node.open(('config',))).dict()
+        #self.conf = await (await node.open(('config',))).dict()
 
-        for name, info in self.confdefs:
+        #for name, info in self.confdefs:
 
-            dval = info.get('defval', s_common.novalu)
-            if dval is s_common.novalu:
+            #dval = info.get('defval', s_common.novalu)
+            #if dval is s_common.novalu:
+                #continue
+
+            #self.conf.setdefault(name, dval)
+
+        #self.dirn = s_common.gendir(core.dirn, 'layers', self.iden)
+
+        path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
+
+        self.fresh = not os.path.exists(path)
+
+        self.layrslab = await s_lmdbslab.Slab.anit(path)
+
+        path = s_common.genpath(self.dirn, 'splices_v2.lmdb')
+        self.spliceslab = await s_lmdbslab.Slab.anit(path)
+
+        self.tagabrv = self.layrslab.getNameAbrv('tagabrv')
+        self.propabrv = self.layrslab.getNameAbrv('propabrv')
+
+        self.onfini(self.layrslab)
+        self.onfini(self.spliceslab)
+
+        self.bybuid = self.layrslab.initdb('bybuid')
+
+        self.bytag = self.layrslab.initdb('bytag', dupsort=True)
+        self.byprop = self.layrslab.initdb('byprop', dupsort=True)
+
+        self.countdb = self.layrslab.initdb('counters')
+
+        self.splicelog = s_slabseqn.SlabSeqn(self.spliceslab, 'splices')
+
+        self.stortypes = [
+
+            None,
+
+            StorTypeUtf8(self),
+
+            StorTypeInt(self, STOR_TYPE_U8, 1, False),
+            StorTypeInt(self, STOR_TYPE_U16, 2, False),
+            StorTypeInt(self, STOR_TYPE_U32, 4, False),
+            StorTypeInt(self, STOR_TYPE_U64, 8, False),
+
+            StorTypeInt(self, STOR_TYPE_I8, 1, True),
+            StorTypeInt(self, STOR_TYPE_I16, 2, True),
+            StorTypeInt(self, STOR_TYPE_I32, 4, True),
+            StorTypeInt(self, STOR_TYPE_I64, 8, True),
+
+            StorTypeGuid(self),
+            StorTypeTime(self),
+            StorTypeIval(self),
+            StorTypeMsgp(self),
+            StorTypeLatLon(self),
+
+        ]
+
+        self.canrev = True
+
+    async def getStorNode(self, buid):
+
+        ndef = None
+
+        tags = {}
+        props = {}
+        tagprops = {}
+
+        for lkey, lval in self.layrslab.scanByPref(buid, db=self.bybuid):
+
+            flag = lkey[32]
+            name = lkey[33:].decode()
+            valu = s_msgpack.un(lval)
+
+            if flag == 0:
+                ndef = (name, valu)
                 continue
 
-            self.conf.setdefault(name, dval)
+            if flag == 1:
+                props[name] = valu
+                continue
 
-        self.dirn = s_common.gendir(core.dirn, 'layers', self.iden)
+            if flag == 2:
+                tags[name] = valu
+                continue
 
-        self._lift_funcs = {
-            'indx': self._liftByIndx,
-            'prop:re': self._liftByPropRe,
-            'univ:re': self._liftByUnivRe,
-            'form:re': self._liftByFormRe,
-            'prop:ival': self._liftByPropIval,
-            'univ:ival': self._liftByUnivIval,
-            'form:ival': self._liftByFormIval,
-            'tag:prop': self._liftByTagProp,
-        }
+            logger.warning(f'unrecognized storage row: {flag}')
 
-        self._stor_funcs = {
-            'prop:set': self._storPropSet,
-            'prop:del': self._storPropDel,
-            'buid:set': self._storBuidSet,
-            'tag:prop:set': self._storTagPropSet,
-            'tag:prop:del': self._storTagPropDel,
-        }
+        info = {}
 
-        self.fresh = False
-        self.canrev = True
-        self.spliced = asyncio.Event(loop=self.loop)
-        self.onfini(self.spliced.set)
+        if ndef:
+            info['ndef'] = ndef
 
-        self.onfini(self._onLayrFini)
+        if props:
+            info['props'] = props
 
-    def getSpawnInfo(self):
-        return {
-            'iden': self.iden,
-            'dirn': self.dirn,
-            'ctor': self.ctorname,
-        }
+        if tags:
+            info['tags'] = tags
 
-    async def _onLayrFini(self):
-        [(await wind.fini()) for wind in self.windows]
+        return info
 
-    @contextlib.contextmanager
-    def disablingBuidCache(self):
+    async def liftByTag(self, tag, form=None):
+
+        abrv = self.tagabrv.bytsToAbrv(tag.encode())
+        if form is not None:
+            abrv += self.propabrv.bytsToAbrv(form)
+
+        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
+            yield buid, await self.getStorNode(buid)
+
+    async def liftByTagValu(self, tag, cmpr, valu, form=None):
+
+        abrv = self.tagabrv.bytsToAbrv(tag.encode())
+        if form is not None:
+            abrv += self.propabrv.bytsToAbrv(form)
+
+        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
+            # filter based on the ival value before lifting the node...
+            info = await self.getStorNode(buid)
+            tagvalu = info['tags'][tag]
+            # TODO FILTER ON VALUE.
+
+    async def liftByProp(self, prop):
+        abrv = self.propabrv.bytsToAbrv(prop.encode())
+        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+            yield buid, await self.getStorNode(buid)
+
+    async def liftByPropValu(self, prop, cmprvals):
+        for cmpr, valu, kind in cmprvals:
+            for buid in self.stortypes[kind].lift(prop, cmpr, valu):
+                yield buid, await self.getStorNode(buid)
+
+    async def storLayrData(self, recs, meta):
+        for buid, info in recs:
+            yield self.setStorNode(buid, info, meta)
+
+    async def setStorNode(self, buid, info, meta):
         '''
-        Disable and invalidate the layer buid cache for migration
+        Execute a series of storage operations for the given node.
         '''
-        self.buidcache = s_cache.LruDict(0)
-        yield
-        self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
+        print('STORING: %r %r %r' % (buid, info, meta))
+        form = info.get('form').encode()
 
-    @contextlib.asynccontextmanager
-    async def getSpliceWindow(self):
+        isnew = False
+        storvalu = info.get('valu')
+        if storvalu is not None:
+            valu, stortype = storvalu
+            isnew = await self._setNodeForm(buid, form, valu, stortype)
 
-        async with await s_queue.Window.anit(maxsize=10000) as wind:
+        props = {}
+        for propname, propvalu, stortype in info.get('props', ()):
+            await self._setNodeProp(buid, form, propname, propvalu, stortype)
+            props[propname] = propvalu
 
-            async def fini():
-                self.windows.remove(wind)
+        if isnew:
+            for defname, defvalu, stortype in info.get('defprops', ()):
+                await self._setNodeProp(buid, defname, defvalu, stortype)
+                props[defname] = defvalu
 
-            wind.onfini(fini)
+        for tagname, tagvalu in info.get('tags', ()):
+            await self._setNodeTag(buid, form, tagname, tagvalu)
 
-            self.windows.append(wind)
+        return buid, await self.getStorNode(buid)
 
-            yield wind
+    #async def delStorNode(self, buid, info, meta):
 
-    async def getLiftRows(self, lops):
-        '''
-        Returns:
-            Iterable[Tuple[bytes, Dict[str, Any]]]:  yield a stream of tuple (buid, propdict)
-        '''
-        for oper in lops:
+    async def _setNodeForm(self, buid, form, valu, stortype):
+        self.layrslab.put(buid + b'\x00' + form, s_msgpack.en(valu), db=self.bybuid)
+        abrv = self.propabrv.bytsToAbrv(form)
+        for indx in self.getStorIndx(stortype, valu):
+            self.layrslab.put(abrv + indx, buid, db=self.byprop)
 
-            func = self._lift_funcs.get(oper[0])
-            if func is None:
-                raise s_exc.NoSuchLift(name=oper[0])
+        self.splicelog.append((SPLICE_NODE_ADD, buid, (form, valu), {}))
 
-            async for row in func(oper):
-                buid = row[0]
-                props = await self.getBuidProps(buid)
-                yield (buid, props)
+    async def _setNodeProp(self, buid, form, prop, valu, stortype):
 
-    async def stor(self, sops, splices=None):
-        '''
-        Execute a series of storage operations.
-        '''
-        for oper in sops:
-            func = self._stor_funcs.get(oper[0])
-            if func is None:  # pragma: no cover
-                raise s_exc.NoSuchStor(name=oper[0])
-            await func(oper)
+        oldv = None
+        penc = prop.encode()
+        bkey = buid + b'\x01' + penc
 
-        if splices:
-            await self._storFireSplices(splices)
+        abrv = self.propabrv.bytsToAbrv(form + b':' + penc)
 
-    async def _storFireSplices(self, splices):
-        '''
-        Fire events, windows, etc for splices.
-        '''
-        indx = await self._storSplices(splices)
+        oldb = self.layrslab.replace(bkey, s_msgpack.en(valu), db=self.bybuid)
+        if oldb is not None:
+            oldv = s_msgpack.un(oldb)
+            for oldi in self.getStorIndx(stortype, oldv):
+                self.layrslab.pop(abrv + oldi, buid, db=self.byprop)
 
-        self.spliced.set()
-        self.spliced.clear()
+        for indx in self.getStorIndx(stortype, valu):
+            self.layrslab.put(abrv + indx, buid, db=self.byprop)
 
-        items = [(indx + i, s) for (i, s) in enumerate(splices)]
+        self.splicelog.append((SPLICE_PROP_SET, buid, (form, prop, valu, oldv), {}))
+
+    async def _setNodeTag(self, buid, form, tag, valu):
+        tenc = tag.encode()
+        tagabrv = self.tagabrv.bytsToAbrv(tenc)
+        formabrv = self.propabrv.bytsToAbrv(form)
+        self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
+        self.layrslab.put(buid + b'\x02' + tenc, s_msgpack.en(valu), db=self.bybuid)
+
+        self.splicelog.append((SPLICE_TAG_ADD, buid, (form, tag, valu, oldv), {}))
+
+        # TODO counters / metrics / splices
+
+    def getStorIndx(self, stortype, valu):
+
+        print('getStorIndx: %r %r' % (stortype, valu))
+        pref = stortype.to_bytes(1, 'big')
+
+        if stortype & 0x8000:
+
+            realtype = stortype & 0xefff
+            realpref = stortype.to_bytes(1, 'big')
+
+            for aval in valu:
+                for indx in self.getStorIndx(realtype, aval):
+                    yield indx
+
+            return
+
+        for indx in self.stortypes[stortype].indx(valu):
+            yield indx
+            #yield self.indxtypes[stortype](valu)
+
+    #async def _storFireSplices(self, splices):
+        #'''
+        #Fire events, windows, etc for splices.
+        #'''
+        #indx = await self._storSplices(splices)
+
+        #self.spliced.set()
+        #self.spliced.clear()
+
+        #items = [(indx + i, s) for (i, s) in enumerate(splices)]
 
         # go fast and protect against edit-while-iter issues
-        [(await wind.puts(items)) for wind in tuple(self.windows)]
+        #[(await wind.puts(items)) for wind in tuple(self.windows)]
 
-        [(await self.dist(s)) for s in splices]
+        #[(await self.dist(s)) for s in splices]
 
-    async def _storSplices(self, splices):  # pragma: no cover
-        '''
-        Store the splices into a sequentially accessible storage structure.
-        Returns the indx of the first splice stored.
-        '''
-        raise NotImplementedError
+    #async def _storSplices(self, splices):  # pragma: no cover
+        #'''
+        #Store the splices into a sequentially accessible storage structure.
+        #Returns the indx of the first splice stored.
+        #'''
+        #raise NotImplementedError
 
-    async def _liftByFormRe(self, oper):
+    #async def _liftByFormRe(self, oper):
 
-        form, query, info = oper[1]
+        #form, query, info = oper[1]
 
-        regx = regex.compile(query)
+        #regx = regex.compile(query)
 
-        count = 0
+        #count = 0
 
-        async for buid, valu in self.iterFormRows(form):
+        #async for buid, valu in self.iterFormRows(form):
 
-            count += 1
-            if not count % FAIR_ITERS:
-                await asyncio.sleep(0)  # give other tasks a chance
-
-            # for now... but maybe repr eventually?
-            if not isinstance(valu, str):
-                valu = str(valu)
-
-            if not regx.search(valu):
-                continue
-
-            yield (buid,)
-
-    async def _liftByUnivRe(self, oper):
-
-        prop, query, info = oper[1]
-
-        regx = regex.compile(query)
-
-        count = 0
-
-        async for buid, valu in self.iterUnivRows(prop):
-
-            count += 1
-            if not count % FAIR_ITERS:
-                await asyncio.sleep(0)  # give other tasks a chance
+            #count += 1
+            #if not count % FAIR_ITERS:
+                #await asyncio.sleep(0)  # give other tasks a chance
 
             # for now... but maybe repr eventually?
-            if not isinstance(valu, str):
-                valu = str(valu)
+            #if not isinstance(valu, str):
+                #valu = str(valu)
 
-            if not regx.search(valu):
-                continue
+            #if not regx.search(valu):
+                #continue
 
-            yield (buid,)
+            #yield (buid,)
 
-    async def _liftByPropRe(self, oper):
+    #async def _liftByUnivRe(self, oper):
+
+        #prop, query, info = oper[1]
+#
+        #regx = regex.compile(query)
+
+        #count = 0
+
+        #async for buid, valu in self.iterUnivRows(prop):
+
+            #count += 1
+            #if not count % FAIR_ITERS:
+                #await asyncio.sleep(0)  # give other tasks a chance
+
+            # for now... but maybe repr eventually?
+            #if not isinstance(valu, str):
+                #valu = str(valu)
+
+            #if not regx.search(valu):
+                #continue
+
+            #yield (buid,)
+
+    #async def _liftByPropRe(self, oper):
         # ('regex', (<form>, <prop>, <regex>, info))
-        form, prop, query, info = oper[1]
+        #form, prop, query, info = oper[1]
 
-        regx = regex.compile(query)
+        #regx = regex.compile(query)
 
-        count = 0
+        #count = 0
 
         # full table scan...
-        async for buid, valu in self.iterPropRows(form, prop):
+        #async for buid, valu in self.iterPropRows(form, prop):
 
-            count += 1
-            if not count % FAIR_ITERS:
-                await asyncio.sleep(0)  # give other tasks a chance
+            #count += 1
+            #if not count % FAIR_ITERS:
+                #await asyncio.sleep(0)  # give other tasks a chance
 
             # for now... but maybe repr eventually?
-            if not isinstance(valu, str):
-                valu = str(valu)
+            #if not isinstance(valu, str):
+                #valu = str(valu)
 
-            if not regx.search(valu):
-                continue
+            #if not regx.search(valu):
+                #continue
 
             # yield buid, form, prop, valu
-            yield (buid,)
+            #yield (buid,)
 
     # TODO: Hack until we get interval trees pushed all the way through
     def _cmprIval(self, item, othr):
@@ -320,173 +771,185 @@ class Layer(s_hive.AuthGater):
 
         return True
 
-    async def _liftByPropIval(self, oper):
-        form, prop, ival = oper[1]
-        count = 0
-        async for buid, valu in self.iterPropRows(form, prop):
-            count += 1
+    #async def _liftByPropIval(self, oper):
+        #form, prop, ival = oper[1]
+        #count = 0
+        #async for buid, valu in self.iterPropRows(form, prop):
+            #count += 1
 
-            if not count % FAIR_ITERS:
-                await asyncio.sleep(0)
+            #if not count % FAIR_ITERS:
+                #await asyncio.sleep(0)
 
-            if type(valu) not in (list, tuple):
-                continue
+            #if type(valu) not in (list, tuple):
+                #continue
 
-            if len(valu) != 2:
-                continue
+            #if len(valu) != 2:
+                #continue
 
-            if not self._cmprIval(ival, valu):
-                continue
+            #if not self._cmprIval(ival, valu):
+                #continue
 
-            yield (buid,)
+            #yield (buid,)
 
-    async def _liftByUnivIval(self, oper):
-        _, prop, ival = oper[1]
-        count = 0
-        async for buid, valu in self.iterUnivRows(prop):
-            count += 1
+    #async def _liftByUnivIval(self, oper):
+        #_, prop, ival = oper[1]
+        #count = 0
+        #async for buid, valu in self.iterUnivRows(prop):
+            #count += 1
 
-            if not count % FAIR_ITERS:
-                await asyncio.sleep(0)
+            #if not count % FAIR_ITERS:
+                #await asyncio.sleep(0)
 
-            if type(valu) not in (list, tuple):
-                continue
+            #if type(valu) not in (list, tuple):
+                #continue
 
-            if len(valu) != 2:
-                continue
+            #if len(valu) != 2:
+                #continue
 
-            if not self._cmprIval(ival, valu):
-                continue
+            #if not self._cmprIval(ival, valu):
+                #continue
 
-            yield (buid,)
+            #yield (buid,)
 
-    async def _liftByFormIval(self, oper):
-        _, form, ival = oper[1]
-        count = 0
-        async for buid, valu in self.iterFormRows(form):
-            count += 1
+    #async def _liftByFormIval(self, oper):
+        #_, form, ival = oper[1]
+        #count = 0
+        #async for buid, valu in self.iterFormRows(form):
+            #count += 1
 
-            if not count % FAIR_ITERS:
-                await asyncio.sleep(0)
+            #if not count % FAIR_ITERS:
+                #await asyncio.sleep(0)
 
-            if type(valu) not in (list, tuple):
-                continue
+            #if type(valu) not in (list, tuple):
+                #continue
 
-            if len(valu) != 2:
-                continue
+            #if len(valu) != 2:
+                #continue
 
-            if not self._cmprIval(ival, valu):
-                continue
+            #if not self._cmprIval(ival, valu):
+                #continue
 
-            yield (buid,)
+            #yield (buid,)
 
     # The following functions are abstract methods that must be implemented by a subclass
 
-    async def getModelVers(self):  # pragma: no cover
-        raise NotImplementedError
+    #async def getModelVers(self):  # pragma: no cover
+        #raise NotImplementedError
 
-    async def setModelVers(self, vers):  # pragma: no cover
-        raise NotImplementedError
+    async def getModelVers(self):
 
-    async def setOffset(self, iden, offs):  # pragma: no cover
-        raise NotImplementedError
+        byts = self.layrslab.get(b'layer:model:version')
+        if byts is None:
+            return (-1, -1, -1)
 
-    async def getOffset(self, iden):  # pragma: no cover
-        raise NotImplementedError
+        return s_msgpack.un(byts)
 
-    async def abort(self):  # pragma: no cover
-        raise NotImplementedError
+    async def setModelVers(self, vers):
+        byts = s_msgpack.en(vers)
+        self.layrslab.put(b'layer:model:version', byts)
 
-    async def getBuidProps(self, buid):  # pragma: no cover
-        raise NotImplementedError
+    #async def setModelVers(self, vers):  # pragma: no cover
+        #raise NotImplementedError
 
-    async def _storPropSet(self, oper):  # pragma: no cover
-        raise NotImplementedError
+    #async def setOffset(self, iden, offs):  # pragma: no cover
+        #raise NotImplementedError
 
-    async def _storTagPropSet(self, oper): # pragma: no cover
-        raise NotImplementedError
+    #async def getOffset(self, iden):  # pragma: no cover
+        #raise NotImplementedError
 
-    async def _storTagPropDel(self, oper): # pragma: no cover
-        raise NotImplementedError
+    #async def abort(self):  # pragma: no cover
+        #raise NotImplementedError
 
-    async def _storBuidSet(self, oper):  # pragma: no cover
-        raise NotImplementedError
+    #async def getBuidProps(self, buid):  # pragma: no cover
+        #raise NotImplementedError
 
-    async def _storPropDel(self, oper):  # pragma: no cover
-        raise NotImplementedError
+    #async def _storPropSet(self, oper):  # pragma: no cover
+        #raise NotImplementedError
 
-    async def _liftByIndx(self, oper):  # pragma: no cover
-        raise NotImplementedError
+    #async def _storTagPropSet(self, oper): # pragma: no cover
+        #raise NotImplementedError
 
-    async def _liftByTagProp(self, oper): # pragma: no cover
-        raise NotImplementedError
+    #async def _storTagPropDel(self, oper): # pragma: no cover
+        #raise NotImplementedError
 
-    async def iterFormRows(self, form):  # pragma: no cover
-        '''
-        Iterate (buid, valu) rows for the given form in this layer.
-        '''
-        for x in (): yield x
-        raise NotImplementedError
+    #async def _storBuidSet(self, oper):  # pragma: no cover
+        #raise NotImplementedError
 
-    async def hasTagProp(self, name): # pragma: no cover
-        raise NotImplementedError
+    #async def _storPropDel(self, oper):  # pragma: no cover
+        #raise NotImplementedError
 
-    async def iterPropRows(self, form, prop):  # pragma: no cover
-        '''
-        Iterate (buid, valu) rows for the given form:prop in this layer.
-        '''
-        for x in (): yield x
-        raise NotImplementedError
+    #async def _liftByIndx(self, oper):  # pragma: no cover
+        #raise NotImplementedError
 
-    async def iterUnivRows(self, prop):  # pragma: no cover
-        '''
-        Iterate (buid, valu) rows for the given universal prop
-        '''
-        for x in (): yield x
-        raise NotImplementedError
+    #async def _liftByTagProp(self, oper): # pragma: no cover
+        #raise NotImplementedError
 
-    async def stat(self):  # pragma: no cover
-        raise NotImplementedError
+    #async def iterFormRows(self, form):  # pragma: no cover
+        #'''
+        #Iterate (buid, valu) rows for the given form in this layer.
+        #'''
+        #for x in (): yield x
+        #raise NotImplementedError
 
-    async def splices(self, offs, size):  # pragma: no cover
-        for x in (): yield x
-        raise NotImplementedError
+    #async def hasTagProp(self, name): # pragma: no cover
+        #raise NotImplementedError
 
-    async def syncSplices(self, offs):  # pragma: no cover
-        '''
-        Yield (offs, mesg) tuples from the given offset.
+    #async def iterPropRows(self, form, prop):  # pragma: no cover
+        #'''
+        #Iterate (buid, valu) rows for the given form:prop in this layer.
+        #'''
+        #for x in (): yield x
+        #raise NotImplementedError
 
-        Once caught up with storage, yield them in realtime.
-        '''
-        for x in (): yield x
-        raise NotImplementedError
+    #async def iterUnivRows(self, prop):  # pragma: no cover
+        #'''
+        #Iterate (buid, valu) rows for the given universal prop
+        #'''
+        #for x in (): yield x
+        #raise NotImplementedError
 
-    async def getNodeNdef(self, buid):  # pragma: no cover
-        raise NotImplementedError
+    #async def stat(self):  # pragma: no cover
+        #raise NotImplementedError
 
-    def migrateProvPre010(self, slab):  # pragma: no cover
-        raise NotImplementedError
+    #async def splices(self, offs, size):  # pragma: no cover
+        #for x in (): yield x
+        #raise NotImplementedError
 
-    async def delUnivProp(self, propname, info=None): # pragma: no cover
-        '''
-        Bulk delete all instances of a universal prop.
-        '''
-        raise NotImplementedError
+    #async def syncSplices(self, offs):  # pragma: no cover
+        #'''
+        #Yield (offs, mesg) tuples from the given offset.
 
-    async def delFormProp(self, formname, propname, info=None): # pragma: no cover
-        '''
-        Bulk delete all instances of a form prop.
-        '''
+        #Once caught up with storage, yield them in realtime.
+        #'''
+        #for x in (): yield x
+        #raise NotImplementedError
 
-    async def setNodeData(self, buid, name, item): # pragma: no cover
-        raise NotImplementedError
+    #async def getNodeNdef(self, buid):  # pragma: no cover
+        #raise NotImplementedError
 
-    async def getNodeData(self, buid, name, defv=None): # pragma: no cover
-        raise NotImplementedError
+    #def migrateProvPre010(self, slab):  # pragma: no cover
+        #raise NotImplementedError
 
-    async def iterNodeData(self, buid): # pragma: no cover
-        for x in (): yield x
-        raise NotImplementedError
+    #async def delUnivProp(self, propname, info=None): # pragma: no cover
+        #'''
+        #Bulk delete all instances of a universal prop.
+        #'''
+        #raise NotImplementedError
+
+    #async def delFormProp(self, formname, propname, info=None): # pragma: no cover
+        #'''
+        #Bulk delete all instances of a form prop.
+        #'''
+
+    #async def setNodeData(self, buid, name, item): # pragma: no cover
+        #raise NotImplementedError
+
+    #async def getNodeData(self, buid, name, defv=None): # pragma: no cover
+        #raise NotImplementedError
+
+    #async def iterNodeData(self, buid): # pragma: no cover
+        #for x in (): yield x
+        #raise NotImplementedError
 
     async def trash(self):
         '''
@@ -494,3 +957,64 @@ class Layer(s_hive.AuthGater):
         '''
         await s_hive.AuthGater.trash(self)
         shutil.rmtree(self.dirn, ignore_errors=True)
+
+async def fuckit():
+
+    buid = s_common.buid(('inet:ipv4', 0x01020304))
+
+    '''
+    async with await Layer.anit('qwer', 'fuckit') as layr:
+        shit = (buid, {
+            'form': 'inet:ipv4',
+            'valu': (0x01020304, STOR_TYPE_U32),
+            'props': (
+                ('asn', 30, STOR_TYPE_U64),
+            ),
+            'tags': (
+                ('foo.bar', (None, None)),
+            ),
+        })
+        async for item in layr.storLayrData([shit], 'meta'):
+            print(repr(item))
+
+        async for item in layr.liftByProp('inet:ipv4', 'asn'):
+            print('liftByProp %r' % (item,))
+
+        async for item in layr.liftByPropValu('inet:ipv4', 'asn', '=', 30, STOR_TYPE_U64):
+            print('liftByPropValu %r' % (item,))
+
+        async for item in layr.liftByPropValu('inet:ipv4', 'asn', '=', 40, STOR_TYPE_U64):
+            print('liftByPropValu (nope) %r' % (item,))
+    '''
+
+    import synapse.cortex as s_cortex
+
+    guid = s_common.guid()
+
+    print('start')
+    async with await s_cortex.Cortex.anit('localdata/clus00') as core:
+        print('one')
+        #await core.nodes('[ inet:ipv4=1.2.3.4 :asn=30 +#foo.bar :latlong=(38.9581692,-77.3593196) ]')
+        await core.nodes('[ inet:email=visi@vertex.link ]')
+        #await core.nodes('[ ps:person=$guid :name=visi ]', opts={'vars':{'guid': guid}})
+        #print(repr(await core.nodes('inet:ipv4:asn=30')))
+        #print(repr(await core.nodes('inet:ipv4:asn>=30')))
+        #print(repr(await core.nodes('inet:ipv4:asn<30')))
+        #print(repr(await core.nodes('inet:ipv4:asn*range=(800, 900)')))
+        #print(repr(await core.nodes('inet:ipv4:asn*range=(8,900)')))
+        #print(repr(await core.nodes('inet:ipv4:asn')))
+        #print(repr(await core.nodes('#foo')))
+        #print(repr(await core.nodes('inet:ipv4:latlong=(38.9581692,-77.3593196)')))
+        #print(repr(await core.nodes('inet:email:user=visi')))
+        #print(repr(await core.nodes('ps:person=$guid', opts={'vars':{'guid':guid}})))
+        #print(repr(await core.nodes('inet:ipv4:latlong*near=((38.9581690,-77.3593190), 10km)')))
+        #print(repr(await core.nodes('inet:ipv4:latlong*near=((39.0160372,-77.3772675), 1km)')))
+        #print(repr(await core.nodes('inet:ipv4#foo')))
+        #print(repr(await core.nodes('inet:ipv4 +#foo')))
+        print(repr(await core.nodes('inet:email')))
+        print(repr(await core.nodes('inet:user')))
+        print(repr(await core.nodes('inet:fqdn')))
+
+if __name__ == '__main__':
+    import asyncio
+    asyncio.run(fuckit())
