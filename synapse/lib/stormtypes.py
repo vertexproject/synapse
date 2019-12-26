@@ -1365,6 +1365,16 @@ class StatTally(Prim):
     async def get(self, name):
         return self.counters.get(name, 0)
 
+class LibSnap(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'cache_clear': self._methCacheClear,
+        })
+
+    async def _methCacheClear(self):
+        await self.runt.snap.clearCache()
+
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):
 

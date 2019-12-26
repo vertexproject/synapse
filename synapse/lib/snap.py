@@ -71,8 +71,10 @@ class Snap(s_base.Base):
         self.debug = False      # Set to true to enable debug output.
         self.write = False      # True when the snap has a write lock on a layer.
 
-        self.tagcache = s_cache.FixedCache(self._addTagNode, size=10000)
-        self.buidcache = collections.deque(maxlen=100000)  # Keeps alive the most recently accessed node objects
+        self._tagcachesize = 10000
+        self._buidcachesize = 100000
+        self.tagcache = s_cache.FixedCache(self._addTagNode, size=self._tagcachesize)
+        self.buidcache = collections.deque(maxlen=self._buidcachesize)  # Keeps alive the most recently accessed node objects
         self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
 
         self.onfini(self.stack.close)
@@ -146,6 +148,11 @@ class Snap(s_base.Base):
 
     async def getOffset(self, iden, offs):
         return await self.wlyr.getOffset(iden, offs)
+
+    async def clearCache(self):
+        self.tagcache.clear()
+        self.buidcache.clear()
+        self.livenodes.clear()
 
     async def printf(self, mesg):
         await self.fire('print', mesg=mesg)

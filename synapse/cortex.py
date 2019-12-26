@@ -1641,6 +1641,7 @@ class Cortex(s_cell.Cell):
         self.addStormLib(('bytes',), s_stormtypes.LibBytes)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
         self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
+        self.addStormLib(('runt', 'snap',), s_stormtypes.LibSnap)
 
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
         self.addStormLib(('base64',), s_stormtypes.LibBase64)
