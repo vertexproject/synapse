@@ -1392,13 +1392,14 @@ class ScrapeCmd(Cmd):
 
     Examples:
 
+        # Scrape properties from inbound nodes and create standalone nodes.
         inet:search:query | scrape
 
-        # Scrape inbound node properties and make edge:refs nodes to the new nodes.
+        # Scrape properties from inbound nodes and make edge:refs to the scraped nodes.
         inet:search:query | scrape --refs
 
-        # Scrape the :text prop from the inbound nodes.
-        inet:search:query | scrape --props text
+        # Scrape only the :engine and :text props from the inbound nodes.
+        inet:search:query | scrape --props text engine
     '''
 
     name = 'scrape'
@@ -1423,13 +1424,13 @@ class ScrapeCmd(Cmd):
             reprs = node.reprs()
 
             # make sure any provided props are valid
-            for fprop in self.opts.props:
+            proplist = [p.strip().lstrip(':') for p in self.opts.props]
+            for fprop in proplist:
                 if node.form.props.get(fprop, None) is None:
                     raise s_exc.BadOptValu(mesg=f'{fprop} not a valid prop for {node.ndef[1]}',
                                            name='props', valu=self.opts.props)
 
             # if a list of props haven't been specified, then default to ALL of them
-            proplist = self.opts.props
             if not proplist:
                 proplist = [k for k in node.props.keys()]
 
@@ -1441,6 +1442,7 @@ class ScrapeCmd(Cmd):
 
                 # use the repr val or the system mode val as appropriate
                 sval = reprs.get(prop, val)
+                sval = str(sval)
 
                 for form, valu in s_scrape.scrape(sval):
                     nnode = await node.snap.addNode(form, valu)

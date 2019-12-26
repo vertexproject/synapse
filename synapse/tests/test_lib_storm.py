@@ -467,7 +467,7 @@ class StormTest(s_t_utils.SynTest):
                                             })
                 bnode = await snap.addNode('inet:banner', ('tcp://2.4.6.8:80', 'this is a test foo@bar.com'))
 
-            q = 'inet:search:query | scrape -p text engine'
+            q = 'inet:search:query | scrape -p :text engine'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
@@ -500,6 +500,22 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('[inet:search:query="*"]')
             mesgs = await alist(core.streamstorm('inet:search:query | scrape --props text'))
             self.stormIsInPrint('No prop ":text" for', mesgs)
+
+            # make sure we handle .seen(i.e. non-str reprs)
+            qtxt = 'ns1.twiter-statics.info'
+            async with await core.snap() as snap:
+                guid = s_common.guid()
+                snode = await snap.addNode('inet:search:query', guid,
+                                          {'text': qtxt,
+                                           'time': '2019-04-04 17:03',
+                                           '.seen': ('2018/11/08 18:21:15.423', '2018/11/08 18:21:15.424'),
+                                           'engine': 'google',
+                                            })
+
+            q = f'inet:search:query:text={qtxt} | scrape'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:fqdn', qtxt))
 
     async def test_tee(self):
         async with self.getTestCore() as core:
