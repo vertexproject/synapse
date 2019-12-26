@@ -106,7 +106,8 @@ Within Synapse, code that defines how a :ref:`gloss-prop` value of a given :ref:
 Cortex
 ------
 
-TBD
+A Cortex is Synapse's implementation of an individual :ref:`gloss-hypergraph`. Cortex features include scalability, key/value-based node properties, and a :ref:`gloss-data-model` which facilitates normalization.
+
 
 .. _gloss-ctor:
 
@@ -177,7 +178,7 @@ In a traditional :ref:`gloss-graph`, an edge is used to connect exactly two node
 Edge, Directed
 --------------
 
-In a :ref:`gloss-directed-graph`, a directed edge is used to connect exactly two nodes (vertexes) in a one-way relationship. Compare with :ref:`gloss-hyperedge`.
+In a :ref:`gloss-directed-graph`, a directed edge is used to connect exactly two nodes (vertexes) in a one-way (directional) relationship. Compare with :ref:`gloss-hyperedge`.
 
 .. _gloss-extended-comp-op:
 
@@ -201,14 +202,16 @@ TBD
 Filter
 ------
 
-Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A filter operation downselects a subset of nodes following a lift operation. See also :ref:`gloss-lift` and :ref:`gloss-pivot`.
+Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A filter operation downselects a subset of nodes following a lift operation. Compare with :ref:`gloss-lift` and :ref:`gloss-pivot`.
+
+See :ref:`storm-ref-filter` for additional detail.
 
 .. _gloss-form:
 
 Form
 ----
 
-Within Synapse, a form is the definition of an object in the Synapse data model. A form acts as a "template" that specifies how to create an object (:ref:`gloss-node`) within a Cortex. A form consists of (at minimum) a :ref:`gloss-prop-primary` and its associated :ref:`gloss-type`. Depending on the form, it may also have various secondary properties with associated types.
+Within Synapse, a form is the definition of an object in the Synapse data model. A form acts as a "template" that specifies how to create an object (:ref:`gloss-node`) within a Cortex. A form consists of (at minimum) a :ref:`gloss-primary-prop` and its associated :ref:`gloss-type`. Depending on the form, it may also have various secondary properties with associated types.
 
 See the :ref:`data-form` section in the :ref:`data-model-terms` document for additional detail.
 
@@ -218,7 +221,7 @@ See the :ref:`data-form` section in the :ref:`data-model-terms` document for add
 Form, Composite
 ---------------
 
-Within Synapse, a category of form whose primary property is an ordered set of typed values. Examples include DNS A records (``inet:dns:a``) and web-based accounts (``inet:web:acct``).
+In the Synpase :ref:`gloss-data-model`, a category of form whose primary property is an ordered set of two or more comma-separated typed values. Examples include DNS A records (``inet:dns:a``) and web-based accounts (``inet:web:acct``).
 
 .. _gloss-form-guid:
 
@@ -265,7 +268,7 @@ See :ref:`bkd-graphs-hypergraphs` for additional detail on graphs and hypergraph
 Graph, Directed
 ---------------
 
-A directed graph is a :ref:`gloss-graph` where the edges representing relationships between nodes have a "direction". Given node X and node Y connected by edge E, the relationship is valid for X -> E -> Y butnot Y -> E -> X. For example, the relationship "Fred owns bank account #01234567" is valid, but "bank account #01234567 owns Fred" does not. Nodes and edges in a directed graph are typically represented by dots or circles connected by arrows.
+A directed graph is a :ref:`gloss-graph` where the edges representing relationships between nodes have a "direction". Given node X and node Y connected by edge E, the relationship is valid for X -> E -> Y butnot Y -> E -> X. For example, the relationship "Fred owns bank account #01234567" is valid, but "bank account #01234567 owns Fred" is not. Nodes and edges in a directed graph are typically represented by dots or circles connected by arrows.
 
 See :ref:`bkd-graphs-hypergraphs` for additional detail on graphs and hypergraphs.
 
@@ -274,7 +277,7 @@ See :ref:`bkd-graphs-hypergraphs` for additional detail on graphs and hypergraph
 GUID
 ----
 
-Short for Globally Unique Identifier. Within Synapse, a GUID is a :ref:`gloss-type` specified as a 128-bit value that is unique within a given Cortex. GUIDs are used as primary properties for forms that cannot be uniquely represented by a specific value or set of values. Not to be confused with the Microsoft-specific definition of GUID, which is a 128-bit value with a specific format (see https://msdn.microsoft.com/en-us/library/aa373931.aspx).
+Short for Globally Unique Identifier. Within Synapse, a GUID is a :ref:`gloss-type` specified as a 128-bit value that is unique within a given :ref:`gloss-cortex`. GUIDs are used as primary properties for forms that cannot be uniquely represented by a specific value or set of values. Not to be confused with the Microsoft-specific definition of GUID, which is a 128-bit value with a specific format (see https://msdn.microsoft.com/en-us/library/aa373931.aspx).
 
 .. _gloss-guid-form:
 
@@ -298,7 +301,9 @@ TBD
 Hyperedge
 ---------
 
-A hyperedge is an edge within a :ref:`gloss-hypergraph` that can join any number of nodes (vs. a :ref:`gloss-graph` or :ref:`gloss-directed-graph` where an edge joins exactly two nodes). A hyperedges joining an arbitrary number of nodes can be difficult to visualize in flat, two-dimensional space; for this reason hyperedges are often represented as a line or "boundary" encircling a set of nodes, thus "joining" those nodes into a related group.
+A hyperedge is an edge within a :ref:`gloss-hypergraph` that can join any number of nodes (vs. a :ref:`gloss-graph` or :ref:`gloss-directed-graph` where an edge joins exactly two nodes). A hyperedge joining an arbitrary number of nodes can be difficult to visualize in flat, two-dimensional space; for this reason hyperedges are often represented as a line or "boundary" encircling a set of nodes, thus "joining" those nodes into a related group.
+
+See :ref:`bkd-graphs-hypergraphs` for additional detail on graphs and hypergraphs.
 
 .. _gloss-hypergraph:
 
@@ -343,12 +348,16 @@ Knowledge, Fused
 
 If a form within the Synapse data model has a "range" of time elements (i.e., an interval such as "first seen" / "last seen"), the form typically represents **fused knowledge** - a period of time during which an object, relationship, or event was known to exist. Forms representing fused knowledge can be thought of as combining *n* number of instance knowledge observations. ``inet:dns:query``, ``inet:dns:a``, and ``inet:whois:email`` forms are examples of fused knowledge.
 
+See :ref:`instance-fused` for a more detailed discussion.
+
 .. _gloss-know-inst:
 
 Knowledge, Instance
 -------------------
 
 If a form within the Synapse data model has a specific time element (i.e., a single date/time value), the form typically represents **instance knowledge** - a single instance or occurrence of an object, relationship, or event. ``inet:dns:request`` and ``inet:whois:rec`` forms are examples of instance knowledge.
+
+See :ref:`instance-fused` for a more detailed discussion.
 
 L
 =
@@ -372,7 +381,9 @@ See :ref:`gloss-tag-leaf`.
 Lift
 ----
 
-Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A lift is a read operation that selects a set of nodes from the Cortex. See also :ref:`gloss-filter` and :ref:`gloss-pivot`.
+Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A lift is a read operation that selects a set of nodes from the Cortex. Compare with :ref:`gloss-filter` and :ref:`gloss-pivot`.
+
+See :ref:`storm-ref-lift` for additional detail.
 
 M
 =
@@ -415,7 +426,7 @@ Node
 
 A node is a unique object within a :ref:`gloss-cortex`. Where a :ref:`gloss-form` is a template that defines the charateristics of a given object, a node is a specific instance of that type of object. For example, ``inet:fqdn`` is a form; ``inet:fqdn=woot.com`` is a node.
 
-See :ref;`data-node` in the :ref:`data-model-terms` document for additional detail.
+See :ref:`data-node` in the :ref:`data-model-terms` document for additional detail.
 
 .. _gloss-node-def:
 
@@ -439,7 +450,9 @@ TBD
 Pivot
 -----
 
-Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A pivot operation allows navigation of the hypergraph following a lift operation by moving from a set of nodes with a specified property value (or values) to a set of nodes with that same property value(s).  See also :ref:`gloss-lift` and :ref:`gloss-filter`.
+Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A pivot operation allows navigation of the hypergraph following a lift operation. A pivot moves from a set of nodes with one or more properties with specified value(s) to a set of nodes with a property having the the same value(s).  Compare with :ref:`gloss-lift` and :ref:`gloss-filter`.
+
+See :ref:`storm-ref-pivot` for additional detail.
 
 .. _gloss-primary-prop:
 
@@ -453,7 +466,7 @@ See :ref:`gloss-prop-primary`.
 Property
 --------
 
-Within Synapse, a properties are individual elements that define a :ref:`gloss-form` or (along with their specific values) that comprise a :ref:`gloss-node`. Every property in Synapse must have a defined :ref:`gloss-type`.
+Within Synapse, properties are individual elements that define a :ref:`gloss-form` or (along with their specific values) that comprise a :ref:`gloss-node`. Every property in Synapse must have a defined :ref:`gloss-type`.
 
 See the :ref:`data-props` section in the :ref:`data-model-terms` document for additional detail.
 
@@ -476,7 +489,7 @@ Within Synapse, a primary property is the property that defines a given :ref:`gl
 Property, Relative
 ------------------
 
-Within Synapse, a relative property is a :ref:`gloss-secondary-prop` referenced using only the portion the property's namespace that is relative to the form's :ref:`gloss-primary-prop`. For example, ``inet:dns:a:fqdn`` is the full name of the "domain" secondary property of a DNS A record form (``inet:dns:a``). ``:fqdn`` is the relative property / relative property name for that same property.
+Within Synapse, a relative property is a :ref:`gloss-secondary-prop` referenced using only the portion of the property's namespace that is relative to the form's :ref:`gloss-primary-prop`. For example, ``inet:dns:a:fqdn`` is the full name of the "domain" secondary property of a DNS A record form (``inet:dns:a``). ``:fqdn`` is the relative property / relative property name for that same property.
 
 .. _gloss-prop-secondary:
 
@@ -496,6 +509,16 @@ Property, Universal
 
 Within Synapse, a universal property is a :ref:`gloss-secondary-prop` that is applicable to all forms and may optionally be set for any form where the property is applicable. For example, ``.created`` is a universal property whose value is the date/time when the associated node was created in a Cortex.
 
+Q
+=
+
+.. _gloss-queue:
+
+Queue
+-----
+
+TBD
+
 R
 =
 
@@ -511,7 +534,7 @@ See :ref:`gloss-prop-relative`.
 Repr
 ----
 
-Short for "representation". The repr of a :ref:`gloss-prop` defines how the property should be displayed, where the display format differs from the storage format. For example, date/time values in Synapse are stored in epoch milliseconds but are displayed in human-friendly "yyyy/mm/dd hh:mm:ss.mmm" format.
+Short for "representation". The repr of a :ref:`gloss-prop` defines how the property should be displayed in cases where the display format differs from the storage format. For example, date/time values in Synapse are stored in epoch milliseconds but are displayed in human-friendly "yyyy/mm/dd hh:mm:ss.mmm" format.
 
 .. _gloss-root-tag:
 
@@ -571,7 +594,9 @@ See :ref:`gloss-comp-op-standard`.
 Storm
 -----
 
-The custom language used to interact with data in a Synapse :ref:`gloss-cortex`. See :ref:`storm-ref-intro` for additional detail.
+The custom language used to interact with data in a Synapse :ref:`gloss-cortex`.
+
+See :ref:`storm-ref-intro` for additional detail.
 
 T
 =
@@ -611,7 +636,7 @@ Within Synapse, the highest (leftmost) tag element in a tag hierarchy. For examp
 Traverse
 --------
 
-In a :ref:`gloss-graph` or :ref:`gloss-directed-graph`, traversal refers to navigating the data in the graph by pathing along the edges between nodes. In a :ref:`gloss-hypergraph`, because there are no edges, navigation between nodes is performed using a :ref:`gloss-pivot`.
+In a :ref:`gloss-graph` or :ref:`gloss-directed-graph`, traversal refers to navigating the data in the graph by pathing along the edges between nodes. In a :ref:`gloss-hypergraph`, because there are no edges, navigation between nodes is commonly performed using a :ref:`gloss-pivot`.
 
 .. _gloss-type:
 
@@ -648,7 +673,7 @@ Type awareness is the feature of the :ref:`gloss-storm` query language that faci
 Type Enforcement
 ----------------
 
-Within Synapse, the process by which property values are required to conform to value and format constraints defined for that :ref:`gloss-type` within the data model before they can be set. Type enforcement helps to limit bad data being entered in to a Cortex by ensuring values entered make sense for the specified data type (i.e., that an IP address cannot be set as the value of a property defined as a domain (``inet:fqdn``) type).
+Within Synapse, the process by which property values are required to conform to value and format constraints defined for that :ref:`gloss-type` within the data model before they can be set. Type enforcement helps to limit bad data being entered in to a Cortex by ensuring values entered make sense for the specified data type (i.e., that an IP address cannot be set as the value of a property defined as a domain (``inet:fqdn``) type, and that the integer value of the IP falls within the allowable set of values for IP address space).
 
 .. _gloss-type-norm:
 
