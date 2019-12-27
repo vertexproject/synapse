@@ -631,6 +631,13 @@ Tag, Root
 
 Within Synapse, the highest (leftmost) tag element in a tag hierarchy. For example, for the tag ``#foo.bar.baz``, ``foo`` is the root tag.
 
+.. _gloss-telepath:
+
+Telepath
+--------
+
+TBD
+
 .. _gloss-traverse:
 
 Traverse
