@@ -234,6 +234,33 @@ class LifterService(s_stormsvc.StormSvc):
         },
     }
 
+class StormvarService(s_stormsvc.StormSvc):
+    _storm_svc_name = 'stormvar'
+    _storm_svc_pkgs = (
+        {
+            'name': 'stormvar',
+            'version': (0, 0, 1),
+            'commands': (
+                {
+                    'name': 'nonode',
+                    'storm': '''
+                    // Add fqdn from var without inbound node
+                    $fqdn = $lib.vars.get('foo')
+                    [ inet:fqdn=$fqdn ]
+                    ''',
+                },
+                {
+                    'name': 'nodein',
+                    'storm': '''
+                    // Add fqdn from var on inbound node
+                    $fqdn = $path.vars.foo
+                    [ inet:fqdn=$fqdn ]
+                    ''',
+                },
+            )
+        },
+    )
+
 @contextlib.contextmanager
 def patchcore(core, attr, newfunc):
     origvalu = getattr(core, attr)
@@ -582,3 +609,28 @@ class StormSvcTest(s_test.SynTest):
                 self.isin('old.bar', core.stormmods)
                 self.isin('new.baz', core.stormmods)
                 self.notin('old.baz', core.stormmods)
+
+    async def test_storm_vars(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestDmon() as dmon:
+                dmon.share('svar', StormvarService())
+                host, port = dmon.addr
+                surl = f'tcp://127.0.0.1:{port}/svar'
+
+                async with await s_cortex.Cortex.anit(dirn) as core:
+                    await core.nodes(f'service.add svar {surl}')
+                    await core.nodes('$lib.service.wait(svar)')
+
+                    nodes = await core.nodes('[ inet:ipv4=1.1.1.1 ] $foo=bar.com | nodein')
+                    self.len(2, nodes)
+
+                    nodes = await core.nodes('$foo=baz.io | nonode')
+                    self.len(1, nodes)
+
+                    # raise on var conflict
+                    with self.raises(s_exc.StormRuntimeError):
+                        await core.nodes('$fqdn=cat.net $foo=bar.org | nonode')
+
+                    # no exception if conflict var names are added to path
+                    nodes = await core.nodes('[ inet:ipv4=2.2.2.2 ] $fqdn=cat.net $foo=bar.org | nodein')
+                    self.len(2, nodes)

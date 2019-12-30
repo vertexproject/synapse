@@ -481,6 +481,20 @@ class Runtime:
                 continue
             self.vars[name] = valu
 
+    async def propBackVars(self, runt):
+        '''
+        From a called runt (passed in by parameter) propagate the vars that are not functions
+        and do not conflict with the calling runt.  If there is a conflict, raise StormRuntimeError.
+        '''
+        for name, valu in runt.vars.items():
+            if valu is s_common.novalu:
+                continue
+            if name in self.runtvars:
+                raise s_exc.StormRuntimeError(mesg=f'Runtime conflict for var name {name}.')
+            else:
+                self.setVar(name, valu)
+                self.runtvars.add(name)
+
 class Parser(argparse.ArgumentParser):
 
     def __init__(self, prog=None, descr=None, root=None):
@@ -666,9 +680,15 @@ class PureCmd(Cmd):
 
             async def wrapgenr():
                 # wrap paths in a scope to isolate vars
+                hasnodes = False
                 async for node, path in genr:
+                    hasnodes = True
                     path.initframe(initvars=cmdvars, initrunt=subr)
                     yield node, path
+
+                # when there are no inbound nodes prop back vars if they don't conflict
+                if not hasnodes:
+                    await subr.propBackVars(runt)
 
             subr.loadRuntVars(query)
 
