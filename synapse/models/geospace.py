@@ -1,3 +1,5 @@
+import os
+
 import synapse.exc as s_exc
 
 import synapse.lib.gis as s_gis
@@ -85,8 +87,12 @@ class Latitude(s_types.Type):
                                     mesg='Invalid float format')
         return self._normFloat(valu)
 
+    @staticmethod
+    def getLatInt(norm):
+        return int(norm * Latitude.SCALE + Latitude.SPACE)
+
     def indx(self, norm):
-        return int(norm * Latitude.SCALE + Latitude.SPACE).to_bytes(5, 'big')
+        return self.getLatInt(norm).to_bytes(5, 'big')
 
 class LatLong(s_types.Type):
 
@@ -114,17 +120,15 @@ class LatLong(s_types.Type):
         return cmpr
 
     def _indxNear(self, valu):
-        (lat, long), dist = self._normCmprValu(valu)
-        latmin, latmax, longmin, longmax = s_gis.bbox(lat, long, dist)
 
-        latmin, longmin = self.norm((latmin, longmin))[0]
-        latmax, longmax = self.norm((latmax, longmax))[0]
+        (lat, lon), dist = self._normCmprValu(valu)
 
-        minv = self.indx((latmin, longmin))
-        maxv = self.indx((latmax, longmax))
+        latmin, latmax, lonmin, lonmax = s_gis.bbox(lat, lon, dist)
+
+        zipmin, zipmax = self.getLatLonZipRange((latmin, lonmin), (latmax, lonmax))
 
         return (
-            ('range', (minv, maxv)),
+            ('range', (zipmin, zipmax)),
         )
 
     def _normPyStr(self, valu):
@@ -146,10 +150,31 @@ class LatLong(s_types.Type):
         return (latv, lonv), {'subs': {'lat': latv, 'lon': lonv}}
 
     def indx(self, valu):
-        return self.modl.type('geo:latitude').indx(valu[0]) + self.modl.type('geo:longitude').indx(valu[1])
+        zstr = self.getLatLonZip(*valu)
+        return int(self.getLatLonZip(*valu), 2).to_bytes(10, 'big')
 
     def repr(self, norm):
         return f'{norm[0]},{norm[1]}'
+
+    @staticmethod
+    def getLatLonZip(lat, lon):
+        '''
+        Return a magic big-endian zip of the bits from intified lat, lon
+        '''
+        latint = Latitude.getLatInt(lat)
+        lonint = Longitude.getLonInt(lon)
+        return ''.join(map(lambda x, y: x + y, f'{latint:040b}', f'{lonint:040b}'))
+
+    @staticmethod
+    def getLatLonZipRange(minxy, maxxy):
+        minzip = LatLong.getLatLonZip(*minxy)
+        maxzip = LatLong.getLatLonZip(*maxxy)
+        prefix = os.path.commonprefix([minzip, maxzip])
+        zstr = prefix.ljust(80, '0')
+        fstr = prefix.ljust(80, '1')
+        minval = int(zstr, 2).to_bytes(10, 'big')
+        maxval = int(fstr, 2).to_bytes(10, 'big')
+        return minval, maxval
 
 class Longitude(s_types.Type):
     SCALE = 10**8  # ~1mm resolution
@@ -178,8 +203,12 @@ class Longitude(s_types.Type):
 
         return valu, {}
 
+    @staticmethod
+    def getLonInt(norm):
+        return int(norm * Longitude.SCALE + Longitude.SPACE)
+
     def indx(self, norm):
-        return int(norm * Longitude.SCALE + Longitude.SPACE).to_bytes(5, 'big')
+        return self.getLonInt(norm).to_bytes(5, 'big')
 
 class GeoModule(s_module.CoreModule):
 
