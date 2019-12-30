@@ -722,7 +722,20 @@ class Str(Prim):
             'startswith': self._methStrStartswith,
             'ljust': self._methStrLjust,
             'rjust': self._methStrRjust,
+            'encode': self._methEncode,
         })
+
+    async def _methEncode(self, encoding='utf8'):
+        '''
+        Encoding a text values to bytes.
+
+        Args:
+            encoding (str): Encoding to use. Defaults to utf8.
+        '''
+        try:
+            return self.valu.encode(encoding)
+        except UnicodeEncodeError as e:
+            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu) from None
 
     async def _methStrSplit(self, text):
         '''
@@ -752,12 +765,25 @@ class Bytes(Prim):
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update({
+            'decode': self._methDecode,
             'bunzip': self._methBunzip,
             'gunzip': self._methGunzip,
             'bzip': self._methBzip,
             'gzip': self._methGzip,
             'json': self._methJsonLoad,
         })
+
+    async def _methDecode(self, encoding='utf8'):
+        '''
+        Decode a bytes to a string.
+
+        Args:
+            encoding (str): The encoding to use when decoding the bytes.
+        '''
+        try:
+            return self.valu.decode(encoding)
+        except UnicodeDecodeError as e:
+            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu) from None
 
     async def _methBunzip(self):
         '''
