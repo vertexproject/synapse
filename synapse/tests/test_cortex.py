@@ -4078,3 +4078,29 @@ class CortexBasicTest(s_t_utils.SynTest):
                                            'Error loading pkg') as stream:
                 async with self.getTestCore(dirn=dirn) as core:
                     self.true(await stream.wait(6))
+
+    async def test_snap_isolation(self):
+        import synapse.lib.snap as s_snap
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap0:  # type: s_snap.Snap
+                original_node0 = await snap0.addNode('test:str', 'node0')
+                await original_node0.addTag('foo.bar.baz')
+                print(original_node0)
+                await asyncio.sleep(2)  # let things commit to disk
+                async with await core.snap() as snap1:  # type: s_snap.Snap
+                    print('starting snap1')
+                    snap1_node0 = await snap1.getNodeByNdef(('test:str', 'node0'))
+                    print(snap1_node0)
+                    await snap1_node0.delgiTag('foo.bar.baz')
+                    print(snap1_node0)
+                print('done with snap1')
+                async for item in snap0.storm('$lib.runt.snap.cache_clear()'):
+                    print(item)
+                snap0_node0 = await snap0.getNodeByNdef(('test:str', 'node0'))
+                await snap0_node0.addTag('foo.bar.baz')
+                print(snap0_node0)
+                await asyncio.sleep(2)  # let things commit to disk
+                async with await core.snap() as snap2:  # type: s_snap.Snap
+                    print('starting snap2')
+                    snap2_node0 = await snap2.getNodeByNdef(('test:str', 'node0'))
+                    print(snap2_node0)
