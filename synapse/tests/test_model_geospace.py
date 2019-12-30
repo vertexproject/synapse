@@ -100,16 +100,17 @@ class GeoTest(s_t_utils.SynTest):
                 ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
 
             self.eq(t.indx((-90, -180)), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-            self.eq(t.indx((90, 180)), b'\x040\xe24\x00\x08a\xc4h\x00')
+            self.eq(t.indx((90, 180)), b'\x00`\x1e\x01\xf8\x18\x1e`\x00\x00')
 
-            self.eq(t.indx((0, 0)), b'\x02\x18q\x1a\x00\x040\xe24\x00')
-            self.eq(t.indx((0, -0)), b'\x02\x18q\x1a\x00\x040\xe24\x00')
-            self.eq(t.indx((0, 1)), b'\x02\x18q\x1a\x00\x046\xd8\x15\x00')
-            self.eq(t.indx((0, -1)), b'\x02\x18q\x1a\x00\x04*\xecS\x00')
-            self.eq(t.indx((-90, 180)), b'\x00\x00\x00\x00\x00\x08a\xc4h\x00')
-            self.eq(t.indx((90, -180)), b'\x040\xe24\x00\x00\x00\x00\x00\x00')
-            self.eq(t.indx((12.3456789, -12.3456789)), b'\x02b\x07\x1c\xd2\x03\xe7L1.')
-            self.eq(t.indx((12.34567890, -12.34567890)), b'\x02b\x07\x1c\xd2\x03\xe7L1.')
+            self.eq(t.indx((0, 0)), b'\x00\x18\x07\x80~\x06\x07\x98\x00\x00')
+            self.eq(t.indx((0, -0)), b'\x00\x18\x07\x80~\x06\x07\x98\x00\x00')
+            self.eq(t.indx((0, 1)), b'\x00\x18\x07\x94{B\x03\x99\x00\x00')
+
+            self.eq(t.indx((0, -1)), b'\x00\x18\x06\xc4~R\x13\x8d\x00\x00')
+            self.eq(t.indx((-90, 180)), b'\x00@\x14\x01P\x10\x14@\x00\x00')
+            self.eq(t.indx((90, -180)), b'\x00 \n\x00\xa8\x08\n \x00\x00')
+            self.eq(t.indx((12.3456789, -12.3456789)), b'\x00\r|\x1d\x10z\x07\xa1\xa6\\')
+            self.eq(t.indx((12.34567890, -12.34567890)), b'\x00\r|\x1d\x10z\x07\xa1\xa6\\')
 
             self.eq(t.repr((0, 0)), '0,0')
             self.eq(t.repr((0, -0)), '0,0')
