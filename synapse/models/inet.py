@@ -206,7 +206,7 @@ class Email(s_types.Str):
 
 class Fqdn(s_types.Type):
 
-    stortype = s_layer.STOR_TYPE_UTF8
+    stortype = s_layer.STOR_TYPE_FQDN
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
@@ -271,7 +271,7 @@ class Fqdn(s_types.Type):
     #def indx(self, norm):
         #return norm[::-1].encode('utf8')
 
-    #def indxByEq(self, valu):
+    #def liftByEq(self, valu):
 
         #if valu == '':
             #raise s_exc.BadLiftValu(valu=valu, name=self.name,

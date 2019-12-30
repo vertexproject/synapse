@@ -884,12 +884,12 @@ class LiftTag(LiftOper):
             cmpr = await self.kids[1].compute(runt)
             valu = await self.kids[2].compute(runt)
 
-            async for node in runt.snap.liftByTagValu(tag, cmpr, valu):
+            async for node in runt.snap.nodesByTagValu(tag, cmpr, valu):
                 yield node
 
             return
 
-        async for node in runt.snap.liftByTag(tag):
+        async for node in runt.snap.nodesByTag(tag):
             yield node
 
 class LiftByArray(LiftOper):
@@ -992,7 +992,7 @@ class LiftTagTag(LiftOper):
                 continue
 
             done.add(tagname)
-            async for node in runt.snap.liftByTag(tagname, valu=valu, cmpr=cmpr):
+            async for node in runt.snap.nodesByTag(tagname, valu=valu, cmpr=cmpr):
                 if node.form.name == 'syn:tag':
                     todo.append((node, None, '='))
                     continue
@@ -1013,7 +1013,7 @@ class LiftFormTag(LiftOper):
             cmpr = self.kids[2].value()
             valu = await self.kids[3].compute(runt)
 
-        async for node in runt.snap.liftByTag(tag, form=form):#, valu=valu, cmpr=cmpr):
+        async for node in runt.snap.nodesByTag(tag, form=form):#, valu=valu, cmpr=cmpr):
             yield node
 
 class LiftProp(LiftOper):
@@ -1024,43 +1024,56 @@ class LiftProp(LiftOper):
         valu = None
         name = await self.kids[0].compute(runt)
 
-        if len(self.kids) == 3:
-            cmpr = self.kids[1].value()
-            valu = await self.kids[2].compute(runt)
+        prop = runt.model.prop(name)
+        if prop is None:
+            raise s_exc.NoSuchProp(name=name)
 
-        # If its a secondary prop, there's no optimization
-        if runt.model.forms.get(name) is None:
-            async for node in runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr):
-                yield node
-            return
+        if len(self.kids) == 1:
 
-        if cmpr is not None:
-            async for node in runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr):
-                yield node
-            return
-
-        # lifting by a form only is pretty bad, maybe
-        # we can pick up a near by filter based hint...
-        for oper in self.iterright():
-
-            if isinstance(oper, FiltOper):
-
-                for hint in oper.getLiftHints():
-
+            # check if we can optimize a form lift with a tag filter...
+            if prop.isform:
+                for hint in self.getRightHints():
                     if hint[0] == 'tag':
                         tagname = hint[1].get('name')
-                        async for node in runt.snap.liftByTag(tagname, form=name):
+                        async for node in runt.snap.nodesByTag(tagname, form=name):
                             yield node
                         return
+
+            async for node in runt.snap.nodesByProp(prop):
+                yield node
+
+            return
+
+        assert len(self.kids) == 3
+
+        cmpr = self.kids[1].value()
+        valu = await self.kids[2].compute(runt)
+
+        if prop.isform:
+            async for node in runt.snap.nodesByFormValu(prop, cmpr, valu):
+                yield node
+            return
+
+        if prop.isuniv:
+            async for node in runt.snap.nodesByUnivValu(prop, cmpr, valu):
+                yield node
+            return
+
+        async for node in runt.snap.nodesByPropValu(prop, cmpr, valu):
+            yield node
+
+    def getRightHints(self):
+
+        for oper in self.iterright():
 
             # we can skip other lifts but that's it...
             if isinstance(oper, LiftOper):
                 continue
 
-            break
+            if isinstance(oper, FiltOPer):
+                return oper.getLiftHints()
 
-        async for node in runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr):
-            yield node
+            return ()
 
 class LiftPropBy(LiftOper):
 
@@ -1099,7 +1112,7 @@ class PivotOut(PivotOper):
             # <syn:tag> -> * is "from tags to nodes with tags"
             if node.form.name == 'syn:tag':
 
-                async for pivo in runt.snap.liftByTag(node.ndef[1]):
+                async for pivo in runt.snap.nodesByTag(node.ndef[1]):
                     yield pivo, path.fork(pivo)
 
                 continue

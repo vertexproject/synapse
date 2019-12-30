@@ -13,6 +13,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.base as s_base
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.editatom as s_editatom
@@ -244,25 +245,33 @@ class Snap(s_base.Base):
         if node is not None:
             return node
 
-        props = {}
-        proplayr = {}
-        for layr in self.layers:
-            layerprops = await layr.getBuidProps(buid)
-            props.update(layerprops)
-            proplayr.update({k: layr for k in layerprops})
+        node = await self._joinStorNode(buid, {})
+        if node is not None:
+            self.livenodes[buid] = node
 
-        node = s_node.Node(self, buid, props.items(), proplayr=proplayr)
-
-        # Give other tasks a chance to run
         await asyncio.sleep(0)
 
-        if node.ndef is None:
-            return None
-
-        # Add node to my buidcache
-        self.buidcache.append(node)
-        self.livenodes[buid] = node
         return node
+
+        #props = {}
+        #proplayr = {}
+        #for layr in self.layers:
+            #layerprops = await layr.getBuidProps(buid)
+            #props.update(layerprops)
+            #proplayr.update({k: layr for k in layerprops})
+
+        #node = s_node.Node(self, buid, props.items(), proplayr=proplayr)
+
+        # Give other tasks a chance to run
+        #await asyncio.sleep(0)
+
+        #if node.ndef is None:
+            #return None
+
+        ## Add node to my buidcache
+        #self.buidcache.append(node)
+        #self.livenodes[buid] = node
+        #return node
 
     async def getNodeByNdef(self, ndef):
         '''
@@ -298,7 +307,7 @@ class Snap(s_base.Base):
 
     async def _getNodesByFormTag(self, form, tag, valu=None, cmpr='='):
 
-        async for node in self.liftByTag(tag, form=form):
+        async for node in self.nodesByTag(tag, form=form):
             yield node
 
         return
@@ -357,10 +366,10 @@ class Snap(s_base.Base):
             await self.printf(f'get nodes by: {full} {cmpr} {valu!r}')
 
         # special handling for by type (*type=) here...
-        if cmpr == 'type=':
-            async for node in self._getNodesByType(full, valu=valu):
-                yield node
-            return
+        #if cmpr == 'type=':
+            #async for node in self._getNodesByType(full, valu=valu):
+                #yield node
+            #return
 
         # special case "try equal" which doesnt bail on invalid values
         if cmpr == '?=':
@@ -376,7 +385,7 @@ class Snap(s_base.Base):
             return
 
         if full.startswith('#'):
-            async for node in self.liftByTag(full, valu=valu, cmpr=cmpr):
+            async for node in self.nodesByTag(full, valu=valu, cmpr=cmpr):
                 yield node
             return
 
@@ -402,11 +411,11 @@ class Snap(s_base.Base):
             return
 
         if valu is None:
-            async for node in self.liftByProp(prop):
+            async for node in self.nodesByProp(prop):
                 yield node
             return
 
-        async for node in self.liftByPropValu(prop, cmpr, valu):
+        async for node in self.nodesByPropValu(prop, cmpr, valu):
             yield node
 
         #cmprvals = prop.type.getStorCmprs(cmpr, valu)
@@ -470,13 +479,13 @@ class Snap(s_base.Base):
             cache[layr.iden] = info
             yield await self._joinStorNode(buid, cache)
 
-    async def liftByProp(self, prop):
+    async def nodesByProp(self, prop):
         for layr in self.layers:
             genr = layr.liftByProp(prop.full)
             async for node in self._joinStorGenr(layr, genr):
                 yield node
 
-    async def liftByPropValu(self, prop, cmpr, valu):
+    async def nodesByPropValu(self, prop, cmpr, valu):
 
         cmprvals = prop.type.getStorCmprs(cmpr, valu)
 
@@ -487,6 +496,12 @@ class Snap(s_base.Base):
                 async for node in self._joinStorGenr(layr, genr):
                     yield node
 
+        elif prop.isuniv:
+
+            for layr in self.layers:
+                genr = layr.liftByUnivValu(prop.name, cmprvals)
+                async for node in self._joinStorGenr(layr, genr):
+                    yield node
         else:
 
             for layr in self.layers:
@@ -494,13 +509,13 @@ class Snap(s_base.Base):
                 async for node in self._joinStorGenr(layr, genr):
                     yield node
 
-    async def liftByTag(self, tag, form=None):
+    async def nodesByTag(self, tag, form=None):
         for layr in self.layers:
             genr = layr.liftByTag(tag, form=form)
             async for node in self._joinStorGenr(layr, genr):
                 yield node
 
-    async def liftByTagValu(self, tag, cmpr, valu, form=None):
+    async def nodesByTagValu(self, tag, cmpr, valu, form=None):
         for layr in self.layers:
             genr = layr.liftByTagValu(tag, cmpr, valu, form=form)
             async for node in self._joinStorGenr(layr, genr):
@@ -550,6 +565,9 @@ class Snap(s_base.Base):
 
     def getNodeAdds(self, form, valu, props=None):
 
+        tick = s_common.now()
+
+        # TODO consider nesting these to allow short circuit on existing
         def recurse(f, v, p):
 
             buid = s_common.buid((f.name, v))
@@ -568,6 +586,15 @@ class Snap(s_base.Base):
                 if prop is None:
                     continue
 
+                if isinstance(prop.type, s_types.Ndef):
+                    ndefname, ndefvalu = propvalu
+                    ndefform = self.model.form(ndefname)
+                    if ndefform is None:
+                        raise s_exc.NoSuchForm(name=ndefname)
+
+                    for item in recurse(ndefform, ndefvalu, {}):
+                        yield item
+
                 propnorm, typeinfo = prop.type.norm(propvalu)
                 storprops.append((propname, propnorm, prop.type.stortype))
 
@@ -581,6 +608,12 @@ class Snap(s_base.Base):
             nodeinfo = {'form': f.name, 'valu': (formnorm, f.type.stortype)}
             if storprops:
                 nodeinfo['props'] = storprops
+
+            nodeinfo['onadd'] = {
+                'props': (
+                    ('.created', tick, s_layer.STOR_TYPE_TIME),
+                ),
+            }
 
             yield (buid, nodeinfo)
 

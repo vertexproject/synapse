@@ -51,6 +51,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
 import synapse.lib.const as s_const
+import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
@@ -83,17 +84,21 @@ class LibTst(s_stormtypes.Lib):
 
 class TestType(s_types.Type):
 
+    stortype = s_layer.STOR_TYPE_UTF8
+
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
         return valu.lower(), {}
 
-    def indx(self, norm):
+    #def indx(self, norm):
         # make this purposely fragile...
-        return norm.encode('utf8')
+        #return norm.encode('utf8')
 
 class ThreeType(s_types.Type):
+
+    stortype = s_layer.STOR_TYPE_UTF8
 
     def norm(self, valu):
         return 3, {'subs': {'three': 3}}
@@ -101,10 +106,9 @@ class ThreeType(s_types.Type):
     def repr(self, valu):
         return '3'
 
-    def indx(self, norm):
-        return '3'.encode('utf8')
-
 class TestSubType(s_types.Type):
+
+    stortype = s_layer.STOR_TYPE_U32
 
     def norm(self, valu):
         valu = int(valu)
@@ -112,9 +116,6 @@ class TestSubType(s_types.Type):
 
     def repr(self, norm):
         return str(norm)
-
-    def indx(self, norm):
-        return norm.to_bytes(4, 'big')
 
 testmodel = {
 
@@ -178,17 +179,10 @@ testmodel = {
         )),
         ('test:type10', {}, (
 
-            ('intprop', ('int', {'min': 20, 'max': 30}), {
-                'defval': 20}),
-
-            ('strprop', ('str', {'lower': 1}), {
-                'defval': 'asdf'}),
-
-            ('guidprop', ('guid', {'lower': 1}), {
-                'defval': '*'}),
-
-            ('locprop', ('loc', {}), {
-                'defval': '??'}),
+            ('intprop', ('int', {'min': 20, 'max': 30}), {}),
+            ('strprop', ('str', {'lower': 1}), {}),
+            ('guidprop', ('guid', {'lower': 1}), {}),
+            ('locprop', ('loc', {}), {}),
         )),
 
         ('test:cycle0', {}, (
@@ -435,9 +429,10 @@ class TestModule(s_module.CoreModule):
                 if k.startswith('.'):
                     prop = fnme + k
                 self._runtsByPropValu[prop].append(buid)
-                if modl.prop(prop).type.indx(propvalu):
+                # TODO FIXME
+                #if modl.prop(prop).type.indx(propvalu):
                     # Can the secondary property be indexed for lift?
-                    self._runtsByPropValu[(prop, propvalu)].append(buid)
+                    #self._runtsByPropValu[(prop, propvalu)].append(buid)
 
     def getModelDefs(self):
         return (

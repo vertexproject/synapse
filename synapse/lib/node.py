@@ -25,6 +25,8 @@ class Node:
 
         self.buid = sode[0]
 
+        print('NODE FROM SODE: %r' % (sode,))
+
         #self.init = False  # True if the node is being added.
 
         # if set, the node is complete.

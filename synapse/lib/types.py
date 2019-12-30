@@ -50,11 +50,11 @@ class Type:
         self._cmpr_ctors = {}   # cmpr string to filter function constructor map
         self._cmpr_ctor_lift = {} # if set, create a cmpr which is passed along with indx ops
 
-        self.indxcmpr = {
-            '=': self.indxByEq,
-            'in=': self.indxByIn,
-            'range=': self.indxByRange,
-        }
+        #self.indxcmpr = {
+            #'=': self.indxByEq,
+            #'in=': self.indxByIn,
+            #'range=': self.indxByRange,
+        #}
 
         self.setCmprCtor('=', self._ctorCmprEq)
         self.setCmprCtor('!=', self._ctorCmprNe)
@@ -215,45 +215,45 @@ class Type:
             return minv <= valu <= maxv
         return cmpr
 
-    def indxByEq(self, valu):
-        norm, info = self.norm(valu)
+    #def indxByEq(self, valu):
+        #norm, info = self.norm(valu)
 
-        indx = self.indx(norm)
-        if indx is None:
-            raise s_exc.NoSuchIndx(name=self.name)
+        #indx = self.indx(norm)
+        #if indx is None:
+            #raise s_exc.NoSuchIndx(name=self.name)
 
-        return (
-            ('eq', indx),
-        )
+        #return (
+            #('eq', indx),
+        #)
 
-    def indxByIn(self, vals):
+    #def indxByIn(self, vals):
 
-        opers = []
-        if not isinstance(vals, (list, tuple)):
-            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='in=')
+        #opers = []
+        #if not isinstance(vals, (list, tuple)):
+            #raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='in=')
 
-        for valu in vals:
-            opers.extend(self.getIndxOps(valu))
+        #for valu in vals:
+            #opers.extend(self.getIndxOps(valu))
 
-        return opers
+        #return opers
 
-    def indxByRange(self, valu):
+    #def indxByRange(self, valu):
 
-        if not isinstance(valu, (list, tuple)):
-            raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='range=')
+        #if not isinstance(valu, (list, tuple)):
+            #raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='range=')
 
-        if len(valu) != 2:
-            raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='range=')
+        #if len(valu) != 2:
+            #raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='range=')
 
-        minv, _ = self.norm(valu[0])
-        maxv, _ = self.norm(valu[1])
+        #minv, _ = self.norm(valu[0])
+        #maxv, _ = self.norm(valu[1])
 
-        mini = self.indx(minv)
-        maxi = self.indx(maxv)
+        #mini = self.indx(minv)
+        #maxi = self.indx(maxv)
 
-        return (
-            ('range', (mini, maxi)),
-        )
+        #return (
+            #('range', (mini, maxi)),
+        #)
 
     def setNormFunc(self, typo, func):
         '''
@@ -295,12 +295,12 @@ class Type:
         '''
         return str(norm)
 
-    def indx(self, norm):  # pragma: no cover
-        '''
-        Return the property index bytes for the given *normalized* value.
-        '''
-        name = self.__class__.__name__
-        raise s_exc.NoSuchImpl(name='%s.indx' % name)
+    #def indx(self, norm):  # pragma: no cover
+        #'''
+        #Return the property index bytes for the given *normalized* value.
+        #'''
+        #name = self.__class__.__name__
+        #raise s_exc.NoSuchImpl(name='%s.indx' % name)
 
     def merge(self, oldv, newv):
         '''
@@ -351,21 +351,21 @@ class Type:
         topt.update(opts)
         return self.__class__(self.modl, self.name, self.info, topt)
 
-    def getIndxOps(self, valu, cmpr='='):
-        '''
-        Return a list of index operation tuples to lift values in a table.
+    #def getIndxOps(self, valu, cmpr='='):
+        #'''
+        #Return a list of index operation tuples to lift values in a table.
 
-        Valid index operations include:
-            ('eq', <indx>)
-            ('pref', <indx>)
-            ('range', (<minindx>, <maxindx>))
-        '''
-        func = self.indxcmpr.get(cmpr)
+        #Valid index operations include:
+            #('eq', <indx>)
+            #('pref', <indx>)
+            #('range', (<minindx>, <maxindx>))
+        #'''
+        #func = self.indxcmpr.get(cmpr)
 
-        if func is None:
-            raise s_exc.NoSuchCmpr(name=self.name, cmpr=cmpr)
+        #if func is None:
+            #raise s_exc.NoSuchCmpr(name=self.name, cmpr=cmpr)
 
-        return func(valu)
+        #return func(valu)
 
 class Bool(Type):
 
@@ -490,6 +490,8 @@ class Array(Type):
         return vals
 
 class Comp(Type):
+
+    stortype = s_layer.STOR_TYPE_MSGP
 
     def getCompOffs(self, name):
         return self.fieldoffs.get(name)
@@ -850,7 +852,7 @@ class Ival(Type):
         self.timetype = self.modl.type('time')
 
         # Range stuff with ival's don't make sense
-        self.indxcmpr.pop('range=', None)
+        #self.indxcmpr.pop('range=', None)
         self._cmpr_ctors.pop('range=', None)
 
         self.setCmprCtor('@=', self._ctorCmprAt)
@@ -979,7 +981,7 @@ class Ival(Type):
 
 class Loc(Type):
 
-    stortype = s_layer.STOR_TYPE_UTF8
+    stortype = s_layer.STOR_TYPE_LOC
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
@@ -1279,6 +1281,10 @@ class Str(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyStr)
 
+        self.storlifts.update({
+            '^=': self._storLiftPref,
+        })
+
         self.regex = None
         restr = self.opts.get('regex')
         if restr is not None:
@@ -1384,12 +1390,6 @@ class Time(IntBase):
         self.ismin = self.opts.get('ismin')
         self.ismax = self.opts.get('ismax')
 
-    #def indxByIval(self, valu):
-        #norm, _ = self.modl.types.get('ival').norm(valu)
-        #if norm[1] != self.futsize:
-            #norm = (norm[0], norm[1] - 1)
-        #return self.indxByRange(norm)
-
     def _ctorCmprAt(self, valu):
         return self.modl.types.get('ival')._ctorCmprAt(valu)
 
@@ -1447,11 +1447,6 @@ class Time(IntBase):
             return '?'
 
         return s_time.repr(valu)
-
-    #def indx(self, norm):
-        # offset to prevent pre-epoch negative values from
-        # wreaking havoc with the btree range indexing...
-        #return (norm + 0x8000000000000000).to_bytes(8, 'big')
 
     def _getLiftValu(self, valu, relto=None):
 
@@ -1515,32 +1510,6 @@ class Time(IntBase):
             return tick, tock
 
         return _tick, _tock
-
-    #def _indxTimeRange(self, mint, maxt):
-        #minv, _ = self.norm(mint)
-        #maxv, _ = self.norm(maxt)
-        #return (
-            #('range', (self.indx(minv), self.indx(maxv))),
-        #)
-
-    #def indxByRange(self, valu):
-        #'''
-        #Override default ``range=`` handler to account for relative computation.
-        #'''
-
-        #if not isinstance(valu, (list, tuple)):
-            #raise s_exc.BadCmprValu(valu=valu, cmpr='range=')
-
-        #if len(valu) != 2:
-            #raise s_exc.BadCmprValu(valu=valu, cmpr='range=')
-
-        #tick, tock = self.getTickTock(valu)
-
-        #if tick > tock:
-            # User input has requested a nullset
-            #return ()
-
-        #return self._indxTimeRange(tick, tock)
 
     def _ctorCmprRange(self, vals):
         '''
