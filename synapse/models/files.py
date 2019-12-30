@@ -7,10 +7,10 @@ import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lookup.pe as s_l_pe
 
-class FileBase(s_types.StrBase):
+class FileBase(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def indxByPref(self, valu):
@@ -33,10 +33,10 @@ class FileBase(s_types.StrBase):
 
         return norm, {'subs': subs}
 
-class FilePath(s_types.StrBase):
+class FilePath(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def indxByPref(self, valu):

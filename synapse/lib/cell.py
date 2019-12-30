@@ -379,12 +379,14 @@ class Cell(s_base.Base, s_telepath.Aware):
         self.dirn = s_common.gendir(dirn)
 
         self.auth = None
+        self.inaugural = False
 
         # each cell has a guid
         path = s_common.genpath(dirn, 'cell.guid')
 
         # generate a guid file if needed
         if not os.path.isfile(path):
+            self.inaugural = True
             with open(path, 'w') as fd:
                 fd.write(s_common.guid())
 

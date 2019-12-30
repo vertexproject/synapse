@@ -174,13 +174,16 @@ class NoSuchPivot(SynErr): pass
 class NoSuchProp(SynErr): pass
 class NoSuchUniv(SynErr): pass
 class NoSuchRole(SynErr): pass
-class NoSuchStor(SynErr): pass
 class NoSuchType(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchVar(SynErr): pass
 class NoSuchView(SynErr): pass
 class NoSuchTagProp(SynErr): pass
 class NoSuchStormSvc(SynErr): pass
+
+class NoSuchStor(SynErr):
+    def __init__(self, name):
+        SynErr.__init__(self, mesg=f'No storage type found named {name!r}', name=name)
 
 class ParserExit(SynErr):
     ''' Raised by synapse.lib.cmd.Parser on Parser exit() '''

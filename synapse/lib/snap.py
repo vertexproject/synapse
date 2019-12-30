@@ -477,11 +477,22 @@ class Snap(s_base.Base):
                 yield node
 
     async def liftByPropValu(self, prop, cmpr, valu):
+
         cmprvals = prop.type.getStorCmprs(cmpr, valu)
-        for layr in self.layers:
-            genr = layr.liftByPropValu(prop.full, cmprvals)
-            async for node in self._joinStorGenr(layr, genr):
-                yield node
+
+        if prop.isform:
+
+            for layr in self.layers:
+                genr = layr.liftByFormValu(prop.name, cmprvals)
+                async for node in self._joinStorGenr(layr, genr):
+                    yield node
+
+        else:
+
+            for layr in self.layers:
+                genr = layr.liftByPropValu(prop.form.name, prop.name, cmprvals)
+                async for node in self._joinStorGenr(layr, genr):
+                    yield node
 
     async def liftByTag(self, tag, form=None):
         for layr in self.layers:
@@ -602,12 +613,14 @@ class Snap(s_base.Base):
             raise s_exc.NoSuchForm(name=name)
 
         adds = self.getNodeAdds(form, valu, props=props)
-        sodes = [await self.wlyr.setStorNode(b, i, {}) for (b, i) in adds]
 
-        print('addNode got %r' % (sodes,))
+        # depth first, so the last one is our added node
+        buid = adds[-1][0]
+
+        nodes = await self.wlyr.setStorNodes(adds, {})
 
         # TODO multi-layer node fusion
-        return s_node.Node(self, sodes[-1])
+        return s_node.Node(self, nodes.get(buid))
 
         #todo = []
 #

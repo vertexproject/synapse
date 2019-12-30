@@ -139,7 +139,6 @@ class StorType:
 
     def lift(self, prop, cmpr, valu):
 
-        indx = self.indx(valu)
         func = self.lifters.get(cmpr)
 
         if func is None:
@@ -185,7 +184,7 @@ class StorTypeUtf8(StorType):
         return base + sufx
 
     def indx(self, valu):
-        yield self._getIndxByts(valu)
+        return (self._getIndxByts(valu), )
 
 class StorTypeInt(StorType):
 
@@ -216,7 +215,7 @@ class StorTypeInt(StorType):
         return (valu + self.offset).to_bytes(self.size, 'big')
 
     def indx(self, valu):
-        yield self.getIntIndx(valu)
+        return (self.getIntIndx(valu),)
 
     def _liftIntEq(self, prop, valu):
         abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
@@ -268,7 +267,7 @@ class StorTypeGuid(StorType):
             yield buid
 
     def indx(self, valu):
-        yield s_common.uhex(valu)
+        return (s_common.uhex(valu),)
 
 class StorTypeTime(StorTypeInt):
     def __init__(self, layr):
@@ -312,7 +311,7 @@ class StorTypeIval(StorType):
             yield buid
 
     def indx(self, valu):
-        yield self.timetype.getIntIndx(valu[0]) + self.timetype.getIntIndx(valu[1])
+        return (self.timetype.getIntIndx(valu[0]) + self.timetype.getIntIndx(valu[1]),)
 
 class StorTypeMsgp(StorType):
 
@@ -329,7 +328,7 @@ class StorTypeMsgp(StorType):
             yield buid
 
     def indx(self, valu):
-        yield s_common.buid(valu)
+        return (s_common.buid(valu),)
 
 class StorTypeLatLon(StorType):
 
@@ -398,7 +397,7 @@ class StorTypeLatLon(StorType):
 
     def indx(self, valu):
         # yield index bytes in lon/lat order to allow cheap optimial indexing
-        yield self._getLatLonIndx(valu)
+        return (self._getLatLonIndx(valu),)
 
 class Layer(s_base.Base):
     '''
@@ -409,13 +408,13 @@ class Layer(s_base.Base):
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, iden, dirn, conf=None, readonly=False):
+    async def __anit__(self, layrinfo, conf=None):
 
         await s_base.Base.__anit__(self)
 
-        self.dirn = dirn
-        self.iden = iden
-        self.readonly = readonly
+        self.dirn = layrinfo.get('dirn')
+        self.iden = layrinfo.get('iden')
+        self.readonly = layrinfo.get('readonly')
 
         if conf is None:
             conf = {}
@@ -425,32 +424,6 @@ class Layer(s_base.Base):
             [conf.setdefault(k, v) for (k, v) in s_common.yamlload(confpath).items()]
 
         self.conf = s_common.config(conf, self.confdefs)
-
-        #self.core = core
-        #self.node = node
-        #self.iden = node.name()
-        #await s_hive.AuthGater.__anit__(self, self.core.auth)
-        #self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
-
-        # splice windows...
-        #self.windows = []
-
-        #self.info = await node.dict()
-        #self.info.setdefault('owner', 'root')
-
-        #self.owner = self.info.get('owner')
-
-        #self.conf = await (await node.open(('config',))).dict()
-
-        #for name, info in self.confdefs:
-
-            #dval = info.get('defval', s_common.novalu)
-            #if dval is s_common.novalu:
-                #continue
-
-            #self.conf.setdefault(name, dval)
-
-        #self.dirn = s_common.gendir(core.dirn, 'layers', self.iden)
 
         path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
 
@@ -569,23 +542,34 @@ class Layer(s_base.Base):
         for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
             yield buid, await self.getStorNode(buid)
 
-    async def liftByPropValu(self, prop, cmprvals):
+    # NOTE: form vs prop valu lifting is differentiated to allow merge sort
+    async def liftByFormValu(self, form, cmprvals):
         for cmpr, valu, kind in cmprvals:
-            for buid in self.stortypes[kind].lift(prop, cmpr, valu):
+            for buid in self.stortypes[kind].lift(form, cmpr, valu):
                 yield buid, await self.getStorNode(buid)
 
-    async def storLayrData(self, recs, meta):
-        for buid, info in recs:
-            yield self.setStorNode(buid, info, meta)
+    async def liftByPropValu(self, form, prop, cmprvals):
+        full = form + ':' + prop
+        for cmpr, valu, kind in cmprvals:
+            for buid in self.stortypes[kind].lift(full, cmpr, valu):
+                yield buid, await self.getStorNode(buid)
+
+    async def setStorNodes(self, nodes, meta):
+        retn = {}
+        for buid, info in nodes:
+            sode = await self.setStorNode(buid, info, meta)
+            retn[buid] = sode
+        return retn
 
     async def setStorNode(self, buid, info, meta):
         '''
         Execute a series of storage operations for the given node.
         '''
-        print('STORING: %r %r %r' % (buid, info, meta))
+        #print('STORING: %r %r %r' % (buid, info, meta))
         form = info.get('form').encode()
 
         isnew = False
+
         storvalu = info.get('valu')
         if storvalu is not None:
             valu, stortype = storvalu
@@ -596,11 +580,6 @@ class Layer(s_base.Base):
             await self._setNodeProp(buid, form, propname, propvalu, stortype)
             props[propname] = propvalu
 
-        if isnew:
-            for defname, defvalu, stortype in info.get('defprops', ()):
-                await self._setNodeProp(buid, defname, defvalu, stortype)
-                props[defname] = defvalu
-
         for tagname, tagvalu in info.get('tags', ()):
             await self._setNodeTag(buid, form, tagname, tagvalu)
 
@@ -609,12 +588,16 @@ class Layer(s_base.Base):
     #async def delStorNode(self, buid, info, meta):
 
     async def _setNodeForm(self, buid, form, valu, stortype):
-        self.layrslab.put(buid + b'\x00' + form, s_msgpack.en(valu), db=self.bybuid)
+
+        if not self.layrslab.put(buid + b'\x00' + form, s_msgpack.en(valu), db=self.bybuid, overwrite=False):
+            return False
+
         abrv = self.propabrv.bytsToAbrv(form)
         for indx in self.getStorIndx(stortype, valu):
             self.layrslab.put(abrv + indx, buid, db=self.byprop)
 
         self.splicelog.append((SPLICE_NODE_ADD, buid, (form, valu), {}))
+        return True
 
     async def _setNodeProp(self, buid, form, prop, valu, stortype):
 
@@ -628,7 +611,7 @@ class Layer(s_base.Base):
         if oldb is not None:
             oldv = s_msgpack.un(oldb)
             for oldi in self.getStorIndx(stortype, oldv):
-                self.layrslab.pop(abrv + oldi, buid, db=self.byprop)
+                self.layrslab.delete(abrv + oldi, buid, db=self.byprop)
 
         for indx in self.getStorIndx(stortype, valu):
             self.layrslab.put(abrv + indx, buid, db=self.byprop)
@@ -648,7 +631,6 @@ class Layer(s_base.Base):
 
     def getStorIndx(self, stortype, valu):
 
-        print('getStorIndx: %r %r' % (stortype, valu))
         pref = stortype.to_bytes(1, 'big')
 
         if stortype & 0x8000:
@@ -656,15 +638,11 @@ class Layer(s_base.Base):
             realtype = stortype & 0xefff
             realpref = stortype.to_bytes(1, 'big')
 
-            for aval in valu:
-                for indx in self.getStorIndx(realtype, aval):
-                    yield indx
+            retn = []
+            [retn.extend(self.getStorIndx(realtype, aval)) for aval in valu]
+            return retn
 
-            return
-
-        for indx in self.stortypes[stortype].indx(valu):
-            yield indx
-            #yield self.indxtypes[stortype](valu)
+        return self.stortypes[stortype].indx(valu)
 
     #async def _storFireSplices(self, splices):
         #'''
@@ -958,63 +936,28 @@ class Layer(s_base.Base):
         await s_hive.AuthGater.trash(self)
         shutil.rmtree(self.dirn, ignore_errors=True)
 
-async def fuckit():
-
-    buid = s_common.buid(('inet:ipv4', 0x01020304))
-
+class LayerStorage(s_base.Base):
     '''
-    async with await Layer.anit('qwer', 'fuckit') as layr:
-        shit = (buid, {
-            'form': 'inet:ipv4',
-            'valu': (0x01020304, STOR_TYPE_U32),
-            'props': (
-                ('asn', 30, STOR_TYPE_U64),
-            ),
-            'tags': (
-                ('foo.bar', (None, None)),
-            ),
-        })
-        async for item in layr.storLayrData([shit], 'meta'):
-            print(repr(item))
-
-        async for item in layr.liftByProp('inet:ipv4', 'asn'):
-            print('liftByProp %r' % (item,))
-
-        async for item in layr.liftByPropValu('inet:ipv4', 'asn', '=', 30, STOR_TYPE_U64):
-            print('liftByPropValu %r' % (item,))
-
-        async for item in layr.liftByPropValu('inet:ipv4', 'asn', '=', 40, STOR_TYPE_U64):
-            print('liftByPropValu (nope) %r' % (item,))
+    An LayerStorage acts as a factory instance for Layers.
     '''
 
-    import synapse.cortex as s_cortex
+    stortype = 'local'
 
-    guid = s_common.guid()
+    async def __anit__(self, info):
 
-    print('start')
-    async with await s_cortex.Cortex.anit('localdata/clus00') as core:
-        print('one')
-        #await core.nodes('[ inet:ipv4=1.2.3.4 :asn=30 +#foo.bar :latlong=(38.9581692,-77.3593196) ]')
-        await core.nodes('[ inet:email=visi@vertex.link ]')
-        #await core.nodes('[ ps:person=$guid :name=visi ]', opts={'vars':{'guid': guid}})
-        #print(repr(await core.nodes('inet:ipv4:asn=30')))
-        #print(repr(await core.nodes('inet:ipv4:asn>=30')))
-        #print(repr(await core.nodes('inet:ipv4:asn<30')))
-        #print(repr(await core.nodes('inet:ipv4:asn*range=(800, 900)')))
-        #print(repr(await core.nodes('inet:ipv4:asn*range=(8,900)')))
-        #print(repr(await core.nodes('inet:ipv4:asn')))
-        #print(repr(await core.nodes('#foo')))
-        #print(repr(await core.nodes('inet:ipv4:latlong=(38.9581692,-77.3593196)')))
-        #print(repr(await core.nodes('inet:email:user=visi')))
-        #print(repr(await core.nodes('ps:person=$guid', opts={'vars':{'guid':guid}})))
-        #print(repr(await core.nodes('inet:ipv4:latlong*near=((38.9581690,-77.3593190), 10km)')))
-        #print(repr(await core.nodes('inet:ipv4:latlong*near=((39.0160372,-77.3772675), 1km)')))
-        #print(repr(await core.nodes('inet:ipv4#foo')))
-        #print(repr(await core.nodes('inet:ipv4 +#foo')))
-        print(repr(await core.nodes('inet:email')))
-        print(repr(await core.nodes('inet:user')))
-        print(repr(await core.nodes('inet:fqdn')))
+        await s_base.Base.__anit__(self)
 
-if __name__ == '__main__':
-    import asyncio
-    asyncio.run(fuckit())
+        self.info = info
+        self.iden = info.get('iden')
+        self.name = info.get('name')
+        self.conf = info.get('conf')
+
+    async def initLayr(self, layrinfo):
+        return await Layer.anit(layrinfo)
+
+    async def reqValidLayrConf(self, conf):
+        return
+
+    @staticmethod
+    async def reqValidConf(conf):
+        return

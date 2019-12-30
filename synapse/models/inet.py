@@ -41,10 +41,10 @@ def getAddrType(ip):
 
     return 'unicast'
 
-class Addr(s_types.StrBase):
+class Addr(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _getPort(self, valu):
@@ -126,10 +126,10 @@ class Addr(s_types.StrBase):
 
         return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs}
 
-class Cidr4(s_types.StrBase):
+class Cidr4(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
@@ -157,10 +157,10 @@ class Cidr4(s_types.StrBase):
         }
         return norm, info
 
-class Cidr6(s_types.StrBase):
+class Cidr6(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
@@ -179,10 +179,10 @@ class Cidr6(s_types.StrBase):
         }
         return norm, info
 
-class Email(s_types.StrBase):
+class Email(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
@@ -307,6 +307,10 @@ class IPv4(s_types.Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
+        self.storlifts.update({
+            '=': self._storLiftEq,
+        })
+
     def _ctorCmprEq(self, valu):
 
         if type(valu) == str:
@@ -395,9 +399,7 @@ class IPv4(s_types.Type):
         minv = norm & mask[0]
         return minv, minv + mask[1]
 
-    #def _storLiftEq(self, cmpr, valu):
-
-    def indxByEq(self, valu):
+    def _storLiftEq(self, cmpr, valu):
 
         if type(valu) == str:
 
@@ -405,16 +407,16 @@ class IPv4(s_types.Type):
                 minv, maxv = self.getCidrRange(valu)
                 maxv -= 1
                 return (
-                    ('range', (self.indx(minv), self.indx(maxv))),
+                    ('range=', (minv, maxv), self.stortype),
                 )
 
             if valu.find('-') != -1:
                 minv, maxv = self.getNetRange(valu)
                 return (
-                    ('range', (self.indx(minv), self.indx(maxv))),
+                    ('range=', (minv, maxv), self.stortype),
                 )
 
-        return s_types.Type.indxByEq(self, valu)
+        return self._storLiftNorm(cmpr, valu)
 
 class IPv6(s_types.Type):
 
@@ -494,13 +496,13 @@ class IPv6Range(s_types.Range):
 
         return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
 
-class Rfc2822Addr(s_types.StrBase):
+class Rfc2822Addr(s_types.Str):
     '''
     An RFC 2822 compatible email address parser
     '''
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def indxByPref(self, valu):
@@ -545,10 +547,10 @@ class Rfc2822Addr(s_types.StrBase):
 
         return valu, {'subs': subs}
 
-class Url(s_types.StrBase):
+class Url(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _ctorCmprEq(self, text):

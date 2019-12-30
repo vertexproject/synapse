@@ -22,7 +22,6 @@ tagre = regex.compile(r'(\w+\.)*\w+')
 class Type:
 
     _opt_defs = ()
-    #_lift_v2 = False
     stortype = None
 
     def __init__(self, modl, name, info, opts):
@@ -402,8 +401,6 @@ class Bool(Type):
 
 class Array(Type):
 
-    _lift_v2 = True
-
     def getLiftOpsV2(self, prop, valu, cmpr='='):
 
         if valu is None:
@@ -680,11 +677,6 @@ class IntBase(Type):
         self.setCmprCtor('>', self._ctorCmprGt)
         self.setCmprCtor('<', self._ctorCmprLt)
 
-        #self.indxcmpr['>='] = self.indxByGe
-        #self.indxcmpr['<='] = self.indxByLe
-        #self.indxcmpr['>'] = self.indxByGt
-        #self.indxcmpr['<'] = self.indxByLt
-
         self.storlifts.update({
             '<': self._storLiftNorm,
             '>': self._storLiftNorm,
@@ -697,54 +689,6 @@ class IntBase(Type):
         minv, minfo = self.norm(valu[0])
         maxv, maxfo = self.norm(valu[1])
         return ((cmpr, (minv, maxv), self.stortype),)
-
-    #async def liftByPropValu(self, snap, prop, cmpr, valu):
-        #async for node in snap.liftByPropValu(prop.form.name, prop.name, cmpr, valu):
-            #yield node
-
-    #def indxByGe(self, valu):
-
-        #norm, info = self.norm(valu)
-
-        #indx = self.indx(norm)
-        #imax = b'\xff' * len(indx)
-
-        #return (
-            #('range', (indx, imax)),
-        #)
-
-    #def indxByLe(self, valu):
-
-        #norm, info = self.norm(valu)
-
-        #indx = self.indx(norm)
-        #imin = b'\x00' * len(indx)
-
-        #return (
-            #('range', (imin, indx)),
-        #)
-
-    #def indxByGt(self, valu):
-
-        #norm, info = self.norm(valu)
-
-        #indx = self.indx(norm + 1)
-        #imax = b'\xff' * len(indx)
-
-        #return (
-            #('range', (indx, imax)),
-        #)
-
-    #def indxByLt(self, valu):
-
-        #norm, info = self.norm(valu)
-
-        #indx = self.indx(norm - 1)
-        #imin = b'\x00' * len(indx)
-
-        #return (
-            #('range', (imin, indx)),
-        #)
 
     def _ctorCmprGe(self, text):
         norm, info = self.norm(text)
@@ -1035,10 +979,11 @@ class Ival(Type):
 
 class Loc(Type):
 
+    stortype = s_layer.STOR_TYPE_UTF8
+
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
         self.setCmprCtor('^=', self._ctorCmprPref)
-        #self.indxcmpr['^='] = self.indxByPref
         self.setLiftHintCmprCtor('^=', self._ctorCmprPref)
 
     def _normPyStr(self, valu):
@@ -1121,9 +1066,6 @@ class Ndef(Type):
 
         return norm, {'adds': adds, 'subs': subs}
 
-    #def indx(self, norm):
-        #return s_common.buid(norm)
-
     def repr(self, norm):
         formname, formvalu = norm
         form = self.modl.form(formname)
@@ -1187,9 +1129,6 @@ class Edge(Type):
 
         n1, n2 = valu
         return self._initEdgeBase(n1, n2)
-
-    #def indx(self, norm):
-        #return s_common.buid(norm)
 
     def repr(self, norm):
         n1, n2 = norm
@@ -1271,9 +1210,6 @@ class NodeProp(Type):
         propnorm, info = prop.type.norm(propvalu)
         return (prop.full, propnorm), {'subs': {'prop': prop.full}}
 
-    def indx(self, norm):
-        return s_common.buid(norm)
-
 class Range(Type):
 
     stortype = s_layer.STOR_TYPE_MSGP
@@ -1323,29 +1259,9 @@ class Range(Type):
         suby = self.subtype.repr(norm[1])
         return (subx, suby)
 
-class StrBase(Type):
-    '''
-    Base class for types which index/behave like strings.
-    '''
+class Str(Type):
+
     stortype = s_layer.STOR_TYPE_UTF8
-
-    def postTypeInit(self):
-        self.indxcmpr['^='] = self.indxByPref
-
-    def indxByPref(self, valu):
-        # truncate index bytes to account for indx chop
-        indx = self.indx(valu)[:248]
-        return (
-            ('pref', indx),
-        )
-
-    def indx(self, norm):
-        return self._getIndxChop(norm.encode('utf8', 'surrogatepass'))
-
-    def repr(self, norm):
-        return norm
-
-class Str(StrBase):
 
     _opt_defs = (
         ('enums', None),
@@ -1355,9 +1271,10 @@ class Str(StrBase):
         ('onespace', False),
     )
 
-    def postTypeInit(self):
+    def repr(self, norm):
+        return norm
 
-        StrBase.postTypeInit(self)
+    def postTypeInit(self):
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyStr)
@@ -1372,7 +1289,7 @@ class Str(StrBase):
         if enumstr is not None:
             self.envals = enumstr.split(',')
 
-    def indxByPref(self, valu):
+    def _storLiftPref(self, cmpr, valu):
 
         # doesnt have to be normable...
         if self.opts.get('lower'):
@@ -1385,7 +1302,7 @@ class Str(StrBase):
         if self.opts.get('onespace'):
             valu = s_chop.onespace(valu)
 
-        return StrBase.indxByPref(self, valu)
+        return (('^=', valu, self.stortype),)
 
     def _normPyStr(self, valu):
 
@@ -1418,17 +1335,12 @@ class Str(StrBase):
 
         return norm, info
 
-class Tag(StrBase):
+class Tag(Str):
 
+    #FIXME TODO tags may need to be special type with Loc
     def postTypeInit(self):
-        StrBase.postTypeInit(self)
+        Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
-
-    #def indxByPref(self, valu):
-        #norm, info = self.norm(valu)
-        #return (
-            #('pref', norm.encode('utf8')[:248]),
-        #)
 
     def _normPyStr(self, text):
 

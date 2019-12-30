@@ -9,6 +9,7 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
@@ -2589,39 +2590,49 @@ class EditNodeAdd(Edit):
         # case 2: <query> [ foo:bar=($node, 20) ]
         # case 2: <query> $blah=:baz [ foo:bar=($blah, 20) ]
 
-        if not self.isruntsafe(runt):
+        #async with await s_base.Base.anit() as base:
 
-            first = True
+        runtsafe = self.isruntsafe(runt)
+
+        async def feedfunc():
+
+            if not runtsafe:
+
+                first = True
+                async for node, path in genr:
+
+                    # must reach back first to trigger sudo / etc
+                    if first:
+                        runt.reqLayerAllowed(('node:add', self.name))
+                        first = False
+
+                    # must use/resolve all variables from path before yield
+                    async for item in self.addFromPath(path):
+                        yield item
+
+                    yield node, path
+
+            else:
+
+                runt.reqLayerAllowed(('node:add', self.name))
+
+                valu = await self.kids[2].runtval(runt)
+
+                for valu in self.form.type.getTypeVals(valu):
+                    try:
+                        node = await runt.snap.addNode(self.name, valu)
+                    except self.excignore:
+                        continue
+
+                    yield node, runt.initPath(node)
+
+        if not runtsafe:
+
             async for node, path in genr:
-
-                # must reach back first to trigger sudo / etc
-                if first:
-                    runt.reqLayerAllowed(('node:add', self.name))
-                    first = False
-
-                # must use/resolve all variables from path before yield
-                async for item in self.addFromPath(path):
-                    yield item
-
-                yield node, path
-                await asyncio.sleep(0)
-
-        else:
-
-            async for node, path in genr:
                 yield node, path
 
-            runt.reqLayerAllowed(('node:add', self.name))
-
-            valu = await self.kids[2].runtval(runt)
-
-            for valu in self.form.type.getTypeVals(valu):
-                try:
-                    node = await runt.snap.addNode(self.name, valu)
-                except self.excignore:
-                    continue
-                yield node, runt.initPath(node)
-                await asyncio.sleep(0)
+        async for item in s_base.schedGenr(feedfunc()):
+            yield item
 
 class EditPropSet(Edit):
 

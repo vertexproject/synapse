@@ -836,8 +836,9 @@ class Cortex(s_cell.Cell):
         self.layers = {}
         self.counts = {}
         self.modules = {}
+        self.storage = {}
+        self.storctors = {}
         self.splicers = {}
-        self.layrctors = {}
         self.feedfuncs = {}
         self.stormcmds = {}
         self.spawnpool = None
@@ -881,7 +882,14 @@ class Cortex(s_cell.Cell):
         self._initStormLibs()
         self._initFeedFuncs()
         self._initFormCounts()
-        self._initLayerCtors()
+
+        await self._initStorCtors()
+
+        if self.inaugural:
+            await self._initDefLayrStor()
+
+        await self._loadLayrStors()
+
         self._initCortexHttpApi()
 
         self.model = s_datamodel.Model()
@@ -953,14 +961,15 @@ class Cortex(s_cell.Cell):
             'layer:del': self._onDelLayer,
             'view:add': self._xactViewAdd,
             'view:del': self._xactViewDel,
+            'storage:add': self._xactStorAdd,
         }
 
     async def addCoreXact(self, mesg):
-        await self._execCoreXactMesg(mesg)
+        return await self._execCoreXactMesg(mesg)
 
     async def _execCoreXactMesg(self, mesg):
         print('_execCoreXactMesg %r' % (mesg,))
-        await self.xacthands.get(mesg[0])(mesg)
+        return await self.xacthands.get(mesg[0])(mesg)
 
     async def _onDelLayer(self, mesg):
         print('DEL LAYER %r' % (mesg,))
@@ -1829,15 +1838,76 @@ class Cortex(s_cell.Cell):
         }
         self.splicers.update(**splicers)
 
-    def _initLayerCtors(self):
+    async def _initStorCtors(self):
         '''
         Registration for built-in Layer ctors
         '''
-        ctors = {
-            'lmdb': s_lmdblayer.LmdbLayer,
-            'remote': s_remotelayer.RemoteLayer,
-        }
-        self.layrctors.update(**ctors)
+        self.addLayrStorClass(s_layer.LayerStorage)
+
+    async def _loadLayrStors(self):
+
+        for iden, node in await self.hive.open(('cortex', 'storage')):
+            storinfo = await node.dict()
+            try:
+                await self._initLayrStor(storinfo)
+
+            except asyncio.CancelledError: # pragma: no cover
+                raise
+
+            except Exception as e:
+                logger.exception('error loading layer storage!')
+
+        iden = self.cellinfo.get('layr:stor:default')
+        self.defstor = self.storage.get(iden)
+
+    async def _initDefLayrStor(self):
+        layr = await self.addLayrStor('local', {})
+        await self.cellinfo.set('layr:stor:default', layr.iden)
+
+    async def addLayrStor(self, typename, typeconf):
+
+        iden = s_common.guid()
+        clas = self.storctors.get(typename)
+        if clas is None:
+            raise s_exc.NoSuchStor(name=typename)
+
+        await clas.reqValidConf(typeconf)
+
+        return await self.addCoreXact(('storage:add', {'iden': iden, 'type': typename, 'conf': typeconf}))
+
+    async def _xactStorAdd(self, mesg):
+
+        iden = mesg[1].get('iden')
+        typename = mesg[1].get('type')
+        typeconf = mesg[1].get('conf')
+
+        node = await self.hive.open(('cortex', 'storage', iden))
+
+        info = await node.dict()
+
+        await info.set('iden', iden)
+        await info.set('type', typename)
+        await info.set('conf', typeconf)
+
+        return await self._initLayrStor(info)
+
+    async def _initLayrStor(self, storinfo):
+
+        iden = storinfo.get('iden')
+        typename = storinfo.get('type')
+        typeconf = storinfo.get('conf')
+
+        clas = self.storctors.get(typename)
+        layrstor = await clas.anit(storinfo)
+
+        self.storage[iden] = layrstor
+
+        self.onfini(layrstor)
+
+        return layrstor
+
+    def addLayrStorClass(self, clas):
+        self.storctors[clas.stortype] = clas
 
     def _initFeedFuncs(self):
         '''
@@ -2084,12 +2154,6 @@ class Cortex(s_cell.Cell):
         mrev = s_modelrev.ModelRev(self)
         await mrev.revCoreLayers()
 
-    def addLayerCtor(self, name, ctor):
-        '''
-        Modules may use this to register additional layer constructors.
-        '''
-        self.layrctors[name] = ctor
-
     async def _initCoreViews(self):
 
         defiden = self.cellinfo.get('defaultview')
@@ -2181,10 +2245,9 @@ class Cortex(s_cell.Cell):
     async def addView(self, iden, owner, layers):
 
         # TODO validate values here!
-        await self.addCoreXact(('view:add', {'iden': iden, 'owner': owner, 'layers': layers}))
-
+        view = await self.addCoreXact(('view:add', {'iden': iden, 'owner': owner, 'layers': layers}))
         await self.bumpSpawnPool()
-        return self.views.get(iden)
+        return view
 
     async def _xactViewAdd(self, mesg):
 
@@ -2198,7 +2261,10 @@ class Cortex(s_cell.Cell):
         await info.set('owner', owner)
         await info.set('layers', layers)
 
-        self.views[iden] = await s_view.View.anit(self, node)
+        view = await s_view.View.anit(self, node)
+        self.views[iden] = view
+
+        return view
 
     async def delView(self, iden):
         '''
@@ -2296,24 +2362,32 @@ class Cortex(s_cell.Cell):
 
         return self.views.get(iden)
 
-    async def addLayer(self, **info):
+    async def addLayer(self, conf=None, stor=None):
         '''
         Add a Layer to the cortex.
-
-        Args:
-            iden (str): optional iden. default: guid()
-            type (str): optional type. default: lmdb
-            owner (str): optional owner. default: root
-            config (dict): type specific config options
         '''
+        if conf is None:
+            conf = {}
+
         iden = s_common.guid()
-        info.setdefault('iden', iden)
 
-        await self.addCoreXact(('layer:add', info))
+        layrstor = self.defstor
+        if stor is not None:
+            layrstor = self.storage.get(stor)
+            if layrstor is None:
+                raise s_exc.NoSuchIden(iden=stor)
 
-        print('ADD LAYER: %r' % (info,))
+        dirn = s_common.gendir(self.dirn, 'layers', iden)
+        await layrstor.reqValidLayrConf(conf)
 
-        return self.getLayer(iden)
+        info = {
+            'conf': conf,
+            'dirn': dirn,
+            'iden': iden,
+            'stor': layrstor.iden,
+        }
+
+        return await self.addCoreXact(('layer:add', info))
 
     async def _xactAddLayer(self, mesg):
 
@@ -2321,25 +2395,35 @@ class Cortex(s_cell.Cell):
 
         name, info = mesg
 
-        iden = info.pop('iden', None)
+        iden = info.get('iden')
+        stor = info.get('stor')
+        conf = info.get('conf')
 
         node = await self.hive.open(('cortex', 'layers', iden))
 
         layrinfo = await node.dict()
-        layrconf = await (await node.open(('config',))).dict()
-
-        await layrinfo.set('type', info.get('type', 'lmdb'))
-        await layrinfo.set('owner', info.get('owner', 'root'))
-        await layrinfo.set('name', info.get('name', '??'))
-
-        for name, valu in info.get('config', {}).items():
-            await layrconf.set(name, valu)
 
         path = s_common.gendir(self.dirn, 'layers', iden)
-        layr = await s_layer.Layer.anit(iden, path)
 
-        self.layers[iden] = layr
-        #layr = await self._layrFromNode(node)
+        await layrinfo.set('iden', iden)
+        await layrinfo.set('dirn', path)
+        await layrinfo.set('stor', stor)
+        await layrinfo.set('conf', conf)
+
+        return await self.initLayr(layrinfo)
+
+    async def initLayr(self, layrinfo):
+        '''
+        Instantiate a Layer() instance via the provided layer info HiveDict.
+        '''
+        stor = layrinfo.get('stor')
+        print('initLayr got stor %r' % (stor,))
+        print('storage: %r' % (self.storage,))
+        layrstor = self.storage.get(stor)
+
+        layr = await layrstor.initLayr(layrinfo)
+
+        self.layers[layr.iden] = layr
 
         await self.bumpSpawnPool()
         return layr
@@ -2361,34 +2445,14 @@ class Cortex(s_cell.Cell):
         await self.view.addLayer(layr, indx=indx)
         return layr.iden
 
-    async def _layrFromNode(self, node):
-
-        info = await node.dict()
-        ltyp = info.get('type')
-
-        ctor = self.layrctors.get(ltyp)
-        if ctor is None:
-            logger.warning('layer has invalid type: %r %r' % (node.name(), ltyp))
-            return None
-
-        layr = await ctor.anit(self, node)
-        self.layers[layr.iden] = layr
-
-        return layr
-
     async def _initCoreLayers(self):
 
         node = await self.hive.open(('cortex', 'layers'))
 
         # TODO eventually hold this and watch for changes
         for iden, node in node:
-            #await self._layrFromNode(node)
-            path = s_common.gendir(self.dirn, 'layers', iden)
-            layr = await s_layer.Layer.anit(iden, path)
-
-            self.onfini(layr)
-
-            self.layers[iden] = layr
+            layrinfo = await node.dict()
+            await self.initLayr(layrinfo)
 
     def _migrOrigLayer(self):
         # TODO:  due to our migration policy, remove in 0.2.x
