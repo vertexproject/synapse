@@ -532,8 +532,30 @@ class Cmd:
     Example:
 
         cmd --help
+
+    Notes:
+        Python Cmd implementers may override the ``forms`` attribute with a dictionary to provide information
+        about Synapse forms which are possible input and output nodes that a Cmd may recognize.
+
+        Example:
+
+            ::
+
+                {
+                    'input': (
+                        'inet:ipv4',
+                        'tel:mob:telem',
+                    ),
+                    'output': (
+                        'geo:place',
+                    ),
+                }
+
     '''
     name = 'cmd'
+    pkgname = ''
+    svciden = ''
+    forms = {}
 
     def __init__(self, argv):
         self.opts = None
@@ -1312,8 +1334,9 @@ class GraphCmd(Cmd):
 
 class TeeCmd(Cmd):
     '''
-    Execute multiple Storm queries on each node in the input stream, emitting
-    the output commands in order they are given.
+    Execute multiple Storm queries on each node in the input stream, joining output streams together.
+
+    Commands are executed in order they are given.
 
     Examples:
 
@@ -1343,16 +1366,25 @@ class TeeCmd(Cmd):
             raise s_exc.StormRuntimeError(mesg='Tee command must take at least one query as input.',
                                           name=self.name)
 
+        hasnodes = False
         async for node, path in genr:  # type: s_node.Node, s_node.Path
-
-            for query in self.opts.query:
-                query = query[1:-1]
+            hasnodes = True
+            for text in self.opts.query:
+                text = text[1:-1]
                 # This does update path with any vars set in the last npath (node.storm behavior)
-                async for nnode, npath in node.storm(query, user=runt.user, path=path):
+                async for nnode, npath in node.storm(text, user=runt.user, path=path):
                     yield nnode, npath
 
             if self.opts.join:
                 yield node, path
+
+        if not hasnodes:
+            for text in self.opts.query:
+                text = text[1:-1]
+                query = await runt.getStormQuery(text)
+                subr = await runt.getScopeRuntime(query)
+                async for nnode, npath in subr.iterStormQuery(query):
+                    yield nnode, npath
 
 class ScrapeCmd(Cmd):
     '''
@@ -1360,13 +1392,14 @@ class ScrapeCmd(Cmd):
 
     Examples:
 
+        # Scrape properties from inbound nodes and create standalone nodes.
         inet:search:query | scrape
 
-        # Scrape inbound node properties and make edge:refs nodes to the new nodes.
+        # Scrape properties from inbound nodes and make edge:refs to the scraped nodes.
         inet:search:query | scrape --refs
 
-        # Scrape the :text prop from the inbound nodes.
-        inet:search:query | scrape --props text
+        # Scrape only the :engine and :text props from the inbound nodes.
+        inet:search:query | scrape --props text engine
     '''
 
     name = 'scrape'
@@ -1391,13 +1424,13 @@ class ScrapeCmd(Cmd):
             reprs = node.reprs()
 
             # make sure any provided props are valid
-            for fprop in self.opts.props:
+            proplist = [p.strip().lstrip(':') for p in self.opts.props]
+            for fprop in proplist:
                 if node.form.props.get(fprop, None) is None:
                     raise s_exc.BadOptValu(mesg=f'{fprop} not a valid prop for {node.ndef[1]}',
                                            name='props', valu=self.opts.props)
 
             # if a list of props haven't been specified, then default to ALL of them
-            proplist = self.opts.props
             if not proplist:
                 proplist = [k for k in node.props.keys()]
 
@@ -1409,6 +1442,7 @@ class ScrapeCmd(Cmd):
 
                 # use the repr val or the system mode val as appropriate
                 sval = reprs.get(prop, val)
+                sval = str(sval)
 
                 for form, valu in s_scrape.scrape(sval):
                     nnode = await node.snap.addNode(form, valu)
