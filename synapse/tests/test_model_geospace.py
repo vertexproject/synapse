@@ -178,7 +178,7 @@ class GeoTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], guid)
                 self.eq(node.get('name'), 'vertex hq')
                 self.eq(node.get('loc'), 'us.hehe.haha')
-                self.eq(node.get('latlong'), (34.13409999, -118.3215))
+                self.eq(node.get('latlong'), (34.1341, -118.3215))
                 self.eq(node.get('radius'), 1337000)
                 self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
                 self.eq(node.get('address'), '208 datong road, pudong district, shanghai, china')

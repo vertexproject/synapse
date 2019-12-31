@@ -1,3 +1,5 @@
+import decimal
+
 import synapse.exc as s_exc
 
 import synapse.lib.gis as s_gis
@@ -20,6 +22,17 @@ distrepr = (
     (1000.0, 'm'),
     (10.0, 'cm'),
 )
+
+def getGeospaceContext():
+    '''
+    Get a context object for handling floating point operations.
+
+    Returns:
+        decimal.Context: A pre-configured context object.
+    '''
+    c = decimal.Context()
+    c.prec = 9
+    return c
 
 class Dist(s_types.IntBase):
 
@@ -67,13 +80,13 @@ class Latitude(s_types.Type):
         self.setNormFunc(int, self._normIntStr)
         self.setNormFunc(str, self._normIntStr)
         self.setNormFunc(float, self._normFloat)
+        self.context = getGeospaceContext()
 
     def _normFloat(self, valu):
         if valu > 90.0 or valu < -90.0:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Latitude may only be -90.0 to 90.0')
-
-        valu = int(valu * Latitude.SCALE) / Latitude.SCALE
+        valu = float(self.context.create_decimal(valu))
 
         return valu, {}
 
@@ -159,6 +172,7 @@ class Longitude(s_types.Type):
         self.setNormFunc(int, self._normIntStr)
         self.setNormFunc(str, self._normIntStr)
         self.setNormFunc(float, self._normFloat)
+        self.context = getGeospaceContext()
 
     def _normIntStr(self, valu):
         try:
@@ -174,7 +188,7 @@ class Longitude(s_types.Type):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Longitude may only be -180.0 to 180.0')
 
-        valu = int(valu * Longitude.SCALE) / Longitude.SCALE
+        valu = float(self.context.create_decimal(valu))
 
         return valu, {}
 
