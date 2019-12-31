@@ -489,11 +489,13 @@ class Runtime:
         for name, valu in runt.vars.items():
             if valu is s_common.novalu:
                 continue
+            if not self.canPropName(name):
+                # don't override our parent's version of a function
+                continue
             if name in self.runtvars:
                 raise s_exc.StormRuntimeError(mesg=f'Runtime conflict for var name {name}.')
-            else:
-                self.setVar(name, valu)
-                self.runtvars.add(name)
+            self.setVar(name, valu)
+            self.runtvars.add(name)
 
 class Parser(argparse.ArgumentParser):
 
