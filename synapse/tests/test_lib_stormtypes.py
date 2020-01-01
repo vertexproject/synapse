@@ -7,7 +7,6 @@ import binascii
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_test
 
@@ -118,6 +117,7 @@ class StormTypesTest(s_test.SynTest):
             ],
         }
         async with self.getTestCore() as core:
+
             await core.addStormPkg(pdef)
             nodes = await core.nodes('[ inet:asn=$lib.min(20, 0x30) ]')
             self.len(1, nodes)
@@ -187,6 +187,76 @@ class StormTypesTest(s_test.SynTest):
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'NoSuchName')
             self.eq(erfo[1][1].get('name'), 'newp')
+
+    async def test_storm_lib_query(self):
+        async with self.getTestCore() as core:
+            # basic
+            q = '''
+            $foo = ${ [test:str=theevalthatmendo] }
+            $foo.exec()
+            '''
+            await core.nodes(q)
+            nodes = await core.nodes('test:str=theevalthatmendo')
+            self.len(1, nodes)
+
+            # make sure our scope goes down
+            q = '''
+            $bar = ${ [test:str=$foo] }
+
+            $foo = "this little node went to market"
+            $bar.exec()
+            $foo = "this little node stayed home"
+            $bar.exec()
+            $foo = "this little node had roast beef"
+            $bar.exec()
+            '''
+            msgs = await core.streamstorm(q).list()
+            nodes = [m for m in msgs if m[0] == 'node:add']
+            self.len(3, nodes)
+            self.eq(nodes[0][1]['ndef'], ('test:str', 'this little node went to market'))
+            self.eq(nodes[1][1]['ndef'], ('test:str', 'this little node stayed home'))
+            self.eq(nodes[2][1]['ndef'], ('test:str', 'this little node had roast beef'))
+
+            # but that it doesn't come back up
+            q = '''
+            $foo = "that is one neato burrito"
+            $baz = ${ $bar=$lib.str.concat(wompwomp, $lib.guid()) }
+            $baz.exec()
+            $lib.print($bar)
+            [ test:str=$foo ]
+            '''
+
+            msgs = await core.streamstorm(q).list()
+            prints = [m for m in msgs if m[0] == 'print']
+            self.len(0, prints)
+
+            # make sure returns work
+            q = '''
+            $foo = $(10)
+            $bar = ${ return ( $($foo+1) ) }
+            [test:int=$bar.exec()]
+            '''
+            msgs = await core.streamstorm(q).list()
+            nodes = [m for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.eq(nodes[0][1][0], ('test:int', 11))
+
+            # make sure it inherits the runt it's created in, not exec'd in
+            q = '''
+            $foo = ${$lib.print("look ma, my runt") $bing = $(0) }
+
+            function foofunc() {
+                $bing = $(99)
+                yield $foo.exec()
+                $lib.print("bing is now {bing}", bing=$bing)
+                return ($(0))
+            }
+
+            $foofunc()
+            '''
+            msgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('look ma, my runt', msgs)
+            self.stormIsInPrint('bing is now 99', msgs)
 
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:
@@ -1097,6 +1167,36 @@ class StormTypesTest(s_test.SynTest):
             bkey = s_common.uhex('2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
             byts = b''.join([b async for b in core.axon.get(bkey)])
             self.eq(b'asdfasdf', byts)
+
+            # Allow bytes to be directly decoded as a string
+            opts = {'vars': {'buf': 'hehe'.encode()}}
+            nodes = await core.nodes('$valu=$buf.decode() [test:str=$valu]', opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'hehe'))
+
+            # Allow strings to be encoded as bytes
+            text = '''$valu="visi"  $buf1=$valu.encode() $buf2=$valu.encode("utf-16")
+            [(file:bytes=$buf1) (file:bytes=$buf2)]
+            '''
+            nodes = await core.nodes(text)
+            self.len(2, nodes)
+            self.eq({'sha256:e45bbb7e03acacf4d1cca4c16af1ec0c51d777d10e53ed3155bd3d8deb398f3f',
+                     'sha256:1263d0f4125831df93a82a08ab955d1176306953c9f0c44d366969295c7b57db',
+                     },
+                    {n.ndef[1] for n in nodes})
+
+            # Encoding/decoding errors are caught
+            q = '$valu="valu" $valu.encode("utf16").decode()'
+            msgs = await core.streamstorm(q).list()
+            errs = [m for m in msgs if m[0] == 'err']
+            self.len(1, errs)
+            self.eq(errs[0][1][0], 'StormRuntimeError')
+
+            q = '$valu="str.ॐ.valu" $buf=$valu.encode(ascii)'
+            msgs = await core.streamstorm(q).list()
+            errs = [m for m in msgs if m[0] == 'err']
+            self.len(1, errs)
+            self.eq(errs[0][1][0], 'StormRuntimeError')
 
     async def test_storm_lib_base64(self):
 

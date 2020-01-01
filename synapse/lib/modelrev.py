@@ -6,7 +6,7 @@ import synapse.lib.migrate as s_migrate
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 1, 1)
+maxvers = (0, 1, 2)
 
 class ModelRev:
 
@@ -16,6 +16,7 @@ class ModelRev:
             ((0, 0, 0), self._addModelVers),
             ((0, 1, 0), self._addFormNameSpaces),
             ((0, 1, 1), self._normContactAddress),
+            ((0, 1, 2), self._afterUniqueIdens),
         )
 
     async def revCoreLayers(self):
@@ -38,11 +39,11 @@ class ModelRev:
 
             if not layr.canrev and vers != version:
                 mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) can not be updated.'
-                raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg)
+                raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
 
             if vers > version:
                 mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) is from the future!'
-                raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg)
+                raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
 
             # realistically all layers are probably at the same version... but...
             layers.append(layr)
@@ -95,3 +96,10 @@ class ModelRev:
     async def _normContactAddress(self, layers):
         async with self.getCoreMigr(layers) as migr:
             await migr.normPropValu('ps:contact:address')
+
+    async def _afterUniqueIdens(self, layers):
+        '''
+        Nothing to do.  Merely acts as a barrier against running a version before we went to the scheme where cortex,
+        views, and layers had unique idens.  (The migration actually occurs in cortex._migrateViewLayers)
+        '''
+        pass

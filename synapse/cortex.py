@@ -816,6 +816,7 @@ class Cortex(s_cell.Cell):
         await self._migrateViewsLayers()
         await self._initCoreLayers()
         await self._initCoreViews()
+        self.onfini(self._finiStor)
         await self._migrateLayerOffset()
         await self._checkLayerModels()
         await self._initCoreQueues()
@@ -826,12 +827,10 @@ class Cortex(s_cell.Cell):
 
         self.addHealthFunc(self._cortexHealth)
 
-        async def fini():
-            await asyncio.gather(*[view.fini() for view in self.views.values()])
-            await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
+        async def finidmon():
             await asyncio.gather(*[dmon.fini() for dmon in self.stormdmons.values()])
 
-        self.onfini(fini)
+        self.onfini(finidmon)
 
         self.trigstor = s_trigger.TriggerStorage(self)
         self.agenda = await s_agenda.Agenda.anit(self)
@@ -859,6 +858,10 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    async def _finiStor(self):
+        await asyncio.gather(*[view.fini() for view in self.views.values()])
+        await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
 
     async def _initRuntFuncs(self):
 
@@ -987,15 +990,22 @@ class Cortex(s_cell.Cell):
 
         # TODO unify class ctors and func ctors vs briefs...
         def getCmdBrief():
-            return cdef.get('descr', 'No description').split('\n')[0]
+            return cdef.get('descr', 'No description').strip().split('\n')[0]
 
         ctor.getCmdBrief = getCmdBrief
+        ctor.pkgname = cdef.get('pkgname')
+        ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
+        ctor.forms = cdef.get('forms', {})
 
         name = cdef.get('name')
         self.stormcmds[name] = ctor
 
+        await self.fire('core:cmd:change', cmd=name, act='add')
+
     async def _popStormCmd(self, name):
         self.stormcmds.pop(name, None)
+
+        await self.fire('core:cmd:change', cmd=name, act='del')
 
     async def delStormCmd(self, name):
         '''
@@ -1013,6 +1023,8 @@ class Cortex(s_cell.Cell):
 
         await self.cmdhive.pop(name)
         self.stormcmds.pop(name, None)
+
+        await self.fire('core:cmd:change', cmd=name, act='del')
 
     async def addStormPkg(self, pkgdef):
         '''
@@ -1089,6 +1101,9 @@ class Cortex(s_cell.Cell):
             cdef.setdefault('cmdconf', {})
             if svciden:
                 cdef['cmdconf']['svciden'] = svciden
+
+            cdef['pkgname'] = name
+
             await self._reqStormCmd(cdef)
 
         # now actually load...

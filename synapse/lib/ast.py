@@ -551,6 +551,7 @@ class WhileLoop(Oper):
                     newg = agen((node, path))
                     async for item in subq.inline(runt, newg):
                         yield item
+                        await asyncio.sleep(0)
 
                 except StormBreak as e:
                     if e.item is not None:
@@ -570,6 +571,7 @@ class WhileLoop(Oper):
                 try:
                     async for jtem in subq.inline(runt, agen()):
                         yield jtem
+                        await asyncio.sleep(0)
 
                 except StormBreak as e:
                     if e.item is not None:
@@ -1396,8 +1398,7 @@ class FormPivot(PivotOper):
 
                 refsvalu = node.get(refsname)
                 if refsvalu is not None:
-                    pivo = await runt.snap.getNodeByNdef((refsform, refsvalu))
-                    if pivo is not None:
+                    async for pivo in runt.snap.getNodesBy(refsform, refsvalu):
                         yield pivo, path.fork(pivo)
 
             for refsname, refsform in refs.get('array'):
@@ -1492,9 +1493,7 @@ class PropPivotOut(PivotOper):
                     continue
 
                 for item in valu:
-
-                    pivo = await runt.snap.getNodeByNdef((fname, item))
-                    if pivo is not None:
+                    async for pivo in runt.snap.getNodesBy(fname, item):
                         yield pivo, path.fork(pivo)
 
                 continue
@@ -2105,11 +2104,11 @@ class EmbedQuery(RunValue):
 
     async def runtval(self, runt):
         opts = {'vars': dict(runt.vars)}
-        return s_stormtypes.Query(self.text, opts)
+        return s_stormtypes.Query(self.text, opts, runt)
 
     async def compute(self, path):
         opts = {'vars': dict(path.vars)}
-        return s_stormtypes.Query(self.text, opts)
+        return s_stormtypes.Query(self.text, opts, path.runt, path=path)
 
 class Value(RunValue):
 
@@ -2308,11 +2307,11 @@ class DollarExpr(RunValue, Cond):
     '''
     async def compute(self, path):
         assert len(self.kids) == 1
-        return s_stormtypes.intify(await self.kids[0].compute(path))
+        return s_stormtypes.intOrNoneify(await self.kids[0].compute(path))
 
     async def runtval(self, runt):
         assert len(self.kids) == 1
-        return s_stormtypes.intify(await self.kids[0].runtval(runt))
+        return s_stormtypes.intOrNoneify(await self.kids[0].runtval(runt))
 
     async def getCondEval(self, runt):
 
@@ -2592,6 +2591,7 @@ class EditNodeAdd(Edit):
                     yield item
 
                 yield node, path
+                await asyncio.sleep(0)
 
         else:
 
@@ -2608,6 +2608,7 @@ class EditNodeAdd(Edit):
                 except self.excignore:
                     continue
                 yield node, runt.initPath(node)
+                await asyncio.sleep(0)
 
 class EditPropSet(Edit):
 
@@ -2635,6 +2636,8 @@ class EditPropSet(Edit):
 
             yield node, path
 
+            await asyncio.sleep(0)
+
 class EditPropDel(Edit):
 
     async def run(self, runt, genr):
@@ -2651,6 +2654,8 @@ class EditPropDel(Edit):
             await node.pop(name)
 
             yield node, path
+
+            await asyncio.sleep(0)
 
 class EditUnivDel(Edit):
 
@@ -2678,6 +2683,8 @@ class EditUnivDel(Edit):
             await node.pop(name)
             yield node, path
 
+            await asyncio.sleep(0)
+
 class EditTagAdd(Edit):
 
     async def run(self, runt, genr):
@@ -2704,6 +2711,8 @@ class EditTagAdd(Edit):
 
             yield node, path
 
+            await asyncio.sleep(0)
+
 class EditTagDel(Edit):
 
     async def run(self, runt, genr):
@@ -2718,6 +2727,8 @@ class EditTagDel(Edit):
             await node.delTag(name)
 
             yield node, path
+
+            await asyncio.sleep(0)
 
 class EditTagPropSet(Edit):
     '''
@@ -2747,6 +2758,8 @@ class EditTagPropSet(Edit):
 
             yield node, path
 
+            await asyncio.sleep(0)
+
 class EditTagPropDel(Edit):
     '''
     [ -#foo.bar:baz ]
@@ -2765,6 +2778,8 @@ class EditTagPropDel(Edit):
             await node.delTagProp(tag, prop)
 
             yield node, path
+
+            await asyncio.sleep(0)
 
 class BreakOper(AstNode):
 
@@ -2965,6 +2980,8 @@ class Function(AstNode):
 
             except StormReturn as e:
                 return e.item
+            except asyncio.CancelledError: # pragma: no cover
+                raise
             finally:
                 await runt.propBackGlobals(funcrunt)
 
