@@ -201,6 +201,8 @@ class Migration(s_base.Base):
 
         prop = self.core.model.prop(name)
 
+        logger.debug(f'Performing propvalu migration: {prop.form.name}')
+
         for layr in self.layers:
 
             async with self.getTempSlab() as slab:

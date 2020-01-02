@@ -131,3 +131,9 @@ class ModelRevTest(s_tests.SynTest):
 
             self.eq('this is not changed', node0.get('address'))
             self.eq('this has one space', node1.get('address'))
+
+    async def test_modelrev_0_1_3(self):
+        async with self.getRegrCore('0.1.42-geolatlong') as core:
+            nodes = await core.nodes('geo:place')
+            for node in nodes:
+                print(node)

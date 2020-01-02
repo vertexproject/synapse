@@ -17,6 +17,7 @@ class ModelRev:
             ((0, 1, 0), self._addFormNameSpaces),
             ((0, 1, 1), self._normContactAddress),
             ((0, 1, 2), self._afterUniqueIdens),
+            ((0, 1, 3), self._normGeoLatlong),
         )
 
     async def revCoreLayers(self):
@@ -103,3 +104,20 @@ class ModelRev:
         views, and layers had unique idens.  (The migration actually occurs in cortex._migrateViewLayers)
         '''
         pass
+
+    async def _normGeoLatlong(self, layers):
+        '''
+        Re-normalize the core geo:latlong properties to account for precision errors.
+        '''
+        async with self.getCoreMigr(layers) as migr:
+            await migr.normPropValu('it:host:latlong')
+            await migr.normPropValu('geo:nloc:latlong')
+            await migr.normPropValu('geo:place:latlong')
+            await migr.normPropValu('tel:mob:cell:latlong')
+            await migr.normPropValu('tel:mob:telem:latlong')
+            await migr.normPropValu('inet:ipv4:latlong')
+            await migr.normPropValu('inet:ipv6:latlong')
+            await migr.normPropValu('inet:web:acct:latlong')
+            await migr.normPropValu('inet:web:group:latlong')
+            await migr.normPropValu('inet:wifi:ap:latlong')
+            await migr.normPropValu('mat:item:latlong')
