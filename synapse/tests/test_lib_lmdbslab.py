@@ -60,6 +60,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
             items = list(slab.scanByPrefBack(b'\x00', db=foo))
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
 
+            items = list(slab.scanByPrefBack(b'\x01', db=foo))
+            self.eq(items, ((b'\x01\x03', b'hoho'),))
+
             items = list(slab.scanByRangeBack(b'\x00\x03', db=foo))
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
 
@@ -182,10 +185,19 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     count += 1
                 self.eq(count, 100)
 
+                count = 0
+                for _, _ in slab.scanByRangeBack(b'ffffffffffffffffffffffffffffffff', db=foo):
+                    count += 1
+                self.eq(count, 100)
+
                 # Trigger a grow/bump in the middle of a scan; make sure new nodes come after current scan position
                 iter = slab.scanByRange(b'', db=foo)
                 for i in range(50):
                     next(iter)
+
+                iterback = slab.scanByRangeBack(b'ffffffffffffffffffffffffffffffff', db=foo)
+                for i in range(50):
+                    next(iterback)
 
                 multikey = b'\xff\xff\xff\xfe' + s_common.guid(2000).encode('utf8')
                 mapsize = slab.mapsize
@@ -198,6 +210,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     self.true(rv)
 
                 self.eq(50 + count, sum(1 for _ in iter))
+                self.eq(50, sum(1 for _ in iterback))
 
                 self.true(os.path.isfile(slab.optspath))
 
@@ -208,12 +221,21 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 iter2 = slab.scanByFull(db=foo2)
                 next(iter2)
 
+                iterback = slab.scanByDupsBack(multikey, db=foo)
+                next(iterback)
+
+                iterback2 = slab.scanByFullBack(db=foo2)
+                next(iterback2)
+
                 multikey = b'\xff\xff\xff\xff' + s_common.guid(i + 150000).encode('utf8')
                 for i in range(200):
                     slab.put(multikey, s_common.guid(i + 200000).encode('utf8') + byts, dupdata=True, db=foo)
 
                 self.eq(count - 1, sum(1 for _ in iter))
                 self.eq(99, sum(1 for _ in iter2))
+
+                self.eq(count - 1, sum(1 for _ in iterback))
+                self.eq(99, sum(1 for _ in iterback2))
 
             # lets ensure our mapsize / growsize persisted, and make sure readonly works
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, readonly=True) as newdb:

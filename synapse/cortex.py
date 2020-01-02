@@ -577,6 +577,24 @@ class CoreApi(s_cell.CellApi):
                 await asyncio.sleep(0)
             yield mesg
 
+    async def spliceHistory(self):
+        '''
+        Yield splices backwards from the end of the splice log.
+
+        Will only return the user's own splices unless they are an admin.
+        '''
+        layr = self.cell.view.layers[0]
+        indx = (await layr.stat())['splicelog_indx']
+
+        count = 0
+        async for mesg in layr.splicesBack(indx):
+            count += 1
+            if not count % 1000:
+                await asyncio.sleep(0)
+
+            if self.user.iden == mesg[1]['user'] or self.user.admin:
+                yield mesg
+
     @s_cell.adminapi
     async def provStacks(self, offs, size):
         '''

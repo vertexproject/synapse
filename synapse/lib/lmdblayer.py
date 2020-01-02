@@ -780,9 +780,13 @@ class LmdbLayer(s_layer.Layer):
         for _, mesg in self.splicelog.slice(offs, size):
             yield mesg
 
-    async def splicesBack(self, offs, size):
-        for _, mesg in self.splicelog.sliceBack(offs, size):
-            yield mesg
+    async def splicesBack(self, offs, size=None):
+        if size:
+            for _, mesg in self.splicelog.sliceBack(offs, size):
+                yield mesg
+        else:
+            for _, mesg in self.splicelog.iterBack(offs):
+                yield mesg
 
     async def syncSplices(self, offs):
 
