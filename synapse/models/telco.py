@@ -200,12 +200,9 @@ class TelcoModule(s_module.CoreModule):
             'types': (
 
                 ('tel:call', ('guid', {}), {
-                    'doc': 'A guid for a single telephone call.'}),
+                    'doc': 'A guid for a telephone call record.'}),
 
-                ('tel:text:thread', ('guid', {}), {
-                    'doc': 'A guid for a text message thread.'}),
-
-                ('tel:text:message', ('guid', {}), {
+                ('tel:txtmesg', ('guid', {}), {
                     'doc': 'A guid for an individual text message.'}),
 
                 ('tel:mob:tac', ('int', {}), {
@@ -251,84 +248,49 @@ class TelcoModule(s_module.CoreModule):
                     }),
                 )),
                 ('tel:call', {}, (
-                    ('caller', ('tel:phone', {}), {
-                        'doc': 'The phone number assigned to the caller.'
+                    ('src', ('tel:phone', {}), {
+                        'doc': 'The source phone number for a call.'
                     }),
-                    ('called', ('tel:phone', {}), {
-                        'doc': 'The phone number assigned to the primary called party.'
+                    ('dst', ('tel:phone', {}), {
+                        'doc': 'The destination phone number for a call.'
                     }),
-                    ('participants', ('array', {'type': 'tel:phone'}), {
-                        'doc': 'A list of additional participants in the call.',
+                    ('time', ('time', {}), {
+                        'doc': 'The time the call was initiated.'
                     }),
-                    ('start', ('time', {}), {
-                        'doc': 'The starting time of the call.'
-                    }),
-                    ('end', ('time', {}), {
-                        'doc': 'The end time of the call.'
+                    ('duration', ('int', {}), {
+                        'doc': 'The duration of the call in seconds.'
                     }),
                     ('connected', ('bool', {}), {
                         'doc': 'Indicator of whether the call was connected.',
                     }),
-                    ('transcription', ('str', {}), {
-                        'doc': 'The (optional) text transcription of the call.',
-                    }),
-                    ('file', ('file:bytes', {}), {
-                        'doc': 'The (optional) file blob containing related media.',
-                    }),
-                )),
-                ('tel:text:thread', {}, (
-                    ('sender', ('tel:phone', {}), {
-                        'doc': 'The phone number assigned to the sender.'
-                    }),
-                    ('recipient', ('tel:phone', {}), {
-                        'doc': 'The phone number assigned to the primary recipient.'
-                    }),
-                    ('participants', ('array', {'type': 'tel:phone'}), {
-                        'doc': 'A list of additional participants in the message thread.',
-                    }),
-                    ('protocol', ('str', {'regex': '^(sms|mms|rcs){1}$', 'strip': 1, 'lower': 1}), {
-                        'doc': 'The primary message protocol (sms, mms, rcs).',
-                    }),
-                    ('start', ('time', {}), {
-                        'doc': 'The starting time of the message thread.'
-                    }),
-                    ('end', ('time', {}), {
-                        'doc': 'The end time of the message thread.'
-                    }),
                     ('text', ('str', {}), {
-                        'doc': 'The (optional) text representation of the message thread.',
+                        'doc': 'The text transcription of the call.',
                     }),
                     ('file', ('file:bytes', {}), {
-                        'doc': 'The (optional) file blob containing related media.',
+                        'doc': 'A file containing related media.',
                     }),
                 )),
-                ('tel:text:message', {}, (
-                    ('thread', ('tel:text:thread', {}), {
-                        'doc': 'The text message thread this message belongs to.'
-                    }),
-                    ('sender', ('tel:phone', {}), {
+                ('tel:txtmesg', {}, (
+                    ('from', ('tel:phone', {}), {
                         'doc': 'The phone number assigned to the sender.'
                     }),
-                    ('recipient', ('tel:phone', {}), {
+                    ('to', ('tel:phone', {}), {
                         'doc': 'The phone number assigned to the primary recipient.'
                     }),
                     ('recipients', ('array', {'type': 'tel:phone'}), {
-                        'doc': 'A list of additional recipients of the message.',
+                        'doc': 'An array of phone numbers for additional recipients of the message.',
                     }),
-                    ('protocol', ('str', {'regex': '^(sms|mms|rcs){1}$', 'strip': 1, 'lower': 1}), {
-                        'doc': 'The primary message protocol (sms, mms, rcs).',
+                    ('svctype', ('str', {'regex': '^(sms|mms|rcs){1}$', 'strip': 1, 'lower': 1}), {
+                        'doc': 'The message service type (sms, mms, rcs).',
                     }),
-                    ('sent', ('time', {}), {
+                    ('time', ('time', {}), {
                         'doc': 'The time the message was sent.'
                     }),
-                    ('received', ('time', {}), {
-                        'doc': 'The time the message was received by the primary recipient.'
-                    }),
-                    ('body', ('str', {}), {
-                        'doc': 'The (optional) message text body.',
+                    ('text', ('str', {}), {
+                        'doc': 'The text of the message',
                     }),
                     ('file', ('file:bytes', {}), {
-                        'doc': 'The (optional) file blob containing related media.',
+                        'doc': 'A file containing related media.',
                     }),
                 )),
                 ('tel:mob:tac', {}, (
