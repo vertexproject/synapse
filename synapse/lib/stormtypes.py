@@ -1,7 +1,6 @@
 import bz2
 import gzip
 import json
-import regex
 import base64
 import asyncio
 import logging
@@ -17,11 +16,10 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
-
-urlpass_re = regex.compile(r'(.+://.+:).+(@)')
 
 def intify(x):
 
@@ -212,7 +210,9 @@ class LibService(Lib):
 
         for ssvc in self.runt.snap.core.getStormSvcs():
             sdef = dict(ssvc.sdef)
-            sdef['url'] = urlpass_re.sub(r'\1*****\2', sdef.get('url', ''))
+            url = sdef.get('url')
+            if url is not None:
+                sdef['url'] = s_urlhelp.hidepasswd(url, replw='*****')
             sdef['ready'] = ssvc.ready.is_set()
             retn.append(sdef)
 

@@ -1,3 +1,5 @@
+import os
+
 import synapse.exc as s_exc
 
 def chopurl(url):
@@ -67,3 +69,70 @@ def chopurl(url):
 
     ret['path'] = pathrem
     return ret
+
+def joinurlinfo(info):
+    '''
+    Reconstructs a url from the components created by chopurl() with required keys scheme, host, path.
+
+    Args:
+         info (dict): Dictionary matching output from chopurl()
+
+    Returns:
+        (str): Reconstructed URL
+
+    Raises:
+        KeyError: If one of the required keys is not present
+    '''
+    comps = [info['scheme'], '://']
+
+    user = info.get('user')
+    if user is not None:
+        comps.append(user)
+        passwd = info.get('passwd')
+        if passwd is not None:
+            comps.extend([':', passwd])
+        comps.append('@')
+
+    host = info['host']
+    # detect ipv6 and use [host] syntax
+    if ':' in host:
+        comps.extend(['[', host, ']'])
+    else:
+        comps.append(host)
+
+    port = info.get('port')
+    if port is not None:
+        comps.extend([':', str(port)])
+
+    comps.append(info['path'])
+
+    query = info.get('query')
+    if query is not None:
+        comps.append('?')
+        querystr = '&'.join([''.join([key, '=', val]) for key, val in query.items()])
+        comps.append(querystr)
+
+    return ''.join(comps)
+
+def hidepasswd(url, replw='*****'):
+    '''
+    Chops the url and if a password is present replaces it.
+
+    Args:
+        url (str): URL for password replacement
+        replw (str): String to replace the password with, defaults to fixed length asterisks
+
+    Returns:
+        (str): URL with replaced password, or original URL if no password was present
+
+    Raises:
+        SynErr.BadUrl: If URL is malformed for chopurl()
+    '''
+
+    info = chopurl(url)
+
+    if info.get('passwd') is not None:
+        info['passwd'] = replw
+        url = joinurlinfo(info)
+
+    return url
