@@ -268,7 +268,7 @@ See :ref:`bkd-graphs-hypergraphs` for additional detail on graphs and hypergraph
 Graph, Directed
 ---------------
 
-A directed graph is a :ref:`gloss-graph` where the edges representing relationships between nodes have a "direction". Given node X and node Y connected by edge E, the relationship is valid for X -> E -> Y butnot Y -> E -> X. For example, the relationship "Fred owns bank account #01234567" is valid, but "bank account #01234567 owns Fred" is not. Nodes and edges in a directed graph are typically represented by dots or circles connected by arrows.
+A directed graph is a :ref:`gloss-graph` where the edges representing relationships between nodes have a "direction". Given node X and node Y connected by edge E, the relationship is valid for X -> E -> Y but not Y -> E -> X. For example, the relationship "Fred owns bank account #01234567" is valid, but "bank account #01234567 owns Fred" is not. Nodes and edges in a directed graph are typically represented by dots or circles connected by arrows.
 
 See :ref:`bkd-graphs-hypergraphs` for additional detail on graphs and hypergraphs.
 
@@ -450,7 +450,7 @@ TBD
 Pivot
 -----
 
-Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A pivot operation allows navigation of the hypergraph following a lift operation. A pivot moves from a set of nodes with one or more properties with specified value(s) to a set of nodes with a property having the the same value(s).  Compare with :ref:`gloss-lift` and :ref:`gloss-filter`.
+Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A pivot operation allows navigation of the hypergraph following a lift operation. A pivot moves from a set of nodes with one or more properties with specified value(s) to a set of nodes with a property having the same value(s).  Compare with :ref:`gloss-lift` and :ref:`gloss-filter`.
 
 See :ref:`storm-ref-pivot` for additional detail.
 
@@ -499,7 +499,6 @@ Property, Secondary
 Within Synapse, secondary properties are optional properties that provide additional detail about a :ref:`gloss-form`. Within the data model, secondary properties may be defined with optional constraints, such as:
 
   - Whether the property is read-only once set.
-  - Whether a default value should be set for the property if no value is specified.
   - Any normalization (outside of type-specific normalization) that should occur for the property (such as converting a string to all lowercase).
 
 .. _gloss-prop-universal:
