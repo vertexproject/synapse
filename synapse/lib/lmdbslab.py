@@ -836,7 +836,7 @@ class Slab(s_base.Base):
                     return
 
             except OverflowError:
-                if not scan.last():
+                if not scan.first():
                     return
 
             size = len(byts)

@@ -78,8 +78,27 @@ class LmdbSlabTest(s_t_utils.SynTest):
             items = list(slab.scanByDupsBack(b'\x00\x02', db=bar))
             self.eq(items, ((b'\x00\x02', b'zomg'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'haha')))
 
+            items = list(slab.scanByDupsBack(b'\x00\x04', db=bar))
+            self.eq(items, ())
+
             items = list(slab.scanByFullBack(db=foo))
             self.eq(items, ((b'\x01\x03', b'hoho'), (b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
+
+            # test scans on emptydb
+
+            emptydb = slab.initdb('empty')
+
+            items = list(slab.scanByPrefBack(b'\x00\x01', db=emptydb))
+            self.eq(items, ())
+
+            items = list(slab.scanByPrefBack(b'\xff\xff', db=emptydb))
+            self.eq(items, ())
+
+            items = list(slab.scanByRangeBack(b'\x00\x01', db=emptydb))
+            self.eq(items, ())
+
+            items = list(slab.scanByFullBack(db=emptydb))
+            self.eq(items, ())
 
             # ok... lets start a scan and then rip out the xact...
             scan = slab.scanByPref(b'\x00', db=foo)
@@ -140,9 +159,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
             scan = slab.scanByPref(b'\x00', db=foo)
             self.eq((b'\x00\x01', b'hehe'), next(scan))
 
+            scanback = slab.scanByPrefBack(b'\x00', db=foo)
+            self.eq((b'\x00\x02', b'haha'), next(scanback))
+
             await slab.fini()
 
             self.raises(s_exc.IsFini, next, scan)
+            self.raises(s_exc.IsFini, next, scanback)
 
     async def test_lmdbslab_maxsize(self):
         with self.getTestDir() as dirn:
