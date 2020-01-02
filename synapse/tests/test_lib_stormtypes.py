@@ -1168,6 +1168,36 @@ class StormTypesTest(s_test.SynTest):
             byts = b''.join([b async for b in core.axon.get(bkey)])
             self.eq(b'asdfasdf', byts)
 
+            # Allow bytes to be directly decoded as a string
+            opts = {'vars': {'buf': 'hehe'.encode()}}
+            nodes = await core.nodes('$valu=$buf.decode() [test:str=$valu]', opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'hehe'))
+
+            # Allow strings to be encoded as bytes
+            text = '''$valu="visi"  $buf1=$valu.encode() $buf2=$valu.encode("utf-16")
+            [(file:bytes=$buf1) (file:bytes=$buf2)]
+            '''
+            nodes = await core.nodes(text)
+            self.len(2, nodes)
+            self.eq({'sha256:e45bbb7e03acacf4d1cca4c16af1ec0c51d777d10e53ed3155bd3d8deb398f3f',
+                     'sha256:1263d0f4125831df93a82a08ab955d1176306953c9f0c44d366969295c7b57db',
+                     },
+                    {n.ndef[1] for n in nodes})
+
+            # Encoding/decoding errors are caught
+            q = '$valu="valu" $valu.encode("utf16").decode()'
+            msgs = await core.streamstorm(q).list()
+            errs = [m for m in msgs if m[0] == 'err']
+            self.len(1, errs)
+            self.eq(errs[0][1][0], 'StormRuntimeError')
+
+            q = '$valu="str.ॐ.valu" $buf=$valu.encode(ascii)'
+            msgs = await core.streamstorm(q).list()
+            errs = [m for m in msgs if m[0] == 'err']
+            self.len(1, errs)
+            self.eq(errs[0][1][0], 'StormRuntimeError')
+
     async def test_storm_lib_base64(self):
 
         async with self.getTestCore() as core:
