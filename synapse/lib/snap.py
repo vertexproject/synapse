@@ -673,11 +673,10 @@ class Snap(s_base.Base):
 
         await asyncio.sleep(0)
 
-        #meta = self.getSnapMeta()
-        #nodes = await self.wlyr.setStorNodes(adds, meta)
-
         # TODO multi-layer node fusion
-        return s_node.Node(self, nodes.get(buid))
+        node = s_node.Node(self, nodes.get(buid))
+
+        return node
 
         #todo = []
 #

@@ -21,11 +21,11 @@ class Node:
     #def __init__(self, snap, buid=None, rawprops=None, proplayr=None):
     def __init__(self, snap, sode):
         self.snap = snap
-        self.pode = pode
+        self.sode = sode
 
         self.buid = sode[0]
 
-        #print('NODE FROM PODE: %r' % (pode,))
+        #print('NODE FROM SODE: %r' % (sode,))
 
         #self.init = False  # True if the node is being added.
 

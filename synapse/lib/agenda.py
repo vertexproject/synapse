@@ -279,7 +279,7 @@ class _Appt:
                 'name': self.name,
                 'storm': self.query,
             },
-        )
+        })
 
     def __eq__(self, other):
         ''' For heap logic to sort upcoming events lower '''
