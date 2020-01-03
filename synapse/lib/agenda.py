@@ -272,11 +272,13 @@ class _Appt:
 
     def getRuntInfo(self):
         buid = s_common.buid(('syn:cron', self.iden))
-        return buid, (
-            ('*syn:cron', self.iden),
-            ('doc', self.doc),
-            ('name', self.name),
-            ('storm', self.query),
+        return (buid, {
+            'ndef': ('syn:cron', self.iden),
+            'props': {
+                'doc': self.doc,
+                'name': self.name,
+                'storm': self.query,
+            },
         )
 
     def __eq__(self, other):

@@ -168,54 +168,6 @@ class Prop(PropBase):
         '''
         return self.compoffs
 
-    def getLiftOps(self, valu, cmpr='='):
-
-        if self.type._lift_v2:
-            return self.type.getLiftOpsV2(self, valu, cmpr=cmpr)
-
-        if valu is None:
-            iops = (('pref', b''),)
-            return (
-                ('indx', ('byprop', self.pref, iops)),
-            )
-
-        # TODO: In an ideal world, this would get smashed down into the self.type.getLiftOps
-        # but since doing so breaks existing types, and fixing those could cause a cascade
-        # of fun failures, we'll put this off until another flag day
-        if cmpr == '~=':
-            return (
-                ('prop:re', (self.form.name, self.name, valu, {})),
-            )
-
-        lops = self.type.getLiftOps('prop', cmpr, (self.form.name, self.name, valu))
-        if lops is not None:
-            return lops
-
-        iops = self.type.getIndxOps(valu, cmpr=cmpr)
-        return (
-            ('indx', ('byprop', self.pref, iops)),
-        )
-
-    def getSetOps(self, buid, norm):
-        indx = self.type.indx(norm)
-        return (
-            ('prop:set', (buid, self.form.name, self.name, norm, indx, self.storinfo)),
-        )
-
-    def getDelOps(self, buid):
-        '''
-        Get a list of storage operations to delete this property from the buid.
-
-        Args:
-            buid (bytes): The node buid.
-
-        Returns:
-            (tuple): The storage operations
-        '''
-        return (
-            ('prop:del', (buid, self.form.name, self.name, self.storinfo)),
-        )
-
     def pack(self):
         info = {'type': self.typedef}
         info.update(self.info)
@@ -235,32 +187,6 @@ class Univ(PropBase):
         self.info = propinfo
         self.pref = name.encode('utf8') + b'\x00'
         self.full = name
-
-    def getLiftOps(self, valu, cmpr='='):
-
-        if valu is None:
-            iops = (('pref', b''),)
-            return (
-                ('indx', ('byuniv', self.pref, iops)),
-            )
-
-        # TODO: In an ideal world, this would get smashed down into the self.type.getLiftOps
-        # but since doing so breaks existing types, and fixing those could cause a cascade
-        # of fun failures, we'll put this off until another flag day
-        if cmpr == '~=':
-            return (
-                ('univ:re', (self.name, valu, {})),
-            )
-
-        lops = self.type.getLiftOps('univ', cmpr, (None, self.name, valu))
-        if lops is not None:
-            return lops
-
-        iops = self.type.getIndxOps(valu, cmpr)
-
-        return (
-            ('indx', ('byuniv', self.pref, iops)),
-        )
 
 class Form:
     '''
@@ -403,51 +329,6 @@ class Form:
                 logger.exception('error on ondel for %s' % (self.name,))
 
         await node.snap.view.runNodeDel(node)
-
-    def getSetOps(self, buid, norm):
-
-        indx = self.type.indx(norm)
-        if len(indx) > 256:
-            raise s_exc.BadIndxValu(name=self.name, norm=norm, indx=indx)
-
-        return (
-            ('prop:set', (buid, self.name, '', norm, indx, {})),
-        )
-
-    def getDelOps(self, buid):
-        return (
-            ('prop:del', (buid, self.name, '', {})),
-        )
-
-    def getLiftOps(self, valu, cmpr='='):
-        '''
-        Get a set of lift operations for use with an Xact.
-        '''
-        if self.type._lift_v2:
-            return self.type.getLiftOpsV2(self, valu, cmpr=cmpr)
-
-        if valu is None:
-            iops = (('pref', b''),)
-            return (
-                ('indx', ('byprop', self.pref, iops)),
-            )
-
-        # TODO: In an ideal world, this would get smashed down into the self.type.getLiftOps
-        # but since doing so breaks existing types, and fixing those could cause a cascade
-        # of fun failures, we'll put this off until another flag day
-        if cmpr == '~=':
-            return (
-                ('form:re', (self.name, valu, {})),
-            )
-
-        lops = self.type.getLiftOps('form', cmpr, (None, self.name, valu))
-        if lops is not None:
-            return lops
-
-        iops = self.type.getIndxOps(valu, cmpr)
-        return (
-            ('indx', ('byprop', self.pref, iops)),
-        )
 
     def prop(self, name: str):
         '''

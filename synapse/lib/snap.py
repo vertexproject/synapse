@@ -83,6 +83,9 @@ class Snap(s_base.Base):
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
 
+    def getSnapMeta(self):
+        return {'time': s_common.now(), 'user': self.user.iden}
+
     # APIs that wrap cortex APIs to provide a boundary for the storm runtime
     # ( in many instances a sub-process snap will override )
 
@@ -471,7 +474,10 @@ class Snap(s_base.Base):
             'props': props,
         })
 
-        return s_node.Node(self, fullnode)
+        node = s_node.Node(self, fullnode)
+        self.livenodes[buid] = node
+
+        return node
 
     async def _joinStorGenr(self, layr, genr):
         cache = {}
@@ -480,8 +486,20 @@ class Snap(s_base.Base):
             yield await self._joinStorNode(buid, cache)
 
     async def nodesByProp(self, prop):
+
+        if prop.isform:
+            for layr in self.layers:
+                genr = layr.liftByProp(prop.name, None)
+                async for node in self._joinStorGenr(layr, genr):
+                    yield node
+            return
+
+        formname = None
+        if not prop.isuniv:
+            formname = prop.form.name
+
         for layr in self.layers:
-            genr = layr.liftByProp(prop.full)
+            genr = layr.liftByProp(formname, prop.name)
             async for node in self._joinStorGenr(layr, genr):
                 yield node
 
@@ -521,22 +539,14 @@ class Snap(s_base.Base):
             async for node in self._joinStorGenr(layr, genr):
                 yield node
 
-    async def _getNodesByType(self, name, valu=None, addform=True):
+    async def nodesByPropTypeValu(self, name, valu):
 
         _type = self.model.types.get(name)
         if _type is None:
             raise s_exc.NoSuchType(name=name)
 
-        if addform:
-            form = self.model.forms.get(name)
-            if form is not None:
-                lops = form.getLiftOps(valu)
-                async for row, node in self.getLiftNodes(lops, '*' + form.name):
-                    yield node
-
         for prop in self.model.getPropsByType(name):
-            lops = prop.getLiftOps(valu)
-            async for row, node in self.getLiftNodes(lops, prop.name):
+            async for node in self.nodesByPropValu(prop, '=', valu):
                 yield node
 
     async def getNodesByArray(self, name, valu, cmpr='='):
@@ -607,10 +617,10 @@ class Snap(s_base.Base):
 
             nodeinfo = {'form': f.name, 'valu': (formnorm, f.type.stortype)}
             if storprops:
-                nodeinfo['props'] = storprops
+                nodeinfo['setprops'] = storprops
 
             nodeinfo['onadd'] = {
-                'props': (
+                'setprops': (
                     ('.created', tick, s_layer.STOR_TYPE_TIME),
                 ),
             }
@@ -621,6 +631,15 @@ class Snap(s_base.Base):
             props = {}
 
         return list(recurse(form, valu, props))
+
+    async def addNodeEdit(self, edit):
+        meta = self.getSnapMeta()
+        return await self.wlyr.storNodeEdit(edit, meta)
+
+    async def addNodeEdits(self, edits):
+        meta = self.getSnapMeta()
+        podes = await self.wlyr.storNodeEdits(edits, meta)
+        return {p[0]: p for p in podes}
 
     async def addNode(self, name, valu, props=None):
         '''
@@ -650,7 +669,12 @@ class Snap(s_base.Base):
         # depth first, so the last one is our added node
         buid = adds[-1][0]
 
-        nodes = await self.wlyr.setStorNodes(adds, {})
+        nodes = await self.addNodeEdits(adds)
+
+        await asyncio.sleep(0)
+
+        #meta = self.getSnapMeta()
+        #nodes = await self.wlyr.setStorNodes(adds, meta)
 
         # TODO multi-layer node fusion
         return s_node.Node(self, nodes.get(buid))
@@ -662,35 +686,37 @@ class Snap(s_base.Base):
         #ndef = (name, norm)
         #buid = s_common.buid(ndef)
 
-        info = {
-            'form': name,
-            'valu': (norm, form.type.stortype),
-            #'defprops':
-        }
+        #info = {
+            #'form': name,
+            #'valu': (norm, form.type.stortype),
+        #}
 
-        storprops = []
+        #storprops = []
 
-        subs = typeinfo.get('subs')
-        if subs is not None:
+        #subs = typeinfo.get('subs')
+        #if subs is not None:
 
-            for name, valu in subs.items():
+            #for name, valu in subs.items():
 
-                prop = form.prop(name)
-                if prop is None:
-                    continue
+                #prop = form.prop(name)
+                #if prop is None:
+                    #continue
 
-                storprops.append((name, valu, prop.type.stortype))
+                #storprops.append((name, valu, prop.type.stortype))
 
-        if storprops:
-            info['props'] = storprops
+        #if storprops:
+            #info['setprops'] = storprops
 
-        sode = await self.wlyr.setStorNode(buid, info, {})
+        #meta = self.getSnapMeta()
+        #pode = await self.addNodeEdit((buid, info))
+        #sode = await self.wlyr.addNodeEdit((buid, info), meta)
+        #sode = await self.wlyr.setStorNode(buid, info, {})
 
         #async for mesg in self.wlyr.setStorNode(buid, info, {}):
-        print('addNode got %r' % (sode,))
+        #print('addNode got %r' % (sode,))
 
         # TODO multi-layer node fusion
-        return s_node.Node(self, sode)
+        #return s_node.Node(self, pode)
 
         # update props with any defvals we are missing
         #for name, valu in form.defvals.items():
@@ -698,30 +724,30 @@ class Snap(s_base.Base):
 
         # TODO check the snap cache
 
-        try:
+        #try:
+#
+            #fnib = self._getNodeFnib(name, valu)
+            #retn = await self._addNodeFnib(fnib, props=props)
+            #return retn
+#
+        #except asyncio.CancelledError: # pragma: no cover
+            #raise
 
-            fnib = self._getNodeFnib(name, valu)
-            retn = await self._addNodeFnib(fnib, props=props)
-            return retn
+        #except s_exc.SynErr as e:
+            #mesg = f'Error adding node: {name} {valu!r} {props!r}'
+            #mesg = ', '.join((mesg, e.get('mesg', '')))
+            #info = e.items()
+            #info.pop('mesg', None)
+            #await self._raiseOnStrict(e.__class__, mesg, **info)
 
-        except asyncio.CancelledError: # pragma: no cover
-            raise
+        #except Exception:
 
-        except s_exc.SynErr as e:
-            mesg = f'Error adding node: {name} {valu!r} {props!r}'
-            mesg = ', '.join((mesg, e.get('mesg', '')))
-            info = e.items()
-            info.pop('mesg', None)
-            await self._raiseOnStrict(e.__class__, mesg, **info)
+            #mesg = f'Error adding node: {name} {valu!r} {props!r}'
+            #logger.exception(mesg)
+            #if self.strict:
+                #raise
 
-        except Exception:
-
-            mesg = f'Error adding node: {name} {valu!r} {props!r}'
-            logger.exception(mesg)
-            if self.strict:
-                raise
-
-            return None
+            #return None
 
     async def addFeedNodes(self, name, items):
         '''
@@ -933,37 +959,37 @@ class Snap(s_base.Base):
 
             yield node
 
-    async def stor(self, sops, splices=None):
+    #async def stor(self, sops, splices=None):
+        #raise Exception('omg')
 
-        if not splices:
-            await self.wlyr.stor(sops)
-            return
+        #if not splices:
+            #await self.wlyr.stor(sops)
+            #return
 
-        now = s_common.now()
-        user = self.user.iden
+        #now = s_common.now()
+        #user = self.user.iden
 
-        wasnew, providen, provstack = self.core.provstor.commit()
-        if wasnew:
-            await self.fire('prov:new', time=now, user=user, prov=providen, provstack=provstack)
+        #wasnew, providen, provstack = self.core.provstor.commit()
+        #if wasnew:
+            #await self.fire('prov:new', time=now, user=user, prov=providen, provstack=provstack)
 
-        for splice in splices:
-            name, info = splice
-            info.update(time=now, user=user, prov=providen)
-            await self.fire(name, **info)
+        #for splice in splices:
+            #name, info = splice
+            #info.update(time=now, user=user, prov=providen)
+            #await self.fire(name, **info)
 
-        await self.wlyr.stor(sops, splices=splices)
+        #await self.wlyr.stor(sops, splices=splices)
 
-    async def getLiftNodes(self, lops, rawprop, cmpf=None):
-        genr = self.getLiftRows(lops)
-        async for node in self.getRowNodes(genr, rawprop, cmpf):
-            yield node
+    #async def getLiftNodes(self, lops, rawprop, cmpf=None):
+        #genr = self.getLiftRows(lops)
+        #async for node in self.getRowNodes(genr, rawprop, cmpf):
+            #yield node
 
     async def getRuntNodes(self, full, valu=None, cmpr='='):
-
-        async for buid, rows in self.core.runRuntLift(full, valu, cmpr):
-            node = s_node.Node(self, buid, rows)
-            if node.ndef is not None:
-                yield node
+        async for pode in self.core.runRuntLift(full, valu, cmpr):
+            yield s_node.Node(self, pode)
+            #if node.ndef is not None:
+                #yield node
 
     async def getLiftRows(self, lops):
         '''

@@ -21,11 +21,11 @@ class Node:
     #def __init__(self, snap, buid=None, rawprops=None, proplayr=None):
     def __init__(self, snap, sode):
         self.snap = snap
-        self.sode = sode
+        self.pode = pode
 
         self.buid = sode[0]
 
-        print('NODE FROM SODE: %r' % (sode,))
+        #print('NODE FROM PODE: %r' % (pode,))
 
         #self.init = False  # True if the node is being added.
 
@@ -213,17 +213,6 @@ class Node:
             mesg = 'Cannot set property in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        #with s_editatom.EditAtom(self.snap.core.bldgbuids) as editatom:
-            #retn = await self._setops(name, valu, editatom, init)
-            #if not retn:
-                #return False
-            #await editatom.commit(self.snap)
-            #return True
-
-    #async def _setops(self, name, valu, editatom, init=False):
-        #'''
-        #Generate operations to set a property on a node.
-        #'''
         prop = self.form.prop(name)
         if prop is None:
 
@@ -271,17 +260,10 @@ class Node:
             if curv == norm:
                 return False
 
-        #sops = prop.getSetOps(self.buid, norm)
+        setprops = [(prop.name, norm, prop.type.stortype)]
+        edit = (self.buid, {'form': prop.form.name, 'setprops': setprops})
 
-        #editatom.sops.extend(sops)
-
-        # self.props[prop.name] = norm
-        #editatom.npvs.append((self, prop, curv, norm))
-
-        info = {'form': prop.form.name, 'props': (
-            (prop.name, norm, prop.type.stortype),
-        )}
-        await self.snap.wlyr.setStorNode(self.buid, info, {})
+        #await self.snap.wlyr.setStorNode(self.buid, info, {})
 
         # do we have any auto nodes to add?
         #auto = self.snap.model.form(prop.type.name)
@@ -291,11 +273,11 @@ class Node:
 
         # does the type think we have special auto nodes to add?
         # ( used only for adds which do not meet the above block )
-        for autoname, autovalu in info.get('adds', ()):
-            auto = self.snap.model.form(autoname)
-            autonorm, autoinfo = auto.type.norm(autovalu)
-            buid = s_common.buid((auto.name, autonorm))
-            await self.snap._addNodeFnibOps((auto, autovalu, autoinfo, buid), editatom)
+        #for autoname, autovalu in info.get('adds', ()):
+            #auto = self.snap.model.form(autoname)
+            #autonorm, autoinfo = auto.type.norm(autovalu)
+            #buid = s_common.buid((auto.name, autonorm))
+            #await self.snap._addNodeFnibOps((auto, autovalu, autoinfo, buid), editatom)
 
         # do we need to set any sub props?
         subs = info.get('subs')
@@ -309,7 +291,17 @@ class Node:
                 if subprop is None:
                     continue
 
-                await self._setops(full, subvalu, editatom, init=init)
+                setprops.append((subprop.name, subvalu, subprop.type.stortype))
+
+        await self.snap.addNodeEdit(edit)
+
+        oldvs = {}
+        for propname, propvalu, stortype in setprops:
+            oldvs[propname] = self.props.get(propname)
+            self.props[propname] = propvalu
+
+        for propname, propvalu, stortype in setprops:
+            await self.form.prop(propname).wasSet(self, oldvs.get(propname))
 
         return True
 
@@ -359,9 +351,7 @@ class Node:
         if curv is s_common.novalu:
             return False
 
-        sops = prop.getDelOps(self.buid)
-        splice = self.snap.splice('prop:del', ndef=self.ndef, prop=prop.name, valu=curv)
-        await self.snap.stor(sops, [splice])
+        await self.snap.addNodeEdit((self.buid, {'form': self.form.name, 'delprops': [prop.name]}))
 
         await prop.wasDel(self, curv)
 
@@ -489,7 +479,7 @@ class Node:
         if curv == valu:
             return
 
-        elif curv is None:
+        if curv is None:
 
             tags = s_chop.tags(name)
             for tag in tags[:-1]:
@@ -514,30 +504,19 @@ class Node:
 
     async def _setTagProp(self, name, norm): #, indx, info):
         self.tags[name] = norm
-        #splice = self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
-        #self.proplayr['#' + name] = self.snap.wlyr
-        #await self.snap.stor((('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),), [splice])
         info = {
             'form': self.form.name,
-            'tags': (
+            'settags': (
                 (name, norm),
             ),
         }
-        # TODO: move this up to allow batching
-        await self.snap.wlyr.setStorNode(self.buid, info, {})
+        await self.snap.addNodeEdit((self.buid, info))
 
     async def _addTagRaw(self, name, norm):
 
         # these are cached based on norm...
         await self.snap.addTagNode(name)
 
-        info = {'univ': True}
-        if norm == (None, None):
-            indx = b'\x00'
-        else:
-            indx = self.snap.model.types['ival'].indx(norm)
-
-        #await self._setTagProp(name, norm, indx, info)
         await self._setTagProp(name, norm)
 
         await self.snap.view.runTagAdd(self, name, norm)
@@ -576,15 +555,10 @@ class Node:
 
         removed.append((name, curv))
 
-        info = {'univ': True}
-        sops = [('prop:del', (self.buid, self.form.name, '#' + t, info)) for (t, v) in removed]
-        sops.extend([('tag:prop:del', (self.buid, self.form.name, tag, prop, {})) for (tag, prop) in tagprops])
+        #meta = self.snap.getStorMeta()
+        edit = (self.buid, {'form': self.form.name, 'deltags': [r[0] for r in removed]})
 
-        [self.tagprops.pop(tp) for tp in tagprops]
-
-        # fire all the splices
-        splices = [self.snap.splice('tag:del', ndef=self.ndef, tag=t, valu=v) for (t, v) in removed]
-        await self.snap.stor(sops, splices)
+        await self.snap.addNodeEdit(edit)
 
         # fire all the handlers / triggers
         [await self.snap.view.runTagDel(self, t, v) for (t, v) in removed]
@@ -678,6 +652,7 @@ class Node:
         '''
 
         formname, formvalu = self.ndef
+        #print('DELETING %r' % (self.ndef,))
 
         if self.form.isrunt:
             raise s_exc.IsRuntForm(mesg='Cannot delete runt nodes',
@@ -694,11 +669,11 @@ class Node:
             # refuse to delete tag nodes with existing tags
             if self.form.name == 'syn:tag':
 
-                async for _ in self.snap.liftByTag(self.ndef[1]):  # NOQA
+                async for _ in self.snap.nodesByTag(self.ndef[1]):  # NOQA
                     mesg = 'Nodes still have this tag.'
                     return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
 
-            async for refr in self.snap._getNodesByType(formname, formvalu, addform=False):
+            async for refr in self.snap.nodesByPropTypeValu(formname, formvalu):
 
                 if refr.buid == self.buid:
                     continue
@@ -706,23 +681,23 @@ class Node:
                 mesg = 'Other nodes still refer to this node.'
                 return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
 
+        # TODO put these into one edit...
+
         for size, tag in sorted(tags, reverse=True):
             await self.delTag(tag, init=True)
 
         for name in list(self.props.keys()):
             await self.pop(name, init=True)
 
-        sops = self.form.getDelOps(self.buid)
-
-        splice = self.snap.splice('node:del', ndef=self.ndef)
-        await self.snap.stor(sops, [splice])
+        await self.snap.addNodeEdit((self.buid, {'form': formname, 'delnode': (formvalu, self.form.type.stortype)}))
 
         self.snap.livenodes.pop(self.buid)
 
         # If the node was originally in the main layer and our current write layer is the main layer,
         # decrement the form count
-        if self.snap.wlyr == self.proplayr['*' + self.form.name] == self.snap.core.view.layers[0]:
-            self.snap.core.pokeFormCount(formname, -1)
+        #if self.snap.wlyr == self.proplayr['*' + self.form.name] == self.snap.core.view.layers[0]:
+            #self.snap.core.pokeFormCount(formname, -1)
+        # COUNTS ARE NOW PART OF THE LAYER LOGIC
 
         await self.form.wasDeleted(self)
 

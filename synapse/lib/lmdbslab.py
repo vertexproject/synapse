@@ -199,6 +199,49 @@ class SlabAbrv:
         abrv = self.bytsToAbrv(byts)
         return s_common.int64un(abrv)
 
+class HotCount(s_base.Base):
+    '''
+    A hot-loop capable counter that only sync's on commit.
+    '''
+    async def __anit__(self, slab, name):
+        await s_base.Base.__anit__(self)
+
+        self.slab = slab
+        self.cache = collections.defaultdict(int)
+        self.dirty = set()
+
+        self.countdb = self.slab.initdb(name)
+
+        for lkey, lval in self.slab.scanByFull(db=self.countdb):
+            self.cache[lkey] = s_msgpack.un(lval)
+
+        slab.on('commit', self._onSlabCommit)
+
+        self.onfini(self.sync)
+
+    async def _onSlabCommit(self, mesg):
+        if self.dirty:
+            self.sync()
+
+    def inc(self, byts, valu=1):
+        self.cache[byts] += valu
+        self.dirty.add(byts)
+
+    def get(self, name):
+        return self.cache.get(name.encode(), 0)
+
+    def sync(self):
+
+        tups = [(p, s_msgpack.en(self.cache[p])) for p in self.dirty]
+        if not tups:
+            return
+
+        self.slab.putmulti(tups, db=self.countdb)
+        self.dirty.clear()
+
+    def pack(self):
+        return {n.decode(): v for (n, v) in self.cache.items()}
+
 class MultiQueue:
     '''
     Allows creation/consumption of multiple durable queues in a slab.
@@ -502,6 +545,11 @@ class Slab(s_base.Base):
             pass
 
         shutil.rmtree(self.path, ignore_errors=True)
+
+    async def getHotCount(self, name):
+        item = await HotCount.anit(self, name)
+        self.onfini(item)
+        return item
 
     def getNameAbrv(self, name):
         return SlabAbrv(self, name)

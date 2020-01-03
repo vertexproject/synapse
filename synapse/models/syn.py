@@ -120,9 +120,10 @@ class SynModule(s_module.CoreModule):
             if k.startswith('.'):
                 prop = form + k
             propcache[prop].append(buid)
+
             # Can the secondary property be indexed for lift?
-            if self.model.prop(prop).type.indx(propvalu):
-                propcache[(prop, propvalu)].append(buid)
+            #if self.model.prop(prop).type.indx(propvalu):
+            #propcache[(prop, propvalu)].append(buid)
 
     async def _initTriggerRunts(self):
         now = s_common.now()

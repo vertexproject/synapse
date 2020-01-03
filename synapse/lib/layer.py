@@ -108,7 +108,11 @@ STOR_TYPE_TIME = 11
 STOR_TYPE_IVAL = 12
 STOR_TYPE_MSGP = 13
 STOR_TYPE_LATLONG = 14
-STOR_TYPE_HIER = 15
+
+STOR_TYPE_LOC = 15
+STOR_TYPE_TAG = 16
+STOR_TYPE_FQDN = 17
+STOR_TYPE_IPV6 = 18
 
 #STOR_TYPE_FIXED     = ??
 #STOR_TYPE_TOMB      = ??
@@ -125,7 +129,7 @@ SPLICE_NODE_ADD = 0     # (<type>, <buid>, (<form>, <valu>), {})
 SPLICE_NODE_DEL = 1     # (<type>, <buid>, (<form>, <valu>), {})
 SPLICE_PROP_SET = 2     # (<type>, <buid>, (<form>, <prop>, <valu>, <oldv>), {})
 SPLICE_PROP_DEL = 3     # (<type>, <buid>, (<form>, <prop>, <oldv>), {})
-SPLICE_TAG_ADD = 4      # (<type>, <buid>, (<form>, <tag>, <valu>, <oldv>), {})
+SPLICE_TAG_SET = 4      # (<type>, <buid>, (<form>, <tag>, <valu>, <oldv>), {})
 SPLICE_TAG_DEL = 5      # (<type>, <buid>, (<form>, <tag>, <oldv>), {})
 SPLICE_TAGPROP_SET = 6  # (<type>, <buid>, (<form>, <tag>, <prop>, <valu>, <oldv>), {})
 SPLICE_TAGPROP_DEL = 7  # (<type>, <buid>, (<form>, <tag>, <prop>, <oldv>), {})
@@ -138,14 +142,14 @@ class StorType:
 
         self.lifters = {}
 
-    def lift(self, prop, cmpr, valu):
+    def lift(self, form, prop, cmpr, valu):
 
         func = self.lifters.get(cmpr)
 
         if func is None:
             raise s_exc.NoSuchCmpr()
 
-        for buid in func(prop, valu):
+        for buid in func(form, prop, valu):
             yield buid
 
     def indx(self, valu):
@@ -157,18 +161,29 @@ class StorTypeUtf8(StorType):
         StorType.__init__(self, layr, STOR_TYPE_UTF8)
         self.lifters.update({
             '=': self._liftUtf8Eq,
+            '~=': self._liftUtf8Regx,
             '^=': self._liftUtf8Prefix,
         })
 
-    def _liftUtf8Eq(self, prop, valu):
+    def _liftUtf8Eq(self, form, prop, valu):
         indx = self._getIndxByts(valu)
-        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+        abrv = self.layr.getPropAbrv(form, prop)
         for lkey, buid in self.layr.layrslab.scanByDups(abrv + indx, db=self.layr.byprop):
             yield buid
 
-    def _liftUtf8Prefix(self, prop, valu):
+    def _liftUtf8Regx(self, form, prop, valu):
+
+        regx = regex.compile(valu)
+        abrv = self.layr.getPropAbrv(form, prop)
+        for lkey, buid in self.layr.layrslab.scanByPref(abrv, db=self.layr.byprop):
+            valu = self.layr.getNodeValu(buid, prop=prop)
+            if regx.search(valu) is None:
+                continue
+            yield buid
+
+    def _liftUtf8Prefix(self, form, prop, valu):
         indx = self._getIndxByts(valu)
-        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+        abrv = self.layr.getPropAbrv(form, prop)
         for lkey, buid in self.layr.layrslab.scanByPref(abrv + indx, db=self.layr.byprop):
             yield buid
 
@@ -189,43 +204,78 @@ class StorTypeUtf8(StorType):
     def indx(self, valu):
         return (self._getIndxByts(valu), )
 
-#class StorTypeHier(StorType):
+class StorTypeHier(StorType):
 
-    #def __init__(self, layr):
-        #StorType.__init__(self, layr, STOR_TYPE_HIER)
-        #self.lifters.update({
-            #'=': self._liftHierEq,
-            #'^=': self._liftHierPref,
-        #})
+    def __init__(self, layr, stortype, sepr='.'):
+        StorType.__init__(self, layr, stortype)
+        self.sepr = sepr
 
-    #def _liftHierEq(self, prop, valu):
-        #abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+        self.lifters.update({
+            '=': self._liftHierEq,
+            '^=': self._liftHierPref,
+        })
 
-    #def _liftHierPref(self, prop, valu):
+    def indx(self, valu):
+        return (
+            self.getHierIndx(valu),
+        )
 
-    #def getTagIndxByts(self, valu):
-        #parts = valu.split('.')
-        #valu = '\x00'.join(parts) + '\x00'
-        #return valu.encode('utf8', 'surrogatepass')
+    def getHierIndx(self, valu):
+        # encode the index values with a trailing sepr to allow ^=foo.bar to be boundary aware
+        return (valu + self.sepr).encode()
 
-    #def indx(self, norm):
-        #return (
-            #self.getTagIndxByts(norm),
-        #)
+    def _liftHierEq(self, form, prop, valu):
+        abrv = self.layr.getPropAbrv(form, prop)
+        indx = self.getHierIndx(valu)
+        for lkey, buid in self.layr.layrslab.scanByDups(abrv + indx, db=self.layr.byprop):
+            yield buid
 
-#class StorTypeLoc(StorType):
+    def _liftHierPref(self, form, prop, valu):
+        abrv = self.layr.getPropAbrv(form, prop)
+        indx = self.getHierIndx(valu)
+        for lkey, buid in self.layr.layrslab.scanByPref(abrv + indx, db=self.layr.byprop):
+            yield buid
 
-    #def indx(self, norm):
-        #parts = norm.split('.')
-        #valu = '\x00'.join(parts) + '\x00'
-        #return (valu.encode('utf8', 'surrogatepass'),)
+class StorTypeLoc(StorTypeHier):
+    def __init__(self, layr):
+        StorTypeHier.__init__(self, layr, STOR_TYPE_LOC)
+
+class StorTypeTag(StorTypeHier):
+
+    def __init__(self, layr):
+        StorTypeHier.__init__(self, layr, STOR_TYPE_TAG)
+
+    @staticmethod
+    def getTagFilt(cmpr, valu):
+
+        if cmpr == '=':
+            def filt(x):
+                return x == valu
+            return filt
+
+        if cmpr == '@=':
+
+            def filt(item):
+
+                if item is None:
+                    return False
+
+                if item == (None, None):
+                    return False
+
+                if item[0] >= valu[1]:
+                    return False
+
+                if item[1] <= valu[0]:
+                    return False
+
+                return True
 
 class StorTypeFqdn(StorTypeUtf8):
 
     def indx(self, norm):
         return (
-            self._getIndxByts(norm, indxtype=b'\x00'),
-            self._getIndxByts(norm[::-1], indxtype=b'\x01'),
+            self._getIndxByts(norm[::-1]),
         )
 
     def __init__(self, layr):
@@ -234,45 +284,46 @@ class StorTypeFqdn(StorTypeUtf8):
             '=': self._liftUtf8Eq,
         })
 
-    def _liftUtf8Eq(self, prop, valu):
+    def _liftUtf8Eq(self, form, prop, valu):
 
-        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
-
+        abrv = self.layr.getPropAbrv(form, prop)
         if valu[0] == '*':
             indx = self._getIndxByts(valu[1:][::-1], indxtype=b'\x01')
             for lkey, buid in self.layr.layrslab.scanByPref(abrv + indx, db=self.layr.byprop):
                 yield buid
 
-        async for buid in StorTypeUtf8._liftUtf8Eq(prop, valu):
+        for buid in StorTypeUtf8._liftUtf8Eq(self, prop, valu):
             yield buid
 
-    #def indxByEq(self, valu):
+class StorTypeIpv6(StorType):
 
-        #if valu == '':
-            #raise s_exc.BadLiftValu(valu=valu, name=self.name,
-                                    #mesg='Cannot generate fqdn index bytes for a empty string.')
+    def __init__(self, layr):
+        StorType.__init__(self, layr, STOR_TYPE_IPV6)
+        self.lifters.update({
+            '=': self._liftIPv6Eq,
+            'range=': self._liftIPv6Range,
+        })
 
-        #if valu[0] == '*':
-            #indx = valu[1:][::-1].encode('utf8')
-            #return (
-                #('pref', indx),
-            #)
+    def getIPv6Indx(self, valu):
+        return ipaddress.IPv6Address(norm).packed
 
-        #if valu.find('*') != -1:
-            #raise s_exc.BadLiftValu(valu=valu, name=self.name,
-                                    #mesg='Wild card may only appear at the beginning.')
+    def indx(self, valu):
+        return (
+            self.getIPv6Indx(valu),
+        )
 
-        #return s_types.Type.indxByEq(self, valu)
+    def _liftIPv6Eq(self, form, prop, valu):
+        indx = self.getIPv6Indx(valu)
+        abrv = self.layr.getPropAbrv(form, prop)
+        for lkey, buid in self.layr.layrslab.scanByDups(abrv + indx, db=self.layr.byprop):
+            yield buid
 
-    #def indxByPref(self, valu):
-        #norm, info = self.norm(valu)
-        #indx = self.indx(norm)
-
-        #return (
-            #('pref', indx.strip(b'\x00')),
-        #)
-
-#class StorTypeRevStr(
+    def _liftIPv6Range(self, form, prop, valu):
+        minindx = self.getIPv6Indx(valu[0])
+        maxindx = self.getIPv6Indx(valu[1])
+        abrv = self.layr.getPropAbrv(form, prop)
+        for lkey, buid in self.layr.layrslab.scanByRange(abrv + minindx, abrv + maxindx, db=self.layr.byprop):
+            yield buid
 
 class StorTypeInt(StorType):
 
@@ -305,36 +356,36 @@ class StorTypeInt(StorType):
     def indx(self, valu):
         return (self.getIntIndx(valu),)
 
-    def _liftIntEq(self, prop, valu):
-        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+    def _liftIntEq(self, form, prop, valu):
+        abrv = self.layr.getPropAbrv(form, prop)
         indx = (valu + self.offset).to_bytes(self.size, 'big')
         for lkey, buid in self.layr.layrslab.scanByDups(abrv + indx, db=self.layr.byprop):
             yield buid
 
-    def _liftIntGt(self, prop, valu):
-        for buid in self._liftIntGe(prop, valu + 1):
+    def _liftIntGt(self, form, prop, valu):
+        for buid in self._liftIntGe(form, prop, valu + 1):
             yield buid
 
-    def _liftIntGe(self, prop, valu):
-        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+    def _liftIntGe(self, form, prop, valu):
+        abrv = self.layr.getPropAbrv(form, prop)
         pkeymin = abrv + (valu + self.offset).to_bytes(self.size, 'big')
         pkeymax = abrv + self.fullbyts
         for lkey, buid in self.layr.layrslab.scanByRange(pkeymin, pkeymax, db=self.layr.byprop):
             yield buid
 
-    def _liftIntLt(self, prop, valu):
-        for buid in self._liftIntLe(prop, valu - 1):
+    def _liftIntLt(self, form, prop, valu):
+        for buid in self._liftIntLe(form, prop, valu - 1):
             yield buid
 
-    def _liftIntLe(self, prop, valu):
-        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+    def _liftIntLe(self, form, prop, valu):
+        abrv = self.layr.getPropAbrv(form, prop)
         pkeymin = abrv + self.zerobyts
         pkeymax = abrv + (valu + self.offset).to_bytes(self.size, 'big')
         for lkey, buid in self.layr.layrslab.scanByRange(pkeymin, pkeymax, db=self.layr.byprop):
             yield buid
 
-    def _liftIntRange(self, prop, valu):
-        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+    def _liftIntRange(self, form, prop, valu):
+        abrv = self.layr.getPropAbrv(form, prop)
         pkeymin = abrv + (valu[0] + self.offset).to_bytes(self.size, 'big')
         pkeymax = abrv + (valu[1] + self.offset).to_bytes(self.size, 'big')
         for lkey, buid in self.layr.layrslab.scanByRange(pkeymin, pkeymax, db=self.layr.byprop):
@@ -348,8 +399,8 @@ class StorTypeGuid(StorType):
             '=': self._liftGuidEq,
         })
 
-    def _liftGuidEq(self, prop, valu):
-        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+    def _liftGuidEq(self, form, prop, valu):
+        abrv = self.layr.getPropAbrv(form, prop)
         indx = s_common.uhex(valu)
         for lkey, buid in self.layr.layrslab.scanByDups(abrv + indx, db=self.layr.byprop):
             yield buid
@@ -375,15 +426,14 @@ class StorTypeIval(StorType):
             '@=': self._liftIvalAt,
         })
 
-    def _liftIvalEq(self, prop, valu):
-        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+    def _liftIvalEq(self, form, prop, valu):
+        abrv = self.layr.getPropAbrv(form, prop)
         indx = self.timetype.getIntIndx(valu[0]) + self.timetype.getIntIndx(valu[1])
         for lkey, buid in self.layr.layrslab.scanByDups(abrv + indx, db=self.layr.byprop):
             yield buid
 
-    def _liftIvalAt(self, prop, valu):
-
-        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+    def _liftIvalAt(self, form, prop, valu):
+        abrv = self.layr.getPropAbrv(form, prop)
         indx = self.timetype.getIntIndx(valu[0])
 
         for lkey, buid in self.layr.layrslab.scanByPrefix(abrv + indx, db=self.layr.byprop):
@@ -409,9 +459,9 @@ class StorTypeMsgp(StorType):
             '=': self._liftMsgpEq,
         })
 
-    def _liftMsgpEq(self, prop, valu):
+    def _liftMsgpEq(self, form, prop, valu):
         indx = s_common.buid(valu)
-        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+        abrv = self.layr.getPropAbrv(form, prop)
         for lkey, buid in self.layr.layrslab.scanByDups(abrv + indx, db=self.layr.byprop):
             yield buid
 
@@ -432,15 +482,15 @@ class StorTypeLatLon(StorType):
             'near=': self._liftLatLonNear,
         })
 
-    def _liftLatLonEq(self, prop, valu):
-        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+    def _liftLatLonEq(self, form, prop, valu):
+        abrv = self.layr.getPropAbrv(form, prop)
         indx = self._getLatLonIndx(valu)
         for lkey, buid in self.layr.layrslab.scanByDups(abrv + indx, db=self.layr.byprop):
             yield buid
 
-    def _liftLatLonNear(self, prop, valu):
+    def _liftLatLonNear(self, form, prop, valu):
 
-        abrv = self.layr.propabrv.bytsToAbrv(prop.encode())
+        abrv = self.layr.getPropAbrv(form, prop)
 
         (lat, lon), dist = valu
 
@@ -518,6 +568,7 @@ class Layer(s_base.Base):
         self.fresh = not os.path.exists(path)
 
         self.layrslab = await s_lmdbslab.Slab.anit(path)
+        self.formcounts = await self.layrslab.getHotCount('count:forms')
 
         path = s_common.genpath(self.dirn, 'splices_v2.lmdb')
         self.spliceslab = await s_lmdbslab.Slab.anit(path)
@@ -532,6 +583,7 @@ class Layer(s_base.Base):
 
         self.bytag = self.layrslab.initdb('bytag', dupsort=True)
         self.byprop = self.layrslab.initdb('byprop', dupsort=True)
+        self.byarray = self.layrslab.initdb('byarray', dupsort=True)
 
         self.countdb = self.layrslab.initdb('counters')
 
@@ -559,12 +611,59 @@ class Layer(s_base.Base):
             StorTypeMsgp(self),
             StorTypeLatLon(self),
 
+            StorTypeLoc(self),
+            StorTypeTag(self),
+            StorTypeFqdn(self),
+            StorTypeIpv6(self),
+
         ]
 
         self.canrev = True
 
-    async def getStorNode(self, buid):
+    async def getFormCounts(self):
+        return self.formcounts.pack()
 
+    @s_cache.memoize(size=10000)
+    def getPropAbrv(self, form, prop):
+        return self.propabrv.bytsToAbrv(s_msgpack.en((form, prop)))
+
+    async def getAbrvProp(self, abrv):
+        byts = self.propabrv.abrvToByts(abrv)
+        if byts is None:
+            return None
+        return s_msgpack.un(byts)
+
+    def getNodeValu(self, buid, prop=None):
+        '''
+        Retrieve either the form valu or a prop valu for the given node by buid.
+        '''
+        if prop is None:
+
+            byts = self.layrslab.get(buid + b'\x00', db=self.bybuid)
+            if byts is None:
+                return None
+
+            form, valu, stortype = s_msgpack.un(byts)
+            return valu
+
+        byts = self.layrslab.get(buid + b'\x01' + prop.encode(), db=self.bybuid)
+        if byts is None:
+            return None
+
+        valu, stortype = s_msgpack.un(byts)
+        return valu
+
+    def getNodeTag(self, buid, tag):
+        tenc = tag.encode()
+        byts = self.layrslab.get(buid + b'\x02' + tenc, db=self.bybuid)
+        if byts is None:
+            return None
+        return s_msgpack.un(byts)
+
+    async def getStorNode(self, buid):
+        '''
+        Return a potentially incomplete pode.
+        '''
         ndef = None
 
         tags = {}
@@ -574,19 +673,21 @@ class Layer(s_base.Base):
         for lkey, lval in self.layrslab.scanByPref(buid, db=self.bybuid):
 
             flag = lkey[32]
-            name = lkey[33:].decode()
-            stortype, valu = s_msgpack.un(lval)
 
             if flag == 0:
-                ndef = (name, valu)
+                form, valu, stortype = s_msgpack.un(lval)
+                ndef = (form, valu)
                 continue
 
             if flag == 1:
+                name = lkey[33:].decode()
+                valu, stortype = s_msgpack.un(lval)
                 props[name] = valu
                 continue
 
             if flag == 2:
-                tags[name] = valu
+                name = lkey[33:].decode()
+                tags[name] = s_msgpack.un(lval)
                 continue
 
             logger.warning(f'unrecognized storage row: {flag}')
@@ -608,7 +709,7 @@ class Layer(s_base.Base):
 
         abrv = self.tagabrv.bytsToAbrv(tag.encode())
         if form is not None:
-            abrv += self.propabrv.bytsToAbrv(form)
+            abrv += self.getPropAbrv(form, None)
 
         for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
             yield buid, await self.getStorNode(buid)
@@ -617,50 +718,51 @@ class Layer(s_base.Base):
 
         abrv = self.tagabrv.bytsToAbrv(tag.encode())
         if form is not None:
-            abrv += self.propabrv.bytsToAbrv(form)
+            abrv += self.getPropAbrv(form, None)
+
+        filt = StorTypeTag.getTagFilt(cmpr, valu)
 
         for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
             # filter based on the ival value before lifting the node...
-            info = await self.getStorNode(buid)
-            tagvalu = info['tags'][tag]
-            # TODO FILTER ON VALUE.
+            valu = self.getNodeTag(buid, tag)
+            if filt(valu):
+                yield buid, await self.getStorNode(buid)
 
-    async def liftByProp(self, prop):
-        abrv = self.propabrv.bytsToAbrv(prop.encode())
+    #async def liftByTagProp(self, form, tag, prop):
+    #async def liftByTagPropValu(self, form, tag, prop, valu, stortype):
+
+    async def liftByProp(self, form, prop):
+        abrv = self.getPropAbrv(form, prop)
         for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
             yield buid, await self.getStorNode(buid)
 
     # NOTE: form vs prop valu lifting is differentiated to allow merge sort
     async def liftByFormValu(self, form, cmprvals):
+        abrv = self.getPropAbrv(form, None)
         for cmpr, valu, kind in cmprvals:
-            for buid in self.stortypes[kind].lift(form, cmpr, valu):
+            for buid in self.stortypes[kind].lift(form, None, cmpr, valu):
                 yield buid, await self.getStorNode(buid)
 
     async def liftByPropValu(self, form, prop, cmprvals):
-        full = form + ':' + prop
         for cmpr, valu, kind in cmprvals:
-            for buid in self.stortypes[kind].lift(full, cmpr, valu):
+            for buid in self.stortypes[kind].lift(form, prop, cmpr, valu):
                 yield buid, await self.getStorNode(buid)
 
     async def liftByUnivValu(self, univ, cmprvals):
-        print('LIFT BY UNIV VALUE %r %r' % (univ, cmprvals))
         for cmpr, valu, kind in cmprvals:
-            for buid in self.stortypes[kind].lift(univ, cmpr, valu):
+            for buid in self.stortypes[kind].lift(None, univ, cmpr, valu):
                 yield buid, await self.getStorNode(buid)
 
-    async def setStorNodes(self, nodes, meta):
-        retn = {}
-        for buid, info in nodes:
-            sode = await self.setStorNode(buid, info, meta)
-            retn[buid] = sode
-        return retn
+    async def storNodeEdits(self, edits, meta):
+        return [await self.storNodeEdit(e, meta) for e in edits]
 
-    async def setStorNode(self, buid, info, meta):
+    async def storNodeEdit(self, edit, meta):
         '''
         Execute a series of storage operations for the given node.
         '''
-        #print('STORING: %r %r %r' % (buid, info, meta))
-        form = info.get('form').encode()
+        buid, info = edit
+
+        form = info.get('form')
 
         isnew = False
 
@@ -671,33 +773,62 @@ class Layer(s_base.Base):
 
         onnew = info.get('onadd')
 
-        propstodo = list(info.get('props', ()))
+        propstodo = list(info.get('setprops', ()))
 
         if isnew and onnew is not None:
-            propstodo.extend(onnew.get('props', ()))
+            propstodo.extend(onnew.get('setprops', ()))
 
         props = {}
         for propname, propvalu, stortype in propstodo:
             await self._setNodeProp(buid, form, propname, propvalu, stortype)
             props[propname] = propvalu
 
-        for tagname, tagvalu in info.get('tags', ()):
+        for tagname, tagvalu in info.get('settags', ()):
             await self._setNodeTag(buid, form, tagname, tagvalu)
+
+        delprops = info.get('delprops')
+        if delprops is not None:
+            for propname in delprops:
+                await self._delNodeProp(buid, form, propname)
+
+        # delete operations...
+        if info.get('delnode'):
+            await self._delNodeForm(buid, form)
 
         return buid, await self.getStorNode(buid)
 
-    #async def delStorNode(self, buid, info, meta):
-
     async def _setNodeForm(self, buid, form, valu, stortype):
 
-        if not self.layrslab.put(buid + b'\x00' + form, s_msgpack.en(valu), db=self.bybuid, overwrite=False):
+        fenc = form.encode()
+
+        byts = s_msgpack.en((form, valu, stortype))
+        if not self.layrslab.put(buid + b'\x00', byts, db=self.bybuid, overwrite=False):
             return False
 
-        abrv = self.propabrv.bytsToAbrv(form)
+        abrv = self.getPropAbrv(form, None)
         for indx in self.getStorIndx(stortype, valu):
             self.layrslab.put(abrv + indx, buid, db=self.byprop)
 
-        self.splicelog.append((SPLICE_NODE_ADD, buid, (form, valu), {}))
+        self.formcounts.inc(fenc)
+        self.splicelog.append((SPLICE_NODE_ADD, buid, (form, valu, stortype), {}))
+        return True
+
+    async def _delNodeForm(self, buid, form):
+
+        byts = self.layrslab.pop(buid + b'\x00', db=self.bybuid)
+        if byts is None:
+            return False
+
+        form, valu, stortype = s_msgpack.un(byts)
+
+        fenc = form.encode()
+
+        abrv = self.getPropAbrv(form, None)
+        for indx in self.getStorIndx(stortype, valu):
+            self.layrslab.delete(abrv + indx, buid, db=self.byprop)
+
+        self.formcounts.inc(fenc, valu=-1)
+        self.splicelog.append((SPLICE_NODE_DEL, buid, (form, valu, stortype), {}))
         return True
 
     async def _setNodeProp(self, buid, form, prop, valu, stortype):
@@ -706,33 +837,99 @@ class Layer(s_base.Base):
         penc = prop.encode()
         bkey = buid + b'\x01' + penc
 
-        abrv = self.propabrv.bytsToAbrv(form + b':' + penc)
+        abrv = self.getPropAbrv(form, prop)
+        univabrv = None
+
+        if penc[0] == 46: # '.' to detect universal props (as quickly as possible)
+            univabrv = self.getPropAbrv(None, prop)
+
+        oldb = self.layrslab.replace(bkey, s_msgpack.en((valu, stortype)), db=self.bybuid)
+        if oldb is not None:
+            oldv, oldt = s_msgpack.un(oldb)
+            for oldi in self.getStorIndx(oldt, oldv):
+                self.layrslab.delete(abrv + oldi, buid, db=self.byprop)
+                if univabrv is not None:
+                    self.layrslab.delete(univabrv + indx, buid, db=self.byprop)
+
+        if stortype & STOR_FLAG_ARRAY:
+
+            realtype = stortype & 0x7fff
+            for aval in valu:
+                for indx in self.getStorIndx(realtype, aval):
+                    self.layrslab.put(abrv + indx, buid, db=self.byarray)
+                    if univabrv is not None:
+                        self.layrslab.put(univabrv + indx, buid, db=self.byarray)
+
+            for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
+                self.layrslab.put(abrv + indx, buid, db=self.byprop)
+                if univabrv is not None:
+                    self.layrslab.put(univabrv + indx, buid, db=self.byprop)
+
+        else:
+
+            for indx in self.getStorIndx(stortype, valu):
+                self.layrslab.put(abrv + indx, buid, db=self.byprop)
+                if univabrv is not None:
+                    self.layrslab.put(univabrv + indx, buid, db=self.byprop)
+
+        self.splicelog.append((SPLICE_PROP_SET, buid, (form, prop, valu, oldv, stortype), {}))
+
+    async def _delNodeProp(self, buid, form, prop):
+
+        penc = prop.encode()
+        bkey = buid + b'\x01' + penc
+
+        abrv = self.getPropAbrv(form, prop)
         univabrv = None
 
         if penc[0] == 46: # '.' to detect universal props (as quickly as possible)
             univabrv = self.propabrv.bytsToAbrv(penc)
 
-        oldb = self.layrslab.replace(bkey, s_msgpack.en((stortype, valu)), db=self.bybuid)
-        if oldb is not None:
-            oldt, oldv = s_msgpack.un(oldb)
-            for oldi in self.getStorIndx(oldt, oldv):
-                self.layrslab.delete(abrv + oldi, buid, db=self.byprop)
+        byts = self.layrslab.pop(bkey, db=self.bybuid)
+        if byts is None:
+            return False
 
-        for indx in self.getStorIndx(stortype, valu):
-            self.layrslab.put(abrv + indx, buid, db=self.byprop)
-            if univabrv is not None:
-                self.layrslab.put(univabrv + indx, buid, db=self.byprop)
+        valu, stortype = s_msgpack.un(byts)
 
-        self.splicelog.append((SPLICE_PROP_SET, buid, (form, prop, valu, oldv, stortype), {}))
+        if stortype & STOR_FLAG_ARRAY:
+
+            realtype = stortype & 0xefff
+
+            for aval in valu:
+                for indx in self.getStorIndx(realtype, aval):
+                    self.layrslab.put(abrv + indx, buid, db=self.byarray)
+                    if univabrv is not None:
+                        self.layrslab.delete(univabrv + indx, buid, db=self.byarray)
+
+            for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
+                self.layrslab.delete(abrv + indx, buid, db=self.byprop)
+                if univabrv is not None:
+                    self.layrslab.delete(univabrv + indx, buid, db=self.byprop)
+
+        else:
+
+            for indx in self.getStorIndx(stortype, valu):
+                self.layrslab.delete(abrv + indx, buid, db=self.byprop)
+                if univabrv is not None:
+                    self.layrslab.delete(univabrv + indx, buid, db=self.byprop)
+
+        self.splicelog.append((SPLICE_PROP_DEL, buid, (form, prop, valu, stortype), {}))
 
     async def _setNodeTag(self, buid, form, tag, valu):
-        tenc = tag.encode()
-        tagabrv = self.tagabrv.bytsToAbrv(tenc)
-        formabrv = self.propabrv.bytsToAbrv(form)
-        self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
-        self.layrslab.put(buid + b'\x02' + tenc, s_msgpack.en(valu), db=self.bybuid)
 
-        self.splicelog.append((SPLICE_TAG_ADD, buid, (form, tag, valu, oldv), {}))
+        oldv = None
+        tenc = tag.encode()
+
+        tagabrv = self.tagabrv.bytsToAbrv(tenc)
+        formabrv = self.getPropAbrv(form, None)
+
+        self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
+
+        oldb = self.layrslab.replace(buid + b'\x02' + tenc, s_msgpack.en(valu), db=self.bybuid)
+        if oldb is not None:
+            oldv = s_msgpack.un(oldb)
+
+        self.splicelog.append((SPLICE_TAG_SET, buid, (form, tag, valu, oldv), {}))
 
         # TODO counters / metrics / splices
 
@@ -750,6 +947,43 @@ class Layer(s_base.Base):
             return retn
 
         return self.stortypes[stortype].indx(valu)
+
+    async def iterPropRows(self, form, prop):
+
+        fenc = form.encode()
+        penc = prop.encode()
+
+        abrv = self.getPropAbrv(form, prop)
+
+        for lval, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+            bkey = buid + b'\x01' + penc
+            byts = self.layrslab.get(bkey, db=self.bybuid)
+
+            await asyncio.sleep(0)
+
+            if byts is None:
+                continue
+
+            valu, stortype = s_msgpack.un(byts)
+            yield buid, valu
+
+    async def iterUnivRows(self, prop):
+
+        penc = prop.encode()
+
+        abrv = self.getPropAbrv(None, prop)
+
+        for lval, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+            bkey = buid + b'\x01' + penc
+            byts = self.layrslab.get(bkey, db=self.bybuid)
+
+            await asyncio.sleep(0)
+
+            if byts is None:
+                continue
+
+            valu, stortype = s_msgpack.un(byts)
+            yield buid, valu
 
     #async def _storFireSplices(self, splices):
         #'''

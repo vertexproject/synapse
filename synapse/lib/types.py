@@ -87,13 +87,13 @@ class Type:
         '''
         return None
 
-    def getLiftOps(self, tabl, cmpr, oper):
-        '''
-        If this type has special lift operations it needs to do (like a regex
-        search), that will be handled by a sub class. Base types with no special
-        needs can let the Prop/Univ/Form classes handle the generic lift case.
-        '''
-        return None
+    #def getLiftOps(self, tabl, cmpr, oper):
+        #'''
+        #If this type has special lift operations it needs to do (like a regex
+        #search), that will be handled by a sub class. Base types with no special
+        #needs can let the Prop/Univ/Form classes handle the generic lift case.
+        #'''
+        #return None
 
     def _normStormNode(self, node):
         return self.norm(node.ndef[1])
@@ -401,37 +401,37 @@ class Bool(Type):
 
 class Array(Type):
 
-    def getLiftOpsV2(self, prop, valu, cmpr='='):
+    #def getLiftOpsV2(self, prop, valu, cmpr='='):
 
-        if valu is None:
-            iops = (('pref', b'\x00'),)
-            return (
-                ('indx', ('byprop', prop.pref, iops)),
-            )
+        #if valu is None:
+            #iops = (('pref', b'\x00'),)
+            #return (
+                #('indx', ('byprop', prop.pref, iops)),
+            #)
 
-        if cmpr == '=':
-            norm, info = self.norm(valu)
-            iops = (
-                ('eq', b'\x00' + s_common.buid(norm)),
-            )
-            return (
-                ('indx', ('byprop', prop.pref, iops)),
-            )
+        #if cmpr == '=':
+            #norm, info = self.norm(valu)
+            #iops = (
+                #('eq', b'\x00' + s_common.buid(norm)),
+            #)
+            #return (
+                #('indx', ('byprop', prop.pref, iops)),
+            #)
 
-        if cmpr == 'contains=':
-            norm, info = self.arraytype.norm(valu)
-            byts = self.arraytype.indx(norm)
-            iops = (
-                ('eq', b'\x01' + self.arraytype.indx(norm)),
-            )
-            return (
-                ('indx', ('byprop', prop.pref, iops)),
-            )
+        #if cmpr == 'contains=':
+            #norm, info = self.arraytype.norm(valu)
+            #byts = self.arraytype.indx(norm)
+            #iops = (
+                #('eq', b'\x01' + self.arraytype.indx(norm)),
+            #)
+            #return (
+                #('indx', ('byprop', prop.pref, iops)),
+            #)
 
         # TODO we *could* retrieve and munge the iops from arraytype...
 
-        mesg = f'Array type has no lift by: {cmpr}.'
-        raise s_exc.NoSuchCmpr(mesg=mesg)
+        #mesg = f'Array type has no lift by: {cmpr}.'
+        #raise s_exc.NoSuchCmpr(mesg=mesg)
 
     def postTypeInit(self):
 
@@ -452,6 +452,8 @@ class Array(Type):
 
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
+
+        self.stortype = s_layer.STOR_FLAG_ARRAY | self.arraytype.stortype
 
     def _normPyTuple(self, valu):
 
@@ -480,14 +482,14 @@ class Array(Type):
     def repr(self, valu):
         return [self.arraytype.repr(v) for v in valu]
 
-    def indx(self, norm):
+    #def indx(self, norm):
         # return a tuple of indx bytes and the layer will know what to do
-        vals = []
+        #vals = []
         # prop=[foo,bar]
-        vals.append(b'\x00' + s_common.buid(norm))
-        # prop*contains=foo
-        [vals.append(b'\x01' + self.arraytype.indx(v)) for v in norm]
-        return vals
+        #vals.append(b'\x00' + s_common.buid(norm))
+        ## prop*contains=foo
+        #[vals.append(b'\x01' + self.arraytype.indx(v)) for v in norm]
+        #return vals
 
 class Comp(Type):
 
@@ -987,6 +989,29 @@ class Loc(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setCmprCtor('^=', self._ctorCmprPref)
         self.setLiftHintCmprCtor('^=', self._ctorCmprPref)
+        self.storlifts.update({
+            '=': self._storLiftEq,
+            '^=': self._storLiftPref,
+        })
+
+    def _storLiftEq(self, cmpr, valu):
+
+        if valu.endswith('.*'):
+            norm, info = self.norm(valu[:-2])
+            return (
+                ('^=', norm, self.stortype),
+            )
+
+        norm, info = self.norm(valu)
+        return (
+            ('=', norm, self.stortype),
+        )
+
+    def _storLiftPref(self, cmpr, valu):
+        norm, info = self.norm(valu)
+        return (
+            ('^=', norm, self.stortype),
+        )
 
     def _normPyStr(self, valu):
 
@@ -999,19 +1024,6 @@ class Loc(Type):
 
         norm = '.'.join(norms)
         return norm, {}
-
-    #def indx(self, norm):
-        #parts = norm.split('.')
-        #valu = '\x00'.join(parts) + '\x00'
-        #return valu.encode('utf8', 'surrogatepass')
-
-    #def indxByPref(self, valu):
-        #norm, info = self.norm(valu)
-        #indx = self.indx(norm)
-
-        #return (
-            #('pref', indx.strip(b'\x00')),
-        #)
 
     @s_cache.memoize()
     def stems(self, valu):
@@ -1283,6 +1295,7 @@ class Str(Type):
 
         self.storlifts.update({
             '^=': self._storLiftPref,
+            '~=': self._storLiftRegx,
         })
 
         self.regex = None
@@ -1309,6 +1322,9 @@ class Str(Type):
             valu = s_chop.onespace(valu)
 
         return (('^=', valu, self.stortype),)
+
+    def _storLiftRegx(self, cmpr, valu):
+        return ((cmpr, valu, self.stortype),)
 
     def _normPyStr(self, valu):
 

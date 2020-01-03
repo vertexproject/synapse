@@ -1070,10 +1070,12 @@ class LiftProp(LiftOper):
             if isinstance(oper, LiftOper):
                 continue
 
-            if isinstance(oper, FiltOPer):
+            if isinstance(oper, FiltOper):
                 return oper.getLiftHints()
 
-            return ()
+            return []
+
+        return []
 
 class LiftPropBy(LiftOper):
 
@@ -1588,7 +1590,7 @@ class PropPivot(PivotOper):
 class Cond(AstNode):
 
     def getLiftHints(self):
-        return ()
+        return []
 
     async def getCondEval(self, runt): # pragma: no cover
         raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.getCondEval()')
@@ -1780,10 +1782,10 @@ class TagCond(Cond):
 
         if not isinstance(kid, TagMatch):
             # TODO:  we might hint based on variable value
-            return ()
+            return []
 
         if not kid.isconst or kid.hasglob():
-            return ()
+            return []
 
         return (
             ('tag', {'name': kid.value()}),
@@ -2074,7 +2076,7 @@ class FiltOper(Oper):
     def getLiftHints(self):
 
         if self.kids[0].value() != '+':
-            return ()
+            return []
 
         return self.kids[1].getLiftHints()
 
@@ -2639,8 +2641,7 @@ class EditNodeAdd(Edit):
 
                     yield node, runt.initPath(node)
 
-        if not runtsafe:
-
+        if runtsafe:
             async for node, path in genr:
                 yield node, path
 

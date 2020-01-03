@@ -881,7 +881,6 @@ class Cortex(s_cell.Cell):
         self._initSplicers()
         self._initStormLibs()
         self._initFeedFuncs()
-        self._initFormCounts()
 
         await self._initStorCtors()
 
@@ -968,7 +967,6 @@ class Cortex(s_cell.Cell):
         return await self._execCoreXactMesg(mesg)
 
     async def _execCoreXactMesg(self, mesg):
-        print('_execCoreXactMesg %r' % (mesg,))
         return await self.xacthands.get(mesg[0])(mesg)
 
     async def _onDelLayer(self, mesg):
@@ -1962,59 +1960,13 @@ class Cortex(s_cell.Cell):
         # TODO add an extended model def
         return defs
 
-    def _initFormCounts(self):
+    async def getFormCounts(self, view=None):
 
-        self.formcountdb = self.slab.initdb('form:counts')
+        viewitem = self.view
+        if view is not None:
+            viewitem = self.views.get(view)
 
-        for lkey, lval in self.slab.scanByFull(db=self.formcountdb):
-            form = lkey.decode('utf8')
-            valu = s_common.int64un(lval)
-            self.counts[form] = valu
-
-    def pokeFormCount(self, form, valu):
-
-        curv = self.counts.get(form, 0)
-        newv = curv + valu
-
-        self.counts[form] = newv
-
-        byts = s_common.int64en(newv)
-        self.slab.put(form.encode('utf8'), byts, db=self.formcountdb)
-
-    async def _calcFormCounts(self):
-        '''
-        Recalculate form counts from scratch.
-
-        Note:  this only counts nodes in the main view
-        '''
-        logger.info('Calculating form counts from scratch.')
-        self.counts.clear()
-
-        nameforms = list(self.model.forms.items())
-        fairiter = 5
-        tcount = 0
-        for i, (name, form) in enumerate(nameforms, 1):
-            logger.info('Calculating form counts for [%s] [%s/%s]',
-                        name, i, len(nameforms))
-            count = 0
-
-            async for buid, valu in self.getLayer().iterFormRows(name):
-
-                count += 1
-                tcount += 1
-
-                if count % fairiter == 0:
-                    await asyncio.sleep(0)
-                    # identity check for small integer
-                    if fairiter == 5 and tcount > 100000:
-                        fairiter = 1000
-
-            self.counts[name] = count
-
-        for name, valu in self.counts.items():
-            byts = s_common.int64en(valu)
-            self.slab.put(name.encode('utf8'), byts, db=self.formcountdb)
-        logger.info('Done calculating form counts.')
+        return await viewitem.getFormCounts()
 
     def onTagAdd(self, name, func):
         '''
@@ -2119,8 +2071,8 @@ class Cortex(s_cell.Cell):
             raise s_exc.NoSuchLift(mesg='No runt lift implemented for requested property.',
                                    full=full, valu=valu, cmpr=cmpr)
 
-        async for buid, rows in func(full, valu, cmpr):
-            yield buid, rows
+        async for pode in func(full, valu, cmpr):
+            yield pode
 
     def addRuntPropSet(self, full, func):
         '''
@@ -2391,8 +2343,6 @@ class Cortex(s_cell.Cell):
 
     async def _xactAddLayer(self, mesg):
 
-        print('XACT ADD LAYER')
-
         name, info = mesg
 
         iden = info.get('iden')
@@ -2417,8 +2367,6 @@ class Cortex(s_cell.Cell):
         Instantiate a Layer() instance via the provided layer info HiveDict.
         '''
         stor = layrinfo.get('stor')
-        print('initLayr got stor %r' % (stor,))
-        print('storage: %r' % (self.storage,))
         layrstor = self.storage.get(stor)
 
         layr = await layrstor.initLayr(layrinfo)

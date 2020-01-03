@@ -2,6 +2,7 @@ import asyncio
 import logging
 import itertools
 import contextlib
+import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -58,6 +59,13 @@ class View(s_hive.AuthGater):
         self.info.setdefault('layers', ())
 
         self.triggers = s_trigger.Triggers(self)
+
+    async def getFormCounts(self):
+        counts = collections.defaultdict(int)
+        for layr in self.layers:
+            for name, valu in (await layr.getFormCounts()).items():
+                counts[name] += valu
+        return counts
 
     async def _initViewLayers(self):
 
