@@ -1,9 +1,11 @@
 import os
 import asyncio
 import logging
+import threading
 import contextlib
 import collections
 import multiprocessing
+import concurrent.futures
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -85,9 +87,13 @@ class SpawnProc(s_base.Base):
 
         self.core = core
         self.iden = s_common.guid()
+        self.proc = None
 
         self.ready = asyncio.Event()
         self.mpctx = multiprocessing.get_context('spawn')
+
+        name = f'SpawnProc#{self.iden[:8]}'
+        self.threadpool = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix=name)
 
         self.todo = self.mpctx.Queue()
         self.done = self.mpctx.Queue()
@@ -96,27 +102,49 @@ class SpawnProc(s_base.Base):
         self.obsolete = False
 
         spawninfo = await core.getSpawnInfo()
+        self.finievent = threading.Event()
 
-        def reapwaiter():
+        @s_common.firethread
+        def procwaiter():
             '''
-            Simply wait for the process to complete (run from a separate thread)
+            Wait for child process to exit
             '''
             self.procstat = self.proc.join()
+            self.proc.close()
+            if not self.isfini:
+                self.schedCoroSafe(self.fini())
+
+        @s_common.firethread
+        def finiwaiter():
+            '''
+            Wait for the SpawnProc to complete on another thread (so we can block)
+            '''
+            self.finievent.wait()
+            self.todo.put(None)
+            self.todo.close()
+            self.done.put(None)
+            self.done.close()
+            self.todo.join_thread()
+            self.done.join_thread()
+            if self.procstat is None:
+                try:
+                    self.proc.terminate()
+                except ValueError:
+                    pass
+            self.threadpool.shutdown()
 
         # avoid blocking the ioloop during process construction
         def getproc():
             self.proc = self.mpctx.Process(target=corework, args=(spawninfo, self.todo, self.done))
             self.proc.start()
 
-        await s_coro.executor(getproc)
-        s_coro.executor(reapwaiter)
+        await self.executor(getproc)
+        finiwaiter()
+        procwaiter()
 
         async def fini():
             self.obsolete = True
-            self.todo.close()
-            self.done.put_nowait(None)
-            self.done.close()
-            self.proc.terminate()
+            self.finievent.set()
 
         self.onfini(fini)
 
@@ -126,7 +154,7 @@ class SpawnProc(s_base.Base):
         info.append(f'isfini={self.isfini}')
         info.append(f'iden={self.iden}')
         info.append(f'obsolete={self.obsolete}')
-        if self.proc:
+        if self.proc and not self.proc._closed:
             info.append(f'proc={self.proc.pid}')
         else:
             info.append('proc=None')
@@ -137,10 +165,18 @@ class SpawnProc(s_base.Base):
         self.obsolete = True
 
     async def xact(self, mesg):
+
         def doit():
             self.todo.put(mesg)
             return self.done.get()
-        return await s_coro.executor(doit)
+
+        return await self.executor(doit)
+
+    def executor(self, func, *args, **kwargs):
+        def real():
+            return func(*args, **kwargs)
+
+        return asyncio.get_running_loop().run_in_executor(self.threadpool, real)
 
 class SpawnPool(s_base.Base):
 
@@ -161,11 +197,15 @@ class SpawnPool(s_base.Base):
         self.onfini(fini)
 
     async def bump(self):
+        if not self.spawns:
+            return
         [await s.retire() for s in list(self.spawns.values())]
         [await s.fini() for s in self.spawnq]
         self.spawnq.clear()
 
     async def kill(self):
+        if not self.spawns:
+            return
         self.spawnq.clear()
         [await s.fini() for s in list(self.spawns.values())]
 
@@ -254,7 +294,7 @@ class SpawnCore(s_base.Base):
         self.onfini(self.prox.fini)
 
         self.hive = await s_hive.openurl(f'cell://{self.dirn}', name='*/hive')
-        self.onfini(self.hive.fini)
+        self.onfini(self.hive)
 
         # TODO cortex configured for remote auth...
         node = await self.hive.open(('auth',))

@@ -1,3 +1,6 @@
+import os
+import signal
+import asyncio
 import logging
 import synapse.tests.utils as s_test
 
@@ -91,10 +94,50 @@ class CoreSpawnTest(s_test.SynTest):
                 # the pool so we cannot check the size of spawnq
                 self.len(1, core.spawnpool.spawns)
 
+                # Test launching a bunch of spawn queries at the same time
+
+                donecount = 0
+
+                await prox.storm('[test:int=1]').list()
+                # wait for commit
+                await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+
+                async def taskfunc(i):
+                    nonlocal donecount
+                    msgs = await prox.storm('test:int=1 | sleep 3', opts=opts).list()
+                    if len(msgs) == 3:
+                        donecount += 1
+
+                n = 4
+                tasks = [taskfunc(i) for i in range(n)]
+                try:
+                    await asyncio.wait_for(asyncio.gather(*tasks), timeout=40)
+                except asyncio.TimeoutError:
+                    self.false(1)
+
+                self.eq(donecount, n)
+
+                # test kill -9 ing a spawn proc
+
+                victimpid = core.spawnpool.spawnq[0].proc.pid
+                sig = signal.SIGKILL
+
+                async def taskfunc2():
+                    await prox.storm('test:int=1 | sleep 15', opts=opts).list()
+
+                await core.schedCoro(taskfunc2())
+                await asyncio.sleep(1)
+                os.kill(victimpid, sig)
+                await asyncio.sleep(1)
+
                 # test adding model extensions
-                #await core.addFormProp('inet:ipv4', '_woot', ('int', {}), {})
-                #await core.nodes('[inet:ipv4=1.2.3.4 :_woot=10]')
-                #msgs = await prox.storm('inet:ipv4:_woot=10', opts=opts).list()
-                #podes = [m[1] for m in msgs if m[0] == 'node']
-                #self.len(1, podes)
-                #self.eq(podes[0][0], ('inet:ipv4', 0x01020304))
+                await core.addFormProp('inet:ipv4', '_woot', ('int', {}), {})
+                await core.nodes('[inet:ipv4=1.2.3.4 :_woot=10]')
+                await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+                msgs = await prox.storm('inet:ipv4=1.2.3.4', opts=opts).list()
+                self.len(3, msgs)
+                self.eq(msgs[1][1][1]['props'].get('_woot'), 10)
+                # TODO:  implement TODO in core.getModelDefs
+                # msgs = await prox.storm('inet:ipv4:_woot=10', opts=opts).list()
+                # self.len(3, msgs)
+                # self.eq(msgs[1][1][1]['props'].get('_woot'), 10)

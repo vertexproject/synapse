@@ -531,6 +531,9 @@ class Slab(s_base.Base):
             self._finiCoXact()
 
     def _saveOptsFile(self):
+        if self.readonly:
+            return
+
         opts = {}
         if self.growsize is not None:
             opts['growsize'] = self.growsize

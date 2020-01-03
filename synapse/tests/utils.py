@@ -1149,12 +1149,15 @@ class SynTest(unittest.TestCase):
         handler = logging.StreamHandler(stream)
         slogger = logging.getLogger(logname)
         slogger.addHandler(handler)
+        level = slogger.level
+        slogger.setLevel('DEBUG')
         try:
             yield stream
         except Exception:  # pragma: no cover
             raise
         finally:
             slogger.removeHandler(handler)
+            slogger.setLevel(level)
 
     @contextlib.contextmanager
     def getAsyncLoggerStream(self, logname, mesg=''):
@@ -1192,12 +1195,15 @@ class SynTest(unittest.TestCase):
         handler = logging.StreamHandler(stream)
         slogger = logging.getLogger(logname)
         slogger.addHandler(handler)
+        level = slogger.level
+        slogger.setLevel('DEBUG')
         try:
             yield stream
         except Exception:  # pragma: no cover
             raise
         finally:
             slogger.removeHandler(handler)
+            slogger.setLevel(level)
 
     @contextlib.asynccontextmanager
     async def getHttpSess(self, auth=None, port=None):
