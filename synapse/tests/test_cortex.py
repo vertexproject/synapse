@@ -3470,6 +3470,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             mesg = ('tag:prop:del', {'ndef': ('test:str', 'hello'), 'tag': 'lol', 'prop': 'confidence', 'valu': 100})
             self.isin(mesg, splices)
 
+        # Splices may be disabled though.
+        async with self.getTestCore(conf={'splice:en': False}) as core:
+            nodes = await core.nodes('[test:str=hello]')
+            self.len(1, nodes)
+            splices = await alist(core.view.layers[0].splices(0, 10000))
+            self.len(0, splices)
+
     async def test_cortex_waitfor(self):
 
         async with self.getTestCore() as core:
