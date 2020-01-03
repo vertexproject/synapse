@@ -1,5 +1,4 @@
 import os
-import lmdb
 import asyncio
 import pathlib
 import multiprocessing

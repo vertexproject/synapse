@@ -1198,7 +1198,7 @@ class ScanBack(Scan):
         # set_key for a scan is only logical if it's a dup scan
         if self.dupsort:
             if not self.curs.last_dup():
-                return False
+                return False # pragma: no cover
 
             self.iterfunc = functools.partial(lmdb.Cursor.iterprev_dup, keys=True)
         else:
