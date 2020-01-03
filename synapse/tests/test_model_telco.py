@@ -192,3 +192,53 @@ class TelcoModelTest(s_t_utils.SynTest):
                 # Prefix search
                 nodes = await alist(snap.getNodesBy('tel:phone', '1703555*'))
                 self.len(2, nodes)
+
+    async def test_telco_call(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                guid = s_common.guid()
+                props = {
+                    'src': '+1 (703) 555-1212',
+                    'dst': '123 456 7890',
+                    'time': '2001',
+                    'duration': 90,
+                    'connected': True,
+                    'text': 'I said some stuff',
+                    'file': 'sha256:' + 64 * 'f',
+                }
+                node = await snap.addNode('tel:call', guid, props)
+                self.eq(node.ndef[1], guid)
+                self.eq(node.get('src'), '17035551212')
+                self.eq(node.get('dst'), '1234567890')
+                self.eq(node.get('time'), 978307200000)
+                self.eq(node.get('duration'), 90)
+                self.eq(node.get('connected'), True)
+                self.eq(node.get('text'), 'I said some stuff')
+                self.eq(node.get('file'), 'sha256:' + 64 * 'f')
+
+    async def test_telco_txtmesg(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                guid = s_common.guid()
+                props = {
+                    'from': '+1 (703) 555-1212',
+                    'to': '123 456 7890',
+                    'recipients': ('567 890 1234', '555 444 3333'),
+                    'svctype': 'sms',
+                    'time': '2001',
+                    'text': 'I wrote some stuff',
+                    'file': 'sha256:' + 64 * 'b',
+                }
+                node = await snap.addNode('tel:txtmesg', guid, props)
+                self.eq(node.ndef[1], guid)
+                self.eq(node.get('from'), '17035551212')
+                self.eq(node.get('to'), '1234567890')
+                self.eq(node.get('recipients'), ('5678901234', '5554443333'))
+                self.eq(node.get('svctype'), 'sms')
+                self.eq(node.get('time'), 978307200000)
+                self.eq(node.get('text'), 'I wrote some stuff')
+                self.eq(node.get('file'), 'sha256:' + 64 * 'b')
+
+                # add bad svc type
+                guid = s_common.guid()
+                await self.asyncraises(s_exc.BadPropValu, snap.addNode('tel:txtmesg', guid, {'svctype': 'foo'}))
