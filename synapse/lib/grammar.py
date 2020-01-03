@@ -64,6 +64,7 @@ terminalEnglishMap = {
     'RPAR': ')',
     'RSQB': '}',
     'SETOPER': '= or ?=',
+    'SETTAGOPER': '?',
     'SINGLEQUOTEDSTRING': 'single-quoted string',
     'SWITCH': 'switch',
     'TAG': 'plain tag name',
