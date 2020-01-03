@@ -1396,6 +1396,9 @@ class HiveUser(HiveRuler):
     def getRoles(self):
         return self.roles
 
+    def hasRole(self, iden):
+        return iden in self.roleidens
+
     def _onRolesEdit(self, mesg):
         '''
         Update my roles
