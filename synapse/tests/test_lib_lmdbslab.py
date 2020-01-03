@@ -27,17 +27,22 @@ class LmdbSlabTest(s_t_utils.SynTest):
             slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
 
             foo = slab.initdb('foo')
+            baz = slab.initdb('baz')
             bar = slab.initdb('bar', dupsort=True)
 
             slab.put(b'\x00\x01', b'hehe', db=foo)
             slab.put(b'\x00\x02', b'haha', db=foo)
-            slab.put(b'\x00\x03', b'hoho', db=foo)
+            slab.put(b'\x01\x03', b'hoho', db=foo)
 
             slab.put(b'\x00\x01', b'hehe', dupdata=True, db=bar)
             slab.put(b'\x00\x02', b'haha', dupdata=True, db=bar)
             slab.put(b'\x00\x02', b'visi', dupdata=True, db=bar)
             slab.put(b'\x00\x02', b'zomg', dupdata=True, db=bar)
             slab.put(b'\x00\x03', b'hoho', dupdata=True, db=bar)
+
+            slab.put(b'\x00\x01', b'hehe', db=baz)
+            slab.put(b'\xff', b'haha', db=baz)
+            slab.put(b'\xff\xff', b'hoho', db=baz)
 
             self.true(slab.dirty)
 
@@ -47,13 +52,69 @@ class LmdbSlabTest(s_t_utils.SynTest):
             self.eq(b'hehe', slab.get(b'\x00\x01', db=foo))
 
             items = list(slab.scanByPref(b'\x00', db=foo))
-            self.eq(items, ((b'\x00\x01', b'hehe'), (b'\x00\x02', b'haha'), (b'\x00\x03', b'hoho')))
+            self.eq(items, ((b'\x00\x01', b'hehe'), (b'\x00\x02', b'haha')))
 
-            items = list(slab.scanByRange(b'\x00\x02', b'\x00\x03', db=foo))
-            self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x03', b'hoho')))
+            items = list(slab.scanByRange(b'\x00\x02', b'\x01\x03', db=foo))
+            self.eq(items, ((b'\x00\x02', b'haha'), (b'\x01\x03', b'hoho')))
 
             items = list(slab.scanByDups(b'\x00\x02', db=bar))
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'zomg')))
+
+            # backwards scan tests
+
+            items = list(slab.scanByPrefBack(b'\x00', db=foo))
+            self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
+
+            items = list(slab.scanByPrefBack(b'\x01', db=foo))
+            self.eq(items, ((b'\x01\x03', b'hoho'),))
+
+            items = list(slab.scanByPrefBack(b'\xff', db=baz))
+            self.eq(items, ((b'\xff\xff', b'hoho'), (b'\xff', b'haha')))
+
+            items = list(slab.scanByRangeBack(b'\x00\x03', db=foo))
+            self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
+
+            items = list(slab.scanByRangeBack(b'\x00\x03', b'\x00\x02', db=foo))
+            self.eq(items, ((b'\x00\x02', b'haha'), ))
+
+            items = list(slab.scanByRangeBack(b'\x01\x03', b'\x00\x02', db=foo))
+            self.eq(items, ((b'\x01\x03', b'hoho'), (b'\x00\x02', b'haha')))
+
+            items = list(slab.scanByRangeBack(b'\x01\x05', b'\x00\x02', db=foo))
+            self.eq(items, ((b'\x01\x03', b'hoho'), (b'\x00\x02', b'haha')))
+
+            items = list(slab.scanByDupsBack(b'\x00\x02', db=bar))
+            self.eq(items, ((b'\x00\x02', b'zomg'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'haha')))
+
+            items = list(slab.scanByDupsBack(b'\x00\x04', db=bar))
+            self.eq(items, ())
+
+            items = list(slab.scanByFullBack(db=foo))
+            self.eq(items, ((b'\x01\x03', b'hoho'), (b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
+
+            with s_lmdbslab.ScanBack(slab, db=bar) as scan:
+                scan.first()
+                self.eq(scan.atitem, (b'\x00\x03', b'hoho'))
+
+            with s_lmdbslab.ScanBack(slab, db=foo) as scan:
+                scan.set_key(b'\x00\x02')
+                self.eq(scan.atitem, (b'\x00\x02', b'haha'))
+
+            # test scans on emptydb
+
+            emptydb = slab.initdb('empty')
+
+            items = list(slab.scanByPrefBack(b'\x00\x01', db=emptydb))
+            self.eq(items, ())
+
+            items = list(slab.scanByPrefBack(b'\xff\xff', db=emptydb))
+            self.eq(items, ())
+
+            items = list(slab.scanByRangeBack(b'\x00\x01', db=emptydb))
+            self.eq(items, ())
+
+            items = list(slab.scanByFullBack(db=emptydb))
+            self.eq(items, ())
 
             # ok... lets start a scan and then rip out the xact...
             scan = slab.scanByPref(b'\x00', db=foo)
@@ -62,7 +123,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             slab.forcecommit()
 
             items = list(scan)
-            self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x03', b'hoho')))
+            self.eq(items, ((b'\x00\x02', b'haha'),))
 
             # to test iternext_dup, lets do the same with a dup scan
             scan = slab.scanByDups(b'\x00\x02', db=bar)
@@ -72,6 +133,15 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             items = list(scan)
             self.eq(items, ((b'\x00\x02', b'visi'), (b'\x00\x02', b'zomg')))
+
+            # do the same with backwards scanning
+            scan = slab.scanByRangeBack(b'\x01\x03', db=foo)
+            self.eq((b'\x01\x03', b'hoho'), next(scan))
+
+            slab.forcecommit()
+
+            items = list(scan)
+            self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
 
             # Copy a database inside the same slab
             self.raises(s_exc.DataAlreadyExists, slab.copydb, foo, slab, 'bar')
@@ -105,9 +175,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
             scan = slab.scanByPref(b'\x00', db=foo)
             self.eq((b'\x00\x01', b'hehe'), next(scan))
 
+            scanback = slab.scanByPrefBack(b'\x00', db=foo)
+            self.eq((b'\x00\x02', b'haha'), next(scanback))
+
             await slab.fini()
 
             self.raises(s_exc.IsFini, next, scan)
+            self.raises(s_exc.IsFini, next, scanback)
 
     async def test_lmdbslab_maxsize(self):
         with self.getTestDir() as dirn:
@@ -150,10 +224,19 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     count += 1
                 self.eq(count, 100)
 
+                count = 0
+                for _, _ in slab.scanByRangeBack(b'ffffffffffffffffffffffffffffffff', db=foo):
+                    count += 1
+                self.eq(count, 100)
+
                 # Trigger a grow/bump in the middle of a scan; make sure new nodes come after current scan position
                 iter = slab.scanByRange(b'', db=foo)
                 for i in range(50):
                     next(iter)
+
+                iterback = slab.scanByRangeBack(b'ffffffffffffffffffffffffffffffff', db=foo)
+                for i in range(50):
+                    next(iterback)
 
                 multikey = b'\xff\xff\xff\xfe' + s_common.guid(2000).encode('utf8')
                 mapsize = slab.mapsize
@@ -166,6 +249,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     self.true(rv)
 
                 self.eq(50 + count, sum(1 for _ in iter))
+                self.eq(50, sum(1 for _ in iterback))
 
                 self.true(os.path.isfile(slab.optspath))
 
@@ -176,12 +260,21 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 iter2 = slab.scanByFull(db=foo2)
                 next(iter2)
 
+                iterback = slab.scanByDupsBack(multikey, db=foo)
+                next(iterback)
+
+                iterback2 = slab.scanByFullBack(db=foo2)
+                next(iterback2)
+
                 multikey = b'\xff\xff\xff\xff' + s_common.guid(i + 150000).encode('utf8')
                 for i in range(200):
                     slab.put(multikey, s_common.guid(i + 200000).encode('utf8') + byts, dupdata=True, db=foo)
 
                 self.eq(count - 1, sum(1 for _ in iter))
                 self.eq(99, sum(1 for _ in iter2))
+
+                self.eq(count - 1, sum(1 for _ in iterback))
+                self.eq(99, sum(1 for _ in iterback2))
 
             # lets ensure our mapsize / growsize persisted, and make sure readonly works
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, readonly=True) as newdb:

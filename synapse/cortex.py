@@ -566,6 +566,36 @@ class CoreApi(s_cell.CellApi):
             yield mesg
 
     @s_cell.adminapi
+    async def splicesBack(self, offs, size):
+        '''
+        Return the list of splices backwards from the given offset.
+        '''
+        count = 0
+        async for mesg in self.cell.view.layers[0].splicesBack(offs, size):
+            count += 1
+            if not count % 1000: # pragma: no cover
+                await asyncio.sleep(0)
+            yield mesg
+
+    async def spliceHistory(self):
+        '''
+        Yield splices backwards from the end of the splice log.
+
+        Will only return the user's own splices unless they are an admin.
+        '''
+        layr = self.cell.view.layers[0]
+        indx = (await layr.stat())['splicelog_indx']
+
+        count = 0
+        async for mesg in layr.splicesBack(indx):
+            count += 1
+            if not count % 1000: # pragma: no cover
+                await asyncio.sleep(0)
+
+            if self.user.iden == mesg[1]['user'] or self.user.admin:
+                yield mesg
+
+    @s_cell.adminapi
     async def provStacks(self, offs, size):
         '''
         Return stream of (iden, provenance stack) tuples at the given offset.
@@ -708,6 +738,12 @@ class Cortex(s_cell.Cell):
             'type': 'int',
             'defval': logging.WARNING,
             'doc': 'Logging log level to emit storm logs at.'
+        }),
+
+        ('splice:en', {
+            'type': 'bool',
+            'defval': True,
+            'doc': 'Enable storing splices for layer changes.'
         }),
 
         ('splice:sync', {
