@@ -2467,7 +2467,35 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await alist(prox.eval('[ test:str=foo ]'))
 
-                self.ge(len(await alist(prox.splices(0, 1000))), 3)
+                splicelist = await alist(prox.splices(0, 1000))
+                splicecount = len(splicelist)
+                self.ge(splicecount, 3)
+
+                # should get the same splices in reverse order
+                splicelist.reverse()
+                self.eq(await alist(prox.splicesBack(splicecount, 1000)), splicelist)
+                self.eq(await alist(prox.splicesBack(splicecount, 3)), splicelist[:3])
+
+                self.eq(await alist(prox.spliceHistory()), splicelist)
+
+                await prox.addAuthUser('visi')
+                await prox.setUserPasswd('visi', 'secret')
+
+                await prox.addAuthRule('visi', (True, ('node:add',)))
+                await prox.addAuthRule('visi', (True, ('prop:set',)))
+
+                async with core.getLocalProxy(user='visi') as asvisi:
+
+                    # normal user can't user splicesBack
+                    await self.agenraises(s_exc.AuthDeny, asvisi.splicesBack(1000, 1000))
+
+                    # make sure a normal user only gets their own splices
+                    await alist(asvisi.eval('[ test:str=bar ]'))
+                    await self.agenlen(2, asvisi.spliceHistory())
+
+                    # should get all splices now as an admin
+                    await prox.setAuthAdmin('visi', True)
+                    await self.agenlen(splicecount + 2, asvisi.spliceHistory())
 
     async def test_node_repr(self):
 
@@ -2821,7 +2849,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            opts = {'vars': {'tag': 'hehe.haha'}}
+            opts = {'vars': {'tag': 'hehe.haha', 'mtag': '', }}
 
             nodes = await core.nodes('[ test:str=foo +#$tag ]', opts=opts)
             self.len(1, nodes)
@@ -2892,6 +2920,41 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(nodes[0].getTag('tag1'))
             self.nn(nodes[0].getTag('tag2'))
             self.nn(nodes[0].getTag('tag3'))
+
+            nodes = await core.nodes('[ test:str=foo +?#$mtag +?#$tag ]', opts=opts)
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], 'foo')
+            self.nn(node.getTag('hehe.haha'))
+
+            q = '$foo=(tag1,?,tag3) [test:str=x +?#$foo]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('tag1'))
+            self.nn(nodes[0].getTag('tag3'))
+
+            q = '$t1="" $t2="" $t3=tag3 [test:str=x -#$t1 +?#$t2 +?#$t3]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('tag3'))
+
+            mesgs = await core.streamstorm('test:str=foo $var=$node.value() [+?#$var=2019] $lib.print(#$var)').list()
+            self.stormIsInPrint('(1546300800000, 1546300800001)', mesgs)
+            podes = [m[1] for m in mesgs if m[0] == 'node']
+            self.len(1, podes)
+            pode = podes[0]
+            self.true(s_node.tagged(pode, '#foo'))
+
+            mesgs = await core.streamstorm('$var="" test:str=foo [+?#$var=2019] $lib.print(#$var)').list()
+            podes = [m[1] for m in mesgs if m[0] == 'node']
+            self.len(1, podes)
+            pode = podes[0]
+            self.true(s_node.tagged(pode, '#timetag'))
+
+            nodes = await core.nodes('$d = $lib.dict(foo="") [test:str=yop +?#$d.foo +#tag1]')
+            self.len(1, nodes)
+            self.none(nodes[0].getTag('foo.*'))
+            self.nn(nodes[0].getTag('tag1'))
 
     async def test_storm_forloop(self):
 
