@@ -75,6 +75,7 @@ terminalEnglishMap = {
     'WHILE': 'while',
     'YIELD': 'yield',
     '_DEREF': '*',
+    '_EMBEDQUERYSTART': '${',
     '_EXPRSTART': '$(',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
@@ -82,6 +83,7 @@ terminalEnglishMap = {
     '_RETURN': 'return',
     '_RIGHTJOIN': '-+>',
     '_RIGHTPIVOT': '->',
+    '_TRYSET': '?=',
     '_WS': 'whitespace',
     '_WSCOMM': 'whitespace or comment'
 }
