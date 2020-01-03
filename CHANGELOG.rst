@@ -3,6 +3,32 @@ Synapse Changelog
 *****************
 
 
+v0.1.43 - 2019-01-02
+====================
+
+Features and Enhancements
+-------------------------
+- Allow users to list their current permissions and roles with the ``synapse.tools.cellauth`` tool.
+  (`#1460 <https://github.com/vertexproject/synapse/pull/1460>`_)
+  (`#1464 <https://github.com/vertexproject/synapse/pull/1464>`_)
+- Allow bytes to be converted to strings, and strings to be converted to bytes, inside of Storm. This is done with
+  ``decode()`` and ``encode()`` StormType functions.
+  (`#1469 <https://github.com/vertexproject/synapse/pull/1469>`_)
+
+Bugfixes
+--------
+- Fix an error in the ``synapse.lib.scrape`` regular expressions which prevented sequential FQDN and email addresses
+  from being scrapped.
+  (`#1482 <https://github.com/vertexproject/synapse/pull/1482>`_)
+
+Improved Documentation
+----------------------
+- Start a Syanpse glossary document.
+  (`#1478 <https://github.com/vertexproject/synapse/pull/1478>`_)
+- Update the Storm Command reference documentation.
+  (`#1478 <https://github.com/vertexproject/synapse/pull/1478>`_)
+
+
 v0.1.42 - 2019-12-24
 ====================
 
