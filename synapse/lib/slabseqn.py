@@ -126,6 +126,23 @@ class SlabSeqn:
             valu = s_msgpack.un(lval)
             yield indx, valu
 
+    def iterBack(self, offs):
+        '''
+        Iterate backwards over items in a sequence from a given offset.
+
+        Args:
+            offs (int): The offset to begin iterating from.
+
+        Yields:
+            (indx, valu): The index and valu of the item.
+        '''
+        startkey = s_common.int64en(offs)
+
+        for lkey, lval in self.slab.scanByRangeBack(startkey, db=self.db):
+            indx = s_common.int64un(lkey)
+            valu = s_msgpack.un(lval)
+            yield indx, valu
+
     def rows(self, offs):
         '''
         Iterate over raw indx, bytes tuples from a given offset.
@@ -140,6 +157,17 @@ class SlabSeqn:
         imax = size - 1
 
         for i, item in enumerate(self.iter(offs)):
+
+            yield item
+
+            if i == imax:
+                break
+
+    def sliceBack(self, offs, size):
+
+        imax = size - 1
+
+        for i, item in enumerate(self.iterBack(offs)):
 
             yield item
 

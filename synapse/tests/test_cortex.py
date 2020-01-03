@@ -2467,7 +2467,35 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await alist(prox.eval('[ test:str=foo ]'))
 
-                self.ge(len(await alist(prox.splices(0, 1000))), 3)
+                splicelist = await alist(prox.splices(0, 1000))
+                splicecount = len(splicelist)
+                self.ge(splicecount, 3)
+
+                # should get the same splices in reverse order
+                splicelist.reverse()
+                self.eq(await alist(prox.splicesBack(splicecount, 1000)), splicelist)
+                self.eq(await alist(prox.splicesBack(splicecount, 3)), splicelist[:3])
+
+                self.eq(await alist(prox.spliceHistory()), splicelist)
+
+                await prox.addAuthUser('visi')
+                await prox.setUserPasswd('visi', 'secret')
+
+                await prox.addAuthRule('visi', (True, ('node:add',)))
+                await prox.addAuthRule('visi', (True, ('prop:set',)))
+
+                async with core.getLocalProxy(user='visi') as asvisi:
+
+                    # normal user can't user splicesBack
+                    await self.agenraises(s_exc.AuthDeny, asvisi.splicesBack(1000, 1000))
+
+                    # make sure a normal user only gets their own splices
+                    await alist(asvisi.eval('[ test:str=bar ]'))
+                    await self.agenlen(2, asvisi.spliceHistory())
+
+                    # should get all splices now as an admin
+                    await prox.setAuthAdmin('visi', True)
+                    await self.agenlen(splicecount + 2, asvisi.spliceHistory())
 
     async def test_node_repr(self):
 
