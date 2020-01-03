@@ -1,4 +1,5 @@
 import os
+import lmdb
 import asyncio
 import pathlib
 import multiprocessing
@@ -91,6 +92,14 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             items = list(slab.scanByFullBack(db=foo))
             self.eq(items, ((b'\x01\x03', b'hoho'), (b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
+
+            with s_lmdbslab.ScanBack(slab, db=bar) as scan:
+                scan.first()
+                self.eq(scan.atitem, (b'\x00\x03', b'hoho'))
+
+            with s_lmdbslab.ScanBack(slab, db=foo) as scan:
+                scan.set_key(b'\x00\x02')
+                self.eq(scan.atitem, (b'\x00\x02', b'haha'))
 
             # test scans on emptydb
 

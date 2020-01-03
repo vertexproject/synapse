@@ -1181,7 +1181,7 @@ class ScanBack(Scan):
             return False
 
         if self.dupsort:
-            self.iterfunc = functools.partial(lmdb.Cursor.iterprev_dup, keys=True) # pragma: no cover
+            self.iterfunc = functools.partial(lmdb.Cursor.iterprev_dup, keys=True)
         else:
             self.iterfunc = lmdb.Cursor.iterprev
 
@@ -1198,11 +1198,11 @@ class ScanBack(Scan):
         # set_key for a scan is only logical if it's a dup scan
         if self.dupsort:
             if not self.curs.last_dup():
-                return False # pragma: no cover
+                return False
 
             self.iterfunc = functools.partial(lmdb.Cursor.iterprev_dup, keys=True)
         else:
-            self.iterfunc = lmdb.Cursor.iterprev # pragma: no cover
+            self.iterfunc = lmdb.Cursor.iterprev
 
         self.genr = self.iterfunc(self.curs)
         self.atitem = next(self.genr)
