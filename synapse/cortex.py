@@ -573,7 +573,7 @@ class CoreApi(s_cell.CellApi):
         count = 0
         async for mesg in self.cell.view.layers[0].splicesBack(offs, size):
             count += 1
-            if not count % 1000:
+            if not count % 1000: # pragma: no cover
                 await asyncio.sleep(0)
             yield mesg
 
@@ -603,7 +603,7 @@ class CoreApi(s_cell.CellApi):
         count = 0
         for iden, stack in self.cell.provstor.provStacks(offs, size):
             count += 1
-            if not count % 1000: # pragma: no cover
+            if not count % 1000:
                 await asyncio.sleep(0)
             yield s_common.ehex(iden), stack
 
