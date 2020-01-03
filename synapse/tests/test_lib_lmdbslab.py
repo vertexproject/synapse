@@ -27,6 +27,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
 
             foo = slab.initdb('foo')
+            baz = slab.initdb('baz')
             bar = slab.initdb('bar', dupsort=True)
 
             slab.put(b'\x00\x01', b'hehe', db=foo)
@@ -38,6 +39,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
             slab.put(b'\x00\x02', b'visi', dupdata=True, db=bar)
             slab.put(b'\x00\x02', b'zomg', dupdata=True, db=bar)
             slab.put(b'\x00\x03', b'hoho', dupdata=True, db=bar)
+
+            slab.put(b'\x00\x01', b'hehe', db=baz)
+            slab.put(b'\xff', b'haha', db=baz)
+            slab.put(b'\xff\xff', b'hoho', db=baz)
 
             self.true(slab.dirty)
 
@@ -62,6 +67,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             items = list(slab.scanByPrefBack(b'\x01', db=foo))
             self.eq(items, ((b'\x01\x03', b'hoho'),))
+
+            items = list(slab.scanByPrefBack(b'\xff', db=baz))
+            self.eq(items, ((b'\xff\xff', b'hoho'), (b'\xff', b'haha')))
 
             items = list(slab.scanByRangeBack(b'\x00\x03', db=foo))
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
