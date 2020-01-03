@@ -12,12 +12,25 @@ class PsCmd(s_cli.Cmd):
     '''
 
     _cmd_name = 'ps'
-    _cmd_syntax = ()
+    _cmd_syntax = (
+        ('--verbose', {}),
+        ('-v', {}),
+    )
 
     async def runCmdOpts(self, opts):
 
         core = self.getCmdItem()
         tasks = await core.ps()
+        isverbose = opts.get('verbose') or opts.get('v')
+        MAXFIELDLEN = 80
+
+        def clamp(field):
+            if isinstance(field, dict):
+                for key, valu in field.items():
+                    field[key] = clamp(valu)
+            elif isinstance(field, str) and len(field) > MAXFIELDLEN:
+                field = field[:MAXFIELDLEN] + '...'
+            return field
 
         for task in tasks:
 
@@ -25,7 +38,11 @@ class PsCmd(s_cli.Cmd):
             self.printf('    name: %s' % (task.get('name'),))
             self.printf('    user: %r' % (task.get('user'),))
             self.printf('    status: %r' % (task.get('status'),))
-            self.printf('    metadata: %r' % (task.get('info'),))
+            metadata = task.get('info')
+            if metadata is not None and not isverbose:
+                metadata = clamp(metadata)
+
+            self.printf('    metadata: %r' % metadata)
             self.printf('    start time: %s' % (s_time.repr(task.get('tick', 0)),))
 
         self.printf('%d tasks found.' % (len(tasks,)))
