@@ -3,6 +3,62 @@ Synapse Changelog
 *****************
 
 
+v0.1.43 - 2019-01-02
+====================
+
+Features and Enhancements
+-------------------------
+- Allow users to list their current permissions and roles with the ``synapse.tools.cellauth`` tool.
+  (`#1460 <https://github.com/vertexproject/synapse/pull/1460>`_)
+  (`#1464 <https://github.com/vertexproject/synapse/pull/1464>`_)
+- Allow bytes to be converted to strings, and strings to be converted to bytes, inside of Storm. This is done with
+  ``decode()`` and ``encode()`` StormType functions.
+  (`#1469 <https://github.com/vertexproject/synapse/pull/1469>`_)
+
+Bugfixes
+--------
+- Fix an error in the ``synapse.lib.scrape`` regular expressions which prevented sequential FQDN and email addresses
+  from being scrapped.
+  (`#1482 <https://github.com/vertexproject/synapse/pull/1482>`_)
+
+Improved Documentation
+----------------------
+- Start a Syanpse glossary document.
+  (`#1478 <https://github.com/vertexproject/synapse/pull/1478>`_)
+- Update the Storm Command reference documentation.
+  (`#1478 <https://github.com/vertexproject/synapse/pull/1478>`_)
+
+
+v0.1.42 - 2019-12-24
+====================
+
+Features and Enhancements
+-------------------------
+- Allow for StormType ``query`` objects to be executed similar to a local function.
+  (`#1456 <https://github.com/vertexproject/synapse/pull/1456>`_)
+- Add ``syn:cmd`` runt nodes to represent Storm commands available to a given Cortex as Nodes.
+  (`#1446 <https://github.com/vertexproject/synapse/pull/1446>`_)
+
+Bugfixes
+--------
+- Make CI tests do eager updates of third party libraries to prevent cache key rolling when a buggy library is published
+  and a subsequent fix is released.
+  (`#1468 <https://github.com/vertexproject/synapse/pull/1468>`_)
+- Fix implicit pivot support for runt nodes.
+  (`#1470 <https://github.com/vertexproject/synapse/pull/1470>`_)
+- Allow the Storm ``tee`` command to execute queries if there were no inbound nodes.
+  (`#1468 <https://github.com/vertexproject/synapse/pull/1468>`_)
+- Allow the PropPivotOut AST node to pivot from an array value to a runt node.
+  (`#1471 <https://github.com/vertexproject/synapse/pull/1471>`_)
+- Add some ``asyncio.sleep(0)`` calls to the AST where Python loops could hog CPU time.
+  (`#1472 <https://github.com/vertexproject/synapse/pull/1472>`_)
+- Fix an issue with the Storm ``scrape`` command where a non-str repr was not properly scraped.
+  (`#1474 <https://github.com/vertexproject/synapse/pull/1474>`_)
+- Fix an issue with the Storm ``scrape`` command where a relative property was not accepted as an argument to the
+  command. Relative property syntax is now supported.
+  (`#1474 <https://github.com/vertexproject/synapse/pull/1474>`_)
+
+
 v0.1.41 - 2019-12-16
 ====================
 

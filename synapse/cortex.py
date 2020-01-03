@@ -608,6 +608,36 @@ class CoreApi(s_cell.CellApi):
             yield mesg
 
     @s_cell.adminapi
+    async def splicesBack(self, offs, size):
+        '''
+        Return the list of splices backwards from the given offset.
+        '''
+        count = 0
+        async for mesg in self.cell.view.layers[0].splicesBack(offs, size):
+            count += 1
+            if not count % 1000: # pragma: no cover
+                await asyncio.sleep(0)
+            yield mesg
+
+    async def spliceHistory(self):
+        '''
+        Yield splices backwards from the end of the splice log.
+
+        Will only return the user's own splices unless they are an admin.
+        '''
+        layr = self.cell.view.layers[0]
+        indx = (await layr.stat())['splicelog_indx']
+
+        count = 0
+        async for mesg in layr.splicesBack(indx):
+            count += 1
+            if not count % 1000: # pragma: no cover
+                await asyncio.sleep(0)
+
+            if self.user.iden == mesg[1]['user'] or self.user.admin:
+                yield mesg
+
+    @s_cell.adminapi
     async def provStacks(self, offs, size):
         '''
         Return stream of (iden, provenance stack) tuples at the given offset.
@@ -1147,9 +1177,12 @@ class Cortex(s_cell.Cell):
 
         # TODO unify class ctors and func ctors vs briefs...
         def getCmdBrief():
-            return cdef.get('descr', 'No description').split('\n')[0]
+            return cdef.get('descr', 'No description').strip().split('\n')[0]
 
         ctor.getCmdBrief = getCmdBrief
+        ctor.pkgname = cdef.get('pkgname')
+        ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
+        ctor.forms = cdef.get('forms', {})
 
         name = cdef.get('name')
         self.stormcmds[name] = ctor
@@ -1157,9 +1190,13 @@ class Cortex(s_cell.Cell):
 
         await self.bumpSpawnPool()
 
+        await self.fire('core:cmd:change', cmd=name, act='add')
+
     async def _popStormCmd(self, name):
         self.stormcmds.pop(name, None)
         await self.bumpSpawnPool()
+
+        await self.fire('core:cmd:change', cmd=name, act='del')
 
     async def delStormCmd(self, name):
         '''
@@ -1178,6 +1215,8 @@ class Cortex(s_cell.Cell):
         await self.cmdhive.pop(name)
         self.stormcmds.pop(name, None)
         await self.bumpSpawnPool()
+
+        await self.fire('core:cmd:change', cmd=name, act='del')
 
     async def addStormPkg(self, pkgdef):
         '''
@@ -1254,6 +1293,9 @@ class Cortex(s_cell.Cell):
             cdef.setdefault('cmdconf', {})
             if svciden:
                 cdef['cmdconf']['svciden'] = svciden
+
+            cdef['pkgname'] = name
+
             await self._reqStormCmd(cdef)
 
         # now actually load...

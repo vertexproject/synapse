@@ -1398,8 +1398,7 @@ class FormPivot(PivotOper):
 
                 refsvalu = node.get(refsname)
                 if refsvalu is not None:
-                    pivo = await runt.snap.getNodeByNdef((refsform, refsvalu))
-                    if pivo is not None:
+                    async for pivo in runt.snap.getNodesBy(refsform, refsvalu):
                         yield pivo, path.fork(pivo)
 
             for refsname, refsform in refs.get('array'):
@@ -1494,9 +1493,7 @@ class PropPivotOut(PivotOper):
                     continue
 
                 for item in valu:
-
-                    pivo = await runt.snap.getNodeByNdef((fname, item))
-                    if pivo is not None:
+                    async for pivo in runt.snap.getNodesBy(fname, item):
                         yield pivo, path.fork(pivo)
 
                 continue
@@ -2107,11 +2104,11 @@ class EmbedQuery(RunValue):
 
     async def runtval(self, runt):
         opts = {'vars': dict(runt.vars)}
-        return s_stormtypes.Query(self.text, opts)
+        return s_stormtypes.Query(self.text, opts, runt)
 
     async def compute(self, path):
         opts = {'vars': dict(path.vars)}
-        return s_stormtypes.Query(self.text, opts)
+        return s_stormtypes.Query(self.text, opts, path.runt, path=path)
 
 class Value(RunValue):
 
@@ -2691,14 +2688,20 @@ class EditUnivDel(Edit):
 class EditTagAdd(Edit):
 
     async def run(self, runt, genr):
+        if len(self.kids) > 1 and isinstance(self.kids[0], Const) and self.kids[0].value() == '?':
+            oper_offset = 1
+        else:
+            oper_offset = 0
 
-        hasval = len(self.kids) > 1
+        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper_offset == 1 else ()
+
+        hasval = len(self.kids) > 1 + oper_offset
 
         valu = (None, None)
 
         async for node, path in genr:
 
-            names = await self.kids[0].compute(path)
+            names = await self.kids[oper_offset].compute(path)
             if not isinstance(names, list):
                 names = [names]
 
@@ -2708,9 +2711,11 @@ class EditTagAdd(Edit):
                 runt.reqLayerAllowed(('tag:add', *parts))
 
                 if hasval:
-                    valu = await self.kids[1].compute(path)
-
-                await node.addTag(name, valu=valu)
+                    valu = await self.kids[1 + oper_offset].compute(path)
+                try:
+                    await node.addTag(name, valu=valu)
+                except excignore:
+                    pass
 
             yield node, path
 
@@ -2983,6 +2988,8 @@ class Function(AstNode):
 
             except StormReturn as e:
                 return e.item
+            except asyncio.CancelledError: # pragma: no cover
+                raise
             finally:
                 await runt.propBackGlobals(funcrunt)
 
