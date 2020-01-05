@@ -54,6 +54,7 @@ class Snap(s_base.Base):
         self.core = view.core
         self.view = view
         self.user = user
+        self.store_splices = self.core.conf.get('splice:en')
 
         self.model = self.core.model
 
@@ -735,7 +736,7 @@ class Snap(s_base.Base):
 
     async def stor(self, sops, splices=None):
 
-        if not splices:
+        if not splices or not self.store_splices:
             await self.wlyr.stor(sops)
             return
 

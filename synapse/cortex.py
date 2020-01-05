@@ -825,6 +825,12 @@ class Cortex(s_cell.Cell):
             'doc': 'Logging log level to emit storm logs at.'
         }),
 
+        ('splice:en', {
+            'type': 'bool',
+            'defval': True,
+            'doc': 'Enable storing splices for layer changes.'
+        }),
+
         ('splice:sync', {
             'type': 'str', 'defval': None,
             'doc': 'A telepath URL for an upstream cortex.'
