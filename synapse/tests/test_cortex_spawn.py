@@ -113,7 +113,7 @@ class CoreSpawnTest(s_test.SynTest):
                 try:
                     await asyncio.wait_for(asyncio.gather(*tasks), timeout=40)
                 except asyncio.TimeoutError:
-                    self.false(1)
+                    self.fail('Timeout awaiting for spawn tasks to finish.')
 
                 self.eq(donecount, n)
 
