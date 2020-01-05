@@ -125,11 +125,17 @@ class CoreSpawnTest(s_test.SynTest):
                 async def taskfunc2():
                     await prox.storm('test:int=1 | sleep 15', opts=opts).list()
 
-                await core.schedCoro(taskfunc2())
+                task = await core.schedCoro(taskfunc2())
                 await asyncio.sleep(1)
                 os.kill(victimpid, sig)
                 await asyncio.sleep(1)
 
+    async def test_model_extensions(self):
+        self.skip('Model extensions not supported for spawn.')
+        async with self.getTestCore() as core:
+            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
+            async with core.getLocalProxy() as prox:
+                opts = {'spawn': True}
                 # test adding model extensions
                 await core.addFormProp('inet:ipv4', '_woot', ('int', {}), {})
                 await core.nodes('[inet:ipv4=1.2.3.4 :_woot=10]')
