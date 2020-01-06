@@ -245,6 +245,10 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], guid)
 
                 guid = s_common.guid()
+                node = await snap.addNode('tel:txtmesg', guid, {'svctype': ' MMS'})
+                self.eq(node.ndef[1], guid)
+
+                guid = s_common.guid()
                 node = await snap.addNode('tel:txtmesg', guid, {'svctype': 'rcs'})
                 self.eq(node.ndef[1], guid)
 

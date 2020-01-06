@@ -280,7 +280,7 @@ class TelcoModule(s_module.CoreModule):
                     ('recipients', ('array', {'type': 'tel:phone'}), {
                         'doc': 'An array of phone numbers for additional recipients of the message.',
                     }),
-                    ('svctype', ('str', {'enums': 'sms,mms,rcs'}), {
+                    ('svctype', ('str', {'enums': 'sms,mms,rcs', 'strip': 1, 'lower': 1}), {
                         'doc': 'The message service type (sms, mms, rcs).',
                     }),
                     ('time', ('time', {}), {
