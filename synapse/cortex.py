@@ -2956,7 +2956,10 @@ class Cortex(s_cell.Cell):
         '''
         A simple non-streaming way to return a list of nodes.
         '''
-        return [n async for n in self.eval(text, opts=opts, user=user)]
+        async def nodes():
+            return [n async for n in self.eval(text, opts=opts, user=user)]
+        task = self.schedCoro(nodes())
+        return await task
 
     @s_coro.genrhelp
     async def streamstorm(self, text, opts=None, user=None):
