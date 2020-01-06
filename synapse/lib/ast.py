@@ -1424,8 +1424,7 @@ class FormPivot(PivotOper):
 
                 refsvalu = node.get(refsname)
                 if refsvalu is not None:
-                    pivo = await runt.snap.getNodeByNdef((refsform, refsvalu))
-                    if pivo is not None:
+                    async for pivo in runt.snap.getNodesBy(refsform, refsvalu):
                         yield pivo, path.fork(pivo)
 
             for refsname, refsform in refs.get('array'):
@@ -1520,9 +1519,7 @@ class PropPivotOut(PivotOper):
                     continue
 
                 for item in valu:
-
-                    pivo = await runt.snap.getNodeByNdef((fname, item))
-                    if pivo is not None:
+                    async for pivo in runt.snap.getNodesBy(fname, item):
                         yield pivo, path.fork(pivo)
 
                 continue
@@ -2133,11 +2130,11 @@ class EmbedQuery(RunValue):
 
     async def runtval(self, runt):
         opts = {'vars': dict(runt.vars)}
-        return s_stormtypes.Query(self.text, opts)
+        return s_stormtypes.Query(self.text, opts, runt)
 
     async def compute(self, path):
         opts = {'vars': dict(path.vars)}
-        return s_stormtypes.Query(self.text, opts)
+        return s_stormtypes.Query(self.text, opts, path.runt, path=path)
 
 class Value(RunValue):
 
@@ -2626,6 +2623,7 @@ class EditNodeAdd(Edit):
                         yield item
 
                     yield node, path
+                    await asyncio.sleep(0)
 
             else:
 
@@ -2640,6 +2638,7 @@ class EditNodeAdd(Edit):
                         continue
 
                     yield node, runt.initPath(node)
+                    await asyncio.sleep(0)
 
         if runtsafe:
             async for node, path in genr:
@@ -3018,6 +3017,8 @@ class Function(AstNode):
 
             except StormReturn as e:
                 return e.item
+            except asyncio.CancelledError: # pragma: no cover
+                raise
             finally:
                 await runt.propBackGlobals(funcrunt)
 

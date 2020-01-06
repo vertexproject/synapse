@@ -2,6 +2,8 @@ import bz2
 import gzip
 import json
 import base64
+import asyncio
+import logging
 import binascii
 import datetime
 import collections
@@ -15,6 +17,8 @@ import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.provenance as s_provenance
+
+logger = logging.getLogger(__name__)
 
 def intify(x):
 
@@ -705,7 +709,20 @@ class Str(Prim):
             'startswith': self._methStrStartswith,
             'ljust': self._methStrLjust,
             'rjust': self._methStrRjust,
+            'encode': self._methEncode,
         })
+
+    async def _methEncode(self, encoding='utf8'):
+        '''
+        Encoding a text values to bytes.
+
+        Args:
+            encoding (str): Encoding to use. Defaults to utf8.
+        '''
+        try:
+            return self.valu.encode(encoding)
+        except UnicodeEncodeError as e:
+            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu) from None
 
     async def _methStrSplit(self, text):
         '''
@@ -735,12 +752,25 @@ class Bytes(Prim):
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
         self.locls.update({
+            'decode': self._methDecode,
             'bunzip': self._methBunzip,
             'gunzip': self._methGunzip,
             'bzip': self._methBzip,
             'gzip': self._methGzip,
             'json': self._methJsonLoad,
         })
+
+    async def _methDecode(self, encoding='utf8'):
+        '''
+        Decode a bytes to a string.
+
+        Args:
+            encoding (str): The encoding to use when decoding the bytes.
+        '''
+        try:
+            return self.valu.decode(encoding)
+        except UnicodeDecodeError as e:
+            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu) from None
 
     async def _methBunzip(self):
         '''
@@ -1036,18 +1066,38 @@ class Query(StormType):
     '''
     A storm primitive representing an embedded query.
     '''
-    def __init__(self, text, opts, path=None):
+    def __init__(self, text, opts, runt, path=None):
 
         StormType.__init__(self, path=path)
 
         self.text = text
         self.opts = opts
+        self.runt = runt
 
         self.locls.update({
+            'exec': self._methQueryExec,
         })
 
     def __str__(self):
         return self.text
+
+    async def _methQueryExec(self):
+        query = await self.runt.getStormQuery(self.text)
+        subrunt = await self.runt.getScopeRuntime(query)
+
+        logger.info(f'Executing storm query via exec() {{{self.text}}} as [{self.runt.user.name}]')
+        cancelled = False
+        try:
+            async for item in query.run(subrunt, genr=s_ast.agen()):
+                pass  # pragma: no cover
+        except s_ast.StormReturn as e:
+            return e.item
+        except asyncio.CancelledError:  # pragma: no cover
+            cancelled = True
+            raise
+        finally:
+            if not cancelled:
+                await self.runt.propBackGlobals(subrunt)
 
 class NodeData(Prim):
 

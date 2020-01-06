@@ -311,19 +311,36 @@ class CellApi(s_base.Base):
 
         await user.revoke(rolename)
 
-    @adminapi
     async def getAuthInfo(self, name):
         '''
-        An admin only API endpoint for getting user info.
+        An API endpoint for getting user and role info.
+
+        Args:
+            name (str): Name of the item requested.
+
+        Notes:
+            Authinfo for an item is available to a remote user under the following conditions:
+            1. The remote user is an admin.
+            2. The remote user is requesting their authitem data.
+            3. The remote user is requesting role information for roles they have.
+
+        Returns:
+            tuple(str, dict): The name and packed information about the auth item.
         '''
         item = await self.cell.auth.getRulerByName(name)
         pack = item.pack()
+        item_iden = pack.get('iden')
 
-        # translate role guids to names for back compat
-        if pack.get('type') == 'user':
-            pack['roles'] = [self.cell.auth.role(r).name for r in pack['roles']]
+        if self.user.admin or \
+                (pack.get('type') == 'user' and self.user.iden == item_iden) or \
+                (pack.get('type') == 'role' and self.user.hasRole(item_iden)):
+            # translate role guids to names for back compat
+            if pack.get('type') == 'user':
+                pack['roles'] = [self.cell.auth.role(r).name for r in pack['roles']]
+            return (name, pack)
 
-        return (name, pack)
+        raise s_exc.AuthDeny(mesg='User does not have permission to get authinfo for the requested item.',
+                             name=name)
 
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health',))
