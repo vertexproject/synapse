@@ -2,7 +2,12 @@ import os
 import signal
 import asyncio
 import logging
+
+import synapse.lib.spawn as s_spawn
+
 import synapse.tests.utils as s_test
+
+logger = logging.getLogger(__name__)
 
 class CoreSpawnTest(s_test.SynTest):
 
@@ -95,7 +100,6 @@ class CoreSpawnTest(s_test.SynTest):
                 self.len(1, core.spawnpool.spawns)
 
                 # Test launching a bunch of spawn queries at the same time
-
                 donecount = 0
 
                 await prox.storm('[test:int=1]').list()
@@ -113,23 +117,62 @@ class CoreSpawnTest(s_test.SynTest):
                 try:
                     await asyncio.wait_for(asyncio.gather(*tasks), timeout=40)
                 except asyncio.TimeoutError:
-                    self.false(1)
+                    self.fail('Timeout awaiting for spawn tasks to finish.')
 
                 self.eq(donecount, n)
 
-                # test kill -9 ing a spawn proc
-
-                victimpid = core.spawnpool.spawnq[0].proc.pid
-                sig = signal.SIGKILL
+                # test a remote boss kill of the client side task
+                logger.info('telepath ps/kill test.')
+                evnt = asyncio.Event()
+                msgs = {'msgs': []}
 
                 async def taskfunc2():
-                    await prox.storm('test:int=1 | sleep 15', opts=opts).list()
+                    async for mesg in prox.storm('test:int=1 | sleep 15', opts=opts):
+                        msgs['msgs'].append(mesg)
+                        if mesg[0] == 'node':
+                            evnt.set()
+                    return True
 
-                await core.schedCoro(taskfunc2())
+                victimproc = core.spawnpool.spawnq[0]  # type: s_spawn.SpawnProc
+                fut = core.schedCoro(taskfunc2())
+                self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+                tasks = await prox.ps()
+                new_idens = [task.get('iden') for task in tasks]
+                self.len(1, new_idens)
+                await prox.kill(new_idens[0])
+
+                # Ensure the task cancellation tore down the spawnproc
+                self.true(await victimproc.waitfini(6))
+
+                resp = await fut
+                self.true(resp)
+                # We did not get a fini messages since the proc was killed
+                self.eq({m[0] for m in msgs.get('msgs')}, {'init', 'node'})
+
+                # test kill -9 ing a spawn proc
+                logger.info('sigkill test')
+                victimproc = core.spawnpool.spawnq[0]  # type: s_spawn.SpawnProc
+                victimpid = victimproc.proc.pid
+                sig = signal.SIGKILL
+
+                async def taskfunc3():
+                    retn = await prox.storm('test:int=1 | sleep 15', opts=opts).list()
+                    return retn
+
+                fut = core.schedCoro(taskfunc3())
                 await asyncio.sleep(1)
                 os.kill(victimpid, sig)
-                await asyncio.sleep(1)
+                self.true(await victimproc.waitfini(6))
+                msgs = await fut
+                # We did not get a fini messages since the proc was killed
+                self.eq({m[0] for m in msgs}, {'init', 'node'})
 
+    async def test_model_extensions(self):
+        self.skip('Model extensions not supported for spawn.')
+        async with self.getTestCore() as core:
+            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
+            async with core.getLocalProxy() as prox:
+                opts = {'spawn': True}
                 # test adding model extensions
                 await core.addFormProp('inet:ipv4', '_woot', ('int', {}), {})
                 await core.nodes('[inet:ipv4=1.2.3.4 :_woot=10]')
