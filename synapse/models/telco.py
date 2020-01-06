@@ -199,6 +199,12 @@ class TelcoModule(s_module.CoreModule):
 
             'types': (
 
+                ('tel:call', ('guid', {}), {
+                    'doc': 'A guid for a telephone call record.'}),
+
+                ('tel:txtmesg', ('guid', {}), {
+                    'doc': 'A guid for an individual text message.'}),
+
                 ('tel:mob:tac', ('int', {}), {
                     'ex': '49015420',
                     'doc': 'A mobile Type Allocation Code'}),
@@ -239,6 +245,52 @@ class TelcoModule(s_module.CoreModule):
                     ('loc', ('loc', {}), {
                         'doc': 'The location associated with the number.',
                         'defval': '??',
+                    }),
+                )),
+                ('tel:call', {}, (
+                    ('src', ('tel:phone', {}), {
+                        'doc': 'The source phone number for a call.'
+                    }),
+                    ('dst', ('tel:phone', {}), {
+                        'doc': 'The destination phone number for a call.'
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the call was initiated.'
+                    }),
+                    ('duration', ('int', {}), {
+                        'doc': 'The duration of the call in seconds.'
+                    }),
+                    ('connected', ('bool', {}), {
+                        'doc': 'Indicator of whether the call was connected.',
+                    }),
+                    ('text', ('str', {}), {
+                        'doc': 'The text transcription of the call.',
+                    }),
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'A file containing related media.',
+                    }),
+                )),
+                ('tel:txtmesg', {}, (
+                    ('from', ('tel:phone', {}), {
+                        'doc': 'The phone number assigned to the sender.'
+                    }),
+                    ('to', ('tel:phone', {}), {
+                        'doc': 'The phone number assigned to the primary recipient.'
+                    }),
+                    ('recipients', ('array', {'type': 'tel:phone'}), {
+                        'doc': 'An array of phone numbers for additional recipients of the message.',
+                    }),
+                    ('svctype', ('str', {'regex': '^(sms|mms|rcs){1}$', 'strip': 1, 'lower': 1}), {
+                        'doc': 'The message service type (sms, mms, rcs).',
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the message was sent.'
+                    }),
+                    ('text', ('str', {}), {
+                        'doc': 'The text of the message',
+                    }),
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'A file containing related media.',
                     }),
                 )),
                 ('tel:mob:tac', {}, (
