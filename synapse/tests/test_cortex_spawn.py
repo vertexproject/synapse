@@ -86,7 +86,8 @@ class CoreSpawnTest(s_test.SynTest):
 
                 # test a complex stormlib command using lib deferences
                 marsopts = {'spawn': True, 'vars': {'world': 'mars'}}
-                msgs = await prox.storm('$lib.print($lib.str.format("hello {world}", world))', opts=marsopts).list()
+                q = '$lib.print($lib.str.format("hello {world}", world=$world))'
+                msgs = await prox.storm(q, opts=marsopts).list()
                 self.stormIsInPrint("hello mars", msgs)
 
                 # Add a stormpkg - this should fini the spawnpool spawnprocs
