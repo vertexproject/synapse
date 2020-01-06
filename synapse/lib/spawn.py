@@ -282,8 +282,7 @@ class SpawnCore(s_base.Base):
             ctor = functools.partial(s_storm.PureCmd, cdef)
             self.stormcmds[name] = ctor
 
-        libs = spawninfo.get('storm').get('libs')
-        self.libroot = libs
+        self.libroot = spawninfo.get('storm').get('libs')
 
         self.boss = await s_boss.Boss.anit()
         self.onfini(self.boss.fini)
