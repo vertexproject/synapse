@@ -22,7 +22,7 @@ class PsCmd(s_cli.Cmd):
         core = self.getCmdItem()
         tasks = await core.ps()
         isverbose = opts.get('verbose') or opts.get('v')
-        MAXFIELDLEN = 80
+        MAXFIELDLEN = 120
 
         def clamp(field):
             if isinstance(field, dict):
