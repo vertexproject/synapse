@@ -729,7 +729,7 @@ class Layer(s_base.Base):
                 yield buid, await self.getStorNode(buid)
 
     #async def liftByTagProp(self, form, tag, prop):
-    #async def liftByTagPropValu(self, form, tag, prop, valu, stortype):
+    #async def liftByTagPropValu(self, form, tag, prop, cmprvals):
 
     async def liftByProp(self, form, prop):
         abrv = self.getPropAbrv(form, prop)

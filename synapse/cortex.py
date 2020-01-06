@@ -906,13 +906,11 @@ class Cortex(s_cell.Cell):
         await self._migrateViewsLayers()
         await self._initCoreLayers()
         await self._initCoreViews()
-        #await self._migrateLayerOffset()
         await self._checkLayerModels()
         await self._initCoreQueues()
 
         self.provstor = await s_provenance.ProvStor.anit(self.dirn)
         self.onfini(self.provstor.fini)
-        #self.provstor.migratePre010(self.view.layers[0])
 
         self.addHealthFunc(self._cortexHealth)
 

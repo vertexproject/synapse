@@ -27,8 +27,6 @@ class Node:
 
         #print('NODE FROM SODE: %r' % (sode,))
 
-        #self.init = False  # True if the node is being added.
-
         # if set, the node is complete.
         self.ndef = sode[1].get('ndef')
         self.form = snap.model.form(self.ndef[0])
@@ -100,32 +98,6 @@ class Node:
 
     def iden(self):
         return s_common.ehex(self.buid)
-
-    #def _loadNodeData(self, rawprops):
-
-        #for prop, valu in rawprops:
-
-            #p0 = prop[0]
-
-            # check for primary property
-            #if p0 == '*':
-                #self.ndef = (prop[1:], valu)
-                #continue
-
-            # check for tag encoding
-            #if p0 == '#':
-
-                # proptag...
-                #if ':' in prop:
-                    #tag, prop = prop[1:].split(':', 1)
-                    #self.tagprops[(tag, prop)] = valu
-                    #continue
-
-                #self.tags[prop[1:]] = valu
-                #continue
-
-            # otherwise, it's a regular property!
-            #self.props[prop] = valu
 
     def pack(self, dorepr=False):
         '''
