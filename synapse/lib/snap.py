@@ -65,7 +65,6 @@ class Snap(s_base.Base):
         self.wlyr = self.layers[-1]
 
         self.readonly = self.wlyr.readonly
-        #self.readonly = False   # used in multiprocessing / readonly
 
         # variables used by the storm runtime
         self.vars = {}
