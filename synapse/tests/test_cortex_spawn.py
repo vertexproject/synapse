@@ -7,6 +7,8 @@ import synapse.lib.spawn as s_spawn
 
 import synapse.tests.utils as s_test
 
+logger = logging.getLogger(__name__)
+
 class CoreSpawnTest(s_test.SynTest):
 
     async def test_cortex_spawn_telepath(self):
@@ -98,10 +100,9 @@ class CoreSpawnTest(s_test.SynTest):
                 self.len(1, core.spawnpool.spawns)
 
                 # Test launching a bunch of spawn queries at the same time
-
                 donecount = 0
 
-                await prox.storm('[test:int=1]').list()
+                await prox.storm('[(test:int=1) (test:int=2)]').list()
                 # wait for commit
                 await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
 
@@ -120,25 +121,51 @@ class CoreSpawnTest(s_test.SynTest):
 
                 self.eq(donecount, n)
 
-                # test kill -9 ing a spawn proc
+                # test a remote boss kill of the client side task
+                logger.info('telepath ps/kill test.')
+                evnt = asyncio.Event()
+                msgs = {'msgs': []}
+
+                async def taskfunc2():
+                    async for mesg in prox.storm('test:int=1 | sleep 15', opts=opts):
+                        msgs['msgs'].append(mesg)
+                        if mesg[0] == 'node':
+                            evnt.set()
+                    return True
+
+                victimproc = core.spawnpool.spawnq[0]  # type: s_spawn.SpawnProc
+                fut = core.schedCoro(taskfunc2())
+                self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+                tasks = await prox.ps()
+                new_idens = [task.get('iden') for task in tasks]
+                self.len(1, new_idens)
+                await prox.kill(new_idens[0])
+
+                # Ensure the task cancellation tore down the spawnproc
+                self.true(await victimproc.waitfini(6))
+
+                resp = await fut
+                self.true(resp)
+                # We did not get a fini messages since the proc was killed
+                self.eq({m[0] for m in msgs.get('msgs')}, {'init', 'node'})
 
                 # test kill -9 ing a spawn proc
+                logger.info('sigkill test')
                 victimproc = core.spawnpool.spawnq[0]  # type: s_spawn.SpawnProc
                 victimpid = victimproc.proc.pid
                 sig = signal.SIGKILL
 
-                async def taskfunc2():
+                async def taskfunc3():
                     retn = await prox.storm('test:int=1 | sleep 15', opts=opts).list()
                     return retn
 
-                task = core.schedCoro(taskfunc2())
+                fut = core.schedCoro(taskfunc3())
                 await asyncio.sleep(1)
                 os.kill(victimpid, sig)
-                await victimproc.waitfini(6)
-                msgs = await task
+                self.true(await victimproc.waitfini(6))
+                msgs = await fut
                 # We did not get a fini messages since the proc was killed
                 self.eq({m[0] for m in msgs}, {'init', 'node'})
-                self.notin(victimproc.iden, core.spawnpool.spawns)
 
     async def test_model_extensions(self):
         self.skip('Model extensions not supported for spawn.')

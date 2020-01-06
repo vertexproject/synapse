@@ -26,20 +26,17 @@ class Task(s_base.Base):
         self.task = task                # the real task...
         self.iden = s_common.guid()
         self.tick = s_common.now()
+        self.name = name
+        self.user = user
+        self.root = root
+        self.info = info
+        self.kids = {}
 
         self.boss.tasks[self.iden] = self
         if root is not None:
             root.kids[self.iden] = self
 
         self.task.add_done_callback(self._onTaskDone)
-
-        self.name = name
-        self.user = user
-        self.root = root
-        self.info = info
-
-        self.kids = {}
-
         self.onfini(self._onTaskFini)
 
     def __repr__(self):
