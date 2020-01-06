@@ -2,6 +2,9 @@ import os
 import signal
 import asyncio
 import logging
+
+import synapse.lib.spawn as s_spawn
+
 import synapse.tests.utils as s_test
 
 class CoreSpawnTest(s_test.SynTest):
@@ -119,16 +122,23 @@ class CoreSpawnTest(s_test.SynTest):
 
                 # test kill -9 ing a spawn proc
 
-                victimpid = core.spawnpool.spawnq[0].proc.pid
+                # test kill -9 ing a spawn proc
+                victimproc = core.spawnpool.spawnq[0]  # type: s_spawn.SpawnProc
+                victimpid = victimproc.proc.pid
                 sig = signal.SIGKILL
 
                 async def taskfunc2():
-                    await prox.storm('test:int=1 | sleep 15', opts=opts).list()
+                    retn = await prox.storm('test:int=1 | sleep 15', opts=opts).list()
+                    return retn
 
-                task = await core.schedCoro(taskfunc2())
+                task = core.schedCoro(taskfunc2())
                 await asyncio.sleep(1)
                 os.kill(victimpid, sig)
-                await asyncio.sleep(1)
+                await victimproc.waitfini(6)
+                msgs = await task
+                # We did not get a fini messages since the proc was killed
+                self.eq({m[0] for m in msgs}, {'init', 'node'})
+                self.notin(victimproc.iden, core.spawnpool.spawns)
 
     async def test_model_extensions(self):
         self.skip('Model extensions not supported for spawn.')
