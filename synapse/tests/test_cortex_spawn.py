@@ -31,6 +31,7 @@ class CoreSpawnTest(s_test.SynTest):
             }
 
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
+            await core.nodes('queue.add visi')
 
             async with core.getLocalProxy() as prox:
 
@@ -78,6 +79,15 @@ class CoreSpawnTest(s_test.SynTest):
                 self.stormIsInPrint('Echo: [0]', msgs)
                 podes = [m[1] for m in msgs if m[0] == 'node']
                 self.len(1, podes)
+
+                # Test a simple stormlib command
+                msgs = await prox.storm('$lib.print("hello")', opts=opts).list()
+                self.stormIsInPrint("hello", msgs)
+
+                # test a complex stormlib command using lib deferences
+                marsopts = {'spawn': True, 'vars': {'world': 'mars'}}
+                msgs = await prox.storm('$lib.print($lib.str.format("hello {world}", world))', opts=marsopts).list()
+                self.stormIsInPrint("hello mars", msgs)
 
                 # Add a stormpkg - this should fini the spawnpool spawnprocs
                 procs = [p for p in core.spawnpool.spawns.values()]
@@ -166,6 +176,21 @@ class CoreSpawnTest(s_test.SynTest):
                 msgs = await fut
                 # We did not get a fini messages since the proc was killed
                 self.eq({m[0] for m in msgs}, {'init', 'node'})
+
+    async def test_queues(self):
+        conf = {
+            'storm:log': True,
+            'storm:log:level': logging.INFO,
+        }
+
+        async with self.getTestCore(conf=conf) as core:
+            await core.nodes('queue.add visi')
+            async with core.getLocalProxy() as prox:
+
+                opts = {'spawn': True}
+
+                msgs = await prox.storm('queue.list', opts=opts).list()
+                self.stormIsInPrint('visi', msgs)
 
     async def test_model_extensions(self):
         self.skip('Model extensions not supported for spawn.')

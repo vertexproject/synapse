@@ -1018,6 +1018,7 @@ class Cortex(s_cell.Cell):
                     'cdefs': list(self.storm_cmd_cdefs.items()),
                     'ctors': list(self.storm_cmd_ctors.items()),
                 },
+                'libs': tuple(self.libroot),
                 'mods': await self.getStormMods()
             },
             'model': await self.getModelDefs(),
