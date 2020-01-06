@@ -277,11 +277,13 @@ class SpawnCore(s_base.Base):
         for name, ctor in spawninfo['storm']['cmds']['ctors']:
             self.stormcmds[name] = ctor
 
-        for name, cdef in spawninfo['storm']['cmds']['cdefs']:
-
+        def makeCdefClosure(cdef):
             def ctor(argv):
                 return s_storm.PureCmd(cdef, argv)
+            return ctor
 
+        for name, cdef in spawninfo['storm']['cmds']['cdefs']:
+            ctor = makeCdefClosure(cdef)
             self.stormcmds[name] = ctor
 
         self.boss = await s_boss.Boss.anit()
