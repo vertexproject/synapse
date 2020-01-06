@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+import functools
 import threading
 import contextlib
 import collections
@@ -277,13 +278,8 @@ class SpawnCore(s_base.Base):
         for name, ctor in spawninfo['storm']['cmds']['ctors']:
             self.stormcmds[name] = ctor
 
-        def makeCdefClosure(cdef):
-            def ctor(argv):
-                return s_storm.PureCmd(cdef, argv)
-            return ctor
-
         for name, cdef in spawninfo['storm']['cmds']['cdefs']:
-            ctor = makeCdefClosure(cdef)
+            ctor = functools.partial(s_storm.PureCmd, cdef)
             self.stormcmds[name] = ctor
 
         libs = spawninfo.get('storm').get('libs')
