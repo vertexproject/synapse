@@ -907,7 +907,7 @@ class Cortex(s_cell.Cell):
         await self._initCoreLayers()
         await self._initCoreViews()
         self.onfini(self._finiStor)
-        await self._migrateLayerOffset()
+        #await self._migrateLayerOffset()
         await self._checkLayerModels()
         await self._initCoreQueues()
 
