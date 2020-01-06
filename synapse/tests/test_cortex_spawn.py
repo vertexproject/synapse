@@ -102,7 +102,7 @@ class CoreSpawnTest(s_test.SynTest):
                 # Test launching a bunch of spawn queries at the same time
                 donecount = 0
 
-                await prox.storm('[(test:int=1) (test:int=2)]').list()
+                await prox.storm('[test:int=1]').list()
                 # wait for commit
                 await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
 
