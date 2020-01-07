@@ -57,7 +57,9 @@ class CoreSpawnTest(s_test.SynTest):
 
             async with await s_spawn.SpawnCore.anit(spawninfo) as core:
                 root = core.auth.getUserByName('root')
-                q = 'test:str $lib.print($lib.str.format("{n}", n=$node.repr()))'
+                q = '''test:str
+                $lib.print($lib.str.format("{n}", n=$node.repr()))
+                | limit 1'''
                 item = {
                     'user': root.iden,
                     'view': list(core.views.keys())[0],
