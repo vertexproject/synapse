@@ -1587,6 +1587,7 @@ class SpliceUndoCmd(Cmd):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
+
         if node:
             prop = node.form.props.get(name)
             if prop is None:
@@ -1608,6 +1609,7 @@ class SpliceUndoCmd(Cmd):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
+
         if node:
             prop = node.form.props.get(name)
             if prop is None:
@@ -1622,6 +1624,7 @@ class SpliceUndoCmd(Cmd):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
+
         if node:
             for tag in node.tags.keys():
                 runt.reqLayerAllowed(('tag:del', *tag.split('.')))
@@ -1633,6 +1636,7 @@ class SpliceUndoCmd(Cmd):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
+
         if node is None:
             form = splice.props.get('form')
             valu = splice.props.get('valu')
@@ -1645,6 +1649,7 @@ class SpliceUndoCmd(Cmd):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
+
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
@@ -1656,6 +1661,7 @@ class SpliceUndoCmd(Cmd):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
+
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
@@ -1671,6 +1677,7 @@ class SpliceUndoCmd(Cmd):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
+
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
@@ -1690,6 +1697,7 @@ class SpliceUndoCmd(Cmd):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
+
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
@@ -1710,6 +1718,10 @@ class SpliceUndoCmd(Cmd):
 
         i = 0
         async for node, path in genr:
+
+            if not node.form.name == 'syn:splice':
+                mesg='splice.undo only accepts syn:splice nodes'
+                raise s_exc.StormRuntimeError(mesg=mesg, form=node.form.name)
 
             if False:
                 yield None
