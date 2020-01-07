@@ -3,6 +3,7 @@ import signal
 import asyncio
 import logging
 
+import synapse.exc as s_exc
 import synapse.lib.spawn as s_spawn
 
 import synapse.tests.utils as s_test
@@ -184,14 +185,141 @@ class CoreSpawnTest(s_test.SynTest):
             'storm:log:level': logging.INFO,
         }
 
+        # Largely mimics test_storm_lib_queue
         async with self.getTestCore(conf=conf) as core:
-            await core.nodes('queue.add visi')
+            opts = {'spawn': True}
+
             async with core.getLocalProxy() as prox:
 
-                opts = {'spawn': True}
+                msgs = await prox.storm('queue.add visi', opts=opts).list()
+                self.stormIsInPrint('queue added: visi', msgs)
+
+                with self.raises(s_exc.DupName):
+                    await core.nodes('queue.add visi')
 
                 msgs = await prox.storm('queue.list', opts=opts).list()
+                self.stormIsInPrint('Storm queue list:', msgs)
                 self.stormIsInPrint('visi', msgs)
+
+                # Make a node and put it into the queue
+                q = '$q = $lib.queue.get(visi) [ inet:ipv4=1.2.3.4 ] $q.put( $node.repr() )'
+                nodes = await core.nodes(q)
+                self.len(1, nodes)
+
+                await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+
+                q = '$q = $lib.queue.get(visi) ($offs, $ipv4) = $q.get(0) inet:ipv4=$ipv4'
+                msgs = await prox.storm(q, opts=opts).list()
+
+                podes = [m[1] for m in msgs if m[0] == 'node']
+                self.len(1, podes)
+                self.eq(podes[0][0], ('inet:ipv4', 0x01020304))
+
+                # test iter use case
+                q = '$q = $lib.queue.add(blah) [ inet:ipv4=1.2.3.4 inet:ipv4=5.5.5.5 ] $q.put( $node.repr() )'
+                nodes = await core.nodes(q)
+                self.len(2, nodes)
+
+                await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+
+                msgs = await prox.storm('''
+                    $q = $lib.queue.get(blah)
+                    for ($offs, $ipv4) in $q.gets(0, cull=0, wait=0) {
+                        inet:ipv4=$ipv4
+                    }
+                ''', opts=opts).list()
+                podes = [m[1] for m in msgs if m[0] == 'node']
+                self.len(2, podes)
+
+                msgs = await prox.storm('''
+                    $q = $lib.queue.get(blah)
+                    for ($offs, $ipv4) in $q.gets(wait=0) {
+                        inet:ipv4=$ipv4
+                        $q.cull($offs)
+                    }
+                ''', opts=opts).list()
+                podes = [m[1] for m in msgs if m[0] == 'node']
+                self.len(2, podes)
+
+                q = '''$q = $lib.queue.get(blah)
+                for ($offs, $ipv4) in $q.gets(wait=0) {
+                    inet:ipv4=$ipv4
+                }'''
+                msgs = await prox.storm(q, opts=opts).list()
+                podes = [m[1] for m in msgs if m[0] == 'node']
+                self.len(0, podes)
+
+                msgs = await prox.storm('queue.del visi', opts=opts).list()
+                self.stormIsInPrint('queue removed: visi', msgs)
+
+                with self.raises(s_exc.NoSuchName):
+                    await core.nodes('queue.del visi')
+
+                msgs = await prox.storm('$lib.queue.get(newp).get()', opts=opts).list()
+                # err = msgs[-2]
+                errs = [m[1] for m in msgs if m[0] == 'err']
+                self.len(1, errs)
+                self.eq(errs[0][0], 'NoSuchName')
+
+                # Attempting to use a queue to make nodes in spawn town fails.
+                await core.nodes('''
+                    $doit = $lib.queue.add(doit)
+                    $doit.puts((foo,bar))
+                ''')
+                q = 'for ($offs, $name) in $lib.queue.get(doit).gets(size=2) { [test:str=$name] }'
+                msgs = await prox.storm(q, opts=opts).list()
+                errs = [m[1] for m in msgs if m[0] == 'err']
+                self.len(1, errs)
+                self.eq(errs[0][0], 'IsReadOnly')
+
+            # test other users who have access to this queue can do things to it
+            async with core.getLocalProxy() as root:
+                # add users
+                await root.addAuthUser('synapse')
+                await root.addAuthUser('wootuser')
+
+                synu = core.auth.getUserByName('synapse')
+                woot = core.auth.getUserByName('wootuser')
+
+                await core.spawnpool.bump()
+
+                async with core.getLocalProxy(user='synapse') as prox:
+                    msgs = await prox.storm('queue.add synq', opts=opts).list()
+                    errs = [m[1] for m in msgs if m[0] == 'err']
+                    self.len(1, errs)
+                    self.eq(errs[0][0], 'AuthDeny')
+                    # # make a queue
+                    # with self.raises(s_exc.AuthDeny):
+                    #     await core.nodes('', user=synu)
+            #
+            #     rule = (True, ('storm', 'queue', 'add'))
+            #     await root.addAuthRule('synapse', rule, indx=None)
+            #     msgs = await alist(core.streamstorm('queue.add synq', user=synu))
+            #     self.stormIsInPrint('queue added: synq', msgs)
+            #
+            #     rule = (True, ('storm', 'queue', 'synq', 'put'))
+            #     await root.addAuthRule('synapse', rule, indx=None)
+            #
+            #     await core.nodes('$q = $lib.queue.get(synq) $q.puts((bar, baz))', user=synu)
+            #
+            #     # now let's see our other user fail to add things
+            #     with self.raises(s_exc.AuthDeny):
+            #         await core.nodes('$lib.queue.get(synq).get()', user=woot)
+            #
+            #     rule = (True, ('storm', 'queue', 'synq', 'get'))
+            #     await root.addAuthRule('wootuser', rule, indx=None)
+            #
+            #     msgs = await alist(core.streamstorm('$lib.print($lib.queue.get(synq).get(wait=False))'))
+            #     self.stormIsInPrint("(0, 'bar')", msgs)
+            #
+            #     with self.raises(s_exc.AuthDeny):
+            #         await core.nodes('$lib.queue.del(synq)', user=woot)
+            #
+            #     rule = (True, ('storm', 'queue', 'del', 'synq'))
+            #     await root.addAuthRule('wootuser', rule, indx=None)
+            #     await core.nodes('$lib.queue.del(synq)', user=woot)
+            #     with self.raises(s_exc.NoSuchName):
+            #         await core.nodes('$lib.queue.get(synq)')
 
     async def test_model_extensions(self):
         self.skip('Model extensions not supported for spawn.')

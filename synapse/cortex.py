@@ -782,8 +782,8 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.getCoreQueues()
 
     @s_cell.adminapi
-    async def coreQueueGets(self, name, offs=0, wait=True, cull=True, size=None):
-        async for item in self.cell.coreQueueGets(name, offs=offs, wait=wait, cull=cull, size=size):
+    async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
+        async for item in self.cell.getsCoreQueue(name, offs=offs, wait=wait, cull=cull, size=size):
             yield item
 
     @s_cell.adminapi
