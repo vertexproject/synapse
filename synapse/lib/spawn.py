@@ -28,6 +28,26 @@ import synapse.lib.grammar as s_grammar
 
 logger = logging.getLogger(__name__)
 
+async def storm(core, item):
+    useriden = item.get('user')
+    viewiden = item.get('view')
+
+    storminfo = item.get('storm')
+
+    opts = storminfo.get('opts')
+    text = storminfo.get('query')
+
+    user = core.auth.user(useriden)
+    if user is None:
+        raise s_exc.NoSuchUser(iden=useriden)
+
+    view = core.views.get(viewiden)
+    if view is None:
+        raise s_exc.NoSuchView(iden=viewiden)
+
+    async for mesg in view.streamstorm(text, opts=opts, user=user):
+        yield mesg
+
 def corework(spawninfo, todo, done):
 
     # This logging call is okay to run since we're executing in
@@ -40,27 +60,6 @@ def corework(spawninfo, todo, done):
 
         async with await SpawnCore.anit(spawninfo) as core:
 
-            async def storm(item):
-
-                useriden = item.get('user')
-                viewiden = item.get('view')
-
-                storminfo = item.get('storm')
-
-                opts = storminfo.get('opts')
-                text = storminfo.get('query')
-
-                user = core.auth.user(useriden)
-                if user is None:
-                    raise s_exc.NoSuchUser(iden=useriden)
-
-                view = core.views.get(viewiden)
-                if view is None:
-                    raise s_exc.NoSuchView(iden=viewiden)
-
-                async for mesg in view.streamstorm(text, opts=opts, user=user):
-                    yield mesg
-
             while not core.isfini:
 
                 item = await s_coro.executor(todo.get)
@@ -69,7 +68,7 @@ def corework(spawninfo, todo, done):
 
                 link = await s_link.fromspawn(item.get('link'))
 
-                await s_daemon.t2call(link, storm, (item,), {})
+                await s_daemon.t2call(link, storm, (core, item,), {})
 
                 wasfini = link.isfini
 
