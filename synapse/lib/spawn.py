@@ -406,4 +406,5 @@ class SpawnCore(s_base.Base):
     async def getStormPkgs(self):
         return await self.prox.getStormPkgs()
 
-    # TODO: Add Dmon management functions
+    # TODO: Add Dmon management functions ($lib.dmon support)
+    # TODO: Add Axon management functions ($lib.bytes support)

@@ -90,6 +90,25 @@ class CoreSpawnTest(s_test.SynTest):
                 msgs = await prox.storm(q, opts=marsopts).list()
                 self.stormIsInPrint("hello mars", msgs)
 
+                # Model deference off of the snap via stormtypes
+                q = '''$valu=$lib.time.format('200103040516', '%Y %m %d')
+                $lib.print($valu)
+                '''
+                msgs = await prox.storm(q, opts=opts).list()
+                self.stormIsInPrint('2001 03 04', msgs)
+
+                # Test sleeps / fires from a spawnproc
+                q = '''$tick=$lib.time.now()
+                $lib.time.sleep(0.1)
+                $tock=$lib.time.now()
+                $lib.fire(took, tick=$tick, tock=$tock)
+                '''
+                msgs = await prox.storm(q, opts=opts).list()
+                fires = [m[1] for m in msgs if m[0] == 'storm:fire']
+                self.len(1, fires)
+                fire_data = fires[0].get('data')
+                self.ne(fire_data.get('tick'), fire_data.get('tock'))
+
                 # Add a stormpkg - this should fini the spawnpool spawnprocs
                 procs = [p for p in core.spawnpool.spawns.values()]
                 self.isin(len(procs), (1, 2, 3))
