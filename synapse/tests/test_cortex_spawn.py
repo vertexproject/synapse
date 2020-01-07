@@ -259,8 +259,9 @@ class CoreSpawnTest(s_test.SynTest):
                 evnt = asyncio.Event()
                 msgs = {'msgs': []}
 
+                tf2opts = {'spawn': True, 'vars': {'hehe': 'haha'}}
                 async def taskfunc2():
-                    async for mesg in prox.storm('test:int=1 | sleep 15', opts=opts):
+                    async for mesg in prox.storm('test:int=1 | sleep 15', opts=tf2opts):
                         msgs['msgs'].append(mesg)
                         if mesg[0] == 'node':
                             evnt.set()
@@ -273,6 +274,10 @@ class CoreSpawnTest(s_test.SynTest):
                 new_idens = [task.get('iden') for task in tasks]
                 self.len(1, new_idens)
                 await prox.kill(new_idens[0])
+
+                # Ensure that opts were passed into the task data without spawn: True set
+                task = [task for task in tasks if task.get('iden') == new_idens[0]][0]
+                self.eq(task.get('info').get('opts'), {'vars': {'hehe': 'haha'}})
 
                 # Ensure the task cancellation tore down the spawnproc
                 self.true(await victimproc.waitfini(6))

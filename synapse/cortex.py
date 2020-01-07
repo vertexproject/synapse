@@ -538,9 +538,12 @@ class CoreApi(s_cell.CellApi):
                 }
             }
 
+            tnfo = {'query': text}
+            if opts:
+                tnfo['opts'] = opts
             await self.cell.boss.promote('storm:spawn',
                                          user=self.user,
-                                         info={'query': text})
+                                         info=tnfo)
             proc = None
             mesg = 'Spawn complete'
             try:
