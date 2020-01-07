@@ -15,11 +15,12 @@ import synapse.tests.utils as s_test
 
 logger = logging.getLogger(__name__)
 
-def make_core(dirn, conf, queue, event):
+def make_core(dirn, conf, queries, queue, event):
     async def workloop():
         s_glob.iAmLoop()
         async with await s_cortex.Cortex.anit(dirn=dirn, conf=conf) as core:
-            await core.nodes('[test:str="Cortex from the aether!"]')
+            for q in queries:
+                await core.nodes(q)
             await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
             spawninfo = await core.getSpawnInfo()
             queue.put(spawninfo)
@@ -41,8 +42,11 @@ class CoreSpawnTest(s_test.SynTest):
             'storm:log:level': logging.INFO,
             'modules': [('synapse.tests.utils.TestModule', {})],
         }
+        queries = [
+            '[test:str="Cortex from the aether!"]',
+        ]
         with self.getTestDir() as dirn:
-            args = (dirn, conf, queue, event)
+            args = (dirn, conf, queries, queue, event)
             proc = mpctx.Process(target=make_core, args=args)
             proc.start()
             spawninfo = queue.get(timeout=30)
