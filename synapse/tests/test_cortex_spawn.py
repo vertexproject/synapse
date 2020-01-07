@@ -281,27 +281,23 @@ class CoreSpawnTest(s_test.SynTest):
                 synu = core.auth.getUserByName('synapse')
                 woot = core.auth.getUserByName('wootuser')
 
-                await core.spawnpool.bump()
-
                 async with core.getLocalProxy(user='synapse') as prox:
                     msgs = await prox.storm('queue.add synq', opts=opts).list()
                     errs = [m[1] for m in msgs if m[0] == 'err']
                     self.len(1, errs)
                     self.eq(errs[0][0], 'AuthDeny')
-                    # # make a queue
-                    # with self.raises(s_exc.AuthDeny):
-                    #     await core.nodes('', user=synu)
-            #
-            #     rule = (True, ('storm', 'queue', 'add'))
-            #     await root.addAuthRule('synapse', rule, indx=None)
-            #     msgs = await alist(core.streamstorm('queue.add synq', user=synu))
-            #     self.stormIsInPrint('queue added: synq', msgs)
-            #
-            #     rule = (True, ('storm', 'queue', 'synq', 'put'))
-            #     await root.addAuthRule('synapse', rule, indx=None)
-            #
-            #     await core.nodes('$q = $lib.queue.get(synq) $q.puts((bar, baz))', user=synu)
-            #
+
+                    rule = (True, ('storm', 'queue', 'add'))
+                    await root.addAuthRule('synapse', rule, indx=None)
+                    msgs = await prox.storm('queue.add synq', opts=opts).list()
+                    self.stormIsInPrint('queue added: synq', msgs)
+
+                    rule = (True, ('storm', 'queue', 'synq', 'put'))
+                    await root.addAuthRule('synapse', rule, indx=None)
+
+                    q = '$q = $lib.queue.get(synq) $q.puts((bar, baz))'
+                    msgs = await prox.storm(q, opts=opts).list()
+
             #     # now let's see our other user fail to add things
             #     with self.raises(s_exc.AuthDeny):
             #         await core.nodes('$lib.queue.get(synq).get()', user=woot)

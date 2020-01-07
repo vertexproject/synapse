@@ -992,14 +992,15 @@ class Cortex(s_cell.Cell):
 
         self.spawnpool = await s_spawn.SpawnPool.anit(self)
         self.onfini(self.spawnpool)
+        self.on('user:mod', self._onEvtBumpSpawnPool)
+
+    async def _onEvtBumpSpawnPool(self, evnt):
+        print(evnt)
+        await self.bumpSpawnPool()
 
     async def bumpSpawnPool(self):
         if self.spawnpool is not None:
             await self.spawnpool.bump()
-
-    async def killSpawnPool(self):
-        if self.spawnpool is not None:
-            await self.spawnpool.kill()
 
     async def getSpawnInfo(self):
         return {
