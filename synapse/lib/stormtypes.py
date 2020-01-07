@@ -94,7 +94,7 @@ class Lib(StormType):
 
         path = self.name + (name,)
 
-        slib = self.runt.snap.core.getStormLib(path)
+        slib = await self.runt.snap.getStormLib(path)
         if slib is None:
             raise s_exc.NoSuchName(name=name)
 
@@ -112,14 +112,14 @@ class LibPkg(Lib):
 
     async def _libPkgAdd(self, pkgdef):
         self.runt.reqAllowed(('storm', 'pkg', 'add'))
-        await self.runt.snap.core.addStormPkg(pkgdef)
+        await self.runt.snap.addStormPkg(pkgdef)
 
     async def _libPkgDel(self, name):
         self.runt.reqAllowed(('storm', 'pkg', 'del'))
-        return await self.runt.snap.core.delStormPkg(name)
+        return await self.runt.snap.delStormPkg(name)
 
     async def _libPkgList(self):
-        return await self.runt.snap.core.getStormPkgs()
+        return await self.runt.snap.getStormPkgs()
 
 class LibDmon(Lib):
 
@@ -132,7 +132,7 @@ class LibDmon(Lib):
 
     async def _libDmonDel(self, iden):
 
-        dmon = await self.runt.snap.core.getStormDmon(iden)
+        dmon = await self.runt.snap.getStormDmon(iden)
         if dmon is None:
             mesg = f'No storm dmon with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -140,10 +140,10 @@ class LibDmon(Lib):
         if dmon.ddef.get('user') != self.runt.user.iden:
             self.runt.reqAllowed(('storm', 'dmon', 'del', iden))
 
-        await self.runt.snap.core.delStormDmon(iden)
+        await self.runt.snap.delStormDmon(iden)
 
     async def _libDmonList(self):
-        dmons = await self.runt.snap.core.getStormDmons()
+        dmons = await self.runt.snap.getStormDmons()
         return [d.pack() for d in dmons]
 
     async def _libDmonAdd(self, quer, name='noname'):
@@ -166,7 +166,7 @@ class LibDmon(Lib):
             'stormopts': opts,
         }
 
-        dmon = await self.runt.snap.core.addStormDmon(ddef)
+        dmon = await self.runt.snap.addStormDmon(ddef)
 
         return dmon.pack()
 
@@ -188,16 +188,16 @@ class LibService(Lib):
             'name': name,
             'url': url,
         }
-        ssvc = await self.runt.snap.core.addStormSvc(sdef)
+        ssvc = await self.runt.snap.addStormSvc(sdef)
         return ssvc.sdef
 
     async def _libSvcDel(self, iden):
         self.runt.reqAllowed(('storm', 'service', 'del'))
-        return await self.runt.snap.core.delStormSvc(iden)
+        return await self.runt.snap.delStormSvc(iden)
 
     async def _libSvcGet(self, name):
         self.runt.reqAllowed(('storm', 'service', 'get', name))
-        ssvc = self.runt.snap.core.getStormSvc(name)
+        ssvc = self.runt.snap.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
@@ -207,7 +207,7 @@ class LibService(Lib):
         self.runt.reqAllowed(('storm', 'service', 'list'))
         retn = []
 
-        for ssvc in self.runt.snap.core.getStormSvcs():
+        for ssvc in self.runt.snap.getStormSvcs():
             sdef = dict(ssvc.sdef)
             sdef['ready'] = ssvc.ready.is_set()
             retn.append(sdef)
@@ -216,7 +216,7 @@ class LibService(Lib):
 
     async def _libSvcWait(self, name):
         self.runt.reqAllowed(('storm', 'service', 'get'))
-        ssvc = self.runt.snap.core.getStormSvc(name)
+        ssvc = self.runt.snap.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
@@ -362,8 +362,9 @@ class LibBytes(Lib):
             mesg = '$lib.bytes.put() requires a bytes argument'
             raise s_exc.BadArg(mesg=mesg)
 
-        await self.runt.snap.core.axready.wait()
-        size, sha2 = await self.runt.snap.core.axon.put(byts)
+        axon = await self.runt.snap.getCoreAxon()
+        size, sha2 = await axon.put(byts)
+
         return (size, s_common.ehex(sha2))
 
 class LibTime(Lib):
@@ -499,7 +500,7 @@ class LibFeed(Lib):
             return self.runt.snap.addFeedNodes(name, data)
 
     async def _libList(self):
-        return await self.runt.snap.core.getFeedFuncs()
+        return await self.runt.snap.getFeedFuncs()
 
     async def _libIngest(self, name, data, seqn=None):
         '''
@@ -539,43 +540,34 @@ class LibQueue(Lib):
         })
 
     async def _methQueueAdd(self, name):
-
         self.runt.reqAllowed(('storm', 'queue', 'add'))
-
-        info = self.runt.snap.core.multiqueue.queues.get(name)
-        if info is not None:
-            mesg = f'A queue named {name} already exists.'
-            raise s_exc.DupName(mesg=mesg)
-
-        info = {'user': self.runt.user.iden, 'time': s_common.now()}
-        self.runt.snap.core.multiqueue.add(name, info)
-
+        info = await self.runt.snap.addCoreQueue(name, {})
         return Queue(self.runt, name, info)
 
     async def _methQueueGet(self, name):
 
-        info = self.runt.snap.core.multiqueue.queues.get(name)
+        info = await self.runt.snap.getCoreQueue(name)
         if info is None:
             mesg = f'No queue named {name}.'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
 
         return Queue(self.runt, name, info)
 
-    async def _methQueueDel(self, name, allow=()):
+    async def _methQueueDel(self, name):
 
-        info = self.runt.snap.core.multiqueue.queues.get(name)
-        if info is None:
+        if not await self.runt.snap.hasCoreQueue(name):
             mesg = f'No queue named {name} exists.'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
 
-        if info.get('user') != self.runt.user.iden:
-            self.runt.reqAllowed(('storm', 'queue', 'del', name))
+        info = await self.runt.snap.getCoreQueue(name)
 
-        await self.runt.snap.core.multiqueue.rem(name)
+        if (info.get('user') == self.runt.user.iden or
+            self.runt.reqAllowed(('storm', 'queue', 'del', name))):
+            await self.runt.snap.delCoreQueue(name)
 
     async def _methQueueList(self):
         self.runt.reqAllowed(('storm', 'lib', 'queue', 'list'))
-        return self.runt.snap.core.multiqueue.list()
+        return await self.runt.snap.getCoreQueues()
 
 class Queue(StormType):
     '''
@@ -598,15 +590,14 @@ class Queue(StormType):
         })
 
     async def _methQueueCull(self, offs):
-        await self.reqAllowed(('storm', 'queue', self.name, 'get'))
+        self.reqAllowed(('storm', 'queue', self.name, 'get'))
 
         offs = intify(offs)
-
-        await self.runt.snap.core.multiqueue.cull(self.name, offs)
+        await self.runt.snap.cullCoreQueue(self.name, offs)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=True, size=None):
 
-        await self.reqAllowed(('storm', 'queue', self.name, 'get'))
+        self.reqAllowed(('storm', 'queue', self.name, 'get'))
 
         wait = intify(wait)
         cull = intify(cull)
@@ -615,36 +606,32 @@ class Queue(StormType):
         if size is not None:
             size = intify(size)
 
-        mque = self.runt.snap.core.multiqueue
-
-        async for item in mque.gets(self.name, offs, cull=cull, wait=wait, size=size):
+        async for item in self.runt.snap.getsCoreQueue(self.name, offs, cull=cull, wait=wait, size=size):
             yield item
 
     async def _methQueuePuts(self, items, wait=False):
-        await self.reqAllowed(('storm', 'queue', self.name, 'put'))
-        return self.runt.snap.core.multiqueue.puts(self.name, items)
+        self.reqAllowed(('storm', 'queue', self.name, 'put'))
+        return await self.runt.snap.putsCoreQueue(self.name, items)
 
-    async def reqAllowed(self, perm):
+    def reqAllowed(self, perm):
         if self.info.get('user') == self.runt.user.iden:
             return
         self.runt.reqAllowed(perm)
 
     async def _methQueueGet(self, offs=0, wait=True, cull=True):
 
-        await self.reqAllowed(('storm', 'queue', self.name, 'get'))
+        self.reqAllowed(('storm', 'queue', self.name, 'get'))
 
         offs = intify(offs)
         wait = intify(wait)
         cull = intify(cull)
 
-        mque = self.runt.snap.core.multiqueue
-
-        async for item in mque.gets(self.name, offs, cull=cull, wait=wait):
+        async for item in self.runt.snap.getsCoreQueue(self.name, offs, cull=cull, wait=wait):
             return item
 
     async def _methQueuePut(self, item):
-        await self.reqAllowed(('storm', 'queue', self.name, 'put'))
-        return self.runt.snap.core.multiqueue.put(self.name, item)
+        self.reqAllowed(('storm', 'queue', self.name, 'put'))
+        return await self.runt.snap.putCoreQueue(self.name, item)
 
 class LibTelepath(Lib):
 
@@ -994,7 +981,7 @@ class LibGlobals(Lib):
     Global persistent Storm variables
     '''
     def __init__(self, runt, name):
-        self._stormvars = runt.snap.core.stormvars
+        self._stormvars = runt.snap.getStormVars()
         Lib.__init__(self, runt, name)
 
     def addLibFuncs(self):
