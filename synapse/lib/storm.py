@@ -1587,20 +1587,18 @@ class SpliceUndoCmd(Cmd):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
-        if node is None:
-            return
+        if node:
+            prop = node.form.props.get(name)
+            if prop is None:
+                raise s_exc.NoSuchProp(name=name, form=node.form.name)
 
-        prop = node.form.props.get(name)
-        if prop is None:
-            raise s_exc.NoSuchProp(name=name, form=node.form.name)
-
-        oldv = splice.props.get('oldv')
-        if oldv:
-            runt.reqLayerAllowed(('prop:set', prop.full))
-            await node.set(name, oldv)
-        else:
-            runt.reqLayerAllowed(('prop:del', prop.full))
-            await node.pop(name)
+            oldv = splice.props.get('oldv')
+            if oldv:
+                runt.reqLayerAllowed(('prop:set', prop.full))
+                await node.set(name, oldv)
+            else:
+                runt.reqLayerAllowed(('prop:del', prop.full))
+                await node.pop(name)
 
     async def undoPropDel(self, runt, splice):
 
@@ -1610,112 +1608,98 @@ class SpliceUndoCmd(Cmd):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
-        if node is None:
-            return
+        if node:
+            prop = node.form.props.get(name)
+            if prop is None:
+                raise s_exc.NoSuchProp(name=name, form=node.form.name)
 
-        prop = node.form.props.get(name)
-        if prop is None:
-            raise s_exc.NoSuchProp(name=name, form=node.form.name)
+            valu = splice.props.get('valu')
 
-        valu = splice.props.get('valu')
-
-        runt.reqLayerAllowed(('prop:set', prop.full))
-        await node.set(name, valu)
+            runt.reqLayerAllowed(('prop:set', prop.full))
+            await node.set(name, valu)
 
     async def undoNodeAdd(self, runt, splice):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
-        if node is None:
-            return
+        if node:
+            for tag in node.tags.keys():
+                runt.reqLayerAllowed(('tag:del', *tag.split('.')))
 
-        for tag in node.tags.keys():
-            runt.reqLayerAllowed(('tag:del', *tag.split('.')))
-
-        runt.reqLayerAllowed(('node:del', node.form.name))
-        await node.delete(force=self.opts.force)
+            runt.reqLayerAllowed(('node:del', node.form.name))
+            await node.delete(force=self.opts.force)
 
     async def undoNodeDel(self, runt, splice):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
-        if node is not None:
-            return
+        if node is None:
+            form = splice.props.get('form')
+            valu = splice.props.get('valu')
 
-        form = splice.props.get('form')
-        valu = splice.props.get('valu')
-
-        if form and valu:
-            runt.reqLayerAllowed(('node:add', form))
-            await runt.snap.addNode(form, valu)
+            if form and valu:
+                runt.reqLayerAllowed(('node:add', form))
+                await runt.snap.addNode(form, valu)
 
     async def undoTagAdd(self, runt, splice):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
-        if node is None:
-            return
+        if node:
+            tag = splice.props.get('tag')
+            parts = tag.split('.')
+            runt.reqLayerAllowed(('tag:del', *parts))
 
-        tag = splice.props.get('tag')
-        parts = tag.split('.')
-        runt.reqLayerAllowed(('tag:del', *parts))
-
-        await node.delTag(tag)
+            await node.delTag(tag)
 
     async def undoTagDel(self, runt, splice):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
-        if node is None:
-            return
+        if node:
+            tag = splice.props.get('tag')
+            parts = tag.split('.')
+            runt.reqLayerAllowed(('tag:add', *parts))
 
-        tag = splice.props.get('tag')
-        parts = tag.split('.')
-        runt.reqLayerAllowed(('tag:add', *parts))
-
-        valu = splice.props.get('valu')
-        if valu:
-            await node.addTag(tag, valu=valu)
-        else:
-            await node.addTag(tag)
+            valu = splice.props.get('valu')
+            if valu:
+                await node.addTag(tag, valu=valu)
+            else:
+                await node.addTag(tag)
 
     async def undoTagPropSet(self, runt, splice):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
-        if node is None:
-            return
-
-        tag = splice.props.get('tag')
-        parts = tag.split('.')
-        runt.reqLayerAllowed(('tag:del', *parts))
-
-        prop = splice.props.get('prop')
-
-        oldv = splice.props.get('oldv')
-        if oldv:
-            runt.reqLayerAllowed(('tag:add', *parts))
-            await node.setTagProp(tag, prop, oldv)
-        else:
+        if node:
+            tag = splice.props.get('tag')
+            parts = tag.split('.')
             runt.reqLayerAllowed(('tag:del', *parts))
-            await node.delTagProp(tag, prop)
+
+            prop = splice.props.get('prop')
+
+            oldv = splice.props.get('oldv')
+            if oldv:
+                runt.reqLayerAllowed(('tag:add', *parts))
+                await node.setTagProp(tag, prop, oldv)
+            else:
+                runt.reqLayerAllowed(('tag:del', *parts))
+                await node.delTagProp(tag, prop)
 
     async def undoTagPropDel(self, runt, splice):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
-        if node is None:
-            return
+        if node:
+            tag = splice.props.get('tag')
+            parts = tag.split('.')
+            runt.reqLayerAllowed(('tag:add', *parts))
 
-        tag = splice.props.get('tag')
-        parts = tag.split('.')
-        runt.reqLayerAllowed(('tag:add', *parts))
+            prop = splice.props.get('prop')
 
-        prop = splice.props.get('prop')
-
-        valu = splice.props.get('valu')
-        if valu:
-            await node.setTagProp(tag, prop, valu)
+            valu = splice.props.get('valu')
+            if valu:
+                await node.setTagProp(tag, prop, valu)
 
     async def execStormCmd(self, runt, genr):
 

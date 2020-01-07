@@ -720,7 +720,7 @@ class StormTest(s_t_utils.SynTest):
                 nodes = await alist(asvisi.eval("[ test:str=foo ]"))
                 await asyncio.sleep(0.01)
 
-                mesgs = await alist(asvisi.storm("[ test:str=bar ]"))
+                mesgs = await alist(asvisi.storm("[ test:str=bar +#test ]"))
                 tick = mesgs[0][1]['tick']
                 tock = mesgs[-1][1]['tock']
 
@@ -886,3 +886,7 @@ class StormTest(s_t_utils.SynTest):
 
                 nodes = await alist(asvisi.eval("test:str=foo"))
                 self.eq(tagv, nodes[0][1]['tagprops']['rep'].get('risk'))
+
+                # must be admin to use --force for node deletion
+                q = f'splice.list | limit 1 | splice.undo --force'
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
