@@ -2688,14 +2688,20 @@ class EditUnivDel(Edit):
 class EditTagAdd(Edit):
 
     async def run(self, runt, genr):
+        if len(self.kids) > 1 and isinstance(self.kids[0], Const) and self.kids[0].value() == '?':
+            oper_offset = 1
+        else:
+            oper_offset = 0
 
-        hasval = len(self.kids) > 1
+        excignore = (s_exc.BadTypeValu, s_exc.BadPropValu) if oper_offset == 1 else ()
+
+        hasval = len(self.kids) > 1 + oper_offset
 
         valu = (None, None)
 
         async for node, path in genr:
 
-            names = await self.kids[0].compute(path)
+            names = await self.kids[oper_offset].compute(path)
             if not isinstance(names, list):
                 names = [names]
 
@@ -2705,9 +2711,11 @@ class EditTagAdd(Edit):
                 runt.reqLayerAllowed(('tag:add', *parts))
 
                 if hasval:
-                    valu = await self.kids[1].compute(path)
-
-                await node.addTag(name, valu=valu)
+                    valu = await self.kids[1 + oper_offset].compute(path)
+                try:
+                    await node.addTag(name, valu=valu)
+                except excignore:
+                    pass
 
             yield node, path
 
