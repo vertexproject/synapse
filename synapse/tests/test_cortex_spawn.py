@@ -297,24 +297,36 @@ class CoreSpawnTest(s_test.SynTest):
                     q = '$q = $lib.queue.get(synq) $q.puts((bar, baz))'
                     msgs = await prox.storm(q, opts=opts).list()
 
-            #     # now let's see our other user fail to add things
-            #     with self.raises(s_exc.AuthDeny):
-            #         await core.nodes('$lib.queue.get(synq).get()', user=woot)
-            #
-            #     rule = (True, ('storm', 'queue', 'synq', 'get'))
-            #     await root.addAuthRule('wootuser', rule, indx=None)
-            #
-            #     msgs = await alist(core.streamstorm('$lib.print($lib.queue.get(synq).get(wait=False))'))
-            #     self.stormIsInPrint("(0, 'bar')", msgs)
-            #
-            #     with self.raises(s_exc.AuthDeny):
-            #         await core.nodes('$lib.queue.del(synq)', user=woot)
-            #
-            #     rule = (True, ('storm', 'queue', 'del', 'synq'))
-            #     await root.addAuthRule('wootuser', rule, indx=None)
-            #     await core.nodes('$lib.queue.del(synq)', user=woot)
-            #     with self.raises(s_exc.NoSuchName):
-            #         await core.nodes('$lib.queue.get(synq)')
+                    # Ensure that the data was put into the queue by the spawnproc
+                    q = '$q = $lib.queue.get(synq) $lib.print($q.get(wait=False, cull=False))'
+                    msgs = await core.streamstorm(q).list()
+                    self.stormIsInPrint("(0, 'bar')", msgs)
+
+                async with core.getLocalProxy(user='wootuser') as prox:
+                    # now let's see our other user fail to add things
+                    msgs = await prox.storm('$lib.queue.get(synq).get()', opts=opts).list()
+                    errs = [m[1] for m in msgs if m[0] == 'err']
+                    self.len(1, errs)
+                    self.eq(errs[0][0], 'AuthDeny')
+
+                    rule = (True, ('storm', 'queue', 'synq', 'get'))
+                    await root.addAuthRule('wootuser', rule, indx=None)
+
+                    q = '$lib.print($lib.queue.get(synq).get(wait=False))'
+                    msgs = await prox.storm(q, opts=opts).list()
+                    self.stormIsInPrint("(0, 'bar')", msgs)
+
+                    msgs = await prox.storm('$lib.queue.del(synq)', opts=opts).list()
+                    errs = [m[1] for m in msgs if m[0] == 'err']
+                    self.len(1, errs)
+                    self.eq(errs[0][0], 'AuthDeny')
+
+                    rule = (True, ('storm', 'queue', 'del', 'synq'))
+                    await root.addAuthRule('wootuser', rule, indx=None)
+
+                    msgs = await prox.storm('$lib.queue.del(synq)', opts=opts).list()
+                    with self.raises(s_exc.NoSuchName):
+                        await core.nodes('$lib.queue.get(synq)')
 
     async def test_model_extensions(self):
         self.skip('Model extensions not supported for spawn.')

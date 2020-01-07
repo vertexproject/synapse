@@ -364,24 +364,31 @@ class SpawnCore(s_base.Base):
         return root
 
     # Queue APIs
-    async def getCoreQueues(self):
-        return await self.prox.getCoreQueues()
-
     async def addCoreQueue(self, name, info):
         return await self.prox.addCoreQueue(name, info)
 
+    async def hasCoreQueue(self, name):
+        return await self.prox.hasCoreQueue(name)
+
+    async def delCoreQueue(self, name):
+        return await self.prox.delCoreQueue(name)
+
     async def getCoreQueue(self, name):
         return await self.prox.getCoreQueue(name)
+
+    async def getCoreQueues(self):
+        return await self.prox.getCoreQueues()
 
     async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
         async for item in self.prox.getsCoreQueue(name, offs, cull=cull, wait=wait, size=size):
             yield item
 
+    # TODO: Add a put test...
+    async def putCoreQueue(self, name, item):
+        return await self.cell.putCoreQueue(name, item)
+
+    async def putsCoreQueue(self, name, items):
+        return await self.prox.putsCoreQueue(name, items)
+
     async def cullCoreQueue(self, name, offs):
         return await self.prox.cullCoreQueue(name, offs)
-
-    async def delCoreQueue(self, name):
-        return await self.prox.delCoreQueue(name)
-
-    async def hasCoreQueue(self, name):
-        return await self.prox.hasCoreQueue(name)
