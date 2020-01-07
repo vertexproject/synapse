@@ -1519,6 +1519,8 @@ class SpliceListCmd(Cmd):
             valu = splice[1].get('valu')
             if valu:
                 rows.append(('valu', valu))
+            elif splice[0] == 'node:del':
+                rows.append(('valu', splice[1]['ndef'][1]))
 
             curv = splice[1].get('curv')
             if curv:
@@ -1658,7 +1660,7 @@ class SpliceUndoCmd(Cmd):
         parts = tag.split('.')
         runt.reqLayerAllowed(('tag:del', *parts))
 
-        await node.delTag(name)
+        await node.delTag(tag)
 
     async def undoTagDel(self, runt, splice):
 
@@ -1673,9 +1675,9 @@ class SpliceUndoCmd(Cmd):
 
         valu = splice.props.get('valu')
         if valu:
-            await node.addTag(name, valu=valu)
+            await node.addTag(tag, valu=valu)
         else:
-            await node.addTag(name)
+            await node.addTag(tag)
 
     async def undoTagPropSet(self, runt, splice):
 
@@ -1702,12 +1704,14 @@ class SpliceUndoCmd(Cmd):
 
         buid = splice.props.get('buid')
         node = await runt.snap.getNodeByBuid(buid)
-        if node is not None:
+        if node is None:
             return
 
         tag = splice.props.get('tag')
         parts = tag.split('.')
         runt.reqLayerAllowed(('tag:add', *parts))
+
+        prop = splice.props.get('prop')
 
         valu = splice.props.get('valu')
         if valu:
