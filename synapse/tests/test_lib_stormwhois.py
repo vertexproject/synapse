@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_test
 
@@ -67,6 +68,42 @@ class StormWhoisTest(s_test.SynTest):
             guid_exp = s_common.guid(sorted((str(props['time']), props['url'], props['ipv6'])))
             self.len(1, await core.nodes(f'inet:whois:ipquery={guid_exp}'))
 
-            # TODO: Additional IPv4/IPv6 cases
+            # Random guid cases
+            props = {
+                'fqdn': 'foo.bar',
+            }
+            stormcmd = '''
+                [(inet:whois:ipquery=$lib.inet.whois.guid($props, "ipquery")
+                    :fqdn=$props.fqdn)]
+            '''
+            opts = {'vars': {'props': props}}
+            mesgs = await core.streamstorm(stormcmd, opts=opts).list()
+            warn = [m[1]['mesg'] for m in mesgs if m[0] == 'warn']
+            self.isin('Insufficient guid vals identified, using random guid:', warn[0])
+            self.len(1, await core.nodes(f'inet:whois:ipquery:fqdn={props["fqdn"]}'))
 
-            # TODO: Failure cases
+            props = {
+                'asn': 9999,
+            }
+            stormcmd = '''
+                [(inet:whois:ipcontact=$lib.inet.whois.guid($props, "ipcontact")
+                    :asn=$props.asn)]
+            '''
+            opts = {'vars': {'props': props}}
+            mesgs = await core.streamstorm(stormcmd, opts=opts).list()
+            warn = [m[1]['mesg'] for m in mesgs if m[0] == 'warn']
+            self.isin('Insufficient guid vals identified, using random guid:', warn[0])
+            self.len(1, await core.nodes(f'inet:whois:ipcontact:asn={props["asn"]}'))
+
+            # Failure cases
+            stormcmd = '''
+                [(inet:whois:ipcontact=$lib.inet.whois.guid($props, "foobar"))]
+            '''
+            opts = {'vars': {'props': {}}}
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(stormcmd, opts=opts))
+
+            stormcmd = '''
+                [(inet:whois:ipcontact=$lib.inet.whois.guid($props, "ipcontact"))]
+            '''
+            opts = {'vars': {'props': 123}}
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(stormcmd, opts=opts))

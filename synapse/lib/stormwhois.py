@@ -31,32 +31,29 @@ class LibWhois(s_stormtypes.Lib):
         '''
 
         if form == 'iprec':
-            guid_props = (
-                props.get('net4'),
-                props.get('net6'),
-                props.get('asof'),
-                props.get('id'),
-                props.get('updated'),
-            )
+            guid_props = ('net4', 'net6', 'asof', 'id')
         elif form == 'ipcontact':
-            guid_props = (
-                props.get('contact'),
-                props.get('asof'),
-                props.get('id'),
-                props.get('updated'),
-            )
+            guid_props = ('contact', 'asof', 'id', 'updated')
         elif form == 'ipquery':
-            guid_props = (
-                props.get('time'),
-                props.get('fqdn'),
-                props.get('url'),
-                props.get('ipv4'),
-                props.get('ipv6'),
-            )
+            guid_props = ('time', 'fqdn', 'url', 'ipv4', 'ipv6')
         else:
-            raise s_exc.StormRuntimeError(mesg=f'No guid helpers available for inet:whois:{form}.')
+            raise s_exc.StormRuntimeError(mesg=f'No guid helpers available for inet:whois form', form=form)
 
-        return s_common.guid(sorted(str(i) for i in guid_props if i is not None))
+        guid_vals = []
+        try:
+            for prop in guid_props:
+                val = props.get(prop)
+                if val is not None:
+                    guid_vals.append(str(val))
+        except AttributeError as e:
+            mesg = f'Failed to iterate over props {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        if len(guid_vals) <= 1:
+            await self.runt.snap.warn(f'Insufficient guid vals identified, using random guid: {guid_vals}')
+            return s_common.guid()
+
+        return s_common.guid(sorted(guid_vals))
 
     async def _whoisParse(self, data, rectype):
         # TODO: Consider adding a light parser here
