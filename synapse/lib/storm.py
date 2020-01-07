@@ -1597,7 +1597,7 @@ class SpliceUndoCmd(Cmd):
             runt.reqLayerAllowed(('prop:set', prop.full))
             await node.set(name, oldv)
         else:
-            runt.reqLayerAllowed(('prop:del', propfull))
+            runt.reqLayerAllowed(('prop:del', prop.full))
             await node.pop(name)
 
     async def undoPropDel(self, runt, splice):

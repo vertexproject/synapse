@@ -656,3 +656,124 @@ class StormTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadLiftValu):
                 await core.nodes('yield $foo', opts={'vars': {'foo': 'asdf'}})
+
+    async def test_storm_splicelist(self):
+
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            mesgs = await core.streamstorm('[ test:str=foo ]').list()
+            await asyncio.sleep(0.01)
+
+            mesgs = await core.streamstorm('[ test:str=bar ]').list()
+            tick = mesgs[0][1]['tick']
+            tock = mesgs[-1][1]['tock']
+
+            await asyncio.sleep(0.01)
+            mesgs = await core.streamstorm('[ test:str=baz ]').list()
+
+            nodes = await core.nodes(f'splice.list')
+            self.len(9, nodes)
+
+            nodes = await core.nodes(f'splice.list --mintime {tick}')
+            self.len(4, nodes)
+
+            nodes = await core.nodes(f'splice.list --maxtime {tock}')
+            self.len(7, nodes)
+
+            nodes = await core.nodes(f'splice.list --mintime {tick} --maxtime {tock}')
+            self.len(2, nodes)
+
+            await prox.addAuthUser('visi')
+            await prox.setUserPasswd('visi', 'secret')
+
+            await prox.addAuthRule('visi', (True, ('node:add',)))
+            await prox.addAuthRule('visi', (True, ('prop:set',)))
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+
+                # make sure a normal user only gets their own splices
+                nodes = await alist(asvisi.eval("[ test:str=hehe ]"))
+
+                nodes = await alist(asvisi.eval("splice.list"))
+                self.len(2, nodes)
+
+                # should get all splices now as an admin
+                await prox.setAuthAdmin('visi', True)
+
+                nodes = await alist(asvisi.eval("splice.list"))
+                self.len(11, nodes)
+
+    async def test_storm_spliceundo(self):
+
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            await core.addTagProp('risk', ('int', {'minval': 0, 'maxval': 100}), {'doc': 'risk score'})
+
+#            guid = s_common.guid()
+#
+#            await core.nodes(f'[ mat:spec={guid} :name=foo]')
+#            await core.nodes(f'mat:spec={guid} [:name=bar]')
+#            await core.nodes(f'mat:spec={guid} [+#rep:risk=50]')
+#            await core.nodes(f'mat:spec={guid} [+#rep:risk=100]')
+#            await core.nodes(f'mat:spec={guid} [-#rep:risk]')
+#            await core.nodes(f'mat:spec={guid} [+#rep=1234]')
+#            await core.nodes(f'mat:spec={guid} [+#rep=1236]')
+#            await core.nodes(f'mat:spec={guid} [-#rep]')
+
+            await prox.addAuthUser('visi')
+            await prox.setUserPasswd('visi', 'secret')
+
+            await prox.addAuthRule('visi', (True, ('node:add',)))
+            await prox.addAuthRule('visi', (True, ('prop:set',)))
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+
+                nodes = await alist(asvisi.eval("[ test:str=foo ]"))
+                await asyncio.sleep(0.01)
+
+                mesgs = await alist(asvisi.storm("[ test:str=bar ]"))
+                tick = mesgs[0][1]['tick']
+                tock = mesgs[-1][1]['tock']
+
+                await asyncio.sleep(0.01)
+                nodes = await alist(asvisi.eval("[ test:str=baz ]"))
+
+                # test undo a node add
+                nodes = await alist(asvisi.eval("test:str=bar"))
+                self.len(1, nodes)
+
+                # undo adding a node fails without node:del perms
+                q = f'splice.list --mintime {tick} --maxtime {tock} | splice.undo'
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
+
+                await prox.addAuthRule('visi', (True, ('node:del',)))
+                nodes = await alist(asvisi.eval(q))
+
+                nodes = await alist(asvisi.eval("test:str=bar"))
+                self.len(0, nodes)
+
+                # test undo adding a prop
+                nodes = await alist(asvisi.eval("test:str=foo [ :tick=2000 ]"))
+
+                # undo adding a prop fails without prop:del perms
+                q = f'splice.list | limit 1 | splice.undo'
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
+
+                await prox.addAuthRule('visi', (True, ('prop:del',)))
+                nodes = await alist(asvisi.eval(q))
+
+                nodes = await alist(asvisi.eval("test:str=foo"))
+                self.none(nodes[0][1]['props'].get('tick'))
+
+                # test undo updating a prop
+                nodes = await alist(asvisi.eval("test:str=foo [ :tick=2000 ]"))
+                oldv = nodes[0][1]['props']['tick']
+
+                nodes = await alist(asvisi.eval("test:str=foo [ :tick=3000 ]"))
+                self.ne(oldv, nodes[0][1]['props']['tick'])
+
+                q = f'splice.list | limit 1 | splice.undo'
+                nodes = await alist(asvisi.eval(q))
+
+                nodes = await alist(asvisi.eval("test:str=foo"))
+                self.eq(oldv, nodes[0][1]['props']['tick'])
