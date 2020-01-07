@@ -2849,7 +2849,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            opts = {'vars': {'tag': 'hehe.haha'}}
+            opts = {'vars': {'tag': 'hehe.haha', 'mtag': '', }}
 
             nodes = await core.nodes('[ test:str=foo +#$tag ]', opts=opts)
             self.len(1, nodes)
@@ -2920,6 +2920,41 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(nodes[0].getTag('tag1'))
             self.nn(nodes[0].getTag('tag2'))
             self.nn(nodes[0].getTag('tag3'))
+
+            nodes = await core.nodes('[ test:str=foo +?#$mtag +?#$tag ]', opts=opts)
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], 'foo')
+            self.nn(node.getTag('hehe.haha'))
+
+            q = '$foo=(tag1,?,tag3) [test:str=x +?#$foo]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('tag1'))
+            self.nn(nodes[0].getTag('tag3'))
+
+            q = '$t1="" $t2="" $t3=tag3 [test:str=x -#$t1 +?#$t2 +?#$t3]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('tag3'))
+
+            mesgs = await core.streamstorm('test:str=foo $var=$node.value() [+?#$var=2019] $lib.print(#$var)').list()
+            self.stormIsInPrint('(1546300800000, 1546300800001)', mesgs)
+            podes = [m[1] for m in mesgs if m[0] == 'node']
+            self.len(1, podes)
+            pode = podes[0]
+            self.true(s_node.tagged(pode, '#foo'))
+
+            mesgs = await core.streamstorm('$var="" test:str=foo [+?#$var=2019] $lib.print(#$var)').list()
+            podes = [m[1] for m in mesgs if m[0] == 'node']
+            self.len(1, podes)
+            pode = podes[0]
+            self.true(s_node.tagged(pode, '#timetag'))
+
+            nodes = await core.nodes('$d = $lib.dict(foo="") [test:str=yop +?#$d.foo +#tag1]')
+            self.len(1, nodes)
+            self.none(nodes[0].getTag('foo.*'))
+            self.nn(nodes[0].getTag('tag1'))
 
     async def test_storm_forloop(self):
 
@@ -3434,6 +3469,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             mesg = ('tag:prop:del', {'ndef': ('test:str', 'hello'), 'tag': 'lol', 'prop': 'confidence', 'valu': 100})
             self.isin(mesg, splices)
+
+        # Splices may be disabled though.
+        async with self.getTestCore(conf={'splice:en': False}) as core:
+            nodes = await core.nodes('[test:str=hello]')
+            self.len(1, nodes)
+            splices = await alist(core.view.layers[0].splices(0, 10000))
+            self.len(0, splices)
 
     async def test_cortex_waitfor(self):
 

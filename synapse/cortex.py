@@ -731,6 +731,12 @@ class Cortex(s_cell.Cell):
             'doc': 'Logging log level to emit storm logs at.'
         }),
 
+        ('splice:en', {
+            'type': 'bool',
+            'defval': True,
+            'doc': 'Enable storing splices for layer changes.'
+        }),
+
         ('splice:sync', {
             'type': 'str', 'defval': None,
             'doc': 'A telepath URL for an upstream cortex.'
@@ -2770,7 +2776,10 @@ class Cortex(s_cell.Cell):
         '''
         A simple non-streaming way to return a list of nodes.
         '''
-        return [n async for n in self.eval(text, opts=opts, user=user)]
+        async def nodes():
+            return [n async for n in self.eval(text, opts=opts, user=user)]
+        task = self.schedCoro(nodes())
+        return await task
 
     @s_coro.genrhelp
     async def streamstorm(self, text, opts=None, user=None):
@@ -2792,7 +2801,11 @@ class Cortex(s_cell.Cell):
 
         view = self._viewFromOpts(opts)
 
-        await self.boss.promote('storm', user=user, info={'query': text})
+        info = {'query': text}
+        if opts is not None:
+            info['opts'] = opts
+
+        await self.boss.promote('storm', user=user, info=info)
         async with await self.snap(user=user, view=view) as snap:
             async for pode in snap.iterStormPodes(text, opts=opts, user=user):
                 yield pode

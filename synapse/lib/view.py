@@ -77,7 +77,12 @@ class View(s_hive.AuthGater):
         if user is None:
             user = self.core.auth.getUserByName('root')
 
-        await self.core.boss.promote('storm', user=user, info={'query': text})
+        info = {'query': text}
+        if opts is not None:
+            info['opts'] = opts
+
+        await self.core.boss.promote('storm', user=user, info=info)
+
         async with await self.snap(user=user) as snap:
             async for node in snap.eval(text, opts=opts, user=user):
                 yield node
@@ -92,7 +97,12 @@ class View(s_hive.AuthGater):
         if user is None:
             user = self.core.auth.getUserByName('root')
 
-        await self.core.boss.promote('storm', user=user, info={'query': text})
+        info = {'query': text}
+        if opts is not None:
+            info['opts'] = opts
+
+        await self.core.boss.promote('storm', user=user, info=info)
+
         async with await self.snap(user=user) as snap:
             async for mesg in snap.storm(text, opts=opts, user=user):
                 yield mesg
@@ -109,6 +119,10 @@ class View(s_hive.AuthGater):
         Yields:
             ((str,dict)): Storm messages.
         '''
+        info = {'query': text}
+        if opts is not None:
+            info['opts'] = opts
+
         if opts is None:
             opts = {}
 
@@ -118,8 +132,7 @@ class View(s_hive.AuthGater):
         if user is None:
             user = self.core.auth.getUserByName('root')
 
-        # promote ourself to a synapse task
-        synt = await self.core.boss.promote('storm', user=user, info={'query': text})
+        synt = await self.core.boss.promote('storm', user=user, info=info)
 
         show = opts.get('show')
 
@@ -187,7 +200,12 @@ class View(s_hive.AuthGater):
         if user is None:
             user = self.auth.getUserByName('root')
 
-        await self.core.boss.promote('storm', user=user, info={'query': text})
+        info = {'query': text}
+        if opts is not None:
+            info['opts'] = opts
+
+        await self.core.boss.promote('storm', user=user, info=info)
+
         async with await self.snap(user=user) as snap:
             async for pode in snap.iterStormPodes(text, opts=opts, user=user):
                 yield pode
