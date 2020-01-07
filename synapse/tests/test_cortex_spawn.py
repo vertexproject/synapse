@@ -16,6 +16,10 @@ import synapse.tests.utils as s_test
 logger = logging.getLogger(__name__)
 
 def make_core(dirn, conf, queries, queue, event):
+    '''
+    Multiprocessing target for making a Cortex for local use of a SpawnCore instance.
+    '''
+
     async def workloop():
         s_glob.iAmLoop()
         async with await s_cortex.Cortex.anit(dirn=dirn, conf=conf) as core:

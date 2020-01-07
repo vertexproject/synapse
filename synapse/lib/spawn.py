@@ -29,6 +29,9 @@ import synapse.lib.grammar as s_grammar
 logger = logging.getLogger(__name__)
 
 async def storm(core, item):
+    '''
+    Storm implementation for SpawnCore use.
+    '''
     useriden = item.get('user')
     viewiden = item.get('view')
 
@@ -49,6 +52,9 @@ async def storm(core, item):
         yield mesg
 
 def corework(spawninfo, todo, done):
+    '''
+    Multiprocessing target for hosting a SpawnCore launched by a SpawnProc.
+    '''
 
     # This logging call is okay to run since we're executing in
     # our own process space and no logging has been configured.
