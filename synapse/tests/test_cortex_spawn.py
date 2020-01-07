@@ -15,7 +15,7 @@ import synapse.tests.utils as s_test
 
 logger = logging.getLogger(__name__)
 
-def make_core(dirn, conf, queue: multiprocessing.Queue, event: multiprocessing.Event):
+def make_core(dirn, conf, queue, event):
     async def workloop():
         s_glob.iAmLoop()
         async with await s_cortex.Cortex.anit(dirn=dirn, conf=conf) as core:
