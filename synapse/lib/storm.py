@@ -1456,3 +1456,284 @@ class ScrapeCmd(Cmd):
 
             if self.opts.join:
                 yield node, path
+
+class SpliceListCmd(Cmd):
+    '''
+    Retrieve a list of splices backwards from the end of the splicelog.
+
+    Examples:
+
+        # Show the last 10 splices
+        splice.list | limit 10
+    '''
+
+    name = 'splice.list'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+
+        pars.add_argument('--start', '-s', type=int, default=None,
+                          help='Timestamp to begin yielding splices.')
+        pars.add_argument('--end', '-e', type=int, default=None,
+                          help='Timestamp to stop yielding splices.')
+
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        i = 0
+
+        async for splice in runt.snap.core.spliceHistory(runt.user):
+
+            if self.opts.start and self.opts.start < splice[1]['time']:
+                continue
+
+            if self.opts.end and self.opts.end > splice[1]['time']:
+                return
+
+            guid = s_common.guid(splice)
+            splicebuid = s_common.buid(('syn:splice', guid))
+
+            buid = s_common.buid(splice[1]['ndef'])
+
+            rows = [('*syn:splice', guid)]
+            rows.append(('splice', splice))
+
+            rows.append(('.created', s_common.now()))
+            rows.append(('type', splice[0]))
+            rows.append(('buid', buid))
+
+            rows.append(('form', splice[1]['ndef'][0]))
+            rows.append(('time', splice[1]['time']))
+            rows.append(('user', splice[1]['user']))
+            rows.append(('prov', splice[1]['prov']))
+
+            prop = splice[1].get('prop')
+            if prop:
+                rows.append(('prop', prop))
+
+            tag = splice[1].get('tag')
+            if tag:
+                rows.append(('tag', tag))
+
+            valu = splice[1].get('valu')
+            if valu:
+                rows.append(('valu', valu))
+
+            curv = splice[1].get('curv')
+            if curv:
+                rows.append(('valu', curv))
+
+            oldv = splice[1].get('oldv')
+            if oldv:
+                rows.append(('oldv', oldv))
+
+            node = s_node.Node(runt.snap, splicebuid, rows)
+            yield (node, runt.initPath(node))
+
+            i += 1
+            # Yield to other tasks occasionally
+            if not i % 1000:
+                await asyncio.sleep(0)
+
+class SpliceUndoCmd(Cmd):
+    '''
+    Reverse the actions of syn:splice runt nodes.
+
+    Examples:
+
+        # Undo the last 5 splices
+        splice.list | limit 5 | splice.undo
+
+        # Review the effects of undoing the last 10 splices
+        splice.list | limit 10 | splice.undo --review
+    '''
+
+    name = 'splice.undo'
+
+    def __init__(self, argv):
+        self.undo = {
+            'prop:set': self.undoPropSet,
+            'prop:del': self.undoPropDel,
+            'node:add': self.undoNodeAdd,
+            'node:del': self.undoNodeDel,
+            'tag:add': self.undoTagAdd,
+            'tag:del': self.undoTagDel,
+            'tag:prop:set': self.undoTagPropSet,
+            'tag:prop:del': self.undoTagPropDel,
+        }
+
+        Cmd.__init__(self, argv)
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+
+        forcehelp = 'Force delete nodes even if it causes broken references (requires admin).'
+        pars.add_argument('--force', default=False, action='store_true', help=forcehelp)
+
+        pars.add_argument('--review', '-r', type=int, default=None,
+                          help='Display the undo actions to be performed '
+                               'without actually undoing them.')
+
+        return pars
+
+    async def undoPropSet(self, runt, splice):
+
+        name = splice.props.get('prop')
+        if name.startswith('.'):
+            return
+
+        buid = splice.props.get('buid')
+        node = await runt.snap.getNodeByBuid(buid)
+        if node is None:
+            return
+
+        prop = node.form.props.get(name)
+        if prop is None:
+            raise s_exc.NoSuchProp(name=name, form=node.form.name)
+
+        oldv = splice.props.get('oldv')
+        if oldv:
+            runt.reqLayerAllowed(('prop:set', prop.full))
+            await node.set(name, oldv)
+        else:
+            runt.reqLayerAllowed(('prop:del', propfull))
+            await node.pop(name)
+
+    async def undoPropDel(self, runt, splice):
+
+        name = splice.props.get('prop')
+        if name.startswith('.'):
+            return
+
+        buid = splice.props.get('buid')
+        node = await runt.snap.getNodeByBuid(buid)
+        if node is None:
+            return
+
+        prop = node.form.props.get(name)
+        if prop is None:
+            raise s_exc.NoSuchProp(name=name, form=node.form.name)
+
+        valu = splice.props.get('valu')
+
+        runt.reqLayerAllowed(('prop:set', prop.full))
+        await node.set(name, valu)
+
+    async def undoNodeAdd(self, runt, splice):
+
+        buid = splice.props.get('buid')
+        node = await runt.snap.getNodeByBuid(buid)
+        if node is None:
+            return
+
+        for tag in node.tags.keys():
+            runt.reqLayerAllowed(('tag:del', *tag.split('.')))
+
+        runt.reqLayerAllowed(('node:del', node.form.name))
+        await node.delete(force=self.opts.force)
+
+    async def undoNodeDel(self, runt, splice):
+
+        buid = splice.props.get('buid')
+        node = await runt.snap.getNodeByBuid(buid)
+        if node is not None:
+            return
+
+        form = splice.props.get('form')
+        valu = splice.props.get('valu')
+
+        if form and valu:
+            runt.reqLayerAllowed(('node:add', form))
+            await runt.snap.addNode(form, valu)
+
+    async def undoTagAdd(self, runt, splice):
+
+        buid = splice.props.get('buid')
+        node = await runt.snap.getNodeByBuid(buid)
+        if node is None:
+            return
+
+        tag = splice.props.get('tag')
+        parts = tag.split('.')
+        runt.reqLayerAllowed(('tag:del', *parts))
+
+        await node.delTag(name)
+
+    async def undoTagDel(self, runt, splice):
+
+        buid = splice.props.get('buid')
+        node = await runt.snap.getNodeByBuid(buid)
+        if node is None:
+            return
+
+        tag = splice.props.get('tag')
+        parts = tag.split('.')
+        runt.reqLayerAllowed(('tag:add', *parts))
+
+        valu = splice.props.get('valu')
+        if valu:
+            await node.addTag(name, valu=valu)
+        else:
+            await node.addTag(name)
+
+    async def undoTagPropSet(self, runt, splice):
+
+        buid = splice.props.get('buid')
+        node = await runt.snap.getNodeByBuid(buid)
+        if node is None:
+            return
+
+        tag = splice.props.get('tag')
+        parts = tag.split('.')
+        runt.reqLayerAllowed(('tag:del', *parts))
+
+        prop = splice.props.get('prop')
+
+        oldv = splice.props.get('oldv')
+        if oldv:
+            runt.reqLayerAllowed(('tag:add', *parts))
+            await node.setTagProp(tag, prop, oldv)
+        else:
+            runt.reqLayerAllowed(('tag:del', *parts))
+            await node.delTagProp(tag, prop)
+
+    async def undoTagPropDel(self, runt, splice):
+
+        buid = splice.props.get('buid')
+        node = await runt.snap.getNodeByBuid(buid)
+        if node is not None:
+            return
+
+        tag = splice.props.get('tag')
+        parts = tag.split('.')
+        runt.reqLayerAllowed(('tag:add', *parts))
+
+        valu = splice.props.get('valu')
+        if valu:
+            await node.setTagProp(tag, prop, valu)
+
+    async def execStormCmd(self, runt, genr):
+
+        if self.opts.force:
+            if runt.user is not None and not runt.user.admin:
+                mesg = '--force requires admin privs.'
+                raise s_exc.AuthDeny(mesg=mesg)
+
+        i = 0
+        async for node, path in genr:
+
+            if False:
+                yield None
+
+            splicetype = node.props.get('type')
+
+            if splicetype in self.undo:
+                await self.undo[splicetype](runt, node)
+            else:
+                raise s_exc.StormRuntimeError(mesg='Unknown splice type.', splicetype=splicetype)
+
+            i += 1
+            # Yield to other tasks occasionally
+            if not i % 1000:
+                await asyncio.sleep(0)
