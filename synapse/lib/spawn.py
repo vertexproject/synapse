@@ -363,7 +363,7 @@ class SpawnCore(s_base.Base):
             root = step
         return root
 
-    # Queue APIs
+    # Queue funcs
     async def addCoreQueue(self, name, info):
         return await self.prox.addCoreQueue(name, info)
 
@@ -384,10 +384,26 @@ class SpawnCore(s_base.Base):
             yield item
 
     async def putCoreQueue(self, name, item):
-        return await self.cell.putCoreQueue(name, item)
+        return await self.prox.putCoreQueue(name, item)
 
     async def putsCoreQueue(self, name, items):
         return await self.prox.putsCoreQueue(name, items)
 
     async def cullCoreQueue(self, name, offs):
         return await self.prox.cullCoreQueue(name, offs)
+
+    # feed funcs
+    async def getFeedFuncs(self):
+        return await self.prox.getFeedFuncs()
+
+    # storm pkgfuncs
+    async def addStormPkg(self, pkgdef):
+        return await self.prox.addStormPkg(pkgdef)
+
+    async def delStormPkg(self, iden):
+        return await self.prox.delStormPkg(iden)
+
+    async def getStormPkgs(self):
+        return await self.prox.getStormPkgs()
+
+    # TODO: Add Dmon management functions

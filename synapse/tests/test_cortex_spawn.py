@@ -332,6 +332,40 @@ class CoreSpawnTest(s_test.SynTest):
                     with self.raises(s_exc.NoSuchName):
                         await core.nodes('$lib.queue.get(synq)')
 
+    async def test_stormpkg(self):
+        otherpkg = {
+            'name': 'foosball',
+            'version': (0, 0, 1),
+        }
+
+        stormpkg = {
+            'name': 'stormpkg',
+            'version': (1, 2, 3)
+        }
+        conf = {
+            'storm:log': True,
+            'storm:log:level': logging.INFO,
+        }
+        async with self.getTestCore(conf=conf) as core:
+            async with core.getLocalProxy() as prox:
+                opts = {'spawn': True}
+
+                msgs = await prox.storm('pkg.del asdf', opts=opts).list()
+                self.stormIsInPrint('No package names match "asdf". Aborting.', msgs)
+
+                await core.addStormPkg(otherpkg)
+                msgs = await prox.storm('pkg.list', opts=opts).list()
+                self.stormIsInPrint('foosball', msgs)
+
+                msgs = await prox.storm(f'pkg.del foosball', opts=opts).list()
+                self.stormIsInPrint('Removing package: foosball', msgs)
+
+                # Direct add via stormtypes
+                msgs = await prox.storm('$lib.pkg.add($pkg)',
+                                        opts={'vars': {'pkg': stormpkg}, 'spawn': True}).list()
+                msgs = await prox.storm('pkg.list', opts=opts).list()
+                self.stormIsInPrint('stormpkg', msgs)
+
     async def test_model_extensions(self):
         self.skip('Model extensions not supported for spawn.')
         async with self.getTestCore() as core:
