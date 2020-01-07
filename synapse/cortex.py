@@ -995,7 +995,6 @@ class Cortex(s_cell.Cell):
         self.on('user:mod', self._onEvtBumpSpawnPool)
 
     async def _onEvtBumpSpawnPool(self, evnt):
-        print(evnt)
         await self.bumpSpawnPool()
 
     async def bumpSpawnPool(self):
