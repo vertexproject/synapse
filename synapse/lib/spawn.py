@@ -383,7 +383,6 @@ class SpawnCore(s_base.Base):
         async for item in self.prox.getsCoreQueue(name, offs, cull=cull, wait=wait, size=size):
             yield item
 
-    # TODO: Add a put test...
     async def putCoreQueue(self, name, item):
         return await self.cell.putCoreQueue(name, item)
 

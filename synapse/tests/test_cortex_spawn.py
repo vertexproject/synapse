@@ -221,6 +221,10 @@ class CoreSpawnTest(s_test.SynTest):
 
                 await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
 
+                # Put a value into the queue that doesn't exist in the cortex so the lift can nop
+                q = '$q = $lib.queue.get(blah) $q.put("8.8.8.8")'
+                msgs = await prox.storm(q, opts=opts).list()
+
                 msgs = await prox.storm('''
                     $q = $lib.queue.get(blah)
                     for ($offs, $ipv4) in $q.gets(0, cull=0, wait=0) {
