@@ -18,6 +18,7 @@ Features and Enhancements
 - Add a ``+?#`` try operator for setting tags in Storm edit blocks. This will silently fail to set the tag if the tag
   or tag value is not valid.
   (`#1465 <https://github.com/vertexproject/synapse/pull/1465>`_)
+  (`#1498 <https://github.com/vertexproject/synapse/pull/1498>`_)
 - Add support for iterating backwards through LMDB slabs and iterating backwards through Splice history.
   (`#1473 <https://github.com/vertexproject/synapse/pull/1473>`_)
 - Add a config flag to the Cortex, ``splices:en``, that can be used to disable storage of Splices.
