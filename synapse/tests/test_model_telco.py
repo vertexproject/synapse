@@ -239,6 +239,24 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.eq(node.get('text'), 'I wrote some stuff')
                 self.eq(node.get('file'), 'sha256:' + 64 * 'b')
 
+                # add other valid message types
+                guid = s_common.guid()
+                node = await snap.addNode('tel:txtmesg', guid, {'svctype': 'mms'})
+                self.eq(node.ndef[1], guid)
+
+                guid = s_common.guid()
+                node = await snap.addNode('tel:txtmesg', guid, {'svctype': ' MMS'})
+                self.eq(node.ndef[1], guid)
+
+                guid = s_common.guid()
+                node = await snap.addNode('tel:txtmesg', guid, {'svctype': 'rcs'})
+                self.eq(node.ndef[1], guid)
+
+                # no message type specified
+                guid = s_common.guid()
+                node = await snap.addNode('tel:txtmesg', guid, {'text': 'no message type'})
+                self.eq(node.ndef[1], guid)
+
                 # add bad svc type
                 guid = s_common.guid()
                 await self.asyncraises(s_exc.BadPropValu, snap.addNode('tel:txtmesg', guid, {'svctype': 'foo'}))
