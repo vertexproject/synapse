@@ -417,7 +417,6 @@ class Slab(s_base.Base):
         opts = kwargs
 
         self.path = pathlib.Path(path)
-
         self.optspath = self.path.with_suffix('.opts.yaml')
 
         if self.optspath.exists():
@@ -483,7 +482,11 @@ class Slab(s_base.Base):
         self.dbnames = {}
 
         self.onfini(self._onCoFini)
-        self.schedCoro(self._runSyncLoop())
+        if not self.readonly:
+            self.schedCoro(self._runSyncLoop())
+
+    def __repr__(self):
+        return 'Slab: %r' % (self.path,)
 
     def trash(self):
         '''
@@ -528,6 +531,9 @@ class Slab(s_base.Base):
             self._finiCoXact()
 
     def _saveOptsFile(self):
+        if self.readonly:
+            return
+
         opts = {}
         if self.growsize is not None:
             opts['growsize'] = self.growsize
@@ -717,9 +723,15 @@ class Slab(s_base.Base):
     def initdb(self, name, dupsort=False):
         while True:
             try:
-                db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort)
-                self.dirty = True
-                self.forcecommit()
+                if self.readonly:
+                    # In a readonly environment, we can't make our own write transaction, but we
+                    # can have the lmdb module create one for us by not specifying the transaction
+                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort)
+                else:
+                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort)
+                    self.dirty = True
+                    self.forcecommit()
+
                 self.dbnames[name] = (db, dupsort)
                 return name
             except lmdb.MapFullError:
