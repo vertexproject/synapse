@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+import functools
 import threading
 import contextlib
 import collections
@@ -278,11 +279,10 @@ class SpawnCore(s_base.Base):
             self.stormcmds[name] = ctor
 
         for name, cdef in spawninfo['storm']['cmds']['cdefs']:
-
-            def ctor(argv):
-                return s_storm.PureCmd(cdef, argv)
-
+            ctor = functools.partial(s_storm.PureCmd, cdef)
             self.stormcmds[name] = ctor
+
+        self.libroot = spawninfo.get('storm').get('libs')
 
         self.boss = await s_boss.Boss.anit()
         self.onfini(self.boss.fini)
@@ -330,7 +330,27 @@ class SpawnCore(s_base.Base):
             self.views[iden] = view
 
         # initialize pass-through methods from the telepath proxy
+        # Lift
         self.runRuntLift = self.prox.runRuntLift
+        # StormType Queue APIs
+        self.addCoreQueue = self.prox.addCoreQueue
+        self.hasCoreQueue = self.prox.hasCoreQueue
+        self.delCoreQueue = self.prox.delCoreQueue
+        self.getCoreQueue = self.prox.getCoreQueue
+        self.getCoreQueues = self.prox.getCoreQueues
+        self.getsCoreQueue = self.prox.getsCoreQueue
+        self.putCoreQueue = self.prox.putCoreQueue
+        self.putsCoreQueue = self.prox.putsCoreQueue
+        self.cullCoreQueue = self.prox.cullCoreQueue
+        # Feedfunc support
+        self.getFeedFuncs = self.prox.getFeedFuncs
+        # storm pkgfuncs
+        self.addStormPkg = self.prox.addStormPkg
+        self.delStormPkg = self.prox.delStormPkg
+        self.getStormPkgs = self.prox.getStormPkgs
+
+        # TODO: Add Dmon management functions ($lib.dmon support)
+        # TODO: Add Axon management functions ($lib.bytes support)
 
     def getStormQuery(self, text):
         '''
@@ -353,3 +373,12 @@ class SpawnCore(s_base.Base):
 
     async def getStormMods(self):
         return self.stormmods
+
+    def getStormLib(self, path):
+        root = self.libroot
+        for name in path:
+            step = root[1].get(name)
+            if step is None:
+                return None
+            root = step
+        return root

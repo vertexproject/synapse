@@ -222,19 +222,23 @@ class CellApi(s_base.Base):
     @adminapi
     async def addAuthUser(self, name):
         user = await self.cell.auth.addUser(name)
+        await self.cell.fire('user:mod', act='adduser', name=name)
         return user.pack()
 
     @adminapi
     async def delAuthUser(self, name):
         await self.cell.auth.delUser(name)
+        await self.cell.fire('user:mod', act='deluser', name=name)
 
     @adminapi
     async def addAuthRole(self, name):
         role = await self.cell.auth.addRole(name)
+        await self.cell.fire('user:mod', act='addrole', name=name)
         return role.pack()
 
     @adminapi
     async def delAuthRole(self, name):
+        await self.cell.fire('user:mod', act='delrole', name=name)
         await self.cell.auth.delRole(name)
 
     @adminapi
@@ -250,17 +254,23 @@ class CellApi(s_base.Base):
     @adminapi
     async def addAuthRule(self, name, rule, indx=None, iden=None):
         item = await self.cell.auth.getRulerByName(name, iden=iden)
-        return await item.addRule(rule, indx=indx)
+        retn = await item.addRule(rule, indx=indx)
+        await self.cell.fire('user:mod', act='addrule', name=name, rule=rule, indx=indx, iden=iden)
+        return retn
 
     @adminapi
     async def delAuthRule(self, name, rule, iden=None):
         item = await self.cell.auth.getRulerByName(name, iden=iden)
-        return await item.delRule(rule)
+        retn = await item.delRule(rule)
+        await self.cell.fire('user:mod', act='delrule', name=name, rule=rule, iden=iden)
+        return retn
 
     @adminapi
     async def delAuthRuleIndx(self, name, indx, iden=None):
         item = await self.cell.auth.getRulerByName(name, iden=iden)
-        return await item.delRuleIndx(indx)
+        retn = await item.delRuleIndx(indx)
+        await self.cell.fire('user:mod', act='delrule:indx', name=name, indx=indx, iden=iden)
+        return retn
 
     @adminapi
     async def setAuthAdmin(self, name, admin):
@@ -269,13 +279,16 @@ class CellApi(s_base.Base):
         '''
         item = await self.cell.auth.getRulerByName(name)
         await item.setAdmin(admin)
+        await self.cell.fire('user:mod', act='setadmin', name=name, admin=admin)
 
     async def setUserPasswd(self, name, passwd):
         user = self.cell.auth.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(user=name)
         if self.user.admin or self.user.iden == user.iden:
-            return await user.setPasswd(passwd)
+            await user.setPasswd(passwd)
+            await self.cell.fire('user:mod', act='setpasswd', name=name)
+            return
         raise s_exc.AuthDeny(mesg='Cannot change user password.', user=user.name)
 
     @adminapi
@@ -285,6 +298,7 @@ class CellApi(s_base.Base):
             raise s_exc.NoSuchUser(user=name)
 
         await user.setLocked(locked)
+        await self.cell.fire('user:mod', act='locked', name=name, locked=locked)
 
     @adminapi
     async def setUserArchived(self, name, archived):
@@ -293,6 +307,7 @@ class CellApi(s_base.Base):
             raise s_exc.NoSuchUser(user=name)
 
         await user.setArchived(archived)
+        await self.cell.fire('user:mod', act='archived', name=name, archived=archived)
 
     @adminapi
     async def addUserRole(self, username, rolename):
@@ -301,6 +316,7 @@ class CellApi(s_base.Base):
             raise s_exc.NoSuchUser(user=username)
 
         await user.grant(rolename)
+        await self.cell.fire('user:mod', act='grant', name=username, role=rolename)
 
     @adminapi
     async def delUserRole(self, username, rolename):
@@ -310,6 +326,7 @@ class CellApi(s_base.Base):
             raise s_exc.NoSuchUser(user=username)
 
         await user.revoke(rolename)
+        await self.cell.fire('user:mod', act='revoke', name=username, role=rolename)
 
     async def getAuthInfo(self, name):
         '''

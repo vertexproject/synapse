@@ -107,6 +107,7 @@ class Snap(s_base.Base):
     def getStormCmd(self, name):
         return self.core.getStormCmd(name)
 
+    # Queue funcs
     async def addCoreQueue(self, name, info):
         info['user'] = self.user.iden
         info['time'] = s_common.now()
@@ -136,6 +137,20 @@ class Snap(s_base.Base):
 
     async def putCoreQueue(self, name, item):
         return await self.core.putCoreQueue(name, item)
+
+    # feed funcs
+    async def getFeedFuncs(self):
+        return await self.core.getFeedFuncs()
+
+    # storm pkgfuncs
+    async def addStormPkg(self, pkgdef):
+        return await self.core.addStormPkg(pkgdef)
+
+    async def delStormPkg(self, iden):
+        return await self.core.delStormPkg(iden)
+
+    async def getStormPkgs(self):
+        return await self.core.getStormPkgs()
 
     def getStormVars(self):
         return self.core.stormvars

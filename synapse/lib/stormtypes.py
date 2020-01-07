@@ -112,14 +112,14 @@ class LibPkg(Lib):
 
     async def _libPkgAdd(self, pkgdef):
         self.runt.reqAllowed(('storm', 'pkg', 'add'))
-        await self.runt.snap.core.addStormPkg(pkgdef)
+        await self.runt.snap.addStormPkg(pkgdef)
 
     async def _libPkgDel(self, name):
         self.runt.reqAllowed(('storm', 'pkg', 'del'))
-        return await self.runt.snap.core.delStormPkg(name)
+        return await self.runt.snap.delStormPkg(name)
 
     async def _libPkgList(self):
-        return await self.runt.snap.core.getStormPkgs()
+        return await self.runt.snap.getStormPkgs()
 
 class LibDmon(Lib):
 
@@ -500,7 +500,7 @@ class LibFeed(Lib):
             return self.runt.snap.addFeedNodes(name, data)
 
     async def _libList(self):
-        return await self.runt.snap.core.getFeedFuncs()
+        return await self.runt.snap.getFeedFuncs()
 
     async def _libIngest(self, name, data, seqn=None):
         '''
