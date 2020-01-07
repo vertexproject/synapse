@@ -3,13 +3,62 @@ Synapse Changelog
 *****************
 
 
+v0.1.44 - TBD
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``synapse.lib.spawn`` to implement support for multi-processing based Cortex parallel query execution. This allows
+  parallel queries to be executed by the Cortex in a manner that offloads the processing for that query to a separate
+  process. The maximum number of processes which are kept around (but not the maximum number of possible parallel
+  queries) is configured via the Cortex configuration option ``spawn:poolsize``, which defaults to 8. Users may opt-into
+  this behavior by setting the flag ``spawn`` to ``True`` in the ``opts`` dictionary passed to a Storm query. Attempting
+  to create or edit nodes in the graph with a Spawn query will fail. The support for this is currently experimental.
+  (`#1400 <https://github.com/vertexproject/synapse/pull/1400>`_)
+- Add a ``+?#`` try operator for setting tags in Storm edit blocks. This will silently fail to set the tag if the tag
+  or tag value is not valid.
+  (`#1465 <https://github.com/vertexproject/synapse/pull/1465>`_)
+- Add support for iterating backwards through LMDB slabs and iterating backwards through Splice history.
+  (`#1473 <https://github.com/vertexproject/synapse/pull/1473>`_)
+- Add a config flag to the Cortex, ``splices:en``, that can be used to disable storage of Splices.
+  (`#1488 <https://github.com/vertexproject/synapse/pull/1488>`_)
+- Push Storm opts into task information dictionaries and clamp the output of the cmdr ``ps`` command by default. Add a
+  ``-v`` switch to the ``ps`` command to avoid clamping.
+  (`#1476 <https://github.com/vertexproject/synapse/pull/1476>`_)
+- Add ``tel:call`` and ``tel:txtmesg`` Guid forms to the datamodel to track telephone calls and text messages.
+  (`#1483 <https://github.com/vertexproject/synapse/pull/1483>`_)
+  (`#1493 <https://github.com/vertexproject/synapse/pull/1493>`_)
+- Firm up the API boundary between the Snap and Cortex object.  Deferenceing the Cortex off of the Snap should be
+  avoiding in any new code.
+  (`#1400 <https://github.com/vertexproject/synapse/pull/1400>`_)
+- Add special handling for creating read-only LMDB databases.
+  (`#1400 <https://github.com/vertexproject/synapse/pull/1400>`_)
+- The Daemon ``t2call`` implementation was moved to its own function and support for DmonSpawn added to the
+  ``t2call`` routine.
+  (`#1400 <https://github.com/vertexproject/synapse/pull/1400>`_)
+
+Bugfixes
+--------
+- Add missing inline terminal names in the Storm grammar to assist in parsing Syntax errors.
+  (`#1487 <https://github.com/vertexproject/synapse/pull/1487>`_)
+- Convert ``Core.nodes()`` from a direct call to returning the result of a scheduled coroutine. Avoids a potential
+  teardown issue in test code.
+  (`#1490 <https://github.com/vertexproject/synapse/pull/1490>`_)
+
+Improved Documentation
+----------------------
+- Update User Guide documentation for Array types.
+  (`#1486 <https://github.com/vertexproject/synapse/pull/1486>`_)
+  (`#1489 <https://github.com/vertexproject/synapse/pull/1489>`_)
+
+
 v0.1.43 - 2019-01-02
 ====================
 
 Features and Enhancements
 -------------------------
 - Allow users to list their current permissions and roles with the ``synapse.tools.cellauth`` tool.
-  (`#1460 <https://github.com/vertexproject/synapse/pull/1460>`_)
+  (`#1460 <https://github.com/vertexproject/synapse/issues/1460>`_)
   (`#1464 <https://github.com/vertexproject/synapse/pull/1464>`_)
 - Allow bytes to be converted to strings, and strings to be converted to bytes, inside of Storm. This is done with
   ``decode()`` and ``encode()`` StormType functions.
