@@ -51,6 +51,26 @@ async def storm(core, item):
     async for mesg in view.streamstorm(text, opts=opts, user=user):
         yield mesg
 
+async def _innerloop(core, todo, done):
+    '''
+    Inner loop for the multiprocessing target code.
+    '''
+    item = await s_coro.executor(todo.get)
+    if item is None:
+        return
+
+    link = await s_link.fromspawn(item.get('link'))
+
+    await s_daemon.t2call(link, storm, (core, item,), {})
+
+    wasfini = link.isfini
+
+    await link.fini()
+
+    await s_coro.executor(done.put, wasfini)
+
+    return True
+
 def corework(spawninfo, todo, done):
     '''
     Multiprocessing target for hosting a SpawnCore launched by a SpawnProc.
@@ -68,19 +88,8 @@ def corework(spawninfo, todo, done):
 
             while not core.isfini:
 
-                item = await s_coro.executor(todo.get)
-                if item is None:
-                    return
-
-                link = await s_link.fromspawn(item.get('link'))
-
-                await s_daemon.t2call(link, storm, (core, item,), {})
-
-                wasfini = link.isfini
-
-                await link.fini()
-
-                await s_coro.executor(done.put, wasfini)
+                if not await _innerloop(core, todo, done):
+                    break
 
     asyncio.run(workloop())
 
