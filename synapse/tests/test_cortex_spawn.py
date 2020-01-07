@@ -38,8 +38,13 @@ def make_core(dirn, conf, queries, queue, event):
 class CoreSpawnTest(s_test.SynTest):
 
     async def test_spawncore(self):
-        mpctx = multiprocessing.get_context('spawn')
+        # This test makes a real Cortex in a remote process, and then
+        # gets the spawninfo from that real Cortex in order to make a
+        # local SpawnCore. This avoids the problem of being unable to
+        # open lmdb environments multiple times by the same process
+        # and allows direct testing of the SpawnCore object.
 
+        mpctx = multiprocessing.get_context('spawn')
         queue = mpctx.Queue()
         event = mpctx.Event()
 
@@ -71,6 +76,7 @@ class CoreSpawnTest(s_test.SynTest):
                     }
                 }
 
+                # Test the storm implementation used by spawncore
                 msgs = await s_test.alist(s_spawn.storm(core, item))
                 podes = [m[1] for m in msgs if m[0] == 'node']
                 e = 'Cortex from the aether!'
