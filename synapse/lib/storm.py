@@ -1720,7 +1720,7 @@ class SpliceUndoCmd(Cmd):
         async for node, path in genr:
 
             if not node.form.name == 'syn:splice':
-                mesg='splice.undo only accepts syn:splice nodes'
+                mesg = 'splice.undo only accepts syn:splice nodes'
                 raise s_exc.StormRuntimeError(mesg=mesg, form=node.form.name)
 
             if False:
