@@ -1472,10 +1472,10 @@ class SpliceListCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
 
-        pars.add_argument('--start', '-s', type=int, default=None,
-                          help='Timestamp to begin yielding splices.')
-        pars.add_argument('--end', '-e', type=int, default=None,
-                          help='Timestamp to stop yielding splices.')
+        pars.add_argument('--maxtime', type=int, default=None,
+                          help='Only yield splices which occurred on or before this timestamp.')
+        pars.add_argument('--mintime', type=int, default=None,
+                          help='Only yield splices which occurred on or after this timestamp.')
 
         return pars
 
@@ -1485,10 +1485,10 @@ class SpliceListCmd(Cmd):
 
         async for splice in runt.snap.core.spliceHistory(runt.user):
 
-            if self.opts.start and self.opts.start < splice[1]['time']:
+            if self.opts.maxtime and self.opts.maxtime < splice[1]['time']:
                 continue
 
-            if self.opts.end and self.opts.end > splice[1]['time']:
+            if self.opts.mintime and self.opts.mintime > splice[1]['time']:
                 return
 
             guid = s_common.guid(splice)
@@ -1522,7 +1522,7 @@ class SpliceListCmd(Cmd):
 
             curv = splice[1].get('curv')
             if curv:
-                rows.append(('valu', curv))
+                rows.append(('oldv', curv))
 
             oldv = splice[1].get('oldv')
             if oldv:
