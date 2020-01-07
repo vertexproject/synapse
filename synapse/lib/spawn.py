@@ -330,7 +330,18 @@ class SpawnCore(s_base.Base):
             self.views[iden] = view
 
         # initialize pass-through methods from the telepath proxy
+        # Lift
         self.runRuntLift = self.prox.runRuntLift
+        # StormType Queue APIs
+        self.addCoreQueue = self.prox.addCoreQueue
+        self.hasCoreQueue = self.prox.hasCoreQueue
+        self.delCoreQueue = self.prox.delCoreQueue
+        self.getCoreQueue = self.prox.getCoreQueue
+        self.getCoreQueues = self.prox.getCoreQueues
+        self.getsCoreQueue = self.prox.getsCoreQueue
+        self.putCoreQueue = self.prox.putCoreQueue
+        self.putsCoreQueue = self.prox.putsCoreQueue
+        self.cullCoreQueue = self.prox.cullCoreQueue
 
     def getStormQuery(self, text):
         '''
@@ -362,35 +373,6 @@ class SpawnCore(s_base.Base):
                 return None
             root = step
         return root
-
-    # Queue funcs
-    async def addCoreQueue(self, name, info):
-        return await self.prox.addCoreQueue(name, info)
-
-    async def hasCoreQueue(self, name):
-        return await self.prox.hasCoreQueue(name)
-
-    async def delCoreQueue(self, name):
-        return await self.prox.delCoreQueue(name)
-
-    async def getCoreQueue(self, name):
-        return await self.prox.getCoreQueue(name)
-
-    async def getCoreQueues(self):
-        return await self.prox.getCoreQueues()
-
-    async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
-        async for item in self.prox.getsCoreQueue(name, offs, cull=cull, wait=wait, size=size):
-            yield item
-
-    async def putCoreQueue(self, name, item):
-        return await self.prox.putCoreQueue(name, item)
-
-    async def putsCoreQueue(self, name, items):
-        return await self.prox.putsCoreQueue(name, items)
-
-    async def cullCoreQueue(self, name, offs):
-        return await self.prox.cullCoreQueue(name, offs)
 
     # feed funcs
     async def getFeedFuncs(self):
