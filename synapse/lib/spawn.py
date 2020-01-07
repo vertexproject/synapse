@@ -28,7 +28,53 @@ import synapse.lib.grammar as s_grammar
 
 logger = logging.getLogger(__name__)
 
+async def storm(core, item):
+    '''
+    Storm implementation for SpawnCore use.
+    '''
+    useriden = item.get('user')
+    viewiden = item.get('view')
+
+    storminfo = item.get('storm')
+
+    opts = storminfo.get('opts')
+    text = storminfo.get('query')
+
+    user = core.auth.user(useriden)
+    if user is None:
+        raise s_exc.NoSuchUser(iden=useriden)
+
+    view = core.views.get(viewiden)
+    if view is None:
+        raise s_exc.NoSuchView(iden=viewiden)
+
+    async for mesg in view.streamstorm(text, opts=opts, user=user):
+        yield mesg
+
+async def _innerloop(core, todo, done):
+    '''
+    Inner loop for the multiprocessing target code.
+    '''
+    item = await s_coro.executor(todo.get)
+    if item is None:
+        return
+
+    link = await s_link.fromspawn(item.get('link'))
+
+    await s_daemon.t2call(link, storm, (core, item,), {})
+
+    wasfini = link.isfini
+
+    await link.fini()
+
+    await s_coro.executor(done.put, wasfini)
+
+    return True
+
 def corework(spawninfo, todo, done):
+    '''
+    Multiprocessing target for hosting a SpawnCore launched by a SpawnProc.
+    '''
 
     # This logging call is okay to run since we're executing in
     # our own process space and no logging has been configured.
@@ -40,42 +86,10 @@ def corework(spawninfo, todo, done):
 
         async with await SpawnCore.anit(spawninfo) as core:
 
-            async def storm(item):
-
-                useriden = item.get('user')
-                viewiden = item.get('view')
-
-                storminfo = item.get('storm')
-
-                opts = storminfo.get('opts')
-                text = storminfo.get('query')
-
-                user = core.auth.user(useriden)
-                if user is None:
-                    raise s_exc.NoSuchUser(iden=useriden)
-
-                view = core.views.get(viewiden)
-                if view is None:
-                    raise s_exc.NoSuchView(iden=viewiden)
-
-                async for mesg in view.streamstorm(text, opts=opts, user=user):
-                    yield mesg
-
             while not core.isfini:
 
-                item = await s_coro.executor(todo.get)
-                if item is None:
-                    return
-
-                link = await s_link.fromspawn(item.get('link'))
-
-                await s_daemon.t2call(link, storm, (item,), {})
-
-                wasfini = link.isfini
-
-                await link.fini()
-
-                await s_coro.executor(done.put, wasfini)
+                if not await _innerloop(core, todo, done):
+                    break
 
     asyncio.run(workloop())
 

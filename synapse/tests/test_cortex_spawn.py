@@ -2,15 +2,118 @@ import os
 import signal
 import asyncio
 import logging
+import multiprocessing
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
+import synapse.cortex as s_cortex
+
+import synapse.lib.coro as s_coro
+import synapse.lib.link as s_link
 import synapse.lib.spawn as s_spawn
+import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.utils as s_test
 
 logger = logging.getLogger(__name__)
 
+def make_core(dirn, conf, queries, queue, event):
+    '''
+    Multiprocessing target for making a Cortex for local use of a SpawnCore instance.
+    '''
+
+    async def workloop():
+        s_glob.iAmLoop()
+        async with await s_cortex.Cortex.anit(dirn=dirn, conf=conf) as core:
+            for q in queries:
+                await core.nodes(q)
+            await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+            spawninfo = await core.getSpawnInfo()
+            queue.put(spawninfo)
+            # Don't block the ioloop..
+            await s_coro.executor(event.wait)
+
+    asyncio.run(workloop())
+
 class CoreSpawnTest(s_test.SynTest):
+
+    async def test_spawncore(self):
+        # This test makes a real Cortex in a remote process, and then
+        # gets the spawninfo from that real Cortex in order to make a
+        # local SpawnCore. This avoids the problem of being unable to
+        # open lmdb environments multiple times by the same process
+        # and allows direct testing of the SpawnCore object.
+
+        mpctx = multiprocessing.get_context('spawn')
+        queue = mpctx.Queue()
+        event = mpctx.Event()
+
+        conf = {
+            'storm:log': True,
+            'storm:log:level': logging.INFO,
+            'modules': [('synapse.tests.utils.TestModule', {})],
+        }
+        queries = [
+            '[test:str="Cortex from the aether!"]',
+        ]
+        with self.getTestDir() as dirn:
+            args = (dirn, conf, queries, queue, event)
+            proc = mpctx.Process(target=make_core, args=args)
+            proc.start()
+            spawninfo = queue.get(timeout=30)
+
+            async with await s_spawn.SpawnCore.anit(spawninfo) as core:
+                root = core.auth.getUserByName('root')
+                q = '''test:str
+                $lib.print($lib.str.format("{n}", n=$node.repr()))
+                | limit 1'''
+                item = {
+                    'user': root.iden,
+                    'view': list(core.views.keys())[0],
+                    'storm': {
+                        'query': q,
+                        'opts': None,
+                    }
+                }
+
+                # Test the storm implementation used by spawncore
+                msgs = await s_test.alist(s_spawn.storm(core, item))
+                podes = [m[1] for m in msgs if m[0] == 'node']
+                e = 'Cortex from the aether!'
+                self.len(1, podes)
+                self.eq(podes[0][0], ('test:str', e))
+                self.stormIsInPrint(e, msgs)
+
+                # Direct test of the _innerloop code.
+                todo = mpctx.Queue()
+                done = mpctx.Queue()
+
+                # Test poison - this would cause the corework to exit
+                todo.put(None)
+                self.none(await s_spawn._innerloop(core, todo, done))
+
+                # Test a real item with a link associated with it. This ends
+                # up getting a bunch of telepath message directly.
+                todo_item = item.copy()
+                link0, sock0 = await s_link.linksock()
+                todo_item['link'] = link0.getSpawnInfo()
+                todo.put(todo_item)
+                self.true(await s_spawn._innerloop(core, todo, done))
+                resp = done.get(timeout=12)
+                self.false(resp)
+                buf0 = sock0.recv(1024 * 16)
+                unpk = s_msgpack.Unpk()
+                msgs = [msg for (offset, msg) in unpk.feed(buf0)]
+                self.eq({'t2:genr', 't2:yield'},
+                        {m[0] for m in msgs})
+
+                await link0.fini()  # We're done with the link now
+                todo.close()
+                done.close()
+
+            queue.close()
+            event.set()
+            proc.join(12)
 
     async def test_cortex_spawn_telepath(self):
         conf = {
