@@ -1465,6 +1465,9 @@ class SpliceListCmd(Cmd):
 
         # Show the last 10 splices
         splice.list | limit 10
+
+        # Show splices from a specific timeframe
+        splice.list --mintime 1578422719360 --maxtime 1578422719367
     '''
 
     name = 'splice.list'
@@ -1547,8 +1550,8 @@ class SpliceUndoCmd(Cmd):
         # Undo the last 5 splices
         splice.list | limit 5 | splice.undo
 
-        # Review the effects of undoing the last 10 splices
-        splice.list | limit 10 | splice.undo --review
+        # Undo splices from a specific timeframe
+        splice.list --mintime 1578422719360 --maxtime 1578422719367 | splice.undo
     '''
 
     name = 'splice.undo'
@@ -1569,14 +1572,8 @@ class SpliceUndoCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-
         forcehelp = 'Force delete nodes even if it causes broken references (requires admin).'
         pars.add_argument('--force', default=False, action='store_true', help=forcehelp)
-
-        pars.add_argument('--review', '-r', type=int, default=None,
-                          help='Display the undo actions to be performed '
-                               'without actually undoing them.')
-
         return pars
 
     async def undoPropSet(self, runt, splice):
