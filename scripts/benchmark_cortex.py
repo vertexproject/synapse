@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import collections
 import logging
+import yappi
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +13,7 @@ if TYPE_CHECKING:
     import synapse.telepath as s_telepath
 
 import synapse.common as s_common
+import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
 
@@ -67,7 +69,7 @@ class TestData:
 syntest = s_t_utils.SynTest()
 
 class Benchmarker:
-    NUM_ITERS = 4
+    NUM_ITERS = 6
 
     def __init__(self, config, num_nodes):
         self.measurements = collections.defaultdict(list)
@@ -113,13 +115,26 @@ class Benchmarker:
         assert count == self.num_nodes // 2 + self.num_nodes // 10
 
     async def run(self, core, name, dirn, coro):
-        for _ in range(self.NUM_ITERS):
+        for i in range(self.NUM_ITERS):
             # We set up the cortex each time to void intra-cortex caching
             # (there's still a substantial amount of OS caching)
             async with self.getCortexAndProxy(dirn) as (core, prox):
+                if name == 'PivotToSomething':
+                    yappi.clear_stats()
+                    yappi.start()
+                    # print('on', s_lmdbslab.PrintOn)
+                    s_lmdbslab.PrintOn = True
+                    pass
                 start = time.time()
                 await coro(prox)
                 self.measurements[name].append(time.time() - start)
+                if name == 'PivotToSomething':
+                    # print('off', s_lmdbslab.PrintOn)
+                    s_lmdbslab.PrintOn = False
+                    pass
+                if name == 'PivotToSomething' and i < 2:
+                    yappi.get_func_stats().print_all()
+                    pass
 
     async def runSuite(self, testdata, config, numprocs):
         assert numprocs == 1
@@ -156,5 +171,6 @@ if __name__ == '__main__':
     parser.add_argument('which_configs', nargs='*', default=None)
     parser.add_argument('--num-clients', type=int, default=1)
     parser.add_argument('--num-nodes', type=int, default=1000)
+    # FIXME: tmpdir location
     opts = parser.parse_args()
     benchmarkAll(opts.which_configs, opts.num_clients, opts.num_nodes)

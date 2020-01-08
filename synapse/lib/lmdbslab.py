@@ -5,6 +5,8 @@ import pathlib
 import functools
 import threading
 import collections
+import traceback
+PrintOn = False
 
 import logging
 logger = logging.getLogger(__name__)
@@ -878,6 +880,10 @@ class Slab(s_base.Base):
                 yield lkey, lval
 
     def scanByFull(self, db=None):
+        # print(f'scanByFull: {PrintOn}')
+        if PrintOn:
+            breakpoint()
+            traceback.print_stack()
 
         with Scan(self, db) as scan:
 
