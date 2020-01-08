@@ -893,7 +893,7 @@ class StormTest(s_t_utils.SynTest):
 
                 # undo updating a tagprop
 
-                nodes = await alist(asvisi.eval("test:str=foo [ +#rep:risk=100 ]"))
+                nodes = await alist(asvisi.eval("test:str=foo [ +#rep:risk=0 ]"))
                 self.ne(tagv, nodes[0][1]['tagprops']['rep'].get('risk'))
 
                 # undo updating a tagprop fails without prop:set perms
