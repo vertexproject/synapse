@@ -668,11 +668,11 @@ class StormTest(s_t_utils.SynTest):
             mesgs = await core.streamstorm('[ test:str=bar ]').list()
 
             tick = mesgs[0][1]['tick']
-            tickdt = datetime.datetime.utcfromtimestamp(tick/1000.0)
+            tickdt = datetime.datetime.utcfromtimestamp(tick / 1000.0)
             tickstr = tickdt.strftime('%Y/%m/%d %H:%M:%S.%f')
 
             tock = mesgs[-1][1]['tock']
-            tockdt = datetime.datetime.utcfromtimestamp(tock/1000.0)
+            tockdt = datetime.datetime.utcfromtimestamp(tock / 1000.0)
             tockstr = tockdt.strftime('%Y/%m/%d %H:%M:%S.%f')
 
             await asyncio.sleep(0.01)
