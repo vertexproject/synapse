@@ -1566,19 +1566,16 @@ class SpliceListCmd(Cmd):
             if tag:
                 rows.append(('tag', tag))
 
-            valu = splice[1].get('valu')
-            if valu:
-                rows.append(('valu', valu))
+            if 'valu' in splice[1]:
+                rows.append(('valu', splice[1]['valu']))
             elif splice[0] == 'node:del':
                 rows.append(('valu', splice[1]['ndef'][1]))
 
-            curv = splice[1].get('curv')
-            if curv:
-                rows.append(('oldv', curv))
+            if 'curv' in splice[1]:
+                rows.append(('oldv', splice[1]['curv']))
 
-            oldv = splice[1].get('oldv')
-            if oldv:
-                rows.append(('oldv', oldv))
+            if 'oldv' in splice[1]:
+                rows.append(('oldv', splice[1]['oldv']))
 
             node = s_node.Node(runt.snap, splicebuid, rows)
             yield (node, runt.initPath(node))
