@@ -78,7 +78,8 @@ class Base:
     '''
     def __init__(self):
         self.anitted = False
-        assert inspect.stack()[1].function == 'anit', 'Objects from Base must be constructed solely via "anit"'
+        if __debug__:
+            assert inspect.stack()[1].function == 'anit', 'Objects from Base must be constructed solely via "anit"'
 
     @classmethod
     async def anit(cls, *args, **kwargs):
