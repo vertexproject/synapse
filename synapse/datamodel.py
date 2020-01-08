@@ -524,6 +524,7 @@ class Model:
         self.props = {} # (form,name): Prop() and full: Prop()
         self.tagprops = {} # name: TagProp()
         self.formabbr = {} # name: [Form(), ... ]
+        self.modeldefs = []
 
         self.univs = []
         self.univlook = {}
@@ -645,6 +646,9 @@ class Model:
         '''
         return [('all', self._modeldef)]
 
+    def getModelDefs(self):
+        return self.modeldefs
+
     def getModelDict(self):
         retn = {
             'types': {},
@@ -695,6 +699,8 @@ class Model:
             None
 
         '''
+
+        self.modeldefs.extend(mods)
 
         # load all the base type ctors in order...
         for modlname, mdef in mods:

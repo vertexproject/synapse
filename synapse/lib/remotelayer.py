@@ -28,12 +28,9 @@ class RemoteLayer(s_layer.Layer):
         ('readywait', {'type': 'int', 'defval': 30, 'doc': 'Max time to wait for layer ready.'}),
     )
 
-    # Remote layers can't be written to
-    readonly = True
-
     async def __anit__(self, core, node):
 
-        await s_layer.Layer.__anit__(self, core, node)
+        await s_layer.Layer.__anit__(self, core, node, readonly=True)
 
         # a remote layer may never be revd
         self.proxy = None

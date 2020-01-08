@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import itertools
+import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -20,6 +21,7 @@ class View(s_hive.AuthGater):
     The view class is used to implement Copy-On-Write layers as well as
     interact with a subset of the layers configured in a Cortex.
     '''
+    snapctor = s_snap.Snap.anit
 
     authgatetype = 'view'
 
@@ -32,35 +34,41 @@ class View(s_hive.AuthGater):
             node (HiveNode): The hive node containing the view info.
         '''
         self.node = node
+
         self.iden = node.name()
         self.core = core
 
         await s_hive.AuthGater.__anit__(self, self.core.auth)
 
+        self.layers = []
         self.invalid = None
         self.parent = None  # The view this view was forked from
         self.worldreadable = True  # Default read permissions of this view
 
-        self.info = await node.dict()
+        # isolate some initialization to easily override for SpawnView.
+        await self._initViewInfo()
+        await self._initViewLayers()
+
+    async def _initViewInfo(self):
+
+        self.iden = self.node.name()
+
+        self.info = await self.node.dict()
         self.info.setdefault('owner', 'root')
         self.info.setdefault('layers', ())
 
         self.triggers = s_trigger.Triggers(self)
 
-        self.layers = []
+    async def _initViewLayers(self):
 
         for iden in self.info.get('layers'):
 
-            layr = core.layers.get(iden)
+            layr = self.core.layers.get(iden)
 
             if layr is None:
                 self.invalid = iden
                 logger.warning('view %r has missing layer %r' % (self.iden, iden))
                 continue
-
-            if not self.layers and layr.readonly:
-                self.invalid = iden
-                raise s_exc.ReadOnlyLayer(mesg=f'First layer {iden} must not be read-only')
 
             self.layers.append(layr)
 
@@ -77,7 +85,12 @@ class View(s_hive.AuthGater):
         if user is None:
             user = self.core.auth.getUserByName('root')
 
-        await self.core.boss.promote('storm', user=user, info={'query': text})
+        info = {'query': text}
+        if opts is not None:
+            info['opts'] = opts
+
+        await self.core.boss.promote('storm', user=user, info=info)
+
         async with await self.snap(user=user) as snap:
             async for node in snap.eval(text, opts=opts, user=user):
                 yield node
@@ -92,7 +105,12 @@ class View(s_hive.AuthGater):
         if user is None:
             user = self.core.auth.getUserByName('root')
 
-        await self.core.boss.promote('storm', user=user, info={'query': text})
+        info = {'query': text}
+        if opts is not None:
+            info['opts'] = opts
+
+        await self.core.boss.promote('storm', user=user, info=info)
+
         async with await self.snap(user=user) as snap:
             async for mesg in snap.storm(text, opts=opts, user=user):
                 yield mesg
@@ -109,6 +127,10 @@ class View(s_hive.AuthGater):
         Yields:
             ((str,dict)): Storm messages.
         '''
+        info = {'query': text}
+        if opts is not None:
+            info['opts'] = opts
+
         if opts is None:
             opts = {}
 
@@ -118,8 +140,7 @@ class View(s_hive.AuthGater):
         if user is None:
             user = self.core.auth.getUserByName('root')
 
-        # promote ourself to a synapse task
-        synt = await self.core.boss.promote('storm', user=user, info={'query': text})
+        synt = await self.core.boss.promote('storm', user=user, info=info)
 
         show = opts.get('show')
 
@@ -187,7 +208,12 @@ class View(s_hive.AuthGater):
         if user is None:
             user = self.auth.getUserByName('root')
 
-        await self.core.boss.promote('storm', user=user, info={'query': text})
+        info = {'query': text}
+        if opts is not None:
+            info['opts'] = opts
+
+        await self.core.boss.promote('storm', user=user, info=info)
+
         async with await self.snap(user=user) as snap:
             async for pode in snap.iterStormPodes(text, opts=opts, user=user):
                 yield pode
@@ -197,7 +223,7 @@ class View(s_hive.AuthGater):
         if self.invalid is not None:
             raise s_exc.NoSuchLayer(iden=self.invalid)
 
-        return await s_snap.Snap.anit(self, user)
+        return await self.snapctor(self, user)
 
     def pack(self):
         return {
@@ -216,13 +242,11 @@ class View(s_hive.AuthGater):
             raise s_exc.ReadOnlyLayer(mesg='May not change layers of forked view')
 
         if indx is None:
-            if not self.layers and layr.readonly:
-                raise s_exc.ReadOnlyLayer(mesg=f'First layer {layr.iden} must not be read-only')
             self.layers.append(layr)
+
         else:
-            if indx == 0 and layr.readonly:
-                raise s_exc.ReadOnlyLayer(mesg=f'First layer {layr.iden} must not be read-only')
             self.layers.insert(indx, layr)
+
         await self.info.set('layers', [l.iden for l in self.layers])
 
     async def setLayers(self, layers):
@@ -383,3 +407,8 @@ class View(s_hive.AuthGater):
 
         for (iden, _) in self.triggers.list():
             self.triggers.delete(iden)
+
+    def getSpawnInfo(self):
+        return {
+            'iden': self.iden,
+        }
