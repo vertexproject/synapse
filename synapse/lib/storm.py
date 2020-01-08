@@ -1533,7 +1533,7 @@ class SpliceListCmd(Cmd):
 
         i = 0
 
-        async for splice in runt.snap.core.spliceHistory(runt.user):
+        async for splice in runt.snap.spliceHistory():
 
             if maxtime and maxtime < splice[1]['time']:
                 continue
