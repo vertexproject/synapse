@@ -15,6 +15,7 @@ import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
+import synapse.lib.time as s_time
 import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
@@ -1476,11 +1477,19 @@ class SpliceListCmd(Cmd):
 
     Examples:
 
-        # Show the last 10 splices
+        # Show the last 10 splices.
         splice.list | limit 10
 
-        # Show splices from a specific timeframe
+        # Show splices after a specific time.
+        splice.list --mintime "2020/01/06 15:38:10"
+
+        # Show splices from a specific timeframe.
         splice.list --mintime 1578422719360 --maxtime 1578422719367
+
+    Notes:
+
+        If both a time string and timestamp value are provided for a min or max,
+        the timestamp will take precedence over the time string value.
     '''
 
     name = 'splice.list'
@@ -1488,23 +1497,48 @@ class SpliceListCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
 
-        pars.add_argument('--maxtime', type=int, default=None,
+        pars.add_argument('--maxtimestamp', type=int, default=None,
                           help='Only yield splices which occurred on or before this timestamp.')
-        pars.add_argument('--mintime', type=int, default=None,
+        pars.add_argument('--mintimestamp', type=int, default=None,
                           help='Only yield splices which occurred on or after this timestamp.')
+        pars.add_argument('--maxtime', type=str, default=None,
+                          help='Only yield splices which occurred on or before this time.')
+        pars.add_argument('--mintime', type=str, default=None,
+                          help='Only yield splices which occurred on or after this time.')
 
         return pars
 
     async def execStormCmd(self, runt, genr):
 
+        maxtime = None
+        if self.opts.maxtimestamp:
+            maxtime = self.opts.maxtimestamp
+        elif self.opts.maxtime:
+            try:
+                maxtime = s_time.parse(self.opts.maxtime, chop=True)
+            except s_exc.BadTypeValu as e:
+                mesg = f'Error during maxtime parsing - {str(e)}'
+
+                raise s_exc.StormRuntimeError(mesg=mesg, valu=self.opts.maxtime) from None
+
+        mintime = None
+        if self.opts.mintimestamp:
+            mintime = self.opts.mintimestamp
+        elif self.opts.mintime:
+            try:
+                mintime = s_time.parse(self.opts.mintime, chop=True)
+            except s_exc.BadTypeValu as e:
+                mesg = f'Error during mintime parsing - {str(e)}'
+                raise s_exc.StormRuntimeError(mesg=mesg, valu=self.opts.mintime) from None
+
         i = 0
 
         async for splice in runt.snap.core.spliceHistory(runt.user):
 
-            if self.opts.maxtime and self.opts.maxtime < splice[1]['time']:
+            if maxtime and maxtime < splice[1]['time']:
                 continue
 
-            if self.opts.mintime and self.opts.mintime > splice[1]['time']:
+            if mintime and mintime > splice[1]['time']:
                 return
 
             guid = s_common.guid(splice)
@@ -1592,7 +1626,7 @@ class SpliceUndoCmd(Cmd):
     async def undoPropSet(self, runt, splice):
 
         name = splice.props.get('prop')
-        if name.startswith('.'):
+        if name == '.created':
             return
 
         buid = splice.props.get('buid')
@@ -1727,6 +1761,7 @@ class SpliceUndoCmd(Cmd):
                 raise s_exc.AuthDeny(mesg=mesg)
 
         i = 0
+
         async for node, path in genr:
 
             if not node.form.name == 'syn:splice':

@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -665,8 +666,14 @@ class StormTest(s_t_utils.SynTest):
             await asyncio.sleep(0.01)
 
             mesgs = await core.streamstorm('[ test:str=bar ]').list()
+
             tick = mesgs[0][1]['tick']
+            tickdt = datetime.datetime.utcfromtimestamp(tick/1000.0)
+            tickstr = tickdt.strftime('%Y/%m/%d %H:%M:%S.%f')
+
             tock = mesgs[-1][1]['tock']
+            tockdt = datetime.datetime.utcfromtimestamp(tock/1000.0)
+            tockstr = tockdt.strftime('%Y/%m/%d %H:%M:%S.%f')
 
             await asyncio.sleep(0.01)
             mesgs = await core.streamstorm('[ test:str=baz ]').list()
@@ -674,14 +681,26 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes(f'splice.list')
             self.len(9, nodes)
 
-            nodes = await core.nodes(f'splice.list --mintime {tick}')
+            nodes = await core.nodes(f'splice.list --mintimestamp {tick}')
             self.len(4, nodes)
 
-            nodes = await core.nodes(f'splice.list --maxtime {tock}')
+            nodes = await core.nodes(f'splice.list --mintime "{tickstr}"')
+            self.len(4, nodes)
+
+            nodes = await core.nodes(f'splice.list --maxtimestamp {tock}')
             self.len(7, nodes)
 
-            nodes = await core.nodes(f'splice.list --mintime {tick} --maxtime {tock}')
+            nodes = await core.nodes(f'splice.list --maxtime "{tockstr}"')
+            self.len(7, nodes)
+
+            nodes = await core.nodes(f'splice.list --mintimestamp {tick} --maxtimestamp {tock}')
             self.len(2, nodes)
+
+            nodes = await core.nodes(f'splice.list --mintime "{tickstr}" --maxtime "{tockstr}"')
+            self.len(2, nodes)
+
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('splice.list --mintime badtime'))
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('splice.list --maxtime nope'))
 
             await prox.addAuthUser('visi')
             await prox.setUserPasswd('visi', 'secret')
@@ -732,7 +751,7 @@ class StormTest(s_t_utils.SynTest):
                 self.len(1, nodes)
 
                 # undo adding a node fails without node:del perms
-                q = f'splice.list --mintime {tick} --maxtime {tock} | splice.undo'
+                q = f'splice.list --mintimestamp {tick} --maxtimestamp {tock} | splice.undo'
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
                 await prox.addAuthRule('visi', (True, ('node:del',)))
