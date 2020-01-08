@@ -791,7 +791,7 @@ class StormTest(s_t_utils.SynTest):
 
                 # undo updating a prop
 
-                nodes = await alist(asvisi.eval("test:str=foo [ :tick=0 ]"))
+                nodes = await alist(asvisi.eval("test:str=foo [ :tick=2000 ]"))
                 oldv = nodes[0][1]['props']['tick']
                 self.nn(oldv)
 
