@@ -23,15 +23,26 @@ class CmdBossTest(s_t_utils.SynTest):
             self.true(outp.expect('0 tasks found.'))
 
             async def runLongStorm():
-                async for _ in core.storm('[ test:str=foo test:str=bar ] | sleep 10'):
+                async for _ in core.storm(f'[ test:str=foo test:str={"x"*100} ] | sleep 10 | [ test:str=endofquery ]'):
                     evnt.set()
 
             task = realcore.schedCoro(runLongStorm())
 
             self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
 
+            # Verify that the long query got truncated
             outp.clear()
             await cmdr.runCmdLine('ps')
+
+            self.true(outp.expect('xxx...'))
+            self.true(outp.expect('1 tasks found.'))
+            self.true(outp.expect('start time: 2'))
+
+            # Verify we see the whole query
+            outp.clear()
+            await cmdr.runCmdLine('ps -v')
+
+            self.true(outp.expect('endofquery'))
             self.true(outp.expect('1 tasks found.'))
             self.true(outp.expect('start time: 2'))
 
