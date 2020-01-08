@@ -121,6 +121,7 @@ class Benchmarker:
             async with self.getCortexAndProxy(dirn) as (core, prox):
                 if name == 'PivotToSomething':
                     yappi.clear_stats()
+                    yappi.set_clock_type('wall')
                     yappi.start()
                     # print('on', s_lmdbslab.PrintOn)
                     s_lmdbslab.PrintOn = True
