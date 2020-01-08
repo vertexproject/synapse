@@ -592,7 +592,7 @@ class CmdOper(Oper):
         name = self.kids[0].value()
         argv = self.kids[1].value()
 
-        ctor = runt.snap.core.getStormCmd(name)
+        ctor = runt.snap.getStormCmd(name)
         if ctor is None:
             mesg = 'Storm command not found.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
@@ -1018,7 +1018,7 @@ class LiftProp(LiftOper):
             valu = await self.kids[2].compute(runt)
 
         # If its a secondary prop, there's no optimization
-        if runt.snap.model.forms.get(name) is None:
+        if runt.model.forms.get(name) is None:
             async for node in runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr):
                 yield node
             return
@@ -1119,12 +1119,12 @@ class PivotOut(PivotOper):
 
                 if isinstance(prop.type, s_types.Array):
                     typename = prop.type.opts.get('type')
-                    if runt.snap.model.forms.get(typename) is not None:
+                    if runt.model.forms.get(typename) is not None:
                         for item in valu:
                             async for pivo in runt.snap.getNodesBy(typename, item):
                                 yield pivo, path.fork(pivo)
 
-                form = runt.snap.model.forms.get(prop.type.name)
+                form = runt.model.forms.get(prop.type.name)
                 if form is None:
                     continue
 
@@ -1231,11 +1231,11 @@ class PivotIn(PivotOper):
 
             name, valu = node.ndef
 
-            for prop in runt.snap.model.propsbytype.get(name, ()):
+            for prop in runt.model.propsbytype.get(name, ()):
                 async for pivo in runt.snap.getNodesBy(prop.full, valu):
                     yield pivo, path.fork(pivo)
 
-            for prop in runt.snap.model.arraysbytype.get(name, ()):
+            for prop in runt.model.arraysbytype.get(name, ()):
                 async for pivo in runt.snap.getNodesByArray(prop.full, valu):
                     yield pivo, path.fork(pivo)
 
@@ -1248,7 +1248,7 @@ class PivotInFrom(PivotOper):
 
         name = self.kids[0].value()
 
-        form = runt.snap.model.forms.get(name)
+        form = runt.model.forms.get(name)
         if form is None:
             raise s_exc.NoSuchForm(name=name)
 
@@ -1297,7 +1297,7 @@ class FormPivot(PivotOper):
         warned = False
         name = self.kids[0].value()
 
-        prop = runt.snap.model.props.get(name)
+        prop = runt.model.props.get(name)
         if prop is None:
             raise s_exc.NoSuchProp(name=name)
 
@@ -1485,7 +1485,7 @@ class PropPivotOut(PivotOper):
 
             if isinstance(prop.type, s_types.Array):
                 fname = prop.type.arraytype.name
-                if runt.snap.model.forms.get(fname) is None:
+                if runt.model.forms.get(fname) is None:
                     if not warned:
                         mesg = f'The source property "{name}" array type "{fname}" is not a form. Cannot pivot.'
                         await runt.snap.warn(mesg)
@@ -1530,7 +1530,7 @@ class PropPivot(PivotOper):
         warned = False
         name = self.kids[1].value()
 
-        prop = runt.snap.model.props.get(name)
+        prop = runt.model.props.get(name)
         if prop is None:
             raise s_exc.NoSuchProp(name=name)
 
@@ -1856,7 +1856,7 @@ class HasAbsPropCond(Cond):
 
         name = self.kids[0].value()
 
-        prop = runt.snap.model.props.get(name)
+        prop = runt.model.props.get(name)
         if prop is None:
             raise s_exc.NoSuchProp(name=name)
 
@@ -1916,7 +1916,7 @@ class AbsPropCond(Cond):
         name = self.kids[0].value()
         cmpr = self.kids[1].value()
 
-        prop = runt.snap.model.props.get(name)
+        prop = runt.model.props.get(name)
         if prop is None:
             raise s_exc.NoSuchProp(name=name)
 
@@ -1954,7 +1954,7 @@ class TagValuCond(Cond):
 
         lnode, cnode, rnode = self.kids
 
-        ival = runt.snap.model.type('ival')
+        ival = runt.model.type('ival')
 
         cmpr = cnode.value()
         cmprctor = ival.getCmprCtor(cmpr)
@@ -2023,7 +2023,7 @@ class TagPropCond(Cond):
 
             tag, name = await self.kids[0].compute(path)
 
-            prop = path.runt.snap.model.getTagProp(name)
+            prop = path.runt.model.getTagProp(name)
             if prop is None:
                 mesg = f'No such tag property: {name}'
                 raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
@@ -2168,7 +2168,7 @@ class PropValue(CompValue):
             if i >= imax:
                 return prop, valu
 
-            form = path.runt.snap.model.forms.get(prop.type.name)
+            form = path.runt.model.forms.get(prop.type.name)
             if form is None:
                 raise s_exc.NoSuchForm(name=prop.type.name)
 
@@ -2666,7 +2666,7 @@ class EditUnivDel(Edit):
         if univprop.isconst:
             name = self.kids[0].value()
 
-            univ = runt.snap.model.props.get(name)
+            univ = runt.model.props.get(name)
             if univ is None:
                 raise s_exc.NoSuchProp(name=name)
 
@@ -2674,7 +2674,7 @@ class EditUnivDel(Edit):
             if not univprop.isconst:
                 name = await univprop.compute(path)
 
-                univ = runt.snap.model.props.get(name)
+                univ = runt.model.props.get(name)
                 if univ is None:
                     raise s_exc.NoSuchProp(name=name)
 
