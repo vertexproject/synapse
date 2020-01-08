@@ -1484,7 +1484,7 @@ class SpliceListCmd(Cmd):
         splice.list --mintime "2020/01/06 15:38:10.991"
 
         # Show splices from a specific timeframe.
-        splice.list --mintime 1578422719360 --maxtime 1578422719367
+        splice.list --mintimestamp 1578422719360 --maxtimestamp 1578422719367
 
     Notes:
 
@@ -1594,11 +1594,14 @@ class SpliceUndoCmd(Cmd):
 
     Examples:
 
-        # Undo the last 5 splices
+        # Undo the last 5 splices.
         splice.list | limit 5 | splice.undo
 
-        # Undo splices from a specific timeframe
-        splice.list --mintime 1578422719360 --maxtime 1578422719367 | splice.undo
+        # Undo splices after a specific time.
+        splice.list --mintime "2020/01/06 15:38:10.991"
+
+        # Undo splices from a specific timeframe.
+        splice.list --mintimestamp 1578422719360 --maxtimestamp 1578422719367 | splice.undo
     '''
 
     name = 'splice.undo'
