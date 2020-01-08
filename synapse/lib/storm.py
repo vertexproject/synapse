@@ -1637,9 +1637,10 @@ class SpliceUndoCmd(Cmd):
             if prop is None:
                 raise s_exc.NoSuchProp(name=name, form=node.form.name)
 
-            if 'oldv' in splice.props:
+            oldv = splice.props.get('oldv')
+            if oldv is not None:
                 runt.reqLayerAllowed(('prop:set', prop.full))
-                await node.set(name, splice.props['oldv'])
+                await node.set(name, oldv)
             else:
                 runt.reqLayerAllowed(('prop:del', prop.full))
                 await node.pop(name)
@@ -1684,7 +1685,7 @@ class SpliceUndoCmd(Cmd):
             form = splice.props.get('form')
             valu = splice.props.get('valu')
 
-            if form and valu is not None:
+            if form and (valu is not None):
                 runt.reqLayerAllowed(('node:add', form))
                 await runt.snap.addNode(form, valu)
 
@@ -1710,8 +1711,9 @@ class SpliceUndoCmd(Cmd):
             parts = tag.split('.')
             runt.reqLayerAllowed(('tag:add', *parts))
 
-            if 'valu' in splice.props:
-                await node.addTag(tag, valu=splice.props['valu'])
+            valu = splice.props.get('valu')
+            if valu is not None:
+                await node.addTag(tag, valu=valu)
             else:
                 await node.addTag(tag)
 
@@ -1727,9 +1729,10 @@ class SpliceUndoCmd(Cmd):
 
             prop = splice.props.get('prop')
 
-            if 'oldv' in splice.props:
+            oldv = splice.props.get('oldv')
+            if oldv is not None:
                 runt.reqLayerAllowed(('tag:add', *parts))
-                await node.setTagProp(tag, prop, splice.props['oldv'])
+                await node.setTagProp(tag, prop, oldv)
             else:
                 runt.reqLayerAllowed(('tag:del', *parts))
                 await node.delTagProp(tag, prop)
@@ -1746,8 +1749,9 @@ class SpliceUndoCmd(Cmd):
 
             prop = splice.props.get('prop')
 
-            if 'valu' in splice.props:
-                await node.setTagProp(tag, prop, splice.props['valu'])
+            valu = splice.props.get('valu')
+            if valu is not None:
+                await node.setTagProp(tag, prop, valu)
 
     async def execStormCmd(self, runt, genr):
 
