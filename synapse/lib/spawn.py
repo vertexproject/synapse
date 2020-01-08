@@ -54,6 +54,14 @@ async def storm(core, item):
 async def _innerloop(core, todo, done):
     '''
     Inner loop for the multiprocessing target code.
+
+    Args:
+        spawninfo (dict): Spawninfo dictionary.
+        todo (multiprocessing.Queue): RX Queue
+        done (multiprocessing.Queue): TX Queue
+
+    Returns:
+        None: Returns None.
     '''
     item = await s_coro.executor(todo.get)
     if item is None:
@@ -71,6 +79,27 @@ async def _innerloop(core, todo, done):
 
     return True
 
+async def _workloop(spawninfo, todo, done):
+    '''
+    Workloop executed by the multiprocessing target.
+
+    Args:
+        spawninfo (dict): Spawninfo dictionary.
+        todo (multiprocessing.Queue): RX Queue
+        done (multiprocessing.Queue): TX Queue
+
+    Returns:
+        None: Returns None.
+    '''
+    s_glob.iAmLoop()
+
+    async with await SpawnCore.anit(spawninfo) as core:
+
+        while not core.isfini:
+
+            if not await _innerloop(core, todo, done):
+                break
+
 def corework(spawninfo, todo, done):
     '''
     Multiprocessing target for hosting a SpawnCore launched by a SpawnProc.
@@ -80,18 +109,7 @@ def corework(spawninfo, todo, done):
     # our own process space and no logging has been configured.
     s_common.setlogging(logger, spawninfo.get('loglevel'))
 
-    async def workloop():
-
-        s_glob.iAmLoop()
-
-        async with await SpawnCore.anit(spawninfo) as core:
-
-            while not core.isfini:
-
-                if not await _innerloop(core, todo, done):
-                    break
-
-    asyncio.run(workloop())
+    asyncio.run(_workloop(spawninfo, todo, done))
 
 class SpawnProc(s_base.Base):
     '''
