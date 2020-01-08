@@ -1481,7 +1481,7 @@ class SpliceListCmd(Cmd):
         splice.list | limit 10
 
         # Show splices after a specific time.
-        splice.list --mintime "2020/01/06 15:38:10"
+        splice.list --mintime "2020/01/06 15:38:10.991"
 
         # Show splices from a specific timeframe.
         splice.list --mintime 1578422719360 --maxtime 1578422719367
@@ -1648,7 +1648,7 @@ class SpliceUndoCmd(Cmd):
     async def undoPropDel(self, runt, splice):
 
         name = splice.props.get('prop')
-        if name.startswith('.'):
+        if name == '.created':
             return
 
         buid = splice.props.get('buid')
