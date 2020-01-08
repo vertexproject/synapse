@@ -111,6 +111,33 @@ class CoreSpawnTest(s_test.SynTest):
                 todo.close()
                 done.close()
 
+            # Test the workloop directly - this again just gets telepath
+            # messages back. This does use poison to kill the workloop.
+            todo = mpctx.Queue()
+            done = mpctx.Queue()
+
+            task = asyncio.create_task(s_spawn._workloop(spawninfo, todo, done))
+            await asyncio.sleep(0.01)
+            link1, sock1 = await s_link.linksock()
+            todo_item = item.copy()
+            todo_item['link'] = link1.getSpawnInfo()
+            todo.put(todo_item)
+            # Don't block the IO loop!
+            resp = await s_coro.executor(done.get, timeout=12)
+            self.false(resp)
+            buf0 = sock1.recv(1024 * 16)
+            unpk = s_msgpack.Unpk()
+            msgs = [msg for (offset, msg) in unpk.feed(buf0)]
+            self.eq({'t2:genr', 't2:yield'},
+                    {m[0] for m in msgs})
+            await link1.fini()  # We're done with the link now
+            # Poison the queue - this should close the task
+            todo.put(None)
+            self.none(await asyncio.wait_for(task, timeout=12))
+
+            todo.close()
+            done.close()
+
             queue.close()
             event.set()
             proc.join(12)

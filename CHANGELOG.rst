@@ -16,6 +16,7 @@ Features and Enhancements
   to create or edit nodes in the graph with a Spawn query will fail. The support for this is currently experimental.
   (`#1400 <https://github.com/vertexproject/synapse/pull/1400>`_)
   (`#1499 <https://github.com/vertexproject/synapse/pull/1499>`_)
+  (`#1500 <https://github.com/vertexproject/synapse/pull/1500>`_)
 - Add a ``+?#`` try operator for setting tags in Storm edit blocks. This will silently fail to set the tag if the tag
   or tag value is not valid.
   (`#1465 <https://github.com/vertexproject/synapse/pull/1465>`_)
