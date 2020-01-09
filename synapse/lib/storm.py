@@ -506,7 +506,8 @@ class Runtime:
                 # don't override our parent's version of a function
                 continue
             if name in self.runtvars:
-                raise s_exc.StormRuntimeError(mesg=f'Runtime conflict for var name {name}.')
+                # don't propagate vars already defined as runtvars
+                continue
             self.setVar(name, valu)
             self.runtvars.add(name)
 

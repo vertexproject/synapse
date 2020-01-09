@@ -650,17 +650,17 @@ class StormSvcTest(s_test.SynTest):
                     msgs = await core.streamstorm(scmd).list()
                     self.stormIsInPrint('my foo var is 1.1.1.2', msgs)
 
-                    # raise on var conflict
+                    # var conflict with stormcmd but allow to proceed
                     scmd = f'$fooz=spam $foo="1.1.1.3" | nonode'
-                    with self.raises(s_exc.StormRuntimeError):
-                        await core.nodes(scmd)
+                    msgs = await core.streamstorm(scmd).list()
+                    self.stormIsInPrint('my foo var is 1.1.1.3', msgs)
 
                     # no exception if conflict var names are added to path
                     scmd = f'[ inet:ipv4=1.1.1.4 ] $fooz=spam $foo=$node.repr() | nodein'
                     msgs = await core.streamstorm(scmd).list()
                     self.stormIsInPrint('my foo var is 1.1.1.4', msgs)
 
-                    # call purecmd within purecmd
+                    # repeat with purecmd to purecmd call
                     scmd = f'[ inet:ipv4=1.1.2.1 ] $foo=$node.repr() | nodein --again'
                     msgs = await core.streamstorm(scmd).list()
                     self.stormIsInPrint('my foo var is 1.1.2.1', msgs)
@@ -669,9 +669,13 @@ class StormSvcTest(s_test.SynTest):
                     scmd = f'$foo="1.1.2.2" | nonode --again'
                     msgs = await core.streamstorm(scmd).list()
                     self.stormIsInPrint('my foo var is 1.1.2.2', msgs)
-                    self.stormIsInPrint('my bar var is ham', msgs)  # fails due to cmdopts conflict
+                    self.stormIsInPrint('my bar var is ham', msgs)
 
-                    scmd = f'[ inet:ipv4=1.1.2.4 ] $fooz=spam $foo=$node.repr() | nodein'
+                    scmd = f'$fooz=spam $foo="1.1.2.3" | nonode --again'
+                    msgs = await core.streamstorm(scmd).list()
+                    self.stormIsInPrint('my foo var is 1.1.2.3', msgs)
+
+                    scmd = f'[ inet:ipv4=1.1.2.4 ] $fooz=spam $foo=$node.repr() | nodein --again'
                     msgs = await core.streamstorm(scmd).list()
                     self.stormIsInPrint('my foo var is 1.1.2.4', msgs)
                     self.stormIsInPrint('my bar var is ham', msgs)
