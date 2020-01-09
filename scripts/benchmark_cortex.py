@@ -1,10 +1,10 @@
+import gc
 import time
 import random
 import asyncio
 import contextlib
 import collections
 import logging
-import yappi
 
 logger = logging.getLogger(__name__)
 
@@ -119,23 +119,12 @@ class Benchmarker:
             # We set up the cortex each time to void intra-cortex caching
             # (there's still a substantial amount of OS caching)
             async with self.getCortexAndProxy(dirn) as (core, prox):
-                if name == 'PivotToSomething':
-                    yappi.clear_stats()
-                    yappi.set_clock_type('wall')
-                    yappi.start()
-                    # print('on', s_lmdbslab.PrintOn)
-                    s_lmdbslab.PrintOn = True
-                    pass
+                gc.collect()
+
                 start = time.time()
                 await coro(prox)
                 self.measurements[name].append(time.time() - start)
-                if name == 'PivotToSomething':
-                    # print('off', s_lmdbslab.PrintOn)
-                    s_lmdbslab.PrintOn = False
-                    pass
-                if name == 'PivotToSomething' and i < 2:
-                    yappi.get_func_stats().print_all()
-                    pass
+                # yappi.get_func_stats().print_all()
 
     async def runSuite(self, testdata, config, numprocs):
         assert numprocs == 1
