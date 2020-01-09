@@ -248,8 +248,14 @@ class StormvarService(s_stormsvc.StormSvc):
                         ('name', {}),
                     ),
                     'storm': '''
+                    $name = $cmdopts.name
+                    $cmdhasnodes = $lib.vars.get('cmdhasnodes')
                     if $cmdopts.stormvar {
-                        $fooz = $lib.vars.get($cmdopts.name)
+                        if $cmdhasnodes {
+                            $fooz = $path.vars.$name
+                        } else {
+                            $fooz = $lib.vars.get($name)
+                        }
                     }
                     $lib.print('my foo var is {f}', f=$fooz)
                     ''',
@@ -654,10 +660,16 @@ class StormSvcTest(s_test.SynTest):
                     await core.nodes(f'service.add svar {surl}')
                     await core.nodes('$lib.service.wait(svar)')
 
-                    await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+                    await core.nodes('[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 ]')
+
                     scmd = f'inet:ipv4=1.2.3.4 $foo=$node.repr() | magic --stormvar foo'
                     msgs = await core.streamstorm(scmd).list()
                     self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
+
+                    scmd = f'inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 $foo=$node.repr() | magic --stormvar foo'
+                    msgs = await core.streamstorm(scmd).list()
+                    self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
+                    self.stormIsInPrint('my foo var is 5.6.7.8', msgs)
 
                     scmd = f'$foo="8.8.8.8" | magic --stormvar foo'
                     msgs = await core.streamstorm(scmd).list()
