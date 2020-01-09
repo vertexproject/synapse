@@ -497,7 +497,7 @@ class Runtime:
     async def propBackVars(self, runt):
         '''
         From a called runt (passed in by parameter) propagate the vars that are not functions
-        and do not conflict with the calling runt.  If there is a conflict, raise StormRuntimeError.
+        and do not conflict with the calling runt.
         '''
         for name, valu in runt.vars.items():
             if valu is s_common.novalu:
