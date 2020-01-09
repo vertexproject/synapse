@@ -5,8 +5,6 @@ import pathlib
 import functools
 import threading
 import collections
-import traceback
-PrintOn = False
 
 import logging
 logger = logging.getLogger(__name__)
@@ -33,10 +31,6 @@ MAX_DOUBLE_SIZE = 100 * s_const.gibibyte
 
 int64min = s_common.int64en(0)
 int64max = s_common.int64en(0xffffffffffffffff)
-
-# Nic tmp
-import time
-meas = []
 
 class LmdbDatabase():
     def __init__(self, db, dupsort):
@@ -827,23 +821,19 @@ class Slab(s_base.Base):
             yield from scan.iternext()
 
     def scanByPref(self, byts, db=None):
-        # start = time.time()
 
         with Scan(self, db) as scan:
 
             if not scan.set_range(byts):
-                # meas.append(time.time() - start)
                 return
 
             size = len(byts)
             for lkey, lval in scan.iternext():
 
                 if lkey[:size] != byts:
-                    # meas.append(time.time() - start)
                     return
 
                 yield lkey, lval
-        # meas.append(time.time() - start)
 
     def scanByPrefBack(self, byts, db=None):
 
@@ -900,10 +890,6 @@ class Slab(s_base.Base):
                 yield lkey, lval
 
     def scanByFull(self, db=None):
-        # print(f'scanByFull: {PrintOn}')
-        if PrintOn:
-            breakpoint()
-            traceback.print_stack()
 
         with Scan(self, db) as scan:
 
