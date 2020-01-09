@@ -250,9 +250,8 @@ class StormvarService(s_stormsvc.StormSvc):
                     // Print var without inbound node
                     $fooz = $lib.vars.get('foo')
                     $lib.print('my foo var is {f}', f=$fooz)
-                    $bar = 'ham'
                     if $cmdopts.again {
-                        nonodeagain
+                        nonodeagain cow
                     }
                     ''',
                 },
@@ -265,17 +264,19 @@ class StormvarService(s_stormsvc.StormSvc):
                     // Print var from inbound node
                     $fooz = $path.vars.foo
                     $lib.print('my foo var is {f}', f=$fooz)
-                    $bar = 'ham'
                     if $cmdopts.again {
-                        nonodeagain
+                        nonodeagain ham
                     }
                     ''',
                 },
                 {
                     'name': 'nonodeagain',
+                    'cmdargs': (
+                        ('name', {}),
+                    ),
                     'storm': '''
-                    $barz = 'ham'
-                    $lib.print('my bar var is {v}', v=$barz)
+                    $bar = $cmdopts.name
+                    $lib.print('my bar var is {v}', v=$bar)
                     ''',
                 },
             )
@@ -669,11 +670,12 @@ class StormSvcTest(s_test.SynTest):
                     scmd = f'$foo="1.1.2.2" | nonode --again'
                     msgs = await core.streamstorm(scmd).list()
                     self.stormIsInPrint('my foo var is 1.1.2.2', msgs)
-                    self.stormIsInPrint('my bar var is ham', msgs)
+                    self.stormIsInPrint('my bar var is cow', msgs)
 
                     scmd = f'$fooz=spam $foo="1.1.2.3" | nonode --again'
                     msgs = await core.streamstorm(scmd).list()
                     self.stormIsInPrint('my foo var is 1.1.2.3', msgs)
+                    self.stormIsInPrint('my bar var is cow', msgs)
 
                     scmd = f'[ inet:ipv4=1.1.2.4 ] $fooz=spam $foo=$node.repr() | nodein --again'
                     msgs = await core.streamstorm(scmd).list()
