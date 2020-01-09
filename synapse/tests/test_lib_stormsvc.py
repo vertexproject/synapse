@@ -242,12 +242,24 @@ class StormvarService(s_stormsvc.StormSvc):
             'version': (0, 0, 1),
             'commands': (
                 {
+                    'name': 'magic',
+                    'cmdargs': (
+                        ('--stormvar', {'default': False, 'action': 'store_true'}),
+                        ('name', {}),
+                    ),
+                    'storm': '''
+                    if $cmdopts.stormvar {
+                        $fooz = $lib.vars.get($cmdopts.name)
+                    }
+                    $lib.print('my foo var is {f}', f=$fooz)
+                    ''',
+                },
+                {
                     'name': 'nonode',
                     'cmdargs': (
                         ('--again', {'default': False, 'action': 'store_true', 'help': 'call another purecmd'}),
                     ),
                     'storm': '''
-                    // Print var without inbound node
                     $fooz = $lib.vars.get('foo')
                     $lib.print('my foo var is {f}', f=$fooz)
                     if $cmdopts.again {
@@ -261,7 +273,6 @@ class StormvarService(s_stormsvc.StormSvc):
                         ('--again', {'default': False, 'action': 'store_true', 'help': 'call another purecmd'}),
                     ),
                     'storm': '''
-                    // Print var from inbound node
                     $fooz = $path.vars.foo
                     $lib.print('my foo var is {f}', f=$fooz)
                     if $cmdopts.again {
@@ -643,6 +654,16 @@ class StormSvcTest(s_test.SynTest):
                     await core.nodes(f'service.add svar {surl}')
                     await core.nodes('$lib.service.wait(svar)')
 
+                    await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+                    scmd = f'inet:ipv4=1.2.3.4 $foo=$node.repr() | magic --stormvar foo'
+                    msgs = await core.streamstorm(scmd).list()
+                    self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
+
+                    scmd = f'$foo="8.8.8.8" | magic --stormvar foo'
+                    msgs = await core.streamstorm(scmd).list()
+                    self.stormIsInPrint('my foo var is 8.8.8.8', msgs)
+
+                    # nodein will look for foo on path instead of lib
                     scmd = f'[ inet:ipv4=1.1.1.1 ] $foo=$node.repr() | nodein'
                     msgs = await core.streamstorm(scmd).list()
                     self.stormIsInPrint('my foo var is 1.1.1.1', msgs)

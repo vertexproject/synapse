@@ -698,7 +698,9 @@ class PureCmd(Cmd):
                 # wrap paths in a scope to isolate vars
                 hasnodes = False
                 async for node, path in genr:
-                    hasnodes = True
+                    if not hasnodes:
+                        await subr.propBackVars(runt)
+                        hasnodes = True
                     path.initframe(initvars=cmdvars, initrunt=subr)
                     yield node, path
 
