@@ -1529,6 +1529,7 @@ class SpliceListCmd(Cmd):
                 mintime = s_time.parse(self.opts.mintime, chop=True)
             except s_exc.BadTypeValu as e:
                 mesg = f'Error during mintime parsing - {str(e)}'
+
                 raise s_exc.StormRuntimeError(mesg=mesg, valu=self.opts.mintime) from None
 
         i = 0
@@ -1545,13 +1546,14 @@ class SpliceListCmd(Cmd):
             splicebuid = s_common.buid(('syn:splice', guid))
 
             buid = s_common.buid(splice[1]['ndef'])
+            iden = s_common.ehex(buid)
 
             rows = [('*syn:splice', guid)]
             rows.append(('splice', splice))
 
             rows.append(('.created', s_common.now()))
             rows.append(('type', splice[0]))
-            rows.append(('buid', buid))
+            rows.append(('iden', iden))
 
             rows.append(('form', splice[1]['ndef'][0]))
             rows.append(('time', splice[1]['time']))
@@ -1595,7 +1597,7 @@ class SpliceUndoCmd(Cmd):
         splice.list | limit 5 | splice.undo
 
         # Undo splices after a specific time.
-        splice.list --mintime "2020/01/06 15:38:10.991"
+        splice.list --mintime "2020/01/06 15:38:10.991" | splice.undo
 
         # Undo splices from a specific timeframe.
         splice.list --mintimestamp 1578422719360 --maxtimestamp 1578422719367 | splice.undo
@@ -1623,14 +1625,11 @@ class SpliceUndoCmd(Cmd):
         pars.add_argument('--force', default=False, action='store_true', help=forcehelp)
         return pars
 
-    async def undoPropSet(self, runt, splice):
+    async def undoPropSet(self, runt, splice, node):
 
         name = splice.props.get('prop')
         if name == '.created':
             return
-
-        buid = splice.props.get('buid')
-        node = await runt.snap.getNodeByBuid(buid)
 
         if node:
             prop = node.form.props.get(name)
@@ -1645,14 +1644,11 @@ class SpliceUndoCmd(Cmd):
                 runt.reqLayerAllowed(('prop:del', prop.full))
                 await node.pop(name)
 
-    async def undoPropDel(self, runt, splice):
+    async def undoPropDel(self, runt, splice, node):
 
         name = splice.props.get('prop')
         if name == '.created':
             return
-
-        buid = splice.props.get('buid')
-        node = await runt.snap.getNodeByBuid(buid)
 
         if node:
             prop = node.form.props.get(name)
@@ -1664,10 +1660,7 @@ class SpliceUndoCmd(Cmd):
             runt.reqLayerAllowed(('prop:set', prop.full))
             await node.set(name, valu)
 
-    async def undoNodeAdd(self, runt, splice):
-
-        buid = splice.props.get('buid')
-        node = await runt.snap.getNodeByBuid(buid)
+    async def undoNodeAdd(self, runt, splice, node):
 
         if node:
             for tag in node.tags.keys():
@@ -1676,10 +1669,7 @@ class SpliceUndoCmd(Cmd):
             runt.reqLayerAllowed(('node:del', node.form.name))
             await node.delete(force=self.opts.force)
 
-    async def undoNodeDel(self, runt, splice):
-
-        buid = splice.props.get('buid')
-        node = await runt.snap.getNodeByBuid(buid)
+    async def undoNodeDel(self, runt, splice, node):
 
         if node is None:
             form = splice.props.get('form')
@@ -1689,10 +1679,7 @@ class SpliceUndoCmd(Cmd):
                 runt.reqLayerAllowed(('node:add', form))
                 await runt.snap.addNode(form, valu)
 
-    async def undoTagAdd(self, runt, splice):
-
-        buid = splice.props.get('buid')
-        node = await runt.snap.getNodeByBuid(buid)
+    async def undoTagAdd(self, runt, splice, node):
 
         if node:
             tag = splice.props.get('tag')
@@ -1701,10 +1688,7 @@ class SpliceUndoCmd(Cmd):
 
             await node.delTag(tag)
 
-    async def undoTagDel(self, runt, splice):
-
-        buid = splice.props.get('buid')
-        node = await runt.snap.getNodeByBuid(buid)
+    async def undoTagDel(self, runt, splice, node):
 
         if node:
             tag = splice.props.get('tag')
@@ -1717,10 +1701,7 @@ class SpliceUndoCmd(Cmd):
             else:
                 await node.addTag(tag)
 
-    async def undoTagPropSet(self, runt, splice):
-
-        buid = splice.props.get('buid')
-        node = await runt.snap.getNodeByBuid(buid)
+    async def undoTagPropSet(self, runt, splice, node):
 
         if node:
             tag = splice.props.get('tag')
@@ -1737,10 +1718,7 @@ class SpliceUndoCmd(Cmd):
                 runt.reqLayerAllowed(('tag:del', *parts))
                 await node.delTagProp(tag, prop)
 
-    async def undoTagPropDel(self, runt, splice):
-
-        buid = splice.props.get('buid')
-        node = await runt.snap.getNodeByBuid(buid)
+    async def undoTagPropDel(self, runt, splice, node):
 
         if node:
             tag = splice.props.get('tag')
@@ -1774,7 +1752,18 @@ class SpliceUndoCmd(Cmd):
             splicetype = node.props.get('type')
 
             if splicetype in self.undo:
-                await self.undo[splicetype](runt, node)
+
+                iden = node.props.get('iden')
+                if iden is None:
+                    continue
+
+                buid = s_common.uhex(iden)
+                if len(buid) != 32:
+                    raise s_exc.NoSuchIden(mesg='Iden must be 32 bytes', iden=iden)
+
+                splicednode = await runt.snap.getNodeByBuid(buid)
+
+                await self.undo[splicetype](runt, node, splicednode)
             else:
                 raise s_exc.StormRuntimeError(mesg='Unknown splice type.', splicetype=splicetype)
 
