@@ -208,8 +208,8 @@ class StormDmon(s_base.Base):
         s_scope.set('storm:dmon', self.iden)
 
         text = self.ddef.get('storm')
-        opts = self.ddef.get('stormopts')
-        view = opts.get('view')
+        opts = self.ddef.get('stormopts', {})
+        view = self.core.getView(opts.get('view'))
 
         def dmonPrint(evnt):
             mesg = evnt[1].get('mesg', '')
