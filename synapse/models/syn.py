@@ -500,8 +500,8 @@ class SynModule(s_module.CoreModule):
                     ('type', ('str', {'strip': True}), {
                         'doc': 'Type of splice.', 'ro': True
                     }),
-                    ('buid', ('str', {}), {
-                        'doc': 'The BUID of the node involved in the splice.', 'ro': True,
+                    ('iden', ('str', {}), {
+                        'doc': 'The iden of the node involved in the splice.', 'ro': True,
                     }),
                     ('form', ('syn:form', {'strip': True}), {
                         'doc': 'The form involved in the splice.', 'ro': True
