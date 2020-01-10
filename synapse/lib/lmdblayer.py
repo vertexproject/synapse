@@ -74,7 +74,8 @@ class LmdbLayer(s_layer.Layer):
 
         self.layrslab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, maxsize=maxsize,
                                                    growsize=growsize, writemap=True, readahead=readahead,
-                                                   lockmemory=self.lockmemory, map_async=map_async, readonly=self.readonly)
+                                                   lockmemory=self.lockmemory, map_async=map_async,
+                                                   readonly=self.readonly)
         self.onfini(self.layrslab.fini)
 
         self.spliceslab = await s_lmdbslab.Slab.anit(splicepath, max_dbs=128, map_size=mapsize, maxsize=maxsize,
@@ -638,7 +639,7 @@ class LmdbLayer(s_layer.Layer):
                     yield (buid,)
                 continue
 
-            #pragma: no cover
+            # pragma: no cover
             mesg = f'No such index function for tag props: {iopr[0]}'
             raise s_exc.NoSuchName(name=iopr[0], mesg=mesg)
 

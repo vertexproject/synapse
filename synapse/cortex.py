@@ -2250,6 +2250,8 @@ class Cortex(s_cell.Cell):
         if iden == self.view.iden:
             raise s_exc.SynErr(mesg='cannot delete the main view')
 
+        # FIXME: verify that there are no children views
+
         view = self.views.pop(iden, None)
         if view is None:
             raise s_exc.NoSuchView(iden=iden)
