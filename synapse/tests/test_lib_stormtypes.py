@@ -1390,3 +1390,14 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0][0], ('test:comp', (2, 'foo')))
             self.eq(nodes[1][0], ('test:comp', (4, 'bar')))
             self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
+
+    async def test_storm_lib_layer(self):
+
+        async with self.getTestCore() as core:
+
+            q = '''
+                $layer = $lib.layer.add()
+                $lib.print($layer)
+            '''
+            mesgs = await core.streamstorm(q).list()
+            print(mesgs)
