@@ -243,7 +243,8 @@ class Benchmarker:
 
 Configs: Dict[str, Dict] = {
     'simple': {},
-    'mapasync': {'layer:lmdb:map_async': True}
+    'mapasync': {'layer:lmdb:map_async': True},
+    'dedicated': {'dedicated': True}
 }
 
 def benchmarkAll(confignames: List = None, num_procs=1, workfactor=1000, tmpdir=None) -> None:
