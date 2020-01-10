@@ -2235,11 +2235,11 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('ipv4', ('inet:ipv4', {}), {
                             'ro': True,
-                            'doc': 'The IPv4 addressed queried.'
+                            'doc': 'The IPv4 address queried.'
                         }),
                         ('ipv6', ('inet:ipv6', {}), {
                             'ro': True,
-                            'doc': 'The IPv6 addressed queried.'
+                            'doc': 'The IPv6 address queried.'
                         }),
                         ('success', ('bool', {}), {
                             'ro': True,

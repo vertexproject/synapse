@@ -12,7 +12,6 @@ class LibWhois(s_stormtypes.Lib):
     def addLibFuncs(self):
         self.locls.update({
             'guid': self._whoisGuid,
-            'parse': self._whoisParse,
         })
 
     async def _whoisGuid(self, props, form):
@@ -37,7 +36,8 @@ class LibWhois(s_stormtypes.Lib):
         elif form == 'ipquery':
             guid_props = ('time', 'fqdn', 'url', 'ipv4', 'ipv6')
         else:
-            raise s_exc.StormRuntimeError(mesg=f'No guid helpers available for inet:whois form', form=form)
+            mesg = f'No guid helpers available for this inet:whois form'
+            raise s_exc.StormRuntimeError(mesg=mesg, form=form)
 
         guid_vals = []
         try:
@@ -54,7 +54,3 @@ class LibWhois(s_stormtypes.Lib):
             return s_common.guid()
 
         return s_common.guid(sorted(guid_vals))
-
-    async def _whoisParse(self, data, rectype):
-        # TODO: Consider adding a light parser here
-        pass
