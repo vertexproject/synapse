@@ -187,10 +187,16 @@ class StormDmon(s_base.Base):
                                                     info=info)
                 self.loop_task = synt.task
                 await synt.waitfini()
-            except (asyncio.CancelledError, s_exc.NoSuchView):
+            except asyncio.CancelledError:
                 logger.warning(f'Dmon main cancelled ({self.iden})')
                 if self.loop_task:
                     self.loop_task.cancel()
+                self.status = f'fatal error: Dmon main cancelled'
+                raise
+            except s_exc.NoSuchView as e:
+                if self.loop_task:
+                    self.loop_task.cancel()
+                self.status = f'fatal error: invalid view'
                 raise
             except Exception as e:  # pragma: no cover
                 logger.exception(f'Dmon error during loop task execution ({self.iden})')
