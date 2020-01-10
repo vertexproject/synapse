@@ -85,6 +85,60 @@ stormcmds = (
         '''
     },
     {
+        'name': 'layer.add',
+        'descr': 'List the layers in the cortex.',
+        'cmdargs': (
+            ('--confvar', {'help', 'Name of the variable with a layer configuration dict.'}),
+            ('--stor', {'help', 'Type of storage for the layer.'}),
+        ),
+        'storm': '''
+            if ($cmdopts.confvar) {
+                $conf = $lib.vars.get($cmdopts.confvar)
+            }
+
+            $layer = $lib.layer.add($conf, $cmdopts.stor)
+            $lib.print("layer added: {iden}", name=$layer.iden)
+        ''',
+    },
+    {
+        'name': 'layer.del',
+        'descr': 'Delete a layer from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the layer to delete.'}),
+        ),
+        'storm': '''
+            $lib.layer.del($cmdopts.iden)
+            $lib.print("layer removed: {iden}", name=$cmdopts.iden)
+        ''',
+    },
+    {
+        'name': 'layer.get',
+        'descr': 'Get a layer from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the layer to delete.'}),
+        ),
+        'storm': '''
+            $layer = $lib.layer.get($cmdopts.iden)
+
+            if ($layer) {
+                $name = $layer.name.ljust(20)
+                $lib.print("    {iden}:  ({name}): {stortype}", iden=$layer.iden, name=$name, stortype=$layer.stor)
+            }
+        ''',
+    },
+    {
+        'name': 'layer.list',
+        'descr': 'List the layers in the cortex.',
+        'cmdargs': (),
+        'storm': '''
+            $lib.print('Layer list:')
+            for $layer in $lib.layer.list() {
+                $name = $layer.name.ljust(20)
+                $lib.print("    {iden}:  ({name}): {stortype}", iden=$layer.iden, name=$name, stortype=$layer.stor)
+            }
+        ''',
+    },
+    {
         'name': 'pkg.list',
         'descr': 'List the storm packages loaded in the cortex.',
         'cmdrargs': (),

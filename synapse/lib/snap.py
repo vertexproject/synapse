@@ -177,6 +177,18 @@ class Snap(s_base.Base):
     async def addStormDmon(self, ddef):
         return await self.core.addStormDmon(ddef)
 
+    async def addLayer(self, conf=None, stor=None):
+        return await self.core.addLayer(conf, stor)
+
+    async def delLayer(self, iden):
+        return await self.core.delLayer(iden)
+
+    async def getLayer(self, iden):
+        return await self.core.getLayer(iden)
+
+    async def listLayers(self):
+        return self.layers
+
     def getStormMod(self, name):
         return self.mods.get(name)
 

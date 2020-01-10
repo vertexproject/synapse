@@ -1881,6 +1881,7 @@ class Cortex(s_cell.Cell):
         self.addStormLib(('stats',), s_stormtypes.LibStats)
         self.addStormLib(('service',), s_stormtypes.LibService)
         self.addStormLib(('bytes',), s_stormtypes.LibBytes)
+        self.addStormLib(('layer',), s_stormtypes.LibLayer)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
         self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
 

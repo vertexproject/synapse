@@ -1354,6 +1354,62 @@ class StatTally(Prim):
     async def get(self, name):
         return self.counters.get(name, 0)
 
+class LibLayer(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'add': self._libLayerAdd,
+            'del': self._libLayerDel,
+            'get': self._libLayerGet,
+            'list': self._libLayerList,
+        })
+
+    async def _libLayerAdd(self, conf=None, stor=None):
+        '''
+        Add a layer to the cortex.
+        '''
+        self.runt.reqAllowed(('storm', 'layer', 'add'))
+
+        layer = await self.runt.snap.addLayer(conf, stor)
+
+        return layer.pack()
+
+    async def _libLayerDel(self, iden):
+        '''
+        Delete a layer from the cortex.
+        '''
+        self.runt.reqAllowed(('storm', 'layer', 'del'))
+
+        layer = await self.runt.snap.getLayer(iden)
+        if layer is None:
+            mesg = f'No layer with iden: {iden}'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        await self.runt.snap.delLayer(iden)
+
+    async def _libLayerGet(self, iden):
+        '''
+        Get a layer from the cortex.
+        '''
+        self.runt.reqAllowed(('storm', 'layer', 'get'))
+
+        layer = await self.runt.snap.getLayer(iden)
+        if layer is None:
+            mesg = f'No layer with iden: {iden}'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        await layer.pack()
+
+    async def _libLayerList(self):
+        '''
+        List the layers in a cortex.
+        '''
+        self.runt.reqAllowed(('storm', 'layer', 'list'))
+
+        layers = await self.runt.snap.getLayers()
+
+        return [layer.pack() for l in layers]
+
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):
 
