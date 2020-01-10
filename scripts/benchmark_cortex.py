@@ -8,9 +8,16 @@ import collections
 import logging
 import statistics
 
+'''
+Benchmark cortex operations
+
+TODO:  separate client process, multiple clients
+TODO:  tagprops, regex, control flow, node data, multiple layers, spawn option, remote layer
+'''
+
 logger = logging.getLogger(__name__)
 
-from typing import List, Dict, AsyncIterator, Tuple, Any, TYPE_CHECKING
+from typing import List, Dict, AsyncIterator, Tuple, Any, Callable, TYPE_CHECKING
 if TYPE_CHECKING:
     import synapse.telepath as s_telepath
     import synapse.cortex as s_cortex
@@ -21,29 +28,10 @@ import synapse.tests.utils as s_t_utils
 
 s_common.setlogging(logger, 'ERROR')
 
-# Construct existing cortex
-# Copy cortex directory to a new one
-
-# inet:ipv4 -> inet:dns:a -> inet:fqdn
-
-# Pivot that returns no nodes
-#   Pivot that returns a lot of nodes
-
-# Lift by tag
-# Lift by buid
-# Lift by primary prop prefix
-#   No nodes
-#   1 node
-#   Lots of nodes
-
-# Lift by secondary prop
-
-# Future plans:
-# Benchmark multi-layer
-# Benchmark remote layer
-# Benchmark parallel
-
 async def acount(genr):
+    '''
+    Counts an async generator
+    '''
     count = 0
     async for _ in genr:
         count += 1
@@ -51,13 +39,14 @@ async def acount(genr):
 
 class TestData:
     '''
-    Pregenerate a bunch of data for future test runs
+    Pregenerates a bunch of data for future test runs
     '''
     def __init__(self, num_records):
+        '''
         # inet:ipv4 -> inet:dns:a -> inet:fqdn
-        # N ipv4s
         # For each even ipv4 record, make an inet:dns:a record that points to <ipaddress>.website, if it is
         # divisible by ten also make a inet:dns:a that points to blackhole.website
+        '''
         self.nrecs = num_records
         random.seed(4)  # 4 chosen by fair dice roll.  Guaranteed to be random
         ips = list(range(num_records))
@@ -65,7 +54,11 @@ class TestData:
         dnsas = [(f'{ip}.website', ip) for ip in ips if ip % 2 == 0]
         dnsas += [('blackhole.website', ip) for ip in ips if ip % 10 == 0]
         random.shuffle(dnsas)
-        self.ips = [(('inet:ipv4', ip), {'tags': {'odd' if ip % 2 else 'even': (None, None)}}) for ip in ips]
+
+        def oe(num):
+            return 'odd' if num % 2 else 'even'
+
+        self.ips = [(('inet:ipv4', ip), {'tags': {'all': (None, None), oe(ip): (None, None)}}) for ip in ips]
         self.dnsas = [(('inet:dns:a', dnsas), {}) for dnsas in dnsas]
 
         self.asns = [(('inet:asn', asn * 2), {}) for asn in range(num_records)]
@@ -78,6 +71,13 @@ class TestData:
 
 syntest = s_t_utils.SynTest()
 
+def isatrial(meth):
+    '''
+    Mark a method as being a trial
+    '''
+    meth._isatrial = True
+    return meth
+
 class Benchmarker:
     def __init__(self, config: Dict[Any, Any], testdata: TestData, workfactor: int, num_iters=4):
         '''
@@ -87,9 +87,8 @@ class Benchmarker:
             workfactor:  a positive integer indicating roughly the amount of work each benchmark should do
             num_iters:  the number of times each test is run
 
-        Note:  the actual benchmarked methods start with 'do' (so don't add a property or non-benchmark method that
-        starts with 'do').  All these benchmark methods are independent and should not have an effect (other than btree
-        caching, and size) on the other tests.  The only precondition is that the testdata has been loaded.
+        All the benchmark methods are independent and should not have an effect (other than btree caching and size)
+        on the other tests.  The only precondition is that the testdata has been loaded.
         '''
         self.measurements: Dict[str, List] = collections.defaultdict(list)
         self.num_iters = num_iters
@@ -108,7 +107,7 @@ class Benchmarker:
             stddev = statistics.stdev(pertimes) * 100000
             count = measurements[0][1]
 
-            print(f'{name:20}: {totmean:8.3}s / {count:5} = {mean:6.3}μs stddev: {stddev:6.4}μs')
+            print(f'{name:30}: {totmean:8.3}s / {count:5} = {mean:8.3}μs stddev: {stddev:6.4}μs')
 
     async def _loadtestdata(self, core):
         await s_common.aspin(core.addNodes(self.testdata.ips))
@@ -120,56 +119,91 @@ class Benchmarker:
         async with syntest.getTestCoreAndProxy(conf=self.coreconfig, dirn=dirn) as (core, prox):
             yield core, prox
 
-    async def do00Nothing(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    @isatrial
+    async def do00EmptyString(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
         count = await acount(prox.eval(''))
         assert count == 0
         return 1
 
+    @isatrial
     async def do01SimpleCount(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
         count = await acount(prox.eval('inet:ipv4 | count | spin'))
         assert count == 0
         return self.workfactor
 
-    async def do02SimpleLift(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
-        count = await acount(prox.eval('inet:dns:a'))
-        assert count == self.workfactor // 2 + self.workfactor // 10
+    @isatrial
+    async def do02Lift(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+        count = await acount(prox.eval('inet:ipv4'))
+        assert count == self.workfactor
         return count
 
-    async def do03LiftBySecondary(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    @isatrial
+    async def do02LiftFilterAbsent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+        count = await acount(prox.eval('inet:ipv4 | +#newp'))
+        assert count == 0
+        return 1
+
+    @isatrial
+    async def do02LiftFilterPresent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+        count = await acount(prox.eval('inet:ipv4 | +#all'))
+        assert count == self.workfactor
+        return count
+
+    @isatrial
+    async def do03LiftBySecondaryAbsent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+        count = await acount(prox.eval('inet:dns:a:fqdn=newp'))
+        assert count == 0
+        return 1
+
+    @isatrial
+    async def do03LiftBySecondaryPresent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
         count = await acount(prox.eval('inet:dns:a:fqdn=blackhole.website'))
         assert count == self.workfactor // 10
         return count
 
-    async def do04SimpleLiftByTag(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    @isatrial
+    async def do04LiftByTagAbsent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+        count = await acount(prox.eval('inet:ipv4#newp'))
+        assert count == 0
+        return 1
+
+    @isatrial
+    async def do04LiftByTagPresent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
         count = await acount(prox.eval('inet:ipv4#even'))
         assert count == self.workfactor // 2
         return count
 
-    async def do05PivotToNothing(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    @isatrial
+    async def do05PivotAbsent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
         count = await acount(prox.eval('inet:ipv4#odd -> inet:dns:a'))
         assert count == 0
         return self.workfactor // 2
 
-    async def do06PivotToSomething(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    @isatrial
+    async def do06PivotPresent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
         count = await acount(prox.eval('inet:ipv4#even -> inet:dns:a'))
         assert count == self.workfactor // 2 + self.workfactor // 10
         return count
 
+    @isatrial
     async def do07AddNodes(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
         count = await acount(prox.addNodes(self.testdata.asns2))
         assert count == self.workfactor
         return count
 
-    async def do07AddNodesBounce(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    @isatrial
+    async def do07AddNodesPresent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
         count = await acount(prox.addNodes(self.testdata.ips))
         assert count == self.workfactor
         return count
 
+    @isatrial
     async def do08LocalAddNodes(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
         count = await acount(core.addNodes(self.testdata.asns))
         assert count == self.workfactor
         return count
 
+    @isatrial
     async def do09DelNodes(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
         count = await acount(prox.eval('inet:url | delnode'))
         assert count == 0
@@ -187,6 +221,16 @@ class Benchmarker:
                 self.measurements[name].append((time.time() - start, count))
                 # yappi.get_func_stats().print_all()
 
+    def _getTrialFuncs(self):
+        funcs: List[Tuple[str, Callable]] = []
+        funcnames = sorted(f for f in dir(self))
+        for funcname in funcnames:
+            func = getattr(self, funcname)
+            if not hasattr(func, '_isatrial'):
+                continue
+            funcs.append((funcname, func))
+        return funcs
+
     async def runSuite(self, config: Dict[str, Dict], numprocs: int, tmpdir: str = None):
         assert numprocs == 1
         if tmpdir is not None:
@@ -194,11 +238,8 @@ class Benchmarker:
         with syntest.getTestDir(tmpdir) as dirn:
             async with self.getCortexAndProxy(dirn) as (core, _):
                 await self._loadtestdata(core)
-            funcnames = sorted(f for f in dir(self) if f.startswith('do'))
-            for funcname in funcnames:
-                funclabel = funcname[2:]
-                func = getattr(self, funcname)
-                await self.run(core, funclabel, dirn, func)
+            for funcname, func in self._getTrialFuncs():
+                await self.run(core, funcname, dirn, func)
 
 Configs: Dict[str, Dict] = {
     'simple': {},
@@ -222,8 +263,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', nargs='*', default=None)
-    parser.add_argument('--num-clients', type=int, default=1)
+    # parser.add_argument('--num-clients', type=int, default=1)
     parser.add_argument('--workfactor', type=int, default=1000)
     parser.add_argument('--tmpdir', nargs=1)
     opts = parser.parse_args()
-    benchmarkAll(opts.config, opts.num_clients, opts.workfactor, opts.tmpdir)
+    benchmarkAll(opts.config, 1, opts.workfactor, opts.tmpdir)
