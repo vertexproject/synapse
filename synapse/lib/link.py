@@ -78,6 +78,13 @@ async def linksock():
     link0 = await Link.anit(reader, writer, info={'unix': True})
     return link0, sock1
 
+async def fromspawn(spawninfo):
+    sock = spawninfo.get('sock')
+    info = spawninfo.get('info', {})
+    info['spawn'] = True
+    reader, writer = await asyncio.open_connection(sock=sock)
+    return await Link.anit(reader, writer, info=info)
+
 class Link(s_base.Base):
     '''
     A Link() is created to wrap a socket reader/writer.
@@ -121,8 +128,22 @@ class Link(s_base.Base):
 
         async def fini():
             self.writer.close()
+            await self.writer.wait_closed()
 
         self.onfini(fini)
+
+    def getSpawnInfo(self):
+        info = {}
+
+        # selectively add info for pickle...
+        if self.info.get('unix'):
+            info['unix'] = True
+
+        return {
+            'info': info,
+            # a bit dirty, but there's no other way...
+            'sock': self.reader._transport._sock,
+        }
 
     def getAddrInfo(self):
         '''

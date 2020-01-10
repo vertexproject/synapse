@@ -1038,6 +1038,9 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('$q = $lib.queue.add(blah) [ inet:ipv4=1.2.3.4 inet:ipv4=5.5.5.5 ] $q.put( $node.repr() )')
             self.len(2, nodes)
 
+            # Put a value into the queue that doesn't exist in the cortex so the lift can nop
+            await core.nodes('$q = $lib.queue.get(blah) $q.put("8.8.8.8")')
+
             nodes = await core.nodes('''
                 $q = $lib.queue.get(blah)
                 for ($offs, $ipv4) in $q.gets(0, cull=0, wait=0) {
@@ -1091,6 +1094,10 @@ class StormTypesTest(s_test.SynTest):
                 await root.addAuthRule('synapse', rule, indx=None)
                 msgs = await alist(core.streamstorm('queue.add synq', user=synu))
                 self.stormIsInPrint('queue added: synq', msgs)
+
+                rule = (True, ('storm', 'queue', 'synq', 'put'))
+                await root.addAuthRule('synapse', rule, indx=None)
+
                 await core.nodes('$q = $lib.queue.get(synq) $q.puts((bar, baz))', user=synu)
 
                 # now let's see our other user fail to add things

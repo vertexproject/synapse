@@ -18,6 +18,19 @@ csvstorm = b'''
     }
 '''
 
+csvfile_missing = b'''fqdn,email,tag
+vertex.link,,mytag
+google.com,myemail@email.com,
+yahoo.com,foo@bar.com,mytag
+'''
+
+csvstorm_missing = b'''
+    for ($fqdn, $email, $tag) in $rows {
+        $lib.print("hello hello")
+        [ inet:dns:soa=$lib.guid() :fqdn=$fqdn :email?=$email +?#$tag ]
+    }
+'''
+
 # count is used for test coverage.
 csvstorm_export = b'''
 test:int $lib.csv.emit($node, :loc) | count
@@ -49,6 +62,32 @@ class CsvToolTest(s_t_utils.SynTest):
             await s_csvtool.main(argv, outp=outp)
             outp.expect('oh hai')
             outp.expect('2 nodes (9 created)')
+
+    async def test_csvtool_missingvals(self):
+
+        async with self.getTestCore() as core:
+
+            url = core.getLocalUrl()
+
+            dirn = s_common.gendir(core.dirn, 'junk')
+
+            logpath = s_common.genpath(dirn, 'csvtest.log')
+
+            csvpath = s_common.genpath(dirn, 'csvtest.csv')
+            with s_common.genfile(csvpath) as fd:
+                fd.write(csvfile_missing)
+
+            stormpath = s_common.genpath(dirn, 'csvtest.storm')
+            with s_common.genfile(stormpath) as fd:
+                fd.write(csvstorm_missing)
+
+            argv = ['--csv-header', '--debug', '--cortex', url, '--logfile', logpath, stormpath, csvpath]
+            outp = self.getTestOutp()
+
+            await s_csvtool.main(argv, outp=outp)
+            outp.expect('hello hello')
+            outp.expect("'fqdn': 'google.com'")
+            outp.expect('3 nodes (15 created)')
 
     async def test_csvtool_local(self):
 

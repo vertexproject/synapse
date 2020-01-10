@@ -16,6 +16,7 @@ Welcome to the Synapse documentation!
    synapse/userguide
    synapse/devops
    synapse/devguide
+   synapse/glossary
    synapse/contributing
 
    synapse/apidocs

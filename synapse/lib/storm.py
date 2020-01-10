@@ -4,17 +4,23 @@ import argparse
 import collections
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
+import synapse.lib.boss as s_boss
+import synapse.lib.hive as s_hive
+import synapse.lib.link as s_link
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
+import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
+import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -232,6 +238,11 @@ class StormDmon(s_base.Base):
 class Runtime:
     '''
     A Runtime represents the instance of a running query.
+
+    The runtime should maintain a firm API boundary using the snap.
+    Parallel query execution requires that the snap be treated as an
+    opaque object which is called through, but not dereferenced.
+
     '''
     def __init__(self, snap, opts=None, user=None):
 
@@ -246,6 +257,8 @@ class Runtime:
         self.opts = opts
         self.snap = snap
         self.user = user
+
+        self.model = snap.getDataModel()
 
         self.task = asyncio.current_task()
 
@@ -374,7 +387,7 @@ class Runtime:
 
         '''
         if self._allowed(perms):
-            return
+            return True
 
         perm = '.'.join(perms)
         mesg = f'User must have permission {perm}'

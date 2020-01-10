@@ -21,6 +21,8 @@ import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.queue as s_queue
+import synapse.lib.scope as s_scope
+import synapse.lib.spawn as s_spawn
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
 import synapse.lib.dyndeps as s_dyndeps
@@ -93,6 +95,12 @@ class CoreApi(s_cell.CellApi):
             (dict): A model description dictionary.
         '''
         return await self.cell.getModelDict()
+
+    async def getModelDef(self):
+        return await self.cell.getModelDef()
+
+    async def getModelDefs(self):
+        return await self.cell.getModelDefs()
 
     def getCoreInfo(self):
         '''
@@ -513,8 +521,45 @@ class CoreApi(s_cell.CellApi):
         Yields:
             ((str,dict)): Storm messages.
         '''
-
         view = await self._getViewFromOpts(opts)
+
+        if opts is not None and opts.get('spawn'):
+
+            link = s_scope.get('link')
+
+            opts.pop('spawn', None)
+            info = {
+                'link': link.getSpawnInfo(),
+                'view': view.iden,
+                'user': self.user.iden,
+                'storm': {
+                    'opts': opts,
+                    'query': text,
+                }
+            }
+
+            tnfo = {'query': text}
+            if opts:
+                tnfo['opts'] = opts
+            await self.cell.boss.promote('storm:spawn',
+                                         user=self.user,
+                                         info=tnfo)
+            proc = None
+            mesg = 'Spawn complete'
+            try:
+                async with self.cell.spawnpool.get() as proc:
+                    if await proc.xact(info):
+                        await link.fini()
+            except Exception as e:
+                if not isinstance(e, asyncio.CancelledError):
+                    logger.exception('Error during spawned Storm execution.')
+                if not self.cell.isfini:
+                    if proc:
+                        await proc.fini()
+                mesg = repr(e)
+                raise
+            finally:
+                raise s_exc.DmonSpawn(mesg=mesg)
 
         async for mesg in view.streamstorm(text, opts, user=self.user):
             yield mesg
@@ -564,6 +609,36 @@ class CoreApi(s_cell.CellApi):
             if not count % 1000:
                 await asyncio.sleep(0)
             yield mesg
+
+    @s_cell.adminapi
+    async def splicesBack(self, offs, size):
+        '''
+        Return the list of splices backwards from the given offset.
+        '''
+        count = 0
+        async for mesg in self.cell.view.layers[0].splicesBack(offs, size):
+            count += 1
+            if not count % 1000: # pragma: no cover
+                await asyncio.sleep(0)
+            yield mesg
+
+    async def spliceHistory(self):
+        '''
+        Yield splices backwards from the end of the splice log.
+
+        Will only return the user's own splices unless they are an admin.
+        '''
+        layr = self.cell.view.layers[0]
+        indx = (await layr.stat())['splicelog_indx']
+
+        count = 0
+        async for mesg in layr.splicesBack(indx):
+            count += 1
+            if not count % 1000: # pragma: no cover
+                await asyncio.sleep(0)
+
+            if self.user.iden == mesg[1]['user'] or self.user.admin:
+                yield mesg
 
     @s_cell.adminapi
     async def provStacks(self, offs, size):
@@ -683,6 +758,49 @@ class CoreApi(s_cell.CellApi):
     async def getStormPkg(self, name):
         return await self.cell.getStormPkg(name)
 
+    # APIs to support spawned cortexes
+    @s_cell.adminapi
+    async def runRuntLift(self, *args, **kwargs):
+        async for item in self.cell.runRuntLift(*args, **kwargs):
+            yield item
+
+    @s_cell.adminapi
+    async def addCoreQueue(self, name, info):
+        return await self.cell.addCoreQueue(name, info)
+
+    @s_cell.adminapi
+    async def hasCoreQueue(self, name):
+        return await self.cell.hasCoreQueue(name)
+
+    @s_cell.adminapi
+    async def delCoreQueue(self, name):
+        return await self.cell.delCoreQueue(name)
+
+    @s_cell.adminapi
+    async def getCoreQueue(self, name):
+        return await self.cell.getCoreQueue(name)
+
+    @s_cell.adminapi
+    async def getCoreQueues(self):
+        return await self.cell.getCoreQueues()
+
+    @s_cell.adminapi
+    async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
+        async for item in self.cell.getsCoreQueue(name, offs=offs, wait=wait, cull=cull, size=size):
+            yield item
+
+    @s_cell.adminapi
+    async def putCoreQueue(self, name, item):
+        return await self.cell.putCoreQueue(name, item)
+
+    @s_cell.adminapi
+    async def putsCoreQueue(self, name, items):
+        return await self.cell.putsCoreQueue(name, items)
+
+    @s_cell.adminapi
+    async def cullCoreQueue(self, name, offs):
+        return await self.cell.cullCoreQueue(name, offs)
+
 class Cortex(s_cell.Cell):
     '''
     A Cortex implements the synapse hypergraph.
@@ -708,6 +826,12 @@ class Cortex(s_cell.Cell):
             'type': 'int',
             'defval': logging.WARNING,
             'doc': 'Logging log level to emit storm logs at.'
+        }),
+
+        ('splice:en', {
+            'type': 'bool',
+            'defval': True,
+            'doc': 'Enable storing splices for layer changes.'
         }),
 
         ('splice:sync', {
@@ -744,6 +868,10 @@ class Cortex(s_cell.Cell):
             'type': 'str', 'defval': None,
             'doc': 'A telepath URL for a remote axon.',
         }),
+        ('spawn:poolsize', {
+            'type': 'int', 'defval': 8,
+            'doc': 'The max number of spare processes to keep around in the storm spawn pool.',
+        }),
     )
 
     cellapi = CoreApi
@@ -764,10 +892,16 @@ class Cortex(s_cell.Cell):
         self.layrctors = {}
         self.feedfuncs = {}
         self.stormcmds = {}
+        self.spawnpool = None
+
+        # differentiate these for spawning
+        self.storm_cmd_ctors = {}
+        self.storm_cmd_cdefs = {}
+
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
         self.stormvars = None   # type: s_hive.HiveDict
-        self.stormrunts = {}
+
         self.stormdmons = {}
 
         self.svcsbyiden = {}
@@ -859,6 +993,40 @@ class Cortex(s_cell.Cell):
         self._initPushLoop()
         self._initFeedLoops()
 
+        self.spawnpool = await s_spawn.SpawnPool.anit(self)
+        self.onfini(self.spawnpool)
+        self.on('user:mod', self._onEvtBumpSpawnPool)
+
+    async def _onEvtBumpSpawnPool(self, evnt):
+        await self.bumpSpawnPool()
+
+    async def bumpSpawnPool(self):
+        if self.spawnpool is not None:
+            await self.spawnpool.bump()
+
+    async def getSpawnInfo(self):
+        return {
+            'iden': self.iden,
+            'dirn': self.dirn,
+            'conf': {
+                'storm:log': self.conf.get('storm:log', False),
+                'storm:log:level': self.conf.get('storm:log:level', logging.INFO),
+            },
+            'loglevel': logger.getEffectiveLevel(),
+            # TODO make getModelDefs include extended model
+            'views': [v.getSpawnInfo() for v in self.views.values()],
+            'layers': [l.getSpawnInfo() for l in self.layers.values()],
+            'storm': {
+                'cmds': {
+                    'cdefs': list(self.storm_cmd_cdefs.items()),
+                    'ctors': list(self.storm_cmd_ctors.items()),
+                },
+                'libs': tuple(self.libroot),
+                'mods': await self.getStormMods()
+            },
+            'model': await self.getModelDefs(),
+        }
+
     async def _finiStor(self):
         await asyncio.gather(*[view.fini() for view in self.views.values()])
         await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
@@ -949,6 +1117,35 @@ class Cortex(s_cell.Cell):
 
         self.multiqueue = slab.getMultiQueue('cortex:queue')
 
+    async def addCoreQueue(self, name, info):
+        self.multiqueue.add(name, info)
+        return info
+
+    async def hasCoreQueue(self, name):
+        return self.multiqueue.exists(name)
+
+    async def delCoreQueue(self, name):
+        return await self.multiqueue.rem(name)
+
+    async def getCoreQueue(self, name):
+        return self.multiqueue.status(name)
+
+    async def getCoreQueues(self):
+        return self.multiqueue.list()
+
+    async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
+        async for item in self.multiqueue.gets(name, offs, cull=cull, wait=wait, size=size):
+            yield item
+
+    async def putCoreQueue(self, name, item):
+        return self.multiqueue.put(name, item)
+
+    async def putsCoreQueue(self, name, items):
+        return self.multiqueue.puts(name, items)
+
+    async def cullCoreQueue(self, name, offs):
+        return await self.multiqueue.cull(name, offs)
+
     async def setStormCmd(self, cdef):
         '''
         Set pure storm command definition.
@@ -999,11 +1196,15 @@ class Cortex(s_cell.Cell):
 
         name = cdef.get('name')
         self.stormcmds[name] = ctor
+        self.storm_cmd_cdefs[name] = cdef
+
+        await self.bumpSpawnPool()
 
         await self.fire('core:cmd:change', cmd=name, act='add')
 
     async def _popStormCmd(self, name):
         self.stormcmds.pop(name, None)
+        await self.bumpSpawnPool()
 
         await self.fire('core:cmd:change', cmd=name, act='del')
 
@@ -1023,6 +1224,7 @@ class Cortex(s_cell.Cell):
 
         await self.cmdhive.pop(name)
         self.stormcmds.pop(name, None)
+        await self.bumpSpawnPool()
 
         await self.fire('core:cmd:change', cmd=name, act='del')
 
@@ -1122,6 +1324,8 @@ class Cortex(s_cell.Cell):
         for cdef in cmds:
             await self._setStormCmd(cdef)
 
+        await self.bumpSpawnPool()
+
     async def dropStormPkg(self, pkgdef):
         '''
         Reverse the process of loadStormPkg()
@@ -1133,6 +1337,8 @@ class Cortex(s_cell.Cell):
         for cdef in pkgdef.get('commands', ()):
             name = cdef.get('name')
             await self._popStormCmd(name)
+
+        await self.bumpSpawnPool()
 
     def getStormSvc(self, name):
 
@@ -1158,6 +1364,7 @@ class Cortex(s_cell.Cell):
 
         ssvc = await self._setStormSvc(sdef)
         await self.stormservices.set(iden, sdef)
+        await self.bumpSpawnPool()
         return ssvc
 
     async def delStormSvc(self, iden):
@@ -1186,6 +1393,8 @@ class Cortex(s_cell.Cell):
         ssvc = self.svcsbyiden.pop(iden, None)
         if ssvc is not None:
             await ssvc.fini()
+
+        await self.bumpSpawnPool()
 
     async def _delStormSvcPkgs(self, iden):
         '''
@@ -1303,6 +1512,8 @@ class Cortex(s_cell.Cell):
             except Exception as e:
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
 
+        await self.bumpSpawnPool()
+
     @contextlib.asynccontextmanager
     async def watcher(self, wdef):
 
@@ -1372,6 +1583,7 @@ class Cortex(s_cell.Cell):
         await self.extprops.set(f'{form}:{prop}', (form, prop, tdef, info))
         await self.fire('core:extmodel:change',
                         form=form, prop=prop, act='add', type='formprop')
+        await self.bumpSpawnPool()
 
     async def delFormProp(self, form, prop):
         '''
@@ -1393,6 +1605,7 @@ class Cortex(s_cell.Cell):
         await self.extprops.pop(full, None)
         await self.fire('core:extmodel:change',
                         form=form, prop=prop, act='del', type='formprop')
+        await self.bumpSpawnPool()
 
     async def delUnivProp(self, prop):
         '''
@@ -1412,6 +1625,7 @@ class Cortex(s_cell.Cell):
         self.model.delUnivProp(prop)
         await self.extunivs.pop(prop, None)
         await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
+        await self.bumpSpawnPool()
 
     async def addTagProp(self, name, tdef, info):
 
@@ -1422,6 +1636,7 @@ class Cortex(s_cell.Cell):
 
         await self.exttagprops.set(name, (name, tdef, info))
         await self.fire('core:tagprop:change', name=name, act='add')
+        await self.bumpSpawnPool()
 
     async def delTagProp(self, name):
 
@@ -1439,6 +1654,7 @@ class Cortex(s_cell.Cell):
 
         await self.exttagprops.pop(name, None)
         await self.fire('core:tagprop:change', name=name, act='del')
+        await self.bumpSpawnPool()
 
     async def _onCoreFini(self):
         '''
@@ -1620,7 +1836,7 @@ class Cortex(s_cell.Cell):
     async def _trySetStormCmd(self, name, cdef):
         try:
             await self._setStormCmd(cdef)
-        except Exception as e:
+        except Exception:
             logger.exception(f'Storm command load failed: {name}')
 
     def _initStormLibs(self):
@@ -1718,6 +1934,11 @@ class Cortex(s_cell.Cell):
 
     async def getModelDict(self):
         return self.model.getModelDict()
+
+    async def getModelDefs(self):
+        defs = self.model.getModelDefs()
+        # TODO add extended model defs
+        return defs
 
     def _initFormCounts(self):
 
@@ -2016,6 +2237,7 @@ class Cortex(s_cell.Cell):
         view = await s_view.View.anit(self, node)
         self.views[iden] = view
 
+        await self.bumpSpawnPool()
         return view
 
     async def delView(self, iden):
@@ -2035,6 +2257,8 @@ class Cortex(s_cell.Cell):
         await self.hive.pop(('cortex', 'views', iden))
         await view.fini()
 
+        await self.bumpSpawnPool()
+
     async def delLayer(self, iden):
         layr = self.layers.get(iden, None)
         if layr is None:
@@ -2050,6 +2274,7 @@ class Cortex(s_cell.Cell):
 
         # TODO: actually delete the storage for the data
         await layr.fini()
+        await self.bumpSpawnPool()
 
     async def setViewLayers(self, layers, iden=None):
         '''
@@ -2062,6 +2287,7 @@ class Cortex(s_cell.Cell):
             raise s_exc.NoSuchView(iden=iden)
 
         await view.setLayers(layers)
+        await self.bumpSpawnPool()
 
     def getLayer(self, iden=None):
         '''
@@ -2129,7 +2355,11 @@ class Cortex(s_cell.Cell):
         for name, valu in info.get('config', {}).items():
             await layrconf.set(name, valu)
 
-        return await self._layrFromNode(node)
+        layr = await self._layrFromNode(node)
+
+        await self.bumpSpawnPool()
+
+        return layr
 
     async def joinTeleLayer(self, url, indx=None):
         '''
@@ -2189,6 +2419,7 @@ class Cortex(s_cell.Cell):
             raise s_exc.BadCmdName(name=ctor.name)
 
         self.stormcmds[ctor.name] = ctor
+        self.storm_cmd_ctors[ctor.name] = ctor
 
     async def addStormDmon(self, ddef):
         '''
@@ -2729,7 +2960,10 @@ class Cortex(s_cell.Cell):
         '''
         A simple non-streaming way to return a list of nodes.
         '''
-        return [n async for n in self.eval(text, opts=opts, user=user)]
+        async def nodes():
+            return [n async for n in self.eval(text, opts=opts, user=user)]
+        task = self.schedCoro(nodes())
+        return await task
 
     @s_coro.genrhelp
     async def streamstorm(self, text, opts=None, user=None):
@@ -2751,7 +2985,11 @@ class Cortex(s_cell.Cell):
 
         view = self._viewFromOpts(opts)
 
-        await self.boss.promote('storm', user=user, info={'query': text})
+        info = {'query': text}
+        if opts is not None:
+            info['opts'] = opts
+
+        await self.boss.promote('storm', user=user, info=info)
         async with await self.snap(user=user, view=view) as snap:
             async for pode in snap.iterStormPodes(text, opts=opts, user=user):
                 yield pode

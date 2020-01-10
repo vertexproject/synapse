@@ -74,20 +74,6 @@ class RemoteLayerTest(t_cortex.CortexTest):
             self.len(2, await core0.nodes('test:str'))
             self.len(2, await core1.nodes('test:str'))
 
-    async def test_cortex_readonly_toplayer(self):
-        '''
-        Test the various ways to incorrectly put a remote layer as the write layer
-        '''
-        async with t_cortex.CortexTest.getTestCore(self) as core0:
-            async with t_cortex.CortexTest.getTestCore(self) as core1:
-                conf = {'url': core0.getLocalUrl('*/layer')}
-                layr = await core1.addLayer(type='remote', config=conf)
-                await self.asyncraises(s_exc.ReadOnlyLayer, core1.view.addLayer(layr, indx=0))
-                await self.asyncraises(s_exc.ReadOnlyLayer, core1.view.setLayers([layr.iden]))
-                await self.asyncraises(s_exc.ReadOnlyLayer, core1.addView(s_common.guid(), 'root', [layr.iden]))
-                view = await core1.addView(s_common.guid(), 'root', [])
-                await self.asyncraises(s_exc.ReadOnlyLayer, view.addLayer(layr))
-
     async def test_cortex_remote_layer(self):
 
         async with self.getRemoteCores() as (directcore, core):
