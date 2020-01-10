@@ -3,28 +3,29 @@ import gc
 import time
 import random
 import asyncio
-import contextlib
-import collections
 import logging
+import contextlib
 import statistics
+import collections
+from typing import List, Dict, AsyncIterator, Tuple, Any, Callable
+
+import synapse.common as s_common
+import synapse.cortex as s_cortex
+import synapse.telepath as s_telepath
+
+import synapse.tests.utils as s_t_utils
 
 '''
 Benchmark cortex operations
 
 TODO:  separate client process, multiple clients
 TODO:  tagprops, regex, control flow, node data, multiple layers, spawn option, remote layer
+TODO:  standard serialized output format
 '''
 
 logger = logging.getLogger(__name__)
-
-from typing import List, Dict, AsyncIterator, Tuple, Any, Callable, TYPE_CHECKING
-if TYPE_CHECKING:
-    import synapse.telepath as s_telepath
-    import synapse.cortex as s_cortex
-
-import synapse.common as s_common
-
-import synapse.tests.utils as s_t_utils
+if __debug__:
+    logger.warning('Running benchmark without -O.  Performance will be slower.')
 
 s_common.setlogging(logger, 'ERROR')
 
@@ -120,96 +121,96 @@ class Benchmarker:
             yield core, prox
 
     @isatrial
-    async def do00EmptyString(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    async def do00EmptyString(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
         count = await acount(prox.eval(''))
         assert count == 0
         return 1
 
     @isatrial
-    async def do01SimpleCount(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    async def do01SimpleCount(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
         count = await acount(prox.eval('inet:ipv4 | count | spin'))
         assert count == 0
         return self.workfactor
 
     @isatrial
-    async def do02Lift(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    async def do02Lift(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
         count = await acount(prox.eval('inet:ipv4'))
         assert count == self.workfactor
         return count
 
     @isatrial
-    async def do02LiftFilterAbsent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    async def do02LiftFilterAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
         count = await acount(prox.eval('inet:ipv4 | +#newp'))
         assert count == 0
         return 1
 
     @isatrial
-    async def do02LiftFilterPresent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    async def do02LiftFilterPresent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
         count = await acount(prox.eval('inet:ipv4 | +#all'))
         assert count == self.workfactor
         return count
 
     @isatrial
-    async def do03LiftBySecondaryAbsent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    async def do03LiftBySecondaryAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
         count = await acount(prox.eval('inet:dns:a:fqdn=newp'))
         assert count == 0
         return 1
 
     @isatrial
-    async def do03LiftBySecondaryPresent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    async def do03LiftBySecondaryPresent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
         count = await acount(prox.eval('inet:dns:a:fqdn=blackhole.website'))
         assert count == self.workfactor // 10
         return count
 
     @isatrial
-    async def do04LiftByTagAbsent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    async def do04LiftByTagAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
         count = await acount(prox.eval('inet:ipv4#newp'))
         assert count == 0
         return 1
 
     @isatrial
-    async def do04LiftByTagPresent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    async def do04LiftByTagPresent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
         count = await acount(prox.eval('inet:ipv4#even'))
         assert count == self.workfactor // 2
         return count
 
     @isatrial
-    async def do05PivotAbsent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    async def do05PivotAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
         count = await acount(prox.eval('inet:ipv4#odd -> inet:dns:a'))
         assert count == 0
         return self.workfactor // 2
 
     @isatrial
-    async def do06PivotPresent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    async def do06PivotPresent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
         count = await acount(prox.eval('inet:ipv4#even -> inet:dns:a'))
         assert count == self.workfactor // 2 + self.workfactor // 10
         return count
 
     @isatrial
-    async def do07AddNodes(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    async def do07AddNodes(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
         count = await acount(prox.addNodes(self.testdata.asns2))
         assert count == self.workfactor
         return count
 
     @isatrial
-    async def do07AddNodesPresent(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    async def do07AddNodesPresent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
         count = await acount(prox.addNodes(self.testdata.ips))
         assert count == self.workfactor
         return count
 
     @isatrial
-    async def do08LocalAddNodes(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    async def do08LocalAddNodes(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
         count = await acount(core.addNodes(self.testdata.asns))
         assert count == self.workfactor
         return count
 
     @isatrial
-    async def do09DelNodes(self, core: 's_cortex.Cortex', prox: 's_telepath.Client') -> int:
+    async def do09DelNodes(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
         count = await acount(prox.eval('inet:url | delnode'))
         assert count == 0
         return self.workfactor
 
-    async def run(self, core: 's_cortex.Cortex', name: str, dirn: str, coro) -> None:
+    async def run(self, core: s_cortex.Cortex, name: str, dirn: str, coro) -> None:
         for i in range(self.num_iters):
             # We set up the cortex each time to avoid intra-cortex caching
             # (there's still a substantial amount of OS caching)
@@ -236,8 +237,10 @@ class Benchmarker:
         if tmpdir is not None:
             tmpdir = os.path.abspath(tmpdir)
         with syntest.getTestDir(tmpdir) as dirn:
+            logger.info('Loading test data')
             async with self.getCortexAndProxy(dirn) as (core, _):
                 await self._loadtestdata(core)
+            logger.info('Loading test data complete.  Starting benchmarks')
             for funcname, func in self._getTrialFuncs():
                 await self.run(core, funcname, dirn, func)
 
@@ -268,4 +271,5 @@ if __name__ == '__main__':
     parser.add_argument('--workfactor', type=int, default=1000)
     parser.add_argument('--tmpdir', nargs=1)
     opts = parser.parse_args()
+
     benchmarkAll(opts.config, 1, opts.workfactor, opts.tmpdir)
