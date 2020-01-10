@@ -2227,11 +2227,11 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('url', ('inet:url', {}), {
                             'ro': True,
-                            'doc': 'The query URL for the RDAP Protocol.'
+                            'doc': 'The query URL when using the HTTP RDAP Protocol.'
                         }),
                         ('fqdn', ('inet:fqdn', {}), {
                             'ro': True,
-                            'doc': 'The FQDN of the host server for the WHOIS Protocol.'
+                            'doc': 'The FQDN of the host server when using the legacy WHOIS Protocol.'
                         }),
                         ('ipv4', ('inet:ipv4', {}), {
                             'ro': True,
