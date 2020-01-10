@@ -688,18 +688,19 @@ class PureCmd(Cmd):
 
         cmdvars = {
             'cmdopts': vars(self.opts),
-            'cmdconf': self.cdef.get('cmdconf', {})
+            'cmdconf': self.cdef.get('cmdconf', {}),
+            'cmdhasnodes': False,
         }
 
         opts = {'vars': cmdvars}
         with runt.snap.getStormRuntime(opts=opts, user=runt.user) as subr:
-            subr.setVar('cmdhasnodes', False)
 
             async def wrapgenr():
                 # wrap paths in a scope to isolate vars
                 hasnodes = False
                 async for node, path in genr:
                     if not hasnodes:
+                        # set once to direct that vars can be found on $path
                         subr.setVar('cmdhasnodes', True)
                         hasnodes = True
                     path.initframe(initvars=cmdvars, initrunt=subr)

@@ -675,15 +675,6 @@ class StormSvcTest(s_test.SynTest):
                     msgs = await core.streamstorm(scmd).list()
                     self.stormIsInPrint('my foo var is 8.8.8.8', msgs)
 
-                    # nodein will look for foo on path instead of lib
-                    scmd = f'[ inet:ipv4=1.1.1.1 ] $foo=$node.repr() | nodein'
-                    msgs = await core.streamstorm(scmd).list()
-                    self.stormIsInPrint('my foo var is 1.1.1.1', msgs)
-
-                    scmd = f'$foo="1.1.1.2" | nonode'
-                    msgs = await core.streamstorm(scmd).list()
-                    self.stormIsInPrint('my foo var is 1.1.1.2', msgs)
-
                     # var conflict with stormcmd but allow to proceed
                     scmd = f'$fooz=spam $foo="1.1.1.3" | nonode'
                     msgs = await core.streamstorm(scmd).list()
@@ -694,7 +685,7 @@ class StormSvcTest(s_test.SynTest):
                     msgs = await core.streamstorm(scmd).list()
                     self.stormIsInPrint('my foo var is 1.1.1.4', msgs)
 
-                    # repeat with purecmd to purecmd call
+                    # repeat with interior purecmd to purecmd call
                     scmd = f'[ inet:ipv4=1.1.2.1 ] $foo=$node.repr() | nodein --again'
                     msgs = await core.streamstorm(scmd).list()
                     self.stormIsInPrint('my foo var is 1.1.2.1', msgs)
