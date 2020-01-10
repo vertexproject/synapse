@@ -733,6 +733,7 @@ class StormTest(s_t_utils.SynTest):
 
             await prox.addAuthRule('visi', (True, ('node:add',)))
             await prox.addAuthRule('visi', (True, ('prop:set',)))
+            await prox.addAuthRule('visi', (True, ('tag:add',)))
 
             async with core.getLocalProxy(user='visi') as asvisi:
 
@@ -743,12 +744,18 @@ class StormTest(s_t_utils.SynTest):
                 tick = mesgs[0][1]['tick']
                 tock = mesgs[-1][1]['tock']
 
-                mesgs = await alist(asvisi.storm("test:str=bar [ +#test ]"))
+                mesgs = await alist(asvisi.storm("test:str=bar [ +#test.tag ]"))
 
                 # undo a node add
 
                 nodes = await alist(asvisi.eval("test:str=bar"))
                 self.len(1, nodes)
+
+                # undo adding a node fails without tag:del perms if is it tagged
+                q = f'splice.list --mintimestamp {tick} --maxtimestamp {tock} | splice.undo'
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
+
+                await prox.addAuthRule('visi', (True, ('tag:del',)))
 
                 # undo adding a node fails without node:del perms
                 q = f'splice.list --mintimestamp {tick} --maxtimestamp {tock} | splice.undo'
@@ -829,13 +836,13 @@ class StormTest(s_t_utils.SynTest):
 
                 # undo adding a tag
 
-                await prox.addAuthRule('visi', (True, ('tag:add',)))
-
                 nodes = await alist(asvisi.eval("test:str=foo [ +#rep=2000 ]"))
                 tagv = nodes[0][1]['tags'].get('rep')
                 self.nn(tagv)
 
                 # undo adding a tag fails without tag:del perms
+                await prox.delAuthRule('visi', (True, ('tag:del',)))
+
                 q = 'splice.list | limit 1 | splice.undo'
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 

@@ -1698,8 +1698,6 @@ class SpliceUndoCmd(Cmd):
             valu = splice.props.get('valu')
             if valu is not None:
                 await node.addTag(tag, valu=valu)
-            else:
-                await node.addTag(tag)
 
     async def undoTagPropSet(self, runt, splice, node):
 
