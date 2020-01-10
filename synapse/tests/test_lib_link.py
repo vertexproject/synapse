@@ -152,3 +152,18 @@ class LinkTest(s_test.SynTest):
 
         await link1.fini()
         sock1.close()
+
+    async def test_link_fromspawn(self):
+
+        link0, sock0 = await s_link.linksock()
+
+        info = link0.getSpawnInfo()
+        link1 = await s_link.fromspawn(info)
+
+        await link1.send(b'V')
+        self.eq(sock0.recv(1), b'V')
+
+        sock0.close()
+
+        await link0.fini()
+        await link1.fini()

@@ -551,7 +551,7 @@ def setlogging(mlogger, defval=None):
 
     Args:
         mlogger (logging.Logger): Reference to a logging.Logger()
-        defval (str): Default log level
+        defval (str): Default log level. May be an integer.
 
     Notes:
         This calls logging.basicConfig and should only be called once per process.
@@ -562,9 +562,10 @@ def setlogging(mlogger, defval=None):
     log_level = os.getenv('SYN_LOG_LEVEL',
                           defval)
     if log_level:  # pragma: no cover
-        log_level = log_level.upper()
-        if log_level not in s_const.LOG_LEVEL_CHOICES:
-            raise ValueError('Invalid log level provided: {}'.format(log_level))
+        if isinstance(log_level, str):
+            log_level = log_level.upper()
+            if log_level not in s_const.LOG_LEVEL_CHOICES:
+                raise ValueError('Invalid log level provided: {}'.format(log_level))
         logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
         mlogger.info('log level set to %s', log_level)
 
