@@ -310,9 +310,9 @@ class View(s_hive.AuthGater):
         if self.parent is None:
             raise s_exc.CannotMerge()
 
-        # TODO:  verify parent is not readonly
+        # FIXME:  verify parent is not readonly
 
-        # TODO:  mark this view/write layer as readonly
+        # FIXME:  mark this view/write layer as readonly
 
         CHUNKSIZE = 1000
         fromoff = 0
