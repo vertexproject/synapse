@@ -1,235 +1,275 @@
 import os
-import pickle
-import timeit
-import cProfile
-import itertools
-import threading
+import gc
+import time
+import random
+import asyncio
+import logging
+import contextlib
+import statistics
+import collections
+from typing import List, Dict, AsyncIterator, Tuple, Any, Callable
 
-from math import ceil
-from binascii import hexlify
-from time import perf_counter as now
-
+import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.telepath as s_telepath
 
-from numpy import random
+import synapse.tests.utils as s_t_utils
 
-NUM_PREEXISTING_TUFOS = 1000
+'''
+Benchmark cortex operations
 
-NUM_TUFOS = 100000
-NUM_ONE_AT_A_TIME_TUFOS = 100
+TODO:  separate client process, multiple clients
+TODO:  tagprops, regex, control flow, node data, multiple layers, spawn option, remote layer
+TODO:  standard serialized output format
+'''
 
-HUGE_VAL_BYTES = 1000000
-HUGE_VAL_RATE = 0.0001
+logger = logging.getLogger(__name__)
+if __debug__:
+    logger.warning('Running benchmark without -O.  Performance will be slower.')
 
-LARGE_VAL_BYTES = 10000
-LARGE_VAL_RATE = 0.005
+s_common.setlogging(logger, 'ERROR')
 
-MEDIUM_VAL_BYTES = 100
-MEDIUM_VAL_RATE = .1949
-
-SMALL_VAL_BYTES = 5
-SMALL_VAL_RATE = .80
-
-# what percent of properties will have integer value
-INTEGER_VAL_RATE = .20
-
-AVG_PROPS_PER_TUFO = 7
-AVG_PROP_NAME_LEN = 11
-
-NUM_THREADS = 4
-NUM_FORMS = 20
-
-def _addRows(rows, core, one_at_a_time=False):
-    if one_at_a_time:
-        for row in rows:
-            core.addRows([row])
-    else:
-        core.addRows(rows)
-        # core.flush()
-
-def _getTufosByIdens(idens, core):
-    core.getTufosByIdens(idens)
-
-def _getTufoByPropVal(propvals, core):
-    for p, v in propvals:
-        core.getTufoByProp(p, v)
-
-def random_normal(avg):
-    ''' Returns a number with normal distribution around avg, the very fast way '''
-    return random.randint(1, avg) + random.randint(0, avg + 1)
-
-def random_string(avg):
-    num_letters = random_normal(avg)
-    return ''.join(chr(random.randint(ord('a'), ord('a') + 25)) for x in range(num_letters))
-
-small_count = 0
-medium_count = 0
-large_count = 0
-huge_count = 0
-
-def random_val_len():
-    global small_count, medium_count, large_count, huge_count
-    x = random.random()
-    prob = SMALL_VAL_RATE
-    if x < prob:
-        small_count += 1
-        return SMALL_VAL_BYTES
-    prob += MEDIUM_VAL_RATE
-    if x < prob:
-        medium_count += 1
-        return MEDIUM_VAL_BYTES
-    prob += LARGE_VAL_RATE
-    if x < prob:
-        large_count += 1
-        return LARGE_VAL_BYTES
-    huge_count += 1
-    return HUGE_VAL_BYTES
-
-def gen_random_form():
-    num_props = random_normal(AVG_PROPS_PER_TUFO)
-    props = [random_string(AVG_PROP_NAME_LEN) for x in range(num_props)]
-    return props
-
-def gen_random_tufo(form):
-    iden = hexlify(random.bytes(16)).decode('utf8')
-    props = {}
-    for propname in form:
-        if random.random() <= INTEGER_VAL_RATE:
-            val = random.randint(-2 ** 62, 2 ** 63)
-        else:
-            val = random_string(random_val_len())
-        props[propname] = val
-    return (iden, props)
-
-def _rows_from_tufo(tufo):
-    timestamp = random.randint(1, 2 ** 63)
-    rows = []
-    iden = tufo[0]
-    for p, v in tufo[1].items():
-        rows.append((iden, p, v, timestamp))
-    return rows
-
-def flatten(iterable):
-    return list(itertools.chain.from_iterable(iterable))
-
-def _prepopulate_core(core, rows):
-    core.addRows(rows)
-
-def nth(iterable, n):
-    "Returns the nth item or a default value"
-    return next(itertools.islice(iterable, n, None))
-
-def get_random_keyval(d):
-    i = random.randint(0, len(d))
-    key = nth(d.keys(), i)
-    return (key, d[key])
+async def acount(genr):
+    '''
+    Counts an async generator
+    '''
+    count = 0
+    async for _ in genr:
+        count += 1
+    return count
 
 class TestData:
-    def __init__(self, test_data_fn):
-        start = now()
-        if os.path.isfile(test_data_fn):
-            print("Reading test data...")
-            self.prepop_rows, self.idens, self.props, self.rows = \
-                pickle.load(open(test_data_fn, 'rb'))
-        else:
-            print("Generating test data...")
-            random.seed(4)  # 4 chosen by fair dice roll.  Guaranteed to be random
-            forms = [gen_random_form() for x in range(NUM_FORMS)]
-            # FIXME:  don't use random.choice!!! Super duper slow
-            self.prepop_rows = flatten(_rows_from_tufo(gen_random_tufo(random.choice(forms)))
-                                       for x in range(NUM_PREEXISTING_TUFOS))
-            tufos = [gen_random_tufo(random.choice(forms)) for x in range(NUM_TUFOS)]
-            self.idens = [t[0] for t in tufos]
-            self.props = [get_random_keyval(t[1]) for t in tufos]
-            random.shuffle(self.idens)
-            random.shuffle(self.props)
+    '''
+    Pregenerates a bunch of data for future test runs
+    '''
+    def __init__(self, num_records):
+        '''
+        # inet:ipv4 -> inet:dns:a -> inet:fqdn
+        # For each even ipv4 record, make an inet:dns:a record that points to <ipaddress>.website, if it is
+        # divisible by ten also make a inet:dns:a that points to blackhole.website
+        '''
+        self.nrecs = num_records
+        random.seed(4)  # 4 chosen by fair dice roll.  Guaranteed to be random
+        ips = list(range(num_records))
+        random.shuffle(ips)
+        dnsas = [(f'{ip}.website', ip) for ip in ips if ip % 2 == 0]
+        dnsas += [('blackhole.website', ip) for ip in ips if ip % 10 == 0]
+        random.shuffle(dnsas)
 
-            self.rows = flatten(_rows_from_tufo(x) for x in tufos)
-            pickle.dump((self.prepop_rows, self.idens, self.props, self.rows),
-                        open(test_data_fn, 'wb'))
+        def oe(num):
+            return 'odd' if num % 2 else 'even'
 
-        print("Test data generation took: %.2f" % (now() - start))
-        print('addRows: # Tufos:%8d, # Rows: %8d' % (NUM_TUFOS, len(self.rows)))
-        print('len count: small:%d, medium:%d, large:%d, huge:%d' %
-              (small_count, medium_count, large_count, huge_count))
+        self.ips = [(('inet:ipv4', ip), {'tags': {'all': (None, None), oe(ip): (None, None)}}) for ip in ips]
+        self.dnsas = [(('inet:dns:a', dnsas), {}) for dnsas in dnsas]
 
-def _run_x(func, data, num_threads, *args, **kwargs):
-    chunk_size = ceil(len(data) / num_threads)
-    chunks = [data[i:i + chunk_size] for i in range(0, len(data), chunk_size)]
-    threads = [threading.Thread(target=func, args=[chunks[x]] + list(args), kwargs=kwargs)
-               for x in range(num_threads)]
-    for i in range(num_threads):
-        threads[i].start()
-    for i in range(num_threads):
-        threads[i].join()
+        self.asns = [(('inet:asn', asn * 2), {}) for asn in range(num_records)]
+        self.asns2 = [(('inet:asn', asn * 2 + 1), {}) for asn in range(num_records)]
+        random.shuffle(self.asns)
+        random.shuffle(self.asns2)
 
-def do_it(cmd, data_str, num_threads, globals, number, repeat, divisor):
-    if num_threads == 1:
-        times = timeit.repeat('%s(%s, core)' % (cmd, data_str), globals=globals, number=number, repeat=repeat)
-    else:
-        times = timeit.repeat('_run_x(%s, %s, %s, core=core)' % (cmd, data_str, num_threads), globals=globals,
-                              number=number, repeat=repeat)
-    print_time(cmd, times, divisor)
+        self.urls = [(('inet:url', f'http://{hex(n)}.ninja'), {}) for n in range(num_records)]
+        random.shuffle(self.urls)
 
-def profile_it(cmd, globals, number, repeat, divisor):
-    cProfile.runctx(cmd, globals, {}, filename='lmdb_02.prof')
+syntest = s_t_utils.SynTest()
 
-def benchmark_cortex(test_data, url, cleanup_func, num_threads=1):
-    core = s_cortex.openurl(url)
-    _prepopulate_core(core, test_data.prepop_rows)
-    g = {'_addRows': _addRows, '_getTufosByIdens': _getTufosByIdens, 'core': core,
-         'test_data': test_data, '_getTufoByPropVal': _getTufoByPropVal, '_run_x': _run_x}
-    do_it('_addRows', 'test_data.rows', num_threads, g, 1, 1, len(test_data.rows))
-    if cleanup_func:
-        del core
-        core = s_cortex.openurl(url)
-        g['core'] = core
-    do_it('_getTufosByIdens', 'test_data.idens', num_threads, g, 2, 5, NUM_TUFOS)
-    do_it('_getTufoByPropVal', 'test_data.props', num_threads, g, 2, 5, NUM_TUFOS)
+def isatrial(meth):
+    '''
+    Mark a method as being a trial
+    '''
+    meth._isatrial = True
+    return meth
 
-    if cleanup_func:
-        cleanup_func()
+class Benchmarker:
+    def __init__(self, config: Dict[Any, Any], testdata: TestData, workfactor: int, num_iters=4):
+        '''
+        Args:
+            config: the cortex config
+            testdata: pre-generated data
+            workfactor:  a positive integer indicating roughly the amount of work each benchmark should do
+            num_iters:  the number of times each test is run
 
-def print_time(label, times, divisor):
-    t = min(times)
-    print('%50s:   %8.2f (max=%7.2f) %7d %10.6f' % (label, t, max(times), divisor, t / divisor))
+        All the benchmark methods are independent and should not have an effect (other than btree caching and size)
+        on the other tests.  The only precondition is that the testdata has been loaded.
+        '''
+        self.measurements: Dict[str, List] = collections.defaultdict(list)
+        self.num_iters = num_iters
+        self.coreconfig = config
+        self.workfactor = workfactor
+        self.testdata = testdata
 
-LMDB_FILE = 'test.lmdb'
-SQLITE_FILE = 'test.sqlite'
+    def report(self, configname: str):
+        print(f'Config: {self.coreconfig}, Num Iters: {self.num_iters} Debug: {__debug__}')
+        for name, measurements in self.measurements.items():
+            # ms = ', '.join(f'{m[0]:0.3}' for m in measurements)
+            tottimes = [m[0] for m in measurements[1:]]
+            pertimes = [m[0] / m[1] for m in measurements[1:]]
+            totmean = statistics.mean(tottimes)
+            mean = statistics.mean(pertimes) * 100000
+            stddev = statistics.stdev(pertimes) * 100000
+            count = measurements[0][1]
 
-def cleanup_lmdb():
-    try:
-        os.remove(LMDB_FILE)
-        os.remove(LMDB_FILE + '-lock')
-    except OSError:
-        pass
+            print(f'{name:30}: {totmean:8.3}s / {count:5} = {mean:8.3}μs stddev: {stddev:6.4}μs')
 
-def cleanup_sqlite():
-    try:
-        os.remove('test.sqlite')
-    except OSError:
-        pass
+    async def _loadtestdata(self, core):
+        await s_common.aspin(core.addNodes(self.testdata.ips))
+        await s_common.aspin(core.addNodes(self.testdata.dnsas))
+        await s_common.aspin(core.addNodes(self.testdata.urls))
 
-def benchmark_all(which_runs, num_threads):
-    runs = (
-        ('ram://', None),
-        ('sqlite:///:memory:', None),
-        ('sqlite:///' + SQLITE_FILE, cleanup_sqlite),
-        ('lmdb:///%s?lmdb:mapsize=536870912&lmdb:mapslack=536870912' % LMDB_FILE, cleanup_lmdb)
-    )
+    @contextlib.asynccontextmanager
+    async def getCortexAndProxy(self, dirn: str) -> AsyncIterator[Tuple[Any, Any]]:
+        async with syntest.getTestCoreAndProxy(conf=self.coreconfig, dirn=dirn) as (core, prox):
+            yield core, prox
 
-    test_data = TestData('testdata')
-    for i, (url, cleanup_func) in enumerate(runs):
-        if i not in which_runs:
-            continue
-        print('%s-threaded benchmarking: %s' % (num_threads, url))
-        benchmark_cortex(test_data, url, cleanup_func, num_threads)
+    @isatrial
+    async def do00EmptyString(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        count = await acount(prox.eval(''))
+        assert count == 0
+        return 1
+
+    @isatrial
+    async def do01SimpleCount(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        count = await acount(prox.eval('inet:ipv4 | count | spin'))
+        assert count == 0
+        return self.workfactor
+
+    @isatrial
+    async def do02Lift(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        count = await acount(prox.eval('inet:ipv4'))
+        assert count == self.workfactor
+        return count
+
+    @isatrial
+    async def do02LiftFilterAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        count = await acount(prox.eval('inet:ipv4 | +#newp'))
+        assert count == 0
+        return 1
+
+    @isatrial
+    async def do02LiftFilterPresent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        count = await acount(prox.eval('inet:ipv4 | +#all'))
+        assert count == self.workfactor
+        return count
+
+    @isatrial
+    async def do03LiftBySecondaryAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        count = await acount(prox.eval('inet:dns:a:fqdn=newp'))
+        assert count == 0
+        return 1
+
+    @isatrial
+    async def do03LiftBySecondaryPresent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        count = await acount(prox.eval('inet:dns:a:fqdn=blackhole.website'))
+        assert count == self.workfactor // 10
+        return count
+
+    @isatrial
+    async def do04LiftByTagAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        count = await acount(prox.eval('inet:ipv4#newp'))
+        assert count == 0
+        return 1
+
+    @isatrial
+    async def do04LiftByTagPresent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        count = await acount(prox.eval('inet:ipv4#even'))
+        assert count == self.workfactor // 2
+        return count
+
+    @isatrial
+    async def do05PivotAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        count = await acount(prox.eval('inet:ipv4#odd -> inet:dns:a'))
+        assert count == 0
+        return self.workfactor // 2
+
+    @isatrial
+    async def do06PivotPresent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        count = await acount(prox.eval('inet:ipv4#even -> inet:dns:a'))
+        assert count == self.workfactor // 2 + self.workfactor // 10
+        return count
+
+    @isatrial
+    async def do07AddNodes(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        count = await acount(prox.addNodes(self.testdata.asns2))
+        assert count == self.workfactor
+        return count
+
+    @isatrial
+    async def do07AddNodesPresent(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        count = await acount(prox.addNodes(self.testdata.ips))
+        assert count == self.workfactor
+        return count
+
+    @isatrial
+    async def do08LocalAddNodes(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        count = await acount(core.addNodes(self.testdata.asns))
+        assert count == self.workfactor
+        return count
+
+    @isatrial
+    async def do09DelNodes(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        count = await acount(prox.eval('inet:url | delnode'))
+        assert count == 0
+        return self.workfactor
+
+    async def run(self, core: s_cortex.Cortex, name: str, dirn: str, coro) -> None:
+        for i in range(self.num_iters):
+            # We set up the cortex each time to avoid intra-cortex caching
+            # (there's still a substantial amount of OS caching)
+            async with self.getCortexAndProxy(dirn) as (core, prox):
+                gc.collect()
+
+                start = time.time()
+                count = await coro(core, prox)
+                self.measurements[name].append((time.time() - start, count))
+                # yappi.get_func_stats().print_all()
+
+    def _getTrialFuncs(self):
+        funcs: List[Tuple[str, Callable]] = []
+        funcnames = sorted(f for f in dir(self))
+        for funcname in funcnames:
+            func = getattr(self, funcname)
+            if not hasattr(func, '_isatrial'):
+                continue
+            funcs.append((funcname, func))
+        return funcs
+
+    async def runSuite(self, config: Dict[str, Dict], numprocs: int, tmpdir: str = None):
+        assert numprocs == 1
+        if tmpdir is not None:
+            tmpdir = os.path.abspath(tmpdir)
+        with syntest.getTestDir(tmpdir) as dirn:
+            logger.info('Loading test data')
+            async with self.getCortexAndProxy(dirn) as (core, _):
+                await self._loadtestdata(core)
+            logger.info('Loading test data complete.  Starting benchmarks')
+            for funcname, func in self._getTrialFuncs():
+                await self.run(core, funcname, dirn, func)
+
+Configs: Dict[str, Dict] = {
+    'simple': {},
+    'mapasync': {'layer:lmdb:map_async': True},
+    'dedicated': {'dedicated': True}
+}
+
+def benchmarkAll(confignames: List = None, num_procs=1, workfactor=1000, tmpdir=None) -> None:
+
+    testdata = TestData(workfactor)
+    if not confignames:
+        confignames = ['simple']
+    for configname in confignames:
+        config = Configs[configname]
+        bench = Benchmarker(config, testdata, workfactor)
+        print(f'{num_procs}-process benchmarking: {configname}')
+        asyncio.run(bench.runSuite(config, num_procs))
+        bench.report(configname)
 
 if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('which_runs', type=int, nargs='*', default=(0, 1, 2, 3))
-    parser.add_argument('--num-threads', type=int, default=1)
+    parser.add_argument('--config', nargs='*', default=None)
+    # parser.add_argument('--num-clients', type=int, default=1)
+    parser.add_argument('--workfactor', type=int, default=1000)
+    parser.add_argument('--tmpdir', nargs=1)
     opts = parser.parse_args()
-    benchmark_all(opts.which_runs, opts.num_threads)
+
+    benchmarkAll(opts.config, 1, opts.workfactor, opts.tmpdir)
