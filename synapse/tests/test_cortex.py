@@ -3712,7 +3712,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('$lib.dmon.del(newp)')
 
-    async def test_cortex_storm_dmon(self):
+    async def test_cortex_storm_dmon_ps(self):
 
         with self.getTestDir() as dirn:
 
@@ -3766,13 +3766,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_storm_dmon_view(self):
 
-        async with self.getTestCore() as core:
-            self.len(1, await core.nodes('[test:int=1]'))
-            await core.nodes('$q=$lib.queue.add(dmon)')
-            view2 = await core.view.fork()
-            view2_iden = view2.iden
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                self.len(1, await core.nodes('[test:int=1]'))
+                await core.nodes('$q=$lib.queue.add(dmon)')
+                view2 = await core.view.fork()
+                view2_iden = view2.iden
 
-            async with core.getLocalProxy() as prox:
                 q = '''
                 $lib.dmon.add(${
                     $q = $lib.queue.get(dmon)
@@ -3798,6 +3798,21 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(3, nodes)
                 nodes = await core.nodes('test:int')
                 self.len(1, nodes)
+
+                # Kill the dmon and remove view2
+                for dmon in list(core.stormdmons.values()):
+                    await dmon.fini()
+
+                await core.delView(view2_iden)
+                with self.raises(s_exc.NoSuchView):
+                    await core.nodes('test:int', opts={'view': view2_iden})
+
+            with self.getAsyncLoggerStream('synapse.lib.storm',
+                                           'Dmon View is invalid. Exiting Dmon') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    self.true(await stream.wait(6))
+                    msgs = await core.streamstorm('dmon.list').list()
+                    self.stormIsInPrint('fatal error: invalid view', msgs)
 
     async def test_cortex_storm_cmd_bads(self):
 
