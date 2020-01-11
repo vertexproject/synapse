@@ -158,7 +158,7 @@ class LibDmon(Lib):
         runtvars = {k: v for (k, v) in self.runt.vars.items() if s_msgpack.isok(v)}
 
         opts = {'vars': runtvars,
-                'view': await self.runt.snap.getViewIden(),  # Capture the current view iden.
+                'view': self.runt.snap.view.iden,  # Capture the current view iden.
                 }
 
         ddef = {
