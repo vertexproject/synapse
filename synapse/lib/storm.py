@@ -206,7 +206,7 @@ class StormDmon(s_base.Base):
             except s_exc.NoSuchView as e:
                 if self.loop_task:
                     self.loop_task.cancel()
-                self.status = f'fatal error: invalid view'
+                self.status = f'fatal error: invalid view (iden={e.get("iden")})'
                 logger.warning(f'Dmon View is invalid. Exiting Dmon: ({self.iden})')
                 raise
             except Exception as e:  # pragma: no cover
