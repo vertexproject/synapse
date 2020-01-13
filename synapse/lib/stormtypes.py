@@ -1370,7 +1370,7 @@ class LibLayer(Lib):
 
         layer = await self.runt.snap.addLayer(conf, stor)
 
-        return layer.pack()
+        return layer.iden
 
     async def _libLayerDel(self, iden):
         '''
@@ -1396,7 +1396,7 @@ class LibLayer(Lib):
             mesg = f'No layer with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        await layer.pack()
+        await layer.iden
 
     async def _libLayerList(self):
         '''
@@ -1404,9 +1404,9 @@ class LibLayer(Lib):
         '''
         self.runt.reqAllowed(('storm', 'layer', 'list'))
 
-        layers = await self.runt.snap.getLayers()
+        layers = await self.runt.snap.listLayers()
 
-        return [layer.pack() for l in layers]
+        return [layer.iden for layer in layers]
 
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):
