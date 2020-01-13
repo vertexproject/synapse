@@ -6,12 +6,13 @@ class StormHttpTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
             addr, port = await core.addHttpPort(0)
-            core.insecure = True
+            root = core.auth.getUserByName('root')
+            await root.setPasswd('root')
             text = '''
                 $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
                 )
-                $url = $lib.str.format("http://127.0.0.1:{port}/api/v1/model", port=$port)
+                $url = $lib.str.format("http://root:root@127.0.0.1:{port}/api/v1/model", port=$port)
 
                 for ($name, $fdef) in $lib.inet.http.get($url, headers=$hdr).json().result.forms {
                     [ test:str=$name ]
@@ -24,11 +25,12 @@ class StormHttpTest(s_test.SynTest):
     async def test_storm_http_post_api(self):
 
         async with self.getTestCore() as core:
-            core.insecure = True
             addr, port = await core.addHttpPort(0)
+            root = core.auth.getUserByName('root')
+            await root.setPasswd('root')
 
             adduser = '''
-                $url = $lib.str.format("http://127.0.0.1:{port}/api/v1/auth/adduser", port=$port)
+                $url = $lib.str.format("http://root:root@127.0.0.1:{port}/api/v1/auth/adduser", port=$port)
                 $user = $lib.dict(name=$name, passwd=$passwd)
                 $post = $lib.inet.http.post($url, json=$user).json().result.name
                 $lib.print($post)
@@ -40,7 +42,7 @@ class StormHttpTest(s_test.SynTest):
             self.assertIn('foo', [u.name for u in core.auth.users()])
 
             adduser = '''
-                $url = $lib.str.format("http://127.0.0.1:{port}/api/v1/auth/adduser", port=$port)
+                $url = $lib.str.format("http://root:root@127.0.0.1:{port}/api/v1/auth/adduser", port=$port)
                 $user = $lib.str.format('{"name": "{name}", "passwd": "{passwd}"}', name=$name, passwd=$passwd)
                 $header = $lib.dict("Content-Type"="application/json")
                 $post = $lib.inet.http.post($url, headers=$header, body=$user).json().result.name
@@ -55,10 +57,11 @@ class StormHttpTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            core.insecure = True
             addr, port = await core.addHttpPort(0)
+            root = core.auth.getUserByName('root')
+            await root.setPasswd('root')
             text = '''
-            $url = $lib.str.format("http://127.0.0.1:{port}/api/v1/storm", port=$port)
+            $url = $lib.str.format("http://root:root@127.0.0.1:{port}/api/v1/storm", port=$port)
             $stormq = "($size, $sha2) = $lib.bytes.put($lib.base64.decode('dmVydGV4')) [ test:str = $sha2 ] [ test:int = $size ]"
             $json = $lib.dict(query=$stormq)
             $bytez = $lib.inet.http.post($url, json=$json)
@@ -74,7 +77,7 @@ class StormHttpTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:int', 6))
 
             text = '''
-            $url = $lib.str.format("http://127.0.0.1:{port}/api/v1/storm", port=$port)
+            $url = $lib.str.format("http://root:root@127.0.0.1:{port}/api/v1/storm", port=$port)
             $json = $lib.dict(query="test:str")
             $body = $json
             $json=$lib.inet.http.post($url, json=$json, body=$body)

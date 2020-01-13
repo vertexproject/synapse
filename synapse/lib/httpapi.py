@@ -120,9 +120,6 @@ class HandlerBase:
 
     async def reqAuthAdmin(self):
 
-        if self.cell.insecure:
-            return True
-
         user = await self.user()
         if user is None:
             self.sendAuthReqired()
@@ -143,9 +140,9 @@ class HandlerBase:
 
         Notes:
             This will call reqAuthUser() to ensure that there is a valid user.
-            If the cell is insecure, this will return True.  If this returns
-            False, the handler should return since the the status code and
-            resulting error message will already have been sent.
+            If this returns False, the handler should return since the the
+            status code and resulting error message will already have been
+            sent to the requester.
 
         Examples:
 
@@ -164,8 +161,6 @@ class HandlerBase:
             s_exc.AuthDeny: If the permission is not allowed.
 
         '''
-        if self.cell.insecure:  # pragma: no cover
-            return True
 
         if not await self.reqAuthUser():
             return False
@@ -239,8 +234,6 @@ class HandlerBase:
             return user.name
 
     async def authenticated(self):
-        if self.cell.insecure:
-            return True
         return await self.user() is not None
 
 class WebSocket(HandlerBase, t_websocket.WebSocketHandler):

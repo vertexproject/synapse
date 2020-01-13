@@ -245,82 +245,84 @@ class HttpApiTest(s_tests.SynTest):
         async with self.getTestCore() as core:
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
-
-            core.insecure = True
+            root = core.auth.getUserByName('root')
+            await root.setPasswd('root')
 
             async with self.getHttpSess() as sess:
 
                 info = {'name': 'visi', 'passwd': 'secret', 'admin': True}
-                async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', json=info) as resp:
+                # Make the first user as root
+                async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser', json=info) as resp:
                     item = await resp.json()
                     self.nn(item.get('result').get('iden'))
                     visiiden = item['result']['iden']
 
                 info = {'name': 'noob', 'passwd': 'nooblet', 'email': 'nobody@nowhere.com'}
-                async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', json=info) as resp:
+                # The visi user is an admin, so reuse it
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/adduser', json=info) as resp:
                     item = await resp.json()
                     self.nn(item.get('result').get('iden'))
                     self.eq('nobody@nowhere.com', item['result']['email'])
                     noobiden = item['result']['iden']
 
                 info = {'name': 'visi', 'passwd': 'secret', 'admin': True}
-                async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', json=info) as resp:
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/adduser', json=info) as resp:
                     item = await resp.json()
                     self.eq('err', item.get('status'))
                     self.eq('DupUser', item.get('code'))
 
                 info = {'name': 'analysts'}
-                async with sess.post(f'https://localhost:{port}/api/v1/auth/addrole', json=info) as resp:
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/addrole', json=info) as resp:
                     item = await resp.json()
                     self.nn(item.get('result').get('iden'))
                     analystiden = item['result']['iden']
 
                 info = {'name': 'analysts'}
-                async with sess.post(f'https://localhost:{port}/api/v1/auth/addrole', json=info) as resp:
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/addrole', json=info) as resp:
                     item = await resp.json()
                     self.eq('err', item.get('status'))
                     self.eq('DupRole', item.get('code'))
 
-                async with sess.get(f'https://localhost:{port}/api/v1/auth/user/newp') as resp:
+                async with sess.get(f'https://visi:secret@localhost:{port}/api/v1/auth/user/newp') as resp:
                     item = await resp.json()
                     self.eq('NoSuchUser', item.get('code'))
 
-                async with sess.get(f'https://localhost:{port}/api/v1/auth/role/newp') as resp:
+                async with sess.get(f'https://visi:secret@localhost:{port}/api/v1/auth/role/newp') as resp:
                     item = await resp.json()
                     self.eq('NoSuchRole', item.get('code'))
 
-                async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
+                async with sess.get(f'https://visi:secret@localhost:{port}/api/v1/auth/users') as resp:
                     item = await resp.json()
                     users = item.get('result')
                     self.isin('visi', [u.get('name') for u in users])
 
-                async with sess.get(f'https://localhost:{port}/api/v1/auth/roles') as resp:
+                async with sess.get(f'https://visi:secret@localhost:{port}/api/v1/auth/roles') as resp:
                     item = await resp.json()
                     roles = item.get('result')
                     self.isin('analysts', [r.get('name') for r in roles])
 
                 info = {'user': 'blah', 'role': 'blah'}
-                async with sess.post(f'https://localhost:{port}/api/v1/auth/grant', json=info) as resp:
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/grant', json=info) as resp:
                     item = await resp.json()
                     self.eq('NoSuchUser', item.get('code'))
 
                 info = {'user': visiiden, 'role': 'blah'}
-                async with sess.post(f'https://localhost:{port}/api/v1/auth/grant', json=info) as resp:
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/grant', json=info) as resp:
                     item = await resp.json()
                     self.eq('NoSuchRole', item.get('code'))
 
                 info = {'user': 'blah', 'role': 'blah'}
-                async with sess.post(f'https://localhost:{port}/api/v1/auth/revoke', json=info) as resp:
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/revoke', json=info) as resp:
                     item = await resp.json()
                     self.eq('NoSuchUser', item.get('code'))
 
                 info = {'user': visiiden, 'role': 'blah'}
-                async with sess.post(f'https://localhost:{port}/api/v1/auth/revoke', json=info) as resp:
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/revoke', json=info) as resp:
                     item = await resp.json()
                     self.eq('NoSuchRole', item.get('code'))
 
                 info = {'user': visiiden, 'role': analystiden}
-                async with sess.post(f'https://localhost:{port}/api/v1/auth/grant', json=info) as resp:
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/grant', json=info) as resp:
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
                     roles = item['result']['roles']
@@ -328,14 +330,13 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(analystiden, roles[0])
 
                 info = {'user': visiiden, 'role': analystiden}
-                async with sess.post(f'https://localhost:{port}/api/v1/auth/revoke', json=info) as resp:
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/revoke', json=info) as resp:
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
                     roles = item['result']['roles']
                     self.len(0, roles)
 
             # lets try out session based login
-            core.insecure = False
 
             async with self.getHttpSess() as sess:
 
@@ -507,7 +508,8 @@ class HttpApiTest(s_tests.SynTest):
                     retn = await resp.json()
                     self.eq('BadJson', retn.get('code'))
 
-                async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'derpuser', 'passwd': 'derpuser'}) as resp:
+                async with sess.post(f'https://localhost:{port}/api/v1/login',
+                                     json={'user': 'derpuser', 'passwd': 'derpuser'}) as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
                     self.eq('derpuser', retn['result']['name'])
@@ -542,8 +544,6 @@ class HttpApiTest(s_tests.SynTest):
 
         async with self.getTestCore() as core:
 
-            core.insecure = False
-
             visi = await core.auth.addUser('visi')
 
             await visi.setAdmin(True)
@@ -555,7 +555,8 @@ class HttpApiTest(s_tests.SynTest):
 
                 self.len(0, core.sessions)  # zero sessions..
 
-                async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
+                async with sess.post(f'https://localhost:{port}/api/v1/login',
+                                     json={'user': 'visi', 'passwd': 'secret'}) as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
                     self.eq('visi', retn['result']['name'])
@@ -658,8 +659,6 @@ class HttpApiTest(s_tests.SynTest):
     async def test_http_storm(self):
 
         async with self.getTestCore() as core:
-
-            core.insecure = False
 
             visi = await core.auth.addUser('visi')
 

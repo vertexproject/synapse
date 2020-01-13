@@ -386,8 +386,6 @@ class PassThroughApi(CellApi):
 
 bootdefs = (
 
-    ('insecure', {'defval': False, 'doc': 'Disable all authentication checking. (INSECURE!)'}),
-
     ('auth:admin', {'defval': None, 'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
 
     ('hive', {'defval': None, 'doc': 'Set to a Hive telepath URL or list of URLs'}),
@@ -439,7 +437,6 @@ class Cell(s_base.Base, s_telepath.Aware):
         self.conf = s_common.config(conf, self.confdefs + self.confbase)
 
         self.cmds = {}
-        self.insecure = self.boot.get('insecure', False)
 
         self.sessions = {}
         self.httpsonly = self.conf.get('https:only', False)
@@ -469,7 +466,6 @@ class Cell(s_base.Base, s_telepath.Aware):
 
             await user.setAdmin(True)
             await user.setPasswd(passwd)
-            self.insecure = False
 
         await self._initCellHttp()
 
@@ -690,7 +686,7 @@ class Cell(s_base.Base, s_telepath.Aware):
     async def getTeleApi(self, link, mesg, path):
 
         # if auth is disabled or it's a unix socket, they're root.
-        if self.insecure or link.get('unix'):
+        if link.get('unix'):
             name = 'root'
             auth = mesg[1].get('auth')
             if auth is not None:

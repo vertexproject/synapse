@@ -28,7 +28,6 @@ class CellTest(s_t_utils.SynTest):
 
             async with await EchoAuth.anit(dirn) as echo:
 
-                echo.insecure = False
                 echo.dmon.share('echo00', echo)
                 root = echo.auth.getUserByName('root')
                 await root.setPasswd('secretsauce')
@@ -229,6 +228,7 @@ class CellTest(s_t_utils.SynTest):
             async with await s_telepath.openurl(url) as prox:
                 self.eq(iden, await prox.getCellIden())
 
+    # TODO: This test becomes invalid since the default user is no longer something that can be changed...
     async def test_cell_nonstandard_admin(self):
         boot = {
             'auth:admin': 'pennywise:cottoncandy',
@@ -239,8 +239,6 @@ class CellTest(s_t_utils.SynTest):
 
             s_common.yamlsave(boot, dirn, 'boot.yaml')
             async with await EchoAuth.anit(dirn) as echo:
-
-                echo.insecure = False
 
                 # start a regular network listener so we can auth
                 host, port = await echo.dmon.listen('tcp://127.0.0.1:0/')
