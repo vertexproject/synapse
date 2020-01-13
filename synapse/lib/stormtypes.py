@@ -1380,7 +1380,7 @@ class LibView(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, iden=iden, layers=layers)
 
         return {'iden': view.iden,
-                'layers': [ layer.iden for layer in view.layers ]}
+                'layers': [layer.iden for layer in view.layers]}
 
     async def _methViewDel(self, iden):
         '''
@@ -1415,8 +1415,7 @@ class LibView(Lib):
         new_view = await view.fork()
 
         return {'iden': new_view.iden,
-                'layers': [ layer.iden for layer in new_view.layers ]}
-
+                'layers': [layer.iden for layer in new_view.layers]}
 
     async def _methViewGet(self, iden=None):
         '''
@@ -1430,7 +1429,7 @@ class LibView(Lib):
             raise s_exc.NoSuchIden(mesg=mesg)
 
         return {'iden': view.iden,
-                'layers': [ layer.iden for layer in view.layers ]}
+                'layers': [layer.iden for layer in view.layers]}
 
     async def _methViewList(self):
         '''
@@ -1443,7 +1442,7 @@ class LibView(Lib):
         resp = []
         for view in views:
             obj = {'iden': view.iden,
-                   'layers': [ layer.iden for layer in view.layers ]}
+                   'layers': [layer.iden for layer in view.layers]}
             resp.append(obj)
 
         return resp
@@ -1464,7 +1463,6 @@ class LibView(Lib):
         await view.merge()
 
         return True
-
 
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):

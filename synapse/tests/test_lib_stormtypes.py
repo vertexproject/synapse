@@ -1446,7 +1446,6 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchIden):
                 nodes = await core.nodes(q)
 
-
             # List the views in the cortex
             q = '''
                 for $view in $lib.view.list() {
