@@ -184,7 +184,7 @@ class Snap(s_base.Base):
         return await self.core.delLayer(iden)
 
     async def getLayer(self, iden):
-        return await self.core.getLayer(iden)
+        return self.core.getLayer(iden)
 
     async def listLayers(self):
         return self.layers

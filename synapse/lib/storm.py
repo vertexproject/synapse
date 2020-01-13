@@ -95,7 +95,6 @@ stormcmds = (
             if ($cmdopts.confvar) {
                 $conf = $lib.vars.get($cmdopts.confvar)
             }
-
             $layer = $lib.layer.add($conf, $cmdopts.stor)
             $lib.print("layer added: {iden}", name=$layer.iden)
         ''',
@@ -115,14 +114,12 @@ stormcmds = (
         'name': 'layer.get',
         'descr': 'Get a layer from the cortex.',
         'cmdargs': (
-            ('iden', {'help': 'Iden of the layer to delete.'}),
+            ('--iden', {'help': 'Iden of the layer to delete.'}),
         ),
         'storm': '''
             $layer = $lib.layer.get($cmdopts.iden)
-
             if ($layer) {
-                $name = $layer.name.ljust(20)
-                $lib.print("    {iden}:  ({name}): {stortype}", iden=$layer.iden, name=$name, stortype=$layer.stor)
+                $lib.print($layer)
             }
         ''',
     },
@@ -133,8 +130,7 @@ stormcmds = (
         'storm': '''
             $lib.print('Layer list:')
             for $layer in $lib.layer.list() {
-                $name = $layer.name.ljust(20)
-                $lib.print("    {iden}:  ({name}): {stortype}", iden=$layer.iden, name=$name, stortype=$layer.stor)
+                $lib.print($layer)
             }
         ''',
     },

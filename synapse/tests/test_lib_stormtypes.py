@@ -1396,11 +1396,61 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_layer(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCore() as core2:
 
-            q = '''
-                $layer = $lib.layer.add()
-                $lib.print($layer)
-            '''
-            mesgs = await core.streamstorm(q).list()
-            print(mesgs)
+            existinglayer = core2.view.layers[0].iden
+
+            async with self.getTestCore() as core:
+
+                iden = core.view.layers[0].iden
+
+                q = '$lib.print($lib.layer.get())'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInPrint(iden, mesgs)
+
+                q = 'layer.get'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInPrint(iden, mesgs)
+
+                q = f'$lib.print($lib.layer.get({iden}))'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInPrint(iden, mesgs)
+
+                q = f'layer.get {iden}'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInPrint(iden, mesgs)
+
+                q = f'$lib.print($lib.layer.get(foo))'
+                with self.raises(s_exc.NoSuchIden):
+                    nodes = await core.nodes(q)
+
+                q = f'layer.get --iden foo'
+                with self.raises(s_exc.NoSuchIden):
+                    nodes = await core.nodes(q)
+
+                # create a new layer
+                q = f'$lib.print($lib.layer.add())'
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        newlayer = mesg[1]['mesg']
+
+                q = f'$lib.print($lib.layer.get({newlayer}))'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInPrint(newlayer, mesgs)
+
+                # add an existing layer
+                q = f'$lib.print($lib.layer.add({existinglayer}))'
+                mesgs = await core.streamstorm(q).list()
+
+                q = f'$lib.print($lib.layer.get({existinglayer}))'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInPrint(existinglayer, mesgs)
+
+                # delete a layer
+                q = f'$lib.print($lib.layer.del({newlayer}))'
+                mesgs = await core.streamstorm(q).list()
+
+                q = f'$lib.print($lib.layer.get({newlayer}))'
+                with self.raises(s_exc.NoSuchIden):
+                    nodes = await core.nodes(q)
