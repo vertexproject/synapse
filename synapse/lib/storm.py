@@ -275,6 +275,10 @@ class Runtime:
             'lib': s_stormtypes.LibBase,
         }
 
+        self.builtins = {
+            'vars': self.vars,
+        }
+
         self.opts = opts
         self.snap = snap
         self.user = user
@@ -294,6 +298,7 @@ class Runtime:
         self.runtvars = set()
         self.runtvars.update(self.vars.keys())
         self.runtvars.update(self.ctors.keys())
+        self.runtvars.update(self.builtins.keys())
         self.isModuleRunt = False
         self.globals = set()
         self.modulefuncs = {}
@@ -351,10 +356,13 @@ class Runtime:
         self.opts[name] = valu
 
     def getVar(self, name, defv=None):
-
         item = self.vars.get(name, s_common.novalu)
         if item is not s_common.novalu:
             return item
+
+        valu = self.builtins.get(name, s_common.novalu)
+        if valu is not s_common.novalu:
+            return valu
 
         ctor = self.ctors.get(name)
         if ctor is not None:
@@ -721,7 +729,6 @@ class PureCmd(Cmd):
                 hasnodes = False
                 async for node, path in genr:
                     if not hasnodes:
-                        # set once to direct that vars can be found on $path
                         subr.setVar('cmdhasnodes', True)
                         hasnodes = True
                     path.initframe(initvars=cmdvars, initrunt=subr)

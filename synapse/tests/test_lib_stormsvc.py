@@ -249,14 +249,7 @@ class StormvarService(s_stormsvc.StormSvc):
                     ),
                     'storm': '''
                     $name = $cmdopts.name
-                    $cmdhasnodes = $lib.vars.get('cmdhasnodes')
-                    if $cmdopts.stormvar {
-                        if $cmdhasnodes {
-                            $fooz = $path.vars.$name
-                        } else {
-                            $fooz = $lib.vars.get($name)
-                        }
-                    }
+                    $fooz = $vars.$name
                     $lib.print('my foo var is {f}', f=$fooz)
                     ''',
                 },
@@ -266,7 +259,9 @@ class StormvarService(s_stormsvc.StormSvc):
                         ('--again', {'default': False, 'action': 'store_true', 'help': 'call another purecmd'}),
                     ),
                     'storm': '''
-                    $fooz = $lib.vars.get('foo')
+                    $cmdhasnodes = $lib.vars.get('cmdhasnodes')
+                    $lib.print('cmdhasnodes is {c}', c=$cmdhasnodes)
+                    $fooz = $vars.foo
                     $lib.print('my foo var is {f}', f=$fooz)
                     if $cmdopts.again {
                         nonodeagain cow
@@ -279,7 +274,9 @@ class StormvarService(s_stormsvc.StormSvc):
                         ('--again', {'default': False, 'action': 'store_true', 'help': 'call another purecmd'}),
                     ),
                     'storm': '''
-                    $fooz = $path.vars.foo
+                    $cmdhasnodes = $lib.vars.get('cmdhasnodes')
+                    $lib.print('cmdhasnodes is {c}', c=$cmdhasnodes)
+                    $fooz = $vars.foo
                     $lib.print('my foo var is {f}', f=$fooz)
                     if $cmdopts.again {
                         nonodeagain ham
