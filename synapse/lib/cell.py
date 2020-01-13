@@ -432,6 +432,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         self.cmds = {}
 
         self.sessions = {}
+        # TODO: Plumb https:only into self.confbaseg
         self.httpsonly = self.conf.get('https:only', False)
 
         self.boss = await s_boss.Boss.anit()
