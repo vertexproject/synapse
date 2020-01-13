@@ -384,14 +384,6 @@ class PassThroughApi(CellApi):
                 return func
             setattr(self, f, funcapply(f))
 
-bootdefs = (
-
-    ('auth:admin', {'defval': None, 'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
-
-    ('hive', {'defval': None, 'doc': 'Set to a Hive telepath URL or list of URLs'}),
-
-)
-
 class Cell(s_base.Base, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
@@ -400,7 +392,10 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     # config options that are in all cells...
     confdefs = ()
-    confbase = ()
+    confbase = (
+        ('auth:passwd', {'defval': None, 'doc': 'Set to <passwd> (local only) to bootstrap the root user password..'}),
+        ('hive', {'defval': None, 'doc': 'Set to a Hive telepath URL or list of URLs'}),
+    )
 
     async def __anit__(self, dirn, conf=None, readonly=False):
 
@@ -411,6 +406,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         self.dirn = s_common.gendir(dirn)
 
         self.auth = None
+        self.remote_hive = False
 
         # each cell has a guid
         path = s_common.genpath(dirn, 'cell.guid')
@@ -423,9 +419,6 @@ class Cell(s_base.Base, s_telepath.Aware):
         # read our guid file
         with open(path, 'r') as fd:
             self.iden = fd.read().strip()
-
-        boot = self._loadCellYaml('boot.yaml')
-        self.boot = s_common.config(boot, bootdefs)
 
         await self._initCellDmon()
 
@@ -455,17 +448,14 @@ class Cell(s_base.Base, s_telepath.Aware):
             await s_compat.cellAuthToHive(oldauth, self.auth)
             os.rename(oldauth, oldauth + '.old')
 
-        admin = self.boot.get('auth:admin')
-        if admin is not None:
-
-            name, passwd = admin.split(':', 1)
-
-            user = self.auth.getUserByName(name)
-            if user is None:
-                user = await self.auth.addUser(name)
-
-            await user.setAdmin(True)
-            await user.setPasswd(passwd)
+        auth_passwd = self.conf.get('auth:passwd')
+        if auth_passwd is not None:
+            if self.remote_hive:
+                # This is a invalid configuration - bail
+                raise s_exc.BadConfValu(mesg='Cannot set root password on a cell configured to use a remote hive.',
+                                        name='auth:passwd')
+            user = self.auth.getUserByName('root')
+            await user.setPasswd(auth_passwd)
 
         await self._initCellHttp()
 
@@ -626,6 +616,7 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         hurl = self.conf.get('hive')
         if hurl is not None:
+            self.remote_hive = True
             return await s_hive.openurl(hurl)
 
         isnew = not self.slab.dbexists('hive')

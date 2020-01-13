@@ -1564,12 +1564,10 @@ class SynTest(unittest.TestCase):
         self.isinstance(obj[1], dict)
 
     @contextlib.contextmanager
-    def getTestConfDir(self, name, boot=None, conf=None):
+    def getTestConfDir(self, name, conf=None):
         with self.getTestDir() as dirn:
             cdir = os.path.join(dirn, name)
             s_common.makedirs(cdir)
-            if boot:
-                s_common.yamlsave(boot, cdir, 'boot.yaml')
             if conf:
                 s_common.yamlsave(conf, cdir, 'cell.yaml')
             yield dirn
