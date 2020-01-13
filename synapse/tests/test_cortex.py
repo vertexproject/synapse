@@ -37,7 +37,7 @@ class CortexTest(s_t_utils.SynTest):
                 syn:prop=test:int $prop=$node.value() *$prop=10 -syn:prop
             '''
             nodes = await core.nodes(text)
-            self.eq(nodes[0].ndef, ('test:int', 10))
+            self.eq(nodes[1].ndef, ('test:int', 10))
 
             guid = 'da299a896ff52ab0e605341ab910dad5'
 
@@ -46,7 +46,6 @@ class CortexTest(s_t_utils.SynTest):
                                          opts=opts))
 
             text = '''
-
                 syn:form syn:prop:ro=1 syn:prop:ro=0
 
                 $prop = $node.value()
@@ -55,7 +54,6 @@ class CortexTest(s_t_utils.SynTest):
 
                 -syn:form
                 -syn:prop
-
             '''
             nodes = await core.nodes(text)
             self.len(3, nodes)
@@ -1040,10 +1038,6 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('test:str#foo@=(2017,2022)'))
             await self.agenlen(1, core.eval('test:str#foo@=(2012,2022)'))
 
-    async def test_cortex_storm_indx_none(self):
-        async with self.getTestCore() as core:
-            await self.agenraises(s_exc.NoSuchIndx, core.eval('graph:node:data=10'))
-
     async def test_cortex_int_indx(self):
 
         async with self.getTestReadWriteCores() as (core, wcore):
@@ -1129,7 +1123,7 @@ class CortexTest(s_t_utils.SynTest):
 
             # Ensure that the test model loads a univ property
             prop = core.model.prop('.test:univ')
-            self.isinstance(prop, s_datamodel.Univ)
+            self.true(prop.isuniv)
 
             # Add a univprop directly via API for testing
             core.model.addUnivProp('hehe', ('int', {}), {})

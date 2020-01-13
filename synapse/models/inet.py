@@ -378,11 +378,9 @@ class IPv4(s_types.Type):
         norm = int.from_bytes(byts, 'big')
         return self._normPyInt(norm)
 
-    #def indx(self, norm):
-        #return norm.to_bytes(4, 'big')
-
     def repr(self, norm):
-        return socket.inet_ntoa(self.indx(norm))
+        byts = norm.to_bytes(4, 'big')
+        return socket.inet_ntoa(byts)
 
     def getNetRange(self, text):
         minstr, maxstr = text.split('-')

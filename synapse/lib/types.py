@@ -369,13 +369,15 @@ class Type:
 
 class Bool(Type):
 
+    stortype = s_layer.STOR_TYPE_U8
+
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(bool, self._normPyInt)
 
-    def indx(self, norm):
-        return norm.to_bytes(length=1, byteorder='big')
+    #def indx(self, norm):
+        #return norm.to_bytes(length=1, byteorder='big')
 
     def _normPyStr(self, valu):
 

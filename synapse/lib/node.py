@@ -7,6 +7,7 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
+import synapse.lib.layer as s_layer
 
 import synapse.lib.editatom as s_editatom
 
@@ -31,16 +32,17 @@ class Node:
         self.ndef = sode[1].get('ndef')
         self.form = snap.model.form(self.ndef[0])
 
-        self.univs = {}
-        self.tagprops = {}
+        self.props = sode[1].get('props')
+        if self.props is None:
+            self.props = {}
 
         self.tags = sode[1].get('tags')
         if self.tags is None:
             self.tags = {}
 
-        self.props = sode[1].get('props')
-        if self.props is None:
-            self.props = {}
+        self.tagprops = sode[1].get('tagprops')
+        if self.tagprops is None:
+            self.tagprops = {}
 
         # raw prop -> layer it was set at
         #self.proplayr = collections.defaultdict(lambda: self.snap.wlyr, proplayr or {})
@@ -232,24 +234,10 @@ class Node:
             if curv == norm:
                 return False
 
-        setprops = [(prop.name, norm, prop.type.stortype)]
-        edit = (self.buid, {'form': prop.form.name, 'setprops': setprops})
+        edits = []
+        nodeedit = (self.buid, prop.form.name, edits)
 
-        #await self.snap.wlyr.setStorNode(self.buid, info, {})
-
-        # do we have any auto nodes to add?
-        #auto = self.snap.model.form(prop.type.name)
-        #if auto is not None:
-            #buid = s_common.buid((auto.name, norm))
-            #await self.snap._addNodeFnibOps((auto, norm, info, buid), editatom)
-
-        # does the type think we have special auto nodes to add?
-        # ( used only for adds which do not meet the above block )
-        #for autoname, autovalu in info.get('adds', ()):
-            #auto = self.snap.model.form(autoname)
-            #autonorm, autoinfo = auto.type.norm(autovalu)
-            #buid = s_common.buid((auto.name, autonorm))
-            #await self.snap._addNodeFnibOps((auto, autovalu, autoinfo, buid), editatom)
+        edits.append((s_layer.EDIT_PROP_SET, (prop.name, norm, curv, prop.type.stortype)))
 
         # do we need to set any sub props?
         subs = info.get('subs')
@@ -263,17 +251,19 @@ class Node:
                 if subprop is None:
                     continue
 
-                setprops.append((subprop.name, subvalu, subprop.type.stortype))
+                curv = self.props.get(subname)
 
-        await self.snap.addNodeEdit(edit)
+                edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subvalu, curv, subprop.type.stortype)))
 
-        oldvs = {}
-        for propname, propvalu, stortype in setprops:
-            oldvs[propname] = self.props.get(propname)
-            self.props[propname] = propvalu
+        sode = await self.snap.addNodeEdit(nodeedit)
 
-        for propname, propvalu, stortype in setprops:
-            await self.form.prop(propname).wasSet(self, oldvs.get(propname))
+        for edittype, editinfo in sode[1].get('edits', ()):
+
+            if edittype == s_layer.EDIT_PROP_SET:
+                propname, propvalu, propoldv, stortype = editinfo
+                self.props[propname] = propvalu
+
+                await self.form.prop(propname).wasSet(self, propoldv)
 
         return True
 
@@ -323,7 +313,11 @@ class Node:
         if curv is s_common.novalu:
             return False
 
-        await self.snap.addNodeEdit((self.buid, {'form': self.form.name, 'delprops': [prop.name]}))
+        edits = (
+            (s_layer.EDIT_PROP_DEL, (prop.name, curv, prop.type.stortype)),
+        )
+
+        await self.snap.addNodeEdit((self.buid, self.form.name, edits))
 
         await prop.wasDel(self, curv)
 
@@ -469,20 +463,26 @@ class Node:
         if valu == curv:
             return
 
+        await self._setTagProp(name, valu)
+
         #indx = self.snap.model.types['ival'].indx(valu)
         #info = {'univ': True}
         #await self._setTagProp(name, valu, indx, info)
         #await self._setTagProp(name, valu, indx, info)
 
     async def _setTagProp(self, name, norm): #, indx, info):
+
+        oldv = self.tags.get(name)
+
         self.tags[name] = norm
-        info = {
-            'form': self.form.name,
-            'settags': (
-                (name, norm),
-            ),
-        }
-        await self.snap.addNodeEdit((self.buid, info))
+
+        edits = [
+            (s_layer.EDIT_TAG_SET, (name, norm, oldv)),
+        ]
+
+        nodeedit = (self.buid, self.form.name, edits)
+
+        await self.snap.addNodeEdit(nodeedit)
 
     async def _addTagRaw(self, name, norm):
 
@@ -527,10 +527,21 @@ class Node:
 
         removed.append((name, curv))
 
-        #meta = self.snap.getStorMeta()
-        edit = (self.buid, {'form': self.form.name, 'deltags': [r[0] for r in removed]})
+        edits = [(s_layer.EDIT_TAG_DEL, (name, curv)) for (name, curv) in removed]
 
-        await self.snap.addNodeEdit(edit)
+        for name, curv in removed:
+
+            for (tagproptag, tagpropprop) in list(self.tagprops.keys()):
+
+                if tagproptag != name:
+                    continue
+
+                # TODO add these to edits...
+                await self.delTagProp(name, tagpropprop)
+
+        nodeedit = (self.buid, self.form.name, edits)
+
+        await self.snap.addNodeEdit(nodeedit)
 
         # fire all the handlers / triggers
         [await self.snap.view.runTagDel(self, t, v) for (t, v) in removed]
@@ -564,38 +575,32 @@ class Node:
             mesg = f'Bad property value: #{tag}:{prop.name}={valu!r}'
             return await self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, name=prop.name, valu=valu, emesg=str(e))
 
-        indx = prop.type.indx(norm)
-
         tagkey = (tag, name)
         curv = self.tagprops.get(tagkey)
 
-        sops = (
-            ('tag:prop:set', (self.buid, self.form.name, tag, prop.name, norm, indx, {})),
+        edits = (
+            (s_layer.EDIT_TAGPROP_SET, (tag, name, norm, curv, prop.type.stortype)),
         )
 
-        splices = (
-            self.snap.splice('tag:prop:set', ndef=self.ndef, tag=tag, prop=prop.name, valu=norm, curv=curv),
-        )
-
-        await self.snap.stor(sops, splices)
+        sode = await self.snap.addNodeEdit((self.buid, self.form.name, edits))
 
         self.tagprops[tagkey] = norm
 
     async def delTagProp(self, tag, name):
 
+        prop = self.snap.model.getTagProp(name)
+        if prop is None:
+            raise s_exc.NoSuchTagProp(name=name)
+
         curv = self.tagprops.pop((tag, name), s_common.novalu)
         if curv is s_common.novalu:
             return False
 
-        sops = (
-            ('tag:prop:del', (self.buid, self.form.name, tag, name, {})),
+        edits = (
+            (s_layer.EDIT_TAGPROP_DEL, (tag, name, curv, prop.type.stortype)),
         )
 
-        splices = (
-            self.snap.splice('tag:prop:del', ndef=self.ndef, tag=tag, prop=name, valu=curv),
-        )
-
-        await self.snap.stor(sops, splices)
+        sode = await self.snap.addNodeEdit((self.buid, self.form.name, edits))
 
     async def delete(self, force=False):
         '''
@@ -661,15 +666,13 @@ class Node:
         for name in list(self.props.keys()):
             await self.pop(name, init=True)
 
-        await self.snap.addNodeEdit((self.buid, {'form': formname, 'delnode': (formvalu, self.form.type.stortype)}))
+        edits = (
+            (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype)),
+        )
 
-        self.snap.livenodes.pop(self.buid)
+        await self.snap.addNodeEdit((self.buid, formname, edits))
 
-        # If the node was originally in the main layer and our current write layer is the main layer,
-        # decrement the form count
-        #if self.snap.wlyr == self.proplayr['*' + self.form.name] == self.snap.core.view.layers[0]:
-            #self.snap.core.pokeFormCount(formname, -1)
-        # COUNTS ARE NOW PART OF THE LAYER LOGIC
+        self.snap.livenodes.pop(self.buid, None)
 
         await self.form.wasDeleted(self)
 

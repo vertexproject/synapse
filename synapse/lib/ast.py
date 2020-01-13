@@ -911,15 +911,19 @@ class LiftTagProp(LiftOper):
     '''
     async def lift(self, runt):
 
-        cmpr = None
-        valu = None
         tag, prop = await self.kids[0].compute(runt)
 
         if len(self.kids) == 3:
+
             cmpr = await self.kids[1].compute(runt)
             valu = await self.kids[2].compute(runt)
 
-        async for node in runt.snap._getNodesByTagProp(prop, tag=tag, valu=valu, cmpr=cmpr):
+            async for node in runt.snap.nodesByTagPropValu(None, tag, prop, cmpr, valu):
+                yield node
+
+            return
+
+        async for node in runt.snap.nodesByTagProp(None, tag, prop):
             yield node
 
 class LiftFormTagProp(LiftOper):
@@ -929,15 +933,19 @@ class LiftFormTagProp(LiftOper):
 
     async def lift(self, runt):
 
-        cmpr = None
-        valu = None
         form, tag, prop = await self.kids[0].compute(runt)
 
         if len(self.kids) == 3:
+
             cmpr = await self.kids[1].compute(runt)
             valu = await self.kids[2].compute(runt)
 
-        async for node in runt.snap._getNodesByTagProp(prop, form=form, tag=tag, valu=valu, cmpr=cmpr):
+            async for node in runt.snap.nodesByTagPropValu(form, tag, prop, cmpr, valu):
+                yield node
+
+            return
+
+        async for node in runt.snap.nodesByTagProp(form, tag, prop):
             yield node
 
 class LiftOnlyTagProp(LiftOper):
@@ -947,15 +955,19 @@ class LiftOnlyTagProp(LiftOper):
 
     async def lift(self, runt):
 
-        cmpr = None
-        valu = None
         prop = await self.kids[0].compute(runt)
 
         if len(self.kids) == 3:
+
             cmpr = await self.kids[1].compute(runt)
             valu = await self.kids[2].compute(runt)
 
-        async for node in runt.snap._getNodesByTagProp(prop, valu=valu, cmpr=cmpr):
+            async for node in runt.snap.nodesByTagPropValu(None, None, prop, cmpr, valu):
+                yield node
+
+            return
+
+        async for node in runt.snap.nodesByTagProp(None, None, prop):
             yield node
 
 class LiftTagTag(LiftOper):
@@ -1006,14 +1018,17 @@ class LiftFormTag(LiftOper):
         form = self.kids[0].value()
         tag = await self.kids[1].compute(runt)
 
-        cmpr = None
-        valu = None
-
         if len(self.kids) == 4:
+
             cmpr = self.kids[2].value()
             valu = await self.kids[3].compute(runt)
 
-        async for node in runt.snap.nodesByTag(tag, form=form):#, valu=valu, cmpr=cmpr):
+            async for node in runt.snap.nodesByTagValu(tag, cmpr, valu, form=form):
+                yield node
+
+            return
+
+        async for node in runt.snap.nodesByTag(tag, form=form):
             yield node
 
 class LiftProp(LiftOper):
@@ -1049,16 +1064,6 @@ class LiftProp(LiftOper):
         cmpr = self.kids[1].value()
         valu = await self.kids[2].compute(runt)
 
-        if prop.isform:
-            async for node in runt.snap.nodesByFormValu(prop, cmpr, valu):
-                yield node
-            return
-
-        if prop.isuniv:
-            async for node in runt.snap.nodesByUnivValu(prop, cmpr, valu):
-                yield node
-            return
-
         async for node in runt.snap.nodesByPropValu(prop, cmpr, valu):
             yield node
 
@@ -1085,7 +1090,11 @@ class LiftPropBy(LiftOper):
         name = await self.kids[0].compute(runt)
         valu = await self.kids[2].compute(runt)
 
-        async for node in runt.snap.getNodesBy(name, valu, cmpr=cmpr):
+        prop = runt.model.prop(name)
+        if prop is None:
+            raise s_exc.NoSuchProp(name=name)
+
+        async for node in runt.snap.nodesByPropValu(prop, cmpr, valu):
             yield node
 
 class PivotOper(Oper):

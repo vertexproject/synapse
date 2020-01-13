@@ -48,13 +48,44 @@ class TagProp:
             'type': self.tdef,
         }
 
-class PropBase:
+class Prop:
+    '''
+    The Prop class represents a property defined within the data model.
+    '''
+    def __init__(self, modl, form, name, typedef, info):
 
-    def __init__(self):
-        self.isrunt = False
-        self.isuniv = False
         self.onsets = []
         self.ondels = []
+
+        self.modl = modl
+        self.name = name
+        self.info = info
+
+        if form is not None:
+            self.full = '%s:%s' % (form.name, name)
+            self.isuniv = False
+            self.isrunt = form.isrunt
+            self.compoffs = form.type.getCompOffs(self.name)
+            self.isext = name.startswith('_')
+        else:
+            self.full = name
+            self.isuniv = True
+            self.isrunt = False
+            self.compoffs = None
+            self.isext = name.startswith('._')
+
+        self.isform = False     # for quick Prop()/Form() detection
+
+        self.form = form
+        self.type = None
+        self.typedef = typedef
+
+        self.type = self.modl.getTypeClone(typedef)
+
+        if form is not None:
+            form.setProp(name, self)
+
+        self.modl.propsbytype[self.type.name].append(self)
 
     def onSet(self, func):
         '''
@@ -115,53 +146,6 @@ class PropBase:
             except Exception:
                 logger.exception('ondel() error for %s' % (self.full,))
 
-class Prop(PropBase):
-    '''
-    The Prop class represents a property defined within the data model.
-    '''
-    def __init__(self, modl, form, name, typedef, info):
-
-        PropBase.__init__(self)
-
-        self.modl = modl
-        self.name = name
-        self.info = info
-
-        self.isform = False     # for quick Prop()/Form() detection
-        self.isrunt = form.isrunt
-        self.compoffs = form.type.getCompOffs(self.name)
-
-        self.form = form
-        self.type = None
-        self.typedef = typedef
-
-        self.storinfo = {
-            'univ': name.startswith('.')
-        }
-
-        self.univ = None
-        self.full = '%s:%s' % (form.name, name)
-        if name.startswith('.'):
-            self.univ = name
-            self.full = '%s%s' % (form.name, name)
-
-        self.utf8name = self.name.encode('utf8')
-        self.encname = self.utf8name + b'\x00'
-
-        self.pref = self.form.utf8name + b'\x00' + self.utf8name + b'\x00'
-        self.dbname = 'byprop'
-
-        self.type = self.modl.getTypeClone(typedef)
-
-        self.form.setProp(name, self)
-
-        self.modl.propsbytype[self.type.name].append(self)
-
-        # if we have a defval, tell the form...
-        defv = self.info.get('defval')
-        if defv is not None:
-            self.form.defvals[name] = defv
-
     def getCompOffs(self):
         '''
         Return the offset of this field within the compound primary prop or None.
@@ -173,20 +157,25 @@ class Prop(PropBase):
         info.update(self.info)
         return info
 
-class Univ(PropBase):
-    '''
-    A property-like object that can lift without Form().
-    '''
-    def __init__(self, modl, name, typedef, propinfo):
-        PropBase.__init__(self)
-        self.modl = modl
-        self.name = name
-        self.isuniv = True     # for quick Univ() detection
-        self.isform = False     # for quick Prop()/Form() detection
-        self.type = modl.getTypeClone(typedef)
-        self.info = propinfo
-        self.pref = name.encode('utf8') + b'\x00'
-        self.full = name
+    def getStorNode(self):
+
+        ndef = ('syn:prop', self.full)
+        buid = s_common.buid(ndef)
+
+        props = {
+            'doc': self.info.get('doc', '??'),
+            'type': self.type.name,
+            'relname': self.name,
+            'univ': self.isuniv,
+            'base': self.name.split(':')[-1],
+            'ro': int(self.info.get('ro', False)),
+            'extmodel': self.isext,
+        }
+
+        if self.form is not None:
+            props['form'] = self.form.name
+
+        return (buid, {'props': props, 'ndef': ndef})
 
 class Form:
     '''
@@ -214,12 +203,26 @@ class Form:
         self.type.form = self
 
         # pre-compute our byprop table prefix
-        self.pref = name.encode('utf8') + b'\x00\x00'
-        self.utf8name = name.encode('utf8')
+        #self.pref = name.encode('utf8') + b'\x00\x00'
+        #self.utf8name = name.encode('utf8')
 
         self.props = {}     # name: Prop()
-        self.defvals = {}   # name: valu
+        #self.defvals = {}   # name: valu
         self.refsout = None
+
+    def getStorNode(self):
+
+        ndef = ('syn:form', self.name)
+        buid = s_common.buid(ndef)
+
+        return (buid, {
+            'ndef': ndef,
+            'props': {
+                'doc': self.info.get('doc', '??'),
+                'type': self.type.name,
+                'runt': self.isrunt,
+            },
+        })
 
     def setProp(self, name, prop):
         self.refsout = None
@@ -228,7 +231,7 @@ class Form:
     def delProp(self, name):
         self.refsout = None
         prop = self.props.pop(name, None)
-        self.defvals.pop(name, None)
+        #self.defvals.pop(name, None)
         return prop
 
     def getRefsOut(self):
@@ -514,6 +517,9 @@ class Model:
         # TODO order props based on score...
         return props
 
+    def getProps(self):
+        return [p for p in self.props.values() if not p.isform]
+
     def getTypeClone(self, typedef):
 
         base = self.types.get(typedef[0])
@@ -663,7 +669,8 @@ class Model:
         self._modelinfo.addUnivName(name)
 
         base = '.' + name
-        univ = Univ(self, base, tdef, info)
+        univ = Prop(self, None, base, tdef, info)
+        #univ = Univ(self, base, tdef, info)
 
         self.props[base] = univ
         self.univlook[base] = univ
@@ -688,9 +695,9 @@ class Model:
         if isinstance(prop.type, s_types.Array):
             self.arraysbytype[prop.type.arraytype.name].append(prop)
 
-        full = f'{form.name}:{name}'
-        self.props[full] = prop
-        self.props[(form.name, name)] = prop
+        #full = f'{form.name}:{name}'
+        self.props[prop.full] = prop
+        #self.props[(form.name, name)] = prop
 
     def delTagProp(self, name):
         return self.tagprops.pop(name)

@@ -13,335 +13,409 @@ class SynModule(s_module.CoreModule):
 
     def initCoreModule(self):
 
+        self.core.addRuntLift('syn:form', self._liftRuntSynForm)
+        self.core.addRuntLift('syn:prop', self._liftRuntSynProp)
+        self.core.addRuntLift('syn:prop:ro', self._liftRuntSynPropRo)
+
         # Static runt data for model data
-        self._modelRuntsByBuid = {}
-        self._modelRuntsByPropValu = collections.defaultdict(list)
+        #self._modelRuntsByBuid = {}
+        #self._modelRuntsByPropValu = collections.defaultdict(list)
 
         # Static runt data for triggers
-        self._triggerRuntsByBuid = {}
-        self._triggerRuntsByPropValu = collections.defaultdict(list)
+        #self._triggerRuntsByBuid = {}
+        #self._triggerRuntsByPropValu = collections.defaultdict(list)
 
         # Static runt data for commands
-        self._cmdRuntsByBuid = {}
-        self._cmdRuntsByPropValu = collections.defaultdict(list)
+        #self._cmdRuntsByBuid = {}
+        #self._cmdRuntsByPropValu = collections.defaultdict(list)
 
         # Add runt lift helpers
-        for form, lifter in (('syn:type', self._synModelLift),
-                             ('syn:form', self._synModelLift),
-                             ('syn:prop', self._synModelLift),
-                             ('syn:tagprop', self._synModelLift),
-                             ('syn:trigger', self._synTriggerLift),
-                             ('syn:cmd', self._synCmdLift),
-                             ):
-            form = self.model.form(form)
-            self.core.addRuntLift(form.full, lifter)
-            for name, prop in form.props.items():
-                pfull = prop.full
-                self.core.addRuntLift(pfull, lifter)
+        #for form, lifter in (('syn:type', self._synModelLift),
+                             #('syn:form', self._synModelLift),
+                             #('syn:prop', self._synModelLift),
+                             #('syn:tagprop', self._synModelLift),
+                             #('syn:trigger', self._synTriggerLift),
+                             #('syn:cmd', self._synCmdLift),
+                             #):
+            #form = self.model.form(form)
+            #self.core.addRuntLift(form.full, lifter)
+            #for name, prop in form.props.items():
+                #pfull = prop.full
+                #self.core.addRuntLift(pfull, lifter)
 
         # add event registration for model changes to allow for new models to reset the runtime model data
-        self.core.on('core:module:load', self._onCoreModelChange)
-        self.core.on('core:tagprop:change', self._onCoreModelChange)
-        self.core.on('core:extmodel:change', self._onCoreModelChange)
-        self.core.on('core:trigger:action', self._onCoreTriggerMod)
-        self.core.on('core:cmd:change', self._onCoreCmdChange)
+        #self.core.on('core:module:load', self._onCoreModelChange)
+        #self.core.on('core:tagprop:change', self._onCoreModelChange)
+        #self.core.on('core:extmodel:change', self._onCoreModelChange)
+        #self.core.on('core:trigger:action', self._onCoreTriggerMod)
+        #self.core.on('core:cmd:change', self._onCoreCmdChange)
 
-    def _onCoreCmdChange(self, event):
-        '''
-        Clear the cached command rows.
-        '''
-        if not self._cmdRuntsByBuid:
-            return
-        # Discard previously cached data. It will be computed upon the next
-        # lift that needs it.
-        self._cmdRuntsByBuid.clear()
-        self._cmdRuntsByPropValu.clear()
+    #def _onCoreCmdChange(self, event):
+        #'''
+        #Clear the cached command rows.
+        #'''
+        #if not self._cmdRuntsByBuid:
+            #return
+        ## Discard previously cached data. It will be computed upon the next
+        ## lift that needs it.
+        #self._cmdRuntsByBuid.clear()
+        #self._cmdRuntsByPropValu.clear()
 
-    def _onCoreTriggerMod(self, event):
-        '''
-        Clear the cached trigger rows.
-        '''
-        if not self._triggerRuntsByBuid:
-            return
-        # Discard previously cached data. It will be computed upon the next
-        # lift that needs it.
-        self._triggerRuntsByBuid.clear()
-        self._triggerRuntsByPropValu.clear()
+    #def _onCoreTriggerMod(self, event):
+        #'''
+        #Clear the cached trigger rows.
+        #'''
+        #if not self._triggerRuntsByBuid:
+            #return
+        ## Discard previously cached data. It will be computed upon the next
+        ## lift that needs it.
+        #self._triggerRuntsByBuid.clear()
+        #self._triggerRuntsByPropValu.clear()
 
-    def _onCoreModelChange(self, event):
-        '''
-        Clear the cached model rows.
-        '''
-        if not self._modelRuntsByBuid:
-            return
-        # Discard previously cached data. It will be computed upon the next
-        # lift that needs it.
-        self._modelRuntsByBuid.clear()
-        self._modelRuntsByPropValu.clear()
+    #def _onCoreModelChange(self, event):
+        #'''
+        #Clear the cached model rows.
+        #'''
+        #if not self._modelRuntsByBuid:
+            #return
+        ## Discard previously cached data. It will be computed upon the next
+        ## lift that needs it.
+        #self._modelRuntsByBuid.clear()
+        #self._modelRuntsByPropValu.clear()
 
-    async def _synCmdLift(self, full, valu=None, cmpr=None):
-        if not self._cmdRuntsByBuid:
-            await self._initCmdRunts()
+    #async def _synCmdLift(self, full, valu=None, cmpr=None):
+        #if not self._cmdRuntsByBuid:
+            #await self._initCmdRunts()
 
-        if cmpr is not None and cmpr != '=':
-            raise s_exc.BadCmprValu(mesg='Command runtime nodes only support equality comparator.',
-                                    cmpr=cmpr)
+        #if cmpr is not None and cmpr != '=':
+            #raise s_exc.BadCmprValu(mesg='Command runtime nodes only support equality comparator.',
+                                    #cmpr=cmpr)
 
-        if valu is None:
-            buids = self._cmdRuntsByPropValu.get(full, ())
-        else:
-            prop = self.model.prop(full)
-            valu, _ = prop.type.norm(valu)
-            buids = self._cmdRuntsByPropValu.get((full, valu), ())
+        #if valu is None:
+            #buids = self._cmdRuntsByPropValu.get(full, ())
+        #else:
+            #prop = self.model.prop(full)
+            #valu, _ = prop.type.norm(valu)
+            #buids = self._cmdRuntsByPropValu.get((full, valu), ())
 
-        rowsets = [(buid, self._cmdRuntsByBuid.get(buid, ())) for buid in buids]
-        for buid, rows in rowsets:
-            yield buid, rows
+        #rowsets = [(buid, self._cmdRuntsByBuid.get(buid, ())) for buid in buids]
+        #for buid, rows in rowsets:
+            #yield buid, rows
 
-    async def _synTriggerLift(self, full, valu=None, cmpr=None):
-        if not self._triggerRuntsByBuid:
-            await self._initTriggerRunts()
+    #async def _synTriggerLift(self, full, valu=None, cmpr=None):
+        #if not self._triggerRuntsByBuid:
+            #await self._initTriggerRunts()
 
-        if cmpr is not None and cmpr != '=':
-            raise s_exc.BadCmprValu(mesg='Trigger runtime nodes only support equality comparator.',
-                                    cmpr=cmpr)
+        #if cmpr is not None and cmpr != '=':
+            #raise s_exc.BadCmprValu(mesg='Trigger runtime nodes only support equality comparator.',
+                                    #cmpr=cmpr)
 
-        if valu is None:
-            buids = self._triggerRuntsByPropValu.get(full, ())
-        else:
-            prop = self.model.prop(full)
-            valu, _ = prop.type.norm(valu)
-            buids = self._triggerRuntsByPropValu.get((full, valu), ())
+        #if valu is None:
+            #buids = self._triggerRuntsByPropValu.get(full, ())
+        #else:
+            #prop = self.model.prop(full)
+            #valu, _ = prop.type.norm(valu)
+            #buids = self._triggerRuntsByPropValu.get((full, valu), ())
 
-        rowsets = [(buid, self._triggerRuntsByBuid.get(buid, ())) for buid in buids]
-        for buid, rows in rowsets:
-            yield buid, rows
+        #rowsets = [(buid, self._triggerRuntsByBuid.get(buid, ())) for buid in buids]
+        #for buid, rows in rowsets:
+            #yield buid, rows
 
-    async def _synModelLift(self, full, valu=None, cmpr=None):
-        if not self._modelRuntsByBuid:
-            self._initModelRunts()
+    async def _liftRuntSynPropRo(self, full, valu=None, cmpr=None):
 
-        if cmpr is not None and cmpr != '=':
-            raise s_exc.BadCmprValu(mesg='Model runtime nodes only support equality comparator.',
-                                    cmpr=cmpr)
-
-        if valu is None:
-            buids = self._modelRuntsByPropValu.get(full, ())
-        else:
-            prop = self.model.prop(full)
-            valu, _ = prop.type.norm(valu)
-            buids = self._modelRuntsByPropValu.get((full, valu), ())
-
-        rowsets = [(buid, self._modelRuntsByBuid.get(buid, ())) for buid in buids]
-        for buid, rows in rowsets:
-            yield buid, rows
-
-    def _addRuntRows(self, form, valu, props, buidcache, propcache):
-        buid = s_common.buid((form, valu))
-        if buid in buidcache:
+        if cmpr is None:
+            for prop in self.mode.props.values():
+                yield prop.getStorNode()
             return
 
-        rows = [('*' + form, valu)]
-        props.setdefault('.created', s_common.now())
-        for k, v in props.items():
-            rows.append((k, v))
+        ctor = self.model.prop('syn:prop:ro').type.getCmprCtor(cmpr)
+        if ctor is None:
+            raise s_exc.BadCmprValu(cmpr=cmpr)
 
-        buidcache[buid] = rows
+        filt = ctor(valu)
+        for prop in self.model.getProps():
 
-        propcache[form].append(buid)
-        propcache[(form, valu)].append(buid)
+            ro = int(prop.info.get('ro', False))
+            if not filt(ro):
+                continue
 
-        for k, propvalu in props.items():
-            prop = form + ':' + k
-            if k.startswith('.'):
-                prop = form + k
-            propcache[prop].append(buid)
+            yield prop.getStorNode()
+
+    async def _liftRuntSynForm(self, full, valu=None, cmpr=None):
+
+        if cmpr is None:
+            for form in self.model.forms.values():
+                yield form.getStorNode()
+            return
+
+        # optimize the equality case since we have an index
+        if cmpr == '=':
+            form = self.model.form(valu)
+            if form is not None:
+                yield form.getStorNode()
+            return
+
+        filt = self.model.type('syn:form').getCmprCtor(cmpr)(valu)
+        if filt is None:
+            raise s_exc.BadCmprValu(cmpr=cmpr)
+
+        for form in self.model.forms.values():
+
+            if not filt(form.name):
+                continue
+
+            yield form.getStorNode()
+
+    async def _liftRuntSynProp(self, full, valu=None, cmpr=None):
+
+        if cmpr is None:
+            for prop in self.model.props.values():
+                yield prop.getStorNode()
+            return
+
+        # optimize the equality case since we have an index
+        if cmpr == '=':
+            prop = self.model.prop(valu)
+            if prop is not None:
+                yield prop.getStorNode()
+            return
+
+        filt = self.model.type('syn:prop').getCmprCtor(cmpr)(valu)
+        if filt is None:
+            raise s_exc.BadCmprValu(cmpr=cmpr)
+
+        for prop in self.model.getProps():
+
+            if not filt(prop.full):
+                continue
+
+            yield prop.getStorNode()
+
+    #async def _synModelLift(self, full, valu=None, cmpr=None):
+        #if not self._modelRuntsByBuid:
+            #self._initModelRunts()
+
+        #if cmpr is not None and cmpr != '=':
+            #raise s_exc.BadCmprValu(mesg='Model runtime nodes only support equality comparator.',
+                                    #cmpr=cmpr)
+
+        #if valu is None:
+            #buids = self._modelRuntsByPropValu.get(full, ())
+        #else:
+            #prop = self.model.prop(full)
+            #valu, _ = prop.type.norm(valu)
+            #buids = self._modelRuntsByPropValu.get((full, valu), ())
+
+        #rowsets = [(buid, self._modelRuntsByBuid.get(buid, ())) for buid in buids]
+        #for buid, rows in rowsets:
+            #yield buid, rows
+
+    #def _addRuntRows(self, form, valu, props, buidcache, propcache):
+        #buid = s_common.buid((form, valu))
+        #if buid in buidcache:
+            #return
+
+        #rows = [('*' + form, valu)]
+        #props.setdefault('.created', s_common.now())
+        #for k, v in props.items():
+            #rows.append((k, v))
+
+        #buidcache[buid] = rows
+
+        #propcache[form].append(buid)
+        #propcache[(form, valu)].append(buid)
+
+        #for k, propvalu in props.items():
+            #prop = form + ':' + k
+            #if k.startswith('.'):
+                #prop = form + k
+            #propcache[prop].append(buid)
 
             # Can the secondary property be indexed for lift?
             #if self.model.prop(prop).type.indx(propvalu):
             #propcache[(prop, propvalu)].append(buid)
 
-    async def _initCmdRunts(self):
-        now = s_common.now()
-        typeform = self.model.form('syn:cmd')
+    #async def _initCmdRunts(self):
+        #now = s_common.now()
+        #typeform = self.model.form('syn:cmd')
 
-        for name, ctor in self.core.getStormCmds():
-            tnorm, _ = typeform.type.norm(name)
+        #for name, ctor in self.core.getStormCmds():
+            #tnorm, _ = typeform.type.norm(name)
 
-            props = {'.created': now,
-                     'doc': ctor.getCmdBrief(),
-                     }
+            #props = {'.created': now,
+                     #'doc': ctor.getCmdBrief(),
+                     #}
 
-            forms = ctor.forms
+            #forms = ctor.forms
 
-            inputs = forms.get('input')
-            if inputs:
-                props['input'] = tuple(inputs)
+            #inputs = forms.get('input')
+            #if inputs:
+                #props['input'] = tuple(inputs)
 
-            outputs = forms.get('output')
-            if outputs:
-                props['output'] = tuple(outputs)
+            #outputs = forms.get('output')
+            #if outputs:
+                #props['output'] = tuple(outputs)
 
-            if ctor.svciden:
-                props['svciden'] = ctor.svciden
+            #if ctor.svciden:
+                #props['svciden'] = ctor.svciden
 
-            if ctor.pkgname:
-                props['package'] = ctor.pkgname
+            #if ctor.pkgname:
+                #props['package'] = ctor.pkgname
 
-            self._addRuntRows('syn:cmd', tnorm, props,
-                              self._cmdRuntsByBuid, self._cmdRuntsByPropValu)
+            #self._addRuntRows('syn:cmd', tnorm, props,
+                              #self._cmdRuntsByBuid, self._cmdRuntsByPropValu)
 
-    async def _initTriggerRunts(self):
-        now = s_common.now()
-        typeform = self.model.form('syn:trigger')
-        for iden, trig in await self.core.listTriggers():
+    #async def _initTriggerRunts(self):
+        #now = s_common.now()
+        #typeform = self.model.form('syn:trigger')
+        #for iden, trig in await self.core.listTriggers():
 
-            tnorm, _ = typeform.type.norm(iden)
+            #tnorm, _ = typeform.type.norm(iden)
 
-            props = {'.created': now,
-                     'doc': trig.doc,
-                     'name': trig.name,
-                     'vers': trig.ver,
-                     'cond': trig.cond,
-                     'storm': trig.storm,
-                     'enabled': trig.enabled,
-                     'user': self.core.getUserName(trig.useriden),
-                     }
+            #props = {'.created': now,
+                     #'doc': trig.doc,
+                     #'name': trig.name,
+                     #'vers': trig.ver,
+                     #'cond': trig.cond,
+                     #'storm': trig.storm,
+                     #'enabled': trig.enabled,
+                     #'user': self.core.getUserName(trig.useriden),
+                     #}
 
-            if trig.tag is not None:
-                props['tag'] = trig.tag
-            if trig.form is not None:
-                props['form'] = trig.form
-            if trig.prop is not None:
-                props['prop'] = trig.prop
+            #if trig.tag is not None:
+                #props['tag'] = trig.tag
+            #if trig.form is not None:
+                #props['form'] = trig.form
+            #if trig.prop is not None:
+                #props['prop'] = trig.prop
 
-            self._addRuntRows('syn:trigger', tnorm, props,
-                              self._triggerRuntsByBuid, self._triggerRuntsByPropValu)
+            #self._addRuntRows('syn:trigger', tnorm, props,
+                              #self._triggerRuntsByBuid, self._triggerRuntsByPropValu)
 
-    def _initModelRunts(self):
+    #def _initModelRunts(self):
 
-        tdocs = {}
+        #tdocs = {}
 
-        now = s_common.now()
-        typeform = self.model.form('syn:type')
-        for tname, tobj in self.model.types.items():
-            tnorm, _ = typeform.type.norm(tname)
-            ctor = '.'.join([tobj.__class__.__module__, tobj.__class__.__qualname__])
-            ctor, _ = self.model.prop('syn:type:ctor').type.norm(ctor)
+        #now = s_common.now()
+        #typeform = self.model.form('syn:type')
+        #for tname, tobj in self.model.types.items():
+            #tnorm, _ = typeform.type.norm(tname)
+            #ctor = '.'.join([tobj.__class__.__module__, tobj.__class__.__qualname__])
+            #ctor, _ = self.model.prop('syn:type:ctor').type.norm(ctor)
 
-            doc = tobj.info.get('doc', 'no docstring')
-            doc, _ = self.model.prop('syn:type:doc').type.norm(doc)
-            tdocs[tname] = doc
-            opts = {k: v for k, v in tobj.opts.items()}
+            #doc = tobj.info.get('doc', 'no docstring')
+            #doc, _ = self.model.prop('syn:type:doc').type.norm(doc)
+            #tdocs[tname] = doc
+            #opts = {k: v for k, v in tobj.opts.items()}
 
-            props = {'doc': doc,
-                     'ctor': ctor,
-                     '.created': now}
-            if opts:
-                opts, _ = self.model.prop('syn:type:opts').type.norm(opts)
-                props['opts'] = opts
-            subof = tobj.subof
-            if subof is not None:
-                subof, _ = self.model.prop('syn:type:subof').type.norm(subof)
-                props['subof'] = subof
-            self._addRuntRows('syn:type', tnorm, props,
-                              self._modelRuntsByBuid, self._modelRuntsByPropValu)
+            #props = {'doc': doc,
+                     #'ctor': ctor,
+                     #'.created': now}
+            #if opts:
+                #opts, _ = self.model.prop('syn:type:opts').type.norm(opts)
+                #props['opts'] = opts
+            #subof = tobj.subof
+            #if subof is not None:
+                #subof, _ = self.model.prop('syn:type:subof').type.norm(subof)
+                #props['subof'] = subof
+            #self._addRuntRows('syn:type', tnorm, props,
+                              #self._modelRuntsByBuid, self._modelRuntsByPropValu)
 
-        formform = self.model.form('syn:form')
-        for fname, fobj in self.model.forms.items():
-            fnorm, _ = formform.type.norm(fname)
+        #formform = self.model.form('syn:form')
+        #for fname, fobj in self.model.forms.items():
+            #fnorm, _ = formform.type.norm(fname)
 
-            runt, _ = self.model.prop('syn:form:runt').type.norm(fobj.isrunt)
+            #runt, _ = self.model.prop('syn:form:runt').type.norm(fobj.isrunt)
 
-            ptype, _ = self.model.prop('syn:form:type').type.norm(fobj.type.name)
+            #ptype, _ = self.model.prop('syn:form:type').type.norm(fobj.type.name)
 
-            doc = fobj.info.get('doc', tdocs.get(ptype))
-            doc, _ = self.model.prop('syn:form:doc').type.norm(doc)
-            tdocs[fnorm] = doc
+            #doc = fobj.info.get('doc', tdocs.get(ptype))
+            #doc, _ = self.model.prop('syn:form:doc').type.norm(doc)
+            #tdocs[fnorm] = doc
 
-            props = {'doc': doc,
-                     'runt': runt,
-                     'type': ptype,
-                     '.created': now,
-                     }
+            #props = {'doc': doc,
+                     #'runt': runt,
+                     #'type': ptype,
+                     #'.created': now,
+                     #}
 
-            self._addRuntRows('syn:form', fnorm, props,
-                              self._modelRuntsByBuid, self._modelRuntsByPropValu)
+            #self._addRuntRows('syn:form', fnorm, props,
+                              #self._modelRuntsByBuid, self._modelRuntsByPropValu)
 
-        propform = self.model.form('syn:prop')
+        #propform = self.model.form('syn:prop')
 
-        for pname, pobj in self.model.props.items():
-            if isinstance(pname, tuple):
-                continue
+        #for pname, pobj in self.model.props.items():
+            #if isinstance(pname, tuple):
+                #continue
 
-            pnorm, _ = propform.type.norm(pname)
+            #pnorm, _ = propform.type.norm(pname)
 
-            ro, _ = self.model.prop('syn:prop:ro').type.norm(pobj.info.get('ro', False))
+            #ro, _ = self.model.prop('syn:prop:ro').type.norm(pobj.info.get('ro', False))
 
-            ptype, _ = self.model.prop('syn:prop:type').type.norm(pobj.type.name)
+            #ptype, _ = self.model.prop('syn:prop:type').type.norm(pobj.type.name)
 
-            univ = False
-            extmodel = False
+            #univ = False
+            #extmodel = False
 
-            doc = pobj.info.get('doc', 'no docstring')
-            doc, _ = self.model.prop('syn:prop:doc').type.norm(doc)
+            #doc = pobj.info.get('doc', 'no docstring')
+            #doc, _ = self.model.prop('syn:prop:doc').type.norm(doc)
 
-            props = {'doc': doc,
-                     'type': ptype,
-                     '.created': now,
-                     }
+            #props = {'doc': doc,
+                     #'type': ptype,
+                     #'.created': now,
+                     #}
 
-            defval = pobj.info.get('defval', s_common.novalu)
-            if defval is not s_common.novalu:
-                if not isinstance(defval, (str, int)):
-                    defval = repr(defval)
-                defval, _ = self.model.prop('syn:prop:defval').type.norm(defval)
-                props['defval'] = defval
+            #defval = pobj.info.get('defval', s_common.novalu)
+            #if defval is not s_common.novalu:
+                #if not isinstance(defval, (str, int)):
+                    #defval = repr(defval)
+                #defval, _ = self.model.prop('syn:prop:defval').type.norm(defval)
+                #props['defval'] = defval
 
-            if isinstance(pobj, s_datamodel.Univ):
-                univ = True
-                props['ro'] = ro
-                if pobj.name.startswith('._'):
-                    extmodel = True
+            #if isinstance(pobj, s_datamodel.Univ):
+                #univ = True
+                #props['ro'] = ro
+                #if pobj.name.startswith('._'):
+                    #extmodel = True
 
-            elif isinstance(pobj, s_datamodel.Form):
-                fnorm, _ = self.model.prop('syn:prop:form').type.norm(pobj.full)
-                props['form'] = fnorm
-                # All smashing a docstring in for a prop which is a form
-                if doc == 'no docstring':
-                    doc = tdocs.get(ptype, 'no docstring')
-                    doc, _ = self.model.prop('syn:prop:doc').type.norm(doc)
-                    props['doc'] = doc
+            #elif isinstance(pobj, s_datamodel.Form):
+                #fnorm, _ = self.model.prop('syn:prop:form').type.norm(pobj.full)
+                #props['form'] = fnorm
+                ## All smashing a docstring in for a prop which is a form
+                #if doc == 'no docstring':
+                    #doc = tdocs.get(ptype, 'no docstring')
+                    #doc, _ = self.model.prop('syn:prop:doc').type.norm(doc)
+                    #props['doc'] = doc
 
-            else:
-                fnorm, _ = self.model.prop('syn:prop:form').type.norm(pobj.form.full)
-                relname, _ = self.model.prop('syn:prop:relname').type.norm(pobj.name)
-                base, _ = self.model.prop('syn:prop:base').type.norm(pobj.name.rsplit(':', 1)[-1])
-                props['ro'] = ro
-                props['form'] = fnorm
-                props['base'] = base
-                props['relname'] = relname
-                univ = pobj.storinfo.get('univ', False)
-                if relname.startswith(('_', '._')):
-                    extmodel = True
+            #else:
+                #fnorm, _ = self.model.prop('syn:prop:form').type.norm(pobj.form.full)
+                #relname, _ = self.model.prop('syn:prop:relname').type.norm(pobj.name)
+                #base, _ = self.model.prop('syn:prop:base').type.norm(pobj.name.rsplit(':', 1)[-1])
+                #props['ro'] = ro
+                #props['form'] = fnorm
+                #props['base'] = base
+                #props['relname'] = relname
+                #univ = pobj.storinfo.get('univ', False)
+                #if relname.startswith(('_', '._')):
+                    #extmodel = True
 
-            univ, _ = self.model.prop('syn:prop:univ').type.norm(univ)
-            extmodel, _ = self.model.prop('syn:prop:extmodel').type.norm(extmodel)
-            props['univ'] = univ
-            props['extmodel'] = extmodel
+            #univ, _ = self.model.prop('syn:prop:univ').type.norm(univ)
+            #extmodel, _ = self.model.prop('syn:prop:extmodel').type.norm(extmodel)
+            #props['univ'] = univ
+            #props['extmodel'] = extmodel
 
-            self._addRuntRows('syn:prop', pnorm, props,
-                              self._modelRuntsByBuid, self._modelRuntsByPropValu)
+            #self._addRuntRows('syn:prop', pnorm, props,
+                              #self._modelRuntsByBuid, self._modelRuntsByPropValu)
 
-        tpform = self.model.form('syn:tagprop')
-        for tpname, tpobj in self.model.tagprops.items():
-            tpnorm, _ = tpform.type.norm(tpname)
-            tptype, _ = self.model.prop('syn:tagprop:type').type.norm(tpobj.type.name)
-            doc = tpobj.info.get('doc', 'no docstring')
+        #tpform = self.model.form('syn:tagprop')
+        #for tpname, tpobj in self.model.tagprops.items():
+            #tpnorm, _ = tpform.type.norm(tpname)
+            #tptype, _ = self.model.prop('syn:tagprop:type').type.norm(tpobj.type.name)
+            #doc = tpobj.info.get('doc', 'no docstring')
 
-            props = {'doc': doc, 'type': tptype}
-            self._addRuntRows('syn:tagprop', tpnorm, props,
-                              self._modelRuntsByBuid, self._modelRuntsByPropValu)
+            #props = {'doc': doc, 'type': tptype}
+            #self._addRuntRows('syn:tagprop', tpnorm, props,
+                              #self._modelRuntsByBuid, self._modelRuntsByPropValu)
 
     def getModelDefs(self):
 
@@ -422,8 +496,6 @@ class SynModule(s_module.CoreModule):
                         'doc': 'Relative property name.', 'ro': True}),
                     ('univ', ('bool', {}), {
                         'doc': 'Specifies if a prop is universal.', 'ro': True}),
-                    ('defval', ('str', {}), {
-                        'doc': 'Set to the python repr of the default value for this property', 'ro': True}),
                     ('base', ('str', {'strip': True}), {
                         'doc': 'Base name of the property', 'ro': True}),
                     ('ro', ('bool', {}), {
