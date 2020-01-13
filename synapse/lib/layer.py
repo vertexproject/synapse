@@ -669,11 +669,15 @@ class Layer(s_base.Base):
 
         self.fresh = not os.path.exists(path)
 
-        self.layrslab = await s_lmdbslab.Slab.anit(path)
+        slabopts = {
+            'readonly': self.readonly,
+        }
+
+        self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
         path = s_common.genpath(self.dirn, 'splices_v2.lmdb')
-        self.spliceslab = await s_lmdbslab.Slab.anit(path)
+        self.spliceslab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
 
         self.tagabrv = self.layrslab.getNameAbrv('tagabrv')
         self.propabrv = self.layrslab.getNameAbrv('propabrv')
@@ -734,6 +738,18 @@ class Layer(s_base.Base):
         ]
 
         self.canrev = True
+        self.ctorname = f'{self.__class__.__module__}.{self.__class__.__name__}'
+
+    def getSpawnInfo(self):
+        return {
+            'iden': self.iden,
+            'dirn': self.dirn,
+            'readonly': self.readonly,
+            'ctor': self.ctorname,
+        }
+
+    async def _onLayrFini(self):
+        [(await wind.fini()) for wind in self.windows]
 
     async def getFormCounts(self):
         return self.formcounts.pack()

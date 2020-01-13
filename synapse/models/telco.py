@@ -20,7 +20,8 @@ def chop_imei(imei):
     cd = int(imei[14:15])
     return valu, {'subs': {'tac': tac, 'serial': snr, 'cd': cd}}
 
-class Phone(s_types.Type):
+class Phone(s_types.Str):
+
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
@@ -47,25 +48,6 @@ class Phone(s_types.Type):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='phone int must be greater than 0')
         return self._normPyStr(str(valu))
-
-    def indx(self, valu):
-        '''
-
-        Args:
-            valu (str): Value to encode
-
-        Returns:
-            bytes: Encoded value
-        '''
-        return valu.encode('utf8')
-
-    def indxByEq(self, valu):
-        if isinstance(valu, str) and valu.endswith('*'):
-            norm, _ = self._normPyStr(valu)
-            return (
-                ('pref', self.indx(norm)),
-            )
-        return s_types.Type.indxByEq(self, valu)
 
     def repr(self, valu):
         # FIXME implement more geo aware reprs
@@ -199,6 +181,12 @@ class TelcoModule(s_module.CoreModule):
 
             'types': (
 
+                ('tel:call', ('guid', {}), {
+                    'doc': 'A guid for a telephone call record.'}),
+
+                ('tel:txtmesg', ('guid', {}), {
+                    'doc': 'A guid for an individual text message.'}),
+
                 ('tel:mob:tac', ('int', {}), {
                     'ex': '49015420',
                     'doc': 'A mobile Type Allocation Code'}),
@@ -239,6 +227,52 @@ class TelcoModule(s_module.CoreModule):
                     ('loc', ('loc', {}), {
                         'doc': 'The location associated with the number.',
                         'defval': '??',
+                    }),
+                )),
+                ('tel:call', {}, (
+                    ('src', ('tel:phone', {}), {
+                        'doc': 'The source phone number for a call.'
+                    }),
+                    ('dst', ('tel:phone', {}), {
+                        'doc': 'The destination phone number for a call.'
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the call was initiated.'
+                    }),
+                    ('duration', ('int', {}), {
+                        'doc': 'The duration of the call in seconds.'
+                    }),
+                    ('connected', ('bool', {}), {
+                        'doc': 'Indicator of whether the call was connected.',
+                    }),
+                    ('text', ('str', {}), {
+                        'doc': 'The text transcription of the call.',
+                    }),
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'A file containing related media.',
+                    }),
+                )),
+                ('tel:txtmesg', {}, (
+                    ('from', ('tel:phone', {}), {
+                        'doc': 'The phone number assigned to the sender.'
+                    }),
+                    ('to', ('tel:phone', {}), {
+                        'doc': 'The phone number assigned to the primary recipient.'
+                    }),
+                    ('recipients', ('array', {'type': 'tel:phone'}), {
+                        'doc': 'An array of phone numbers for additional recipients of the message.',
+                    }),
+                    ('svctype', ('str', {'enums': 'sms,mms,rcs', 'strip': 1, 'lower': 1}), {
+                        'doc': 'The message service type (sms, mms, rcs).',
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the message was sent.'
+                    }),
+                    ('text', ('str', {}), {
+                        'doc': 'The text of the message',
+                    }),
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'A file containing related media.',
                     }),
                 )),
                 ('tel:mob:tac', {}, (

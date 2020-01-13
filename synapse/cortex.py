@@ -539,11 +539,28 @@ class CoreApi(s_cell.CellApi):
                 }
             }
 
-            async with self.cell.spawnpool.get() as proc:
-                if await proc.xact(info):
-                    await link.fini()
-
-            raise s_exc.DmonSpawn()
+            tnfo = {'query': text}
+            if opts:
+                tnfo['opts'] = opts
+            await self.cell.boss.promote('storm:spawn',
+                                         user=self.user,
+                                         info=tnfo)
+            proc = None
+            mesg = 'Spawn complete'
+            try:
+                async with self.cell.spawnpool.get() as proc:
+                    if await proc.xact(info):
+                        await link.fini()
+            except Exception as e:
+                if not isinstance(e, asyncio.CancelledError):
+                    logger.exception('Error during spawned Storm execution.')
+                if not self.cell.isfini:
+                    if proc:
+                        await proc.fini()
+                mesg = repr(e)
+                raise
+            finally:
+                raise s_exc.DmonSpawn(mesg=mesg)
 
         async for mesg in view.streamstorm(text, opts, user=self.user):
             yield mesg
@@ -593,6 +610,36 @@ class CoreApi(s_cell.CellApi):
             if not count % 1000:
                 await asyncio.sleep(0)
             yield mesg
+
+    @s_cell.adminapi
+    async def splicesBack(self, offs, size):
+        '''
+        Return the list of splices backwards from the given offset.
+        '''
+        count = 0
+        async for mesg in self.cell.view.layers[0].splicesBack(offs, size):
+            count += 1
+            if not count % 1000: # pragma: no cover
+                await asyncio.sleep(0)
+            yield mesg
+
+    async def spliceHistory(self):
+        '''
+        Yield splices backwards from the end of the splice log.
+
+        Will only return the user's own splices unless they are an admin.
+        '''
+        layr = self.cell.view.layers[0]
+        indx = (await layr.stat())['splicelog_indx']
+
+        count = 0
+        async for mesg in layr.splicesBack(indx):
+            count += 1
+            if not count % 1000: # pragma: no cover
+                await asyncio.sleep(0)
+
+            if self.user.iden == mesg[1]['user'] or self.user.admin:
+                yield mesg
 
     @s_cell.adminapi
     async def provStacks(self, offs, size):
@@ -739,8 +786,8 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.getCoreQueues()
 
     @s_cell.adminapi
-    async def coreQueueGets(self, name, offs=0, wait=True, cull=True, size=None):
-        async for item in self.cell.coreQueueGets(name, offs=offs, wait=wait, cull=cull, size=size):
+    async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
+        async for item in self.cell.getsCoreQueue(name, offs=offs, wait=wait, cull=cull, size=size):
             yield item
 
     @s_cell.adminapi
@@ -780,6 +827,12 @@ class Cortex(s_cell.Cell):
             'type': 'int',
             'defval': logging.WARNING,
             'doc': 'Logging log level to emit storm logs at.'
+        }),
+
+        ('splice:en', {
+            'type': 'bool',
+            'defval': True,
+            'doc': 'Enable storing splices for layer changes.'
         }),
 
         ('splice:sync', {
@@ -949,6 +1002,7 @@ class Cortex(s_cell.Cell):
 
         self.spawnpool = await s_spawn.SpawnPool.anit(self)
         self.onfini(self.spawnpool)
+        self.on('user:mod', self._onEvtBumpSpawnPool)
 
     async def _initCoreXact(self):
         # all cortex changes *must* go through a transaction handler
@@ -969,13 +1023,12 @@ class Cortex(s_cell.Cell):
     async def _onDelLayer(self, mesg):
         print('DEL LAYER %r' % (mesg,))
 
+    async def _onEvtBumpSpawnPool(self, evnt):
+        await self.bumpSpawnPool()
+
     async def bumpSpawnPool(self):
         if self.spawnpool is not None:
             await self.spawnpool.bump()
-
-    async def killSpawnPool(self):
-        if self.spawnpool is not None:
-            await self.spawnpool.kill()
 
     async def getSpawnInfo(self):
         return {
@@ -994,6 +1047,7 @@ class Cortex(s_cell.Cell):
                     'cdefs': list(self.storm_cmd_cdefs.items()),
                     'ctors': list(self.storm_cmd_ctors.items()),
                 },
+                'libs': tuple(self.libroot),
                 'mods': await self.getStormMods()
             },
             'model': await self.getModelDefs(),
@@ -1808,7 +1862,7 @@ class Cortex(s_cell.Cell):
     async def _trySetStormCmd(self, name, cdef):
         try:
             await self._setStormCmd(cdef)
-        except Exception as e:
+        except Exception:
             logger.exception(f'Storm command load failed: {name}')
 
     def _initStormLibs(self):
@@ -1970,7 +2024,7 @@ class Cortex(s_cell.Cell):
 
     async def getModelDefs(self):
         defs = self.model.getModelDefs()
-        # TODO add an extended model def
+        # TODO add extended model defs
         return defs
 
     async def getFormCounts(self, view=None):
@@ -2229,6 +2283,7 @@ class Cortex(s_cell.Cell):
         view = await s_view.View.anit(self, node)
         self.views[iden] = view
 
+        await self.bumpSpawnPool()
         return view
 
     async def delView(self, iden):
@@ -2256,6 +2311,8 @@ class Cortex(s_cell.Cell):
 
         await self.hive.pop(('cortex', 'views', iden))
         await view.fini()
+
+        await self.bumpSpawnPool()
 
     async def delLayer(self, iden):
         layr = self.layers.get(iden, None)
@@ -2387,6 +2444,7 @@ class Cortex(s_cell.Cell):
         self.layers[layr.iden] = layr
 
         await self.bumpSpawnPool()
+
         return layr
 
     async def joinTeleLayer(self, url, indx=None):
@@ -2974,7 +3032,10 @@ class Cortex(s_cell.Cell):
         '''
         A simple non-streaming way to return a list of nodes.
         '''
-        return [n async for n in self.eval(text, opts=opts, user=user)]
+        async def nodes():
+            return [n async for n in self.eval(text, opts=opts, user=user)]
+        task = self.schedCoro(nodes())
+        return await task
 
     @s_coro.genrhelp
     async def streamstorm(self, text, opts=None, user=None):
@@ -2996,7 +3057,11 @@ class Cortex(s_cell.Cell):
 
         view = self._viewFromOpts(opts)
 
-        await self.boss.promote('storm', user=user, info={'query': text})
+        info = {'query': text}
+        if opts is not None:
+            info['opts'] = opts
+
+        await self.boss.promote('storm', user=user, info=info)
         async with await self.snap(user=user, view=view) as snap:
             async for pode in snap.iterStormPodes(text, opts=opts, user=user):
                 yield pode
