@@ -512,10 +512,10 @@ class SynModule(s_module.CoreModule):
                     ('tag', ('syn:tag', {'strip': True}), {
                         'doc': 'Tag modified in the splice.', 'ro': True
                     }),
-                    ('valu', ('str', {'strip': True}), {
+                    ('valu', ('nodeprop', {}), {
                         'doc': 'The value being set in the splice.', 'ro': True
                     }),
-                    ('oldv', ('str', {'strip': True}), {
+                    ('oldv', ('nodeprop', {}), {
                         'doc': 'The value before the splice.', 'ro': True
                     }),
                     ('user', ('guid', {}), {

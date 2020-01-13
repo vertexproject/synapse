@@ -1753,7 +1753,7 @@ class SpliceUndoCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         if self.opts.force:
-            if runt.user is not None and not runt.user.admin:
+            if not runt.user.admin:
                 mesg = '--force requires admin privs.'
                 raise s_exc.AuthDeny(mesg=mesg)
 
@@ -1765,7 +1765,7 @@ class SpliceUndoCmd(Cmd):
                 mesg = 'splice.undo only accepts syn:splice nodes'
                 raise s_exc.StormRuntimeError(mesg=mesg, form=node.form.name)
 
-            if False:
+            if False:  # make this method an async generator function
                 yield None
 
             splicetype = node.props.get('type')
