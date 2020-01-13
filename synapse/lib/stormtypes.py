@@ -1354,6 +1354,118 @@ class StatTally(Prim):
     async def get(self, name):
         return self.counters.get(name, 0)
 
+class LibView(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'add': self._methViewAdd,
+            'del': self._methViewDel,
+            'fork': self._methViewFork,
+            'get': self._methViewGet,
+            'list': self._methViewList,
+            'merge': self._methViewMerge,
+        })
+
+    async def _methViewAdd(self, iden, layers):
+        '''
+        Add a view to the cortex.
+        '''
+        self.runt.reqAllowed(('storm', 'view', 'add'))
+
+        iden = s_common.guid()
+        view = self.runt.snap.addView(iden, layers)
+
+        if view is None:
+            mesg = f'Failed to add view.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=iden, layers=layers)
+
+        return {'iden': view.iden,
+                'layers': [ layer.iden for layer in view.layers ]}
+
+    async def _methViewDel(self, iden):
+        '''
+        Delete a view in the cortex.
+        '''
+        self.runt.reqAllowed(('storm', 'view', 'del'))
+
+        view = self.runt.snap.getView(iden)
+        if view is None:
+            mesg = f'No view with iden: {iden}'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        if view is self.runt.snap.core.view:
+            mesg = f'Deleting the main view is not permitted.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=iden)
+
+        await self.runt.snap.delView(iden=view.iden)
+
+        return True
+
+    async def _methViewFork(self, iden):
+        '''
+        Fork a view in the cortex.
+        '''
+        self.runt.reqAllowed(('storm', 'view', 'fork'))
+
+        view = self.runt.snap.getView(iden)
+        if view is None:
+            mesg = f'No view with iden: {iden}'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        new_view = await view.fork()
+
+        return {'iden': new_view.iden,
+                'layers': [ layer.iden for layer in new_view.layers ]}
+
+
+    async def _methViewGet(self, iden=None):
+        '''
+        Retrieve a view from the cortex.
+        '''
+        self.runt.reqAllowed(('storm', 'view', 'get'))
+
+        view = self.runt.snap.getView(iden)
+        if view is None:
+            mesg = f'No view with iden: {iden}'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        return {'iden': view.iden,
+                'layers': [ layer.iden for layer in view.layers ]}
+
+    async def _methViewList(self):
+        '''
+        List the views in the cortex.
+        '''
+        self.runt.reqAllowed(('storm', 'view', 'get'))
+
+        views = self.runt.snap.listViews()
+
+        resp = []
+        for view in views:
+            obj = {'iden': view.iden,
+                   'layers': [ layer.iden for layer in view.layers ]}
+            resp.append(obj)
+
+        return resp
+
+    async def _methViewMerge(self, iden):
+        '''
+        Merge a forked view back into its parent.
+
+        When complete, the view is deleted.
+        '''
+        self.runt.reqAllowed(('storm', 'view', 'merge'))
+
+        view = self.runt.snap.getView(iden)
+        if view is None:
+            mesg = f'No view with iden: {iden}'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        await view.merge()
+
+        return True
+
+
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):
 

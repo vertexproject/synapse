@@ -1393,3 +1393,87 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0][0], ('test:comp', (2, 'foo')))
             self.eq(nodes[1][0], ('test:comp', (4, 'bar')))
             self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
+
+    async def test_storm_lib_view(self):
+
+        async with self.getTestCore() as core:
+
+            q = '$lib.print($lib.view.get().iden)'
+            mesgs = await core.streamstorm(q).list()
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    mainiden = mesg[1]['mesg']
+
+            self.isin(mainiden, core.views)
+
+            q = f'$lib.print($lib.view.get({mainiden}))'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint(mainiden, mesgs)
+
+            q = '$lib.print($lib.view.get(foo))'
+            with self.raises(s_exc.NoSuchIden):
+                nodes = await core.nodes(q)
+
+            # Fork the main view
+            q = f'''
+                $forkview=$lib.view.fork({mainiden})
+                $lib.print($forkview.iden)
+            '''
+            mesgs = await core.streamstorm(q).list()
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    forkiden = mesg[1]['mesg']
+
+            self.isin(forkiden, core.views)
+
+            q = '$lib.view.fork(foo)'
+            with self.raises(s_exc.NoSuchIden):
+                nodes = await core.nodes(q)
+
+            # Add a view
+            q = f'''
+                $forkview=$lib.view.fork({mainiden})
+                $lib.print($forkview.iden)
+            '''
+            mesgs = await core.streamstorm(q).list()
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    forkiden = mesg[1]['mesg']
+
+            self.isin(forkiden, core.views)
+
+            q = '$lib.view.fork(foo)'
+            with self.raises(s_exc.NoSuchIden):
+                nodes = await core.nodes(q)
+
+
+            # List the views in the cortex
+            q = '''
+                for $view in $lib.view.list() {
+                    $lib.print($view.iden)
+                }
+            '''
+            idens = []
+            mesgs = await core.streamstorm(q).list()
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    idens.append(mesg[1]['mesg'])
+
+            self.sorteq(idens, core.views.keys())
+
+            # Delete the forked view
+            q = f'$lib.view.del({forkiden})'
+            nodes = await core.nodes(q)
+
+            self.notin(forkiden, core.views)
+
+            q = '$lib.view.del(foo)'
+            with self.raises(s_exc.NoSuchIden):
+                nodes = await core.nodes(q)
+
+            q = f'$lib.view.del({mainiden})'
+            mesgs = await core.streamstorm(q).list()
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            self.eq(errs[0][0], 'StormRuntimeError')
+            self.eq(errs[0][1]['mesg'], 'Deleting the main view is not permitted.')
