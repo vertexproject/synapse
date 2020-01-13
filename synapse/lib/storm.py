@@ -188,14 +188,31 @@ class StormDmon(s_base.Base):
                                                     info=info)
                 self.loop_task = synt.task
                 await synt.waitfini()
+                # We have to give the callbacks a chance to run
+                # so that we can determine the status of the task
+                await asyncio.sleep(0)
+                if self.loop_task.cancelled():
+                    # Restart the loop right away
+                    continue
+                # Check and re-raise exceptions
+                exc = self.loop_task.exception()
+                if exc:
+                    raise exc
             except asyncio.CancelledError:
-                logger.warning(f'Dmon main cancelled ({self.iden})')
                 if self.loop_task:
                     self.loop_task.cancel()
+                self.status = f'fatal error: Dmon main cancelled'
+                logger.warning(f'Dmon main cancelled ({self.iden})')
+                raise
+            except s_exc.NoSuchView as e:
+                if self.loop_task:
+                    self.loop_task.cancel()
+                self.status = f'fatal error: invalid view (iden={e.get("iden")})'
+                logger.warning(f'Dmon View is invalid. Exiting Dmon: ({self.iden})')
                 raise
             except Exception as e:  # pragma: no cover
-                logger.exception(f'Dmon error during loop task execution ({self.iden})')
                 self.status = f'error: {e}'
+                logger.exception(f'Dmon error during loop task execution ({self.iden})')
                 await self.waitfini(timeout=1)
 
     async def _innr_run(self):
@@ -203,7 +220,11 @@ class StormDmon(s_base.Base):
         s_scope.set('storm:dmon', self.iden)
 
         text = self.ddef.get('storm')
-        opts = self.ddef.get('stormopts')
+        opts = self.ddef.get('stormopts', {})
+        view_iden = opts.get('view')
+        view = self.core.getView(view_iden)
+        if view is None:
+            raise s_exc.NoSuchView(iden=view_iden)
 
         def dmonPrint(evnt):
             mesg = evnt[1].get('mesg', '')
@@ -214,7 +235,7 @@ class StormDmon(s_base.Base):
             try:
 
                 self.status = 'running'
-                async with await self.core.snap(user=self.user) as snap:
+                async with await self.core.snap(user=self.user, view=view) as snap:
                     snap.on('print', dmonPrint)
 
                     async for nodepath in snap.storm(text, opts=opts, user=self.user):
@@ -228,7 +249,7 @@ class StormDmon(s_base.Base):
                     await self.waitfini(timeout=1)
 
             except asyncio.CancelledError as e:
-                logger.warning(f'Dmon loop cancelled ({self.iden})')
+                logger.warning(f'Dmon loop cancelled: ({self.iden})')
                 raise
 
             except Exception as e:
