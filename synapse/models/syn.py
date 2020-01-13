@@ -368,6 +368,9 @@ class SynModule(s_module.CoreModule):
                 ('syn:cmd', ('str', {'strip': True}), {
                     'doc': 'A Synapse storm command.'
                 }),
+                ('syn:splice', ('guid', {'strip': True}), {
+                    'doc': 'A splice from a layer.'
+                }),
             ),
 
             'forms': (
@@ -492,6 +495,41 @@ class SynModule(s_module.CoreModule):
                         'doc': 'The list of forms accepted by the command as input.', 'ro': True}),
                     ('output', ('array', {'type': 'syn:form'}), {
                         'doc': 'The list of forms produced by the command as output.', 'ro': True}),
+                )),
+                ('syn:splice', {'runt': True}, (
+                    ('type', ('str', {'strip': True}), {
+                        'doc': 'Type of splice.', 'ro': True
+                    }),
+                    ('iden', ('str', {}), {
+                        'doc': 'The iden of the node involved in the splice.', 'ro': True,
+                    }),
+                    ('form', ('syn:form', {'strip': True}), {
+                        'doc': 'The form involved in the splice.', 'ro': True
+                    }),
+                    ('prop', ('syn:prop', {'strip': True}), {
+                        'doc': 'Property modified in the splice.', 'ro': True
+                    }),
+                    ('tag', ('syn:tag', {'strip': True}), {
+                        'doc': 'Tag modified in the splice.', 'ro': True
+                    }),
+                    ('valu', ('data', {}), {
+                        'doc': 'The value being set in the splice.', 'ro': True
+                    }),
+                    ('oldv', ('data', {}), {
+                        'doc': 'The value before the splice.', 'ro': True
+                    }),
+                    ('user', ('guid', {}), {
+                        'doc': 'The user who caused the splice.', 'ro': True,
+                    }),
+                    ('prov', ('guid', {}), {
+                        'doc': 'The provenance stack of the splice.', 'ro': True,
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the splice occurred.', 'ro': True,
+                    }),
+                    ('splice', ('str', {'strip': True}), {
+                        'doc': 'The splice.', 'ro': True
+                    }),
                 )),
             ),
         }),)
