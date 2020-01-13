@@ -2248,9 +2248,11 @@ class Cortex(s_cell.Cell):
             This does not delete any of the view's layers
         '''
         if iden == self.view.iden:
-            raise s_exc.SynErr(mesg='cannot delete the main view')
+            raise s_exc.SynErr(mesg='Cannot delete the main view')
 
-        # FIXME: verify that there are no children views
+        for view in self.views.values():
+            if view.parent is not None and view.parent.iden == iden:
+                raise s_exc.SynErr(mesg='Cannot delete a view that has children')
 
         view = self.views.pop(iden, None)
         if view is None:

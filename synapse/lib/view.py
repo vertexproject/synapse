@@ -310,9 +310,12 @@ class View(s_hive.AuthGater):
         if self.parent is None:
             raise s_exc.CannotMerge()
 
-        # FIXME:  verify parent is not readonly
+        if self.parent.layers[0].readonly:
+            raise s_exc.ReadOnlyLayer(mesg="May not merge if the parent's write layer is read-only")
 
-        # FIXME:  mark this view/write layer as readonly
+        for view in self.core.views.values():
+            if view.parent is not None and view.parent == self:
+                raise s_exc.SynErr(mesg='Cannot merge a view that has children itself')
 
         CHUNKSIZE = 1000
         fromoff = 0
