@@ -308,7 +308,7 @@ class View(s_hive.AuthGater):
         '''
         fromlayr = self.layers[0]
         if self.parent is None:
-            raise s_exc.CannotMerge()
+            raise s_exc.SynErr('Cannot merge a view than has not been forked')
 
         if self.parent.layers[0].readonly:
             raise s_exc.ReadOnlyLayer(mesg="May not merge if the parent's write layer is read-only")

@@ -51,9 +51,12 @@ class ViewTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.ReadOnlyLayer, core.view.setLayers([tmplayr]))
             await self.asyncraises(s_exc.ReadOnlyLayer, view2.setLayers([tmplayr]))
 
+            # You can't merge a non-forked view
+            await self.asyncraises(s_exc.SynErr, view2.core.view.merge())
+
             # You can't merge if the parent's write layer is readonly
             view2.parent.layers[0].readonly = True
-            await self.asyncraises(s_exc.ReadOnlyLayer, view2.setLayers([tmplayr]))
+            await self.asyncraises(s_exc.ReadOnlyLayer, view2.merge())
             view2.parent.layers[0].readonly = False
 
             # You can't delete a view or merge it if it has children
