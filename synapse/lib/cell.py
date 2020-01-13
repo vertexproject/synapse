@@ -617,6 +617,7 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         hurl = self.conf.get('hive')
         if hurl is not None:
+            # TODO - We need to add tests for a Cell using a remote hive.
             self.remote_hive = True
             return await s_hive.openurl(hurl)
 
