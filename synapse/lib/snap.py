@@ -171,8 +171,8 @@ class Snap(s_base.Base):
         return await self.core.addStormDmon(ddef)
 
     async def addView(self, iden, layers):
-        return await self.core.getView(iden=iden,
-                                       owner=self.user,
+        return await self.core.addView(iden=iden,
+                                       owner=self.user.iden,
                                        layers=layers)
 
     async def delView(self, iden):

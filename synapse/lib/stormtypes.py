@@ -1366,14 +1366,14 @@ class LibView(Lib):
             'merge': self._methViewMerge,
         })
 
-    async def _methViewAdd(self, iden, layers):
+    async def _methViewAdd(self, layers):
         '''
         Add a view to the cortex.
         '''
         self.runt.reqAllowed(('storm', 'view', 'add'))
 
         iden = s_common.guid()
-        view = self.runt.snap.addView(iden, layers)
+        view = await self.runt.snap.addView(iden, layers)
 
         if view is None:
             mesg = f'Failed to add view.'

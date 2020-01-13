@@ -1431,20 +1431,18 @@ class StormTypesTest(s_test.SynTest):
                 nodes = await core.nodes(q)
 
             # Add a view
+            newlayer = await core.addLayer()
+
             q = f'''
-                $forkview=$lib.view.fork({mainiden})
-                $lib.print($forkview.iden)
+                $newview=$lib.view.add(({newlayer.iden},))
+                $lib.print($newview.iden)
             '''
             mesgs = await core.streamstorm(q).list()
             for mesg in mesgs:
                 if mesg[0] == 'print':
-                    forkiden = mesg[1]['mesg']
+                    newiden = mesg[1]['mesg']
 
-            self.isin(forkiden, core.views)
-
-            q = '$lib.view.fork(foo)'
-            with self.raises(s_exc.NoSuchIden):
-                nodes = await core.nodes(q)
+            self.isin(newiden, core.views)
 
             # List the views in the cortex
             q = '''
