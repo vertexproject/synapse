@@ -44,6 +44,10 @@ class ViewTest(s_t_utils.SynTest):
             # Add a node back
             await self.agenlen(1, view2.eval('[ test:int=12 ]'))
 
+            # Add a bunch of nodes to require chunking of splices when merging
+            for i in range(1000):
+                await self.agenlen(1, view2.eval('[test:int=$val]', opts={'vars': {'val': i + 1000}}))
+
             # Forker and forkee have their layer configuration frozen
             tmplayr = await core.addLayer()
             await self.asyncraises(s_exc.ReadOnlyLayer, core.view.addLayer(tmplayr))
