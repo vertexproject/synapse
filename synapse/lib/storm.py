@@ -136,7 +136,79 @@ stormcmds = (
 
             }
         '''
-    }
+    },
+    {
+        'name': 'view.add',
+        'descr': 'Add a view to the cortex.',
+        'cmdargs': (
+            ('--layers', {'default': [], 'action': 'append', 'help': 'Layers for the view.'}),
+        ),
+        'storm': '''
+            $view = $lib.view.add($cmdopts.layers)
+            $lib.print("View added: {iden}", iden=$view.iden)
+        ''',
+    },
+    {
+        'name': 'view.del',
+        'descr': 'Delete a view from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to delete.'}),
+        ),
+        'storm': '''
+            $lib.view.del($cmdopts.iden)
+            $lib.print("View deleted: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
+    {
+        'name': 'view.fork',
+        'descr': 'Fork a view in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to fork.'}),
+        ),
+        'storm': '''
+            $forkview = $lib.layer.get($cmdopts.iden)
+            $lib.print("View {iden} forked to new view: {forkiden}", iden=$cmdopts.iden, forkiden=$forkview.iden)
+        ''',
+    },
+    {
+        'name': 'view.get',
+        'descr': 'Get a view from the cortex.',
+        'cmdargs': ('--iden', {'help': 'Iden of the view to get. If no iden is provided, the main view will be returned.'}),
+        'storm': '''
+            $view = $lib.view.get($cmdopts.iden)
+
+            $lib.print("View {iden}", iden=$view.iden)
+            $lib.print("Layers:")
+            for $layer in $view.layers {
+                $lib.print("  {iden}", iden=$layer}
+            }
+        ''',
+    },
+    {
+        'name': 'view.list',
+        'descr': 'List the views in the cortex.',
+        'cmdargs': (),
+        'storm': '''
+            for $view in $lib.view.list() {
+                $lib.print("View {iden}", iden=$view.iden)
+                $lib.print("Layers:")
+                for $layer in $view.layers {
+                    $lib.print("  {iden}", iden=$layer}
+                }
+            }
+        ''',
+    },
+    {
+        'name': 'view.merge',
+        'descr': 'Merge a forked view into its parent view.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to merge.'}),
+        ),
+        'storm': '''
+            $lib.view.merge($cmdopts.iden)
+            $lib.print("View merged: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
 )
 
 class StormDmon(s_base.Base):
