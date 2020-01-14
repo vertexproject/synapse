@@ -43,7 +43,8 @@ The User Guide is a living document and will continue to be updated and expanded
     userguides/storm_ref_type_specific
     userguides/storm_ref_cmd
 
-    userguides/storm_adv_subquery    
+    userguides/storm_adv_subquery
+    userguides/storm_adv_automation
     userguides/storm_adv_vars
     userguides/storm_adv_methods
     userguides/storm_adv_libs

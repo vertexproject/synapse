@@ -94,6 +94,16 @@ Composite Form
 
 See :ref:`gloss-form-comp`.
 
+.. _gloss-constant:
+
+Constant
+--------
+
+In Storm, a constant is a value that cannot be altered during normal execution, i.e., the value is constant.
+
+Contrast with :ref:``gloss-variable`. See also :ref:`gloss-runtsafe` and :ref:`gloss-non-runtsafe`.
+
+
 .. _gloss-constructor:
 
 Constructor
@@ -690,6 +700,13 @@ Traverse
 
 In a :ref:`gloss-graph` or :ref:`gloss-directed-graph`, traversal refers to navigating the data in the graph by pathing along the edges between nodes. In a :ref:`gloss-hypergraph`, because there are no edges, navigation between nodes is commonly performed using a :ref:`gloss-pivot`.
 
+.. _gloss-trigger:
+
+Trigger
+-------
+
+Within Synapse, a trigger is a Storm query that is executed automatically upon the occurrence of a specified event within a Cortex (such as adding a node or applying a tag). "Trigger" refers collectively to the event and the query fired ("triggered") by the event.
+
 .. _gloss-type:
 
 Type
@@ -752,7 +769,9 @@ V
 Variable
 --------
 
-TBD
+ In Storm, a variable is an identifier with a value that can be defined and / or changed during normal execution, i.e., the value is variable.
+
+Contrast with :ref:`gloss-constant`. See also :ref:`gloss-runtsafe` and :ref:`gloss-non-runtsafe`.
 
 .. _gloss-view:
 
