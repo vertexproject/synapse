@@ -435,6 +435,29 @@ Node Definition
 
 See :ref:`gloss-ndef`.
 
+.. _gloss-node-runt:
+
+Node, Runt
+----------
+
+Short for "runtime node". A runt node is a node that does not persist within a Cortex but is created at runtime when a Cortex is initiated. Runt nodes are commonly used to represent metadata associated with Synapse, such as data model elements like forms (``syn:form``) and properties (``syn:prop``) or automation elements like triggers (``syn:trigger``) or cron jobs (``syn:cron``).
+
+.. _gloss-non-runtime-safe:
+
+Non-Runtime Safe
+----------------
+
+See :ref:`gloss-non-runtsafe`
+
+.. _gloss-non-runtsafe:
+
+Non-Runtsafe
+------------
+
+Short for "non-runtime safe". Non-runtsafe refers to the use of variables within Storm. A variable that is **non-runtsafe** has a value that may change based on the specific node passing through the Storm pipeline. A variable whose value is set to a node property, such as ``$fqdn = :fqdn`` is an example of a non-runtsafe varaible (i.e., the value of the secondary property ``:fqdn`` may be different for different nodes, so the value of the variable will be different based on the specific node being operated on).
+
+Contrast with :ref:`gloss-runtsafe`.
+
 P
 =
 
@@ -541,6 +564,29 @@ Root Tag
 --------
 
 See :ref:`gloss-tag-root`.
+
+.. _gloss-runt-node:
+
+Runt Node
+---------
+
+See :ref:`gloss-node-runt`.
+
+.. _gloss-runtime-safe:
+
+Runtime Safe
+------------
+
+See :ref:`runtsafe`
+
+.. _gloss-runtsafe:
+
+Runtsafe
+--------
+
+Short for "runtime safe". Runtsafe refers to the use of variables within Storm. A variable that is **runtsafe** has a value that will not change based on the specific node passing through the Storm pipeline. A variable whose value is explcitly set, such as ``$fqdn = woot.com`` is an example of a runtsafe varaible.
+
+Contrast with :ref:`gloss-non-runtsafe`.
 
 S
 =
