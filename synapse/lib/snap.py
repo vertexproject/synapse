@@ -445,7 +445,6 @@ class Snap(s_base.Base):
             return
 
         prop = self.model.prop(full)
-        print('getNodesBy %r' % (prop.full,))
         if prop is None:
             raise s_exc.NoSuchProp(name=full)
 

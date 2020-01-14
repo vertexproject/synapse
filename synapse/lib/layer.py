@@ -281,10 +281,8 @@ class StorType:
         yield from self.indxBy(indxby, cmpr, valu)
 
     def indxByProp(self, form, prop, cmpr, valu):
-        print('indxByProp %r %r %r %r' % (form, prop, cmpr, valu))
         indxby = IndxByProp(self.layr, form, None)
         for buid in self.indxBy(indxby, cmpr, valu):
-            print(buid)
             yield buid
 
     def indxByTagProp(self, form, tag, prop, cmpr, valu):
@@ -908,11 +906,6 @@ class Layer(s_base.Base):
             for buid in self.stortypes[kind].indxByProp(form, prop, cmpr, valu):
                 yield await self.getStorNode(buid)
 
-    #async def liftByUnivValu(self, univ, cmprvals):
-        #for cmpr, valu, kind in cmprvals:
-            #for buid in self.stortypes[kind].indxByProp(None, univ, cmpr, valu):
-                #yield await self.getStorNode(buid)
-
     async def storNodeEdits(self, nodeedits, meta):
         return {e[0]: await self.storNodeEdit(e, meta) for e in nodeedits}
 
@@ -1026,6 +1019,7 @@ class Layer(s_base.Base):
             for indx in self.getStorIndx(stortype, valu):
                 self.layrslab.put(abrv + indx, buid, db=self.byprop)
                 if univabrv is not None:
+                    print('SET UNIV %r %r %r' % (univabrv, indx, buid))
                     self.layrslab.put(univabrv + indx, buid, db=self.byprop)
 
         return (
