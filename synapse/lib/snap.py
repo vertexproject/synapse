@@ -177,6 +177,10 @@ class Snap(s_base.Base):
     def getStormMod(self, name):
         return self.mods.get(name)
 
+    async def spliceHistory(self):
+        async for splice in self.core.spliceHistory(self.user):
+            yield splice
+
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):
         if user is None:
