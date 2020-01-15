@@ -32,6 +32,7 @@ The User Guide is a living document and will continue to be updated and expanded
     userguides/syn_tools_csvtool
 
     userguides/syn_ref_cmdr
+    userguides/syn_ref_automation
 
     userguides/storm_ref_intro
     userguides/storm_ref_syntax
@@ -44,7 +45,6 @@ The User Guide is a living document and will continue to be updated and expanded
     userguides/storm_ref_cmd
 
     userguides/storm_adv_subquery
-    userguides/storm_adv_automation
     userguides/storm_adv_vars
     userguides/storm_adv_methods
     userguides/storm_adv_libs

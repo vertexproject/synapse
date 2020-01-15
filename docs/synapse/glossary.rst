@@ -101,7 +101,7 @@ Constant
 
 In Storm, a constant is a value that cannot be altered during normal execution, i.e., the value is constant.
 
-Contrast with :ref:``gloss-variable`. See also :ref:`gloss-runtsafe` and :ref:`gloss-non-runtsafe`.
+Contrast with :ref:`gloss-variable`. See also :ref:`gloss-runtsafe` and :ref:`gloss-non-runtsafe`.
 
 
 .. _gloss-constructor:
@@ -457,7 +457,7 @@ Short for "runtime node". A runt node is a node that does not persist within a C
 Non-Runtime Safe
 ----------------
 
-See :ref:`gloss-non-runtsafe`
+See :ref:`gloss-non-runtsafe`.
 
 .. _gloss-non-runtsafe:
 
@@ -587,7 +587,7 @@ See :ref:`gloss-node-runt`.
 Runtime Safe
 ------------
 
-See :ref:`runtsafe`
+See :ref:`gloss-runtsafe`.
 
 .. _gloss-runtsafe:
 
@@ -707,6 +707,8 @@ Trigger
 
 Within Synapse, a trigger is a Storm query that is executed automatically upon the occurrence of a specified event within a Cortex (such as adding a node or applying a tag). "Trigger" refers collectively to the event and the query fired ("triggered") by the event.
 
+See the Synapse :ref:`syn-trigger` command and the Storm reference on :ref:`auto-triggers` for additional detail.
+
 .. _gloss-type:
 
 Type
@@ -769,7 +771,7 @@ V
 Variable
 --------
 
- In Storm, a variable is an identifier with a value that can be defined and / or changed during normal execution, i.e., the value is variable.
+In Storm, a variable is an identifier with a value that can be defined and / or changed during normal execution, i.e., the value is variable.
 
 Contrast with :ref:`gloss-constant`. See also :ref:`gloss-runtsafe` and :ref:`gloss-non-runtsafe`.
 
