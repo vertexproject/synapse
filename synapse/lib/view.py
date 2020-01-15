@@ -50,6 +50,28 @@ class View(s_hive.AuthGater):
         await self._initViewInfo()
         await self._initViewLayers()
 
+        self._chnghands = (
+            ('trigger:add', self._onChngAddTrigger),
+            ('trigger:del', self._onChngDelTrigger),
+            ('trigger:update', self._onChngUpdateTrigger),
+            ('trigger:enable', self._onChngEnableTrigger),
+            ('trigger:disable', self._onChngDisableTrigger),
+            ('trigger:disable', self._onChngDisableTrigger),
+        )
+
+        # register change handlers with cortex
+        for evnt, func in self._chnghands:
+            self.core.onChange((evnt, self.iden), func)
+
+        def onfini():
+            '''
+            Unregister change handlers on fini
+            '''
+            for evnt, func in self._chnghands:
+                self.core.offChange((evnt, self.iden), func)
+
+        self.onfini(onfini)
+
     async def _initViewInfo(self):
 
         self.iden = self.node.name()
@@ -356,14 +378,19 @@ class View(s_hive.AuthGater):
         '''
         Adds a trigger to the view.
         '''
+        trigiden = s_common.guid()
+
+        return await self.core._fireChange(('trigger:add', self.iden),
+                                           (trigiden, condition, query, info, disabled, user))
+
+    async def _onChngAddTrigger(self, trigiden, condition, query, info, disabled=False, user=None):
         if user is None:
             user = self.core.auth.getUserByName('root')
 
-        iden = self.triggers.add(user.iden, condition, query, info=info)
+        self.triggers.add(trigiden, user.iden, condition, query, info=info)
         if disabled:
-            self.triggers.disable(iden)
-        await self.core.fire('core:trigger:action', iden=iden, action='add')
-        return iden
+            self.triggers.disable(trigiden)
+        await self.core.fire('core:trigger:action', iden=trigiden, action='add')
 
     async def getTrigger(self, iden):
         return await self.triggers.get(iden)
@@ -372,6 +399,10 @@ class View(s_hive.AuthGater):
         '''
         Delete a trigger from the view.
         '''
+        await self.core._fireChange(('trigger:del', self.iden), (iden,))
+
+    async def _onChngDelTrigger(self, mesg):
+        iden, = mesg[1]
         self.triggers.delete(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='delete')
 
@@ -379,6 +410,10 @@ class View(s_hive.AuthGater):
         '''
         Change an existing trigger's query.
         '''
+        await self.core._fireChange(('trigger:update', self.iden), (iden, query))
+
+    async def _onChngUpdateTrigger(self, mesg):
+        iden, query = mesg[1]
         self.triggers.mod(iden, query)
         await self.core.fire('core:trigger:action', iden=iden, action='mod')
 
@@ -386,6 +421,10 @@ class View(s_hive.AuthGater):
         '''
         Enable an existing trigger.
         '''
+        await self.core._fireChange(('trigger:enable', self.iden), (iden,))
+
+    async def _onChngEnableTrigger(self, mesg):
+        iden, = mesg[1]
         self.triggers.enable(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='enable')
 
@@ -393,6 +432,10 @@ class View(s_hive.AuthGater):
         '''
         Disable an existing trigger.
         '''
+        await self.core._fireChange(('trigger:disable', self.iden), (iden,))
+
+    async def _onChngDisableTrigger(self, mesg):
+        iden, = mesg[1]
         self.triggers.disable(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='disable')
 
@@ -407,9 +450,11 @@ class View(s_hive.AuthGater):
 
     async def trash(self):
         '''
-        Delete the underlying storage for the view.
+        Delete the metadata for this view.
 
         Note: this does not delete any layer storage.
+
+        FIXME:  propagate chng?
         '''
         await s_hive.AuthGater.trash(self)
 

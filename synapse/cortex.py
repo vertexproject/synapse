@@ -4,7 +4,6 @@ import logging
 import copy
 import contextlib
 import collections
-import multiprocessing
 
 from collections.abc import Mapping
 
@@ -34,11 +33,9 @@ import synapse.lib.trigger as s_trigger
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
-import synapse.lib.lmdblayer as s_lmdblayer
 import synapse.lib.stormhttp as s_stormhttp
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
-import synapse.lib.remotelayer as s_remotelayer
 
 logger = logging.getLogger(__name__)
 
@@ -109,18 +106,6 @@ class CoreApi(s_cell.CellApi):
         '''
         return self.cell.getCoreInfo()
 
-    async def addTrigger(self, condition, query, info, disabled=False):
-        '''
-        Adds a trigger to the cortex
-
-        '''
-        # TODO: accept a view or layer param
-        wlyr = self.cell.view.layers[0]
-        await wlyr._reqUserAllowed(self.user, ('trigger', 'add'))
-
-        iden = await self.cell.addTrigger(condition, query, info, disabled, user=self.user)
-        return iden
-
     async def _getViewFromOpts(self, opts):
         '''
 
@@ -136,56 +121,78 @@ class CoreApi(s_cell.CellApi):
 
         '''
         iden = (opts or {}).get('view')
-        if iden is None:
-            # This assumes everyone has access to the default view
-            return self.cell.view
+        return await self._getView(iden)
 
-        view = self.cell.views.get(iden)
+    async def _getView(self, view):
+        view = self.cell.getView(view)
         if view is None:
-            raise s_exc.NoSuchView(iden=iden)
+            raise s_exc.NoSuchView(iden=view)
 
         await view._reqUserAllowed(self.user, ('view', 'read'))
 
         return view
 
-    async def delTrigger(self, iden):
+    async def addTrigger(self, condition, query, info, disabled=False, view=None):
+        '''
+        Adds a trigger to the cortex
+
+        '''
+        # FIXME: should we check the layer belonging to the view?
+        wlyr = self.cell.view.layers[0]
+        await wlyr._reqUserAllowed(self.user, ('trigger', 'add'))
+
+        view = self._getView(view)
+
+        iden = await view.addTrigger(condition, query, info, disabled, user=self.user)
+        return iden
+
+    async def delTrigger(self, iden, view=None):
         '''
         Deletes a trigger from the cortex
         '''
-        trig = await self.cell.getTrigger(iden)
+        view = self._getView(view)
+        trig = await view.getTrigger(iden)
         await trig.reqAllowed(self.user, ('trigger', 'del'))
-        await self.cell.delTrigger(iden)
 
-    async def updateTrigger(self, iden, query):
+        await view.delTrigger(iden)
+
+    async def updateTrigger(self, iden, query, view=None):
         '''
         Change an existing trigger's query
         '''
-        trig = await self.cell.getTrigger(iden)
+        view = self._getView(view)
+        trig = await view.getTrigger(iden)
         await trig.reqAllowed(self.user, ('trigger', 'set'))
-        await self.cell.updateTrigger(iden, query)
 
-    async def enableTrigger(self, iden):
+        await view.updateTrigger(iden, query)
+
+    async def enableTrigger(self, iden, view=None):
         '''
         Enable an existing trigger
         '''
-        trig = await self.cell.getTrigger(iden)
+        view = self._getView(view)
+        trig = await view.getTrigger(iden)
         await trig.reqAllowed(self.user, ('trigger', 'set'))
-        await self.cell.enableTrigger(iden)
+
+        await view.enableTrigger(iden)
 
     async def disableTrigger(self, iden):
         '''
         Disable an existing trigger
         '''
-        trig = await self.cell.getTrigger(iden)
+        view = self._getView(view)
+        trig = await view.getTrigger(iden)
         await trig.reqAllowed(self.user, ('trigger', 'set'))
-        await self.cell.disableTrigger(iden)
 
-    async def listTriggers(self):
+        await view.disableTrigger(iden)
+
+    async def listTriggers(self, view=None):
         '''
         Lists all the triggers that the current user is authorized to access
         '''
         trigs = []
-        rawtrigs = await self.cell.listTriggers()
+        view = self._getView(view)
+        rawtrigs = await view.listTriggers()
 
         for (iden, trig) in rawtrigs:
             if await trig.allowed(self.user, ('trigger', 'get')):
@@ -196,6 +203,7 @@ class CoreApi(s_cell.CellApi):
 
         return trigs
 
+    # FIXME:  discuss adding view here (it wouldn't be stored on the view though)
     async def addCronJob(self, query, reqs, incunit=None, incval=1):
         '''
         Add a cron job to the cortex
@@ -929,7 +937,7 @@ class Cortex(s_cell.Cell):
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
 
-        await self._initCoreXact()
+        await self._initChanges()
         await self._initCoreHive()
         self._initSplicers()
         self._initStormLibs()
@@ -1004,21 +1012,13 @@ class Cortex(s_cell.Cell):
         self.onfini(self.spawnpool)
         self.on('user:mod', self._onEvtBumpSpawnPool)
 
-    async def _initCoreXact(self):
-        # all cortex changes *must* go through a transaction handler
-        self.xacthands = {
-            'layer:add': self._xactAddLayer,
-            'layer:del': self._onDelLayer,
-            'view:add': self._xactViewAdd,
-            'view:del': self._xactViewDel,
-            'storage:add': self._xactStorAdd,
-        }
-
-    async def addCoreXact(self, mesg):
-        return await self._execCoreXactMesg(mesg)
-
-    async def _execCoreXactMesg(self, mesg):
-        return await self.xacthands.get(mesg[0])(mesg)
+    async def _initChanges(self):
+        # all cortex changes *must* go through a change handler
+        self.onChange('layer:add', self._xactAddLayer)
+        self.onChange('layer:del', self._onDelLayer)
+        self.onChange('view:add', self._xactViewAdd)
+        self.onChange('view:del', self._xactViewDel)
+        self.onChange('storage:add', self._xactStorAdd)
 
     async def _onDelLayer(self, mesg):
         print('DEL LAYER %r' % (mesg,))
@@ -1938,7 +1938,7 @@ class Cortex(s_cell.Cell):
 
         await clas.reqValidConf(typeconf)
 
-        return await self.addCoreXact(('storage:add', {'iden': iden, 'type': typename, 'conf': typeconf}))
+        return await self._fireChange(('storage:add', {'iden': iden, 'type': typename, 'conf': typeconf}))
 
     async def _xactStorAdd(self, mesg):
 
@@ -2264,7 +2264,7 @@ class Cortex(s_cell.Cell):
     async def addView(self, iden, owner, layers):
 
         # TODO validate values here!
-        view = await self.addCoreXact(('view:add', {'iden': iden, 'owner': owner, 'layers': layers}))
+        view = await self._fireChange(('view:add', {'iden': iden, 'owner': owner, 'layers': layers}))
         await self.bumpSpawnPool()
         return view
 
@@ -2296,7 +2296,7 @@ class Cortex(s_cell.Cell):
         if iden == self.view.iden:
             raise s_exc.SynErr(mesg='cannot delete the main view')
 
-        self.addCoreXact(('view:del', {'iden': iden}))
+        self._fireChange(('view:del', {'iden': iden}))
 
         await self.bumpSpawnPool()
 
@@ -2409,7 +2409,7 @@ class Cortex(s_cell.Cell):
             'stor': layrstor.iden,
         }
 
-        return await self.addCoreXact(('layer:add', info))
+        return await self._fireChange(('layer:add', info))
 
     async def _xactAddLayer(self, mesg):
 
@@ -3356,48 +3356,6 @@ class Cortex(s_cell.Cell):
                                    name=name)
         norm, info = tobj.norm(valu)
         return norm, info
-
-    async def addTrigger(self, condition, query, info, disabled=False, user=None, view=None):
-        '''
-        Adds a trigger to the cortex
-        '''
-        if view is None:
-            view = self.view
-
-        return await self.view.addTrigger(condition, query, info, disabled, user)
-
-    async def getTrigger(self, iden):
-        return await self.view.getTrigger(iden)
-
-    async def delTrigger(self, iden):
-        '''
-        Deletes a trigger from the cortex
-        '''
-        return await self.view.delTrigger(iden)
-
-    async def updateTrigger(self, iden, query):
-        '''
-        Change an existing trigger's query
-        '''
-        return await self.view.updateTrigger(iden, query)
-
-    async def enableTrigger(self, iden):
-        '''
-        Change an existing trigger's query
-        '''
-        return await self.view.enableTrigger(iden)
-
-    async def disableTrigger(self, iden):
-        '''
-        Change an existing trigger's query
-        '''
-        return await self.view.disableTrigger(iden)
-
-    async def listTriggers(self):
-        '''
-        Lists all the triggers in the Cortex.
-        '''
-        return await self.view.listTriggers()
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):

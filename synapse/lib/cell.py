@@ -17,7 +17,6 @@ import synapse.telepath as s_telepath
 import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.hive as s_hive
-import synapse.lib.compat as s_compat
 import synapse.lib.health as s_health
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
@@ -196,15 +195,19 @@ class CellApi(s_base.Base):
     async def setHiveKey(self, path, value):
         '''
         Set or change the value of a key in the cell default hive
+        FIXME:  chng handler?
         '''
         perm = ('hive:set',) + path
+        # FIXME: (nic) what to do here?
         await self._reqUserAllowed(perm)
         return await self.cell.hive.set(path, value)
 
     async def popHiveKey(self, path):
         '''
         Remove and return the value of a key in the cell default hive
+        FIXME:  chng handler?
         '''
+        # FIXME: (nic) what to do here?
         perm = ('hive:pop',) + path
         await self._reqUserAllowed(perm)
         return await self.cell.hive.pop(path)
@@ -215,6 +218,7 @@ class CellApi(s_base.Base):
         return await self.cell.hive.saveHiveTree(path=path)
 
     async def loadHiveTree(self, tree, path=(), trim=False):
+        # FIXME:  chng handler?
         perm = ('hive:set',) + path
         await self._reqUserAllowed(perm)
         return await self.cell.hive.loadHiveTree(tree, path=path, trim=trim)
@@ -238,14 +242,12 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def delAuthRole(self, name):
-        await self.cell.fire('user:mod', act='delrole', name=name)
         await self.cell.auth.delRole(name)
+        await self.cell.fire('user:mod', act='delrole', name=name)
 
     @adminapi
     async def getAuthUsers(self, archived=False):
-        if archived:
-            return [u.name for u in self.cell.auth.users()]
-        return [u.name for u in self.cell.auth.users() if not u.info.get('archived')]
+        return [u.name for u in self.cell.auth.users() if not archived or not u.info.get('archived')]
 
     @adminapi
     async def getAuthRoles(self):
@@ -285,11 +287,11 @@ class CellApi(s_base.Base):
         user = self.cell.auth.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(user=name)
-        if self.user.admin or self.user.iden == user.iden:
-            await user.setPasswd(passwd)
-            await self.cell.fire('user:mod', act='setpasswd', name=name)
-            return
-        raise s_exc.AuthDeny(mesg='Cannot change user password.', user=user.name)
+        if not (self.user.admin or self.user.iden == user.iden):
+            raise s_exc.AuthDeny(mesg='Cannot change user password.', user=user.name)
+
+        await user.setPasswd(passwd)
+        await self.cell.fire('user:mod', act='setpasswd', name=name)
 
     @adminapi
     async def setUserLocked(self, name, locked):
@@ -367,23 +369,6 @@ class CellApi(s_base.Base):
     async def getDmonSessions(self):
         return await self.cell.getDmonSessions()
 
-class PassThroughApi(CellApi):
-    '''
-    Class that passes through methods made on it to its cell.
-    '''
-    allowed_methods = []  # type: ignore
-
-    async def __anit__(self, cell, link, user):
-        await CellApi.__anit__(self, cell, link, user)
-
-        for f in self.allowed_methods:
-            # N.B. this curious double nesting is due to Python's closure mechanism (f is essentially captured by name)
-            def funcapply(f):
-                def func(*args, **kwargs):
-                    return getattr(cell, f)(*args, **kwargs)
-                return func
-            setattr(self, f, funcapply(f))
-
 bootdefs = (
 
     ('insecure', {'defval': False, 'doc': 'Disable all authentication checking. (INSECURE!)'}),
@@ -454,12 +439,6 @@ class Cell(s_base.Base, s_telepath.Aware):
         self.hive = await self._initCellHive()
         self.auth = await self._initCellAuth()
 
-        # check and migrate old cell auth
-        oldauth = s_common.genpath(self.dirn, 'auth')
-        if os.path.isdir(oldauth):
-            await s_compat.cellAuthToHive(oldauth, self.auth)
-            os.rename(oldauth, oldauth + '.old')
-
         admin = self.boot.get('auth:admin')
         if admin is not None:
 
@@ -487,6 +466,26 @@ class Cell(s_base.Base, s_telepath.Aware):
             [await s.fini() for s in self.sessions.values()]
 
         self.onfini(fini)
+
+        # Handlers for change messages
+        self.chnghands = {}
+
+    async def onChange(self, evnt, func):
+        '''
+        Register a change handler
+        '''
+        prev = self.chnghands.setdefault(evnt, func)
+        assert prev is None
+
+    async def offChange(self, evnt):
+        prev = self.chnghands.pop(evnt)
+        assert prev is not None
+
+    async def fireChange(self, mesg):
+        '''
+        Execute the change handler for the mesg
+        '''
+        return await self.chnghands[mesg[0]](mesg)
 
     async def getConfOpt(self, name):
         return self.conf.get(name)
@@ -742,7 +741,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         return health.pack()
 
     def addHealthFunc(self, func):
-        '''Register a callback function to get a HeaalthCheck object.'''
+        '''Register a callback function to get a HealthCheck object.'''
         self._health_funcs.append(func)
 
     async def _cellHealth(self, health):

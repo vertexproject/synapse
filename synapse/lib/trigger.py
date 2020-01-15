@@ -28,6 +28,13 @@ Conditions = set((
 RecursionDepth = contextvars.ContextVar('RecursionDepth', default=0)
 
 class Triggers:
+    '''
+    Manages "triggers", conditions where changes in data result in new storm queries being executed.
+
+    Note:
+        These methods should not be called directly under normal circumstances.  Use the owning "View" object to ensure
+        that mirrors/clusters members get the same changes.
+    '''
     def __init__(self, view):
         self._rules = {}
         self.view = view
@@ -187,17 +194,15 @@ class Triggers:
         rule.enabled = False
         self.view.core.trigstor.stor(iden, rule)
 
-    def add(self, useriden, condition, query, info):
-        iden = s_common.guid()
+    def add(self, trigiden, useriden, condition, query, info):
 
         if not query:
             raise ValueError('empty query')
 
         self.view.core.getStormQuery(query)
 
-        rule = self._load_rule(iden, 1, condition, useriden, query, True, info=info)
-        self.view.core.trigstor.stor(iden, rule)
-        return iden
+        rule = self._load_rule(trigiden, 1, condition, useriden, query, True, info=info)
+        self.view.core.trigstor.stor(trigiden, rule)
 
     def delete(self, iden):
 
