@@ -1592,7 +1592,17 @@ class StormTypesTest(s_test.SynTest):
 
                 self.notin(addiden, core.views)
 
+                forkview = core.getView(forkediden)
+                await alist(forkview.eval('[test:int=12]'))
+
                 # Merge the forked view
+                # Will need node:add and prop:set perms to merge view
+                q = f'$lib.view.merge({forkediden})'
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
+
+                await prox.addAuthRule('visi', (True, ('node:add', )))
+                await prox.addAuthRule('visi', (True, ('prop:set', )))
+
                 q = f'$lib.view.merge({forkediden})'
                 nodes = await asvisi.storm(q).list()
 

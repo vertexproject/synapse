@@ -1470,8 +1470,6 @@ class View(Prim):
 
     async def _methViewValue(self):
         return self.valu.pack()
-#        return {'iden': self.valu.iden,
-#                'layers': [layer.iden for layer in self.valu.layers]}
 
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):

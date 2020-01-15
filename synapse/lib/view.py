@@ -362,6 +362,12 @@ class View(s_hive.AuthGater):
         CHUNKSIZE = 1000
         fromoff = 0
 
+        def checkPerms(perms):
+            if not parentlayr.allowed(user, perms):
+                perm = '.'.join(perms)
+                mesg = f'User must have permission {perm} on write layer'
+                raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
+
         async with await self.parent.snap(user=user) as snap:
             while True:
 
@@ -369,32 +375,30 @@ class View(s_hive.AuthGater):
                 async for splice in fromlayr.splices(fromoff, CHUNKSIZE):
 
                     if splice[0] in ('prop:set', 'prop:del'):
-                        buid = s_common.buid(splice[1]['ndef'])
-                        node = await snap.getNodeByBuid(buid)
-
+                        ndef = splice[1].get('ndef')
                         prop = splice[1].get('prop')
-                        node.form.props.get(prop)
 
-                        perm = (splice[0], prop.full)
-                        parentlayr.allowed(user, perm)
+                        perms = (splice[0], ':'.join([ndef[0], prop]))
+                        checkPerms(perms)
 
                     elif splice[0] == 'node:add':
-                        perm = (splice[0], splice[1]['ndef'][0])
-                        parentlayr.allowed(user, perm)
+                        perms = (splice[0], splice[1]['ndef'][0])
+                        checkPerms(perms)
 
                     elif splice[0] == 'node:del':
                         buid = s_common.buid(splice[1]['ndef'])
                         node = await snap.getNodeByBuid(buid)
                         for tag in node.tags.keys():
-                            parentlayr.allowed(user, ('tag:del', *tag.split('.')))
+                            perms = ('tag:del', *tag.split('.'))
+                            checkPerms(perms)
 
-                        perm = (splice[0], splice[1]['ndef'][0])
-                        parentlayr.allowed(user, perm)
+                        perms = (splice[0], splice[1]['ndef'][0])
+                        checkPerms(perms)
 
                     elif splice[0] in ('tag:add', 'tag:del', 'tag:prop:set', 'tag:prop:del'):
                         tag = splice[1].get('tag')
-                        perm = (splice[0], *tag.split('.'))
-                        parentlayr.allowed(user, perm)
+                        perms = (splice[0], *tag.split('.'))
+                        checkPerms(perms)
 
                     splicecount += 1
 
