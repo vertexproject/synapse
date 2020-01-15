@@ -141,11 +141,11 @@ stormcmds = (
         'name': 'view.add',
         'descr': 'Add a view to the cortex.',
         'cmdargs': (
-            ('--layers', {'default': [], 'action': 'append', 'help': 'Layers for the view.'}),
+            ('--layer', {'default': [], 'action': 'append', 'help': 'Layers for the view.'}),
         ),
         'storm': '''
-            $view = $lib.view.add($cmdopts.layers)
-            $lib.print("View added: {iden}", iden=$view.iden)
+            $view = $lib.view.add($cmdopts.layer)
+            $lib.print("View added: {iden}", iden=$view.value().iden)
         ''',
     },
     {
@@ -166,21 +166,27 @@ stormcmds = (
             ('iden', {'help': 'Iden of the view to fork.'}),
         ),
         'storm': '''
-            $forkview = $lib.layer.get($cmdopts.iden)
-            $lib.print("View {iden} forked to new view: {forkiden}", iden=$cmdopts.iden, forkiden=$forkview.iden)
+            $forkview = $lib.view.fork($cmdopts.iden)
+            $lib.print("View {iden} forked to new view: {forkiden}",
+                        iden=$cmdopts.iden,
+                        forkiden=$forkview.value().iden)
         ''',
     },
     {
         'name': 'view.get',
         'descr': 'Get a view from the cortex.',
-        'cmdargs': ('--iden', {'help': 'Iden of the view to get. If no iden is provided, the main view will be returned.'}),
+        'cmdargs': (
+            ('--iden', {'help': 'Iden of the view to get. If no iden is provided, the main view will be returned.'}),
+        ),
         'storm': '''
+            $lib.print($cmdopts)
             $view = $lib.view.get($cmdopts.iden)
 
-            $lib.print("View {iden}", iden=$view.iden)
+            $viewvalu = $view.value()
+            $lib.print("View {iden}", iden=$viewvalu.iden)
             $lib.print("Layers:")
-            for $layer in $view.layers {
-                $lib.print("  {iden}", iden=$layer}
+            for $layer in $viewvalu.layers {
+                $lib.print("  {iden}", iden=$layer)
             }
         ''',
     },
@@ -190,10 +196,12 @@ stormcmds = (
         'cmdargs': (),
         'storm': '''
             for $view in $lib.view.list() {
-                $lib.print("View {iden}", iden=$view.iden)
+                $viewvalu = $view.value()
+
+                $lib.print("View {iden}", iden=$viewvalu.iden)
                 $lib.print("Layers:")
-                for $layer in $view.layers {
-                    $lib.print("  {iden}", iden=$layer}
+                for $layer in $viewvalu.layers {
+                    $lib.print("  {iden}", iden=$layer)
                 }
             }
         ''',

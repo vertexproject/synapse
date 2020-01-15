@@ -1379,15 +1379,12 @@ class LibView(Lib):
             mesg = f'Failed to add view.'
             raise s_exc.StormRuntimeError(mesg=mesg, iden=iden, layers=layers)
 
-        return {'iden': view.iden,
-                'layers': [layer.iden for layer in view.layers]}
+        return View(view, path=self.path)
 
     async def _methViewDel(self, iden):
         '''
         Delete a view in the cortex.
         '''
-        self.runt.reqAllowed(('storm', 'view', 'del'))
-
         view = self.runt.snap.getView(iden)
         if view is None:
             mesg = f'No view with iden: {iden}'
@@ -1397,6 +1394,9 @@ class LibView(Lib):
             mesg = f'Deleting the main view is not permitted.'
             raise s_exc.StormRuntimeError(mesg=mesg, iden=iden)
 
+        if not view.info.get('owner') == self.runt.user.iden:
+            self.runt.reqAllowed(('storm', 'view', 'del'))
+
         await self.runt.snap.delView(iden=view.iden)
 
         return True
@@ -1405,17 +1405,16 @@ class LibView(Lib):
         '''
         Fork a view in the cortex.
         '''
-        self.runt.reqAllowed(('storm', 'view', 'fork'))
+        self.runt.reqAllowed(('storm', 'view', 'add'))
 
         view = self.runt.snap.getView(iden)
         if view is None:
             mesg = f'No view with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        new_view = await view.fork()
+        newview = await view.fork(owner=self.runt.user.iden)
 
-        return {'iden': new_view.iden,
-                'layers': [layer.iden for layer in new_view.layers]}
+        return View(newview, path=self.path)
 
     async def _methViewGet(self, iden=None):
         '''
@@ -1428,8 +1427,7 @@ class LibView(Lib):
             mesg = f'No view with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        return {'iden': view.iden,
-                'layers': [layer.iden for layer in view.layers]}
+        return View(view, path=self.path)
 
     async def _methViewList(self):
         '''
@@ -1439,13 +1437,7 @@ class LibView(Lib):
 
         views = self.runt.snap.listViews()
 
-        resp = []
-        for view in views:
-            obj = {'iden': view.iden,
-                   'layers': [layer.iden for layer in view.layers]}
-            resp.append(obj)
-
-        return resp
+        return [View(view, path=self.path) for view in views]
 
     async def _methViewMerge(self, iden):
         '''
@@ -1453,16 +1445,32 @@ class LibView(Lib):
 
         When complete, the view is deleted.
         '''
-        self.runt.reqAllowed(('storm', 'view', 'merge'))
-
         view = self.runt.snap.getView(iden)
         if view is None:
             mesg = f'No view with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
+        if not view.info.get('owner') == self.runt.user.iden:
+            self.runt.reqAllowed(('storm', 'view', 'del'))
+
         await view.merge()
 
         return True
+
+class View(Prim):
+    '''
+    Implements the STORM api for a view instance.
+    '''
+    def __init__(self, view, path=None):
+        Prim.__init__(self, view, path=path)
+        self.locls.update({
+            'value': self._methViewValue,
+        })
+
+    async def _methViewValue(self):
+        return self.valu.pack()
+#        return {'iden': self.valu.iden,
+#                'layers': [layer.iden for layer in self.valu.layers]}
 
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):
