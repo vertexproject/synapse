@@ -275,10 +275,6 @@ class Runtime:
             'lib': s_stormtypes.LibBase,
         }
 
-        self.builtins = {
-            'vars': self.vars,
-        }
-
         self.opts = opts
         self.snap = snap
         self.user = user
@@ -298,7 +294,6 @@ class Runtime:
         self.runtvars = set()
         self.runtvars.update(self.vars.keys())
         self.runtvars.update(self.ctors.keys())
-        self.runtvars.update(self.builtins.keys())
         self.isModuleRunt = False
         self.globals = set()
         self.modulefuncs = {}
@@ -356,13 +351,10 @@ class Runtime:
         self.opts[name] = valu
 
     def getVar(self, name, defv=None):
+
         item = self.vars.get(name, s_common.novalu)
         if item is not s_common.novalu:
             return item
-
-        valu = self.builtins.get(name, s_common.novalu)
-        if valu is not s_common.novalu:
-            return valu
 
         ctor = self.ctors.get(name)
         if ctor is not None:
@@ -523,16 +515,16 @@ class Runtime:
                 continue
             self.vars[name] = valu
 
-    async def propBackVars(self, runt):
+    async def propDownVars(self, runt):
         '''
-        From a called runt (passed in by parameter) propagate the vars that are not functions
-        and do not conflict with the calling runt.
+        Propagate down the vars from a called runtime (passed in by parameter) that are not functions
+        and do not conflict with the sub-runtime (self).
         '''
         for name, valu in runt.vars.items():
             if valu is s_common.novalu:
                 continue
             if not self.canPropName(name):
-                # don't override our parent's version of a function
+                # don't override the function in the sub-runtime
                 continue
             if name in self.runtvars:
                 # don't propagate vars already defined as runtvars
@@ -717,8 +709,7 @@ class PureCmd(Cmd):
 
         cmdvars = {
             'cmdopts': vars(self.opts),
-            'cmdconf': self.cdef.get('cmdconf', {}),
-            'cmdhasnodes': False,
+            'cmdconf': self.cdef.get('cmdconf', {})
         }
 
         opts = {'vars': cmdvars}
@@ -729,14 +720,13 @@ class PureCmd(Cmd):
                 hasnodes = False
                 async for node, path in genr:
                     if not hasnodes:
-                        subr.setVar('cmdhasnodes', True)
                         hasnodes = True
                     path.initframe(initvars=cmdvars, initrunt=subr)
                     yield node, path
 
-                # when there are no inbound nodes prop back vars if they don't conflict
+                # when there are no inbound nodes prop down the vars if they don't conflict
                 if not hasnodes:
-                    await subr.propBackVars(runt)
+                    await subr.propDownVars(runt)
 
             subr.loadRuntVars(query)
 

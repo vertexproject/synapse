@@ -248,49 +248,10 @@ class StormvarService(s_stormsvc.StormSvc):
                         ('name', {}),
                     ),
                     'storm': '''
-                    $lib.print('cmdhasnodes is {c}', c=$lib.vars.get('cmdhasnodes'))
                     $name = $cmdopts.name
-                    $fooz = $vars.$name
+                    $fooz = $lib.vars.get($name)
+                    $fooz = $path.vars.$name
                     $lib.print('my foo var is {f}', f=$fooz)
-                    ''',
-                },
-                {
-                    'name': 'nonode',
-                    'cmdargs': (
-                        ('--again', {'default': False, 'action': 'store_true', 'help': 'call another purecmd'}),
-                    ),
-                    'storm': '''
-                    $lib.print('cmdhasnodes is {c}', c=$lib.vars.get('cmdhasnodes'))
-                    $fooz = $vars.foo
-                    $lib.print('my foo var is {f}', f=$fooz)
-                    if $cmdopts.again {
-                        nonodeagain cow
-                    }
-                    ''',
-                },
-                {
-                    'name': 'nodein',
-                    'cmdargs': (
-                        ('--again', {'default': False, 'action': 'store_true', 'help': 'call another purecmd'}),
-                    ),
-                    'storm': '''
-                    $lib.print('cmdhasnodes is {c}', c=$lib.vars.get('cmdhasnodes'))
-                    $fooz = $vars.foo
-                    $lib.print('my foo var is {f}', f=$fooz)
-                    if $cmdopts.again {
-                        nonodeagain ham
-                    }
-                    ''',
-                },
-                {
-                    'name': 'nonodeagain',
-                    'cmdargs': (
-                        ('name', {}),
-                    ),
-                    'storm': '''
-                    $lib.print('cmdhasnodes in again is {c}', c=$lib.vars.get('cmdhasnodes'))
-                    $bar = $cmdopts.name
-                    $lib.print('my bar var is {v}', v=$bar)
                     ''',
                 },
             )
@@ -661,57 +622,13 @@ class StormSvcTest(s_test.SynTest):
 
                     scmd = f'inet:ipv4=1.2.3.4 $foo=$node.repr() | magic --stormvar foo'
                     msgs = await core.streamstorm(scmd).list()
-                    self.stormIsInPrint('cmdhasnodes is True', msgs)
                     self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
 
                     scmd = f'inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 $foo=$node.repr() | magic --stormvar foo'
                     msgs = await core.streamstorm(scmd).list()
-                    self.stormIsInPrint('cmdhasnodes is True', msgs)
                     self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
                     self.stormIsInPrint('my foo var is 5.6.7.8', msgs)
 
                     scmd = f'$foo="8.8.8.8" | magic --stormvar foo'
                     msgs = await core.streamstorm(scmd).list()
-                    self.stormIsInPrint('cmdhasnodes is False', msgs)
                     self.stormIsInPrint('my foo var is 8.8.8.8', msgs)
-
-                    # var conflict with stormcmd but allow to proceed
-                    scmd = f'$fooz=spam $foo="1.1.1.3" | nonode'
-                    msgs = await core.streamstorm(scmd).list()
-                    self.stormIsInPrint('cmdhasnodes is False', msgs)
-                    self.stormIsInPrint('my foo var is 1.1.1.3', msgs)
-
-                    # no exception if conflict var names are added to path
-                    scmd = f'[ inet:ipv4=1.1.1.4 ] $fooz=spam $foo=$node.repr() | nodein'
-                    msgs = await core.streamstorm(scmd).list()
-                    self.stormIsInPrint('cmdhasnodes is True', msgs)
-                    self.stormIsInPrint('my foo var is 1.1.1.4', msgs)
-
-                    # repeat with interior purecmd to purecmd call
-                    scmd = f'[ inet:ipv4=1.1.2.1 ] $foo=$node.repr() | nodein --again'
-                    msgs = await core.streamstorm(scmd).list()
-                    self.stormIsInPrint('cmdhasnodes is True', msgs)
-                    self.stormIsInPrint('my foo var is 1.1.2.1', msgs)
-                    self.stormIsInPrint('cmdhasnodes in again is True', msgs)
-                    self.stormIsInPrint('my bar var is ham', msgs)
-
-                    scmd = f'$foo="1.1.2.2" | nonode --again'
-                    msgs = await core.streamstorm(scmd).list()
-                    self.stormIsInPrint('cmdhasnodes is False', msgs)
-                    self.stormIsInPrint('my foo var is 1.1.2.2', msgs)
-                    self.stormIsInPrint('cmdhasnodes in again is False', msgs)
-                    self.stormIsInPrint('my bar var is cow', msgs)
-
-                    scmd = f'$fooz=spam $foo="1.1.2.3" | nonode --again'
-                    msgs = await core.streamstorm(scmd).list()
-                    self.stormIsInPrint('cmdhasnodes is False', msgs)
-                    self.stormIsInPrint('my foo var is 1.1.2.3', msgs)
-                    self.stormIsInPrint('cmdhasnodes in again is False', msgs)
-                    self.stormIsInPrint('my bar var is cow', msgs)
-
-                    scmd = f'[ inet:ipv4=1.1.2.4 ] $fooz=spam $foo=$node.repr() | nodein --again'
-                    msgs = await core.streamstorm(scmd).list()
-                    self.stormIsInPrint('cmdhasnodes is True', msgs)
-                    self.stormIsInPrint('my foo var is 1.1.2.4', msgs)
-                    self.stormIsInPrint('cmdhasnodes in again is True', msgs)
-                    self.stormIsInPrint('my bar var is ham', msgs)

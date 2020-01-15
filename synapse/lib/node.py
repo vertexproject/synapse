@@ -741,7 +741,6 @@ class Path:
         self.builtins = {
             'path': self,
             'node': self.node,
-            'vars': self.vars,
         }
 
         self.metadata = {}
