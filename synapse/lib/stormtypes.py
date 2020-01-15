@@ -1372,7 +1372,7 @@ class LibLayer(Lib):
 
         layer = await self.runt.snap.addLayer(conf, stor)
 
-        return layer.iden
+        return Layer(layer, path=self.path)
 
     async def _libLayerDel(self, iden):
         '''
@@ -1387,7 +1387,7 @@ class LibLayer(Lib):
 
         await self.runt.snap.delLayer(iden)
 
-    async def _libLayerGet(self, iden):
+    async def _libLayerGet(self, iden=None):
         '''
         Get a layer from the cortex.
         '''
@@ -1398,17 +1398,32 @@ class LibLayer(Lib):
             mesg = f'No layer with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        await layer.iden
+        return Layer(layer, path=self.path)
 
     async def _libLayerList(self):
         '''
         List the layers in a cortex.
         '''
-        self.runt.reqAllowed(('storm', 'layer', 'list'))
+        self.runt.reqAllowed(('storm', 'layer', 'get'))
 
         layers = await self.runt.snap.listLayers()
 
-        return [layer.iden for layer in layers]
+        return [Layer(l, path=self.path) for l in layers]
+
+class Layer(Prim):
+    '''
+    Implements the STORM api for a layer instance.
+    '''
+    def __init__(self, layer, path=None):
+        Prim.__init__(self, layer, path=path)
+        self.locls.update({
+            'value': self._methLayerValue,
+        })
+
+    async def _methLayerValue(self):
+        return {'iden': self.valu.iden,
+                }
+
 
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):
