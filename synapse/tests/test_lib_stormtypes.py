@@ -1398,6 +1398,9 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
+            await core.addTagProp('risk', ('int', {'minval': 0, 'maxval': 100}), {'doc': 'risk score'})
+            await core.nodes('[test:int=12 +#tag.test +#tag.proptest:risk=20]')
+
             # Get the main view
             q = '$lib.print($lib.view.get().value().iden)'
             mesgs = await core.streamstorm(q).list()
@@ -1593,15 +1596,20 @@ class StormTypesTest(s_test.SynTest):
                 self.notin(addiden, core.views)
 
                 forkview = core.getView(forkediden)
-                await alist(forkview.eval('[test:int=12]'))
+                await alist(forkview.eval('[test:int=34 +#tag.test +#tag.proptest:risk=40]'))
+                await alist(forkview.eval('test:int=12 | delnode'))
 
                 # Merge the forked view
-                # Will need node:add and prop:set perms to merge view
+                # Will need perms for all the ops required to merge
                 q = f'$lib.view.merge({forkediden})'
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
-                await prox.addAuthRule('visi', (True, ('node:add', )))
-                await prox.addAuthRule('visi', (True, ('prop:set', )))
+                await prox.addAuthRule('visi', (True, ('node:add',)))
+                await prox.addAuthRule('visi', (True, ('node:del',)))
+                await prox.addAuthRule('visi', (True, ('prop:set',)))
+                await prox.addAuthRule('visi', (True, ('prop:del',)))
+                await prox.addAuthRule('visi', (True, ('tag:add',)))
+                await prox.addAuthRule('visi', (True, ('tag:del',)))
 
                 q = f'$lib.view.merge({forkediden})'
                 nodes = await asvisi.storm(q).list()

@@ -45,6 +45,17 @@ class View(s_hive.AuthGater):
         self.parent = None  # The view this view was forked from
         self.worldreadable = True  # Default read permissions of this view
 
+        self.permCheck = {
+            'node:add': self._nodeAddPerms,
+            'node:del': self._nodeDelPerms,
+            'prop:set': self._propSetPerms,
+            'prop:del': self._propDelPerms,
+            'tag:add': self._tagAddPerms,
+            'tag:del': self._tagDelPerms,
+            'tag:prop:set': self._tagPropSetPerms,
+            'tag:prop:del': self._tagPropDelPerms,
+        }
+
         # isolate some initialization to easily override for SpawnView.
         await self._initViewInfo()
         await self._initViewLayers()
@@ -340,6 +351,62 @@ class View(s_hive.AuthGater):
 
         await self.core.delView(self.iden)
 
+    def _allowed(self, user, parentlayr, perms):
+        if not parentlayr.allowed(user, perms):
+            perm = '.'.join(perms)
+            mesg = f'User must have permission {perm} on write layer'
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
+
+    async def _nodeAddPerms(self, user, snap, parentlayr, splice):
+        perms = ('node:add', splice['ndef'][0])
+        self._allowed(user, parentlayr, perms)
+
+    async def _nodeDelPerms(self, user, snap, parentlayr, splice):
+        buid = s_common.buid(splice['ndef'])
+        node = await snap.getNodeByBuid(buid)
+
+        if node is not None:
+            for tag in node.tags.keys():
+                perms = ('tag:del', *tag.split('.'))
+                self._allowed(user, parentlayr, perms)
+
+            perms = ('node:del', splice['ndef'][0])
+            self._allowed(user, parentlayr, perms)
+
+    async def _propSetPerms(self, user, snap, parentlayr, splice):
+        ndef = splice.get('ndef')
+        prop = splice.get('prop')
+
+        perms = ('prop:set', ':'.join([ndef[0], prop]))
+        self._allowed(user, parentlayr, perms)
+
+    async def _propDelPerms(self, user, snap, parentlayr, splice):
+        ndef = splice.get('ndef')
+        prop = splice.get('prop')
+
+        perms = ('prop:del', ':'.join([ndef[0], prop]))
+        self._allowed(user, parentlayr, perms)
+
+    async def _tagAddPerms(self, user, snap, parentlayr, splice):
+        tag = splice.get('tag')
+        perms = ('tag:add', *tag.split('.'))
+        self._allowed(user, parentlayr, perms)
+
+    async def _tagDelPerms(self, user, snap, parentlayr, splice):
+        tag = splice.get('tag')
+        perms = ('tag:del', *tag.split('.'))
+        self._allowed(user, parentlayr, perms)
+
+    async def _tagPropSetPerms(self, user, snap, parentlayr, splice):
+        tag = splice.get('tag')
+        perms = ('tag:add', *tag.split('.'))
+        self._allowed(user, parentlayr, perms)
+
+    async def _tagPropDelPerms(self, user, snap, parentlayr, splice):
+        tag = splice.get('tag')
+        perms = ('tag:del', *tag.split('.'))
+        self._allowed(user, parentlayr, perms)
+
     async def mergeAllowed(self, user=None):
         '''
         Check whether a user can merge a view into its parent.
@@ -362,43 +429,17 @@ class View(s_hive.AuthGater):
         CHUNKSIZE = 1000
         fromoff = 0
 
-        def checkPerms(perms):
-            if not parentlayr.allowed(user, perms):
-                perm = '.'.join(perms)
-                mesg = f'User must have permission {perm} on write layer'
-                raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
-
         async with await self.parent.snap(user=user) as snap:
             while True:
 
                 splicecount = 0
                 async for splice in fromlayr.splices(fromoff, CHUNKSIZE):
 
-                    if splice[0] in ('prop:set', 'prop:del'):
-                        ndef = splice[1].get('ndef')
-                        prop = splice[1].get('prop')
+                    check = self.permCheck.get(splice[0])
+                    if check is None:
+                        raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge')
 
-                        perms = (splice[0], ':'.join([ndef[0], prop]))
-                        checkPerms(perms)
-
-                    elif splice[0] == 'node:add':
-                        perms = (splice[0], splice[1]['ndef'][0])
-                        checkPerms(perms)
-
-                    elif splice[0] == 'node:del':
-                        buid = s_common.buid(splice[1]['ndef'])
-                        node = await snap.getNodeByBuid(buid)
-                        for tag in node.tags.keys():
-                            perms = ('tag:del', *tag.split('.'))
-                            checkPerms(perms)
-
-                        perms = (splice[0], splice[1]['ndef'][0])
-                        checkPerms(perms)
-
-                    elif splice[0] in ('tag:add', 'tag:del', 'tag:prop:set', 'tag:prop:del'):
-                        tag = splice[1].get('tag')
-                        perms = (splice[0], *tag.split('.'))
-                        checkPerms(perms)
+                    await check(user, snap, parentlayr, splice[1])
 
                     splicecount += 1
 
