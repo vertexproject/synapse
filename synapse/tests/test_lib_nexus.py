@@ -10,17 +10,17 @@ class SampleNexus(s_nexus.Nexus):
         await s_nexus.Nexus.__anit__(self, iden=iden, parent=parent)
 
     async def doathing(self, eventdict):
-        return await self._fireChange(('thing:doathing', (eventdict,)))
+        return await self._fireChange('thing:doathing', (eventdict,))
 
     @s_nexus.Nexus.onChng('thing:doathing')
-    async def _doathinghandler(self, mesg):
-        eventdict, = mesg[1]
+    async def _doathinghandler(self, parms):
+        eventdict, = parms
         eventdict['happened'] = self.iden
         return 42
 
 class SampleNexus2(SampleNexus):
     async def doathing(self, eventdict):
-        return await self._fireChange((('thing:doathing', self.iden), (eventdict,)))
+        return await self._fireChange('thing:doathing', (eventdict,))
 
 class NexusTest(s_t_utils.SynTest):
     async def test_nexus(self):

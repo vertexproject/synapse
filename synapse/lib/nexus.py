@@ -43,15 +43,12 @@ class Nexus(s_base.Base):
         prev = self._nexshands.pop(evnt)
         assert prev is not None
 
-    async def _fireChange(self, mesg):
+    async def _fireChange(self, event, parms, iden=None):
         '''
         Execute the change handler for the mesg
         '''
-        if isinstance(mesg[0], tuple):
-            evnt, kididen = mesg[0]
-            chgr = self._nexsroot._nexskids[kididen]
-            mesg = (evnt, mesg[1])
-        else:
-            chgr = self
+        if iden is None and self is not self._nexsroot:
+            iden = self._nexsiden
 
-        return await chgr._nexshands[mesg[0]](self, mesg)
+        chgr = self if iden is None else self._nexsroot._nexskids[iden]
+        return await chgr._nexshands[event](self, parms)
