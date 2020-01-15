@@ -176,7 +176,7 @@ class CoreApi(s_cell.CellApi):
 
         await view.enableTrigger(iden)
 
-    async def disableTrigger(self, iden):
+    async def disableTrigger(self, iden, view=None):
         '''
         Disable an existing trigger
         '''
@@ -1919,7 +1919,7 @@ class Cortex(s_cell.Cell):
             except asyncio.CancelledError: # pragma: no cover
                 raise
 
-            except Exception as e:
+            except Exception:
                 logger.exception('error loading layer storage!')
 
         iden = self.cellinfo.get('layr:stor:default')
@@ -1960,7 +1960,6 @@ class Cortex(s_cell.Cell):
 
         iden = storinfo.get('iden')
         typename = storinfo.get('type')
-        typeconf = storinfo.get('conf')
 
         clas = self.storctors.get(typename)
         layrstor = await clas.anit(storinfo)

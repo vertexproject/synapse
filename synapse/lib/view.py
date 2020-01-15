@@ -65,7 +65,7 @@ class View(s_hive.AuthGater):
 
         def onfini():
             '''
-            Unregister change handlers on fini
+            Unregister change handlers
             '''
             for evnt, func in self._chnghands:
                 self.core.offChange((evnt, self.iden), func)

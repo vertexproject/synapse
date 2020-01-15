@@ -60,6 +60,10 @@ class CellApi(s_base.Base):
         sess = self.link.get('sess')  # type: s_daemon.Sess
         sess.user = user
 
+        self.cell.onChange('hive:set', self._onChngSetHiveKey)
+        self.cell.onChange('hive:pop', self._onChngPopHiveKey)
+        self.cell.onChange('hive:loadtree', self._onChngLoadHiveTree)
+
     async def allowed(self, perm, default=None):
         '''
         Check if the user has the requested permission.
@@ -196,20 +200,30 @@ class CellApi(s_base.Base):
         '''
         Set or change the value of a key in the cell default hive
         FIXME:  chng handler?
+
+        Note:  this is for expert emergency use only.
         '''
         perm = ('hive:set',) + path
-        # FIXME: (nic) what to do here?
         await self._reqUserAllowed(perm)
+        return await self.cell._fireChange('hive:set', (path, value,))
+
+    async def _onChngSetHiveKey(self, mesg):
+        path, value = mesg[1]
         return await self.cell.hive.set(path, value)
 
     async def popHiveKey(self, path):
         '''
-        Remove and return the value of a key in the cell default hive
+        Remove and return the value of a key in the cell default hive.
+
+        Note:  this is for expert emergency use only.
         FIXME:  chng handler?
         '''
-        # FIXME: (nic) what to do here?
         perm = ('hive:pop',) + path
         await self._reqUserAllowed(perm)
+        return await self.cell._fireChange('hive:pop', (path,))
+
+    async def _onChngPopHiveKey(self, mesg):
+        path, = mesg[1]
         return await self.cell.hive.pop(path)
 
     async def saveHiveTree(self, path=()):
@@ -218,13 +232,21 @@ class CellApi(s_base.Base):
         return await self.cell.hive.saveHiveTree(path=path)
 
     async def loadHiveTree(self, tree, path=(), trim=False):
-        # FIXME:  chng handler?
+        '''
+        Note:  this is for expert emergency use only.
+        '''
         perm = ('hive:set',) + path
         await self._reqUserAllowed(perm)
+        return await self.cell._fireChange('hive:loadtree', (tree, path, trim))
+
+    async def _onChngLoadHiveTree(self, mesg):
+        tree, path, trim = mesg[1]
         return await self.cell.hive.loadHiveTree(tree, path=path, trim=trim)
 
     @adminapi
     async def addAuthUser(self, name):
+
+        # Note:  change handling is implemented inside auth
         user = await self.cell.auth.addUser(name)
         await self.cell.fire('user:mod', act='adduser', name=name)
         return user.pack()
@@ -470,18 +492,18 @@ class Cell(s_base.Base, s_telepath.Aware):
         # Handlers for change messages
         self.chnghands = {}
 
-    async def onChange(self, evnt, func):
+    def onChange(self, evnt, func):
         '''
         Register a change handler
         '''
         prev = self.chnghands.setdefault(evnt, func)
         assert prev is None
 
-    async def offChange(self, evnt):
+    def offChange(self, evnt):
         prev = self.chnghands.pop(evnt)
         assert prev is not None
 
-    async def fireChange(self, mesg):
+    async def _fireChange(self, mesg):
         '''
         Execute the change handler for the mesg
         '''

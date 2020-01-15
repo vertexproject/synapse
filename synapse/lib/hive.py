@@ -201,6 +201,8 @@ class Hive(s_base.Base, s_telepath.Aware):
 
     def onedit(self, path, func, base=None):
 
+        # FIXME:  reconsider this whole use case given new change dist scheme
+
         if base is not None:
             async def fini():
                 self.editsbypath[path].discard(func)
@@ -786,7 +788,12 @@ class HiveAuth(s_base.Base):
         └ ... last authgate
     '''
 
-    async def __anit__(self, node):
+    async def __anit__(self, node, chngcell):
+        '''
+        Args:
+            node (HiveNode): The root of the persistent storage for auth
+            chngcell (s_cell.Cell): Who to register change handing on
+        '''
         await s_base.Base.__anit__(self)
 
         self.node = node
@@ -796,8 +803,6 @@ class HiveAuth(s_base.Base):
         self.usersbyname = {}
         self.rolesbyname = {}
         self.authgates = {}
-
-        # TODO: listen for changes on role, users, authgates
 
         roles = await self.node.open(('roles',))
         for iden, node in roles:
@@ -828,6 +833,8 @@ class HiveAuth(s_base.Base):
             [await a.fini() for a in self.authgates.values()]
 
         self.onfini(fini)
+
+        chngcell.onChange()
 
     def users(self):
         return self.usersbyiden.values()
@@ -918,6 +925,11 @@ class HiveAuth(s_base.Base):
         iden = s_common.guid()
         path = self.node.full + ('users', iden)
 
+        # FIXME: register
+        return await self.cell._fireChange('auth:adduser', (path, name))
+
+    async def _onChngAddUser(self, mesg):
+        path, name = mesg[1]
         # directly set the nodes value and let events prop
         await self.node.hive.set(path, name)
 
@@ -932,6 +944,10 @@ class HiveAuth(s_base.Base):
         iden = s_common.guid()
         path = self.node.full + ('roles', iden)
 
+        return await self.cell._fireChange('auth:addrole', (path, name))
+
+    async def _onChngAddRole(self, mesg):
+        path, name = mesg[1]
         # directly set the nodes value and let events prop
         await self.node.hive.set(path, name)
 
@@ -968,6 +984,11 @@ class HiveAuth(s_base.Base):
         if name == 'root':
             raise s_exc.CantDelRootUser(mesg='user "root" may not be deleted')
 
+        return await self.cell._fireChange('auth:deluser', (name,))
+
+    async def _onChngDelUser(self, mesg):
+        name = mesg[1]
+
         user = self.usersbyname.get(name)
         if user is None:
             raise s_exc.NoSuchUser(name=name)
@@ -989,7 +1010,10 @@ class HiveAuth(s_base.Base):
                 yield user
 
     async def delRole(self, name):
+        return await self.cell._fireChange('auth:delrole', (name,))
 
+    async def _onChngDelRole(self, mesg):
+        name = mesg[1]
         role = self.rolesbyname.get(name)
         if role is None:
             raise s_exc.NoSuchRole(name=name)
@@ -1022,7 +1046,6 @@ class AuthGate(s_base.Base):
 
         self.node = node
 
-        # TODO:  monitor users and roles nodes for changes behind my back
         self.gateroles = {} # iden -> GateRoles
         self.gateusers = {} # iden -> GateUsers
 
@@ -1196,6 +1219,7 @@ class HiveRuler(s_base.Base):
         self.info = await node.dict()
         self.onfini(self.info)
         self.info.setdefault('rules', ())
+        # FIXME:  rip out the onedit stuff
         self.rules = self.info.get('rules', onedit=self._onRulesEdit)
         self.permcache = s_cache.FixedCache(self._calcPermAllow)
 
