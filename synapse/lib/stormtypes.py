@@ -1453,7 +1453,8 @@ class LibView(Lib):
         if not view.info.get('owner') == self.runt.user.iden:
             self.runt.reqAllowed(('storm', 'view', 'del'))
 
-        await view.merge()
+        if await view.mergeAllowed(self.runt.user):
+            await view.merge()
 
         return True
 

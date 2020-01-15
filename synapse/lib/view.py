@@ -340,6 +340,72 @@ class View(s_hive.AuthGater):
 
         await self.core.delView(self.iden)
 
+    async def mergeAllowed(self, user=None):
+        '''
+        Check whether a user can merge a view into its parent.
+        '''
+        fromlayr = self.layers[0]
+        if self.parent is None:
+            raise s_exc.SynErr('Cannot merge a view than has not been forked')
+
+        parentlayr = self.parent.layers[0]
+        if parentlayr.readonly:
+            raise s_exc.ReadOnlyLayer(mesg="May not merge if the parent's write layer is read-only")
+
+        for view in self.core.views.values():
+            if view.parent is not None and view.parent == self:
+                raise s_exc.SynErr(mesg='Cannot merge a view that has children itself')
+
+        if user is None or user.admin:
+            return True
+
+        CHUNKSIZE = 1000
+        fromoff = 0
+
+        async with await self.parent.snap(user=user) as snap:
+            while True:
+
+                splicecount = 0
+                async for splice in fromlayr.splices(fromoff, CHUNKSIZE):
+
+                    if splice[0] in ('prop:set', 'prop:del'):
+                        buid = s_common.buid(splice[1]['ndef'])
+                        node = await snap.getNodeByBuid(buid)
+
+                        prop = splice[1].get('prop')
+                        node.form.props.get(prop)
+
+                        perm = (splice[0], prop.full)
+                        parentlayr.allowed(user, perm)
+
+                    elif splice[0] == 'node:add':
+                        perm = (splice[0], splice[1]['ndef'][0])
+                        parentlayr.allowed(user, perm)
+
+                    elif splice[0] == 'node:del':
+                        buid = s_common.buid(splice[1]['ndef'])
+                        node = await snap.getNodeByBuid(buid)
+                        for tag in node.tags.keys():
+                            parentlayr.allowed(user, ('tag:del', *tag.split('.')))
+
+                        perm = (splice[0], splice[1]['ndef'][0])
+                        parentlayr.allowed(user, perm)
+
+                    elif splice[0] in ('tag:add', 'tag:del', 'tag:prop:set', 'tag:prop:del'):
+                        tag = splice[1].get('tag')
+                        perm = (splice[0], *tag.split('.'))
+                        parentlayr.allowed(user, perm)
+
+                    splicecount += 1
+
+                if splicecount < CHUNKSIZE:
+                    break
+
+                fromoff += CHUNKSIZE
+                await asyncio.sleep(0)
+
+        return True
+
     async def runTagAdd(self, node, tag, valu):
 
         # Run the non-glob callbacks, then the glob callbacks

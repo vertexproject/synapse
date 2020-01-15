@@ -1595,5 +1595,5 @@ class StormTypesTest(s_test.SynTest):
                 # Merge the forked view
                 q = f'$lib.view.merge({forkediden})'
                 nodes = await asvisi.storm(q).list()
-                print(nodes)
+
                 self.notin(forkediden, core.views)
