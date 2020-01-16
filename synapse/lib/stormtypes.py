@@ -1370,7 +1370,7 @@ class LibView(Lib):
         '''
         Add a view to the cortex.
         '''
-        self.runt.reqAllowed(('storm', 'view', 'add'))
+        self.runt.reqAllowed(('view', 'add'))
 
         iden = s_common.guid()
         view = await self.runt.snap.addView(iden, layers)
@@ -1395,7 +1395,7 @@ class LibView(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, iden=iden)
 
         if not view.info.get('owner') == self.runt.user.iden:
-            self.runt.reqAllowed(('storm', 'view', 'del'))
+            self.runt.reqAllowed(('view', 'del'))
 
         await self.runt.snap.delView(iden=view.iden)
 
@@ -1405,7 +1405,7 @@ class LibView(Lib):
         '''
         Fork a view in the cortex.
         '''
-        self.runt.reqAllowed(('storm', 'view', 'add'))
+        self.runt.reqAllowed(('view', 'add'))
 
         view = self.runt.snap.getView(iden)
         if view is None:
@@ -1420,7 +1420,7 @@ class LibView(Lib):
         '''
         Retrieve a view from the cortex.
         '''
-        self.runt.reqAllowed(('storm', 'view', 'get'))
+        self.runt.reqAllowed(('view', 'read'))
 
         view = self.runt.snap.getView(iden)
         if view is None:
@@ -1433,7 +1433,7 @@ class LibView(Lib):
         '''
         List the views in the cortex.
         '''
-        self.runt.reqAllowed(('storm', 'view', 'get'))
+        self.runt.reqAllowed(('view', 'read'))
 
         views = self.runt.snap.listViews()
 
@@ -1451,12 +1451,24 @@ class LibView(Lib):
             raise s_exc.NoSuchIden(mesg=mesg)
 
         if not view.info.get('owner') == self.runt.user.iden:
-            self.runt.reqAllowed(('storm', 'view', 'del'))
+            self.runt.reqAllowed(('view', 'del'))
 
-        if await view.mergeAllowed(self.runt.user):
+        cancelled = False
+        view.layers[0].readonly = True
+        try:
+            await view.mergeAllowed(self.runt.user)
             await view.merge()
+        except s_exc.AuthDeny as e:
+            perm = e.get('perm')
+            mesg = f'Insufficient permissions to perform merge: {e.get("mesg")}'
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm, iden=iden) from None
 
-        return True
+        except asyncio.CancelledError:  # pragma: no cover
+            cancelled = True
+            raise
+        finally:
+            if not cancelled:
+                view.layers[0].readonly = False
 
 class View(Prim):
     '''

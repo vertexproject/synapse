@@ -1467,7 +1467,6 @@ class StormTypesTest(s_test.SynTest):
             self.notin(forkiden, core.views)
 
             # Sad paths
-
             with self.raises(s_exc.NoSuchIden):
                 nodes = await core.nodes('$lib.view.del(foo)')
 
@@ -1488,7 +1487,6 @@ class StormTypesTest(s_test.SynTest):
                 nodes = await core.nodes('$lib.view.merge(foo)')
 
             # Check helper commands
-
             # Get the main view
             q = 'view.get'
             mesgs = await core.streamstorm(q).list()
@@ -1550,11 +1548,11 @@ class StormTypesTest(s_test.SynTest):
 
             async with core.getLocalProxy(user='visi') as asvisi:
 
-                # List and Get require 'get' permission
+                # List and Get require 'read' permission
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.view.list()'))
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.view.get()'))
 
-                await prox.addAuthRule('visi', (True, ('storm', 'view', 'get')))
+                await prox.addAuthRule('visi', (True, ('view', 'read')))
 
                 await asvisi.eval('$lib.view.list()').list()
                 await asvisi.eval('$lib.view.get()').list()
@@ -1563,7 +1561,7 @@ class StormTypesTest(s_test.SynTest):
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.add(({newlayer.iden},))'))
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.fork({mainiden})'))
 
-                await prox.addAuthRule('visi', (True, ('storm', 'view', 'add')))
+                await prox.addAuthRule('visi', (True, ('view', 'add')))
 
                 q = f'''
                     $newview=$lib.view.add(({newlayer.iden},))
@@ -1588,8 +1586,8 @@ class StormTypesTest(s_test.SynTest):
                 self.isin(forkediden, core.views)
 
                 # Del and Merge require 'del' permission unless performed by the owner
+                # Delete a view the user owns
 
-                # Delete the added view
                 q = f'$lib.view.del({addiden})'
                 nodes = await asvisi.storm(q).list()
 
@@ -1599,9 +1597,11 @@ class StormTypesTest(s_test.SynTest):
                 await alist(forkview.eval('[test:int=34 +#tag.test +#tag.proptest:risk=40]'))
                 await alist(forkview.eval('test:int=12 | delnode'))
 
-                # Merge the forked view
+                # Merge the view forked by the user
                 # Will need perms for all the ops required to merge
+
                 q = f'$lib.view.merge({forkediden})'
+                mesgs = await asvisi.storm(q).list()
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
                 await prox.addAuthRule('visi', (True, ('node:add',)))
@@ -1615,3 +1615,35 @@ class StormTypesTest(s_test.SynTest):
                 nodes = await asvisi.storm(q).list()
 
                 self.notin(forkediden, core.views)
+
+                # Make some views not owned by the user
+                q = f'view.add --layer {newlayer.iden}'
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        rootadd = mesg[1]['mesg'].split(' ')[-1]
+                self.isin(rootadd, core.views)
+
+                q = f'view.fork {mainiden}'
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        rootfork = mesg[1]['mesg'].split(' ')[-1]
+                self.isin(rootfork, core.views)
+
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.del({rootadd})'))
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.merge({rootfork})'))
+
+                await prox.addAuthRule('visi', (True, ('view', 'del')))
+
+                # Delete a view not owned by the user
+                q = f'$lib.view.del({rootadd})'
+                nodes = await asvisi.storm(q).list()
+
+                self.notin(rootadd, core.views)
+
+                # Merge a view not owned by the user
+                q = f'view.merge {rootfork}'
+                nodes = await core.nodes(q)
+
+                self.notin(rootfork, core.views)

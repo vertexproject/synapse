@@ -351,7 +351,7 @@ class View(s_hive.AuthGater):
 
         await self.core.delView(self.iden)
 
-    def _allowed(self, user, parentlayr, perms):
+    def _reqAllowed(self, user, parentlayr, perms):
         if not parentlayr.allowed(user, perms):
             perm = '.'.join(perms)
             mesg = f'User must have permission {perm} on write layer'
@@ -359,7 +359,7 @@ class View(s_hive.AuthGater):
 
     async def _nodeAddPerms(self, user, snap, parentlayr, splice):
         perms = ('node:add', splice['ndef'][0])
-        self._allowed(user, parentlayr, perms)
+        self._reqAllowed(user, parentlayr, perms)
 
     async def _nodeDelPerms(self, user, snap, parentlayr, splice):
         buid = s_common.buid(splice['ndef'])
@@ -368,44 +368,44 @@ class View(s_hive.AuthGater):
         if node is not None:
             for tag in node.tags.keys():
                 perms = ('tag:del', *tag.split('.'))
-                self._allowed(user, parentlayr, perms)
+                self._reqAllowed(user, parentlayr, perms)
 
             perms = ('node:del', splice['ndef'][0])
-            self._allowed(user, parentlayr, perms)
+            self._reqAllowed(user, parentlayr, perms)
 
     async def _propSetPerms(self, user, snap, parentlayr, splice):
         ndef = splice.get('ndef')
         prop = splice.get('prop')
 
         perms = ('prop:set', ':'.join([ndef[0], prop]))
-        self._allowed(user, parentlayr, perms)
+        self._reqAllowed(user, parentlayr, perms)
 
     async def _propDelPerms(self, user, snap, parentlayr, splice):
         ndef = splice.get('ndef')
         prop = splice.get('prop')
 
         perms = ('prop:del', ':'.join([ndef[0], prop]))
-        self._allowed(user, parentlayr, perms)
+        self._reqAllowed(user, parentlayr, perms)
 
     async def _tagAddPerms(self, user, snap, parentlayr, splice):
         tag = splice.get('tag')
         perms = ('tag:add', *tag.split('.'))
-        self._allowed(user, parentlayr, perms)
+        self._reqAllowed(user, parentlayr, perms)
 
     async def _tagDelPerms(self, user, snap, parentlayr, splice):
         tag = splice.get('tag')
         perms = ('tag:del', *tag.split('.'))
-        self._allowed(user, parentlayr, perms)
+        self._reqAllowed(user, parentlayr, perms)
 
     async def _tagPropSetPerms(self, user, snap, parentlayr, splice):
         tag = splice.get('tag')
         perms = ('tag:add', *tag.split('.'))
-        self._allowed(user, parentlayr, perms)
+        self._reqAllowed(user, parentlayr, perms)
 
     async def _tagPropDelPerms(self, user, snap, parentlayr, splice):
         tag = splice.get('tag')
         perms = ('tag:del', *tag.split('.'))
-        self._allowed(user, parentlayr, perms)
+        self._reqAllowed(user, parentlayr, perms)
 
     async def mergeAllowed(self, user=None):
         '''
@@ -448,8 +448,6 @@ class View(s_hive.AuthGater):
 
                 fromoff += CHUNKSIZE
                 await asyncio.sleep(0)
-
-        return True
 
     async def runTagAdd(self, node, tag, valu):
 
