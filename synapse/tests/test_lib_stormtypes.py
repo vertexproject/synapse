@@ -1493,6 +1493,7 @@ class StormTypesTest(s_test.SynTest):
             await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.view.fork(foo)'))
             await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.view.get(foo)'))
             await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.view.merge(foo)'))
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(f'$lib.view.merge({mainiden})'))
 
             q = f'$lib.view.del({mainiden})'
             mesgs = await core.streamstorm(q).list()
