@@ -2272,6 +2272,7 @@ class Cortex(s_cell.Cell):
 
         await self.hive.pop(('cortex', 'views', iden))
         await view.fini()
+        await view.trash()
 
         await self.bumpSpawnPool()
 
