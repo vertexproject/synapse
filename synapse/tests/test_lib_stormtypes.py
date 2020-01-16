@@ -1419,10 +1419,10 @@ class StormTypesTest(s_test.SynTest):
                     if mesg[0] == 'print':
                         newlayr = mesg[1]['mesg']
 
-                self.isin(newlayr, core.layers.keys())
+                self.isin(newlayr, core.layers)
 
                 # Add an existing layer
-                self.notin(existinglayr, core.layers.keys())
+                self.notin(existinglayr, core.layers)
 
                 q = f'$lib.print($lib.layer.add({existinglayr}).value().iden)'
                 mesgs = await core.streamstorm(q).list()
@@ -1430,7 +1430,7 @@ class StormTypesTest(s_test.SynTest):
                     if mesg[0] == 'print':
                         addlayr = mesg[1]['mesg']
 
-                self.isin(addlayr, core.layers.keys())
+                self.isin(addlayr, core.layers)
 
                 # List the layers in the cortex
                 q = '''
@@ -1444,13 +1444,13 @@ class StormTypesTest(s_test.SynTest):
                     if mesg[0] == 'print':
                         idens.append(mesg[1]['mesg'])
 
-                self.sorteq(idens, core.layers.keys())
+                self.sorteq(idens, core.layers)
 
                 # Delete a layer
                 q = f'$lib.print($lib.layer.del({newlayr}))'
                 mesgs = await core.streamstorm(q).list()
 
-                self.notin(newlayr, core.layers.keys())
+                self.notin(newlayr, core.layers)
 
                 # Sad paths
 
@@ -1508,7 +1508,7 @@ class StormTypesTest(s_test.SynTest):
                         if mesg[0] == 'print':
                             visilayr = mesg[1]['mesg'].split(' ')[-1]
 
-                    self.isin(visilayr, core.layers.keys())
+                    self.isin(visilayr, core.layers)
 
                     # Del requires 'del' permission
                     await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.layer.del({visilayr})'))
@@ -1518,4 +1518,4 @@ class StormTypesTest(s_test.SynTest):
                     q = f'layer.del {visilayr}'
                     mesgs = await asvisi.storm(q).list()
 
-                    self.notin(visilayr, core.layers.keys())
+                    self.notin(visilayr, core.layers)
