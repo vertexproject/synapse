@@ -1458,16 +1458,12 @@ class StormTypesTest(s_test.SynTest):
                 with self.raises(s_exc.NoSuchIden):
                     nodes = await core.nodes(q)
 
-                q = f'layer.get --iden foo'
-                with self.raises(s_exc.NoSuchIden):
-                    nodes = await core.nodes(q)
-
                 q = f'$lib.layer.del(foo)'
                 with self.raises(s_exc.NoSuchIden):
                     nodes = await core.nodes(q)
 
-                q = f'layer.del foo'
-                with self.raises(s_exc.NoSuchIden):
+                q = f'$lib.layer.del({mainlayr})'
+                with self.raises(s_exc.LayerInUse):
                     nodes = await core.nodes(q)
 
                 # Test permissions

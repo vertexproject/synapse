@@ -121,9 +121,7 @@ stormcmds = (
         ),
         'storm': '''
             $layer = $lib.layer.get($cmdopts.iden)
-            if $layer {
-                $lib.print($layer.value().iden)
-            }
+            $lib.print($layer.value().iden)
         ''',
     },
     {
