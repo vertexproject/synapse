@@ -1456,19 +1456,43 @@ class StormTypesTest(s_test.SynTest):
 
             # Delete the added view
             q = f'$lib.view.del({newiden})'
-            nodes = await core.nodes(q)
+            await core.nodes(q)
 
             self.notin(newiden, core.views)
 
+            # Fork the forked view
+            q = f'''
+                $forkview=$lib.view.fork({forkiden})
+                $lib.print($forkview.value().iden)
+            '''
+            mesgs = await core.streamstorm(q).list()
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    childiden = mesg[1]['mesg']
+
+            # Can't merge the first forked view if it has children
+            q = f'$lib.view.merge({forkiden})'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            # Can't merge the child forked view if the parent is read only
+            core.views[childiden].parent.layers[0].readonly = True
+            q = f'$lib.view.merge({childiden})'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            core.views[childiden].parent.layers[0].readonly = False
+            await core.nodes(q)
+
             # Merge the forked view
             q = f'$lib.view.merge({forkiden})'
-            nodes = await core.nodes(q)
+            await core.nodes(q)
 
             self.notin(forkiden, core.views)
 
             # Sad paths
-            with self.raises(s_exc.NoSuchIden):
-                nodes = await core.nodes('$lib.view.del(foo)')
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.view.del(foo)'))
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.view.fork(foo)'))
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.view.get(foo)'))
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.view.merge(foo)'))
 
             q = f'$lib.view.del({mainiden})'
             mesgs = await core.streamstorm(q).list()
@@ -1476,15 +1500,6 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, errs)
             self.eq(errs[0][0], 'StormRuntimeError')
             self.eq(errs[0][1]['mesg'], 'Deleting the main view is not permitted.')
-
-            with self.raises(s_exc.NoSuchIden):
-                nodes = await core.nodes('$lib.view.fork(foo)')
-
-            with self.raises(s_exc.NoSuchIden):
-                nodes = await core.nodes('$lib.view.get(foo)')
-
-            with self.raises(s_exc.NoSuchIden):
-                nodes = await core.nodes('$lib.view.merge(foo)')
 
             # Check helper commands
             # Get the main view
@@ -1595,6 +1610,7 @@ class StormTypesTest(s_test.SynTest):
 
                 forkview = core.getView(forkediden)
                 await alist(forkview.eval('[test:int=34 +#tag.test +#tag.proptest:risk=40]'))
+                await alist(forkview.eval('test:int=12 [-#tag.proptest:risk]'))
                 await alist(forkview.eval('test:int=12 | delnode'))
 
                 # Merge the view forked by the user
