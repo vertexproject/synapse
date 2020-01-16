@@ -1417,14 +1417,16 @@ class StormTypesTest(s_test.SynTest):
             # Fork the main view
             q = f'''
                 $forkview=$lib.view.fork({mainiden})
-                $lib.print($forkview.value().iden)
+                $forkvalu=$forkview.value()
+                $lib.print("{{iden}},{{layr}}", iden=$forkvalu.iden, layr=$forkvalu.layers.index(0))
             '''
             mesgs = await core.streamstorm(q).list()
             for mesg in mesgs:
                 if mesg[0] == 'print':
-                    forkiden = mesg[1]['mesg']
+                    forkiden, forklayr = mesg[1]['mesg'].split(',')
 
             self.isin(forkiden, core.views)
+            self.isin(forklayr, core.layers)
 
             # Add a view
             newlayer = await core.addLayer()
@@ -1487,6 +1489,7 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes(q)
 
             self.notin(forkiden, core.views)
+            self.notin(forklayr, core.layers)
 
             # Sad paths
             await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.view.del(foo)'))

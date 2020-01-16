@@ -2270,6 +2270,10 @@ class Cortex(s_cell.Cell):
         if view is None:
             raise s_exc.NoSuchView(iden=iden)
 
+        if view.parent is not None:
+            await self.delLayer(view.layers[0].iden)
+            await view.layers[0].trash()
+
         await self.hive.pop(('cortex', 'views', iden))
         await view.fini()
         await view.trash()
