@@ -1453,22 +1453,23 @@ class LibView(Lib):
         if not view.info.get('owner') == self.runt.user.iden:
             self.runt.reqAllowed(('view', 'del'))
 
-        cancelled = False
         view.layers[0].readonly = True
         try:
             await view.mergeAllowed(self.runt.user)
             await view.merge()
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+
         except s_exc.AuthDeny as e:
+            view.layers[0].readonly = False
             perm = e.get('perm')
             mesg = f'Insufficient permissions to perform merge: {e.get("mesg")}'
             raise s_exc.AuthDeny(mesg=mesg, perm=perm, iden=iden) from None
 
-        except asyncio.CancelledError:  # pragma: no cover
-            cancelled = True
-            raise
-        finally:
-            if not cancelled:
-                view.layers[0].readonly = False
+        except Exception as e:
+            view.layers[0].readonly = False
+            mesg = f'Error during merge - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=iden) from None
 
 class View(Prim):
     '''
