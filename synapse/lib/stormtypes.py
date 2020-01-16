@@ -1368,7 +1368,7 @@ class LibLayer(Lib):
         '''
         Add a layer to the cortex.
         '''
-        self.runt.reqAllowed(('storm', 'layer', 'add'))
+        self.runt.reqAllowed(('layer', 'add'))
 
         layer = await self.runt.snap.addLayer(conf, stor)
 
@@ -1378,7 +1378,7 @@ class LibLayer(Lib):
         '''
         Delete a layer from the cortex.
         '''
-        self.runt.reqAllowed(('storm', 'layer', 'del'))
+        self.runt.reqAllowed(('layer', 'del'))
 
         layer = await self.runt.snap.getLayer(iden)
         if layer is None:
@@ -1391,7 +1391,7 @@ class LibLayer(Lib):
         '''
         Get a layer from the cortex.
         '''
-        self.runt.reqAllowed(('storm', 'layer', 'get'))
+        self.runt.reqAllowed(('layer', 'read'))
 
         layer = await self.runt.snap.getLayer(iden)
         if layer is None:
@@ -1404,7 +1404,7 @@ class LibLayer(Lib):
         '''
         List the layers in a cortex.
         '''
-        self.runt.reqAllowed(('storm', 'layer', 'get'))
+        self.runt.reqAllowed(('layer', 'read'))
 
         layers = await self.runt.snap.listLayers()
 

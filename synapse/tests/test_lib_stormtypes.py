@@ -1400,7 +1400,7 @@ class StormTypesTest(s_test.SynTest):
 
             existinglayr = core2.view.layers[0].iden
 
-            async with self.getTestCore() as core:
+            async with self.getTestCoreAndProxy() as (core, prox):
 
                 mainlayr = core.view.layers[0].iden
 
@@ -1412,46 +1412,114 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.streamstorm(q).list()
                 self.stormIsInPrint(mainlayr, mesgs)
 
-                q = f'$lib.print($lib.layer.get(foo))'
-                with self.raises(s_exc.NoSuchIden):
-                    nodes = await core.nodes(q)
-
                 # Create a new layer
-
                 q = f'$lib.print($lib.layer.add().value().iden)'
                 mesgs = await core.streamstorm(q).list()
                 for mesg in mesgs:
                     if mesg[0] == 'print':
                         newlayr = mesg[1]['mesg']
 
-                self.nn(core.getLayer(newlayr))
+                self.isin(newlayr, core.layers.keys())
 
                 # Add an existing layer
+                self.notin(existinglayr, core.layers.keys())
 
-                self.none(core.getLayer(existinglayr))
                 q = f'$lib.print($lib.layer.add({existinglayr}).value().iden)'
                 mesgs = await core.streamstorm(q).list()
                 for mesg in mesgs:
                     if mesg[0] == 'print':
                         addlayr = mesg[1]['mesg']
-                self.nn(core.getLayer(addlayr))
+
+                self.isin(addlayr, core.layers.keys())
+
+                # List the layers in the cortex
+                q = '''
+                    for $layer in $lib.layer.list() {
+                        $lib.print($layer.value().iden)
+                    }
+                '''
+                idens = []
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        idens.append(mesg[1]['mesg'])
+
+                self.sorteq(idens, core.layers.keys())
 
                 # Delete a layer
-
                 q = f'$lib.print($lib.layer.del({newlayr}))'
                 mesgs = await core.streamstorm(q).list()
-                self.none(core.getLayer(newlayr))
 
-                # Check helpers
+                self.notin(newlayr, core.layers.keys())
 
-                q = 'layer.get'
-                mesgs = await core.streamstorm(q).list()
-                self.stormIsInPrint(mainlayr, mesgs)
+                # Sad paths
 
-                q = f'layer.get --iden {mainlayr}'
-                mesgs = await core.streamstorm(q).list()
-                self.stormIsInPrint(mainlayr, mesgs)
+                q = f'$lib.layer.get(foo)'
+                with self.raises(s_exc.NoSuchIden):
+                    nodes = await core.nodes(q)
 
                 q = f'layer.get --iden foo'
                 with self.raises(s_exc.NoSuchIden):
                     nodes = await core.nodes(q)
+
+                q = f'$lib.layer.del(foo)'
+                with self.raises(s_exc.NoSuchIden):
+                    nodes = await core.nodes(q)
+
+                q = f'layer.del foo'
+                with self.raises(s_exc.NoSuchIden):
+                    nodes = await core.nodes(q)
+
+                # Test permissions
+
+                await prox.addAuthUser('visi')
+                await prox.setUserPasswd('visi', 'secret')
+
+                async with core.getLocalProxy(user='visi') as asvisi:
+
+                    # List and Get require 'read' permission
+                    await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.layer.list()'))
+                    await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.layer.get()'))
+
+                    await prox.addAuthRule('visi', (True, ('layer', 'read')))
+
+                    q = 'layer.get'
+                    mesgs = await asvisi.storm(q).list()
+                    self.stormIsInPrint(mainlayr, mesgs)
+
+                    q = f'layer.get --iden {mainlayr}'
+                    mesgs = await asvisi.storm(q).list()
+                    self.stormIsInPrint(mainlayr, mesgs)
+
+                    q = 'layer.list'
+                    idens = []
+                    mesgs = await asvisi.storm(q).list()
+                    for mesg in mesgs:
+                        if mesg[0] == 'print':
+                            idens.append(mesg[1]['mesg'])
+
+                    for layr in core.layers.keys():
+                        self.isin(layr, idens)
+
+                    # Add requires 'add' permission
+                    await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.layer.add()'))
+
+                    await prox.addAuthRule('visi', (True, ('layer', 'add')))
+
+                    q = f'layer.add'
+                    mesgs = await core.streamstorm(q).list()
+                    for mesg in mesgs:
+                        if mesg[0] == 'print':
+                            visilayr = mesg[1]['mesg'].split(' ')[-1]
+
+                    self.isin(visilayr, core.layers.keys())
+
+                    # Del requires 'del' permission
+                    await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.layer.del({visilayr})'))
+
+                    await prox.addAuthRule('visi', (True, ('layer', 'del')))
+
+                    q = f'layer.del {visilayr}'
+                    mesgs = await asvisi.storm(q).list()
+
+                    self.notin(visilayr, core.layers.keys())

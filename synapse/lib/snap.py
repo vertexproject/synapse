@@ -187,7 +187,7 @@ class Snap(s_base.Base):
         return self.core.getLayer(iden)
 
     async def listLayers(self):
-        return self.layers
+        return self.core.layers.values()
 
     def getStormMod(self, name):
         return self.mods.get(name)

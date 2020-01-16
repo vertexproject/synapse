@@ -88,15 +88,18 @@ stormcmds = (
         'name': 'layer.add',
         'descr': 'Add a layer to the cortex.',
         'cmdargs': (
-            ('--confvar', {'help', 'Name of the variable with a layer configuration dict.'}),
-            ('--stor', {'help', 'Type of storage for the layer.'}),
+            ('--confvar', {'help': 'Name of the variable with a layer configuration dict.'}),
+            ('--stor', {'help': 'Type of storage for the layer.'}),
         ),
         'storm': '''
-            if ($cmdopts.confvar) {
+            if $cmdopts.confvar {
                 $conf = $lib.vars.get($cmdopts.confvar)
+                $layer = $lib.layer.add($conf, stor=$cmdopts.stor)
+            } else {
+                $layer = $lib.layer.add(stor=$cmdopts.stor)
             }
-            $layer = $lib.layer.add($conf, $cmdopts.stor)
-            $lib.print("Layer added: {iden}", name=$layer.value().iden)
+
+            $lib.print("Layer added: {iden}", iden=$layer.value().iden)
         ''',
     },
     {
@@ -118,7 +121,7 @@ stormcmds = (
         ),
         'storm': '''
             $layer = $lib.layer.get($cmdopts.iden)
-            if ($layer) {
+            if $layer {
                 $lib.print($layer.value().iden)
             }
         ''',
