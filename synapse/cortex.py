@@ -804,7 +804,7 @@ class Cortex(s_cell.Cell):
     confdefs = (  # type: ignore
 
         ('modules', {
-            'type': 'list', 'defval': (),
+            'type': 'list', 'defval': [],
             'doc': 'A list of module classes to load.'
         }),
 
@@ -836,7 +836,7 @@ class Cortex(s_cell.Cell):
         }),
 
         ('feeds', {
-            'type': 'list', 'defval': (),
+            'type': 'list', 'defval': [],
             'doc': 'A list of feed dictionaries.'
         }),
 
