@@ -27,6 +27,40 @@ import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
+addtriggerdescr = '''
+Add a trigger to the cortex.
+
+Notes:
+    Valid values for condition are:
+        * tag:add
+        * tag:del
+        * node:add
+        * node:del
+        * prop:set
+
+When condition is tag:add or tag:del, you may optionally provide a form name
+to restrict the trigger to fire only on tags added or deleted from nodes of
+those forms.
+
+Tag names must start with #.
+
+The added tag is provided to the query as an embedded variable '$tag'.
+
+Simple one level tag globbing is supported, only at the end after a period,
+that is aka.* matches aka.foo and aka.bar but not aka.foo.bar.  aka* is not
+supported.
+
+Examples:
+    # Adds a tag to every inet:ipv4 added
+    trigger.add node:add --obj inet:ipv4 --query {[ +#mytag ]}
+
+    # Adds a tag #todo to every node as it is tagged #aka
+    trigger.add tag:add --tag #aka --query {[ +#todo ]}
+
+    # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
+    trigger.add tag:add --obj inet:ipv4 --tag #aka --query {[ +#todo ]}
+'''
+
 stormcmds = (
     {
         'name': 'queue.add',
@@ -136,7 +170,90 @@ stormcmds = (
 
             }
         '''
-    }
+    },
+    {
+        'name': 'trigger.add',
+        'descr': addtriggerdescr,
+        'cmdargs': (
+            ('condition', {'help': 'Condition for the trigger.'}),
+            ('--obj', {'help': 'Condition for the trigger.'}),
+            ('--tag', {'help': 'Tag .'}),
+            ('--query', {'help': 'Query for the trigger to execute.'}),
+            ('--disabled', {'default': False, 'action': 'store_True',
+                            'help': 'Create the trigger in disabled state.'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.add($cmdopts.condition,
+                                     $cmdopts.obj,
+                                     $cmdopts.tag,
+                                     $cmdopts.query,
+                                     $cmdopts.disabled)
+
+            $lib.print("Trigger added: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'trigger.del',
+        'descr': 'Delete a trigger from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the trigger to delete.'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.del($cmdopts.iden)
+            $lib.print("Trigger deleted: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'trigger.mod',
+        'descr': 'Modify a trigger in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the trigger to modify.'}),
+            ('query', {'help': 'New storm query for the trigger (must quote).'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.mod($cmdopts.iden, $cmdopts.query)
+            $lib.print("Trigger enabled: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'trigger.list',
+        'descr': 'List the triggers in the cortex.',
+        'cmdargs': (),
+        'storm': '''
+            $triggers = $lib.trigger.list()
+
+            if $triggers {
+                $lib.print('{"user":10} {"iden":12} {"en?":3} {"cond":9} {"object":14} {"":10} {"storm query"}')
+                for $trigger in $lib.trigger.list() {
+                    $lib.print("Trigger {iden}", iden=$trigger.iden)
+                }
+            } else {
+                $lib.print("No triggers found")
+            }
+        ''',
+    },
+    {
+        'name': 'trigger.enable',
+        'descr': 'Enable a trigger in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the trigger to enable.'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.enable($cmdopts.iden)
+            $lib.print("Trigger enabled: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'trigger.disable',
+        'descr': 'Disable a trigger in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the trigger to disable.'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.disable($cmdopts.iden)
+            $lib.print("Trigger disabled: {iden}", iden=$iden)
+        ''',
+    },
 )
 
 class StormDmon(s_base.Base):

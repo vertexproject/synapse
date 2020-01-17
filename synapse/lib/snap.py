@@ -174,6 +174,24 @@ class Snap(s_base.Base):
     async def addStormDmon(self, ddef):
         return await self.core.addStormDmon(ddef)
 
+    async def addTrigger(self, condition, query, info, disabled=False):
+        return await self.core.addTrigger(self, condition, query, info, disabled)
+
+    async def delTrigger(self, iden):
+        return await self.core.delTrigger(iden)
+
+    async def updateTrigger(self, iden, query):
+        return await self.core.updateTrigger(iden, query)
+
+    async def enableTrigger(self, iden):
+        return await self.core.enableTrigger(iden)
+
+    async def disableTrigger(self, iden):
+        return await self.core.disableTrigger(iden)
+
+    async def listTriggers(self):
+        return await self.core.listTriggers()
+
     def getStormMod(self, name):
         return self.mods.get(name)
 

@@ -1354,6 +1354,143 @@ class StatTally(Prim):
     async def get(self, name):
         return self.counters.get(name, 0)
 
+class LibTrigger(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'add': self._methTriggerAdd,
+            'del': self._methTriggerDel,
+            'mod': self._methTriggerMod,
+            'list': self._methTriggerList,
+            'enable': self._methTriggerEnable,
+            'disable': self._methTriggerDisable,
+        })
+
+    async def _match_idens(self, prefix):
+        '''
+        Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
+        exactly one.
+        '''
+        idens = [iden for iden, trig in await self.runt.snap.listTriggers()]
+        matches = [iden for iden in idens if iden.startswith(prefix)]
+
+        if len(matches) == 1:
+            return matches[0]
+        elif len(matches) == 0:
+            mesg = 'Provided iden does not match any valid authorized triggers.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+        else:
+            mesg = 'Provided iden matches more than one trigger.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+
+    async def _methTriggerAdd(self, cond, form=None, tag=None, prop=None, query=None, disabled=False):
+        '''
+        Add a trigger to the cortex.
+        '''
+        self.runt.reqAllowed(('trigger', 'add'))
+
+        if query is None:
+            mesg = 'Missing query parameter'
+            raise s_exc.StormRuntimeError(mesg=mesg, cond=cond,
+                                          opts=opts, disabled=disabled)
+
+        if cond.startswith('tag') and tag is None:
+            mesg = 'Missing tag parameter'
+            raise s_exc.StormRuntimeError(mesg=mesg, cond=cond,
+                                          opts=opts, disabled=disabled)
+
+        elif cond.startswith('node'):
+            if form is None:
+                mesg = 'Missing form parameter'
+                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond,
+                                              opts=opts, disabled=disabled)
+            if tag is not None:
+                mesg = 'node:* does not support a tag'
+                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond,
+                                              opts=opts, disabled=disabled)
+
+        elif cond.startswith('prop'):
+            if prop is None:
+                mesg = 'Missing prop parameter'
+                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond,
+                                              opts=opts, disabled=disabled)
+            if tag is not None:
+                mesg = 'prop:set does not support a tag'
+                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond,
+                                              opts=opts, disabled=disabled)
+
+        # Remove the curly braces
+        query = query[1:-1]
+
+        if tag is not None:
+            tag = tag[1:]
+
+        info={'form': form, 'tag': tag, 'prop': prop}
+
+        iden = await self.runt.snap.addTrigger(cond, query, info=info,
+                                               disabled=disabled)
+        return iden
+
+    async def _methTriggerDel(self, prefix):
+        '''
+        Delete a trigger from the cortex.
+        '''
+        self.runt.reqAllowed(('trigger', 'del'))
+
+        iden = await self._match_idens(prefix)
+
+        await self.runt.snap.delTrigger(iden)
+
+        return iden
+
+    async def _methTriggerMod(self, prefix, query):
+        '''
+        Modify a trigger in the cortex.
+        '''
+        self.runt.reqAllowed(('trigger', 'set'))
+
+        if not query.startswith('{'):
+            mesg = 'Expected second argument to start with {'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix, query=query)
+
+        # Remove the curly braces
+        query = query[1:-1]
+
+        iden = await self._match_idens(prefix)
+        await self.runt.snap.updateTrigger(iden, query)
+
+        return iden
+
+    async def _methTriggerList(self):
+        '''
+        List the triggers in the cortex.
+        '''
+        self.runt.reqAllowed(('trigger', 'get'))
+
+        return await self.runt.snap.listTriggers()
+
+    async def _methTriggerEnable(self, prefix):
+        '''
+        Enable a trigger in the cortex.
+        '''
+        self.runt.reqAllowed(('trigger', 'set'))
+
+        iden = await self._match_idens(prefix)
+        await self.runt.snap.enableTrigger(iden)
+
+        return iden
+
+    async def _methTriggerDisable(self, prefix):
+        '''
+        Disable a trigger in the cortex.
+        '''
+        self.runt.reqAllowed(('trigger', 'set'))
+
+        iden = await self._match_idens(prefix)
+        await self.runt.snap.disableTrigger(iden)
+
+        return iden
+
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):
 

@@ -1867,6 +1867,7 @@ class Cortex(s_cell.Cell):
         self.addStormLib(('service',), s_stormtypes.LibService)
         self.addStormLib(('bytes',), s_stormtypes.LibBytes)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
+        self.addStormLib(('trigger',), s_stormtypes.LibTrigger)
         self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
 
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
