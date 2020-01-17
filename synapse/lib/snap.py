@@ -81,6 +81,10 @@ class Snap(s_base.Base):
         self.onfini(self.stack.close)
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
+        self.trigson = True
+
+    def disableTriggers(self):
+        self.trigson = False
 
     # APIs that wrap cortex APIs to provide a boundary for the storm runtime
     # ( in many instances a sub-process snap will override )
@@ -172,6 +176,10 @@ class Snap(s_base.Base):
 
     def getStormMod(self, name):
         return self.mods.get(name)
+
+    async def spliceHistory(self):
+        async for splice in self.core.spliceHistory(self.user):
+            yield splice
 
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):
