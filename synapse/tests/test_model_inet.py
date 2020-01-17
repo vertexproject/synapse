@@ -1625,7 +1625,7 @@ class InetModelTest(s_t_utils.SynTest):
             'updated': 2554858000000,
             'text': 'this is  a bunch of \nrecord text 123123',
             'asn': 12345,
-            'id': 'NET-FFFF-1',
+            'id': 'NET-10-0-0-0-0',
             'name': 'EU-VTX-1',
             'registrant': contact,
             'country': 'tp',
@@ -1647,6 +1647,12 @@ class InetModelTest(s_t_utils.SynTest):
 
                 node = await snap.addNode('inet:whois:iprec', rec_ipv6, props=props_ipv6)
                 self.checkNode(node, (('inet:whois:iprec', rec_ipv6), expected_ipv6))
+
+                # check regid pivot
+                scmd = f'inet:whois:iprec={rec_ipv4} :parentid -> inet:whois:iprec:id'
+                nodes = await core.eval(scmd).list()
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('inet:whois:iprec', rec_ipv6))
 
                 # bad country code
                 guid = s_common.guid()
@@ -1675,6 +1681,14 @@ class InetModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.addNode('inet:whois:ipcontact', contact, props=props)
                 self.checkNode(node, (('inet:whois:ipcontact', contact), props))
+
+                # check regid pivot
+                iprec_guid = s_common.guid()
+                await snap.addNode(f'inet:whois:iprec', iprec_guid, props={'id': props['id']})
+                scmd = f'inet:whois:ipcontact={contact} :id -> inet:whois:iprec:id'
+                nodes = await core.eval(scmd).list()
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('inet:whois:iprec', iprec_guid))
 
     async def test_wifi_ap(self):
 

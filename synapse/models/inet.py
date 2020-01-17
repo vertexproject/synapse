@@ -1037,6 +1037,11 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An individual contact from an IP block record.'
                     }),
 
+                    ('inet:whois:regid', ('str', {}), {
+                        'doc': 'The registry unique identifier of the registration record.',
+                        'ex': 'NET-10-0-0-0-1'
+                    }),
+
                     ('inet:wifi:ap', ('comp', {'fields': (('ssid', 'inet:wifi:ssid'), ('bssid', 'inet:mac'))}), {
                         'doc': 'An SSID/MAC address combination for a wireless access point.'
                     }),
@@ -2296,7 +2301,7 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The associated Autonomous System Number (ASN).'
                         }),
-                        ('id', ('str', {}), {
+                        ('id', ('inet:whois:regid', {}), {
                             'ro': True,
                             'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'
                         }),
@@ -2304,7 +2309,7 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The name assigned to the network by the registrant.'
                         }),
-                        ('parentid', ('str', {}), {
+                        ('parentid', ('inet:whois:regid', {}), {
                             'ro': True,
                             'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'
                         }),
@@ -2362,7 +2367,7 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The associated Autonomous System Number (ASN).'
                         }),
-                        ('id', ('str', {}), {
+                        ('id', ('inet:whois:regid', {}), {
                             'ro': True,
                             'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'
                         }),
@@ -2379,6 +2384,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'Additional contacts referenced by this contact.',
                         }),
                     )),
+
+                    ('inet:whois:regid', {}, ()),
 
                     ('inet:wifi:ap', {}, (
 
