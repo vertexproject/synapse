@@ -397,7 +397,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         ('hive', {'defval': None, 'doc': 'Set to a Hive telepath URL or list of URLs'}),
     )
 
-    async def __anit__(self, dirn, conf=None, readonly=False):
+    async def __anit__(self, dirn, conf=None, readonly=False, *args, **kwargs):
 
         await s_base.Base.__anit__(self)
 
