@@ -157,7 +157,9 @@ class LibDmon(Lib):
         # closure style capture of runtime
         runtvars = {k: v for (k, v) in self.runt.vars.items() if s_msgpack.isok(v)}
 
-        opts = {'vars': runtvars}
+        opts = {'vars': runtvars,
+                'view': self.runt.snap.view.iden,  # Capture the current view iden.
+                }
 
         ddef = {
             'name': name,

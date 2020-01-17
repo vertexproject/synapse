@@ -3712,7 +3712,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('$lib.dmon.del(newp)')
 
-    async def test_cortex_storm_dmon(self):
+    async def test_cortex_storm_dmon_ps(self):
 
         with self.getTestDir() as dirn:
 
@@ -3763,6 +3763,56 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchUser):
                 await core.runStormDmon(iden, {'user': s_common.guid()})
+
+    async def test_cortex_storm_dmon_view(self):
+
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                self.len(1, await core.nodes('[test:int=1]'))
+                await core.nodes('$q=$lib.queue.add(dmon)')
+                view2 = await core.view.fork()
+                view2_iden = view2.iden
+
+                q = '''
+                $lib.dmon.add(${
+                    $q = $lib.queue.get(dmon)
+                     for ($offs, $item) in $q.gets(size=3, wait=12)
+                        {
+                            [ test:int=$item ]
+                            $lib.print("made {ndef}", ndef=$node.ndef())
+                            $q.cull($offs)
+                        }
+                    }, name=viewdmon)
+                '''
+                # Iden is captured from the current snap
+                await core.nodes(q, opts={'view': view2_iden})
+                await asyncio.sleep(0)
+
+                q = '''$q = $lib.queue.get(dmon) $q.puts((1, 3, 5))'''
+                with self.getAsyncLoggerStream('synapse.lib.storm',
+                                               "made ('test:int', 5)") as stream:
+                    await core.nodes(q)
+                    self.true(await stream.wait(6))
+
+                nodes = await core.nodes('test:int', opts={'view': view2_iden})
+                self.len(3, nodes)
+                nodes = await core.nodes('test:int')
+                self.len(1, nodes)
+
+                # Kill the dmon and remove view2
+                for dmon in list(core.stormdmons.values()):
+                    await dmon.fini()
+
+                await core.delView(view2_iden)
+                with self.raises(s_exc.NoSuchView):
+                    await core.nodes('test:int', opts={'view': view2_iden})
+
+            with self.getAsyncLoggerStream('synapse.lib.storm',
+                                           'Dmon View is invalid. Exiting Dmon') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    self.true(await stream.wait(6))
+                    msgs = await core.streamstorm('dmon.list').list()
+                    self.stormIsInPrint('fatal error: invalid view', msgs)
 
     async def test_cortex_storm_cmd_bads(self):
 

@@ -279,7 +279,7 @@ class View(s_hive.AuthGater):
 
     async def fork(self, **layrinfo):
         '''
-        Makes a new view inheriting from this view with the same layers and a new write layer on top
+        Make a new view inheriting from this view with the same layers and a new write layer on top
 
         Args:
             Passed through to cortex.addLayer
@@ -299,6 +299,46 @@ class View(s_hive.AuthGater):
         view.parent = self
 
         return view
+
+    async def merge(self, user=None):
+        '''
+        Merge this view into its parent.  All changes made to this view will be applied to the parent.
+
+        When complete, delete this view.
+        '''
+        fromlayr = self.layers[0]
+        if self.parent is None:
+            raise s_exc.SynErr('Cannot merge a view than has not been forked')
+
+        if self.parent.layers[0].readonly:
+            raise s_exc.ReadOnlyLayer(mesg="May not merge if the parent's write layer is read-only")
+
+        for view in self.core.views.values():
+            if view.parent is not None and view.parent == self:
+                raise s_exc.SynErr(mesg='Cannot merge a view that has children itself')
+
+        CHUNKSIZE = 1000
+        fromoff = 0
+
+        if user is None:
+            user = self.core.auth.getUserByName('root')
+
+        await self.core.boss.promote('storm', user=user, info={'merging': self.iden})
+        async with await self.parent.snap(user=user) as snap:
+            snap.disableTriggers()
+            snap.strict = False
+            while True:
+                splicechunk = [x async for x in fromlayr.splices(fromoff, CHUNKSIZE)]
+
+                await snap.addFeedData('syn.splice', splicechunk)
+
+                if len(splicechunk) < CHUNKSIZE:
+                    break
+
+                fromoff += CHUNKSIZE
+                await asyncio.sleep(0)
+
+        await self.core.delView(self.iden)
 
     async def runTagAdd(self, node, tag, valu):
 
@@ -329,16 +369,27 @@ class View(s_hive.AuthGater):
         await self.triggers.runTagDel(node, tag)
 
     async def runNodeAdd(self, node):
+        if not node.snap.trigson:
+            return
+
         await self.triggers.runNodeAdd(node)
+
         if self.parent is not None:
             await self.parent.runNodeAdd(node)
 
     async def runNodeDel(self, node):
+        if not node.snap.trigson:
+            return
+
         await self.triggers.runNodeDel(node)
+
         if self.parent is not None:
             await self.parent.runNodeDel(node)
 
     async def runPropSet(self, node, prop, oldv):
+        if not node.snap.trigson:
+            return
+
         await self.triggers.runPropSet(node, prop, oldv)
 
         if self.parent is not None:
