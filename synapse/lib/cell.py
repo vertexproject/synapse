@@ -393,8 +393,10 @@ class Cell(s_base.Base, s_telepath.Aware):
     # config options that are in all cells...
     confdefs = ()
     confbase = (
-        ('auth:passwd', {'defval': None, 'doc': 'Set to <passwd> (local only) to bootstrap the root user password..'}),
-        ('hive', {'defval': None, 'doc': 'Set to a Hive telepath URL or list of URLs'}),
+        ('auth:passwd', {'defval': None, 'type': 'str',
+                         'doc': 'Set to <passwd> (local only) to bootstrap the root user password..'}),
+        ('hive', {'defval': None, 'type': 'str',
+                  'doc': 'Set to a Hive telepath URL or list of URLs'}),
     )
 
     async def __anit__(self, dirn, conf=None, readonly=False, *args, **kwargs):
