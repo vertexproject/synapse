@@ -17,6 +17,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.hive as s_hive
+import synapse.lib.nexus as s_nexus
 import synapse.lib.health as s_health
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
@@ -49,20 +50,16 @@ def adminapi(f):
 
     return func
 
-class CellApi(s_base.Base):
+class CellApi(s_nexus.Nexus):
 
     async def __anit__(self, cell, link, user):
-        await s_base.Base.__anit__(self)
+        await s_nexus.Nexus.__anit__(self, iden=self.iden, parent=cell)
         self.cell = cell
         self.link = link
         assert user
         self.user = user
         sess = self.link.get('sess')  # type: s_daemon.Sess
         sess.user = user
-
-        self.cell.onChange('hive:set', self._onChngSetHiveKey)
-        self.cell.onChange('hive:pop', self._onChngPopHiveKey)
-        self.cell.onChange('hive:loadtree', self._onChngLoadHiveTree)
 
     async def allowed(self, perm, default=None):
         '''
@@ -207,6 +204,7 @@ class CellApi(s_base.Base):
         await self._reqUserAllowed(perm)
         return await self.cell._fireChange('hive:set', (path, value,))
 
+    @s_nexus.Nexus.onChng('trigger:disable')
     async def _onChngSetHiveKey(self, mesg):
         path, value = mesg[1]
         return await self.cell.hive.set(path, value)
