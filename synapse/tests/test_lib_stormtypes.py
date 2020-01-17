@@ -1399,6 +1399,144 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
-            q = 'trigger.list'
+            await self.agenlen(0, core.eval('syn:trigger'))
+
+            q = 'trigger.add node:add --form test:str --query "{[ test:int=1 ]}"'
             mesgs = await core.streamstorm(q).list()
-            self.stormIsInPrint('No triggers found', mesgs)
+
+            await core.storm('[ test:str=foo ]').list()
+            await self.agenlen(1, core.eval('test:int'))
+
+            q = 'trigger.add tag:add --form test:str --tag #footag.* --query "{[ +#count test:str=$tag ]}"'
+            mesgs = await core.streamstorm(q).list()
+
+            await core.storm('[ test:str=bar +#footag.bar ]').list()
+            await core.storm('[ test:str=bar +#footag.bar ]').list()
+            await self.agenlen(1, core.eval('#count'))
+            await self.agenlen(1, core.eval('test:str=footag.bar'))
+
+            q = 'trigger.add prop:set --disabled --prop test:type10:intprop --query "{[ test:int=6 ]}"'
+            mesgs = await core.streamstorm(q).list()
+
+            nodes = await core.nodes('syn:trigger')
+            self.len(3, nodes)
+
+            for node in nodes:
+                self.eq(node.props.get('user'), 'root')
+
+            goodbuid = nodes[1].ndef[1][:6]
+            goodbuid2 = nodes[2].ndef[1][:6]
+
+            # Trigger is created disabled, so no nodes yet
+            await self.agenlen(0, core.eval('test:int=6'))
+            waiter = core.waiter(1, 'core:trigger:action')
+
+            await core.storm(f'trigger.enable {goodbuid2}').list()
+            evnts = await waiter.wait(1)
+
+            self.eq(evnts[0][1].get('action'), 'enable')
+
+            # Trigger is enabled, so it should fire
+            await core.storm('[ test:type10=1 :intprop=25 ]').list()
+            await self.agenlen(1, core.eval('test:int=6'))
+
+            mesgs = await core.streamstorm(f'trigger.del {goodbuid}').list()
+            self.stormIsInPrint('Deleted trigger', mesgs)
+
+            q = f'trigger.del deadbeef12341234'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            q = f'trigger.enable deadbeef12341234'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            q = f'trigger.disable deadbeef12341234'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            waiter = core.waiter(1, 'core:trigger:action')
+            mesgs = await core.streamstorm(f'trigger.disable {goodbuid2}').list()
+            self.stormIsInPrint('Disabled trigger', mesgs)
+
+            evnts = await waiter.wait(1)
+            self.eq(evnts[0][1].get('action'), 'disable')
+
+            mesgs = await core.streamstorm(f'trigger.enable {goodbuid2}').list()
+            self.stormIsInPrint('Enabled trigger', mesgs)
+
+            mesgs = await core.streamstorm(f'trigger.mod {goodbuid2} {{[ test:str=different ]}}').list()
+            self.stormIsInPrint('Modified trigger', mesgs)
+
+            q = 'trigger.mod deadbeef12341234 {#foo}'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            await core.storm('trigger.add tag:add --tag #another --query "{[ +#count2 ]}"').list()
+
+            # Syntax mistakes
+            mesgs = await core.streamstorm('trigger.add tag:add --prop another --query "{[ +#count2 ]}"').list()
+            self.stormIsInErr('Missing tag parameter', mesgs)
+
+            mesgs = await core.streamstorm('trigger.add tug:udd --prop another --query "{[ +#count2 ]}"').list()
+            self.stormIsInErr('Invalid trigger condition', mesgs)
+
+            mesgs = await core.streamstorm('trigger.add tag:add --form inet:ipv4').list()
+            self.stormIsInErr('Missing query parameter', mesgs)
+
+            mesgs = await core.streamstorm('trigger.add node:add --form test:str --tag #foo --query "{test:str}"').list()
+            self.stormIsInErr('node:* does not support', mesgs)
+
+            mesgs = await core.streamstorm('trigger.add prop:set --tag #foo --query "{test:str}"').list()
+            self.stormIsInErr('Missing prop parameter', mesgs)
+
+            mesgs = await core.streamstorm('trigger.add prop:set --prop test:type10.intprop --tag #foo --query "{test:str}"').list()
+            self.stormIsInErr('prop:set does not support a tag', mesgs)
+
+            mesgs = await core.streamstorm('trigger.add tag:add --tag #tag --form test:int').list()
+            self.stormIsInErr('Missing query', mesgs)
+
+            mesgs = await core.streamstorm('trigger.add node:add --tag #tag1 --query "{test:str}"').list()
+            self.stormIsInErr('Missing form', mesgs)
+
+            mesgs = await core.streamstorm(f'trigger.mod {goodbuid2} "test:str"').list()
+            self.stormIsInErr('start with {', mesgs)
+
+            # Bad storm syntax
+            mesgs = await core.streamstorm('trigger.add node:add --form test:str --query "{[ | | test:int=1 ] }"').list()
+            self.stormIsInErr('No terminal defined', mesgs)
+
+            # (Regression) Just a command as the storm query
+            mesgs = await core.streamstorm('trigger.add node:add --form test:str --query "{[ test:int=99 ] | spin }"').list()
+            await core.storm('[ test:str=foo4 ]').list()
+            await self.agenlen(1, core.eval('test:int=99'))
+
+            # Test manipulating triggers as another user
+            await core.auth.addUser('bond')
+
+            async with core.getLocalProxy(user='bond') as tcore:
+
+                q = f'trigger.mod {goodbuid2} "{{[ test:str=yep ]}}"'
+                await self.agenraises(s_exc.AuthDeny, tcore.eval(q))
+
+                q = f'trigger.disable {goodbuid2}'
+                await self.agenraises(s_exc.AuthDeny, tcore.eval(q))
+
+                q = f'trigger.enable {goodbuid2}'
+                await self.agenraises(s_exc.AuthDeny, tcore.eval(q))
+
+                q = f'trigger.del {goodbuid2}'
+                await self.agenraises(s_exc.AuthDeny, tcore.eval(q))
+
+                # Give explicit perm
+                await prox.addAuthRule('bond', (True, ('trigger', 'set')))
+
+                mesgs = await tcore.storm(f'trigger.mod {goodbuid2} {{[ test:str=yep ]}}').list()
+                self.stormIsInPrint('Modified trigger', mesgs)
+
+                mesgs = await tcore.storm(f'trigger.disable {goodbuid2}').list()
+                self.stormIsInPrint('Disabled trigger', mesgs)
+
+                mesgs = await tcore.storm(f'trigger.enable {goodbuid2}').list()
+                self.stormIsInPrint('Enabled trigger', mesgs)
+
+                await prox.addAuthRule('bond', (True, ('trigger', 'del')))
+
+                mesgs = await tcore.storm(f'trigger.del {goodbuid2}').list()
+                self.stormIsInPrint('Deleted trigger', mesgs)

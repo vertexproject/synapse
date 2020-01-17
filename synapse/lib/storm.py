@@ -176,20 +176,22 @@ stormcmds = (
         'descr': addtriggerdescr,
         'cmdargs': (
             ('condition', {'help': 'Condition for the trigger.'}),
-            ('--obj', {'help': 'Condition for the trigger.'}),
-            ('--tag', {'help': 'Tag .'}),
+            ('--form', {'help': 'Form.'}),
+            ('--tag', {'help': 'Tag.'}),
+            ('--prop', {'help': 'Prop.'}),
             ('--query', {'help': 'Query for the trigger to execute.'}),
-            ('--disabled', {'default': False, 'action': 'store_True',
+            ('--disabled', {'default': False, 'action': 'store_true',
                             'help': 'Create the trigger in disabled state.'}),
         ),
         'storm': '''
             $iden = $lib.trigger.add($cmdopts.condition,
-                                     $cmdopts.obj,
+                                     $cmdopts.form,
                                      $cmdopts.tag,
+                                     $cmdopts.prop,
                                      $cmdopts.query,
                                      $cmdopts.disabled)
 
-            $lib.print("Trigger added: {iden}", iden=$iden)
+            $lib.print("Added trigger: {iden}", iden=$iden)
         ''',
     },
     {
@@ -200,7 +202,7 @@ stormcmds = (
         ),
         'storm': '''
             $iden = $lib.trigger.del($cmdopts.iden)
-            $lib.print("Trigger deleted: {iden}", iden=$iden)
+            $lib.print("Deleted trigger: {iden}", iden=$iden)
         ''',
     },
     {
@@ -212,24 +214,7 @@ stormcmds = (
         ),
         'storm': '''
             $iden = $lib.trigger.mod($cmdopts.iden, $cmdopts.query)
-            $lib.print("Trigger enabled: {iden}", iden=$iden)
-        ''',
-    },
-    {
-        'name': 'trigger.list',
-        'descr': 'List the triggers in the cortex.',
-        'cmdargs': (),
-        'storm': '''
-            $triggers = $lib.trigger.list()
-
-            if $triggers {
-                $lib.print('{"user":10} {"iden":12} {"en?":3} {"cond":9} {"object":14} {"":10} {"storm query"}')
-                for $trigger in $lib.trigger.list() {
-                    $lib.print("Trigger {iden}", iden=$trigger.iden)
-                }
-            } else {
-                $lib.print("No triggers found")
-            }
+            $lib.print("Modified trigger: {iden}", iden=$iden)
         ''',
     },
     {
@@ -240,7 +225,7 @@ stormcmds = (
         ),
         'storm': '''
             $iden = $lib.trigger.enable($cmdopts.iden)
-            $lib.print("Trigger enabled: {iden}", iden=$iden)
+            $lib.print("Enabled trigger: {iden}", iden=$iden)
         ''',
     },
     {
@@ -251,7 +236,7 @@ stormcmds = (
         ),
         'storm': '''
             $iden = $lib.trigger.disable($cmdopts.iden)
-            $lib.print("Trigger disabled: {iden}", iden=$iden)
+            $lib.print("Disabled trigger: {iden}", iden=$iden)
         ''',
     },
 )

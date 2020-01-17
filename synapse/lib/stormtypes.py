@@ -1391,33 +1391,33 @@ class LibTrigger(Lib):
 
         if query is None:
             mesg = 'Missing query parameter'
-            raise s_exc.StormRuntimeError(mesg=mesg, cond=cond,
-                                          opts=opts, disabled=disabled)
+            raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
+                                          prop=prop, query=query, disabled=disabled)
 
         if cond.startswith('tag') and tag is None:
             mesg = 'Missing tag parameter'
-            raise s_exc.StormRuntimeError(mesg=mesg, cond=cond,
-                                          opts=opts, disabled=disabled)
+            raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
+                                          prop=prop, query=query, disabled=disabled)
 
         elif cond.startswith('node'):
             if form is None:
                 mesg = 'Missing form parameter'
-                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond,
-                                              opts=opts, disabled=disabled)
+                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
+                                              prop=prop, query=query, disabled=disabled)
             if tag is not None:
                 mesg = 'node:* does not support a tag'
-                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond,
-                                              opts=opts, disabled=disabled)
+                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
+                                              prop=prop, query=query, disabled=disabled)
 
         elif cond.startswith('prop'):
             if prop is None:
                 mesg = 'Missing prop parameter'
-                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond,
-                                              opts=opts, disabled=disabled)
+                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
+                                              prop=prop, query=query, disabled=disabled)
             if tag is not None:
                 mesg = 'prop:set does not support a tag'
-                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond,
-                                              opts=opts, disabled=disabled)
+                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
+                                              prop=prop, query=query, disabled=disabled)
 
         # Remove the curly braces
         query = query[1:-1]

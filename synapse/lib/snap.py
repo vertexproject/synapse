@@ -175,7 +175,7 @@ class Snap(s_base.Base):
         return await self.core.addStormDmon(ddef)
 
     async def addTrigger(self, condition, query, info, disabled=False):
-        return await self.core.addTrigger(self, condition, query, info, disabled)
+        return await self.core.addTrigger(condition, query, info=info, disabled=disabled)
 
     async def delTrigger(self, iden):
         return await self.core.delTrigger(iden)
