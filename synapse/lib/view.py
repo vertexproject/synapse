@@ -370,8 +370,8 @@ class View(s_hive.AuthGater):  # type: ignore
         return await self.core._fireChange(('trigger:add', self.iden),
                                            (trigiden, condition, query, info, disabled, user))
 
-    @s_nexus.Nexus.onChng('trigger:add')
-    async def _onChngAddTrigger(self, trigiden, condition, query, info, disabled=False, user=None):
+    @s_nexus.Nexus.onPush('trigger:add')
+    async def _onPushAddTrigger(self, trigiden, condition, query, info, disabled=False, user=None):
         if user is None:
             user = self.core.auth.getUserByName('root')
 
@@ -383,15 +383,15 @@ class View(s_hive.AuthGater):  # type: ignore
     async def getTrigger(self, iden):
         return await self.triggers.get(iden)
 
-    @s_nexus.Nexus.onChng('trigger:del')
+    @s_nexus.Nexus.onPush('trigger:del')
     async def delTrigger(self, iden):
         '''
         Delete a trigger from the view.
         '''
         await self.core._fireChange(('trigger:del', self.iden), (iden,))
 
-    # @s_nexus.Nexus.onChng('trigger:del')
-    async def _onChngDelTrigger(self, iden):
+    @s_nexus.Nexus.onPush('trigger:del')
+    async def _onDelTrigger(self, iden):
         self.triggers.delete(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='delete')
 
@@ -401,8 +401,8 @@ class View(s_hive.AuthGater):  # type: ignore
         '''
         await self.core._fireChange(('trigger:update', self.iden), (iden, query))
 
-    @s_nexus.Nexus.onChng('trigger:update')
-    async def _onChngUpdateTrigger(self, iden, query):
+    @s_nexus.Nexus.onPush('trigger:update')
+    async def _onPushUpdateTrigger(self, iden, query):
         self.triggers.mod(iden, query)
         await self.core.fire('core:trigger:action', iden=iden, action='mod')
 
@@ -412,8 +412,8 @@ class View(s_hive.AuthGater):  # type: ignore
         '''
         await self.core._fireChange(('trigger:enable', self.iden), (iden,))
 
-    @s_nexus.Nexus.onChng('trigger:enable')
-    async def _onChngEnableTrigger(self, iden):
+    @s_nexus.Nexus.onPush('trigger:enable')
+    async def _onPushEnableTrigger(self, iden):
         self.triggers.enable(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='enable')
 
@@ -423,8 +423,8 @@ class View(s_hive.AuthGater):  # type: ignore
         '''
         await self.core._fireChange(('trigger:disable', self.iden), (iden,))
 
-    @s_nexus.Nexus.onChng('trigger:disable')
-    async def _onChngDisableTrigger(self, iden):
+    @s_nexus.Nexus.onPush('trigger:disable')
+    async def _onDisableTrigger(self, iden, parm=None):
         self.triggers.disable(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='disable')
 

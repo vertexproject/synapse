@@ -8,16 +8,16 @@ class SampleNexus(s_nexus.Nexus):
         self.iden = iden
 
     async def doathing(self, eventdict):
-        return await self._fireChange('thing:doathing', (eventdict, 'foo'))
+        return await self._push('thing:doathing', (eventdict, 'foo'))
 
-    @s_nexus.Nexus.onChng('thing:doathing')
+    @s_nexus.Nexus.onPush('thing:doathing')
     async def _doathinghandler(self, eventdict, anotherparm):
         eventdict['happened'] = self.iden
         return anotherparm
 
 class SampleNexus2(SampleNexus):
     async def doathing(self, eventdict):
-        return await self._fireChange('thing:doathing', (eventdict, 'bar'))
+        return await self._push('thing:doathing', (eventdict, 'bar'))
 
     async def _thing2handler(self):
         return self
@@ -34,6 +34,3 @@ class NexusTest(s_t_utils.SynTest):
                 self.eq('foo', await testparent.doathing(parm))
                 self.eq('bar', await testkid.doathing(parm))
                 self.eq(2, parm.get('happened'))
-
-                testkid.onChange('thing:2', testkid._thing2handler)
-                self.eq(testkid, await testparent._fireChange('thing:2', (), iden=2))

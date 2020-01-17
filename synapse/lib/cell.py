@@ -204,8 +204,8 @@ class CellApi(s_nexus.Nexus):
         await self._reqUserAllowed(perm)
         return await self.cell._fireChange('hive:set', (path, value,))
 
-    @s_nexus.Nexus.onChng('trigger:disable')
-    async def _onChngSetHiveKey(self, mesg):
+    @s_nexus.Nexus.onPush('trigger:disable')
+    async def _onPushSetHiveKey(self, mesg):
         path, value = mesg[1]
         return await self.cell.hive.set(path, value)
 
@@ -220,7 +220,7 @@ class CellApi(s_nexus.Nexus):
         await self._reqUserAllowed(perm)
         return await self.cell._fireChange('hive:pop', (path,))
 
-    async def _onChngPopHiveKey(self, mesg):
+    async def _onPushPopHiveKey(self, mesg):
         path, = mesg[1]
         return await self.cell.hive.pop(path)
 
@@ -237,7 +237,7 @@ class CellApi(s_nexus.Nexus):
         await self._reqUserAllowed(perm)
         return await self.cell._fireChange('hive:loadtree', (tree, path, trim))
 
-    async def _onChngLoadHiveTree(self, mesg):
+    async def _onPushLoadHiveTree(self, mesg):
         tree, path, trim = mesg[1]
         return await self.cell.hive.loadHiveTree(tree, path=path, trim=trim)
 
