@@ -93,7 +93,13 @@ class Config020(c_abc.MutableMapping):
         self.envar_prefix = envar_prefix
 
     # Argparse support methods
-    def generateArgparser(self, pars=None):
+    def generateArgparser(self, pars: argparse.ArgumentParser =None):
+        '''
+        Add config related arguments group to an argument parser.
+
+        Notes:
+            Makes a new argument parser if one is not provided.
+        '''
         if pars is None:
             pars = argparse.ArgumentParser()
         agrp = pars.add_argument_group('config', 'Configuration arguments.')
