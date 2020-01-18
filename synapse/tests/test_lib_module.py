@@ -92,7 +92,6 @@ class CoreModTest(s_t_utils.SynTest):
             conf['modules'].append(foo_ctor)
             s_common.yamlsave(conf, dirn, 'cell.yaml')
             conf = s_common.yamlload(dirn, 'cell.yaml')
-            print(conf)
 
             with self.setTstEnvars(SYN_TEST_MOD_FAIL_PRE=1) as cm:
                 with self.getAsyncLoggerStream('synapse.cortex', 'preCoreModuleFail') as stream:
