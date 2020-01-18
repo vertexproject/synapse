@@ -83,14 +83,21 @@ def make_envar_name(key, prefix: str =None) -> str:
     return nk
 
 class Config020(c_abc.MutableMapping):
-    def __init__(self, confdata, conf=None, reqvalid=True, envar_prefix=None,):
+    def __init__(self,
+                 confdata,
+                 conf: dict =None,
+                 envar_prefix: str=None,
+                 ):
         self.confdata = confdata
         if conf is None:
             conf = {}
         self.conf = conf
-        self.reqvalid = reqvalid
         self._argparse_conf_names = {}
         self.envar_prefix = envar_prefix
+        self.json_schema = getSchema(self.confdata)
+        # fjs validation style...
+        # TODO Cache this if FJS does't already cache things...
+        self.validator = fastjsonschema.compile(self.json_schema)
 
     # Argparse support methods
     def generateArgparser(self, pars: argparse.ArgumentParser =None):
@@ -142,11 +149,8 @@ class Config020(c_abc.MutableMapping):
 
     # General methods
     def reqValidConf(self):
-        if not self.reqvalid:
-            return None
-        # TODO - Make this raise on a invalid configuration
-        # when we are doing type validation.
-        return None
+        # TODO: Wrap and raise a s_exc.SynErr...
+        return self.validator(self.conf)
 
     # be nice...
     def __repr__(self):
