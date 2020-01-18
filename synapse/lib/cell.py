@@ -6,6 +6,8 @@ import logging
 import functools
 import contextlib
 
+import collections.abc as c_abc
+
 import tornado.web as t_web
 
 import synapse.exc as s_exc
@@ -18,6 +20,7 @@ import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.hive as s_hive
 import synapse.lib.compat as s_compat
+import synapse.lib.config as s_config
 import synapse.lib.health as s_health
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
@@ -427,9 +430,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         if conf is None:
             conf = {}
 
-        [conf.setdefault(k, v) for (k, v) in self._loadCellYaml('cell.yaml').items()]
-
-        self.conf = s_common.config(conf, self.confdefs + self.confbase)
+        self.conf = self._initCellConf(conf)
 
         self.cmds = {}
 
@@ -667,6 +668,17 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     def getLocalUrl(self, share='*', user='root'):
         return f'cell://{user}@{self.dirn}:{share}'
+
+    def _initCellConf(self, conf: c_abc.MutableMapping):
+        if isinstance(conf, dict):
+            conf = s_config.Config020(confdata=self.confbase + self.confdefs,
+                                      conf=conf,
+                                      )
+        yaml_conf = self._loadCellYaml('cell.yaml')
+        for k, v in yaml_conf.items():
+            conf.setdefault(k, v)
+        conf.reqValidConf()
+        return conf
 
     def _loadCellYaml(self, *path):
 
