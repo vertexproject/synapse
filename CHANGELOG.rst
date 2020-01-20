@@ -3,6 +3,27 @@ Synapse Changelog
 *****************
 
 
+v0.1.45 - 2019-01-17
+====================
+
+Features and Enhancements
+-------------------------
+- Rewrote the base Synapse benchmark script for a modern Cortex.
+  (`#1503 <https://github.com/vertexproject/synapse/pull/1503>`_)
+- ``StormDmon`` objects now respect the ``view`` argument in their ``stormopts`` structure, and the ``$lib.dmon.add()``
+  StormType function will capture the current ``View`` iden to populate that structure.
+  (`#1504 <https://github.com/vertexproject/synapse/pull/1504>`_)
+- Add Storm commands to list and undo splices.
+  (`#1496 <https://github.com/vertexproject/synapse/pull/1496>`_)
+- Add the API plumbing to allow a forked ``View`` to have its splices merged back into the parent view.
+  (`#1505 <https://github.com/vertexproject/synapse/pull/1505>`_)
+
+Improved Documentation
+----------------------
+- Update User Guide documentation for Tag Properties (tagprops).
+  (`#1502 <https://github.com/vertexproject/synapse/pull/1502>`_)
+
+
 v0.1.44 - 2019-01-08
 ====================
 
