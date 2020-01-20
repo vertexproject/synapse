@@ -1,6 +1,3 @@
-import functools
-
-import synapse.common as s_common
 import synapse.lib.base as s_base
 
 class NexusType(type):
@@ -8,7 +5,10 @@ class NexusType(type):
     Metaclass that collects all methods in class with _regme prop into a class member called _nexsclsfuncs
     '''
     def __init__(cls, name, bases, attrs):
-        cls._nexsclsfuncs = []
+        # Start with my parents' definitions
+        cls._nexsclsfuncs = sum((getattr(scls, '_nexsclsfuncs', []) for scls in bases), [])
+
+        # Add my own definitions
         for meth in attrs.values():
 
             prop = getattr(meth, '_regme', None)
@@ -21,7 +21,7 @@ class Nexus(s_base.Base, metaclass=NexusType):
     '''
     _nexsclsfuncs = []  # type:ignore
 
-    async def __anit__(self, iden, parent: 'Nexus' = None):
+    async def __anit__(self, iden, parent: 'Nexus' = None):  # type: ignore
         await s_base.Base.__anit__(self)
         self._nexshands = {}  # type: ignore
         self._nexskids = {}  # type: ignore
@@ -40,18 +40,7 @@ class Nexus(s_base.Base, metaclass=NexusType):
         self._nexsroot = root
 
         for event, func in self._nexsclsfuncs:  # type: ignore
-            #     assert evnt not in self._nexshands
-            #     self._nexshands[evnt] = func
-            assert event not in self._nexshands
             self._nexshands[event] = func
-
-        # Fill in any unhandled-by-this-class inherited handlers
-        for scls in self.__class__.__bases__:
-            rfuncs = getattr(scls, '_nexsclsfuncs', None)
-            if not rfuncs:
-                continue
-            for event, func in rfuncs:
-                self._nexshands.setdefault(event, func)
 
     @classmethod
     def onPush(cls, event: str):
@@ -69,7 +58,7 @@ class Nexus(s_base.Base, metaclass=NexusType):
         Execute the change handler for the mesg
 
         Note:
-            This method should be considered 'protected', in that it should not be called from another object.
+            This method is considered 'protected', in that it should not be called from something other than self.
         '''
         if iden is None and self is not self._nexsroot:
             iden = self._nexsiden
