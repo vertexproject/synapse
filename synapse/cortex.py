@@ -20,6 +20,7 @@ import synapse.lib.hive as s_hive
 import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
+import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.spawn as s_spawn
@@ -85,6 +86,7 @@ class CoreApi(s_cell.CellApi):
         async for node in self.cell.getNodesBy(full, valu, cmpr=cmpr, view=view):
             yield node.pack()
 
+    # FIXME:  ModelDict/Def/Defs is a mess
     async def getModelDict(self):
         '''
         Return a dictionary which describes the data model.
@@ -137,7 +139,7 @@ class CoreApi(s_cell.CellApi):
         Adds a trigger to the cortex
 
         '''
-        # FIXME: should we check the layer belonging to the view?
+        # FIXME: shouldn't we check the layer belonging to the view?
         wlyr = self.cell.view.layers[0]
         await wlyr._reqUserAllowed(self.user, ('trigger', 'add'))
 
@@ -203,7 +205,7 @@ class CoreApi(s_cell.CellApi):
 
         return trigs
 
-    # FIXME:  discuss adding view here (it wouldn't be stored on the view though)
+    # FIXME:  add view here (it wouldn't be stored on the view though)
     async def addCronJob(self, query, reqs, incunit=None, incval=1):
         '''
         Add a cron job to the cortex
@@ -234,24 +236,7 @@ class CoreApi(s_cell.CellApi):
         '''
         await self._reqUserAllowed(('cron', 'add'))
 
-        def _convert_reqdict(reqdict):
-            return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
-
-        try:
-            if incunit is not None:
-                if isinstance(incunit, (list, tuple)):
-                    incunit = [s_agenda.TimeUnit.fromString(i) for i in incunit]
-                else:
-                    incunit = s_agenda.TimeUnit.fromString(incunit)
-            if isinstance(reqs, Mapping):
-                newreqs = _convert_reqdict(reqs)
-            else:
-                newreqs = [_convert_reqdict(req) for req in reqs]
-
-        except KeyError:
-            raise s_exc.BadConfValu('Unrecognized time unit')
-
-        return await self.cell.agenda.add(self.user.iden, query, newreqs, incunit, incval)
+        return await self.cell.addCronJob(query, reqs, incunit, incval)
 
     async def delCronJob(self, iden):
         '''
@@ -262,7 +247,7 @@ class CoreApi(s_cell.CellApi):
         '''
         cron = self.cell.agenda.appts.get(iden)
         await cron.reqAllowed(self.user, ('cron', 'del'))
-        await self.cell.agenda.delete(iden)
+        await self.cell.delCronJob.delete(iden)
 
     async def updateCronJob(self, iden, query):
         '''
@@ -273,7 +258,7 @@ class CoreApi(s_cell.CellApi):
         '''
         cron = self.cell.agenda.appts.get(iden)
         await cron.reqAllowed(self.user, ('cron', 'set'))
-        await self.cell.agenda.mod(iden, query)
+        await self.cell.updateCronJob(iden, query)
 
     async def enableCronJob(self, iden):
         '''
@@ -284,7 +269,7 @@ class CoreApi(s_cell.CellApi):
         '''
         cron = self.cell.agenda.appts.get(iden)
         await cron.reqAllowed(self.user, ('cron', 'set'))
-        await self.cell.agenda.enable(iden)
+        await self.cell.enableCronJob(iden)
 
     async def disableCronJob(self, iden):
         '''
@@ -295,7 +280,7 @@ class CoreApi(s_cell.CellApi):
         '''
         cron = self.cell.agenda.appts.get(iden)
         await cron.reqAllowed(self.user, ('cron', 'set'))
-        await self.cell.agenda.disable(iden)
+        await self.cell.disableCronJob(iden)
 
     async def listCronJobs(self):
         '''
@@ -328,8 +313,14 @@ class CoreApi(s_cell.CellApi):
         await self._reqUserAllowed(('storm', 'admin', 'cmds'))
         return await self.cell.delStormCmd(name)
 
+    async def _reqDefLayerAllowed(self, perms):
+        view = self.cell.getView()
+        wlyr = view.layers[0]
+        await wlyr._reqUserAllowed(self.user, perms)
+
     async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
+        FIXME:  add view parm?
         Add a tag to a node specified by iden.
 
         Args:
@@ -337,21 +328,8 @@ class CoreApi(s_cell.CellApi):
             tag (str):  A tag string.
             valu (tuple):  A time interval tuple or (None, None).
         '''
-        buid = s_common.uhex(iden)
-
-        async with await self.cell.snap(user=self.user) as snap:
-
-            parts = tag.split('.')
-            await snap.wlyr._reqUserAllowed(self.user, ('tag:add', *parts))
-
-            with s_provenance.claim('coreapi', meth='tag:add', user=snap.user.iden):
-
-                node = await snap.getNodeByBuid(buid)
-                if node is None:
-                    raise s_exc.NoSuchIden(iden=iden)
-
-                await node.addTag(tag, valu=valu)
-                return node.pack()
+        await self._reqDefAllowed(self.user, ('tag:add', *tag.split('.')))
+        return await self.cell.addNodeTag(iden, tag, valu)
 
     async def delNodeTag(self, iden, tag):
         '''
@@ -361,25 +339,13 @@ class CoreApi(s_cell.CellApi):
             iden (str): A hex encoded node BUID.
             tag (str):  A tag string.
         '''
-        buid = s_common.uhex(iden)
-
-        async with await self.cell.snap(user=self.user) as snap:
-
-            parts = tag.split('.')
-            await snap.wlyr._reqUserAllowed(self.user, ('tag:del', *parts))
-
-            with s_provenance.claim('coreapi', meth='tag:del', user=snap.user.iden):
-
-                node = await snap.getNodeByBuid(buid)
-                if node is None:
-                    raise s_exc.NoSuchIden(iden=iden)
-
-                await node.delTag(tag)
-                return node.pack()
+        await self._reqDefAllowed(self.user, ('tag:del', *tag.split('.')))
+        return await self.cell.delNodeTag(iden, tag)
 
     async def setNodeProp(self, iden, name, valu):
         '''
         Set a property on a single node.
+        FIXME:  how to move to cortex and still have enforcement?
         '''
         buid = s_common.uhex(iden)
 
@@ -486,6 +452,7 @@ class CoreApi(s_cell.CellApi):
 
             async with await self.cell.snap(user=self.user) as snap:
                 snap.strict = False
+                # FIXME:  is this enough to make snap a nexus?  Alternative is to add a cortex pass-through
                 return await snap.addFeedData(name, items, seqn=seqn)
 
     def getFeedOffs(self, iden):
@@ -493,6 +460,7 @@ class CoreApi(s_cell.CellApi):
 
     @s_cell.adminapi
     def setFeedOffs(self, iden, offs):
+        # FIXME:  are we keeping this?
         return self.cell.setFeedOffs(iden, offs)
 
     async def count(self, text, opts=None):
@@ -509,6 +477,7 @@ class CoreApi(s_cell.CellApi):
         view = await self._getViewFromOpts(opts)
 
         i = 0
+        # FIXME:  make a count, push to view
         async for _ in view.eval(text, opts=opts, user=self.user):
             i += 1
         return i
@@ -525,6 +494,7 @@ class CoreApi(s_cell.CellApi):
 
     async def storm(self, text, opts=None):
         '''
+        FIXME:  how t.f. to move this local
         Evaluate a storm query and yield result messages.
 
         Yields:
@@ -1192,6 +1162,10 @@ class Cortex(s_cell.Cell):
 
         }
         '''
+        return await self._push('storm:cmd:set', (cdef,))
+
+    @s_nexus.Nexus.onPush('storm:cmd:set')
+    async def _onSetStormCmd(self, cdef):
         name = cdef.get('name')
         await self._setStormCmd(cdef)
         await self.cmdhive.set(name, cdef)
@@ -1248,6 +1222,10 @@ class Cortex(s_cell.Cell):
             mesg = f'The storm command ({name}) is not dynamic.'
             raise s_exc.CantDelCmd(mesg=mesg)
 
+        return await self._push('storm:cmd:del', (name,))
+
+    @s_nexus.Nexus.onPush('storm:cmd:del')
+    async def _onDelStormCmd(self, name):
         await self.cmdhive.pop(name)
         self.stormcmds.pop(name, None)
         await self.bumpSpawnPool()
@@ -1590,6 +1568,10 @@ class Cortex(s_cell.Cell):
             mesg = 'Ext univ may not (yet) have a default value.'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
 
+        return await self._push('model:univ:add', (name, tdef, info))
+
+    @s_nexus.Nexus.onPush('model:univ:add')
+    async def _onAddUnivProp(self, name, tdef, info):
         self.model.addUnivProp(name, tdef, info)
 
         await self.extunivs.set(name, (name, tdef, info))
@@ -1605,6 +1587,10 @@ class Cortex(s_cell.Cell):
             mesg = 'Ext prop may not (yet) have a default value.'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
 
+        return await self._push('model:prop:add', (form, prop, tdef, info))
+
+    @s_nexus.Nexus.onPush('model:prop:add')
+    async def _onAddFormProp(self, form, prop, tdef, info):
         self.model.addFormProp(form, prop, tdef, info)
         await self.extprops.set(f'{form}:{prop}', (form, prop, tdef, info))
         await self.fire('core:extmodel:change',
@@ -1627,6 +1613,11 @@ class Cortex(s_cell.Cell):
                 mesg = f'Nodes still exist with prop: {form}:{prop}'
                 raise s_exc.CantDelProp(mesg=mesg)
 
+        return await self._push('model:prop:del', (form, prop,))
+
+    @s_nexus.Nexus.onPush('model:prop:del')
+    async def _onDelFormProp(self, form, prop):
+        full = f'{form}:{prop}'
         self.model.delFormProp(form, prop)
         await self.extprops.pop(full, None)
         await self.fire('core:extmodel:change',
@@ -1648,6 +1639,10 @@ class Cortex(s_cell.Cell):
                 mesg = f'Nodes still exist with universal prop: {prop}'
                 raise s_exc.CantDelUniv(mesg=mesg)
 
+        return await self._push('model:univ:del', (prop,))
+
+    @s_nexus.Nexus.onPush('storm:univ:del')
+    async def _onDelUnivProp(self, prop):
         self.model.delUnivProp(prop)
         await self.extunivs.pop(prop, None)
         await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
@@ -1681,6 +1676,105 @@ class Cortex(s_cell.Cell):
         await self.exttagprops.pop(name, None)
         await self.fire('core:tagprop:change', name=name, act='del')
         await self.bumpSpawnPool()
+
+    async def addNodeTag(self, iden, tag, valu=(None, None)):
+        return await self._push('node:tag:add', (iden, tag, valu,))
+
+    @s_nexus.Nexus.onPush('node:tag:add')
+    async def _onAddNodeTag(self, iden, tag, valu=(None, None)):
+        '''
+        Add a tag to a node specified by iden.
+
+        Args:
+            iden (str): A hex encoded node BUID.
+            tag (str):  A tag string.
+            valu (tuple):  A time interval tuple or (None, None).
+        '''
+
+        buid = s_common.uhex(iden)
+        async with await self.cell.snap(user=self.user) as snap:
+
+            with s_provenance.claim('coreapi', meth='tag:add', user=snap.user.iden):
+
+                node = await snap.getNodeByBuid(buid)
+                if node is None:
+                    raise s_exc.NoSuchIden(iden=iden)
+
+                await node.addTag(tag, valu=valu)
+                return node.pack()
+
+    async def delNodeTag(self, iden, tag):
+        '''
+        Delete a tag from the node specified by iden.
+
+        Args:
+            iden (str): A hex encoded node BUID.
+            tag (str):  A tag string.
+        '''
+        return await self._push('node:tag:del', (iden, tag))
+
+    async def addNode(self, form, valu, props=None):
+
+        async with await self.cell.snap(user=self.user) as snap:
+            await snap.wlyr._reqUserAllowed(self.user, ('node:add', form))
+            with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
+
+                node = await snap.addNode(form, valu, props=props)
+                return node.pack()
+
+    async def addNodes(self, nodes):
+        '''
+        Add a list of packed nodes to the cortex.
+
+        Args:
+            nodes (list): [ ( (form, valu), {'props':{}, 'tags':{}}), ... ]
+
+        Yields:
+            (tuple): Packed node tuples ((form,valu), {'props': {}, 'tags':{}})
+
+        '''
+
+        # First check that that user may add each form
+
+        done = {}
+        for node in nodes:
+
+            formname = node[0][0]
+            if done.get(formname):
+                continue
+
+            await self.cell.view.layers[0]._reqUserAllowed(self.user, ('node:add', formname))
+            done[formname] = True
+
+        async with await self.cell.snap(user=self.user) as snap:
+            with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
+
+                snap.strict = False
+
+                async for node in snap.addNodes(nodes):
+
+                    if node is not None:
+                        node = node.pack()
+
+                    yield node
+
+    @s_nexus.Nexus.onPush('node:tag:del')
+    async def _onDelNodeTag(self, iden, tag):
+        buid = s_common.uhex(iden)
+
+        async with await self.cell.snap(user=self.user) as snap:
+
+            parts = tag.split('.')
+
+            with s_provenance.claim('coreapi', meth='tag:del', user=snap.user.iden):
+
+                node = await snap.getNodeByBuid(buid)
+                if node is None:
+                    raise s_exc.NoSuchIden(iden=iden)
+
+                await node.delTag(tag)
+                return node.pack()
+
 
     async def _onCoreFini(self):
         '''
@@ -3355,6 +3449,111 @@ class Cortex(s_cell.Cell):
                                    name=name)
         norm, info = tobj.norm(valu)
         return norm, info
+
+    @staticmethod
+    def _convert_reqdict(reqdict):
+        return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
+
+    async def addCronJob(self, user, query, reqs, incunit=None, incval=1):
+        '''
+        Add a cron job to the cortex.  Convenience wrapper around agenda.add
+
+        A cron job is a persistently-stored item that causes storm queries to be run in the future.  The specification
+        for the times that the queries run can be one-shot or recurring.
+
+        Args:
+            query (str):  The storm query to execute in the future
+            reqs (Union[Dict[str, Union[int, List[int]]], List[Dict[...]]]):
+                Either a dict of the fixed time fields or a list of such dicts.  The keys are in the set ('year',
+                'month', 'dayofmonth', 'dayofweek', 'hour', 'minute'.  The values must be positive integers, except for
+                the key of 'dayofmonth' in which it may also be a negative integer which represents the number of days
+                from the end of the month with -1 representing the last day of the month.  All values may also be lists
+                of valid values.
+            incunit (Optional[str]):
+                A member of the same set as above, with an additional member 'day'.  If is None (default), then the
+                appointment is one-shot and will not recur.
+            incval (Union[int, List[int]):
+                A integer or a list of integers of the number of units
+
+        Returns (bytes):
+            An iden that can be used to later modify, query, and delete the job.
+
+        Notes:
+            reqs must have fields present or incunit must not be None (or both)
+            The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
+        '''
+        try:
+            if incunit is not None:
+                if isinstance(incunit, (list, tuple)):
+                    incunit = [s_agenda.TimeUnit.fromString(i) for i in incunit]
+                else:
+                    incunit = s_agenda.TimeUnit.fromString(incunit)
+            if isinstance(reqs, Mapping):
+                newreqs = self._convert_reqdict(reqs)
+            else:
+                newreqs = [self._convert_reqdict(req) for req in reqs]
+        except KeyError:
+            raise s_exc.BadConfValu('Unrecognized time unit')
+
+        return await self._push('cron:add', (user.iden, s_common.guid(), query, newreqs, incunit, incval))
+
+    @s_nexus.Nexus.onPush('cron:add')
+    async def _onAddCronJob(self, useriden, croniden, query, newreqs, incunit=None, incval=1):
+
+        return await self.agenda.add(useriden, croniden, query, newreqs, incunit, incval)
+
+    async def delCronJob(self, iden):
+        '''
+        Delete a cron job
+
+        Args:
+            iden (bytes):  The iden of the cron job to be deleted
+        '''
+        await self._push('cron:del', (iden,))
+
+    @s_nexus.Nexus.onPush('cron:del')
+    async def _onDisableTrigger(self, iden):
+        await self.cell.agenda.delete(iden)
+
+    async def updateCronJob(self, iden, query):
+        '''
+        Change an existing cron job's query
+
+        Args:
+            iden (bytes):  The iden of the cron job to be changed
+        '''
+        await self._push('cron:mod', (iden,))
+
+    @s_nexus.Nexus.onPush('cron:mod')
+    async def _onUpdateCronJob(self, iden, query):
+        await self.cell.agenda.mod(iden, query)
+
+    async def enableCronJob(self, iden):
+        '''
+        Enable a cron job
+
+        Args:
+            iden (bytes):  The iden of the cron job to be changed
+        '''
+        await self._push('cron:enable', (iden,))
+
+    @s_nexus.Nexus.onPush('cron:enable')
+    async def _onEnableCronJob(self, iden):
+        await self.cell.agenda.enable(iden)
+
+    async def disableCronJob(self, iden):
+        '''
+        Enable a cron job
+
+        Args:
+            iden (bytes):  The iden of the cron job to be changed
+        '''
+        await self._push('cron:disable', (iden,))
+
+    @s_nexus.Nexus.onPush('cron:disable')
+    async def _onDisableCronJob(self, iden):
+        await self.cell.agenda.disable(iden)
+
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):

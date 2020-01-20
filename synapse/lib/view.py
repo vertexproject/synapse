@@ -367,8 +367,7 @@ class View(s_hive.AuthGater):  # type: ignore
         '''
         trigiden = s_common.guid()
 
-        return await self.core._fireChange(('trigger:add', self.iden),
-                                           (trigiden, condition, query, info, disabled, user))
+        return await self._push('trigger:add', (trigiden, condition, query, info, disabled, user), iden=self.iden)
 
     @s_nexus.Nexus.onPush('trigger:add')
     async def _onPushAddTrigger(self, trigiden, condition, query, info, disabled=False, user=None):
@@ -388,7 +387,7 @@ class View(s_hive.AuthGater):  # type: ignore
         '''
         Delete a trigger from the view.
         '''
-        await self.core._fireChange(('trigger:del', self.iden), (iden,))
+        await self._push('trigger:del', (iden,), iden=self.iden)
 
     @s_nexus.Nexus.onPush('trigger:del')
     async def _onDelTrigger(self, iden):
@@ -399,7 +398,7 @@ class View(s_hive.AuthGater):  # type: ignore
         '''
         Change an existing trigger's query.
         '''
-        await self.core._fireChange(('trigger:update', self.iden), (iden, query))
+        await self._push('trigger:update', (iden, query), iden=self.iden)
 
     @s_nexus.Nexus.onPush('trigger:update')
     async def _onPushUpdateTrigger(self, iden, query):
@@ -410,7 +409,7 @@ class View(s_hive.AuthGater):  # type: ignore
         '''
         Enable an existing trigger.
         '''
-        await self.core._fireChange(('trigger:enable', self.iden), (iden,))
+        await self._push('trigger:enable', (iden,), iden=self.iden)
 
     @s_nexus.Nexus.onPush('trigger:enable')
     async def _onPushEnableTrigger(self, iden):
@@ -421,7 +420,7 @@ class View(s_hive.AuthGater):  # type: ignore
         '''
         Disable an existing trigger.
         '''
-        await self.core._fireChange(('trigger:disable', self.iden), (iden,))
+        await self._push('trigger:disable', (iden,), iden=self.iden)
 
     @s_nexus.Nexus.onPush('trigger:disable')
     async def _onDisableTrigger(self, iden, parm=None):
@@ -443,7 +442,7 @@ class View(s_hive.AuthGater):  # type: ignore
 
         Note: this does not delete any layer storage.
 
-        FIXME:  propagate chng?
+        FIXME:  propagate push?
         '''
         await s_hive.AuthGater.trash(self)
 

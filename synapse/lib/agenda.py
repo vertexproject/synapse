@@ -509,7 +509,7 @@ class Agenda(s_base.Base):
     def list(self):
         return list(self.appts.items())
 
-    async def add(self, useriden, query: str, reqs, incunit=None, incvals=None, doc=''):
+    async def add(self, useriden: str, croniden: str, query: str, reqs, incunit=None, incvals=None, doc=''):
         '''
         Persistently adds an appointment
 
@@ -533,7 +533,7 @@ class Agenda(s_base.Base):
         Returns:
             iden of new appointment
         '''
-        iden = s_common.guid()
+        iden = croniden
         recur = incunit is not None
         indx = self._next_indx
         self._next_indx += 1
@@ -554,7 +554,7 @@ class Agenda(s_base.Base):
             reqs = [reqs]
 
         # Find all combinations of values in reqdict values and incvals values
-        recs = []
+        recs = []  # type: ignore
         for req in reqs:
 
             reqdicts = self._dictproduct(req)

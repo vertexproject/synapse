@@ -204,7 +204,7 @@ class CellApi(s_nexus.Nexus):
         await self._reqUserAllowed(perm)
         return await self.cell._fireChange('hive:set', (path, value,))
 
-    @s_nexus.Nexus.onPush('trigger:disable')
+    @s_nexus.Nexus.onPush('hive:set')
     async def _onPushSetHiveKey(self, mesg):
         path, value = mesg[1]
         return await self.cell.hive.set(path, value)
@@ -486,20 +486,6 @@ class Cell(s_base.Base, s_telepath.Aware):
             [await s.fini() for s in self.sessions.values()]
 
         self.onfini(fini)
-
-        # Handlers for change messages
-        self.chnghands = {}
-
-    def onChange(self, evnt, func):
-        '''
-        Register a change handler
-        '''
-        prev = self.chnghands.setdefault(evnt, func)
-        assert prev is None
-
-    def offChange(self, evnt):
-        prev = self.chnghands.pop(evnt)
-        assert prev is not None
 
     async def _fireChange(self, mesg):
         '''
