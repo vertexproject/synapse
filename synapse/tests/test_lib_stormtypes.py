@@ -2,15 +2,25 @@ import bz2
 import gzip
 import json
 import base64
+import asyncio
 import hashlib
 import binascii
+import datetime
+
+from datetime import timezone as tz
+from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.provenance as s_provenance
 
 import synapse.tests.utils as s_test
 
 from synapse.tests.utils import alist
+
+MINSECS = 60
+HOURSECS = 60 * MINSECS
+DAYSECS = 24 * HOURSECS
 
 class StormTypesTest(s_test.SynTest):
 
@@ -1401,13 +1411,13 @@ class StormTypesTest(s_test.SynTest):
 
             await self.agenlen(0, core.eval('syn:trigger'))
 
-            q = 'trigger.add node:add --form test:str --query "{[ test:int=1 ]}"'
+            q = 'trigger.add node:add --form test:str --query {[ test:int=1 ]}'
             mesgs = await core.streamstorm(q).list()
 
             await core.storm('[ test:str=foo ]').list()
             await self.agenlen(1, core.eval('test:int'))
 
-            q = 'trigger.add tag:add --form test:str --tag #footag.* --query "{[ +#count test:str=$tag ]}"'
+            q = 'trigger.add tag:add --form test:str --tag #footag.* --query {[ +#count test:str=$tag ]}'
             mesgs = await core.streamstorm(q).list()
 
             await core.storm('[ test:str=bar +#footag.bar ]').list()
@@ -1415,7 +1425,7 @@ class StormTypesTest(s_test.SynTest):
             await self.agenlen(1, core.eval('#count'))
             await self.agenlen(1, core.eval('test:str=footag.bar'))
 
-            q = 'trigger.add prop:set --disabled --prop test:type10:intprop --query "{[ test:int=6 ]}"'
+            q = 'trigger.add prop:set --disabled --prop test:type10:intprop --query {[ test:int=6 ]}'
             mesgs = await core.streamstorm(q).list()
 
             nodes = await core.nodes('syn:trigger')
@@ -1468,42 +1478,42 @@ class StormTypesTest(s_test.SynTest):
             q = 'trigger.mod deadbeef12341234 {#foo}'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            await core.storm('trigger.add tag:add --tag #another --query "{[ +#count2 ]}"').list()
+            await core.storm('trigger.add tag:add --tag #another --query {[ +#count2 ]}').list()
 
             # Syntax mistakes
-            mesgs = await core.streamstorm('trigger.add tag:add --prop another --query "{[ +#count2 ]}"').list()
+            mesgs = await core.streamstorm('trigger.add tag:add --prop another --query {[ +#count2 ]}').list()
             self.stormIsInErr('Missing tag parameter', mesgs)
 
-            mesgs = await core.streamstorm('trigger.add tug:udd --prop another --query "{[ +#count2 ]}"').list()
+            mesgs = await core.streamstorm('trigger.add tug:udd --prop another --query {[ +#count2 ]}').list()
             self.stormIsInErr('Invalid trigger condition', mesgs)
 
             mesgs = await core.streamstorm('trigger.add tag:add --form inet:ipv4').list()
             self.stormIsInErr('Missing query parameter', mesgs)
 
-            mesgs = await core.streamstorm('trigger.add node:add --form test:str --tag #foo --query "{test:str}"').list()
+            mesgs = await core.streamstorm('trigger.add node:add --form test:str --tag #foo --query {test:str}').list()
             self.stormIsInErr('node:* does not support', mesgs)
 
-            mesgs = await core.streamstorm('trigger.add prop:set --tag #foo --query "{test:str}"').list()
+            mesgs = await core.streamstorm('trigger.add prop:set --tag #foo --query {test:str}').list()
             self.stormIsInErr('Missing prop parameter', mesgs)
 
-            mesgs = await core.streamstorm('trigger.add prop:set --prop test:type10.intprop --tag #foo --query "{test:str}"').list()
+            mesgs = await core.streamstorm('trigger.add prop:set --prop test:type10.intprop --tag #foo --query {test:str}').list()
             self.stormIsInErr('prop:set does not support a tag', mesgs)
 
             mesgs = await core.streamstorm('trigger.add tag:add --tag #tag --form test:int').list()
             self.stormIsInErr('Missing query', mesgs)
 
-            mesgs = await core.streamstorm('trigger.add node:add --tag #tag1 --query "{test:str}"').list()
+            mesgs = await core.streamstorm('trigger.add node:add --tag #tag1 --query {test:str}').list()
             self.stormIsInErr('Missing form', mesgs)
 
-            mesgs = await core.streamstorm(f'trigger.mod {goodbuid2} "test:str"').list()
+            mesgs = await core.streamstorm(f'trigger.mod {goodbuid2} test:str').list()
             self.stormIsInErr('start with {', mesgs)
 
             # Bad storm syntax
-            mesgs = await core.streamstorm('trigger.add node:add --form test:str --query "{[ | | test:int=1 ] }"').list()
+            mesgs = await core.streamstorm('trigger.add node:add --form test:str --query {[ | | test:int=1 ] }').list()
             self.stormIsInErr('No terminal defined', mesgs)
 
             # (Regression) Just a command as the storm query
-            mesgs = await core.streamstorm('trigger.add node:add --form test:str --query "{[ test:int=99 ] | spin }"').list()
+            mesgs = await core.streamstorm('trigger.add node:add --form test:str --query {[ test:int=99 ] | spin }').list()
             await core.storm('[ test:str=foo4 ]').list()
             await self.agenlen(1, core.eval('test:int=99'))
 
@@ -1512,7 +1522,7 @@ class StormTypesTest(s_test.SynTest):
 
             async with core.getLocalProxy(user='bond') as tcore:
 
-                q = f'trigger.mod {goodbuid2} "{{[ test:str=yep ]}}"'
+                q = f'trigger.mod {goodbuid2} {{[ test:str=yep ]}}'
                 await self.agenraises(s_exc.AuthDeny, tcore.eval(q))
 
                 q = f'trigger.disable {goodbuid2}'
@@ -1540,3 +1550,274 @@ class StormTypesTest(s_test.SynTest):
 
                 mesgs = await tcore.storm(f'trigger.del {goodbuid2}').list()
                 self.stormIsInPrint('Deleted trigger', mesgs)
+
+    async def test_storm_lib_cron(self):
+
+        MONO_DELT = 1543827303.0
+        unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
+        sync = asyncio.Event()
+        lastquery = None
+        s_provenance.reset()
+
+        def timetime():
+            return unixtime
+
+        def looptime():
+            return unixtime - MONO_DELT
+
+        async def myeval(query, user=None):
+            nonlocal lastquery
+            lastquery = query
+            sync.set()
+            return
+            yield None
+
+        loop = asyncio.get_running_loop()
+
+        with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime):
+
+            async with self.getTestCoreAndProxy() as (core, prox):
+
+                await self.agenlen(0, core.eval('syn:cron'))
+
+                q = "cron.add --month nosuchmonth --day=-2 {#foo}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Failed to parse fixed parameter "nosuchmonth"', mesgs)
+
+                q = "cron.add --month 8nosuchmonth --day=-2 {#foo}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Failed to parse fixed parameter "8nosuchmonth"', mesgs)
+
+                q = "cron.add --day=, {#foo}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Failed to parse day value', mesgs)
+
+                q = "cron.add --day Mon --month +3 {#foo}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('provide a recurrence value with day of week', mesgs)
+
+                q = "cron.add --day Mon --month June {#foo}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('fix month or year with day of week', mesgs)
+
+                q = "cron.add --day Mon --month +3 --year +2 {#foo}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('more than 1 recurrence', mesgs)
+
+                q = "cron.add --year=2019 {#foo}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Year may not be a fixed value', mesgs)
+
+                q = "cron.add {#foo}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Must provide at least one optional', mesgs)
+
+                q = "cron.add --hour 3 --minute +4 {#foo}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Fixed unit may not be larger', mesgs)
+
+                q = 'cron.add --day Tuesday,1 {#foo}'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Failed to parse day value', mesgs)
+
+                q = 'cron.add --day Fri,3 {#foo}'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Failed to parse day value', mesgs)
+
+                q = 'cron.add }'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('No terminal defined', mesgs)
+
+                ##################
+                oldsplices = len(await alist(prox.splices(0, 1000)))
+
+                # Start simple: add a cron job that creates a node every minute
+                q = "cron.add --minute +1 {[graph:node='*' :type=m1]}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInPrint('Created cron job', mesgs)
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        guid = mesg[1]['mesg'].split(' ')[-1]
+
+                unixtime += 60
+                nodes = await core.nodes('syn:cron')
+                self.isin(':type=m1', nodes[0].props.get('storm'))
+
+                # Make sure it ran
+                await self.agenlen(1, prox.eval('graph:node:type=m1'))
+
+                # Make sure the provenance of the new splices looks right
+                splices = await alist(prox.splices(oldsplices, 1000))
+                self.gt(len(splices), 1)
+
+                aliases = [splice[1]['prov'] for splice in splices]
+                self.true(all(a == aliases[0] for a in aliases))
+                prov = await prox.getProvStack(aliases[0])
+                rootiden = prov[1][1][1]['user']
+                correct = ({}, (
+                           ('cron', {'iden': guid}),
+                           ('storm', {'q': "[graph:node='*' :type=m1]", 'user': rootiden})))
+                self.eq(prov, correct)
+
+                q = f"cron.mod {guid[:6]} {{[graph:node='*' :type=m2]}}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInPrint('Modified cron job', mesgs)
+
+                q = f"cron.mod xxx {{[graph:node='*' :type=m2]}}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('does not match', mesgs)
+
+                q = f"cron.mod xxx yyy"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Expected second argument to start with {', mesgs)
+
+                # Make sure the old one didn't run and the new query ran
+                unixtime += 60
+                await self.agenlen(1, prox.eval('graph:node:type=m1'))
+                await self.agenlen(1, prox.eval('graph:node:type=m2'))
+
+                # Delete the job
+                q = f"cron.del {guid}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInPrint('Deleted cron job', mesgs)
+
+                q = f"cron.del xxx"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('does not match', mesgs)
+
+                q = f"cron.del xxx"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('does not match', mesgs)
+
+                # Make sure deleted job didn't run
+                unixtime += 60
+                await self.agenlen(1, prox.eval('graph:node:type=m1'))
+                await self.agenlen(1, prox.eval('graph:node:type=m2'))
+
+                # Test fixed minute, i.e. every hour at 17 past
+                unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,
+                                             tzinfo=tz.utc).timestamp()
+                q = "cron.add --minute 17 {[graph:node='*' :type=m3]}"
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        guid = mesg[1]['mesg'].split(' ')[-1]
+
+                unixtime += 7 * MINSECS
+
+                # Make sure it runs.  We add the cron list to give the cron scheduler a chance to run
+                await core.nodes('syn:cron')
+                await self.agenlen(1, prox.eval('graph:node:type=m3'))
+                await core.nodes(f"cron.del {guid}")
+
+                ##################
+
+                # Test day increment
+                q = "cron.add --day +2 {[graph:node='*' :type=d1]}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInPrint('Created cron job', mesgs)
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        guid1 = mesg[1]['mesg'].split(' ')[-1]
+
+                unixtime += DAYSECS
+
+                # Make sure it *didn't* run
+                await self.agenlen(0, prox.eval('graph:node:type=d1'))
+
+                unixtime += DAYSECS
+
+                # Make sure it runs.  We add the cron list to give the cron scheduler a chance to run
+
+                await core.nodes('syn:cron')
+                await core.nodes('syn:cron')
+                await self.agenlen(1, prox.eval('graph:node:type=d1'))
+
+                unixtime += DAYSECS * 2
+                await core.nodes('syn:cron')
+                await core.nodes('syn:cron')
+                await self.agenlen(2, prox.eval('graph:node:type=d1'))
+
+                ##################
+
+                # Test fixed day of week: every Monday and Thursday at 3am
+                unixtime = datetime.datetime(year=2018, month=12, day=11, hour=7, minute=10,
+                                             tzinfo=tz.utc).timestamp()  # A Tuesday
+
+                q = "cron.add --hour 3 --day Mon,Thursday {[graph:node='*' :type=d2]}"
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        guid2 = mesg[1]['mesg'].split(' ')[-1]
+
+                unixtime = datetime.datetime(year=2018, month=12, day=13, hour=3, minute=10,
+                                             tzinfo=tz.utc).timestamp()  # Now Thursday
+                await core.nodes('syn:cron')
+                await self.agenlen(1, prox.eval('graph:node:type=d2'))
+
+                await core.nodes(f"cron.del {guid1}")
+                await core.nodes(f"cron.del {guid2}")
+
+                q = "cron.add --hour 3 --day Noday {[graph:node='*' :type=d2]}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Failed to parse day value "Noday"', mesgs)
+
+                ##################
+
+                # Test fixed day of month: second-to-last day of month
+                q = "cron.add --day -2 --month Dec {[graph:node='*' :type=d3]}"
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        guid = mesg[1]['mesg'].split(' ')[-1]
+
+                unixtime = datetime.datetime(year=2018, month=12, day=29, hour=0, minute=0,
+                                             tzinfo=tz.utc).timestamp()  # Now Thursday
+                await core.nodes('syn:cron')
+                await self.agenlen(0, prox.eval('graph:node:type=d3'))  # Not yet
+
+                unixtime += DAYSECS
+                await core.nodes('syn:cron')
+                await core.nodes('syn:cron')
+                await self.agenlen(1, prox.eval('graph:node:type=d3'))
+
+                await core.nodes(f"cron.del {guid}")
+
+                ##################
+
+                # Test month increment
+
+                q = "cron.add --month +2 --day=4 {[graph:node='*' :type=month1]}"
+                mesgs = await core.streamstorm(q).list()
+                unixtime = datetime.datetime(year=2019, month=2, day=4, hour=0, minute=0,
+                                             tzinfo=tz.utc).timestamp()  # Now Thursday
+
+                await core.nodes('syn:cron')
+                await self.agenlen(1, prox.eval('graph:node:type=month1'))
+
+                ##################
+
+                # Test year increment
+
+                q = "cron.add --year +2 {[graph:node='*' :type=year1]}"
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        guid2 = mesg[1]['mesg'].split(' ')[-1]
+
+                unixtime = datetime.datetime(year=2021, month=1, day=1, hour=0, minute=0,
+                                             tzinfo=tz.utc).timestamp()  # Now Thursday
+
+                await core.nodes('syn:cron')
+                await core.nodes('syn:cron')
+                await self.agenlen(1, prox.eval('graph:node:type=year1'))
+
+                # Make sure second-to-last day works for February
+                q = "cron.add --month February --day=-2 {[graph:node='*' :type=year2]}"
+                mesgs = await core.streamstorm(q).list()
+                unixtime = datetime.datetime(year=2021, month=2, day=27, hour=0, minute=0,
+                                             tzinfo=tz.utc).timestamp()  # Now Thursday
+
+                await core.nodes('syn:cron')
+                await core.nodes('syn:cron')
+                await self.agenlen(1, prox.eval('graph:node:type=year2'))

@@ -192,6 +192,24 @@ class Snap(s_base.Base):
     async def listTriggers(self):
         return await self.core.listTriggers()
 
+    async def addCronJob(self, query, reqdict, incunit, incval):
+        return await self.core.addCronJob(self.user, query, reqdict, incunit, incval)
+
+    async def delCronJob(self, iden):
+        return await self.core.delCronJob(iden)
+
+    async def updateCronJob(self, iden, query):
+        return await self.core.updateCronJob(iden, query)
+
+    async def enableCronJob(self, iden):
+        return await self.core.enableCronJob(iden)
+
+    async def disableCronJob(self, iden):
+        return await self.core.disableCronJob(iden)
+
+    async def listCronJobs(self):
+        return await self.core.listCronJobs()
+
     def getStormMod(self, name):
         return self.mods.get(name)
 

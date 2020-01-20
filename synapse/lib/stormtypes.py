@@ -6,6 +6,7 @@ import asyncio
 import logging
 import binascii
 import datetime
+import calendar
 import collections
 
 import synapse.exc as s_exc
@@ -1361,7 +1362,6 @@ class LibTrigger(Lib):
             'add': self._methTriggerAdd,
             'del': self._methTriggerDel,
             'mod': self._methTriggerMod,
-            'list': self._methTriggerList,
             'enable': self._methTriggerEnable,
             'disable': self._methTriggerDisable,
         })
@@ -1461,14 +1461,6 @@ class LibTrigger(Lib):
 
         return iden
 
-    async def _methTriggerList(self):
-        '''
-        List the triggers in the cortex.
-        '''
-        self.runt.reqAllowed(('trigger', 'get'))
-
-        return await self.runt.snap.listTriggers()
-
     async def _methTriggerEnable(self, prefix):
         '''
         Enable a trigger in the cortex.
@@ -1488,6 +1480,392 @@ class LibTrigger(Lib):
 
         iden = await self._match_idens(prefix)
         await self.runt.snap.disableTrigger(iden)
+
+        return iden
+
+class LibCron(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'at': self._methCronAt,
+            'add': self._methCronAdd,
+            'del': self._methCronDel,
+            'mod': self._methCronMod,
+            'stat': self._methCronStat,
+            'enable': self._methCronEnable,
+            'disable': self._methCronDisable,
+        })
+
+    async def _match_idens(self, prefix):
+        '''
+        Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
+        exactly one.
+        '''
+        idens = [iden for iden, job in await self.runt.snap.listCronJobs()]
+        matches = [iden for iden in idens if iden.startswith(prefix)]
+
+        if len(matches) == 1:
+            return matches[0]
+        elif len(matches) == 0:
+            mesg = 'Provided iden does not match any valid authorized cron job.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+        else:
+            mesg = 'Provided iden matches more than one cron job.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+
+    def _parse_weekday(self, val):
+        ''' Try to match a day-of-week abbreviation, then try a day-of-week full name '''
+        val = val.title()
+        try:
+            return list(calendar.day_abbr).index(val)
+        except ValueError:
+            try:
+                return list(calendar.day_name).index(val)
+            except ValueError:
+                return None
+
+    def _parse_incval(self, incunit, incval):
+        ''' Parse a non-day increment value. Should be an integer or a comma-separated integer list. '''
+        try:
+            retn = [int(val) for val in incval.split(',')]
+        except ValueError:
+            return None
+
+        return retn[0] if len(retn) == 1 else retn
+
+    def _parse_req(self, requnit, reqval):
+        ''' Parse a non-day fixed value '''
+        assert reqval[0] != '='
+
+        try:
+            retn = []
+            for val in reqval.split(','):
+                if requnit == 'month':
+                    if reqval[0].isdigit():
+                        retn.append(int(reqval))  # must be a month (1-12)
+                    else:
+                        try:
+                            retn.append(list(calendar.month_abbr).index(val.title()))
+                        except ValueError:
+                            retn.append(list(calendar.month_name).index(val.title()))
+                else:
+                    retn.append(int(val))
+        except ValueError:
+            return None
+
+        if not retn:
+            return None
+
+        return retn[0] if len(retn) == 1 else retn
+
+    def _parse_day(self, optval):
+        ''' Parse a --day argument '''
+        isreq = not optval.startswith('+')
+        if not isreq:
+            optval = optval[1:]
+
+        try:
+            retnval = []
+            unit = None
+            for val in optval.split(','):
+                if not val:
+                    raise ValueError
+                if val[-1].isdigit():
+                    newunit = 'dayofmonth' if isreq else 'day'
+                    if unit is None:
+                        unit = newunit
+                    elif newunit != unit:
+                        raise ValueError
+                    retnval.append(int(val))
+                else:
+                    newunit = 'dayofweek'
+                    if unit is None:
+                        unit = newunit
+                    elif newunit != unit:
+                        raise ValueError
+
+                    weekday = self._parse_weekday(val)
+                    if weekday is None:
+                        raise ValueError
+                    retnval.append(weekday)
+            if len(retnval) == 0:
+                raise ValueError
+        except ValueError:
+            return None, None
+        if len(retnval) == 1:
+            retnval = retnval[0]
+        return unit, retnval
+
+    def _parse_alias(self, opts):
+        retn = {}
+
+        hourly = opts.get('hourly')
+        if hourly is not None:
+            retn['hour'] = '+1'
+            retn['minute'] = str(int(hourly))
+            return retn
+
+        daily = opts.get('daily')
+        if daily is not None:
+            fields = time.strptime(daily, '%H:%M')
+            retn['day'] = '+1'
+            retn['hour'] = str(fields.tm_hour)
+            retn['minute'] = str(fields.tm_min)
+            return retn
+
+        monthly = opts.get('monthly')
+        if monthly is not None:
+            day, rest = monthly.split(':', 1)
+            fields = time.strptime(rest, '%H:%M')
+            retn['month'] = '+1'
+            retn['day'] = day
+            retn['hour'] = str(fields.tm_hour)
+            retn['minute'] = str(fields.tm_min)
+            return retn
+
+        yearly = opts.get('yearly')
+        if yearly is not None:
+            fields = yearly.split(':')
+            if len(fields) != 4:
+                raise ValueError(f'Failed to parse parameter {opts.yearly}')
+            retn['year'] = '+1'
+            retn['month'], retn['day'], retn['hour'], retn['minute'] = fields
+            return retn
+
+        return None
+
+    async def _methCronAdd(self, **kwargs):
+        '''
+        Add a cron job to the cortex.
+        '''
+        self.runt.reqAllowed(('cron', 'add'))
+
+        incunit = None
+        incval = None
+        reqdict = {}
+        valinfo = {  # unit: (minval, next largest unit)
+            'month': (1, 'year'),
+            'dayofmonth': (1, 'month'),
+            'hour': (0, 'day'),
+            'minute': (0, 'hour'),
+        }
+
+        query = kwargs.get('query', None)
+        if query is None:
+            mesg = 'Query parameter is required.'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        if not query.startswith('{'):
+            mesg = 'Query parameter must start with {'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        try:
+            alias_opts = self._parse_alias(kwargs)
+        except ValueError as e:
+            mesg = f'Failed to parse ..ly parameter: {" ".join(e.args)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        if alias_opts:
+            year = kwargs.get('year')
+            month = kwargs.get('month')
+            day = kwargs.get('day')
+            hour = kwargs.get('hour')
+            minute = kwargs.get('minute')
+
+            if year or month or day or hour or minute:
+                mesg = 'May not use both alias (..ly) and explicit options at the same time'
+                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+            opts = alias_opts
+
+        for optname in ('year', 'month', 'day', 'hour', 'minute'):
+            optval = kwargs.get(optname)
+
+            if optval is None:
+                if incunit is None and not reqdict:
+                    continue
+                # The option isn't set, but a higher unit is.  Go ahead and set the required part to the lowest valid
+                # value, e.g. so -m 2 would run on the *first* of every other month at midnight
+                if optname == 'day':
+                    reqdict['dayofmonth'] = 1
+                else:
+                    reqdict[optname] = valinfo[optname][0]
+                continue
+
+            isreq = not optval.startswith('+')
+
+            if optname == 'day':
+                unit, val = self._parse_day(optval)
+                if val is None:
+                    mesg = f'Failed to parse day value "{optval}"'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                if unit == 'dayofweek':
+                    if incunit is not None:
+                        mesg = 'May not provide a recurrence value with day of week'
+                        raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                    if reqdict:
+                        mesg = 'May not fix month or year with day of week'
+                        raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                    incunit, incval = unit, val
+                elif unit == 'day':
+                    incunit, incval = unit, val
+                else:
+                    assert unit == 'dayofmonth'
+                    reqdict[unit] = val
+                continue
+
+            if not isreq:
+                if incunit is not None:
+                    mesg = 'May not provide more than 1 recurrence parameter'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                if reqdict:
+                    mesg = 'Fixed unit may not be larger than recurrence unit'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                incunit = optname
+                incval = self._parse_incval(optname, optval)
+                if incval is None:
+                    mesg = 'Failed to parse parameter'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                continue
+
+            if optname == 'year':
+                mesg = 'Year may not be a fixed value'
+                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+            reqval = self._parse_req(optname, optval)
+            if reqval is None:
+                mesg = f'Failed to parse fixed parameter "{optval}"'
+                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+            reqdict[optname] = reqval
+
+        # If not set, default (incunit, incval) to (1, the next largest unit)
+        if incunit is None:
+            if not reqdict:
+                mesg = 'Must provide at least one optional argument'
+                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+            requnit = next(iter(reqdict))  # the first key added is the biggest unit
+            incunit = valinfo[requnit][1]
+            incval = 1
+
+        # Remove the curly braces
+        query = query[1:-1]
+
+        iden = await self.runt.snap.addCronJob(query, reqdict, incunit, incval)
+        return iden
+
+    async def _methCronAt(self, **kwargs):
+        '''
+        Add non-recurring cron jobs to the cortex.
+        '''
+        query = None
+
+        tslist = []
+        now = time.time()
+
+        for pos, arg in enumerate(opts.args):
+            try:
+                if consumed_next:
+                    consumed_next = False
+                    continue
+
+                if arg.startswith('{'):
+                    if query is not None:
+                        mesg = 'Only a single query is allowed'
+                        raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                    query = arg[1:-1]
+                    continue
+
+                if arg.startswith('+'):
+                    if arg[-1].isdigit():
+                        if pos == len(opts.args) - 1:
+                            mesg = 'Time delta missing unit'
+                            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                        arg = f'{arg} {opts.args[pos + 1]}'
+                        consumed_next = True
+                    ts = now + s_time.delta(arg) / 1000.0
+                    tslist.append(ts)
+                    continue
+
+                ts = s_time.parse(arg) / 1000.0
+                tslist.append(ts)
+            except (ValueError, s_exc.BadTypeValu):
+                mesg = f'Trouble parsing "{arg}"'
+                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        if query is None:
+            mesg = 'Missing query argument'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+    def _format_timestamp(ts):
+        # N.B. normally better to use fromtimestamp with UTC timezone, but we don't want timezone to print out
+        return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
+
+    async def _methCronDel(self, prefix):
+        '''
+        Delete a trigger from the cortex.
+        '''
+        self.runt.reqAllowed(('trigger', 'del'))
+
+        iden = await self._match_idens(prefix)
+
+        await self.runt.snap.delCronJob(iden)
+
+        return iden
+
+    async def _methCronMod(self, prefix, query):
+        '''
+        Modify a cron job in the cortex.
+        '''
+        self.runt.reqAllowed(('cron', 'set'))
+
+        if not query.startswith('{'):
+            mesg = 'Expected second argument to start with {'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix, query=query)
+
+        # Remove the curly braces
+        query = query[1:-1]
+
+        iden = await self._match_idens(prefix)
+        await self.runt.snap.updateCronJob(iden, query)
+
+        return iden
+
+    async def _methCronStat(self, prefix, query):
+        '''
+        Modify a trigger in the cortex.
+        '''
+        self.runt.reqAllowed(('trigger', 'set'))
+
+        if not query.startswith('{'):
+            mesg = 'Expected second argument to start with {'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix, query=query)
+
+        # Remove the curly braces
+        query = query[1:-1]
+
+        iden = await self._match_idens(prefix)
+        await self.runt.snap.updateTri(iden, query)
+
+        return iden
+
+    async def _methCronEnable(self, prefix):
+        '''
+        Enable a cron job in the cortex.
+        '''
+        self.runt.reqAllowed(('cron', 'set'))
+
+        iden = await self._match_idens(prefix)
+        await self.runt.snap.enableCronJob(iden)
+
+        return iden
+
+    async def _methCronDisable(self, prefix):
+        '''
+        Disable a cron job in the cortex.
+        '''
+        self.runt.reqAllowed(('cron', 'set'))
+
+        iden = await self._match_idens(prefix)
+        await self.runt.snap.disableCronJob(iden)
 
         return iden
 
