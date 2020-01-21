@@ -1478,11 +1478,24 @@ class View(Prim):
     def __init__(self, view, path=None):
         Prim.__init__(self, view, path=path)
         self.locls.update({
-            'value': self._methViewValue,
+            'pack': self._methViewPack,
         })
 
-    async def _methViewValue(self):
-        return self.valu.pack()
+    async def _methViewPack(self):
+
+        layrinfo = []
+        for layr in self.valu.layers:
+            layrinfo.append({
+                'ctor': layr.ctorname,
+                'iden': layr.iden,
+                'readonly': layr.readonly,
+            })
+
+        return {
+            'iden': self.valu.iden,
+            'owner': self.valu.info.get('owner'),
+            'layers': layrinfo,
+        }
 
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):

@@ -1402,7 +1402,7 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[test:int=12 +#tag.test +#tag.proptest:risk=20]')
 
             # Get the main view
-            q = '$lib.print($lib.view.get().value().iden)'
+            q = '$lib.print($lib.view.get().pack().iden)'
             mesgs = await core.streamstorm(q).list()
             for mesg in mesgs:
                 if mesg[0] == 'print':
@@ -1410,15 +1410,15 @@ class StormTypesTest(s_test.SynTest):
 
             self.isin(mainiden, core.views)
 
-            q = f'$lib.print($lib.view.get({mainiden}).value().iden)'
+            q = f'$lib.print($lib.view.get({mainiden}).pack().iden)'
             mesgs = await core.streamstorm(q).list()
             self.stormIsInPrint(mainiden, mesgs)
 
             # Fork the main view
             q = f'''
                 $forkview=$lib.view.fork({mainiden})
-                $forkvalu=$forkview.value()
-                $lib.print("{{iden}},{{layr}}", iden=$forkvalu.iden, layr=$forkvalu.layers.index(0))
+                $forkvalu=$forkview.pack()
+                $lib.print("{{iden}},{{layr}}", iden=$forkvalu.iden, layr=$forkvalu.layers.index(0).iden)
             '''
             mesgs = await core.streamstorm(q).list()
             for mesg in mesgs:
@@ -1433,7 +1433,7 @@ class StormTypesTest(s_test.SynTest):
 
             q = f'''
                 $newview=$lib.view.add(({newlayer.iden},))
-                $lib.print($newview.value().iden)
+                $lib.print($newview.pack().iden)
             '''
             mesgs = await core.streamstorm(q).list()
             for mesg in mesgs:
@@ -1445,7 +1445,7 @@ class StormTypesTest(s_test.SynTest):
             # List the views in the cortex
             q = '''
                 for $view in $lib.view.list() {
-                    $lib.print($view.value().iden)
+                    $lib.print($view.pack().iden)
                 }
             '''
             idens = []
@@ -1465,7 +1465,7 @@ class StormTypesTest(s_test.SynTest):
             # Fork the forked view
             q = f'''
                 $forkview=$lib.view.fork({forkiden})
-                $lib.print($forkview.value().iden)
+                $lib.print($forkview.pack().iden)
             '''
             mesgs = await core.streamstorm(q).list()
             for mesg in mesgs:
@@ -1511,7 +1511,7 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.streamstorm(q).list()
             self.stormIsInPrint(mainiden, mesgs)
 
-            q = f'view.get --iden {mainiden}'
+            q = f'view.get {mainiden}'
             mesgs = await core.streamstorm(q).list()
             self.stormIsInPrint(mainiden, mesgs)
 
@@ -1527,7 +1527,7 @@ class StormTypesTest(s_test.SynTest):
             # Add a view
             newlayer2 = await core.addLayer()
 
-            q = f'view.add --layer {newlayer.iden} --layer {newlayer2.iden}'
+            q = f'view.add --layers {newlayer.iden} {newlayer2.iden}'
             mesgs = await core.streamstorm(q).list()
             for mesg in mesgs:
                 if mesg[0] == 'print':
@@ -1537,11 +1537,7 @@ class StormTypesTest(s_test.SynTest):
 
             # List the views in the cortex
             q = 'view.list'
-            idens = []
             mesgs = await core.streamstorm(q).list()
-            for mesg in mesgs:
-                if mesg[0] == 'print':
-                    idens.append(mesg[1]['mesg'])
 
             for viden, v in core.views.items():
                 self.stormIsInPrint(viden, mesgs)
@@ -1584,7 +1580,7 @@ class StormTypesTest(s_test.SynTest):
 
                 q = f'''
                     $newview=$lib.view.add(({newlayer.iden},))
-                    $lib.print($newview.value().iden)
+                    $lib.print($newview.pack().iden)
                 '''
                 mesgs = await asvisi.storm(q).list()
                 for mesg in mesgs:
@@ -1595,7 +1591,7 @@ class StormTypesTest(s_test.SynTest):
 
                 q = f'''
                     $forkview=$lib.view.fork({mainiden})
-                    $lib.print($forkview.value().iden)
+                    $lib.print($forkview.pack().iden)
                 '''
                 mesgs = await asvisi.storm(q).list()
                 for mesg in mesgs:
@@ -1637,7 +1633,7 @@ class StormTypesTest(s_test.SynTest):
                 self.notin(forkediden, core.views)
 
                 # Make some views not owned by the user
-                q = f'view.add --layer {newlayer.iden}'
+                q = f'view.add --layers {newlayer.iden}'
                 mesgs = await core.streamstorm(q).list()
                 for mesg in mesgs:
                     if mesg[0] == 'print':

@@ -141,11 +141,11 @@ stormcmds = (
         'name': 'view.add',
         'descr': 'Add a view to the cortex.',
         'cmdargs': (
-            ('--layer', {'default': [], 'action': 'append', 'help': 'Layers for the view.'}),
+            ('--layers', {'default': [], 'nargs': '*', 'help': 'Layers for the view.'}),
         ),
         'storm': '''
-            $view = $lib.view.add($cmdopts.layer)
-            $lib.print("View added: {iden}", iden=$view.value().iden)
+            $view = $lib.view.add($cmdopts.layers)
+            $lib.print("View added: {iden}", iden=$view.pack().iden)
         ''',
     },
     {
@@ -169,24 +169,26 @@ stormcmds = (
             $forkview = $lib.view.fork($cmdopts.iden)
             $lib.print("View {iden} forked to new view: {forkiden}",
                         iden=$cmdopts.iden,
-                        forkiden=$forkview.value().iden)
+                        forkiden=$forkview.pack().iden)
         ''',
     },
     {
         'name': 'view.get',
         'descr': 'Get a view from the cortex.',
         'cmdargs': (
-            ('--iden', {'help': 'Iden of the view to get. If no iden is provided, the main view will be returned.'}),
+            ('iden', {'nargs': '?', 'help': 'Iden of the view to get. If no iden is provided, the main view will be returned.'}),
         ),
         'storm': '''
-            $lib.print($cmdopts)
             $view = $lib.view.get($cmdopts.iden)
+            $viewvalu = $view.pack()
 
-            $viewvalu = $view.value()
-            $lib.print("View {iden}", iden=$viewvalu.iden)
+            $lib.print("View {iden} owned by {owner}", iden=$viewvalu.iden, owner=$viewvalu.owner)
             $lib.print("Layers:")
             for $layer in $viewvalu.layers {
-                $lib.print("  {iden}", iden=$layer)
+                $lib.print("  {iden} ctor: {ctor} readonly: {readonly}",
+                           iden=$layer.iden,
+                           ctor=$layer.ctor,
+                           readonly=$layer.readonly)
             }
         ''',
     },
@@ -196,12 +198,15 @@ stormcmds = (
         'cmdargs': (),
         'storm': '''
             for $view in $lib.view.list() {
-                $viewvalu = $view.value()
+                $viewvalu = $view.pack()
 
-                $lib.print("View {iden}", iden=$viewvalu.iden)
+                $lib.print("View {iden} owned by {owner}", iden=$viewvalu.iden, owner=$viewvalu.owner)
                 $lib.print("Layers:")
                 for $layer in $viewvalu.layers {
-                    $lib.print("  {iden}", iden=$layer)
+                    $lib.print("  {iden} ctor: {ctor} readonly: {readonly}",
+                               iden=$layer.iden,
+                               ctor=$layer.ctor,
+                               readonly=$layer.readonly)
                 }
             }
         ''',
