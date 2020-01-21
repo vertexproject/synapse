@@ -15,50 +15,6 @@ import synapse.lib.hashitem as s_hashitem
 
 logger = logging.getLogger(__name__)
 
-
-confdeftype2jsonschema = {
-    'int': 'integer',
-    'str': 'string',
-    'float': 'number',
-    'bool': 'boolean',
-    'list': 'array',
-    'dict': 'object',
-}
-
-def confdefs2jsonschema(confdata):
-    '''
-    Convert a Synaspe Cell config data into a simple json-schema.
-    '''
-    propdict = {}
-    schema = {'type': 'object',
-            'properties': propdict,
-            "additionalProperties": False,
-            '$schema': 'draft-07',  # TODO - make this a proper js-schema url
-            }
-    for name, info in confdata:
-        styp = info.get('type')
-        if styp is None:
-            raise Exception(f'oh no! {name} is untyped!')
-        jtyp = confdeftype2jsonschema.get(styp)
-        if jtyp is None:
-            raise Exception(f'oh no! {name} has a unknown type!')
-        pdict = {'type': jtyp,
-                 }
-        for key, jskey in (('doc', 'description'),
-                           ('defval', 'default'),
-                           ):
-            valu = info.get(key)
-            if valu is not None:
-                pdict[jskey] = valu
-        # Provide a hook to allow a Cell author to add additional
-        # json-schema data into their configurations.
-        jshook = info.get('json_schema_hook')
-        if jshook is not None:
-            for k, v in jshook.items():
-                pdict.setdefault(k, v)
-        propdict.setdefault(name, pdict)
-    return schema
-
 SCHEMAS = {}
 
 def genSchema(confbase, confdefs):
@@ -84,11 +40,11 @@ def getSchema(confdefs, confbase):
     SCHEMAS[key] = schema
     return schema
 
-confdeftype2jargparse = {
-    'int': int,
-    'str': str,
-    'bool': bool,
-    'float': float,
+jsonschematype2argparse = {
+    'integer': int,
+    'string': str,
+    'boolean': bool,
+    'number': float,
 }
 
 def make_envar_name(key, prefix: str =None) -> str:
@@ -101,7 +57,7 @@ class Config020(c_abc.MutableMapping):
     def __init__(self,
                  schema,
                  conf: dict =None,
-                 envar_prefix: str=None,
+                 envar_prefix: str =None,
                  ):
         self.json_schema = schema
         if conf is None:
@@ -128,14 +84,15 @@ class Config020(c_abc.MutableMapping):
         return pars
 
     def _addArgparseArguements(self, obj: argparse._ArgumentGroup):
-        for (name, conf) in self.confdata:
-            akwargs = {'help': conf.get('doc'),
-                       'action': 'store',
-                       }
-            atyp = confdeftype2jargparse.get(conf.get('type'))
+        for (name, conf) in self.json_schema.get('properties'):
+            atyp = jsonschematype2argparse.get(conf.get('type'))
             if atyp is None:
                 continue
-            akwargs['type'] = atyp
+            # TODO Handle boolean types gracefully with default/action's properly.
+            akwargs = {'help': conf.get('documentation'),
+                       'action': 'store',
+                       'type': atyp,
+                       }
 
             parsed_name = name.replace(':', '-')
             replace_name = name.replace(':', '_')
@@ -153,7 +110,7 @@ class Config020(c_abc.MutableMapping):
 
     # Envar support methods
     def loadConfEnvs(self):
-        for (k, info) in self.confdata:
+        for (k, info) in self.json_schema.get('properties'):
             envar = make_envar_name(k, prefix=self.envar_prefix)
             envv = os.getenv(envar)
             if envv is not None:
