@@ -801,69 +801,65 @@ class Cortex(s_cell.Cell):
     callers to manage transaction boundaries explicitly and dramatically
     increases performance.
     '''
-    confdefs = (  # type: ignore
-
-        ('modules', {
-            'type': 'list', 'defval': [],
-            'doc': 'A list of module classes to load.'
-        }),
-
-        ('storm:log', {
-            'type': 'bool', 'defval': False,
-            'doc': 'Log storm queries via system logger.'
-        }),
-
-        ('storm:log:level', {
-            'type': 'int',
-            'defval': logging.WARNING,
-            'doc': 'Logging log level to emit storm logs at.'
-        }),
-
-        ('splice:en', {
-            'type': 'bool',
-            'defval': True,
-            'doc': 'Enable storing splices for layer changes.'
-        }),
-
-        ('splice:sync', {
-            'type': 'str', 'defval': None,
-            'doc': 'A telepath URL for an upstream cortex.'
-        }),
-
-        ('splice:cryotank', {
-            'type': 'str', 'defval': None,
-            'doc': 'A telepath URL for a cryotank used to archive splices.'
-        }),
-
-        ('feeds', {
-            'type': 'list', 'defval': [],
-            'doc': 'A list of feed dictionaries.'
-        }),
-
-        ('cron:enable', {
-            'type': 'bool', 'defval': True,
-            'doc': 'Enable cron jobs running.'
-        }),
-
-        ('dedicated', {
-            'type': 'bool', 'defval': False,
-            'doc': 'The cortex is free to use most of the resources of the system'
-        }),
-
-        ('layer:lmdb:map_async', {
-            'type': 'bool', 'defval': False,
-            'doc': 'Set the default lmdb:map_async value in LMDB layers.'
-        }),
-
-        ('axon', {
-            'type': 'str', 'defval': None,
-            'doc': 'A telepath URL for a remote axon.',
-        }),
-        ('spawn:poolsize', {
-            'type': 'int', 'defval': 8,
-            'doc': 'The max number of spare processes to keep around in the storm spawn pool.',
-        }),
-    )
+    confdefs = {
+        "axon": {
+            "description": "A telepath URL for a remote axon.",
+            "type": "string"
+        },
+        "cron:enable": {
+            "default": True,
+            "description": "Enable cron jobs running.",
+            "type": "boolean"
+        },
+        "dedicated": {
+            "default": False,
+            "description": "The cortex is free to use most of the resources of the system",
+            "type": "boolean"
+        },
+        "feeds": {
+            "default": [],
+            "description": "A list of feed dictionaries.",
+            "type": "array"
+        },
+        "layer:lmdb:map_async": {
+            "default": False,
+            "description": "Set the default lmdb:map_async value in LMDB layers.",
+            "type": "boolean"
+        },
+        "modules": {
+            "default": [],
+            "description": "A list of module classes to load.",
+            "type": "array"
+        },
+        "spawn:poolsize": {
+            "default": 8,
+            "description": "The max number of spare processes to keep around in the storm spawn pool.",
+            "type": "integer"
+        },
+        "splice:cryotank": {
+            "description": "A telepath URL for a cryotank used to archive splices.",
+            "type": "string"
+        },
+        "splice:en": {
+            "default": True,
+            "description": "Enable storing splices for layer changes.",
+            "type": "boolean"
+        },
+        "splice:sync": {
+            "description": "A telepath URL for an upstream cortex.",
+            "type": "string"
+        },
+        "storm:log": {
+            "default": False,
+            "description": "Log storm queries via system logger.",
+            "type": "boolean"
+        },
+        "storm:log:level": {
+            "default": 30,
+            "description": "Logging log level to emit storm logs at.",
+            "type": "integer"
+        }
+    }
 
     cellapi = CoreApi
 

@@ -1,4 +1,5 @@
 import os
+import copy
 import logging
 import argparse
 import collections.abc as c_abc
@@ -8,6 +9,7 @@ import fastjsonschema
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.cache as s_cache
 
 import synapse.lib.hashitem as s_hashitem
 
@@ -59,13 +61,26 @@ def confdefs2jsonschema(confdata):
 
 SCHEMAS = {}
 
-def getSchema(confdata):
-    # TODO: Don't implement my own cache...
-    key = s_hashitem.hashitem(confdata)
+def genSchema(confbase, confdefs):
+    props = {}
+    schema = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": False,
+        "properties": props,
+        "type": "object"
+    }
+    for k, v in confbase.items():
+        props.setdefault(k, copy.deepcopy(v))
+    for k, v in confdefs.items():
+        props.setdefault(k, copy.deepcopy(v))
+    return schema
+
+def getSchema(confdefs, confbase):
+    key = s_hashitem.hashitem((confdefs, confbase))
     schema = SCHEMAS.get(key)
     if schema:
         return schema
-    schema = confdefs2jsonschema(confdata)
+    schema = genSchema(confbase, confdefs)
     SCHEMAS[key] = schema
     return schema
 
@@ -84,17 +99,16 @@ def make_envar_name(key, prefix: str =None) -> str:
 
 class Config020(c_abc.MutableMapping):
     def __init__(self,
-                 confdata,
+                 schema,
                  conf: dict =None,
                  envar_prefix: str=None,
                  ):
-        self.confdata = confdata
+        self.json_schema = schema
         if conf is None:
             conf = {}
         self.conf = conf
         self._argparse_conf_names = {}
         self.envar_prefix = envar_prefix
-        self.json_schema = getSchema(self.confdata)
         # fjs validation style...
         # TODO Cache this if FJS does't already cache things...
         self.validator = fastjsonschema.compile(self.json_schema)

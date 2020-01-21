@@ -393,14 +393,17 @@ class Cell(s_base.Base, s_telepath.Aware):
     '''
     cellapi = CellApi
 
-    # config options that are in all cells...
-    confdefs = ()
-    confbase = (
-        ('auth:passwd', {'defval': None, 'type': 'str',
-                         'doc': 'Set to <passwd> (local only) to bootstrap the root user password..'}),
-        ('hive', {'defval': None, 'type': 'str',
-                  'doc': 'Set to a Hive telepath URL or list of URLs'}),
-    )
+    confdefs = {}  # This should be a JSONSchema properties list for an object.
+    confbase = {
+        "auth:passwd": {
+            "description": "Set to <passwd> (local only) to bootstrap the root user password..",
+            "type": "string"
+        },
+        "hive": {
+            "description": "Set to a Hive telepath URL.",
+            "type": "string"
+        },
+    }
 
     async def __anit__(self, dirn, conf=None, readonly=False, *args, **kwargs):
 
@@ -430,6 +433,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         if conf is None:
             conf = {}
 
+        self.confschema = s_config.getSchema(self.confbase, self.confdefs)
         self.conf = self._initCellConf(conf)
 
         self.cmds = {}
@@ -671,7 +675,7 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     def _initCellConf(self, conf: c_abc.MutableMapping):
         if isinstance(conf, dict):
-            conf = s_config.Config020(confdata=self.confbase + self.confdefs,
+            conf = s_config.Config020(schema=self.confschema,
                                       conf=conf,
                                       )
         yaml_conf = self._loadCellYaml('cell.yaml')
