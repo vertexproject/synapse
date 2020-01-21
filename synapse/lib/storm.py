@@ -163,8 +163,6 @@ Syntax:
     --minute int[,int...]
     --hour
     --day
-    --month
-    --year
 
 Notes:
     This command accepts one or more time specifications followed by exactly
@@ -406,20 +404,18 @@ stormcmds = (
         'name': 'cron.at',
         'descr': atcrondescr,
         'cmdargs': (
-            ('query', {'help': 'Query for the cron job to execute.'}),
+            ('--query', {'required': True, 'help': 'Query for the cron job to execute.'}),
             ('--minute', {'default': [], 'nargs': '*', 'help': 'Minute.'}),
             ('--hour', {'default': [], 'nargs': '*', 'help': 'Hour.'}),
             ('--day', {'default': [], 'nargs': '*', 'help': 'Day.'}),
-            ('--month', {'default': [], 'nargs': '*', 'help': 'Month.'}),
-            ('--year', {'default': [], 'nargs': '*', 'help': 'Year.'}),
+            ('--dt', {'default': [], 'nargs': '*', 'help': 'Day.'}),
         ),
         'storm': '''
             $iden = $lib.cron.at(query=$cmdopts.query,
                                   minute=$cmdopts.minute,
                                   hour=$cmdopts.hour,
                                   day=$cmdopts.day,
-                                  month=$cmdopts.month,
-                                  year=$cmdopts.year)
+                                  dt=$cmdopts.dt)
 
             $lib.print("Created cron job: {iden}", iden=$iden)
         ''',
@@ -445,18 +441,6 @@ stormcmds = (
         'storm': '''
             $iden = $lib.cron.mod($cmdopts.iden, $cmdopts.query)
             $lib.print("Modified cron job: {iden}", iden=$iden)
-        ''',
-    },
-    {
-        'name': 'cron.stat',
-        'descr': 'Gives detailed information about a cron job.',
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
-            ('query', {'help': 'New storm query for the cron job.'}),
-        ),
-        'storm': '''
-            $info = $lib.cron.stat($cmdopts.iden)
-            $lib.print("Details on cron job: {iden} {info}", iden=$cmdopts.iden, info=$info)
         ''',
     },
     {

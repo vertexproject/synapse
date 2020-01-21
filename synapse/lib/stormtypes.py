@@ -1,6 +1,7 @@
 import bz2
 import gzip
 import json
+import time
 import base64
 import asyncio
 import logging
@@ -1491,7 +1492,6 @@ class LibCron(Lib):
             'add': self._methCronAdd,
             'del': self._methCronDel,
             'mod': self._methCronMod,
-            'stat': self._methCronStat,
             'enable': self._methCronEnable,
             'disable': self._methCronDisable,
         })
@@ -1627,7 +1627,7 @@ class LibCron(Lib):
         if yearly is not None:
             fields = yearly.split(':')
             if len(fields) != 4:
-                raise ValueError(f'Failed to parse parameter {opts.yearly}')
+                raise ValueError(f'Failed to parse parameter {yearly}')
             retn['year'] = '+1'
             retn['month'], retn['day'], retn['hour'], retn['minute'] = fields
             return retn
@@ -1676,9 +1676,11 @@ class LibCron(Lib):
                 mesg = 'May not use both alias (..ly) and explicit options at the same time'
                 raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
             opts = alias_opts
+        else:
+            opts = kwargs
 
         for optname in ('year', 'month', 'day', 'hour', 'minute'):
-            optval = kwargs.get(optname)
+            optval = opts.get(optname)
 
             if optval is None:
                 if incunit is None and not reqdict:
@@ -1756,44 +1758,63 @@ class LibCron(Lib):
         '''
         Add non-recurring cron jobs to the cortex.
         '''
-        query = None
-
         tslist = []
         now = time.time()
 
-        for pos, arg in enumerate(opts.args):
-            try:
-                if consumed_next:
-                    consumed_next = False
-                    continue
+        query = kwargs.get('query', None)
+        if query is None:
+            mesg = 'Query parameter is required.'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
-                if arg.startswith('{'):
-                    if query is not None:
-                        mesg = 'Only a single query is allowed'
-                        raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-                    query = arg[1:-1]
-                    continue
+        if not query.startswith('{'):
+            mesg = 'Query parameter must start with {'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
-                if arg.startswith('+'):
-                    if arg[-1].isdigit():
-                        if pos == len(opts.args) - 1:
-                            mesg = 'Time delta missing unit'
-                            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-                        arg = f'{arg} {opts.args[pos + 1]}'
-                        consumed_next = True
+        for optname in ('day', 'hour', 'minute'):
+            opts = kwargs.get(optname)
+
+            if not opts:
+                continue
+
+            for optval in opts:
+                try:
+                    arg = f'{optval} {optname}'
                     ts = now + s_time.delta(arg) / 1000.0
                     tslist.append(ts)
-                    continue
+                except (ValueError, s_exc.BadTypeValu):
+                    mesg = f'Trouble parsing "{arg}"'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
-                ts = s_time.parse(arg) / 1000.0
-                tslist.append(ts)
-            except (ValueError, s_exc.BadTypeValu):
-                mesg = f'Trouble parsing "{arg}"'
-                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+        dts = kwargs.get('dt')
+        if dts:
+            for dt in dts:
+                try:
+                    ts = s_time.parse(dt) / 1000.0
+                    tslist.append(ts)
+                except (ValueError, s_exc.BadTypeValu):
+                    mesg = f'Trouble parsing "{dt}"'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
-        if query is None:
-            mesg = 'Missing query argument'
+        def _ts_to_reqdict(ts):
+            dt = datetime.datetime.fromtimestamp(ts, datetime.timezone.utc)
+            return {
+                'minute': dt.minute,
+                'hour': dt.hour,
+                'dayofmonth': dt.day,
+                'month': dt.month,
+                'year': dt.year
+            }
+
+        if not tslist:
+            mesg = 'At least one requirement must be provided'
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        reqdicts = [_ts_to_reqdict(ts) for ts in tslist]
+
+        query = query[1:-1]
+
+        iden = await self.runt.snap.addCronJob(query, reqdicts, None, None)
+        return iden
 
     def _format_timestamp(ts):
         # N.B. normally better to use fromtimestamp with UTC timezone, but we don't want timezone to print out
@@ -1803,7 +1824,7 @@ class LibCron(Lib):
         '''
         Delete a trigger from the cortex.
         '''
-        self.runt.reqAllowed(('trigger', 'del'))
+        self.runt.reqAllowed(('cron', 'del'))
 
         iden = await self._match_idens(prefix)
 
@@ -1826,24 +1847,6 @@ class LibCron(Lib):
 
         iden = await self._match_idens(prefix)
         await self.runt.snap.updateCronJob(iden, query)
-
-        return iden
-
-    async def _methCronStat(self, prefix, query):
-        '''
-        Modify a trigger in the cortex.
-        '''
-        self.runt.reqAllowed(('trigger', 'set'))
-
-        if not query.startswith('{'):
-            mesg = 'Expected second argument to start with {'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix, query=query)
-
-        # Remove the curly braces
-        query = query[1:-1]
-
-        iden = await self._match_idens(prefix)
-        await self.runt.snap.updateTri(iden, query)
 
         return iden
 

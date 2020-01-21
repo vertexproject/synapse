@@ -1520,35 +1520,35 @@ class StormTypesTest(s_test.SynTest):
             # Test manipulating triggers as another user
             await core.auth.addUser('bond')
 
-            async with core.getLocalProxy(user='bond') as tcore:
+            async with core.getLocalProxy(user='bond') as asbond:
 
                 q = f'trigger.mod {goodbuid2} {{[ test:str=yep ]}}'
-                await self.agenraises(s_exc.AuthDeny, tcore.eval(q))
+                await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
 
                 q = f'trigger.disable {goodbuid2}'
-                await self.agenraises(s_exc.AuthDeny, tcore.eval(q))
+                await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
 
                 q = f'trigger.enable {goodbuid2}'
-                await self.agenraises(s_exc.AuthDeny, tcore.eval(q))
+                await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
 
                 q = f'trigger.del {goodbuid2}'
-                await self.agenraises(s_exc.AuthDeny, tcore.eval(q))
+                await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
 
                 # Give explicit perm
                 await prox.addAuthRule('bond', (True, ('trigger', 'set')))
 
-                mesgs = await tcore.storm(f'trigger.mod {goodbuid2} {{[ test:str=yep ]}}').list()
+                mesgs = await asbond.storm(f'trigger.mod {goodbuid2} {{[ test:str=yep ]}}').list()
                 self.stormIsInPrint('Modified trigger', mesgs)
 
-                mesgs = await tcore.storm(f'trigger.disable {goodbuid2}').list()
+                mesgs = await asbond.storm(f'trigger.disable {goodbuid2}').list()
                 self.stormIsInPrint('Disabled trigger', mesgs)
 
-                mesgs = await tcore.storm(f'trigger.enable {goodbuid2}').list()
+                mesgs = await asbond.storm(f'trigger.enable {goodbuid2}').list()
                 self.stormIsInPrint('Enabled trigger', mesgs)
 
                 await prox.addAuthRule('bond', (True, ('trigger', 'del')))
 
-                mesgs = await tcore.storm(f'trigger.del {goodbuid2}').list()
+                mesgs = await asbond.storm(f'trigger.del {goodbuid2}').list()
                 self.stormIsInPrint('Deleted trigger', mesgs)
 
     async def test_storm_lib_cron(self):
@@ -1821,3 +1821,167 @@ class StormTypesTest(s_test.SynTest):
                 await core.nodes('syn:cron')
                 await core.nodes('syn:cron')
                 await self.agenlen(1, prox.eval('graph:node:type=year2'))
+
+                ##################
+
+                # Test 'at' command
+
+                q = 'cron.at --query {#foo}'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('At least', mesgs)
+
+                q = 'cron.at --minute +1p3arsec --query {#foo}'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Trouble parsing', mesgs)
+
+                q = 'cron.at --day +1'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInPrint('the following arguments are required: --query', mesgs)
+
+                q = '$lib.cron.at(day="+1")'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Query parameter is required', mesgs)
+
+                q = "cron.at --minute +5 --query {[graph:node='*' :type=at1]}"
+                mesgs = await core.streamstorm(q).list()
+                unixtime += 5 * MINSECS
+
+                await core.nodes('syn:cron')
+                await core.nodes('syn:cron')
+                await core.nodes('syn:cron')
+                await self.agenlen(1, core.eval('graph:node:type=at1'))
+
+                q = "cron.at --day +1 +7 --query {[graph:node='*' :type=at2]}"
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        guid = mesg[1]['mesg'].split(' ')[-1]
+
+                unixtime += DAYSECS
+                await core.nodes('syn:cron')
+                await self.agenlen(1, prox.eval('graph:node:type=at2'))
+
+                unixtime += 6 * DAYSECS + 1
+                await core.nodes('syn:cron')
+                await core.nodes('syn:cron')
+                await self.agenlen(2, prox.eval('graph:node:type=at2'))
+
+                q = "cron.at --dt 202104170415 --query {[graph:node='*' :type=at3]}"
+                mesgs = await core.streamstorm(q).list()
+
+                unixtime = datetime.datetime(year=2021, month=4, day=17, hour=4, minute=15,
+                                             tzinfo=tz.utc).timestamp()  # Now Thursday
+
+                await core.nodes('syn:cron')
+                await core.nodes('syn:cron')
+                await self.agenlen(1, prox.eval('graph:node:type=at3'))
+
+                ##################
+
+                # Test 'enable' 'disable' commands
+                q = f'cron.enable xxx'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Provided iden does not match any', mesgs)
+
+                q = f'cron.disable xxx'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Provided iden does not match any', mesgs)
+
+                q = f'cron.disable {guid[:6]}'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInPrint(f'Disabled cron job: {guid}', mesgs)
+#                q = f'cron stat {guid[:6]}'
+
+                q = f'cron.enable {guid[:6]}'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInPrint(f'Enabled cron job: {guid}', mesgs)
+#                q = f'cron stat {guid[:6]}'
+
+                ###################
+
+                # Delete an expired at job
+                q = f"cron.del {guid}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInPrint(f'Deleted cron job: {guid}', mesgs)
+
+                ##################
+
+                # Test the aliases
+                q = 'cron.add --hourly 15 {#bar}'
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        guid = mesg[1]['mesg'].split(' ')[-1]
+#                q = f'cron.stat {guid[:6]}'
+#                self.true(outp.expect("{'minute': 15}"))
+
+                q = 'cron.add --daily 05:47 {#bar}'
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        guid = mesg[1]['mesg'].split(' ')[-1]
+#                q = f'cron.stat {guid[:6]}'
+#                self.true(outp.expect("{'hour': 5, 'minute': 47"))
+
+                q = 'cron.add --monthly -1:12:30 {#bar}'
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        guid = mesg[1]['mesg'].split(' ')[-1]
+#                q = f'cron.stat {guid[:6]}'
+#                self.true(outp.expect("{'hour': 12, 'minute': 30, 'dayofmonth': -1}"))
+
+                q = 'cron.add --yearly 04:17:12:30 {#bar}'
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        guid = mesg[1]['mesg'].split(' ')[-1]
+#                q = f'cron.stat {guid[:6]}'
+#                self.true(outp.expect("{'month': 4, 'hour': 12, 'minute': 30, 'dayofmonth': 17}"))
+
+                q = 'cron.add --yearly 04:17:12 {#bar}'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Failed to parse parameter', mesgs)
+
+                q = 'cron.add --daily xx:xx {#bar}'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Failed to parse ..ly parameter', mesgs)
+
+                q = 'cron.add --hourly 1 --minute 17 {#bar}'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('May not use both', mesgs)
+
+                # Test manipulating cron jobs as another user
+                await core.auth.addUser('bond')
+
+                async with core.getLocalProxy(user='bond') as asbond:
+
+                    mesgs = await asbond.storm(f'cron.disable {guid[:6]}').list()
+                    await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
+
+                    mesgs = await asbond.storm(f'cron.enable {guid[:6]}').list()
+                    await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
+
+                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} {{#foo}}').list()
+                    await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
+
+                    mesgs = await asbond.storm(f'cron.del {guid[:6]}').list()
+                    await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
+
+                    # Give explicit perm
+
+                    await prox.addAuthRule('bond', (True, ('cron', 'set')))
+
+                    mesgs = await asbond.storm(f'cron.disable {guid[:6]}').list()
+                    self.stormIsInPrint('Disabled cron job', mesgs)
+
+                    mesgs = await asbond.storm(f'cron.enable {guid[:6]}').list()
+                    self.stormIsInPrint('Enabled cron job', mesgs)
+
+                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} {{#foo}}').list()
+                    self.stormIsInPrint('Modified cron job', mesgs)
+
+                    await prox.addAuthRule('bond', (True, ('cron', 'del')))
+
+                    mesgs = await asbond.storm(f'cron.del {guid[:6]}').list()
+                    self.stormIsInPrint('Deleted cron job', mesgs)
