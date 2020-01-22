@@ -136,7 +136,92 @@ stormcmds = (
 
             }
         '''
-    }
+    },
+    {
+        'name': 'view.add',
+        'descr': 'Add a view to the cortex.',
+        'cmdargs': (
+            ('--layers', {'default': [], 'nargs': '*', 'help': 'Layers for the view.'}),
+        ),
+        'storm': '''
+            $view = $lib.view.add($cmdopts.layers)
+            $lib.print("View added: {iden}", iden=$view.pack().iden)
+        ''',
+    },
+    {
+        'name': 'view.del',
+        'descr': 'Delete a view from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to delete.'}),
+        ),
+        'storm': '''
+            $lib.view.del($cmdopts.iden)
+            $lib.print("View deleted: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
+    {
+        'name': 'view.fork',
+        'descr': 'Fork a view in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to fork.'}),
+        ),
+        'storm': '''
+            $forkview = $lib.view.fork($cmdopts.iden)
+            $lib.print("View {iden} forked to new view: {forkiden}",
+                        iden=$cmdopts.iden,
+                        forkiden=$forkview.pack().iden)
+        ''',
+    },
+    {
+        'name': 'view.get',
+        'descr': 'Get a view from the cortex.',
+        'cmdargs': (
+            ('iden', {'nargs': '?', 'help': 'Iden of the view to get. If no iden is provided, the main view will be returned.'}),
+        ),
+        'storm': '''
+            $view = $lib.view.get($cmdopts.iden)
+            $viewvalu = $view.pack()
+
+            $lib.print("View {iden} owned by {owner}", iden=$viewvalu.iden, owner=$viewvalu.owner)
+            $lib.print("Layers:")
+            for $layer in $viewvalu.layers {
+                $lib.print("  {iden} ctor: {ctor} readonly: {readonly}",
+                           iden=$layer.iden,
+                           ctor=$layer.ctor,
+                           readonly=$layer.readonly)
+            }
+        ''',
+    },
+    {
+        'name': 'view.list',
+        'descr': 'List the views in the cortex.',
+        'cmdargs': (),
+        'storm': '''
+            for $view in $lib.view.list() {
+                $viewvalu = $view.pack()
+
+                $lib.print("View {iden} owned by {owner}", iden=$viewvalu.iden, owner=$viewvalu.owner)
+                $lib.print("Layers:")
+                for $layer in $viewvalu.layers {
+                    $lib.print("  {iden} ctor: {ctor} readonly: {readonly}",
+                               iden=$layer.iden,
+                               ctor=$layer.ctor,
+                               readonly=$layer.readonly)
+                }
+            }
+        ''',
+    },
+    {
+        'name': 'view.merge',
+        'descr': 'Merge a forked view into its parent view.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to merge.'}),
+        ),
+        'storm': '''
+            $lib.view.merge($cmdopts.iden)
+            $lib.print("View merged: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
 )
 
 class StormDmon(s_base.Base):

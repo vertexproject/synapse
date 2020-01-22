@@ -45,6 +45,17 @@ class View(s_hive.AuthGater):
         self.parent = None  # The view this view was forked from
         self.worldreadable = True  # Default read permissions of this view
 
+        self.permCheck = {
+            'node:add': self._nodeAddPerms,
+            'node:del': self._nodeDelPerms,
+            'prop:set': self._propSetPerms,
+            'prop:del': self._propDelPerms,
+            'tag:add': self._tagAddPerms,
+            'tag:del': self._tagDelPerms,
+            'tag:prop:set': self._tagPropSetPerms,
+            'tag:prop:del': self._tagPropDelPerms,
+        }
+
         # isolate some initialization to easily override for SpawnView.
         await self._initViewInfo()
         await self._initViewLayers()
@@ -339,6 +350,105 @@ class View(s_hive.AuthGater):
                 await asyncio.sleep(0)
 
         await self.core.delView(self.iden)
+
+    def _reqAllowed(self, user, parentlayr, perms):
+        if not parentlayr.allowed(user, perms):
+            perm = '.'.join(perms)
+            mesg = f'User must have permission {perm} on write layer'
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
+
+    async def _nodeAddPerms(self, user, snap, parentlayr, splice):
+        perms = ('node:add', splice['ndef'][0])
+        self._reqAllowed(user, parentlayr, perms)
+
+    async def _nodeDelPerms(self, user, snap, parentlayr, splice):
+        buid = s_common.buid(splice['ndef'])
+        node = await snap.getNodeByBuid(buid)
+
+        if node is not None:
+            for tag in node.tags.keys():
+                perms = ('tag:del', *tag.split('.'))
+                self._reqAllowed(user, parentlayr, perms)
+
+            perms = ('node:del', splice['ndef'][0])
+            self._reqAllowed(user, parentlayr, perms)
+
+    async def _propSetPerms(self, user, snap, parentlayr, splice):
+        ndef = splice.get('ndef')
+        prop = splice.get('prop')
+
+        perms = ('prop:set', ':'.join([ndef[0], prop]))
+        self._reqAllowed(user, parentlayr, perms)
+
+    async def _propDelPerms(self, user, snap, parentlayr, splice):
+        ndef = splice.get('ndef')
+        prop = splice.get('prop')
+
+        perms = ('prop:del', ':'.join([ndef[0], prop]))
+        self._reqAllowed(user, parentlayr, perms)
+
+    async def _tagAddPerms(self, user, snap, parentlayr, splice):
+        tag = splice.get('tag')
+        perms = ('tag:add', *tag.split('.'))
+        self._reqAllowed(user, parentlayr, perms)
+
+    async def _tagDelPerms(self, user, snap, parentlayr, splice):
+        tag = splice.get('tag')
+        perms = ('tag:del', *tag.split('.'))
+        self._reqAllowed(user, parentlayr, perms)
+
+    async def _tagPropSetPerms(self, user, snap, parentlayr, splice):
+        tag = splice.get('tag')
+        perms = ('tag:add', *tag.split('.'))
+        self._reqAllowed(user, parentlayr, perms)
+
+    async def _tagPropDelPerms(self, user, snap, parentlayr, splice):
+        tag = splice.get('tag')
+        perms = ('tag:del', *tag.split('.'))
+        self._reqAllowed(user, parentlayr, perms)
+
+    async def mergeAllowed(self, user=None):
+        '''
+        Check whether a user can merge a view into its parent.
+        '''
+        fromlayr = self.layers[0]
+        if self.parent is None:
+            raise s_exc.SynErr('Cannot merge a view than has not been forked')
+
+        parentlayr = self.parent.layers[0]
+        if parentlayr.readonly:
+            raise s_exc.ReadOnlyLayer(mesg="May not merge if the parent's write layer is read-only")
+
+        for view in self.core.views.values():
+            if view.parent is not None and view.parent == self:
+                raise s_exc.SynErr(mesg='Cannot merge a view that has children itself')
+
+        if user is None or user.admin:
+            return True
+
+        CHUNKSIZE = 1000
+        fromoff = 0
+
+        async with await self.parent.snap(user=user) as snap:
+            while True:
+
+                splicecount = 0
+                async for splice in fromlayr.splices(fromoff, CHUNKSIZE):
+
+                    check = self.permCheck.get(splice[0])
+                    if check is None:
+                        raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge',
+                                           splicetype=splice[0])
+
+                    await check(user, snap, parentlayr, splice[1])
+
+                    splicecount += 1
+
+                if splicecount < CHUNKSIZE:
+                    break
+
+                fromoff += CHUNKSIZE
+                await asyncio.sleep(0)
 
     async def runTagAdd(self, node, tag, valu):
 
