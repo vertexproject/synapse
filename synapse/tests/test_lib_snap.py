@@ -285,3 +285,38 @@ class SnapTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
             self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', 0x01020304)))
+
+    async def test_clearcache(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap0:  # type: s_snap.Snap
+
+                original_node0 = await snap0.addNode('test:str', 'node0')
+                self.len(1, snap0.buidcache)
+                self.len(1, snap0.livenodes)
+                self.len(0, snap0.tagcache)
+
+                await original_node0.addTag('foo.bar.baz')
+                self.len(4, snap0.buidcache)
+                self.len(4, snap0.livenodes)
+                self.len(3, snap0.tagcache)
+                #
+                # print(original_node0)
+                # await asyncio.sleep(2)  # let things commit to disk
+                # async with await core.snap() as snap1:  # type: s_snap.Snap
+                #     print('starting snap1')
+                #     snap1_node0 = await snap1.getNodeByNdef(('test:str', 'node0'))
+                #     print(snap1_node0)
+                #     await snap1_node0.delTag('foo.bar.baz')
+                #     print(snap1_node0)
+                # print('done with snap1')
+                # await snap0.clearCache()
+                # # async for item in snap0.storm('$lib.runt.snap.cache_clear()'):
+                # #     print(item)
+                # snap0_node0 = await snap0.getNodeByNdef(('test:str', 'node0'))
+                # await snap0_node0.addTag('foo.bar.baz')
+                # print(snap0_node0)
+                # await asyncio.sleep(2)  # let things commit to disk
+                # async with await core.snap() as snap2:  # type: s_snap.Snap
+                #     print('starting snap2')
+                #     snap2_node0 = await snap2.getNodeByNdef(('test:str', 'node0'))
+                #     print(snap2_node0)
