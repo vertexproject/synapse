@@ -89,14 +89,17 @@ class Layer(s_hive.AuthGater):
     The base class for a cortex layer.
     '''
     confdefs = ()
-    readonly = False
+    ctorname = 'dyndep.path.goes.here'
 
     authgatetype = 'layr'
 
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, core, node):
+    async def __anit__(self, core, node, readonly=False):
+
+        await s_base.Base.__anit__(self)
+        self.readonly = readonly
 
         self.core = core
         self.node = node
@@ -149,6 +152,13 @@ class Layer(s_hive.AuthGater):
         self.onfini(self.spliced.set)
 
         self.onfini(self._onLayrFini)
+
+    def getSpawnInfo(self):
+        return {
+            'iden': self.iden,
+            'dirn': self.dirn,
+            'ctor': self.ctorname,
+        }
 
     async def _onLayrFini(self):
         [(await wind.fini()) for wind in self.windows]

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import itertools
+import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -20,6 +21,7 @@ class View(s_hive.AuthGater):
     The view class is used to implement Copy-On-Write layers as well as
     interact with a subset of the layers configured in a Cortex.
     '''
+    snapctor = s_snap.Snap.anit
 
     authgatetype = 'view'
 
@@ -32,35 +34,52 @@ class View(s_hive.AuthGater):
             node (HiveNode): The hive node containing the view info.
         '''
         self.node = node
+
         self.iden = node.name()
         self.core = core
 
         await s_hive.AuthGater.__anit__(self, self.core.auth)
 
+        self.layers = []
         self.invalid = None
         self.parent = None  # The view this view was forked from
         self.worldreadable = True  # Default read permissions of this view
 
-        self.info = await node.dict()
+        self.permCheck = {
+            'node:add': self._nodeAddPerms,
+            'node:del': self._nodeDelPerms,
+            'prop:set': self._propSetPerms,
+            'prop:del': self._propDelPerms,
+            'tag:add': self._tagAddPerms,
+            'tag:del': self._tagDelPerms,
+            'tag:prop:set': self._tagPropSetPerms,
+            'tag:prop:del': self._tagPropDelPerms,
+        }
+
+        # isolate some initialization to easily override for SpawnView.
+        await self._initViewInfo()
+        await self._initViewLayers()
+
+    async def _initViewInfo(self):
+
+        self.iden = self.node.name()
+
+        self.info = await self.node.dict()
         self.info.setdefault('owner', 'root')
         self.info.setdefault('layers', ())
 
         self.triggers = s_trigger.Triggers(self)
 
-        self.layers = []
+    async def _initViewLayers(self):
 
         for iden in self.info.get('layers'):
 
-            layr = core.layers.get(iden)
+            layr = self.core.layers.get(iden)
 
             if layr is None:
                 self.invalid = iden
                 logger.warning('view %r has missing layer %r' % (self.iden, iden))
                 continue
-
-            if not self.layers and layr.readonly:
-                self.invalid = iden
-                raise s_exc.ReadOnlyLayer(mesg=f'First layer {iden} must not be read-only')
 
             self.layers.append(layr)
 
@@ -77,7 +96,12 @@ class View(s_hive.AuthGater):
         if user is None:
             user = self.core.auth.getUserByName('root')
 
-        await self.core.boss.promote('storm', user=user, info={'query': text})
+        info = {'query': text}
+        if opts is not None:
+            info['opts'] = opts
+
+        await self.core.boss.promote('storm', user=user, info=info)
+
         async with await self.snap(user=user) as snap:
             async for node in snap.eval(text, opts=opts, user=user):
                 yield node
@@ -92,7 +116,12 @@ class View(s_hive.AuthGater):
         if user is None:
             user = self.core.auth.getUserByName('root')
 
-        await self.core.boss.promote('storm', user=user, info={'query': text})
+        info = {'query': text}
+        if opts is not None:
+            info['opts'] = opts
+
+        await self.core.boss.promote('storm', user=user, info=info)
+
         async with await self.snap(user=user) as snap:
             async for mesg in snap.storm(text, opts=opts, user=user):
                 yield mesg
@@ -109,6 +138,10 @@ class View(s_hive.AuthGater):
         Yields:
             ((str,dict)): Storm messages.
         '''
+        info = {'query': text}
+        if opts is not None:
+            info['opts'] = opts
+
         if opts is None:
             opts = {}
 
@@ -118,8 +151,7 @@ class View(s_hive.AuthGater):
         if user is None:
             user = self.core.auth.getUserByName('root')
 
-        # promote ourself to a synapse task
-        synt = await self.core.boss.promote('storm', user=user, info={'query': text})
+        synt = await self.core.boss.promote('storm', user=user, info=info)
 
         show = opts.get('show')
 
@@ -187,7 +219,12 @@ class View(s_hive.AuthGater):
         if user is None:
             user = self.auth.getUserByName('root')
 
-        await self.core.boss.promote('storm', user=user, info={'query': text})
+        info = {'query': text}
+        if opts is not None:
+            info['opts'] = opts
+
+        await self.core.boss.promote('storm', user=user, info=info)
+
         async with await self.snap(user=user) as snap:
             async for pode in snap.iterStormPodes(text, opts=opts, user=user):
                 yield pode
@@ -197,7 +234,7 @@ class View(s_hive.AuthGater):
         if self.invalid is not None:
             raise s_exc.NoSuchLayer(iden=self.invalid)
 
-        return await s_snap.Snap.anit(self, user)
+        return await self.snapctor(self, user)
 
     def pack(self):
         return {
@@ -216,13 +253,11 @@ class View(s_hive.AuthGater):
             raise s_exc.ReadOnlyLayer(mesg='May not change layers of forked view')
 
         if indx is None:
-            if not self.layers and layr.readonly:
-                raise s_exc.ReadOnlyLayer(mesg=f'First layer {layr.iden} must not be read-only')
             self.layers.append(layr)
+
         else:
-            if indx == 0 and layr.readonly:
-                raise s_exc.ReadOnlyLayer(mesg=f'First layer {layr.iden} must not be read-only')
             self.layers.insert(indx, layr)
+
         await self.info.set('layers', [l.iden for l in self.layers])
 
     async def setLayers(self, layers):
@@ -255,7 +290,7 @@ class View(s_hive.AuthGater):
 
     async def fork(self, **layrinfo):
         '''
-        Makes a new view inheriting from this view with the same layers and a new write layer on top
+        Make a new view inheriting from this view with the same layers and a new write layer on top
 
         Args:
             Passed through to cortex.addLayer
@@ -275,6 +310,145 @@ class View(s_hive.AuthGater):
         view.parent = self
 
         return view
+
+    async def merge(self, user=None):
+        '''
+        Merge this view into its parent.  All changes made to this view will be applied to the parent.
+
+        When complete, delete this view.
+        '''
+        fromlayr = self.layers[0]
+        if self.parent is None:
+            raise s_exc.SynErr('Cannot merge a view than has not been forked')
+
+        if self.parent.layers[0].readonly:
+            raise s_exc.ReadOnlyLayer(mesg="May not merge if the parent's write layer is read-only")
+
+        for view in self.core.views.values():
+            if view.parent is not None and view.parent == self:
+                raise s_exc.SynErr(mesg='Cannot merge a view that has children itself')
+
+        CHUNKSIZE = 1000
+        fromoff = 0
+
+        if user is None:
+            user = self.core.auth.getUserByName('root')
+
+        await self.core.boss.promote('storm', user=user, info={'merging': self.iden})
+        async with await self.parent.snap(user=user) as snap:
+            snap.disableTriggers()
+            snap.strict = False
+            while True:
+                splicechunk = [x async for x in fromlayr.splices(fromoff, CHUNKSIZE)]
+
+                await snap.addFeedData('syn.splice', splicechunk)
+
+                if len(splicechunk) < CHUNKSIZE:
+                    break
+
+                fromoff += CHUNKSIZE
+                await asyncio.sleep(0)
+
+        await self.core.delView(self.iden)
+
+    def _reqAllowed(self, user, parentlayr, perms):
+        if not parentlayr.allowed(user, perms):
+            perm = '.'.join(perms)
+            mesg = f'User must have permission {perm} on write layer'
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
+
+    async def _nodeAddPerms(self, user, snap, parentlayr, splice):
+        perms = ('node:add', splice['ndef'][0])
+        self._reqAllowed(user, parentlayr, perms)
+
+    async def _nodeDelPerms(self, user, snap, parentlayr, splice):
+        buid = s_common.buid(splice['ndef'])
+        node = await snap.getNodeByBuid(buid)
+
+        if node is not None:
+            for tag in node.tags.keys():
+                perms = ('tag:del', *tag.split('.'))
+                self._reqAllowed(user, parentlayr, perms)
+
+            perms = ('node:del', splice['ndef'][0])
+            self._reqAllowed(user, parentlayr, perms)
+
+    async def _propSetPerms(self, user, snap, parentlayr, splice):
+        ndef = splice.get('ndef')
+        prop = splice.get('prop')
+
+        perms = ('prop:set', ':'.join([ndef[0], prop]))
+        self._reqAllowed(user, parentlayr, perms)
+
+    async def _propDelPerms(self, user, snap, parentlayr, splice):
+        ndef = splice.get('ndef')
+        prop = splice.get('prop')
+
+        perms = ('prop:del', ':'.join([ndef[0], prop]))
+        self._reqAllowed(user, parentlayr, perms)
+
+    async def _tagAddPerms(self, user, snap, parentlayr, splice):
+        tag = splice.get('tag')
+        perms = ('tag:add', *tag.split('.'))
+        self._reqAllowed(user, parentlayr, perms)
+
+    async def _tagDelPerms(self, user, snap, parentlayr, splice):
+        tag = splice.get('tag')
+        perms = ('tag:del', *tag.split('.'))
+        self._reqAllowed(user, parentlayr, perms)
+
+    async def _tagPropSetPerms(self, user, snap, parentlayr, splice):
+        tag = splice.get('tag')
+        perms = ('tag:add', *tag.split('.'))
+        self._reqAllowed(user, parentlayr, perms)
+
+    async def _tagPropDelPerms(self, user, snap, parentlayr, splice):
+        tag = splice.get('tag')
+        perms = ('tag:del', *tag.split('.'))
+        self._reqAllowed(user, parentlayr, perms)
+
+    async def mergeAllowed(self, user=None):
+        '''
+        Check whether a user can merge a view into its parent.
+        '''
+        fromlayr = self.layers[0]
+        if self.parent is None:
+            raise s_exc.SynErr('Cannot merge a view than has not been forked')
+
+        parentlayr = self.parent.layers[0]
+        if parentlayr.readonly:
+            raise s_exc.ReadOnlyLayer(mesg="May not merge if the parent's write layer is read-only")
+
+        for view in self.core.views.values():
+            if view.parent is not None and view.parent == self:
+                raise s_exc.SynErr(mesg='Cannot merge a view that has children itself')
+
+        if user is None or user.admin:
+            return True
+
+        CHUNKSIZE = 1000
+        fromoff = 0
+
+        async with await self.parent.snap(user=user) as snap:
+            while True:
+
+                splicecount = 0
+                async for splice in fromlayr.splices(fromoff, CHUNKSIZE):
+
+                    check = self.permCheck.get(splice[0])
+                    if check is None:
+                        raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge',
+                                           splicetype=splice[0])
+
+                    await check(user, snap, parentlayr, splice[1])
+
+                    splicecount += 1
+
+                if splicecount < CHUNKSIZE:
+                    break
+
+                fromoff += CHUNKSIZE
+                await asyncio.sleep(0)
 
     async def runTagAdd(self, node, tag, valu):
 
@@ -305,16 +479,27 @@ class View(s_hive.AuthGater):
         await self.triggers.runTagDel(node, tag)
 
     async def runNodeAdd(self, node):
+        if not node.snap.trigson:
+            return
+
         await self.triggers.runNodeAdd(node)
+
         if self.parent is not None:
             await self.parent.runNodeAdd(node)
 
     async def runNodeDel(self, node):
+        if not node.snap.trigson:
+            return
+
         await self.triggers.runNodeDel(node)
+
         if self.parent is not None:
             await self.parent.runNodeDel(node)
 
     async def runPropSet(self, node, prop, oldv):
+        if not node.snap.trigson:
+            return
+
         await self.triggers.runPropSet(node, prop, oldv)
 
         if self.parent is not None:
@@ -383,3 +568,8 @@ class View(s_hive.AuthGater):
 
         for (iden, _) in self.triggers.list():
             self.triggers.delete(iden)
+
+    def getSpawnInfo(self):
+        return {
+            'iden': self.iden,
+        }

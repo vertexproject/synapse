@@ -54,6 +54,7 @@ class Snap(s_base.Base):
         self.core = view.core
         self.view = view
         self.user = user
+        self.store_splices = self.core.conf.get('splice:en')
 
         self.model = self.core.model
 
@@ -62,6 +63,8 @@ class Snap(s_base.Base):
         # it is optimal for a snap to have layers in "bottom up" order
         self.layers = list(reversed(view.layers))
         self.wlyr = self.layers[-1]
+
+        self.readonly = self.wlyr.readonly
 
         # variables used by the storm runtime
         self.vars = {}
@@ -80,9 +83,119 @@ class Snap(s_base.Base):
         self.onfini(self.stack.close)
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
+        self.trigson = True
+
+    def disableTriggers(self):
+        self.trigson = False
+
+    # APIs that wrap cortex APIs to provide a boundary for the storm runtime
+    # ( in many instances a sub-process snap will override )
+
+    def getDataModel(self):
+        return self.model
+
+    async def getCoreAxon(self):
+        await self.core.axready.wait()
+        return self.core.axon
+
+    async def addStormSvc(self, sdef):
+        return await self.core.addStormSvc(sdef)
+
+    async def delStormSvc(self, iden):
+        return await self.core.delStormSvc(iden)
+
+    def getStormSvc(self, iden):
+        return self.core.getStormSvc(iden)
+
+    def getStormSvcs(self):
+        return self.core.getStormSvcs()
+
+    def getStormCmd(self, name):
+        return self.core.getStormCmd(name)
+
+    # Queue funcs
+    async def addCoreQueue(self, name, info):
+        info['user'] = self.user.iden
+        info['time'] = s_common.now()
+        return await self.core.addCoreQueue(name, info)
+
+    async def getCoreQueue(self, name):
+        return await self.core.getCoreQueue(name)
+
+    async def hasCoreQueue(self, name):
+        return await self.core.hasCoreQueue(name)
+
+    async def delCoreQueue(self, name):
+        return await self.core.delCoreQueue(name)
+
+    async def getCoreQueues(self):
+        return await self.core.getCoreQueues()
+
+    async def cullCoreQueue(self, name, offs):
+        return await self.core.cullCoreQueue(name, offs)
+
+    async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
+        async for item in self.core.getsCoreQueue(name, offs, cull=cull, wait=wait, size=size):
+            yield item
+
+    async def putsCoreQueue(self, name, items):
+        return await self.core.putsCoreQueue(name, items)
+
+    async def putCoreQueue(self, name, item):
+        return await self.core.putCoreQueue(name, item)
+
+    # feed funcs
+    async def getFeedFuncs(self):
+        return await self.core.getFeedFuncs()
+
+    # storm pkgfuncs
+    async def addStormPkg(self, pkgdef):
+        return await self.core.addStormPkg(pkgdef)
+
+    async def delStormPkg(self, iden):
+        return await self.core.delStormPkg(iden)
+
+    async def getStormPkgs(self):
+        return await self.core.getStormPkgs()
+
+    def getStormVars(self):
+        return self.core.stormvars
+
+    async def getStormLib(self, path):
+        return self.core.getStormLib(path)
+
+    async def getStormDmon(self, iden):
+        return await self.core.getStormDmon(iden)
+
+    async def delStormDmon(self, iden):
+        await self.core.delStormDmon(iden)
+
+    async def getStormDmons(self):
+        return await self.core.getStormDmons()
+
+    async def addStormDmon(self, ddef):
+        return await self.core.addStormDmon(ddef)
+
+    async def addView(self, iden, layers):
+        return await self.core.addView(iden=iden,
+                                       owner=self.user.iden,
+                                       layers=layers)
+
+    async def delView(self, iden):
+        return await self.core.delView(iden=iden)
+
+    def getView(self, iden=None):
+        return self.core.getView(iden=iden)
+
+    def listViews(self):
+        return list(self.core.views.values())
 
     def getStormMod(self, name):
         return self.mods.get(name)
+
+    async def spliceHistory(self):
+        async for splice in self.core.spliceHistory(self.user):
+            yield splice
 
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):
@@ -91,9 +204,8 @@ class Snap(s_base.Base):
 
         runt = s_storm.Runtime(self, opts=opts, user=user)
         runt.isModuleRunt = True
-        self.core.stormrunts[runt.iden] = runt
+
         yield runt
-        self.core.stormrunts.pop(runt.iden, None)
 
     async def iterStormPodes(self, text, opts=None, user=None):
         '''
@@ -426,6 +538,9 @@ class Snap(s_base.Base):
         Returns:
             s_node.Node: A Node object. It may return None if the snap is unable to add or lift the node.
         '''
+        if self.readonly:
+            mesg = 'The snapshot is in ready only mode.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         try:
 
@@ -664,7 +779,7 @@ class Snap(s_base.Base):
 
     async def stor(self, sops, splices=None):
 
-        if not splices:
+        if not splices or not self.store_splices:
             await self.wlyr.stor(sops)
             return
 

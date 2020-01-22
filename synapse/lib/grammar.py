@@ -64,6 +64,7 @@ terminalEnglishMap = {
     'RPAR': ')',
     'RSQB': '}',
     'SETOPER': '= or ?=',
+    'SETTAGOPER': '?',
     'SINGLEQUOTEDSTRING': 'single-quoted string',
     'SWITCH': 'switch',
     'TAG': 'plain tag name',
@@ -74,6 +75,7 @@ terminalEnglishMap = {
     'WHILE': 'while',
     'YIELD': 'yield',
     '_DEREF': '*',
+    '_EMBEDQUERYSTART': '${',
     '_EXPRSTART': '$(',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
@@ -81,6 +83,7 @@ terminalEnglishMap = {
     '_RETURN': 'return',
     '_RIGHTJOIN': '-+>',
     '_RIGHTPIVOT': '->',
+    '_TRYSET': '?=',
     '_WS': 'whitespace',
     '_WSCOMM': 'whitespace or comment'
 }

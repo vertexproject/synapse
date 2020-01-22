@@ -417,7 +417,6 @@ class Slab(s_base.Base):
         opts = kwargs
 
         self.path = pathlib.Path(path)
-
         self.optspath = self.path.with_suffix('.opts.yaml')
 
         if self.optspath.exists():
@@ -483,7 +482,11 @@ class Slab(s_base.Base):
         self.dbnames = {}
 
         self.onfini(self._onCoFini)
-        self.schedCoro(self._runSyncLoop())
+        if not self.readonly:
+            self.schedCoro(self._runSyncLoop())
+
+    def __repr__(self):
+        return 'Slab: %r' % (self.path,)
 
     def trash(self):
         '''
@@ -528,6 +531,9 @@ class Slab(s_base.Base):
             self._finiCoXact()
 
     def _saveOptsFile(self):
+        if self.readonly:
+            return
+
         opts = {}
         if self.growsize is not None:
             opts['growsize'] = self.growsize
@@ -717,9 +723,15 @@ class Slab(s_base.Base):
     def initdb(self, name, dupsort=False):
         while True:
             try:
-                db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort)
-                self.dirty = True
-                self.forcecommit()
+                if self.readonly:
+                    # In a readonly environment, we can't make our own write transaction, but we
+                    # can have the lmdb module create one for us by not specifying the transaction
+                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort)
+                else:
+                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort)
+                    self.dirty = True
+                    self.forcecommit()
+
                 self.dbnames[name] = (db, dupsort)
                 return name
             except lmdb.MapFullError:
@@ -799,12 +811,45 @@ class Slab(s_base.Base):
 
             yield from scan.iternext()
 
+    def scanByDupsBack(self, lkey, db=None):
+
+        with ScanBack(self, db) as scan:
+
+            if not scan.set_key(lkey):
+                return
+
+            yield from scan.iternext()
+
     def scanByPref(self, byts, db=None):
 
         with Scan(self, db) as scan:
 
             if not scan.set_range(byts):
                 return
+
+            size = len(byts)
+            for lkey, lval in scan.iternext():
+
+                if lkey[:size] != byts:
+                    return
+
+                yield lkey, lval
+
+    def scanByPrefBack(self, byts, db=None):
+
+        with ScanBack(self, db) as scan:
+
+            intoff = int.from_bytes(byts, "big")
+            intoff += 1
+            try:
+                nextbyts = intoff.to_bytes(len(byts), "big")
+
+                if not scan.set_range(nextbyts):
+                    return
+
+            except OverflowError:
+                if not scan.first():
+                    return
 
             size = len(byts)
             for lkey, lval in scan.iternext():
@@ -830,9 +875,33 @@ class Slab(s_base.Base):
 
                 yield lkey, lval
 
+    def scanByRangeBack(self, lmax, lmin=None, db=None):
+
+        with ScanBack(self, db) as scan:
+
+            if not scan.set_range(lmax):
+                return
+
+            for lkey, lval in scan.iternext():
+
+                if lmin is not None and lkey < lmin:
+                    return
+
+                yield lkey, lval
+
     def scanByFull(self, db=None):
 
         with Scan(self, db) as scan:
+
+            if not scan.first():
+                return
+
+            for lkey, lval in scan.iternext():
+                yield lkey, lval
+
+    def scanByFullBack(self, db=None):
+
+        with ScanBack(self, db) as scan:
 
             if not scan.first():
                 return
@@ -1111,3 +1180,87 @@ class Scan:
         if not self.bumped:
             self.curs.close()
             self.bumped = True
+
+class ScanBack(Scan):
+    '''
+    A state-object used by Slab.  Not to be instantiated directly.
+
+    Scans backwards.
+    '''
+    def first(self):
+
+        if not self.curs.last():
+            return False
+
+        if self.dupsort:
+            self.iterfunc = functools.partial(lmdb.Cursor.iterprev_dup, keys=True)
+        else:
+            self.iterfunc = lmdb.Cursor.iterprev
+
+        self.genr = self.curs.iterprev()
+
+        self.atitem = next(self.genr)
+        return True
+
+    def set_key(self, lkey):
+
+        if not self.curs.set_key(lkey):
+            return False
+
+        # set_key for a scan is only logical if it's a dup scan
+        if self.dupsort:
+            if not self.curs.last_dup():
+                return False # pragma: no cover
+
+            self.iterfunc = functools.partial(lmdb.Cursor.iterprev_dup, keys=True)
+        else:
+            self.iterfunc = lmdb.Cursor.iterprev
+
+        self.genr = self.iterfunc(self.curs)
+        self.atitem = next(self.genr)
+        return True
+
+    def set_range(self, lkey):
+
+        if not self.curs.set_range(lkey):
+            if not self.curs.last():
+                return False
+
+        self.iterfunc = lmdb.Cursor.iterprev
+
+        self.genr = self.iterfunc(self.curs)
+        self.atitem = next(self.genr)
+
+        if not self.atitem[0] <= lkey:
+            self.atitem = next(self.genr)
+
+        return True
+
+    def iternext(self):
+
+        try:
+
+            while True:
+
+                yield self.atitem
+
+                if self.bumped:
+
+                    if self.slab.isfini:
+                        raise s_exc.IsFini()
+
+                    self.bumped = False
+
+                    self.curs = self.slab.xact.cursor(db=self.db)
+                    if self.dupsort:
+                        self.curs.set_range_dup(*self.atitem)
+                    else:
+                        self.curs.set_range(self.atitem[0])
+
+                    self.genr = self.iterfunc(self.curs)
+                    next(self.genr)
+
+                self.atitem = next(self.genr)
+
+        except StopIteration:
+            return
