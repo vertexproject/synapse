@@ -1368,7 +1368,7 @@ class LibTrigger(Lib):
             'disable': self._methTriggerDisable,
         })
 
-    async def _match_idens(self, prefix):
+    async def _matchIdens(self, prefix):
         '''
         Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
         exactly one.
@@ -1439,7 +1439,7 @@ class LibTrigger(Lib):
         '''
         self.runt.reqAllowed(('trigger', 'del'))
 
-        iden = await self._match_idens(prefix)
+        iden = await self._matchIdens(prefix)
 
         await self.runt.snap.delTrigger(iden)
 
@@ -1458,7 +1458,7 @@ class LibTrigger(Lib):
         # Remove the curly braces
         query = query[1:-1]
 
-        iden = await self._match_idens(prefix)
+        iden = await self._matchIdens(prefix)
         await self.runt.snap.updateTrigger(iden, query)
 
         return iden
@@ -1471,7 +1471,7 @@ class LibTrigger(Lib):
 
         triglist = await self.runt.snap.listTriggers()
 
-        triggers=[]
+        triggers = []
         for iden, trigger in triglist:
             trig = trigger.pack()
             user = self.runt.snap.getUserName(trig.get('useriden'))
@@ -1496,7 +1496,7 @@ class LibTrigger(Lib):
         '''
         self.runt.reqAllowed(('trigger', 'set'))
 
-        iden = await self._match_idens(prefix)
+        iden = await self._matchIdens(prefix)
         await self.runt.snap.enableTrigger(iden)
 
         return iden
@@ -1507,7 +1507,7 @@ class LibTrigger(Lib):
         '''
         self.runt.reqAllowed(('trigger', 'set'))
 
-        iden = await self._match_idens(prefix)
+        iden = await self._matchIdens(prefix)
         await self.runt.snap.disableTrigger(iden)
 
         return iden
@@ -1526,7 +1526,7 @@ class LibCron(Lib):
             'disable': self._methCronDisable,
         })
 
-    async def _match_idens(self, prefix):
+    async def _matchIdens(self, prefix):
         '''
         Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
         exactly one.
@@ -1543,7 +1543,7 @@ class LibCron(Lib):
             mesg = 'Provided iden matches more than one cron job.'
             raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
-    def _parse_weekday(self, val):
+    def _parseWeekday(self, val):
         ''' Try to match a day-of-week abbreviation, then try a day-of-week full name '''
         val = val.title()
         try:
@@ -1554,7 +1554,7 @@ class LibCron(Lib):
             except ValueError:
                 return None
 
-    def _parse_incval(self, incunit, incval):
+    def _parseIncval(self, incunit, incval):
         ''' Parse a non-day increment value. Should be an integer or a comma-separated integer list. '''
         try:
             retn = [int(val) for val in incval.split(',')]
@@ -1563,7 +1563,7 @@ class LibCron(Lib):
 
         return retn[0] if len(retn) == 1 else retn
 
-    def _parse_req(self, requnit, reqval):
+    def _parseReq(self, requnit, reqval):
         ''' Parse a non-day fixed value '''
         assert reqval[0] != '='
 
@@ -1588,7 +1588,7 @@ class LibCron(Lib):
 
         return retn[0] if len(retn) == 1 else retn
 
-    def _parse_day(self, optval):
+    def _parseDay(self, optval):
         ''' Parse a --day argument '''
         isreq = not optval.startswith('+')
         if not isreq:
@@ -1614,7 +1614,7 @@ class LibCron(Lib):
                     elif newunit != unit:
                         raise ValueError
 
-                    weekday = self._parse_weekday(val)
+                    weekday = self._parseWeekday(val)
                     if weekday is None:
                         raise ValueError
                     retnval.append(weekday)
@@ -1626,7 +1626,7 @@ class LibCron(Lib):
             retnval = retnval[0]
         return unit, retnval
 
-    def _parse_alias(self, opts):
+    def _parseAlias(self, opts):
         retn = {}
 
         hourly = opts.get('hourly')
@@ -1690,7 +1690,7 @@ class LibCron(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
         try:
-            alias_opts = self._parse_alias(kwargs)
+            alias_opts = self._parseAlias(kwargs)
         except ValueError as e:
             mesg = f'Failed to parse ..ly parameter: {" ".join(e.args)}'
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
@@ -1726,7 +1726,7 @@ class LibCron(Lib):
             isreq = not optval.startswith('+')
 
             if optname == 'day':
-                unit, val = self._parse_day(optval)
+                unit, val = self._parseDay(optval)
                 if val is None:
                     mesg = f'Failed to parse day value "{optval}"'
                     raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
@@ -1753,7 +1753,7 @@ class LibCron(Lib):
                     mesg = 'Fixed unit may not be larger than recurrence unit'
                     raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
                 incunit = optname
-                incval = self._parse_incval(optname, optval)
+                incval = self._parseIncval(optname, optval)
                 if incval is None:
                     mesg = 'Failed to parse parameter'
                     raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
@@ -1763,7 +1763,7 @@ class LibCron(Lib):
                 mesg = 'Year may not be a fixed value'
                 raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
-            reqval = self._parse_req(optname, optval)
+            reqval = self._parseReq(optname, optval)
             if reqval is None:
                 mesg = f'Failed to parse fixed parameter "{optval}"'
                 raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
@@ -1846,17 +1846,13 @@ class LibCron(Lib):
         iden = await self.runt.snap.addCronJob(query, reqdicts, None, None)
         return iden
 
-    def _format_timestamp(ts):
-        # N.B. normally better to use fromtimestamp with UTC timezone, but we don't want timezone to print out
-        return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
-
     async def _methCronDel(self, prefix):
         '''
         Delete a trigger from the cortex.
         '''
         self.runt.reqAllowed(('cron', 'del'))
 
-        iden = await self._match_idens(prefix)
+        iden = await self._matchIdens(prefix)
 
         await self.runt.snap.delCronJob(iden)
 
@@ -1875,10 +1871,91 @@ class LibCron(Lib):
         # Remove the curly braces
         query = query[1:-1]
 
-        iden = await self._match_idens(prefix)
+        iden = await self._matchIdens(prefix)
         await self.runt.snap.updateCronJob(iden, query)
 
         return iden
+
+    @staticmethod
+    def _formatTimestamp(ts):
+        # N.B. normally better to use fromtimestamp with UTC timezone,
+        # but we don't want timezone to print out
+        return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
+
+    async def _methCronList(self):
+        '''
+        List cron jobs in the cortex.
+        '''
+        self.runt.reqAllowed(('cron', 'get'))
+
+        cronlist = await self.runt.snap.listCronJobs()
+
+        jobs = []
+        for iden, cron in cronlist:
+            laststart = cron.get('laststarttime')
+            lastend = cron.get('lastfinishtime')
+            result = cron.get('lastresult')
+
+            jobs.append({
+                'iden': iden,
+                'idenshort': iden[:8] + '..',
+                'user': cron.get('username') or '<None>',
+                'query': cron.get('query') or '<missing>',
+                'isrecur': 'Y' if cron.get('recur') else 'N',
+                'isrunning': 'Y' if cron.get('isrunning') else 'N',
+                'enabled': 'Y' if cron.get('enabled', True) else 'N',
+                'startcount': cron.get('startcount') or 0,
+                'laststart': 'Never' if laststart is None else self._formatTimestamp(laststart),
+                'lastend': 'Never' if lastend is None else self._formatTimestamp(lastend),
+                'iserr': 'X' if result is not None and not result.startswith('finished successfully') else ' '
+            })
+
+        return jobs
+
+    async def _methCronStat(self, prefix):
+        '''
+        Get information about a cron job.
+        '''
+        self.runt.reqAllowed(('cron', 'get'))
+
+        crons = await self.runt.snap.listCronJobs()
+        matches = [cron[0] for cron in crons if cron[0].startswith(prefix)]
+
+        if len(matches) == 0:
+            mesg = 'Provided iden does not match any valid authorized cron job.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+        elif len(matches) > 1:
+            mesg = 'Provided iden matches more than one cron job.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+
+        iden = matches[0]
+        cron = [cron[1] for cron in crons if cron[0] == iden][0]
+
+        laststart = cron.get('laststarttime')
+        lastend = cron.get('lastfinishtime')
+
+        job = {
+            'iden': iden,
+            'user': cron.get('username') or '<None>',
+            'query': cron.get('query') or '<missing>',
+            'isrecur': 'Y' if cron.get('recur') else 'N',
+            'isrunning': 'Y' if cron.get('isrunning') else 'N',
+            'enabled': 'Y' if cron.get('enabled', True) else 'N',
+            'startcount': cron.get('startcount') or 0,
+            'laststart': 'Never' if laststart is None else self._formatTimestamp(laststart),
+            'lastend': 'Never' if lastend is None else self._formatTimestamp(lastend),
+            'lastresult': cron.get('lastresult') or '<None>',
+            'recs': []
+        }
+
+        for reqdict, incunit, incval in cron.get('recs', []):
+            job['recs'].append({
+                'reqdict': reqdict or '<None>',
+                'incunit': incunit or '<None>',
+                'incval': incval or '<None>'
+            })
+
+        return job
 
     async def _methCronEnable(self, prefix):
         '''
@@ -1886,7 +1963,7 @@ class LibCron(Lib):
         '''
         self.runt.reqAllowed(('cron', 'set'))
 
-        iden = await self._match_idens(prefix)
+        iden = await self._matchIdens(prefix)
         await self.runt.snap.enableCronJob(iden)
 
         return iden
@@ -1897,7 +1974,7 @@ class LibCron(Lib):
         '''
         self.runt.reqAllowed(('cron', 'set'))
 
-        iden = await self._match_idens(prefix)
+        iden = await self._matchIdens(prefix)
         await self.runt.snap.disableCronJob(iden)
 
         return iden

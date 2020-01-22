@@ -1596,7 +1596,8 @@ class StormTypesTest(s_test.SynTest):
 
             async with self.getTestCoreAndProxy() as (core, prox):
 
-                await self.agenlen(0, core.eval('syn:cron'))
+                mesgs = await core.streamstorm('cron.list').list()
+                self.stormIsInPrint('No cron jobs found', mesgs)
 
                 q = "cron.add --month nosuchmonth --day=-2 {#foo}"
                 mesgs = await core.streamstorm(q).list()
@@ -1658,8 +1659,8 @@ class StormTypesTest(s_test.SynTest):
                         guid = mesg[1]['mesg'].split(' ')[-1]
 
                 unixtime += 60
-                nodes = await core.nodes('syn:cron')
-                self.isin(':type=m1', nodes[0].props.get('storm'))
+                mesgs = await core.streamstorm('cron.list').list()
+                self.stormIsInPrint(':type=m1', mesgs)
 
                 # Make sure it ran
                 await self.agenlen(1, prox.eval('graph:node:type=m1'))
@@ -1724,7 +1725,7 @@ class StormTypesTest(s_test.SynTest):
                 unixtime += 7 * MINSECS
 
                 # Make sure it runs.  We add the cron list to give the cron scheduler a chance to run
-                await core.nodes('syn:cron')
+                await core.streamstorm('cron.list').list()
                 await self.agenlen(1, prox.eval('graph:node:type=m3'))
                 await core.nodes(f"cron.del {guid}")
 
@@ -1747,13 +1748,13 @@ class StormTypesTest(s_test.SynTest):
 
                 # Make sure it runs.  We add the cron list to give the cron scheduler a chance to run
 
-                await core.nodes('syn:cron')
-                await core.nodes('syn:cron')
+                await core.streamstorm('cron.list').list()
+                await core.streamstorm('cron.list').list()
                 await self.agenlen(1, prox.eval('graph:node:type=d1'))
 
                 unixtime += DAYSECS * 2
-                await core.nodes('syn:cron')
-                await core.nodes('syn:cron')
+                await core.streamstorm('cron.list').list()
+                await core.streamstorm('cron.list').list()
                 await self.agenlen(2, prox.eval('graph:node:type=d1'))
 
                 ##################
@@ -1896,6 +1897,19 @@ class StormTypesTest(s_test.SynTest):
 
                 ##################
 
+                # Test 'stat' command
+                mesgs = await core.streamstorm('cron.stat xxx').list()
+                self.stormIsInErr('Provided iden does not match any', mesgs)
+
+                mesgs = await core.streamstorm(f'cron.stat {guid[:6]}').list()
+                self.stormIsInPrint('last result:     finished successfully with 1 nodes', mesgs)
+                self.stormIsInPrint('entries:         <None>', mesgs)
+
+                mesgs = await core.streamstorm(f'cron.stat {guid2[:6]}').list()
+                self.stormIsInPrint("{'month': 1, 'hour': 0, 'minute': 0, 'dayofmonth': 1}", mesgs)
+
+                ##################
+
                 # Test 'enable' 'disable' commands
                 q = f'cron.enable xxx'
                 mesgs = await core.streamstorm(q).list()
@@ -1908,12 +1922,16 @@ class StormTypesTest(s_test.SynTest):
                 q = f'cron.disable {guid[:6]}'
                 mesgs = await core.streamstorm(q).list()
                 self.stormIsInPrint(f'Disabled cron job: {guid}', mesgs)
-#                q = f'cron stat {guid[:6]}'
+
+                mesgs = await core.streamstorm(f'cron.stat {guid[:6]}').list()
+                self.stormIsInPrint('enabled:         N', mesgs)
 
                 q = f'cron.enable {guid[:6]}'
                 mesgs = await core.streamstorm(q).list()
                 self.stormIsInPrint(f'Enabled cron job: {guid}', mesgs)
-#                q = f'cron stat {guid[:6]}'
+
+                mesgs = await core.streamstorm(f'cron.stat {guid[:6]}').list()
+                self.stormIsInPrint('enabled:         Y', mesgs)
 
                 ###################
 
@@ -1930,32 +1948,36 @@ class StormTypesTest(s_test.SynTest):
                 for mesg in mesgs:
                     if mesg[0] == 'print':
                         guid = mesg[1]['mesg'].split(' ')[-1]
-#                q = f'cron.stat {guid[:6]}'
-#                self.true(outp.expect("{'minute': 15}"))
+
+                mesgs = await core.streamstorm(f'cron.stat {guid[:6]}').list()
+                self.stormIsInPrint("{'minute': 15}", mesgs)
 
                 q = 'cron.add --daily 05:47 {#bar}'
                 mesgs = await core.streamstorm(q).list()
                 for mesg in mesgs:
                     if mesg[0] == 'print':
                         guid = mesg[1]['mesg'].split(' ')[-1]
-#                q = f'cron.stat {guid[:6]}'
-#                self.true(outp.expect("{'hour': 5, 'minute': 47"))
 
-                q = 'cron.add --monthly -1:12:30 {#bar}'
+                mesgs = await core.streamstorm(f'cron.stat {guid[:6]}').list()
+                self.stormIsInPrint("{'hour': 5, 'minute': 47", mesgs)
+
+                q = 'cron.add --monthly=-1:12:30 {#bar}'
                 mesgs = await core.streamstorm(q).list()
                 for mesg in mesgs:
                     if mesg[0] == 'print':
                         guid = mesg[1]['mesg'].split(' ')[-1]
-#                q = f'cron.stat {guid[:6]}'
-#                self.true(outp.expect("{'hour': 12, 'minute': 30, 'dayofmonth': -1}"))
+
+                mesgs = await core.streamstorm(f'cron.stat {guid[:6]}').list()
+                self.stormIsInPrint("{'hour': 12, 'minute': 30, 'dayofmonth': -1}", mesgs)
 
                 q = 'cron.add --yearly 04:17:12:30 {#bar}'
                 mesgs = await core.streamstorm(q).list()
                 for mesg in mesgs:
                     if mesg[0] == 'print':
                         guid = mesg[1]['mesg'].split(' ')[-1]
-#                q = f'cron.stat {guid[:6]}'
-#                self.true(outp.expect("{'month': 4, 'hour': 12, 'minute': 30, 'dayofmonth': 17}"))
+
+                mesgs = await core.streamstorm(f'cron.stat {guid[:6]}').list()
+                self.stormIsInPrint("{'month': 4, 'hour': 12, 'minute': 30, 'dayofmonth': 17}", mesgs)
 
                 q = 'cron.add --yearly 04:17:12 {#bar}'
                 mesgs = await core.streamstorm(q).list()
@@ -1974,6 +1996,9 @@ class StormTypesTest(s_test.SynTest):
 
                 async with core.getLocalProxy(user='bond') as asbond:
 
+                    q = 'cron.list'
+                    await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
+
                     mesgs = await asbond.storm(f'cron.disable {guid[:6]}').list()
                     await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
 
@@ -1987,6 +2012,12 @@ class StormTypesTest(s_test.SynTest):
                     await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
 
                     # Give explicit perm
+
+                    await prox.addAuthRule('bond', (True, ('cron', 'get')))
+
+                    mesgs = await asbond.storm('cron.list').list()
+                    self.stormIsInPrint('user', mesgs)
+                    self.stormIsInPrint('root', mesgs)
 
                     await prox.addAuthRule('bond', (True, ('cron', 'set')))
 

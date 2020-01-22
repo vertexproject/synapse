@@ -475,6 +475,73 @@ stormcmds = (
         ''',
     },
     {
+        'name': 'cron.list',
+        'descr': "List existing cron jobs in the cortex.",
+        'cmdargs': (),
+        'storm': '''
+            $jobs = $lib.cron.list()
+
+            if $jobs {
+                $lib.print("user       iden       en? rpt? now? err? # start last start       last end         query")
+
+                for $job in $jobs {
+                    $user = $job.user.ljust(10)
+                    $iden = $job.idenshort.ljust(10)
+                    $enabled = $job.enabled.ljust(3)
+                    $isrecur = $job.isrecur.ljust(4)
+                    $isrunning = $job.isrunning.ljust(4)
+                    $iserr = $job.iserr.ljust(4)
+                    $startcount = $lib.str.format("{startcount}", startcount=$job.startcount).ljust(7)
+                    $laststart = $job.laststart.ljust(16)
+                    $lastend = $job.lastend.ljust(16)
+
+                    $lib.print("{user} {iden} {enabled} {isrecur} {isrunning} {iserr} {startcount} {laststart} {lastend} {query}",
+                               user=$user, iden=$iden, enabled=$enabled, isrecur=$isrecur,
+                               isrunning=$isrunning, iserr=$iserr, startcount=$startcount,
+                               laststart=$laststart, lastend=$lastend, query=$job.query)
+                }
+            } else {
+                $lib.print("No cron jobs found")
+            }
+        ''',
+    },
+    {
+        'name': 'cron.stat',
+        'descr': "Gives detailed information about a cron job.",
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+        ),
+        'storm': '''
+            $job = $lib.cron.stat($cmdopts.iden)
+
+            if $job {
+                $lib.print('iden:            {iden}', iden=$job.iden)
+                $lib.print('user:            {user}', user=$job.user)
+                $lib.print('enabled:         {enabled}', enabled=$job.enabled)
+                $lib.print('recurring:       {isrecur}', isrecur=$job.isrecur)
+                $lib.print('# starts:        {startcount}', startcount=$job.startcount)
+                $lib.print('last start time: {laststart}', laststart=$job.laststart)
+                $lib.print('last end time:   {lastend}', lastend=$job.lastend)
+                $lib.print('last result:     {lastresult}', lastresult=$job.lastresult)
+                $lib.print('query:           {query}', query=$job.query)
+
+                if $job.recs {
+                    $lib.print('entries:         incunit    incval required')
+
+                    for $rec in $job.recs {
+                        $incunit = $lib.str.format('{incunit}', incunit=$rec.incunit).ljust(10)
+                        $incval = $lib.str.format('{incval}', incval=$rec.incval).ljust(6)
+
+                        $lib.print('                 {incunit} {incval} {reqdict}',
+                                   incunit=$incunit, incval=$incval, reqdict=$rec.reqdict)
+                    }
+                } else {
+                    $lib.print('entries:         <None>')
+                }
+            }
+        ''',
+    },
+    {
         'name': 'cron.enable',
         'descr': 'Enable a cron job in the cortex.',
         'cmdargs': (
