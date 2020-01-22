@@ -287,6 +287,11 @@ class SnapTest(s_t_utils.SynTest):
             self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', 0x01020304)))
 
     async def test_clearcache(self):
+
+        # Type hinting since we dont do the type hinting
+        # properly in the Cortex anymore... :(
+        import synapse.lib.snap as s_snap
+
         async with self.getTestCore() as core:
             async with await core.snap() as snap0:  # type: s_snap.Snap
 
