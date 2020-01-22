@@ -349,6 +349,37 @@ stormcmds = (
         ''',
     },
     {
+        'name': 'trigger.list',
+        'descr': "List existing triggers in the cortex.",
+        'cmdargs': (),
+        'storm': '''
+            $triggers = $lib.trigger.list()
+            if $triggers {
+                $lib.print("user       iden         en? cond      object                    storm query")
+                for $trigger in $triggers {
+                    $user = $trigger.user.ljust(10)
+                    $iden = $trigger.idenshort.ljust(12)
+                    $enabled = $trigger.enabled.ljust(3)
+                    $cond = $trigger.cond.ljust(9)
+
+                    if $cond.startswith('tag:') {
+                        $obj = $trigger.form.ljust(14)
+                        $obj2 = $trigger.tag.ljust(10)
+                    } else {
+                        $obj = $trigger.prop.ljust(14)
+                        $obj2 = $trigger.form.ljust(10)
+                    }
+
+                    $lib.print("{user} {iden} {enabled} {cond} {obj} {obj2} {query}",
+                              user=$user, iden=$iden, enabled=$enabled, cond=$cond,
+                              obj=$obj, obj2=$obj2, query=$trigger.query)
+                }
+            } else {
+                $lib.print("No triggers found")
+            }
+        ''',
+    },
+    {
         'name': 'trigger.enable',
         'descr': 'Enable a trigger in the cortex.',
         'cmdargs': (

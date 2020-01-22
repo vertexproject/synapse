@@ -1411,6 +1411,10 @@ class StormTypesTest(s_test.SynTest):
 
             await self.agenlen(0, core.eval('syn:trigger'))
 
+            q = 'trigger.list'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('No triggers found', mesgs)
+
             q = 'trigger.add node:add --form test:str --query {[ test:int=1 ]}'
             mesgs = await core.streamstorm(q).list()
 
@@ -1427,6 +1431,11 @@ class StormTypesTest(s_test.SynTest):
 
             q = 'trigger.add prop:set --disabled --prop test:type10:intprop --query {[ test:int=6 ]}'
             mesgs = await core.streamstorm(q).list()
+
+            q = 'trigger.list'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint('user', mesgs)
+            self.stormIsInPrint('root', mesgs)
 
             nodes = await core.nodes('syn:trigger')
             self.len(3, nodes)
@@ -1522,6 +1531,9 @@ class StormTypesTest(s_test.SynTest):
 
             async with core.getLocalProxy(user='bond') as asbond:
 
+                q = 'trigger.list'
+                await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
+
                 q = f'trigger.mod {goodbuid2} {{[ test:str=yep ]}}'
                 await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
 
@@ -1535,6 +1547,12 @@ class StormTypesTest(s_test.SynTest):
                 await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
 
                 # Give explicit perm
+                await prox.addAuthRule('bond', (True, ('trigger', 'get')))
+
+                mesgs = await asbond.storm('trigger.list').list()
+                self.stormIsInPrint('user', mesgs)
+                self.stormIsInPrint('root', mesgs)
+
                 await prox.addAuthRule('bond', (True, ('trigger', 'set')))
 
                 mesgs = await asbond.storm(f'trigger.mod {goodbuid2} {{[ test:str=yep ]}}').list()

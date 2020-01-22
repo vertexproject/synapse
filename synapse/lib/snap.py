@@ -192,6 +192,9 @@ class Snap(s_base.Base):
     async def listTriggers(self):
         return await self.core.listTriggers()
 
+    def getUserName(self, iden, defv='<unknown>'):
+        return self.core.getUserName(iden, defv)
+
     async def addCronJob(self, query, reqdict, incunit, incval):
         return await self.core.addCronJob(self.user, query, reqdict, incunit, incval)
 

@@ -1363,6 +1363,7 @@ class LibTrigger(Lib):
             'add': self._methTriggerAdd,
             'del': self._methTriggerDel,
             'mod': self._methTriggerMod,
+            'list': self._methTriggerList,
             'enable': self._methTriggerEnable,
             'disable': self._methTriggerDisable,
         })
@@ -1462,6 +1463,33 @@ class LibTrigger(Lib):
 
         return iden
 
+    async def _methTriggerList(self):
+        '''
+        List triggers in the cortex.
+        '''
+        self.runt.reqAllowed(('trigger', 'get'))
+
+        triglist = await self.runt.snap.listTriggers()
+
+        triggers=[]
+        for iden, trigger in triglist:
+            trig = trigger.pack()
+            user = self.runt.snap.getUserName(trig.get('useriden'))
+
+            triggers.append({
+                'iden': iden,
+                'idenshort': iden[:8] + '..',
+                'user': user or '<None>',
+                'query': trig.get('storm') or '<missing>',
+                'cond': trig.get('cond') or '<missing>',
+                'enabled': 'Y' if trig.get('enabled', True) else 'N',
+                'tag': '#' + (trig.get('tag') or '<missing>'),
+                'form': trig.get('form') or '',
+                'prop': trig.get('prop') or '<missing>',
+            })
+
+        return triggers
+
     async def _methTriggerEnable(self, prefix):
         '''
         Enable a trigger in the cortex.
@@ -1492,6 +1520,8 @@ class LibCron(Lib):
             'add': self._methCronAdd,
             'del': self._methCronDel,
             'mod': self._methCronMod,
+            'list': self._methCronList,
+            'stat': self._methCronStat,
             'enable': self._methCronEnable,
             'disable': self._methCronDisable,
         })
