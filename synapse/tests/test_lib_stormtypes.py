@@ -988,6 +988,7 @@ class StormTypesTest(s_test.SynTest):
             ''')
             nodes = await core.nodes('for ($offs, $tick) in $lib.queue.get(visi).gets(size=3) { [test:int=$tick] } ')
             self.len(3, nodes)
+            self.eq({0, 1, 2}, {node.ndef[1] for node in nodes})
 
     async def test_storm_lib_telepath(self):
 
