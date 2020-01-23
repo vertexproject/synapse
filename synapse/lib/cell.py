@@ -60,6 +60,7 @@ class CellApi(s_base.Base):
         self.user = user
         sess = self.link.get('sess')  # type: s_daemon.Sess
         sess.user = user
+        self.link.onfini(self.fini)
 
     async def allowed(self, perm, default=None):
         '''
@@ -706,7 +707,9 @@ class Cell(s_base.Base, s_telepath.Aware):
         return await self.getCellApi(link, user, path)
 
     async def getCellApi(self, link, user, path):
-        return await self.cellapi.anit(self, link, user)
+        capi = await self.cellapi.anit(self, link, user)
+        self.onfini(capi)
+        return capi
 
     def getCellType(self):
         return self.__class__.__name__.lower()
