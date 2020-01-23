@@ -426,6 +426,7 @@ class LibTime(Lib):
         Sleep/yield execution of the storm query.
         '''
         await self.runt.snap.waitfini(timeout=float(valu))
+        await self.runt.snap.clearCache()
 
     async def ticker(self, tick, count=None):
 
@@ -438,6 +439,7 @@ class LibTime(Lib):
         while True:
 
             await self.runt.snap.waitfini(timeout=tick)
+            await self.runt.snap.clearCache()
             yield offs
 
             offs += 1
