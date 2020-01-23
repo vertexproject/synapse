@@ -990,6 +990,20 @@ class StormTypesTest(s_test.SynTest):
             self.len(3, nodes)
             self.eq({0, 1, 2}, {node.ndef[1] for node in nodes})
 
+            # lib.time.ticker also clears the snap cache
+            async with await core.snap() as snap:
+                # lift a node into the cache
+                _ = await alist(snap.storm('test:int=0'))
+                self.len(1, snap.buidcache)
+                q = '''
+                $visi=$lib.queue.get(visi)
+                for $tick in $lib.time.ticker(0.01, count=3) {
+                    $visi.put($tick)
+                }
+                '''
+                _ = await alist(snap.storm(q))
+                self.len(0, snap.buidcache)
+
     async def test_storm_lib_telepath(self):
 
         class FakeService:
