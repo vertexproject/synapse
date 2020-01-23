@@ -14,7 +14,7 @@ import synapse.lib.trigger as s_trigger
 
 logger = logging.getLogger(__name__)
 
-class View(s_hive.AuthGater):  # type: ignore
+class View(s_hive.AuthGater, s_nexus.Nexus):  # type: ignore
     '''
     A view represents a cortex as seen from a specific set of layers.
 
@@ -38,8 +38,8 @@ class View(s_hive.AuthGater):  # type: ignore
         self.iden = node.name()
         self.core = core
 
-        await s_nexus.Nexus.__anit__(self, iden=self.iden, parent=core)
         await s_hive.AuthGater.__anit__(self, self.core.auth)
+        await s_nexus.Nexus.__anit__(self, iden=self.iden, parent=core)
 
         self.layers = []
         self.invalid = None
@@ -49,15 +49,6 @@ class View(s_hive.AuthGater):  # type: ignore
         # isolate some initialization to easily override for SpawnView.
         await self._initViewInfo()
         await self._initViewLayers()
-
-        def onfini():
-            '''
-            Unregister change handlers
-            '''
-            for evnt, func in self._chnghands:
-                self.core.offChange((evnt, self.iden), func)
-
-        self.onfini(onfini)
 
     async def _initViewInfo(self):
 

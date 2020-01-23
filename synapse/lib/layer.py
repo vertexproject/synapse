@@ -643,11 +643,11 @@ class Layer(s_base.Base):
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, layrinfo, conf=None):
+    async def __anit__(self, layrinfo, dirn, conf=None):
 
         await s_base.Base.__anit__(self)
 
-        self.dirn = layrinfo.get('dirn')
+        self.dirn = dirn
         self.iden = layrinfo.get('iden')
         self.readonly = layrinfo.get('readonly')
 
@@ -1525,7 +1525,7 @@ class LayerStorage(s_base.Base):
 
     stortype = 'local'
 
-    async def __anit__(self, info):
+    async def __anit__(self, info, dirn):
 
         await s_base.Base.__anit__(self)
 
@@ -1533,13 +1533,19 @@ class LayerStorage(s_base.Base):
         self.iden = info.get('iden')
         self.name = info.get('name')
         self.conf = info.get('conf')
+        self.dirn = dirn
 
         if self.iden is None:
             mesg = f'LayerStorage ({self.stortype}) needs an iden!'
-            raise s_exc.NeedConfValu(mesg=mesg, name=iden)
+            raise s_exc.NeedConfValu(mesg=mesg, name=self.iden)
 
     async def initLayr(self, layrinfo):
-        return await Layer.anit(layrinfo)
+        iden = layrinfo.get('iden')
+        if iden is None:
+            raise s_exc.NeedConfValu(mesg='Missing layer iden', name=self)
+
+        path = s_common.gendir(self.dirn, iden)
+        return await Layer.anit(layrinfo, path)
 
     async def reqValidLayrConf(self, conf):
         return

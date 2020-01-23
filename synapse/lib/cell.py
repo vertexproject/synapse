@@ -425,12 +425,6 @@ class Cell(s_nexus.Nexus, s_telepath.Aware):
 
         self.onfini(fini)
 
-    async def _fireChange(self, mesg):
-        '''
-        Execute the change handler for the mesg
-        '''
-        return await self.chnghands[mesg[0]](mesg)
-
     async def getConfOpt(self, name):
         return self.conf.get(name)
 
