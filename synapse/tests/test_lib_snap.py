@@ -305,8 +305,6 @@ class SnapTest(s_t_utils.SynTest):
                 self.len(4, snap0.livenodes)
                 self.len(3, snap0.tagcache)
 
-                self.nn(await core.view.layers[0].layrslab.waiter(1, 'commit').wait(6))
-
                 async with await core.snap() as snap1:  # type: s_snap.Snap
                     snap1_node0 = await snap1.getNodeByNdef(('test:str', 'node0'))
                     await snap1_node0.delTag('foo.bar.baz')
@@ -314,9 +312,7 @@ class SnapTest(s_t_utils.SynTest):
                     # Our reference to original_node0 still has the tag though
                     self.isin('foo.bar.baz', original_node0.tags)
 
-                    waiter = core.view.layers[0].layrslab.waiter(1, 'commit')
-
-                self.nn(await waiter.wait(6))
+                # We rely on the layer's row cache to be correct in this test.
 
                 # Lift is cached..
                 same_node0 = await snap0.getNodeByNdef(('test:str', 'node0'))
