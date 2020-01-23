@@ -1759,6 +1759,9 @@ class StormTypesTest(s_test.SynTest):
             await core.storm('trigger.add tag:add --tag #another --query {[ +#count2 ]}').list()
 
             # Syntax mistakes
+            mesgs = await core.streamstorm('trigger.mod "" {#foo}').list()
+            self.stormIsInErr('matches more than one', mesgs)
+
             mesgs = await core.streamstorm('trigger.add tag:add --prop another --query {[ +#count2 ]}').list()
             self.stormIsInErr('Missing tag parameter', mesgs)
 
@@ -1867,6 +1870,14 @@ class StormTypesTest(s_test.SynTest):
 
                 mesgs = await core.streamstorm('cron.list').list()
                 self.stormIsInPrint('No cron jobs found', mesgs)
+
+                q = '$lib.cron.add()'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Query parameter is required', mesgs)
+
+                q = 'cron.add #foo'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('must start with {', mesgs)
 
                 q = "cron.add --month nosuchmonth --day=-2 {#foo}"
                 mesgs = await core.streamstorm(q).list()
@@ -2043,6 +2054,10 @@ class StormTypesTest(s_test.SynTest):
                 await core.nodes('syn:cron')
                 await self.agenlen(1, prox.eval('graph:node:type=d2'))
 
+                q = f'cron.del ""'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('matches more than one', mesgs)
+
                 await core.nodes(f"cron.del {guid1}")
                 await core.nodes(f"cron.del {guid2}")
 
@@ -2114,6 +2129,10 @@ class StormTypesTest(s_test.SynTest):
 
                 # Test 'at' command
 
+                q = 'cron.at --query #foo'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('must start with {', mesgs)
+
                 q = 'cron.at --query {#foo}'
                 mesgs = await core.streamstorm(q).list()
                 self.stormIsInErr('At least', mesgs)
@@ -2125,6 +2144,10 @@ class StormTypesTest(s_test.SynTest):
                 q = 'cron.at --day +1'
                 mesgs = await core.streamstorm(q).list()
                 self.stormIsInPrint('the following arguments are required: --query', mesgs)
+
+                q = 'cron.at --dt nope --query {#foo}'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Trouble parsing', mesgs)
 
                 q = '$lib.cron.at(day="+1")'
                 mesgs = await core.streamstorm(q).list()
@@ -2169,6 +2192,9 @@ class StormTypesTest(s_test.SynTest):
                 # Test 'stat' command
                 mesgs = await core.streamstorm('cron.stat xxx').list()
                 self.stormIsInErr('Provided iden does not match any', mesgs)
+
+                mesgs = await core.streamstorm(f'cron.stat ""').list()
+                self.stormIsInErr('matches more than one', mesgs)
 
                 mesgs = await core.streamstorm(f'cron.stat {guid[:6]}').list()
                 self.stormIsInPrint('last result:     finished successfully with 1 nodes', mesgs)
