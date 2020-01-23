@@ -10,6 +10,7 @@ import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
+import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.lib.lmdbslab as s_slab
@@ -735,11 +736,8 @@ class HiveDict(s_base.Base):
 
         return retn
 
-# class HiveLock(s_base.Base):
-# class HiveSeqn(s_base.Base):
-
 # FIXME: move to separate file
-class HiveAuth(s_base.Base):
+class HiveAuth(s_nexus.Nexus):
     '''
     HiveAuth is a user authentication and authorization stored in a Hive.  Users
     correspond to separate logins with different passwords and potentially
@@ -788,13 +786,16 @@ class HiveAuth(s_base.Base):
         └ ... last authgate
     '''
 
-    async def __anit__(self, node, chngcell):
+    async def __anit__(self, node, pushparent=None):
         '''
         Args:
             node (HiveNode): The root of the persistent storage for auth
-            chngcell (s_cell.Cell): Who to register change handing on
         '''
-        await s_base.Base.__anit__(self)
+        # Derive an iden from the parent
+        authiden = 'auth'
+        if pushparent is not None:
+            authiden += pushparent._nexsiden
+        await s_nexus.Nexus.__anit__(self, authiden, parent=pushparent)
 
         self.node = node
 
@@ -833,8 +834,6 @@ class HiveAuth(s_base.Base):
             [await a.fini() for a in self.authgates.values()]
 
         self.onfini(fini)
-
-        chngcell.onChange()
 
     def users(self):
         return self.usersbyiden.values()
@@ -890,6 +889,9 @@ class HiveAuth(s_base.Base):
         '''
         Retrieve AuthGate by iden.  Create if not present.
 
+        Note:
+            Not change distributed
+
         Returns:
             (HiveAuthGate)
         '''
@@ -905,6 +907,12 @@ class HiveAuth(s_base.Base):
         return await self._addAuthGate(node)
 
     async def delAuthGate(self, iden):
+        '''
+        Delete AuthGate by iden.
+
+        Note:
+            Not change distributed
+        '''
         gate = self.getAuthGate(iden)
         if gate is None:
             raise s_exc.NoSuchAuthGate(iden=iden)
@@ -918,18 +926,16 @@ class HiveAuth(s_base.Base):
         return self.authgates.get(iden)
 
     async def addUser(self, name):
+        return await self._push('auth:user:add', (name, ))
 
+    @s_nexus.Nexus.onPush('auth:user:add')
+    async def _onAddUser(self, name):
         if self.usersbyname.get(name) is not None:
             raise s_exc.DupUserName(name=name)
 
         iden = s_common.guid()
         path = self.node.full + ('users', iden)
 
-        # FIXME: register
-        return await self.cell._fireChange('auth:adduser', (path, name))
-
-    async def _onChngAddUser(self, mesg):
-        path, name = mesg[1]
         # directly set the nodes value and let events prop
         await self.node.hive.set(path, name)
 
@@ -937,17 +943,16 @@ class HiveAuth(s_base.Base):
         return await self._addUserNode(node)
 
     async def addRole(self, name):
+        return await self.cell._push('auth:role:add', (name,))
 
+    @s_nexus.Nexus.onPush('auth:role:add')
+    async def _onAddRole(self, name):
         if self.rolesbyname.get(name) is not None:
             raise s_exc.DupRoleName(name=name)
 
         iden = s_common.guid()
         path = self.node.full + ('roles', iden)
 
-        return await self.cell._fireChange('auth:addrole', (path, name))
-
-    async def _onChngAddRole(self, mesg):
-        path, name = mesg[1]
         # directly set the nodes value and let events prop
         await self.node.hive.set(path, name)
 
@@ -981,13 +986,12 @@ class HiveAuth(s_base.Base):
 
     async def delUser(self, name):
 
+        return await self.cell._push('auth:user:del', (name,))
+
+    @s_nexus.Nexus.onPush('auth:user:del')
+    async def _onDelUser(self, name):
         if name == 'root':
             raise s_exc.CantDelRootUser(mesg='user "root" may not be deleted')
-
-        return await self.cell._fireChange('auth:deluser', (name,))
-
-    async def _onChngDelUser(self, mesg):
-        name = mesg[1]
 
         user = self.usersbyname.get(name)
         if user is None:
@@ -1010,10 +1014,10 @@ class HiveAuth(s_base.Base):
                 yield user
 
     async def delRole(self, name):
-        return await self.cell._fireChange('auth:delrole', (name,))
+        return await self.cell._push('auth:role:del', (name,))
 
-    async def _onChngDelRole(self, mesg):
-        name = mesg[1]
+    @s_nexus.Nexus.onPush('auth:role:del')
+    async def _onDelRole(self, name):
         role = self.rolesbyname.get(name)
         if role is None:
             raise s_exc.NoSuchRole(name=name)
@@ -1138,13 +1142,11 @@ class AuthGater(s_base.Base):
         self.authgate = await auth.addAuthGate(self.iden, self.authgatetype)
         self.onfini(self.authgate)
 
-    async def trash(self):
+    async def delete(self):
         '''
         Remove all rules relating to this object
-
-        Prerequisite: Object must be fini'd first
         '''
-        assert self.isfini
+        await self.fini()
         await self.authgate.auth.delAuthGate(self.iden)
 
     async def _reqUserAllowed(self, hiveuser, perm):

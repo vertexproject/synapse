@@ -320,6 +320,8 @@ class CoreApi(s_cell.CellApi):
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
+        Deprecated in 0.2.0.
+
         FIXME:  add view parm?
         Add a tag to a node specified by iden.
 
@@ -333,6 +335,7 @@ class CoreApi(s_cell.CellApi):
 
     async def delNodeTag(self, iden, tag):
         '''
+        Deprecated in 0.2.0.
         Delete a tag from the node specified by iden.
 
         Args:
@@ -344,6 +347,8 @@ class CoreApi(s_cell.CellApi):
 
     async def setNodeProp(self, iden, name, valu):
         '''
+        Deprecated in 0.2.0.
+
         Set a property on a single node.
         FIXME:  how to move to cortex and still have enforcement?
         '''
@@ -365,6 +370,8 @@ class CoreApi(s_cell.CellApi):
 
     async def delNodeProp(self, iden, name):
         '''
+        Deprecated in 0.2.0.
+
         Delete a property from a single node.
         '''
 
@@ -385,6 +392,9 @@ class CoreApi(s_cell.CellApi):
                 return node.pack()
 
     async def addNode(self, form, valu, props=None):
+        '''
+        Deprecated in 0.2.0.
+        '''
 
         async with await self.cell.snap(user=self.user) as snap:
             await snap.wlyr._reqUserAllowed(self.user, ('node:add', form))
@@ -406,7 +416,6 @@ class CoreApi(s_cell.CellApi):
         '''
 
         # First check that that user may add each form
-
         done = {}
         for node in nodes:
 
@@ -780,7 +789,7 @@ class CoreApi(s_cell.CellApi):
     async def cullCoreQueue(self, name, offs):
         return await self.cell.cullCoreQueue(name, offs)
 
-class Cortex(s_cell.Cell):
+class Cortex(s_cell.Cell, s_nexus.Nexus):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
 
@@ -858,6 +867,7 @@ class Cortex(s_cell.Cell):
     async def __anit__(self, dirn, conf=None):
 
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
+        await s_nexus.Nexus.__anit__(self, self.iden)
 
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use
@@ -880,6 +890,7 @@ class Cortex(s_cell.Cell):
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
+        # FIXME:  need to wrap this with something that does change dist
         self.stormvars = None   # type: s_hive.HiveDict
 
         self.stormdmons = {}
@@ -907,7 +918,6 @@ class Cortex(s_cell.Cell):
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
 
-        await self._initChanges()
         await self._initCoreHive()
         self._initSplicers()
         self._initStormLibs()
@@ -981,17 +991,6 @@ class Cortex(s_cell.Cell):
         self.spawnpool = await s_spawn.SpawnPool.anit(self)
         self.onfini(self.spawnpool)
         self.on('user:mod', self._onEvtBumpSpawnPool)
-
-    async def _initChanges(self):
-        # all cortex changes *must* go through a change handler
-        self.onChange('layer:add', self._xactAddLayer)
-        self.onChange('layer:del', self._onDelLayer)
-        self.onChange('view:add', self._xactViewAdd)
-        self.onChange('view:del', self._xactViewDel)
-        self.onChange('storage:add', self._xactStorAdd)
-
-    async def _onDelLayer(self, mesg):
-        print('DEL LAYER %r' % (mesg,))
 
     async def _onEvtBumpSpawnPool(self, evnt):
         await self.bumpSpawnPool()
@@ -1179,6 +1178,10 @@ class Cortex(s_cell.Cell):
         self.getStormQuery(cdef.get('storm'))
 
     async def _setStormCmd(self, cdef):
+        '''
+        Note:
+            No change control or persistence
+        '''
 
         await self._reqStormCmd(cdef)
 
@@ -1212,6 +1215,10 @@ class Cortex(s_cell.Cell):
         '''
         Remove a previously set pure storm command.
         '''
+        return await self._push('storm:cmd:del', (name,))
+
+    @s_nexus.Nexus.onPush('storm:cmd:del')
+    async def _onDelStormCmd(self, name):
         ctor = self.stormcmds.get(name)
         if ctor is None:
             mesg = f'No storm command named {name}.'
@@ -1222,10 +1229,6 @@ class Cortex(s_cell.Cell):
             mesg = f'The storm command ({name}) is not dynamic.'
             raise s_exc.CantDelCmd(mesg=mesg)
 
-        return await self._push('storm:cmd:del', (name,))
-
-    @s_nexus.Nexus.onPush('storm:cmd:del')
-    async def _onDelStormCmd(self, name):
         await self.cmdhive.pop(name)
         self.stormcmds.pop(name, None)
         await self.bumpSpawnPool()
@@ -1238,6 +1241,10 @@ class Cortex(s_cell.Cell):
 
         This will store the package for future use.
         '''
+        return await self._push('storm:pkg:add', (pkgdef,))
+
+    @s_nexus.Nexus.onPush('storm:pkg:add')
+    async def _onAddStormPkg(self, pkgdef):
         await self.loadStormPkg(pkgdef)
         name = pkgdef.get('name')
         await self.pkghive.set(name, pkgdef)
@@ -1246,12 +1253,16 @@ class Cortex(s_cell.Cell):
         '''
         Delete a storm package by name.
         '''
+        return await self._push('storm:pkg:del', (name,))
+
+    @s_nexus.Nexus.onPush('storm:pkg:del')
+    async def _onDelStormPkg(self, name):
         pkgdef = await self.pkghive.pop(name, None)
         if pkgdef is None:
             mesg = f'No storm package: {name}.'
             raise s_exc.NoSuchPkg(mesg=mesg)
 
-        await self.dropStormPkg(pkgdef)
+        await self._dropStormPkg(pkgdef)
 
     async def getStormPkg(self, name):
         return self.stormpkgs.get(name)
@@ -1272,11 +1283,9 @@ class Cortex(s_cell.Cell):
             name = pkgdef.get('name', '')
             logger.exception(f'Error loading pkg: {name}, {str(e)}')
 
-    async def loadStormPkg(self, pkgdef):
+    async def _confirmStormPkg(self, pkgdef):
         '''
-        Load a storm package into the storm library for this cortex.
-
-        NOTE: This will *not* store/persist the package (allowing service dynamism).
+        Validate a storm package for loading.  Raises if invalid.
         '''
         # validate things first...
         name = pkgdef.get('name')
@@ -1312,6 +1321,14 @@ class Cortex(s_cell.Cell):
 
             await self._reqStormCmd(cdef)
 
+    async def loadStormPkg(self, pkgdef):
+        '''
+        Load a storm package into the storm library for this cortex.
+
+        NOTE: This will *not* persist the package (allowing service dynamism).
+        '''
+        await self._confirmStormPkg(pkgdef)
+
         # now actually load...
         self.stormpkgs[name] = pkgdef
 
@@ -1330,7 +1347,7 @@ class Cortex(s_cell.Cell):
 
         await self.bumpSpawnPool()
 
-    async def dropStormPkg(self, pkgdef):
+    async def _dropStormPkg(self, pkgdef):
         '''
         Reverse the process of loadStormPkg()
         '''
@@ -1375,6 +1392,10 @@ class Cortex(s_cell.Cell):
         '''
         Delete a registered storm service from the cortex.
         '''
+        return await self._push('storm:svc:del', (iden,))
+
+    @s_nexus.Nexus.onPush('storm:svc:del')
+    async def _onDelStormSvc(self, iden):
 
         try:
             await self.runStormSvcEvent(iden, 'del')
@@ -1558,6 +1579,10 @@ class Cortex(s_cell.Cell):
                 yield mesg
 
     async def addUnivProp(self, name, tdef, info):
+        return await self._push('model:univ:add', (name, tdef, info))
+
+    @s_nexus.Nexus.onPush('model:univ:add')
+    async def _onAddUnivProp(self, name, tdef, info):
 
         # the loading function does the actual validation...
         if not name.startswith('_'):
@@ -1568,17 +1593,16 @@ class Cortex(s_cell.Cell):
             mesg = 'Ext univ may not (yet) have a default value.'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
 
-        return await self._push('model:univ:add', (name, tdef, info))
-
-    @s_nexus.Nexus.onPush('model:univ:add')
-    async def _onAddUnivProp(self, name, tdef, info):
         self.model.addUnivProp(name, tdef, info)
 
         await self.extunivs.set(name, (name, tdef, info))
         await self.fire('core:extmodel:change', prop=name, act='add', type='univ')
 
     async def addFormProp(self, form, prop, tdef, info):
+        return await self._push('model:prop:add', (form, prop, tdef, info))
 
+    @s_nexus.Nexus.onPush('model:prop:add')
+    async def _onAddFormProp(self, form, prop, tdef, info):
         if not prop.startswith('_'):
             mesg = 'ext prop must begin with "_"'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
@@ -1587,10 +1611,6 @@ class Cortex(s_cell.Cell):
             mesg = 'Ext prop may not (yet) have a default value.'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
 
-        return await self._push('model:prop:add', (form, prop, tdef, info))
-
-    @s_nexus.Nexus.onPush('model:prop:add')
-    async def _onAddFormProp(self, form, prop, tdef, info):
         self.model.addFormProp(form, prop, tdef, info)
         await self.extprops.set(f'{form}:{prop}', (form, prop, tdef, info))
         await self.fire('core:extmodel:change',
@@ -1601,6 +1621,10 @@ class Cortex(s_cell.Cell):
         '''
         Remove an extended property from the cortex.
         '''
+        return await self._push('model:prop:del', (form, prop,))
+
+    @s_nexus.Nexus.onPush('model:prop:del')
+    async def _onDelFormProp(self, form, prop):
         full = f'{form}:{prop}'
 
         pdef = self.extprops.get(full)
@@ -1613,11 +1637,6 @@ class Cortex(s_cell.Cell):
                 mesg = f'Nodes still exist with prop: {form}:{prop}'
                 raise s_exc.CantDelProp(mesg=mesg)
 
-        return await self._push('model:prop:del', (form, prop,))
-
-    @s_nexus.Nexus.onPush('model:prop:del')
-    async def _onDelFormProp(self, form, prop):
-        full = f'{form}:{prop}'
         self.model.delFormProp(form, prop)
         await self.extprops.pop(full, None)
         await self.fire('core:extmodel:change',
@@ -1628,6 +1647,10 @@ class Cortex(s_cell.Cell):
         '''
         Remove an extended universal property from the cortex.
         '''
+        return await self._push('model:univ:del', (prop,))
+
+    @s_nexus.Nexus.onPush('storm:univ:del')
+    async def _onDelUnivProp(self, prop):
         udef = self.extunivs.get(prop)
         if udef is None:
             mesg = f'No ext univ named {prop}'
@@ -1639,17 +1662,16 @@ class Cortex(s_cell.Cell):
                 mesg = f'Nodes still exist with universal prop: {prop}'
                 raise s_exc.CantDelUniv(mesg=mesg)
 
-        return await self._push('model:univ:del', (prop,))
-
-    @s_nexus.Nexus.onPush('storm:univ:del')
-    async def _onDelUnivProp(self, prop):
         self.model.delUnivProp(prop)
         await self.extunivs.pop(prop, None)
         await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
         await self.bumpSpawnPool()
 
     async def addTagProp(self, name, tdef, info):
+        return await self._push('model:tagprop:add', (name, tdef, info,))
 
+    @s_nexus.Nexus.onPush('model:tagprop:add')
+    async def _onaddTagProp(self, name, tdef, info):
         if self.exttagprops.get(name) is not None:
             raise s_exc.DupPropName(name=name)
 
@@ -1660,7 +1682,10 @@ class Cortex(s_cell.Cell):
         await self.bumpSpawnPool()
 
     async def delTagProp(self, name):
+        return await self._push('model:tagprop:del', (name,))
 
+    @s_nexus.Nexus.onPush('model:tagprop:del')
+    async def _onDelTagProp(self, name):
         pdef = self.exttagprops.get(name)
         if pdef is None:
             mesg = f'No tag prop named {name}'
@@ -1678,10 +1703,6 @@ class Cortex(s_cell.Cell):
         await self.bumpSpawnPool()
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
-        return await self._push('node:tag:add', (iden, tag, valu,))
-
-    @s_nexus.Nexus.onPush('node:tag:add')
-    async def _onAddNodeTag(self, iden, tag, valu=(None, None)):
         '''
         Add a tag to a node specified by iden.
 
@@ -1702,16 +1723,6 @@ class Cortex(s_cell.Cell):
 
                 await node.addTag(tag, valu=valu)
                 return node.pack()
-
-    async def delNodeTag(self, iden, tag):
-        '''
-        Delete a tag from the node specified by iden.
-
-        Args:
-            iden (str): A hex encoded node BUID.
-            tag (str):  A tag string.
-        '''
-        return await self._push('node:tag:del', (iden, tag))
 
     async def addNode(self, form, valu, props=None):
 
@@ -1758,13 +1769,17 @@ class Cortex(s_cell.Cell):
 
                     yield node
 
-    @s_nexus.Nexus.onPush('node:tag:del')
-    async def _onDelNodeTag(self, iden, tag):
+    async def delNodeTag(self, iden, tag):
+        '''
+        Delete a tag from the node specified by iden.
+
+        Args:
+            iden (str): A hex encoded node BUID.
+            tag (str):  A tag string.
+        '''
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
-
-            parts = tag.split('.')
 
             with s_provenance.claim('coreapi', meth='tag:del', user=snap.user.iden):
 
@@ -1774,7 +1789,6 @@ class Cortex(s_cell.Cell):
 
                 await node.delTag(tag)
                 return node.pack()
-
 
     async def _onCoreFini(self):
         '''
@@ -2026,19 +2040,17 @@ class Cortex(s_cell.Cell):
     async def addLayrStor(self, typename, typeconf):
 
         iden = s_common.guid()
+        return await self._push('storage:add', (iden, typename, typeconf))
+
+    # FIXME:  does this need change dist?  I don't see how it can be called after startup
+    @s_nexus.Nexus.onPush('storage:add')
+    async def _onAddLayrStor(self, iden, typename, typeconf):
+
         clas = self.storctors.get(typename)
         if clas is None:
             raise s_exc.NoSuchStor(name=typename)
 
         await clas.reqValidConf(typeconf)
-
-        return await self._fireChange(('storage:add', {'iden': iden, 'type': typename, 'conf': typeconf}))
-
-    async def _xactStorAdd(self, mesg):
-
-        iden = mesg[1].get('iden')
-        typename = mesg[1].get('type')
-        typeconf = mesg[1].get('conf')
 
         node = await self.hive.open(('cortex', 'storage', iden))
 
@@ -2278,9 +2290,9 @@ class Cortex(s_cell.Cell):
 
         # if we have no views, we are initializing.  Add a default main view and layer.
         if not self.views:
-            layr = await self.addLayer()
+            layr = await self._addLayer(s_common.guid())
             iden = s_common.guid()
-            view = await self.addView(iden, 'root', (layr.iden,))
+            view = await self._addView(iden, 'root', (layr.iden,))
             await self.cellinfo.set('defaultview', iden)
             self.view = view
 
@@ -2294,9 +2306,6 @@ class Cortex(s_cell.Cell):
         TODO:  due to our migration policy, remove in 0.3.0
 
         '''
-        # pre-hive -> hive layer directory migration first
-        self._migrOrigLayer()
-
         defiden = self.cellinfo.get('defaultview')
         if defiden is not None:
             # No need for migration; we're up-to-date
@@ -2355,17 +2364,10 @@ class Cortex(s_cell.Cell):
         await layr.delOffset(oldlayriden)
 
     async def addView(self, iden, owner, layers):
+        return await self._push('view:add', (iden, owner, layers))
 
-        # TODO validate values here!
-        view = await self._fireChange(('view:add', {'iden': iden, 'owner': owner, 'layers': layers}))
-        await self.bumpSpawnPool()
-        return view
-
-    async def _xactViewAdd(self, mesg):
-
-        iden = mesg[1].get('iden')
-        owner = mesg[1].get('owner')
-        layers = mesg[1].get('layers')
+    @s_nexus.Nexus.onPush('view:add')
+    async def _addView(self, iden, owner, layers):
 
         node = await self.hive.open(('cortex', 'views', iden))
         info = await node.dict()
@@ -2386,16 +2388,13 @@ class Cortex(s_cell.Cell):
         Note:
             This does not delete any of the view's layers
         '''
+        return await self._push('view:del', (iden,))
+
+    @s_nexus.Nexus.onPush('view:del')
+    async def _onViewDel(self, iden):
+
         if iden == self.view.iden:
             raise s_exc.SynErr(mesg='cannot delete the main view')
-
-        self._fireChange(('view:del', {'iden': iden}))
-
-        await self.bumpSpawnPool()
-
-    async def _xactViewDel(self, mesg):
-
-        iden = mesg[1].get('iden')
 
         view = self.views.pop(iden, None)
         if view is None:
@@ -2408,6 +2407,10 @@ class Cortex(s_cell.Cell):
         await self.bumpSpawnPool()
 
     async def delLayer(self, iden):
+        return await self._push('layer:del', (iden,))
+
+    @s_nexus.Nexus.onPush('layer:del')
+    async def _onDelLayer(self, iden):
         layr = self.layers.get(iden, None)
         if layr is None:
             raise s_exc.NoSuchLayer(iden=iden)
@@ -2420,8 +2423,7 @@ class Cortex(s_cell.Cell):
 
         await self.hive.pop(('cortex', 'layers', iden))
 
-        # TODO: actually delete the storage for the data
-        await layr.fini()
+        await layr.delete()
         await self.bumpSpawnPool()
 
     async def setViewLayers(self, layers, iden=None):
@@ -2481,10 +2483,16 @@ class Cortex(s_cell.Cell):
         '''
         Add a Layer to the cortex.
         '''
-        if conf is None:
-            conf = {}
 
         iden = s_common.guid()
+
+        return await self._push('layer:add', (iden, conf, stor))
+
+    @s_nexus.Nexus.onPush('layer:add')
+    async def _addLayer(self, iden, conf=None, stor=None):
+
+        if conf is None:
+            conf = {}
 
         layrstor = self.defstor
         if stor is not None:
@@ -2492,26 +2500,7 @@ class Cortex(s_cell.Cell):
             if layrstor is None:
                 raise s_exc.NoSuchIden(iden=stor)
 
-        dirn = s_common.gendir(self.dirn, 'layers', iden)
         await layrstor.reqValidLayrConf(conf)
-
-        info = {
-            'conf': conf,
-            'dirn': dirn,
-            'iden': iden,
-            'stor': layrstor.iden,
-        }
-
-        return await self._fireChange(('layer:add', info))
-
-    async def _xactAddLayer(self, mesg):
-
-        name, info = mesg
-
-        iden = info.get('iden')
-        stor = info.get('stor')
-        conf = info.get('conf')
-
         node = await self.hive.open(('cortex', 'layers', iden))
 
         layrinfo = await node.dict()
@@ -2523,14 +2512,16 @@ class Cortex(s_cell.Cell):
         await layrinfo.set('stor', stor)
         await layrinfo.set('conf', conf)
 
-        return await self.initLayr(layrinfo)
+        return (await self._initLayr(layrinfo)).iden
 
-    async def initLayr(self, layrinfo):
+    async def _initLayr(self, layrinfo):
         '''
         Instantiate a Layer() instance via the provided layer info HiveDict.
         '''
         stor = layrinfo.get('stor')
         layrstor = self.storage.get(stor)
+        if layrstor is None:
+            raise s_exc.SynErr('missing layer storage')
 
         layr = await layrstor.initLayr(layrinfo)
 
@@ -2564,17 +2555,7 @@ class Cortex(s_cell.Cell):
         # TODO eventually hold this and watch for changes
         for iden, node in node:
             layrinfo = await node.dict()
-            await self.initLayr(layrinfo)
-
-    def _migrOrigLayer(self):
-        # TODO:  due to our migration policy, remove in 0.2.x
-
-        oldpath = os.path.join(self.dirn, 'layers', '000-default')
-        if not os.path.exists(oldpath):
-            return
-
-        newpath = os.path.join(self.dirn, 'layers', self.iden)
-        os.rename(oldpath, newpath)
+            await self._initLayr(layrinfo)
 
     def addStormCmd(self, ctor):
         '''

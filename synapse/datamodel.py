@@ -695,9 +695,9 @@ class Model:
         if isinstance(prop.type, s_types.Array):
             self.arraysbytype[prop.type.arraytype.name].append(prop)
 
-        #full = f'{form.name}:{name}'
+        # full = f'{form.name}:{name}'
         self.props[prop.full] = prop
-        #self.props[(form.name, name)] = prop
+        # self.props[(form.name, name)] = prop
 
     def delTagProp(self, name):
         return self.tagprops.pop(name)

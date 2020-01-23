@@ -19,7 +19,7 @@ class Node:
 
     NOTE: This object is for local Cortex use during a single Xact.
     '''
-    #def __init__(self, snap, buid=None, rawprops=None, proplayr=None):
+    # def __init__(self, snap, buid=None, rawprops=None, proplayr=None):
     def __init__(self, snap, sode):
         self.snap = snap
         self.sode = sode

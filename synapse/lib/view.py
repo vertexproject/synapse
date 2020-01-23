@@ -249,7 +249,11 @@ class View(s_hive.AuthGater):  # type: ignore
             'layers': self.info.get('layers'),
         }
 
-    async def addLayer(self, layr, indx=None):
+    async def addLayer(self, layriden, indx=None):
+        return await self._push('view:addlayer', (layriden, indx))
+
+    @s_nexus.Nexus.onPush('view:addlayer')
+    async def _onAddLayer(self, layriden, indx=None):
 
         for view in self.core.views.values():
             if view.parent is self:
@@ -258,9 +262,12 @@ class View(s_hive.AuthGater):  # type: ignore
         if self.parent is not None:
             raise s_exc.ReadOnlyLayer(mesg='May not change layers of forked view')
 
+        layr = self.core.layers.get(layriden)
+        if layr is None:
+            raise s_exc.NoSuchLayer(iden=layriden)
+
         if indx is None:
             self.layers.append(layr)
-
         else:
             self.layers.insert(indx, layr)
 
@@ -271,6 +278,10 @@ class View(s_hive.AuthGater):  # type: ignore
         Set the view layers from a list of idens.
         NOTE: view layers are stored "top down" (the write layer is self.layers[0])
         '''
+        return await self._push('view:setlayers', (layers,))
+
+    @s_nexus.Nexus.onPush('view:setlayers')
+    async def _onSetLayers(self, layers):
         for view in self.core.views.values():
             if view.parent is self:
                 raise s_exc.ReadOnlyLayer(mesg='May not change layers that have been forked from')

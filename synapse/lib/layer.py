@@ -1492,9 +1492,6 @@ class Layer(s_base.Base):
     #async def getNodeNdef(self, buid):  # pragma: no cover
         #raise NotImplementedError
 
-    #def migrateProvPre010(self, slab):  # pragma: no cover
-        #raise NotImplementedError
-
     #async def delUnivProp(self, propname, info=None): # pragma: no cover
         #'''
         #Bulk delete all instances of a universal prop.
@@ -1516,11 +1513,12 @@ class Layer(s_base.Base):
         #for x in (): yield x
         #raise NotImplementedError
 
-    async def trash(self):
+    async def delete(self):
         '''
         Delete the underlying storage
         '''
-        await s_hive.AuthGater.trash(self)
+        await self.fini()
+        await s_hive.AuthGater.delete(self)
         shutil.rmtree(self.dirn, ignore_errors=True)
 
 class LayerStorage(s_base.Base):

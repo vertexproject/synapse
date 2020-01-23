@@ -50,10 +50,10 @@ def adminapi(f):
 
     return func
 
-class CellApi(s_nexus.Nexus):
+class CellApi(s_base.Base):
 
-    async def __anit__(self, cell, link, user):
-        await s_nexus.Nexus.__anit__(self, iden=self.iden, parent=cell)
+    async def __anit__(self, cell, link, user, iden):
+        await s_base.Base.__anit__(self, iden=iden, parent=cell)
         self.cell = cell
         self.link = link
         assert user
@@ -174,72 +174,6 @@ class CellApi(s_nexus.Nexus):
         perm = '.'.join(perm)
         raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
                              task=iden, user=str(self.user), perm=perm)
-
-    async def listHiveKey(self, path=None):
-        if path is None:
-            path = ()
-        perm = ('hive:get',) + path
-        await self._reqUserAllowed(perm)
-        items = self.cell.hive.dir(path)
-        if items is None:
-            return None
-        return [item[0] for item in items]
-
-    async def getHiveKey(self, path):
-        '''
-        Get the value of a key in the cell default hive
-        '''
-        perm = ('hive:get',) + path
-        await self._reqUserAllowed(perm)
-        return await self.cell.hive.get(path)
-
-    async def setHiveKey(self, path, value):
-        '''
-        Set or change the value of a key in the cell default hive
-        FIXME:  chng handler?
-
-        Note:  this is for expert emergency use only.
-        '''
-        perm = ('hive:set',) + path
-        await self._reqUserAllowed(perm)
-        return await self.cell._fireChange('hive:set', (path, value,))
-
-    @s_nexus.Nexus.onPush('hive:set')
-    async def _onPushSetHiveKey(self, mesg):
-        path, value = mesg[1]
-        return await self.cell.hive.set(path, value)
-
-    async def popHiveKey(self, path):
-        '''
-        Remove and return the value of a key in the cell default hive.
-
-        Note:  this is for expert emergency use only.
-        FIXME:  chng handler?
-        '''
-        perm = ('hive:pop',) + path
-        await self._reqUserAllowed(perm)
-        return await self.cell._fireChange('hive:pop', (path,))
-
-    async def _onPushPopHiveKey(self, mesg):
-        path, = mesg[1]
-        return await self.cell.hive.pop(path)
-
-    async def saveHiveTree(self, path=()):
-        perm = ('hive:get',) + path
-        await self._reqUserAllowed(perm)
-        return await self.cell.hive.saveHiveTree(path=path)
-
-    async def loadHiveTree(self, tree, path=(), trim=False):
-        '''
-        Note:  this is for expert emergency use only.
-        '''
-        perm = ('hive:set',) + path
-        await self._reqUserAllowed(perm)
-        return await self.cell._fireChange('hive:loadtree', (tree, path, trim))
-
-    async def _onPushLoadHiveTree(self, mesg):
-        tree, path, trim = mesg[1]
-        return await self.cell.hive.loadHiveTree(tree, path=path, trim=trim)
 
     @adminapi
     async def addAuthUser(self, name):
@@ -399,7 +333,7 @@ bootdefs = (
 
 )
 
-class Cell(s_base.Base, s_telepath.Aware):
+class Cell(s_nexus.Nexus, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
     '''
@@ -755,3 +689,54 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     async def getDmonSessions(self):
         return await self.dmon.getSessInfo()
+
+    # ----- Change distributed Auth methods ----
+
+    async def listHiveKey(self, path=None):
+        if path is None:
+            path = ()
+        items = self.hive.dir(path)
+        if items is None:
+            return None
+        return [item[0] for item in items]
+
+    async def getHiveKey(self, path):
+        '''
+        Get the value of a key in the cell default hive
+        '''
+        return await self.hive.get(path)
+
+    async def setHiveKey(self, path, value):
+        '''
+        Set or change the value of a key in the cell default hive
+        '''
+        return await self._push('hive:setkey', (path, value))
+
+    @s_nexus.Nexus.onPush('hive:setkey')
+    async def _onSetHiveKey(self, path, value):
+        return await self.hive.set(path, value)
+
+    async def popHiveKey(self, path):
+        '''
+        Remove and return the value of a key in the cell default hive.
+
+        Note:  this is for expert emergency use only.
+        '''
+        return await self._push('hive:popkey', (path,))
+
+    @s_nexus.Nexus.onPush('hive:popkey')
+    async def _onPopHiveKey(self, path):
+        return await self.hive.pop(path)
+
+    async def saveHiveTree(self, path=()):
+        return await self.hive.saveHiveTree(path=path)
+
+    async def loadHiveTree(self, tree, path=(), trim=False):
+        '''
+        Note:  this is for expert emergency use only.
+        '''
+        return await self._push('hive:loadtree', (tree, path, trim))
+
+    @s_nexus.Nexus.onPush('hive:loadtree')
+    async def _onLoadHiveTree(self, tree, path, trim):
+        return await self.hive.loadHiveTree(tree, path=path, trim=trim)
