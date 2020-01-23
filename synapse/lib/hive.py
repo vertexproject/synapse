@@ -943,7 +943,7 @@ class HiveAuth(s_nexus.Nexus):
         return await self._addUserNode(node)
 
     async def addRole(self, name):
-        return await self.cell._push('auth:role:add', (name,))
+        return await self._push('auth:role:add', (name,))
 
     @s_nexus.Nexus.onPush('auth:role:add')
     async def _onAddRole(self, name):
@@ -986,7 +986,7 @@ class HiveAuth(s_nexus.Nexus):
 
     async def delUser(self, name):
 
-        return await self.cell._push('auth:user:del', (name,))
+        return await self._push('auth:user:del', (name,))
 
     @s_nexus.Nexus.onPush('auth:user:del')
     async def _onDelUser(self, name):
@@ -1014,7 +1014,7 @@ class HiveAuth(s_nexus.Nexus):
                 yield user
 
     async def delRole(self, name):
-        return await self.cell._push('auth:role:del', (name,))
+        return await self._push('auth:role:del', (name,))
 
     @s_nexus.Nexus.onPush('auth:role:del')
     async def _onDelRole(self, name):

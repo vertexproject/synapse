@@ -54,7 +54,6 @@ import os
 import shutil
 import asyncio
 import logging
-import contextlib
 
 import regex
 
@@ -63,10 +62,8 @@ import synapse.common as s_common
 
 import synapse.lib.gis as s_gis
 import synapse.lib.base as s_base
-import synapse.lib.cell as s_cell
 import synapse.lib.hive as s_hive
 import synapse.lib.cache as s_cache
-import synapse.lib.queue as s_queue
 
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn

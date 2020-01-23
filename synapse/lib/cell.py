@@ -52,8 +52,8 @@ def adminapi(f):
 
 class CellApi(s_base.Base):
 
-    async def __anit__(self, cell, link, user, iden):
-        await s_base.Base.__anit__(self, iden=iden, parent=cell)
+    async def __anit__(self, cell, link, user):
+        await s_base.Base.__anit__(self)
         self.cell = cell
         self.link = link
         assert user
@@ -201,7 +201,11 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def getAuthUsers(self, archived=False):
-        return [u.name for u in self.cell.auth.users() if not archived or not u.info.get('archived')]
+        '''
+        Args:
+            archived (bool):  If true, list all users, else list non-archived users
+        '''
+        return [u.name for u in self.cell.auth.users() if archived or not u.info.get('archived')]
 
     @adminapi
     async def getAuthRoles(self):
@@ -345,8 +349,6 @@ class Cell(s_nexus.Nexus, s_telepath.Aware):
 
     async def __anit__(self, dirn, conf=None, readonly=False):
 
-        await s_base.Base.__anit__(self)
-
         s_telepath.Aware.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
@@ -366,6 +368,8 @@ class Cell(s_nexus.Nexus, s_telepath.Aware):
         # read our guid file
         with open(path, 'r') as fd:
             self.iden = fd.read().strip()
+
+        await s_nexus.Nexus.__anit__(self, self.iden)
 
         boot = self._loadCellYaml('boot.yaml')
         self.boot = s_common.config(boot, bootdefs)

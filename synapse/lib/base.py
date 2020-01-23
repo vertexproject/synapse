@@ -94,7 +94,6 @@ class Base:
             await self.__anit__(*args, **kwargs)
 
         except Exception:
-
             if self.anitted:
                 await self.fini()
 

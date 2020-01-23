@@ -95,33 +95,28 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await proxy.icando('foo', 'bar'))
                     await self.asyncraises(s_exc.AuthDeny, proxy.icando('foo', 'newp'))
 
-                    await self.asyncraises(s_exc.AuthDeny, proxy.listHiveKey(('faz',)))
-                    await self.asyncraises(s_exc.AuthDeny, proxy.getHiveKey(('faz',)))
-                    await self.asyncraises(s_exc.AuthDeny, proxy.setHiveKey(('faz',), 'bar'))
-                    await self.asyncraises(s_exc.AuthDeny, proxy.popHiveKey(('faz',)))
-
                     # happy path perms
                     await user.addRule((True, ('hive:set', 'foo', 'bar')))
                     await user.addRule((True, ('hive:get', 'foo', 'bar')))
                     await user.addRule((True, ('hive:pop', 'foo', 'bar')))
 
-                    val = await proxy.setHiveKey(('foo', 'bar'), 'thefirstval')
+                    val = await echo.setHiveKey(('foo', 'bar'), 'thefirstval')
                     self.eq(None, val)
 
                     # check that we get the old val back
-                    val = await proxy.setHiveKey(('foo', 'bar'), 'wootisetit')
+                    val = await echo.setHiveKey(('foo', 'bar'), 'wootisetit')
                     self.eq('thefirstval', val)
 
-                    val = await proxy.getHiveKey(('foo', 'bar'))
+                    val = await echo.getHiveKey(('foo', 'bar'))
                     self.eq('wootisetit', val)
 
-                    val = await proxy.popHiveKey(('foo', 'bar'))
+                    val = await echo.popHiveKey(('foo', 'bar'))
                     self.eq('wootisetit', val)
 
-                    val = await proxy.setHiveKey(('foo', 'bar', 'baz'), 'a')
-                    val = await proxy.setHiveKey(('foo', 'bar', 'faz'), 'b')
-                    val = await proxy.setHiveKey(('foo', 'bar', 'haz'), 'c')
-                    val = await proxy.listHiveKey(('foo', 'bar'))
+                    val = await echo.setHiveKey(('foo', 'bar', 'baz'), 'a')
+                    val = await echo.setHiveKey(('foo', 'bar', 'faz'), 'b')
+                    val = await echo.setHiveKey(('foo', 'bar', 'haz'), 'c')
+                    val = await echo.listHiveKey(('foo', 'bar'))
                     self.eq(('baz', 'faz', 'haz'), val)
 
                     # visi user can change visi user pass
@@ -182,14 +177,12 @@ class CellTest(s_t_utils.SynTest):
                     await self.asyncraises(s_exc.AuthDeny,
                                            s_telepath.openurl(visi_url))
 
-                async with echo.getLocalProxy() as proxy:  # type: EchoAuthApi
-
-                    await proxy.setHiveKey(('foo', 'bar'), [1, 2, 3, 4])
-                    self.eq([1, 2, 3, 4], await proxy.getHiveKey(('foo', 'bar')))
-                    self.isin('foo', await proxy.listHiveKey())
-                    self.eq(['bar'], await proxy.listHiveKey(('foo',)))
-                    await proxy.popHiveKey(('foo', 'bar'))
-                    self.eq([], await proxy.listHiveKey(('foo',)))
+                await echo.setHiveKey(('foo', 'bar'), [1, 2, 3, 4])
+                self.eq([1, 2, 3, 4], await echo.getHiveKey(('foo', 'bar')))
+                self.isin('foo', await echo.listHiveKey())
+                self.eq(['bar'], await echo.listHiveKey(('foo',)))
+                await echo.popHiveKey(('foo', 'bar'))
+                self.eq([], await echo.listHiveKey(('foo',)))
 
                 # Ensure we can delete a rule by its item and index position
                 async with echo.getLocalProxy() as proxy:  # type: EchoAuthApi

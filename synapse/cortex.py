@@ -789,7 +789,7 @@ class CoreApi(s_cell.CellApi):
     async def cullCoreQueue(self, name, offs):
         return await self.cell.cullCoreQueue(name, offs)
 
-class Cortex(s_cell.Cell, s_nexus.Nexus):  # type: ignore
+class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
 
@@ -867,7 +867,6 @@ class Cortex(s_cell.Cell, s_nexus.Nexus):  # type: ignore
     async def __anit__(self, dirn, conf=None):
 
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
-        await s_nexus.Nexus.__anit__(self, self.iden)
 
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use
