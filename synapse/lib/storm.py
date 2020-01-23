@@ -354,7 +354,6 @@ stormcmds = (
                            iden=$layer.iden,
                            ctor=$layer.ctor,
                            readonly=$layer.readonly)
-                           
             }
         ''',
     },

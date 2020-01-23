@@ -2303,3 +2303,4 @@ class StormTypesTest(s_test.SynTest):
 
                     mesgs = await asbond.storm(f'cron.del {guid[:6]}').list()
                     self.stormIsInPrint('Deleted cron job', mesgs)
+

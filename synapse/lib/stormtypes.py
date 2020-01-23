@@ -1570,7 +1570,7 @@ class LibTrigger(Lib):
         if tag is not None:
             tag = tag[1:]
 
-        info={'form': form, 'tag': tag, 'prop': prop}
+        info = {'form': form, 'tag': tag, 'prop': prop}
 
         iden = await self.runt.snap.addTrigger(cond, query, info=info,
                                                disabled=disabled)
