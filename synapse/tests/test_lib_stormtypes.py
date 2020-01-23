@@ -2004,8 +2004,8 @@ class StormTypesTest(s_test.SynTest):
 
                 unixtime += 7 * MINSECS
 
-                # Make sure it runs.  We add the cron list to give the cron scheduler a chance to run
-                await core.streamstorm('cron.list').list()
+                # Make sure it runs.  We add the cron.list to give the cron scheduler a chance to run
+                await prox.eval('cron.list').list()
                 await self.agenlen(1, prox.eval('graph:node:type=m3'))
                 await core.nodes(f"cron.del {guid}")
 
@@ -2026,15 +2026,12 @@ class StormTypesTest(s_test.SynTest):
 
                 unixtime += DAYSECS
 
-                # Make sure it runs.  We add the cron list to give the cron scheduler a chance to run
-
-                await core.streamstorm('cron.list').list()
-                await core.streamstorm('cron.list').list()
+                # Make sure it runs.  We add the cron.list to give the cron scheduler a chance to run
+                await prox.eval('cron.list').list()
                 await self.agenlen(1, prox.eval('graph:node:type=d1'))
 
                 unixtime += DAYSECS * 2
-                await core.streamstorm('cron.list').list()
-                await core.streamstorm('cron.list').list()
+                await prox.eval('cron.list').list()
                 await self.agenlen(2, prox.eval('graph:node:type=d1'))
 
                 ##################
@@ -2051,7 +2048,7 @@ class StormTypesTest(s_test.SynTest):
 
                 unixtime = datetime.datetime(year=2018, month=12, day=13, hour=3, minute=10,
                                              tzinfo=tz.utc).timestamp()  # Now Thursday
-                await core.nodes('syn:cron')
+                await prox.eval('cron.list').list()
                 await self.agenlen(1, prox.eval('graph:node:type=d2'))
 
                 q = f'cron.del ""'
@@ -2076,12 +2073,11 @@ class StormTypesTest(s_test.SynTest):
 
                 unixtime = datetime.datetime(year=2018, month=12, day=29, hour=0, minute=0,
                                              tzinfo=tz.utc).timestamp()  # Now Thursday
-                await core.nodes('syn:cron')
+                await prox.eval('cron.list').list()
                 await self.agenlen(0, prox.eval('graph:node:type=d3'))  # Not yet
 
                 unixtime += DAYSECS
-                await core.nodes('syn:cron')
-                await core.nodes('syn:cron')
+                await prox.eval('cron.list').list()
                 await self.agenlen(1, prox.eval('graph:node:type=d3'))
 
                 await core.nodes(f"cron.del {guid}")
@@ -2095,7 +2091,7 @@ class StormTypesTest(s_test.SynTest):
                 unixtime = datetime.datetime(year=2019, month=2, day=4, hour=0, minute=0,
                                              tzinfo=tz.utc).timestamp()  # Now Thursday
 
-                await core.nodes('syn:cron')
+                await prox.eval('cron.list').list()
                 await self.agenlen(1, prox.eval('graph:node:type=month1'))
 
                 ##################
@@ -2111,8 +2107,7 @@ class StormTypesTest(s_test.SynTest):
                 unixtime = datetime.datetime(year=2021, month=1, day=1, hour=0, minute=0,
                                              tzinfo=tz.utc).timestamp()  # Now Thursday
 
-                await core.nodes('syn:cron')
-                await core.nodes('syn:cron')
+                await prox.eval('cron.list').list()
                 await self.agenlen(1, prox.eval('graph:node:type=year1'))
 
                 # Make sure second-to-last day works for February
@@ -2121,8 +2116,7 @@ class StormTypesTest(s_test.SynTest):
                 unixtime = datetime.datetime(year=2021, month=2, day=27, hour=0, minute=0,
                                              tzinfo=tz.utc).timestamp()  # Now Thursday
 
-                await core.nodes('syn:cron')
-                await core.nodes('syn:cron')
+                await prox.eval('cron.list').list()
                 await self.agenlen(1, prox.eval('graph:node:type=year2'))
 
                 ##################
@@ -2157,9 +2151,7 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.streamstorm(q).list()
                 unixtime += 5 * MINSECS
 
-                await core.nodes('syn:cron')
-                await core.nodes('syn:cron')
-                await core.nodes('syn:cron')
+                await prox.eval('cron.list').list()
                 await self.agenlen(1, core.eval('graph:node:type=at1'))
 
                 q = "cron.at --day +1 +7 --query {[graph:node='*' :type=at2]}"
@@ -2169,12 +2161,11 @@ class StormTypesTest(s_test.SynTest):
                         guid = mesg[1]['mesg'].split(' ')[-1]
 
                 unixtime += DAYSECS
-                await core.nodes('syn:cron')
+                await prox.eval('cron.list').list()
                 await self.agenlen(1, prox.eval('graph:node:type=at2'))
 
                 unixtime += 6 * DAYSECS + 1
-                await core.nodes('syn:cron')
-                await core.nodes('syn:cron')
+                await prox.eval('cron.list').list()
                 await self.agenlen(2, prox.eval('graph:node:type=at2'))
 
                 q = "cron.at --dt 202104170415 --query {[graph:node='*' :type=at3]}"
@@ -2183,8 +2174,7 @@ class StormTypesTest(s_test.SynTest):
                 unixtime = datetime.datetime(year=2021, month=4, day=17, hour=4, minute=15,
                                              tzinfo=tz.utc).timestamp()  # Now Thursday
 
-                await core.nodes('syn:cron')
-                await core.nodes('syn:cron')
+                await prox.eval('cron.list').list()
                 await self.agenlen(1, prox.eval('graph:node:type=at3'))
 
                 ##################
