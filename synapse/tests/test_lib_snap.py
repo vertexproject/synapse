@@ -304,24 +304,32 @@ class SnapTest(s_t_utils.SynTest):
                 self.len(4, snap0.buidcache)
                 self.len(4, snap0.livenodes)
                 self.len(3, snap0.tagcache)
-                #
-                # print(original_node0)
-                # await asyncio.sleep(2)  # let things commit to disk
-                # async with await core.snap() as snap1:  # type: s_snap.Snap
-                #     print('starting snap1')
-                #     snap1_node0 = await snap1.getNodeByNdef(('test:str', 'node0'))
-                #     print(snap1_node0)
-                #     await snap1_node0.delTag('foo.bar.baz')
-                #     print(snap1_node0)
-                # print('done with snap1')
-                # await snap0.clearCache()
-                # # async for item in snap0.storm('$lib.runt.snap.cache_clear()'):
-                # #     print(item)
-                # snap0_node0 = await snap0.getNodeByNdef(('test:str', 'node0'))
-                # await snap0_node0.addTag('foo.bar.baz')
-                # print(snap0_node0)
-                # await asyncio.sleep(2)  # let things commit to disk
-                # async with await core.snap() as snap2:  # type: s_snap.Snap
-                #     print('starting snap2')
-                #     snap2_node0 = await snap2.getNodeByNdef(('test:str', 'node0'))
-                #     print(snap2_node0)
+
+                self.nn(await core.view.layers[0].layrslab.waiter(1, 'commit').wait(6))
+
+                async with await core.snap() as snap1:  # type: s_snap.Snap
+                    snap1_node0 = await snap1.getNodeByNdef(('test:str', 'node0'))
+                    await snap1_node0.delTag('foo.bar.baz')
+                    self.notin('foo.bar.baz', snap1_node0.tags)
+                    # Our reference to original_node0 still has the tag though
+                    self.isin('foo.bar.baz', original_node0.tags)
+
+                    waiter = core.view.layers[0].layrslab.waiter(1, 'commit')
+
+                self.nn(await waiter.wait(6))
+
+                # Lift is cached..
+                same_node0 = await snap0.getNodeByNdef(('test:str', 'node0'))
+                self.eq(id(original_node0), id(same_node0))
+
+                # flush snap0 cache!
+                await snap0.clearCache()
+                self.len(0, snap0.buidcache)
+                self.len(0, snap0.livenodes)
+                self.len(0, snap0.tagcache)
+
+                # After clearing the cache and lifting nodes, the new node
+                # was lifted directly from the layer.
+                new_node0 = await snap0.getNodeByNdef(('test:str', 'node0'))
+                self.ne(id(original_node0), id(new_node0))
+                self.notin('foo.bar.baz', new_node0.tags)
