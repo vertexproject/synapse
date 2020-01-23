@@ -1863,6 +1863,7 @@ class Cortex(s_cell.Cell):
         self.addStormLib(('time',), s_stormtypes.LibTime)
         self.addStormLib(('user',), s_stormtypes.LibUser)
         self.addStormLib(('vars',), s_stormtypes.LibVars)
+        self.addStormLib(('view',), s_stormtypes.LibView)
         self.addStormLib(('queue',), s_stormtypes.LibQueue)
         self.addStormLib(('stats',), s_stormtypes.LibStats)
         self.addStormLib(('bytes',), s_stormtypes.LibBytes)
@@ -2271,8 +2272,13 @@ class Cortex(s_cell.Cell):
         if view is None:
             raise s_exc.NoSuchView(iden=iden)
 
+        if view.parent is not None:
+            await self.delLayer(view.layers[0].iden)
+            await view.layers[0].trash()
+
         await self.hive.pop(('cortex', 'views', iden))
         await view.fini()
+        await view.trash()
 
         await self.bumpSpawnPool()
 

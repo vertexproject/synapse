@@ -174,6 +174,20 @@ class Snap(s_base.Base):
     async def addStormDmon(self, ddef):
         return await self.core.addStormDmon(ddef)
 
+    async def addView(self, iden, layers):
+        return await self.core.addView(iden=iden,
+                                       owner=self.user.iden,
+                                       layers=layers)
+
+    async def delView(self, iden):
+        return await self.core.delView(iden=iden)
+
+    def getView(self, iden=None):
+        return self.core.getView(iden=iden)
+
+    def listViews(self):
+        return list(self.core.views.values())
+      
     async def addTrigger(self, condition, query, info, disabled=False):
         return await self.core.addTrigger(condition, query, info=info, disabled=disabled)
 
