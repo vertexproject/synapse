@@ -1991,7 +1991,7 @@ class LibCron(Lib):
 
     async def _methCronDel(self, prefix):
         '''
-        Delete a trigger from the cortex.
+        Delete a cron job from the cortex.
         '''
         self.runt.reqAllowed(('cron', 'del'))
 

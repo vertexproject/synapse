@@ -3357,8 +3357,10 @@ class Cortex(s_cell.Cell):
     async def addCronJob(self, user, query, reqs, incunit=None, incval=1):
         '''
         Add a cron job to the cortex.  Convenience wrapper around agenda.add
+
         A cron job is a persistently-stored item that causes storm queries to be run in the future.  The specification
         for the times that the queries run can be one-shot or recurring.
+
         Args:
             query (str):  The storm query to execute in the future
             reqs (Union[Dict[str, Union[int, List[int]]], List[Dict[...]]]):
@@ -3372,8 +3374,10 @@ class Cortex(s_cell.Cell):
                 appointment is one-shot and will not recur.
             incval (Union[int, List[int]):
                 A integer or a list of integers of the number of units
+
         Returns (bytes):
             An iden that can be used to later modify, query, and delete the job.
+
         Notes:
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
@@ -3396,6 +3400,7 @@ class Cortex(s_cell.Cell):
     async def delCronJob(self, iden):
         '''
         Delete a cron job
+
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
@@ -3404,6 +3409,7 @@ class Cortex(s_cell.Cell):
     async def updateCronJob(self, iden, query):
         '''
         Change an existing cron job's query
+
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
@@ -3412,6 +3418,7 @@ class Cortex(s_cell.Cell):
     async def enableCronJob(self, iden):
         '''
         Enable a cron job
+
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
@@ -3420,6 +3427,7 @@ class Cortex(s_cell.Cell):
     async def disableCronJob(self, iden):
         '''
         Enable a cron job
+
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''

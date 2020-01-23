@@ -47,7 +47,7 @@ Tag names must start with #.
 The added tag is provided to the query as an embedded variable '$tag'.
 
 Simple one level tag globbing is supported, only at the end after a period,
-that is aka.* matches aka.foo and aka.bar but not aka.foo.bar.  aka* is not
+that is aka.* matches aka.foo and aka.bar but not aka.foo.bar. aka* is not
 supported.
 
 Examples:
@@ -65,7 +65,7 @@ addcrondescr = '''
 Add a recurring cron job to a cortex.
 
 Syntax:
-    cron add [optional arguments] {query}
+    cron.add [optional arguments] {query}
 
     --minute int[,int...][=]
     --hour
@@ -103,11 +103,11 @@ Notes:
     week.
 
     Otherwise, if the parameter value starts with a '+', then it is interpreted
-    as an recurrence interval of that many days.
+    as a recurrence interval of that many days.
 
     If no plus-sign-starting parameter is specified, the recurrence period
-    defaults to the unit larger than all the fixed parameters.   e.g. '-M 5'
-    means every hour at 5 minutes past, and -H 3, -M 1 means 3:01 every day.
+    defaults to the unit larger than all the fixed parameters.   e.g. '--minute 5'
+    means every hour at 5 minutes past, and --hour 3, --minute 1 means 3:01 every day.
 
     At least one optional parameter must be provided.
 
@@ -115,8 +115,8 @@ Notes:
     parameters have multiple values, all combinations of those values are used.
 
     All fixed units not specified lower than the recurrence period default to
-    the lowest valid value, e.g. -m +2 will be scheduled at 12:00am the first of
-    every other month.  One exception is the largest fixed value is day of the
+    the lowest valid value, e.g. --month +2 will be scheduled at 12:00am the first of
+    every other month.  One exception is if the largest fixed value is day of the
     week, then the default period is set to be a week.
 
     A month period with a day of week fixed value is not currently supported.
@@ -153,8 +153,7 @@ Modifying/details/deleting cron jobs created with 'at' use the same commands as
 other cron jobs:  cron.mod/stat/del respectively.
 
 Syntax:
-    at (time|+time delta)+ {query}
-    at [optional arguments] {query}
+    cron.at [optional arguments] --query {query}
 
     --dt timestring
 
@@ -178,17 +177,17 @@ Notes:
     days'.
 
     Note that the record for a cron job is stored until explicitly deleted via
-    "cron del".
+    "cron.del".
 
 Examples:
     # Run a storm query in 5 minutes
-    cron.at --minute +5 {[inet:ipv4=1]}
+    cron.at --minute +5 --query {[inet:ipv4=1]}
 
     # Run a storm query tomorrow and in a week
-    cron.at --day +1 +7 {[inet:ipv4=1]}
+    cron.at --day +1 +7 --query {[inet:ipv4=1]}
 
     # Run a query at the end of the year Zulu
-    cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
+    cron.at --dt 20181231Z2359 --query {[inet:ipv4=1]}
 
 '''
 
@@ -392,9 +391,9 @@ stormcmds = (
         'descr': addtriggerdescr,
         'cmdargs': (
             ('condition', {'help': 'Condition for the trigger.'}),
-            ('--form', {'help': 'Form.'}),
-            ('--tag', {'help': 'Tag.'}),
-            ('--prop', {'help': 'Prop.'}),
+            ('--form', {'help': 'Form to fire on.'}),
+            ('--tag', {'help': 'Tag to fire on.'}),
+            ('--prop', {'help': 'Property to fire on.'}),
             ('--query', {'help': 'Query for the trigger to execute.'}),
             ('--disabled', {'default': False, 'action': 'store_true',
                             'help': 'Create the trigger in disabled state.'}),
@@ -439,8 +438,10 @@ stormcmds = (
         'cmdargs': (),
         'storm': '''
             $triggers = $lib.trigger.list()
+
             if $triggers {
                 $lib.print("user       iden         en? cond      object                    storm query")
+
                 for $trigger in $triggers {
                     $user = $trigger.user.ljust(10)
                     $iden = $trigger.idenshort.ljust(12)
@@ -491,15 +492,15 @@ stormcmds = (
         'descr': addcrondescr,
         'cmdargs': (
             ('query', {'help': 'Query for the cron job to execute.'}),
-            ('--minute', {'help': 'Minute.'}),
-            ('--hour', {'help': 'Hour.'}),
-            ('--day', {'help': 'Day.'}),
-            ('--month', {'help': 'Month.'}),
-            ('--year', {'help': 'Year.'}),
-            ('--hourly', {'help': 'Hourly.'}),
-            ('--daily', {'help': 'Daily.'}),
-            ('--monthly', {'help': 'Monthly.'}),
-            ('--yearly', {'help': 'Yearly.'}),
+            ('--minute', {'help': 'Minute value for job or recurrence period.'}),
+            ('--hour', {'help': 'Hour value for job or recurrence period.'}),
+            ('--day', {'help': 'Day value for job or recurrence period.'}),
+            ('--month', {'help': 'Month value for job or recurrence period.'}),
+            ('--year', {'help': 'Year value for recurrence period.'}),
+            ('--hourly', {'help': 'Fixed parameters for an hourly job.'}),
+            ('--daily', {'help': 'Fixed parameters for a daily job.'}),
+            ('--monthly', {'help': 'Fixed parameters for a monthly job.'}),
+            ('--yearly', {'help': 'Fixed parameters for a yearly job.'}),
         ),
         'storm': '''
             $iden = $lib.cron.add(query=$cmdopts.query,
@@ -521,17 +522,17 @@ stormcmds = (
         'descr': atcrondescr,
         'cmdargs': (
             ('--query', {'required': True, 'help': 'Query for the cron job to execute.'}),
-            ('--minute', {'default': [], 'nargs': '*', 'help': 'Minute.'}),
-            ('--hour', {'default': [], 'nargs': '*', 'help': 'Hour.'}),
-            ('--day', {'default': [], 'nargs': '*', 'help': 'Day.'}),
-            ('--dt', {'default': [], 'nargs': '*', 'help': 'Day.'}),
+            ('--minute', {'default': [], 'nargs': '*', 'help': 'Minute(s) to execute at.'}),
+            ('--hour', {'default': [], 'nargs': '*', 'help': 'Hour(s) to execute at.'}),
+            ('--day', {'default': [], 'nargs': '*', 'help': 'Day(s) to execute at.'}),
+            ('--dt', {'default': [], 'nargs': '*', 'help': 'Datetime to execute at.'}),
         ),
         'storm': '''
             $iden = $lib.cron.at(query=$cmdopts.query,
-                                  minute=$cmdopts.minute,
-                                  hour=$cmdopts.hour,
-                                  day=$cmdopts.day,
-                                  dt=$cmdopts.dt)
+                                 minute=$cmdopts.minute,
+                                 hour=$cmdopts.hour,
+                                 day=$cmdopts.day,
+                                 dt=$cmdopts.dt)
 
             $lib.print("Created cron job: {iden}", iden=$iden)
         ''',
