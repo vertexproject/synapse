@@ -279,6 +279,9 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         self.printf(f'Disabled trigger {iden}')
 
     async def runCmdOpts(self, opts):
+        self.printf('Warning: Triggers should now be accessed via storm commands. '
+                    'The trigger command is deprecated and in 0.3.x it will be removed.')
+
         line = opts.get('line')
         if line is None:
             self.printf(self.__doc__)

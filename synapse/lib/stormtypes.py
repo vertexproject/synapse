@@ -1726,9 +1726,6 @@ class LibCron(Lib):
         except ValueError:
             return None
 
-        if not retn:
-            return None
-
         return retn[0] if len(retn) == 1 else retn
 
     def _parseDay(self, optval):
@@ -1859,7 +1856,7 @@ class LibCron(Lib):
                 if incunit is None and not reqdict:
                     continue
                 # The option isn't set, but a higher unit is.  Go ahead and set the required part to the lowest valid
-                # value, e.g. so -m 2 would run on the *first* of every other month at midnight
+                # value, e.g. so --month 2 would run on the *first* of every other month at midnight
                 if optname == 'day':
                     reqdict['dayofmonth'] = 1
                 else:

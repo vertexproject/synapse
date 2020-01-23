@@ -1919,9 +1919,17 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.streamstorm(q).list()
                 self.stormIsInErr('Failed to parse day value', mesgs)
 
+                q = 'cron.add --day 1,Tuesday {#foo}'
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Failed to parse day value', mesgs)
+
                 q = 'cron.add --day Fri,3 {#foo}'
                 mesgs = await core.streamstorm(q).list()
                 self.stormIsInErr('Failed to parse day value', mesgs)
+
+                q = "cron.add --minute +4x {#foo}"
+                mesgs = await core.streamstorm(q).list()
+                self.stormIsInErr('Failed to parse parameter', mesgs)
 
                 q = 'cron.add }'
                 mesgs = await core.streamstorm(q).list()

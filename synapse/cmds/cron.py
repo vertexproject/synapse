@@ -571,6 +571,9 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
                 self.printf(f'                 {incunit:10} {incval:6} {reqdict}')
 
     async def runCmdOpts(self, opts):
+        self.printf('Warning: Cron jobs should now be accessed via storm commands. '
+                    'The cron command is deprecated and in 0.3.x it will be removed.')
+
         line = opts.get('line')
         if line is None:
             self.printf(self.__doc__)
