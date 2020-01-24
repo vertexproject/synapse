@@ -229,12 +229,18 @@ class StormDmon(s_base.Base):
             mesg = evnt[1].get('mesg', '')
             logger.info(f'Dmon - {self.iden} - {mesg}')
 
+        def dmonWarn(evnt):
+            mesg = evnt[1].get('mesg', '')
+            logger.info(f'Dmon - {self.iden} - WARNING: {mesg}')
+
         while not self.isfini:
 
             try:
 
                 self.status = 'running'
                 async with await self.core.snap(user=self.user, view=view) as snap:
+
+                    snap.on('warn', dmonWarn)
                     snap.on('print', dmonPrint)
 
                     async for nodepath in snap.storm(text, opts=opts, user=self.user):
@@ -300,6 +306,13 @@ class Runtime:
 
         self.proxies = {}
         self.elevated = False
+
+    async def dyncall(self, iden, todo):
+        return await self.snap.core.dyncall(iden, todo)
+
+    async def dyniter(self, iden, todo):
+        async for item in self.snap.core.dyniter(iden, todo):
+            yield item
 
     def getStormMod(self, name):
         return self.snap.getStormMod(name)
@@ -395,38 +408,29 @@ class Runtime:
                 yield node, self.initPath(node)
 
     def reqLayerAllowed(self, perms):
-        if self._allowed(perms, ask_layer=True):
-            return
+        iden = self.snap.wlyr.iden
+        return self.user.confirm(perms, gateiden=iden)
 
-        perm = '.'.join(perms)
-        mesg = f'User must have permission {perm} on write layer'
-        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
-
-    def reqAllowed(self, perms):
+    def confirm(self, perms, gateiden=None):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
 
         '''
-        if self._allowed(perms):
-            return True
+        return self.user.confirm(perms, gateiden=gateiden)
 
-        perm = '.'.join(perms)
-        mesg = f'User must have permission {perm}'
-        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
+    #@s_cache.memoize(size=100)
+    #def _allowed(self, perms, ask_layer=False):
+        #'''
+        #Note:
+            #Caching results is acceptable because the cache lifetime is that of a single query
+        #'''
+        #if self.user is None or self.user.admin or self.elevated:
+            #return True
 
-    @s_cache.memoize(size=100)
-    def _allowed(self, perms, ask_layer=False):
-        '''
-        Note:
-            Caching results is acceptable because the cache lifetime is that of a single query
-        '''
-        if self.user is None or self.user.admin or self.elevated:
-            return True
-
-        if ask_layer:
-            return self.snap.wlyr.allowed(self.user, perms)
-        else:
-            return self.user.allowed(perms)
+        #if ask_layer:
+            #return self.snap.wlyr.allowed(self.user, perms)
+        #else:
+            #return self.user.allowed(perms)
 
     def loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.

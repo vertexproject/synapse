@@ -23,8 +23,6 @@ class View(s_hive.AuthGater, s_nexus.Nexus):  # type: ignore
     '''
     snapctor = s_snap.Snap.anit
 
-    authgatetype = 'view'
-
     async def __anit__(self, core, node):
         '''
         Async init the view.
@@ -34,11 +32,12 @@ class View(s_hive.AuthGater, s_nexus.Nexus):  # type: ignore
             node (HiveNode): The hive node containing the view info.
         '''
         self.node = node
-
         self.iden = node.name()
+
         self.core = core
 
-        await s_hive.AuthGater.__anit__(self, self.core.auth)
+        gate = await self.core.auth.addAuthGate(self.iden, 'view')
+        await s_hive.AuthGuard.__anit__(self, gate)
         await s_nexus.Nexus.__anit__(self, iden=self.iden, parent=core)
 
         self.layers = []
@@ -334,6 +333,9 @@ class View(s_hive.AuthGater, s_nexus.Nexus):  # type: ignore
         # Run any trigger handlers
         await self.triggers.runTagAdd(node, tag)
 
+    async def runTagSet(self, node, tag, valu, oldv):
+        await self.triggers.runTagSet(node, tag, oldv)
+
     async def runTagDel(self, node, tag, valu):
 
         funcs = itertools.chain(self.core.ontagdels.get(tag, ()), (x[1] for x in self.core.ontagdelglobs.get(tag)))
@@ -438,7 +440,7 @@ class View(s_hive.AuthGater, s_nexus.Nexus):  # type: ignore
             trigs.extend(await self.parent.listTriggers())
         return trigs
 
-    async def trash(self):
+    async def delete(self):
         '''
         Delete the metadata for this view.
 
@@ -446,7 +448,8 @@ class View(s_hive.AuthGater, s_nexus.Nexus):  # type: ignore
 
         FIXME:  propagate push?
         '''
-        await s_hive.AuthGater.trash(self)
+        await self.fini()
+        await self.auth.delAuthGate(self.iden)
 
         for (iden, _) in self.triggers.list():
             self.triggers.delete(iden)

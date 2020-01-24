@@ -390,6 +390,8 @@ class Base:
         for base in list(self.tofini):
             await base.fini()
 
+        self.tofini.clear()
+
         try:
             await self._kill_active_tasks()
         except Exception:

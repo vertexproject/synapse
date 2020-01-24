@@ -34,6 +34,7 @@ import synapse.lib.trigger as s_trigger
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.slaboffs as s_slaboffs
 import synapse.lib.stormhttp as s_stormhttp
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -79,12 +80,12 @@ class CoreApi(s_cell.CellApi):
         ret = await self.cell.joinTeleLayer(url, indx=indx)
         return ret
 
-    async def getNodesBy(self, full, valu, cmpr='=', view=None):
-        '''
-        Yield Node.pack() tuples which match the query.
-        '''
-        async for node in self.cell.getNodesBy(full, valu, cmpr=cmpr, view=view):
-            yield node.pack()
+    # async def getNodesBy(self, full, valu, cmpr='=', view=None):
+    # '''
+    # Yield Node.pack() tuples which match the query.
+    # '''
+    #     async for node in self.cell.getNodesBy(full, valu, cmpr=cmpr, view=view):
+    #         yield node.pack()
 
     # FIXME:  ModelDict/Def/Defs is a mess
     async def getModelDict(self):
@@ -130,7 +131,7 @@ class CoreApi(s_cell.CellApi):
         if view is None:
             raise s_exc.NoSuchView(iden=view)
 
-        await view._reqUserAllowed(self.user, ('view', 'read'))
+        self.user.confirm(('view', 'read'), gateiden=view.iden)
 
         return view
 
@@ -152,9 +153,9 @@ class CoreApi(s_cell.CellApi):
         '''
         Deletes a trigger from the cortex
         '''
-        view = self._getView(view)
-        trig = await view.getTrigger(iden)
-        await trig.reqAllowed(self.user, ('trigger', 'del'))
+        trig = await self.cell.getTrigger(iden)
+        trig.confirm(self.user, ('trigger', 'del'))
+        await self.cell.delTrigger(iden)
 
         await view.delTrigger(iden)
 
@@ -162,9 +163,9 @@ class CoreApi(s_cell.CellApi):
         '''
         Change an existing trigger's query
         '''
-        view = self._getView(view)
-        trig = await view.getTrigger(iden)
-        await trig.reqAllowed(self.user, ('trigger', 'set'))
+        trig = await self.cell.getTrigger(iden)
+        trig.confirm(self.user, ('trigger', 'set'))
+        await self.cell.updateTrigger(iden, query)
 
         await view.updateTrigger(iden, query)
 
@@ -172,9 +173,9 @@ class CoreApi(s_cell.CellApi):
         '''
         Enable an existing trigger
         '''
-        view = self._getView(view)
-        trig = await view.getTrigger(iden)
-        await trig.reqAllowed(self.user, ('trigger', 'set'))
+        trig = await self.cell.getTrigger(iden)
+        trig.confirm(self.user, ('trigger', 'set'))
+        await self.cell.enableTrigger(iden)
 
         await view.enableTrigger(iden)
 
@@ -182,9 +183,9 @@ class CoreApi(s_cell.CellApi):
         '''
         Disable an existing trigger
         '''
-        view = self._getView(view)
-        trig = await view.getTrigger(iden)
-        await trig.reqAllowed(self.user, ('trigger', 'set'))
+        trig = await self.cell.getTrigger(iden)
+        trig.confirm(self.user, ('trigger', 'set'))
+        await self.cell.disableTrigger(iden)
 
         await view.disableTrigger(iden)
 
@@ -234,7 +235,7 @@ class CoreApi(s_cell.CellApi):
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
-        await self._reqUserAllowed(('cron', 'add'))
+        self.user.confirm(('cron', 'add'))
 
         return await self.cell.addCronJob(query, reqs, incunit, incval)
 
@@ -245,8 +246,10 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
-        cron = self.cell.agenda.appts.get(iden)
-        await cron.reqAllowed(self.user, ('cron', 'del'))
+        # FIXME:  need to get the authguard
+        gate = self.cell.auth.reqAuthGate(iden)
+        gate.confirm(self.user, ('cron', 'del'))
+
         await self.cell.delCronJob.delete(iden)
 
     async def updateCronJob(self, iden, query):
@@ -256,8 +259,10 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        cron = self.cell.agenda.appts.get(iden)
-        await cron.reqAllowed(self.user, ('cron', 'set'))
+        # FIXME: discuss this model
+        # await cron.reqAllowed(self.user, ('cron', 'set'))
+        gate = self.cell.auth.reqAuthGate(iden)
+        gate.confirm(self.user, ('cron', 'set'))
         await self.cell.updateCronJob(iden, query)
 
     async def enableCronJob(self, iden):
@@ -267,8 +272,8 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        cron = self.cell.agenda.appts.get(iden)
-        await cron.reqAllowed(self.user, ('cron', 'set'))
+        gate = self.cell.auth.reqAuthGate(iden)
+        gate.confirm(self.user, ('cron', 'set'))
         await self.cell.enableCronJob(iden)
 
     async def disableCronJob(self, iden):
@@ -278,8 +283,8 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        cron = self.cell.agenda.appts.get(iden)
-        await cron.reqAllowed(self.user, ('cron', 'set'))
+        gate = self.cell.auth.reqAuthGate(iden)
+        gate.confirm(self.user, ('cron', 'set'))
         await self.cell.disableCronJob(iden)
 
     async def listCronJobs(self):
@@ -289,8 +294,7 @@ class CoreApi(s_cell.CellApi):
         crons = []
 
         for iden, cron in self.cell.agenda.list():
-            isallowed = await cron.allowed(self.user, ('cron', 'get'))
-            if not isallowed:
+            if not cron.allowed(self.user, ('cron', 'get')):
                 continue
 
             info = cron.pack()
@@ -303,20 +307,20 @@ class CoreApi(s_cell.CellApi):
         '''
         Set the definition of a pure storm command in the cortex.
         '''
-        await self._reqUserAllowed(('storm', 'admin', 'cmds'))
+        self.user.confirm(('storm', 'admin', 'cmds'))
         return await self.cell.setStormCmd(cdef)
 
     async def delStormCmd(self, name):
         '''
         Remove a pure storm command from the cortex.
         '''
-        await self._reqUserAllowed(('storm', 'admin', 'cmds'))
+        self.user.confirm(('storm', 'admin', 'cmds'))
         return await self.cell.delStormCmd(name)
 
     async def _reqDefLayerAllowed(self, perms):
         view = self.cell.getView()
         wlyr = view.layers[0]
-        await wlyr._reqUserAllowed(self.user, perms)
+        await self.user.confirm(perms, gateiden=wlyr.iden)
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
@@ -363,7 +367,7 @@ class CoreApi(s_cell.CellApi):
                     raise s_exc.NoSuchIden(iden=iden)
 
                 prop = node.form.props.get(name)
-                await snap.wlyr._reqUserAllowed(self.user, ('prop:set', prop.full))
+                self.user.confirm(('prop:set', prop.full), gateiden=snap.wlyr.iden)
 
                 await node.set(name, valu)
                 return node.pack()
@@ -386,7 +390,8 @@ class CoreApi(s_cell.CellApi):
                     raise s_exc.NoSuchIden(iden=iden)
 
                 prop = node.form.props.get(name)
-                await snap.wlyr._reqUserAllowed(self.user, ('prop:del', prop.full))
+
+                self.user.confirm(('prop:del', prop.full), gateiden=snap.wlyr.iden)
 
                 await node.pop(name)
                 return node.pack()
@@ -397,7 +402,7 @@ class CoreApi(s_cell.CellApi):
         '''
 
         async with await self.cell.snap(user=self.user) as snap:
-            await snap.wlyr._reqUserAllowed(self.user, ('node:add', form))
+            self.user.confirm(('node:add', form), gateiden=snap.wlyr.iden)
             with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
 
                 node = await snap.addNode(form, valu, props=props)
@@ -456,7 +461,10 @@ class CoreApi(s_cell.CellApi):
     async def addFeedData(self, name, items, seqn=None):
 
         wlyr = self.cell.view.layers[0]
-        await wlyr._reqUserAllowed(self.user, ('feed:data', *name.split('.')))
+
+        parts = name.split('.')
+
+        self.user.confirm(('feed:data', *parts), gateiden=wlyr.iden)
 
         with s_provenance.claim('feed:data', name=name):
 
@@ -464,14 +472,6 @@ class CoreApi(s_cell.CellApi):
                 snap.strict = False
                 # FIXME:  is this enough to make snap a nexus?  Alternative is to add a cortex pass-through
                 return await snap.addFeedData(name, items, seqn=seqn)
-
-    def getFeedOffs(self, iden):
-        return self.cell.getFeedOffs(iden)
-
-    @s_cell.adminapi
-    def setFeedOffs(self, iden, offs):
-        # FIXME:  are we keeping this?
-        return self.cell.setFeedOffs(iden, offs)
 
     async def count(self, text, opts=None):
         '''
@@ -564,12 +564,8 @@ class CoreApi(s_cell.CellApi):
             async for mesg in core.watch(wdef):
                 dostuff(mesg)
         '''
-        # TODO: permissions checks are currently about the view/layer.  We may need additional
-        # checks when the wdef expands to include other cortex events.
-
-        # TODO: consider perm going on the view
         iden = wdef.get('view', self.cell.view.iden)
-        await self._reqUserAllowed(('watch', 'view', iden))
+        self.user.confirm(('watch',), gateiden=iden)
 
         async for mesg in self.cell.watch(wdef):
             yield mesg
@@ -582,8 +578,7 @@ class CoreApi(s_cell.CellApi):
         The generator will only terminate on network disconnect or if the
         consumer falls behind the max window size of 10,000 splice messages.
         '''
-        # TODO : consider perm to go on the layer now (flag day)
-        await self._reqUserAllowed(('layer:sync', iden))
+        self.user.confirm(('sync',), gateiden=iden)
         async for item in self.cell.syncLayerSplices(iden, offs):
             yield item
 
@@ -693,14 +688,14 @@ class CoreApi(s_cell.CellApi):
 
         Extended properties *must* begin with _
         '''
-        await self._reqUserAllowed(('model', 'prop', 'add', form))
+        self.user.confirm(('model', 'prop', 'add', form))
         return await self.cell.addFormProp(form, prop, tdef, info)
 
     async def delFormProp(self, form, name):
         '''
         Remove an extended property from the given form.
         '''
-        await self._reqUserAllowed(('model', 'prop', 'del', form))
+        self.user.confirm(('model', 'prop', 'del', form))
         return await self.cell.delFormProp(form, name)
 
     async def addUnivProp(self, name, tdef, info):
@@ -709,36 +704,36 @@ class CoreApi(s_cell.CellApi):
 
         Extended properties *must* begin with _
         '''
-        await self._reqUserAllowed(('model', 'univ', 'add'))
+        self.user.confirm(('model', 'univ', 'add'))
         return await self.cell.addUnivProp(name, tdef, info)
 
     async def delUnivProp(self, name):
         '''
         Remove an extended universal property.
         '''
-        await self._reqUserAllowed(('model', 'univ', 'del'))
+        self.user.confirm(('model', 'univ', 'del'))
         return await self.cell.delUnivProp(name)
 
     async def addTagProp(self, name, tdef, info):
         '''
         Add a tag property to record data about tags on nodes.
         '''
-        await self._reqUserAllowed(('model', 'tagprop', 'add'))
+        self.user.confirm(('model', 'tagprop', 'add'))
         return await self.cell.addTagProp(name, tdef, info)
 
     async def delTagProp(self, name):
         '''
         Remove a previously added tag property.
         '''
-        await self._reqUserAllowed(('model', 'tagprop', 'del'))
+        self.user.confirm(('model', 'tagprop', 'del'))
         return await self.cell.delTagProp(name)
 
     async def addStormPkg(self, pkgdef):
-        await self._reqUserAllowed(('storm', 'pkg', 'add'))
+        self.user.confirm(('storm', 'pkg', 'add'))
         return await self.cell.addStormPkg(pkgdef)
 
     async def delStormPkg(self, iden):
-        await self._reqUserAllowed(('storm', 'pkg', 'del'))
+        self.user.confirm(('storm', 'pkg', 'del'))
         return await self.cell.delStormPkg(iden)
 
     async def getStormPkgs(self):
@@ -861,6 +856,12 @@ class Cortex(s_cell.Cell):  # type: ignore
             'type': 'int', 'defval': 8,
             'doc': 'The max number of spare processes to keep around in the storm spawn pool.',
         }),
+
+        ('layers:lockmemory', {
+            'type': 'bool',
+            'default': True,
+            'doc': 'Should new layers lock memory for performance by default.',
+        }),
     )
 
     cellapi = CoreApi
@@ -869,13 +870,16 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
 
+        offsdb = self.slab.initdb('offsets')
+        self.offs = s_slaboffs.SlabOffs(self.slab, offsdb)
+
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use
         self.dmon.share('cortex', self)
 
         self.views = {}
         self.layers = {}
-        self.counts = {}
+        # self.counts = {}
         self.modules = {}
         self.storage = {}
         self.storctors = {}
@@ -984,13 +988,20 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self._initStormDmons()
 
         # Initialize free-running tasks.
-        self._initCryoLoop()
-        self._initPushLoop()
-        self._initFeedLoops()
+        # self._initCryoLoop()
+        # self._initPushLoop()
+        # self._initFeedLoops()
 
         self.spawnpool = await s_spawn.SpawnPool.anit(self)
         self.onfini(self.spawnpool)
         self.on('user:mod', self._onEvtBumpSpawnPool)
+
+        self.dynitems.update({
+            'cron': self.agenda,
+            'cortex': self,
+            'triggers': self.trigstor,
+            'multiqueue': self.multiqueue,
+        })
 
     async def _onEvtBumpSpawnPool(self, evnt):
         await self.bumpSpawnPool()
@@ -1032,7 +1043,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             valu = str(valu)
             iden = node.ndef[1]
             trig = await node.snap.view.triggers.get(iden)
-            await trig.reqAllowed(node.snap.user, ('trigger', 'set', 'doc'))
+            trig.confirm(node.snap.user, ('trigger', 'set', 'doc'))
             await trig.setDoc(valu)
             node.props[prop.name] = valu
             await self.fire('core:trigger:action', iden=iden, action='mod')
@@ -1041,7 +1052,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             valu = str(valu)
             iden = node.ndef[1]
             trig = await node.snap.view.triggers.get(iden)
-            await trig.reqAllowed(node.snap.user, ('trigger', 'set', 'name'))
+            trig.confirm(node.snap.user, ('trigger', 'set', 'name'))
             await trig.setName(valu)
             node.props[prop.name] = valu
             await self.fire('core:trigger:action', iden=iden, action='mod')
@@ -1050,7 +1061,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             valu = str(valu)
             iden = node.ndef[1]
             appt = await self.agenda.get(iden)
-            await appt.reqAllowed(node.snap.user, ('cron', 'set', 'doc'))
+            appt.confirm(node.snap.user, ('cron', 'set', 'doc'))
             await appt.setDoc(valu)
             node.props[prop.name] = valu
 
@@ -1058,7 +1069,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             valu = str(valu)
             iden = node.ndef[1]
             appt = await self.agenda.get(iden)
-            await appt.reqAllowed(node.snap.user, ('cron', 'set', 'name'))
+            appt.confirm(node.snap.user, ('cron', 'set', 'name'))
             await appt.setName(valu)
             node.props[prop.name] = valu
 
@@ -1112,34 +1123,34 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.multiqueue = slab.getMultiQueue('cortex:queue')
 
-    async def addCoreQueue(self, name, info):
-        self.multiqueue.add(name, info)
-        return info
+    # async def addCoreQueue(self, name, info):
+    #    self.multiqueue.add(name, info)
+    #    return info
 
-    async def hasCoreQueue(self, name):
-        return self.multiqueue.exists(name)
+    # async def hasCoreQueue(self, name):
+    #    return self.multiqueue.exists(name)
 
-    async def delCoreQueue(self, name):
-        return await self.multiqueue.rem(name)
+    # async def delCoreQueue(self, name):
+    #    return await self.multiqueue.rem(name)
 
-    async def getCoreQueue(self, name):
-        return self.multiqueue.status(name)
+    # async def getCoreQueue(self, name):
+    #    return self.multiqueue.status(name)
 
-    async def getCoreQueues(self):
-        return self.multiqueue.list()
+    # async def getCoreQueues(self):
+    #    return self.multiqueue.list()
 
-    async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
-        async for item in self.multiqueue.gets(name, offs, cull=cull, wait=wait, size=size):
-            yield item
+    # async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
+    #    async for item in self.multiqueue.gets(name, offs, cull=cull, wait=wait, size=size):
+    #       yield item
 
-    async def putCoreQueue(self, name, item):
-        return self.multiqueue.put(name, item)
+    # async def putCoreQueue(self, name, item):
+    #    return self.multiqueue.put(name, item)
 
-    async def putsCoreQueue(self, name, items):
-        return self.multiqueue.puts(name, items)
+    # async def putsCoreQueue(self, name, items):
+    #    return self.multiqueue.puts(name, items)
 
-    async def cullCoreQueue(self, name, offs):
-        return await self.multiqueue.cull(name, offs)
+    # async def cullCoreQueue(self, name, offs):
+    #   return await self.multiqueue.cull(name, offs)
 
     async def setStormCmd(self, cdef):
         '''
@@ -1328,6 +1339,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         NOTE: This will *not* persist the package (allowing service dynamism).
         '''
         await self._confirmStormPkg(pkgdef)
+        name = pkgdef.get('name')
+
+        mods = pkgdef.get('modules', ())
+        cmds = pkgdef.get('commands', ())
 
         # now actually load...
         self.stormpkgs[name] = pkgdef
@@ -1855,9 +1870,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             await self.waitfini(1)
 
-    async def _getWaitFor(self, name, valu):
-        form = self.model.form(name)
-        return form.getWaitFor(valu)
+    # async def _getWaitFor(self, name, valu):
+    #    form = self.model.form(name)
+    #    return form.getWaitFor(valu)
 
     async def _initCoreHive(self):
         stormvars = await self.hive.open(('cortex', 'storm', 'vars'))
@@ -2207,12 +2222,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         '''
         func = self._runtLiftFuncs.get(full)
-        if func is None:
-            raise s_exc.NoSuchLift(mesg='No runt lift implemented for requested property.',
-                                   full=full, valu=valu, cmpr=cmpr)
-
-        async for pode in func(full, valu, cmpr):
-            yield pode
+        if func is not None:
+            async for pode in func(full, valu, cmpr):
+                yield pode
 
     def addRuntPropSet(self, full, func):
         '''
@@ -2331,6 +2343,23 @@ class Cortex(s_cell.Cell):  # type: ignore
         await layr.setOffset(newlayriden, offs)
         await layr.delOffset(oldlayriden)
 
+    async def getOffset(self, iden):
+        '''
+        '''
+        return self.offs.get(iden)
+
+    async def setOffset(self, iden, offs):
+        '''
+        '''
+        # TODO NEXUS
+        return self.offs.set(iden, offs)
+
+    async def delOffset(self, iden):
+        '''
+        '''
+        # TODO NEXUS
+        return self.offs.delete(iden)
+
     async def addView(self, iden, owner, layers):
         return await self._push('view:add', (iden, owner, layers))
 
@@ -2388,6 +2417,8 @@ class Cortex(s_cell.Cell):  # type: ignore
                 raise s_exc.LayerInUse(iden=iden)
 
         del self.layers[iden]
+
+        await self.auth.delAuthGate(iden)
 
         await self.hive.pop(('cortex', 'layers', iden))
 
@@ -2461,6 +2492,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if conf is None:
             conf = {}
+        conf.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
 
         layrstor = self.defstor
         if stor is not None:
@@ -2477,7 +2509,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         await layrinfo.set('stor', stor)
         await layrinfo.set('conf', conf)
 
-        return (await self._initLayr(layrinfo)).iden
+        layr = await self.initLayr(layrinfo)
+
+        # forward wind the new layer to the current model version
+        await layr.setModelVers(s_modelrev.maxvers)
+
+        return layr.iden
 
     async def _initLayr(self, layrinfo):
         '''
@@ -2494,6 +2531,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         layr = await layrstor.initLayr(layrinfo)
 
         self.layers[layr.iden] = layr
+
+        await self.auth.addAuthGate(layr.iden, 'layer')
 
         await self.bumpSpawnPool()
 
@@ -2626,179 +2665,179 @@ class Cortex(s_cell.Cell):  # type: ignore
     def getStormCmds(self):
         return list(self.stormcmds.items())
 
-    def _initPushLoop(self):
-
-        if self.conf.get('splice:sync') is None:
-            return
-
-        self.schedCoro(self._runPushLoop())
-
-    async def _runPushLoop(self):
-
-        url = self.conf.get('splice:sync')
-
-        iden = self.getCellIden()
-
-        logger.info('sync loop init: %s', url)
-
-        while not self.isfini:
-            timeout = 1
-            try:
-
-                url = self.conf.get('splice:sync')
-
-                async with await s_telepath.openurl(url) as core:
-
-                    # use our iden as the feed iden
-                    offs = await core.getFeedOffs(iden)
-
-                    while not self.isfini:
-                        layer = self.getLayer()
-
-                        items = [x async for x in layer.splices(offs, 10000)]
-
-                        if not items:
-                            await self.waitfini(timeout=1)
-                            continue
-
-                        size = len(items)
-                        indx = (await layer.stat())['splicelog_indx']
-
-                        perc = float(offs) / float(indx) * 100.0
-
-                        logger.info('splice push: %d %d/%d (%.4f%%)', size, offs, indx, perc)
-
-                        offs = await core.addFeedData('syn.splice', items, seqn=(iden, offs))
-                        await self.fire('core:splice:sync:sent')
-
-            except asyncio.CancelledError:
-                break
-
-            except Exception as e:  # pragma: no cover
-                if isinstance(e, OSError):
-                    timeout = 60
-
-                logger.exception('sync error')
-                await self.waitfini(timeout)
-
-    def _initCryoLoop(self):
-
-        tankurl = self.conf.get('splice:cryotank')
-        if tankurl is None:
-            return
-
-        self.schedCoro(self._runCryoLoop())
-
-    def _initFeedLoops(self):
-        '''
-        feeds:
-            - cryotank: tcp://cryo.vertex.link/cryo00/tank01
-              type: syn.splice
-        '''
-        feeds = self.conf.get('feeds', ())
-        if not feeds:
-            return
-
-        for feed in feeds:
-
-            # do some validation before we fire tasks...
-            typename = feed.get('type')
-            if self.getFeedFunc(typename) is None:
-                raise s_exc.NoSuchType(name=typename)
-
-            self.schedCoro(self._runFeedLoop(feed))
-
-    async def _runFeedLoop(self, feed):
-
-        url = feed.get('cryotank')
-        typename = feed.get('type')
-        fsize = feed.get('size', 1000)
-
-        logger.info('feed loop init: %s @ %s', typename, url)
-
-        while not self.isfini:
-            timeout = 1
-            try:
-
-                url = feed.get('cryotank')
-
-                async with await s_telepath.openurl(url) as tank:
-
-                    layer = self.getLayer()
-
-                    iden = await tank.iden()
-
-                    offs = await layer.getOffset(iden)
-
-                    while not self.isfini:
-
-                        items = [item async for item in tank.slice(offs, fsize)]
-                        if not items:
-                            await self.waitfini(timeout=2)
-                            continue
-
-                        datas = [i[1] for i in items]
-
-                        offs = await self.addFeedData(typename, datas, seqn=(iden, offs))
-                        await self.fire('core:feed:loop')
-                        logger.debug('Processed [%s] records with [%s]',
-                                     len(datas), typename)
-
-            except asyncio.CancelledError:
-                break
-
-            except Exception as e:  # pragma: no cover
-                if isinstance(e, OSError):
-                    timeout = 60
-                logger.exception('feed error')
-                await self.waitfini(timeout)
-
-    async def _runCryoLoop(self):
-
-        online = False
-        tankurl = self.conf.get('splice:cryotank')
-
-        # TODO:  what to do when write layer changes?
-
-        # push splices for our main layer
-        layr = self.getLayer()
-
-        while not self.isfini:
-            timeout = 2
-            try:
-
-                async with await s_telepath.openurl(tankurl) as tank:
-
-                    if not online:
-                        online = True
-                        logger.info('splice cryotank: online')
-
-                    offs = await tank.offset(self.iden)
-
-                    while not self.isfini:
-
-                        items = [item async for item in layr.splices(offs, 10000)]
-
-                        if not len(items):
-                            layr.spliced.clear()
-                            await s_coro.event_wait(layr.spliced, timeout=1)
-                            continue
-
-                        logger.info('tanking splices: %d', len(items))
-
-                        offs = await tank.puts(items, seqn=(self.iden, offs))
-                        await self.fire('core:splice:cryotank:sent')
-
-            except asyncio.CancelledError:  # pragma: no cover
-                break
-
-            except Exception as e:  # pragma: no cover
-                if isinstance(e, OSError):
-                    timeout = 60
-                online = False
-                logger.exception('splice cryotank offline')
-
-                await self.waitfini(timeout)
+#    def _initPushLoop(self):
+#
+#        if self.conf.get('splice:sync') is None:
+#            return
+#
+#        self.schedCoro(self._runPushLoop())
+#
+#    async def _runPushLoop(self):
+#
+#        url = self.conf.get('splice:sync')
+#
+#        iden = self.getCellIden()
+#
+#        logger.info('sync loop init: %s', url)
+#
+#        while not self.isfini:
+#            timeout = 1
+#            try:
+#
+#                url = self.conf.get('splice:sync')
+#
+#                async with await s_telepath.openurl(url) as core:
+#
+#                    # use our iden as the feed iden
+#                    offs = await core.getFeedOffs(iden)
+#
+#                    while not self.isfini:
+#                        layer = self.getLayer()
+#
+#                        items = [x async for x in layer.splices(offs, 10000)]
+#
+#                        if not items:
+#                            await self.waitfini(timeout=1)
+#                            continue
+#
+#                        size = len(items)
+#                        indx = (await layer.stat())['splicelog_indx']
+#
+#                        perc = float(offs) / float(indx) * 100.0
+#
+#                        logger.info('splice push: %d %d/%d (%.4f%%)', size, offs, indx, perc)
+#
+#                        offs = await core.addFeedData('syn.splice', items, seqn=(iden, offs))
+#                        await self.fire('core:splice:sync:sent')
+#
+#            except asyncio.CancelledError:
+#                break
+#
+#            except Exception as e:  # pragma: no cover
+#                if isinstance(e, OSError):
+#                    timeout = 60
+#
+#                logger.exception('sync error')
+#                await self.waitfini(timeout)
+#
+#    def _initCryoLoop(self):
+#
+#        tankurl = self.conf.get('splice:cryotank')
+#        if tankurl is None:
+#            return
+#
+#        self.schedCoro(self._runCryoLoop())
+#
+#    def _initFeedLoops(self):
+#        '''
+#        feeds:
+#            - cryotank: tcp://cryo.vertex.link/cryo00/tank01
+#              xtype: syn.splice
+#        '''
+#        feeds = self.conf.get('feeds', ())
+#        if not feeds:
+#            return
+#
+#        for feed in feeds:
+#
+#            # do some validation before we fire tasks...
+#            typename = feed.get('type')
+#            if self.getFeedFunc(typename) is None:
+#                raise s_exc.NoSuchType(name=typename)
+#
+#            self.schedCoro(self._runFeedLoop(feed))
+#
+#    async def _runFeedLoop(self, feed):
+#
+#        url = feed.get('cryotank')
+#        typename = feed.get('type')
+#        fsize = feed.get('size', 1000)
+#
+#        logger.info('feed loop init: %s @ %s', typename, url)
+#
+#        while not self.isfini:
+#            timeout = 1
+#            try:
+#
+#                url = feed.get('cryotank')
+#
+#                async with await s_telepath.openurl(url) as tank:
+#
+#                    layer = self.getLayer()
+#
+#                    iden = await tank.iden()
+#
+#                    offs = await layer.getOffset(iden)
+#
+#                    while not self.isfini:
+#
+#                        items = [item async for item in tank.slice(offs, fsize)]
+#                        if not items:
+#                            await self.waitfini(timeout=2)
+#                            continue
+#
+#                        datas = [i[1] for i in items]
+#
+#                        offs = await self.addFeedData(typename, datas, seqn=(iden, offs))
+#                        await self.fire('core:feed:loop')
+#                        logger.debug('Processed [%s] records with [%s]',
+#                                     len(datas), typename)
+#
+#            except asyncio.CancelledError:
+#                break
+#
+#            except Exception as e:  # pragma: no cover
+#                if isinstance(e, OSError):
+#                    timeout = 60
+#                logger.exception('feed error')
+#                await self.waitfini(timeout)
+#
+#    async def _runCryoLoop(self):
+#
+#        online = False
+#        tankurl = self.conf.get('splice:cryotank')
+#
+#        # TODO:  what to do when write layer changes?
+#
+#        # push splices for our main layer
+#        layr = self.getLayer()
+#
+#        while not self.isfini:
+#            timeout = 2
+#            try:
+#
+#                async with await s_telepath.openurl(tankurl) as tank:
+#
+#                    if not online:
+#                        online = True
+#                        logger.info('splice cryotank: online')
+#
+#                    offs = await tank.offset(self.iden)
+#
+#                    while not self.isfini:
+#
+#                        items = [item async for item in layr.splices(offs, 10000)]
+#
+#                        if not len(items):
+#                            layr.spliced.clear()
+#                            await s_coro.event_wait(layr.spliced, timeout=1)
+#                            continue
+#
+#                        logger.info('tanking splices: %d', len(items))
+#
+#                        offs = await tank.puts(items, seqn=(self.iden, offs))
+#                        await self.fire('core:splice:cryotank:sent')
+#
+#            except asyncio.CancelledError:  # pragma: no cover
+#                break
+#
+#            except Exception as e:  # pragma: no cover
+#                if isinstance(e, OSError):
+#                    timeout = 60
+#                online = False
+#                logger.exception('splice cryotank offline')
+#
+#                await self.waitfini(timeout)
 
     def setFeedFunc(self, name, func):
         '''
@@ -3142,28 +3181,28 @@ class Cortex(s_cell.Cell):  # type: ignore
         async with await self.snap(view=view) as snap:
             return await snap.getNodeByBuid(buid)
 
-    async def getNodesBy(self, full, valu, cmpr='=', view=None):
-        '''
-        Get nodes by a property value or lift syntax.
+    # async def getNodesBy(self, full, valu, cmpr='=', view=None):
+    #    '''
+    #    Get nodes by a property value or lift syntax.
 
-        Args:
-            full (str): The full name of a property <form>:<prop>.
-            valu (obj): A value that the type knows how to lift by.
-            cmpr (str): The comparison operator you are lifting by.
+    #    Args:
+        #    full (str): The full name of a property <form>:<prop>.
+        #    valu (obj): A value that the type knows how to lift by.
+        #    cmpr (str): The comparison operator you are lifting by.
 
-        Some node property types allow special syntax here.
+    #    Some node property types allow special syntax here.
 
-        Examples:
+    #    Examples:
 
-            # simple lift by property equality
-            core.getNodesBy('file:bytes:size', 20)
+        #     simple lift by property equality
+        #    core.getNodesBy('file:bytes:size', 20)
 
-            # The inet:ipv4 type knows about cidr syntax
-            core.getNodesBy('inet:ipv4', '1.2.3.0/24')
-        '''
-        async with await self.snap(view=view) as snap:
-            async for node in snap.getNodesBy(full, valu, cmpr=cmpr):
-                yield node
+        #     The inet:ipv4 type knows about cidr syntax
+        #    core.getNodesBy('inet:ipv4', '1.2.3.0/24')
+    #    '''
+    #    async with await self.snap(view=view) as snap:
+        #    async for node in snap.getNodesBy(full, valu, cmpr=cmpr):
+            #    yield node
 
     def getCoreInfo(self):
         return {
@@ -3210,15 +3249,15 @@ class Cortex(s_cell.Cell):  # type: ignore
             snap.strict = False
             return await snap.addFeedData(name, items, seqn=seqn)
 
-    async def getFeedOffs(self, iden):
-        return await self.getLayer().getOffset(iden)
+    # async def getFeedOffs(self, iden):
+    #    return await self.getLayer().getOffset(iden)
 
-    async def setFeedOffs(self, iden, offs):
-        if offs < 0:
-            mesg = 'Offset must be >= 0.'
-            raise s_exc.BadConfValu(mesg=mesg, offs=offs, iden=iden)
+    # async def setFeedOffs(self, iden, offs):
+    #    if offs < 0:
+        #    mesg = 'Offset must be >= 0.'
+        #    raise s_exc.BadConfValu(mesg=mesg, offs=offs, iden=iden)
 
-        return await self.getLayer().setOffset(iden, offs)
+    #    return await self.getLayer().setOffset(iden, offs)
 
     async def snap(self, user=None, view=None):
         '''
@@ -3351,9 +3390,17 @@ class Cortex(s_cell.Cell):  # type: ignore
         stats = {
             'iden': self.iden,
             'layer': await self.getLayer().stat(),
-            'formcounts': self.counts,
+            'formcounts': await self.getFormCounts(),
         }
         return stats
+
+    async def getFormCounts(self):
+        counts = collections.defaultdict(int)
+        for layr in self.layers.values():
+            layrcounts = await layr.getFormCounts()
+            for name, valu in layrcounts.items():
+                counts[name] += valu
+        return counts
 
     async def getPropNorm(self, prop, valu):
         '''

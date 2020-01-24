@@ -16,6 +16,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
+import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.nexus as s_nexus
 import synapse.lib.health as s_health
@@ -182,6 +183,15 @@ class CellApi(s_base.Base):
         user = await self.cell.auth.addUser(name)
         await self.cell.fire('user:mod', act='adduser', name=name)
         return user.pack()
+
+    @adminapi
+    async def dyncall(self, iden, todo):
+        return await self.cell.dyncall(iden, todo)
+
+    @adminapi
+    async def dyniter(self, iden, todo):
+        async for item in self.cell.dyniter(iden, todo):
+            yield item
 
     @adminapi
     async def delAuthUser(self, name):
@@ -387,6 +397,7 @@ class Cell(s_nexus.Nexus, s_telepath.Aware):
         self.insecure = self.boot.get('insecure', False)
 
         self.sessions = {}
+
         self.httpsonly = self.conf.get('https:only', False)
 
         self.boss = await s_boss.Boss.anit()
@@ -424,6 +435,23 @@ class Cell(s_nexus.Nexus, s_telepath.Aware):
             [await s.fini() for s in self.sessions.values()]
 
         self.onfini(fini)
+
+        self.dynitems = {
+            'auth': self.auth,
+        }
+
+    async def dyniter(self, iden, todo):
+        item = self.dynitems.get(iden)
+        name, args, kwargs = todo
+        meth = getattr(item, name)
+        async for item in meth(*args, **kwargs):
+            yield item
+
+    async def dyncall(self, iden, todo):
+        item = self.dynitems.get(iden)
+        name, args, kwargs = todo
+        meth = getattr(item, name)
+        return await s_coro.ornot(meth, *args, **kwargs)
 
     async def getConfOpt(self, name):
         return self.conf.get(name)

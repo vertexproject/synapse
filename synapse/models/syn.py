@@ -13,9 +13,14 @@ class SynModule(s_module.CoreModule):
 
     def initCoreModule(self):
 
+        self.core.addRuntLift('syn:cmd', self._liftRuntSynCmd)
+        self.core.addRuntLift('syn:type', self._liftRuntSynType)
         self.core.addRuntLift('syn:form', self._liftRuntSynForm)
         self.core.addRuntLift('syn:prop', self._liftRuntSynProp)
+        self.core.addRuntLift('syn:tagprop', self._liftRuntSynTagProp)
+
         self.core.addRuntLift('syn:prop:ro', self._liftRuntSynPropRo)
+        self.core.addRuntLift('syn:prop:base', self._liftRuntSynPropBase)
 
         # Static runt data for model data
         #self._modelRuntsByBuid = {}
@@ -141,6 +146,25 @@ class SynModule(s_module.CoreModule):
 
             yield prop.getStorNode()
 
+    async def _liftRuntSynPropBase(self, full, valu=None, cmpr=None):
+
+        if cmpr is None:
+            for prop in self.mode.props.values():
+                yield prop.getStorNode()
+            return
+
+        ctor = self.model.prop('syn:prop:base').type.getCmprCtor(cmpr)
+        if ctor is None:
+            raise s_exc.BadCmprValu(cmpr=cmpr)
+
+        filt = ctor(valu)
+        for prop in self.model.getProps():
+            base = prop.name.split(':')[-1]
+            if not filt(base):
+                continue
+
+            yield prop.getStorNode()
+
     async def _liftRuntSynForm(self, full, valu=None, cmpr=None):
 
         if cmpr is None:
@@ -190,6 +214,163 @@ class SynModule(s_module.CoreModule):
                 continue
 
             yield prop.getStorNode()
+
+    async def _liftRuntSynType(self, full, valu=None, cmpr=None):
+
+        if cmpr is None:
+            for tobj in self.model.types.values():
+                yield tobj.getStorNode()
+            return
+
+        # optimize the equality case since we have an index
+        if cmpr == '=':
+            tobj = self.model.type(valu)
+            if tobj is not None:
+                yield tobj.getStorNode()
+            return
+
+        filt = self.model.type('syn:type').getCmprCtor(cmpr)(valu)
+        if filt is None:
+            raise s_exc.BadCmprValu(cmpr=cmpr)
+
+        for tobj in self.model.forms.values():
+
+            if not filt(tobj.name):
+                continue
+
+            yield tobj.getStorNode()
+
+    async def _liftRuntSynTagProp(self, full, valu=None, cmpr=None):
+
+        def genr():
+            for prop in self.model.tagprops.values():
+                yield prop.getStorNode()
+
+        for item in self.filtRuntGenr(genr(), full, cmpr, valu):
+            yield item
+
+        #if cmpr is None:
+            #for prop in self.model.tagprops.values():
+                #yield prop.getStorNode()
+            #return
+
+        # optimize the equality case since we have an index
+        #if cmpr == '=':
+            #prop = self.model.tagprop(valu)
+            #if prop is not None:
+                #yield prop.getStorNode()
+            #return
+
+        #filt = self.model.type('syn:tagprop').getCmprCtor(cmpr)(valu)
+        #if filt is None:
+            #raise s_exc.BadCmprValu(cmpr=cmpr)
+
+        #for prop in self.model.getTagProps():
+
+            #if not filt(prop.full):
+                #continue
+
+            #yield prop.getStorNode()
+
+    def _getCmdStorNode(self, name, cls):
+
+        buid = s_common.buid(('syn:cmd', name))
+
+        props = {}
+
+        inpt = cls.forms.get('input')
+        outp = cls.forms.get('output')
+
+        if inpt:
+            props['input'] = tuple(inpt)
+
+        if outp:
+            props['output'] = tuple(inpt)
+
+        if cls.svciden:
+            props['svciden'] = cls.svciden
+
+        if cls.pkgname:
+            props['package'] = cls.pkgname
+
+        return (buid, {
+            'ndef': ('syn:cmd', name),
+            'props': props
+        })
+
+        return cls.__doc__.strip().split('\n')[0]
+
+    async def _liftRuntSynCmd(self, full, valu=None, cmpr=None):
+
+        def genr():
+            for name, clas in self.core.getStormCmds():
+                yield self._getCmdStorNode(name, clas)
+                #print(repr(clas))
+                #yield clas.getStorNode()
+
+        for item in self.filtRuntGenr(genr(), full, cmpr, valu):
+            yield item
+
+    def filtRuntGenr(self, genr, full, cmpr, valu):
+
+        if cmpr is None:
+            for item in genr:
+                yield item
+
+        prop = self.model.prop(full)
+
+        filt = prop.type.getCmprCtor(cmpr)(valu)
+
+        if prop.isform:
+
+            for item in genr:
+                if not filt(item[1]['ndef'][1]):
+                    continue
+
+                yield item
+
+            return
+
+        for item in genr:
+
+            propvalu = item[1]['props'].get(prop.name)
+            if propvalu is None:
+                continue
+
+            if not filt(propvalu):
+                continue
+
+            yield item
+
+    #async def _initCmdRunts(self):
+        #now = s_common.now()
+        #typeform = self.model.form('syn:cmd')
+
+        #for name, ctor in self.core.getStormCmds():
+            #tnorm, _ = typeform.type.norm(name)
+
+            #props = {'.created': now,
+                     #'doc': ctor.getCmdBrief(),
+                     #}
+
+            #forms = ctor.forms
+
+            #inputs = forms.get('input')
+            #if inputs:
+                #props['input'] = tuple(inputs)
+
+            #outputs = forms.get('output')
+            #if outputs:
+                #props['output'] = tuple(outputs)
+
+            #if ctor.svciden:
+                #props['svciden'] = ctor.svciden
+
+            #if ctor.pkgname:
+                #props['package'] = ctor.pkgname
+
+            #self._addRuntRows('syn:cmd', tnorm, props,
+                              #self._cmdRuntsByBuid, self._cmdRuntsByPropValu)
 
     #async def _synModelLift(self, full, valu=None, cmpr=None):
         #if not self._modelRuntsByBuid:

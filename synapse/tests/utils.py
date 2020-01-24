@@ -98,7 +98,7 @@ class TestType(s_types.Type):
 
 class ThreeType(s_types.Type):
 
-    stortype = s_layer.STOR_TYPE_UTF8
+    stortype = s_layer.STOR_TYPE_U8
 
     def norm(self, valu):
         return 3, {'subs': {'three': 3}}
@@ -325,15 +325,14 @@ class TestModule(s_module.CoreModule):
         self._runtsByPropValu = collections.defaultdict(list)
         await self._initTestRunts()
 
-        # Add runt lift helpers
-        for form in ('test:runt',):
-            form = self.model.form(form)
-            self.core.addRuntLift(form.full, self._testRuntLift)
-            for name, prop in form.props.items():
-                pfull = prop.full
-                self.core.addRuntLift(pfull, self._testRuntLift)
-        self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
-        self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
+        #form = self.model.form('test:runt')
+        #self.core.addRuntLift(form.full, self._testRuntLift)
+
+        #for prop in form.props.values():
+            #self.core.addRuntLift(prop.full, self._testRuntLift)
+
+        #self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
+        #self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
 
     async def _testModHealth(self, health):
         if self.healthy:
@@ -347,26 +346,49 @@ class TestModule(s_module.CoreModule):
         for name in items:
             await snap.addNode('test:str', name)
 
-    async def _testRuntLift(self, full, valu=None, cmpr=None):
-        # runt lift helpers must decide what comparators they support
-        if cmpr is not None and cmpr != '=':
-            raise s_exc.BadCmprValu(mesg='Test runts do not support cmpr which is not equality',
-                                    cmpr=cmpr)
+#    async def _testRuntLift(self, full, valu=None, cmpr=None):
+#        # runt lift helpers must decide what comparators they support
+#        if cmpr is not None and cmpr != '=':
+#            raise s_exc.BadCmprValu(mesg='Test runts do not support cmpr which is not equality',
+#                                    cmpr=cmpr)
+#
+#        runts = [
+#            (' BEEP ', {'tick': modl.type('time').norm('2001')[0], 'lulz': 'beep.sys', '.created': now}),
+#            ('boop', {'tick': modl.type('time').norm('2010')[0], '.created': now}),
+#            ('blah', {'tick': modl.type('time').norm('2010')[0], 'lulz': 'blah.sys'}),
+#            ('woah', {}),
+#        ]
+#
+#        sodes = []
+#
+#        for valu, props in runts:
+#            buid = s_common.buid(('test:runt', valu))
+#
+#            sode = (buid, {
+#                'ndef': ('test:runt', valu),
+#                'props': props,
+#            })
+#
+#            sodes.append(sode)
+#
+#        if full == 'test:runt':
+#
+#        return sodes
 
         # Runt lift helpers must support their own normalization for data retrieval
-        if valu is not None:
-            prop = self.model.prop(full)
-            valu, _ = prop.type.norm(valu)
+        #if valu is not None:
+            #prop = self.model.prop(full)
+            #valu, _ = prop.type.norm(valu)
 
         # runt lift helpers must then yield buid/rows pairs for Node object creation.
-        if valu is None:
-            buids = self._runtsByPropValu.get(full, ())
-        else:
-            buids = self._runtsByPropValu.get((full, valu), ())
+        #if valu is None:
+            #buids = self._runtsByPropValu.get(full, ())
+        #else:
+            #buids = self._runtsByPropValu.get((full, valu), ())
 
-        rowsets = [(buid, self._runtsByBuid.get(buid, ())) for buid in buids]
-        for buid, rows in rowsets:
-            yield buid, rows
+        #rowsets = [(buid, self._runtsByBuid.get(buid, ())) for buid in buids]
+        #for buid, rows in rowsets:
+            #yield buid, rows
 
     async def _testRuntPropSetLulz(self, node, prop, valu):
         curv = node.get(prop.name)
@@ -414,12 +436,12 @@ class TestModule(s_module.CoreModule):
 
             props.setdefault('.created', s_common.now())
 
-            rows = [('*' + fnme, pnorm)]
-            for k, v in props.items():
-                rows.append((k, v))
+            #rows = [('*' + fnme, pnorm)]
+            #for k, v in props.items():
+                #rows.append((k, v))
 
             buid = s_common.buid((fnme, pnorm))
-            self._runtsByBuid[buid] = rows
+            #self._runtsByBuid[buid] = rows
 
             # Allow for indirect lookup to a set of buids
             self._runtsByPropValu[fnme].append(buid)

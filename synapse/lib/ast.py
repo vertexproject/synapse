@@ -902,7 +902,7 @@ class LiftByArray(LiftOper):
         cmpr = await self.kids[1].compute(runt)
         valu = await self.kids[2].compute(runt)
 
-        async for node in runt.snap.getNodesByArray(name, valu, cmpr=cmpr):
+        async for node in runt.snap.nodesByPropArray(name, cmpr, valu):
             yield node
 
 class LiftTagProp(LiftOper):
@@ -981,35 +981,43 @@ class LiftTagTag(LiftOper):
         cmpr = '='
         valu = None
 
-        tag = await self.kids[0].compute(runt)
-        if len(self.kids) == 3:
-            cmpr = await self.kids[1].compute(runt)
-            valu = await self.kids[2].compute(runt)
+        tagname = await self.kids[0].compute(runt)
 
-        node = await runt.snap.getNodeByNdef(('syn:tag', tag))
+        node = await runt.snap.getNodeByNdef(('syn:tag', tagname))
         if node is None:
             return
 
         # only apply the lift valu to the top level tag of tags, not to the sub tags
-        # or non-tag nodes
-        todo.append((node, valu, cmpr))
+        if len(self.kids) == 3:
+            cmpr = await self.kids[1].compute(runt)
+            valu = await self.kids[2].compute(runt)
 
-        done = set()
+            genr = runt.snap.nodesByTagValu(tagname, cmpr, valu)
+
+        else:
+
+            genr = runt.snap.nodesByTag(tagname)
+
+        done = set([tagname])
+        todo = collections.deque([genr])
+
         while todo:
 
-            node, valu, cmpr = todo.popleft()
+            genr = todo.popleft()
 
-            tagname = node.ndef[1]
-            if tagname in done:
-                continue
+            async for node in genr:
 
-            done.add(tagname)
-            async for node in runt.snap.nodesByTag(tagname, valu=valu, cmpr=cmpr):
                 if node.form.name == 'syn:tag':
-                    todo.append((node, None, '='))
+
+                    tagname = node.ndef[1]
+                    if tagname not in done:
+                        done.add(tagname)
+                        todo.append(runt.snap.nodesByTag(tagname))
+
                     continue
 
                 yield node
+
 
 class LiftFormTag(LiftOper):
 
@@ -1054,7 +1062,7 @@ class LiftProp(LiftOper):
                             yield node
                         return
 
-            async for node in runt.snap.nodesByProp(prop):
+            async for node in runt.snap.nodesByProp(name):
                 yield node
 
             return
@@ -1064,7 +1072,7 @@ class LiftProp(LiftOper):
         cmpr = self.kids[1].value()
         valu = await self.kids[2].compute(runt)
 
-        async for node in runt.snap.nodesByPropValu(prop, cmpr, valu):
+        async for node in runt.snap.nodesByPropValu(name, cmpr, valu):
             yield node
 
     def getRightHints(self):
@@ -1090,11 +1098,7 @@ class LiftPropBy(LiftOper):
         name = await self.kids[0].compute(runt)
         valu = await self.kids[2].compute(runt)
 
-        prop = runt.model.prop(name)
-        if prop is None:
-            raise s_exc.NoSuchProp(name=name)
-
-        async for node in runt.snap.nodesByPropValu(prop, cmpr, valu):
+        async for node in runt.snap.nodesByPropValu(name, cmpr, valu):
             yield node
 
 class PivotOper(Oper):
@@ -1156,7 +1160,7 @@ class PivotOut(PivotOper):
                     typename = prop.type.opts.get('type')
                     if runt.model.forms.get(typename) is not None:
                         for item in valu:
-                            async for pivo in runt.snap.getNodesBy(typename, item):
+                            async for pivo in runt.snap.nodesByPropValu(typename, '=', item):
                                 yield pivo, path.fork(pivo)
 
                 form = runt.model.forms.get(prop.type.name)
@@ -1267,11 +1271,11 @@ class PivotIn(PivotOper):
             name, valu = node.ndef
 
             for prop in runt.model.propsbytype.get(name, ()):
-                async for pivo in runt.snap.getNodesBy(prop.full, valu):
+                async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
                     yield pivo, path.fork(pivo)
 
             for prop in runt.model.arraysbytype.get(name, ()):
-                async for pivo in runt.snap.getNodesByArray(prop.full, valu):
+                async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu):
                     yield pivo, path.fork(pivo)
 
 class PivotInFrom(PivotOper):
@@ -1297,7 +1301,7 @@ class PivotInFrom(PivotOper):
                 if self.isjoin:
                     yield node, path
 
-                async for pivo in runt.snap.getNodesBy(full, node.ndef):
+                async for pivo in runt.snap.nodesByPropValu(full, '=', node.ndef):
                     yield pivo, path.fork(pivo)
 
             return
@@ -1344,7 +1348,7 @@ class FormPivot(PivotOper):
                 if self.isjoin:
                     yield node, path
 
-                async for pivo in runt.snap.getNodesBy(prop.full, node.ndef):
+                async for pivo in runt.snap.nodesByPropValu(prop.full, '=', node.ndef):
                     yield pivo, path.fork(pivo)
 
             return
@@ -1361,7 +1365,7 @@ class FormPivot(PivotOper):
 
                 # TODO cache/bypass normalization in loop!
                 try:
-                    async for pivo in runt.snap.getNodesBy(prop.full, valu):
+                    async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
                         yield pivo, path.fork(pivo)
                 except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
                     if not warned:
@@ -1384,7 +1388,7 @@ class FormPivot(PivotOper):
                 if self.isjoin:
                     yield node, path
 
-                async for pivo in runt.snap.getNodesBy(full, node.ndef):
+                async for pivo in runt.snap.nodesByPropValu(full, '=', node.ndef):
                     yield pivo, path.fork(pivo)
 
             return
@@ -1401,7 +1405,7 @@ class FormPivot(PivotOper):
 
             # <syn:tag> -> <form> is "from tags to nodes" pivot
             if node.form.name == 'syn:tag' and prop.isform:
-                async for pivo in runt.snap.getNodesBy(f'{prop.name}#{node.ndef[1]}'):
+                async for pivo in runt.snap.nodesByTag(node.ndef[1], form=prop.name):
                     yield pivo, path.fork(pivo)
 
                 continue
@@ -1433,7 +1437,7 @@ class FormPivot(PivotOper):
 
                 refsvalu = node.get(refsname)
                 if refsvalu is not None:
-                    async for pivo in runt.snap.getNodesBy(refsform, refsvalu):
+                    async for pivo in runt.snap.nodesByPropValu(refsform, '=', refsvalu):
                         yield pivo, path.fork(pivo)
 
             for refsname, refsform in refs.get('array'):
@@ -1446,7 +1450,7 @@ class FormPivot(PivotOper):
                 refsvalu = node.get(refsname)
                 if refsvalu is not None:
                     for refselem in refsvalu:
-                        async for pivo in runt.snap.getNodesBy(destform.name, refselem):
+                        async for pivo in runt.snap.nodesByPropValu(destform.name, '=', refselem):
                             yield pivo, path.fork(pivo)
 
             for refsname in refs.get('ndef'):
@@ -1472,7 +1476,7 @@ class FormPivot(PivotOper):
                 found = True
 
                 refsprop = destform.props.get(refsname)
-                async for pivo in runt.snap.getNodesBy(refsprop.full, node.ndef[1]):
+                async for pivo in runt.snap.nodesByPropValu(refsprop.full, '=', node.ndef[1]):
                     yield pivo, path.fork(pivo)
 
             # "reverse" array references...
@@ -1484,7 +1488,7 @@ class FormPivot(PivotOper):
                 found = True
 
                 destprop = destform.props.get(refsname)
-                async for pivo in runt.snap.getNodesByArray(destprop.full, node.ndef[1]):
+                async for pivo in runt.snap.nodesByPropArray(destprop.full, '=', node.ndef[1]):
                     yield pivo, path.fork(pivo)
 
             # "reverse" ndef references...
@@ -1493,7 +1497,7 @@ class FormPivot(PivotOper):
                 found = True
 
                 refsprop = destform.props.get(refsname)
-                async for pivo in runt.snap.getNodesBy(refsprop.full, node.ndef):
+                async for pivo in runt.snap.nodesByPropValu(refsprop.full, '=', node.ndef):
                     yield pivo, path.fork(pivo)
 
             if not found:
@@ -1528,7 +1532,7 @@ class PropPivotOut(PivotOper):
                     continue
 
                 for item in valu:
-                    async for pivo in runt.snap.getNodesBy(fname, item):
+                    async for pivo in runt.snap.nodesByPropValu(fname, '=', item):
                         yield pivo, path.fork(pivo)
 
                 continue
@@ -1582,7 +1586,7 @@ class PropPivot(PivotOper):
 
             # TODO cache/bypass normalization in loop!
             try:
-                async for pivo in runt.snap.getNodesBy(prop.full, valu):
+                async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
                     yield pivo, path.fork(pivo)
             except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
                 if not warned:
@@ -2528,6 +2532,7 @@ class EditParens(Edit):
         assert isinstance(nodeadd, EditNodeAdd)
 
         formname = nodeadd.kids[0].value()
+
         runt.reqLayerAllowed(('node:add', formname))
 
         # create an isolated generator for the add vs edit
