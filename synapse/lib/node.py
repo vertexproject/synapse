@@ -123,6 +123,9 @@ class Node:
         '''
         Return the serializable/packed version of the node.
 
+        Args:
+            dorepr (bool): Include repr information for human readable versions of properties.
+
         Returns:
             (tuple): An (iden, info) node tuple.
         '''
