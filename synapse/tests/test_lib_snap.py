@@ -285,3 +285,47 @@ class SnapTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
             self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', 0x01020304)))
+
+    async def test_clearcache(self):
+
+        # Type hinting since we dont do the type hinting
+        # properly in the Cortex anymore... :(
+        import synapse.lib.snap as s_snap
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap0:  # type: s_snap.Snap
+
+                original_node0 = await snap0.addNode('test:str', 'node0')
+                self.len(1, snap0.buidcache)
+                self.len(1, snap0.livenodes)
+                self.len(0, snap0.tagcache)
+
+                await original_node0.addTag('foo.bar.baz')
+                self.len(4, snap0.buidcache)
+                self.len(4, snap0.livenodes)
+                self.len(3, snap0.tagcache)
+
+                async with await core.snap() as snap1:  # type: s_snap.Snap
+                    snap1_node0 = await snap1.getNodeByNdef(('test:str', 'node0'))
+                    await snap1_node0.delTag('foo.bar.baz')
+                    self.notin('foo.bar.baz', snap1_node0.tags)
+                    # Our reference to original_node0 still has the tag though
+                    self.isin('foo.bar.baz', original_node0.tags)
+
+                # We rely on the layer's row cache to be correct in this test.
+
+                # Lift is cached..
+                same_node0 = await snap0.getNodeByNdef(('test:str', 'node0'))
+                self.eq(id(original_node0), id(same_node0))
+
+                # flush snap0 cache!
+                await snap0.clearCache()
+                self.len(0, snap0.buidcache)
+                self.len(0, snap0.livenodes)
+                self.len(0, snap0.tagcache)
+
+                # After clearing the cache and lifting nodes, the new node
+                # was lifted directly from the layer.
+                new_node0 = await snap0.getNodeByNdef(('test:str', 'node0'))
+                self.ne(id(original_node0), id(new_node0))
+                self.notin('foo.bar.baz', new_node0.tags)
