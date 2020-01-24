@@ -78,12 +78,6 @@ class View(s_nexus.Nexus):  # type: ignore
 
             self.layers.append(layr)
 
-    def allowed(self, hiveuser, perm, elev=True, default=None):
-        if self.worldreadable and perm == ('view', 'read'):
-            default = True
-
-        return s_hive.AuthGater.allowed(self, hiveuser, perm, elev=elev, default=default)
-
     async def eval(self, text, opts=None, user=None):
         '''
         Evaluate a storm query and yield Nodes only.
@@ -449,7 +443,7 @@ class View(s_nexus.Nexus):  # type: ignore
         FIXME:  propagate push?
         '''
         await self.fini()
-        await self.auth.delAuthGate(self.iden)
+        await self.core.auth.delAuthGate(self.iden)
 
         for (iden, _) in self.triggers.list():
             self.triggers.delete(iden)

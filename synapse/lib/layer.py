@@ -1559,7 +1559,7 @@ class Layer(s_base.Base):
         Delete the underlying storage
         '''
         await self.fini()
-        await s_hive.AuthGater.delete(self)
+        await self.core.auth.delAuthGate(self.iden)
         shutil.rmtree(self.dirn, ignore_errors=True)
 
 class LayerStorage(s_base.Base):

@@ -2115,13 +2115,16 @@ class Cortex(s_cell.Cell):  # type: ignore
         # TODO add extended model defs
         return defs
 
-    async def getFormCounts(self, view=None):
-
-        viewitem = self.view
-        if view is not None:
-            viewitem = self.views.get(view)
-
-        return await viewitem.getFormCounts()
+    async def getFormCounts(self):
+        '''
+        Return total form counts for all existing layers
+        '''
+        counts = collections.defaultdict(int)
+        for layr in self.layers.values():
+            layrcounts = await layr.getFormCounts()
+            for name, valu in layrcounts.items():
+                counts[name] += valu
+        return counts
 
     def onTagAdd(self, name, func):
         '''
@@ -3393,14 +3396,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'formcounts': await self.getFormCounts(),
         }
         return stats
-
-    async def getFormCounts(self):
-        counts = collections.defaultdict(int)
-        for layr in self.layers.values():
-            layrcounts = await layr.getFormCounts()
-            for name, valu in layrcounts.items():
-                counts[name] += valu
-        return counts
 
     async def getPropNorm(self, prop, valu):
         '''

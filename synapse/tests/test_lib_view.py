@@ -9,7 +9,7 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('[ test:int=10 ]')
             nodes = await alist(core.eval('test:int=10'))
             self.len(1, nodes)
-            self.eq(1, core.counts.get('test:int'))
+            self.eq(1, (await core.getFormCounts()).get('test:int'))
 
             # Fork the main view
             view2 = await core.view.fork()
@@ -23,7 +23,7 @@ class ViewTest(s_t_utils.SynTest):
             # A node added to the parent after the fork is still seen by the child
             nodes = await alist(view2.eval('test:int=11'))
             self.len(1, nodes)
-            self.eq(2, core.counts.get('test:int'))
+            self.eq(2, (await core.getFormCounts()).get('test:int'))
 
             # A node added to the child is not seen by the parent
             nodes = await alist(view2.eval('[ test:int=12 ]'))
@@ -31,11 +31,11 @@ class ViewTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:int=12')
             self.len(0, nodes)
-            self.eq(2, core.counts.get('test:int'))
+            self.eq(2, (await core.view.getFormCounts()).get('test:int'))
 
             # Deleting nodes from the child view should not affect the main
             await alist(view2.eval('test:int | delnode'))
-            self.eq(2, core.counts.get('test:int'))
+            self.eq(2, (await core.view.getFormCounts()).get('test:int'))
             nodes = await alist(view2.eval('test:int=10'))
             self.len(1, nodes)
 
@@ -54,7 +54,7 @@ class ViewTest(s_t_utils.SynTest):
             view2 = await core.view.fork()
 
             # A trigger inherited from the main view fires on the forked view when the condition matches
-            await core.addTrigger('node:add', '[ test:str=mainhit ]', info={'form': 'test:int'})
+            await core.view.addTrigger('node:add', '[ test:str=mainhit ]', info={'form': 'test:int'})
             nodes = await alist(core.eval('[ test:int=11 ]', opts={'view': view2.iden}))
             self.len(1, nodes)
 
@@ -79,4 +79,4 @@ class ViewTest(s_t_utils.SynTest):
             self.len(2, trigs)
 
             await view2.fini()
-            await view2.trash()
+            await view2.delete()
