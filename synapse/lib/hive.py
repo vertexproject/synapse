@@ -1425,7 +1425,7 @@ class HiveUser(HiveRuler):
     def raisePermDeny(self, perm, gate=None):
         perm = '.'.join(perm)
         if gate is None:
-            mesg = f'User {self.name!r} ({self.iden}) must have permission {perm}.'
+            mesg = f'User {self.name!r} ({self.iden}) must have permission {perm}'
             raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.name)
 
         mesg = f'User {self.name!r} ({self.iden}) must have permission {perm} on object {gate.iden} ({gate.type}).'

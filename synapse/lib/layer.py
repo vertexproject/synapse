@@ -658,7 +658,7 @@ class StorTypeLatLon(StorType):
         # yield index bytes in lon/lat order to allow cheap optimial indexing
         return (self._getLatLonIndx(valu),)
 
-class Layer(s_hive.AuthGater):
+class Layer(s_hive.AuthGuard):
     '''
     The base class for a cortex layer.
     '''

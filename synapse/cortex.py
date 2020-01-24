@@ -237,7 +237,7 @@ class CoreApi(s_cell.CellApi):
         '''
         self.user.confirm(('cron', 'add'))
 
-        return await self.cell.addCronJob(query, reqs, incunit, incval)
+        return await self.cell.addCronJob(self.user, query, reqs, incunit, incval)
 
     async def delCronJob(self, iden):
         '''
@@ -320,7 +320,7 @@ class CoreApi(s_cell.CellApi):
     async def _reqDefLayerAllowed(self, perms):
         view = self.cell.getView()
         wlyr = view.layers[0]
-        await self.user.confirm(perms, gateiden=wlyr.iden)
+        self.user.confirm(perms, gateiden=wlyr.iden)
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
@@ -335,7 +335,7 @@ class CoreApi(s_cell.CellApi):
             valu (tuple):  A time interval tuple or (None, None).
         '''
         await self._reqDefLayerAllowed(('tag:add', *tag.split('.')))
-        return await self.cell.addNodeTag(iden, tag, valu)
+        return await self.cell.addNodeTag(self.user, iden, tag, valu)
 
     async def delNodeTag(self, iden, tag):
         '''
@@ -347,7 +347,7 @@ class CoreApi(s_cell.CellApi):
             tag (str):  A tag string.
         '''
         await self._reqDefLayerAllowed(('tag:del', *tag.split('.')))
-        return await self.cell.delNodeTag(iden, tag)
+        return await self.cell.delNodeTag(self.user, iden, tag)
 
     async def setNodeProp(self, iden, name, valu):
         '''
@@ -1748,7 +1748,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 node = await snap.addNode(form, valu, props=props)
                 return node.pack()
 
-    async def delNodeTag(self, iden, tag):
+    async def delNodeTag(self, user, iden, tag):
         '''
         Delete a tag from the node specified by iden.
 
@@ -1758,7 +1758,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         buid = s_common.uhex(iden)
 
-        async with await self.snap(user=self.user) as snap:
+        async with await self.snap(user=user) as snap:
 
             with s_provenance.claim('coreapi', meth='tag:del', user=snap.user.iden):
 
@@ -2509,7 +2509,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await layrinfo.set('stor', stor)
         await layrinfo.set('conf', conf)
 
-        layr = await self.initLayr(layrinfo)
+        layr = await self._initLayr(layrinfo)
 
         # forward wind the new layer to the current model version
         await layr.setModelVers(s_modelrev.maxvers)
@@ -3487,6 +3487,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             if isinstance(reqs, Mapping):
                 newreqs = self._convert_reqdict(reqs)
             else:
+                breakpoint()
                 newreqs = [self._convert_reqdict(req) for req in reqs]
         except KeyError:
             raise s_exc.BadConfValu('Unrecognized time unit')

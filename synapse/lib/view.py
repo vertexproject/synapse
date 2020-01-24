@@ -14,7 +14,7 @@ import synapse.lib.trigger as s_trigger
 
 logger = logging.getLogger(__name__)
 
-class View(s_hive.AuthGater, s_nexus.Nexus):  # type: ignore
+class View(s_hive.AuthGuard, s_nexus.Nexus):  # type: ignore
     '''
     A view represents a cortex as seen from a specific set of layers.
 
@@ -305,12 +305,13 @@ class View(s_hive.AuthGater, s_nexus.Nexus):  # type: ignore
         Returns:
             new view object, with an iden the same as the new write layer iden
         '''
-        writlayr = await self.core.addLayer(**layrinfo)
+        writlayriden = await self.core.addLayer(**layrinfo)
+        writlayr = self.core.getLayer(writlayriden)
         self.onfini(writlayr)
 
         viewiden = s_common.guid()
         owner = layrinfo.get('owner', 'root')
-        layeridens = [writlayr.iden] + [l.iden for l in self.layers]
+        layeridens = [writlayriden] + [l.iden for l in self.layers]
 
         view = await self.core.addView(viewiden, owner, layeridens)
         view.worldreadable = False
