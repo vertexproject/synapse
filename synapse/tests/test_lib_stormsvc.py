@@ -234,6 +234,30 @@ class LifterService(s_stormsvc.StormSvc):
         },
     }
 
+class StormvarService(s_stormsvc.StormSvc):
+    _storm_svc_name = 'stormvar'
+    _storm_svc_pkgs = (
+        {
+            'name': 'stormvar',
+            'version': (0, 0, 1),
+            'commands': (
+                {
+                    'name': 'magic',
+                    'cmdargs': (
+                        ('--stormvar', {'default': False, 'action': 'store_true'}),
+                        ('name', {}),
+                    ),
+                    'storm': '''
+                    $name = $cmdopts.name
+                    $fooz = $lib.vars.get($name)
+                    $fooz = $path.vars.$name
+                    $lib.print('my foo var is {f}', f=$fooz)
+                    ''',
+                },
+            )
+        },
+    )
+
 @contextlib.contextmanager
 def patchcore(core, attr, newfunc):
     origvalu = getattr(core, attr)
@@ -582,3 +606,29 @@ class StormSvcTest(s_test.SynTest):
                 self.isin('old.bar', core.stormmods)
                 self.isin('new.baz', core.stormmods)
                 self.notin('old.baz', core.stormmods)
+
+    async def test_storm_vars(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestDmon() as dmon:
+                dmon.share('svar', StormvarService())
+                host, port = dmon.addr
+                surl = f'tcp://127.0.0.1:{port}/svar'
+
+                async with await s_cortex.Cortex.anit(dirn) as core:
+                    await core.nodes(f'service.add svar {surl}')
+                    await core.nodes('$lib.service.wait(svar)')
+
+                    await core.nodes('[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 ]')
+
+                    scmd = f'inet:ipv4=1.2.3.4 $foo=$node.repr() | magic --stormvar foo'
+                    msgs = await core.streamstorm(scmd).list()
+                    self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
+
+                    scmd = f'inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 $foo=$node.repr() | magic --stormvar foo'
+                    msgs = await core.streamstorm(scmd).list()
+                    self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
+                    self.stormIsInPrint('my foo var is 5.6.7.8', msgs)
+
+                    scmd = f'$foo="8.8.8.8" | magic --stormvar foo'
+                    msgs = await core.streamstorm(scmd).list()
+                    self.stormIsInPrint('my foo var is 8.8.8.8', msgs)
