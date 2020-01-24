@@ -464,7 +464,7 @@ See :ref:`gloss-non-runtsafe`.
 Non-Runtsafe
 ------------
 
-Short for "non-runtime safe". Non-runtsafe refers to the use of variables within Storm. A variable that is **non-runtsafe** has a value that may change based on the specific node passing through the Storm pipeline. A variable whose value is set to a node property, such as ``$fqdn = :fqdn`` is an example of a non-runtsafe varaible (i.e., the value of the secondary property ``:fqdn`` may be different for different nodes, so the value of the variable will be different based on the specific node being operated on).
+Short for "non-runtime safe". Non-runtsafe refers to the use of variables within Storm. A variable that is **non-runtsafe** has a value that may change based on the specific node passing through the Storm pipeline. A variable whose value is set to a node property, such as ``$fqdn = :fqdn`` is an example of a non-runtsafe variable (i.e., the value of the secondary property ``:fqdn`` may be different for different nodes, so the value of the variable will be different based on the specific node being operated on).
 
 Contrast with :ref:`gloss-runtsafe`.
 
