@@ -1165,7 +1165,7 @@ class Node(Prim):
             dorepr (bool): Include repr information for human readable versions of properties.
 
         Returns:
-            (tuple): An (iden, info) node tuple.
+            (tuple): An (ndef, info) node tuple.
 
         '''
         return self.valu.pack(dorepr=dorepr)
