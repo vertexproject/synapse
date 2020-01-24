@@ -1166,7 +1166,6 @@ class Node(Prim):
 
         Returns:
             (tuple): An (ndef, info) node tuple.
-
         '''
         return self.valu.pack(dorepr=dorepr)
 
