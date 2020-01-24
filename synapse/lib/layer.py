@@ -634,11 +634,12 @@ class StorTypeLatLon(StorType):
         # yield index bytes in lon/lat order to allow cheap optimial indexing
         return (self._getLatLonIndx(valu),)
 
-class Layer(s_base.Base):
+class Layer(s_hive.AuthGater):
     '''
     The base class for a cortex layer.
     '''
     confdefs = ()
+    authgatetype = 'layr'
 
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'

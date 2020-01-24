@@ -330,7 +330,7 @@ class CoreApi(s_cell.CellApi):
             tag (str):  A tag string.
             valu (tuple):  A time interval tuple or (None, None).
         '''
-        await self._reqDefAllowed(self.user, ('tag:add', *tag.split('.')))
+        await self._reqDefLayerAllowed(('tag:add', *tag.split('.')))
         return await self.cell.addNodeTag(iden, tag, valu)
 
     async def delNodeTag(self, iden, tag):
@@ -342,7 +342,7 @@ class CoreApi(s_cell.CellApi):
             iden (str): A hex encoded node BUID.
             tag (str):  A tag string.
         '''
-        await self._reqDefAllowed(self.user, ('tag:del', *tag.split('.')))
+        await self._reqDefLayerAllowed(('tag:del', *tag.split('.')))
         return await self.cell.delNodeTag(iden, tag)
 
     async def setNodeProp(self, iden, name, valu):
@@ -413,6 +413,7 @@ class CoreApi(s_cell.CellApi):
         Yields:
             (tuple): Packed node tuples ((form,valu), {'props': {}, 'tags':{}})
 
+        Deprecated in 0.2.0
         '''
 
         # First check that that user may add each form
@@ -423,7 +424,7 @@ class CoreApi(s_cell.CellApi):
             if done.get(formname):
                 continue
 
-            await self.cell.view.layers[0]._reqUserAllowed(self.user, ('node:add', formname))
+            await self._reqDefLayerAllowed(('node:add', formname))
             done[formname] = True
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -1701,7 +1702,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.fire('core:tagprop:change', name=name, act='del')
         await self.bumpSpawnPool()
 
-    async def addNodeTag(self, iden, tag, valu=(None, None)):
+    async def addNodeTag(self, user, iden, tag, valu=(None, None)):
         '''
         Add a tag to a node specified by iden.
 
@@ -1712,7 +1713,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
 
         buid = s_common.uhex(iden)
-        async with await self.cell.snap(user=self.user) as snap:
+        async with await self.snap(user=user) as snap:
 
             with s_provenance.claim('coreapi', meth='tag:add', user=snap.user.iden):
 
@@ -1723,50 +1724,14 @@ class Cortex(s_cell.Cell):  # type: ignore
                 await node.addTag(tag, valu=valu)
                 return node.pack()
 
-    async def addNode(self, form, valu, props=None):
+    async def addNode(self, user, form, valu, props=None):
 
-        async with await self.cell.snap(user=self.user) as snap:
+        async with await self.snap(user=user) as snap:
             await snap.wlyr._reqUserAllowed(self.user, ('node:add', form))
             with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
 
                 node = await snap.addNode(form, valu, props=props)
                 return node.pack()
-
-    async def addNodes(self, nodes):
-        '''
-        Add a list of packed nodes to the cortex.
-
-        Args:
-            nodes (list): [ ( (form, valu), {'props':{}, 'tags':{}}), ... ]
-
-        Yields:
-            (tuple): Packed node tuples ((form,valu), {'props': {}, 'tags':{}})
-
-        '''
-
-        # First check that that user may add each form
-
-        done = {}
-        for node in nodes:
-
-            formname = node[0][0]
-            if done.get(formname):
-                continue
-
-            await self.cell.view.layers[0]._reqUserAllowed(self.user, ('node:add', formname))
-            done[formname] = True
-
-        async with await self.cell.snap(user=self.user) as snap:
-            with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
-
-                snap.strict = False
-
-                async for node in snap.addNodes(nodes):
-
-                    if node is not None:
-                        node = node.pack()
-
-                    yield node
 
     async def delNodeTag(self, iden, tag):
         '''
@@ -1778,7 +1743,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         buid = s_common.uhex(iden)
 
-        async with await self.cell.snap(user=self.user) as snap:
+        async with await self.snap(user=self.user) as snap:
 
             with s_provenance.claim('coreapi', meth='tag:del', user=snap.user.iden):
 
