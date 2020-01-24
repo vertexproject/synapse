@@ -16,6 +16,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
+import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.compat as s_compat
 import synapse.lib.health as s_health
@@ -197,26 +198,22 @@ class CellApi(s_base.Base):
         '''
         Set or change the value of a key in the cell default hive
         '''
-        perm = ('hive:set',) + path
-        await self._reqUserAllowed(perm)
+        self.user.confirm(('hive:set',) + path)
         return await self.cell.hive.set(path, value)
 
     async def popHiveKey(self, path):
         '''
         Remove and return the value of a key in the cell default hive
         '''
-        perm = ('hive:pop',) + path
-        await self._reqUserAllowed(perm)
+        self.user.confirm(('hive:pop',) + path)
         return await self.cell.hive.pop(path)
 
     async def saveHiveTree(self, path=()):
-        perm = ('hive:get',) + path
-        await self._reqUserAllowed(perm)
+        self.user.confirm(('hive:get',) + path)
         return await self.cell.hive.saveHiveTree(path=path)
 
     async def loadHiveTree(self, tree, path=(), trim=False):
-        perm = ('hive:set',) + path
-        await self._reqUserAllowed(perm)
+        self.user.confirm(('hive:set',) + path)
         return await self.cell.hive.loadHiveTree(tree, path=path, trim=trim)
 
     @adminapi
@@ -224,6 +221,15 @@ class CellApi(s_base.Base):
         user = await self.cell.auth.addUser(name)
         await self.cell.fire('user:mod', act='adduser', name=name)
         return user.pack()
+
+    @adminapi
+    async def dyncall(self, iden, todo):
+        return await self.cell.dyncall(iden, todo)
+
+    @adminapi
+    async def dyniter(self, iden, todo):
+        async for item in self.cell.dyniter(iden, todo):
+            yield item
 
     @adminapi
     async def delAuthUser(self, name):
@@ -444,6 +450,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         self.insecure = self.boot.get('insecure', False)
 
         self.sessions = {}
+
         self.httpsonly = self.conf.get('https:only', False)
 
         self.boss = await s_boss.Boss.anit()
@@ -487,6 +494,23 @@ class Cell(s_base.Base, s_telepath.Aware):
             [await s.fini() for s in self.sessions.values()]
 
         self.onfini(fini)
+
+        self.dynitems = {
+            'auth': self.auth,
+        }
+
+    async def dyniter(self, iden, todo):
+        item = self.dynitems.get(iden)
+        name, args, kwargs = todo
+        meth = getattr(item, name)
+        async for item in meth(*args, **kwargs):
+            yield item
+
+    async def dyncall(self, iden, todo):
+        item = self.dynitems.get(iden)
+        name, args, kwargs = todo
+        meth = getattr(item, name)
+        return await s_coro.ornot(meth, *args, **kwargs)
 
     async def getConfOpt(self, name):
         return self.conf.get(name)

@@ -60,9 +60,14 @@ class Prop:
         self.modl = modl
         self.name = name
         self.info = info
+        self.univ = None
 
         if form is not None:
-            self.full = '%s:%s' % (form.name, name)
+            if name.startswith('.'):
+                self.univ = modl.prop(name)
+                self.full = '%s%s' % (form.name, name)
+            else:
+                self.full = '%s:%s' % (form.name, name)
             self.isuniv = False
             self.isrunt = form.isrunt
             self.compoffs = form.type.getCompOffs(self.name)
@@ -188,7 +193,7 @@ class Form:
         self.full = name    # so a Form() can act like a Prop().
         self.info = info
 
-        self.waits = collections.defaultdict(list)
+        #self.waits = collections.defaultdict(list)
 
         self.isform = True
         self.isrunt = bool(info.get('runt', False))
@@ -259,12 +264,12 @@ class Form:
 
         return self.refsout
 
-    def getWaitFor(self, valu):
-        norm, info = self.type.norm(valu)
-        buid = s_common.buid((self.name, norm))
-        evnt = asyncio.Event()
-        self.waits[buid].append(evnt)
-        return evnt
+    #def getWaitFor(self, valu):
+        #norm, info = self.type.norm(valu)
+        #buid = s_common.buid((self.name, norm))
+        #evnt = asyncio.Event()
+        #self.waits[buid].append(evnt)
+        #return evnt
 
     def onAdd(self, func):
         '''
@@ -301,9 +306,9 @@ class Form:
         '''
         Fire the onAdd() callbacks for node creation.
         '''
-        waits = self.waits.pop(node.buid, None)
-        if waits is not None:
-            [e.set() for e in waits]
+        #waits = self.waits.pop(node.buid, None)
+        #if waits is not None:
+            #[e.set() for e in waits]
 
         for func in self.onadds:
             try:

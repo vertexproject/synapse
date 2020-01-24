@@ -898,6 +898,7 @@ class HiveAuth(s_base.Base):
         return await self._addAuthGate(node)
 
     async def delAuthGate(self, iden):
+
         gate = self.getAuthGate(iden)
         if gate is None:
             raise s_exc.NoSuchAuthGate(iden=iden)
@@ -905,10 +906,18 @@ class HiveAuth(s_base.Base):
         await gate.fini()
         await gate.delete()
         await gate.node.pop()
+
         del self.authgates[iden]
 
     def getAuthGate(self, iden):
         return self.authgates.get(iden)
+
+    def reqAuthGate(self, iden):
+        gate = self.authgates.get(iden)
+        if gate is None:
+            mesg = f'No auth gate found with iden: ({iden}).'
+            raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
+        return gate
 
     async def addUser(self, name):
 
@@ -1011,7 +1020,7 @@ class HiveAuth(s_base.Base):
 
 class AuthGate(s_base.Base):
     '''
-    The storage object for an AuthGater, owned by a HiveAuth
+    The storage object for object specific rules for users/roles.
     '''
     async def __anit__(self, node, auth):
         await s_base.Base.__anit__(self)
@@ -1029,11 +1038,11 @@ class AuthGate(s_base.Base):
         usersnode = await node.open(('users',))
         self.onfini(usersnode)
 
-        for name, gateusernode in usersnode:
+        for useriden, gateusernode in usersnode:
 
-            user = self.auth.user(name)
+            user = self.auth.user(useriden)
             if user is None:  # pragma: no cover
-                logger.warning(f'Hive:  path {name} refers to unknown user')
+                logger.warning(f'Hive: path {useriden} refers to unknown user')
                 continue
 
             await GateUser.anit(gateusernode, self, user)
@@ -1041,18 +1050,18 @@ class AuthGate(s_base.Base):
         rolesnode = await node.open(('roles',))
         self.onfini(rolesnode)
 
-        for name, gaterolenode in rolesnode:
+        for roleiden, gaterolenode in rolesnode:
 
-            role = self.auth.role(name)
+            role = self.auth.role(roleiden)
             if role is None:  # pragma: no cover
-                logger.warning(f'Hive:  path {name} refers to unknown role')
+                logger.warning(f'Hive: path {roleiden} refers to unknown role')
                 continue
 
             await GateRole.anit(gaterolenode, self, role)
 
         async def fini():
-            [await gaterulr.fini() for gaterulr in self.gateroles.values()]
-            [await gaterulr.fini() for gaterulr in self.gateusers.values()]
+            [await gaterulr.fini() for gaterulr in list(self.gateroles.values())]
+            [await gaterulr.fini() for gaterulr in list(self.gateusers.values())]
 
         self.onfini(fini)
 
@@ -1094,61 +1103,29 @@ class AuthGate(s_base.Base):
         return await self._addGateUser(hiveuser)
 
     async def delete(self):
+
+        await self.fini()
+
         todelete = list(self.gateroles.values()) + list(self.gateusers.values())
         for gaterulr in todelete:
             await gaterulr.delete()
 
-class AuthGater(s_base.Base):
-    '''
-    An object that manages its own permissions
+        await self.node.pop()
 
-    Note:
-        This is a mixin and is intended to be subclassed by view, layers
-    '''
-    async def __anit__(self, auth):  # type: ignore
-        '''
-        Precondition:
-            self.iden and self.authgatetype must be set
-        '''
-        await s_base.Base.__anit__(self)
+    def confirm(self, hiveuser, perm, default=None):
+        if not self.allowed(hiveuser, perm, default=default):
+            hiveuser.raisePermDeny(perm, gate=self)
 
-        self.authgate = await auth.addAuthGate(self.iden, self.authgatetype)
-        self.onfini(self.authgate)
+    def allowed(self, hiveuser, perm, default=None):
 
-    async def trash(self):
-        '''
-        Remove all rules relating to this object
-
-        Prerequisite: Object must be fini'd first
-        '''
-        assert self.isfini
-        await self.authgate.auth.delAuthGate(self.iden)
-
-    async def _reqUserAllowed(self, hiveuser, perm):
-        '''
-        Raise AuthDeny if hiveuser does not have permissions perm
-
-        Note:
-            async for consistency with CellApi._reqUserAllowed
-        '''
-        if not self.allowed(hiveuser, perm):
-            perm = '.'.join(perm)
-            mesg = f'User must have permission {perm} for {self.iden}'
-            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=hiveuser.name)
-
-    def allowed(self, hiveuser, perm, elev=True, default=None):
-        '''
-        Returns (Optional[bool]):
-            True if explicitly granted, False if denied, None if neither
-        '''
         if hiveuser.locked:
             return False
 
-        if hiveuser.admin and elev:
+        if hiveuser.admin:
             return True
 
         # 1. local user rules: check for an AuthGate-specific rule first
-        gaterulr = self.authgate.gateusers.get(hiveuser.iden)
+        gaterulr = self.gateusers.get(hiveuser.iden)
         if gaterulr:
             retn = gaterulr.allowedLocal(perm)
             if retn is not None:
@@ -1162,7 +1139,7 @@ class AuthGater(s_base.Base):
         idenset = set(hiveuser.roleidens)
 
         # 3. local role rules: check for an AuthGate-specific role rule
-        for iden, gaterole in self.authgate.gateroles.items():
+        for iden, gaterole in self.gateroles.items():
             if iden in idenset:
                 retn = gaterole.allowedLocal(perm)
             if retn is not None:
@@ -1174,7 +1151,30 @@ class AuthGater(s_base.Base):
             if retn is not None:
                 return retn
 
-        return default if retn is None else retn
+        return default
+
+    #def reqAllowed(self, hiveuser, perm, default=None):
+        #if not self.allowed(hiveuser, perm, default=default):
+            #hiveuser.raisePermDeny(perm, gate=self)
+
+class AuthGuard(s_base.Base):
+    '''
+    A mixin to add some syntax sugar to perms enforcement.
+    '''
+    async def __anit__(self, gate):
+        await s_base.Base.__anit__(self)
+        self.authgate = gate
+
+    def allowed(self, hiveuser, perm, default=None):
+        '''
+        Returns (Optional[bool]):
+            True if explicitly granted, False if denied, None if neither
+        '''
+        return self.authgate.allowed(hiveuser, perm, default=default)
+
+    def confirm(self, hiveuser, perm, default=None):
+        if not self.allowed(hiveuser, perm, default=default):
+            hiveuser.raisePermDeny(perm, gate=self.authgate)
 
 class HiveRuler(s_base.Base):
     '''
@@ -1196,11 +1196,17 @@ class HiveRuler(s_base.Base):
         self.info = await node.dict()
         self.onfini(self.info)
         self.info.setdefault('rules', ())
+        self.info.setdefault('admin', False)
         self.rules = self.info.get('rules', onedit=self._onRulesEdit)
+        self.admin = self.info.get('admin', onedit=self._onAdminEdit)
         self.permcache = s_cache.FixedCache(self._calcPermAllow)
 
     async def _onRulesEdit(self, mesg):
         self.rules = self.info.get('rules')
+        self.permcache.clear()
+
+    async def _onAdminEdit(self, mesg):
+        self.admin = self.info.get('admin')
         self.permcache.clear()
 
     async def setName(self, name):
@@ -1248,6 +1254,9 @@ class HiveRuler(s_base.Base):
 
     def _calcPermAllow(self, perm):
 
+        if self.admin:
+            return True
+
         for rule in self.rules:
             allow, path = rule
             if perm[:len(path)] == path:
@@ -1292,23 +1301,35 @@ class GateRole(GateRuler):
         authgate.gateroles[hiverulr.iden] = self
         await GateRuler.__anit__(self, node, authgate, hiverulr)
 
+        async def fini():
+            authgate.gateroles.pop(hiverulr.iden, None)
+
+        self.onfini(fini)
+
     async def delete(self):
-        del self.gate.gateroles[self.iden]
-        await self.node.pop(())
         await self.fini()
+        await self.node.pop(())
 
 class GateUser(GateRuler):
     '''
     A bundle of rules specific to a particular AuthGate for a particular user
     '''
     async def __anit__(self, node, authgate, hiverulr):  # type: ignore
-        await GateRuler.__anit__(self, node, authgate, hiverulr)
+
         authgate.gateusers[hiverulr.iden] = self
+        await GateRuler.__anit__(self, node, authgate, hiverulr)
+
+        async def fini():
+            authgate.gateusers.pop(hiverulr.iden, None)
+
+        self.onfini(fini)
+
+    async def setAdmin(self, admin):
+        await self.info.set('admin', admin)
 
     async def delete(self):
-        del self.gate.gateusers[self.iden]
-        await self.node.pop(())
         await self.fini()
+        await self.node.pop(())
 
 class HiveRole(HiveRuler):
     '''
@@ -1346,7 +1367,6 @@ class HiveUser(HiveRuler):
 
         self.roleidens = self.info.get('roles', onedit=self._onRolesEdit)
         self.roles = []
-        self.admin = self.info.get('admin', onedit=self._onAdminEdit)
         self.locked = self.info.get('locked', onedit=self._onLockedEdit)
 
         # arbitrary profile data for application layer use
@@ -1375,12 +1395,26 @@ class HiveUser(HiveRuler):
             'gaterules': {key: e.rules for key, e in self.gaterulr.items()}
         }
 
-    def allowed(self, perm, elev=True, default=None):
+    def raisePermDeny(self, perm, gate=None):
+        perm = '.'.join(perm)
+        if gate is None:
+            mesg = f'User {self.name!r} ({self.iden}) must have permission {perm}.'
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.name)
+
+        mesg = f'User {self.name!r} ({self.iden}) must have permission {perm} on object {gate.iden} ({gate.type}).'
+        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.name)
+
+    def allowed(self, perm, default=None, gateiden=None):
+
         if self.locked:
             return False
 
-        if self.admin and elev:
+        if self.admin:
             return True
+
+        if gateiden is not None:
+            gate = self.auth.reqAuthGate(gateiden)
+            return gate.allowed(self, perm, default=default)
 
         retn = self.allowedLocal(perm)
         if retn is not None:
@@ -1391,7 +1425,11 @@ class HiveUser(HiveRuler):
             if retn is not None:
                 return retn
 
-        return retn if retn else default
+        return default
+
+    def confirm(self, perm, default=None, gateiden=None):
+        if not self.allowed(perm, default=default, gateiden=gateiden):
+            self.raisePermDeny(perm)
 
     def getRoles(self):
         return self.roles
@@ -1406,10 +1444,6 @@ class HiveUser(HiveRuler):
         self.roleidens = self.info.get('roles')
         self.roles = [self.auth.role(iden) for iden in self.roleidens]
         self.permcache.clear()
-
-    async def _onAdminEdit(self, mesg):
-        self.admin = self.info.get('admin')
-        # no need to bump the cache, as admin check is not cached
 
     async def _onLockedEdit(self, mesg):
         self.locked = self.info.get('locked')

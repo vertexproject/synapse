@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import collections
 
@@ -67,9 +68,25 @@ class Type:
 
         self.storlifts = {
             '=': self._storLiftNorm,
+            '?=': self._storLiftSafe,
+            'in=': self._storLiftIn,
         }
 
         self.postTypeInit()
+
+    def _storLiftSafe(self, cmpr, valu):
+        try:
+            return self.storlifts['=']('=', valu)
+        except asyncio.CancelledError: # pragma: no cover
+            raise
+        except Exception:
+            return ()
+
+    def _storLiftIn(self, cmpr, valu):
+        retn = []
+        for realvalu in valu:
+            retn.extend(self.getStorCmprs('=', realvalu))
+        return retn
 
     def _storLiftNorm(self, cmpr, valu):
         # NOTE: this may also be used for any other supported
@@ -78,7 +95,13 @@ class Type:
         return ((cmpr, norm, self.stortype),)
 
     def getStorCmprs(self, cmpr, valu):
-        return self.storlifts[cmpr](cmpr, valu)
+
+        func = self.storlifts.get(cmpr)
+        if func is None:
+            mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
+            raise s_exc.NoSuchCmpr(mesg=mesg)
+
+        return func(cmpr, valu)
 
     def getCompOffs(self, name):
         '''

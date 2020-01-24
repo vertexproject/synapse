@@ -20,11 +20,12 @@ class Node:
     NOTE: This object is for local Cortex use during a single Xact.
     '''
     #def __init__(self, snap, buid=None, rawprops=None, proplayr=None):
-    def __init__(self, snap, sode):
+    def __init__(self, snap, sode, bylayer=None):
         self.snap = snap
         self.sode = sode
 
         self.buid = sode[0]
+        self.bylayer = bylayer
 
         #print('NODE FROM SODE: %r' % (sode,))
 
@@ -257,14 +258,6 @@ class Node:
 
         sode = await self.snap.addNodeEdit(nodeedit)
 
-        for edittype, editinfo in sode[1].get('edits', ()):
-
-            if edittype == s_layer.EDIT_PROP_SET:
-                propname, propvalu, propoldv, stortype = editinfo
-                self.props[propname] = propvalu
-
-                await self.form.prop(propname).wasSet(self, propoldv)
-
         return True
 
     def has(self, name):
@@ -318,8 +311,6 @@ class Node:
         )
 
         await self.snap.addNodeEdit((self.buid, self.form.name, edits))
-
-        await prop.wasDel(self, curv)
 
     def repr(self, name=None):
 
@@ -445,6 +436,7 @@ class Node:
         if curv == valu:
             return
 
+        edits = []
         if curv is None:
 
             tags = s_chop.tags(name)
@@ -453,47 +445,58 @@ class Node:
                 if self.tags.get(tag) is not None:
                     continue
 
-                await self._addTagRaw(tag, (None, None))
+                edits.append((s_layer.EDIT_TAG_SET, (tag, (None, None), None)))
+                #await self._addTagRaw(tag, (None, None))
 
-            await self._addTagRaw(tags[-1], valu)
-            return
+            #await self._addTagRaw(tags[-1], valu)
+            #return
 
-        # merge values into one interval
-        valu = s_time.ival(*valu, *curv)
+        else:
+            # merge values into one interval
+            valu = s_time.ival(*valu, *curv)
+
         if valu == curv:
             return
 
-        await self._setTagProp(name, valu)
+        edits.append((s_layer.EDIT_TAG_SET, (name, valu, None)))
+
+        nodeedit = (self.buid, self.form.name, edits)
+
+        await self.snap.addNodeEdit(nodeedit)
+
+        #await self._addTagRaw(name, valu)
+        #await self._setTagProp(name, valu)
 
         #indx = self.snap.model.types['ival'].indx(valu)
         #info = {'univ': True}
         #await self._setTagProp(name, valu, indx, info)
         #await self._setTagProp(name, valu, indx, info)
 
-    async def _setTagProp(self, name, norm): #, indx, info):
-
-        oldv = self.tags.get(name)
-
-        self.tags[name] = norm
-
-        edits = [
-            (s_layer.EDIT_TAG_SET, (name, norm, oldv)),
-        ]
-
-        nodeedit = (self.buid, self.form.name, edits)
-
-        await self.snap.addNodeEdit(nodeedit)
-
-    async def _addTagRaw(self, name, norm):
-
-        # these are cached based on norm...
-        await self.snap.addTagNode(name)
-
-        await self._setTagProp(name, norm)
-
-        await self.snap.view.runTagAdd(self, name, norm)
-
-        return True
+#    async def _setTagProp(self, name, norm): #, indx, info):
+#
+#        oldv = self.tags.get(name)
+#
+#        self.tags[name] = norm
+#
+#        edits = [
+#            (s_layer.EDIT_TAG_SET, (name, norm, oldv)),
+#        ]
+#
+#        nodeedit = (self.buid, self.form.name, edits)
+#
+#        await self.snap.addNodeEdit(nodeedit)
+#
+#    async def _addTagRaw(self, name, norm):
+#
+#        # these are cached based on norm...
+#        await self.snap.addTagNode(name)
+#
+#        await self._setTagProp(name, norm)
+#
+#        await self.snap.view.runTagAdd(self, name, norm)
+#        await self.snap.wlyr.fire('tag:add', tag=name, node=self.iden())
+#
+#        return True
 
     async def delTag(self, tag, init=False):
         '''
@@ -507,7 +510,7 @@ class Node:
             raise s_exc.IsRuntForm(mesg='Cannot delete tags from runt nodes.',
                                    form=self.form.full, tag=tag)
 
-        curv = self.tags.pop(name, s_common.novalu)
+        curv = self.tags.get(name, s_common.novalu)
         if curv is s_common.novalu:
             return False
 
@@ -518,33 +521,65 @@ class Node:
         subtags = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
         subtags.sort(reverse=True)
 
-        removed = []
+        # order matters...
+        edits = []
 
         for sublen, subtag in subtags:
-            valu = self.tags.pop(subtag, None)
-            removed.append((subtag, valu))
-            tagprops.extend([x for x in self.tagprops.keys() if x[0] == subtag])
 
-        removed.append((name, curv))
+            edits.extend(self._getTagPropDel(subtag))
 
-        edits = [(s_layer.EDIT_TAG_DEL, (name, curv)) for (name, curv) in removed]
+            curv = self.tags.get(subtag)
+            edits.append((s_layer.EDIT_TAG_DEL, (subtag, curv)))
 
-        for name, curv in removed:
+        edits.extend(self._getTagPropDel(name))
 
-            for (tagproptag, tagpropprop) in list(self.tagprops.keys()):
-
-                if tagproptag != name:
-                    continue
-
-                # TODO add these to edits...
-                await self.delTagProp(name, tagpropprop)
+        curv = self.tags.get(name)
+        edits.append((s_layer.EDIT_TAG_DEL, (name, curv)))
 
         nodeedit = (self.buid, self.form.name, edits)
 
         await self.snap.addNodeEdit(nodeedit)
 
+        #removed.append((name, curv))
+
+        #edits = [(s_layer.EDIT_TAG_DEL, (name, curv)) for (name, curv) in removed]
+
+        #for name, curv in removed:
+
+            #for (tagproptag, tagpropprop) in list(self.tagprops.keys()):
+
+                #if tagproptag != name:
+                    #continue
+
+                # TODO add these to edits...
+                #await self.delTagProp(name, tagpropprop)
+
+        #nodeedit = (self.buid, self.form.name, edits)
+
+        #await self.snap.addNodeEdit(nodeedit)
+
         # fire all the handlers / triggers
-        [await self.snap.view.runTagDel(self, t, v) for (t, v) in removed]
+        #[await self.snap.view.runTagDel(self, t, v) for (t, v) in removed]
+        #[await self.snap.wlyr.fire('tag:del', tag=t, valu=v, node=self.iden()) for (t, v) in removed]
+
+    def _getTagPropDel(self, tag):
+
+        edits = []
+        for tagprop in self.getTagProps(tag):
+
+            curv = self.getTagProp(tag, tagprop)
+            prop = self.snap.model.getTagProp(tagprop)
+
+            if prop is None: # pragma: no cover
+                logger.warn(f'Cant delete tag prop ({tagprop}) without model prop!')
+                continue
+
+            edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, tagprop, curv, prop.type.stortype)))
+
+        return edits
+
+    def getTagProps(self, tag):
+        return [p for (t, p) in self.tagprops.keys() if t == tag]
 
     def hasTagProp(self, tag, prop):
         '''
@@ -592,7 +627,7 @@ class Node:
         if prop is None:
             raise s_exc.NoSuchTagProp(name=name)
 
-        curv = self.tagprops.pop((tag, name), s_common.novalu)
+        curv = self.tagprops.get((tag, name), s_common.novalu)
         if curv is s_common.novalu:
             return False
 
@@ -646,7 +681,9 @@ class Node:
             # refuse to delete tag nodes with existing tags
             if self.form.name == 'syn:tag':
 
+                print('DEL TAG %r' % (self.ndef[1],))
                 async for _ in self.snap.nodesByTag(self.ndef[1]):  # NOQA
+                    print('STILL GOT IT')
                     mesg = 'Nodes still have this tag.'
                     return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
 
@@ -674,8 +711,6 @@ class Node:
 
         self.snap.livenodes.pop(self.buid, None)
 
-        await self.form.wasDeleted(self)
-
     async def getData(self, name):
         return await self.snap.getNodeData(self.buid, name)
 
@@ -697,7 +732,9 @@ class Path:
 
         self.node = None
         self.runt = runt
+        # we must "smell" like a runt for some AST ops
         self.snap = runt.snap
+        self.model = runt.model
         self.nodes = nodes
 
         self.traces = []

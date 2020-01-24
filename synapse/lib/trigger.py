@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 Conditions = set((
     'tag:add',
     'tag:del',
+    'tag:set',
     'node:add',
     'node:del',
     'prop:set',
@@ -33,9 +34,11 @@ class Triggers:
         self.view = view
 
         self.tagadd = collections.defaultdict(list)    # (form, tag): rule
+        self.tagset = collections.defaultdict(list)    # (form, tag): rule
         self.tagdel = collections.defaultdict(list)    # (form, tag): rule
 
         self.tagaddglobs = collections.defaultdict(s_cache.TagGlobs)    # form: TagGlobs
+        self.tagsetglobs = collections.defaultdict(s_cache.TagGlobs)    # form: TagGlobs
         self.tagdelglobs = collections.defaultdict(s_cache.TagGlobs)    # form: TagGlobs
 
         self.nodeadd = collections.defaultdict(list)   # form: rule
@@ -90,6 +93,29 @@ class Triggers:
 
             # check for form agnostic globs
             globs = self.tagaddglobs.get(None)
+            if globs is not None:
+                for expr, rule in globs.get(tag):
+                    await rule.execute(node, vars=vars)
+
+    async def runTagSet(self, node, tag, oldv):
+
+        vars = {'tag': tag}
+        with self._recursion_check():
+
+            for rule in self.tagset.get((node.form.name, tag), ()):
+                await rule.execute(node, vars=vars)
+
+            for rule in self.tagset.get((None, tag), ()):
+                await rule.execute(node, vars=vars)
+
+            # check for form specific globs
+            globs = self.tagsetglobs.get(node.form.name)
+            if globs is not None:
+                for expr, rule in globs.get(tag):
+                    await rule.execute(node, vars=vars)
+
+            # check for form agnostic globs
+            globs = self.tagsetglobs.get(None)
             if globs is not None:
                 for expr, rule in globs.get(tag):
                     await rule.execute(node, vars=vars)
@@ -154,6 +180,16 @@ class Triggers:
                 return rule
 
             self.tagdelglobs[rule.form].add(rule.tag, rule)
+            return rule
+
+        if rule.cond == 'tag:set':
+
+            if '*' not in rule.tag:
+                self.tagset[(rule.form, rule.tag)].append(rule)
+                return rule
+
+            # we have a glob add
+            self.tagsetglobs[rule.form].add(rule.tag, rule)
             return rule
 
         raise s_exc.NoSuchCond(name=rule.cond)

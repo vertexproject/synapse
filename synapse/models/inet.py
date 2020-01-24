@@ -742,7 +742,7 @@ class InetModule(s_module.CoreModule):
         fqdn = node.ndef[1]
 
         issuffix = node.get('issuffix')
-        async for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
+        async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
             await child.set('iszone', issuffix)
 
     async def _onSetFqdnIsZone(self, node, oldv):
@@ -775,7 +775,7 @@ class InetModule(s_module.CoreModule):
         fqdn = node.ndef[1]
         zone = node.get('zone')
 
-        async for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
+        async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
 
             # if they are their own zone level, skip
             if child.get('iszone'):

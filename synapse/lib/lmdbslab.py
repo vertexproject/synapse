@@ -195,6 +195,10 @@ class SlabAbrv:
         return abrv
 
     @s_cache.memoize(10000)
+    def nameToAbrv(self, name):
+        return self.bytsToAbrv(name.encode())
+
+    @s_cache.memoize(10000)
     def bytsToInt(self, byts):
         abrv = self.bytsToAbrv(byts)
         return s_common.int64un(abrv)

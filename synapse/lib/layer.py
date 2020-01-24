@@ -54,9 +54,11 @@ import os
 import shutil
 import asyncio
 import logging
+import ipaddress
 import contextlib
 
 import regex
+import xxhash
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -224,9 +226,9 @@ class IndxByForm(IndxBy):
 
     def getNodeValu(self, buid):
         bkey = buid + b'\x00'
-        byts = self.layr.get(bkey, db=self.layr.bybuid)
+        byts = self.layr.layrslab.get(bkey, db=self.layr.bybuid)
         if byts is not None:
-            return s_msgpack.un(byts)
+            return s_msgpack.un(byts)[1]
 
 class IndxByProp(IndxBy):
 
@@ -240,9 +242,25 @@ class IndxByProp(IndxBy):
 
     def getNodeValu(self, buid):
         bkey = buid + b'\x01' + self.prop.encode()
-        byts = self.layr.get(bkey, db=self.layr.bybuid)
+        byts = self.layr.layrslab.get(bkey, db=self.layr.bybuid)
         if byts is not None:
-            return s_msgpack.un(byts)
+            return s_msgpack.un(byts)[0]
+
+class IndxByPropArray(IndxBy):
+
+    def __init__(self, layr, form, prop):
+
+        abrv = layr.getPropAbrv(form, prop)
+        IndxBy.__init__(self, layr, abrv, db=layr.byarray)
+
+        self.form = form
+        self.prop = prop
+
+    def getNodeValu(self, buid):
+        bkey = buid + b'\x01' + self.prop.encode()
+        byts = self.layr.layrslab.get(bkey, db=self.layr.bybuid)
+        if byts is not None:
+            return s_msgpack.un(byts)[0]
 
 class IndxByTagProp(IndxBy):
 
@@ -257,9 +275,9 @@ class IndxByTagProp(IndxBy):
 
     def getNodeValu(self, buid):
         bkey = buid + b'\x03' + self.tag.encode() + b':' + self.prop.encode()
-        byts = self.layr.get(bkey, db=self.layr.bybuid)
+        byts = self.layr.layrslab.get(bkey, db=self.layr.bybuid)
         if byts is not None:
-            return s_msgpack.un(byts)
+            return s_msgpack.un(byts)[0]
 
 class StorType:
 
@@ -272,7 +290,7 @@ class StorType:
     def indxBy(self, liftby, cmpr, valu):
         func = self.lifters.get(cmpr)
         if func is None:
-            raise s_exc.NoSuchCmpr()
+            raise s_exc.NoSuchCmpr(cmpr=cmpr)
 
         yield from func(liftby, valu)
 
@@ -281,7 +299,12 @@ class StorType:
         yield from self.indxBy(indxby, cmpr, valu)
 
     def indxByProp(self, form, prop, cmpr, valu):
-        indxby = IndxByProp(self.layr, form, None)
+        indxby = IndxByProp(self.layr, form, prop)
+        for buid in self.indxBy(indxby, cmpr, valu):
+            yield buid
+
+    def indxByPropArray(self, form, prop, cmpr, valu):
+        indxby = IndxByPropArray(self.layr, form, prop)
         for buid in self.indxBy(indxby, cmpr, valu):
             yield buid
 
@@ -309,8 +332,8 @@ class StorTypeUtf8(StorType):
     def _liftUtf8Regx(self, liftby, valu):
         regx = regex.compile(valu)
         for buid in liftby.buidsByPref():
-            valu = liftby.getNodeValu(buid)
-            if regx.search(valu) is None:
+            storvalu = liftby.getNodeValu(buid)
+            if regx.search(storvalu) is None:
                 continue
             yield buid
 
@@ -432,7 +455,7 @@ class StorTypeIpv6(StorType):
         })
 
     def getIPv6Indx(self, valu):
-        return ipaddress.IPv6Address(norm).packed
+        return ipaddress.IPv6Address(valu).packed
 
     def indx(self, valu):
         return (
@@ -641,12 +664,14 @@ class Layer(s_base.Base):
     '''
     The base class for a cortex layer.
     '''
-    confdefs = ()
+    confdefs = (
+        ('lockmemory', {'default': True, 'type': 'bool', 'doc': 'Lock the LMDB memory maps for performance.'}),
+    )
 
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, layrinfo, conf=None):
+    async def __anit__(self, layrinfo):
 
         await s_base.Base.__anit__(self)
 
@@ -654,6 +679,7 @@ class Layer(s_base.Base):
         self.iden = layrinfo.get('iden')
         self.readonly = layrinfo.get('readonly')
 
+        conf = layrinfo.get('conf')
         if conf is None:
             conf = {}
 
@@ -663,12 +689,17 @@ class Layer(s_base.Base):
 
         self.conf = s_common.config(conf, self.confdefs)
 
+        self.lockmemory = self.conf.get('lockmemory')
         path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
 
         self.fresh = not os.path.exists(path)
 
         slabopts = {
             'readonly': self.readonly,
+            'max_dbs': 128,
+            'map_async': True,
+            'readahead': True,
+            'lockmemory': self.lockmemory,
         }
 
         self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
@@ -745,6 +776,9 @@ class Layer(s_base.Base):
             'readonly': self.readonly,
             'ctor': self.ctorname,
         }
+
+    async def stat(self):
+        return self.layrslab.statinfo()
 
     async def _onLayrFini(self):
         [(await wind.fini()) for wind in self.windows]
@@ -898,18 +932,26 @@ class Layer(s_base.Base):
     async def liftByFormValu(self, form, cmprvals):
         abrv = self.getPropAbrv(form, None)
         for cmpr, valu, kind in cmprvals:
+            #print('liftByFormValu %r %r %r %r' % (form, cmpr, valu, kind))
             for buid in self.stortypes[kind].indxByForm(form, cmpr, valu):
                 yield await self.getStorNode(buid)
 
     async def liftByPropValu(self, form, prop, cmprvals):
         for cmpr, valu, kind in cmprvals:
+            #print('liftByPropValu %r %r %r %r %r' % (form, prop, cmpr, valu, kind))
             for buid in self.stortypes[kind].indxByProp(form, prop, cmpr, valu):
                 yield await self.getStorNode(buid)
 
-    async def storNodeEdits(self, nodeedits, meta):
-        return {e[0]: await self.storNodeEdit(e, meta) for e in nodeedits}
+    async def liftByPropArray(self, form, prop, cmprvals):
+        for cmpr, valu, kind in cmprvals:
+            for buid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu):
+                yield await self.getStorNode(buid)
 
-    async def storNodeEdit(self, nodeedit, meta):
+    async def storNodeEdits(self, nodeedits, meta):
+        # change control goes here....
+        return [await self._storNodeEdit(e, meta) for e in nodeedits]
+
+    async def _storNodeEdit(self, nodeedit, meta):
         '''
         Execute a series of storage operations for the given node.
         '''
@@ -988,7 +1030,12 @@ class Layer(s_base.Base):
         if penc[0] == 46: # '.' to detect universal props (as quickly as possible)
             univabrv = self.getPropAbrv(None, prop)
 
-        oldb = self.layrslab.replace(bkey, s_msgpack.en((valu, stortype)), db=self.bybuid)
+        newb = s_msgpack.en((valu, stortype))
+        oldb = self.layrslab.replace(bkey, newb, db=self.bybuid)
+
+        if newb == oldb:
+            return []
+
         if oldb is not None:
 
             oldv, oldt = s_msgpack.un(oldb)
@@ -1019,7 +1066,6 @@ class Layer(s_base.Base):
             for indx in self.getStorIndx(stortype, valu):
                 self.layrslab.put(abrv + indx, buid, db=self.byprop)
                 if univabrv is not None:
-                    print('SET UNIV %r %r %r' % (univabrv, indx, buid))
                     self.layrslab.put(univabrv + indx, buid, db=self.byprop)
 
         return (
@@ -1037,7 +1083,7 @@ class Layer(s_base.Base):
         univabrv = None
 
         if penc[0] == 46: # '.' to detect universal props (as quickly as possible)
-            univabrv = self.propabrv.bytsToAbrv(penc)
+            univabrv = self.getPropAbrv(None, prop)
 
         byts = self.layrslab.pop(bkey, db=self.bybuid)
         if byts is None:
@@ -1080,13 +1126,11 @@ class Layer(s_base.Base):
         formabrv = self.getPropAbrv(form, None)
 
         oldb = self.layrslab.replace(buid + b'\x02' + tenc, s_msgpack.en(valu), db=self.bybuid)
-        if oldb is None:
-            self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
 
-        else:
-            oldv = s_msgpack.un(oldb)
-            if oldv == valu:
-                return None
+        if oldb is not None and s_msgpack.un(oldb) == valu:
+            return None
+
+        self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
 
         return (
             (EDIT_TAG_SET, (tag, valu, oldv)),
