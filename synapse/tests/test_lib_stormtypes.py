@@ -270,8 +270,16 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ test:str=woot ] [ test:int=$node.isform(test:str) ] +test:int')
+            nodes = await core.nodes('[ test:str=woot :tick=2001] [ test:int=$node.isform(test:str) ] +test:int')
             self.eq(1, nodes[0].ndef[1])
+
+            q = 'test:str=woot $lib.fire(name=pode, pode=$node.pack(dorepr=True))'
+            msgs = await core.streamstorm(q, opts={'repr': True}).list()
+            pode = [m[1] for m in msgs if m[0] == 'node'][0]
+            apode = [m[1].get('data').get('pode') for m in msgs if m[0] == 'storm:fire'][0]
+            self.eq(pode[0], ('test:str', 'woot'))
+            pode[1].pop('path')
+            self.eq(pode, apode)
 
     async def test_storm_lib_dict(self):
         async with self.getTestCore() as core:
