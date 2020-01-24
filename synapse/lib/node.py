@@ -123,8 +123,11 @@ class Node:
         '''
         Return the serializable/packed version of the node.
 
+        Args:
+            dorepr (bool): Include repr information for human readable versions of properties.
+
         Returns:
-            (tuple): An (iden, info) node tuple.
+            (tuple): An (ndef, info) node tuple.
         '''
         tagprops = collections.defaultdict(dict)
         [tagprops[tag].__setitem__(prop, valu) for (tag, prop), valu in self.tagprops.items()]
