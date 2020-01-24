@@ -1183,25 +1183,6 @@ class AuthGate(s_base.Base):
     # if not self.allowed(hiveuser, perm, default=default):
     #     hiveuser.raisePermDeny(perm, gate=self)
 
-class AuthGuard(s_base.Base):
-    '''
-    A mixin to add some syntax sugar to perms enforcement.
-    '''
-    async def __anit__(self, gate):
-        await s_base.Base.__anit__(self)
-        self.authgate = gate
-
-    def allowed(self, hiveuser, perm, default=None):
-        '''
-        Returns (Optional[bool]):
-            True if explicitly granted, False if denied, None if neither
-        '''
-        return self.authgate.allowed(hiveuser, perm, default=default)
-
-    def confirm(self, hiveuser, perm, default=None):
-        if not self.allowed(hiveuser, perm, default=default):
-            hiveuser.raisePermDeny(perm, gate=self.authgate)
-
 class HiveRuler(s_base.Base):
     '''
     A HiveNode that holds a list of rules.  This includes HiveUsers, HiveRoles, and the AuthGate variants of those

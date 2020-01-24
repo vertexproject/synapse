@@ -14,7 +14,7 @@ import synapse.lib.trigger as s_trigger
 
 logger = logging.getLogger(__name__)
 
-class View(s_hive.AuthGuard, s_nexus.Nexus):  # type: ignore
+class View(s_nexus.Nexus):  # type: ignore
     '''
     A view represents a cortex as seen from a specific set of layers.
 
@@ -36,8 +36,7 @@ class View(s_hive.AuthGuard, s_nexus.Nexus):  # type: ignore
 
         self.core = core
 
-        gate = await self.core.auth.addAuthGate(self.iden, 'view')
-        await s_hive.AuthGuard.__anit__(self, gate)
+        await self.core.auth.addAuthGate(self.iden, 'view')
         await s_nexus.Nexus.__anit__(self, iden=self.iden, parent=core)
 
         self.layers = []

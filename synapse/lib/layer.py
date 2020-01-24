@@ -55,7 +55,6 @@ import shutil
 import asyncio
 import logging
 import ipaddress
-import contextlib
 
 import regex
 import xxhash
@@ -615,8 +614,8 @@ class StorTypeLatLon(StorType):
 
         (lat, lon), dist = valu
 
-        latscale = (lat * self.scale) + self.latspace
-        lonscale = (lon * self.scale) + self.lonspace
+        # latscale = (lat * self.scale) + self.latspace
+        # lonscale = (lon * self.scale) + self.lonspace
 
         latmin, latmax, lonmin, lonmax = s_gis.bbox(lat, lon, dist)
 
@@ -658,7 +657,7 @@ class StorTypeLatLon(StorType):
         # yield index bytes in lon/lat order to allow cheap optimial indexing
         return (self._getLatLonIndx(valu),)
 
-class Layer(s_hive.AuthGuard):
+class Layer(s_base.Base):
     '''
     The base class for a cortex layer.
     '''
