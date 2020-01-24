@@ -4,7 +4,7 @@ import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
 class ViewTest(s_t_utils.SynTest):
-    async def test_view_fork(self):
+    async def test_view_fork_merge(self):
         async with self.getTestCore() as core:
             await core.nodes('[ test:int=10 ]')
             nodes = await alist(core.eval('test:int=10'))
@@ -36,8 +36,17 @@ class ViewTest(s_t_utils.SynTest):
             # Deleting nodes from the child view should not affect the main
             await alist(view2.eval('test:int | delnode'))
             self.eq(2, core.counts.get('test:int'))
-            nodes = await alist(view2.eval('test:int=10'))
-            self.len(1, nodes)
+            await self.agenlen(0, view2.eval('test:int=12'))
+
+            # Until we get tombstoning, the child view can't delete a node in the lower layer
+            await self.agenlen(1, view2.eval('test:int=10'))
+
+            # Add a node back
+            await self.agenlen(1, view2.eval('[ test:int=12 ]'))
+
+            # Add a bunch of nodes to require chunking of splices when merging
+            for i in range(1000):
+                await self.agenlen(1, view2.eval('[test:int=$val]', opts={'vars': {'val': i + 1000}}))
 
             # Forker and forkee have their layer configuration frozen
             tmplayr = await core.addLayer()
@@ -46,7 +55,26 @@ class ViewTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.ReadOnlyLayer, core.view.setLayers([tmplayr]))
             await self.asyncraises(s_exc.ReadOnlyLayer, view2.setLayers([tmplayr]))
 
-            await core.delView(view2.iden)
+            # You can't merge a non-forked view
+            await self.asyncraises(s_exc.SynErr, view2.core.view.merge())
+
+            # You can't merge if the parent's write layer is readonly
+            view2.parent.layers[0].readonly = True
+            await self.asyncraises(s_exc.ReadOnlyLayer, view2.merge())
+            view2.parent.layers[0].readonly = False
+
+            # You can't delete a view or merge it if it has children
+            view3 = await view2.fork()
+            await self.asyncraises(s_exc.SynErr, view2.merge())
+            await self.asyncraises(s_exc.SynErr, view2.core.delView(view2.iden))
+            await view3.core.delView(view3.iden)
+
+            # Merge the child back into the parent
+            await view2.merge()
+
+            # Now, the node added to the child is seen in the parent
+            nodes = await core.nodes('test:int=12')
+            self.len(1, nodes)
 
     async def test_view_trigger(self):
         async with self.getTestCore() as core:
