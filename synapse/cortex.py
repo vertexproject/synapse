@@ -1812,6 +1812,7 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.SudoCmd)
         self.addStormCmd(s_storm.UniqCmd)
         self.addStormCmd(s_storm.CountCmd)
+        self.addStormCmd(s_storm.HistoCmd)
         self.addStormCmd(s_storm.GraphCmd)
         self.addStormCmd(s_storm.LimitCmd)
         self.addStormCmd(s_storm.SleepCmd)

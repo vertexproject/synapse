@@ -1004,6 +1004,52 @@ class MinCmd(Cmd):
         if minitem:
             yield minitem
 
+class HistoCmd(Cmd):
+    '''
+    Bucket nodes based on prop/tag values and either display a count of the buckets or yield the nodes which pass a certain filter in the bucket
+    '''
+    name = 'histo'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('--prop', help='Property to bucket on')
+        pars.add_argument('--tag', help='Tag to bucket on')
+        pars.add_argument('--filter', help='Yield nodes which pass a filter')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        func = self.getStormEval(runt, self.opts.prop)
+        if not self.opts.filter:
+            buckets = collections.defaultdict(int)
+
+            async for node, path in genr:
+                valu = func(path)
+                if valu is None:
+                    continue
+                buckets[valu] += 1
+
+            maxlen = max(len(x[0]) for x in buckets.keys())
+
+            for buck in sorted(buckets.keys()):
+                await runt.printf(f'{buck:<{maxlen}}: {buckets[buck]}')
+
+        else:
+            buckets = collections.defaultdict(list)
+
+            async for node, path in genr:
+                valu = func(path)
+                if valu is None:
+                    continue
+
+                prop = node.form.prop(self.opts.name)
+                buckets[val].append(node.buid) 
+
+            maxlen = max(len(x[0]) for x in buckets.keys())
+
+            for buck, buids in buckets.items():
+                yield await runt.snap.getNodeByBuid(buid)
+
 class DelNodeCmd(Cmd):
     '''
     Delete nodes produced by the previous query logic.
