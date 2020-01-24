@@ -1159,7 +1159,7 @@ class Node(Prim):
 
     async def _methNodePack(self, dorepr=False):
         '''
-        Return teh serializable/packed version of the Node.
+        Return the serializable/packed version of the Node.
 
         Args:
             dorepr (bool): Include repr information for human readable versions of properties.
