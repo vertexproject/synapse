@@ -1946,7 +1946,7 @@ class LibCron(Lib):
             if not opts:
                 continue
 
-            for optval in opts:
+            for optval in opts.split(','):
                 try:
                     arg = f'{optval} {optname}'
                     ts = now + s_time.delta(arg) / 1000.0
@@ -1957,7 +1957,7 @@ class LibCron(Lib):
 
         dts = kwargs.get('dt')
         if dts:
-            for dt in dts:
+            for dt in dts.split(','):
                 try:
                     ts = s_time.parse(dt) / 1000.0
                     tslist.append(ts)

@@ -2131,23 +2131,23 @@ class StormTypesTest(s_test.SynTest):
 
                 # Test 'at' command
 
-                q = 'cron.at --query #foo'
+                q = 'cron.at #foo'
                 mesgs = await core.streamstorm(q).list()
                 self.stormIsInErr('must start with {', mesgs)
 
-                q = 'cron.at --query {#foo}'
+                q = 'cron.at {#foo}'
                 mesgs = await core.streamstorm(q).list()
                 self.stormIsInErr('At least', mesgs)
 
-                q = 'cron.at --minute +1p3arsec --query {#foo}'
+                q = 'cron.at --minute +1p3arsec {#foo}'
                 mesgs = await core.streamstorm(q).list()
                 self.stormIsInErr('Trouble parsing', mesgs)
 
                 q = 'cron.at --day +1'
                 mesgs = await core.streamstorm(q).list()
-                self.stormIsInPrint('the following arguments are required: --query', mesgs)
+                self.stormIsInPrint('the following arguments are required: query', mesgs)
 
-                q = 'cron.at --dt nope --query {#foo}'
+                q = 'cron.at --dt nope {#foo}'
                 mesgs = await core.streamstorm(q).list()
                 self.stormIsInErr('Trouble parsing', mesgs)
 
@@ -2155,14 +2155,14 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.streamstorm(q).list()
                 self.stormIsInErr('Query parameter is required', mesgs)
 
-                q = "cron.at --minute +5 --query {[graph:node='*' :type=at1]}"
+                q = "cron.at --minute +5 {[graph:node='*' :type=at1]}"
                 mesgs = await core.streamstorm(q).list()
                 unixtime += 5 * MINSECS
 
                 await prox.eval('cron.list').list()
                 await self.agenlen(1, core.eval('graph:node:type=at1'))
 
-                q = "cron.at --day +1 +7 --query {[graph:node='*' :type=at2]}"
+                q = "cron.at --day +1,+7 {[graph:node='*' :type=at2]}"
                 mesgs = await core.streamstorm(q).list()
                 for mesg in mesgs:
                     if mesg[0] == 'print':
@@ -2176,7 +2176,7 @@ class StormTypesTest(s_test.SynTest):
                 await prox.eval('cron.list').list()
                 await self.agenlen(2, prox.eval('graph:node:type=at2'))
 
-                q = "cron.at --dt 202104170415 --query {[graph:node='*' :type=at3]}"
+                q = "cron.at --dt 202104170415 {[graph:node='*' :type=at3]}"
                 mesgs = await core.streamstorm(q).list()
 
                 unixtime = datetime.datetime(year=2021, month=4, day=17, hour=4, minute=15,

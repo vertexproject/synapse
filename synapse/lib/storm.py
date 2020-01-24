@@ -153,7 +153,7 @@ Modifying/details/deleting cron jobs created with 'at' use the same commands as
 other cron jobs:  cron.mod/stat/del respectively.
 
 Syntax:
-    cron.at [optional arguments] --query {query}
+    cron.at [optional arguments] {query}
 
     --dt timestring
 
@@ -181,13 +181,13 @@ Notes:
 
 Examples:
     # Run a storm query in 5 minutes
-    cron.at --minute +5 --query {[inet:ipv4=1]}
+    cron.at --minute +5 {[inet:ipv4=1]}
 
     # Run a storm query tomorrow and in a week
-    cron.at --day +1 +7 --query {[inet:ipv4=1]}
+    cron.at --day +1,+7 {[inet:ipv4=1]}
 
     # Run a query at the end of the year Zulu
-    cron.at --dt 20181231Z2359 --query {[inet:ipv4=1]}
+    cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
 
 '''
 
@@ -521,11 +521,11 @@ stormcmds = (
         'name': 'cron.at',
         'descr': atcrondescr,
         'cmdargs': (
-            ('--query', {'required': True, 'help': 'Query for the cron job to execute.'}),
-            ('--minute', {'default': [], 'nargs': '*', 'help': 'Minute(s) to execute at.'}),
-            ('--hour', {'default': [], 'nargs': '*', 'help': 'Hour(s) to execute at.'}),
-            ('--day', {'default': [], 'nargs': '*', 'help': 'Day(s) to execute at.'}),
-            ('--dt', {'default': [], 'nargs': '*', 'help': 'Datetime to execute at.'}),
+            ('query', {'help': 'Query for the cron job to execute.'}),
+            ('--minute', {'help': 'Minute(s) to execute at.'}),
+            ('--hour', {'help': 'Hour(s) to execute at.'}),
+            ('--day', {'help': 'Day(s) to execute at.'}),
+            ('--dt', {'help': 'Datetime(s) to execute at.'}),
         ),
         'storm': '''
             $iden = $lib.cron.at(query=$cmdopts.query,
