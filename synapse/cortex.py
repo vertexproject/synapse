@@ -236,7 +236,6 @@ class CoreApi(s_cell.CellApi):
         '''
         cron = self.cell.agenda.appts.get(iden)
         await cron.reqAllowed(self.user, ('cron', 'del'))
-
         await self.cell.delCronJob(iden)
 
     async def updateCronJob(self, iden, query):
@@ -248,7 +247,6 @@ class CoreApi(s_cell.CellApi):
         '''
         cron = self.cell.agenda.appts.get(iden)
         await cron.reqAllowed(self.user, ('cron', 'set'))
-
         await self.cell.updateCronJob(iden, query)
 
     async def enableCronJob(self, iden):
@@ -260,7 +258,6 @@ class CoreApi(s_cell.CellApi):
         '''
         cron = self.cell.agenda.appts.get(iden)
         await cron.reqAllowed(self.user, ('cron', 'set'))
-
         await self.cell.enableCronJob(iden)
 
     async def disableCronJob(self, iden):
@@ -272,7 +269,6 @@ class CoreApi(s_cell.CellApi):
         '''
         cron = self.cell.agenda.appts.get(iden)
         await cron.reqAllowed(self.user, ('cron', 'set'))
-
         await self.cell.disableCronJob(iden)
 
     async def listCronJobs(self):
