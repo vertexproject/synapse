@@ -1298,8 +1298,8 @@ class StormTypesTest(s_test.SynTest):
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
             err = errs[0]
-            self.eq(err[0], 'StormRuntimeError')
-            self.isin('No var with name: testvar', err[1].get('mesg'))
+            self.eq(err[0], 'BadPropValu')
+            self.isin('Error adding node', err[1].get('mesg'))
 
             opts = {'vars': {'testkey': 'testvar'}}
             text = '$lib.vars.set($testkey, test) [ test:str=$lib.vars.get(testvar) ]'
@@ -1313,8 +1313,8 @@ class StormTypesTest(s_test.SynTest):
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
             err = errs[0]
-            self.eq(err[0], 'StormRuntimeError')
-            self.isin('No var with name: testvar', err[1].get('mesg'))
+            self.eq(err[0], 'BadPropValu')
+            self.isin('Error adding node', err[1].get('mesg'))
 
             opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
             text = '$lib.vars.del(testvar) [ test:str=$lib.vars.get($testkey) ]'
@@ -1322,8 +1322,8 @@ class StormTypesTest(s_test.SynTest):
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
             err = errs[0]
-            self.eq(err[0], 'StormRuntimeError')
-            self.isin('No var with name: testvar', err[1].get('mesg'))
+            self.eq(err[0], 'BadPropValu')
+            self.isin('Error adding node', err[1].get('mesg'))
 
             opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
             text = '$lib.print($lib.vars.list())'
