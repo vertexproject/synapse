@@ -2,6 +2,7 @@ import time
 import types
 import calendar
 import datetime
+import warnings
 import functools
 
 import synapse.exc as s_exc
@@ -571,8 +572,10 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
                 self.printf(f'                 {incunit:10} {incval:6} {reqdict}')
 
     async def runCmdOpts(self, opts):
-        self.printf('Warning: Cron jobs should now be accessed via storm commands. '
-                    'The cron command is deprecated and in 0.3.x it will be removed.')
+        mesg = 'The cron command will be deprecated in 0.2.x, ' \
+               'cron jobs should be accessed via storm commands instead'
+        warnings.filterwarnings("default", category=PendingDeprecationWarning)
+        warnings.warn(mesg, PendingDeprecationWarning)
 
         line = opts.get('line')
         if line is None:

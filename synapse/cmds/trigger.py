@@ -1,3 +1,4 @@
+import warnings
 import functools
 
 import synapse.exc as s_exc
@@ -279,8 +280,10 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         self.printf(f'Disabled trigger {iden}')
 
     async def runCmdOpts(self, opts):
-        self.printf('Warning: Triggers should now be accessed via storm commands. '
-                    'The trigger command is deprecated and in 0.3.x it will be removed.')
+        mesg = 'The trigger command will be deprecated in 0.2.x, ' \
+               'triggers should be accessed via storm commands instead'
+        warnings.filterwarnings("default", category=PendingDeprecationWarning)
+        warnings.warn(mesg, PendingDeprecationWarning)
 
         line = opts.get('line')
         if line is None:

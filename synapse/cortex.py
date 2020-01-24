@@ -3446,7 +3446,6 @@ class Cortex(s_cell.Cell):
 
         return crons
 
-
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):
     '''
