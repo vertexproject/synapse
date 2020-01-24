@@ -1028,6 +1028,23 @@ class Runtime:
                 continue
             self.vars[name] = valu
 
+    async def propDownVars(self, runt):
+        '''
+        Propagate down the vars from a called runtime (passed in by parameter) that are not functions
+        and do not conflict with the sub-runtime (self).
+        '''
+        for name, valu in runt.vars.items():
+            if valu is s_common.novalu:
+                continue
+            if not self.canPropName(name):
+                # don't override the function in the sub-runtime
+                continue
+            if name in self.runtvars:
+                # don't propagate vars already defined as runtvars
+                continue
+            self.setVar(name, valu)
+            self.runtvars.add(name)
+
 class Parser(argparse.ArgumentParser):
 
     def __init__(self, prog=None, descr=None, root=None):
@@ -1213,9 +1230,16 @@ class PureCmd(Cmd):
 
             async def wrapgenr():
                 # wrap paths in a scope to isolate vars
+                hasnodes = False
                 async for node, path in genr:
+                    if not hasnodes:
+                        hasnodes = True
                     path.initframe(initvars=cmdvars, initrunt=subr)
                     yield node, path
+
+                # when there are no inbound nodes prop down the vars if they don't conflict
+                if not hasnodes:
+                    await subr.propDownVars(runt)
 
             subr.loadRuntVars(query)
 
