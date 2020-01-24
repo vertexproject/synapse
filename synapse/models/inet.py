@@ -2227,160 +2227,123 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:whois:ipquery', {}, (
                         ('time', ('time', {}), {
-                            'ro': True,
                             'doc': 'The time the request was made.'
                         }),
                         ('url', ('inet:url', {}), {
-                            'ro': True,
                             'doc': 'The query URL when using the HTTP RDAP Protocol.'
                         }),
                         ('fqdn', ('inet:fqdn', {}), {
-                            'ro': True,
                             'doc': 'The FQDN of the host server when using the legacy WHOIS Protocol.'
                         }),
                         ('ipv4', ('inet:ipv4', {}), {
-                            'ro': True,
                             'doc': 'The IPv4 address queried.'
                         }),
                         ('ipv6', ('inet:ipv6', {}), {
-                            'ro': True,
                             'doc': 'The IPv6 address queried.'
                         }),
                         ('success', ('bool', {}), {
-                            'ro': True,
                             'doc': 'Whether the host returned a valid response for the query.'
                         }),
                         ('rec', ('inet:whois:iprec', {}), {
-                            'ro': True,
                             'doc': 'The resulting record from the query.'
                         }),
                     )),
 
                     ('inet:whois:iprec', {}, (
                         ('net4', ('inet:net4', {}), {
-                            'ro': True,
                             'doc': 'The IPv4 address range assigned.'
                         }),
                         ('net4:min', ('inet:ipv4', {}), {
-                            'ro': True,
                             'doc': 'The first IPv4 in the range assigned.'
                         }),
                         ('net4:max', ('inet:ipv4', {}), {
-                            'ro': True,
                             'doc': 'The last IPv4 in the range assigned.'
                         }),
                         ('net6', ('inet:net6', {}), {
-                            'ro': True,
                             'doc': 'The IPv6 address range assigned.'
                         }),
                         ('net6:min', ('inet:ipv6', {}), {
-                            'ro': True,
                             'doc': 'The first IPv6 in the range assigned.'
                         }),
                         ('net6:max', ('inet:ipv6', {}), {
-                            'ro': True,
                             'doc': 'The last IPv6 in the range assigned.'
                         }),
                         ('asof', ('time', {}), {
-                            'ro': True,
                             'doc': 'The date of the record.'
                         }),
                         ('created', ('time', {}), {
-                            'ro': True,
                             'doc': 'The "created" time from the record.'
                         }),
                         ('updated', ('time', {}), {
-                            'ro': True,
                             'doc': 'The "last updated" time from the record.'
                         }),
                         ('text', ('str', {'lower': True}), {
-                            'ro': True,
                             'doc': 'The full text of the record.'
                         }),
                         ('asn', ('inet:asn', {}), {
-                            'ro': True,
                             'doc': 'The associated Autonomous System Number (ASN).'
                         }),
                         ('id', ('inet:whois:regid', {}), {
-                            'ro': True,
                             'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'
                         }),
                         ('name', ('str', {}), {
-                            'ro': True,
                             'doc': 'The name assigned to the network by the registrant.'
                         }),
                         ('parentid', ('inet:whois:regid', {}), {
-                            'ro': True,
                             'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'
                         }),
                         ('registrant', ('inet:whois:ipcontact', {}), {
-                            'ro': True,
                             'doc': 'The registrant contact from the record.'
                         }),
                         ('contacts', ('array', {'type': 'inet:whois:ipcontact'}), {
-                            'ro': True,
                             'doc': 'Additional contacts from the record.',
                         }),
                         ('country', ('str', {'lower': True, 'regex': '^[a-z]{2}$'}), {
                             'doc': 'The two-letter ISO 3166 country code.'
                         }),
                         ('status', ('str', {'lower': True}), {
-                            'ro': True,
                             'doc': 'The state of the registered network.'
                         }),
                         ('type', ('str', {'lower': True}), {
-                            'ro': True,
                             'doc': 'The classification of the registered network (e.g. direct allocation).'
                         }),
                         ('links', ('array', {'type': 'inet:url'}), {
-                            'ro': True,
                             'doc': 'URLs provided with the record.',
                         }),
                     )),
 
                     ('inet:whois:ipcontact', {}, (
                         ('contact', ('ps:contact', {}), {
-                            'ro': True,
                             'doc': 'Contact information associated with a registration.'
                         }),
                         ('asof', ('time', {}), {
-                            'ro': True,
                             'doc': 'The date of the record.'
                         }),
                         ('created', ('time', {}), {
-                            'ro': True,
                             'doc': 'The "created" time from the record.'
                         }),
                         ('updated', ('time', {}), {
-                            'ro': True,
                             'doc': 'The "last updated" time from the record.'
                         }),
                         ('role', ('str', {'lower': True}), {
-                            'ro': True,
                             'doc': 'The primary role for the contact.'
                         }),
                         ('roles', ('array', {'type': 'str'}), {
-                            'ro': True,
                             'doc': 'Additional roles assigned to the contact.',
                         }),
                         ('asn', ('inet:asn', {}), {
-                            'ro': True,
                             'doc': 'The associated Autonomous System Number (ASN).'
                         }),
                         ('id', ('inet:whois:regid', {}), {
-                            'ro': True,
                             'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'
                         }),
                         ('links', ('array', {'type': 'inet:url'}), {
-                            'ro': True,
                             'doc': 'URLs provided with the record.',
                         }),
                         ('status', ('str', {'lower': True}), {
-                            'ro': True,
                             'doc': 'The state of the registered contact (e.g. validated, obscured).'
                         }),
                         ('contacts', ('array', {'type': 'inet:whois:ipcontact'}), {
-                            'ro': True,
                             'doc': 'Additional contacts referenced by this contact.',
                         }),
                     )),
