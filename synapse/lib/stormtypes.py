@@ -1508,13 +1508,17 @@ class LibTrigger(Lib):
             'disable': self._methTriggerDisable,
         })
 
-    async def _matchIdens(self, prefix):
+    async def _matchIdens(self, prefix, perm):
         '''
         Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
         exactly one.
         '''
-        idens = [iden for iden, trig in await self.runt.snap.listTriggers()]
-        matches = [iden for iden in idens if iden.startswith(prefix)]
+        matches = []
+        trigs = await self.runt.snap.listTriggers()
+
+        for (iden, trig) in trigs:
+            if iden.startswith(prefix) and await trig.allowed(self.runt.user, perm):
+                matches.append(iden)
 
         if len(matches) == 1:
             return matches[0]
@@ -1577,9 +1581,7 @@ class LibTrigger(Lib):
         '''
         Delete a trigger from the cortex.
         '''
-        self.runt.reqAllowed(('trigger', 'del'))
-
-        iden = await self._matchIdens(prefix)
+        iden = await self._matchIdens(prefix, ('trigger', 'del'))
 
         await self.runt.snap.delTrigger(iden)
 
@@ -1589,8 +1591,6 @@ class LibTrigger(Lib):
         '''
         Modify a trigger in the cortex.
         '''
-        self.runt.reqAllowed(('trigger', 'set'))
-
         if not query.startswith('{'):
             mesg = 'Expected second argument to start with {'
             raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix, query=query)
@@ -1598,7 +1598,7 @@ class LibTrigger(Lib):
         # Remove the curly braces
         query = query[1:-1]
 
-        iden = await self._matchIdens(prefix)
+        iden = await self._matchIdens(prefix, ('trigger', 'set'))
         await self.runt.snap.updateTrigger(iden, query)
 
         return iden
@@ -1607,12 +1607,13 @@ class LibTrigger(Lib):
         '''
         List triggers in the cortex.
         '''
-        self.runt.reqAllowed(('trigger', 'get'))
-
         triglist = await self.runt.snap.listTriggers()
 
         triggers = []
         for iden, trigger in triglist:
+            if not await trigger.allowed(self.runt.user, ('trigger', 'get')):
+                continue
+
             trig = trigger.pack()
             user = self.runt.snap.getUserName(trig.get('useriden'))
 
@@ -1634,9 +1635,7 @@ class LibTrigger(Lib):
         '''
         Enable a trigger in the cortex.
         '''
-        self.runt.reqAllowed(('trigger', 'set'))
-
-        iden = await self._matchIdens(prefix)
+        iden = await self._matchIdens(prefix, ('trigger', 'set'))
         await self.runt.snap.enableTrigger(iden)
 
         return iden
@@ -1645,9 +1644,7 @@ class LibTrigger(Lib):
         '''
         Disable a trigger in the cortex.
         '''
-        self.runt.reqAllowed(('trigger', 'set'))
-
-        iden = await self._matchIdens(prefix)
+        iden = await self._matchIdens(prefix, ('trigger', 'set'))
         await self.runt.snap.disableTrigger(iden)
 
         return iden
@@ -1666,13 +1663,17 @@ class LibCron(Lib):
             'disable': self._methCronDisable,
         })
 
-    async def _matchIdens(self, prefix):
+    async def _matchIdens(self, prefix, perm):
         '''
         Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
         exactly one.
         '''
-        idens = [iden for iden, job in await self.runt.snap.listCronJobs()]
-        matches = [iden for iden in idens if iden.startswith(prefix)]
+        matches = []
+        crons = await self.runt.snap.listCronJobs()
+
+        for (iden, cron) in crons:
+            if iden.startswith(prefix) and await cron.allowed(self.runt.user, perm):
+                matches.append(iden)
 
         if len(matches) == 1:
             return matches[0]
@@ -1925,6 +1926,8 @@ class LibCron(Lib):
         '''
         Add non-recurring cron jobs to the cortex.
         '''
+        self.runt.reqAllowed(('cron', 'add'))
+
         tslist = []
         now = time.time()
 
@@ -1987,9 +1990,7 @@ class LibCron(Lib):
         '''
         Delete a cron job from the cortex.
         '''
-        self.runt.reqAllowed(('cron', 'del'))
-
-        iden = await self._matchIdens(prefix)
+        iden = await self._matchIdens(prefix, ('cron', 'del'))
 
         await self.runt.snap.delCronJob(iden)
 
@@ -1999,8 +2000,6 @@ class LibCron(Lib):
         '''
         Modify a cron job in the cortex.
         '''
-        self.runt.reqAllowed(('cron', 'set'))
-
         if not query.startswith('{'):
             mesg = 'Expected second argument to start with {'
             raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix, query=query)
@@ -2008,7 +2007,7 @@ class LibCron(Lib):
         # Remove the curly braces
         query = query[1:-1]
 
-        iden = await self._matchIdens(prefix)
+        iden = await self._matchIdens(prefix, ('cron', 'set'))
         await self.runt.snap.updateCronJob(iden, query)
 
         return iden
@@ -2023,12 +2022,16 @@ class LibCron(Lib):
         '''
         List cron jobs in the cortex.
         '''
-        self.runt.reqAllowed(('cron', 'get'))
-
         cronlist = await self.runt.snap.listCronJobs()
 
         jobs = []
-        for iden, cron in cronlist:
+        for iden, cronjob in cronlist:
+            if not await cronjob.allowed(self.runt.user, ('cron', 'get')):
+                continue
+
+            cron = cronjob.pack()
+            user = self.runt.snap.getUserName(cron.get('useriden'))
+
             laststart = cron.get('laststarttime')
             lastend = cron.get('lastfinishtime')
             result = cron.get('lastresult')
@@ -2036,7 +2039,7 @@ class LibCron(Lib):
             jobs.append({
                 'iden': iden,
                 'idenshort': iden[:8] + '..',
-                'user': cron.get('username') or '<None>',
+                'user': user or '<None>',
                 'query': cron.get('query') or '<missing>',
                 'isrecur': 'Y' if cron.get('recur') else 'N',
                 'isrunning': 'Y' if cron.get('isrunning') else 'N',
@@ -2053,10 +2056,12 @@ class LibCron(Lib):
         '''
         Get information about a cron job.
         '''
-        self.runt.reqAllowed(('cron', 'get'))
-
+        matches = []
         crons = await self.runt.snap.listCronJobs()
-        matches = [cron[0] for cron in crons if cron[0].startswith(prefix)]
+
+        for (iden, cron) in crons:
+            if iden.startswith(prefix) and await cron.allowed(self.runt.user, ('cron', 'get')):
+                matches.append(iden)
 
         if len(matches) == 0:
             mesg = 'Provided iden does not match any valid authorized cron job.'
@@ -2066,14 +2071,16 @@ class LibCron(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
         iden = matches[0]
-        cron = [cron[1] for cron in crons if cron[0] == iden][0]
+        cronjob = [cron[1] for cron in crons if cron[0] == iden][0]
+        cron = cronjob.pack()
+        user = self.runt.snap.getUserName(cron.get('useriden'))
 
         laststart = cron.get('laststarttime')
         lastend = cron.get('lastfinishtime')
 
         job = {
             'iden': iden,
-            'user': cron.get('username') or '<None>',
+            'user': user or '<None>',
             'query': cron.get('query') or '<missing>',
             'isrecur': 'Y' if cron.get('recur') else 'N',
             'isrunning': 'Y' if cron.get('isrunning') else 'N',
@@ -2098,9 +2105,7 @@ class LibCron(Lib):
         '''
         Enable a cron job in the cortex.
         '''
-        self.runt.reqAllowed(('cron', 'set'))
-
-        iden = await self._matchIdens(prefix)
+        iden = await self._matchIdens(prefix, ('cron', 'set'))
         await self.runt.snap.enableCronJob(iden)
 
         return iden
@@ -2109,9 +2114,7 @@ class LibCron(Lib):
         '''
         Disable a cron job in the cortex.
         '''
-        self.runt.reqAllowed(('cron', 'set'))
-
-        iden = await self._matchIdens(prefix)
+        iden = await self._matchIdens(prefix, ('cron', 'set'))
         await self.runt.snap.disableCronJob(iden)
 
         return iden

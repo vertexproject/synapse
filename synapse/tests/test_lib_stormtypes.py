@@ -1829,19 +1829,22 @@ class StormTypesTest(s_test.SynTest):
             async with core.getLocalProxy(user='bond') as asbond:
 
                 q = 'trigger.list'
-                await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInPrint('No triggers found', mesgs)
 
                 q = f'trigger.mod {goodbuid2} {{[ test:str=yep ]}}'
-                await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
 
                 q = f'trigger.disable {goodbuid2}'
-                await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInErr('iden does not match any', mesgs)
 
                 q = f'trigger.enable {goodbuid2}'
-                await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInErr('iden does not match any', mesgs)
 
                 q = f'trigger.del {goodbuid2}'
-                await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInErr('iden does not match any', mesgs)
 
                 # Give explicit perm
                 await prox.addAuthRule('bond', (True, ('trigger', 'get')))
@@ -2314,20 +2317,20 @@ class StormTypesTest(s_test.SynTest):
 
                 async with core.getLocalProxy(user='bond') as asbond:
 
-                    q = 'cron.list'
-                    await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
+                    mesgs = await asbond.storm('cron.list').list()
+                    self.stormIsInPrint('No cron jobs found', mesgs)
 
                     mesgs = await asbond.storm(f'cron.disable {guid[:6]}').list()
-                    await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
+                    self.stormIsInErr('iden does not match any', mesgs)
 
                     mesgs = await asbond.storm(f'cron.enable {guid[:6]}').list()
-                    await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
+                    self.stormIsInErr('iden does not match any', mesgs)
 
                     mesgs = await asbond.storm(f'cron.mod {guid[:6]} {{#foo}}').list()
-                    await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
+                    self.stormIsInErr('iden does not match any', mesgs)
 
                     mesgs = await asbond.storm(f'cron.del {guid[:6]}').list()
-                    await self.agenraises(s_exc.AuthDeny, asbond.eval(q))
+                    self.stormIsInErr('iden does not match any', mesgs)
 
                     # Give explicit perm
 

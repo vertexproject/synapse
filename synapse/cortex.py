@@ -225,24 +225,7 @@ class CoreApi(s_cell.CellApi):
         '''
         await self._reqUserAllowed(('cron', 'add'))
 
-        def _convert_reqdict(reqdict):
-            return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
-
-        try:
-            if incunit is not None:
-                if isinstance(incunit, (list, tuple)):
-                    incunit = [s_agenda.TimeUnit.fromString(i) for i in incunit]
-                else:
-                    incunit = s_agenda.TimeUnit.fromString(incunit)
-            if isinstance(reqs, Mapping):
-                newreqs = _convert_reqdict(reqs)
-            else:
-                newreqs = [_convert_reqdict(req) for req in reqs]
-
-        except KeyError:
-            raise s_exc.BadConfValu('Unrecognized time unit')
-
-        return await self.cell.agenda.add(self.user.iden, query, newreqs, incunit, incval)
+        return await self.cell.addCronJob(self.user, query, reqs, incunit, incval)
 
     async def delCronJob(self, iden):
         '''
@@ -253,7 +236,8 @@ class CoreApi(s_cell.CellApi):
         '''
         cron = self.cell.agenda.appts.get(iden)
         await cron.reqAllowed(self.user, ('cron', 'del'))
-        await self.cell.agenda.delete(iden)
+
+        await self.cell.delCronJob(iden)
 
     async def updateCronJob(self, iden, query):
         '''
@@ -264,7 +248,8 @@ class CoreApi(s_cell.CellApi):
         '''
         cron = self.cell.agenda.appts.get(iden)
         await cron.reqAllowed(self.user, ('cron', 'set'))
-        await self.cell.agenda.mod(iden, query)
+
+        await self.cell.updateCronJob(iden, query)
 
     async def enableCronJob(self, iden):
         '''
@@ -275,7 +260,8 @@ class CoreApi(s_cell.CellApi):
         '''
         cron = self.cell.agenda.appts.get(iden)
         await cron.reqAllowed(self.user, ('cron', 'set'))
-        await self.cell.agenda.enable(iden)
+
+        await self.cell.enableCronJob(iden)
 
     async def disableCronJob(self, iden):
         '''
@@ -286,22 +272,21 @@ class CoreApi(s_cell.CellApi):
         '''
         cron = self.cell.agenda.appts.get(iden)
         await cron.reqAllowed(self.user, ('cron', 'set'))
-        await self.cell.agenda.disable(iden)
+
+        await self.cell.disableCronJob(iden)
 
     async def listCronJobs(self):
         '''
         Get information about all the cron jobs accessible to the current user
         '''
         crons = []
+        rawcrons = await self.cell.listCronJobs()
 
-        for iden, cron in self.cell.agenda.list():
-            isallowed = await cron.allowed(self.user, ('cron', 'get'))
-            if not isallowed:
-                continue
-
-            info = cron.pack()
-            info['username'] = self.cell.getUserName(cron.useriden)
-            crons.append((iden, info))
+        for iden, cron in rawcrons:
+            if await cron.allowed(self.user, ('cron', 'get')):
+                info = cron.pack()
+                info['username'] = self.cell.getUserName(cron.useriden)
+                crons.append((iden, info))
 
         return crons
 
@@ -3437,14 +3422,7 @@ class Cortex(s_cell.Cell):
         '''
         Get information about all the cron jobs accessible to the current user
         '''
-        crons = []
-
-        for iden, cron in self.agenda.list():
-            info = cron.pack()
-            info['username'] = self.getUserName(cron.useriden)
-            crons.append((iden, info))
-
-        return crons
+        return self.agenda.list()
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):
