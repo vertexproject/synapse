@@ -964,6 +964,16 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, ernfos)
             self.isin('Error during time format', ernfos[0][1].get('mesg'))
 
+            # $lib.time.sleep causes cache flushes on the snap
+            async with await core.snap() as snap:
+                # lift a node into the cache
+                data0 = await alist(snap.storm('test:str=1234'))
+                self.len(1, snap.buidcache)
+                # use $lib.time.sleep
+                data1 = await alist(snap.storm('$lib.time.sleep(0) fini { test:str=1234 } '))
+                self.ne(id(data0[0][0]), id(data1[0][0]))
+                self.eq(data0[0][0].ndef, data1[0][0].ndef)
+
     async def test_storm_lib_time_ticker(self):
 
         async with self.getTestCore() as core:
@@ -978,6 +988,21 @@ class StormTypesTest(s_test.SynTest):
             ''')
             nodes = await core.nodes('for ($offs, $tick) in $lib.queue.get(visi).gets(size=3) { [test:int=$tick] } ')
             self.len(3, nodes)
+            self.eq({0, 1, 2}, {node.ndef[1] for node in nodes})
+
+            # lib.time.ticker also clears the snap cache
+            async with await core.snap() as snap:
+                # lift a node into the cache
+                _ = await alist(snap.storm('test:int=0'))
+                self.len(1, snap.buidcache)
+                q = '''
+                $visi=$lib.queue.get(visi)
+                for $tick in $lib.time.ticker(0.01, count=3) {
+                    $visi.put($tick)
+                }
+                '''
+                _ = await alist(snap.storm(q))
+                self.len(0, snap.buidcache)
 
     async def test_storm_lib_telepath(self):
 
