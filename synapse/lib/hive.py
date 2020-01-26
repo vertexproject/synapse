@@ -736,6 +736,46 @@ class HiveDict(s_base.Base):
 
         return retn
 
+class NexusHiveDict(s_nexus.Nexus):
+    '''
+    A change-distributed HiveDict wrapper
+    '''
+    async def __anit__(self, hivedict, parent=None):
+        await s_nexus.Nexus.__anit__(self, hivedict.node.full, parent=parent)
+        self.dict = hivedict
+
+    def get(self, name, onedit=None, default=None):
+        return self.dict.get(name, onedit=onedit, default=default)
+
+    async def set(self, name, valu):
+        return await self._push('hivedict:set', (name, valu,))
+
+    @s_nexus.Nexus.onPush('hivedict:set')
+    async def _onSet(self, name, valu):
+        return await self.dict.set(name, valu)
+
+    async def setdefault(self, name, valu):
+        return await self._push('hivedict:setdefault', (name, valu))
+
+    @s_nexus.Nexus.onPush('hivedict:setdefault')
+    def _onSetdefault(self, name, valu):
+        return self.dict.setdefault(name, valu)
+
+    async def pop(self, name, default=None):
+        return await self._push('hivedict:pop', (name, default))
+
+    @s_nexus.Nexus.onPush('hivedict:pop')
+    async def _onPop(self, name, default=None):
+        return await self.dict.pop(name, default=default)
+
+    def items(self):
+        for item in self.dict.items():
+            yield item
+
+    def values(self):
+        for item in self.dict.values():
+            yield item
+
 # FIXME: move to separate file
 class HiveAuth(s_nexus.Nexus):
     '''
@@ -1183,14 +1223,15 @@ class AuthGate(s_base.Base):
     # if not self.allowed(hiveuser, perm, default=default):
     #     hiveuser.raisePermDeny(perm, gate=self)
 
-class HiveRuler(s_base.Base):
+class HiveRuler(s_nexus.Nexus):
     '''
     A HiveNode that holds a list of rules.  This includes HiveUsers, HiveRoles, and the AuthGate variants of those
     '''
 
     async def __anit__(self, node, auth):
 
-        await s_base.Base.__anit__(self)
+        self.iden = node.name()
+        await s_nexus.Nexus.__anit__(self, self.iden, parent=auth)
 
         self.auth = auth
         self.node = node
@@ -1199,11 +1240,10 @@ class HiveRuler(s_base.Base):
         self.gaterulr = {}  # gate iden -> GateRuler
 
         self.name = node.valu
-        self.iden = node.name()
         self.info = await node.dict()
         self.onfini(self.info)
         self.info.setdefault('rules', ())
-        # FIXME:  rip out the onedit stuff
+        # FIXME:  rip out the onedit stuff?
         self.info.setdefault('admin', False)
         self.rules = self.info.get('rules', onedit=self._onRulesEdit)
         self.admin = self.info.get('admin', onedit=self._onAdminEdit)
@@ -1218,15 +1258,26 @@ class HiveRuler(s_base.Base):
         self.permcache.clear()
 
     async def setName(self, name):
+        return await self._push('hive:hiveruler:setname', (name,))
+
+    @s_nexus.Nexus.onPush('hive:hiveruler:setname')
+    async def _onSetName(self, name):
         self.name = name
         await self.node.set(name)
 
     async def setRules(self, rules):
+        return await self._push('hive:hiveruler:setrules', (rules,))
+
+    @s_nexus.Nexus.onPush('hive:hiveruler:setrules')
+    async def _onSetRules(self, rules):
         self.rules = list(rules)
         await self.info.set('rules', rules)
 
     async def addRule(self, rule, indx=None):
+        return await self._push('hive:hiveruler:addrule', (rule, indx,))
 
+    @s_nexus.Nexus.onPush('hive:hiveruler:addrule')
+    async def _onAddRule(self, rule, indx=None):
         rules = list(self.rules)
 
         if indx is None:
@@ -1237,7 +1288,10 @@ class HiveRuler(s_base.Base):
         await self.info.set('rules', rules)
 
     async def delRule(self, rule):
+        return await self._push('hive:hiveruler:delrule', (rule,))
 
+    @s_nexus.Nexus.onPush('hive:hiveruler:delrule')
+    async def _onDelRule(self, rule):
         if rule not in self.rules:
             return False
 
@@ -1248,6 +1302,10 @@ class HiveRuler(s_base.Base):
         return True
 
     async def delRuleIndx(self, indx):
+        return await self._push('hive:hiveruler:delruleindx', (indx,))
+
+    @s_nexus.Nexus.onPush('hive:hiveruler:delruleindx')
+    async def _onDelRuleIndx(self, indx):
         if indx < 0:
             raise s_exc.BadArg(mesg='Rule index must be greater than or equal to 0',
                                valu=indx)
@@ -1384,7 +1442,8 @@ class HiveUser(HiveRuler):
         # vars cache for persistent user level data storage
         # TODO: max size check / max count check?
         pvars = await self.node.open(('vars',))
-        self.pvars = await pvars.dict()
+        self.pvars = await NexusHiveDict.anit(await pvars.dict(), parent=auth)
+        self.onfini(self.pvars)
 
         self.fullrules = []
         self._onRolesEdit(None)
@@ -1412,7 +1471,8 @@ class HiveUser(HiveRuler):
         mesg = f'User {self.name!r} ({self.iden}) must have permission {perm} on object {gate.iden} ({gate.type}).'
         raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.name)
 
-    def allowed(self, perm, default=None, gateiden=None):
+    # FIXME: (nic) no elev anymore?
+    def allowed(self, perm, default=None, gateiden=None, elev=False):
 
         if self.locked:
             return False

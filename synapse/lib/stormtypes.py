@@ -582,8 +582,7 @@ class LibQueue(Lib):
             mesg = f'No queue named {name} exists.'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
 
-        if (info.get('user') == self.runt.user.iden or
-            self.runt.user.confirm(('storm', 'queue', 'del', name))):
+        if (info.get('user') == self.runt.user.iden or self.runt.user.confirm(('storm', 'queue', 'del', name))):
             todo = s_common.todo('rem', name)
             await self.dyncall('multiqueue', todo)
 

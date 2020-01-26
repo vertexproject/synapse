@@ -18,13 +18,13 @@ async def iterPropForm(self, form=None, prop=None):
 def patch_snap(snap):
     old_layr = []
     for layr in snap.layers:
-        old_layr.append((layr.iterPropRows, layr.iterUnivRows, layr.iterFormRows))
-        layr.iterPropRows, layr.iterUnivRows, layr.iterFormRows = (iterPropForm,) * 3
+        old_layr.append((layr.iterPropRows, layr.iterUnivRows))
+        layr.iterPropRows, layr.iterUnivRows = (iterPropForm,) * 2
 
     yield
 
     for layr_idx, layr in enumerate(snap.layers):
-        layr.iterPropRows, layr.iterUnivRows, layr.iterFormRows = old_layr[layr_idx]
+        layr.iterPropRows, layr.iterUnivRows = old_layr[layr_idx]
 
 
 class LayerTest(s_t_utils.SynTest):
