@@ -937,20 +937,3 @@ class StormTest(s_t_utils.SynTest):
                 nodes = await alist(asvisi.eval(q))
                 nodes = await alist(asvisi.eval("test:cycle0"))
                 self.len(0, nodes)
-
-    async def test_storm_histo(self):
-
-        async with self.getTestCoreAndProxy() as (core, prox):
-
-            await core.storm("[ graph:node=$lib.guid() :data=1 ]").list()
-            await core.storm("[ graph:node=$lib.guid() :data=2 ]").list()
-            await core.storm("[ graph:node=$lib.guid() :data=2 ]").list()
-            await core.storm("[ graph:node=$lib.guid() :data=2 ]").list()
-            await core.storm("[ graph:node=$lib.guid() :data=2 ]").list()
-            await core.storm("[ graph:node=$lib.guid() :data=3 ]").list()
-            await core.storm("[ graph:node=$lib.guid() :data=3 ]").list()
-
-            mesgs = await core.streamstorm("graph:node | histo --prop :data").list()
-            print(mesgs)
-            self.eq(1,2)
-
