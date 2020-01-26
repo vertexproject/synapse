@@ -35,7 +35,7 @@ class LinuxTest(s_t_utils.SynTest):
                     self.eq(locktotal, beforelock)
 
                     # Make sure we get the largest mapped region
-                    with s_thisplat.mmap(0, int(fsize/2), 0x1, 0x8001, f.fileno(), 0):
+                    with s_thisplat.mmap(0, int(fsize / 2), 0x1, 0x8001, f.fileno(), 0):
                         addr, size = s_thisplat.getFileMappedRegion(fn)
                         self.eq(size, fsize)
 

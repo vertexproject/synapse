@@ -41,7 +41,6 @@ def getFileMappedRegion(filename):
 
     if largest is None:
         raise s_exc.NoSuchFile(f'{filename} is not mapped into current process')
-
     return largest
 
 def getTotalMemory():
