@@ -426,6 +426,7 @@ class LibTime(Lib):
         Sleep/yield execution of the storm query.
         '''
         await self.runt.snap.waitfini(timeout=float(valu))
+        await self.runt.snap.clearCache()
 
     async def ticker(self, tick, count=None):
 
@@ -438,6 +439,7 @@ class LibTime(Lib):
         while True:
 
             await self.runt.snap.waitfini(timeout=tick)
+            await self.runt.snap.clearCache()
             yield offs
 
             offs += 1
@@ -1039,12 +1041,7 @@ class LibVars(Lib):
         '''
         Resolve a variable in a storm query
         '''
-        ret = self.runt.getVar(name, defv=s_common.novalu)
-        if ret is s_common.novalu:
-            mesg = f'No var with name: {name}'
-            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
-
-        return ret
+        return self.runt.getVar(name, defv=s_common.novalu)
 
     async def _libVarsSet(self, name, valu):
         '''
@@ -1144,10 +1141,11 @@ class Node(Prim):
         Prim.__init__(self, node, path=path)
         self.locls.update({
             'form': self._methNodeForm,
-            'ndef': self._methNodeNdef,
-            'tags': self._methNodeTags,
-            'repr': self._methNodeRepr,
             'iden': self._methNodeIden,
+            'ndef': self._methNodeNdef,
+            'pack': self._methNodePack,
+            'repr': self._methNodeRepr,
+            'tags': self._methNodeTags,
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
 
@@ -1158,6 +1156,18 @@ class Node(Prim):
             return NodeData(node, path=path)
 
         self.ctors['data'] = ctordata
+
+    async def _methNodePack(self, dorepr=False):
+        '''
+        Return the serializable/packed version of the Node.
+
+        Args:
+            dorepr (bool): Include repr information for human readable versions of properties.
+
+        Returns:
+            (tuple): An (ndef, info) node tuple.
+        '''
+        return self.valu.pack(dorepr=dorepr)
 
     async def _methNodeIsForm(self, name):
         return self.valu.form.name == name
