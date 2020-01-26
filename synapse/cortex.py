@@ -1880,12 +1880,13 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _initCoreHive(self):
         stormvars = await self.hive.open(('cortex', 'storm', 'vars'))
         self.stormvars = await s_hive.NexusHiveDict.anit(await stormvars.dict(), parent=self)
+        self.onfini(self.stormvars)
 
     async def _initCoreAxon(self):
         turl = self.conf.get('axon')
         if turl is None:
             path = os.path.join(self.dirn, 'axon')
-            self.axon = await s_axon.Axon.anit(path, nexsparent=self)
+            self.axon = await s_axon.Axon.anit(path)
             self.axon.onfini(self.axready.clear)
             self.axready.set()
             return

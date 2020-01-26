@@ -265,7 +265,7 @@ class MultiQueue(s_nexus.Nexus):
         self.queues = SlabDict(self.slab, db=self.slab.initdb(f'{name}:meta'))
         self.offsets = SlabDict(self.slab, db=self.slab.initdb(f'{name}:offs'))
 
-        self.waiters = collections.defaultdict(asyncio.Event)
+        self.waiters = collections.defaultdict(asyncio.Event)  # type: ignore
 
     def list(self):
         return [self.status(n) for n in self.queues.keys()]
@@ -297,7 +297,7 @@ class MultiQueue(s_nexus.Nexus):
         return await self._push('multiqueue:add', (name, info))
 
     @s_nexus.Nexus.onPush('multiqueue:add')
-    def _onAdd(self, name, info):
+    async def _onAdd(self, name, info):
         if self.queues.get(name) is not None:
             mesg = f'A queue exists with the name {name}.'
             raise s_exc.DupName(mesg=mesg, name=name)
@@ -338,15 +338,15 @@ class MultiQueue(s_nexus.Nexus):
     async def put(self, name, item):
         return await self._push('multiqueue:put', (name, item))
 
-    @s_nexus.Nexus.onPush('storm:cmd:set')
-    def _onPut(self, name, item):
-        return self.puts(name, (item,))
+    @s_nexus.Nexus.onPush('multiqueue:put')
+    async def _onPut(self, name, item):
+        return await self._onPuts(name, (item,))
 
     async def puts(self, name, items):
         return await self._push('multiqueue:puts', (name, items))
 
-    @s_nexus.Nexus.onPush('storm:cmd:set')
-    def _onPuts(self, name, items):
+    @s_nexus.Nexus.onPush('multiqueue:puts')
+    async def _onPuts(self, name, items):
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
@@ -480,12 +480,14 @@ class Slab(s_base.Base):
     A "monolithic" LMDB instance for use in a asyncio loop thread.
     '''
     COMMIT_PERIOD = 0.5  # time between commits
+    DEFAULT_MAPSIZE = s_const.gibibyte
+    DEFAULT_GROWSIZE = None
 
     async def __anit__(self, path, **kwargs):
 
         await s_base.Base.__anit__(self)
 
-        kwargs.setdefault('map_size', s_const.gibibyte)
+        kwargs.setdefault('map_size', self.DEFAULT_MAPSIZE)
         kwargs.setdefault('lockmemory', False)
 
         opts = kwargs
@@ -514,7 +516,7 @@ class Slab(s_base.Base):
         opts.setdefault('writemap', True)
 
         self.maxsize = opts.pop('maxsize', None)
-        self.growsize = opts.pop('growsize', None)
+        self.growsize = opts.pop('growsize', self.DEFAULT_GROWSIZE)
 
         self.readonly = opts.get('readonly', False)
         self.lockmemory = opts.pop('lockmemory', False)
@@ -581,8 +583,10 @@ class Slab(s_base.Base):
     def getNameAbrv(self, name):
         return SlabAbrv(self, name)
 
-    def getMultiQueue(self, name, parent=None):
-        return MultiQueue(self, name, parent=None)
+    async def getMultiQueue(self, name, parent=None):
+        mq = await MultiQueue.anit(self, name, parent=None)
+        self.onfini(mq)
+        return mq
 
     def statinfo(self):
         return {
