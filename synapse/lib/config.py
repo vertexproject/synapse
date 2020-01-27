@@ -15,9 +15,9 @@ import synapse.lib.hashitem as s_hashitem
 
 logger = logging.getLogger(__name__)
 
-SCHEMAS = {}
+JS_VALIDATORS = {}
 
-def genSchema(confbase, confdefs):
+def getJsSchema(confbase, confdefs):
     props = {}
     schema = {
         '$schema': 'http://json-schema.org/draft-07/schema#',
@@ -29,14 +29,14 @@ def genSchema(confbase, confdefs):
     props.update(confbase)
     return schema
 
-def getSchema(confdefs, confbase):
-    key = s_hashitem.hashitem((confdefs, confbase))
-    schema = SCHEMAS.get(key)
-    if schema:
-        return schema
-    schema = genSchema(confbase, confdefs)
-    SCHEMAS[key] = schema
-    return schema
+def getJsValidator(schema):
+    key = s_hashitem.hashitem(schema)
+    func = JS_VALIDATORS.get(key)
+    if func:
+        return func
+    func = fastjsonschema.compile(schema)
+    JS_VALIDATORS[key] = func
+    return func
 
 jsonschematype2argparse = {
     'integer': int,
@@ -85,11 +85,11 @@ class Config(c_abc.MutableMapping):
         self._argparse_conf_names = {}
         self.envar_prefix = envar_prefix
         # TODO fjs does not cache the compilation. Compare compilation time vs. caching time.
-        self.validator = fastjsonschema.compile(self.json_schema)
+        self.validator = getJsValidator(self.json_schema)
 
     @classmethod
     def getConfFromCell(cls, cell):
-        schema = getSchema(cell.confdefs, cell.confbase)
+        schema = getJsSchema(cell.confbase, cell.confdefs)
         return cls(schema)
 
     # Argparse support methods
