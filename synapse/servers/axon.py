@@ -8,11 +8,12 @@ import synapse.axon as s_axon
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
 
-def parse(argv):
+def getParser():
 
     https = os.getenv('SYN_AXON_HTTPS', '4443')
     telep = os.getenv('SYN_AXON_TELEPATH', 'tcp://0.0.0.0:27492/')
@@ -24,20 +25,27 @@ def parse(argv):
     pars.add_argument('--name', default=telen, help='The (optional) additional name to share the Axon as.')
     pars.add_argument('axondir', help='The directory for the axon to use for storage.')
 
-    return pars.parse_args(argv)
+    return pars
 
 async def main(argv, outp=s_output.stdout, axonctor=None):
 
-    opts = parse(argv)
+    s_common.setlogging(logger)
+    pars = getParser()
 
     if axonctor is None:
-        axonctor = s_axon.Axon.anit
+        axonctor = s_axon.Axon
 
-    s_common.setlogging(logger)
+    conf = s_config.Config.getConfFromCell(axonctor)
+    conf.getArgumentParser(pars=pars)
+
+    opts = pars.parse_args(argv)
+
+    conf.setConfFromOpts(opts)
+    conf.setConfFromEnvs()
 
     outp.printf('starting axon: %s' % (opts.axondir,))
 
-    axon = await axonctor(opts.axondir)
+    axon = await axonctor.anit(opts.axondir, conf=conf)
 
     try:
 

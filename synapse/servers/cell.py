@@ -8,6 +8,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
 
@@ -29,9 +30,13 @@ async def getCell(outp,
         raise s_exc.NoSuchCtor(name=ctorpath,
                                mesg='No Cell ctor found.')
 
+    outp.printf(f'Resolving configuration data via envars')
+    conf = s_config.Config.getConfFromCell(ctor)
+    conf.setConfFromEnvs()
+
     outp.printf(f'starting cell: {celldir}')
 
-    cell = await ctor.anit(celldir)
+    cell = await ctor.anit(celldir, conf=conf)
 
     try:
 

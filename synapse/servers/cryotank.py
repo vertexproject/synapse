@@ -8,11 +8,12 @@ import synapse.common as s_common
 import synapse.cryotank as s_cryotank
 
 import synapse.lib.base as s_base
+import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
 
-def parse(argv):
+def getParser():
 
     https = os.getenv('SYN_CRYOTANK_HTTPS', '4443')
     telep = os.getenv('SYN_CRYOTANK_TELEPATH', 'tcp://0.0.0.0:27492/')
@@ -24,17 +25,25 @@ def parse(argv):
     pars.add_argument('--name', default=telen, help='The (optional) additional name to share the Cryotank as.')
     pars.add_argument('cryodir', help='The directory for the cryotank server to use for storage.')
 
-    return pars.parse_args(argv)
+    return pars
 
 async def main(argv, outp=s_output.stdout):
 
-    opts = parse(argv)
-
     s_common.setlogging(logger)
+
+    pars = getParser()
+
+    conf = s_config.Config.getConfFromCell(s_cryotank.CryoCell)
+    conf.getArgumentParser(pars=pars)
+
+    opts = pars.parse_args(argv)
+
+    conf.setConfFromOpts(opts)
+    conf.setConfFromEnvs()
 
     outp.printf('starting cryotank server: %s' % (opts.cryodir,))
 
-    cryo = await s_cryotank.CryoCell.anit(opts.cryodir)
+    cryo = await s_cryotank.CryoCell.anit(opts.cryodir, conf=conf)
 
     try:
 
