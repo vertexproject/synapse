@@ -130,11 +130,11 @@ class Config(c_abc.MutableMapping):
                 if default:
                     akwargs['action'] = 'store_false'
                     akwargs['help'] = akwargs['help'] + \
-                                      ' Set this value to disable this option.'
+                                      ' Set this option to disable this option.'
                 else:
                     akwargs['action'] = 'store_true'
                     akwargs['help'] = akwargs['help'] + \
-                                      ' Set this value to enable this option.'
+                                      ' Set this option to enable this option.'
 
             parsed_name = name.replace(':', '-')
             replace_name = name.replace(':', '_')
@@ -180,7 +180,7 @@ class Config(c_abc.MutableMapping):
             self.validator(self.conf)
         except fastjsonschema.exceptions.JsonSchemaException as e:
             logger.exception('Configuration is invalid.')
-            raise s_exc.BadConfValu(mesg=str(e)) from None
+            raise s_exc.BadConfValu(mesg=f'Invalid configuration found: [{str(e)}]') from None
         else:
             return
 

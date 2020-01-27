@@ -38,12 +38,12 @@ test_schema = {
             'key:bool:defvalfalse': {
                 'description': 'Key Bool, defval false.',
                 'type': 'boolean',
-                'default': True,
+                'default': False,
             },
             'key:bool:defvaltrue': {
                 'description': 'Key Bool, defval true.',
                 'type': 'boolean',
-                'default': False,
+                'default': True,
             },
 
             'key:bool:nodefval': {
@@ -90,6 +90,13 @@ class ConfTest(s_test.SynTest):
         # We do not populate options for bools with missing defaults
         self.notin('Key Bool, no default', hmsg)
 
+        # Alternatively, we can have the config object also generate an
+        # argparse.Argument for us if we don't want to make one apriori.
+        pars2 = conf.generateArgparser()
+        hmsg2 = pars2.format_help()
+        self.isin('--key-string KEY_STRING', hmsg2)
+        self.notin('--beep', hmsg2)
+
         # And we can get the data too!  Unspecified values are set to
         # s_common.novalu so we know that they were NOT set at all.
         # This differs from the default argparse case of defaults being
@@ -100,7 +107,7 @@ class ConfTest(s_test.SynTest):
         vopts = vars(opts)
         edata = {
             'key_bool_defvalfalse': s_common.novalu,
-            'key_bool_defvaltrue': True,
+            'key_bool_defvaltrue': False,
             'key_integer': s_common.novalu,
             'key_number': 1234.5678,
             'key_string': s_common.novalu,
@@ -113,7 +120,7 @@ class ConfTest(s_test.SynTest):
         # were not set by the schema data.
         conf.setConfFromOpts(opts)
         self.eq(conf.asDict(), {
-            'key:bool:defvaltrue': True,
+            'key:bool:defvaltrue': False,
             'key:number': 1234.5678,
         })
 
@@ -132,8 +139,71 @@ class ConfTest(s_test.SynTest):
             conf.setConfEnvs()
 
         self.eq(conf.asDict(), {
-            'key:bool:defvaltrue': True,
+            'key:bool:defvaltrue': False,
             'key:number': 1234.5678,
             'key:integer': 8675309,
             'key:array': ['firetruck', 'spaceship']
         })
+
+        # we can set some remaining values directly
+        conf.setdefault('key:object', {'rubber': 'ducky'})
+        conf.setdefault('key:string', 'Funky string time!')
+        self.eq(conf.asDict(), {
+            'key:bool:defvaltrue': False,
+            'key:number': 1234.5678,
+            'key:integer': 8675309,
+            'key:array': ['firetruck', 'spaceship'],
+            'key:object': {'rubber': 'ducky'},
+            'key:string': 'Funky string time!',
+        })
+
+        # Once we've built up our config, we can then ensure that it is valid.
+        # This validation step also sets vars with defaults.  Keys without defaults
+        # are not set at all.
+        self.none(conf.reqConfValid())
+        self.eq(conf.asDict(), {
+            'key:bool:defvalfalse': False,
+            'key:bool:defvaltrue': False,
+            'key:number': 1234.5678,
+            'key:integer': 8675309,
+            'key:array': ['firetruck', 'spaceship'],
+            'key:object': {'rubber': 'ducky'},
+            'key:string': 'Funky string time!',
+        })
+
+        # We can ensure that certain vars are loaded
+        self.eq('Funky string time!', conf.reqConfValu('key:string'))
+        # And throw if they are not, or if the requested key isn't even schema valid
+        self.raises(s_exc.NeedConfValu, conf.reqConfValu, 'key:bool:nodefval')
+        self.raises(s_exc.BadArg, conf.reqConfValu, 'key:newp')
+
+        # Since we're an Mutable mapping, we have some dict methods available to us
+        self.len(7, conf)  # __len__
+        self.eq(set(conf.keys()),  # __iter__
+                {'key:bool:defvalfalse', 'key:bool:defvaltrue',
+                 'key:number', 'key:integer', 'key:string',
+                 'key:array', 'key:object',
+                 })
+
+        del conf['key:object']  # __delitem__
+        self.eq(conf.asDict(), {
+            'key:bool:defvalfalse': False,
+            'key:bool:defvaltrue': False,
+            'key:number': 1234.5678,
+            'key:integer': 8675309,
+            'key:array': ['firetruck', 'spaceship'],
+            'key:string': 'Funky string time!',
+        })
+
+        # We have a convenience __repr__ :)
+        valu = repr(conf)
+        self.isin('<synapse.lib.config.Config at 0x', valu)
+        self.isin('conf={', valu)
+
+        # We can set invalid items and ensure the config is no longer valid.
+        conf['key:array'] = 'Totally not an array.'
+        self.raises(s_exc.BadConfValu, conf.reqConfValid)
+        del conf['key:array']
+
+    async def test_config_fromcell(self):
+        pass
