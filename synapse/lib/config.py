@@ -108,11 +108,26 @@ class Config020(c_abc.MutableMapping):
             atyp = jsonschematype2argparse.get(conf.get('type'))
             if atyp is None:
                 continue
-            # TODO Handle boolean types gracefully with default/action's properly.
-            akwargs = {'help': conf.get('documentation'),
+            akwargs = {'help': conf.get('documentation', ''),
                        'action': 'store',
                        'type': atyp,
                        }
+
+            if atyp is bool:
+                default = conf.get('default')
+                if default is None:
+                    logger.debug(f'Boolean type is missing default information. Cannot form argparse for [{name}]')
+                    continue
+                default = bool(default)
+                akwargs['default'] = default
+                if default:
+                    akwargs['action'] = 'store_false'
+                    akwargs['help'] = akwargs['help'] + \
+                                      ' The default value for this is True. Set this value to disable this option.'
+                else:
+                    akwargs['action'] = 'store_true'
+                    akwargs['help'] = akwargs['help'] + \
+                                      ' The default value for this is False. Set this value to enable this option.'
 
             parsed_name = name.replace(':', '-')
             replace_name = name.replace(':', '_')
