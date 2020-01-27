@@ -1235,20 +1235,20 @@ class Snap(s_base.Base):
 #            yield row, node
 
     async def getNodeData(self, buid, name, defv=None):
-        envl = await self.layers[0].getNodeData(buid, name, defv=defv)
-        if envl is not None:
-            return envl.get('data')
+        valu = await self.wlyr.getNodeData(buid, name)
+        if valu is not None:
+            return valu
         return defv
 
-    async def setNodeData(self, buid, name, item):
-        envl = {'user': self.user.iden, 'time': s_common.now(), 'data': item}
-        return await self.layers[0].setNodeData(buid, name, envl)
+#    async def setNodeData(self, buid, name, item):
+#        envl = {'user': self.user.iden, 'time': s_common.now(), 'data': item}
+#        return await self.layers[0].setNodeData(buid, name, envl)
 
     async def iterNodeData(self, buid):
-        async for item in self.layers[0].iterNodeData(buid):
+        async for item in self.wlyr.iterNodeData(buid):
             yield item
 
-    async def popNodeData(self, buid, name):
-        envl = await self.layers[0].popNodeData(buid, name)
-        if envl is not None:
-            return envl.get('data')
+#    async def popNodeData(self, buid, name):
+#        envl = await self.layers[0].popNodeData(buid, name)
+#        if envl is not None:
+#            return envl.get('data')
