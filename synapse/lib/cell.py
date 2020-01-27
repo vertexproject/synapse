@@ -433,7 +433,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         if conf is None:
             conf = {}
 
-        self.confschema = s_config.getSchema(self.confbase, self.confdefs)
+        self.confschema = s_config.getJsSchema(self.confbase, self.confdefs)
         self.conf = self._initCellConf(conf)
 
         self.cmds = {}

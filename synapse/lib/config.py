@@ -18,6 +18,22 @@ logger = logging.getLogger(__name__)
 JS_VALIDATORS = {}
 
 def getJsSchema(confbase, confdefs):
+    '''
+    Generate a Synapse JSON Schema for a Cell using a pair of confbase and confdef values.
+
+    Args:
+        confbase (dict): A JSON Schema dictionary of properties for the object. This content has
+        precedence over the confdefs argument.
+        confdefs (dict): A JSON Schema dictionary of properties for the object.
+
+    Notes:
+        This generated a JSON Schema draft 7 schema for a single object, which does not allow for
+        additional properties to be set on it.  The data in confdefs is implementer controlled and
+        is welcome to specify
+
+    Returns:
+        dict: A complete JSON schema.
+    '''
     props = {}
     schema = {
         '$schema': 'http://json-schema.org/draft-07/schema#',
@@ -30,6 +46,17 @@ def getJsSchema(confbase, confdefs):
     return schema
 
 def getJsValidator(schema):
+    '''
+    Get a fastjsonschema callable.
+
+    Args:
+        schema (dict): A JSON Schema object.
+
+    Returns:
+        callable: A callable function that can be used to validate data against the json schema.
+    '''
+    # It is faster to hash and cache the functions here than it is to
+    # generate new functions each time we have the same schema.
     key = s_hashitem.hashitem(schema)
     func = JS_VALIDATORS.get(key)
     if func:

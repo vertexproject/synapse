@@ -6,9 +6,27 @@ import yaml
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.tests.utils as s_test
+import synapse.lib.cell as s_cell
 
 import synapse.lib.config as s_config
+
+import synapse.tests.utils as s_test
+
+class SchemaCell(s_cell.Cell):
+    confbase = {
+        'apikey': {
+            'description': 'fancy apikey',
+            'type': 'string',
+        },
+        'apihost': {
+            'description': 'host where the apikey goes too!',
+            'type': 'string',
+            'default': 'https://httpbin.org/'
+        },
+    }
+    async def __anit__(self, dirn, conf=None, readonly=False, *args, **kwargs):
+        await s_cell.Cell.__anit__(self, dirn, conf, readonly, *args, **kwargs)
+        self.conf.reqConfValu('apikey')
 
 test_schema = {
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -206,4 +224,33 @@ class ConfTest(s_test.SynTest):
         del conf['key:array']
 
     async def test_config_fromcell(self):
-        pass
+
+        # We can make a conf from a cell ctor directly
+        conf = s_config.Config.getConfFromCell(SchemaCell)
+        self.isin('apikey', conf.json_schema.get('properties'))
+        self.isin('apihost', conf.json_schema.get('properties'))
+
+        # Assuming we populate that conf with some data
+        # we can then use it to make a cell!
+
+        conf['apikey'] = 'deadb33f'
+
+        with self.getTestDir() as dirn:
+
+            async with await SchemaCell.anit(dirn, conf=conf) as cell:
+                self.eq(cell.conf.asDict(),
+                        {'apikey': 'deadb33f',
+                         'apihost': 'https://httpbin.org/'})
+
+            # We can still make a cell with a dictionary being passed in directly.
+            # The dictionary value is converted into the conf value.
+            async with await SchemaCell.anit(dirn, conf={'apikey': 'deadb33f'}) as cell:
+                self.eq(cell.conf.asDict(),
+                        {'apikey': 'deadb33f',
+                         'apihost': 'https://httpbin.org/'})
+
+            with self.raises(s_exc.NeedConfValu) as cm:
+                # Trying to make a cell with a missing key it wants fails
+                async with await SchemaCell.anit(dirn, conf={}) as cell:
+                    pass
+            self.eq(cm.exception.get('key'), 'apikey')
