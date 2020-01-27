@@ -433,7 +433,6 @@ class Cell(s_base.Base, s_telepath.Aware):
         if conf is None:
             conf = {}
 
-        self.confschema = s_config.getJsSchema(self.confbase, self.confdefs)
         self.conf = self._initCellConf(conf)
 
         self.cmds = {}
@@ -673,10 +672,10 @@ class Cell(s_base.Base, s_telepath.Aware):
     def getLocalUrl(self, share='*', user='root'):
         return f'cell://{user}@{self.dirn}:{share}'
 
-    def _initCellConf(self, conf: c_abc.MutableMapping):
+    def _initCellConf(self, conf):
         if isinstance(conf, dict):
             conf = s_config.Config.getConfFromCell(self, conf=conf)
-        for k, v in self._loadCellYaml('cell.yaml'):
+        for k, v in self._loadCellYaml('cell.yaml').items():
             conf.setdefault(k, v)
         conf.reqConfValid()
         return conf
