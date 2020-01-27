@@ -25,10 +25,8 @@ def genSchema(confbase, confdefs):
         "properties": props,
         "type": "object"
     }
-    for k, v in confbase.items():
-        props.setdefault(k, copy.deepcopy(v))
-    for k, v in confdefs.items():
-        props.setdefault(k, copy.deepcopy(v))
+    props.update(confdefs)
+    props.update(confbase)
     return schema
 
 def getSchema(confdefs, confbase):
@@ -54,6 +52,27 @@ def make_envar_name(key, prefix: str =None) -> str:
     return nk
 
 class Config020(c_abc.MutableMapping):
+    '''
+    Synapse configuration helper based on JSON Schema.
+
+    Args:
+        schema (dict): The JSON Schema (draft v7) which to validate
+        configuration data against.
+        conf (dict): Optional, a set of configuration data to preload.
+        envar_prefix (str): Optional, a prefix used when collecting
+        configuration data from environmental variables.
+
+    Notes:
+        This class implements the collections.abc.MuttableMapping class, so it
+        may be used where a dictionary would otherwise be used.
+
+        The default values provided in the schema must be able to be recreated
+        from the repr() of their Python value.
+
+        Default values are not loaded into the configuration data until
+        the ``reqConfValid()`` method is called.
+
+    '''
     def __init__(self,
                  schema,
                  conf: dict =None,
@@ -65,7 +84,6 @@ class Config020(c_abc.MutableMapping):
         self.conf = conf
         self._argparse_conf_names = {}
         self.envar_prefix = envar_prefix
-        # fjs validation style...
         # TODO Cache this if FJS does't already cache things...
         self.validator = fastjsonschema.compile(self.json_schema)
 
