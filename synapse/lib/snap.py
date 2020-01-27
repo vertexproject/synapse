@@ -549,6 +549,7 @@ class Snap(s_base.Base):
             'ndef': None,
             'tags': {},
             'props': {},
+            'tagprops': {},
         }
 
         for layr in self.layers:
@@ -577,7 +578,7 @@ class Snap(s_base.Base):
             stortagprops = info.get('tagprops')
             if stortagprops is not None:
                 tagprops.update(stortagprops)
-                # FIXME:  bylayer['tagprops']?
+                bylayer['tagprops'].update({p: layr for p in stortagprops.keys()})
 
         if ndef is None:
             return None
@@ -900,13 +901,13 @@ class Snap(s_base.Base):
                 if edit[0] == s_layer.EDIT_TAGPROP_SET:
                     (tag, prop, valu, oldv, stype) = edit[1]
                     node.tagprops[(tag, prop)] = valu
-                    # FIXME: node.bylayer
+                    node.bylayer['tags'][(tag, prop)] = wlyr
                     continue
 
                 if edit[0] == s_layer.EDIT_TAGPROP_DEL:
                     (tag, prop, oldv, stype) = edit[1]
                     node.tagprops.pop((tag, prop), None)
-                    # FIXME: node.bylayer
+                    node.bylayer['tags'].pop((tag, prop), None)
                     continue
 
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
