@@ -173,6 +173,8 @@ EDIT_TAG_SET = 4      # (<type>, (<tag>, <valu>, <oldv>))
 EDIT_TAG_DEL = 5      # (<type>, (<tag>, <oldv>))
 EDIT_TAGPROP_SET = 6  # (<type>, (<tag>, <prop>, <valu>, <oldv>))
 EDIT_TAGPROP_DEL = 7  # (<type>, (<tag>, <prop>, <oldv>))
+EDIT_NODEDATA_SET = 8 # (<type>, (<name>, <valu>))
+EDIT_NODEDATA_DEL = 9 # (<type>, (<name>))
 
 class IndxBy:
     '''
@@ -719,6 +721,8 @@ class Layer(s_base.Base):
         self.byarray = self.layrslab.initdb('byarray', dupsort=True)
         self.bytagprop = self.layrslab.initdb('bytagprop', dupsort=True)
 
+        self.nodedata = self.layrslab.initdb('nodedata')
+
         self.countdb = self.layrslab.initdb('counters')
 
         self.splicelog = s_slabseqn.SlabSeqn(self.spliceslab, 'splices')
@@ -761,6 +765,8 @@ class Layer(s_base.Base):
             self._editTagDel,
             self._editTagPropSet,
             self._editTagPropDel,
+            self._editNodeDataSet,
+            self._editNodeDataDel,
         ]
 
         self.canrev = True
@@ -1220,6 +1226,20 @@ class Layer(s_base.Base):
             (EDIT_TAGPROP_DEL, (tag, prop, oldv, oldt)),
         )
 
+    def _editNodeDataSet(self, buid, form, edit):
+
+        name, valu = edit[1]
+        abrv = self.getPropAbrv(name, None)
+
+        self.layrslab.replace(buid + abrv, s_msgpack.en(valu), db=self.nodedata)
+
+    def _editNodeDataDel(self, buid, form, edit):
+
+        name = edit[1]
+        abrv = self.getPropAbrv(name, None)
+
+        self.layrslab.delete(buid + abrv, s_msgpack.en(valu), db=self.nodedata)
+
     def getStorIndx(self, stortype, valu):
 
         pref = stortype.to_bytes(1, 'big')
@@ -1271,6 +1291,23 @@ class Layer(s_base.Base):
 
             valu, stortype = s_msgpack.un(byts)
             yield buid, valu
+
+    async def getNodeData(self, buid, name):
+
+        abrv = self.getPropAbrv(name, None)
+
+        byts = self.layrslab.get(buid + abrv, db=self.nodedata)
+        if byts is None:
+            return None
+        return s_msgpack.un(byts)
+
+    async def iterNodeData(self, buid):
+
+        for lkey, byts in self.layrslab.scanByPref(buid, db=self.nodedata):
+            abrv = lkey[32:]
+
+            valu = s_msgpack.un(byts)
+            yield self.getAbrvProp(abrv), valu
 
     #async def _storFireSplices(self, splices):
         #'''
