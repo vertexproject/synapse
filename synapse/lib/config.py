@@ -80,10 +80,10 @@ class Config020(c_abc.MutableMapping):
         if pars is None:
             pars = argparse.ArgumentParser()
         agrp = pars.add_argument_group('config', 'Configuration arguments.')
-        self._addArgparseArguements(agrp)
+        self._addArgparseArguments(agrp)
         return pars
 
-    def _addArgparseArguements(self, obj: argparse._ArgumentGroup):
+    def _addArgparseArguments(self, obj: argparse._ArgumentGroup):
         for (name, conf) in self.json_schema.get('properties'):
             atyp = jsonschematype2argparse.get(conf.get('type'))
             if atyp is None:
