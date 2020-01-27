@@ -522,6 +522,7 @@ class CoreSpawnTest(s_test.SynTest):
 
     async def test_model_extensions(self):
         self.skip('Model extensions not supported for spawn.')
+        # FIXME: they are (should be) in 0.2.0
         async with self.getTestCore() as core:
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
             async with core.getLocalProxy() as prox:
