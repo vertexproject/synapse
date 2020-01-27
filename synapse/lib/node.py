@@ -25,6 +25,8 @@ class Node:
         self.sode = sode
 
         self.buid = sode[0]
+
+        # Tracks which property is retrieved from which layer
         self.bylayer = bylayer
 
         #print('NODE FROM SODE: %r' % (sode,))
@@ -408,7 +410,6 @@ class Node:
         Returns:
             None: This returns None.
         '''
-
         if self.form.isrunt:
             raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.',
                                    form=self.form.full, tag=tag)

@@ -3499,7 +3499,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             if isinstance(reqs, Mapping):
                 newreqs = self._convert_reqdict(reqs)
             else:
-                breakpoint()
                 newreqs = [self._convert_reqdict(req) for req in reqs]
         except KeyError:
             raise s_exc.BadConfValu('Unrecognized time unit')

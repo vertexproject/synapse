@@ -945,7 +945,7 @@ class Layer(s_base.Base):
                 yield await self.getStorNode(buid)
 
     async def storNodeEdits(self, nodeedits, meta):
-        # change control goes here....
+        # FIXME: change control goes here....
         return [await self._storNodeEdit(e, meta) for e in nodeedits]
 
     async def _storNodeEdit(self, nodeedit, meta):
@@ -1127,6 +1127,7 @@ class Layer(s_base.Base):
         if oldb is not None and s_msgpack.un(oldb) == valu:
             return None
 
+        # FIXME: don't we want a \0 between tag and form?
         self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
 
         return (

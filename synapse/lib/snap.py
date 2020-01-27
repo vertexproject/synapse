@@ -548,6 +548,7 @@ class Snap(s_base.Base):
             stortagprops = info.get('tagprops')
             if stortagprops is not None:
                 tagprops.update(stortagprops)
+                # FIXME:  bylayer['tagprops']?
 
         if ndef is None:
             return None
@@ -780,6 +781,7 @@ class Snap(s_base.Base):
 
         meta = self.getSnapMeta()
         sodes = await self.wlyr.storNodeEdits(edits, meta)
+        wlyr = self.wlyr
 
         nodes = []
         callbacks = []
@@ -790,7 +792,7 @@ class Snap(s_base.Base):
 
         for sode in sodes:
 
-            cache = {self.wlyr.iden: sode}
+            cache = {wlyr.iden: sode}
 
             node = await self._joinStorNode(sode[0], cache)
 
@@ -799,6 +801,7 @@ class Snap(s_base.Base):
             for edit in sode[1].get('edits', ()):
 
                 if edit[0] == s_layer.EDIT_NODE_ADD:
+                    node.bylayer['ndef'] = wlyr
                     callbacks.append((node.form.wasAdded, (node,), {}))
                     callbacks.append((self.view.runNodeAdd, (node,), {}))
                     continue
@@ -818,6 +821,7 @@ class Snap(s_base.Base):
                         continue
 
                     node.props[name] = valu
+                    node.bylayer['props'][name] = wlyr
 
                     callbacks.append((prop.wasSet, (node, oldv), {}))
                     callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
@@ -833,6 +837,7 @@ class Snap(s_base.Base):
                         continue
 
                     node.props.pop(name, None)
+                    node.bylayer['props'].pop(name, None)
 
                     callbacks.append((prop.wasDel, (node, oldv), {}))
                     callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
@@ -843,6 +848,7 @@ class Snap(s_base.Base):
                     (tag, valu, oldv) = edit[1]
 
                     node.tags[tag] = valu
+                    node.bylayer['tags'][tag] = wlyr
 
                     if oldv is None:
                         callbacks.append((self.view.runTagAdd, (node, tag, valu), {}))
@@ -856,6 +862,7 @@ class Snap(s_base.Base):
                     (tag, oldv) = edit[1]
 
                     node.tags.pop(tag, None)
+                    node.bylayer['tags'].pop(tag, None)
 
                     callbacks.append((self.view.runTagDel, (node, tag, oldv), {}))
                     callbacks.append((self.wlyr.fire, ('tag:del', ), {'tag': tag, 'node': node.iden()}))
@@ -864,11 +871,13 @@ class Snap(s_base.Base):
                 if edit[0] == s_layer.EDIT_TAGPROP_SET:
                     (tag, prop, valu, oldv, stype) = edit[1]
                     node.tagprops[(tag, prop)] = valu
+                    # FIXME: node.bylayer
                     continue
 
                 if edit[0] == s_layer.EDIT_TAGPROP_DEL:
                     (tag, prop, oldv, stype) = edit[1]
                     node.tagprops.pop((tag, prop), None)
+                    # FIXME: node.bylayer
                     continue
 
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
