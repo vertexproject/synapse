@@ -223,6 +223,17 @@ class ConfTest(s_test.SynTest):
         self.raises(s_exc.BadConfValu, conf.reqConfValid)
         del conf['key:array']
 
+        # We can do prefix-bassed collection of envar data.
+        conf2 = s_config.Config(test_schema, envar_prefix='beeper')
+        with self.setTstEnvars(BEEPER_KEY_ARRAY=a1,
+                               KEY_INTEGER=i1,
+                               ):
+            conf2.setConfEnvs()
+        # key:array is set, key:integer is not set.
+        self.eq(conf2.asDict(), {
+            'key:array': ['firetruck', 'spaceship']
+        })
+
     async def test_config_fromcell(self):
 
         # We can make a conf from a cell ctor directly

@@ -75,7 +75,7 @@ jsonschematype2argparse = {
 def make_envar_name(key, prefix: str =None) -> str:
     nk = f'{key.replace(":", "_")}'.upper()
     if prefix:
-        nk = f'{prefix}_{nk}'
+        nk = f'{prefix}_{nk}'.upper()
     return nk
 
 class Config(c_abc.MutableMapping):
