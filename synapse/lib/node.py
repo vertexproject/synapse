@@ -449,6 +449,8 @@ class Node:
                 if self.tags.get(tag) is not None:
                     continue
 
+                await self.snap.addTagNode(tag)
+
                 edits.append((s_layer.EDIT_TAG_SET, (tag, (None, None), None)))
                 #await self._addTagRaw(tag, (None, None))
 
