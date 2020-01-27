@@ -681,7 +681,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         yaml_conf = self._loadCellYaml('cell.yaml')
         for k, v in yaml_conf.items():
             conf.setdefault(k, v)
-        conf.reqValidConf()
+        conf.reqConfValid()
         return conf
 
     def _loadCellYaml(self, *path):

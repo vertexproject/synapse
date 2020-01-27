@@ -119,9 +119,22 @@ class Config020(c_abc.MutableMapping):
                 self.setdefault(k, envv)
 
     # General methods
-    def reqValidConf(self):
+    def reqConfValid(self):
         # TODO: Wrap and raise a s_exc.SynErr...
         return self.validator(self.conf)
+
+    def reqConfValu(self, key):
+        # Ensure that the key is in self.json_schema
+        if key not in self.json_schema.get('properties', {}):
+            raise s_exc.BadArg(mesg='Required key is not present in the configuration schema.',
+                               key=key)
+
+        # Ensure that the key is present in self.conf
+        if key not in self.conf:
+            raise s_exc.NeedConfValu(mesg='Required key is not present in configuration data.',
+                                     key=key)
+
+        return self.conf.get(key)
 
     # be nice...
     def __repr__(self):
