@@ -675,11 +675,8 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     def _initCellConf(self, conf: c_abc.MutableMapping):
         if isinstance(conf, dict):
-            conf = s_config.Config(schema=self.confschema,
-                                      conf=conf,
-                                      )
-        yaml_conf = self._loadCellYaml('cell.yaml')
-        for k, v in yaml_conf.items():
+            conf = s_config.Config.getConfFromCell(self, conf=conf)
+        for k, v in self._loadCellYaml('cell.yaml'):
             conf.setdefault(k, v)
         conf.reqConfValid()
         return conf

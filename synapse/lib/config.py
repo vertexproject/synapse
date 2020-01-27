@@ -111,13 +111,18 @@ class Config(c_abc.MutableMapping):
         self.conf = conf
         self._argparse_conf_names = {}
         self.envar_prefix = envar_prefix
-        # TODO fjs does not cache the compilation. Compare compilation time vs. caching time.
         self.validator = getJsValidator(self.json_schema)
 
     @classmethod
-    def getConfFromCell(cls, cell):
+    def getConfFromCell(cls, cell, conf=None):
+        '''
+        Get a Config object from a Cell directly (either the ctor or the instance thereof).
+
+        Returns:
+            Config: A Config object.
+        '''
         schema = getJsSchema(cell.confbase, cell.confdefs)
-        return cls(schema)
+        return cls(schema, conf=conf)
 
     # Argparse support methods
     def generateArgparser(self, pars: argparse.ArgumentParser =None) -> argparse.ArgumentParser:
@@ -180,7 +185,7 @@ class Config(c_abc.MutableMapping):
             self.setdefault(nname, v)
 
     # Envar support methods
-    def setConfEnvs(self):
+    def setConfFromEnvs(self):
         for (name, info) in self.json_schema.get('properties', {}).items():
             envar = make_envar_name(name, prefix=self.envar_prefix)
             envv = os.getenv(envar)
@@ -202,7 +207,6 @@ class Config(c_abc.MutableMapping):
         Returns:
             None: This returns nothing.
         '''
-        # TODO: Wrap and raise a s_exc.SynErr...
         try:
             self.validator(self.conf)
         except fastjsonschema.exceptions.JsonSchemaException as e:

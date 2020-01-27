@@ -156,7 +156,7 @@ class ConfTest(s_test.SynTest):
                                KEY_NUMBER=n1,
                                KEY_INTEGER=i1,
                                ):
-            conf.setConfEnvs()
+            conf.setConfFromEnvs()
 
         self.eq(conf.asDict(), {
             'key:bool:defvaltrue': False,
@@ -230,7 +230,7 @@ class ConfTest(s_test.SynTest):
         with self.setTstEnvars(BEEPER_KEY_ARRAY=a1,
                                KEY_INTEGER=i1,
                                ):
-            conf2.setConfEnvs()
+            conf2.setConfFromEnvs()
         # key:array is set, key:integer is not set.
         self.eq(conf2.asDict(), {
             'key:array': ['firetruck', 'spaceship']

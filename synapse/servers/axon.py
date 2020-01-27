@@ -41,7 +41,7 @@ async def main(argv, outp=s_output.stdout, axonctor=None):
     opts = pars.parse_args(argv)
 
     conf.setConfFromOpts(opts)
-    conf.setConfEnvs()
+    conf.setConfFromEnvs()
 
     outp.printf('starting axon: %s' % (opts.axondir,))
 

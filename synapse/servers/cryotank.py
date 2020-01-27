@@ -39,7 +39,7 @@ async def main(argv, outp=s_output.stdout):
     opts = pars.parse_args(argv)
 
     conf.setConfFromOpts(opts)
-    conf.setConfEnvs()
+    conf.setConfFromEnvs()
 
     outp.printf('starting cryotank server: %s' % (opts.cryodir,))
 
