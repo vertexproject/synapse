@@ -88,12 +88,14 @@ class Config020(c_abc.MutableMapping):
         self.validator = fastjsonschema.compile(self.json_schema)
 
     # Argparse support methods
-    def generateArgparser(self, pars: argparse.ArgumentParser =None):
+    def generateArgparser(self, pars: argparse.ArgumentParser =None) -> argparse.ArgumentParser:
         '''
         Add config related arguments group to an argument parser.
 
         Notes:
             Makes a new argument parser if one is not provided.
+
+            Configuration data is placed in the argument group called ``config``.
         '''
         if pars is None:
             pars = argparse.ArgumentParser()
