@@ -87,6 +87,11 @@ class Config020(c_abc.MutableMapping):
         # TODO Cache this if FJS does't already cache things...
         self.validator = fastjsonschema.compile(self.json_schema)
 
+    @classmethod
+    def getConfFromCell(cls, cell):
+        schema = getSchema(cell.confdefs, cell.confbase)
+        return cls(schema)
+
     # Argparse support methods
     def generateArgparser(self, pars: argparse.ArgumentParser =None) -> argparse.ArgumentParser:
         '''
@@ -104,16 +109,17 @@ class Config020(c_abc.MutableMapping):
         return pars
 
     def _addArgparseArguments(self, obj: argparse._ArgumentGroup):
-        for (name, conf) in self.json_schema.get('properties'):
+        for (name, conf) in self.json_schema.get('properties').items():
             atyp = jsonschematype2argparse.get(conf.get('type'))
             if atyp is None:
                 continue
-            akwargs = {'help': conf.get('documentation', ''),
+            akwargs = {'help': conf.get('description', ''),
                        'action': 'store',
                        'type': atyp,
                        }
 
             if atyp is bool:
+                akwargs.pop('type')
                 default = conf.get('default')
                 if default is None:
                     logger.debug(f'Boolean type is missing default information. Cannot form argparse for [{name}]')
@@ -144,14 +150,14 @@ class Config020(c_abc.MutableMapping):
             self.setdefault(nname, v)
 
     # Envar support methods
-    def loadConfEnvs(self):
-        for (k, info) in self.json_schema.get('properties'):
-            envar = make_envar_name(k, prefix=self.envar_prefix)
+    def setConfEnvs(self):
+        for (name, info) in self.json_schema.get('properties', {}).items():
+            envar = make_envar_name(name, prefix=self.envar_prefix)
             envv = os.getenv(envar)
             if envv is not None:
                 logger.debug(f'Loading config valu from: [{envar}]')
                 envv = yaml.safe_load(envv)
-                self.setdefault(k, envv)
+                self.setdefault(name, envv)
 
     # General methods
     def reqConfValid(self):
@@ -166,8 +172,12 @@ class Config020(c_abc.MutableMapping):
             None: This returns nothing.
         '''
         # TODO: Wrap and raise a s_exc.SynErr...
-        return self.validator(self.conf)
-
+        try:
+            self.validator(self.conf)
+        except fastjsonschema.exceptions.JsonSchemaException as e:
+            raise s_exc.BadConfValu(mesg=str(e)) from None
+        else:
+            return
     def reqConfValu(self, key):
         '''
         Get a configuration value.  If that value is not present in the schema

@@ -8,11 +8,12 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.lib.base as s_base
+import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
 
-def parse(argv):
+def getParser():
 
     https = os.getenv('SYN_CORTEX_HTTPS', '4443')
     telep = os.getenv('SYN_CORTEX_TELEPATH', 'tcp://0.0.0.0:27492/')
@@ -26,17 +27,25 @@ def parse(argv):
     pars.add_argument('--name', default=telen, help='The (optional) additional name to share the Cortex as.')
     pars.add_argument('coredir', help='The directory for the cortex to use for storage.')
 
-    return pars.parse_args(argv)
+    return pars
 
 async def main(argv, outp=s_output.stdout):
 
-    opts = parse(argv)
-
     s_common.setlogging(logger)
+
+    pars = getParser()
+
+    conf = s_config.Config020.getConfFromCell(s_cortex.Cortex)
+    conf.generateArgparser(pars=pars)
+
+    opts = pars.parse_args(argv)
+
+    conf.setConfFromOpts(opts)
+    conf.setConfEnvs()
 
     outp.printf('starting cortex: %s' % (opts.coredir,))
 
-    core = await s_cortex.Cortex.anit(opts.coredir)
+    core = await s_cortex.Cortex.anit(opts.coredir, conf=conf)
 
     try:
 

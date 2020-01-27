@@ -396,7 +396,7 @@ class Cell(s_base.Base, s_telepath.Aware):
     confdefs = {}  # This should be a JSONSchema properties list for an object.
     confbase = {
         "auth:passwd": {
-            "description": "Set to <passwd> (local only) to bootstrap the root user password..",
+            "description": "Set to <passwd> (local only) to bootstrap the root user password.",
             "type": "string"
         },
         "hive": {

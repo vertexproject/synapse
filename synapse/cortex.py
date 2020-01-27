@@ -813,7 +813,7 @@ class Cortex(s_cell.Cell):
         },
         "dedicated": {
             "default": False,
-            "description": "The cortex is free to use most of the resources of the system",
+            "description": "The cortex is free to use most of the resources of the system.",
             "type": "boolean"
         },
         "feeds": {
