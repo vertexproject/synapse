@@ -90,7 +90,7 @@ class ConfTest(s_test.SynTest):
         pars = argparse.ArgumentParser('synapse.tests.test_lib_config.basics')
         pars.add_argument('--beep', type=str, help='beep option', default='beep.sys')
         with self.getLoggerStream('synapse.lib.config', mesg) as stream:
-            pars = conf.generateArgparser(pars=pars)
+            pars = conf.getArgparser(pars=pars)
             self.true(stream.wait(3))
         hmsg = pars.format_help()
 
@@ -112,7 +112,7 @@ class ConfTest(s_test.SynTest):
 
         # Alternatively, we can have the config object also generate an
         # argparse.Argument for us if we don't want to make one apriori.
-        pars2 = conf.generateArgparser()
+        pars2 = conf.getArgparser()
         hmsg2 = pars2.format_help()
         self.isin('--key-string KEY_STRING', hmsg2)
         self.notin('--beep', hmsg2)

@@ -34,7 +34,7 @@ async def main(argv, outp=s_output.stdout):
     pars = getParser()
 
     conf = s_config.Config.getConfFromCell(s_cryotank.CryoCell)
-    conf.generateArgparser(pars=pars)
+    conf.getArgparser(pars=pars)
 
     opts = pars.parse_args(argv)
 

@@ -36,7 +36,7 @@ async def main(argv, outp=s_output.stdout, axonctor=None):
         axonctor = s_axon.Axon
 
     conf = s_config.Config.getConfFromCell(axonctor)
-    conf.generateArgparser(pars=pars)
+    conf.getArgparser(pars=pars)
 
     opts = pars.parse_args(argv)
 

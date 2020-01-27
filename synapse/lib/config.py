@@ -72,11 +72,21 @@ jsonschematype2argparse = {
     'number': float,
 }
 
-def make_envar_name(key, prefix: str =None) -> str:
-    nk = f'{key.replace(":", "_")}'.upper()
+def make_envar_name(key, prefix=None):
+    '''
+    Convert a colon delimited string into an uppercase, underscore delimited string.
+
+    Args:
+        key (str): Config key to convert.
+        prefix (str): Optional string prefix to prepend the the config key.
+
+    Returns:
+        str: The string to lookup against a envar.
+    '''
+    nk = f'{key.replace(":", "_")}'
     if prefix:
-        nk = f'{prefix}_{nk}'.upper()
-    return nk
+        nk = f'{prefix}_{nk}'
+    return nk.upper()
 
 class Config(c_abc.MutableMapping):
     '''
@@ -101,9 +111,9 @@ class Config(c_abc.MutableMapping):
 
     '''
     def __init__(self,
-                 schema: dict,
-                 conf: dict =None,
-                 envar_prefix: str =None,
+                 schema,
+                 conf=None,
+                 envar_prefix=None,
                  ):
         self.json_schema = schema
         if conf is None:
@@ -125,14 +135,18 @@ class Config(c_abc.MutableMapping):
         return cls(schema, conf=conf)
 
     # Argparse support methods
-    def generateArgparser(self, pars: argparse.ArgumentParser =None) -> argparse.ArgumentParser:
+    def getArgumentParser(self, pars=None):
         '''
-        Add config related arguments group to an argument parser.
+        Make or update an argparse.ArgumentParser with configuration switches.
+
+        Args:
+            pars (argparse.ArgumentParser): Optional, an existing argparser to update.
 
         Notes:
-            Makes a new argument parser if one is not provided.
-
             Configuration data is placed in the argument group called ``config``.
+
+        Returns:
+            argparse.ArgumentParser: Either a new or the existing ArgumentParser.
         '''
         if pars is None:
             pars = argparse.ArgumentParser()
@@ -140,7 +154,16 @@ class Config(c_abc.MutableMapping):
         self._addArgparseArguments(agrp)
         return pars
 
-    def _addArgparseArguments(self, obj: argparse._ArgumentGroup):
+    def _addArgparseArguments(self, pgrp):
+        '''
+        Do the work for adding arguments from the schema to an argumentgroup.
+
+        Args:
+            pgrp (argparse._ArgumentGroup): The argumentgroup which arguments are added to.
+
+        Returns:
+            None: Returns None.
+        '''
         for (name, conf) in self.json_schema.get('properties').items():
             atyp = jsonschematype2argparse.get(conf.get('type'))
             if atyp is None:
@@ -172,9 +195,19 @@ class Config(c_abc.MutableMapping):
             replace_name = name.replace(':', '_')
             self._argparse_conf_names[replace_name] = name
             argname = '--' + parsed_name
-            obj.add_argument(argname, **akwargs)
+            pgrp.add_argument(argname, **akwargs)
 
-    def setConfFromOpts(self, opts: argparse.Namespace):
+    def setConfFromOpts(self, opts):
+        '''
+        Set the opts for a conf object from a namespace object.
+
+        Args:
+            opts (argparse.Namespace): A Namespace object made from parsing args with an ArgumentParser
+            made with getArgumentParser.
+
+        Returns:
+            None: Returns None.
+        '''
         opts_data = vars(opts)
         for k, v in opts_data.items():
             if v is s_common.novalu:
