@@ -1,7 +1,8 @@
 import os
+import copy
 import asyncio
 import logging
-import copy
+import warnings
 import contextlib
 import collections
 
@@ -113,6 +114,10 @@ class CoreApi(s_cell.CellApi):
         Adds a trigger to the cortex
 
         '''
+        mesg = 'addTrigger will be deprecated in 0.2.x, ' \
+               'triggers should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         # TODO: accept a view or layer param
         wlyr = self.cell.view.layers[0]
         await wlyr._reqUserAllowed(self.user, ('trigger', 'add'))
@@ -151,6 +156,10 @@ class CoreApi(s_cell.CellApi):
         '''
         Deletes a trigger from the cortex
         '''
+        mesg = 'delTrigger will be deprecated in 0.2.x, ' \
+               'triggers should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         trig = await self.cell.getTrigger(iden)
         await trig.reqAllowed(self.user, ('trigger', 'del'))
         await self.cell.delTrigger(iden)
@@ -159,6 +168,10 @@ class CoreApi(s_cell.CellApi):
         '''
         Change an existing trigger's query
         '''
+        mesg = 'updateTrigger will be deprecated in 0.2.x, ' \
+               'triggers should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         trig = await self.cell.getTrigger(iden)
         await trig.reqAllowed(self.user, ('trigger', 'set'))
         await self.cell.updateTrigger(iden, query)
@@ -167,6 +180,10 @@ class CoreApi(s_cell.CellApi):
         '''
         Enable an existing trigger
         '''
+        mesg = 'enableTrigger will be deprecated in 0.2.x, ' \
+               'triggers should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         trig = await self.cell.getTrigger(iden)
         await trig.reqAllowed(self.user, ('trigger', 'set'))
         await self.cell.enableTrigger(iden)
@@ -175,6 +192,10 @@ class CoreApi(s_cell.CellApi):
         '''
         Disable an existing trigger
         '''
+        mesg = 'disableTrigger will be deprecated in 0.2.x, ' \
+               'triggers should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         trig = await self.cell.getTrigger(iden)
         await trig.reqAllowed(self.user, ('trigger', 'set'))
         await self.cell.disableTrigger(iden)
@@ -183,6 +204,10 @@ class CoreApi(s_cell.CellApi):
         '''
         Lists all the triggers that the current user is authorized to access
         '''
+        mesg = 'listTrigger will be deprecated in 0.2.x, ' \
+               'triggers should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         trigs = []
         rawtrigs = await self.cell.listTriggers()
 
@@ -223,6 +248,10 @@ class CoreApi(s_cell.CellApi):
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
+        mesg = 'addCronJob will be deprecated in 0.2.x, ' \
+               'cron jobs should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         await self._reqUserAllowed(('cron', 'add'))
 
         return await self.cell.addCronJob(self.user, query, reqs, incunit, incval)
@@ -234,6 +263,10 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
+        mesg = 'delCronJob will be deprecated in 0.2.x, ' \
+               'cron jobs should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         cron = self.cell.agenda.appts.get(iden)
         await cron.reqAllowed(self.user, ('cron', 'del'))
         await self.cell.delCronJob(iden)
@@ -245,6 +278,10 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
+        mesg = 'updateCronJob will be deprecated in 0.2.x, ' \
+               'cron jobs should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         cron = self.cell.agenda.appts.get(iden)
         await cron.reqAllowed(self.user, ('cron', 'set'))
         await self.cell.updateCronJob(iden, query)
@@ -256,6 +293,10 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
+        mesg = 'enableCronJob will be deprecated in 0.2.x, ' \
+               'cron jobs should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         cron = self.cell.agenda.appts.get(iden)
         await cron.reqAllowed(self.user, ('cron', 'set'))
         await self.cell.enableCronJob(iden)
@@ -267,6 +308,10 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
+        mesg = 'disableCronJob will be deprecated in 0.2.x, ' \
+               'cron jobs should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         cron = self.cell.agenda.appts.get(iden)
         await cron.reqAllowed(self.user, ('cron', 'set'))
         await self.cell.disableCronJob(iden)
@@ -275,6 +320,10 @@ class CoreApi(s_cell.CellApi):
         '''
         Get information about all the cron jobs accessible to the current user
         '''
+        mesg = 'listCronJobs will be deprecated in 0.2.x, ' \
+               'cron jobs should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         crons = []
         rawcrons = await self.cell.listCronJobs()
 
