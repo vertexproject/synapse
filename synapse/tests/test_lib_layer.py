@@ -138,3 +138,20 @@ class LayerTest(s_t_utils.SynTest):
                 stream.seek(0)
                 mesgs = stream.read()
                 self.notin('migration', mesgs)
+
+    async def test_layer_abrv(self):
+
+        async with self.getTestCore() as core:
+
+            layr = core.view.layers[0]
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.getPropAbrv('visi', 'foo'))
+            # another to check the cache...
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.getPropAbrv('visi', 'foo'))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x05', layr.getPropAbrv('whip', None))
+            self.eq(('visi', 'foo'), await layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x04'))
+            self.eq(('whip', None), await layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x05'))
+
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.getTagPropAbrv('visi', 'foo'))
+            # another to check the cache...
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.getTagPropAbrv('visi', 'foo'))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x01', layr.getTagPropAbrv('whip', None))
