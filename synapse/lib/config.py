@@ -138,10 +138,30 @@ class Config020(c_abc.MutableMapping):
 
     # General methods
     def reqConfValid(self):
+        '''
+        Validate that the loaded configuration data is valid according to the schema.
+
+        Notes:
+            The validation set does set any default values which are not currently
+            set for configuration options.
+
+        Returns:
+            None: This returns nothing.
+        '''
         # TODO: Wrap and raise a s_exc.SynErr...
         return self.validator(self.conf)
 
     def reqConfValu(self, key):
+        '''
+        Get a configuration value.  If that value is not present in the schema
+        or is not set, then raise an exception.
+
+        Args:
+            key (str): The key to require.
+
+        Returns:
+            The requested value.
+        '''
         # Ensure that the key is in self.json_schema
         if key not in self.json_schema.get('properties', {}):
             raise s_exc.BadArg(mesg='Required key is not present in the configuration schema.',
