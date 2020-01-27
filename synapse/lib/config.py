@@ -74,7 +74,7 @@ class Config020(c_abc.MutableMapping):
 
     '''
     def __init__(self,
-                 schema,
+                 schema: dict,
                  conf: dict =None,
                  envar_prefix: str =None,
                  ):
