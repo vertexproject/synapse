@@ -1238,7 +1238,7 @@ class Layer(s_base.Base):
         name = edit[1]
         abrv = self.getPropAbrv(name, None)
 
-        self.layrslab.delete(buid + abrv, s_msgpack.en(valu), db=self.nodedata)
+        self.layrslab.delete(buid + abrv, db=self.nodedata)
 
     def getStorIndx(self, stortype, valu):
 
