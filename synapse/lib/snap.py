@@ -74,8 +74,10 @@ class Snap(s_base.Base):
         self.debug = False      # Set to true to enable debug output.
         self.write = False      # True when the snap has a write lock on a layer.
 
-        self.tagcache = s_cache.FixedCache(self._addTagNode, size=10000)
-        self.buidcache = collections.deque(maxlen=100000)  # Keeps alive the most recently accessed node objects
+        self._tagcachesize = 10000
+        self._buidcachesize = 100000
+        self.tagcache = s_cache.FixedCache(self._addTagNode, size=self._tagcachesize)
+        self.buidcache = collections.deque(maxlen=self._buidcachesize)  # Keeps alive the most recently accessed node objects
         self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
 
         self.onfini(self.stack.close)
@@ -174,6 +176,20 @@ class Snap(s_base.Base):
     async def addStormDmon(self, ddef):
         return await self.core.addStormDmon(ddef)
 
+    async def addView(self, iden, layers):
+        return await self.core.addView(iden=iden,
+                                       owner=self.user.iden,
+                                       layers=layers)
+
+    async def delView(self, iden):
+        return await self.core.delView(iden=iden)
+
+    def getView(self, iden=None):
+        return self.core.getView(iden=iden)
+
+    def listViews(self):
+        return list(self.core.views.values())
+
     def getStormMod(self, name):
         return self.mods.get(name)
 
@@ -244,6 +260,11 @@ class Snap(s_base.Base):
 
     async def getOffset(self, iden, offs):
         return await self.wlyr.getOffset(iden, offs)
+
+    async def clearCache(self):
+        self.tagcache.clear()
+        self.buidcache.clear()
+        self.livenodes.clear()
 
     async def printf(self, mesg):
         await self.fire('print', mesg=mesg)
@@ -740,21 +761,27 @@ class Snap(s_base.Base):
         '''
 
         for (formname, formvalu), forminfo in nodedefs:
+            try:
+                props = forminfo.get('props')
 
-            props = forminfo.get('props')
+                # remove any universal created props...
+                if props is not None:
+                    props.pop('.created', None)
 
-            # remove any universal created props...
-            if props is not None:
-                props.pop('.created', None)
+                node = await self.addNode(formname, formvalu, props=props)
+                if node is not None:
+                    tags = forminfo.get('tags')
+                    if tags is not None:
+                        for tag, asof in tags.items():
+                            await node.addTag(tag, valu=asof)
 
-            node = await self.addNode(formname, formvalu, props=props)
-            if node is not None:
-                tags = forminfo.get('tags')
-                if tags is not None:
-                    for tag, asof in tags.items():
-                        await node.addTag(tag, valu=asof)
+                yield node
 
-            yield node
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+
+            except Exception as e:
+                logger.exception(f'Error making node: [{formname}={formvalu}]')
 
     async def stor(self, sops, splices=None):
 

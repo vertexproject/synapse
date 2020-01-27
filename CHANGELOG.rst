@@ -3,6 +3,52 @@ Synapse Changelog
 *****************
 
 
+v0.1.46 - 2019-01-17
+====================
+
+Features and Enhancements
+-------------------------
+- Add StormTypes and StormCmd support for enumerating and working with Cortex View's via the Storm runtime.
+  (`#1507 <https://github.com/vertexproject/synapse/pull/1507>`_)
+- In StormCmd's implemented via pure Storm (PureCmd), push the parent runtime variables down into the subruntime when
+  there are no nodes feed into the cmd during execution.
+  (`#1479 <https://github.com/vertexproject/synapse/pull/1479>`_)
+- Harden the ``syn.nodes`` ingest function so that it tries to make every input node given to it, instead of potentially
+  exiting on an error.
+  (`#1511 <https://github.com/vertexproject/synapse/pull/1511>`_)
+- Make the ``$lib.time.sleep()`` and ``$lib.time.ticker()`` StormType functions flush the Snap cache of nodes. This can
+  prevent Node caching issues for StormDmon users.
+  (`#1512 <https://github.com/vertexproject/synapse/pull/1512>`_)
+- Add ``$node.pack()`` function to the ``$node`` StormType object to return the packed node inside of the Storm runtime.
+  (`#1514 <https://github.com/vertexproject/synapse/pull/1514>`_)
+
+Improved Documentation
+----------------------
+- Update User Guide documentation for Storm Variables.
+  (`#1509 <https://github.com/vertexproject/synapse/pull/1509>`_)
+
+
+v0.1.45 - 2019-01-17
+====================
+
+Features and Enhancements
+-------------------------
+- Rewrote the base Synapse benchmark script for a modern Cortex.
+  (`#1503 <https://github.com/vertexproject/synapse/pull/1503>`_)
+- ``StormDmon`` objects now respect the ``view`` argument in their ``stormopts`` structure, and the ``$lib.dmon.add()``
+  StormType function will capture the current ``View`` iden to populate that structure.
+  (`#1504 <https://github.com/vertexproject/synapse/pull/1504>`_)
+- Add Storm commands to list and undo splices.
+  (`#1496 <https://github.com/vertexproject/synapse/pull/1496>`_)
+- Add the API plumbing to allow a forked ``View`` to have its splices merged back into the parent view.
+  (`#1505 <https://github.com/vertexproject/synapse/pull/1505>`_)
+
+Improved Documentation
+----------------------
+- Update User Guide documentation for Tag Properties (tagprops).
+  (`#1502 <https://github.com/vertexproject/synapse/pull/1502>`_)
+
+
 v0.1.44 - 2019-01-08
 ====================
 

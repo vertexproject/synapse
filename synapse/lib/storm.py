@@ -136,7 +136,92 @@ stormcmds = (
 
             }
         '''
-    }
+    },
+    {
+        'name': 'view.add',
+        'descr': 'Add a view to the cortex.',
+        'cmdargs': (
+            ('--layers', {'default': [], 'nargs': '*', 'help': 'Layers for the view.'}),
+        ),
+        'storm': '''
+            $view = $lib.view.add($cmdopts.layers)
+            $lib.print("View added: {iden}", iden=$view.pack().iden)
+        ''',
+    },
+    {
+        'name': 'view.del',
+        'descr': 'Delete a view from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to delete.'}),
+        ),
+        'storm': '''
+            $lib.view.del($cmdopts.iden)
+            $lib.print("View deleted: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
+    {
+        'name': 'view.fork',
+        'descr': 'Fork a view in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to fork.'}),
+        ),
+        'storm': '''
+            $forkview = $lib.view.fork($cmdopts.iden)
+            $lib.print("View {iden} forked to new view: {forkiden}",
+                        iden=$cmdopts.iden,
+                        forkiden=$forkview.pack().iden)
+        ''',
+    },
+    {
+        'name': 'view.get',
+        'descr': 'Get a view from the cortex.',
+        'cmdargs': (
+            ('iden', {'nargs': '?', 'help': 'Iden of the view to get. If no iden is provided, the main view will be returned.'}),
+        ),
+        'storm': '''
+            $view = $lib.view.get($cmdopts.iden)
+            $viewvalu = $view.pack()
+
+            $lib.print("View {iden} owned by {owner}", iden=$viewvalu.iden, owner=$viewvalu.owner)
+            $lib.print("Layers:")
+            for $layer in $viewvalu.layers {
+                $lib.print("  {iden} ctor: {ctor} readonly: {readonly}",
+                           iden=$layer.iden,
+                           ctor=$layer.ctor,
+                           readonly=$layer.readonly)
+            }
+        ''',
+    },
+    {
+        'name': 'view.list',
+        'descr': 'List the views in the cortex.',
+        'cmdargs': (),
+        'storm': '''
+            for $view in $lib.view.list() {
+                $viewvalu = $view.pack()
+
+                $lib.print("View {iden} owned by {owner}", iden=$viewvalu.iden, owner=$viewvalu.owner)
+                $lib.print("Layers:")
+                for $layer in $viewvalu.layers {
+                    $lib.print("  {iden} ctor: {ctor} readonly: {readonly}",
+                               iden=$layer.iden,
+                               ctor=$layer.ctor,
+                               readonly=$layer.readonly)
+                }
+            }
+        ''',
+    },
+    {
+        'name': 'view.merge',
+        'descr': 'Merge a forked view into its parent view.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to merge.'}),
+        ),
+        'storm': '''
+            $lib.view.merge($cmdopts.iden)
+            $lib.print("View merged: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
 )
 
 class StormDmon(s_base.Base):
@@ -516,6 +601,23 @@ class Runtime:
                 continue
             self.vars[name] = valu
 
+    async def propDownVars(self, runt):
+        '''
+        Propagate down the vars from a called runtime (passed in by parameter) that are not functions
+        and do not conflict with the sub-runtime (self).
+        '''
+        for name, valu in runt.vars.items():
+            if valu is s_common.novalu:
+                continue
+            if not self.canPropName(name):
+                # don't override the function in the sub-runtime
+                continue
+            if name in self.runtvars:
+                # don't propagate vars already defined as runtvars
+                continue
+            self.setVar(name, valu)
+            self.runtvars.add(name)
+
 class Parser(argparse.ArgumentParser):
 
     def __init__(self, prog=None, descr=None, root=None):
@@ -701,9 +803,16 @@ class PureCmd(Cmd):
 
             async def wrapgenr():
                 # wrap paths in a scope to isolate vars
+                hasnodes = False
                 async for node, path in genr:
+                    if not hasnodes:
+                        hasnodes = True
                     path.initframe(initvars=cmdvars, initrunt=subr)
                     yield node, path
+
+                # when there are no inbound nodes prop down the vars if they don't conflict
+                if not hasnodes:
+                    await subr.propDownVars(runt)
 
             subr.loadRuntVars(query)
 

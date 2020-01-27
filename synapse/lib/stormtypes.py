@@ -426,6 +426,7 @@ class LibTime(Lib):
         Sleep/yield execution of the storm query.
         '''
         await self.runt.snap.waitfini(timeout=float(valu))
+        await self.runt.snap.clearCache()
 
     async def ticker(self, tick, count=None):
 
@@ -438,6 +439,7 @@ class LibTime(Lib):
         while True:
 
             await self.runt.snap.waitfini(timeout=tick)
+            await self.runt.snap.clearCache()
             yield offs
 
             offs += 1
@@ -1039,12 +1041,7 @@ class LibVars(Lib):
         '''
         Resolve a variable in a storm query
         '''
-        ret = self.runt.getVar(name, defv=s_common.novalu)
-        if ret is s_common.novalu:
-            mesg = f'No var with name: {name}'
-            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
-
-        return ret
+        return self.runt.getVar(name, defv=s_common.novalu)
 
     async def _libVarsSet(self, name, valu):
         '''
@@ -1144,10 +1141,11 @@ class Node(Prim):
         Prim.__init__(self, node, path=path)
         self.locls.update({
             'form': self._methNodeForm,
-            'ndef': self._methNodeNdef,
-            'tags': self._methNodeTags,
-            'repr': self._methNodeRepr,
             'iden': self._methNodeIden,
+            'ndef': self._methNodeNdef,
+            'pack': self._methNodePack,
+            'repr': self._methNodeRepr,
+            'tags': self._methNodeTags,
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
 
@@ -1158,6 +1156,18 @@ class Node(Prim):
             return NodeData(node, path=path)
 
         self.ctors['data'] = ctordata
+
+    async def _methNodePack(self, dorepr=False):
+        '''
+        Return the serializable/packed version of the Node.
+
+        Args:
+            dorepr (bool): Include repr information for human readable versions of properties.
+
+        Returns:
+            (tuple): An (ndef, info) node tuple.
+        '''
+        return self.valu.pack(dorepr=dorepr)
 
     async def _methNodeIsForm(self, name):
         return self.valu.form.name == name
@@ -1353,6 +1363,149 @@ class StatTally(Prim):
 
     async def get(self, name):
         return self.counters.get(name, 0)
+
+class LibView(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'add': self._methViewAdd,
+            'del': self._methViewDel,
+            'fork': self._methViewFork,
+            'get': self._methViewGet,
+            'list': self._methViewList,
+            'merge': self._methViewMerge,
+        })
+
+    async def _methViewAdd(self, layers):
+        '''
+        Add a view to the cortex.
+        '''
+        self.runt.reqAllowed(('view', 'add'))
+
+        iden = s_common.guid()
+        view = await self.runt.snap.addView(iden, layers)
+
+        if view is None:
+            mesg = f'Failed to add view.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=iden, layers=layers)
+
+        return View(view, path=self.path)
+
+    async def _methViewDel(self, iden):
+        '''
+        Delete a view in the cortex.
+        '''
+        view = self.runt.snap.getView(iden)
+        if view is None:
+            mesg = f'No view with iden: {iden}'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        if view is self.runt.snap.core.view:
+            mesg = f'Deleting the main view is not permitted.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=iden)
+
+        if not view.info.get('owner') == self.runt.user.iden:
+            self.runt.reqAllowed(('view', 'del'))
+
+        await self.runt.snap.delView(iden=view.iden)
+
+        return True
+
+    async def _methViewFork(self, iden):
+        '''
+        Fork a view in the cortex.
+        '''
+        self.runt.reqAllowed(('view', 'add'))
+
+        view = self.runt.snap.getView(iden)
+        if view is None:
+            mesg = f'No view with iden: {iden}'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        newview = await view.fork(owner=self.runt.user.iden)
+
+        return View(newview, path=self.path)
+
+    async def _methViewGet(self, iden=None):
+        '''
+        Retrieve a view from the cortex.
+        '''
+        self.runt.reqAllowed(('view', 'read'))
+
+        view = self.runt.snap.getView(iden)
+        if view is None:
+            mesg = f'No view with iden: {iden}'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        return View(view, path=self.path)
+
+    async def _methViewList(self):
+        '''
+        List the views in the cortex.
+        '''
+        self.runt.reqAllowed(('view', 'read'))
+
+        views = self.runt.snap.listViews()
+
+        return [View(view, path=self.path) for view in views]
+
+    async def _methViewMerge(self, iden):
+        '''
+        Merge a forked view back into its parent.
+
+        When complete, the view is deleted.
+        '''
+        view = self.runt.snap.getView(iden)
+        if view is None:
+            mesg = f'No view with iden: {iden}'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        if not view.info.get('owner') == self.runt.user.iden:
+            self.runt.reqAllowed(('view', 'del'))
+
+        view.layers[0].readonly = True
+        try:
+            await view.mergeAllowed(self.runt.user)
+            await view.merge()
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+
+        except s_exc.AuthDeny as e:
+            view.layers[0].readonly = False
+            perm = e.get('perm')
+            mesg = f'Insufficient permissions to perform merge: {e.get("mesg")}'
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm, iden=iden) from None
+
+        except Exception as e:
+            view.layers[0].readonly = False
+            mesg = f'Error during merge - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=iden) from None
+
+class View(Prim):
+    '''
+    Implements the STORM api for a view instance.
+    '''
+    def __init__(self, view, path=None):
+        Prim.__init__(self, view, path=path)
+        self.locls.update({
+            'pack': self._methViewPack,
+        })
+
+    async def _methViewPack(self):
+
+        layrinfo = []
+        for layr in self.valu.layers:
+            layrinfo.append({
+                'ctor': layr.ctorname,
+                'iden': layr.iden,
+                'readonly': layr.readonly,
+            })
+
+        return {
+            'iden': self.valu.iden,
+            'owner': self.valu.info.get('owner'),
+            'layers': layrinfo,
+        }
 
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):
