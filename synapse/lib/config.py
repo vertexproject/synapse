@@ -116,24 +116,25 @@ class Config020(c_abc.MutableMapping):
             akwargs = {'help': conf.get('description', ''),
                        'action': 'store',
                        'type': atyp,
+                       'default': s_common.novalu
                        }
 
             if atyp is bool:
                 akwargs.pop('type')
                 default = conf.get('default')
                 if default is None:
-                    logger.debug(f'Boolean type is missing default information. Cannot form argparse for [{name}]')
+                    logger.debug(f'Boolean type is missing default information. Will not form argparse for [{name}]')
                     continue
                 default = bool(default)
-                akwargs['default'] = default
+                # Do not use the default value!
                 if default:
                     akwargs['action'] = 'store_false'
                     akwargs['help'] = akwargs['help'] + \
-                                      ' The default value for this is True. Set this value to disable this option.'
+                                      ' Set this value to disable this option.'
                 else:
                     akwargs['action'] = 'store_true'
                     akwargs['help'] = akwargs['help'] + \
-                                      ' The default value for this is False. Set this value to enable this option.'
+                                      ' Set this value to enable this option.'
 
             parsed_name = name.replace(':', '-')
             replace_name = name.replace(':', '_')
@@ -144,6 +145,8 @@ class Config020(c_abc.MutableMapping):
     def setConfFromOpts(self, opts: argparse.Namespace):
         opts_data = vars(opts)
         for k, v in opts_data.items():
+            if v is s_common.novalu:
+                continue
             nname = self._argparse_conf_names.get(k)
             if nname is None:
                 continue
@@ -175,6 +178,7 @@ class Config020(c_abc.MutableMapping):
         try:
             self.validator(self.conf)
         except fastjsonschema.exceptions.JsonSchemaException as e:
+            logger.exception('Configuration is invalid.')
             raise s_exc.BadConfValu(mesg=str(e)) from None
         else:
             return
