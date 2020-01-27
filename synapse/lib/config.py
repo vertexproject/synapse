@@ -20,10 +20,10 @@ SCHEMAS = {}
 def genSchema(confbase, confdefs):
     props = {}
     schema = {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "additionalProperties": False,
-        "properties": props,
-        "type": "object"
+        '$schema': 'http://json-schema.org/draft-07/schema#',
+        'additionalProperties': False,
+        'properties': props,
+        'type': 'object'
     }
     props.update(confdefs)
     props.update(confbase)
@@ -84,7 +84,7 @@ class Config(c_abc.MutableMapping):
         self.conf = conf
         self._argparse_conf_names = {}
         self.envar_prefix = envar_prefix
-        # TODO Cache this if FJS does't already cache things...
+        # TODO fjs does not cache the compilation. Compare compilation time vs. caching time.
         self.validator = fastjsonschema.compile(self.json_schema)
 
     @classmethod
@@ -158,9 +158,10 @@ class Config(c_abc.MutableMapping):
             envar = make_envar_name(name, prefix=self.envar_prefix)
             envv = os.getenv(envar)
             if envv is not None:
-                logger.debug(f'Loading config valu from: [{envar}]')
                 envv = yaml.safe_load(envv)
-                self.setdefault(name, envv)
+                resp = self.setdefault(name, envv)
+                if resp == envv:
+                    logger.debug(f'Set config valu from envar: [{envar}]')
 
     # General methods
     def reqConfValid(self):
