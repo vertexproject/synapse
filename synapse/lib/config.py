@@ -182,6 +182,7 @@ class Config020(c_abc.MutableMapping):
             raise s_exc.BadConfValu(mesg=str(e)) from None
         else:
             return
+
     def reqConfValu(self, key):
         '''
         Get a configuration value.  If that value is not present in the schema
@@ -204,6 +205,15 @@ class Config020(c_abc.MutableMapping):
                                      key=key)
 
         return self.conf.get(key)
+
+    def asDict(self):
+        '''
+        Get a copy of configuration data.
+
+        Returns:
+            dict: A copy of the configuration data.
+        '''
+        return copy.deepcopy(self.conf)
 
     # be nice...
     def __repr__(self):
