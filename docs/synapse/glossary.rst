@@ -94,6 +94,16 @@ Composite Form
 
 See :ref:`gloss-form-comp`.
 
+.. _gloss-constant:
+
+Constant
+--------
+
+In Storm, a constant is a value that cannot be altered during normal execution, i.e., the value is constant.
+
+Contrast with :ref:`gloss-variable`. See also :ref:`gloss-runtsafe` and :ref:`gloss-non-runtsafe`.
+
+
 .. _gloss-constructor:
 
 Constructor
@@ -435,6 +445,29 @@ Node Definition
 
 See :ref:`gloss-ndef`.
 
+.. _gloss-node-runt:
+
+Node, Runt
+----------
+
+Short for "runtime node". A runt node is a node that does not persist within a Cortex but is created at runtime when a Cortex is initiated. Runt nodes are commonly used to represent metadata associated with Synapse, such as data model elements like forms (``syn:form``) and properties (``syn:prop``) or automation elements like triggers (``syn:trigger``) or cron jobs (``syn:cron``).
+
+.. _gloss-non-runtime-safe:
+
+Non-Runtime Safe
+----------------
+
+See :ref:`gloss-non-runtsafe`.
+
+.. _gloss-non-runtsafe:
+
+Non-Runtsafe
+------------
+
+Short for "non-runtime safe". Non-runtsafe refers to the use of variables within Storm. A variable that is **non-runtsafe** has a value that may change based on the specific node passing through the Storm pipeline. A variable whose value is set to a node property, such as ``$fqdn = :fqdn`` is an example of a non-runtsafe variable (i.e., the value of the secondary property ``:fqdn`` may be different for different nodes, so the value of the variable will be different based on the specific node being operated on).
+
+Contrast with :ref:`gloss-runtsafe`.
+
 P
 =
 
@@ -542,6 +575,29 @@ Root Tag
 
 See :ref:`gloss-tag-root`.
 
+.. _gloss-runt-node:
+
+Runt Node
+---------
+
+See :ref:`gloss-node-runt`.
+
+.. _gloss-runtime-safe:
+
+Runtime Safe
+------------
+
+See :ref:`gloss-runtsafe`.
+
+.. _gloss-runtsafe:
+
+Runtsafe
+--------
+
+Short for "runtime safe". Runtsafe refers to the use of variables within Storm. A variable that is **runtsafe** has a value that will not change based on the specific node passing through the Storm pipeline. A variable whose value is explcitly set, such as ``$fqdn = woot.com`` is an example of a runtsafe varaible.
+
+Contrast with :ref:`gloss-non-runtsafe`.
+
 S
 =
 
@@ -644,6 +700,15 @@ Traverse
 
 In a :ref:`gloss-graph` or :ref:`gloss-directed-graph`, traversal refers to navigating the data in the graph by pathing along the edges between nodes. In a :ref:`gloss-hypergraph`, because there are no edges, navigation between nodes is commonly performed using a :ref:`gloss-pivot`.
 
+.. _gloss-trigger:
+
+Trigger
+-------
+
+Within Synapse, a trigger is a Storm query that is executed automatically upon the occurrence of a specified event within a Cortex (such as adding a node or applying a tag). "Trigger" refers collectively to the event and the query fired ("triggered") by the event.
+
+See the Synapse :ref:`syn-trigger` command and the Storm reference on :ref:`auto-triggers` for additional detail.
+
 .. _gloss-type:
 
 Type
@@ -706,7 +771,9 @@ V
 Variable
 --------
 
-TBD
+In Storm, a variable is an identifier with a value that can be defined and / or changed during normal execution, i.e., the value is variable.
+
+Contrast with :ref:`gloss-constant`. See also :ref:`gloss-runtsafe` and :ref:`gloss-non-runtsafe`.
 
 .. _gloss-view:
 

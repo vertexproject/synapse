@@ -612,17 +612,8 @@ class CoreApi(s_cell.CellApi):
 
         Will only return the user's own splices unless they are an admin.
         '''
-        layr = self.cell.view.layers[0]
-        indx = (await layr.stat())['splicelog_indx']
-
-        count = 0
-        async for mesg in layr.splicesBack(indx):
-            count += 1
-            if not count % 1000: # pragma: no cover
-                await asyncio.sleep(0)
-
-            if self.user.iden == mesg[1]['user'] or self.user.admin:
-                yield mesg
+        async for splice in self.cell.spliceHistory(self.user):
+            yield splice
 
     @s_cell.adminapi
     async def provStacks(self, offs, size):
@@ -1790,6 +1781,24 @@ class Cortex(s_cell.Cell):  # type: ignore
         async for item in layr.syncSplices(offs):
             yield item
 
+    async def spliceHistory(self, user):
+        '''
+        Yield splices backwards from the end of the splice log.
+
+        Will only return user's own splices unless they are an admin.
+        '''
+        layr = self.view.layers[0]
+        indx = (await layr.stat())['splicelog_indx']
+
+        count = 0
+        async for mesg in layr.splicesBack(indx):
+            count += 1
+            if not count % 1000: # pragma: no cover
+                await asyncio.sleep(0)
+
+            if user.iden == mesg[1]['user'] or user.admin:
+                yield mesg
+
     async def initCoreMirror(self, url):
         '''
         Initialize this cortex as a down-stream mirror from a telepath url, receiving splices from another cortex.
@@ -1927,6 +1936,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.DelNodeCmd)
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
+        self.addStormCmd(s_storm.SpliceListCmd)
+        self.addStormCmd(s_storm.SpliceUndoCmd)
 
         for cdef in s_stormsvc.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
@@ -1968,6 +1979,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('time',), s_stormtypes.LibTime)
         self.addStormLib(('user',), s_stormtypes.LibUser)
         self.addStormLib(('vars',), s_stormtypes.LibVars)
+        self.addStormLib(('view',), s_stormtypes.LibView)
         self.addStormLib(('queue',), s_stormtypes.LibQueue)
         self.addStormLib(('stats',), s_stormtypes.LibStats)
         self.addStormLib(('service',), s_stormtypes.LibService)
@@ -2398,15 +2410,24 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _onViewDel(self, iden):
 
         if iden == self.view.iden:
-            raise s_exc.SynErr(mesg='cannot delete the main view')
+            raise s_exc.SynErr(mesg='Cannot delete the main view')
+
+        for view in self.views.values():
+            if view.parent is not None and view.parent.iden == iden:
+                raise s_exc.SynErr(mesg='Cannot delete a view that has children')
 
         view = self.views.pop(iden, None)
         if view is None:
             # TODO probably need a retn convention here...
             raise s_exc.NoSuchView(iden=iden)
 
+        if view.parent is not None:
+            await self.delLayer(view.layers[0].iden)
+            await view.layers[0].trash()
+
         await self.hive.pop(('cortex', 'views', iden))
         await view.fini()
+        await view.trash()
 
         await self.bumpSpawnPool()
 

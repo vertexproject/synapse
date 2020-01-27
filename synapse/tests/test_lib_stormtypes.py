@@ -260,8 +260,16 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ test:str=woot ] [ test:int=$node.isform(test:str) ] +test:int')
+            nodes = await core.nodes('[ test:str=woot :tick=2001] [ test:int=$node.isform(test:str) ] +test:int')
             self.eq(1, nodes[0].ndef[1])
+
+            q = 'test:str=woot $lib.fire(name=pode, pode=$node.pack(dorepr=True))'
+            msgs = await core.streamstorm(q, opts={'repr': True}).list()
+            pode = [m[1] for m in msgs if m[0] == 'node'][0]
+            apode = [m[1].get('data').get('pode') for m in msgs if m[0] == 'storm:fire'][0]
+            self.eq(pode[0], ('test:str', 'woot'))
+            pode[1].pop('path')
+            self.eq(pode, apode)
 
     async def test_storm_lib_dict(self):
         async with self.getTestCore() as core:
@@ -964,6 +972,16 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, ernfos)
             self.isin('Error during time format', ernfos[0][1].get('mesg'))
 
+            # $lib.time.sleep causes cache flushes on the snap
+            async with await core.snap() as snap:
+                # lift a node into the cache
+                data0 = await alist(snap.storm('test:str=1234'))
+                self.len(1, snap.buidcache)
+                # use $lib.time.sleep
+                data1 = await alist(snap.storm('$lib.time.sleep(0) fini { test:str=1234 } '))
+                self.ne(id(data0[0][0]), id(data1[0][0]))
+                self.eq(data0[0][0].ndef, data1[0][0].ndef)
+
     async def test_storm_lib_time_ticker(self):
 
         async with self.getTestCore() as core:
@@ -978,6 +996,21 @@ class StormTypesTest(s_test.SynTest):
             ''')
             nodes = await core.nodes('for ($offs, $tick) in $lib.queue.get(visi).gets(size=3) { [test:int=$tick] } ')
             self.len(3, nodes)
+            self.eq({0, 1, 2}, {node.ndef[1] for node in nodes})
+
+            # lib.time.ticker also clears the snap cache
+            async with await core.snap() as snap:
+                # lift a node into the cache
+                _ = await alist(snap.storm('test:int=0'))
+                self.len(1, snap.buidcache)
+                q = '''
+                $visi=$lib.queue.get(visi)
+                for $tick in $lib.time.ticker(0.01, count=3) {
+                    $visi.put($tick)
+                }
+                '''
+                _ = await alist(snap.storm(q))
+                self.len(0, snap.buidcache)
 
     async def test_storm_lib_telepath(self):
 
@@ -1273,8 +1306,8 @@ class StormTypesTest(s_test.SynTest):
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
             err = errs[0]
-            self.eq(err[0], 'StormRuntimeError')
-            self.isin('No var with name: testvar', err[1].get('mesg'))
+            self.eq(err[0], 'BadPropValu')
+            self.isin('Error adding node', err[1].get('mesg'))
 
             opts = {'vars': {'testkey': 'testvar'}}
             text = '$lib.vars.set($testkey, test) [ test:str=$lib.vars.get(testvar) ]'
@@ -1288,8 +1321,8 @@ class StormTypesTest(s_test.SynTest):
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
             err = errs[0]
-            self.eq(err[0], 'StormRuntimeError')
-            self.isin('No var with name: testvar', err[1].get('mesg'))
+            self.eq(err[0], 'BadPropValu')
+            self.isin('Error adding node', err[1].get('mesg'))
 
             opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
             text = '$lib.vars.del(testvar) [ test:str=$lib.vars.get($testkey) ]'
@@ -1297,8 +1330,8 @@ class StormTypesTest(s_test.SynTest):
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
             err = errs[0]
-            self.eq(err[0], 'StormRuntimeError')
-            self.isin('No var with name: testvar', err[1].get('mesg'))
+            self.eq(err[0], 'BadPropValu')
+            self.isin('Error adding node', err[1].get('mesg'))
 
             opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
             text = '$lib.print($lib.vars.list())'
@@ -1393,3 +1426,273 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0][0], ('test:comp', (2, 'foo')))
             self.eq(nodes[1][0], ('test:comp', (4, 'bar')))
             self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
+
+    async def test_storm_lib_view(self):
+
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            await core.addTagProp('risk', ('int', {'minval': 0, 'maxval': 100}), {'doc': 'risk score'})
+            await core.nodes('[test:int=12 +#tag.test +#tag.proptest:risk=20]')
+
+            # Get the main view
+            q = '$lib.print($lib.view.get().pack().iden)'
+            mesgs = await core.streamstorm(q).list()
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    mainiden = mesg[1]['mesg']
+
+            self.isin(mainiden, core.views)
+
+            q = f'$lib.print($lib.view.get({mainiden}).pack().iden)'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint(mainiden, mesgs)
+
+            # Fork the main view
+            q = f'''
+                $forkview=$lib.view.fork({mainiden})
+                $forkvalu=$forkview.pack()
+                $lib.print("{{iden}},{{layr}}", iden=$forkvalu.iden, layr=$forkvalu.layers.index(0).iden)
+            '''
+            mesgs = await core.streamstorm(q).list()
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    forkiden, forklayr = mesg[1]['mesg'].split(',')
+
+            self.isin(forkiden, core.views)
+            self.isin(forklayr, core.layers)
+
+            # Add a view
+            newlayer = await core.addLayer()
+
+            q = f'''
+                $newview=$lib.view.add(({newlayer.iden},))
+                $lib.print($newview.pack().iden)
+            '''
+            mesgs = await core.streamstorm(q).list()
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    newiden = mesg[1]['mesg']
+
+            self.isin(newiden, core.views)
+
+            # List the views in the cortex
+            q = '''
+                for $view in $lib.view.list() {
+                    $lib.print($view.pack().iden)
+                }
+            '''
+            idens = []
+            mesgs = await core.streamstorm(q).list()
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    idens.append(mesg[1]['mesg'])
+
+            self.sorteq(idens, core.views.keys())
+
+            # Delete the added view
+            q = f'$lib.view.del({newiden})'
+            await core.nodes(q)
+
+            self.notin(newiden, core.views)
+
+            # Fork the forked view
+            q = f'''
+                $forkview=$lib.view.fork({forkiden})
+                $lib.print($forkview.pack().iden)
+            '''
+            mesgs = await core.streamstorm(q).list()
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    childiden = mesg[1]['mesg']
+
+            # Can't merge the first forked view if it has children
+            q = f'$lib.view.merge({forkiden})'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            # Can't merge the child forked view if the parent is read only
+            core.views[childiden].parent.layers[0].readonly = True
+            q = f'$lib.view.merge({childiden})'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            core.views[childiden].parent.layers[0].readonly = False
+            await core.nodes(q)
+
+            # Merge the forked view
+            q = f'$lib.view.merge({forkiden})'
+            await core.nodes(q)
+
+            self.notin(forkiden, core.views)
+            self.notin(forklayr, core.layers)
+
+            # Sad paths
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.view.del(foo)'))
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.view.fork(foo)'))
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.view.get(foo)'))
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.view.merge(foo)'))
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(f'$lib.view.merge({mainiden})'))
+
+            q = f'$lib.view.del({mainiden})'
+            mesgs = await core.streamstorm(q).list()
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            self.eq(errs[0][0], 'StormRuntimeError')
+            self.eq(errs[0][1]['mesg'], 'Deleting the main view is not permitted.')
+
+            # Check helper commands
+            # Get the main view
+            q = 'view.get'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint(mainiden, mesgs)
+
+            q = f'view.get {mainiden}'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint(mainiden, mesgs)
+
+            # Fork the main view
+            q = f'view.fork {mainiden}'
+            mesgs = await core.streamstorm(q).list()
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    helperfork = mesg[1]['mesg'].split(' ')[-1]
+
+            self.isin(helperfork, core.views)
+
+            # Add a view
+            newlayer2 = await core.addLayer()
+
+            q = f'view.add --layers {newlayer.iden} {newlayer2.iden}'
+            mesgs = await core.streamstorm(q).list()
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    helperadd = mesg[1]['mesg'].split(' ')[-1]
+
+            self.isin(helperadd, core.views)
+
+            # List the views in the cortex
+            q = 'view.list'
+            mesgs = await core.streamstorm(q).list()
+
+            for viden, v in core.views.items():
+                self.stormIsInPrint(viden, mesgs)
+                for layer in v.layers:
+                    self.stormIsInPrint(layer.iden, mesgs)
+
+            # Delete the added view
+            q = f'view.del {helperadd}'
+            nodes = await core.nodes(q)
+
+            self.notin(helperadd, core.views)
+
+            # Merge the forked view
+            q = f'view.merge {helperfork}'
+            nodes = await core.nodes(q)
+
+            self.notin(helperfork, core.views)
+
+            # Test permissions
+
+            await prox.addAuthUser('visi')
+            await prox.setUserPasswd('visi', 'secret')
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+
+                # List and Get require 'read' permission
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.view.list()'))
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.view.get()'))
+
+                await prox.addAuthRule('visi', (True, ('view', 'read')))
+
+                await asvisi.eval('$lib.view.list()').list()
+                await asvisi.eval('$lib.view.get()').list()
+
+                # Add and Fork require 'add' permission
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.add(({newlayer.iden},))'))
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.fork({mainiden})'))
+
+                await prox.addAuthRule('visi', (True, ('view', 'add')))
+
+                q = f'''
+                    $newview=$lib.view.add(({newlayer.iden},))
+                    $lib.print($newview.pack().iden)
+                '''
+                mesgs = await asvisi.storm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        addiden = mesg[1]['mesg']
+
+                self.isin(addiden, core.views)
+
+                q = f'''
+                    $forkview=$lib.view.fork({mainiden})
+                    $lib.print($forkview.pack().iden)
+                '''
+                mesgs = await asvisi.storm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        forkediden = mesg[1]['mesg']
+
+                self.isin(forkediden, core.views)
+
+                # Del and Merge require 'del' permission unless performed by the owner
+                # Delete a view the user owns
+
+                q = f'$lib.view.del({addiden})'
+                nodes = await asvisi.storm(q).list()
+
+                self.notin(addiden, core.views)
+
+                forkview = core.getView(forkediden)
+                await alist(forkview.eval('[test:int=34 +#tag.test +#tag.proptest:risk=40]'))
+                await alist(forkview.eval('test:int=12 [-#tag.proptest:risk]'))
+                await alist(forkview.eval('test:int=12 | delnode'))
+
+                # Merge the view forked by the user
+                # Will need perms for all the ops required to merge
+
+                q = f'$lib.view.merge({forkediden})'
+                mesgs = await asvisi.storm(q).list()
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
+
+                await prox.addAuthRule('visi', (True, ('node:add',)))
+                await prox.addAuthRule('visi', (True, ('node:del',)))
+                await prox.addAuthRule('visi', (True, ('prop:set',)))
+                await prox.addAuthRule('visi', (True, ('prop:del',)))
+                await prox.addAuthRule('visi', (True, ('tag:add',)))
+                await prox.addAuthRule('visi', (True, ('tag:del',)))
+
+                q = f'$lib.view.merge({forkediden})'
+                nodes = await asvisi.storm(q).list()
+
+                self.notin(forkediden, core.views)
+
+                # Make some views not owned by the user
+                q = f'view.add --layers {newlayer.iden}'
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        rootadd = mesg[1]['mesg'].split(' ')[-1]
+                self.isin(rootadd, core.views)
+
+                q = f'view.fork {mainiden}'
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        rootfork = mesg[1]['mesg'].split(' ')[-1]
+                self.isin(rootfork, core.views)
+
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.del({rootadd})'))
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.merge({rootfork})'))
+
+                await prox.addAuthRule('visi', (True, ('view', 'del')))
+
+                # Delete a view not owned by the user
+                q = f'$lib.view.del({rootadd})'
+                nodes = await asvisi.storm(q).list()
+
+                self.notin(rootadd, core.views)
+
+                # Merge a view not owned by the user
+                q = f'view.merge {rootfork}'
+                nodes = await core.nodes(q)
+
+                self.notin(rootfork, core.views)
