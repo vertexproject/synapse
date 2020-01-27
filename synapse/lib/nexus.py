@@ -28,7 +28,7 @@ class Nexus(s_base.Base, metaclass=NexusType):
 
         root = self if parent is None else parent._nexsroot  # type:ignore
 
-        if parent is not None:
+        if parent:
             self._nexsiden = iden
             root._nexskids[self._nexsiden] = self
 
@@ -60,8 +60,12 @@ class Nexus(s_base.Base, metaclass=NexusType):
         Note:
             This method is considered 'protected', in that it should not be called from something other than self.
         '''
-        if iden is None and self is not self._nexsroot:
-            iden = self._nexsiden
+        if self._nexsroot is not self:  # I'm below the root
+            if iden is None:
+                iden = self._nexsiden
+            # We call the root's method, as he might have overriden _push
+            return await self._nexsroot._push(event, parms, iden)
 
-        nexus = self if iden is None else self._nexsroot._nexskids[iden]
+        # I'm the root
+        nexus = self if iden is None else self._nexskids[iden]
         return await nexus._nexshands[event](nexus, *parms)

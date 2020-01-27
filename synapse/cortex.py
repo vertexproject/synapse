@@ -885,7 +885,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
-        # FIXME:  need to wrap this with something that does change dist
         self.stormvars = None   # type: s_hive.HiveDict
 
         self.stormdmons = {}
@@ -1112,7 +1111,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         slab = await s_lmdbslab.Slab.anit(path, map_async=True)
         self.onfini(slab.fini)
 
-        self.multiqueue = slab.getMultiQueue('cortex:queue')
+        self.multiqueue = slab.getMultiQueue('cortex:queue', parent=self)
 
     # async def addCoreQueue(self, name, info):
     #    self.multiqueue.add(name, info)
@@ -1383,16 +1382,20 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         if sdef.get('iden') is None:
             sdef['iden'] = s_common.guid()
+        return await self._push('storm:svc:add', (sdef,))
+
+    @s_nexus.Nexus.onPush('storm:svc:add')
+    async def _onAddStormSvc(self, sdef):
 
         iden = sdef.get('iden')
         if self.svcsbyiden.get(iden) is not None:
             mesg = f'Storm service already exists: {iden}'
             raise s_exc.DupStormSvc(mesg=mesg)
 
-        ssvc = await self._setStormSvc(sdef)
+        await self._setStormSvc(sdef)
         await self.stormservices.set(iden, sdef)
         await self.bumpSpawnPool()
-        return ssvc
+        return iden
 
     async def delStormSvc(self, iden):
         '''
@@ -1885,7 +1888,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def _initCoreHive(self):
         stormvars = await self.hive.open(('cortex', 'storm', 'vars'))
-        self.stormvars = await stormvars.dict()
+        self.stormvars = await s_hive.NexusHiveDict.anit(await stormvars.dict(), parent=self)
+        self.onfini(self.stormvars)
 
     async def _initCoreAxon(self):
         turl = self.conf.get('axon')
@@ -2604,6 +2608,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         iden = s_common.guid()
         ddef['iden'] = iden
+        return await self._push('storm:dmon:add', (ddef,))
+
+    @s_nexus.Nexus.onPush('storm:dmon:add')
+    async def _onAddStormDmon(self, ddef):
+        iden = ddef['iden']
 
         if ddef.get('user') is None:
             user = self.auth.getUserByName('root')
@@ -2617,6 +2626,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Stop and remove a storm dmon.
         '''
+        return await self._push('storm:dmon:del', (iden,))
+
+    @s_nexus.Nexus.onPush('storm:dmon:del')
+    async def _onDelStormDmon(self, iden):
         ddef = await self.stormdmonhive.pop(iden)
         if ddef is None:
             mesg = f'No storm daemon exists with iden {iden}.'
@@ -2630,6 +2643,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         return self.stormcmds.get(name)
 
     async def runStormDmon(self, iden, ddef):
+        return await self._push('storm:dmon:run', (iden, ddef))
+
+    @s_nexus.Nexus.onPush('storm:dmon:run')
+    async def _onRunStormDmon(self, iden, ddef):
 
         # validate ddef before firing task
         uidn = ddef.get('user')

@@ -515,7 +515,7 @@ class StormSvcTest(s_test.SynTest):
                         'url': durl,
                     }
                     with patchcore(core, 'setStormSvcEvents', badSetStormSvcEvents):
-                        ssvc = await core.addStormSvc(sdef)
+                        ssvciden = await core.addStormSvc(sdef)
                         await ssvc.ready.wait()
                         await core.delStormSvc(ssvc.iden)
 

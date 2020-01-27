@@ -156,6 +156,7 @@ class Snap(s_base.Base):
         return await self.core.getFeedFuncs()
 
     # storm pkgfuncs
+    # FIXME: why all these pass-throughs?
     async def addStormPkg(self, pkgdef):
         return await self.core.addStormPkg(pkgdef)
 

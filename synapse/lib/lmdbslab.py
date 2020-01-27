@@ -19,6 +19,7 @@ import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
+import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
@@ -246,11 +247,14 @@ class HotCount(s_base.Base):
     def pack(self):
         return {n.decode(): v for (n, v) in self.cache.items()}
 
-class MultiQueue:
+class MultiQueue(s_nexus.Nexus):
     '''
     Allows creation/consumption of multiple durable queues in a slab.
     '''
-    def __init__(self, slab, name):
+    async def __anit__(self, slab, name, parent: s_nexus.Nexus = None):  # type: ignore
+
+        iden = 'multiqueue' + '' if parent is None else parent._nexsiden
+        await s_nexus.Nexus.__anit__(self, iden, parent=parent)
 
         self.slab = slab
 
@@ -261,7 +265,7 @@ class MultiQueue:
         self.queues = SlabDict(self.slab, db=self.slab.initdb(f'{name}:meta'))
         self.offsets = SlabDict(self.slab, db=self.slab.initdb(f'{name}:offs'))
 
-        self.waiters = collections.defaultdict(asyncio.Event)
+        self.waiters = collections.defaultdict(asyncio.Event)  # type: ignore
 
     def list(self):
         return [self.status(n) for n in self.queues.keys()]
@@ -289,8 +293,11 @@ class MultiQueue:
     def offset(self, name):
         return self.offsets.get(name)
 
-    def add(self, name, info):
+    async def add(self, name, info):
+        return await self._push('multiqueue:add', (name, info))
 
+    @s_nexus.Nexus.onPush('multiqueue:add')
+    async def _onAdd(self, name, info):
         if self.queues.get(name) is not None:
             mesg = f'A queue exists with the name {name}.'
             raise s_exc.DupName(mesg=mesg, name=name)
@@ -302,6 +309,10 @@ class MultiQueue:
             self.offsets.set(name, 0)
 
     async def rem(self, name):
+        return await self._push('multiqueue:rem', (name,))
+
+    @s_nexus.Nexus.onPush('multiqueue:rem')
+    async def _onRem(self, name):
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
@@ -324,10 +335,18 @@ class MultiQueue:
             return itemoffs, item
         return -1, None
 
-    def put(self, name, item):
-        return self.puts(name, (item,))
+    async def put(self, name, item):
+        return await self._push('multiqueue:put', (name, item))
 
-    def puts(self, name, items):
+    @s_nexus.Nexus.onPush('multiqueue:put')
+    async def _onPut(self, name, item):
+        return await self._onPuts(name, (item,))
+
+    async def puts(self, name, items):
+        return await self._push('multiqueue:puts', (name, items))
+
+    @s_nexus.Nexus.onPush('multiqueue:puts')
+    async def _onPuts(self, name, items):
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
@@ -395,6 +414,10 @@ class MultiQueue:
         '''
         Remove up-to (and including) the queue entry at offs.
         '''
+        return await self._push('multiqueue:cull', (name, offs))
+
+    @s_nexus.Nexus.onPush('multiqueue:cull')
+    async def _onCull(self, name, offs):
         if offs < 0:
             return
 
@@ -457,12 +480,14 @@ class Slab(s_base.Base):
     A "monolithic" LMDB instance for use in a asyncio loop thread.
     '''
     COMMIT_PERIOD = 0.5  # time between commits
+    DEFAULT_MAPSIZE = s_const.gibibyte
+    DEFAULT_GROWSIZE = None
 
     async def __anit__(self, path, **kwargs):
 
         await s_base.Base.__anit__(self)
 
-        kwargs.setdefault('map_size', s_const.gibibyte)
+        kwargs.setdefault('map_size', self.DEFAULT_MAPSIZE)
         kwargs.setdefault('lockmemory', False)
 
         opts = kwargs
@@ -491,7 +516,7 @@ class Slab(s_base.Base):
         opts.setdefault('writemap', True)
 
         self.maxsize = opts.pop('maxsize', None)
-        self.growsize = opts.pop('growsize', None)
+        self.growsize = opts.pop('growsize', self.DEFAULT_GROWSIZE)
 
         self.readonly = opts.get('readonly', False)
         self.lockmemory = opts.pop('lockmemory', False)
@@ -558,8 +583,10 @@ class Slab(s_base.Base):
     def getNameAbrv(self, name):
         return SlabAbrv(self, name)
 
-    def getMultiQueue(self, name):
-        return MultiQueue(self, name)
+    async def getMultiQueue(self, name, parent=None):
+        mq = await MultiQueue.anit(self, name, parent=None)
+        self.onfini(mq)
+        return mq
 
     def statinfo(self):
         return {
