@@ -675,7 +675,7 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     def _initCellConf(self, conf: c_abc.MutableMapping):
         if isinstance(conf, dict):
-            conf = s_config.Config020(schema=self.confschema,
+            conf = s_config.Config(schema=self.confschema,
                                       conf=conf,
                                       )
         yaml_conf = self._loadCellYaml('cell.yaml')

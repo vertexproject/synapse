@@ -35,7 +35,7 @@ async def main(argv, outp=s_output.stdout):
 
     pars = getParser()
 
-    conf = s_config.Config020.getConfFromCell(s_cortex.Cortex)
+    conf = s_config.Config.getConfFromCell(s_cortex.Cortex)
     conf.generateArgparser(pars=pars)
 
     opts = pars.parse_args(argv)

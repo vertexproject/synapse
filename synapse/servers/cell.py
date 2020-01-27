@@ -31,7 +31,7 @@ async def getCell(outp,
                                mesg='No Cell ctor found.')
 
     outp.printf(f'Resolving configuration data via envars')
-    conf = s_config.Config020.getConfFromCell(ctor)
+    conf = s_config.Config.getConfFromCell(ctor)
     conf.setConfEnvs()
 
     outp.printf(f'starting cell: {celldir}')
