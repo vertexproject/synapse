@@ -26,6 +26,8 @@ class SchemaCell(s_cell.Cell):
     }
     async def __anit__(self, dirn, conf=None, readonly=False, *args, **kwargs):
         await s_cell.Cell.__anit__(self, dirn, conf, readonly, *args, **kwargs)
+        # This captures a design pattern that reduces boilerplate
+        # code used by Cell implementators.
         self.conf.reqConfValu('apikey')
 
 test_schema = {
