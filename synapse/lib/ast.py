@@ -2629,7 +2629,7 @@ class EditNodeAdd(Edit):
 
                     # must reach back first to trigger sudo / etc
                     if first:
-                        runt.reqLayerAllowed(('node:add', self.name))
+                        runt.layerConfirm(('node:add', self.name))
                         first = False
 
                     # must use/resolve all variables from path before yield

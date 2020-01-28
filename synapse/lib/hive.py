@@ -863,10 +863,14 @@ class HiveAuth(s_nexus.Nexus):
         # initialize an admin user named root
         root = self.getUserByName('root')
         if root is None:
-            root = await self.addUser('root')
+            root = await self._addUser('root')
 
         await root.setAdmin(True)
         await root.setLocked(False)
+
+        if self.inaugural:
+            # initialize the rule of which all users are a member
+            await self._addRole('all')
 
         async def fini():
             [await u.fini() for u in self.users()]
@@ -977,7 +981,7 @@ class HiveAuth(s_nexus.Nexus):
         return await self._push('auth:user:add', (name, ))
 
     @s_nexus.Nexus.onPush('auth:user:add')
-    async def _onAddUser(self, name):
+    async def _addUser(self, name):
         if self.usersbyname.get(name) is not None:
             raise s_exc.DupUserName(name=name)
 
@@ -988,13 +992,18 @@ class HiveAuth(s_nexus.Nexus):
         await self.node.hive.set(path, name)
 
         node = await self.node.hive.open(path)
-        return await self._addUserNode(node)
+        user = await self._addUserNode(node)
+
+        # Everyone's a member of 'all'
+        await user.grant('all')
+
+        return user
 
     async def addRole(self, name):
         return await self._push('auth:role:add', (name,))
 
     @s_nexus.Nexus.onPush('auth:role:add')
-    async def _onAddRole(self, name):
+    async def _addRole(self, name):
         if self.rolesbyname.get(name) is not None:
             raise s_exc.DupRoleName(name=name)
 
@@ -1066,6 +1075,9 @@ class HiveAuth(s_nexus.Nexus):
 
     @s_nexus.Nexus.onPush('auth:role:del')
     async def _onDelRole(self, name):
+        if name == 'all':
+            raise s_exc.CantDelAllRole(mesg='role "all" may not be deleted')
+
         role = self.rolesbyname.get(name)
         if role is None:
             raise s_exc.NoSuchRole(name=name)
@@ -1550,6 +1562,9 @@ class HiveUser(HiveRuler):
         roles = list(self.roleidens)
         if role.iden not in roles:
             return
+
+        if role.name == 'all':
+            raise s_exc.CantRevokeAllRole(mesg='role "all" may not be revoked')
 
         roles.remove(role.iden)
         await self.info.set('roles', roles)

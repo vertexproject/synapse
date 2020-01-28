@@ -131,7 +131,7 @@ class CoreApi(s_cell.CellApi):
         if view is None:
             raise s_exc.NoSuchView(iden=view)
 
-        self.user.confirm(('view', 'read'), gateiden=view.iden)
+        view.confirm(self.user, ('view', 'read'), view.iden)
 
         return view
 
@@ -140,7 +140,6 @@ class CoreApi(s_cell.CellApi):
         Adds a trigger to the cortex
 
         '''
-        # FIXME: shouldn't we check the layer belonging to the view?
         wlyr = self.cell.view.layers[0]
         await wlyr._reqUserAllowed(self.user, ('trigger', 'add'))
 
@@ -399,7 +398,6 @@ class CoreApi(s_cell.CellApi):
         '''
         Deprecated in 0.2.0.
         '''
-
         async with await self.cell.snap(user=self.user) as snap:
             self.user.confirm(('node:add', form), gateiden=snap.wlyr.iden)
             with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
@@ -1734,11 +1732,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def addNode(self, user, form, valu, props=None):
 
         async with await self.snap(user=user) as snap:
-            await snap.wlyr._reqUserAllowed(self.user, ('node:add', form))
-            with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
-
-                node = await snap.addNode(form, valu, props=props)
-                return node.pack()
+            node = await snap.addNode(form, valu, props=props)
+            return node.pack()
 
     async def delNodeTag(self, user, iden, tag):
         '''
@@ -2421,11 +2416,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if view.parent is not None:
             await self.delLayer(view.layers[0].iden)
-            await view.layers[0].trash()
+            await view.layers[0].delete()
 
         await self.hive.pop(('cortex', 'views', iden))
-        await view.fini()
-        await view.trash()
+        await view.delete()
 
         await self.bumpSpawnPool()
 
@@ -2554,7 +2548,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             # FIXME: workaround to get tests passing
             layrstor = list(self.storage.values())[0]
 
-        layr = await layrstor.initLayr(layrinfo)
+        layr = await layrstor.initLayr(layrinfo, parent=self)
 
         self.layers[layr.iden] = layr
 
