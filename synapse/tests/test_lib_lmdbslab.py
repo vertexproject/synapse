@@ -632,6 +632,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 # And we still have no valu for 02
                 self.none(abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
 
+                # And we don't overwrite existing values on restart
+                valu = abrv.nameToAbrv('hoho')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x02')
+
+                valu = abrv.nameToAbrv('haha')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
+
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
     async def test_lmdbslabmemlock(self):
