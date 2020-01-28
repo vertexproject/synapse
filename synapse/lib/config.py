@@ -9,7 +9,7 @@ import fastjsonschema
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.lib.cache as s_cache
+import synapse.lib.output as s_output
 
 import synapse.lib.hashitem as s_hashitem
 
@@ -124,7 +124,7 @@ class Config(c_abc.MutableMapping):
         self.validator = getJsValidator(self.json_schema)
 
     @classmethod
-    def getConfFromCell(cls, cell, conf=None):
+    def getConfFromCell(cls, cell, conf=None, envar_prefix=None):
         '''
         Get a Config object from a Cell directly (either the ctor or the instance thereof).
 
@@ -132,7 +132,7 @@ class Config(c_abc.MutableMapping):
             Config: A Config object.
         '''
         schema = getJsSchema(cell.confbase, cell.confdefs)
-        return cls(schema, conf=conf)
+        return cls(schema, conf=conf, envar_prefix=envar_prefix)
 
     # Argparse support methods
     def getArgumentParser(self, pars=None):
@@ -307,3 +307,63 @@ class Config(c_abc.MutableMapping):
 
     def __getitem__(self, item):
         return self.conf.__getitem__(item)
+
+
+async def main(ctor,
+               argv,
+               pars=None,
+               cb=None,
+               outp=s_output.stdout,
+               envar_prefix=None,
+               ):
+        '''
+        Cell configuration launcher helper.
+
+        Handles logging configuration via SYN_LOG_LEVEL,
+
+
+        Args:
+            ctor: Synapse Cell ctor.
+            argv (list): List of arguments to parse.
+            pars (argparse.ArgumentParser): Optional, a user provided ArgumentParser. Useful when combined with the cb.
+            cb (callable): Optional callback function which takes the cell, opts and outp as arguments.
+            outp (s_output.Output): An output instance for printing output.
+            envar_prefix (str): A envar prefix for collecting envar based configuration data.
+
+        Notes:
+            Provided ArgumentParser instances will have the following argument injected into it in order
+            to provide the location where the cell is started from.
+
+            ::
+
+                pars.add_argument('celldir', type=str,
+                                  help='The directory for the Cell to use for storage.')
+
+        Returns:
+            The cell itself!
+        '''
+        s_common.setlogging(logger)
+
+        conf = Config.getConfFromCell(ctor, envar_prefix=envar_prefix)
+        pars = conf.getArgumentParser(pars=pars)
+        # Inject celldir argument so we can rely on having it around.
+        pars.add_argument('celldir', type=str,
+                          help='The directory for the Cell to use for storage.')
+
+        opts = pars.parse_args(argv)
+
+        conf.setConfFromOpts(opts)
+        conf.setConfFromEnvs()
+
+        outp.printf(f'starting {ctor.getCellType()}: {opts.celldir}')
+
+        cell = await ctor.anit(opts.celldir, conf=conf)
+
+        try:
+            if cb:
+                await cb(cell, opts, outp)
+        except Exception:
+            await cell.fini()
+            raise
+        else:
+            return cell
