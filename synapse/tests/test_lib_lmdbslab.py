@@ -426,13 +426,17 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq((('hehe', 20), ), info1.items())
 
     async def test_slab_initdb_grow(self):
+        self.thisHostMust(platform='linux')
+
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'slab.lmdb')
             async with await s_lmdbslab.Slab.anit(path, map_size=1024, lockmemory=True) as slab:
                 mapcount = getFileMapCount('slab.lmdb/data.mdb')
                 self.eq(1, mapcount)
 
+                mapsize = slab.mapsize
                 [slab.initdb(str(i)) for i in range(10)]
+                self.gt(slab.mapsize, mapsize)
 
                 # Make sure there is still only one map
                 mapcount = getFileMapCount('slab.lmdb/data.mdb')
