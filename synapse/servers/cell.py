@@ -15,47 +15,32 @@ import synapse.lib.dyndeps as s_dyndeps
 logger = logging.getLogger(__name__)
 
 
-async def getCell(outp,
-                  celldir,
-                  ctorpath,
-                  httpport,
-                  telepath,
-                  name=None,
-                  ):
+async def getCell(outp, opts):
 
-    outp.printf(f'Resolving cellpath: {ctorpath}')
+    outp.printf(f'Resolving cellpath: {opts.cellctor}')
 
-    ctor = s_dyndeps.getDynLocal(ctorpath)
+    ctor = s_dyndeps.getDynLocal(opts.cellctor)
     if ctor is None:
-        raise s_exc.NoSuchCtor(name=ctorpath,
+        raise s_exc.NoSuchCtor(name=opts.cellctor,
                                mesg='No Cell ctor found.')
 
     outp.printf(f'Resolving configuration data via envars')
     conf = s_config.Config.getConfFromCell(ctor)
     conf.setConfFromEnvs()
 
-    outp.printf(f'starting cell: {celldir}')
+    outp.printf(f'starting cell: {opts.celldir}')
 
-    cell = await ctor.anit(celldir, conf=conf)
+    cell = await ctor.anit(opts.celldir, conf=conf)
 
     try:
 
-        outp.printf(f'...cell API (telepath): {telepath}')
-        await cell.dmon.listen(telepath)
-
-        outp.printf(f'...cell API (https): {httpport}')
-        await cell.addHttpsPort(httpport)
-
-        if name:
-            outp.printf(f'...cell additional share name: {name}')
-            cell.dmon.share(name, cell)
-
-        return cell
+        await s_config.common_cb(cell, opts, outp)
 
     except Exception:
         await cell.fini()
         raise
 
+    return cell
 
 def parse(argv):
     https = os.getenv('SYN_UNIV_HTTPS', '4443')
@@ -64,9 +49,7 @@ def parse(argv):
 
     pars = argparse.ArgumentParser(prog='synapse.servers.cell',
                                    description='A universal Synapse Cell loader.')
-    pars.add_argument('--telepath', default=telep, help='The telepath URL to listen on.')
-    pars.add_argument('--https', default=https, dest='port', type=int, help='The port to bind for the HTTPS/REST API.')
-    pars.add_argument('--name', default=telen, help='The (optional) additional name to share the Cell as.')
+    s_config.common_argparse(pars, https=https, telep=telep, telen=telen)
     pars.add_argument('cellctor', help='Python class path to use to load the Cell.')
     pars.add_argument('celldir', help='The directory for the Cell to use for storage.')
 
@@ -78,13 +61,7 @@ async def main(argv, outp=s_output.stdout):
 
     s_common.setlogging(logger)
 
-    cell = await getCell(outp,
-                         opts.celldir,
-                         opts.cellctor,
-                         opts.port,
-                         opts.telepath,
-                         name=opts.name,
-                         )
+    cell = await getCell(outp, opts)
 
     return cell
 

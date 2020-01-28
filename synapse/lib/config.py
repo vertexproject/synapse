@@ -311,11 +311,14 @@ class Config(c_abc.MutableMapping):
 def common_argparse(argp,
                     https='4443',
                     telep='tcp://0.0.0.0:27492/',
-                    telen=None):
+                    telen=None,
+                    cellname='Cell'):
     argp.add_argument('--https', default=https, dest='port',
                       type=int, help='The port to bind for the HTTPS/REST API.')
-    argp.add_argument('--telepath', default=telep, help='The telepath URL to listen on.')
-    argp.add_argument('--name', default=telen, help='The (optional) additional name to share the Cell as.')
+    argp.add_argument('--telepath', default=telep,
+                      help='The telepath URL to listen on.')
+    argp.add_argument('--name', default=telen,
+                      help=f'The (optional) additional name to share the {cellname} as.')
 
 async def common_cb(cell, opts, outp):
     outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
@@ -367,7 +370,7 @@ async def main(ctor,
         pars = conf.getArgumentParser(pars=pars)
         # Inject celldir argument so we can rely on having it around.
         pars.add_argument('celldir', type=str,
-                          help='The directory for the Cell to use for storage.')
+                          help=f'The directory for the {ctor.getCellType()} to use for storage.')
 
         opts = pars.parse_args(argv)
 

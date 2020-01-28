@@ -21,7 +21,7 @@ def getParser():
     mirror = os.getenv('SYN_CORTEX_MIRROR', None)
 
     pars = argparse.ArgumentParser(prog='synapse.servers.cortex')
-    s_config.common_argparse(pars, https=https, telep=telep, telen=telen)
+    s_config.common_argparse(pars, https=https, telep=telep, telen=telen, cellname='Cortex')
     pars.add_argument('--mirror', default=mirror, help='Mirror splices from the given cortex. (we must be a backup!)')
 
     return pars
