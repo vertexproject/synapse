@@ -126,12 +126,12 @@ def munlock(address, length):
 
 # void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
 _mmap = libc.mmap
-_mmap.retype = c.c_void_p
+_mmap.restype = c.c_void_p
 _mmap.argtypes = [c.c_void_p, c.c_size_t, c.c_int, c.c_int, c.c_int, c.c_ulonglong]
 
 # int munmap(void *addr, size_t length);
 _munmap = libc.munmap
-_munmap.retype = c.c_int
+_munmap.restype = c.c_int
 _munmap.argtypes = [c.c_void_p, c.c_size_t]
 
 @contextlib.contextmanager
