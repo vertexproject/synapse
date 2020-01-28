@@ -177,7 +177,7 @@ class SlabAbrv:
     def abrvToByts(self, abrv):
         byts = self.slab.get(abrv, db=self.abrv2name)
         if byts is not None:
-            return byts.decode()
+            return byts
 
     @s_cache.memoize(10000)
     def bytsToAbrv(self, byts):

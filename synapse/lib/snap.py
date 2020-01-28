@@ -592,6 +592,7 @@ class Snap(s_base.Base):
 
         node = s_node.Node(self, fullnode, bylayer=bylayer)
         self.livenodes[buid] = node
+        self.buidcache.append(node)
 
         return node
 
@@ -651,6 +652,14 @@ class Snap(s_base.Base):
                 yield node
 
     async def nodesByPropValu(self, full, cmpr, valu):
+
+        if cmpr == 'type=':
+            async for node in self.nodesByPropValu(full, '=', valu):
+                yield node
+
+            async for node in self.nodesByPropTypeValu(full, valu):
+                yield node
+            return
 
         prop = self.model.prop(full)
         if prop is None:
