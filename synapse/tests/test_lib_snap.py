@@ -86,7 +86,7 @@ class SnapTest(s_t_utils.SynTest):
                     # Test read, then a bunch of reads, then read coherency
 
                     await alist(snap.addNodes([(('test:int', x), {}) for x in range(1, 20)]))
-                    nodes = await alist(snap.getNodesBy('test:int'))
+                    nodes = await alist(snap.nodesByProp('test:int'))
 
                     self.eq(nodes[0].buid, node0.buid)
                     self.eq(id(nodes[0]), id(node0))
@@ -124,7 +124,7 @@ class SnapTest(s_t_utils.SynTest):
                 self.ge(node.props.get('.created', 0), 5)
                 self.eq(node.tags.get('cool'), (1, 2))
 
-                nodes = await alist(snap.getNodesBy('test:str', 'hehe'))
+                nodes = await alist(snap.nodesByPropValu('test:str', '=', 'hehe'))
                 self.len(1, nodes)
                 self.eq(nodes[0], node)
 
