@@ -171,7 +171,7 @@ class SlabAbrv:
 
         item = self.slab.last(db=self.abrv2name)
         if item is not None:
-            self.offs = s_common.int64un(item[0])
+            self.offs = s_common.int64un(item[0]) + 1
 
     @s_cache.memoize(10000)
     def abrvToByts(self, abrv):

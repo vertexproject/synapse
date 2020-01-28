@@ -601,7 +601,7 @@ class View(s_nexus.Nexus):  # type: ignore
 
         Note: this does not delete any layer storage.
 
-        FIXME:  propagate push?
+        FIXME:  change dist?
         '''
         await self.fini()
         await self.core.auth.delAuthGate(self.iden)

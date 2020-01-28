@@ -549,6 +549,7 @@ class Snap(s_base.Base):
             'ndef': None,
             'tags': {},
             'props': {},
+            'tagprops': {},
         }
 
         for layr in self.layers:
@@ -577,6 +578,7 @@ class Snap(s_base.Base):
             stortagprops = info.get('tagprops')
             if stortagprops is not None:
                 tagprops.update(stortagprops)
+                bylayer['tagprops'].update({p: layr for p in stortagprops.keys()})
 
         if ndef is None:
             return None
@@ -809,6 +811,7 @@ class Snap(s_base.Base):
 
         meta = self.getSnapMeta()
         sodes = await self.wlyr.storNodeEdits(edits, meta)
+        wlyr = self.wlyr
 
         nodes = []
         callbacks = []
@@ -819,7 +822,7 @@ class Snap(s_base.Base):
 
         for sode in sodes:
 
-            cache = {self.wlyr.iden: sode}
+            cache = {wlyr.iden: sode}
 
             node = await self._joinStorNode(sode[0], cache)
 
@@ -828,6 +831,7 @@ class Snap(s_base.Base):
             for edit in sode[1].get('edits', ()):
 
                 if edit[0] == s_layer.EDIT_NODE_ADD:
+                    node.bylayer['ndef'] = wlyr
                     callbacks.append((node.form.wasAdded, (node,), {}))
                     callbacks.append((self.view.runNodeAdd, (node,), {}))
                     continue
@@ -847,6 +851,7 @@ class Snap(s_base.Base):
                         continue
 
                     node.props[name] = valu
+                    node.bylayer['props'][name] = wlyr
 
                     callbacks.append((prop.wasSet, (node, oldv), {}))
                     callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
@@ -862,6 +867,7 @@ class Snap(s_base.Base):
                         continue
 
                     node.props.pop(name, None)
+                    node.bylayer['props'].pop(name, None)
 
                     callbacks.append((prop.wasDel, (node, oldv), {}))
                     callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
@@ -872,6 +878,7 @@ class Snap(s_base.Base):
                     (tag, valu, oldv) = edit[1]
 
                     node.tags[tag] = valu
+                    node.bylayer['tags'][tag] = wlyr
 
                     if oldv is None:
                         callbacks.append((self.view.runTagAdd, (node, tag, valu), {}))
@@ -885,6 +892,7 @@ class Snap(s_base.Base):
                     (tag, oldv) = edit[1]
 
                     node.tags.pop(tag, None)
+                    node.bylayer['tags'].pop(tag, None)
 
                     callbacks.append((self.view.runTagDel, (node, tag, oldv), {}))
                     callbacks.append((self.wlyr.fire, ('tag:del', ), {'tag': tag, 'node': node.iden()}))
@@ -893,11 +901,13 @@ class Snap(s_base.Base):
                 if edit[0] == s_layer.EDIT_TAGPROP_SET:
                     (tag, prop, valu, oldv, stype) = edit[1]
                     node.tagprops[(tag, prop)] = valu
+                    node.bylayer['tags'][(tag, prop)] = wlyr
                     continue
 
                 if edit[0] == s_layer.EDIT_TAGPROP_DEL:
                     (tag, prop, oldv, stype) = edit[1]
                     node.tagprops.pop((tag, prop), None)
+                    node.bylayer['tags'].pop((tag, prop), None)
                     continue
 
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
@@ -1270,20 +1280,29 @@ class Snap(s_base.Base):
 #            yield row, node
 
     async def getNodeData(self, buid, name, defv=None):
-        valu = await self.wlyr.getNodeData(buid, name)
-        if valu is not None:
-            return valu
+        '''
+        Get nodedata from closest to write layer, no merging involved
+        '''
+        for layr in reversed(self.layers):
+            envl = await layr.getNodeData(buid, name, defv=defv)
+            if envl is not None:
+                return envl.get('data')
         return defv
 
-#    async def setNodeData(self, buid, name, item):
-#        envl = {'user': self.user.iden, 'time': s_common.now(), 'data': item}
-#        return await self.layers[0].setNodeData(buid, name, envl)
+    async def setNodeData(self, buid, name, item):
+        envl = {'user': self.user.iden, 'time': s_common.now(), 'data': item}
+        return await self.wlyr.setNodeData(buid, name, envl)
 
     async def iterNodeData(self, buid):
-        async for item in self.wlyr.iterNodeData(buid):
-            yield item
+        some = False
+        for layr in reversed(self.layers):
+            async for item in layr.iterNodeData(buid):
+                some = True
+                yield item
+            if some:
+                return
 
-#    async def popNodeData(self, buid, name):
-#        envl = await self.layers[0].popNodeData(buid, name)
-#        if envl is not None:
-#            return envl.get('data')
+    async def popNodeData(self, buid, name):
+        envl = await self.wlyr.popNodeData(buid, name)
+        if envl is not None:
+            return envl.get('data')

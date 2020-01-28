@@ -206,7 +206,7 @@ class CoreApi(s_cell.CellApi):
 
         return trigs
 
-    # FIXME:  add view here (it wouldn't be stored on the view though)
+    # FIXME:  add view parm here (it wouldn't be stored on the view though)
     async def addCronJob(self, query, reqs, incunit=None, incval=1):
         '''
         Add a cron job to the cortex
@@ -246,7 +246,6 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
-        # FIXME:  need to get the authguard
         gate = self.cell.auth.reqAuthGate(iden)
         gate.confirm(self.user, ('cron', 'del'))
 
@@ -487,7 +486,7 @@ class CoreApi(s_cell.CellApi):
         view = await self._getViewFromOpts(opts)
 
         i = 0
-        # FIXME:  make a count, push to view
+        # FIXME:  make a count method on view
         async for _ in view.eval(text, opts=opts, user=self.user):
             i += 1
         return i
@@ -504,7 +503,6 @@ class CoreApi(s_cell.CellApi):
 
     async def storm(self, text, opts=None):
         '''
-        FIXME:  how t.f. to move this local
         Evaluate a storm query and yield result messages.
 
         Yields:
@@ -3520,7 +3518,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             if isinstance(reqs, Mapping):
                 newreqs = self._convert_reqdict(reqs)
             else:
-                breakpoint()
                 newreqs = [self._convert_reqdict(req) for req in reqs]
         except KeyError:
             raise s_exc.BadConfValu('Unrecognized time unit')
