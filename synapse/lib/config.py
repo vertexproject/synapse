@@ -308,6 +308,25 @@ class Config(c_abc.MutableMapping):
     def __getitem__(self, item):
         return self.conf.__getitem__(item)
 
+def common_argparse(argp,
+                    https='4443',
+                    telep='tcp://0.0.0.0:27492/',
+                    telen=None):
+    argp.add_argument('--https', default=https, dest='port',
+                      type=int, help='The port to bind for the HTTPS/REST API.')
+    argp.add_argument('--telepath', default=telep, help='The telepath URL to listen on.')
+    argp.add_argument('--name', default=telen, help='The (optional) additional name to share the Cell as.')
+
+async def common_cb(cell, opts, outp):
+    outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
+    await cell.dmon.listen(opts.telepath)
+
+    outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.port,))
+    await cell.addHttpsPort(opts.port)
+
+    if opts.name:
+        outp.printf(f'...{cell.getCellType()} additional share name: {opts.name}')
+        cell.dmon.share(opts.name, cell)
 
 async def main(ctor,
                argv,
