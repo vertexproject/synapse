@@ -157,6 +157,10 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
                 self.eq(20, nodes[0].getTagProp('bar', 'score'))
+                nodes = await core.nodes('#:score')
+                self.len(1, nodes)
+
+                #    remove one of the tag props and everything still works
                 nodes = await core.nodes('[ test:int=10 -#bar:score ]')
                 self.len(1, nodes)
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
@@ -166,7 +170,24 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
                 self.false(nodes[0].hasTagProp('bar', 'score'))
 
+                await core.nodes('[ test:int=10 -#foo:score ]')
+                nodes = await core.nodes('#:score')
+                self.len(0, nodes)
+
+                #    same, except for _changing_ the tagprop instead of removing
+                await core.nodes('test:int=10 [ +#foo:score=20 +#bar:score=20 ]')
+                nodes = await core.nodes('test:int=10 [ +#bar:score=30 ]')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.eq(30, nodes[0].getTagProp('bar', 'score'))
+                nodes = await core.nodes('#:score')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.eq(30, nodes[0].getTagProp('bar', 'score'))
+
                 await core.nodes('test:int=10 [ -#foo -#bar ]')
+                nodes = await core.nodes('#:score')
+                self.len(0, nodes)
 
                 with self.raises(s_exc.NoSuchCmpr):
                     await core.nodes('test:int=10 +#foo.bar:score*newp=66')
