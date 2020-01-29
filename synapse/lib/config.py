@@ -309,11 +309,21 @@ class Config(c_abc.MutableMapping):
     def __getitem__(self, item):
         return self.conf.__getitem__(item)
 
-def common_argparse(argp,
-                    https='4443',
-                    telep='tcp://0.0.0.0:27492/',
-                    telen=None,
-                    cellname='Cell'):
+def common_argparse(argp, https='4443', telep='tcp://0.0.0.0:27492/',
+                    telen=None, cellname='Cell'):
+    '''
+    Add a set of common arguments to an ArgumentParser.
+
+    Args:
+        argp (argparse.ArgumentParser): ArgumentParser to augment.
+        https (str): Port to listen to HTTPS on.
+        telep (str): Telepath address to listen on.
+        telen (str): Optional, name to share the cell as.
+        cellname (str): Optional, name to inject into the ``--name`` help argument.
+
+    Returns:
+        None: Returns None.
+    '''
     argp.add_argument('--https', default=https, dest='port',
                       type=int, help='The port to bind for the HTTPS/REST API.')
     argp.add_argument('--telepath', default=telep,
@@ -322,6 +332,20 @@ def common_argparse(argp,
                       help=f'The (optional) additional name to share the {cellname} as.')
 
 async def common_cb(cell, opts, outp):
+    '''
+    A common base callback that can be used in conjunction with common_argparse.
+
+    Notes:
+        This sets https server port, telepath listening port and a telepath share name if set.
+
+    Args:
+        cell: Synapse Cell.
+        opts (argparse.Namespace): An argparse Namespace object from parsed arguments.
+        outp (s_output.Output): Output object.
+
+    Returns:
+        None: Returns None.
+    '''
     outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
     await cell.dmon.listen(opts.telepath)
 

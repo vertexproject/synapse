@@ -4,7 +4,6 @@ import asyncio
 import logging
 import argparse
 
-import synapse.common as s_common
 import synapse.cryotank as s_cryotank
 
 import synapse.lib.base as s_base
@@ -26,12 +25,8 @@ def getParser():
 
 async def main(argv, outp=s_output.stdout):
     pars = getParser()
-    axon = await s_config.main(s_cryotank.CryoCell,
-                               argv,
-                               pars=pars,
-                               cb=s_config.common_cb,
-                               outp=outp,
-                               )
+    axon = await s_config.main(s_cryotank.CryoCell, argv,
+                               pars=pars, cb=s_config.common_cb, outp=outp)
     return axon
 
 if __name__ == '__main__': # pragma: no cover

@@ -5,7 +5,6 @@ import logging
 import argparse
 
 import synapse.axon as s_axon
-import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.config as s_config
@@ -29,12 +28,8 @@ async def main(argv, outp=s_output.stdout, axonctor=None):
         axonctor = s_axon.Axon
 
     pars = getParser()
-    axon = await s_config.main(axonctor,
-                               argv,
-                               pars=pars,
-                               cb=s_config.common_cb,
-                               outp=outp,
-                               )
+    axon = await s_config.main(axonctor, argv,
+                               pars=pars, cb=s_config.common_cb, outp=outp)
     return axon
 
 if __name__ == '__main__': # pragma: no cover

@@ -4,7 +4,6 @@ import asyncio
 import logging
 import argparse
 
-import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.lib.base as s_base
@@ -26,9 +25,7 @@ def getParser():
 
     return pars
 
-async def cb(cell: s_cortex.Cortex,
-             opts: argparse.Namespace,
-             outp: s_output.OutPut) -> None:
+async def cb(cell, opts, outp):
 
     await s_config.common_cb(cell, opts, outp)
 
@@ -38,12 +35,8 @@ async def cb(cell: s_cortex.Cortex,
 
 async def main(argv, outp=s_output.stdout):
     pars = getParser()
-    core = await s_config.main(s_cortex.Cortex,
-                               argv,
-                               pars=pars,
-                               cb=cb,
-                               outp=outp,
-                               )
+    core = await s_config.main(s_cortex.Cortex, argv,
+                               pars=pars, cb=cb, outp=outp)
     return core
 
 if __name__ == '__main__': # pragma: no cover
