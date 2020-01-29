@@ -2287,10 +2287,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # if we have no views, we are initializing.  Add a default main view and layer.
         if not self.views:
-            layriden = await self._addLayer(s_common.guid())
-            iden = s_common.guid()
-            view = await self._addView(iden, 'root', (layriden,))
-            await self.cellinfo.set('defaultview', iden)
+            layr = await self.addLayer()
+            view = await self.addView('root', (layr.iden,))
+            await self.cellinfo.set('defaultview', view.iden)
             self.view = view
 
     async def _migrateViewsLayers(self):
@@ -2377,16 +2376,25 @@ class Cortex(s_cell.Cell):  # type: ignore
         # TODO NEXUS
         return self.offs.delete(iden)
 
-    async def addView(self, iden, owner, layers):
-        return await self._push('view:add', (iden, owner, layers))
+    async def addView(self, owner, layers):
+
+        iden = s_common.guid()
+
+        user = self.auth.getUserByName(owner)
+        if user is None:
+            raise s_exc.NoSuchUser(name=owner)
+
+        return await self._push('view:add', (iden, user.iden, layers))
 
     @s_nexus.Nexus.onPush('view:add')
-    async def _addView(self, iden, owner, layers):
+    async def _addView(self, iden, useriden, layers):
+
+        user = self.auth.user(useriden)
 
         node = await self.hive.open(('cortex', 'views', iden))
         info = await node.dict()
 
-        await info.set('owner', owner)
+        await info.set('owner', user.iden)
         await info.set('layers', layers)
 
         view = await s_view.View.anit(self, node)
@@ -2514,10 +2522,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         return await self._push('layer:add', (iden, conf, stor))
 
     @s_nexus.Nexus.onPush('layer:add')
-    async def _addLayer(self, iden, conf=None, stor=None):
+    async def _addLayer(self, iden, conf, stor):
 
         if conf is None:
             conf = {}
+
         conf.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
 
         layrstor = self.defstor
@@ -2532,15 +2541,15 @@ class Cortex(s_cell.Cell):  # type: ignore
         layrinfo = await node.dict()
 
         await layrinfo.set('iden', iden)
-        await layrinfo.set('stor', stor)
         await layrinfo.set('conf', conf)
+        await layrinfo.set('stor', layrstor.iden)
 
         layr = await self._initLayr(layrinfo)
 
         # forward wind the new layer to the current model version
         await layr.setModelVers(s_modelrev.maxvers)
 
-        return layr.iden
+        return layr
 
     async def _initLayr(self, layrinfo):
         '''
@@ -2550,9 +2559,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         layrstor = self.storage.get(stor)
 
         if layrstor is None:
-            # raise s_exc.SynErr('missing layer storage')
-            # FIXME: workaround to get tests passing
-            layrstor = list(self.storage.values())[0]
+            raise s_exc.SynErr('missing layer storage')
 
         layr = await layrstor.initLayr(layrinfo)
 
