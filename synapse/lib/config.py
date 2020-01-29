@@ -24,7 +24,7 @@ def getJsSchema(confbase, confdefs):
 
     Args:
         confbase (dict): A JSON Schema dictionary of properties for the object. This content has
-        precedence over the confdefs argument.
+                         precedence over the confdefs argument.
         confdefs (dict): A JSON Schema dictionary of properties for the object.
 
     Notes:
@@ -95,13 +95,13 @@ class Config(c_abc.MutableMapping):
 
     Args:
         schema (dict): The JSON Schema (draft v7) which to validate
-        configuration data against.
+                       configuration data against.
         conf (dict): Optional, a set of configuration data to preload.
-        envar_prefix (str): Optional, a prefix used when collecting
-        configuration data from environmental variables.
+        envar_prefix (str): Optional, a prefix used when collecting configuration
+                            data from environmental variables.
 
     Notes:
-        This class implements the collections.abc.MuttableMapping class, so it
+        This class implements the collections.abc.MutableMapping class, so it
         may be used where a dictionary would otherwise be used.
 
         The default values provided in the schema must be able to be recreated
@@ -220,6 +220,27 @@ class Config(c_abc.MutableMapping):
 
     # Envar support methods
     def setConfFromEnvs(self):
+        '''
+        Set configuration options from environmental variables.
+
+        Notes:
+            Environment variables are resolved from configuration options after doing the following transform:
+
+            - Replace ``:`` characters with ``_``.
+            - Add a config provided prefix, if set.
+            - Uppercase the string.
+            - Resolve the environmental variable
+            - If the environmental variable is set, set the config value to the results of ``yaml.yaml_safeload()``
+              on the value.
+
+        Examples:
+
+            For the configuration value ``auth:passwd``, the environmental variable is resolved as ``AUTH_PASSWD``.
+            With the prefix ``cortex``, the the environmental variable is resolved as ``CORTEX_AUTH_PASSWD``.
+
+        Returns:
+            None: Returns None.
+        '''
         for (name, info) in self.json_schema.get('properties', {}).items():
             envar = make_envar_name(name, prefix=self.envar_prefix)
             envv = os.getenv(envar)
@@ -312,7 +333,7 @@ class Config(c_abc.MutableMapping):
 def common_argparse(argp, https='4443', telep='tcp://0.0.0.0:27492/',
                     telen=None, cellname='Cell'):
     '''
-    Add a set of common arguments to an ArgumentParser.
+    Add a set of common arguments to an ArgumentParser that can be used with ``common_cb``.
 
     Args:
         argp (argparse.ArgumentParser): ArgumentParser to augment.
@@ -333,7 +354,7 @@ def common_argparse(argp, https='4443', telep='tcp://0.0.0.0:27492/',
 
 async def common_cb(cell, opts, outp):
     '''
-    A common base callback that can be used in conjunction with common_argparse.
+    A common base callback that can be used in conjunction with ``common_argparse``.
 
     Notes:
         This sets https server port, telepath listening port and a telepath share name if set.
@@ -375,6 +396,17 @@ async def main(ctor,
             envar_prefix (str): A envar prefix for collecting envar based configuration data.
 
         Notes:
+            This does the following items:
+
+                - Create a Config object from the Cell Ctor.
+                - Create (or inject) argument options into an Argument Parser from the Config object.
+                - Parses the provided arguments.
+                - Sets logging for the process.
+                - Loads configuration data from the parsed options and environment variables.
+                - Creates the Cell from the Cell Ctor.
+                - Executes the provided callback function.
+                - Returns the Cell.
+
             Provided ArgumentParser instances will have the following argument injected into it in order
             to provide the location where the cell is started from, and to do default logging configuration.
 
@@ -387,7 +419,7 @@ async def main(ctor,
                                   help='Specify the Python logging log level.', type=str.upper)
 
         Returns:
-            The cell itself!
+            The Synapse Cell made from the provided Ctor.
         '''
         conf = Config.getConfFromCell(ctor, envar_prefix=envar_prefix)
         pars = conf.getArgumentParser(pars=pars)
