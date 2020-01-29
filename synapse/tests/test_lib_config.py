@@ -267,3 +267,44 @@ class ConfTest(s_test.SynTest):
                 async with await SchemaCell.anit(dirn, conf={}) as cell:
                     pass
             self.eq(cm.exception.get('key'), 'apikey')
+
+    async def test_main_helpers(self):
+
+        data = {}
+        outp = self.getTestOutp()
+        async def goodcb(cell, opts, outp):
+            data['cell'] = cell
+
+        async def badcb(cell, opts, outp):
+            data['cell'] = cell
+            raise s_exc.SynErr(mesg='Nope.')
+
+        with self.getTestDir() as dirn, self.withSetLoggingMock() as mock:
+            argv = ['--apikey', 'sekrit', dirn,
+                    '--log-level', 'ERROR',
+                    ]
+            async with await s_config.main(SchemaCell, argv,
+                                           cb=goodcb,
+                                           outp=outp,
+                                           ) as cell:
+                # The callback was run
+                self.false(data.get('cell').isfini)
+                self.true(cell is data.get('cell'))
+            self.eq(1, mock.call_count)
+            self.eq(mock.call_args[1], {'defval': 'ERROR'})
+
+            argv = ['--apikey', 'sekrit', dirn,
+                    ]
+            with self.raises(s_exc.SynErr) as cm:
+                await s_config.main(SchemaCell, argv,
+                                    cb=badcb,
+                                    outp=outp,
+                                    )
+                # The callback was run but threw an exception,
+                # which caused the cell to fini.
+                self.true(data.get('cell').isfini)
+            self.eq(cm.exception.get('mesg'), 'Nope.')
+
+            self.eq(2, mock.call_count)
+            # Default value
+            self.eq(mock.call_args[1], {'defval': 'INFO'})

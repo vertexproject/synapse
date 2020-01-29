@@ -11,7 +11,7 @@ class CryoServerTest(s_t_utils.SynTest):
             ('woah', {'dude': 1}),
         )
 
-        with self.getTestDir() as dirn:
+        with self.getTestDir() as dirn, self.withSetLoggingMock() as mock:
 
             outp = self.getTestOutp()
 

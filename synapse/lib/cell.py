@@ -711,8 +711,9 @@ class Cell(s_base.Base, s_telepath.Aware):
     async def getCellApi(self, link, user, path):
         return await self.cellapi.anit(self, link, user)
 
-    def getCellType(self):
-        return self.__class__.__name__.lower()
+    @classmethod
+    def getCellType(cls):
+        return cls.__name__.lower()
 
     def getCellIden(self):
         return self.iden
