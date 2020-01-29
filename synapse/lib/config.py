@@ -9,8 +9,9 @@ import fastjsonschema
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.lib.output as s_output
 
+import synapse.lib.const as s_const
+import synapse.lib.output as s_output
 import synapse.lib.hashitem as s_hashitem
 
 logger = logging.getLogger(__name__)
@@ -341,9 +342,6 @@ async def main(ctor,
         '''
         Cell configuration launcher helper.
 
-        Handles logging configuration via SYN_LOG_LEVEL,
-
-
         Args:
             ctor: Synapse Cell ctor.
             argv (list): List of arguments to parse.
@@ -354,25 +352,29 @@ async def main(ctor,
 
         Notes:
             Provided ArgumentParser instances will have the following argument injected into it in order
-            to provide the location where the cell is started from.
+            to provide the location where the cell is started from, and to do default logging configuration.
 
             ::
 
                 pars.add_argument('celldir', type=str,
                                   help='The directory for the Cell to use for storage.')
+                pars.add_argument('--log-level', default='INFO',
+                                  choices=s_const.LOG_LEVEL_CHOICES,
+                                  help='Specify the Python logging log level.', type=str.upper)
 
         Returns:
             The cell itself!
         '''
-        s_common.setlogging(logger)
-
         conf = Config.getConfFromCell(ctor, envar_prefix=envar_prefix)
         pars = conf.getArgumentParser(pars=pars)
-        # Inject celldir argument so we can rely on having it around.
+        # Inject celldir & logging argument so we can rely on having it around.
         pars.add_argument('celldir', type=str,
                           help=f'The directory for the {ctor.getCellType()} to use for storage.')
-
+        pars.add_argument('--log-level', default='INFO', choices=s_const.LOG_LEVEL_CHOICES,
+                          help='Specify the Python logging log level.', type=str.upper)
         opts = pars.parse_args(argv)
+
+        s_common.setlogging(logger, defval=opts.log_level)
 
         conf.setConfFromOpts(opts)
         conf.setConfFromEnvs()

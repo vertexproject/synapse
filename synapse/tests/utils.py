@@ -856,6 +856,18 @@ class SynTest(unittest.TestCase):
                         mock.MagicMock(return_value=None)) as patch:  # type: mock.MagicMock
             yield patch
 
+    @contextlib.contextmanager
+    def withSetLoggingMock(self):
+        '''
+        Context manager to mock calls to the setlogging function to avoid unittests calling logging.basicconfig.
+
+        Returns:
+            mock.MagicMock: Yields a mock.MagikMock object.
+        '''
+        with mock.patch('synapse.common.setlogging',
+                        mock.MagicMock(return_value=None)) as patch:  # type: mock.MagicMock
+            yield patch
+
     def getMagicPromptLines(self, patch):
         '''
         Get the text lines from a MagicMock object from withCliPromptMock.
