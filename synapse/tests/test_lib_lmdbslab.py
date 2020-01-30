@@ -439,6 +439,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.gt(slab.mapsize, mapsize)
 
                 # Make sure there is still only one map
+                self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
                 mapcount = getFileMapCount('slab.lmdb/data.mdb')
                 self.eq(1, mapcount)
 
