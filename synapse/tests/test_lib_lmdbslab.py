@@ -682,9 +682,8 @@ class LmdbSlabMemLockTest(s_t_utils.SynTest):
         '''
         with self.getTestDir() as dirn:
 
-            count=0
+            count = 0
             byts = b'\x00' * 1024
-
             path = os.path.join(dirn, 'test.lmdb')
             async with await s_lmdbslab.Slab.anit(path, map_size=10 * 1024 * 1024, growsize=5000, lockmemory=True) as slab:
                 foo = slab.initdb('foo')
