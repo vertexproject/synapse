@@ -14,7 +14,7 @@ import synapse.lib.trigger as s_trigger
 
 logger = logging.getLogger(__name__)
 
-class View(s_nexus.Nexus):  # type: ignore
+class View(s_nexus.Pusher):  # type: ignore
     '''
     A view represents a cortex as seen from a specific set of layers.
 
@@ -37,22 +37,21 @@ class View(s_nexus.Nexus):  # type: ignore
         self.core = core
 
         await self.core.auth.addAuthGate(self.iden, 'view')
-        await s_nexus.Nexus.__anit__(self, iden=self.iden, parent=core)
+        await s_nexus.Pusher.__anit__(self, iden=self.iden, nexsroot=core.nexsroot)
 
         self.layers = []
         self.invalid = None
         self.parent = None  # The view this view was forked from
-        self.worldreadable = True  # Default read permissions of this view
 
         self.permCheck = {
-            'node:add': self._nodeAddPerms,
-            'node:del': self._nodeDelPerms,
-            'prop:set': self._propSetPerms,
-            'prop:del': self._propDelPerms,
-            'tag:add': self._tagAddPerms,
-            'tag:del': self._tagDelPerms,
-            'tag:prop:set': self._tagPropSetPerms,
-            'tag:prop:del': self._tagPropDelPerms,
+            'node:add': self._nodeAddConfirm,
+            'node:del': self._nodeDelConfirm,
+            'prop:set': self._propSetConfirm,
+            'prop:del': self._propDelConfirm,
+            'tag:add': self._tagAddConfirm,
+            'tag:del': self._tagDelConfirm,
+            'tag:prop:set': self._tagPropSetConfirm,
+            'tag:prop:del': self._tagPropDelConfirm,
         }
 
         # isolate some initialization to easily override for SpawnView.
@@ -244,9 +243,9 @@ class View(s_nexus.Nexus):  # type: ignore
         }
 
     async def addLayer(self, layriden, indx=None):
-        return await self._push('view:addlayer', (layriden, indx))
+        return await self._push(s_common.todo('view:addlayer', layriden, indx))
 
-    @s_nexus.Nexus.onPush('view:addlayer')
+    @s_nexus.Pusher.onPush('view:addlayer')
     async def _onAddLayer(self, layriden, indx=None):
 
         for view in self.core.views.values():
@@ -272,9 +271,9 @@ class View(s_nexus.Nexus):  # type: ignore
         Set the view layers from a list of idens.
         NOTE: view layers are stored "top down" (the write layer is self.layers[0])
         '''
-        return await self._push('view:setlayers', (layers,))
+        return await self._push('view:setlayers', layers)
 
-    @s_nexus.Nexus.onPush('view:setlayers')
+    @s_nexus.Pusher.onPush('view:setlayers')
     async def _onSetLayers(self, layers):
         for view in self.core.views.values():
             if view.parent is self:
@@ -316,8 +315,7 @@ class View(s_nexus.Nexus):  # type: ignore
         owner = layrinfo.get('owner', 'root')
         layeridens = [writlayriden] + [l.iden for l in self.layers]
 
-        view = await self.core.addView(layeridens)
-        view.worldreadable = False
+        view = await self.core.addView(owner, layeridens, worldreadable=False)
         view.parent = self
 
         return view
@@ -349,74 +347,76 @@ class View(s_nexus.Nexus):  # type: ignore
         async with await self.parent.snap(user=user) as snap:
             snap.disableTriggers()
             snap.strict = False
-            while True:
-                splicechunk = [x async for x in fromlayr.splices(fromoff, CHUNKSIZE)]
+            with snap.getStormRuntime(user=user) as runt:
+                while True:
+                    splicechunk = [x async for x in fromlayr.splices(fromoff, CHUNKSIZE)]
 
-                await snap.addFeedData('syn.splice', splicechunk)
+                    await snap.addFeedData('syn.splice', splicechunk)
 
-                if len(splicechunk) < CHUNKSIZE:
-                    break
+                    if len(splicechunk) < CHUNKSIZE:
+                        break
 
-                fromoff += CHUNKSIZE
-                await asyncio.sleep(0)
+                    fromoff += CHUNKSIZE
+                    await asyncio.sleep(0)
 
         await self.core.delView(self.iden)
 
-    def _reqAllowed(self, user, parentlayr, perms):
+    # FIXME:  all these should be refactored and call runt.confirmLayer
+    def _confirm(self, user, parentlayr, perms):
         if not parentlayr.allowed(user, perms):
             perm = '.'.join(perms)
             mesg = f'User must have permission {perm} on write layer'
             raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
 
-    async def _nodeAddPerms(self, user, snap, parentlayr, splice):
+    async def _nodeAddConfirm(self, user, snap, parentlayr, splice):
         perms = ('node:add', splice['ndef'][0])
-        self._reqAllowed(user, parentlayr, perms)
+        self._confirm(user, parentlayr, perms)
 
-    async def _nodeDelPerms(self, user, snap, parentlayr, splice):
+    async def _nodeDelConfirm(self, user, snap, parentlayr, splice):
         buid = s_common.buid(splice['ndef'])
         node = await snap.getNodeByBuid(buid)
 
         if node is not None:
             for tag in node.tags.keys():
                 perms = ('tag:del', *tag.split('.'))
-                self._reqAllowed(user, parentlayr, perms)
+                self._confirm(user, parentlayr, perms)
 
             perms = ('node:del', splice['ndef'][0])
-            self._reqAllowed(user, parentlayr, perms)
+            self._confirm(user, parentlayr, perms)
 
-    async def _propSetPerms(self, user, snap, parentlayr, splice):
+    async def _propSetConfirm(self, user, snap, parentlayr, splice):
         ndef = splice.get('ndef')
         prop = splice.get('prop')
 
         perms = ('prop:set', ':'.join([ndef[0], prop]))
-        self._reqAllowed(user, parentlayr, perms)
+        self._confirm(user, parentlayr, perms)
 
-    async def _propDelPerms(self, user, snap, parentlayr, splice):
+    async def _propDelConfirm(self, user, snap, parentlayr, splice):
         ndef = splice.get('ndef')
         prop = splice.get('prop')
 
         perms = ('prop:del', ':'.join([ndef[0], prop]))
-        self._reqAllowed(user, parentlayr, perms)
+        self._confirm(user, parentlayr, perms)
 
-    async def _tagAddPerms(self, user, snap, parentlayr, splice):
+    async def _tagAddConfirm(self, user, snap, parentlayr, splice):
         tag = splice.get('tag')
         perms = ('tag:add', *tag.split('.'))
-        self._reqAllowed(user, parentlayr, perms)
+        self._confirm(user, parentlayr, perms)
 
-    async def _tagDelPerms(self, user, snap, parentlayr, splice):
+    async def _tagDelConfirm(self, user, snap, parentlayr, splice):
         tag = splice.get('tag')
         perms = ('tag:del', *tag.split('.'))
-        self._reqAllowed(user, parentlayr, perms)
+        self._confirm(user, parentlayr, perms)
 
-    async def _tagPropSetPerms(self, user, snap, parentlayr, splice):
+    async def _tagPropSetConfirm(self, user, snap, parentlayr, splice):
         tag = splice.get('tag')
         perms = ('tag:add', *tag.split('.'))
-        self._reqAllowed(user, parentlayr, perms)
+        self._confirm(user, parentlayr, perms)
 
-    async def _tagPropDelPerms(self, user, snap, parentlayr, splice):
+    async def _tagPropDelConfirm(self, user, snap, parentlayr, splice):
         tag = splice.get('tag')
         perms = ('tag:del', *tag.split('.'))
-        self._reqAllowed(user, parentlayr, perms)
+        self._confirm(user, parentlayr, perms)
 
     async def mergeAllowed(self, user=None):
         '''
@@ -445,7 +445,7 @@ class View(s_nexus.Nexus):  # type: ignore
 
                 splicecount = 0
                 async for splice in fromlayr.splices(fromoff, CHUNKSIZE):
-
+                    # FIXME: this sucks; we shouldn't dupe layer perm checking here
                     check = self.permCheck.get(splice[0])
                     if check is None:
                         raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge',
@@ -525,9 +525,9 @@ class View(s_nexus.Nexus):  # type: ignore
         '''
         trigiden = s_common.guid()
 
-        return await self._push('trigger:add', (trigiden, condition, query, info, disabled, user), iden=self.iden)
+        return await self._push('trigger:add', trigiden, condition, query, info, disabled, user, iden=self.iden)
 
-    @s_nexus.Nexus.onPush('trigger:add')
+    @s_nexus.Pusher.onPush('trigger:add')
     async def _onPushAddTrigger(self, trigiden, condition, query, info, disabled=False, user=None):
         if user is None:
             user = self.core.auth.getUserByName('root')
@@ -540,14 +540,14 @@ class View(s_nexus.Nexus):  # type: ignore
     async def getTrigger(self, iden):
         return await self.triggers.get(iden)
 
-    @s_nexus.Nexus.onPush('trigger:del')
+    @s_nexus.Pusher.onPush('trigger:del')
     async def delTrigger(self, iden):
         '''
         Delete a trigger from the view.
         '''
-        await self._push('trigger:del', (iden,), iden=self.iden)
+        await self._push('trigger:del', iden)
 
-    @s_nexus.Nexus.onPush('trigger:del')
+    @s_nexus.Pusher.onPush('trigger:del')
     async def _onDelTrigger(self, iden):
         self.triggers.delete(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='delete')
@@ -556,9 +556,9 @@ class View(s_nexus.Nexus):  # type: ignore
         '''
         Change an existing trigger's query.
         '''
-        await self._push('trigger:update', (iden, query), iden=self.iden)
+        await self._push('trigger:update', iden, query)
 
-    @s_nexus.Nexus.onPush('trigger:update')
+    @s_nexus.Pusher.onPush('trigger:update')
     async def _onPushUpdateTrigger(self, iden, query):
         self.triggers.mod(iden, query)
         await self.core.fire('core:trigger:action', iden=iden, action='mod')
@@ -567,9 +567,9 @@ class View(s_nexus.Nexus):  # type: ignore
         '''
         Enable an existing trigger.
         '''
-        await self._push('trigger:enable', (iden,), iden=self.iden)
+        await self._push('trigger:enable', iden)
 
-    @s_nexus.Nexus.onPush('trigger:enable')
+    @s_nexus.Pusher.onPush('trigger:enable')
     async def _onPushEnableTrigger(self, iden):
         self.triggers.enable(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='enable')
@@ -578,9 +578,9 @@ class View(s_nexus.Nexus):  # type: ignore
         '''
         Disable an existing trigger.
         '''
-        await self._push('trigger:disable', (iden,), iden=self.iden)
+        await self._push('trigger:disable', iden)
 
-    @s_nexus.Nexus.onPush('trigger:disable')
+    @s_nexus.Pusher.onPush('trigger:disable')
     async def _onDisableTrigger(self, iden, parm=None):
         self.triggers.disable(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='disable')

@@ -1404,12 +1404,11 @@ class LibView(Lib):
         '''
         self.runt.reqAllowed(('view', 'add'))
 
-        iden = s_common.guid()
-        view = await self.runt.snap.addView(iden, layers)
+        view = await self.runt.snap.core.addView(layers)
 
         if view is None:
             mesg = f'Failed to add view.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=iden, layers=layers)
+            raise s_exc.StormRuntimeError(mesg=mesg, layers=layers)
 
         return View(view, path=self.path)
 

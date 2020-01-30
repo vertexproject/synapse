@@ -64,8 +64,8 @@ import synapse.common as s_common
 
 import synapse.lib.gis as s_gis
 import synapse.lib.base as s_base
-import synapse.lib.hive as s_hive
 import synapse.lib.cache as s_cache
+import synapse.lib.nexus as s_nexus
 
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
@@ -659,7 +659,7 @@ class StorTypeLatLon(StorType):
         # yield index bytes in lon/lat order to allow cheap optimial indexing
         return (self._getLatLonIndx(valu),)
 
-class Layer(s_base.Base):
+class Layer(s_nexus.Pusher):
     '''
     The base class for a cortex layer.
     '''
@@ -670,12 +670,12 @@ class Layer(s_base.Base):
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, layrinfo, dirn, conf=None):
+    async def __anit__(self, layrinfo, dirn, conf=None, nexsroot=None):
 
-        await s_base.Base.__anit__(self)
+        self.iden = layrinfo.get('iden')
+        await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=nexsroot)
 
         self.dirn = dirn
-        self.iden = layrinfo.get('iden')
         self.readonly = layrinfo.get('readonly')
 
         conf = layrinfo.get('conf')
@@ -941,7 +941,7 @@ class Layer(s_base.Base):
 
     async def liftByPropValu(self, form, prop, cmprvals):
         for cmpr, valu, kind in cmprvals:
-            #print('liftByPropValu %r %r %r %r %r' % (form, prop, cmpr, valu, kind))
+            # print('liftByPropValu %r %r %r %r %r' % (form, prop, cmpr, valu, kind))
             for buid in self.stortypes[kind].indxByProp(form, prop, cmpr, valu):
                 yield await self.getStorNode(buid)
 
@@ -951,7 +951,10 @@ class Layer(s_base.Base):
                 yield await self.getStorNode(buid)
 
     async def storNodeEdits(self, nodeedits, meta):
-        # FIXME: change control goes here....
+        return await self._push('layer:edits', nodeedits, meta)
+
+    @s_nexus.Pusher.onPush('layer:edits')
+    async def _onStorNodeEdits(self, nodeedits, meta):
         return [await self._storNodeEdit(e, meta) for e in nodeedits]
 
     async def _storNodeEdit(self, nodeedit, meta):
@@ -1620,13 +1623,13 @@ class LayerStorage(s_base.Base):
             mesg = f'LayerStorage ({self.stortype}) needs an iden!'
             raise s_exc.NeedConfValu(mesg=mesg, name=self.iden)
 
-    async def initLayr(self, layrinfo):
+    async def initLayr(self, layrinfo, nexsroot: s_nexus.NexsRoot = None):
         iden = layrinfo.get('iden')
         if iden is None:
             raise s_exc.NeedConfValu(mesg='Missing layer iden', name=self)
 
         path = s_common.gendir(self.dirn, iden)
-        return await Layer.anit(layrinfo, path)
+        return await Layer.anit(layrinfo, path, nexsroot=nexsroot)
 
     async def reqValidLayrConf(self, conf):
         return

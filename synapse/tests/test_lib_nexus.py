@@ -1,10 +1,10 @@
 import synapse.lib.nexus as s_nexus
 import synapse.tests.utils as s_t_utils
 
-class SampleNexus(s_nexus.Nexus):
+class SampleNexus(s_nexus.Pusher):
 
     async def __anit__(self, iden, parent=None):
-        await s_nexus.Nexus.__anit__(self, iden=iden, parent=parent)
+        await s_nexus.Pusher.__anit__(self, iden=iden, parent=parent)
         self.iden = iden
 
     async def doathing(self, eventdict):

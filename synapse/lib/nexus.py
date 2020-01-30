@@ -1,45 +1,69 @@
+from typing import List, Dict, Any
+
 import synapse.lib.base as s_base
 
-class NexusType(type):
+class RegMethType(type):
     '''
-    Metaclass that collects all methods in class with _regme prop into a class member called _nexsclsfuncs
+    Metaclass that collects all methods in class with _regme prop into a class member called _regclsfuncs
     '''
-    def __init__(cls, name, bases, attrs):
+    def __init__(cls, name: str, bases: List[type], attrs: Dict[str, Any]):
         # Start with my parents' definitions
-        cls._nexsclsfuncs = sum((getattr(scls, '_nexsclsfuncs', []) for scls in bases), [])
+        cls._regclsfuncs = sum((getattr(scls, '_regclsfuncs', []) for scls in bases), [])
 
         # Add my own definitions
         for meth in attrs.values():
 
             prop = getattr(meth, '_regme', None)
             if prop is not None:
-                cls._nexsclsfuncs.append(prop)
+                cls._regclsfuncs.append(prop)
 
-class Nexus(s_base.Base, metaclass=NexusType):
+class NexsRoot(s_base.Base):
+    async def __anit__(self):
+        self._nexskids = {}
+
+    async def issue(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any]):
+        # Log the message here
+        nexus = self._nexskids[nexsiden]
+        return await nexus._nexshands[event](nexus, *args, **kwargs)
+
+    async def eat(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any]):
+        '''
+        Called from an external API
+        '''
+        nexus = self._nexskids[nexsiden]
+        return await nexus._push(event, *args, **kwargs)
+
+class Pusher(s_base.Base, metaclass=RegMethType):
     '''
     A mixin-class to manage distributing changes where one might plug in mirroring or consensus protocols
     '''
-    _nexsclsfuncs = []  # type:ignore
+    _regclsfuncs = []  # type:ignore
 
-    async def __anit__(self, iden, parent: 'Nexus' = None):  # type: ignore
+    # FIXME:  parent -> nexsroot
+    async def __anit__(self, iden: str, nexsroot: NexsRoot = None):  # type: ignore
         await s_base.Base.__anit__(self)
         self._nexshands = {}  # type: ignore
-        self._nexskids = {}  # type: ignore
 
-        root = self if parent is None else parent._nexsroot  # type:ignore
+        self._nexsiden = iden
 
-        if parent:
-            self._nexsiden = iden
-            root._nexskids[self._nexsiden] = self
+        if nexsroot:
+            print(f'Adding {iden} to {nexsroot}')
+            assert iden
+            nexsroot._nexskids[iden] = self
 
             def onfini():
-                prev = root._nexskids.pop(self._nexsiden)
+                print(f'Removing {iden} from {nexsroot}')
+                prev = nexsroot._nexskids.pop(iden, None)
+                # FIXME remove
+                if prev is None:
+                    breakpoint()
                 assert prev is not None
+            print(f'adding fini to {iden}')
             self.onfini(onfini)
 
-        self._nexsroot = root
+        self._nexsroot = nexsroot
 
-        for event, func in self._nexsclsfuncs:  # type: ignore
+        for event, func in self._regclsfuncs:  # type: ignore
             self._nexshands[event] = func
 
     @classmethod
@@ -53,19 +77,18 @@ class Nexus(s_base.Base, metaclass=NexusType):
 
         return decorator
 
-    async def _push(self, event, parms, iden=None):
+    # FIXME: change iden parameter to
+    async def _push(self, event: str, *args: List[Any], **kwargs: Dict[str, Any]):
         '''
         Execute the change handler for the mesg
 
         Note:
             This method is considered 'protected', in that it should not be called from something other than self.
         '''
-        if self._nexsroot is not self:  # I'm below the root
-            if iden is None:
-                iden = self._nexsiden
-            # We call the root's method, as he might have overriden _push
-            return await self._nexsroot._push(event, parms, iden)
+        nexsiden = self._nexsiden
+        if self._nexsroot:  # I'm below the root
+            # FIXME: fix type annotation
+            return await self._nexsroot.issue(nexsiden, event, args, kwargs)
 
-        # I'm the root
-        nexus = self if iden is None else self._nexskids[iden]
-        return await nexus._nexshands[event](nexus, *parms)
+        # There's not change dist
+        return await self._nexshands[event](self, *args, **kwargs)
