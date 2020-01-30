@@ -194,63 +194,6 @@ class LmdbLayer(s_layer.Layer):
         if splices:
             await self._storFireSplices(splices)
 
-    def _migrate_db_pre010(self, dbname, newslab):
-        '''
-        Check for any pre-010 entries in 'dbname' in my slab and migrate those to the new slab.
-
-        Once complete, drop the database from me with the name 'dbname'
-
-        Returns (bool): True if a migration occurred, else False
-        '''
-        donekey = f'migrdone:{dbname}'
-
-        if self.metadict.get(donekey, False):
-            return
-
-        if not self.layrslab.dbexists(dbname):
-            self.metadict.set(donekey, True)
-            return False
-
-        oldslab = self.layrslab
-        olddb = oldslab.initdb(dbname)
-
-        entries = oldslab.stat(olddb)['entries']
-        if not entries:
-            self.metadict.set(donekey, True)
-            return False
-
-        if newslab.dbexists(dbname):
-            logger.warning('Incomplete migration detected.  Dropping new splices to restart.')
-            newslab.dropdb(dbname)
-            logger.info('New splice dropping complete.')
-
-        logger.info('Pre-010 %s migration starting.  Total rows: %d...', dbname, entries)
-
-        def progfunc(count):
-            logger.info('Progress %d/%d (%2.2f%%)', count, entries, count / entries * 100)
-
-        oldslab.copydb(olddb, newslab, destdbname=dbname, progresscb=progfunc)
-        logger.info('Pre-010 %s migration copying done.  Deleting from old location...', dbname)
-        oldslab.dropdb(dbname)
-        logger.info('Pre-010 %s migration completed.', dbname)
-
-        self.metadict.set(donekey, True)
-
-        return True
-
-    def _migrate_splices_pre010(self):
-        self._migrate_db_pre010('splices', self.spliceslab)
-
-    def migrateProvPre010(self, newslab):
-        '''
-        Check for any pre-010 provstacks and migrate those to the new slab.
-        '''
-        did_migrate = self._migrate_db_pre010('prov', newslab)
-        if not did_migrate:
-            return
-
-        self._migrate_db_pre010('provs', newslab)
-
     async def getModelVers(self):
         byts = self.layrslab.get(b'layer:model:version')
         if byts is None:

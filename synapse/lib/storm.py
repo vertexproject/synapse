@@ -1118,11 +1118,11 @@ class ReIndexCmd(Cmd):
     name = 'reindex'
 
     def getArgParser(self):
+        # FIXME: does any of this still apply?
         pars = Cmd.getArgParser(self)
         mutx = pars.add_mutually_exclusive_group(required=True)
         mutx.add_argument('--type', default=None, help='Re-index all properties of a specified type.')
         mutx.add_argument('--subs', default=False, action='store_true', help='Re-parse and set sub props.')
-        mutx.add_argument('--form-counts', default=False, action='store_true', help='Re-calculate all form counts.')
         mutx.add_argument('--fire-handler', default=None,
                           help='Fire onAdd/wasSet/runTagAdd commands for a fully qualified form/property'
                                ' or tag name on inbound nodes.')
@@ -1175,12 +1175,6 @@ class ReIndexCmd(Cmd):
 
                 yield node, path
 
-            return
-
-        if self.opts.form_counts:
-            await snap.printf(f'reindex form counts (full) beginning...')
-            await snap.core._calcFormCounts()
-            await snap.printf(f'...done')
             return
 
         if self.opts.fire_handler:
