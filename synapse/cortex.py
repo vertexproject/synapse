@@ -1110,7 +1110,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         slab = await s_lmdbslab.Slab.anit(path, map_async=True)
         self.onfini(slab.fini)
 
-        self.multiqueue = slab.getMultiQueue('cortex:queue', parent=self)
+        self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
 
     # async def addCoreQueue(self, name, info):
     #    self.multiqueue.add(name, info)
@@ -1657,7 +1657,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         return await self._push('model:univ:del', prop)
 
-    @s_nexus.Pusher.onPush('storm:univ:del')
+    @s_nexus.Pusher.onPush('model:univ:del')
     async def _onDelUnivProp(self, prop):
         udef = self.extunivs.get(prop)
         if udef is None:
@@ -2373,7 +2373,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # TODO NEXUS
         return self.offs.delete(iden)
 
-    async def addView(self, owner, layers):
+    async def addView(self, owner, layers, worldreadable=True):
 
         iden = s_common.guid()
 
@@ -2381,10 +2381,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         if user is None:
             raise s_exc.NoSuchUser(name=owner)
 
-        return await self._push('view:add', (iden, user.iden, layers))
+        return await self._push('view:add', iden, user.iden, layers, worldreadable)
 
     @s_nexus.Pusher.onPush('view:add')
-    async def _addView(self, iden, useriden, layers, worldreadable=True):
+    async def _addView(self, iden, useriden, layers, worldreadable):
 
         user = self.auth.user(useriden)
 
@@ -2399,7 +2399,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if worldreadable:
             rulr = await self.auth.getRulerByName('all', iden=iden)
-            await rulr._addRule((True, 'view:read'))
+            await rulr._addRule((True, ('view', 'read')))
 
         await self.bumpSpawnPool()
         return view

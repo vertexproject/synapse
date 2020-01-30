@@ -1042,7 +1042,7 @@ class HiveAuth(s_nexus.Pusher):
 
     async def delUser(self, name):
 
-        return await self._push('auth:user:del', (name,))
+        return await self._push('auth:user:del', name)
 
     @s_nexus.Pusher.onPush('auth:user:del')
     async def _onDelUser(self, name):
@@ -1070,7 +1070,7 @@ class HiveAuth(s_nexus.Pusher):
                 yield user
 
     async def delRole(self, name):
-        return await self._push('auth:role:del', (name,))
+        return await self._push('auth:role:del', name)
 
     @s_nexus.Pusher.onPush('auth:role:del')
     async def _onDelRole(self, name):
@@ -1269,7 +1269,7 @@ class HiveRuler(s_nexus.Pusher):
         self.permcache.clear()
 
     async def setName(self, name):
-        return await self._push('hive:hiveruler:setname', (name,))
+        return await self._push('hive:hiveruler:setname', name)
 
     @s_nexus.Pusher.onPush('hive:hiveruler:setname')
     async def _onSetName(self, name):
@@ -1277,7 +1277,7 @@ class HiveRuler(s_nexus.Pusher):
         await self.node.set(name)
 
     async def setRules(self, rules):
-        return await self._push('hive:hiveruler:setrules', (rules,))
+        return await self._push('hive:hiveruler:setrules', rules)
 
     @s_nexus.Pusher.onPush('hive:hiveruler:setrules')
     async def _onSetRules(self, rules):
@@ -1285,7 +1285,7 @@ class HiveRuler(s_nexus.Pusher):
         await self.info.set('rules', rules)
 
     async def addRule(self, rule, indx=None):
-        return await self._push('hive:hiveruler:addrule', (rule, indx,))
+        return await self._push('hive:hiveruler:addrule', rule, indx)
 
     @s_nexus.Pusher.onPush('hive:hiveruler:addrule')
     async def _addRule(self, rule, indx=None):
@@ -1300,7 +1300,7 @@ class HiveRuler(s_nexus.Pusher):
         await self.info.set('rules', rules)
 
     async def delRule(self, rule):
-        return await self._push('hive:hiveruler:delrule', (rule,))
+        return await self._push('hive:hiveruler:delrule', rule)
 
     @s_nexus.Pusher.onPush('hive:hiveruler:delrule')
     async def _onDelRule(self, rule):
@@ -1314,7 +1314,7 @@ class HiveRuler(s_nexus.Pusher):
         return True
 
     async def delRuleIndx(self, indx):
-        return await self._push('hive:hiveruler:delruleindx', (indx,))
+        return await self._push('hive:hiveruler:delruleindx', indx)
 
     @s_nexus.Pusher.onPush('hive:hiveruler:delruleindx')
     async def _onDelRuleIndx(self, indx):

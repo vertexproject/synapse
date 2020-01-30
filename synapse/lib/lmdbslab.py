@@ -251,10 +251,10 @@ class MultiQueue(s_nexus.Pusher):
     '''
     Allows creation/consumption of multiple durable queues in a slab.
     '''
-    async def __anit__(self, slab, name, parent: s_nexus.Pusher = None):  # type: ignore
+    async def __anit__(self, slab, name, nexsroot: s_nexus.NexsRoot = None):  # type: ignore
 
-        iden = 'multiqueue' + '' if parent is None else parent._nexsiden
-        await s_nexus.Pusher.__anit__(self, iden, parent=parent)
+        iden = ('mq', slab.path, name)
+        await s_nexus.Pusher.__anit__(self, iden, nexsroot=nexsroot)
 
         self.slab = slab
 
@@ -583,8 +583,8 @@ class Slab(s_base.Base):
     def getNameAbrv(self, name):
         return SlabAbrv(self, name)
 
-    async def getMultiQueue(self, name, parent=None):
-        mq = await MultiQueue.anit(self, name, parent=None)
+    async def getMultiQueue(self, name, nexsroot=None):
+        mq = await MultiQueue.anit(self, name, nexsroot=None)
         self.onfini(mq)
         return mq
 

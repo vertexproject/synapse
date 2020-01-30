@@ -308,12 +308,11 @@ class View(s_nexus.Pusher):  # type: ignore
         Returns:
             new view object, with an iden the same as the new write layer iden
         '''
-        writlayriden = await self.core.addLayer(**layrinfo)
-        writlayr = self.core.getLayer(writlayriden)
+        writlayr = await self.core.addLayer(**layrinfo)
         self.onfini(writlayr)
 
         owner = layrinfo.get('owner', 'root')
-        layeridens = [writlayriden] + [l.iden for l in self.layers]
+        layeridens = [writlayr.iden] + [l.iden for l in self.layers]
 
         view = await self.core.addView(owner, layeridens, worldreadable=False)
         view.parent = self

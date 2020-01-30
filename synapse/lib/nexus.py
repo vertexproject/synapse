@@ -21,7 +21,7 @@ class NexsRoot(s_base.Base):
     async def __anit__(self):
         self._nexskids = {}
 
-    async def issue(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any]):
+    async def issue(self, nexsiden: str, event: str, args: Any, kwargs: Any):
         # Log the message here
         nexus = self._nexskids[nexsiden]
         return await nexus._nexshands[event](nexus, *args, **kwargs)
@@ -47,18 +47,15 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         self._nexsiden = iden
 
         if nexsroot:
-            print(f'Adding {iden} to {nexsroot}')
             assert iden
             nexsroot._nexskids[iden] = self
 
             def onfini():
-                print(f'Removing {iden} from {nexsroot}')
                 prev = nexsroot._nexskids.pop(iden, None)
                 # FIXME remove
                 if prev is None:
                     breakpoint()
                 assert prev is not None
-            print(f'adding fini to {iden}')
             self.onfini(onfini)
 
         self._nexsroot = nexsroot
@@ -87,7 +84,6 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         '''
         nexsiden = self._nexsiden
         if self._nexsroot:  # I'm below the root
-            # FIXME: fix type annotation
             return await self._nexsroot.issue(nexsiden, event, args, kwargs)
 
         # There's not change dist
