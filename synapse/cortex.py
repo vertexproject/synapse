@@ -80,13 +80,6 @@ class CoreApi(s_cell.CellApi):
         ret = await self.cell.joinTeleLayer(url, indx=indx)
         return ret
 
-    # async def getNodesBy(self, full, valu, cmpr='=', view=None):
-    # '''
-    # Yield Node.pack() tuples which match the query.
-    # '''
-    #     async for node in self.cell.getNodesBy(full, valu, cmpr=cmpr, view=view):
-    #         yield node.pack()
-
     # FIXME:  ModelDict/Def/Defs is a mess
     async def getModelDict(self):
         '''
@@ -1111,35 +1104,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.onfini(slab.fini)
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
-
-    # async def addCoreQueue(self, name, info):
-    #    self.multiqueue.add(name, info)
-    #    return info
-
-    # async def hasCoreQueue(self, name):
-    #    return self.multiqueue.exists(name)
-
-    # async def delCoreQueue(self, name):
-    #    return await self.multiqueue.rem(name)
-
-    # async def getCoreQueue(self, name):
-    #    return self.multiqueue.status(name)
-
-    # async def getCoreQueues(self):
-    #    return self.multiqueue.list()
-
-    # async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
-    #    async for item in self.multiqueue.gets(name, offs, cull=cull, wait=wait, size=size):
-    #       yield item
-
-    # async def putCoreQueue(self, name, item):
-    #    return self.multiqueue.put(name, item)
-
-    # async def putsCoreQueue(self, name, items):
-    #    return self.multiqueue.puts(name, items)
-
-    # async def cullCoreQueue(self, name, offs):
-    #   return await self.multiqueue.cull(name, offs)
 
     async def setStormCmd(self, cdef):
         '''
@@ -2739,6 +2703,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     def getStormCmds(self):
         return list(self.stormcmds.items())
 
+# FIXME: change these to daemons
 #    def _initPushLoop(self):
 #
 #        if self.conf.get('splice:sync') is None:

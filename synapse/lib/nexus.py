@@ -19,6 +19,7 @@ class RegMethType(type):
 
 class NexsRoot(s_base.Base):
     async def __anit__(self):
+        await s_base.Base.__anit__(self)
         self._nexskids = {}
 
     async def issue(self, nexsiden: str, event: str, args: Any, kwargs: Any):

@@ -742,7 +742,8 @@ class NexusHiveDict(s_nexus.Pusher):
     A change-distributed HiveDict wrapper
     '''
     async def __anit__(self, hivedict, nexsroot=None):
-        await s_nexus.Pusher.__anit__(self, hivedict.node.full, nexsroot=nexsroot)
+        iden = ':'.join(hivedict.node.full)
+        await s_nexus.Pusher.__anit__(self, iden, nexsroot=nexsroot)
         self.dict = hivedict
 
     def get(self, name, onedit=None, default=None):
@@ -833,7 +834,8 @@ class HiveAuth(s_nexus.Pusher):
             node (HiveNode): The root of the persistent storage for auth
         '''
         # Derive an iden from the parent
-        await s_nexus.Pusher.__anit__(self, ('auth', node.full), nexsroot=nexsroot)
+        iden = 'auth:' + ':'.join(node.full)
+        await s_nexus.Pusher.__anit__(self, iden, nexsroot=nexsroot)
 
         self.node = node
 
@@ -1268,7 +1270,8 @@ class HiveRuler(s_nexus.Pusher):
     async def __anit__(self, node, auth):
 
         self.iden = node.name()
-        await s_nexus.Pusher.__anit__(self, ('HiveRuler', node.full), nexsroot=auth._nexsroot)
+        iden = 'HiveRuler:' + ':'.join(node.full)
+        await s_nexus.Pusher.__anit__(self, iden, nexsroot=auth._nexsroot)
 
         self.auth = auth
         self.node = node
