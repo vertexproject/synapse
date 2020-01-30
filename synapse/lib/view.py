@@ -243,7 +243,7 @@ class View(s_nexus.Pusher):  # type: ignore
         }
 
     async def addLayer(self, layriden, indx=None):
-        return await self._push(s_common.todo('view:addlayer', layriden, indx))
+        return await self._push('view:addlayer', layriden, indx)
 
     @s_nexus.Pusher.onPush('view:addlayer')
     async def _onAddLayer(self, layriden, indx=None):

@@ -900,6 +900,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # Change distribution
         self.nexsroot = await s_nexus.NexsRoot.anit()
+        self.onfini(self.nexsroot)
 
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
@@ -2480,8 +2481,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Add a Layer to the cortex.
         '''
+        conf = conf or {}
 
-        iden = s_common.guid()
+        iden = conf.pop('iden', None)
+        if iden is None:
+            iden = s_common.guid()
 
         return await self._push('layer:add', iden, conf, stor)
 

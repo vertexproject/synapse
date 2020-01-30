@@ -75,7 +75,6 @@ class Pusher(s_base.Base, metaclass=RegMethType):
 
         return decorator
 
-    # FIXME: change iden parameter to
     async def _push(self, event: str, *args: List[Any], **kwargs: Dict[str, Any]):
         '''
         Execute the change handler for the mesg
