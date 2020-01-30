@@ -24,6 +24,7 @@ def getFileMappedRegion(filename):
     # 7fb5195fc000-7fb519ffc000 r--s 00000000 fd:01 5245137                    /tmp/foo.lmdb/data.mdb
 
     filename = str(filename)
+    largest = None
     with open(f'/proc/{os.getpid()}/maps') as maps:
         for line in maps:
             if len(line) < 50:
@@ -33,8 +34,14 @@ def getFileMappedRegion(filename):
                 start, end = addrs.split('-')
                 start_addr = int(start, 16)
                 end_addr = int(end, 16)
-                return start_addr, end_addr - start_addr
-    raise s_exc.NoSuchFile(f'{filename} is not mapped into current process')
+                memlen = end_addr - start_addr
+
+                if largest is None or memlen > largest[1]:
+                    largest = (start_addr, memlen)
+
+    if largest is None:
+        raise s_exc.NoSuchFile(f'{filename} is not mapped into current process')
+    return largest
 
 def getTotalMemory():
     '''
@@ -126,12 +133,12 @@ def munlock(address, length):
 
 # void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
 _mmap = libc.mmap
-_mmap.retype = c.c_void_p
+_mmap.restype = c.c_void_p
 _mmap.argtypes = [c.c_void_p, c.c_size_t, c.c_int, c.c_int, c.c_int, c.c_ulonglong]
 
 # int munmap(void *addr, size_t length);
 _munmap = libc.munmap
-_munmap.retype = c.c_int
+_munmap.restype = c.c_int
 _munmap.argtypes = [c.c_void_p, c.c_size_t]
 
 @contextlib.contextmanager

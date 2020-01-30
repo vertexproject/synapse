@@ -689,7 +689,7 @@ class Slab(s_base.Base):
             # too-long length)
             filesize = os.fstat(fileno).st_size
             goal_end = memstart + min(memlen, filesize)
-            self.lock_goal = goal_end
+            self.lock_goal = goal_end - memstart
 
             self.lock_progress = 0
             prev_memend = memstart
