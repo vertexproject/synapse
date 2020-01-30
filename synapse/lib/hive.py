@@ -861,9 +861,9 @@ class HiveAuth(s_nexus.Nexus):
                 logger.exception('Failure loading AuthGate')
 
         # initialize an admin user named root
-        root = self.getUserByName('root')
-        if root is None:
-            root = await self.addUser('root')
+        self.rootuser = self.getUserByName('root')
+        if self.rootuser is None:
+            self.rootuser = await self.addUser('root')
 
         await root.setAdmin(True)
         await root.setLocked(False)

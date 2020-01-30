@@ -2288,7 +2288,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # if we have no views, we are initializing.  Add a default main view and layer.
         if not self.views:
             layr = await self.addLayer()
-            view = await self.addView('root', (layr.iden,))
+            view = await self.addView(self.auth.rootuser.iden, (layr.iden,))
             await self.cellinfo.set('defaultview', view.iden)
             self.view = view
 
@@ -2380,9 +2380,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         iden = s_common.guid()
 
-        user = self.auth.getUserByName(owner)
+        user = self.auth.user(owner)
         if user is None:
-            raise s_exc.NoSuchUser(name=owner)
+            raise s_exc.NoSuchUser(iden=owner)
 
         info = {
             'owner': owner,
