@@ -4,7 +4,6 @@ import asyncio
 import logging
 import argparse
 
-import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.lib.base as s_base
@@ -21,53 +20,24 @@ def getParser():
     mirror = os.getenv('SYN_CORTEX_MIRROR', None)
 
     pars = argparse.ArgumentParser(prog='synapse.servers.cortex')
-    pars.add_argument('--telepath', default=telep, help='The telepath URL to listen on.')
-    pars.add_argument('--https', default=https, dest='port', type=int, help='The port to bind for the HTTPS/REST API.')
+    s_config.common_argparse(pars, https=https, telep=telep, telen=telen, cellname='Cortex')
     pars.add_argument('--mirror', default=mirror, help='Mirror splices from the given cortex. (we must be a backup!)')
-    pars.add_argument('--name', default=telen, help='The (optional) additional name to share the Cortex as.')
-    pars.add_argument('coredir', help='The directory for the cortex to use for storage.')
 
     return pars
 
+async def cb(cell, opts, outp):
+
+    await s_config.common_cb(cell, opts, outp)
+
+    if opts.mirror:
+        outp.printf(f'initializing cortex mirror of: {opts.mirror}')
+        await cell.initCoreMirror(opts.mirror)
+
 async def main(argv, outp=s_output.stdout):
-
-    s_common.setlogging(logger)
-
     pars = getParser()
-
-    conf = s_config.Config.getConfFromCell(s_cortex.Cortex)
-    conf.getArgumentParser(pars=pars)
-
-    opts = pars.parse_args(argv)
-
-    conf.setConfFromOpts(opts)
-    conf.setConfFromEnvs()
-
-    outp.printf('starting cortex: %s' % (opts.coredir,))
-
-    core = await s_cortex.Cortex.anit(opts.coredir, conf=conf)
-
-    try:
-
-        outp.printf('...cortex API (telepath): %s' % (opts.telepath,))
-        await core.dmon.listen(opts.telepath)
-
-        outp.printf('...cortex API (https): %s' % (opts.port,))
-        await core.addHttpsPort(opts.port)
-
-        if opts.name:
-            outp.printf(f'...cortex additional share name: {opts.name}')
-            core.dmon.share(opts.name, core)
-
-        if opts.mirror:
-            outp.printf(f'initializing cortex mirror of: {opts.mirror}')
-            await core.initCoreMirror(opts.mirror)
-
-        return core
-
-    except Exception:
-        await core.fini()
-        raise
+    core = await s_config.main(s_cortex.Cortex, argv,
+                               pars=pars, cb=cb, outp=outp)
+    return core
 
 if __name__ == '__main__': # pragma: no cover
     asyncio.run(s_base.main(main(sys.argv[1:])))

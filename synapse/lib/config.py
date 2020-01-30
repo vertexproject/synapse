@@ -9,8 +9,9 @@ import fastjsonschema
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.lib.cache as s_cache
 
+import synapse.lib.const as s_const
+import synapse.lib.output as s_output
 import synapse.lib.hashitem as s_hashitem
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ def getJsSchema(confbase, confdefs):
 
     Args:
         confbase (dict): A JSON Schema dictionary of properties for the object. This content has
-        precedence over the confdefs argument.
+                         precedence over the confdefs argument.
         confdefs (dict): A JSON Schema dictionary of properties for the object.
 
     Notes:
@@ -94,13 +95,13 @@ class Config(c_abc.MutableMapping):
 
     Args:
         schema (dict): The JSON Schema (draft v7) which to validate
-        configuration data against.
+                       configuration data against.
         conf (dict): Optional, a set of configuration data to preload.
-        envar_prefix (str): Optional, a prefix used when collecting
-        configuration data from environmental variables.
+        envar_prefix (str): Optional, a prefix used when collecting configuration
+                            data from environmental variables.
 
     Notes:
-        This class implements the collections.abc.MuttableMapping class, so it
+        This class implements the collections.abc.MutableMapping class, so it
         may be used where a dictionary would otherwise be used.
 
         The default values provided in the schema must be able to be recreated
@@ -124,7 +125,7 @@ class Config(c_abc.MutableMapping):
         self.validator = getJsValidator(self.json_schema)
 
     @classmethod
-    def getConfFromCell(cls, cell, conf=None):
+    def getConfFromCell(cls, cell, conf=None, envar_prefix=None):
         '''
         Get a Config object from a Cell directly (either the ctor or the instance thereof).
 
@@ -132,7 +133,7 @@ class Config(c_abc.MutableMapping):
             Config: A Config object.
         '''
         schema = getJsSchema(cell.confbase, cell.confdefs)
-        return cls(schema, conf=conf)
+        return cls(schema, conf=conf, envar_prefix=envar_prefix)
 
     # Argparse support methods
     def getArgumentParser(self, pars=None):
@@ -219,6 +220,27 @@ class Config(c_abc.MutableMapping):
 
     # Envar support methods
     def setConfFromEnvs(self):
+        '''
+        Set configuration options from environmental variables.
+
+        Notes:
+            Environment variables are resolved from configuration options after doing the following transform:
+
+            - Replace ``:`` characters with ``_``.
+            - Add a config provided prefix, if set.
+            - Uppercase the string.
+            - Resolve the environmental variable
+            - If the environmental variable is set, set the config value to the results of ``yaml.yaml_safeload()``
+              on the value.
+
+        Examples:
+
+            For the configuration value ``auth:passwd``, the environmental variable is resolved as ``AUTH_PASSWD``.
+            With the prefix ``cortex``, the the environmental variable is resolved as ``CORTEX_AUTH_PASSWD``.
+
+        Returns:
+            None: Returns None.
+        '''
         for (name, info) in self.json_schema.get('properties', {}).items():
             envar = make_envar_name(name, prefix=self.envar_prefix)
             envv = os.getenv(envar)
@@ -307,3 +329,121 @@ class Config(c_abc.MutableMapping):
 
     def __getitem__(self, item):
         return self.conf.__getitem__(item)
+
+def common_argparse(argp, https='4443', telep='tcp://0.0.0.0:27492/',
+                    telen=None, cellname='Cell'):
+    '''
+    Add a set of common arguments to an ArgumentParser that can be used with ``common_cb``.
+
+    Args:
+        argp (argparse.ArgumentParser): ArgumentParser to augment.
+        https (str): Port to listen to HTTPS on.
+        telep (str): Telepath address to listen on.
+        telen (str): Optional, name to share the cell as.
+        cellname (str): Optional, name to inject into the ``--name`` help argument.
+
+    Returns:
+        None: Returns None.
+    '''
+    argp.add_argument('--https', default=https, dest='port',
+                      type=int, help='The port to bind for the HTTPS/REST API.')
+    argp.add_argument('--telepath', default=telep,
+                      help='The telepath URL to listen on.')
+    argp.add_argument('--name', default=telen,
+                      help=f'The (optional) additional name to share the {cellname} as.')
+
+async def common_cb(cell, opts, outp):
+    '''
+    A common base callback that can be used in conjunction with ``common_argparse``.
+
+    Notes:
+        This sets https server port, telepath listening port and a telepath share name if set.
+
+    Args:
+        cell: Synapse Cell.
+        opts (argparse.Namespace): An argparse Namespace object from parsed arguments.
+        outp (s_output.Output): Output object.
+
+    Returns:
+        None: Returns None.
+    '''
+    outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
+    await cell.dmon.listen(opts.telepath)
+
+    outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.port,))
+    await cell.addHttpsPort(opts.port)
+
+    if opts.name:
+        outp.printf(f'...{cell.getCellType()} additional share name: {opts.name}')
+        cell.dmon.share(opts.name, cell)
+
+async def main(ctor,
+               argv,
+               pars=None,
+               cb=None,
+               outp=s_output.stdout,
+               envar_prefix=None,
+               ):
+        '''
+        Cell configuration launcher helper.
+
+        Args:
+            ctor: Synapse Cell ctor.
+            argv (list): List of arguments to parse.
+            pars (argparse.ArgumentParser): Optional, a user provided ArgumentParser. Useful when combined with the cb.
+            cb (callable): Optional callback function which takes the cell, opts and outp as arguments.
+            outp (s_output.Output): An output instance for printing output.
+            envar_prefix (str): A envar prefix for collecting envar based configuration data.
+
+        Notes:
+            This does the following items:
+
+                - Create a Config object from the Cell Ctor.
+                - Create (or inject) argument options into an Argument Parser from the Config object.
+                - Parses the provided arguments.
+                - Sets logging for the process.
+                - Loads configuration data from the parsed options and environment variables.
+                - Creates the Cell from the Cell Ctor.
+                - Executes the provided callback function.
+                - Returns the Cell.
+
+            Provided ArgumentParser instances will have the following argument injected into it in order
+            to provide the location where the cell is started from, and to do default logging configuration.
+
+            ::
+
+                pars.add_argument('celldir', type=str,
+                                  help='The directory for the Cell to use for storage.')
+                pars.add_argument('--log-level', default='INFO',
+                                  choices=s_const.LOG_LEVEL_CHOICES,
+                                  help='Specify the Python logging log level.', type=str.upper)
+
+        Returns:
+            The Synapse Cell made from the provided Ctor.
+        '''
+        conf = Config.getConfFromCell(ctor, envar_prefix=envar_prefix)
+        pars = conf.getArgumentParser(pars=pars)
+        # Inject celldir & logging argument so we can rely on having it around.
+        pars.add_argument('celldir', type=str,
+                          help=f'The directory for the {ctor.getCellType()} to use for storage.')
+        pars.add_argument('--log-level', default='INFO', choices=s_const.LOG_LEVEL_CHOICES,
+                          help='Specify the Python logging log level.', type=str.upper)
+        opts = pars.parse_args(argv)
+
+        s_common.setlogging(logger, defval=opts.log_level)
+
+        conf.setConfFromOpts(opts)
+        conf.setConfFromEnvs()
+
+        outp.printf(f'starting {ctor.getCellType()}: {opts.celldir}')
+
+        cell = await ctor.anit(opts.celldir, conf=conf)
+
+        try:
+            if cb:
+                await cb(cell, opts, outp)
+        except Exception:
+            await cell.fini()
+            raise
+        else:
+            return cell
