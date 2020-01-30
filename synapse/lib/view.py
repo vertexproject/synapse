@@ -33,6 +33,9 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         self.node = node
         self.iden = node.name()
+        self.info = await node.dict()
+
+        self.triggers = s_trigger.Triggers(self)
 
         self.core = core
 
@@ -42,6 +45,10 @@ class View(s_nexus.Pusher):  # type: ignore
         self.layers = []
         self.invalid = None
         self.parent = None  # The view this view was forked from
+
+        parent = self.info.get('parent')
+        if parent is not None:
+            self.parent = self.core.getView(parent)
 
         self.permCheck = {
             'node:add': self._nodeAddConfirm,
@@ -55,18 +62,7 @@ class View(s_nexus.Pusher):  # type: ignore
         }
 
         # isolate some initialization to easily override for SpawnView.
-        await self._initViewInfo()
         await self._initViewLayers()
-
-    async def _initViewInfo(self):
-
-        self.iden = self.node.name()
-
-        self.info = await self.node.dict()
-        self.info.setdefault('owner', 'root')
-        self.info.setdefault('layers', ())
-
-        self.triggers = s_trigger.Triggers(self)
 
     async def getFormCounts(self):
         counts = collections.defaultdict(int)
@@ -315,8 +311,14 @@ class View(s_nexus.Pusher):  # type: ignore
         owner = layrinfo.get('owner', 'root')
         layeridens = [writlayriden] + [l.iden for l in self.layers]
 
-        view = await self.core.addView(owner, layeridens, worldreadable=False)
-        view.parent = self
+        vdef = {
+            'owner': owner,
+            'parent': self.iden,
+            'layers': layeridens,
+            'worldreadable': False,
+        }
+
+        view = await self.core.addView(vdef)
 
         return view
 

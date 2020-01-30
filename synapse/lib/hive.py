@@ -868,8 +868,8 @@ class HiveAuth(s_nexus.Pusher):
         if self.rootuser is None:
             self.rootuser = await self._addUser('root')
 
-        await root.setAdmin(True)
-        await root.setLocked(False)
+        await self.rootuser.setAdmin(True)
+        await self.rootuser.setLocked(False)
 
         async def fini():
             [await u.fini() for u in self.users()]
@@ -890,7 +890,7 @@ class HiveAuth(s_nexus.Pusher):
     def user(self, iden):
         return self.usersbyiden.get(iden)
 
-    def getUserByName(self, name):
+    def getUserByName(self, name, iden=None):
         '''
         Get a user by their username.
 
@@ -900,10 +900,18 @@ class HiveAuth(s_nexus.Pusher):
         Returns:
             HiveUser: A Hive User.  May return None if there is no user by the requested name.
         '''
-        return self.usersbyname.get(name)
+        user = self.usersbyname.get(name)
+        if iden is not None:
+            gate = self.getAuthGate(iden)
+            return gate.getGateUser(user)
+        return user
 
-    def getRoleByName(self, name):
-        return self.rolesbyname.get(name)
+    def getRoleByName(self, name, iden=None):
+        role = self.rolesbyname.get(name)
+        if iden is not None:
+            gate = self.getAuthGate(iden)
+            return gate.getGateRole(role)
+        return role
 
     async def _addUserNode(self, node):
 
@@ -1015,33 +1023,7 @@ class HiveAuth(s_nexus.Pusher):
         node = await self.node.hive.open(path)
         return await self._addRoleNode(node)
 
-    async def getRulerByName(self, name, iden=None):
-        '''
-        Returns:
-            the HiveRuler (a HiveUser, HiveRole, GateUser, or GateRole) corresponding to the given name.
-            If iden is not None, it returns the HiveRole or HiveUser of the AuthGate with iden.
-        '''
-        if iden is not None:
-            authgate = self.getAuthGate(iden)
-            if authgate is None:
-                raise s_exc.NoSuchAuthGate(iden=iden)
-
-        user = self.getUserByName(name)
-        if user is not None:
-            if iden is not None:
-                return await authgate.getGateUser(user)
-            return user
-
-        role = self.getRoleByName(name)
-        if role is not None:
-            if iden is not None:
-                return await authgate.getGateRole(role)
-            return role
-
-        raise s_exc.NoSuchName(name=name)
-
     async def delUser(self, name):
-
         return await self._push('auth:user:del', (name,))
 
     @s_nexus.Pusher.onPush('auth:user:del')

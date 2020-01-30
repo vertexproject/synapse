@@ -2285,7 +2285,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         # if we have no views, we are initializing.  Add a default main view and layer.
         if not self.views:
             layr = await self.addLayer()
-            view = await self.addView((layr.iden,), worldreadable=True)
+            vdef = {
+                'layers': (layr.iden,),
+                'worldreadable': True,
+            }
+            view = await self.addView(vdef)
             await self.cellinfo.set('defaultview', view.iden)
             self.view = view
 
@@ -2373,33 +2377,36 @@ class Cortex(s_cell.Cell):  # type: ignore
         # TODO NEXUS
         return self.offs.delete(iden)
 
-    async def addView(self, layers, owner=None, worldreadable=True, parent=None):
+    async def addView(self, vdef):
 
-        iden = s_common.guid()
-        if owner is None:
-            owner = self.auth.rootuser.iden
+        vdef['iden'] = s_common.guid()
+
+        vdef.setdefault('parent', None)
+        vdef.setdefault('worldreadable', True)
+        vdef.setdefault('owner', self.auth.rootuser.iden)
+
+        owner = vdef.get('owner')
 
         user = self.auth.user(owner)
         if user is None:
             raise s_exc.NoSuchUser(iden=owner)
 
-        return await self._push('view:add', (iden, owner, layers))
+        return await self._push('view:add', vdef)
 
     @s_nexus.Pusher.onPush('view:add')
-    async def _addView(self, iden, useriden, layers, worldreadable=True):
+    async def _addView(self, vdef):
 
-        user = self.auth.user(useriden)
-
+        iden = vdef.get('iden')
         node = await self.hive.open(('cortex', 'views', iden))
-        info = await node.dict()
 
-        await info.set('owner', user.iden)
-        await info.set('layers', layers)
+        info = await node.dict()
+        for name, valu in vdef.items():
+            await info.set(name, valu)
 
         view = await s_view.View.anit(self, node)
         self.views[iden] = view
 
-        if worldreadable:
+        if vdef.get('worldreadable'):
             rulr = await self.auth.getRulerByName('all', iden=iden)
             await rulr._addRule((True, 'view:read'))
 
@@ -2518,9 +2525,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Add a Layer to the cortex.
         '''
-
         iden = s_common.guid()
-
         return await self._push('layer:add', iden, conf, stor)
 
     @s_nexus.Pusher.onPush('layer:add')
