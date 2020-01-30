@@ -416,12 +416,12 @@ class LmdbLayer(s_layer.Layer):
 
             curv, curi = s_msgpack.un(curb)
 
-            self.layrslab.delete(abrv_p + curi, val=buid, db=self.by_tp_pi)
+            self.layrslab.delete(abrv_p + curi, val=buid + abrv_tp, db=self.by_tp_pi)
             self.layrslab.delete(abrv_tp + curi, val=buid, db=self.by_tp_tpi)
             self.layrslab.delete(abrv_ftp + curi, val=buid, db=self.by_tp_ftpi)
 
         if indx is not None:
-            self.layrslab.put(abrv_p + indx, buid, dupdata=True, db=self.by_tp_pi)
+            self.layrslab.put(abrv_p + indx, buid + abrv_tp, dupdata=True, db=self.by_tp_pi)
             self.layrslab.put(abrv_tp + indx, buid, dupdata=True, db=self.by_tp_tpi)
             self.layrslab.put(abrv_ftp + indx, buid, dupdata=True, db=self.by_tp_ftpi)
 
@@ -448,7 +448,7 @@ class LmdbLayer(s_layer.Layer):
 
         curv, curi = s_msgpack.un(curb)
 
-        self.layrslab.delete(abrv_p + curi, val=buid, db=self.by_tp_pi)
+        self.layrslab.delete(abrv_p + curi, val=buid + abrv_tp, db=self.by_tp_pi)
         self.layrslab.delete(abrv_tp + curi, val=buid, db=self.by_tp_tpi)
         self.layrslab.delete(abrv_ftp + curi, val=buid, db=self.by_tp_ftpi)
 
@@ -616,27 +616,43 @@ class LmdbLayer(s_layer.Layer):
         abrv = self.getNameAbrv(name)
 
         if iops is None:
-            for lkey, buid in self.layrslab.scanByPref(abrv, db=db):
-                yield (buid,)
+            lastbuid = None
+            for lkey, valu in self.layrslab.scanByPref(abrv, db=db):
+                buid = valu[:32]
+                if lastbuid != buid:
+                    yield (buid[:32],)
+                    lastbuid = buid
             return
 
         for iopr in iops:
 
             if iopr[0] == 'eq':
-                for lkey, buid in self.layrslab.scanByDups(abrv + iopr[1], db=db):
-                    yield (buid,)
+                lastbuid = None
+                for lkey, valu in self.layrslab.scanByDups(abrv + iopr[1], db=db):
+                    buid = valu[:32]
+                    if lastbuid != buid:
+                        yield (buid[:32],)
+                        lastbuid = buid
                 continue
 
             if iopr[0] == 'pref':
-                for lkey, buid in self.layrslab.scanByPref(abrv + iopr[1], db=db):
-                    yield (buid,)
+                lastbuid = None
+                for lkey, valu in self.layrslab.scanByPref(abrv + iopr[1], db=db):
+                    buid = valu[:32]
+                    if lastbuid != buid:
+                        yield (buid[:32],)
+                        lastbuid = buid
                 continue
 
             if iopr[0] == 'range':
                 kmin = abrv + iopr[1][0]
                 kmax = abrv + iopr[1][1]
-                for lkey, buid in self.layrslab.scanByRange(kmin, kmax, db=db):
-                    yield (buid,)
+                lastbuid = None
+                for lkey, valu in self.layrslab.scanByRange(kmin, kmax, db=db):
+                    buid = valu[:32]
+                    if lastbuid != buid:
+                        yield (buid[:32],)
+                        lastbuid = buid
                 continue
 
             # pragma: no cover
