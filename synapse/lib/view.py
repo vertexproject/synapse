@@ -313,11 +313,10 @@ class View(s_nexus.Nexus):  # type: ignore
         writlayr = self.core.getLayer(writlayriden)
         self.onfini(writlayr)
 
-        viewiden = s_common.guid()
         owner = layrinfo.get('owner', 'root')
         layeridens = [writlayriden] + [l.iden for l in self.layers]
 
-        view = await self.core.addView(viewiden, owner, layeridens)
+        view = await self.core.addView(layeridens)
         view.worldreadable = False
         view.parent = self
 

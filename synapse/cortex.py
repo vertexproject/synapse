@@ -2376,7 +2376,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # TODO NEXUS
         return self.offs.delete(iden)
 
-    async def addView(self, owner, layers):
+    async def addView(self, owner, layers, owner=None, parent=None):
 
         iden = s_common.guid()
 
@@ -2384,10 +2384,16 @@ class Cortex(s_cell.Cell):  # type: ignore
         if user is None:
             raise s_exc.NoSuchUser(name=owner)
 
-        return await self._push('view:add', (iden, user.iden, layers))
+        info = {
+            'owner': owner,
+            'parent': parent,
+        }
+        return await self._push('view:add', (iden, info))
 
     @s_nexus.Nexus.onPush('view:add')
-    async def _addView(self, iden, useriden, layers):
+    async def _addView(self, iden, **kwargs):
+
+        owner = info.get('owner')
 
         user = self.auth.user(useriden)
 
