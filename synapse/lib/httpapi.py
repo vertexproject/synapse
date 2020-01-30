@@ -54,15 +54,10 @@ class Sess(s_base.Base):
 
 class HandlerBase:
 
-    httpsonly = False
-
     def initialize(self, cell):
         self.cell = cell
         self._web_sess = None
         self._web_user = None
-
-        if (self.httpsonly or self.cell.httpsonly) and self.request.protocol != 'https':
-            self.redirect('https://' + self.request.host, permanent=False)
 
     def set_default_headers(self):
         origin = self.request.headers.get('origin')
