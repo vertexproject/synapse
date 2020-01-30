@@ -3647,17 +3647,17 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=path01) as core01:
 
                 self.len(1, await core01.eval('[ test:str=core01 ]').list())
-                # Add a lmdb layer with core00's iden
                 layer1 = await core01.addLayer()
+                iden00b = layer1.iden
                 iden01 = core01.getLayer().iden
                 # Set the default view for core01 to have a read layer with
-                # the iden from core00.
-                await core01.setViewLayers((iden01, iden00))
+                # the new iden
+                await core01.setViewLayers((iden01, iden00b))
 
             # Blow away the old layer at the destination and replace it
             # with our layer from core00
             src = s_common.gendir(path00, 'layers', iden00)
-            dst = s_common.gendir(path01, 'layers', iden00)
+            dst = s_common.gendir(path01, 'layers', iden00b)
             shutil.rmtree(dst)
             shutil.copytree(src, dst)
 
