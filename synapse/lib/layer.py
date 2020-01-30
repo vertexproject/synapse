@@ -659,7 +659,7 @@ class StorTypeLatLon(StorType):
         # yield index bytes in lon/lat order to allow cheap optimial indexing
         return (self._getLatLonIndx(valu),)
 
-class Layer(s_nexus.Nexus):
+class Layer(s_nexus.Pusher):
     '''
     The base class for a cortex layer.
     '''
@@ -670,10 +670,10 @@ class Layer(s_nexus.Nexus):
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, layrinfo, dirn, conf=None, parent=None):
+    async def __anit__(self, layrinfo, dirn, conf=None, nexsroot=None):
 
         self.iden = layrinfo.get('iden')
-        await s_nexus.Nexus.__anit__(self, self.iden, parent=parent)
+        await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=nexsroot)
 
         self.dirn = dirn
         self.readonly = layrinfo.get('readonly')
@@ -951,9 +951,9 @@ class Layer(s_nexus.Nexus):
                 yield await self.getStorNode(buid)
 
     async def storNodeEdits(self, nodeedits, meta):
-        return await self._push('layer:edits', (nodeedits, meta))
+        return await self._push('layer:edits', nodeedits, meta)
 
-    @s_nexus.Nexus.onPush('layer:edits')
+    @s_nexus.Pusher.onPush('layer:edits')
     async def _onStorNodeEdits(self, nodeedits, meta):
         return [await self._storNodeEdit(e, meta) for e in nodeedits]
 
@@ -1623,13 +1623,13 @@ class LayerStorage(s_base.Base):
             mesg = f'LayerStorage ({self.stortype}) needs an iden!'
             raise s_exc.NeedConfValu(mesg=mesg, name=self.iden)
 
-    async def initLayr(self, layrinfo, parent: s_nexus.Nexus = None):
+    async def initLayr(self, layrinfo, nexsroot: s_nexus.NexsRoot = None):
         iden = layrinfo.get('iden')
         if iden is None:
             raise s_exc.NeedConfValu(mesg='Missing layer iden', name=self)
 
         path = s_common.gendir(self.dirn, iden)
-        return await Layer.anit(layrinfo, path, parent=parent)
+        return await Layer.anit(layrinfo, path, nexsroot=nexsroot)
 
     async def reqValidLayrConf(self, conf):
         return

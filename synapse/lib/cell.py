@@ -347,7 +347,7 @@ bootdefs = (
 
 )
 
-class Cell(s_nexus.Nexus, s_telepath.Aware):
+class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
     '''
@@ -379,7 +379,7 @@ class Cell(s_nexus.Nexus, s_telepath.Aware):
         with open(path, 'r') as fd:
             self.iden = fd.read().strip()
 
-        await s_nexus.Nexus.__anit__(self, self.iden)
+        await s_nexus.Pusher.__anit__(self, self.iden)
 
         boot = self._loadCellYaml('boot.yaml')
         self.boot = s_common.config(boot, bootdefs)
@@ -732,13 +732,13 @@ class Cell(s_nexus.Nexus, s_telepath.Aware):
         '''
         return await self.hive.get(path)
 
-    async def setHiveKey(self, path, value):
+    async def setHiveKey(self, path, valu):
         '''
         Set or change the value of a key in the cell default hive
         '''
-        return await self._push('hive:setkey', (path, value))
+        return await self._push('hive:setkey', path, valu)
 
-    @s_nexus.Nexus.onPush('hive:setkey')
+    @s_nexus.Pusher.onPush('hive:setkey')
     async def _onSetHiveKey(self, path, value):
         return await self.hive.set(path, value)
 
@@ -748,9 +748,9 @@ class Cell(s_nexus.Nexus, s_telepath.Aware):
 
         Note:  this is for expert emergency use only.
         '''
-        return await self._push('hive:popkey', (path,))
+        return await self._push('hive:popkey', path)
 
-    @s_nexus.Nexus.onPush('hive:popkey')
+    @s_nexus.Pusher.onPush('hive:popkey')
     async def _onPopHiveKey(self, path):
         return await self.hive.pop(path)
 
@@ -761,8 +761,8 @@ class Cell(s_nexus.Nexus, s_telepath.Aware):
         '''
         Note:  this is for expert emergency use only.
         '''
-        return await self._push('hive:loadtree', (tree, path, trim))
+        return await self._push('hive:loadtree', tree, path, trim)
 
-    @s_nexus.Nexus.onPush('hive:loadtree')
+    @s_nexus.Pusher.onPush('hive:loadtree')
     async def _onLoadHiveTree(self, tree, path, trim):
         return await self.hive.loadHiveTree(tree, path=path, trim=trim)

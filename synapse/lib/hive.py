@@ -736,35 +736,36 @@ class HiveDict(s_base.Base):
 
         return retn
 
-class NexusHiveDict(s_nexus.Nexus):
+# FIXME, un-nexify, merge into stormtypes.StormDict, call new cortex methods
+class NexusHiveDict(s_nexus.Pusher):
     '''
     A change-distributed HiveDict wrapper
     '''
-    async def __anit__(self, hivedict, parent=None):
-        await s_nexus.Nexus.__anit__(self, hivedict.node.full, parent=parent)
+    async def __anit__(self, hivedict, nexsroot=None):
+        await s_nexus.Pusher.__anit__(self, hivedict.node.full, nexsroot=nexsroot)
         self.dict = hivedict
 
     def get(self, name, onedit=None, default=None):
         return self.dict.get(name, onedit=onedit, default=default)
 
     async def set(self, name, valu):
-        return await self._push('hivedict:set', (name, valu,))
+        return await self._push('hivedict:set', name, valu)
 
-    @s_nexus.Nexus.onPush('hivedict:set')
+    @s_nexus.Pusher.onPush('hivedict:set')
     async def _onSet(self, name, valu):
         return await self.dict.set(name, valu)
 
     async def setdefault(self, name, valu):
-        return await self._push('hivedict:setdefault', (name, valu))
+        return await self._push('hivedict:setdefault', name, val)
 
-    @s_nexus.Nexus.onPush('hivedict:setdefault')
+    @s_nexus.Pusher.onPush('hivedict:setdefault')
     def _onSetdefault(self, name, valu):
         return self.dict.setdefault(name, valu)
 
     async def pop(self, name, default=None):
-        return await self._push('hivedict:pop', (name, default))
+        return await self._push('hivedict:pop', name, default)
 
-    @s_nexus.Nexus.onPush('hivedict:pop')
+    @s_nexus.Pusher.onPush('hivedict:pop')
     async def _onPop(self, name, default=None):
         return await self.dict.pop(name, default=default)
 
@@ -777,7 +778,7 @@ class NexusHiveDict(s_nexus.Nexus):
             yield item
 
 # FIXME: move to separate file
-class HiveAuth(s_nexus.Nexus):
+class HiveAuth(s_nexus.Pusher):
     '''
     HiveAuth is a user authentication and authorization stored in a Hive.  Users
     correspond to separate logins with different passwords and potentially
@@ -826,16 +827,13 @@ class HiveAuth(s_nexus.Nexus):
         └ ... last authgate
     '''
 
-    async def __anit__(self, node, pushparent=None):
+    async def __anit__(self, node, nexsroot=None):
         '''
         Args:
             node (HiveNode): The root of the persistent storage for auth
         '''
         # Derive an iden from the parent
-        authiden = 'auth'
-        if pushparent is not None:
-            authiden += pushparent._nexsiden
-        await s_nexus.Nexus.__anit__(self, authiden, parent=pushparent)
+        await s_nexus.Pusher.__anit__(self, ('auth', node.full), nexsroot=nexsroot)
 
         self.node = node
 
@@ -860,6 +858,11 @@ class HiveAuth(s_nexus.Nexus):
             except Exception:  # pragma: no cover
                 logger.exception('Failure loading AuthGate')
 
+        allrole = self.getRoleByName('all')
+        if allrole is None:
+            # initialize the role of which all users are a member
+            await self._addRole('all')
+
         # initialize an admin user named root
         root = self.getUserByName('root')
         if root is None:
@@ -867,10 +870,6 @@ class HiveAuth(s_nexus.Nexus):
 
         await root.setAdmin(True)
         await root.setLocked(False)
-
-        if self.inaugural:
-            # initialize the rule of which all users are a member
-            await self._addRole('all')
 
         async def fini():
             [await u.fini() for u in self.users()]
@@ -978,9 +977,9 @@ class HiveAuth(s_nexus.Nexus):
         return gate
 
     async def addUser(self, name):
-        return await self._push('auth:user:add', (name, ))
+        return await self._push('auth:user:add', name)
 
-    @s_nexus.Nexus.onPush('auth:user:add')
+    @s_nexus.Pusher.onPush('auth:user:add')
     async def _addUser(self, name):
         if self.usersbyname.get(name) is not None:
             raise s_exc.DupUserName(name=name)
@@ -1000,9 +999,9 @@ class HiveAuth(s_nexus.Nexus):
         return user
 
     async def addRole(self, name):
-        return await self._push('auth:role:add', (name,))
+        return await self._push('auth:role:add', name)
 
-    @s_nexus.Nexus.onPush('auth:role:add')
+    @s_nexus.Pusher.onPush('auth:role:add')
     async def _addRole(self, name):
         if self.rolesbyname.get(name) is not None:
             raise s_exc.DupRoleName(name=name)
@@ -1045,7 +1044,7 @@ class HiveAuth(s_nexus.Nexus):
 
         return await self._push('auth:user:del', (name,))
 
-    @s_nexus.Nexus.onPush('auth:user:del')
+    @s_nexus.Pusher.onPush('auth:user:del')
     async def _onDelUser(self, name):
         if name == 'root':
             raise s_exc.CantDelRootUser(mesg='user "root" may not be deleted')
@@ -1073,7 +1072,7 @@ class HiveAuth(s_nexus.Nexus):
     async def delRole(self, name):
         return await self._push('auth:role:del', (name,))
 
-    @s_nexus.Nexus.onPush('auth:role:del')
+    @s_nexus.Pusher.onPush('auth:role:del')
     async def _onDelRole(self, name):
         if name == 'all':
             raise s_exc.CantDelAllRole(mesg='role "all" may not be deleted')
@@ -1235,7 +1234,7 @@ class AuthGate(s_base.Base):
     # if not self.allowed(hiveuser, perm, default=default):
     #     hiveuser.raisePermDeny(perm, gate=self)
 
-class HiveRuler(s_nexus.Nexus):
+class HiveRuler(s_nexus.Pusher):
     '''
     A HiveNode that holds a list of rules.  This includes HiveUsers, HiveRoles, and the AuthGate variants of those
     '''
@@ -1243,7 +1242,7 @@ class HiveRuler(s_nexus.Nexus):
     async def __anit__(self, node, auth):
 
         self.iden = node.name()
-        await s_nexus.Nexus.__anit__(self, self.iden, parent=auth)
+        await s_nexus.Pusher.__anit__(self, ('HiveRuler', node.full), nexsroot=auth._nexsroot)
 
         self.auth = auth
         self.node = node
@@ -1272,7 +1271,7 @@ class HiveRuler(s_nexus.Nexus):
     async def setName(self, name):
         return await self._push('hive:hiveruler:setname', (name,))
 
-    @s_nexus.Nexus.onPush('hive:hiveruler:setname')
+    @s_nexus.Pusher.onPush('hive:hiveruler:setname')
     async def _onSetName(self, name):
         self.name = name
         await self.node.set(name)
@@ -1280,7 +1279,7 @@ class HiveRuler(s_nexus.Nexus):
     async def setRules(self, rules):
         return await self._push('hive:hiveruler:setrules', (rules,))
 
-    @s_nexus.Nexus.onPush('hive:hiveruler:setrules')
+    @s_nexus.Pusher.onPush('hive:hiveruler:setrules')
     async def _onSetRules(self, rules):
         self.rules = list(rules)
         await self.info.set('rules', rules)
@@ -1288,9 +1287,10 @@ class HiveRuler(s_nexus.Nexus):
     async def addRule(self, rule, indx=None):
         return await self._push('hive:hiveruler:addrule', (rule, indx,))
 
-    @s_nexus.Nexus.onPush('hive:hiveruler:addrule')
-    async def _onAddRule(self, rule, indx=None):
+    @s_nexus.Pusher.onPush('hive:hiveruler:addrule')
+    async def _addRule(self, rule, indx=None):
         rules = list(self.rules)
+        assert len(rule) == 2
 
         if indx is None:
             rules.append(rule)
@@ -1302,7 +1302,7 @@ class HiveRuler(s_nexus.Nexus):
     async def delRule(self, rule):
         return await self._push('hive:hiveruler:delrule', (rule,))
 
-    @s_nexus.Nexus.onPush('hive:hiveruler:delrule')
+    @s_nexus.Pusher.onPush('hive:hiveruler:delrule')
     async def _onDelRule(self, rule):
         if rule not in self.rules:
             return False
@@ -1316,7 +1316,7 @@ class HiveRuler(s_nexus.Nexus):
     async def delRuleIndx(self, indx):
         return await self._push('hive:hiveruler:delruleindx', (indx,))
 
-    @s_nexus.Nexus.onPush('hive:hiveruler:delruleindx')
+    @s_nexus.Pusher.onPush('hive:hiveruler:delruleindx')
     async def _onDelRuleIndx(self, indx):
         if indx < 0:
             raise s_exc.BadArg(mesg='Rule index must be greater than or equal to 0',
@@ -1454,7 +1454,7 @@ class HiveUser(HiveRuler):
         # vars cache for persistent user level data storage
         # TODO: max size check / max count check?
         pvars = await self.node.open(('vars',))
-        self.pvars = await NexusHiveDict.anit(await pvars.dict(), parent=auth)
+        self.pvars = await NexusHiveDict.anit(await pvars.dict(), nexsroot=self._nexsroot)
         self.onfini(self.pvars)
 
         self.fullrules = []
