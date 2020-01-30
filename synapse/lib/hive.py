@@ -421,12 +421,12 @@ class Hive(s_base.Base, s_telepath.Aware):
         auth = await self.getHiveAuth()
 
         if not self.conf.get('auth:en'):
-            user = auth.getUserByName('root')
+            user = await auth.getUserByName('root')
             return await HiveApi.anit(self, user)
 
         name, info = mesg[1].get('auth')
 
-        user = auth.getUserByName(name)
+        user = await auth.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(name=name)
 
@@ -858,13 +858,13 @@ class HiveAuth(s_nexus.Pusher):
             except Exception:  # pragma: no cover
                 logger.exception('Failure loading AuthGate')
 
-        allrole = self.getRoleByName('all')
+        allrole = await self.getRoleByName('all')
         if allrole is None:
             # initialize the role of which all users are a member
             await self._addRole('all')
 
         # initialize an admin user named root
-        self.rootuser = self.getUserByName('root')
+        self.rootuser = await self.getUserByName('root')
         if self.rootuser is None:
             self.rootuser = await self._addUser('root')
 
@@ -890,7 +890,47 @@ class HiveAuth(s_nexus.Pusher):
     def user(self, iden):
         return self.usersbyiden.get(iden)
 
-    def getUserByName(self, name, iden=None):
+    async def reqUser(self, iden, gateiden=None):
+
+        user = self.user(iden)
+        if user is None:
+            mesg = f'No user with iden {iden}.'
+            raise s_exc.NoSuchUser(mesg=mesg)
+
+        if gateiden is None:
+            return user
+
+        gate = self.reqAuthGate(gateiden)
+        return await gate.getGateUser(user)
+
+    async def reqRole(self, iden, gateiden=None):
+
+        role = self.role(iden)
+        if role is None:
+            mesg = f'No role with iden {iden}.'
+            raise s_exc.NoSuchRole(mesg=mesg)
+
+        if gateiden is None:
+            return role
+
+        gate = self.reqAuthGate(gateiden)
+        return await gate.getGateRole(role)
+
+    async def reqUserByName(self, name, gateiden=None):
+        user = await self.getUserByName(name, gateiden=gateiden)
+        if user is None:
+            mesg = f'No user named {name}.'
+            raise s_exc.NoSuchUser(mesg=mesg)
+        return user
+
+    async def reqRoleByName(self, name, gateiden=None):
+        role = await self.getRoleByName(name, gateiden=gateiden)
+        if role is None:
+            mesg = f'No role named {name}.'
+            raise s_exc.NoSuchRole(mesg=mesg)
+        return role
+
+    async def getUserByName(self, name, gateiden=None):
         '''
         Get a user by their username.
 
@@ -901,16 +941,16 @@ class HiveAuth(s_nexus.Pusher):
             HiveUser: A Hive User.  May return None if there is no user by the requested name.
         '''
         user = self.usersbyname.get(name)
-        if iden is not None:
-            gate = self.getAuthGate(iden)
+        if gateiden is not None:
+            gate = self.getAuthGate(gateiden)
             return gate.getGateUser(user)
         return user
 
-    def getRoleByName(self, name, iden=None):
+    async def getRoleByName(self, name, gateiden=None):
         role = self.rolesbyname.get(name)
-        if iden is not None:
-            gate = self.getAuthGate(iden)
-            return gate.getGateRole(role)
+        if gateiden is not None:
+            gate = self.getAuthGate(gateiden)
+            return await gate.getGateRole(role)
         return role
 
     async def _addUserNode(self, node):
@@ -1024,16 +1064,20 @@ class HiveAuth(s_nexus.Pusher):
         return await self._addRoleNode(node)
 
     async def delUser(self, name):
-        return await self._push('auth:user:del', (name,))
 
-    @s_nexus.Pusher.onPush('auth:user:del')
-    async def _onDelUser(self, name):
         if name == 'root':
             raise s_exc.CantDelRootUser(mesg='user "root" may not be deleted')
 
-        user = self.usersbyname.get(name)
+        user = await self.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(name=name)
+
+        return await self._push('auth:user:del', iden)
+
+    @s_nexus.Pusher.onPush('auth:user:del')
+    async def _onDelUser(self, iden):
+
+        user = self.user(iden)
 
         self.usersbyiden.pop(user.iden)
         self.usersbyname.pop(user.name)
@@ -1042,8 +1086,8 @@ class HiveAuth(s_nexus.Pusher):
             await gateuser.delete()
 
         path = self.node.full + ('users', user.iden)
-        await user.fini()
 
+        await user.fini()
         await self.node.hive.pop(path)
 
     def _getUsersInRole(self, role):
@@ -1052,7 +1096,7 @@ class HiveAuth(s_nexus.Pusher):
                 yield user
 
     async def delRole(self, name):
-        return await self._push('auth:role:del', (name,))
+        return await self._push('auth:role:del', name)
 
     @s_nexus.Pusher.onPush('auth:role:del')
     async def _onDelRole(self, name):
@@ -1251,7 +1295,7 @@ class HiveRuler(s_nexus.Pusher):
         self.permcache.clear()
 
     async def setName(self, name):
-        return await self._push('hive:hiveruler:setname', (name,))
+        return await self._push('hive:hiveruler:setname', name)
 
     @s_nexus.Pusher.onPush('hive:hiveruler:setname')
     async def _onSetName(self, name):
@@ -1259,7 +1303,7 @@ class HiveRuler(s_nexus.Pusher):
         await self.node.set(name)
 
     async def setRules(self, rules):
-        return await self._push('hive:hiveruler:setrules', (rules,))
+        return await self._push('hive:hiveruler:setrules', rules)
 
     @s_nexus.Pusher.onPush('hive:hiveruler:setrules')
     async def _onSetRules(self, rules):
@@ -1267,7 +1311,7 @@ class HiveRuler(s_nexus.Pusher):
         await self.info.set('rules', rules)
 
     async def addRule(self, rule, indx=None):
-        return await self._push('hive:hiveruler:addrule', (rule, indx,))
+        return await self._push('hive:hiveruler:addrule', rule, indx)
 
     @s_nexus.Pusher.onPush('hive:hiveruler:addrule')
     async def _addRule(self, rule, indx=None):
@@ -1282,7 +1326,7 @@ class HiveRuler(s_nexus.Pusher):
         await self.info.set('rules', rules)
 
     async def delRule(self, rule):
-        return await self._push('hive:hiveruler:delrule', (rule,))
+        return await self._push('hive:hiveruler:delrule', rule)
 
     @s_nexus.Pusher.onPush('hive:hiveruler:delrule')
     async def _onDelRule(self, rule):
@@ -1296,7 +1340,7 @@ class HiveRuler(s_nexus.Pusher):
         return True
 
     async def delRuleIndx(self, indx):
-        return await self._push('hive:hiveruler:delruleindx', (indx,))
+        return await self._push('hive:hiveruler:delruleindx', indx)
 
     @s_nexus.Pusher.onPush('hive:hiveruler:delruleindx')
     async def _onDelRuleIndx(self, indx):
@@ -1385,6 +1429,7 @@ class GateUser(GateRuler):
         self.onfini(fini)
 
     async def setAdmin(self, admin):
+        self.admin = admin
         await self.info.set('admin', admin)
 
     async def delete(self):
@@ -1465,8 +1510,7 @@ class HiveUser(HiveRuler):
         mesg = f'User {self.name!r} ({self.iden}) must have permission {perm} on object {gate.iden} ({gate.type}).'
         raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.name)
 
-    # FIXME: (nic) no elev anymore?
-    def allowed(self, perm, default=None, gateiden=None, elev=False):
+    def allowed(self, perm, default=None, gateiden=None):
 
         if self.locked:
             return False
