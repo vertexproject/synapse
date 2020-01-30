@@ -2686,7 +2686,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCoreAndProxy(conf=conf) as (realcore, core):
             nstat = await core.stat()
             layr = nstat.get('layer')
-            self.eq(layr.get('lock_goal'), layr.get('max_could_lock'))
+            self.gt(layr.get('lock_goal'), 0)
 
     async def test_offset(self):
         async with self.getTestCoreAndProxy() as (realcore, core):
