@@ -298,6 +298,9 @@ class OuModule(s_module.CoreModule):
                     ('url', ('inet:url', ()), {
                         'doc': 'The inet:url node for the conference event website.',
                     }),
+                    ('contact', ('ps:contact', ()), {
+                        'doc': 'Contact info for the event',
+                    }),
                     ('start', ('time', {}), {
                         'doc': 'The event start date / time.',
                     }),

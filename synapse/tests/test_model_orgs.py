@@ -202,6 +202,26 @@ class OuModelTest(s_t_utils.SynTest):
 
                 # ou:conference:event
                 confguid = c0
+
+                con0 = s_common.guid()
+                cprops = {
+                    'org': guid0,
+                    'name': 'Steve Rogers',
+                    'title': 'The First Avenger',
+                    'orgname': 'Avengers',
+                    'user': 'cap',
+                    'web:acct': ('twitter.com', 'captainamerica'),
+                    'dob': '1918-07-04',
+                    'url': 'https://captainamerica.com/',
+                    'email': 'steve.rogers@gmail.com',
+                    'email:work': 'cap@avengers.com',
+                    'phone': '12345678910',
+                    'phone:fax': '12345678910',
+                    'phone:work': '12345678910',
+                    'address': '222 Avenger Row, Washington, DCSan Francisco, CA, 22222, USA',
+                }
+                pscon = await snap.addNode('ps:contact', con0, cprops)
+
                 c0 = s_common.guid()
                 cprops = {
                     'conference': confguid,
@@ -209,6 +229,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'desc': 'arrowcon dinner',
                     'start': '201803011900',
                     'end': '201803012200',
+                    'contact': con0,
                     'place': place0,
                     'url': 'http://arrowcon.org/2018/dinner',
                 }
@@ -219,6 +240,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('conference'), confguid)
                 self.eq(node.get('start'), 1519930800000)
                 self.eq(node.get('end'), 1519941600000)
+                self.eq(node.get('contact'), con0)
                 self.eq(node.get('place'), place0)
                 self.eq(node.get('url'), 'http://arrowcon.org/2018/dinner')
 
