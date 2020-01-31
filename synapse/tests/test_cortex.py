@@ -2740,11 +2740,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(counts.get('test:str'), 1)
             self.eq(counts, core_counts)
 
-        conf = {'dedicated': True}
-        async with self.getTestCoreAndProxy(conf=conf) as (realcore, core):
-            nstat = await core.stat()
-            layr = nstat.get('layer')
-
     async def test_offset(self):
         async with self.getTestCoreAndProxy() as (realcore, core):
             iden = s_common.guid()
