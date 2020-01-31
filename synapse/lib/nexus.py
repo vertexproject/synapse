@@ -22,7 +22,7 @@ class RegMethType(type):
                 cls._regclsfuncs.append(prop)
 
 class NexsRoot(s_base.Base):
-    async def __anit__(self, dirn: str):
+    async def __anit__(self, dirn: str):  # type: ignore
         await s_base.Base.__anit__(self)
 
         import synapse.lib.lmdbslab as s_lmdbslab  # avoid import cycle
@@ -31,7 +31,7 @@ class NexsRoot(s_base.Base):
         self.dirn = dirn
         self._nexskids: Dict[str, 'Pusher'] = {}
 
-        self.windows = []
+        self.windows: List[s_queue.Window] = []
 
         path = s_common.genpath(self.dirn, 'changelog.lmdb')
         self.changeslab = await s_lmdbslab.Slab.anit(path)
@@ -45,14 +45,15 @@ class NexsRoot(s_base.Base):
         self.changelog = s_slabseqn.SlabSeqn(self.changeslab, 'changes')
 
     async def issue(self, nexsiden: str, event: str, args: Any, kwargs: Any) -> Any:
-        # Log the message here
         item = (nexsiden, event, args, kwargs)
+
+        nexus = self._nexskids[nexsiden]
+        retn = await nexus._nexshands[event](nexus, *args, **kwargs)
 
         indx = self.changelog.append(item)
         [(await wind.put((indx, item))) for wind in tuple(self.windows)]
 
-        nexus = self._nexskids[nexsiden]
-        return await nexus._nexshands[event](nexus, *args, **kwargs)
+        return retn
 
     async def eat(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any]) -> Any:
         '''
