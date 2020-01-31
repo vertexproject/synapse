@@ -47,9 +47,8 @@ class NexsRoot(s_base.Base):
         # Log the message here
         item = (nexsiden, event, args, kwargs)
 
-        indx = self.changelog.index()
-        self.changelog.append(item)
-        [(await wind.put((indx, item))) for wind in tuple(self.windows)]
+        indx = self.changelog.append(item)
+        [(await wind.put((indx-1, item))) for wind in tuple(self.windows)]
 
         nexus = self._nexskids[nexsiden]
         return await nexus._nexshands[event](nexus, *args, **kwargs)
