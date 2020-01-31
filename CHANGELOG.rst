@@ -3,6 +3,19 @@ Synapse Changelog
 *****************
 
 
+v0.1.47 - 2019-01-30
+====================
+
+Bugfixes
+--------
+- Fix a bug related to LMDB Abbreviation helpers where it would be off by on restarts.
+  (`#1518 <https://github.com/vertexproject/synapse/pull/1518>`_)
+- Fix issues related to the memory locking code used by an LMDB slab.
+  (`#1516 <https://github.com/vertexproject/synapse/pull/1516>`_)
+- Fix a bug related to Tagprop indexing preventing the correct storage of multiple tagprops of the same name on a node.
+  (`#1520 <https://github.com/vertexproject/synapse/pull/1520>`_)
+
+
 v0.1.46 - 2019-01-17
 ====================
 
