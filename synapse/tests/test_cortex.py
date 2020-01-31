@@ -2699,10 +2699,29 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.addFeedData('syn.nodes', podes)
             await self.agenlen(3, core1.eval('test:int'))
 
+            await core1.addTagProp('test', ('int', {}), {})
+            async with await core1.snap() as snap:
+                node = await snap.getNodeByNdef(('test:int', 1))
+                await node.setTagProp('beep.beep', 'test', 1138)
+                pode = node.pack()
+
+            pode = (('test:int', 4), pode[1])
+
+            await core1.addFeedData('syn.nodes', [pode])
+            nodes = await core1.nodes('test:int=4')
+            self.eq(1138, nodes[0].getTagProp('beep.beep', 'test'))
+
             # Put bad data in
             with self.getAsyncLoggerStream('synapse.lib.snap',
                                            "Error making node: [test:str=newp]") as stream:
-                await core1.addFeedData('syn.nodes', [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})])
+                data = [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})]
+                await core1.addFeedData('syn.nodes', data)
+                self.true(await stream.wait(6))
+
+            with self.getAsyncLoggerStream('synapse.lib.snap',
+                                           'Tagprop [newp] does not exist, cannot set it') as stream:
+                data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
+                await core1.addFeedData('syn.nodes', data)
                 self.true(await stream.wait(6))
 
     async def test_stat(self):
