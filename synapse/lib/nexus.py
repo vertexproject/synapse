@@ -1,6 +1,10 @@
+import contextlib
 from typing import List, Dict, Any, Callable, Tuple
 
+import synapse.common as s_common
+
 import synapse.lib.base as s_base
+import synapse.lib.queue as s_queue
 
 class RegMethType(type):
     '''
@@ -18,12 +22,36 @@ class RegMethType(type):
                 cls._regclsfuncs.append(prop)
 
 class NexsRoot(s_base.Base):
-    async def __anit__(self):
+    async def __anit__(self, dirn: str):
         await s_base.Base.__anit__(self)
+
+        import synapse.lib.lmdbslab as s_lmdbslab
+        import synapse.lib.slabseqn as s_slabseqn
+        self.dirn = dirn
         self._nexskids: Dict[str, 'Pusher'] = {}
+
+        self.windows = []
+
+        path = s_common.genpath(self.dirn, 'changes.lmdb')
+        self.changeslab = await s_lmdbslab.Slab.anit(path)
+
+        async def fini():
+            await self.changeslab.fini()
+            [(await wind.fini()) for wind in self.windows]
+
+        self.onfini(fini)
+
+        self.changelog = s_slabseqn.SlabSeqn(self.changeslab, 'changes')
 
     async def issue(self, nexsiden: str, event: str, args: Any, kwargs: Any) -> Any:
         # Log the message here
+        item = (nexsiden, event, args, kwargs)
+
+        indx = self.changelog.index()
+        self.changelog.append(item)
+        print('issue', indx, item)
+        [(await wind.put((indx, item))) for wind in tuple(self.windows)]
+
         nexus = self._nexskids[nexsiden]
         return await nexus._nexshands[event](nexus, *args, **kwargs)
 
@@ -33,6 +61,32 @@ class NexsRoot(s_base.Base):
         '''
         nexus = self._nexskids[nexsiden]
         return await nexus._push(event, *args, **kwargs)
+
+    def getOffset(self):
+        return self.changelog.index()
+
+    async def iter(self, offs: int):
+        for item in self.changelog.iter(offs):
+            yield item
+
+        async with self.getChangeWindow() as wind:
+            async for item in wind:
+                print('windowitem')
+                yield item
+
+    @contextlib.asynccontextmanager
+    async def getChangeWindow(self):
+
+        async with await s_queue.Window.anit(maxsize=10000) as wind:
+
+            async def fini():
+                self.windows.remove(wind)
+
+            wind.onfini(fini)
+
+            self.windows.append(wind)
+
+            yield wind
 
 class Pusher(s_base.Base, metaclass=RegMethType):
     '''

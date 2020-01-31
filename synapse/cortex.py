@@ -559,6 +559,10 @@ class CoreApi(s_cell.CellApi):
         async for mesg in self.cell.watch(wdef):
             yield mesg
 
+    async def getNexusChanges(self, offs):
+        async for item in self.cell.getNexusChanges(offs):
+            yield item
+
     async def syncLayerSplices(self, iden, offs):
         '''
         Yield (indx, mesg) splices for the given layer beginning at offset.
@@ -899,8 +903,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.view = None  # The default/main view
 
         # Change distribution
-        self.nexsroot = await s_nexus.NexsRoot.anit()
+        self.nexsroot = await s_nexus.NexsRoot.anit(dirn)
         self.onfini(self.nexsroot.fini)
+        self.nexswaits = collections.defaultdict(list)
 
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
@@ -1732,6 +1737,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.axon:
             await self.axon.fini()
 
+    async def getNexusChanges(self, offs):
+        async for item in self.nexsroot.iter(offs):
+            yield item
+
     async def syncLayerSplices(self, iden, offs):
         '''
         Yield (offs, mesg) tuples for splices in a layer.
@@ -1784,28 +1793,33 @@ class Cortex(s_cell.Cell):  # type: ignore
                         await self.fini()
                         return
 
-                    # assume only the main layer for now...
-                    layr = self.getLayer()
+#                    # assume only the main layer for now...
+#                    layr = self.getLayer()
 
-                    offs = await layr.getOffset(layr.iden)
+#                    offs = await layr.getOffset(layr.iden)
+                    offs = self.nexsroot.getOffset()
+
                     logger.warning(f'mirror loop connected ({url} offset={offs})')
 
-                    if offs == 0:
-                        stat = await layr.stat()
-                        offs = stat.get('splicelog_indx', 0)
-                        await layr.setOffset(layr.iden, offs)
+#                    if offs == 0:
+#                        stat = await layr.stat()
+#                        offs = stat.get('splicelog_indx', 0)
+#                        await layr.setOffset(layr.iden, offs)
 
                     while not proxy.isfini:
 
                         # gotta do this in the loop as well...
-                        offs = await layr.getOffset(layr.iden)
+#                        offs = await layr.getOffset(layr.iden)
+                        offs = self.nexsroot.getOffset()
+                        print('mirror at', offs)
 
                         # pump them into a queue so we can consume them in chunks
                         q = asyncio.Queue(maxsize=1000)
 
                         async def consume(x):
                             try:
-                                async for item in proxy.syncLayerSplices(None, x):
+                                async for item in proxy.getNexusChanges(x):
+                                    print('mirror got', item[0])
                                     await q.put(item)
                             finally:
                                 await q.put(None)
@@ -1830,11 +1844,20 @@ class Cortex(s_cell.Cell):  # type: ignore
                                     done = True
                                     break
 
+
                                 items.append(nexi)
 
-                            splices = [i[1] for i in items]
-                            await self.addFeedData('syn.splice', splices)
-                            await layr.setOffset(layr.iden, items[-1][0])
+                            for nexi in items:
+                                iden, evt, args, kwargs = nexi[1]
+                                await self.nexsroot.eat(iden, evt, args, kwargs)
+                                print('ate', nexi[0])
+                                waits = self.nexswaits.pop(nexi[0]+1, None)
+                                if waits is not None:
+                                    [e.set() for e in waits]
+
+#                            splices = [i[1] for i in items]
+#                            await self.addFeedData('syn.splice', splices)
+#                            await layr.setOffset(layr.iden, items[-1][0])
 
             except asyncio.CancelledError: # pragma: no cover
                 return
@@ -1844,9 +1867,22 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             await self.waitfini(1)
 
-    # async def _getWaitFor(self, name, valu):
-    #    form = self.model.form(name)
-    #    return form.getWaitFor(valu)
+    async def getNexusOffs(self):
+        return self.nexsroot.getOffset()
+
+    async def waitNexusOffs(self, offs):
+        evnt = asyncio.Event()
+
+        if self.nexsroot.getOffset() >= offs:
+            evnt.set()
+        else:
+            self.nexswaits[offs].append(evnt)
+
+        return evnt
+
+#    async def _getWaitFor(self, name, valu):
+#        form = self.model.form(name)
+#        return form.getWaitFor(valu)
 
     async def _initCoreHive(self):
         stormvars = await self.hive.open(('cortex', 'storm', 'vars'))
