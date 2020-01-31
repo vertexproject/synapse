@@ -128,6 +128,21 @@ class SnapTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(nodes[0], node)
 
+    async def test_addNodesAuto(self):
+        '''
+        Secondary props that are forms when set make nodes
+        '''
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+
+                ndefs = ((('test:guid', '*'), {'props': {}}),)
+                nodes = await alist(snap.addNodes(ndefs))
+                self.len(1, nodes)
+                node = nodes[0]
+                await node.set('size', 42)
+                nodes = await alist(snap.nodesByPropValu('test:int', '=', 42))
+                self.len(1, nodes)
+
     async def test_addNodeRace(self):
         ''' Test when a reader might retrieve a partially constructed node '''
         NUM_TASKS = 2

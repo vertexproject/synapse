@@ -510,6 +510,9 @@ class View(s_nexus.Pusher):  # type: ignore
             await self.parent.runNodeDel(node)
 
     async def runPropSet(self, node, prop, oldv):
+        '''
+        Handle when a prop set trigger event fired
+        '''
         if not node.snap.trigson:
             return
 
