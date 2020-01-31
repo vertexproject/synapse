@@ -471,9 +471,9 @@ class CmdHelp(Cmd):
 
     '''
     _cmd_name = 'help'
-    _cmd_syntax = [
+    _cmd_syntax = (  # type: ignore
         ('cmds', {'type': 'list'})
-    ]
+    )
 
     async def runCmdOpts(self, opts):
         cmds = opts.get('cmds')

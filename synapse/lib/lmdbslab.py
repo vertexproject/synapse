@@ -253,7 +253,7 @@ class MultiQueue(s_nexus.Pusher):
     '''
     async def __anit__(self, slab, name, nexsroot: s_nexus.NexsRoot = None):  # type: ignore
 
-        iden = ('mq', slab.path, name)
+        iden = f'mq:{slab.path}:{name}'
         await s_nexus.Pusher.__anit__(self, iden, nexsroot=nexsroot)
 
         self.slab = slab

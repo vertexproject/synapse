@@ -20,7 +20,7 @@ MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
 
 class UpLoad(s_base.Base):
 
-    async def __anit__(self, axon):
+    async def __anit__(self, axon):  # type: ignore
 
         await s_base.Base.__anit__(self)
 
@@ -78,13 +78,14 @@ class UpLoad(s_base.Base):
         self._reset()
         return rsize, sha256
 
-class UpLoadShare(UpLoad, s_share.Share):
+class UpLoadShare(UpLoad, s_share.Share):  # type: ignore
     typename = 'upload'
+
     async def __anit__(self, axon, link):
         await UpLoad.__anit__(self, axon)
         await s_share.Share.__anit__(self, link, None)
 
-class AxonApi(s_cell.CellApi, s_share.Share):
+class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 
     async def __anit__(self, cell, link, user):
         await s_cell.CellApi.__anit__(self, cell, link, user)
@@ -134,7 +135,7 @@ class Axon(s_cell.Cell):
     cellapi = AxonApi
     confdefs = ()
 
-    async def __anit__(self, dirn, conf=None):
+    async def __anit__(self, dirn, conf=None):  # type: ignore
 
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
 

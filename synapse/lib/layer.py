@@ -398,13 +398,13 @@ class StorTypeTag(StorTypeHier):
     def getTagFilt(cmpr, valu):
 
         if cmpr == '=':
-            def filt(x):
+            def filt1(x):
                 return x == valu
-            return filt
+            return filt1
 
         if cmpr == '@=':
 
-            def filt(item):
+            def filt2(item):
 
                 if item is None:
                     return False
@@ -420,7 +420,7 @@ class StorTypeTag(StorTypeHier):
 
                 return True
 
-            return filt
+            return filt2
 
 class StorTypeFqdn(StorTypeUtf8):
 

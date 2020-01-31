@@ -239,7 +239,7 @@ class View(s_nexus.Pusher):  # type: ignore
         }
 
     async def addLayer(self, layriden, indx=None):
-        return await self._push(s_common.todo('view:addlayer', layriden, indx))
+        return await self._push('view:addlayer', layriden, indx)
 
     @s_nexus.Pusher.onPush('view:addlayer')
     async def _onAddLayer(self, layriden, indx=None):
@@ -524,10 +524,10 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         trigiden = s_common.guid()
 
-        return await self._push('trigger:add', trigiden, condition, query, info, disabled, user, iden=self.iden)
+        return await self._push('trigger:add', trigiden, condition, query, info, disabled, user)
 
     @s_nexus.Pusher.onPush('trigger:add')
-    async def _onPushAddTrigger(self, trigiden, condition, query, info, disabled=False, user=None):
+    async def _onPushAddTrigger(self, trigiden, condition, query, info, disabled, user):
         if user is None:
             user = await self.core.auth.getUserByName('root')
 

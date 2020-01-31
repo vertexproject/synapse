@@ -2492,15 +2492,14 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Add a Layer to the cortex.
         '''
-        if ldef is None:
-            ldef = {}
+        ldef = ldef or {}
 
-        ldef['iden'] = s_common.guid()
-
+        ldef.setdefault('iden', s_common.guid())
         ldef.setdefault('conf', {})
         ldef.setdefault('stor', self.defstor.iden)
         ldef.setdefault('creator', self.auth.rootuser.iden)
 
+        # FIXME: why do we have two levels of conf?
         conf = ldef.get('conf')
         conf.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
 
@@ -2654,8 +2653,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         if uidn is None:
             mesg = 'Storm daemon definition requires "user".'
             raise s_exc.NeedConfValu(mesg=mesg)
-
-        user = await self.auth.reqUser(uidn)
+        # FIXME:  no such call
+        await self.auth.reqUser(uidn)
 
         # raises if parser failure
         self.getStormQuery(ddef.get('storm'))
