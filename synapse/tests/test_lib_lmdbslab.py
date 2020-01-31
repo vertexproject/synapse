@@ -439,6 +439,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.gt(slab.mapsize, mapsize)
 
                 # Make sure there is still only one map
+                self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
                 mapcount = getFileMapCount('slab.lmdb/data.mdb')
                 self.eq(1, mapcount)
 
@@ -675,3 +676,21 @@ class LmdbSlabMemLockTest(s_t_utils.SynTest):
                 self.true(await asyncio.wait_for(lmdbslab.lockdoneevent.wait(), 8))
                 lockmem = s_thisplat.getCurrentLockedMemory()
                 self.ge(lockmem - beforelockmem, 4000)
+
+    async def test_multiple_grow(self):
+        '''
+        Trigger multiple grow events rapidly and ensure memlock thread survives.
+        '''
+        with self.getTestDir() as dirn:
+
+            count = 0
+            byts = b'\x00' * 1024
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=10 * 1024 * 1024, growsize=5000, lockmemory=True) as slab:
+                foo = slab.initdb('foo')
+                while count < 8000:
+                    count += 1
+                    slab.put(s_common.guid(count).encode('utf8'), s_common.guid(count).encode('utf8') + byts, db=foo)
+                self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
+                lockmem = s_thisplat.getCurrentLockedMemory()
+                self.gt(lockmem, 0)
