@@ -73,13 +73,14 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('founded'), 1420070400000)
                 self.eq(node.get('disolved'), 1546300800000)
 
-                nodes = (await alist(snap.getNodesBy('ou:name')))
+                nodes = await snap.nodes('ou:name')
                 self.sorteq([x.ndef[1] for x in nodes], (normname,) + altnames)
 
-                nodes = await alist(snap.getNodesBy('ou:org:names', 'otheraltarrow', cmpr='contains='))
+                nodes = await snap.nodes('ou:org:names*contains=otheraltarrow')
                 self.len(1, nodes)
 
-                nodes = await alist(snap.getNodesBy('ou:org:names', name, cmpr='contains='))
+                opts = {'var': {'name': name}}
+                nodes = await snap.nodes('ou:org:names*contains=$name', opts=opts)
                 self.len(0, nodes)  # primary ou:org:name is not in ou:org:names
 
                 person0 = s_common.guid()
@@ -217,20 +218,21 @@ class OuModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 for g, props in omap.items():
                     await snap.addNode('ou:org', g, props)
-                nodes = await alist(snap.getNodesBy('ou:org:sic', '01', cmpr='^='))
+
+                nodes = await snap.nodes('ou:org:sic^=01')
                 self.len(3, nodes)
 
-                nodes = await alist(snap.getNodesBy('ou:org:sic', '011', cmpr='^='))
+                nodes = await snap.nodes('ou:org:sic^=011')
                 self.len(2, nodes)
 
-                nodes = await alist(snap.getNodesBy('ou:org:naics', '22', cmpr='^='))
+                nodes = await snap.nodes('ou:org:naics^=22')
                 self.len(4, nodes)
 
-                nodes = await alist(snap.getNodesBy('ou:org:naics', '221', cmpr='^='))
+                nodes = await snap.nodes('ou:org:naics^=221')
                 self.len(4, nodes)
 
-                nodes = await alist(snap.getNodesBy('ou:org:naics', '2211', cmpr='^='))
+                nodes = await snap.nodes('ou:org:naics^=2211')
                 self.len(3, nodes)
 
-                nodes = await alist(snap.getNodesBy('ou:org:naics', '22112', cmpr='^='))
+                nodes = await snap.nodes('ou:org:naics^=22112')
                 self.len(2, nodes)

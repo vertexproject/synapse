@@ -900,7 +900,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # Change distribution
         self.nexsroot = await s_nexus.NexsRoot.anit()
-        self.onfini(self.nexsroot)
+        self.onfini(self.nexsroot.fini)
 
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
@@ -1356,10 +1356,11 @@ class Cortex(s_cell.Cell):  # type: ignore
             mesg = f'Storm service already exists: {iden}'
             raise s_exc.DupStormSvc(mesg=mesg)
 
-        await self._setStormSvc(sdef)
+        ssvc = await self._setStormSvc(sdef)
         await self.stormservices.set(iden, sdef)
         await self.bumpSpawnPool()
-        return iden
+
+        return ssvc.sdef
 
     async def delStormSvc(self, iden):
         '''
@@ -1887,7 +1888,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.HelpCmd)
         self.addStormCmd(s_storm.IdenCmd)
         self.addStormCmd(s_storm.SpinCmd)
-        self.addStormCmd(s_storm.SudoCmd)
         self.addStormCmd(s_storm.UniqCmd)
         self.addStormCmd(s_storm.CountCmd)
         self.addStormCmd(s_storm.GraphCmd)
@@ -3219,29 +3219,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         async with await self.snap(view=view) as snap:
             return await snap.getNodeByBuid(buid)
-
-    # async def getNodesBy(self, full, valu, cmpr='=', view=None):
-    #    '''
-    #    Get nodes by a property value or lift syntax.
-
-    #    Args:
-        #    full (str): The full name of a property <form>:<prop>.
-        #    valu (obj): A value that the type knows how to lift by.
-        #    cmpr (str): The comparison operator you are lifting by.
-
-    #    Some node property types allow special syntax here.
-
-    #    Examples:
-
-        #     simple lift by property equality
-        #    core.getNodesBy('file:bytes:size', 20)
-
-        #     The inet:ipv4 type knows about cidr syntax
-        #    core.getNodesBy('inet:ipv4', '1.2.3.0/24')
-    #    '''
-    #    async with await self.snap(view=view) as snap:
-        #    async for node in snap.getNodesBy(full, valu, cmpr=cmpr):
-            #    yield node
 
     def getCoreInfo(self):
         return {

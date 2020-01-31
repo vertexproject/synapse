@@ -197,8 +197,7 @@ class LibService(Lib):
             'name': name,
             'url': url,
         }
-        ssvc = await self.runt.snap.addStormSvc(sdef)
-        return ssvc.sdef
+        return await self.runt.snap.addStormSvc(sdef)
 
     async def _libSvcDel(self, iden):
         self.runt.user.confirm(('storm', 'service', 'del'))

@@ -139,10 +139,10 @@ class HiveTest(s_test.SynTest):
                 role = await auth.addRole('ninjas')
 
                 self.eq(user, auth.user(user.iden))
-                self.eq(user, auth.getUserByName('visi@vertex.link'))
+                self.eq(user, await auth.getUserByName('visi@vertex.link'))
 
                 self.eq(role, auth.role(role.iden))
-                self.eq(role, auth.getRoleByName('ninjas'))
+                self.eq(role, await auth.getRoleByName('ninjas'))
 
                 with self.raises(s_exc.DupUserName):
                     await auth.addUser('visi@vertex.link')
@@ -293,7 +293,7 @@ class HiveTest(s_test.SynTest):
 
             auth = await hive.getHiveAuth()
 
-            user = auth.getUserByName('root')
+            user = await auth.getUserByName('root')
             await user.setPasswd('secret')
 
             # hive passwords must be non-zero length strings
@@ -369,10 +369,10 @@ class HiveTest(s_test.SynTest):
                 # Add to a non-existent authgate
                 rule = (True, ('view', 'read'))
                 badiden = 'XXX'
-                await self.asyncraises(s_exc.NoSuchAuthGate, prox.addAuthRule('fred', rule, iden=badiden))
+                await self.asyncraises(s_exc.NoSuchAuthGate, prox.addUserRule('fred', rule, iden=badiden))
 
                 # Rando can access forked view with explicit perms
-                await prox.addAuthRule('fred', rule, iden=viewiden)
+                await prox.addUserRule('fred', rule, iden=viewiden)
                 self.eq(2, await fredcore.count('test:int', opts=viewopts))
 
                 await prox.addAuthRole('friends')
@@ -384,7 +384,7 @@ class HiveTest(s_test.SynTest):
                 # fred can write to forked view's write layer with explicit perm through role
 
                 rule = (True, ('prop:set',))
-                await prox.addAuthRule('friends', rule, iden=layriden)
+                await prox.addRoleRule('friends', rule, iden=layriden)
 
                 # Before granting, still fails
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=12]', opts=viewopts))
@@ -401,12 +401,12 @@ class HiveTest(s_test.SynTest):
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
 
                 rule = (True, ('node:add',))
-                await prox.addAuthRule('fred', rule, iden=layriden)
+                await prox.addUserRule('fred', rule, iden=layriden)
                 self.eq(1, await fredcore.count('[test:int=12]', opts=viewopts))
 
                 # Add an explicit DENY for adding test:int nodes
                 rule = (False, ('node:add', 'test:int'))
-                await prox.addAuthRule('fred', rule, indx=0, iden=layriden)
+                await prox.addUserRule('fred', rule, indx=0, iden=layriden)
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=13]', opts=viewopts))
 
                 # Adding test:str is allowed though
@@ -418,7 +418,7 @@ class HiveTest(s_test.SynTest):
 
                 # Deleting a user that has a role with an Authgate-specific rule
                 rule = (True, ('prop:set',))
-                await prox.addAuthRule('friends', rule, iden=layriden)
+                await prox.addRoleRule('friends', rule, iden=layriden)
                 self.eq(1, await fredcore.count('test:int=11 [:loc=sp]', opts=viewopts))
                 await prox.addUserRole('bobo', 'friends')
                 await prox.delAuthUser('bobo')
@@ -439,7 +439,7 @@ class HiveTest(s_test.SynTest):
                 await wlyr.fini()
                 await wlyr.trash()
                 self.false(pathlib.Path(wlyr.dirn).exists())
-                rules = core.auth.getUserByName('fred').rules
+                rules = await core.auth.getUserByName('fred').rules
                 self.len(0, rules)
 
     async def test_hive_auth_persistence(self):
@@ -453,10 +453,10 @@ class HiveTest(s_test.SynTest):
                 viewiden = view2.iden
                 layriden = view2.layers[0].iden
                 rule = (True, ('view', 'read',))
-                await prox.addAuthRule('fred', rule, iden=viewiden)
+                await prox.addUserRule('fred', rule, iden=viewiden)
                 await prox.addAuthRole('friends')
                 rule = (True, ('prop:set',))
-                await prox.addAuthRule('friends', rule, iden=layriden)
+                await prox.addRoleRule('friends', rule, iden=layriden)
                 await prox.addUserRole('fred', 'friends')
 
             # Restart the core/auth and make sure perms work

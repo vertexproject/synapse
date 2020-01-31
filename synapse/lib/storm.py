@@ -391,7 +391,6 @@ class Runtime:
         self.modulefuncs = {}
 
         self.proxies = {}
-        self.elevated = False
 
     async def dyncall(self, iden, todo):
         return await self.snap.core.dyncall(iden, todo)
@@ -430,9 +429,6 @@ class Runtime:
 
     async def warn(self, mesg, **info):
         return await self.snap.warn(mesg, **info)
-
-    def elevate(self):
-        self.elevated = True
 
     def tick(self):
         pass
@@ -503,20 +499,6 @@ class Runtime:
 
         '''
         return self.user.confirm(perms, gateiden=gateiden)
-
-    #@s_cache.memoize(size=100)
-    #def _allowed(self, perms, ask_layer=False):
-        #'''
-        #Note:
-            #Caching results is acceptable because the cache lifetime is that of a single query
-        #'''
-        #if self.user is None or self.user.admin or self.elevated:
-            #return True
-
-        #if ask_layer:
-            #return self.snap.wlyr.allowed(self.user, perms)
-        #else:
-            #return self.user.allowed(perms)
 
     def loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
@@ -1077,22 +1059,6 @@ class DelNodeCmd(Cmd):
         if False:
             yield
 
-class SudoCmd(Cmd):
-    '''
-    Use admin privileges to bypass standard query permissions.
-
-    Example:
-
-        sudo | [ inet:fqdn=vertex.link ]
-    '''
-    name = 'sudo'
-
-    async def execStormCmd(self, runt, genr):
-        runt.reqAllowed(('storm', 'cmd', 'sudo'))
-        runt.elevate()
-        async for item in genr:
-            yield item
-
 # TODO
 # class AddNodeCmd(Cmd):     # addnode inet:ipv4 1.2.3.4 5.6.7.8
 # class DelPropCmd(Cmd):     # | delprop baz
@@ -1234,7 +1200,9 @@ class MoveTagCmd(Cmd):
     async def execStormCmd(self, runt, genr):
         snap = runt.snap
 
-        nodes = [node async for node in snap.getNodesBy('syn:tag', self.opts.oldtag)]
+        opts = {'vars': {'tag': self.opts.oldtag}}
+        nodes = await snap.nodes('syn:tag=$tag', opts=opts)
+
         if not nodes:
             raise s_exc.BadOperArg(mesg='Cannot move a tag which does not exist.',
                                    oldtag=self.opts.oldtag)
@@ -1254,7 +1222,8 @@ class MoveTagCmd(Cmd):
         retag = {oldstr: newstr}
 
         # first we set all the syn:tag:isnow props
-        async for node in snap.getNodesBy('syn:tag', self.opts.oldtag, cmpr='^='):
+        oldtag = self.opts.oldtag.strip('#')
+        async for node in snap.nodesByPropValu('syn:tag', '^=', oldtag):
 
             tagstr = node.ndef[1]
             tagparts = tagstr.split('.')
@@ -1283,7 +1252,7 @@ class MoveTagCmd(Cmd):
 
         # now we re-tag all the nodes...
         count = 0
-        async for node in snap.getNodesBy(f'#{oldstr}'):
+        async for node in snap.nodesByTag(oldstr):
 
             count += 1
 
