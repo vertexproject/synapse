@@ -413,11 +413,12 @@ class InetModelTest(s_t_utils.SynTest):
 
             # Demonstrate wildcard
             async with await core.snap() as snap:
-                await self.agenlen(3, snap.getNodesBy(formname, '*'))
-                await self.agenlen(3, snap.getNodesBy(formname, '*link'))
-                await self.agenlen(2, snap.getNodesBy(formname, '*.link'))
-                await self.agenlen(1, snap.getNodesBy(formname, '*.vertex.link'))
-                await self.agenraises(s_exc.BadLiftValu, snap.getNodesBy(formname, 'api.*.link'))
+                await self.len(3, snap.nodes('inet:fqdn=*'))
+                await self.len(3, snap.nodes('inet:fqdn=*link'))
+                await self.len(2, snap.nodes('inet:fqdn=*.link'))
+                await self.len(1, snap.nodes('inet:fqdn=*.vertex.link'))
+                with self.raises(s_exc.BadLiftValu)
+                    await snap.nodes('inet:fqdn=api.*.link')
 
             q = 'inet:fqdn="*.link" +inet:fqdn="*vertex.link"'
             nodes = await core.nodes(q)
@@ -891,9 +892,9 @@ class InetModelTest(s_t_utils.SynTest):
                 await snap.addNode(formname, '"UnitTest1')
                 await snap.addNode(formname, '"UnitTest12')
 
-                await self.agenlen(3, snap.getNodesBy(formname, 'unittest', cmpr='^='))
-                await self.agenlen(2, snap.getNodesBy(formname, 'unittest1', cmpr='^='))
-                await self.agenlen(1, snap.getNodesBy(formname, 'unittest12', cmpr='^='))
+                await self.len(3, snap.nodes('inet:rfc2822:addr^=unittest'))
+                await self.len(2, snap.nodes('inet:rfc2822:addr^=unittest1'))
+                await self.len(1, snap.nodes('inet:rfc2822:addr^=unittest12'))
 
     async def test_server(self):
         formname = 'inet:server'

@@ -220,7 +220,7 @@ class HandlerBase:
             logger.exception('invalid basic auth header')
             return None
 
-        user = self.cell.auth.getUserByName(name)
+        user = await self.cell.auth.getUserByName(name)
         if user is None:
             return None
 
@@ -366,7 +366,7 @@ class LoginV1(Handler):
         name = body.get('user')
         passwd = body.get('passwd')
 
-        user = self.cell.auth.getUserByName(name)
+        user = await self.cell.auth.getUserByName(name)
         if user is None:
             return self.sendRestErr('AuthDeny', 'No such user.')
 
@@ -608,7 +608,7 @@ class AuthAddUserV1(Handler):
             self.sendRestErr('MissingField', 'The adduser API requires a "name" argument.')
             return
 
-        if self.cell.auth.getUserByName(name) is not None:
+        if await self.cell.auth.getUserByName(name) is not None:
             self.sendRestErr('DupUser', f'A user named {name} already exists.')
             return
 
@@ -649,7 +649,7 @@ class AuthAddRoleV1(Handler):
             self.sendRestErr('MissingField', 'The addrole API requires a "name" argument.')
             return
 
-        if self.cell.auth.getRoleByName(name) is not None:
+        if await self.cell.auth.getRoleByName(name) is not None:
             self.sendRestErr('DupRole', f'A role named {name} already exists.')
             return
 
@@ -678,7 +678,7 @@ class AuthDelRoleV1(Handler):
             self.sendRestErr('MissingField', 'The delrole API requires a "name" argument.')
             return
 
-        role = self.cell.auth.getRoleByName(name)
+        role = await self.cell.auth.getRoleByName(name)
         if role is None:
             return self.sendRestErr('NoSuchRole', f'The role {name} does not exist!')
 

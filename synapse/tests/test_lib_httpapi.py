@@ -13,7 +13,7 @@ class HttpApiTest(s_tests.SynTest):
             # Run http instead of https for this test
             host, port = await core.addHttpPort(0, host='127.0.0.1')
 
-            root = core.auth.getUserByName('root')
+            root = await core.auth.getUserByName('root')
             await root.setPasswd('secret')
             async with aiohttp.ClientSession() as sess:
                 async with sess.get(f'http://root:secret@localhost:{port}/api/v1/auth/users') as resp:
@@ -34,7 +34,7 @@ class HttpApiTest(s_tests.SynTest):
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
             url = f'https://localhost:{port}/api/tests/test_reqauth'
-            root = core.auth.getUserByName('root')
+            root = await core.auth.getUserByName('root')
             await root.setPasswd('secret')
 
             user = await core.auth.addUser('user')
@@ -76,7 +76,7 @@ class HttpApiTest(s_tests.SynTest):
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
-            root = core.auth.getUserByName('root')
+            root = await core.auth.getUserByName('root')
             await root.setPasswd('secret')
 
             newb = await core.auth.addUser('newb')
@@ -136,7 +136,7 @@ class HttpApiTest(s_tests.SynTest):
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
-            root = core.auth.getUserByName('root')
+            root = await core.auth.getUserByName('root')
             await root.setPasswd('secret')
 
             newb = await core.auth.addUser('bob')
@@ -187,14 +187,14 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('ok', item.get('status'))
 
             self.len(0, newb.getRoles())
-            self.none(core.auth.getRoleByName('bobs'))
+            self.none(await core.auth.getRoleByName('bobs'))
 
     async def test_http_passwd(self):
         async with self.getTestCore() as core:
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
-            root = core.auth.getUserByName('root')
+            root = await core.auth.getUserByName('root')
             await root.setPasswd('secret')
 
             newb = await core.auth.addUser('newb')
@@ -740,7 +740,7 @@ class HttpApiTest(s_tests.SynTest):
             # Run http instead of https for this test
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
-            root = core.auth.getUserByName('root')
+            root = await core.auth.getUserByName('root')
             await root.setPasswd('secret')
 
             url = f'https://localhost:{port}/api/v1/healthcheck'

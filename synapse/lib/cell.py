@@ -237,36 +237,6 @@ class CellApi(s_base.Base):
         return retn
 
     @adminapi
-    async def addAuthRule(self, name, rule, indx=None, iden=None):
-        item = await self.cell.auth.getRulerByName(name, iden=iden)
-        retn = await item.addRule(rule, indx=indx)
-        await self.cell.fire('user:mod', act='addrule', name=name, rule=rule, indx=indx, iden=iden)
-        return retn
-
-    @adminapi
-    async def delAuthRule(self, name, rule, iden=None):
-        item = await self.cell.auth.getRulerByName(name, iden=iden)
-        retn = await item.delRule(rule)
-        await self.cell.fire('user:mod', act='delrule', name=name, rule=rule, iden=iden)
-        return retn
-
-    @adminapi
-    async def delAuthRuleIndx(self, name, indx, iden=None):
-        item = await self.cell.auth.getRulerByName(name, iden=iden)
-        retn = await item.delRuleIndx(indx)
-        await self.cell.fire('user:mod', act='delrule:indx', name=name, indx=indx, iden=iden)
-        return retn
-
-    @adminapi
-    async def setAuthAdmin(self, name, admin):
-        '''
-        Set the admin status of the given user/role.
-        '''
-        item = await self.cell.auth.getRulerByName(name)
-        await item.setAdmin(admin)
-        await self.cell.fire('user:mod', act='setadmin', name=name, admin=admin)
-
-    @adminapi
     async def setUserAdmin(self, name, admin, gateiden=None):
         user = await self.cell.auth.reqUserByName(name, gateiden=gateiden)
         await user.setAdmin(admin)

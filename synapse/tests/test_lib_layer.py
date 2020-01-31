@@ -73,7 +73,7 @@ class LayerTest(s_t_utils.SynTest):
             self.isin('.created', propbag)
 
             async with await core.snap() as snap:
-                nodes = await alist(snap.getNodesBy('test:str'))
+                nodes = await snap.nodes('test:str')
                 self.len(1, nodes)
                 node = nodes[0]
                 self.eq(node.props['tick'], 978307200000)
@@ -83,7 +83,7 @@ class LayerTest(s_t_utils.SynTest):
 
             # new snap -> no cached buids in snap
             async with await core.snap() as snap:
-                nodes = await alist(snap.getNodesBy('test:str'))
+                nodes = snap.nodes('test:str')
                 self.len(1, nodes)
                 node = nodes[0]
                 self.eq(node.props['tick'], 1009843200000,)
@@ -93,7 +93,7 @@ class LayerTest(s_t_utils.SynTest):
             self.notin(testbuid, buidcache)
 
             async with await core.snap() as snap:
-                nodes = await alist(snap.getNodesBy('test:str'))
+                nodes = await snap.nodes('test:str')
                 self.len(0, nodes)
 
             self.notin(testbuid, buidcache)

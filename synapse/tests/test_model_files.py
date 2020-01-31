@@ -148,10 +148,10 @@ class FileTest(s_t_utils.SynTest):
                 self.eq(node.get('dir'), '/foo/bar')
                 self.nn(await snap.getNodeByNdef(('file:path', '/foo/bar')))
 
-                nodes = await alist(snap.getNodesBy('file:path', '/foo/bar/b', cmpr='^='))
+                nodes = await snap.nodes('file:path^=/foo/bar/b')
                 self.len(1, nodes)
                 self.eq(node.ndef, nodes[0].ndef)
-                nodes = await alist(snap.getNodesBy('file:base', 'baz', cmpr='^='))
+                nodes = await snap.nodes('file:base^=baz')
                 self.len(1, nodes)
                 self.eq(node.get('base'), nodes[0].ndef[1])
 

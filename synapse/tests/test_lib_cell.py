@@ -30,7 +30,7 @@ class CellTest(s_t_utils.SynTest):
 
                 echo.insecure = False
                 echo.dmon.share('echo00', echo)
-                root = echo.auth.getUserByName('root')
+                root = await echo.auth.getUserByName('root')
                 await root.setPasswd('secretsauce')
 
                 self.eq('root', echo.getUserName(root.iden))
@@ -248,8 +248,8 @@ class CellTest(s_t_utils.SynTest):
         # Ensure the cell and its auth have been fini'd
         self.true(echo.isfini)
         self.true(echo.auth.isfini)
-        self.true(echo.auth.getUserByName('root').isfini)
-        self.true(echo.auth.getUserByName('pennywise').isfini)
+        self.true(await echo.auth.getUserByName('root').isfini)
+        self.true(await echo.auth.getUserByName('pennywise').isfini)
 
     async def test_longpath(self):
         # This is similar to the DaemonTest::test_unixsock_longpath

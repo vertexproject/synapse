@@ -63,7 +63,7 @@ class CoreSpawnTest(s_test.SynTest):
             spawninfo = queue.get(timeout=30)
 
             async with await s_spawn.SpawnCore.anit(spawninfo) as core:
-                root = core.auth.getUserByName('root')
+                root = await core.auth.getUserByName('root')
                 q = '''test:str
                 $lib.print($lib.str.format("{n}", n=$node.repr()))
                 | limit 1'''
@@ -435,8 +435,8 @@ class CoreSpawnTest(s_test.SynTest):
                 await root.addAuthUser('synapse')
                 await root.addAuthUser('wootuser')
 
-                synu = core.auth.getUserByName('synapse')
-                woot = core.auth.getUserByName('wootuser')
+                synu = await core.auth.getUserByName('synapse')
+                woot = await core.auth.getUserByName('wootuser')
 
                 async with core.getLocalProxy(user='synapse') as prox:
                     msgs = await prox.storm('queue.add synq', opts=opts).list()
@@ -445,12 +445,12 @@ class CoreSpawnTest(s_test.SynTest):
                     self.eq(errs[0][0], 'AuthDeny')
 
                     rule = (True, ('storm', 'queue', 'add'))
-                    await root.addAuthRule('synapse', rule, indx=None)
+                    await root.addUserRule('synapse', rule, indx=None)
                     msgs = await prox.storm('queue.add synq', opts=opts).list()
                     self.stormIsInPrint('queue added: synq', msgs)
 
                     rule = (True, ('storm', 'queue', 'synq', 'put'))
-                    await root.addAuthRule('synapse', rule, indx=None)
+                    await root.addUserRule('synapse', rule, indx=None)
 
                     q = '$q = $lib.queue.get(synq) $q.puts((bar, baz))'
                     msgs = await prox.storm(q, opts=opts).list()
@@ -468,7 +468,7 @@ class CoreSpawnTest(s_test.SynTest):
                     self.eq(errs[0][0], 'AuthDeny')
 
                     rule = (True, ('storm', 'queue', 'synq', 'get'))
-                    await root.addAuthRule('wootuser', rule, indx=None)
+                    await root.addUserRule('wootuser', rule, indx=None)
 
                     q = '$lib.print($lib.queue.get(synq).get(wait=False))'
                     msgs = await prox.storm(q, opts=opts).list()
@@ -480,7 +480,7 @@ class CoreSpawnTest(s_test.SynTest):
                     self.eq(errs[0][0], 'AuthDeny')
 
                     rule = (True, ('storm', 'queue', 'del', 'synq'))
-                    await root.addAuthRule('wootuser', rule, indx=None)
+                    await root.addUserRule('wootuser', rule, indx=None)
 
                     msgs = await prox.storm('$lib.queue.del(synq)', opts=opts).list()
                     with self.raises(s_exc.NoSuchName):

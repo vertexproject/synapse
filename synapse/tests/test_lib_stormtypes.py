@@ -322,7 +322,8 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.streamstorm(text).list()
 
                 # make sure we gunzip correctly
-                nodes = await alist(snap.getNodesBy('graph:node', n2))
+                opts = {'vars': {'iden': n2}}
+                nodes = await snap.nodes('graph:node=$iden', opts=opts)
                 self.eq(hstr, nodes[0].get('data'))
 
                 # gzip
@@ -334,7 +335,8 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.streamstorm(text).list()
 
                 # make sure we gzip correctly
-                nodes = await alist(snap.getNodesBy('graph:node', n3))
+                opts = {'vars': {'iden': n3}}
+                nodes = await snap.nodes('graph:node=$iden', opts=opts)
                 self.eq(gzip.decompress(ggstr),
                         gzip.decompress(nodes[0].get('data')))
 
@@ -363,7 +365,8 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.streamstorm(text).list()
 
                 # make sure we bunzip correctly
-                nodes = await alist(snap.getNodesBy('graph:node', n2))
+                opts = {'vars': {'iden': n2}}
+                nodes = await snap.nodes('graph:node=$iden')
                 self.eq(hstr, nodes[0].props['data'])
 
                 # bzip
@@ -376,7 +379,8 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.streamstorm(text).list()
 
                 # make sure we bzip correctly
-                nodes = await alist(snap.getNodesBy('graph:node', n3))
+                opts = {'vars': {'iden': n3}}
+                nodes = await snap.nodes('graph:node=$iden')
                 self.eq(ggstr, nodes[0].props['data'])
 
     async def test_storm_lib_bytes_json(self):
@@ -399,7 +403,8 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.streamstorm(text).list()
 
                 # make sure we json loaded correctly
-                nodes = await alist(snap.getNodesBy('graph:node', n2))
+                opts = {'vars': {'iden': n2}}
+                nodes = await snap.nodes('graph:node=$iden')
                 self.eq(foo, nodes[0].props['data'])
 
     async def test_storm_lib_list(self):
@@ -714,9 +719,9 @@ class StormTypesTest(s_test.SynTest):
                     ret1 = await prox.addAuthUser('user1')
                     iden1 = ret1.get('iden')
                     await prox.setUserPasswd('user1', 'secret')
-                    await prox.addAuthRule('user1', (True, ('node:add',)))
-                    await prox.addAuthRule('user1', (True, ('prop:set',)))
-                    await prox.addAuthRule('user1', (True,
+                    await prox.addUserRule('user1', (True, ('node:add',)))
+                    await prox.addUserRule('user1', (True, ('prop:set',)))
+                    await prox.addUserRule('user1', (True,
                                                      ('storm:globals:get', 'userkey',)))
 
                     # Basic tests as root for $lib.globals
@@ -1116,20 +1121,20 @@ class StormTypesTest(s_test.SynTest):
                 await root.addAuthUser('synapse')
                 await root.addAuthUser('wootuser')
 
-                synu = core.auth.getUserByName('synapse')
-                woot = core.auth.getUserByName('wootuser')
+                synu = await core.auth.getUserByName('synapse')
+                woot = await core.auth.getUserByName('wootuser')
 
                 # make a queue
                 with self.raises(s_exc.AuthDeny):
                     await core.nodes('queue.add synq', user=synu)
 
                 rule = (True, ('storm', 'queue', 'add'))
-                await root.addAuthRule('synapse', rule, indx=None)
+                await root.addUserRule('synapse', rule, indx=None)
                 msgs = await alist(core.streamstorm('queue.add synq', user=synu))
                 self.stormIsInPrint('queue added: synq', msgs)
 
                 rule = (True, ('storm', 'queue', 'synq', 'put'))
-                await root.addAuthRule('synapse', rule, indx=None)
+                await root.addUserRule('synapse', rule, indx=None)
 
                 await core.nodes('$q = $lib.queue.get(synq) $q.puts((bar, baz))', user=synu)
 
@@ -1138,7 +1143,7 @@ class StormTypesTest(s_test.SynTest):
                     await core.nodes('$lib.queue.get(synq).get()', user=woot)
 
                 rule = (True, ('storm', 'queue', 'synq', 'get'))
-                await root.addAuthRule('wootuser', rule, indx=None)
+                await root.addUserRule('wootuser', rule, indx=None)
 
                 msgs = await alist(core.streamstorm('$lib.print($lib.queue.get(synq).get(wait=False))'))
                 self.stormIsInPrint("(0, 'bar')", msgs)
@@ -1147,7 +1152,7 @@ class StormTypesTest(s_test.SynTest):
                     await core.nodes('$lib.queue.del(synq)', user=woot)
 
                 rule = (True, ('storm', 'queue', 'del', 'synq'))
-                await root.addAuthRule('wootuser', rule, indx=None)
+                await root.addUserRule('wootuser', rule, indx=None)
                 await core.nodes('$lib.queue.del(synq)', user=woot)
                 with self.raises(s_exc.NoSuchName):
                     await core.nodes('$lib.queue.get(synq)')
@@ -1600,7 +1605,7 @@ class StormTypesTest(s_test.SynTest):
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.view.list()'))
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.view.get()'))
 
-                await prox.addAuthRule('visi', (True, ('view', 'read')))
+                await prox.addUserRule('visi', (True, ('view', 'read')))
 
                 await asvisi.eval('$lib.view.list()').list()
                 await asvisi.eval('$lib.view.get()').list()
@@ -1609,7 +1614,7 @@ class StormTypesTest(s_test.SynTest):
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.add(({newlayer.iden},))'))
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.fork({mainiden})'))
 
-                await prox.addAuthRule('visi', (True, ('view', 'add')))
+                await prox.addUserRule('visi', (True, ('view', 'add')))
 
                 q = f'''
                     $newview=$lib.view.add(({newlayer.iden},))
@@ -1653,12 +1658,12 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await asvisi.storm(q).list()
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
-                await prox.addAuthRule('visi', (True, ('node:add',)))
-                await prox.addAuthRule('visi', (True, ('node:del',)))
-                await prox.addAuthRule('visi', (True, ('prop:set',)))
-                await prox.addAuthRule('visi', (True, ('prop:del',)))
-                await prox.addAuthRule('visi', (True, ('tag:add',)))
-                await prox.addAuthRule('visi', (True, ('tag:del',)))
+                await prox.addUserRule('visi', (True, ('node:add',)))
+                await prox.addUserRule('visi', (True, ('node:del',)))
+                await prox.addUserRule('visi', (True, ('prop:set',)))
+                await prox.addUserRule('visi', (True, ('prop:del',)))
+                await prox.addUserRule('visi', (True, ('tag:add',)))
+                await prox.addUserRule('visi', (True, ('tag:del',)))
 
                 q = f'$lib.view.merge({forkediden})'
                 nodes = await asvisi.storm(q).list()
@@ -1683,7 +1688,7 @@ class StormTypesTest(s_test.SynTest):
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.del({rootadd})'))
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.merge({rootfork})'))
 
-                await prox.addAuthRule('visi', (True, ('view', 'del')))
+                await prox.addUserRule('visi', (True, ('view', 'del')))
 
                 # Delete a view not owned by the user
                 q = f'$lib.view.del({rootadd})'
