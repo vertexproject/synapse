@@ -775,6 +775,17 @@ class Snap(s_base.Base):
                         for tag, asof in tags.items():
                             await node.addTag(tag, valu=asof)
 
+                    tagprops = forminfo.get('tagprops', {})
+                    if tagprops is not None:
+                        for tag, props in tagprops.items():
+                            for prop, valu in props.items():
+                                try:
+                                    await node.setTagProp(tag, prop, valu)
+                                except s_exc.NoSuchTagProp:
+                                    mesg = f'Tagprop [{prop}] does not exist, cannot set it on [{formname}={formvalu}]'
+                                    logger.warning(mesg)
+                                    continue
+
                 yield node
 
             except asyncio.CancelledError:  # pragma: no cover

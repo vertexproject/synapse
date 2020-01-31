@@ -590,7 +590,8 @@ class Node:
 
         prop = self.snap.model.getTagProp(name)
         if prop is None:
-            raise s_exc.NoSuchTagProp(name=name)
+            raise s_exc.NoSuchTagProp(mesg='Tag prop does not exist in this Cortex.',
+                                      name=name)
 
         try:
             norm, info = prop.type.norm(valu)
