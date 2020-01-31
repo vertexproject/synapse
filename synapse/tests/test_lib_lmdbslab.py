@@ -681,6 +681,8 @@ class LmdbSlabMemLockTest(s_t_utils.SynTest):
         '''
         Trigger multiple grow events rapidly and ensure memlock thread survives.
         '''
+        self.thisHostMust(hasmemlocking=True)
+
         with self.getTestDir() as dirn:
 
             count = 0
