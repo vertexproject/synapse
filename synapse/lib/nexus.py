@@ -25,8 +25,8 @@ class NexsRoot(s_base.Base):
     async def __anit__(self, dirn: str):
         await s_base.Base.__anit__(self)
 
-        import synapse.lib.lmdbslab as s_lmdbslab
-        import synapse.lib.slabseqn as s_slabseqn
+        import synapse.lib.lmdbslab as s_lmdbslab  # avoid import cycle
+        import synapse.lib.slabseqn as s_slabseqn  # avoid import cycle
 
         self.dirn = dirn
         self._nexskids: Dict[str, 'Pusher'] = {}

@@ -3528,7 +3528,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 url = core00.getLocalUrl()
 
                 async with await s_cortex.Cortex.anit(dirn=path01) as core01:
-
                     offs = await core00.getNexusOffs()
                     mirroffs = await core01.getNexusOffs()
                     self.gt(offs, mirroffs)
