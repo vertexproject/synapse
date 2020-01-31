@@ -49,7 +49,6 @@ class NexsRoot(s_base.Base):
 
         indx = self.changelog.index()
         self.changelog.append(item)
-        print('issue', indx, item)
         [(await wind.put((indx, item))) for wind in tuple(self.windows)]
 
         nexus = self._nexskids[nexsiden]
@@ -71,7 +70,6 @@ class NexsRoot(s_base.Base):
 
         async with self.getChangeWindow() as wind:
             async for item in wind:
-                print('windowitem')
                 yield item
 
     @contextlib.asynccontextmanager
