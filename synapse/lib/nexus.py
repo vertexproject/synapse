@@ -27,12 +27,13 @@ class NexsRoot(s_base.Base):
 
         import synapse.lib.lmdbslab as s_lmdbslab
         import synapse.lib.slabseqn as s_slabseqn
+
         self.dirn = dirn
         self._nexskids: Dict[str, 'Pusher'] = {}
 
         self.windows = []
 
-        path = s_common.genpath(self.dirn, 'changes.lmdb')
+        path = s_common.genpath(self.dirn, 'changelog.lmdb')
         self.changeslab = await s_lmdbslab.Slab.anit(path)
 
         async def fini():
@@ -48,7 +49,7 @@ class NexsRoot(s_base.Base):
         item = (nexsiden, event, args, kwargs)
 
         indx = self.changelog.append(item)
-        [(await wind.put((indx-1, item))) for wind in tuple(self.windows)]
+        [(await wind.put((indx, item))) for wind in tuple(self.windows)]
 
         nexus = self._nexskids[nexsiden]
         return await nexus._nexshands[event](nexus, *args, **kwargs)

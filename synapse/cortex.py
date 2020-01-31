@@ -1793,25 +1793,14 @@ class Cortex(s_cell.Cell):  # type: ignore
                         await self.fini()
                         return
 
-#                    # assume only the main layer for now...
-#                    layr = self.getLayer()
-
-#                    offs = await layr.getOffset(layr.iden)
                     offs = self.nexsroot.getOffset()
 
                     logger.warning(f'mirror loop connected ({url} offset={offs})')
 
-#                    if offs == 0:
-#                        stat = await layr.stat()
-#                        offs = stat.get('splicelog_indx', 0)
-#                        await layr.setOffset(layr.iden, offs)
-
                     while not proxy.isfini:
 
                         # gotta do this in the loop as well...
-#                        offs = await layr.getOffset(layr.iden)
                         offs = self.nexsroot.getOffset()
-                        print('mirror at', offs)
 
                         # pump them into a queue so we can consume them in chunks
                         q = asyncio.Queue(maxsize=1000)
@@ -1819,7 +1808,6 @@ class Cortex(s_cell.Cell):  # type: ignore
                         async def consume(x):
                             try:
                                 async for item in proxy.getNexusChanges(x):
-                                    print('mirror got', item[0])
                                     await q.put(item)
                             finally:
                                 await q.put(None)
@@ -1844,20 +1832,15 @@ class Cortex(s_cell.Cell):  # type: ignore
                                     done = True
                                     break
 
-
                                 items.append(nexi)
 
                             for nexi in items:
                                 iden, evt, args, kwargs = nexi[1]
                                 await self.nexsroot.eat(iden, evt, args, kwargs)
-                                print('ate', nexi[0])
-                                waits = self.nexswaits.pop(nexi[0]+1, None)
+
+                                waits = self.nexswaits.pop(nexi[0] + 1, None)
                                 if waits is not None:
                                     [e.set() for e in waits]
-
-#                            splices = [i[1] for i in items]
-#                            await self.addFeedData('syn.splice', splices)
-#                            await layr.setOffset(layr.iden, items[-1][0])
 
             except asyncio.CancelledError: # pragma: no cover
                 return

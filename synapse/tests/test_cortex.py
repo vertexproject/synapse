@@ -3509,7 +3509,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 #            await core.nodes('[ inet:fqdn=vertex.link ]')
 #            self.true(evnt.is_set())
 
-# FIXME: Pending mirror
     async def test_cortex_mirror(self):
 
         with self.getTestDir() as dirn:
@@ -3528,8 +3527,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 url = core00.getLocalUrl()
 
-                async with self.getTestCore(dirn=path01) as core01:
-                    pass
+                async with await s_cortex.Cortex.anit(dirn=path01) as core01:
 
                     offs = await core00.getNexusOffs()
                     mirroffs = await core01.getNexusOffs()
@@ -3547,17 +3545,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
-                    mirroffs = await core01.getNexusOffs()
-                    print('cor01 mirror at', mirroffs)
-                    offs = await core00.getNexusOffs()
-                    print('cor0 at', offs)
 
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
-                print('added a node')
-                offs = await core00.getNexusOffs()
-                print('cor0 at', offs)
+
                 # test what happens when we go down and come up again...
-                async with self.getTestCore(dirn=path01) as core01:
+                async with await s_cortex.Cortex.anit(dirn=path01) as core01:
                     offs = await core00.getNexusOffs()
                     mirroffs = await core01.getNexusOffs()
                     self.gt(offs, mirroffs)
@@ -3566,27 +3558,32 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     await core01.initCoreMirror(url)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
-#
-#            # now lets start up in the opposite order...
-#            async with self.getTestCore(dirn=path01) as core01:
-#
-#                await core01.initCoreMirror(url)
-#
-#                evnt = await core01._getWaitFor('inet:ipv4', '6.6.6.6')
-#
-#                async with self.getTestCore(dirn=path00) as core00:
-#
-#                    await core00.nodes('[ inet:ipv4=6.6.6.6 ]')
-#
-#                    await evnt.wait()
-#                    self.len(1, (await core01.nodes('inet:ipv4=6.6.6.6')))
-#
-#                # what happens if *he* goes down and comes back up again?
-#                evnt = await core01._getWaitFor('inet:ipv4', '7.7.7.7')
-#                async with self.getTestCore(dirn=path00) as core00:
-#                    await core00.nodes('[ inet:ipv4=7.7.7.7 ]')
-#                    await evnt.wait()
-#                    self.len(1, (await core01.nodes('inet:ipv4=7.7.7.7')))
+
+            # now lets start up in the opposite order...
+            async with await s_cortex.Cortex.anit(dirn=path01) as core01:
+
+                await core01.initCoreMirror(url)
+
+                async with await s_cortex.Cortex.anit(dirn=path00) as core00:
+
+                    await core00.nodes('[ inet:ipv4=6.6.6.6 ]')
+
+                    offs = await core00.getNexusOffs()
+                    evnt = await core01.waitNexusOffs(offs)
+                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                    self.len(1, (await core01.nodes('inet:ipv4=6.6.6.6')))
+
+                # what happens if *he* goes down and comes back up again?
+                async with await s_cortex.Cortex.anit(dirn=path00) as core00:
+
+                    await core00.nodes('[ inet:ipv4=7.7.7.7 ]')
+
+                    offs = await core00.getNexusOffs()
+                    evnt = await core01.waitNexusOffs(offs)
+                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                    self.len(1, (await core01.nodes('inet:ipv4=7.7.7.7')))
 
     async def test_norms(self):
         async with self.getTestCoreAndProxy() as (core, prox):
