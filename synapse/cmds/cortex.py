@@ -44,7 +44,7 @@ Examples:
     log --on --nodes-only --path /my/awesome/log/directory/stormnodes20010203.mpk
     '''
     _cmd_name = 'log'
-    _cmd_syntax = (  # type: ignore
+    _cmd_syntax = (
         ('line', {'type': 'glob'}),
     )
 
@@ -186,7 +186,7 @@ Examples:
 
         try:
             opts = self._make_argparser().parse_args(shlex.split(line))
-        except s_exc.ParserExit as e:
+        except s_exc.ParserExit:
             return
 
         if opts.on:
@@ -225,7 +225,7 @@ class StormCmd(s_cli.Cmd):
 
     _cmd_name = 'storm'
     _cmd_syntax = (
-        ('--hide-tags', {}),
+        ('--hide-tags', {}),  # type: ignore
         ('--show', {'type': 'valu'}),
         ('--file', {'type': 'valu'}),
         ('--optsfile', {'type': 'valu'}),
@@ -352,7 +352,7 @@ class StormCmd(s_cli.Cmd):
                 with open(filename, 'r') as fd:
                     text = fd.read()
 
-            except FileNotFoundError as e:
+            except FileNotFoundError:
                 self.printf('file not found: %s' % (filename,))
                 return
 
@@ -363,7 +363,7 @@ class StormCmd(s_cli.Cmd):
                 with open(optsfile) as fd:
                     stormopts = json.loads(fd.read())
 
-            except FileNotFoundError as e:
+            except FileNotFoundError:
                 self.printf('optsfile not found: %s' % (optsfile,))
                 return
 
