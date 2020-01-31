@@ -1383,13 +1383,13 @@ class CortexBasicTest(s_t_utils.SynTest):
         self.skip('Pending moving feedloop to daemon')
 
         async with self.getTestCryo() as cryo:
+            croot = cryo.auth.getUserByName('root')
+            await croot.setPasswd('croot')
 
             host, port = await cryo.dmon.listen('tcp://127.0.0.1:0/')
 
-            cryo.insecure = True
-
             tname = 'tank:blahblah'
-            tank_addr = f'tcp://{host}:{port}/*/{tname}'
+            tank_addr = f'tcp://root:croot@{host}:{port}/*/{tname}'
 
             recs = ['a', 'b', 'c']
 

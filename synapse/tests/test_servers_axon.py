@@ -10,7 +10,7 @@ class AxonServerTest(s_t_utils.SynTest):
 
     async def test_server(self):
 
-        with self.getTestDir() as dirn:
+        with self.getTestDir() as dirn, self.withSetLoggingMock() as mock:
 
             outp = self.getTestOutp()
 

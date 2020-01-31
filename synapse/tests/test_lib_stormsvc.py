@@ -91,10 +91,13 @@ class NewServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
     )
 
 class ChangingService(s_cell.Cell):
-    confdefs = (
-        ('updated', {'type': 'bool', 'defval': False,
-                     'doc': 'If true, serve new cell api'}),
-    )
+    confdefs = {
+        'updated': {
+            'type': 'boolean',
+            'default': False,
+            'description': 'If true, serve new cell api.',
+        }
+    }
 
     async def getTeleApi(self, link, mesg, path):
 
