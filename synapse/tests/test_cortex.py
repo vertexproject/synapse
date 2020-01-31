@@ -148,6 +148,45 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(0, await core.nodes('#foo.bar:score=100'))
                 self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
 
+                # test for adding two tags with the same prop to the same node
+                nodes = await core.nodes('[ test:int=10 +#foo:score=20 +#bar:score=20 ]')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.eq(20, nodes[0].getTagProp('bar', 'score'))
+                nodes = await core.nodes('#:score')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.eq(20, nodes[0].getTagProp('bar', 'score'))
+
+                #    remove one of the tag props and everything still works
+                nodes = await core.nodes('[ test:int=10 -#bar:score ]')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.false(nodes[0].hasTagProp('bar', 'score'))
+                nodes = await core.nodes('#:score')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.false(nodes[0].hasTagProp('bar', 'score'))
+
+                await core.nodes('[ test:int=10 -#foo:score ]')
+                nodes = await core.nodes('#:score')
+                self.len(0, nodes)
+
+                #    same, except for _changing_ the tagprop instead of removing
+                await core.nodes('test:int=10 [ +#foo:score=20 +#bar:score=20 ]')
+                nodes = await core.nodes('test:int=10 [ +#bar:score=30 ]')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.eq(30, nodes[0].getTagProp('bar', 'score'))
+                nodes = await core.nodes('#:score')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.eq(30, nodes[0].getTagProp('bar', 'score'))
+
+                await core.nodes('test:int=10 [ -#foo -#bar ]')
+                nodes = await core.nodes('#:score')
+                self.len(0, nodes)
+
                 with self.raises(s_exc.NoSuchCmpr):
                     await core.nodes('test:int=10 +#foo.bar:score*newp=66')
 
@@ -2409,9 +2448,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.addAuthUser('visi')
             await core.setUserPasswd('visi', 'secret')
 
-            await core.addAuthRule('visi', (True, ('node:add',)))
-            await core.addAuthRule('visi', (True, ('prop:set',)))
-            await core.addAuthRule('visi', (True, ('tag:add',)))
+            await core.addUserRule('visi', (True, ('node:add',)))
+            await core.addUserRule('visi', (True, ('prop:set',)))
+            await core.addUserRule('visi', (True, ('tag:add',)))
 
             async with realcore.getLocalProxy(user='visi') as asvisi:
 
@@ -2424,20 +2463,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval('test:str=foo | delnode'))
 
                 rule = (True, ('node:del',))
-                await core.addAuthRule('visi', rule)
+                await core.addUserRule('visi', rule)
 
                 # should still deny because node has tag we can't delete
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval('test:str=foo | delnode'))
 
                 rule = (True, ('tag:del', 'lol'))
-                await core.addAuthRule('visi', rule)
+                await core.addUserRule('visi', rule)
 
                 await self.agenlen(0, asvisi.eval('test:str=foo | delnode'))
 
                 await self.agenraises(s_exc.CantDelNode, asvisi.eval('test:cycle0=foo | delnode'))
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval('test:cycle0=foo | delnode --force'))
 
-                await core.setAuthAdmin('visi', True)
+                await core.setUserAdmin('visi', True)
 
                 await self.agenlen(0, asvisi.eval('test:cycle0=foo | delnode --force'))
 
@@ -2467,8 +2506,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 #                await prox.addAuthUser('visi')
 #                await prox.setUserPasswd('visi', 'secret')
 #
-#                await prox.addAuthRule('visi', (True, ('node:add',)))
-#                await prox.addAuthRule('visi', (True, ('prop:set',)))
+#                await prox.addUserRule('visi', (True, ('node:add',)))
+#                await prox.addUserRule('visi', (True, ('prop:set',)))
 #
 #                async with core.getLocalProxy(user='visi') as asvisi:
 #
@@ -2480,7 +2519,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 #                    await self.agenlen(2, asvisi.spliceHistory())
 #
 #                    # should get all splices now as an admin
-#                    await prox.setAuthAdmin('visi', True)
+#                    await prox.setUserAdmin('visi', True)
 #                    await self.agenlen(splicecount + 2, asvisi.spliceHistory())
 
     async def test_node_repr(self):
@@ -2617,9 +2656,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Setup user permissions
             await core.addAuthRole('creator')
-            await core.addAuthRule('creator', (True, ('node:add',)))
-            await core.addAuthRule('creator', (True, ('prop:set',)))
-            await core.addAuthRule('creator', (True, ('tag:add',)))
+            await core.addRoleRule('creator', (True, ('node:add',)))
+            await core.addRoleRule('creator', (True, ('prop:set',)))
+            await core.addRoleRule('creator', (True, ('tag:add',)))
             await core.addUserRole('root', 'creator')
             await self._validate_feed(core, gestdef, guid, seen)
 

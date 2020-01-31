@@ -2250,7 +2250,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         # if we have no views, we are initializing.  Add a default main view and layer.
         if not self.views:
             layr = await self.addLayer()
-            view = await self.addView('root', (layr.iden,))
+            vdef = {
+                'layers': (layr.iden,),
+                'worldreadable': True,
+            }
+            view = await self.addView(vdef)
             await self.cellinfo.set('defaultview', view.iden)
             self.view = view
 
@@ -2338,33 +2342,40 @@ class Cortex(s_cell.Cell):  # type: ignore
         # TODO NEXUS
         return self.offs.delete(iden)
 
-    async def addView(self, owner, layers, worldreadable=True):
+    async def addView(self, vdef):
 
-        iden = s_common.guid()
+        vdef['iden'] = s_common.guid()
 
-        user = self.auth.getUserByName(owner)
-        if user is None:
-            raise s_exc.NoSuchUser(name=owner)
+        vdef.setdefault('parent', None)
+        vdef.setdefault('worldreadable', True)
+        vdef.setdefault('creator', self.auth.rootuser.iden)
 
-        return await self._push('view:add', iden, user.iden, layers, worldreadable)
+        creator = vdef.get('creator')
+        await self.auth.reqUser(creator)
+
+        return await self._push('view:add', vdef)
 
     @s_nexus.Pusher.onPush('view:add')
-    async def _addView(self, iden, useriden, layers, worldreadable):
+    async def _addView(self, vdef):
 
-        user = self.auth.user(useriden)
-
+        iden = vdef.get('iden')
         node = await self.hive.open(('cortex', 'views', iden))
-        info = await node.dict()
 
-        await info.set('owner', user.iden)
-        await info.set('layers', layers)
+        info = await node.dict()
+        for name, valu in vdef.items():
+            await info.set(name, valu)
 
         view = await s_view.View.anit(self, node)
         self.views[iden] = view
 
-        if worldreadable:
-            rulr = await self.auth.getRulerByName('all', iden=iden)
+        if vdef.get('worldreadable'):
+            rulr = await self.auth.getRoleByName('all', gateiden=iden)
             await rulr._addRule((True, ('view', 'read')))
+
+        creator = vdef.get('creator')
+        user = await self.auth.reqUser(creator, gateiden=iden)
+
+        await user.setAdmin(True)
 
         await self.bumpSpawnPool()
         return view
@@ -2477,42 +2488,60 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return self.views.get(iden)
 
-    async def addLayer(self, conf=None, stor=None):
+    async def addLayer(self, ldef=None):
         '''
         Add a Layer to the cortex.
         '''
-        conf = conf or {}
+        ldef = ldef or None
 
-        iden = conf.pop('iden', None)
+        iden = ldef.pop('iden', None)
         if iden is None:
             iden = s_common.guid()
 
-        return await self._push('layer:add', iden, conf, stor)
+        ldef.setdefault('conf', {})
+        ldef.setdefault('stor', self.defstor.iden)
+        ldef.setdefault('creator', self.auth.rootuser.iden)
 
-    @s_nexus.Pusher.onPush('layer:add')
-    async def _addLayer(self, iden, conf, stor):
-
-        if conf is None:
-            conf = {}
-
+        # FIXME: why do we have two levels of conf?
+        conf = ldef.get('conf')
         conf.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
 
-        layrstor = self.defstor
-        if stor is not None:
-            layrstor = self.storage.get(stor)
-            if layrstor is None:
-                raise s_exc.NoSuchIden(iden=stor)
+        await self._reqValidLayerDef(ldef)
 
+        return await self._push('layer:add', ldef)
+
+    async def _reqValidLayerDef(self, ldef):
+
+        stor = ldef.get('stor')
+
+        layrstor = self.storage.get(stor)
+        if layrstor is None:
+            raise s_exc.NoSuchIden(iden=stor)
+
+        conf = ldef.get('conf')
         await layrstor.reqValidLayrConf(conf)
+
+        creator = ldef.get('creator')
+        await self.auth.reqUser(creator)
+
+    @s_nexus.Pusher.onPush('layer:add')
+    async def _addLayer(self, ldef):
+
+        iden = ldef.get('iden')
+        await self._reqValidLayerDef(ldef)
+
         node = await self.hive.open(('cortex', 'layers', iden))
 
         layrinfo = await node.dict()
-
-        await layrinfo.set('iden', iden)
-        await layrinfo.set('conf', conf)
-        await layrinfo.set('stor', layrstor.iden)
+        for name, valu in ldef.items():
+            await layrinfo.set(name, valu)
 
         layr = await self._initLayr(layrinfo)
+
+        creator = ldef.get('creator')
+        user = await self.auth.reqUser(creator, gateiden=iden)
+
+        await user.setAdmin(True)
 
         # forward wind the new layer to the current model version
         await layr.setModelVers(s_modelrev.maxvers)
@@ -2546,7 +2575,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         info = {
             'type': 'remote',
-            'owner': 'root',
+            'creator': 'root',
             'config': {
                 'url': url
             }
@@ -2589,7 +2618,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         iden = ddef['iden']
 
         if ddef.get('user') is None:
-            user = self.auth.getUserByName('root')
+            user = await self.auth.getUserByName('root')
             ddef['user'] = user.iden
 
         dmon = await self.runStormDmon(iden, ddef)
@@ -2627,11 +2656,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         if uidn is None:
             mesg = 'Storm daemon definition requires "user".'
             raise s_exc.NeedConfValu(mesg=mesg)
-
-        user = self.auth.user(uidn)
-        if user is None:
-            mesg = f'No user with iden {uidn}.'
-            raise s_exc.NoSuchUser(iden=uidn, mesg=mesg)
+        # FIXME:  no such call
+        await self.auth.reqUser(uidn)
 
         # raises if parser failure
         self.getStormQuery(ddef.get('storm'))
@@ -3150,7 +3176,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     @s_coro.genrhelp
     async def iterStormPodes(self, text, opts=None, user=None):
         if user is None:
-            user = self.auth.getUserByName('root')
+            user = await self.auth.getUserByName('root')
 
         view = self._viewFromOpts(opts)
 
@@ -3294,7 +3320,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             view = self.view
 
         if user is None:
-            user = self.auth.getUserByName('root')
+            user = await self.auth.getUserByName('root')
 
         snap = await view.snap(user)
 

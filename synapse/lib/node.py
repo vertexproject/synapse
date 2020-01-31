@@ -687,9 +687,7 @@ class Node:
             # refuse to delete tag nodes with existing tags
             if self.form.name == 'syn:tag':
 
-                print('DEL TAG %r' % (self.ndef[1],))
                 async for _ in self.snap.nodesByTag(self.ndef[1]):  # NOQA
-                    print('STILL GOT IT')
                     mesg = 'Nodes still have this tag.'
                     return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
 

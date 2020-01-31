@@ -222,6 +222,21 @@ class CellApi(s_base.Base):
         return [r.name for r in self.cell.auth.roles()]
 
     @adminapi
+    async def addUserRule(self, name, rule, indx=None, gateiden=None):
+        user = await self.cell.auth.reqUserByName(name, gateiden=gateiden)
+        retn = await user.addRule(rule, indx=indx)
+        #await self.cell.fire('user:mod', act='addrule', name=name, rule=rule, indx=indx, iden=iden)
+        return retn
+
+    @adminapi
+    async def addRoleRule(self, name, rule, indx=None, gateiden=None):
+        role = await self.cell.auth.reqRoleByName(name, gateiden=gateiden)
+        retn = await role.addRule(rule, indx=indx)
+        # FIXME what are these for ( and the need to be role:mod if we're keeping them )
+        #await self.cell.fire('user:mod', act='addrule', name=name, rule=rule, indx=indx, iden=iden)
+        return retn
+
+    @adminapi
     async def addAuthRule(self, name, rule, indx=None, iden=None):
         item = await self.cell.auth.getRulerByName(name, iden=iden)
         retn = await item.addRule(rule, indx=indx)
@@ -251,8 +266,18 @@ class CellApi(s_base.Base):
         await item.setAdmin(admin)
         await self.cell.fire('user:mod', act='setadmin', name=name, admin=admin)
 
+    @adminapi
+    async def setUserAdmin(self, name, admin, gateiden=None):
+        user = await self.cell.auth.reqUserByName(name, gateiden=gateiden)
+        await user.setAdmin(admin)
+
+    @adminapi
+    async def setRoleAdmin(self, name, admin, gateiden=None):
+        role = await self.cell.auth.reqRoleByName(name, gateiden=gateiden)
+        await role.setAdmin(admin)
+
     async def setUserPasswd(self, name, passwd):
-        user = self.cell.auth.getUserByName(name)
+        user = await self.cell.auth.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(user=name)
         if not (self.user.admin or self.user.iden == user.iden):
@@ -263,7 +288,7 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def setUserLocked(self, name, locked):
-        user = self.cell.auth.getUserByName(name)
+        user = await self.cell.auth.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(user=name)
 
@@ -272,7 +297,7 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def setUserArchived(self, name, archived):
-        user = self.cell.auth.getUserByName(name)
+        user = await self.cell.auth.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(user=name)
 
@@ -281,7 +306,7 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def addUserRole(self, username, rolename):
-        user = self.cell.auth.getUserByName(username)
+        user = await self.cell.auth.getUserByName(username)
         if user is None:
             raise s_exc.NoSuchUser(user=username)
 
@@ -291,7 +316,7 @@ class CellApi(s_base.Base):
     @adminapi
     async def delUserRole(self, username, rolename):
 
-        user = self.cell.auth.getUserByName(username)
+        user = await self.cell.auth.getUserByName(username)
         if user is None:
             raise s_exc.NoSuchUser(user=username)
 
@@ -413,7 +438,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             name, passwd = admin.split(':', 1)
 
-            user = self.auth.getUserByName(name)
+            user = await self.auth.getUserByName(name)
             if user is None:
                 user = await self.auth.addUser(name)
 
@@ -663,12 +688,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if auth is not None:
                 name, info = auth
 
-            user = self.auth.getUserByName(name)
+            user = await self.auth.getUserByName(name)
             if user is None:
                 raise s_exc.NoSuchUser(name=name)
 
         else:
-            user = self._getCellUser(mesg)
+            user = await self._getCellUser(mesg)
 
         return await self.getCellApi(link, user, path)
 
@@ -681,7 +706,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def getCellIden(self):
         return self.iden
 
-    def _getCellUser(self, mesg):
+    async def _getCellUser(self, mesg):
 
         auth = mesg[1].get('auth')
         if auth is None:
@@ -689,7 +714,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         name, info = auth
 
-        user = self.auth.getUserByName(name)
+        user = await self.auth.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(name=name, mesg=f'No such user: {name}.')
 
