@@ -93,7 +93,7 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('founded', ('time', {}), {
                         'doc': 'The date on which the org was founded.'}),
-                    ('disolved', ('time', {}), {
+                    ('dissolved', ('time', {}), {
                         'doc': 'The date on which the org was disolved.'}),
                     ('url', ('inet:url', {}), {
                         'doc': 'The primary url for the organization.',
