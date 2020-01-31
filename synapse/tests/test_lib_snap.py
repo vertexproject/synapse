@@ -135,12 +135,20 @@ class SnapTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
 
-                ndefs = ((('test:guid', '*'), {'props': {}}),)
-                nodes = await alist(snap.addNodes(ndefs))
-                self.len(1, nodes)
-                node = nodes[0]
+                node = await snap.addNode('test:guid', '*')
                 await node.set('size', 42)
                 nodes = await alist(snap.nodesByPropValu('test:int', '=', 42))
+                self.len(1, nodes)
+
+                # For good measure, set a secondary prop that is itself a comp type that has an element that is a form
+                node = await snap.addNode('test:haspivcomp', 42)
+                await node.set('have', ('woot', 'rofl'))
+                nodes = await alist(snap.nodesByPropValu('test:pivcomp', '=', ('woot', 'rofl')))
+                self.len(1, nodes)
+                nodes = await alist(snap.nodesByProp('test:pivcomp:lulz'))
+                self.len(1, nodes)
+                breakpoint()
+                nodes = await alist(snap.nodesByPropValu('test:str', '=', 'rofl'))
                 self.len(1, nodes)
 
     async def test_addNodeRace(self):
