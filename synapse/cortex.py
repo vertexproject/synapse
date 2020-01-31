@@ -2492,12 +2492,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Add a Layer to the cortex.
         '''
-        ldef = ldef or None
+        ldef = ldef or {}
 
-        iden = ldef.pop('iden', None)
-        if iden is None:
-            iden = s_common.guid()
-
+        ldef.setdefault('iden', s_common.guid())
         ldef.setdefault('conf', {})
         ldef.setdefault('stor', self.defstor.iden)
         ldef.setdefault('creator', self.auth.rootuser.iden)
