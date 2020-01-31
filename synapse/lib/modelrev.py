@@ -17,6 +17,7 @@ class ModelRev:
             ((0, 1, 0), self._addFormNameSpaces),
             ((0, 1, 1), self._normContactAddress),
             ((0, 1, 2), self._afterUniqueIdens),
+            ((0, 1, 3), self._ouOrgDissolve),
         )
 
     async def revCoreLayers(self):
@@ -103,3 +104,8 @@ class ModelRev:
         views, and layers had unique idens.  (The migration actually occurs in cortex._migrateViewLayers)
         '''
         pass
+
+    async def _ouOrgDissolve(self, layers):
+
+        async with self.getCoreMigr(layers) as migr:
+            await migr.renameProp('ou:org', 'disolved', 'dissolved')

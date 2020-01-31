@@ -231,3 +231,43 @@ class Migration(s_base.Base):
                     logger.debug(f'Total propset count: {i}')
 
         logger.debug(f'Done norming: {prop.form.name}')
+
+    async def renameProp(self, form, oldv, newv, modulus=10000):
+
+        name = ':'.join((form, newv))
+
+        prop = self.core.model.prop(name)
+
+        assert prop is not None
+
+        for layr in self.layers:
+
+            async with self.getTempSlab() as slab:
+
+                i = 0
+                async for buid, valu in layr.iterPropRows(form, oldv):
+                    i = i + 1
+                    if i % modulus == 0:
+                        logger.debug(f'Consumed {form}:{oldv} count: {i}')
+
+                    slab.put(buid, s_msgpack.en(valu))
+
+                if i:
+                    logger.debug(f'Total {form}:{oldv} count: {i}')
+
+                i = 0
+                for buid, byts in slab.scanByFull():
+                    norm = s_msgpack.un(byts)
+                    await layr.storPropSet(buid, prop, norm)
+                    i = i + 1
+                    if i % modulus == 0:
+                        logger.debug(f'Set prop count: {i}')
+                if i:
+                    logger.debug(f'Total propset count: {i}')
+
+                # Remove old values
+                # FIXME Do this!
+                pref = form.encode() + b'\x00' + oldv.encode() + b'\x00'
+                # ??? how do delete via a prefix????
+
+        logger.debug(f'Done renaming: {form}:{oldv} to {prop.full}')
