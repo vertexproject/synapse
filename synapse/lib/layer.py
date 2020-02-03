@@ -1051,7 +1051,7 @@ class Layer(s_nexus.Pusher):
             for oldi in self.getStorIndx(oldt, oldv):
                 self.layrslab.delete(abrv + oldi, buid, db=self.byprop)
                 if univabrv is not None:
-                    self.layrslab.delete(univabrv + indx, buid, db=self.byprop)
+                    self.layrslab.delete(univabrv + oldi, buid, db=self.byprop)
 
         if stortype & STOR_FLAG_ARRAY:
 
