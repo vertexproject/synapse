@@ -133,7 +133,6 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 class Axon(s_cell.Cell):
 
     cellapi = AxonApi
-    confdefs = ()
 
     async def __anit__(self, dirn, conf=None):  # type: ignore
 

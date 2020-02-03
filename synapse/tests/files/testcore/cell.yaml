@@ -1,8 +1,2 @@
 modules:
     - synapse.tests.utils.TestModule
-# 1 GiByte map size default
-layer:lmdb:mapsize: 1073741824
-
-httpapi:
-    port: 0
-    host: 127.0.0.1

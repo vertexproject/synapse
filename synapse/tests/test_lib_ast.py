@@ -426,6 +426,15 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(1, 2, 3) ]')
             self.len(1, nodes)
+
+            # Check that subs were added
+            nodes = await core.nodes('test:int=1')
+            self.len(1, nodes)
+            nodes = await core.nodes('test:int=2')
+            self.len(1, nodes)
+            nodes = await core.nodes('test:int=3')
+            self.len(1, nodes)
+
             nodes = await core.nodes('test:arrayprop -> *')
             self.len(3, nodes)
 

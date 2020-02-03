@@ -873,6 +873,18 @@ class SynTest(unittest.TestCase):
                         mock.MagicMock(return_value=None)) as patch:  # type: mock.MagicMock
             yield patch
 
+    @contextlib.contextmanager
+    def withSetLoggingMock(self):
+        '''
+        Context manager to mock calls to the setlogging function to avoid unittests calling logging.basicconfig.
+
+        Returns:
+            mock.MagicMock: Yields a mock.MagikMock object.
+        '''
+        with mock.patch('synapse.common.setlogging',
+                        mock.MagicMock(return_value=None)) as patch:  # type: mock.MagicMock
+            yield patch
+
     def getMagicPromptLines(self, patch):
         '''
         Get the text lines from a MagicMock object from withCliPromptMock.
@@ -1581,12 +1593,10 @@ class SynTest(unittest.TestCase):
         self.isinstance(obj[1], dict)
 
     @contextlib.contextmanager
-    def getTestConfDir(self, name, boot=None, conf=None):
+    def getTestConfDir(self, name, conf=None):
         with self.getTestDir() as dirn:
             cdir = os.path.join(dirn, name)
             s_common.makedirs(cdir)
-            if boot:
-                s_common.yamlsave(boot, cdir, 'boot.yaml')
             if conf:
                 s_common.yamlsave(conf, cdir, 'cell.yaml')
             yield dirn

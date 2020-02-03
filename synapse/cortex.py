@@ -559,6 +559,10 @@ class CoreApi(s_cell.CellApi):
         async for mesg in self.cell.watch(wdef):
             yield mesg
 
+    async def getNexusChanges(self, offs):
+        async for item in self.cell.getNexusChanges(offs):
+            yield item
+
     async def syncLayerSplices(self, iden, offs):
         '''
         Yield (indx, mesg) splices for the given layer beginning at offset.
@@ -782,75 +786,70 @@ class Cortex(s_cell.Cell):  # type: ignore
     callers to manage transaction boundaries explicitly and dramatically
     increases performance.
     '''
-    confdefs = (  # type: ignore
-
-        ('modules', {
-            'type': 'list', 'defval': (),
-            'doc': 'A list of module classes to load.'
-        }),
-
-        ('storm:log', {
-            'type': 'bool', 'defval': False,
-            'doc': 'Log storm queries via system logger.'
-        }),
-
-        ('storm:log:level', {
-            'type': 'int',
-            'defval': logging.WARNING,
-            'doc': 'Logging log level to emit storm logs at.'
-        }),
-
-        ('splice:en', {
-            'type': 'bool',
-            'defval': True,
-            'doc': 'Enable storing splices for layer changes.'
-        }),
-
-        ('splice:sync', {
-            'type': 'str', 'defval': None,
-            'doc': 'A telepath URL for an upstream cortex.'
-        }),
-
-        ('splice:cryotank', {
-            'type': 'str', 'defval': None,
-            'doc': 'A telepath URL for a cryotank used to archive splices.'
-        }),
-
-        ('feeds', {
-            'type': 'list', 'defval': (),
-            'doc': 'A list of feed dictionaries.'
-        }),
-
-        ('cron:enable', {
-            'type': 'bool', 'defval': True,
-            'doc': 'Enable cron jobs running.'
-        }),
-
-        ('dedicated', {
-            'type': 'bool', 'defval': False,
-            'doc': 'The cortex is free to use most of the resources of the system'
-        }),
-
-        ('layer:lmdb:map_async', {
-            'type': 'bool', 'defval': False,
-            'doc': 'Set the default lmdb:map_async value in LMDB layers.'
-        }),
-
-        ('axon', {
-            'type': 'str', 'defval': None,
-            'doc': 'A telepath URL for a remote axon.',
-        }),
-        ('spawn:poolsize', {
-            'type': 'int', 'defval': 8,
-            'doc': 'The max number of spare processes to keep around in the storm spawn pool.',
-        }),
-
-        ('layers:lockmemory', {
-            'type': 'bool',
+    confdefs = {
+        'axon': {
+            'description': 'A telepath URL for a remote axon.',
+            'type': 'string'
+        },
+        'cron:enable': {
             'default': True,
-            'doc': 'Should new layers lock memory for performance by default.',
-        }),
-    )
+            'description': 'Enable cron jobs running.',
+            'type': 'boolean'
+        },
+        'dedicated': {
+            'default': False,
+            'description': 'The cortex is free to use most of the resources of the system.',
+            'type': 'boolean'
+        },
+        'feeds': {
+            'default': [],
+            'description': 'A list of feed dictionaries.',
+            'type': 'array'
+        },
+        'layer:lmdb:map_async': {
+            'default': False,
+            'description': 'Set the default lmdb:map_async value in LMDB layers.',
+            'type': 'boolean'
+        },
+        'layers:lockmemory': {
+            'default': True,
+            'description': 'Should new layers lock memory for performance by default.',
+            'type': 'boolean'
+        },
+        'modules': {
+            'default': [],
+            'description': 'A list of module classes to load.',
+            'type': 'array'
+        },
+        'spawn:poolsize': {
+            'default': 8,
+            'description': 'The max number of spare processes to keep around in the storm spawn pool.',
+            'type': 'integer'
+        },
+        'splice:cryotank': {
+            'description': 'A telepath URL for a cryotank used to archive splices.',
+            'type': 'string'
+        },
+        'splice:en': {
+            'default': True,
+            'description': 'Enable storing splices for layer changes.',
+            'type': 'boolean'
+        },
+        'splice:sync': {
+            'description': 'A telepath URL for an upstream cortex.',
+            'type': 'string'
+        },
+        'storm:log': {
+            'default': False,
+            'description': 'Log storm queries via system logger.',
+            'type': 'boolean'
+        },
+        'storm:log:level': {
+            'default': 30,
+            'description': 'Logging log level to emit storm logs at.',
+            'type': 'integer'
+        }
+    }
 
     cellapi = CoreApi
 
@@ -907,8 +906,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.view = None  # The default/main view
 
         # Change distribution
-        self.nexsroot = await s_nexus.NexsRoot.anit()
+        self.nexsroot = await s_nexus.NexsRoot.anit(dirn)
         self.onfini(self.nexsroot.fini)
+        self.nexswaits = collections.defaultdict(list)
 
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
@@ -1807,6 +1807,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.axon:
             await self.axon.fini()
 
+    async def getNexusChanges(self, offs):
+        async for item in self.nexsroot.iter(offs):
+            yield item
+
     async def syncLayerSplices(self, iden, offs):
         '''
         Yield (offs, mesg) tuples for splices in a layer.
@@ -1859,28 +1863,21 @@ class Cortex(s_cell.Cell):  # type: ignore
                         await self.fini()
                         return
 
-                    # assume only the main layer for now...
-                    layr = self.getLayer()
+                    offs = self.nexsroot.getOffset()
 
-                    offs = await layr.getOffset(layr.iden)
                     logger.warning(f'mirror loop connected ({url} offset={offs})')
-
-                    if offs == 0:
-                        stat = await layr.stat()
-                        offs = stat.get('splicelog_indx', 0)
-                        await layr.setOffset(layr.iden, offs)
 
                     while not proxy.isfini:
 
                         # gotta do this in the loop as well...
-                        offs = await layr.getOffset(layr.iden)
+                        offs = self.nexsroot.getOffset()
 
                         # pump them into a queue so we can consume them in chunks
                         q = asyncio.Queue(maxsize=1000)
 
                         async def consume(x):
                             try:
-                                async for item in proxy.syncLayerSplices(None, x):
+                                async for item in proxy.getNexusChanges(x):
                                     await q.put(item)
                             finally:
                                 await q.put(None)
@@ -1907,9 +1904,13 @@ class Cortex(s_cell.Cell):  # type: ignore
 
                                 items.append(nexi)
 
-                            splices = [i[1] for i in items]
-                            await self.addFeedData('syn.splice', splices)
-                            await layr.setOffset(layr.iden, items[-1][0])
+                            for nexi in items:
+                                iden, evt, args, kwargs = nexi[1]
+                                await self.nexsroot.eat(iden, evt, args, kwargs)
+
+                                waits = self.nexswaits.pop(nexi[0] + 1, None)
+                                if waits is not None:
+                                    [e.set() for e in waits]
 
             except asyncio.CancelledError: # pragma: no cover
                 return
@@ -1919,9 +1920,22 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             await self.waitfini(1)
 
-    # async def _getWaitFor(self, name, valu):
-    #    form = self.model.form(name)
-    #    return form.getWaitFor(valu)
+    async def getNexusOffs(self):
+        return self.nexsroot.getOffset()
+
+    async def waitNexusOffs(self, offs):
+        evnt = asyncio.Event()
+
+        if self.nexsroot.getOffset() >= offs:
+            evnt.set()
+        else:
+            self.nexswaits[offs].append(evnt)
+
+        return evnt
+
+#    async def _getWaitFor(self, name, valu):
+#        form = self.model.form(name)
+#        return form.getWaitFor(valu)
 
     async def _initCoreHive(self):
         stormvars = await self.hive.open(('cortex', 'storm', 'vars'))

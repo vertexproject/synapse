@@ -1,4 +1,9 @@
+import asyncio
+import contextlib
+
 from typing import List, Dict, Any, Callable, Tuple
+
+import synapse.common as s_common
 
 import synapse.lib.base as s_base
 
@@ -17,15 +22,72 @@ class RegMethType(type):
             if prop is not None:
                 cls._regclsfuncs.append(prop)
 
-class NexsRoot(s_base.Base):
-    async def __anit__(self):
+class ChangeDist(s_base.Base):
+    async def __anit__(self, changelog, offs):
         await s_base.Base.__anit__(self)
+        self.event = asyncio.Event()
+        self.changelog = changelog
+        self.offs = offs
+
+        async def fini():
+            self.event.set()
+
+        self.onfini(fini)
+
+    async def __aiter__(self):
+
+        while True:
+
+            for item in self.changelog.iter(self.offs):
+                self.offs = item[0] + 1
+                yield item
+
+            if self.isfini:
+                return
+
+            self.event.clear()
+            await self.event.wait()
+
+    async def update(self):
+        if self.isfini:
+            return False
+
+        self.event.set()
+        return True
+
+class NexsRoot(s_base.Base):
+    async def __anit__(self, dirn: str):  # type: ignore
+        await s_base.Base.__anit__(self)
+
+        import synapse.lib.lmdbslab as s_lmdbslab  # avoid import cycle
+        import synapse.lib.slabseqn as s_slabseqn  # avoid import cycle
+
+        self.dirn = dirn
         self._nexskids: Dict[str, 'Pusher'] = {}
 
+        self.mirrors: List[ChangeDist] = []
+
+        path = s_common.genpath(self.dirn, 'changelog.lmdb')
+        self.changeslab = await s_lmdbslab.Slab.anit(path)
+
+        async def fini():
+            await self.changeslab.fini()
+            [(await dist.fini()) for dist in self.mirrors]
+
+        self.onfini(fini)
+
+        self.changelog = s_slabseqn.SlabSeqn(self.changeslab, 'changes')
+
     async def issue(self, nexsiden: str, event: str, args: Any, kwargs: Any) -> Any:
-        # Log the message here
+        item = (nexsiden, event, args, kwargs)
+
         nexus = self._nexskids[nexsiden]
-        return await nexus._nexshands[event](nexus, *args, **kwargs)
+        retn = await nexus._nexshands[event](nexus, *args, **kwargs)
+
+        indx = self.changelog.append(item)
+        [(await dist.update()) for dist in tuple(self.mirrors)]
+
+        return retn
 
     async def eat(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any]) -> Any:
         '''
@@ -33,6 +95,34 @@ class NexsRoot(s_base.Base):
         '''
         nexus = self._nexskids[nexsiden]
         return await nexus._push(event, *args, **kwargs)
+
+    def getOffset(self):
+        return self.changelog.index()
+
+    async def iter(self, offs: int):
+        maxoffs = offs
+
+        for item in self.changelog.iter(offs):
+            maxoffs = item[0] + 1
+            yield item
+
+        async with self.getChangeDist(maxoffs) as dist:
+            async for item in dist:
+                yield item
+
+    @contextlib.asynccontextmanager
+    async def getChangeDist(self, offs):
+
+        async with await ChangeDist.anit(self.changelog, offs) as dist:
+
+            async def fini():
+                self.mirrors.remove(dist)
+
+            dist.onfini(fini)
+
+            self.mirrors.append(dist)
+
+            yield dist
 
 class Pusher(s_base.Base, metaclass=RegMethType):
     '''
