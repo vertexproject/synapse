@@ -92,11 +92,7 @@ class Migrator(s_base.Base):
 
         src_fcnt = collections.defaultdict(int)
         async for node in self._srcIterNodes(self.src_lyrslab, self.src_lyrbybuid):
-            # TODO: clean this up
-            form = node[1][0]
-            if form[0] == '#':
-                form = 'syn:tag'
-            form = form.replace('.', '').replace('*', '')
+            form = node[1]['ndef'][0].replace('.', '').replace('*', '')
             src_fcnt[form] += 1
 
             nodeedit = await self._trnNodeToNodeedit(node)
@@ -114,13 +110,18 @@ class Migrator(s_base.Base):
         fcnt = {f: [src_fcnt.get(f, '0'), dest_fcnt.get(f, '0')] for f in fkeys}
 
         # for testing, iterate over the forms
+        # TODO: Move to a reporting method
+        rprt = ['\n', '{:<25s}{:<10s}{:<10s}{:<10s}'.format('FORM', 'SRC_CNT', 'DEST_CNT', 'LIFT_CNT')]
         for form in fkeys:
             sode_cnt = 0
             async for sode in self.dest_wlyr.liftByProp(form, None):
                 sode_cnt += 1
             fcnt[form].append(sode_cnt)
+            rprt.append('{:<25s}{!s:<10s}{!s:<10s}{!s:<10s}'.format(form, fcnt[form][0], fcnt[form][1], fcnt[form][2]))
+        rprt.append('\n')
 
-        logger.info(f'Final form count: {fcnt}')
+        prprt = '\n'.join(rprt)
+        logger.info(f'Final form count: {prprt}')
 
         return fcnt
 
@@ -128,39 +129,70 @@ class Migrator(s_base.Base):
     # Source (0.1.x) operations
     #############################################################
 
+    async def _pack(self, buid, ndef, props, tags, tagprops):
+        '''
+        Return a packaged node
+        '''
+        return (buid, {
+            'ndef': ndef,
+            'props': props,
+            'tags': tags,
+            'tagprops': tagprops,
+        })
+
     async def _srcIterNodes(self, buidslab, buiddb):
         '''
         Yield node information directly from the 0.1.x source slab.
 
         Yields:
-            (bytes, form, list): (<buid>, (<form>, <valu>), [(prop, valu), ...])
+            (tuple):
+                (<buid>, {
+                    'ndef': (<formname>, <formvalu>),
+                    'props': {<propname>: <propvalu>, ...},
+                    'tags': {<tagname>: <tagvalu>, ...},
+                    'tagprops': {
+                        <tagname>: {<propname>: <propvalu>, ...},
+                        ...
+                    }
+                )
         '''
         buid = None
         ndef = None
-        props = []
+        props = {}
+        tags = {}
+        tagprops = {}
         for lkey, lval in buidslab.scanByFull(db=buiddb):
             rowbuid = lkey[0:32]
             prop = lkey[32:].decode('utf8')
             valu, indx = s_msgpack.un(lval)  # throwing away indx
 
-            if buid is None or rowbuid != buid:
-                # if not at start, yield the last node
-                if buid is not None:
-                    yield buid, ndef, props
+            # new node; if not at start, yield the last node and reset
+            if buid is not None and rowbuid != buid:
+                yield await self._pack(buid, ndef, props, tags, tagprops)
+                buid = None
+                ndef = None
+                props = {}
+                tags = {}
+                tagprops = {}
 
-                # setup new node
+            if buid is None:
                 buid = rowbuid
-                if prop[0] not in ('*', '#'):
-                    logger.warning(f'ndef may be incorrect: {buid}, {prop}, {valu}')
-                ndef = (prop, valu)
-                props = []
 
-            # add secondary props
+            # add node information
+            if prop[0] == '*':
+                if ndef is None:
+                    ndef = (prop, valu)
+                else:
+                    props[prop] = valu
+
+            elif prop[0] == '#':
+                tags[prop] = valu
+
             else:
-                props.append((prop, valu))
+                props[prop] = valu
 
         # yield last node
-        yield buid, ndef, props
+        yield await self._pack(buid, ndef, props, tags, tagprops)
 
     #############################################################
     # Translation operations
@@ -186,20 +218,17 @@ class Migrator(s_base.Base):
         Create translation of node info to an 0.2.0 node edit.
 
         Args:
-            node (tuple): (<buid>, (<form>, <valu>), [(prop, valu), ...])
+            node (tuple): (<buid>, {'ndef': ..., 'props': ..., 'tags': ..., 'tagprops': ...}
 
         Returns:
             nodeedit (tuple): (<buid>, <form>, [edits]) where edits is list of (<type>, <info>)
         '''
         buid = node[0]
-        form = node[1][0]
-        fval = node[1][1]
+        form = node[1]['ndef'][0]
+        fval = node[1]['ndef'][1]
 
         if form[0] == '*':
             formnorm = form[1:]
-        elif form[0] == '#':
-            # TODO node tag adds
-            return None
         else:
             logger.error(f'Unable to norm form {form}, {node}')
             return None
@@ -217,16 +246,24 @@ class Migrator(s_base.Base):
         if stortype is None:
             logger.error(f'Unable to determine stortype for {formnorm}')
             return None
-        edits.append((s_layer.EDIT_NODE_ADD, (fval, stortype)))
+        edits.append((s_layer.EDIT_NODE_ADD, (fval, stortype)))  # name, stype
 
         # iterate over secondary properties
-        for sprop, sval in node[2]:
+        for sprop, sval in node[1]['props'].items():
             sformnorm = sprop.replace('*', '')
             stortype = mform.prop(sformnorm).type.stortype
             if stortype is None:
                 logger.error(f'Unable to determine stortype for sprop {sformnorm}')
                 return None
-            edits.append((s_layer.EDIT_PROP_SET, (sformnorm, sval, None, stortype)))
+            edits.append((s_layer.EDIT_PROP_SET, (sformnorm, sval, None, stortype)))  # name, valu, oldv, stype
+
+        # set tags
+        for tname, tval in node[1]['tags'].items():
+            tnamenorm = tname[1:]
+            edits.append((s_layer.EDIT_TAG_SET, (tnamenorm, tval, None)))  # tag, valu, oldv
+
+        # tagprops
+        # TODO
 
         return buid, formnorm, edits
 
