@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import contextlib
 
 from typing import List, Dict, Any, Callable, Tuple
@@ -174,12 +175,10 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         async def pushfunc(self, *args, **kwargs):
             return await self._push(event, *args, **kwargs)
 
-        print('outside of decorator')
-
         def decorator(func):
             pushfunc._regme = (event, func, passoff)
-            print('adding to {cls.__name__}')
             setattr(cls, '_hndl' + func.__name__, pushfunc)
+            functools.update_wrapper(pushfunc, func)
             return pushfunc
 
         return decorator

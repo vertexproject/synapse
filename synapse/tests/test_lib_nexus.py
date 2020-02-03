@@ -28,9 +28,15 @@ class SampleNexus(s_nexus.Pusher):
         eventdict['gotindex'] = nexsoff
         return anotherparm
 
-    @s_nexus.Pusher.onPushAuto('thing:doathingauto')
+    @s_nexus.Pusher.onPushAuto('auto2')
     async def doathingauto(self, eventdict, anotherparm):
         eventdict['autohappened'] = self.iden
+        return anotherparm
+
+    @s_nexus.Pusher.onPushAuto('auto1')
+    async def doathingauto2(self, eventdict, anotherparm):
+        '''doc'''
+        eventdict['autohappened2'] = self.iden
         return anotherparm
 
 class SampleNexus2(SampleNexus):
@@ -47,8 +53,15 @@ class NexusTest(s_t_utils.SynTest):
                 eventdict = {'specialpush': 0}
                 self.eq('foo', await nexus1.doathing(eventdict))
                 self.eq(1, eventdict.get('happened'))
+
                 self.eq('foo', await nexus1.doathingauto(eventdict, 'foo'))
                 self.eq(1, eventdict.get('autohappened'))
+
+                self.eq('foo', await nexus1.doathingauto2(eventdict, 'foo'))
+                self.eq(1, eventdict.get('autohappened2'))
+
+                self.eq('doc', nexus1.doathingauto2.__doc__)
+
                 async with await SampleNexus2.anit(2, nexsroot=nexsroot) as testkid:
                     eventdict = {'specialpush': 0}
                     # Tricky inheriting handler funcs themselves
