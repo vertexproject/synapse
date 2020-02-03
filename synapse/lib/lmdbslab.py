@@ -215,10 +215,10 @@ class HotCount(s_base.Base):
         self.cache = collections.defaultdict(int)
         self.dirty = set()
 
-        self.countdb = self.slab.initdb(name)
+        self.countdb = self.slab.initdb(name, integerkey=True)
 
         for lkey, lval in self.slab.scanByFull(db=self.countdb):
-            self.cache[lkey] = s_msgpack.un(lval)
+            self.cache[lkey] = s_common.int64un(lval)
 
         slab.on('commit', self._onSlabCommit)
 
@@ -228,16 +228,22 @@ class HotCount(s_base.Base):
         if self.dirty:
             self.sync()
 
-    def inc(self, byts, valu=1):
+    def inc(self, name: str, valu=1):
+        byts = name.encode()
         self.cache[byts] += valu
         self.dirty.add(byts)
 
-    def get(self, name):
+    def set(self, name: str, valu: int):
+        byts = name.encode()
+        self.cache[byts] += valu
+        self.dirty.add(byts)
+
+    def get(self, name: str):
         return self.cache.get(name.encode(), 0)
 
     def sync(self):
 
-        tups = [(p, s_msgpack.en(self.cache[p])) for p in self.dirty]
+        tups = [(p, s_common.int64en(self.cache[p])) for p in self.dirty]
         if not tups:
             return
 
@@ -812,15 +818,15 @@ class Slab(s_base.Base):
         self.locking_memory = False
         logger.debug('memory locking thread ended')
 
-    def initdb(self, name, dupsort=False):
+    def initdb(self, name, dupsort=False, integerkey=False):
         while True:
             try:
                 if self.readonly:
                     # In a readonly environment, we can't make our own write transaction, but we
                     # can have the lmdb module create one for us by not specifying the transaction
-                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort)
+                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort, integerkey=integerkey)
                 else:
-                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort)
+                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort, integerkey=integerkey)
                     self.dirty = True
                     self.forcecommit()
 

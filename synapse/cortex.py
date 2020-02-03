@@ -563,7 +563,7 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.getNexusChanges(offs):
             yield item
 
-    async def syncLayerSplices(self, iden, offs):
+    async def syncLayerSplices(self, iden, offs, layriden=None):
         '''
         Yield (indx, mesg) splices for the given layer beginning at offset.
 
@@ -576,12 +576,14 @@ class CoreApi(s_cell.CellApi):
             yield item
 
     @s_cell.adminapi
-    async def splices(self, offs, size):
+    async def splices(self, offs, size, layriden=None):
         '''
         Return the list of splices at the given offset.
         '''
+        layr = self.cell.getLayer(layriden)
+        self.user.confirm(('read',), gateiden=layr.iden)
         count = 0
-        async for mesg in self.cell.view.layers[0].splices(offs, size):
+        async for mesg in layr.splices(offs, size):
             count += 1
             if not count % 1000:
                 await asyncio.sleep(0)
@@ -592,6 +594,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Return the list of splices backwards from the given offset.
         '''
+        # FIXME:  perm check
         count = 0
         async for mesg in self.cell.view.layers[0].splicesBack(offs, size):
             count += 1

@@ -160,8 +160,8 @@ STOR_TYPE_TAG = 16
 STOR_TYPE_FQDN = 17
 STOR_TYPE_IPV6 = 18
 
-#STOR_TYPE_TOMB      = ??
-#STOR_TYPE_FIXED     = ??
+# STOR_TYPE_TOMB      = ??
+# STOR_TYPE_FIXED     = ??
 
 STOR_FLAG_ARRAY = 0x8000
 
@@ -312,7 +312,7 @@ class StorType:
         yield from self.indxBy(indxby, cmpr, valu)
 
     def indx(self, valu):
-        raise NotImplemented
+        raise NotImplementedError
 
 class StorTypeUtf8(StorType):
 
@@ -468,7 +468,7 @@ class StorTypeIpv6(StorType):
     def _liftIPv6Range(self, form, prop, valu):
         minindx = self.getIPv6Indx(valu[0])
         maxindx = self.getIPv6Indx(valu[1])
-        yield from liftby.buidsByRange(minindx, maxindx)
+        yield from self.liftby.buidsByRange(minindx, maxindx)
 
 class StorTypeInt(StorType):
 
@@ -706,6 +706,9 @@ class Layer(s_nexus.Pusher):
 
         path = s_common.genpath(self.dirn, 'splices_v2.lmdb')
         self.spliceslab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
+        self.offsets = await self.layrslab.getHotCount('offsets')
+
+        # FIXME:  if offset > last splice, replay splice
 
         self.tagabrv = self.layrslab.getNameAbrv('tagabrv')
         self.propabrv = self.layrslab.getNameAbrv('propabrv')
@@ -933,9 +936,7 @@ class Layer(s_nexus.Pusher):
 
     # NOTE: form vs prop valu lifting is differentiated to allow merge sort
     async def liftByFormValu(self, form, cmprvals):
-        abrv = self.getPropAbrv(form, None)
         for cmpr, valu, kind in cmprvals:
-            #print('liftByFormValu %r %r %r %r' % (form, cmpr, valu, kind))
             for buid in self.stortypes[kind].indxByForm(form, cmpr, valu):
                 yield await self.getStorNode(buid)
 
@@ -951,11 +952,15 @@ class Layer(s_nexus.Pusher):
                 yield await self.getStorNode(buid)
 
     async def storNodeEdits(self, nodeedits, meta):
-        return await self._push('layer:edits', nodeedits, meta)
+        return await self._push('edits', nodeedits, meta)
 
-    @s_nexus.Pusher.onPush('layer:edits')
-    async def _onStorNodeEdits(self, nodeedits, meta):
-        return [await self._storNodeEdit(e, meta) for e in nodeedits]
+    @s_nexus.Pusher.onPush('edits', passoff=True)
+    async def _onStorNodeEdits(self, nodeedits, meta, nexsoff=None):
+        assert nexsoff is not None
+        self.splicelog.append(nexsoff)
+        retn = [await self._storNodeEdit(e, meta) for e in nodeedits]
+        self.offsets.set('splice:applied', nexsoff)
+        return retn
 
     async def _storNodeEdit(self, nodeedit, meta):
         '''
@@ -980,7 +985,6 @@ class Layer(s_nexus.Pusher):
 
     def _editNodeAdd(self, buid, form, edit):
 
-        fenc = form.encode()
         valu, stortype = edit[1]
 
         byts = s_msgpack.en((form, valu, stortype))
@@ -991,7 +995,7 @@ class Layer(s_nexus.Pusher):
         for indx in self.getStorIndx(stortype, valu):
             self.layrslab.put(abrv + indx, buid, db=self.byprop)
 
-        self.formcounts.inc(fenc)
+        self.formcounts.inc(form)
 
         created = (EDIT_PROP_SET, ('.created', s_common.now(), None, STOR_TYPE_TIME))
 
@@ -1010,13 +1014,11 @@ class Layer(s_nexus.Pusher):
 
         form, valu, stortype = s_msgpack.un(byts)
 
-        fenc = form.encode()
-
         abrv = self.getPropAbrv(form, None)
         for indx in self.getStorIndx(stortype, valu):
             self.layrslab.delete(abrv + indx, buid, db=self.byprop)
 
-        self.formcounts.inc(fenc, valu=-1)
+        self.formcounts.inc(form, valu=-1)
 
         return (
             (EDIT_NODE_DEL, (valu, stortype)),
@@ -1051,7 +1053,7 @@ class Layer(s_nexus.Pusher):
             for oldi in self.getStorIndx(oldt, oldv):
                 self.layrslab.delete(abrv + oldi, buid, db=self.byprop)
                 if univabrv is not None:
-                    self.layrslab.delete(univabrv + indx, buid, db=self.byprop)
+                    self.layrslab.delete(univabrv + oldi, buid, db=self.byprop)
 
         if stortype & STOR_FLAG_ARRAY:
 
@@ -1246,12 +1248,9 @@ class Layer(s_nexus.Pusher):
 
     def getStorIndx(self, stortype, valu):
 
-        pref = stortype.to_bytes(1, 'big')
-
         if stortype & 0x8000:
 
             realtype = stortype & 0xefff
-            realpref = stortype.to_bytes(1, 'big')
 
             retn = []
             [retn.extend(self.getStorIndx(realtype, aval)) for aval in valu]
@@ -1261,7 +1260,6 @@ class Layer(s_nexus.Pusher):
 
     async def iterPropRows(self, form, prop):
 
-        fenc = form.encode()
         penc = prop.encode()
 
         abrv = self.getPropAbrv(form, prop)
@@ -1328,13 +1326,6 @@ class Layer(s_nexus.Pusher):
         #[(await wind.puts(items)) for wind in tuple(self.windows)]
 
         #[(await self.dist(s)) for s in splices]
-
-    #async def _storSplices(self, splices):  # pragma: no cover
-        #'''
-        #Store the splices into a sequentially accessible storage structure.
-        #Returns the indx of the first splice stored.
-        #'''
-        #raise NotImplementedError
 
     #async def _liftByFormRe(self, oper):
 
@@ -1494,6 +1485,28 @@ class Layer(s_nexus.Pusher):
     async def setModelVers(self, vers):
         byts = s_msgpack.en(vers)
         self.layrslab.put(b'layer:model:version', byts)
+
+    async def splices(self, offs, size):
+        for _, mesg in self.splicelog.slice(offs, size):
+            yield mesg
+
+    async def splicesBack(self, offs, size=None):
+        if size:
+            for _, mesg in self.splicelog.sliceBack(offs, size):
+                yield mesg
+        else:
+            for _, mesg in self.splicelog.iterBack(offs):
+                yield mesg
+
+    async def syncSplices(self, offs):
+
+        for item in self.splicelog.iter(offs):
+            yield item
+
+        # FIXME:  discuss: use offsets instead of window?
+        async with self.getSpliceWindow() as wind:
+            async for item in wind:
+                yield self.nexsroot.nexuslog.get(item)
 
     #async def setModelVers(self, vers):  # pragma: no cover
         #raise NotImplementedError
