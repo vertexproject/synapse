@@ -59,6 +59,11 @@ class SynModelTest(s_t_utils.SynTest):
                 node = await snap.getNodeByNdef(('syn:tag', 'foo'))
                 self.nn(node)
 
+            # We can safely do a pivot in from a syn:tag node
+            # which will attempt a syn:splice lift which will
+            # yield no nodes.
+            self.len(0, await core.nodes('syn:tag=foo.bar.baz <- *'))
+
     async def test_syn_model_runts(self):
 
         async def addExtModelConfigs(cortex):

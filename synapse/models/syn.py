@@ -32,6 +32,7 @@ class SynModule(s_module.CoreModule):
                              ('syn:tagprop', self._synModelLift),
                              ('syn:trigger', self._synTriggerLift),
                              ('syn:cmd', self._synCmdLift),
+                             ('syn:splice', self._nullLift),
                              ):
             form = self.model.form(form)
             self.core.addRuntLift(form.full, lifter)
@@ -78,6 +79,12 @@ class SynModule(s_module.CoreModule):
         # lift that needs it.
         self._modelRuntsByBuid.clear()
         self._modelRuntsByPropValu.clear()
+
+    async def _nullLift(self, full, valu=None, cmpr=None):
+        # Null lift implementation.  Detected as generator for lift purposes
+        # but it yields no buid, rows sets.
+        if None:  # pragma: no cover
+            yield None
 
     async def _synCmdLift(self, full, valu=None, cmpr=None):
         if not self._cmdRuntsByBuid:
