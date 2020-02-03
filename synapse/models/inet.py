@@ -295,8 +295,6 @@ class Fqdn(s_types.Type):
         except UnicodeError:
             return valu
 
-import synapse.lib.layer as s_layer
-
 class IPv4(s_types.Type):
     '''
     The base type for an IPv4 address.
