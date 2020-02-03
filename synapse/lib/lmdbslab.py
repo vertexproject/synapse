@@ -251,10 +251,10 @@ class MultiQueue(s_nexus.Pusher):
     '''
     Allows creation/consumption of multiple durable queues in a slab.
     '''
-    async def __anit__(self, slab, name, parent: s_nexus.Pusher = None):  # type: ignore
+    async def __anit__(self, slab, name, nexsroot: s_nexus.NexsRoot = None):  # type: ignore
 
-        iden = 'multiqueue' + '' if parent is None else parent._nexsiden
-        await s_nexus.Pusher.__anit__(self, iden, parent=parent)
+        iden = f'mq:{slab.path}:{name}'
+        await s_nexus.Pusher.__anit__(self, iden, nexsroot=nexsroot)
 
         self.slab = slab
 
@@ -583,8 +583,8 @@ class Slab(s_base.Base):
     def getNameAbrv(self, name):
         return SlabAbrv(self, name)
 
-    async def getMultiQueue(self, name, parent=None):
-        mq = await MultiQueue.anit(self, name, parent=None)
+    async def getMultiQueue(self, name, nexsroot=None):
+        mq = await MultiQueue.anit(self, name, nexsroot=None)
         self.onfini(mq)
         return mq
 
@@ -759,7 +759,13 @@ class Slab(s_base.Base):
             self.schedCallSafe(self.lockdoneevent.clear)
             self.resizeevent.clear()
 
-            memstart, memlen = s_thisplat.getFileMappedRegion(path)
+            try:
+                memstart, memlen = s_thisplat.getFileMappedRegion(path)
+            except s_exc.NoSuchFile:
+                logger.warning('map not found for %s', path)
+                self.schedCallSafe(self.lockdoneevent.set)
+                continue
+
             if memlen > max_to_lock:
                 memlen = max_to_lock
                 if not limit_warned:
@@ -788,6 +794,9 @@ class Slab(s_base.Base):
                     with s_thisplat.mmap(0, length=new_memend - prev_memend, prot=PROT, flags=FLAGS, fd=fileno,
                                          offset=prev_memend - memstart):
                         s_thisplat.mlock(prev_memend, memlen)
+                except OSError:
+                    logger.warning('error while attempting to lock memory')
+                    break
                 finally:
                     self.prefaulting = False
 

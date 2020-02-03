@@ -16,7 +16,7 @@ class TrigTest(s_t_utils.SynTest):
         with self.getTestDir() as fdir:
 
             async with self.getTestCore(dirn=fdir) as core:
-                rootiden = core.auth.getUserByName('root').iden
+                rootiden = await core.auth.getUserByName('root').iden
                 core.view.triggers.add('root', 'node:add', '[inet:user=1] | testcmd', info={'form': 'inet:ipv4'})
                 triggers = core.view.triggers.list()
                 self.eq(triggers[0][1].storm, '[inet:user=1] | testcmd')
@@ -219,7 +219,7 @@ class TrigTest(s_t_utils.SynTest):
     async def test_trigger_delete(self):
 
         async with self.getTestCore() as core:
-            rootiden = core.auth.getUserByName('root').iden
+            rootiden = await core.auth.getUserByName('root').iden
 
             iden0 = core.view.triggers.add(rootiden, 'node:add', '[test:str=add]', {'form': 'test:guid'})
             iden1 = core.view.triggers.add(rootiden, 'node:del', '[test:str=del]', {'form': 'test:guid'})
@@ -241,7 +241,7 @@ class TrigTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            rootiden = core.auth.getUserByName('root').iden
+            rootiden = await core.auth.getUserByName('root').iden
             iden0 = core.view.triggers.add(rootiden, 'tag:add', '[ +#count0 ]', {'tag': 'foo.*.bar'})
             iden1 = core.view.triggers.add(rootiden, 'tag:del', '[ +#count1 ]', {'tag': 'baz.*.faz'})
 

@@ -91,14 +91,17 @@ class NewServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
     )
 
 class ChangingService(s_cell.Cell):
-    confdefs = (
-        ('updated', {'type': 'bool', 'defval': False,
-                     'doc': 'If true, serve new cell api'}),
-    )
+    confdefs = {
+        'updated': {
+            'type': 'boolean',
+            'default': False,
+            'description': 'If true, serve new cell api.',
+        }
+    }
 
     async def getTeleApi(self, link, mesg, path):
 
-        user = self._getCellUser(mesg)
+        user = await self._getCellUser(mesg)
 
         if self.conf.get('updated'):
             return await NewServiceAPI.anit(self, link, user)
@@ -351,7 +354,7 @@ class StormSvcTest(s_test.SynTest):
                 {'name': 'hehe.haha', 'storm': 'function add(x, y) { return ($($x + $y)) }'},
             ),
             'commands': (
-                {'name': 'foobar', 'storm': '$haha = $lib.import(hehe.haha) [ inet:asn=$haha.add($(10), $(20)) ]'},
+                {'name': 'foobar', 'storm': '$haha = $lib.import(hehe.haha) $next = $haha.add($(10), $(20)) [ inet:asn=$next ]'},
             ),
         }
         with self.getTestDir() as dirn:
@@ -541,7 +544,7 @@ class StormSvcTest(s_test.SynTest):
                     async with await ChangingService.anit(svcd) as chng:
                         chng.dmon.share('chng', chng)
 
-                        root = chng.auth.getUserByName('root')
+                        root = await chng.auth.getUserByName('root')
                         await root.setPasswd('root')
 
                         info = await chng.dmon.listen('tcp://127.0.0.1:0/')

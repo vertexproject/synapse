@@ -54,15 +54,10 @@ class Sess(s_base.Base):
 
 class HandlerBase:
 
-    httpsonly = False
-
     def initialize(self, cell):
         self.cell = cell
         self._web_sess = None
         self._web_user = None
-
-        if (self.httpsonly or self.cell.httpsonly) and self.request.protocol != 'https':
-            self.redirect('https://' + self.request.host, permanent=False)
 
     def set_default_headers(self):
         origin = self.request.headers.get('origin')
@@ -120,9 +115,6 @@ class HandlerBase:
 
     async def reqAuthAdmin(self):
 
-        if self.cell.insecure:
-            return True
-
         user = await self.user()
         if user is None:
             self.sendAuthReqired()
@@ -143,9 +135,9 @@ class HandlerBase:
 
         Notes:
             This will call reqAuthUser() to ensure that there is a valid user.
-            If the cell is insecure, this will return True.  If this returns
-            False, the handler should return since the the status code and
-            resulting error message will already have been sent.
+            If this returns False, the handler should return since the the
+            status code and resulting error message will already have been
+            sent to the requester.
 
         Examples:
 
@@ -164,8 +156,6 @@ class HandlerBase:
             s_exc.AuthDeny: If the permission is not allowed.
 
         '''
-        if self.cell.insecure:  # pragma: no cover
-            return True
 
         if not await self.reqAuthUser():
             return False
@@ -220,7 +210,7 @@ class HandlerBase:
             logger.exception('invalid basic auth header')
             return None
 
-        user = self.cell.auth.getUserByName(name)
+        user = await self.cell.auth.getUserByName(name)
         if user is None:
             return None
 
@@ -239,8 +229,6 @@ class HandlerBase:
             return user.name
 
     async def authenticated(self):
-        if self.cell.insecure:
-            return True
         return await self.user() is not None
 
 class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
@@ -366,7 +354,7 @@ class LoginV1(Handler):
         name = body.get('user')
         passwd = body.get('passwd')
 
-        user = self.cell.auth.getUserByName(name)
+        user = await self.cell.auth.getUserByName(name)
         if user is None:
             return self.sendRestErr('AuthDeny', 'No such user.')
 
@@ -608,7 +596,7 @@ class AuthAddUserV1(Handler):
             self.sendRestErr('MissingField', 'The adduser API requires a "name" argument.')
             return
 
-        if self.cell.auth.getUserByName(name) is not None:
+        if await self.cell.auth.getUserByName(name) is not None:
             self.sendRestErr('DupUser', f'A user named {name} already exists.')
             return
 
@@ -649,7 +637,7 @@ class AuthAddRoleV1(Handler):
             self.sendRestErr('MissingField', 'The addrole API requires a "name" argument.')
             return
 
-        if self.cell.auth.getRoleByName(name) is not None:
+        if await self.cell.auth.getRoleByName(name) is not None:
             self.sendRestErr('DupRole', f'A role named {name} already exists.')
             return
 
@@ -678,7 +666,7 @@ class AuthDelRoleV1(Handler):
             self.sendRestErr('MissingField', 'The delrole API requires a "name" argument.')
             return
 
-        role = self.cell.auth.getRoleByName(name)
+        role = await self.cell.auth.getRoleByName(name)
         if role is None:
             return self.sendRestErr('NoSuchRole', f'The role {name} does not exist!')
 

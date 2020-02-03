@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Callable, Tuple
 
 import synapse.lib.base as s_base
 
@@ -19,14 +19,15 @@ class RegMethType(type):
 
 class NexsRoot(s_base.Base):
     async def __anit__(self):
-        self._nexskids = {}
+        await s_base.Base.__anit__(self)
+        self._nexskids: Dict[str, 'Pusher'] = {}
 
-    async def issue(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any]):
+    async def issue(self, nexsiden: str, event: str, args: Any, kwargs: Any) -> Any:
         # Log the message here
         nexus = self._nexskids[nexsiden]
         return await nexus._nexshands[event](nexus, *args, **kwargs)
 
-    async def eat(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any]):
+    async def eat(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any]) -> Any:
         '''
         Called from an external API
         '''
@@ -37,28 +38,21 @@ class Pusher(s_base.Base, metaclass=RegMethType):
     '''
     A mixin-class to manage distributing changes where one might plug in mirroring or consensus protocols
     '''
-    _regclsfuncs = []  # type:ignore
+    _regclsfuncs: List[Tuple[str, Callable]] = []
 
-    # FIXME:  parent -> nexsroot
     async def __anit__(self, iden: str, nexsroot: NexsRoot = None):  # type: ignore
         await s_base.Base.__anit__(self)
-        self._nexshands = {}  # type: ignore
+        self._nexshands: Dict[str, Callable] = {}
 
         self._nexsiden = iden
 
         if nexsroot:
-            print(f'Adding {iden} to {nexsroot}')
             assert iden
             nexsroot._nexskids[iden] = self
 
             def onfini():
-                print(f'Removing {iden} from {nexsroot}')
                 prev = nexsroot._nexskids.pop(iden, None)
-                # FIXME remove
-                if prev is None:
-                    breakpoint()
                 assert prev is not None
-            print(f'adding fini to {iden}')
             self.onfini(onfini)
 
         self._nexsroot = nexsroot
@@ -67,7 +61,7 @@ class Pusher(s_base.Base, metaclass=RegMethType):
             self._nexshands[event] = func
 
     @classmethod
-    def onPush(cls, event: str):
+    def onPush(cls, event: str) -> Callable:
         '''
         Decorator that registers a method to be a handler for a named event
         '''
@@ -77,8 +71,7 @@ class Pusher(s_base.Base, metaclass=RegMethType):
 
         return decorator
 
-    # FIXME: change iden parameter to
-    async def _push(self, event: str, *args: List[Any], **kwargs: Dict[str, Any]):
+    async def _push(self, event: str, *args: List[Any], **kwargs: Dict[str, Any]) -> Any:
         '''
         Execute the change handler for the mesg
 
@@ -87,7 +80,6 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         '''
         nexsiden = self._nexsiden
         if self._nexsroot:  # I'm below the root
-            # FIXME: fix type annotation
             return await self._nexsroot.issue(nexsiden, event, args, kwargs)
 
         # There's not change dist

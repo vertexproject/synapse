@@ -2533,7 +2533,7 @@ class EditParens(Edit):
 
         formname = nodeadd.kids[0].value()
 
-        runt.reqLayerAllowed(('node:add', formname))
+        runt.layerConfirm(('node:add', formname))
 
         # create an isolated generator for the add vs edit
         if nodeadd.isruntsafe(runt):
@@ -2641,7 +2641,7 @@ class EditNodeAdd(Edit):
 
             else:
 
-                runt.reqLayerAllowed(('node:add', self.name))
+                runt.layerConfirm(('node:add', self.name))
 
                 valu = await self.kids[2].runtval(runt)
 
@@ -2678,7 +2678,7 @@ class EditPropSet(Edit):
 
             if not node.form.isrunt:
                 # runt node property permissions are enforced by the callback
-                runt.reqLayerAllowed(('prop:set', prop.full))
+                runt.layerConfirm(('prop:set', prop.full))
 
             try:
                 await node.set(name, valu)
@@ -2700,7 +2700,7 @@ class EditPropDel(Edit):
             if prop is None:
                 raise s_exc.NoSuchProp(name=name, form=node.form.name)
 
-            runt.reqLayerAllowed(('prop:del', prop.full))
+            runt.layerConfirm(('prop:del', prop.full))
 
             await node.pop(name)
 
@@ -2729,7 +2729,7 @@ class EditUnivDel(Edit):
                 if univ is None:
                     raise s_exc.NoSuchProp(name=name)
 
-            runt.reqLayerAllowed(('prop:del', name))
+            runt.layerConfirm(('prop:del', name))
 
             await node.pop(name)
             yield node, path
@@ -2759,7 +2759,7 @@ class EditTagAdd(Edit):
             for name in names:
                 parts = name.split('.')
 
-                runt.reqLayerAllowed(('tag:add', *parts))
+                runt.layerConfirm(('tag:add', *parts))
 
                 if hasval:
                     valu = await self.kids[1 + oper_offset].compute(path)
@@ -2781,7 +2781,7 @@ class EditTagDel(Edit):
             name = await self.kids[0].compute(path)
             parts = name.split('.')
 
-            runt.reqLayerAllowed(('tag:del', *parts))
+            runt.layerConfirm(('tag:del', *parts))
 
             await node.delTag(name)
 
@@ -2806,7 +2806,7 @@ class EditTagPropSet(Edit):
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
-            runt.reqLayerAllowed(('tag:add', *tagparts))
+            runt.layerConfirm(('tag:add', *tagparts))
 
             try:
                 await node.setTagProp(tag, prop, valu)
@@ -2832,7 +2832,8 @@ class EditTagPropDel(Edit):
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
-            runt.reqLayerAllowed(('tag:del', *tagparts))
+            # FIXME:  ('tag', 'del'), right?
+            runt.layerConfirm(('tag:del', *tagparts))
 
             await node.delTagProp(tag, prop)
 

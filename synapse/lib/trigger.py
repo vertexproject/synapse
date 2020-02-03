@@ -298,39 +298,6 @@ class TriggerStorage:
 
         self._load_all()
 
-    def migrate_v0_rules(self):
-        '''
-        Remove any v0 (i.e. pre-010) rules from storage and replace them with v1 rules.
-
-        Notes:
-            v0 had two differences user was a username.  Replaced with iden of user as 'iden' field.
-            Also 'iden' was storage as binary.  Now it is stored as hex string.
-        '''
-        # TODO:  due to our migration policy, remove in 0.2.0
-
-        for iden, valu in self.core.slab.scanByFull(db=self.trigdb):
-            ruledict = s_msgpack.un(valu)
-            ver = ruledict.get('ver')
-            if ver != 0:
-                continue
-
-            user = ruledict.pop('user')
-            if user is None:
-                logger.warning('Username missing in stored trigger rule %r', iden)
-                continue
-
-            # In v0, stored user was username, in >0 user is useriden
-            user = self.core.auth.getUserByName(user).iden
-            if user is None:
-                logger.warning('Unrecognized username in stored trigger rule %r', iden)
-                continue
-
-            ruledict['ver'] = 1
-            ruledict['useriden'] = user
-            newiden = s_common.ehex(iden)
-            self.core.slab.pop(iden, db=self.trigdb)
-            self.core.slab.put(newiden.encode(), s_msgpack.en(ruledict), db=self.trigdb)
-
     def _migrate_old_view(self):
         '''
         Migrate from when cortex iden == view iden to where they are different
@@ -346,7 +313,6 @@ class TriggerStorage:
                 self.core.slab.put(iden, s_msgpack.en(ruledict), db=self.trigdb)
 
     def _load_all(self):
-        self.migrate_v0_rules()
         self._migrate_old_view()
         for iden, valu in self.core.slab.scanByFull(db=self.trigdb):
             try:

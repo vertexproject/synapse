@@ -186,11 +186,11 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.eq(node.get('loc'), 'us')
                 node = await snap.addNode('tel:phone', '+1 (703) 555-2424')
                 # Esnap search
-                nodes = await alist(snap.getNodesBy('tel:phone', 17035552424))
+                nodes = await snap.nodes('tel:phone=17035552424')
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef[1], '17035552424')
                 # Prefix search
-                nodes = await alist(snap.getNodesBy('tel:phone', '1703555*'))
+                nodes = await snap.nodes('tel:phone=1703555*')
                 self.len(2, nodes)
 
     async def test_telco_call(self):

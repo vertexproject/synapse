@@ -2,6 +2,44 @@
 Synapse Changelog
 *****************
 
+v0.2.0 - 2020-xx-xx
+===================
+
+Features and Enhancements
+-------------------------
+- This release includes significant storage optimizations that require a data migration.
+  However, the 0.2.0 migration contains NO model migrations and is strictly limited to the internal
+  LMDB layer storage format.  The new format provides performance enhancements that significantly
+  improve data ingest performance and reduce the memory footprint of the layer.
+
+- This release includes feature enhancments to the authorization subsystem to facilitate permissions
+  on a per-view and per-layer basis.  Additionally, APIs and tools for manipulating the auth subsystem
+  have been integrated into storm to allow user/role/rule editing from within storm queries.
+
+Backward Compatibility Breaks
+-----------------------------
+- The splice message format has been optimized to be both smaller and to allow several atomic edits
+  to be contained in one message.  This speeds up performance of the runtime, minimizes bandwidth,
+
+- The cellauth command has been removed as a stand alone tool.  Users should now use
+  the "auth" commands that are built into synapse.tools.cmdr or the commands / API built into the Storm
+  runtime.  This change was partially needed due to breaking API changes that eliminate ambiguity between
+  "user" manipulation APIs vs "role" manipulation APIs.
+
+- FIXME add one liners and/or additional bullets here and visi will explain them :D
+
+v0.1.47 - 2019-01-30
+====================
+
+Bugfixes
+--------
+- Fix a bug related to LMDB Abbreviation helpers where it would be off by on restarts.
+  (`#1518 <https://github.com/vertexproject/synapse/pull/1518>`_)
+- Fix issues related to the memory locking code used by an LMDB slab.
+  (`#1516 <https://github.com/vertexproject/synapse/pull/1516>`_)
+- Fix a bug related to Tagprop indexing preventing the correct storage of multiple tagprops of the same name on a node.
+  (`#1520 <https://github.com/vertexproject/synapse/pull/1520>`_)
+
 
 v0.1.46 - 2019-01-17
 ====================

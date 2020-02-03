@@ -18,19 +18,25 @@ class LibHttp(s_stormtypes.Lib):
             #'session':
         })
 
-    async def _httpEasyGet(self, url, headers=None):
+    async def _httpEasyGet(self, url, headers=None, ssl_verify=True):
+        kwargs = {}
+        if not ssl_verify:
+            kwargs['ssl'] = False
         async with aiohttp.ClientSession() as sess:
-            async with sess.get(url, headers=headers) as resp:
+            async with sess.get(url, headers=headers, **kwargs) as resp:
                 info = {
                     'code': resp.status,
                     'body': await resp.content.read(),
                 }
                 return HttpResp(info)
 
-    async def _httpPost(self, url, headers=None, json=None, body=None):
+    async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True):
+        kwargs = {}
+        if not ssl_verify:
+            kwargs['ssl'] = False
         async with aiohttp.ClientSession() as sess:
             try:
-                async with sess.post(url, headers=headers, json=json, data=body) as resp:
+                async with sess.post(url, headers=headers, json=json, data=body, **kwargs) as resp:
                     info = {
                         'code': resp.status,
                         'body': await resp.content.read()

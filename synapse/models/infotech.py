@@ -113,9 +113,10 @@ class ItModule(s_module.CoreModule):
         # Check to see if name is available and set it if possible
         prop = node.get('software')
         if prop:
-            snodes = [n async for n in node.snap.getNodesBy('it:prod:soft', prop)]
-            if snodes:
-                name = snodes[0].get('name')
+            opts = {'vars': {'soft': prop}}
+            nodes = node.snap.nodes('it:prod:soft=$soft', opts=opts)
+            if nodes:
+                name = nodes[0].get('name')
                 if name:
                     await node.set('software:name', name)
 

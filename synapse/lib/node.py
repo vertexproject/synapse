@@ -241,9 +241,14 @@ class Node:
                 return False
 
         edits = []
-        nodeedit = (self.buid, prop.form.name, edits)
+        nodeedits = [(self.buid, prop.form.name, edits), ]
 
         edits.append((s_layer.EDIT_PROP_SET, (prop.name, norm, curv, prop.type.stortype)))
+
+        if self.snap.model.form(prop.type.name) is not None:
+            addbuid = s_common.buid((prop.type.name, norm))
+            addedits = [(s_layer.EDIT_NODE_ADD, (norm, prop.type.stortype))]
+            nodeedits.insert(0, (addbuid, prop.type.name, addedits))
 
         # do we need to set any sub props?
         subs = info.get('subs')
@@ -257,11 +262,16 @@ class Node:
                 if subprop is None:
                     continue
 
+                if self.snap.model.form(subprop.type.name) is not None:
+                    addbuid = s_common.buid((subprop.type.name, subvalu))
+                    addedits = [(s_layer.EDIT_NODE_ADD, (subvalu, subprop.type.stortype))]
+                    nodeedits.insert(0, (addbuid, subprop.type.name, addedits))
+
                 curv = self.props.get(subname)
 
                 edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subvalu, curv, subprop.type.stortype)))
 
-        sode = await self.snap.addNodeEdit(nodeedit)
+        await self.snap.addNodeEdits(nodeedits)
 
         return True
 
@@ -687,9 +697,7 @@ class Node:
             # refuse to delete tag nodes with existing tags
             if self.form.name == 'syn:tag':
 
-                print('DEL TAG %r' % (self.ndef[1],))
                 async for _ in self.snap.nodesByTag(self.ndef[1]):  # NOQA
-                    print('STILL GOT IT')
                     mesg = 'Nodes still have this tag.'
                     return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
 

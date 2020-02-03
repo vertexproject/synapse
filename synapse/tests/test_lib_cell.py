@@ -28,9 +28,8 @@ class CellTest(s_t_utils.SynTest):
 
             async with await EchoAuth.anit(dirn) as echo:
 
-                echo.insecure = False
                 echo.dmon.share('echo00', echo)
-                root = echo.auth.getUserByName('root')
+                root = await echo.auth.getUserByName('root')
                 await root.setPasswd('secretsauce')
 
                 self.eq('root', echo.getUserName(root.iden))
@@ -222,18 +221,16 @@ class CellTest(s_t_utils.SynTest):
             async with await s_telepath.openurl(url) as prox:
                 self.eq(iden, await prox.getCellIden())
 
-    async def test_cell_nonstandard_admin(self):
-        boot = {
-            'auth:admin': 'pennywise:cottoncandy',
+    async def test_cell_authpasswd(self):
+        conf = {
+            'auth:passwd': 'cottoncandy',
         }
-        pconf = {'user': 'pennywise', 'passwd': 'cottoncandy'}
+        pconf = {'user': 'root', 'passwd': 'cottoncandy'}
 
         with self.getTestDir() as dirn:
 
-            s_common.yamlsave(boot, dirn, 'boot.yaml')
+            s_common.yamlsave(conf, dirn, 'cell.yaml')
             async with await EchoAuth.anit(dirn) as echo:
-
-                echo.insecure = False
 
                 # start a regular network listener so we can auth
                 host, port = await echo.dmon.listen('tcp://127.0.0.1:0/')
@@ -245,11 +242,24 @@ class CellTest(s_t_utils.SynTest):
                 url = f'tcp://root@127.0.0.1:{port}/'
                 await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
 
+            os.unlink(s_common.genpath(dirn, 'cell.yaml'))
+            # Pass the auth data in via conf directly
+            async with await EchoAuth.anit(dirn,
+                                           conf={'auth:passwd': 'pennywise'}) as echo:
+
+                # start a regular network listener so we can auth
+                host, port = await echo.dmon.listen('tcp://127.0.0.1:0/')
+                url = f'tcp://root:pennywise@127.0.0.1:{port}/'
+                async with await s_telepath.openurl(url) as proxy:
+
+                    self.true(await proxy.isadmin())
+                    self.true(await proxy.allowed(('hehe', 'haha')))
+
         # Ensure the cell and its auth have been fini'd
         self.true(echo.isfini)
         self.true(echo.auth.isfini)
-        self.true(echo.auth.getUserByName('root').isfini)
-        self.true(echo.auth.getUserByName('pennywise').isfini)
+        root = await echo.auth.getUserByName('root')
+        self.true(root.isfini)
 
     async def test_longpath(self):
         # This is similar to the DaemonTest::test_unixsock_longpath

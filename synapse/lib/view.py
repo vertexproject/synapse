@@ -33,6 +33,9 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         self.node = node
         self.iden = node.name()
+        self.info = await node.dict()
+
+        self.triggers = s_trigger.Triggers(self)
 
         self.core = core
 
@@ -42,6 +45,10 @@ class View(s_nexus.Pusher):  # type: ignore
         self.layers = []
         self.invalid = None
         self.parent = None  # The view this view was forked from
+
+        parent = self.info.get('parent')
+        if parent is not None:
+            self.parent = self.core.getView(parent)
 
         self.permCheck = {
             'node:add': self._nodeAddConfirm,
@@ -55,18 +62,7 @@ class View(s_nexus.Pusher):  # type: ignore
         }
 
         # isolate some initialization to easily override for SpawnView.
-        await self._initViewInfo()
         await self._initViewLayers()
-
-    async def _initViewInfo(self):
-
-        self.iden = self.node.name()
-
-        self.info = await self.node.dict()
-        self.info.setdefault('owner', 'root')
-        self.info.setdefault('layers', ())
-
-        self.triggers = s_trigger.Triggers(self)
 
     async def getFormCounts(self):
         counts = collections.defaultdict(int)
@@ -93,7 +89,7 @@ class View(s_nexus.Pusher):  # type: ignore
         Evaluate a storm query and yield Nodes only.
         '''
         if user is None:
-            user = self.core.auth.getUserByName('root')
+            user = await self.core.auth.getUserByName('root')
 
         info = {'query': text}
         if opts is not None:
@@ -113,7 +109,7 @@ class View(s_nexus.Pusher):  # type: ignore
             (Node, Path) tuples
         '''
         if user is None:
-            user = self.core.auth.getUserByName('root')
+            user = await self.core.auth.getUserByName('root')
 
         info = {'query': text}
         if opts is not None:
@@ -148,7 +144,7 @@ class View(s_nexus.Pusher):  # type: ignore
         chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
 
         if user is None:
-            user = self.core.auth.getUserByName('root')
+            user = await self.core.auth.getUserByName('root')
 
         synt = await self.core.boss.promote('storm', user=user, info=info)
 
@@ -216,7 +212,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def iterStormPodes(self, text, opts=None, user=None):
         if user is None:
-            user = self.auth.getUserByName('root')
+            user = await self.auth.getUserByName('root')
 
         info = {'query': text}
         if opts is not None:
@@ -243,7 +239,7 @@ class View(s_nexus.Pusher):  # type: ignore
         }
 
     async def addLayer(self, layriden, indx=None):
-        return await self._push(s_common.todo('view:addlayer', layriden, indx))
+        return await self._push('view:addlayer', layriden, indx)
 
     @s_nexus.Pusher.onPush('view:addlayer')
     async def _onAddLayer(self, layriden, indx=None):
@@ -298,7 +294,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.info.set('layers', layers)
 
-    async def fork(self, **layrinfo):
+    async def fork(self, ldef=None, vdef=None):
         '''
         Make a new view inheriting from this view with the same layers and a new write layer on top
 
@@ -308,17 +304,20 @@ class View(s_nexus.Pusher):  # type: ignore
         Returns:
             new view object, with an iden the same as the new write layer iden
         '''
-        writlayriden = await self.core.addLayer(**layrinfo)
-        writlayr = self.core.getLayer(writlayriden)
-        self.onfini(writlayr)
+        if ldef is None:
+            ldef = {}
 
-        owner = layrinfo.get('owner', 'root')
-        layeridens = [writlayriden] + [l.iden for l in self.layers]
+        if vdef is None:
+            vdef = {}
 
-        view = await self.core.addView(owner, layeridens, worldreadable=False)
-        view.parent = self
+        wlyr = self.layers[-1]
 
-        return view
+        layr = await self.core.addLayer(ldef)
+
+        vdef['parent'] = self.iden
+        vdef['layers'] = [layr.iden] + [l.iden for l in self.layers]
+
+        return await self.core.addView(vdef)
 
     async def merge(self, user=None):
         '''
@@ -341,7 +340,7 @@ class View(s_nexus.Pusher):  # type: ignore
         fromoff = 0
 
         if user is None:
-            user = self.core.auth.getUserByName('root')
+            user = await self.core.auth.getUserByName('root')
 
         await self.core.boss.promote('storm', user=user, info={'merging': self.iden})
         async with await self.parent.snap(user=user) as snap:
@@ -511,6 +510,9 @@ class View(s_nexus.Pusher):  # type: ignore
             await self.parent.runNodeDel(node)
 
     async def runPropSet(self, node, prop, oldv):
+        '''
+        Handle when a prop set trigger event fired
+        '''
         if not node.snap.trigson:
             return
 
@@ -525,12 +527,12 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         trigiden = s_common.guid()
 
-        return await self._push('trigger:add', trigiden, condition, query, info, disabled, user, iden=self.iden)
+        return await self._push('trigger:add', trigiden, condition, query, info, disabled, user)
 
     @s_nexus.Pusher.onPush('trigger:add')
-    async def _onPushAddTrigger(self, trigiden, condition, query, info, disabled=False, user=None):
+    async def _onPushAddTrigger(self, trigiden, condition, query, info, disabled, user):
         if user is None:
-            user = self.core.auth.getUserByName('root')
+            user = await self.core.auth.getUserByName('root')
 
         self.triggers.add(trigiden, user.iden, condition, query, info=info)
         if disabled:

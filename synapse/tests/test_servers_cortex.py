@@ -11,8 +11,7 @@ class CortexServerTest(s_t_utils.SynTest):
 
     async def test_server(self):
 
-        with self.getTestDir() as dirn:
-
+        with self.getTestDir() as dirn, self.withSetLoggingMock() as mock:
             outp = self.getTestOutp()
             guid = s_common.guid()
 
@@ -35,9 +34,11 @@ class CortexServerTest(s_t_utils.SynTest):
                     podes = await s_t_utils.alist(proxy.eval(f'ou:org={guid}'))
                     self.len(1, podes)
 
+            self.eq(2, mock.call_count)
+
     async def test_server_mirror(self):
 
-        with self.getTestDir() as dirn:
+        with self.getTestDir() as dirn, self.withSetLoggingMock() as mock:
 
             path00 = s_common.gendir(dirn, 'core00')
             path01 = s_common.gendir(dirn, 'core01')
@@ -73,7 +74,7 @@ class CortexServerTest(s_t_utils.SynTest):
 
     async def test_server_mirror_badiden(self):
 
-        with self.getTestDir() as dirn:
+        with self.getTestDir() as dirn, self.withSetLoggingMock() as mock:
 
             path00 = s_common.gendir(dirn, 'core00')
             path01 = s_common.gendir(dirn, 'core01')
