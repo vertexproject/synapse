@@ -265,6 +265,11 @@ class SynModelTest(s_t_utils.SynTest):
             # Sad path lifts
             await self.asyncraises(s_exc.BadCmprValu, core.eval('syn:form~="beep"').list())
 
+            # Syn:splice uses a null lift handler
+            self.len(1, await core.nodes('[test:str=test]'))
+            self.len(0, await core.nodes('syn:splice'))
+            self.len(0, await core.nodes('syn:splice:tag'))
+
         # Ensure that the model runts are re-populated after a model load has occurred.
         with self.getTestDir() as dirn:
 
