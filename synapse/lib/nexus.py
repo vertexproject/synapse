@@ -166,6 +166,24 @@ class Pusher(s_base.Base, metaclass=RegMethType):
 
         return decorator
 
+    @classmethod
+    def onPushAuto(cls, event: str, passoff=False) -> Callable:
+        '''
+        Decorator that does the same as onPush, except automatically creates the top half method
+        '''
+        async def pushfunc(self, *args, **kwargs):
+            return await self._push(event, *args, **kwargs)
+
+        print('outside of decorator')
+
+        def decorator(func):
+            pushfunc._regme = (event, func, passoff)
+            print('adding to {cls.__name__}')
+            setattr(cls, '_hndl' + func.__name__, pushfunc)
+            return pushfunc
+
+        return decorator
+
     async def _push(self, event: str, *args: List[Any], **kwargs: Dict[str, Any]) -> Any:
         '''
         Execute the change handler for the mesg
