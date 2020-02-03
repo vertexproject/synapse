@@ -2685,10 +2685,29 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.addFeedData('syn.nodes', podes)
             await self.agenlen(3, core1.eval('test:int'))
 
+            await core1.addTagProp('test', ('int', {}), {})
+            async with await core1.snap() as snap:
+                node = await snap.getNodeByNdef(('test:int', 1))
+                await node.setTagProp('beep.beep', 'test', 1138)
+                pode = node.pack()
+
+            pode = (('test:int', 4), pode[1])
+
+            await core1.addFeedData('syn.nodes', [pode])
+            nodes = await core1.nodes('test:int=4')
+            self.eq(1138, nodes[0].getTagProp('beep.beep', 'test'))
+
             # Put bad data in
             with self.getAsyncLoggerStream('synapse.lib.snap',
                                            "Error making node: [test:str=newp]") as stream:
-                await core1.addFeedData('syn.nodes', [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})])
+                data = [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})]
+                await core1.addFeedData('syn.nodes', data)
+                self.true(await stream.wait(6))
+
+            with self.getAsyncLoggerStream('synapse.lib.snap',
+                                           'Tagprop [newp] does not exist, cannot set it') as stream:
+                data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
+                await core1.addFeedData('syn.nodes', data)
                 self.true(await stream.wait(6))
 
     async def test_stat(self):
@@ -2709,6 +2728,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             nstat = await core.stat()
             layr = nstat.get('layer')
             self.gt(layr.get('lock_goal'), 0)
+
+    async def test_offset(self):
+        async with self.getTestCoreAndProxy() as (realcore, core):
+            iden = s_common.guid()
+            self.eq(await core.getFeedOffs(iden), 0)
+            self.none(await core.setFeedOffs(iden, 10))
+            self.eq(await core.getFeedOffs(iden), 10)
+            self.none(await core.setFeedOffs(iden, 0))
+            self.eq(await core.getFeedOffs(iden), 0)
+            await self.asyncraises(s_exc.BadConfValu, core.setFeedOffs(iden, -1))
 
     async def test_storm_sub_query(self):
 
