@@ -6,7 +6,6 @@ TODO:
     - Inplace migration or always assume "Fresh" 0.2.0 cortex migrating into?
     - .created may not be moving over for all nodes?
     - Track unmigrated nodes
-    - Basic tag set
     - Tagprops
     - Handling for pause/restart
     - Benchmarking / metrics
@@ -16,7 +15,7 @@ TODO:
 '''
 import os
 import sys
-import shutil
+import time
 import asyncio
 import logging
 import argparse
@@ -26,7 +25,6 @@ import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.base as s_base
-import synapse.lib.hive as s_hive
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.output as s_output
@@ -91,6 +89,9 @@ class Migrator(s_base.Base):
             logger.warning(f'Destination is not empty: {dest_fcntpre}')
 
         src_fcnt = collections.defaultdict(int)
+        nodeedits = []
+        editchnks = 10  # batch size for nodeedits to add
+        t_strt = time.time()
         async for node in self._srcIterNodes(self.src_lyrslab, self.src_lyrbybuid):
             form = node[1]['ndef'][0].replace('.', '').replace('*', '')
             src_fcnt[form] += 1
@@ -98,19 +99,35 @@ class Migrator(s_base.Base):
             nodeedit = await self._trnNodeToNodeedit(node)
             if nodeedit is None:
                 #logger.error(f'Unable to create nodeedit for {node}')
+                # TODO: Log error nodes
                 continue
 
-            res = await self._destAddNode(self.dest_wlyr, nodeedit)
-            if not res:
-                logger.error(f'Unable to add destination node: {node}, {nodeedit}')
-                continue
+            nodeedits.append(nodeedit)
+            if len(nodeedits) == editchnks:
+                sodes = await self._destAddNodes(self.dest_wlyr, nodeedits)
+                if sodes is None or len(sodes) != editchnks:
+                    logger.error(f'Unable to add destination node: {nodeedits}, {sodes}')
+                    # TODO: Log error nodes
+                nodeedits = []
+                await asyncio.sleep(0)
 
+        # add last edit chunk if needed
+        if len(nodeedits) > 0:
+            sodes = await self._destAddNodes(self.dest_wlyr, nodeedits)
+            if sodes is None or len(sodes) != editchnks:
+                logger.error(f'Unable to add destination node: {nodeedits}, {sodes}')
+                # TODO: Log error nodes
+        t_end = time.time()
+        t_dur = int(t_end - t_strt)
+
+        # collect final form count stats
         dest_fcnt = await self.dest_wlyr.getFormCounts()
         fkeys = set(list(src_fcnt.keys()) + list(dest_fcnt.keys()))
         fcnt = {f: [src_fcnt.get(f, '0'), dest_fcnt.get(f, '0')] for f in fkeys}
+        totnodes = sum([v[1] for _, v in fcnt.items()])
 
-        # for testing, iterate over the forms
-        # TODO: Move to a reporting method
+        # for testing, iterate over the forms and print a report
+        # TODO: Move to an optional reporting method or delete
         rprt = ['\n', '{:<25s}{:<10s}{:<10s}{:<10s}'.format('FORM', 'SRC_CNT', 'DEST_CNT', 'LIFT_CNT')]
         for form in fkeys:
             sode_cnt = 0
@@ -119,6 +136,8 @@ class Migrator(s_base.Base):
             fcnt[form].append(sode_cnt)
             rprt.append('{:<25s}{!s:<10s}{!s:<10s}{!s:<10s}'.format(form, fcnt[form][0], fcnt[form][1], fcnt[form][2]))
         rprt.append('\n')
+
+        rprt.append(f'Migrated {totnodes:,} nodes in {t_dur} seconds ({int(totnodes/t_dur)} nodes/s avg)')
 
         prprt = '\n'.join(rprt)
         logger.info(f'Final form count: {prprt}')
@@ -301,19 +320,19 @@ class Migrator(s_base.Base):
 
         return wlyr
 
-    async def _destAddNode(self, wlyr, nodeedit):
+    async def _destAddNodes(self, wlyr, nodeedits):
         '''
-        Add node to a write layer from a nodeedit.
+        Add nodes to a write layer from nodeedits.
 
         Args:
             wlyr (synapse.lib.Layer): Layer to add node to
-            nodeedit (tuple): (<buid>, <form>, [edits])
+            nodeedits (list): list of nodeedits [ (<buid>, <form>, [edits]) ]
 
         Returns:
 
         '''
         try:
-            sodes = await wlyr.storNodeEdits([nodeedit], None)  # meta=None
+            sodes = await wlyr.storNodeEdits(nodeedits, None)  # meta=None
             return sodes
         except Exception as e:
             logger.error(f'unable to store nodeedit: {e}')
