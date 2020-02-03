@@ -728,42 +728,50 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.runRuntLift(*args, **kwargs):
             yield item
 
-    @s_cell.adminapi
-    async def addCoreQueue(self, name, info):
-        return await self.cell.addCoreQueue(name, info)
+    #@s_cell.adminapi
+    #async def addCoreQueue(self, name, info):
+        #return await self.cell.addCoreQueue(name, info)
 
-    @s_cell.adminapi
-    async def hasCoreQueue(self, name):
-        return await self.cell.hasCoreQueue(name)
+    #@s_cell.adminapi
+    #async def delCoreQueue(self, name):
+        #return await self.cell.delCoreQueue(name)
 
-    @s_cell.adminapi
-    async def delCoreQueue(self, name):
-        return await self.cell.delCoreQueue(name)
+    #@s_cell.adminapi
+    #async def coreQueueGets(self, name):
+        #return await self.cell.delCoreQueue(name)
 
-    @s_cell.adminapi
-    async def getCoreQueue(self, name):
-        return await self.cell.getCoreQueue(name)
+    #@s_cell.adminapi
+    #async def hasCoreQueue(self, name):
+        #return await self.cell.hasCoreQueue(name)
 
-    @s_cell.adminapi
-    async def getCoreQueues(self):
-        return await self.cell.getCoreQueues()
+    #@s_cell.adminapi
+    #async def delCoreQueue(self, name):
+        #return await self.cell.delCoreQueue(name)
 
-    @s_cell.adminapi
-    async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
-        async for item in self.cell.getsCoreQueue(name, offs=offs, wait=wait, cull=cull, size=size):
-            yield item
+    #@s_cell.adminapi
+    #async def getCoreQueue(self, name):
+        #return await self.cell.getCoreQueue(name)
 
-    @s_cell.adminapi
-    async def putCoreQueue(self, name, item):
-        return await self.cell.putCoreQueue(name, item)
+    #@s_cell.adminapi
+    #async def getCoreQueues(self):
+        #return await self.cell.getCoreQueues()
 
-    @s_cell.adminapi
-    async def putsCoreQueue(self, name, items):
-        return await self.cell.putsCoreQueue(name, items)
+    #@s_cell.adminapi
+    #async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
+        #async for item in self.cell.getsCoreQueue(name, offs=offs, wait=wait, cull=cull, size=size):
+            #yield item
 
-    @s_cell.adminapi
-    async def cullCoreQueue(self, name, offs):
-        return await self.cell.cullCoreQueue(name, offs)
+    #@s_cell.adminapi
+    #async def putCoreQueue(self, name, item):
+        #return await self.cell.putCoreQueue(name, item)
+
+    #@s_cell.adminapi
+    #async def putsCoreQueue(self, name, items):
+        #return await self.cell.putsCoreQueue(name, items)
+
+    #@s_cell.adminapi
+    #async def cullCoreQueue(self, name, offs):
+        #return await self.cell.cullCoreQueue(name, offs)
 
 class Cortex(s_cell.Cell):  # type: ignore
     '''
@@ -986,12 +994,79 @@ class Cortex(s_cell.Cell):  # type: ignore
             'multiqueue': self.multiqueue,
         })
 
+        await self.auth.addAuthGate('cortex', 'cortex')
+
     async def _onEvtBumpSpawnPool(self, evnt):
         await self.bumpSpawnPool()
 
     async def bumpSpawnPool(self):
         if self.spawnpool is not None:
             await self.spawnpool.bump()
+
+    async def addCoreQueue(self, name, info):
+
+        if self.multiqueue.exists(name):
+            mesg = f'Queue named {name} already exists!'
+            raise s_exc.DupName(mesg=mesg)
+
+        await self._push('queue:add', name, info)
+
+        await self.auth.addAuthGate(f'queue:{name}', 'queue')
+
+        creator = info.get('creator')
+        if creator is not None:
+            user = await self.auth.reqUser(creator)
+            await user.setAdmin(True, gateiden=f'queue:{name}')
+
+        return info
+
+    @s_nexus.Pusher.onPush('queue:add')
+    async def _addCoreQueue(self, name, info):
+        return await self.multiqueue.add(name, info)
+
+    async def getCoreQueue(self, name):
+        return self.multiqueue.status(name)
+
+    async def delCoreQueue(self, name):
+
+        if not self.multiqueue.exists(name):
+            mesg = f'No queue named {name} exists!'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        await self._push('queue:del', name)
+        await self.auth.delAuthGate(f'queue:{name}')
+
+    @s_nexus.Pusher.onPush('queue:del')
+    async def _delCoreQueue(self, name):
+        await self.multiqueue.rem(name)
+
+    async def coreQueueGet(self, name, offs=0, wait=None):
+        async for item in self.multiqueue.gets(name, offs, wait=wait):
+            return item
+
+    async def coreQueueGets(self, name, offs=0, wait=None, size=None):
+        count = 0
+        async for item in self.multiqueue.gets(name, offs, wait=wait):
+
+            yield item
+
+            count += 1
+            if size is not None and count >= size:
+                return
+
+    async def coreQueuePuts(self, name, items):
+        return await self._push('queue:puts', name, items)
+
+    @s_nexus.Pusher.onPush('queue:puts')
+    async def _coreQueuePuts(self, name, items):
+        await self.multiqueue.puts(name, items)
+
+    async def coreQueueCull(self, name, offs):
+        await self._push('queue:cull', name, offs)
+
+    @s_nexus.Pusher.onPush('queue:cull')
+    async def _coreQueueCull(self, name, offs):
+        await self.multiqueue.cull(name, offs)
 
     async def getSpawnInfo(self):
         return {

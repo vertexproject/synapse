@@ -247,16 +247,16 @@ class HotCount(s_base.Base):
     def pack(self):
         return {n.decode(): v for (n, v) in self.cache.items()}
 
-class MultiQueue(s_nexus.Pusher):
+class MultiQueue(s_base.Base):
     '''
     Allows creation/consumption of multiple durable queues in a slab.
     '''
-    async def __anit__(self, slab, name, nexsroot: s_nexus.NexsRoot = None):  # type: ignore
+    async def __anit__(self, slab, name, nexsroot: s_nexus.NexsRoot = None, auth=None):  # type: ignore
 
-        iden = f'mq:{slab.path}:{name}'
-        await s_nexus.Pusher.__anit__(self, iden, nexsroot=nexsroot)
+        await s_base.Base.__anit__(self)
 
         self.slab = slab
+        self.auth = auth
 
         self.abrv = slab.getNameAbrv(f'{name}:abrv')
         self.qdata = self.slab.initdb(f'{name}:qdata')
@@ -294,25 +294,16 @@ class MultiQueue(s_nexus.Pusher):
         return self.offsets.get(name)
 
     async def add(self, name, info):
-        return await self._push('multiqueue:add', name, info)
 
-    @s_nexus.Pusher.onPush('multiqueue:add')
-    async def _onAdd(self, name, info):
         if self.queues.get(name) is not None:
             mesg = f'A queue exists with the name {name}.'
             raise s_exc.DupName(mesg=mesg, name=name)
 
-        item = self.queues.get(name)
-        if item is None:
-            self.queues.set(name, info)
-            self.sizes.set(name, 0)
-            self.offsets.set(name, 0)
+        self.queues.set(name, info)
+        self.sizes.set(name, 0)
+        self.offsets.set(name, 0)
 
     async def rem(self, name):
-        return await self._push('multiqueue:rem', name)
-
-    @s_nexus.Pusher.onPush('multiqueue:rem')
-    async def _onRem(self, name):
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
@@ -336,17 +327,9 @@ class MultiQueue(s_nexus.Pusher):
         return -1, None
 
     async def put(self, name, item):
-        return await self._push('multiqueue:put', name, item)
-
-    @s_nexus.Pusher.onPush('multiqueue:put')
-    async def _onPut(self, name, item):
-        return await self._onPuts(name, (item,))
+        await self.puts(name, (item,))
 
     async def puts(self, name, items):
-        return await self._push('multiqueue:puts', name, items)
-
-    @s_nexus.Pusher.onPush('multiqueue:puts')
-    async def _onPuts(self, name, items):
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
@@ -370,7 +353,7 @@ class MultiQueue(s_nexus.Pusher):
 
         return retn
 
-    async def gets(self, name, offs, size=None, cull=False, wait=False):
+    async def gets(self, name, offs, size=None, wait=False):
         '''
         Yield (offs, item) tuples from the message queue.
         '''
@@ -378,9 +361,6 @@ class MultiQueue(s_nexus.Pusher):
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
-
-        if cull and offs > 0:
-            await self.cull(name, offs - 1)
 
         abrv = self.abrv.nameToAbrv(name)
 
@@ -414,10 +394,6 @@ class MultiQueue(s_nexus.Pusher):
         '''
         Remove up-to (and including) the queue entry at offs.
         '''
-        return await self._push('multiqueue:cull', name, offs)
-
-    @s_nexus.Pusher.onPush('multiqueue:cull')
-    async def _onCull(self, name, offs):
         if offs < 0:
             return
 

@@ -864,36 +864,36 @@ class TypesTest(s_t_utils.SynTest):
                 node = await snap.addNode('test:str', 'c', {'tick': '2016'})
                 node = await snap.addNode('test:str', 'd', {'tick': 'now'})
 
-            nodes = await core.nodes('test:str:tick=2014'))
+            nodes = await core.nodes('test:str:tick=2014')
             self.eq({node.ndef[1] for node in nodes}, {'a'})
 
-            nodes=await core.nodes('test:str:tick*range=(2014, 2015)')
+            nodes = await core.nodes('test:str:tick*range=(2014, 2015)')
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
 
-            nodes=await core.nodes('test:str:tick=201401*'))
+            nodes = await core.nodes('test:str:tick=201401*')
             self.eq({node.ndef[1] for node in nodes}, {'a'})
 
-            nodes=await core.nodes('test:str:tick*range=("-3000 days", now)')
+            nodes = await core.nodes('test:str:tick*range=("-3000 days", now)')
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b', 'c', 'd'})
 
-            opts={'vars': {'tick': tick, 'tock': tock}}
-            nodes=await core.nodes('test:str:tick*range=($tick, $tock)', opts=opts)
+            opts = {'vars': {'tick': tick, 'tock': tock}}
+            nodes = await core.nodes('test:str:tick*range=($tick, $tock)', opts=opts)
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
 
-            nodes=await core.nodes('test:str:tick*range=(20131231, "+2 days")')
+            nodes = await core.nodes('test:str:tick*range=(20131231, "+2 days")')
             self.eq({node.ndef[1] for node in nodes}, {'a'})
 
-            nodes=await alist(core.eval('test:str:tick*range=(20131231, "+2 days")'))
+            nodes = await alist(core.eval('test:str:tick*range=(20131231, "+2 days")'))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
 
-            nodes=await core.nodes('test:str:tick*range=("-1 day", "+1 day")')
+            nodes = await core.nodes('test:str:tick*range=("-1 day", "+1 day")')
             self.eq({node.ndef[1] for node in nodes}, {'d'})
 
-            nodes=await core.nodes('test:str:tick*range=("-1 days", now)')
+            nodes = await core.nodes('test:str:tick*range=("-1 days", now)')
             self.eq({node.ndef[1] for node in nodes}, {'d'})
 
             # Equivalent lift
-            nodes=await core.nodes('test:str:tick*range=(now, "-1 days")')
+            nodes = await core.nodes('test:str:tick*range=(now, "-1 days")')
             self.eq({node.ndef[1] for node in nodes}, {'d'})
             # This is equivalent of the previous lift
 
@@ -915,7 +915,7 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('test:str +:tick=2015'))
 
             await self.agenlen(1, core.eval('test:str +:tick*range=($test, "+- 2day")',
-                                            opts = {'vars': {'test': '2015'}}))
+                                            opts={'vars': {'test': '2015'}}))
 
             await self.agenlen(1, core.eval('test:str +:tick*range=(now, "-+ 1day")'))
 
@@ -947,20 +947,14 @@ class TypesTest(s_t_utils.SynTest):
                 core.eval('test:str:tick*range=(2015)'))
 
             with self.raises(s_exc.BadCmprValu):
-                await core.nodes('test:str:tick*range=$tick', opts={'vars': {'tick': tick}})
+                await core.nodes('test:str:tick*range=$tick', opts = {'vars': {'tick': tick}})
 
-            await self.agenraises(s_exc.BadCmprValu,
-                                  core.eval('test:str +:tick*range=(2015)'))
-            await self.agenraises(s_exc.BadCmprValu,
-                                  core.eval('test:str +:tick*range=(2015, 2016, 2017)'))
-            await self.agenraises(s_exc.BadTypeValu,
-                                  core.eval('test:str +:tick*range=("?", "+1 day")'))
-            await self.agenraises(s_exc.BadTypeValu,
-                                  core.eval('test:str +:tick*range=(2000, "?+1 day")'))
-            await self.agenraises(s_exc.BadTypeValu,
-                                  core.eval('test:str:tick*range=("?", "+1 day")'))
-            await self.agenraises(s_exc.BadTypeValu,
-                                  core.eval('test:str:tick*range=(2000, "?+1 day")'))
+            await self.agenraises(s_exc.BadCmprValu, core.eval('test:str +:tick*range=(2015)'))
+            await self.agenraises(s_exc.BadCmprValu, core.eval('test:str +:tick*range=(2015, 2016, 2017)'))
+            await self.agenraises(s_exc.BadTypeValu, core.eval('test:str +:tick*range=("?", "+1 day")'))
+            await self.agenraises(s_exc.BadTypeValu, core.eval('test:str +:tick*range=(2000, "?+1 day")'))
+            await self.agenraises(s_exc.BadTypeValu, core.eval('test:str:tick*range=("?", "+1 day")'))
+            await self.agenraises(s_exc.BadTypeValu, core.eval('test:str:tick*range=(2000, "?+1 day")'))
 
             async with await core.snap() as snap:
                 node=await snap.addNode('test:str', 't1', {'tick': '2018/12/02 23:59:59.000'})
@@ -1086,42 +1080,42 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeDef):
                 await core.addFormProp('test:int', '_hehe', ('array', {'type': 'array'}), {})
 
-            nodes=await core.nodes('[ test:array=(1.2.3.4, 5.6.7.8) ]')
+            nodes = await core.nodes('[ test:array=(1.2.3.4, 5.6.7.8) ]')
             self.len(1, nodes)
 
-            nodes=await core.nodes('test:array*contains=1.2.3.4')
+            nodes = await core.nodes('test:array*contains=1.2.3.4')
             self.len(1, nodes)
 
-            nodes=await core.nodes('[ test:arraycomp=((1.2.3.4, 5.6.7.8), 10) ]')
+            nodes = await core.nodes('[ test:arraycomp=((1.2.3.4, 5.6.7.8), 10) ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:arraycomp', ([0x01020304, 0x05060708], 10)))
             self.eq(nodes[0].get('int'), 10)
             self.eq(nodes[0].get('ipv4s'), (0x01020304, 0x05060708))
 
             # make sure "adds" got added
-            nodes=await core.nodes('inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8')
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8')
             self.len(2, nodes)
 
-            nodes=await core.nodes('[ test:witharray="*" :fqdns=(woot.com, VERTEX.LINK, vertex.link) ]')
+            nodes = await core.nodes('[ test:witharray="*" :fqdns=(woot.com, VERTEX.LINK, vertex.link) ]')
             self.len(1, nodes)
 
             self.eq(nodes[0].get('fqdns'), ('vertex.link', 'woot.com'))
 
-            nodes=await core.nodes('test:witharray:fqdns=(vertex.link, WOOT.COM)')
+            nodes = await core.nodes('test:witharray:fqdns=(vertex.link, WOOT.COM)')
             self.len(1, nodes)
 
-            nodes=await core.nodes('test:witharray:fqdns*contains=vertex.link')
+            nodes = await core.nodes('test:witharray:fqdns*contains=vertex.link')
             self.len(1, nodes)
 
-            nodes=await core.nodes('test:witharray [ :fqdns=(hehe.com, haha.com) ]')
+            nodes = await core.nodes('test:witharray [ :fqdns=(hehe.com, haha.com) ]')
             self.len(1, nodes)
 
-            nodes=await core.nodes('inet:fqdn=hehe.com inet:fqdn=haha.com')
+            nodes = await core.nodes('inet:fqdn=hehe.com inet:fqdn=haha.com')
             self.len(2, nodes)
 
             # make sure the multi-array entries got deleted
-            nodes=await core.nodes('test:witharray:fqdns*contains=vertex.link')
+            nodes = await core.nodes('test:witharray:fqdns*contains=vertex.link')
             self.len(0, nodes)
 
-            nodes=await core.nodes('test:witharray:fqdns*contains=hehe.com')
+            nodes = await core.nodes('test:witharray:fqdns*contains=hehe.com')
             self.len(1, nodes)

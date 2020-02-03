@@ -185,12 +185,12 @@ class CellApi(s_base.Base):
         return user.pack()
 
     @adminapi
-    async def dyncall(self, iden, todo):
-        return await self.cell.dyncall(iden, todo)
+    async def dyncall(self, iden, todo, gatekeys=()):
+        return await self.cell.dyncall(iden, todo, gatekeys=gatekeys)
 
     @adminapi
-    async def dyniter(self, iden, todo):
-        async for item in self.cell.dyniter(iden, todo):
+    async def dyniter(self, iden, todo, gatekeys=()):
+        async for item in self.cell.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
 
     @adminapi
@@ -435,17 +435,27 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'auth': self.auth,
         }
 
-    async def dyniter(self, iden, todo):
+    async def dyniter(self, iden, todo, gatekeys=()):
+
+        for useriden, perm, gateiden in gatekeys:
+            (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
+
         item = self.dynitems.get(iden)
         name, args, kwargs = todo
+
         meth = getattr(item, name)
         async for item in meth(*args, **kwargs):
             yield item
 
-    async def dyncall(self, iden, todo):
+    async def dyncall(self, iden, todo, gatekeys=()):
+
+        for useriden, perm, gateiden in gatekeys:
+            (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
+
         item = self.dynitems.get(iden)
         name, args, kwargs = todo
         meth = getattr(item, name)
+
         return await s_coro.ornot(meth, *args, **kwargs)
 
     async def getConfOpt(self, name):

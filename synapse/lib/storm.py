@@ -392,11 +392,11 @@ class Runtime:
 
         self.proxies = {}
 
-    async def dyncall(self, iden, todo):
-        return await self.snap.core.dyncall(iden, todo)
+    async def dyncall(self, iden, todo, gatekeys=()):
+        return await self.snap.core.dyncall(iden, todo, gatekeys=gatekeys)
 
-    async def dyniter(self, iden, todo):
-        async for item in self.snap.core.dyniter(iden, todo):
+    async def dyniter(self, iden, todo, gatekeys=()):
+        async for item in self.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
 
     def getStormMod(self, name):

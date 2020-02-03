@@ -944,8 +944,8 @@ class HiveAuth(s_nexus.Pusher):
         '''
         user = self.usersbyname.get(name)
         if gateiden is not None:
-            gate = self.getAuthGate(gateiden)
-            return gate.getGateUser(user)
+            gate = self.reqAuthGate(gateiden)
+            return await gate.getGateUser(user)
         return user
 
     async def getRoleByName(self, name, gateiden=None):
@@ -1537,8 +1537,12 @@ class HiveUser(HiveRuler):
         return default
 
     def confirm(self, perm, default=None, gateiden=None):
+        gate = None
+        if gateiden is not None:
+            gate = self.auth.reqAuthGate(gateiden)
+
         if not self.allowed(perm, default=default, gateiden=gateiden):
-            self.raisePermDeny(perm)
+            self.raisePermDeny(perm, gate=gate)
 
     def getRoles(self):
         return self.roles
@@ -1598,7 +1602,11 @@ class HiveUser(HiveRuler):
         roles.remove(role.iden)
         await self.info.set('roles', roles)
 
-    async def setAdmin(self, admin):
+    async def setAdmin(self, admin, gateiden=None):
+        if gateiden is not None:
+            gate = self.auth.reqAuthGate(gateiden)
+            gateuser = await gate.getGateUser(self)
+            return await gateuser.setAdmin(True)
         await self.info.set('admin', admin)
 
     async def setLocked(self, locked):

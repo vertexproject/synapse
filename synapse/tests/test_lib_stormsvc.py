@@ -351,7 +351,7 @@ class StormSvcTest(s_test.SynTest):
                 {'name': 'hehe.haha', 'storm': 'function add(x, y) { return ($($x + $y)) }'},
             ),
             'commands': (
-                {'name': 'foobar', 'storm': '$haha = $lib.import(hehe.haha) $next = $haha.add($(10), $(20)) [ inet:asn=$next ]'},
+                {'name': 'foobar', 'storm': '$haha = $lib.import(hehe.haha) [ inet:asn=$haha.add($(10), $(20)) ]'},
             ),
         }
         with self.getTestDir() as dirn:
