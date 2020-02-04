@@ -505,7 +505,7 @@ class LibFeed(Lib):
         Returns:
             s_node.Node: An async generator that yields nodes.
         '''
-        self.runt.reqLayerAllowed(('feed:data', *name.split('.')))
+        self.runt.layerConfirm(('feed:data', *name.split('.')))
         with s_provenance.claim('feed:data', name=name):
             return self.runt.snap.addFeedNodes(name, data)
 
@@ -531,7 +531,7 @@ class LibFeed(Lib):
             None or the sequence offset value.
         '''
 
-        self.runt.reqLayerAllowed(('feed:data', *name.split('.')))
+        self.runt.layerConfirm(('feed:data', *name.split('.')))
         with s_provenance.claim('feed:data', name=name):
             strict = self.runt.snap.strict
             self.runt.snap.strict = False
@@ -956,43 +956,12 @@ class List(Prim):
         '''
         return len(self)
 
-class StormHiveDict(Prim):
-    # A Storm API for a HiveDict
-    def __init__(self, valu, path=None):
-        Prim.__init__(self, valu, path=path)
-        self.locls.update({
-            'get': self._methGet,
-            'pop': self._methPop,
-            'set': self._methSet,
-            'list': self._methList,
-        })
-
-    def _reqStr(self, name):
-        if not isinstance(name, str):
-            mesg = 'The name of a persistent variable must be a string.'
-            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
-
-    async def _methGet(self, name, default=None):
-        self._reqStr(name)
-        return self.valu.get(name, default=default)
-
-    async def _methPop(self, name, default=None):
-        self._reqStr(name)
-        return await self.valu.pop(name, default=default)
-
-    async def _methSet(self, name, valu):
-        self._reqStr(name)
-        await self.valu.set(name, valu)
-
-    async def _methList(self):
-        return list(self.valu.items())
-
 class LibUser(Lib):
     def addLibFuncs(self):
-        hivedict = StormHiveDict(self.runt.user.pvars)
+        uservars = LibUserVars(self.runt, ())
         self.locls.update({
             'name': self._libUserName,
-            'vars': hivedict,
+            'vars': uservars
         })
 
     async def _libUserName(self, path=None):
@@ -1003,7 +972,6 @@ class LibGlobals(Lib):
     Global persistent Storm variables
     '''
     def __init__(self, runt, name):
-        self._stormvars = runt.snap.getStormVars()
         Lib.__init__(self, runt, name)
 
     def addLibFuncs(self):
@@ -1022,27 +990,67 @@ class LibGlobals(Lib):
     async def _methGet(self, name, default=None):
         self._reqStr(name)
         self.runt.user.confirm(('storm', 'globals', 'get', name))
-        return self._stormvars.get(name, default=default)
+        return await self.runt.snap.core.getStormVar(name, default=default)
 
     async def _methPop(self, name, default=None):
         self._reqStr(name)
         self.runt.user.confirm(('storm', 'globals', 'pop', name))
-        return await self._stormvars.pop(name, default=default)
+        return await self.runt.snap.core.popStormVar(name, default=default)
 
     async def _methSet(self, name, valu):
         self._reqStr(name)
         self.runt.user.confirm(('storm', 'globals', 'set', name))
-        await self._stormvars.set(name, valu)
+        return await self.runt.snap.core.setStormVar(name, valu)
 
     async def _methList(self):
         ret = []
-        for key, valu in list(self._stormvars.items()):
+        async for key, valu in self.runt.snap.core.itemsStormVar():
             try:
-                self.runt.user.confirm(('storm:globals:get', key))
+                self.runt.user.confirm(('storm', 'globals', 'get', key))
             except s_exc.AuthDeny:
                 continue
             else:
                 ret.append((key, valu))
+        return ret
+
+class LibUserVars(Lib):
+    '''
+    Global persistent per-user Storm variables
+    '''
+    def __init__(self, runt, name):
+        Lib.__init__(self, runt, name)
+        self.auth = runt.snap.core.auth
+        self.useriden = runt.user.iden
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'get': self._methGet,
+            'pop': self._methPop,
+            'set': self._methSet,
+            'list': self._methList,
+        })
+
+    def _reqStr(self, name):
+        if not isinstance(name, str):
+            mesg = 'The name of a persistent variable must be a string.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+    async def _methGet(self, name, default=None):
+        self._reqStr(name)
+        return await self.auth.getUserVar(self.useriden, name, default=default)
+
+    async def _methPop(self, name, default=None):
+        self._reqStr(name)
+        return await self.auth.popUserVar(self.useriden, name, default=default)
+
+    async def _methSet(self, name, valu):
+        self._reqStr(name)
+        return await self.auth.setUserVar(self.useriden, name, valu)
+
+    async def _methList(self):
+        ret = []
+        async for key, valu in self.auth.itemsUserVar(self.useriden):
+            ret.append((key, valu))
         return ret
 
 class LibVars(Lib):

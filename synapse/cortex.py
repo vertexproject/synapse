@@ -1542,6 +1542,23 @@ class Cortex(s_cell.Cell):  # type: ignore
     def getStormSvcs(self):
         return list(self.svcsbyiden.values())
 
+    # Global stormvars APIs
+
+    async def getStormVar(self, name, default=None):
+        return self.stormvars.get(name, default=default)
+
+    @s_nexus.Pusher.onPushAuto('stormvar:pop')
+    async def popStormVar(self, name, default=None):
+        return await self.stormvars.pop(name, default=default)
+
+    @s_nexus.Pusher.onPushAuto('stormvar:set')
+    async def setStormVar(self, name, valu):
+        return await self.stormvars.set(name, valu)
+
+    async def itemsStormVar(self):
+        for item in self.stormvars.items():
+            yield item
+
     async def _cortexHealth(self, health):
         health.update('cortex', 'nominal')
 
@@ -1908,8 +1925,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 #        return form.getWaitFor(valu)
 
     async def _initCoreHive(self):
-        stormvars = await self.hive.open(('cortex', 'storm', 'vars'))
-        self.stormvars = await s_hive.NexusHiveDict.anit(await stormvars.dict(), nexsroot=self.nexsroot)
+        stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
+        self.stormvars = await stormvarsnode.dict()
         self.onfini(self.stormvars)
 
     async def _initCoreAxon(self):

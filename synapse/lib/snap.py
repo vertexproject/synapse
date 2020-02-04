@@ -8,7 +8,6 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
 import synapse.lib.base as s_base
 import synapse.lib.node as s_node
@@ -16,10 +15,8 @@ import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
-import synapse.lib.editatom as s_editatom
 
 logger = logging.getLogger(__name__)
-
 
 class Snap(s_base.Base):
     '''
@@ -856,7 +853,7 @@ class Snap(s_base.Base):
 
             nextoff = offs + len(items)
 
-            await self.setOffset(iden, nextoff)
+            # await self.setOffset(iden, nextoff)
 
             return nextoff
 
