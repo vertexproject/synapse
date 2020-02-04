@@ -88,17 +88,14 @@ class FilePath(s_types.Str):
 
         return fullpath, {'subs': subs}
 
-class FileBytes(s_types.Type):
+class FileBytes(s_types.Str):
 
     def postTypeInit(self):
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyList)
         self.setNormFunc(tuple, self._normPyList)
         self.setNormFunc(bytes, self._normPyBytes)
-
-    def indx(self, norm):
-        # impossible for the normed value to be too long for indx
-        return norm.encode('utf8')
 
     def _normPyList(self, valu):
         guid, info = self.modl.type('guid').norm(valu)

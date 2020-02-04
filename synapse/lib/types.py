@@ -764,7 +764,7 @@ class Int(IntBase):
         self.signed = self.opts.get('signed')
         self.stortype = intstors.get((self.size, self.signed))
         if self.stortype is None:
-            mesg = 'Invalid integer size.'
+            mesg = f'Invalid integer size ({self.size})'
             raise s_exc.BadTypeDef(mesg=mesg)
 
         self.enumnorm = {}
@@ -854,9 +854,6 @@ class Int(IntBase):
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
 
         return valu, {}
-
-    #def indx(self, valu):
-        #return (valu + self._indx_offset).to_bytes(self.size, 'big')
 
     def repr(self, norm):
 
@@ -1316,7 +1313,7 @@ class Str(Type):
     def postTypeInit(self):
 
         self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(int, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
 
         self.storlifts.update({
             '^=': self._storLiftPref,
@@ -1350,6 +1347,9 @@ class Str(Type):
 
     def _storLiftRegx(self, cmpr, valu):
         return ((cmpr, valu, self.stortype),)
+
+    def _normPyInt(self, valu):
+        return self._normPyStr(str(valu))
 
     def _normPyStr(self, valu):
 

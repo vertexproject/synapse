@@ -76,7 +76,7 @@ class OuModelTest(s_t_utils.SynTest):
                 nodes = await snap.nodes('ou:name')
                 self.sorteq([x.ndef[1] for x in nodes], (normname,) + altnames)
 
-                nodes = await snap.nodes('ou:org:names*contains=otheraltarrow')
+                nodes = await snap.nodes('ou:org:names*[=otheraltarrow]')
                 self.len(1, nodes)
 
                 opts = {'var': {'name': name}}
