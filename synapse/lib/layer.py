@@ -1135,7 +1135,6 @@ class Layer(s_nexus.Pusher):
         if oldb is not None and s_msgpack.un(oldb) == valu:
             return None
 
-        # FIXME: don't we want a \0 between tag and form?
         self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
 
         return (
