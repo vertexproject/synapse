@@ -4,6 +4,7 @@ Migrate storage from 0.1.x to 0.2.x.
 TODO:
     - Support non-inplace migration?
     - Track unmigrated nodes / errors
+    - Migrating mirrors (what about existing remote layer?)
     - Tagprops
     - Handling for pause/restart
     - Benchmarking / metrics
@@ -13,10 +14,13 @@ TODO:
     - Prompt and/or execute a backup?
     - Add ability to do a specific step on a specifc layer?
     - Any migr for views?  Need to iter over views?
+    - Teardown / restore options
+    - Progress reporting for long migration steps
 '''
 import os
 import sys
 import time
+import shutil
 import asyncio
 import logging
 import argparse
@@ -46,9 +50,17 @@ class Migrator(s_base.Base):
         await s_base.Base.__anit__(self)
         self.dirn = conf.get('dirn')
 
+        self.migrlayer = conf.get('layer')
+
         # load data model for stortypes
         self.model = s_datamodel.Model()
         await self._trnDatamodel()
+
+        # create a new slab for tracking migration data
+        path = os.path.join(self.dirn, 'slabs', 'migr.lmdb')
+        self.migrslab = await s_lmdbslab.Slab.anit(path, readonly=False)
+        self.migrdb = self.migrslab.initdb('migr')
+        self.onfini(self.migrslab.fini)
 
         # open hive
         path = os.path.join(self.dirn, 'slabs', 'cell.lmdb')
@@ -58,9 +70,6 @@ class Migrator(s_base.Base):
         self.onfini(self.hive.fini)
         self.onfini(self.hiveslab.fini)
 
-        # backup hive by deafult? Or cp to new cell_v2 and then replace?
-        # TODO
-
     #############################################################
     # Migration operations
     #############################################################
@@ -69,11 +78,18 @@ class Migrator(s_base.Base):
         '''
         Execute the migration
         '''
+        # backup the hive before starting
+        await self._migrBackupHive()
+
         # auth migration
         await self._migrHiveAuth()  # TODO
 
         # storage info migration
         storinfo, layridens = await self._migrHiveStorInfo()
+
+        if self.migrlayer is not None:
+            logger.info(f'Restricting migration to one layer: {self.migrlayer}')
+            layridens = [self.migrlayer]
 
         # full layer migration
         for iden in layridens:
@@ -83,6 +99,22 @@ class Migrator(s_base.Base):
             # await self._migrSplices(foo)
             # await self._migrOffsets(foo)
             await self._migrHiveLayerInfo(storinfo, iden)
+
+    async def _migrBackupHive(self):
+        '''
+        Create a copy of the hive slab, overwriting any existing backups.
+        '''
+        bucellpath = os.path.join(self.dirn, 'slabs', 'cell_v1.lmdb')
+        if os.path.exists(bucellpath):
+            shutil.rmtree(bucellpath)
+
+        shutil.copytree(
+            os.path.join(self.dirn, 'slabs', 'cell.lmdb'), bucellpath)
+
+        shutil.copy(
+            os.path.join(self.dirn, 'slabs', 'cell.opts.yaml'),
+            os.path.join(self.dirn, 'slabs', 'cell_v1.opts.yaml'),
+        )
 
     async def _migrHiveAuth(self):
         '''
@@ -170,7 +202,8 @@ class Migrator(s_base.Base):
 
     async def _migrNodes(self, storinfo, iden):
         '''
-        Migrate nodes for a given layer
+        Migrate nodes for a given layer.
+        Individual operations are responsible for logging errors, with this migr method continuing past them.
 
         Args:
             storinfo (dict): Storage information dict
@@ -179,6 +212,8 @@ class Migrator(s_base.Base):
         Returns:
             (dict): For all form types a tuple (src_cnt, dest_cnt)
         '''
+        migrop = 'nodes'
+
         # open storage
         dest_wlyr = await self._destGetWlyr(self.dirn, storinfo, iden)
 
@@ -190,7 +225,7 @@ class Migrator(s_base.Base):
         # check if 0.2.0 write layer exists with data
         dest_fcntpre = await dest_wlyr.getFormCounts()
         if dest_fcntpre:
-            logger.warning(f'Destination is not empty: {dest_fcntpre}')
+            logger.warning(f'Destination {iden} is not empty: {dest_fcntpre}')
 
         # update modelrev
         await dest_wlyr.setModelVers(s_modelrev.maxvers)
@@ -206,52 +241,77 @@ class Migrator(s_base.Base):
 
             nodeedit = await self._trnNodeToNodeedit(node)
             if nodeedit is None:
-                #logger.error(f'Unable to create nodeedit for {node}')
-                # TODO: Log error nodes
                 continue
 
             nodeedits.append(nodeedit)
             if len(nodeedits) == editchnks:
-                sodes = await self._destAddNodes(dest_wlyr, nodeedits)
-                if sodes is None or len(sodes) != editchnks:
-                    logger.error(f'Unable to add destination node: {nodeedits}, {sodes}')
-                    # TODO: verify whether this is valid chunk error condition
-                    # TODO: Log error nodes
+                await self._destAddNodes(dest_wlyr, nodeedits)
                 nodeedits = []
                 await asyncio.sleep(0)
 
         # add last edit chunk if needed
         if len(nodeedits) > 0:
-            sodes = await self._destAddNodes(dest_wlyr, nodeedits)
-            if sodes is None or len(sodes) != editchnks:
-                logger.error(f'Unable to add destination node: {nodeedits}, {sodes}')
-                # TODO: Log error nodes
+            await self._destAddNodes(dest_wlyr, nodeedits)
 
         t_end = time.time()
         t_dur = int(t_end - t_strt)
 
-        # collect final form count stats
+        # collect final destination form count stats
         dest_fcnt = await dest_wlyr.getFormCounts()
-        fcnt = {f: [v, dest_fcnt.get(f, '0')] for f, v in src_fcnt.items()}
-        totnodes = sum([v[1] for v in fcnt.values()])
 
-        # for testing, iterate over the forms and print a report
-        # TODO: Move to an optional reporting method or delete
-        rprt = ['\n', '{:<25s}{:<10s}{:<10s}{:<10s}'.format('FORM', 'SRC_CNT', 'DEST_CNT', 'LIFT_CNT')]
-        for form in src_fcnt.keys():
-            sode_cnt = 0
-            async for sode in dest_wlyr.liftByProp(form, None):
-                sode_cnt += 1
-            fcnt[form].append(sode_cnt)
-            rprt.append('{:<25s}{!s:<10s}{!s:<10s}{!s:<10s}'.format(form, fcnt[form][0], fcnt[form][1], fcnt[form][2]))
+        # store and log creation stats
+        rprt = ['\n', '{:<25s}{:<10s}{:<10s}'.format('FORM', 'SRC_CNT', 'DEST_CNT')]
+        stot = 0
+        dtot = 0
+        for form, scnt in src_fcnt.items():
+            stot += scnt
+            dcnt = dest_fcnt.get(form, 0)
+            dtot += dcnt
+            rprt.append('{:<25s}{!s:<10s}{!s:<10s}'.format(form, scnt, dcnt))
+            await self._migrlogAdd(migrop, 'stat', f'{iden}:form', (scnt, dcnt))
+
         rprt.append('\n')
-
-        rprt.append(f'Migrated {totnodes:,} nodes in {t_dur} seconds ({int(totnodes/t_dur)} nodes/s avg)')
+        rprt.append(f'Migrated {stot:,} nodes in {t_dur} seconds ({int(stot/t_dur)} nodes/s avg)')
+        await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot, dtot))
+        await self._migrlogAdd(migrop, 'stat', f'{iden}:duration', (stot, t_dur))
 
         prprt = '\n'.join(rprt)
         logger.info(f'Final form count: {prprt}')
 
         return
+
+    #############################################################
+    # Migration data ops
+    #############################################################
+
+    async def _migrlogAdd(self, migrop, logtyp, key, val):
+        '''
+        Add an error record to the migration data
+
+        TODO:
+            - enum for migrop
+
+        Args:
+            migrop:
+            logtyp:
+            key:
+            val:
+        '''
+        if isinstance(key, bytes):
+            bkey = key
+        else:
+            bkey = key.encode()
+
+        lkey = migrop.encode() + b'00' + logtyp.encode() + b'00' + bkey
+        lval = s_msgpack.en(val)
+        try:
+            self.migrslab.put(lkey, lval, db=self.migrdb)
+        except Exception as e:
+            logger.exception(f'Unable to store migration log: {migrop}; {logtyp}; {key}; {val}')
+            pass
+
+    async def _migrlogGet(self, migrop, logtyp, key=None):
+        pass  # TODO
 
     #############################################################
     # Source (0.1.x) operations
@@ -351,6 +411,7 @@ class Migrator(s_base.Base):
         Returns:
             nodeedit (tuple): (<buid>, <form>, [edits]) where edits is list of (<type>, <info>)
         '''
+        migrop = 'nodes'
         buid = node[0]
         form = node[1]['ndef'][0]
         fval = node[1]['ndef'][1]
@@ -358,7 +419,9 @@ class Migrator(s_base.Base):
         if form[0] == '*':
             formnorm = form[1:]
         else:
-            logger.error(f'Unable to norm form {form}, {node}')
+            err = {'mesg': f'Unable to norm form {form}', 'node': node}
+            logger.error(err)
+            await self._migrlogAdd(migrop, 'error', buid, err)
             return None
 
         edits = []
@@ -366,14 +429,19 @@ class Migrator(s_base.Base):
         # setup storage type
         mform = self.model.form(formnorm)
         if mform is None:
-            logger.error(f'Unable to determine form for {formnorm}')
+            err = {'mesg': f'Unable to determine form for {formnorm}', 'node': node}
+            logger.error(err)
+            await self._migrlogAdd(migrop, 'error', buid, err)
             return None
 
         # create first edit for the node
         stortype = mform.type.stortype
         if stortype is None:
-            logger.error(f'Unable to determine stortype for {formnorm}')
+            err = {'mesg': f'Unable to determine stortype for {formnorm}', 'node': node}
+            logger.error(err)
+            await self._migrlogAdd(migrop, 'error', buid, err)
             return None
+
         edits.append((s_layer.EDIT_NODE_ADD, (fval, stortype)))  # name, stype
 
         # iterate over secondary properties
@@ -381,8 +449,11 @@ class Migrator(s_base.Base):
             sformnorm = sprop.replace('*', '')
             stortype = mform.prop(sformnorm).type.stortype
             if stortype is None:
-                logger.error(f'Unable to determine stortype for sprop {sformnorm}')
+                err = {'mesg': f'Unable to determine stortype for sprop {formnorm}', 'node': node}
+                logger.error(err)
+                await self._migrlogAdd(migrop, 'error', buid, err)
                 return None
+
             edits.append((s_layer.EDIT_PROP_SET, (sformnorm, sval, None, stortype)))  # name, valu, oldv, stype
 
         # set tags
@@ -436,16 +507,22 @@ class Migrator(s_base.Base):
         Returns:
 
         '''
+        migrop = 'nodes'
         try:
             sodes = await wlyr.storNodeEdits(nodeedits, None)  # meta=None
             return sodes
         except Exception as e:
-            logger.error(f'unable to store nodeedit: {e}')
+            lyriden = wlyr.iden
+            logger.exception(f'unable to store nodeedits on {lyriden}: {nodeedits}')
+            for ne in nodeedits:
+                err = {'mesg': f'Unable to store nodeedit on {wlyr.iden}', 'nodeedit': ne}
+                await self._migrlogAdd(migrop, 'error', ne[0], err)
             return None
 
 async def main(argv, outp=s_output.stdout):
     pars = argparse.ArgumentParser(prog='synapse.tools.migrate_stor', description='Tool for migrating Synapse storage.')
     pars.add_argument('--dirn', required=True, type=str)
+    pars.add_argument('--layer', required=False, type=str, help='Migrate specific layer by iden')
     pars.add_argument('--log-level', default='debug', choices=s_const.LOG_LEVEL_CHOICES,
                       help='Specify the log level', type=str.upper)
 
@@ -455,6 +532,7 @@ async def main(argv, outp=s_output.stdout):
 
     conf = {
         'dirn': opts.dirn,
+        'layer': opts.layer,
     }
 
     migr = await Migrator.anit(conf=conf)
