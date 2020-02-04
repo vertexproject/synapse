@@ -3,6 +3,37 @@ Synapse Changelog
 *****************
 
 
+v0.1.49 - 2019-02-03
+====================
+
+Bugfixes
+--------
+- Fix an issue where pivot operations which pointed to ``syn:splice`` nodes raised exceptions which could teardown a
+  Storm runtime unexpectedly.  Attempting to directly lift ``syn:splice`` nodes by primary or secondary properties now
+  generates no nodes.
+  (`#1529 <https://github.com/vertexproject/synapse/pull/1529>`_)
+
+
+v0.1.48 - 2019-02-03
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``ou:conference:event`` and ``ou:conference:attendee`` forms to facilitate more fine grained conference tracking.
+  (`#1523 <https://github.com/vertexproject/synapse/pull/1523>`_)
+- Make the ``syn.nodes`` ingest aware of tagprops.
+  (`#1525 <https://github.com/vertexproject/synapse/pull/1525>`_)
+
+Bugfixes
+--------
+- Make the LMDB Memory Locking loop safer.
+  (`#1522 <https://github.com/vertexproject/synapse/pull/1522>`_)
+  (`#1526 <https://github.com/vertexproject/synapse/pull/1526>`_)
+- Address a test race encountered during the teardown of Link objects where server side CellAPI instances were not
+  having ``fini()`` called.
+  (`#1524 <https://github.com/vertexproject/synapse/pull/1524>`_)
+
+
 v0.1.47 - 2019-01-30
 ====================
 
