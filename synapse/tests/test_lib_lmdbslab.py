@@ -632,7 +632,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
 
                 name = abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x01')
-                self.eq(name, 'haha')
+                self.eq(name, b'haha')
 
                 self.none(abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
 
@@ -641,10 +641,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 abrv = s_lmdbslab.SlabAbrv(slab, 'test')
                 # recall first
                 name = abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x00')
-                self.eq(name, 'hehe')
+                self.eq(name, b'hehe')
 
                 name = abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x01')
-                self.eq(name, 'haha')
+                self.eq(name, b'haha')
                 # Remaking them makes the values we already had
                 valu = abrv.nameToAbrv('hehe')
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x00')
@@ -661,6 +661,24 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 valu = abrv.nameToAbrv('haha')
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
+
+    async def test_lmdbslab_hotcount(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True) as slab, \
+                    await s_lmdbslab.HotCount.anit(slab, 'counts') as ctr:
+                self.eq(0, ctr.get('foo'))
+                self.eq({}, ctr.pack())
+                ctr.inc('foo')
+                self.eq({'foo': 1}, ctr.pack())
+                self.eq(1, ctr.get('foo'))
+                ctr.set('bar', 42)
+                self.eq({'foo': 1, 'bar': 42}, ctr.pack())
+                ctr.sync()
+                self.eq({'foo': 1, 'bar': 42}, ctr.pack())
 
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
@@ -689,7 +707,8 @@ class LmdbSlabMemLockTest(s_t_utils.SynTest):
             count = 0
             byts = b'\x00' * 1024
             path = os.path.join(dirn, 'test.lmdb')
-            async with await s_lmdbslab.Slab.anit(path, map_size=10 * 1024 * 1024, growsize=5000, lockmemory=True) as slab:
+            mapsize = 10 * 1024 * 1024
+            async with await s_lmdbslab.Slab.anit(path, map_size=mapsize, growsize=5000, lockmemory=True) as slab:
                 foo = slab.initdb('foo')
                 while count < 8000:
                     count += 1
