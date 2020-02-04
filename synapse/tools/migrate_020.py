@@ -105,8 +105,9 @@ class Migrator(s_base.Base):
         # full layer migration
         for iden in layridens:
             logger.info(f'Starting migration for storage {storinfo.get("iden")} and layer {iden}')
-            await self._migrNodes(storinfo, iden)
-            # await self._migrNodeData(foo)
+            wlyr = await self._destGetWlyr(self.dirn, storinfo, iden)
+            await self._migrNodes(iden, wlyr)
+            await self._migrNodeData(iden, wlyr)
             # await self._migrOffsets(foo)
             await self._migrHiveLayerInfo(storinfo, iden)
 
@@ -239,8 +240,7 @@ class Migrator(s_base.Base):
         '''
         As each layer is migrated update the hive info.
 
-        TODO:
-            - Move some of this into a translation step
+        TODO: Move some of this into a translation step
 
         Args:
             storinfo (dict): Storage information
@@ -286,36 +286,31 @@ class Migrator(s_base.Base):
         logger.info('Completed Hive layer info migration')
         await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
 
-    async def _migrNodes(self, storinfo, iden):
+    async def _migrNodes(self, iden, wlyr):
         '''
         Migrate nodes for a given layer.
         Individual operations are responsible for logging errors, with this migr method continuing past them.
 
         Args:
-            storinfo (dict): Storage information dict
             iden (str): Iden of the layer
-
-        Returns:
-            (dict): For all form types a tuple (src_cnt, dest_cnt)
+            wlyr (Layer): 0.2.0 Layer to write to
         '''
         migrop = 'nodes'
         nodelim = self.nodelim
 
         # open storage
-        dest_wlyr = await self._destGetWlyr(self.dirn, storinfo, iden)
-
         path = os.path.join(self.dirn, 'layers', iden, 'layer.lmdb')
         src_slab = await s_lmdbslab.Slab.anit(path, map_async=True, readonly=True)
         src_bybuid = src_slab.initdb('bybuid')  # <buid><prop>=<valu>
         self.onfini(src_slab.fini)
 
         # check if 0.2.0 write layer exists with data
-        dest_fcntpre = await dest_wlyr.getFormCounts()
+        dest_fcntpre = await wlyr.getFormCounts()
         if dest_fcntpre:
             logger.warning(f'Destination {iden} is not empty: {dest_fcntpre}')
 
         # update modelrev
-        await dest_wlyr.setModelVers(s_modelrev.maxvers)
+        await wlyr.setModelVers(s_modelrev.maxvers)
 
         # migrate data
         src_fcnt = collections.defaultdict(int)
@@ -329,7 +324,7 @@ class Migrator(s_base.Base):
 
             stot += 1
             if nodelim is not None and stot >= nodelim:
-                logger.warning(f'Stopping migration due to reaching nodelim {stot}')
+                logger.warning(f'Stopping node migration due to reaching nodelim {stot}')
                 # checkpoint is the next node to add
                 await self._migrlogAdd(migrop, 'chkpnt', iden, (node[0], stot, s_common.now()))
                 break
@@ -343,20 +338,20 @@ class Migrator(s_base.Base):
 
             nodeedits.append(nodeedit)
             if len(nodeedits) == editchnks:
-                await self._destAddNodes(dest_wlyr, nodeedits)
+                await self._destAddNodes(migrop, wlyr, nodeedits)
                 nodeedits = []
                 await asyncio.sleep(0)
 
         # add last edit chunk if needed
         if len(nodeedits) > 0:
-            await self._destAddNodes(dest_wlyr, nodeedits)
+            await self._destAddNodes(migrop, wlyr, nodeedits)
 
         t_end = s_common.now()
         t_dur = t_end - t_strt
         t_dur_s = int(t_dur / 1000) + 1
 
         # collect final destination form count stats
-        dest_fcnt = await dest_wlyr.getFormCounts()
+        dest_fcnt = await wlyr.getFormCounts()
 
         # store and log creation stats
         rprt = ['\n', '{:<25s}{:<10s}{:<10s}'.format('FORM', 'SRC_CNT', 'DEST_CNT')]
@@ -377,7 +372,68 @@ class Migrator(s_base.Base):
         prprt = '\n'.join(rprt)
         logger.info(f'Final form count for {iden}: {prprt}')
 
-        logger.info(f'Completed migration for {iden}')
+        logger.info(f'Completed node migration for {iden}')
+        await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
+
+        return
+
+    async def _migrNodeData(self, iden, wlyr):
+        '''
+        Migrate nodedata for a given layer.
+        Individual operations are responsible for logging errors, with this migr method continuing past them.
+
+        Args:
+            iden (str): Iden of the layer
+            wlyr (Layer): 0.2.0 Layer to write to
+        '''
+        migrop = 'nodedata'
+        nodelim = self.nodelim
+
+        # open storage
+        path = os.path.join(self.dirn, 'layers', iden, 'nodedata.lmdb')
+        src_slab = await s_lmdbslab.Slab.anit(path, map_async=True, readonly=True)
+        src_bybuid = src_slab.initdb('bybuid')
+        self.onfini(src_slab.fini)
+
+        # migrate data
+        nodeedits = []
+        editchnks = 10  # batch size for nodeedits to add
+        t_strt = s_common.now()
+        stot = 0
+        async for nodedata in self._srcIterNodedata(src_slab, src_bybuid):
+            stot += 1
+            if nodelim is not None and stot >= nodelim:
+                logger.warning(f'Stopping nodedata migration due to reaching nodelim {stot}')
+                # checkpoint is the next node to add
+                await self._migrlogAdd(migrop, 'chkpnt', iden, (nodedata, stot, s_common.now()))
+                break
+
+            if stot % 10000000 == 0:
+                logger.info(f'...on node {stot:,} for layer {iden}')
+
+            nodeedit = await self._trnNodedataToNodeedit(nodedata)
+            if nodeedit is None:
+                continue
+
+            nodeedits.append(nodeedit)
+            if len(nodeedits) == editchnks:
+                await self._destAddNodes(migrop, wlyr, nodeedits)
+                nodeedits = []
+                await asyncio.sleep(0)
+
+        # add last edit chunk if needed
+        if len(nodeedits) > 0:
+            await self._destAddNodes(migrop, wlyr, nodeedits)
+
+        t_end = s_common.now()
+        t_dur = t_end - t_strt
+        t_dur_s = int(t_dur / 1000) + 1
+
+        logger.info(f'Migrated {stot:,} nodedata entries in {t_dur_s} seconds ({int(stot/t_dur_s)} nodes/s avg)')
+        await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot, stot))
+        await self._migrlogAdd(migrop, 'stat', f'{iden}:duration', (stot, t_dur))
+
+        logger.info(f'Completed nodedata migration for {iden}')
         await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
 
         return
@@ -421,7 +477,7 @@ class Migrator(s_base.Base):
     # Source (0.1.x) operations
     #############################################################
 
-    async def _pack(self, buid, ndef, props, tags, tagprops):
+    async def _srcPackNode(self, buid, ndef, props, tags, tagprops):
         '''
         Return a packaged node
         '''
@@ -460,7 +516,7 @@ class Migrator(s_base.Base):
 
             # new node; if not at start, yield the last node and reset
             if buid is not None and rowbuid != buid:
-                yield await self._pack(buid, ndef, props, tags, tagprops)
+                yield await self._srcPackNode(buid, ndef, props, tags, tagprops)
                 buid = None
                 ndef = None
                 props = {}
@@ -488,7 +544,17 @@ class Migrator(s_base.Base):
                 props[prop] = valu
 
         # yield last node
-        yield await self._pack(buid, ndef, props, tags, tagprops)
+        yield await self._srcPackNode(buid, ndef, props, tags, tagprops)
+
+    async def _srcIterNodedata(self, buidslab, buiddb):
+        '''
+        Iterate over 0.1.0 nodedata
+
+        Yields:
+            (tuple): buid, name, val
+        '''
+        for lkey, lval in buidslab.scanByFull(db=buiddb):
+            yield lkey[:32], lkey[32:].decode(), s_msgpack.un(lval)
 
     #############################################################
     # Translation operations
@@ -505,6 +571,7 @@ class Migrator(s_base.Base):
             nodeedit (tuple): (<buid>, <form>, [edits]) where edits is list of (<type>, <info>)
         '''
         migrop = 'nodes'
+
         buid = node[0]
         form = node[1]['ndef'][0]
         fval = node[1]['ndef'][1]
@@ -580,6 +647,26 @@ class Migrator(s_base.Base):
 
         return buid, formnorm, edits
 
+    async def _trnNodedataToNodeedit(self, nodedata):
+        '''
+        Create translation of node info to an 0.2.0 node edit.
+
+        Args:
+            node (tuple): (<buid>, <name>, <val>)
+
+        Returns:
+            nodeedit (tuple): (<buid>, <form>, [edits]) where edits is list of (<type>, <info>)
+        '''
+        migrop = 'nodedata'
+
+        buid = nodedata[0]
+        name = nodedata[1]
+        valu = nodedata[2]
+
+        edits = [(s_layer.EDIT_NODEDATA_SET, (name, valu))]
+
+        return buid, None, edits
+
     #############################################################
     # Destination (0.2.0) operations
     #############################################################
@@ -614,9 +701,9 @@ class Migrator(s_base.Base):
 
         return wlyr
 
-    async def _destAddNodes(self, wlyr, nodeedits):
+    async def _destAddNodes(self, migrop, wlyr, nodeedits):
         '''
-        Add nodes to a write layer from nodeedits.
+        Add nodes/nodedata to a write layer from nodeedits.
 
         Args:
             wlyr (synapse.lib.Layer): Layer to add node to
@@ -625,7 +712,6 @@ class Migrator(s_base.Base):
         Returns:
 
         '''
-        migrop = 'nodes'
         meta = None
 
         try:
