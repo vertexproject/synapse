@@ -12,6 +12,8 @@ TODO:
     - Validation
     - Extended models
     - Other stuff besides nodes/tags
+    - Prompt and/or execute a backup?
+    - Add ability to do a specific step on a specifc layer?
 '''
 import os
 import sys
@@ -25,6 +27,7 @@ import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.base as s_base
+import synapse.lib.hive as s_hive
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.output as s_output
@@ -32,6 +35,7 @@ import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.modules as s_modules
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.modelrev as s_modelrev
 
 logger = logging.getLogger(__name__)
 
@@ -41,31 +45,25 @@ class Migrator(s_base.Base):
     '''
     async def __anit__(self, conf):
         await s_base.Base.__anit__(self)
-        self.src = conf.get('src')
-        self.dest = conf.get('dest')
+        self.dirn = conf.get('dirn')
 
         # load data model for stortypes
         self.model = s_datamodel.Model()
         await self._trnDatamodel()
 
-        # SOURCE
-        # get source layer idens
-        self.src_lyridens = os.listdir(os.path.join(self.src, 'layers'))
+        # open hive
+        path = os.path.join(self.dirn, 'slabs', 'cell.lmdb')
+        self.hiveslab = await s_lmdbslab.Slab.anit(path, readonly=False)
+        self.hivedb = self.hiveslab.initdb('hive')
+        self.hive = await s_hive.SlabHive.anit(self.hiveslab, db=self.hivedb)
+        self.onfini(self.hive.fini)
+        self.onfini(self.hiveslab.fini)
 
-        # get source slabs - right now just one
-        path = os.path.join(self.src, 'layers', self.src_lyridens[-1], 'layer.lmdb')
-        self.src_lyrslab = await s_lmdbslab.Slab.anit(path, map_async=True, readonly=True)
-        self.onfini(self.src_lyrslab)
+        # get layer idens
+        self.lyridens = os.listdir(os.path.join(self.dirn, 'layers'))
 
-        # get source dbs - right now just just bybuid for one layer
-        self.src_lyrbybuid = self.src_lyrslab.initdb('bybuid')  # <buid><prop>=<valu>
-
-        # DESTINATION
-        # get destination layer idens - right now assuming A->B migration
-        self.dest_lyridens = os.listdir(os.path.join(self.dest, 'layers'))
-
-        # get destination write layer
-        self.dest_wlyr = await self._destGetWlyr(self.dest_lyridens[-1])
+        # create a new storage iden
+        self.storiden = s_common.guid()
 
     #############################################################
     # Migration operations
@@ -75,24 +73,82 @@ class Migrator(s_base.Base):
         '''
         Execute the migration
         '''
-        await self._migrateNodes()
 
-    async def _migrateNodes(self):
+        # layer migration
+        for iden in self.lyridens:
+            logger.info(f'Starting migration for layer {iden}')
+            await self._migrateNodes(iden)
+            await self._migrateLayerInfo(iden)
+
+    async def _migrateLayerInfo(self, iden):
         '''
-        Migrate nodes for all layers
+
+        Returns:
+
+        '''
+        # get existing data from the hive
+        lyrnode = await self.hive.open(('cortex', 'layers', iden))
+        layrinfo = await lyrnode.dict()
+
+        # owner -> creator
+        creator = None
+        owner = await layrinfo.pop('owner', default=None)
+        if owner is None:
+            owner = 'root'
+
+        users = await self.hive.open(('auth', 'users'))
+        usersd = await users.dict()
+        for uiden, uname in usersd.items():
+            if uname == owner:
+                creator = uiden
+
+        if creator is None:
+            raise Exception('Unable to add creator')  # TODO: handle this
+
+        # conf
+        conf = {'lockmemory': True}
+
+        # update layer info
+        await layrinfo.pop('name')
+        await layrinfo.pop('type')
+        await layrinfo.pop('config')
+        await layrinfo.set('iden', iden)
+        await layrinfo.set('creator', creator)
+        await layrinfo.set('conf', conf)
+        await layrinfo.set('stor', self.storiden)
+
+        # update cortex storage
+        # TODO
+
+    async def _migrateNodes(self, iden):
+        '''
+        Migrate nodes for a given layer
 
         Returns:
             (dict): For all form types a tuple (src_cnt, dest_cnt)
         '''
-        dest_fcntpre = await self.dest_wlyr.getFormCounts()
+        # open storage
+        dest_wlyr = await self._destGetWlyr(self.dirn, iden)
+
+        path = os.path.join(self.dirn, 'layers', iden, 'layer.lmdb')
+        src_slab = await s_lmdbslab.Slab.anit(path, map_async=True, readonly=True)
+        src_bybuid = src_slab.initdb('bybuid')  # <buid><prop>=<valu>
+        self.onfini(src_slab.fini)
+
+        # check if 0.2.0 write layer exists with data
+        dest_fcntpre = await dest_wlyr.getFormCounts()
         if dest_fcntpre:
             logger.warning(f'Destination is not empty: {dest_fcntpre}')
 
+        # update modelrev
+        await dest_wlyr.setModelVers(s_modelrev.maxvers)
+
+        # migrate data
         src_fcnt = collections.defaultdict(int)
         nodeedits = []
         editchnks = 10  # batch size for nodeedits to add
         t_strt = time.time()
-        async for node in self._srcIterNodes(self.src_lyrslab, self.src_lyrbybuid):
+        async for node in self._srcIterNodes(src_slab, src_bybuid):
             form = node[1]['ndef'][0].replace('.', '').replace('*', '')
             src_fcnt[form] += 1
 
@@ -104,7 +160,7 @@ class Migrator(s_base.Base):
 
             nodeedits.append(nodeedit)
             if len(nodeedits) == editchnks:
-                sodes = await self._destAddNodes(self.dest_wlyr, nodeedits)
+                sodes = await self._destAddNodes(dest_wlyr, nodeedits)
                 if sodes is None or len(sodes) != editchnks:
                     logger.error(f'Unable to add destination node: {nodeedits}, {sodes}')
                     # TODO: Log error nodes
@@ -113,7 +169,7 @@ class Migrator(s_base.Base):
 
         # add last edit chunk if needed
         if len(nodeedits) > 0:
-            sodes = await self._destAddNodes(self.dest_wlyr, nodeedits)
+            sodes = await self._destAddNodes(dest_wlyr, nodeedits)
             if sodes is None or len(sodes) != editchnks:
                 logger.error(f'Unable to add destination node: {nodeedits}, {sodes}')
                 # TODO: Log error nodes
@@ -121,17 +177,17 @@ class Migrator(s_base.Base):
         t_dur = int(t_end - t_strt)
 
         # collect final form count stats
-        dest_fcnt = await self.dest_wlyr.getFormCounts()
+        dest_fcnt = await dest_wlyr.getFormCounts()
         fkeys = set(list(src_fcnt.keys()) + list(dest_fcnt.keys()))
         fcnt = {f: [src_fcnt.get(f, '0'), dest_fcnt.get(f, '0')] for f in fkeys}
-        totnodes = sum([v[1] for _, v in fcnt.items()])
+        totnodes = sum([v[1] for v in fcnt.values()])
 
         # for testing, iterate over the forms and print a report
         # TODO: Move to an optional reporting method or delete
         rprt = ['\n', '{:<25s}{:<10s}{:<10s}{:<10s}'.format('FORM', 'SRC_CNT', 'DEST_CNT', 'LIFT_CNT')]
         for form in fkeys:
             sode_cnt = 0
-            async for sode in self.dest_wlyr.liftByProp(form, None):
+            async for sode in dest_wlyr.liftByProp(form, None):
                 sode_cnt += 1
             fcnt[form].append(sode_cnt)
             rprt.append('{:<25s}{!s:<10s}{!s:<10s}{!s:<10s}'.format(form, fcnt[form][0], fcnt[form][1], fcnt[form][2]))
@@ -142,7 +198,7 @@ class Migrator(s_base.Base):
         prprt = '\n'.join(rprt)
         logger.info(f'Final form count: {prprt}')
 
-        return fcnt
+        return
 
     #############################################################
     # Source (0.1.x) operations
@@ -290,7 +346,7 @@ class Migrator(s_base.Base):
     # Destination (0.2.0) operations
     #############################################################
 
-    async def _destGetWlyr(self, iden):
+    async def _destGetWlyr(self, dirn, iden):
         '''
         Get the write Layer object for the destination.
 
@@ -301,18 +357,18 @@ class Migrator(s_base.Base):
             (synapse.lib.Layer): Write layer
         '''
         info = {
-            'iden': iden,
+            'iden': self.storiden,
             'type': 'local',
             'conf': {},
         }
         layrinfo = {
-            'iden': info['iden'],
+            'iden': iden,
             'readonly': False,
             'conf': {
                 'lockmemory': None,
             },
         }
-        path = os.path.join(self.dest, 'layers')
+        path = os.path.join(dirn, 'layers')
         lyrstor = await s_layer.LayerStorage.anit(info, path)
         self.onfini(lyrstor)
         wlyr = await lyrstor.initLayr(layrinfo)
@@ -340,8 +396,7 @@ class Migrator(s_base.Base):
 
 async def main(argv, outp=s_output.stdout):
     pars = argparse.ArgumentParser(prog='synapse.tools.migrate_stor', description='Tool for migrating Synapse storage.')
-    pars.add_argument('--src', required=True, type=str)
-    pars.add_argument('--dest', required=True, type=str)
+    pars.add_argument('--dirn', required=True, type=str)
     pars.add_argument('--log-level', default='debug', choices=s_const.LOG_LEVEL_CHOICES,
                       help='Specify the log level', type=str.upper)
 
@@ -350,8 +405,7 @@ async def main(argv, outp=s_output.stdout):
     s_common.setlogging(logger, opts.log_level)
 
     conf = {
-        'src': opts.src,
-        'dest': opts.dest,
+        'dirn': opts.dirn,
     }
 
     migr = await Migrator.anit(conf=conf)
