@@ -235,7 +235,7 @@ class HotCount(s_base.Base):
 
     def set(self, name: str, valu: int):
         byts = name.encode()
-        self.cache[byts] += valu
+        self.cache[byts] = valu
         self.dirty.add(byts)
 
     def get(self, name: str):

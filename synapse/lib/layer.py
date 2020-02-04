@@ -55,17 +55,22 @@ import shutil
 import asyncio
 import logging
 import ipaddress
+import contextlib
+import collections
 
 import regex
 import xxhash
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.gis as s_gis
 import synapse.lib.base as s_base
+import synapse.lib.cell as s_cell
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
+import synapse.lib.queue as s_queue
 
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
@@ -78,15 +83,26 @@ BUID_CACHE_SIZE = 10000
 
 import synapse.lib.msgpack as s_msgpack
 
-#class LayerApi(s_cell.CellApi):
+class LayerApi(s_cell.CellApi):
 
-    #async def __anit__(self, core, link, user, layr):
+    async def __anit__(self, core, link, user, layr):
 
-        #await s_cell.CellApi.__anit__(self, core, link, user)
+        await s_cell.CellApi.__anit__(self, core, link, user)
 
-        #self.layr = layr
-        #self.liftperm = ('layer:lift', self.layr.iden)
+        self.layr = layr
+        self.liftperm = ('layer:lift', self.layr.iden)
         #self.storperm = ('layer:stor', self.layr.iden)
+
+    async def iterLayerSplices(self):
+        async for item in self.layr.iterLayerSplices():
+            yield item
+
+    async def syncSplices(self, offs):
+        async for item in self.layr.syncSplices(offs):
+            yield item
+
+    async def getSpliceOffset(self):
+        return self.layr.getSpliceOffset()
 
     #async def getLiftRows(self, lops):
         #await self._reqUserAllowed(self.liftperm)
@@ -694,6 +710,7 @@ class Layer(s_nexus.Pusher):
     async def __anit__(self, layrinfo, dirn, conf=None, nexsroot=None):
 
         self.iden = layrinfo.get('iden')
+        self.nexsroot = nexsroot
         await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=nexsroot)
 
         self.dirn = dirn
@@ -794,6 +811,15 @@ class Layer(s_nexus.Pusher):
 
         self.canrev = True
         self.ctorname = f'{self.__class__.__module__}.{self.__class__.__name__}'
+
+        self.windows = []
+        self.upstreamwaits = collections.defaultdict(list)
+
+        uplayr = layrinfo.get('upstream')
+        if uplayr is not None:
+            await self.initUpstreamSync(uplayr)
+
+        self.onfini(self._onLayrFini)
 
     def getSpawnInfo(self):
         return {
@@ -974,7 +1000,10 @@ class Layer(s_nexus.Pusher):
     @s_nexus.Pusher.onPushAuto('edits', passoff=True)
     async def storNodeEdits(self, nodeedits, meta, nexsoff=None):
         assert nexsoff is not None
-        self.splicelog.append(nexsoff)
+        spliceoffs = self.splicelog.append(nexsoff)
+
+        [(await wind.puts([(spliceoffs, nexsoff)])) for wind in tuple(self.windows)]
+
         retn = [await self._storNodeEdit(e, meta) for e in nodeedits]
         self.offsets.set('splice:applied', nexsoff)
         return retn
@@ -1327,6 +1356,153 @@ class Layer(s_nexus.Pusher):
             valu = s_msgpack.un(byts)
             yield self.getAbrvProp(abrv), valu
 
+    async def iterLayerSplices(self):
+
+        nodeedits = (None, None, None)
+
+        for lkey, lval in self.layrslab.scanByFull(db=self.bybuid):
+            buid = lkey[:32]
+            flag = lkey[32]
+
+            if not buid == nodeedits[0]:
+                if nodeedits[0] is not None:
+                    async for prop, valu in self.iterNodeData(nodeedits[0]):
+                        edit = (EDIT_NODEDATA_SET, (name, valu))
+                        nodeedits[2].append(edit)
+
+                    yield nodeedits
+
+            if flag == 0:
+                form, valu, stortype = s_msgpack.un(lval)
+
+                nodeedits = (buid, form, [])
+
+                edit = (EDIT_NODE_ADD, (valu, stortype))
+                nodeedits[2].append(edit)
+                continue
+
+            if flag == 1:
+                if not nodeedits[0] == buid:
+                    continue
+
+                name = lkey[33:].decode()
+                valu, stortype = s_msgpack.un(lval)
+
+                edit = (EDIT_PROP_SET, (name, valu, None, stortype))
+                nodeedits[2].append(edit)
+                continue
+
+            if flag == 2:
+                if not nodeedits[0] == buid:
+                    continue
+
+                name = lkey[33:].decode()
+                tagv = s_msgpack.un(lval)
+
+                edit = (EDIT_TAG_SET, (name, tagv, None))
+                nodeedits[2].append(edit)
+                continue
+
+            if flag == 3:
+                if not nodeedits[0] == buid:
+                    continue
+
+                tag, prop = lkey[33:].decode().split(':')
+                valu, stortype = s_msgpack.un(lval)
+
+                buid = lkey[:32]
+
+                edit = (EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype))
+                nodeedits[2].append(edit)
+                continue
+
+            logger.warning(f'unrecognized storage row: {flag}')
+
+        if nodeedits[0] is not None:
+            async for prop, valu in self.iterNodeData(nodeedits[0]):
+                edit = (EDIT_NODEDATA_SET, (name, valu))
+                nodeedits[2].append(edit)
+
+            yield nodeedits
+
+    async def initUpstreamSync(self, url):
+        self.schedCoro(self._initUpstreamSync(url))
+
+    async def _initUpstreamSync(self, url):
+
+        while not self.isfini:
+
+            try:
+
+                async with await s_telepath.openurl(url) as proxy:
+
+                    offs = self.offsets.get(url)
+                    logger.warning(f'upstream sync connected ({url} offset={offs})')
+
+                    if offs == 0:
+                        offs = await proxy.getSpliceOffset()
+
+                        async for item in proxy.iterLayerSplices():
+                            await self.storNodeEdits([item], {})
+
+                        self.offsets.set(url, offs)
+
+                        waits = [v for k, v in self.upstreamwaits.items() if k <= offs]
+                        for wait in waits:
+                            [e.set() for e in wait]
+
+                    while not proxy.isfini:
+
+                        offs = self.offsets.get(url)
+
+                        # pump them into a queue so we can consume them in chunks
+                        q = asyncio.Queue(maxsize=1000)
+
+                        async def consume(x):
+                            try:
+                                async for item in proxy.syncSplices(x):
+                                    await q.put(item)
+                            finally:
+                                await q.put(None)
+
+                        proxy.schedCoro(consume(offs))
+
+                        done = False
+                        while not done:
+
+                            # get the next item so we maybe block...
+                            item = await q.get()
+                            if item is None:
+                                break
+
+                            items = [item]
+
+                            # check if there are more we can eat
+                            for i in range(q.qsize()):
+
+                                nexi = await q.get()
+                                if nexi is None:
+                                    done = True
+                                    break
+
+                                items.append(nexi)
+
+                            for newoff, item in items:
+                                await self.storNodeEdits(item, {})
+                                self.offsets.set(url, newoff)
+
+                                waits = self.upstreamwaits.pop(newoff+1, None)
+                                if waits is not None:
+                                    [e.set() for e in waits]
+
+            except asyncio.CancelledError: # pragma: no cover
+                return
+
+            except Exception:
+                logger.exception('error in initUpstreamSync loop')
+
+            await self.waitfini(1)
+
     #async def _storFireSplices(self, splices):
         #'''
         #Fire events, windows, etc for splices.
@@ -1516,13 +1692,40 @@ class Layer(s_nexus.Pusher):
 
     async def syncSplices(self, offs):
 
-        for item in self.splicelog.iter(offs):
-            yield item
+        for offs, nexsoff in self.splicelog.iter(offs):
+            yield (offs, self.nexsroot.nexuslog.get(nexsoff)[2][0])
 
         # FIXME:  discuss: use offsets instead of window?
         async with self.getSpliceWindow() as wind:
-            async for item in wind:
-                yield self.nexsroot.nexuslog.get(item)
+            async for offs, nexsoff in wind:
+                yield (offs, self.nexsroot.nexuslog.get(nexsoff)[2][0])
+
+    @contextlib.asynccontextmanager
+    async def getSpliceWindow(self):
+
+        async with await s_queue.Window.anit(maxsize=10000) as wind:
+
+            async def fini():
+                self.windows.remove(wind)
+
+            wind.onfini(fini)
+
+            self.windows.append(wind)
+
+            yield wind
+
+    def getSpliceOffset(self):
+        return self.splicelog.index()
+
+    async def waitUpstreamOffs(self, offs):
+        evnt = asyncio.Event()
+
+        if self.getSpliceOffset() >= offs:
+            evnt.set()
+        else:
+            self.upstreamwaits[offs].append(evnt)
+
+        return evnt
 
     #async def setModelVers(self, vers):  # pragma: no cover
         #raise NotImplementedError
