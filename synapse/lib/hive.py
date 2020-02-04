@@ -733,48 +733,6 @@ class HiveDict(s_base.Base):
 
         return retn
 
-# FIXME, un-nexify, merge into stormtypes.StormDict, call new cortex methods
-class NexusHiveDict(s_nexus.Pusher):
-    '''
-    A change-distributed HiveDict wrapper
-    '''
-    async def __anit__(self, hivedict, nexsroot=None):
-        iden = ':'.join(hivedict.node.full)
-        await s_nexus.Pusher.__anit__(self, iden, nexsroot=nexsroot)
-        self.dict = hivedict
-
-    def get(self, name, onedit=None, default=None):
-        return self.dict.get(name, onedit=onedit, default=default)
-
-    async def set(self, name, valu):
-        return await self._push('hivedict:set', name, valu)
-
-    @s_nexus.Pusher.onPush('hivedict:set')
-    async def _onSet(self, name, valu):
-        return await self.dict.set(name, valu)
-
-    async def setdefault(self, name, valu):
-        return await self._push('hivedict:setdefault', name, val)
-
-    @s_nexus.Pusher.onPush('hivedict:setdefault')
-    def _onSetdefault(self, name, valu):
-        return self.dict.setdefault(name, valu)
-
-    async def pop(self, name, default=None):
-        return await self._push('hivedict:pop', name, default)
-
-    @s_nexus.Pusher.onPush('hivedict:pop')
-    async def _onPop(self, name, default=None):
-        return await self.dict.pop(name, default=default)
-
-    def items(self):
-        for item in self.dict.items():
-            yield item
-
-    def values(self):
-        for item in self.dict.values():
-            yield item
-
 # FIXME: move to separate file
 class HiveAuth(s_nexus.Pusher):
     '''
@@ -945,7 +903,7 @@ class HiveAuth(s_nexus.Pusher):
 
         return user
 
-    @s_nexus.Pusher.onPush('user:name')
+    @s_nexus.Pusher.onPushAuto('user:name')
     async def setUserName(self, iden, name):
 
         if self.usersbyname.get(name) is not None:
@@ -955,7 +913,7 @@ class HiveAuth(s_nexus.Pusher):
         user.name = name
         await user.node.set(name)
 
-    @s_nexus.Pusher.onPush('role:name')
+    @s_nexus.Pusher.onPushAuto('role:name')
     async def setRoleName(self, iden, name):
 
         if self.rolesbyname.get(name) is not None:
@@ -965,7 +923,7 @@ class HiveAuth(s_nexus.Pusher):
         role.name = name
         await role.node.set(name)
 
-    @s_nexus.Pusher.onPush('user:info')
+    @s_nexus.Pusher.onPushAuto('user:info')
     async def setUserInfo(self, iden, name, valu, gateiden=None):
 
         user = await self.reqUser(iden)
@@ -979,17 +937,31 @@ class HiveAuth(s_nexus.Pusher):
         # since any user info *may* effect auth
         user.clearAuthCache()
 
-    @s_nexus.Pusher.onPush('user:var')
+    async def getUserVar(self, iden, name, default=None):
+        user = await self.reqUser(iden)
+        return user.vars.get(name, default=default)
+
+    @s_nexus.Pusher.onPushAuto('user:var:set')
     async def setUserVar(self, iden, name, valu):
         user = await self.reqUser(iden)
         await user.vars.set(name, valu)
 
-    @s_nexus.Pusher.onPush('user:profile')
+    @s_nexus.Pusher.onPushAuto('user:var:pop')
+    async def popUserVar(self, iden, name, default=None):
+        user = await self.reqUser(iden)
+        return await user.vars.pop(name, default=default)
+
+    async def itemsUserVar(self, iden):
+        user = await self.reqUser(iden)
+        for item in user.vars.items():
+            yield item
+
+    @s_nexus.Pusher.onPushAuto('user:profile')
     async def setUserProfile(self, iden, name, valu):
         user = await self.reqUser(iden)
         await user.profile.set(name, valu)
 
-    @s_nexus.Pusher.onPush('role:info')
+    @s_nexus.Pusher.onPushAuto('role:info')
     async def setRoleInfo(self, iden, name, valu, gateiden=None):
         role = await self.reqRole(iden)
 
@@ -1098,6 +1070,7 @@ class HiveAuth(s_nexus.Pusher):
 
         return await self._addRoleNode(node)
 
+    @s_nexus.Pusher.onPushAuto('user:del')
     async def delUser(self, name):
 
         if name == 'root':
@@ -1106,13 +1079,6 @@ class HiveAuth(s_nexus.Pusher):
         user = await self.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(name=name)
-
-        return await self._push('user:del', user.iden)
-
-    @s_nexus.Pusher.onPush('user:del')
-    async def _onDelUser(self, iden):
-
-        user = self.user(iden)
 
         self.usersbyiden.pop(user.iden)
         self.usersbyname.pop(user.name)
@@ -1127,11 +1093,8 @@ class HiveAuth(s_nexus.Pusher):
             if role.iden in user.info.get('roles', ()):
                 yield user
 
+    @s_nexus.Pusher.onPushAuto('role:del')
     async def delRole(self, name):
-        return await self._push('role:del', name)
-
-    @s_nexus.Pusher.onPush('role:del')
-    async def _onDelRole(self, name):
 
         if name == 'all':
             raise s_exc.CantDelAllRole(mesg='role "all" may not be deleted')
@@ -1391,36 +1354,28 @@ class HiveUser(HiveRuler):
 
         perm, default, gateiden = pkey
 
-        #print('AUTH CACHE MISS %r %r %r' % (perm, default, gateiden))
-
         if self.info.get('locked'):
-            #print('LOCKED')
             return False
 
         if self.info.get('admin'):
-            #print('ADMIN')
             return True
 
         # 1. check authgate user rules
         if gateiden is not None:
 
             info = self.authgates.get(gateiden)
-            #print('GATE INFO %r %r' % (gateiden, info))
             if info is not None:
 
                 if info.get('admin'):
-                    #print('GATE USER ADMIN %r' % (gateiden,))
                     return True
 
                 for allow, path in info.get('rules', ()):
                     if perm[:len(path)] == path:
-                        #print('GATE USER RULE %r %r' % (allow, path))
                         return allow
 
         # 2. check user rules
         for allow, path in self.info.get('rules', ()):
             if perm[:len(path)] == path:
-                #print('USER RULE %r %r' % (allow, path))
                 return allow
 
         # 3. check authgate role rules
@@ -1434,17 +1389,14 @@ class HiveUser(HiveRuler):
 
                 for allow, path in info.get('rules', ()):
                     if perm[:len(path)] == path:
-                        #print('GATE ROLE RULE %r %r %r' % (role.name, allow, path))
                         return allow
 
         # 4. check role rules
         for role in self.getRoles():
             for allow, path in role.info.get('rules', ()):
                 if perm[:len(path)] == path:
-                    #print('ROLE RULE %r %r %r' % (role.name, allow, path))
                     return allow
 
-        #print('DEFAULT %r' % (default,))
         return default
 
     def clearAuthCache(self):

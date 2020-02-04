@@ -226,6 +226,31 @@ class HiveTest(s_test.SynTest):
                 await auth.delUser('visi@vertex.link')
                 self.false(user.allowed(('baz', 'faz')))
 
+    async def test_hive_uservar(self):
+
+        async with self.getTestHive() as hive:
+
+            node = await hive.open(('hive', 'auth'))
+
+            async with await s_hive.HiveAuth.anit(node) as auth:
+
+                user = await auth.addUser('visi@vertex.link')
+                iden = user.iden
+
+                await self.asyncraises(s_exc.NoSuchUser, auth.getUserVar('xxx', 'foo'))
+
+                await auth.setUserVar(iden, 'foo', 42)
+                self.eq(42, await auth.getUserVar(iden, 'foo'))
+
+                await auth.setUserVar(iden, 'bar', ('a', 'b'))
+                vals = await alist(auth.itemsUserVar(iden))
+                self.eq((('foo', 42), ('bar', ('a', 'b'))), vals)
+
+                self.eq(('a', 'b'), await auth.popUserVar(iden, 'bar'))
+
+                vals = await alist(auth.itemsUserVar(iden))
+                self.eq((('foo', 42),), vals)
+
     async def test_hive_dir(self):
 
         async with self.getTestHive() as hive:
