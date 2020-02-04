@@ -160,6 +160,9 @@ STOR_TYPE_TAG = 16
 STOR_TYPE_FQDN = 17
 STOR_TYPE_IPV6 = 18
 
+STOR_TYPE_U128 = 19
+STOR_TYPE_I128 = 20
+
 # STOR_TYPE_TOMB      = ??
 # STOR_TYPE_FIXED     = ??
 
@@ -322,11 +325,17 @@ class StorTypeUtf8(StorType):
             '=': self._liftUtf8Eq,
             '~=': self._liftUtf8Regx,
             '^=': self._liftUtf8Prefix,
+            'range=': self._liftUtf8Range,
         })
 
     def _liftUtf8Eq(self, liftby, valu):
         indx = self._getIndxByts(valu)
         yield from liftby.buidsByDups(indx)
+
+    def _liftUtf8Range(self, liftby, valu):
+        minindx = self._getIndxByts(valu[0])
+        maxindx = self._getIndxByts(valu[1])
+        yield from liftby.buidsByRange(minindx, maxindx)
 
     def _liftUtf8Regx(self, liftby, valu):
         regx = regex.compile(valu)
@@ -542,8 +551,18 @@ class StorTypeGuid(StorType):
         return (s_common.uhex(valu),)
 
 class StorTypeTime(StorTypeInt):
+
     def __init__(self, layr):
         StorTypeInt.__init__(self, layr, STOR_TYPE_TIME, 8, True)
+        self.lifters.update({
+            '@=': self._liftAtIval,
+        })
+
+    def _liftAtIval(self, liftby, valu):
+        minindx = self.getIntIndx(valu[0])
+        maxindx = self.getIntIndx(valu[1] - 1)
+        for lkey, buid in liftby.scanByRange(minindx, maxindx):
+            yield buid
 
 class StorTypeIval(StorType):
 
@@ -561,17 +580,19 @@ class StorTypeIval(StorType):
 
     def _liftIvalAt(self, liftby, valu):
 
-        indx = self.timetype.getIntIndx(valu[0])
+        minindx = self.timetype.getIntIndx(valu[0])
+        maxindx = self.timetype.getIntIndx(valu[1])
 
-        for lkey, buid in liftby.scanByPref(indx):
+        for lkey, buid in liftby.scanByPref():
 
-            tick = s_common.int64un(lkey[32:40])
-            tock = s_common.int64un(lkey[40:48])
+            tick = lkey[-16:-8]
+            tock = lkey[-8:]
 
-            if tick > valu[1]:
+            # check for non-ovelap left and right
+            if tick >= maxindx:
                 continue
 
-            if tock < valu[0]:
+            if tock <= minindx:
                 continue
 
             yield buid
@@ -682,10 +703,6 @@ class Layer(s_nexus.Pusher):
         if conf is None:
             conf = {}
 
-        confpath = s_common.genpath(self.dirn, 'layer.yaml')
-        if os.path.isfile(confpath):
-            [conf.setdefault(k, v) for (k, v) in s_common.yamlload(confpath).items()]
-
         self.conf = s_common.config(conf, self.confdefs)
 
         self.lockmemory = self.conf.get('lockmemory')
@@ -756,6 +773,9 @@ class Layer(s_nexus.Pusher):
             StorTypeTag(self),
             StorTypeFqdn(self),
             StorTypeIpv6(self),
+
+            StorTypeInt(self, STOR_TYPE_U128, 16, False),
+            StorTypeInt(self, STOR_TYPE_I128, 16, True),
 
         ]
 
