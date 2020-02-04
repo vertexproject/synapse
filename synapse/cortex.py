@@ -2400,11 +2400,6 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def addView(self, vdef):
 
         vdef.setdefault('iden', s_common.guid())
-        return await self._push('view:add', vdef)
-
-    @s_nexus.Pusher.onPush('view:add')
-    async def _addView(self, vdef):
-
         vdef.setdefault('parent', None)
         vdef.setdefault('worldreadable', False)
         vdef.setdefault('creator', self.auth.rootuser.iden)
@@ -2412,11 +2407,14 @@ class Cortex(s_cell.Cell):  # type: ignore
         creator = vdef.get('creator')
         user = await self.auth.reqUser(creator)
 
+        # this should not get saved
+        worldread = vdef.pop('worldreadable')
+
         view = await self._push('view:add', vdef)
 
         await user.setAdmin(True, gateiden=view.iden)
 
-        if vdef.get('worldreadable'):
+        if worldread:
             role = await self.auth.getRoleByName('all')
             await role.addRule((True, ('view', 'read')), gateiden=view.iden)
 
