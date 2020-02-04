@@ -119,10 +119,11 @@ class CoreApi(s_cell.CellApi):
         iden = (opts or {}).get('view')
         return await self._getView(iden)
 
-    async def _getView(self, view):
-        view = self.cell.getView(view)
+    async def _getView(self, iden):
+
+        view = self.cell.getView(iden)
         if view is None:
-            raise s_exc.NoSuchView(iden=view)
+            raise s_exc.NoSuchView(iden=iden)
 
         self.user.confirm(('view', 'read'), gateiden=view.iden)
 
@@ -2436,13 +2437,21 @@ class Cortex(s_cell.Cell):  # type: ignore
         vdef['iden'] = s_common.guid()
 
         vdef.setdefault('parent', None)
-        vdef.setdefault('worldreadable', True)
+        vdef.setdefault('worldreadable', False)
         vdef.setdefault('creator', self.auth.rootuser.iden)
 
         creator = vdef.get('creator')
-        await self.auth.reqUser(creator)
+        user = await self.auth.reqUser(creator)
 
-        return await self._push('view:add', vdef)
+        view = await self._push('view:add', vdef)
+
+        await user.setAdmin(True, gateiden=view.iden)
+
+        if vdef.get('worldreadable'):
+            role = await self.auth.getRoleByName('all')
+            await role.addRule((True, ('view', 'read')), gateiden=view.iden)
+
+        return view
 
     @s_nexus.Pusher.onPush('view:add')
     async def _addView(self, vdef):
@@ -2457,14 +2466,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         view = await s_view.View.anit(self, node)
         self.views[iden] = view
 
-        if vdef.get('worldreadable'):
-            rulr = await self.auth.getRoleByName('all', gateiden=iden)
-            await rulr._addRule((True, ('view', 'read')))
-
-        creator = vdef.get('creator')
-        user = await self.auth.reqUser(creator, gateiden=iden)
-
-        await user.setAdmin(True)
+        await self.auth.addAuthGate(iden, 'view')
 
         await self.bumpSpawnPool()
         return view
@@ -2493,12 +2495,14 @@ class Cortex(s_cell.Cell):  # type: ignore
             # TODO probably need a retn convention here...
             raise s_exc.NoSuchView(iden=iden)
 
-        if view.parent is not None:
-            await self.delLayer(view.layers[0].iden)
-            await view.layers[0].delete()
+        #if view.parent is not None:
+            #await self.delLayer(view.layers[0].iden)
+            #await view.layers[0].delete()
 
         await self.hive.pop(('cortex', 'views', iden))
         await view.delete()
+
+        await self.auth.delAuthGate(iden)
 
         await self.bumpSpawnPool()
 
@@ -2616,6 +2620,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         iden = ldef.get('iden')
         await self._reqValidLayerDef(ldef)
 
+        creator = ldef.get('creator')
+
+        user = await self.auth.reqUser(creator)
+
         node = await self.hive.open(('cortex', 'layers', iden))
 
         layrinfo = await node.dict()
@@ -2623,11 +2631,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await layrinfo.set(name, valu)
 
         layr = await self._initLayr(layrinfo)
-
-        creator = ldef.get('creator')
-        user = await self.auth.reqUser(creator, gateiden=iden)
-
-        await user.setAdmin(True)
+        await user.setAdmin(True, gateiden=iden)
 
         # forward wind the new layer to the current model version
         await layr.setModelVers(s_modelrev.maxvers)

@@ -310,8 +310,6 @@ class View(s_nexus.Pusher):  # type: ignore
         if vdef is None:
             vdef = {}
 
-        wlyr = self.layers[-1]
-
         layr = await self.core.addLayer(ldef)
 
         vdef['parent'] = self.iden
@@ -601,12 +599,8 @@ class View(s_nexus.Pusher):  # type: ignore
         Delete the metadata for this view.
 
         Note: this does not delete any layer storage.
-
-        FIXME:  change dist?
         '''
         await self.fini()
-        await self.core.auth.delAuthGate(self.iden)
-
         for (iden, _) in self.triggers.list():
             self.triggers.delete(iden)
 

@@ -56,6 +56,7 @@ class ChangeDist(s_base.Base):
         return True
 
 class NexsRoot(s_base.Base):
+
     async def __anit__(self, dirn: str):  # type: ignore
         await s_base.Base.__anit__(self)
 

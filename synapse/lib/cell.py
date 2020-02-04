@@ -42,7 +42,7 @@ def adminapi(f):
     @functools.wraps(f)
     def func(*args, **kwargs):
 
-        if args[0].user is not None and not args[0].user.admin:
+        if args[0].user is not None and not args[0].user.isAdmin():
             raise s_exc.AuthDeny(mesg='User is not an admin.',
                                  user=args[0].user.name)
 
@@ -136,7 +136,7 @@ class CellApi(s_base.Base):
         to impersonate a user.  Used mostly by services
         that manage their own authentication/sessions.
         '''
-        if not self.user.admin:
+        if not self.user.isAdmin():
             mesg = 'setCellUser() caller must be admin.'
             raise s_exc.AuthDeny(mesg=mesg)
 
@@ -227,34 +227,44 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def addUserRule(self, name, rule, indx=None, gateiden=None):
-        user = await self.cell.auth.reqUserByName(name, gateiden=gateiden)
-        retn = await user.addRule(rule, indx=indx)
+        user = await self.cell.auth.reqUserByName(name)
+        retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
         #await self.cell.fire('user:mod', act='addrule', name=name, rule=rule, indx=indx, iden=iden)
         return retn
 
     @adminapi
     async def addRoleRule(self, name, rule, indx=None, gateiden=None):
-        role = await self.cell.auth.reqRoleByName(name, gateiden=gateiden)
-        retn = await role.addRule(rule, indx=indx)
+        role = await self.cell.auth.reqRoleByName(name)
+        retn = await role.addRule(rule, indx=indx, gateiden=gateiden)
         # FIXME what are these for ( and the need to be role:mod if we're keeping them )
         #await self.cell.fire('user:mod', act='addrule', name=name, rule=rule, indx=indx, iden=iden)
         return retn
 
     @adminapi
+    async def delUserRule(self, name, rule, gateiden=None):
+        user = await self.cell.auth.reqUserByName(name)
+        return await user.delRule(rule, gateiden=gateiden)
+
+    @adminapi
+    async def delRoleRule(self, name, rule, gateiden=None):
+        role = await self.cell.auth.reqRoleByName(name)
+        return await role.delRule(rule, gateiden=gateiden)
+
+    @adminapi
     async def setUserAdmin(self, name, admin, gateiden=None):
-        user = await self.cell.auth.reqUserByName(name, gateiden=gateiden)
-        await user.setAdmin(admin)
+        user = await self.cell.auth.reqUserByName(name)
+        await user.setAdmin(admin, gateiden=gateiden)
 
     @adminapi
     async def setRoleAdmin(self, name, admin, gateiden=None):
-        role = await self.cell.auth.reqRoleByName(name, gateiden=gateiden)
-        await role.setAdmin(admin)
+        role = await self.cell.auth.reqRoleByName(name)
+        await role.setAdmin(admin, gateiden=gateiden)
 
     async def setUserPasswd(self, name, passwd):
         user = await self.cell.auth.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(user=name)
-        if not (self.user.admin or self.user.iden == user.iden):
+        if not (self.user.isAdmin() or self.user.iden == user.iden):
             raise s_exc.AuthDeny(mesg='Cannot change user password.', user=user.name)
 
         await user.setPasswd(passwd)
@@ -317,7 +327,7 @@ class CellApi(s_base.Base):
         pack = item.pack()
         item_iden = pack.get('iden')
 
-        if self.user.admin or \
+        if self.user.isAdmin() or \
                 (pack.get('type') == 'user' and self.user.iden == item_iden) or \
                 (pack.get('type') == 'role' and self.user.hasRole(item_iden)):
             # translate role guids to names for back compat
