@@ -282,7 +282,6 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
     async def runCmdOpts(self, opts):
         mesg = 'The trigger command will be deprecated in 0.2.x, ' \
                'triggers should be accessed via storm commands instead'
-        warnings.filterwarnings("default", category=PendingDeprecationWarning)
         warnings.warn(mesg, PendingDeprecationWarning)
 
         line = opts.get('line')

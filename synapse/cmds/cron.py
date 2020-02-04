@@ -574,7 +574,6 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
     async def runCmdOpts(self, opts):
         mesg = 'The cron command will be deprecated in 0.2.x, ' \
                'cron jobs should be accessed via storm commands instead'
-        warnings.filterwarnings("default", category=PendingDeprecationWarning)
         warnings.warn(mesg, PendingDeprecationWarning)
 
         line = opts.get('line')
