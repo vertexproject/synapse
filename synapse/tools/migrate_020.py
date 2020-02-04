@@ -2,18 +2,17 @@
 Migrate storage from 0.1.x to 0.2.x.
 
 TODO:
-    - Handling multiple layers - right now src/dest are layer dirns
-    - Inplace migration or always assume "Fresh" 0.2.0 cortex migrating into?
-    - .created may not be moving over for all nodes?
-    - Track unmigrated nodes
+    - Support non-inplace migration?
+    - Track unmigrated nodes / errors
     - Tagprops
     - Handling for pause/restart
     - Benchmarking / metrics
-    - Validation
+    - Validation (esp. check .created)
     - Extended models
     - Other stuff besides nodes/tags
     - Prompt and/or execute a backup?
     - Add ability to do a specific step on a specifc layer?
+    - Any migr for views?  Need to iter over views?
 '''
 import os
 import sys
@@ -59,11 +58,8 @@ class Migrator(s_base.Base):
         self.onfini(self.hive.fini)
         self.onfini(self.hiveslab.fini)
 
-        # get layer idens
-        self.lyridens = os.listdir(os.path.join(self.dirn, 'layers'))
-
-        # create a new storage iden
-        self.storiden = s_common.guid()
+        # backup hive by deafult? Or cp to new cell_v2 and then replace?
+        # TODO
 
     #############################################################
     # Migration operations
@@ -73,18 +69,69 @@ class Migrator(s_base.Base):
         '''
         Execute the migration
         '''
+        # auth migration
+        await self._migrHiveAuth()  # TODO
 
-        # layer migration
-        for iden in self.lyridens:
-            logger.info(f'Starting migration for layer {iden}')
-            await self._migrateNodes(iden)
-            await self._migrateLayerInfo(iden)
+        # storage info migration
+        storinfo, layridens = await self._migrHiveStorInfo()
 
-    async def _migrateLayerInfo(self, iden):
+        # full layer migration
+        for iden in layridens:
+            logger.info(f'Starting migration for storage {storinfo.get("iden")} and layer {iden}')
+            await self._migrNodes(storinfo, iden)
+            # await self._migrNodeData(foo)
+            # await self._migrSplices(foo)
+            # await self._migrOffsets(foo)
+            await self._migrHiveLayerInfo(storinfo, iden)
+
+    async def _migrHiveAuth(self):
         '''
+        TODO right now just blowing away authgates to allow startup
+        '''
+        await self.hive.pop(('auth', 'authgates'))
+
+    async def _migrHiveStorInfo(self):
+        '''
+        Migrate to new storage info syntax.
 
         Returns:
+            (dict): Storage information
+            (list): List of layer idens
+        '''
+        # Set storage information
+        storiden = s_common.guid()
+        stornode = await self.hive.open(('cortex', 'storage', storiden))
+        stordict = await stornode.dict()
 
+        await stordict.set('iden', storiden)
+        await stordict.set('type', 'local')
+        await stordict.set('conf', {})
+
+        storinfo = {
+            'iden': storiden,
+            'type': 'local',
+            'conf': {},
+        }
+
+        # Set default storage
+        await self.hive.set(('cellinfo', 'layr:stor:default'), storiden)
+
+        # Get existing layers
+        layridens = []
+        for iden, layrnode in await self.hive.open(('cortex', 'layers')):
+            layridens.append(iden)
+
+        # TODO: teardown of unneeded data
+
+        return storinfo, layridens
+
+    async def _migrHiveLayerInfo(self, storinfo, iden):
+        '''
+        As each layer is migrated update the hive info.
+
+        Args:
+            storinfo (dict): Storage information
+            iden (str): Iden of the layer
         '''
         # get existing data from the hive
         lyrnode = await self.hive.open(('cortex', 'layers', iden))
@@ -103,32 +150,37 @@ class Migrator(s_base.Base):
                 creator = uiden
 
         if creator is None:
-            raise Exception('Unable to add creator')  # TODO: handle this
+            raise Exception('Unable to add creator')  # TODO: handle this differently
 
         # conf
+        # TODO should be translating existing config?
         conf = {'lockmemory': True}
 
-        # update layer info
+        # remove remaining 0.1.x keys
+        # TODO check whether we should be keeping these...
         await layrinfo.pop('name')
         await layrinfo.pop('type')
         await layrinfo.pop('config')
+
+        # update layer info for 0.1.x
         await layrinfo.set('iden', iden)
         await layrinfo.set('creator', creator)
         await layrinfo.set('conf', conf)
-        await layrinfo.set('stor', self.storiden)
+        await layrinfo.set('stor', storinfo.get('iden'))
 
-        # update cortex storage
-        # TODO
-
-    async def _migrateNodes(self, iden):
+    async def _migrNodes(self, storinfo, iden):
         '''
         Migrate nodes for a given layer
+
+        Args:
+            storinfo (dict): Storage information dict
+            iden (str): Iden of the layer
 
         Returns:
             (dict): For all form types a tuple (src_cnt, dest_cnt)
         '''
         # open storage
-        dest_wlyr = await self._destGetWlyr(self.dirn, iden)
+        dest_wlyr = await self._destGetWlyr(self.dirn, storinfo, iden)
 
         path = os.path.join(self.dirn, 'layers', iden, 'layer.lmdb')
         src_slab = await s_lmdbslab.Slab.anit(path, map_async=True, readonly=True)
@@ -163,6 +215,7 @@ class Migrator(s_base.Base):
                 sodes = await self._destAddNodes(dest_wlyr, nodeedits)
                 if sodes is None or len(sodes) != editchnks:
                     logger.error(f'Unable to add destination node: {nodeedits}, {sodes}')
+                    # TODO: verify whether this is valid chunk error condition
                     # TODO: Log error nodes
                 nodeedits = []
                 await asyncio.sleep(0)
@@ -173,19 +226,19 @@ class Migrator(s_base.Base):
             if sodes is None or len(sodes) != editchnks:
                 logger.error(f'Unable to add destination node: {nodeedits}, {sodes}')
                 # TODO: Log error nodes
+
         t_end = time.time()
         t_dur = int(t_end - t_strt)
 
         # collect final form count stats
         dest_fcnt = await dest_wlyr.getFormCounts()
-        fkeys = set(list(src_fcnt.keys()) + list(dest_fcnt.keys()))
-        fcnt = {f: [src_fcnt.get(f, '0'), dest_fcnt.get(f, '0')] for f in fkeys}
+        fcnt = {f: [v, dest_fcnt.get(f, '0')] for f, v in src_fcnt.items()}
         totnodes = sum([v[1] for v in fcnt.values()])
 
         # for testing, iterate over the forms and print a report
         # TODO: Move to an optional reporting method or delete
         rprt = ['\n', '{:<25s}{:<10s}{:<10s}{:<10s}'.format('FORM', 'SRC_CNT', 'DEST_CNT', 'LIFT_CNT')]
-        for form in fkeys:
+        for form in src_fcnt.keys():
             sode_cnt = 0
             async for sode in dest_wlyr.liftByProp(form, None):
                 sode_cnt += 1
@@ -346,21 +399,17 @@ class Migrator(s_base.Base):
     # Destination (0.2.0) operations
     #############################################################
 
-    async def _destGetWlyr(self, dirn, iden):
+    async def _destGetWlyr(self, dirn, storinfo, iden):
         '''
         Get the write Layer object for the destination.
 
         Args:
+            storinfo (dict): Storage information dict
             iden (str): iden of the layer to create object for
 
         Returns:
             (synapse.lib.Layer): Write layer
         '''
-        info = {
-            'iden': self.storiden,
-            'type': 'local',
-            'conf': {},
-        }
         layrinfo = {
             'iden': iden,
             'readonly': False,
@@ -369,7 +418,7 @@ class Migrator(s_base.Base):
             },
         }
         path = os.path.join(dirn, 'layers')
-        lyrstor = await s_layer.LayerStorage.anit(info, path)
+        lyrstor = await s_layer.LayerStorage.anit(storinfo, path)
         self.onfini(lyrstor)
         wlyr = await lyrstor.initLayr(layrinfo)
         self.onfini(wlyr)
