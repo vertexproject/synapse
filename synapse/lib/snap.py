@@ -590,12 +590,12 @@ class Snap(s_base.Base):
 
                 yield node
 
-    def getNodeAdds(self, form, valu, props=None):
+    def getNodeAdds(self, form, valu, props=None, addnode=True):
 
         tick = s_common.now()
 
         # TODO consider nesting these to allow short circuit on existing
-        def recurse(f, v, p):
+        def recurse(f, v, p, doadd=True):
 
             edits = []
 
@@ -603,7 +603,8 @@ class Snap(s_base.Base):
 
             buid = s_common.buid((f.name, formnorm))
 
-            edits.append((s_layer.EDIT_NODE_ADD, (formnorm, f.type.stortype)))
+            if doadd:
+                edits.append((s_layer.EDIT_NODE_ADD, (formnorm, f.type.stortype)))
 
             formsubs = forminfo.get('subs')
             if formsubs is not None:
@@ -616,6 +617,8 @@ class Snap(s_base.Base):
                 if prop is None:
                     continue
 
+                assert prop.type.stortype is not None
+
                 if isinstance(prop.type, s_types.Ndef):
                     ndefname, ndefvalu = propvalu
                     ndefform = self.model.form(ndefname)
@@ -625,8 +628,28 @@ class Snap(s_base.Base):
                     for item in recurse(ndefform, ndefvalu, {}):
                         yield item
 
+                if isinstance(prop.type, s_types.Array):
+                    arrayform = self.model.form(prop.type.arraytype.name)
+                    if arrayform is not None:
+                        for arrayvalu in propvalu:
+                            for e in recurse(arrayform, arrayvalu, {}):
+                                yield e
+
                 propnorm, typeinfo = prop.type.norm(propvalu)
                 edits.append((s_layer.EDIT_PROP_SET, (propname, propnorm, None, prop.type.stortype)))
+
+                propsubs = typeinfo.get('subs')
+                if propsubs is not None:
+                    for subname, subvalu in propsubs.items():
+                        fullname = f'{prop.full}:{subname}'
+                        subprop = self.model.prop(fullname)
+                        if subprop is None:
+                            continue
+
+                        assert subprop.type.stortype is not None
+
+                        subnorm, subinfo = subprop.type.norm(subvalu)
+                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype)))
 
                 propform = self.model.form(prop.type.name)
                 if propform is None:
@@ -640,7 +663,7 @@ class Snap(s_base.Base):
         if props is None:
             props = {}
 
-        return list(recurse(form, valu, props))
+        return list(recurse(form, valu, props, doadd=addnode))
 
     async def addNodeEdit(self, edit):
         nodes = await self.addNodeEdits((edit,))
@@ -990,6 +1013,17 @@ class Snap(s_base.Base):
                     if tags is not None:
                         for tag, asof in tags.items():
                             await node.addTag(tag, valu=asof)
+
+                    tagprops = forminfo.get('tagprops', {})
+                    if tagprops is not None:
+                        for tag, props in tagprops.items():
+                            for prop, valu in props.items():
+                                try:
+                                    await node.setTagProp(tag, prop, valu)
+                                except s_exc.NoSuchTagProp:
+                                    mesg = f'Tagprop [{prop}] does not exist, cannot set it on [{formname}={formvalu}]'
+                                    logger.warning(mesg)
+                                    continue
 
                 yield node
 

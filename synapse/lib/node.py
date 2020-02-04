@@ -240,38 +240,10 @@ class Node:
             if curv == norm:
                 return False
 
-        edits = []
-        nodeedits = [(self.buid, prop.form.name, edits), ]
+        props = {prop.name: norm}
+        splice = self.snap.getNodeAdds(self.form, self.ndef[1], props, addnode=False)
 
-        edits.append((s_layer.EDIT_PROP_SET, (prop.name, norm, curv, prop.type.stortype)))
-
-        if self.snap.model.form(prop.type.name) is not None:
-            addbuid = s_common.buid((prop.type.name, norm))
-            addedits = [(s_layer.EDIT_NODE_ADD, (norm, prop.type.stortype))]
-            nodeedits.insert(0, (addbuid, prop.type.name, addedits))
-
-        # do we need to set any sub props?
-        subs = info.get('subs')
-        if subs is not None:
-
-            for subname, subvalu in subs.items():
-
-                full = prop.name + ':' + subname
-
-                subprop = self.form.prop(full)
-                if subprop is None:
-                    continue
-
-                if self.snap.model.form(subprop.type.name) is not None:
-                    addbuid = s_common.buid((subprop.type.name, subvalu))
-                    addedits = [(s_layer.EDIT_NODE_ADD, (subvalu, subprop.type.stortype))]
-                    nodeedits.insert(0, (addbuid, subprop.type.name, addedits))
-
-                curv = self.props.get(subname)
-
-                edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subvalu, curv, subprop.type.stortype)))
-
-        await self.snap.addNodeEdits(nodeedits)
+        await self.snap.addNodeEdits(splice)
 
         return True
 
@@ -618,7 +590,8 @@ class Node:
 
         prop = self.snap.model.getTagProp(name)
         if prop is None:
-            raise s_exc.NoSuchTagProp(name=name)
+            raise s_exc.NoSuchTagProp(mesg='Tag prop does not exist in this Cortex.',
+                                      name=name)
 
         try:
             norm, info = prop.type.norm(valu)

@@ -121,7 +121,6 @@ class TypesTest(s_t_utils.SynTest):
                     r, subs = t.norm(v)
                     self.isinstance(r, str)
                     self.eq(subs, {})
-                    self.eq(t.indx(r), b)
                 else:
                     self.raises(b, t.norm, v)
 
@@ -141,7 +140,6 @@ class TypesTest(s_t_utils.SynTest):
                     r, subs = t.norm(v)
                     self.isinstance(r, str)
                     self.eq(subs, {})
-                    self.eq(t.indx(r), b)
                 else:
                     self.raises(b, t.norm, v)
 
@@ -171,7 +169,7 @@ class TypesTest(s_t_utils.SynTest):
                 nodes = await snap.nodes('test:hexa=dead*')
                 self.len(5, nodes)
 
-                nodes = await snap.nodes('test:hexa=deadbe*')
+                nodes = await snap.nodes('test:hexa=deadb3*')
                 self.len(3, nodes)
 
                 nodes = await snap.nodes('test:hexa=deadb33fb3*')
@@ -226,14 +224,6 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(t.norm(True)[0], 1)
         self.eq(t.norm(False)[0], 0)
 
-        # Index tests
-        self.eq(t.indx(-2**63), b'\x00\x00\x00\x00\x00\x00\x00\x00')
-        self.eq(t.indx(-1), b'\x7f\xff\xff\xff\xff\xff\xff\xff')
-        self.eq(t.indx(0), b'\x80\x00\x00\x00\x00\x00\x00\x00')
-        self.eq(t.indx(1), b'\x80\x00\x00\x00\x00\x00\x00\x01')
-        self.eq(t.indx(2**63 - 1), b'\xff\xff\xff\xff\xff\xff\xff\xff')
-        self.raises(OverflowError, t.indx, 2**63)
-
         # Test merge
         self.eq(30, t.merge(20, 30))
         self.eq(20, t.merge(30, 20))
@@ -254,10 +244,6 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(uint64.norm(0)[0], 0)
         self.eq(uint64.norm(-0)[0], 0)
         self.raises(s_exc.BadTypeValu, uint64.norm, -1)
-        self.eq(uint64.indx(0), b'\x00\x00\x00\x00\x00\x00\x00\x00')
-        self.eq(uint64.indx(2**63), b'\x80\x00\x00\x00\x00\x00\x00\x00')
-        self.eq(uint64.indx((2 * 2**63) - 1), b'\xff\xff\xff\xff\xff\xff\xff\xff')
-        self.raises(OverflowError, uint64.indx, 2 * 2**63)
 
         # Test size, 8bit signed
         int8 = model.type('int').clone({'size': 1})
@@ -266,10 +252,6 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(int8.norm(-128)[0], -128)
         self.raises(s_exc.BadTypeValu, int8.norm, 128)
         self.raises(s_exc.BadTypeValu, int8.norm, -129)
-        self.eq(int8.indx(127), b'\xff')
-        self.eq(int8.indx(0), b'\x80')
-        self.eq(int8.indx(-128), b'\x00')
-        self.raises(OverflowError, int8.indx, 128)
 
         # Test size, 128bit signed
         int128 = model.type('int').clone({'size': 16})
@@ -278,10 +260,6 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(int128.norm(-2**127)[0], -170141183460469231731687303715884105728)
         self.raises(s_exc.BadTypeValu, int128.norm, 170141183460469231731687303715884105728)
         self.raises(s_exc.BadTypeValu, int128.norm, -170141183460469231731687303715884105729)
-        self.eq(int128.indx(2**127 - 1), b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff')
-        self.eq(int128.indx(0), b'\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-        self.eq(int128.indx(-2**127), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-        self.raises(OverflowError, int8.indx, 2**128)
 
         # test both unsigned and signed comparators
         self.true(uint64.cmpr(10, '<', 20))
@@ -325,7 +303,6 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         ival = model.types.get('ival')
 
-        self.eq(b'', ival.indx(None))
         self.eq(('2016/01/01 00:00:00.000', '2017/01/01 00:00:00.000'), ival.repr(ival.norm(('2016', '2017'))[0]))
 
         self.gt(s_common.now(), ival._normRelStr('-1 min'))
@@ -550,7 +527,6 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('us.va', loctype.norm('US.    VA')[0])
         self.eq('', loctype.norm('')[0])
         self.eq('us.va.ओं.reston', loctype.norm('US.    VA.ओं.reston')[0])
-        self.eq(b'us\x00haha\xed\xb3\xbestuff\x00blah\x00', loctype.indx('us.haha\udcfestuff.blah'))
 
         async with self.getTestCore() as core:
             await self.agenlen(1, core.eval('[test:int=1 :loc=us.va.syria]'))
@@ -666,8 +642,6 @@ class TypesTest(s_t_utils.SynTest):
 
         self.eq(t.repr((-10, 0xFF)), ('-10', '255'))
 
-        self.eq(t.indx((0, (2**63) - 1)), b'\x80\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff')
-
         # Invalid Config
         self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': None})
         self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': ('inet:ipv4', {})})  # inet is not loaded yet
@@ -738,7 +712,6 @@ class TypesTest(s_t_utils.SynTest):
 
         lowr = model.type('str').clone({'lower': True})
         self.eq('foo', lowr.norm('FOO')[0])
-        self.eq((('pref', b'bhaha'),), lowr.indxByPref('BHAHA'))
 
         self.eq(True, lowr.cmpr('xxherexx', '~=', 'here'))
         self.eq(False, lowr.cmpr('xxherexx', '~=', '^here'))
@@ -757,26 +730,15 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('a333', regl.norm('a333')[0])
         self.eq('a333', regl.norm('A333')[0])
 
-        self.eq(b'haha', model.type('str').indx('haha'))
         byts = s_common.uhex('e2889e')
-        self.eq(byts, model.type('str').indx('∞'))
 
         # The real world is a harsh place.
-        self.eq(b'haha\xed\xb3\xbe hehe', model.type('str').indx('haha\udcfe hehe'))
-        self.eq(b'haha\xed\xb3\xbe ', model.type('str').indxByPref('haha\udcfe ')[0][1])
-
         strp = model.type('str').clone({'strip': True})
         self.eq('foo', strp.norm('  foo \t')[0])
-        self.eq(b'foo  bar', strp.indxByPref(' foo  bar')[0][1])
-        self.eq(b'foo  bar ', strp.indxByPref(' foo  bar ')[0][1])
 
         onespace = model.type('str').clone({'onespace': True})
         self.eq('foo', onespace.norm('  foo\t')[0])
         self.eq('hehe haha', onespace.norm('hehe    haha')[0])
-        self.eq(b'foo', onespace.indxByPref(' foo')[0][1])
-        self.eq(b'foo bar', onespace.indxByPref(' foo  bar')[0][1])
-        self.eq(b'foo bar', onespace.indxByPref(' foo  bar ')[0][1])
-        self.eq(b'foo ba', onespace.indxByPref(' foo  ba')[0][1])
 
         enums = model.type('str').clone({'enums': 'hehe,haha,zork'})
         self.eq('hehe', enums.norm('hehe')[0])
@@ -838,7 +800,6 @@ class TypesTest(s_t_utils.SynTest):
 
             # explicitly test our "future/ongoing" value...
             future = 0x7fffffffffffffff
-            self.eq(t.indx(future), b'\xff\xff\xff\xff\xff\xff\xff\xff')
             self.eq(t.norm('?')[0], future)
             self.eq(t.norm(future)[0], future)
             self.eq(t.repr(future), '?')
@@ -864,43 +825,37 @@ class TypesTest(s_t_utils.SynTest):
                 node = await snap.addNode('test:str', 'c', {'tick': '2016'})
                 node = await snap.addNode('test:str', 'd', {'tick': 'now'})
 
-            nodes = await core.nodes('test:str:tick=2014'))
+            nodes = await core.nodes('test:str:tick=2014')
             self.eq({node.ndef[1] for node in nodes}, {'a'})
 
-            nodes=await core.nodes('test:str:tick*range=(2014, 2015)')
+            nodes = await core.nodes('test:str:tick*range=(2014, 2015)')
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
 
-            nodes=await core.nodes('test:str:tick=201401*'))
+            nodes = await core.nodes('test:str:tick=201401*')
             self.eq({node.ndef[1] for node in nodes}, {'a'})
 
-            nodes=await core.nodes('test:str:tick*range=("-3000 days", now)')
+            nodes = await core.nodes('test:str:tick*range=("-3000 days", now)')
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b', 'c', 'd'})
 
-            opts={'vars': {'tick': tick, 'tock': tock}}
-            nodes=await core.nodes('test:str:tick*range=($tick, $tock)', opts=opts)
+            opts = {'vars': {'tick': tick, 'tock': tock}}
+            nodes = await core.nodes('test:str:tick*range=($tick, $tock)', opts=opts)
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
 
-            nodes=await core.nodes('test:str:tick*range=(20131231, "+2 days")')
+            nodes = await core.nodes('test:str:tick*range=(20131231, "+2 days")')
             self.eq({node.ndef[1] for node in nodes}, {'a'})
 
-            nodes=await alist(core.eval('test:str:tick*range=(20131231, "+2 days")'))
-            self.eq({node.ndef[1] for node in nodes}, {'a'})
-
-            nodes=await core.nodes('test:str:tick*range=("-1 day", "+1 day")')
+            nodes = await core.nodes('test:str:tick*range=("-1 day", "+1 day")')
             self.eq({node.ndef[1] for node in nodes}, {'d'})
 
-            nodes=await core.nodes('test:str:tick*range=("-1 days", now)')
+            nodes = await core.nodes('test:str:tick*range=("-1 days", now)')
             self.eq({node.ndef[1] for node in nodes}, {'d'})
 
             # Equivalent lift
-            nodes=await core.nodes('test:str:tick*range=(now, "-1 days")')
+            nodes = await core.nodes('test:str:tick*range=(now, "-1 days")')
             self.eq({node.ndef[1] for node in nodes}, {'d'})
             # This is equivalent of the previous lift
 
             self.eq({node.ndef[1] for node in nodes}, {'d'})
-            # Sad path
-            self.raises(s_exc.NoSuchFunc, t.indxByEq, ('', ''))
-            self.raises(s_exc.NoSuchFunc, t.indxByEq, ('?', '-1 day'))
 
             self.true(t.cmpr('2015', '>=', '20140202'))
             self.true(t.cmpr('2015', '>=', '2015'))
@@ -915,7 +870,7 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('test:str +:tick=2015'))
 
             await self.agenlen(1, core.eval('test:str +:tick*range=($test, "+- 2day")',
-                                            opts = {'vars': {'test': '2015'}}))
+                                            opts={'vars': {'test': '2015'}}))
 
             await self.agenlen(1, core.eval('test:str +:tick*range=(now, "-+ 1day")'))
 
@@ -936,36 +891,32 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(0, core.eval('test:str:tick*range=(now, "+1 day")'))
 
             # Sad path for *range=
-            await self.agenraises(s_exc.BadTypeValu,
-                                  core.eval('test:str:tick*range=("+- 1day", "now")'))
-            await self.agenraises(s_exc.BadTypeValu,
-                                  core.eval('test:str:tick*range=("-+ 1day", "now")'))
-            await self.agenraises(s_exc.BadPropValu,
-                                  core.eval('[test:guid="*" :tick="+-1 day"]'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str:tick*range=("+- 1day", "now")')
 
-            with self.raises(s_exc.BadCmprValu):
-                core.eval('test:str:tick*range=(2015)'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str:tick*range=("-+ 1day", "now")')
 
-            with self.raises(s_exc.BadCmprValu):
+            with self.raises(s_exc.BadPropValu):
+                await core.nodes('[test:guid="*" :tick="+-1 day"]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str:tick*range=(2015)')
+
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str:tick*range=$tick', opts={'vars': {'tick': tick}})
 
-            await self.agenraises(s_exc.BadCmprValu,
-                                  core.eval('test:str +:tick*range=(2015)'))
-            await self.agenraises(s_exc.BadCmprValu,
-                                  core.eval('test:str +:tick*range=(2015, 2016, 2017)'))
-            await self.agenraises(s_exc.BadTypeValu,
-                                  core.eval('test:str +:tick*range=("?", "+1 day")'))
-            await self.agenraises(s_exc.BadTypeValu,
-                                  core.eval('test:str +:tick*range=(2000, "?+1 day")'))
-            await self.agenraises(s_exc.BadTypeValu,
-                                  core.eval('test:str:tick*range=("?", "+1 day")'))
-            await self.agenraises(s_exc.BadTypeValu,
-                                  core.eval('test:str:tick*range=(2000, "?+1 day")'))
+            await self.agenraises(s_exc.BadCmprValu, core.eval('test:str +:tick*range=(2015)'))
+            await self.agenraises(s_exc.BadCmprValu, core.eval('test:str +:tick*range=(2015, 2016, 2017)'))
+            await self.agenraises(s_exc.BadTypeValu, core.eval('test:str +:tick*range=("?", "+1 day")'))
+            await self.agenraises(s_exc.BadTypeValu, core.eval('test:str +:tick*range=(2000, "?+1 day")'))
+            await self.agenraises(s_exc.BadTypeValu, core.eval('test:str:tick*range=("?", "+1 day")'))
+            await self.agenraises(s_exc.BadTypeValu, core.eval('test:str:tick*range=(2000, "?+1 day")'))
 
             async with await core.snap() as snap:
-                node=await snap.addNode('test:str', 't1', {'tick': '2018/12/02 23:59:59.000'})
-                node=await snap.addNode('test:str', 't2', {'tick': '2018/12/03'})
-                node=await snap.addNode('test:str', 't3', {'tick': '2018/12/03 00:00:01.000'})
+                node = await snap.addNode('test:str', 't1', {'tick': '2018/12/02 23:59:59.000'})
+                node = await snap.addNode('test:str', 't2', {'tick': '2018/12/03'})
+                node = await snap.addNode('test:str', 't3', {'tick': '2018/12/03 00:00:01.000'})
 
             await self.agenlen(0, core.eval('test:str:tick*range=(2018/12/01, "+24 hours")'))
             await self.agenlen(2, core.eval('test:str:tick*range=(2018/12/01, "+48 hours")'))
@@ -979,24 +930,24 @@ class TypesTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             async with await core.snap() as snap:
-                node=await snap.addNode('test:str', 'a', {'tick': '2014'})
-                node=await snap.addNode('test:int', node.get('tick') + 1)
-                node=await snap.addNode('test:str', 'b', {'tick': '2015'})
-                node=await snap.addNode('test:int', node.get('tick') + 1)
-                node=await snap.addNode('test:str', 'c', {'tick': '2016'})
-                node=await snap.addNode('test:int', node.get('tick') + 1)
-                node=await snap.addNode('test:str', 'd', {'tick': 'now'})
-                node=await snap.addNode('test:int', node.get('tick') + 1)
+                node = await snap.addNode('test:str', 'a', {'tick': '2014'})
+                node = await snap.addNode('test:int', node.get('tick') + 1)
+                node = await snap.addNode('test:str', 'b', {'tick': '2015'})
+                node = await snap.addNode('test:int', node.get('tick') + 1)
+                node = await snap.addNode('test:str', 'c', {'tick': '2016'})
+                node = await snap.addNode('test:int', node.get('tick') + 1)
+                node = await snap.addNode('test:str', 'd', {'tick': 'now'})
+                node = await snap.addNode('test:int', node.get('tick') + 1)
 
-            q='test:int $end=$node.value() test:str:tick*range=(2015, $end) -test:int'
-            nodes=await alist(core.eval(q))
+            q = 'test:int $end=$node.value() test:str:tick*range=(2015, $end) -test:int'
+            nodes = await alist(core.eval(q))
             self.len(6, nodes)
             self.eq({node.ndef[1] for node in nodes}, {'b', 'c', 'd'})
 
     async def test_edges(self):
-        model=s_datamodel.Model()
-        e=model.type('edge')
-        t=model.type('timeedge')
+        model = s_datamodel.Model()
+        e = model.type('edge')
+        t = model.type('timeedge')
 
         self.eq(0, e.getCompOffs('n1'))
         self.eq(1, e.getCompOffs('n2'))
@@ -1013,55 +964,55 @@ class TypesTest(s_t_utils.SynTest):
 
         # Repr testing with the test model
         async with self.getTestCore() as core:
-            e=core.model.type('edge')
-            t=core.model.type('timeedge')
+            e = core.model.type('edge')
+            t = core.model.type('timeedge')
 
-            norm, _=e.norm((('test:str', '1234'), ('test:int', '1234')))
+            norm, _ = e.norm((('test:str', '1234'), ('test:int', '1234')))
             self.eq(norm, (('test:str', '1234'), ('test:int', 1234)))
 
-            norm, _=t.norm((('test:str', '1234'), ('test:int', '1234'), '2001'))
+            norm, _ = t.norm((('test:str', '1234'), ('test:int', '1234'), '2001'))
             self.eq(norm, (('test:str', '1234'), ('test:int', 1234), 978307200000))
 
-            rval=e.repr((('test:str', '1234'), ('test:str', 'hehe')))
+            rval = e.repr((('test:str', '1234'), ('test:str', 'hehe')))
             self.eq(rval, (('test:str', '1234'), ('test:str', 'hehe')))
 
-            rval=e.repr((('test:int', 1234), ('test:str', 'hehe')))
+            rval = e.repr((('test:int', 1234), ('test:str', 'hehe')))
             self.eq(rval, (('test:int', '1234'), ('test:str', 'hehe')))
 
-            rval=e.repr((('test:str', 'hehe'), ('test:int', 1234)))
+            rval = e.repr((('test:str', 'hehe'), ('test:int', 1234)))
             self.eq(rval, (('test:str', 'hehe'), ('test:int', '1234')))
 
-            rval=e.repr((('test:int', 4321), ('test:int', 1234)))
+            rval = e.repr((('test:int', 4321), ('test:int', 1234)))
             self.eq(rval, (('test:int', '4321'), ('test:int', '1234')))
 
-            rval=e.repr((('test:int', 4321), ('test:comp', (1234, 'hehe'))))
+            rval = e.repr((('test:int', 4321), ('test:comp', (1234, 'hehe'))))
             self.eq(rval, (('test:int', '4321'), ('test:comp', ('1234', 'hehe'))))
 
-            tv=5356800000
-            tr='1970/03/04 00:00:00.000'
+            tv = 5356800000
+            tr = '1970/03/04 00:00:00.000'
 
-            rval=t.repr((('test:str', '1234'), ('test:str', 'hehe'), tv))
+            rval = t.repr((('test:str', '1234'), ('test:str', 'hehe'), tv))
             self.eq(rval, (('test:str', '1234'), ('test:str', 'hehe'), tr))
 
-            rval=t.repr((('test:int', 1234), ('test:str', 'hehe'), tv))
+            rval = t.repr((('test:int', 1234), ('test:str', 'hehe'), tv))
             self.eq(rval, (('test:int', '1234'), ('test:str', 'hehe'), tr))
 
-            rval=t.repr((('test:str', 'hehe'), ('test:int', 1234), tv))
+            rval = t.repr((('test:str', 'hehe'), ('test:int', 1234), tv))
             self.eq(rval, (('test:str', 'hehe'), ('test:int', '1234'), tr))
 
     async def test_types_long_indx(self):
 
-        aaaa='A' * 200
-        url=f'http://vertex.link/visi?fuzz0={aaaa}&fuzz1={aaaa}'
+        aaaa = 'A' * 200
+        url = f'http://vertex.link/visi?fuzz0={aaaa}&fuzz1={aaaa}'
 
         async with self.getTestCore() as core:
-            opts={'vars': {'url': url}}
+            opts = {'vars': {'url': url}}
             self.len(1, await core.eval('[ it:exec:url="*" :url=$url ]', opts=opts).list())
             self.len(1, await core.eval('it:exec:url:url=$url', opts=opts).list())
 
     async def test_types_array(self):
 
-        mdef={
+        mdef = {
             'types': (
                 ('test:array', ('array', {'type': 'inet:ipv4'}), {}),
                 ('test:arraycomp', ('comp', {'fields': (('ipv4s', 'test:array'), ('int', 'test:int'))}), {}),
@@ -1086,42 +1037,42 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeDef):
                 await core.addFormProp('test:int', '_hehe', ('array', {'type': 'array'}), {})
 
-            nodes=await core.nodes('[ test:array=(1.2.3.4, 5.6.7.8) ]')
+            nodes = await core.nodes('[ test:array=(1.2.3.4, 5.6.7.8) ]')
             self.len(1, nodes)
 
-            nodes=await core.nodes('test:array*contains=1.2.3.4')
+            nodes = await core.nodes('test:array*contains=1.2.3.4')
             self.len(1, nodes)
 
-            nodes=await core.nodes('[ test:arraycomp=((1.2.3.4, 5.6.7.8), 10) ]')
+            nodes = await core.nodes('[ test:arraycomp=((1.2.3.4, 5.6.7.8), 10) ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:arraycomp', ([0x01020304, 0x05060708], 10)))
             self.eq(nodes[0].get('int'), 10)
             self.eq(nodes[0].get('ipv4s'), (0x01020304, 0x05060708))
 
             # make sure "adds" got added
-            nodes=await core.nodes('inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8')
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8')
             self.len(2, nodes)
 
-            nodes=await core.nodes('[ test:witharray="*" :fqdns=(woot.com, VERTEX.LINK, vertex.link) ]')
+            nodes = await core.nodes('[ test:witharray="*" :fqdns=(woot.com, VERTEX.LINK, vertex.link) ]')
             self.len(1, nodes)
 
             self.eq(nodes[0].get('fqdns'), ('vertex.link', 'woot.com'))
 
-            nodes=await core.nodes('test:witharray:fqdns=(vertex.link, WOOT.COM)')
+            nodes = await core.nodes('test:witharray:fqdns=(vertex.link, WOOT.COM)')
             self.len(1, nodes)
 
-            nodes=await core.nodes('test:witharray:fqdns*contains=vertex.link')
+            nodes = await core.nodes('test:witharray:fqdns*contains=vertex.link')
             self.len(1, nodes)
 
-            nodes=await core.nodes('test:witharray [ :fqdns=(hehe.com, haha.com) ]')
+            nodes = await core.nodes('test:witharray [ :fqdns=(hehe.com, haha.com) ]')
             self.len(1, nodes)
 
-            nodes=await core.nodes('inet:fqdn=hehe.com inet:fqdn=haha.com')
+            nodes = await core.nodes('inet:fqdn=hehe.com inet:fqdn=haha.com')
             self.len(2, nodes)
 
             # make sure the multi-array entries got deleted
-            nodes=await core.nodes('test:witharray:fqdns*contains=vertex.link')
+            nodes = await core.nodes('test:witharray:fqdns*contains=vertex.link')
             self.len(0, nodes)
 
-            nodes=await core.nodes('test:witharray:fqdns*contains=hehe.com')
+            nodes = await core.nodes('test:witharray:fqdns*contains=hehe.com')
             self.len(1, nodes)

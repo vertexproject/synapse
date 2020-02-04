@@ -659,16 +659,19 @@ class Hex(Type):
                                     mesg='Size must be a multiple of 2')
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(bytes, self._normPyBytes)
+        self.storlifts.update({
+            '=': self._storLiftEq,
+        })
 
-    #def indxByEq(self, valu):
-        #if isinstance(valu, str) and valu.endswith('*'):
-            #valu = valu.rstrip('*')
-            #norm = s_chop.hexstr(valu)
-            #return (
-                #('pref', self.indx(norm)),
-            #)
+    def _storLiftEq(self, cmpr, valu):
 
-        #return Type.indxByEq(self, valu)
+        if type(valu) == str:
+            if valu.endswith('*'):
+                return (
+                    ('^=', valu[:-1].lower(), self.stortype),
+                )
+
+        return self._storLiftNorm(cmpr, valu)
 
     def _normPyStr(self, valu):
         valu = s_chop.hexstr(valu)
@@ -680,18 +683,17 @@ class Hex(Type):
     def _normPyBytes(self, valu):
         return self._normPyStr(s_common.ehex(valu))
 
-    #def indx(self, norm):
-        #return self._getIndxChop(s_common.uhex(norm))
-
 intstors = {
     (1, True): s_layer.STOR_TYPE_I8,
     (2, True): s_layer.STOR_TYPE_I16,
     (4, True): s_layer.STOR_TYPE_I32,
     (8, True): s_layer.STOR_TYPE_I64,
+    (16, True): s_layer.STOR_TYPE_I128,
     (1, False): s_layer.STOR_TYPE_U8,
     (2, False): s_layer.STOR_TYPE_U16,
     (4, False): s_layer.STOR_TYPE_U32,
     (8, False): s_layer.STOR_TYPE_U64,
+    (16, False): s_layer.STOR_TYPE_U128,
 }
 
 class IntBase(Type):
@@ -764,7 +766,7 @@ class Int(IntBase):
         self.signed = self.opts.get('signed')
         self.stortype = intstors.get((self.size, self.signed))
         if self.stortype is None:
-            mesg = 'Invalid integer size.'
+            mesg = f'Invalid integer size ({self.size})'
             raise s_exc.BadTypeDef(mesg=mesg)
 
         self.enumnorm = {}
@@ -855,9 +857,6 @@ class Int(IntBase):
 
         return valu, {}
 
-    #def indx(self, valu):
-        #return (valu + self._indx_offset).to_bytes(self.size, 'big')
-
     def repr(self, norm):
 
         text = self.enumrepr.get(norm)
@@ -888,6 +887,19 @@ class Ival(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyIter)
         self.setNormFunc(tuple, self._normPyIter)
+        self.storlifts.update({
+            '@=': self._storLiftAt,
+        })
+
+    def _storLiftAt(self, cmpr, valu):
+
+        if type(valu) not in (list, tuple):
+            return self._storLiftNorm(cmpr, valu)
+
+        ticktock = self.timetype.getTickTock(valu)
+        return (
+            ('@=', ticktock, self.stortype),
+        )
 
     def _ctorCmprAt(self, valu):
 
@@ -929,15 +941,6 @@ class Ival(Type):
             return True
 
         return cmpr
-
-    #def getLiftOps(self, tabl, cmpr, oper):
-        #if cmpr != '@=':
-            #return None
-        #form, prop, valu = oper
-        #norm, _ = self.norm(valu)
-        #return (
-            #(tabl + ':ival', (form, prop, norm)),
-        #)
 
     def _normPyInt(self, valu):
         minv, _ = self.timetype._normPyInt(valu)
@@ -990,16 +993,6 @@ class Ival(Type):
         mint = min(oldv[0], newv[0])
         maxt = max(oldv[1], newv[1])
         return (mint, maxt)
-
-    #def indx(self, norm):
-
-        #if norm is None:
-            #return b''
-
-        #indx = self.timetype.indx(norm[0])
-        #indx += self.timetype.indx(norm[1])
-
-        #return indx
 
     def repr(self, norm):
         mint = self.timetype.repr(norm[0])
@@ -1316,11 +1309,12 @@ class Str(Type):
     def postTypeInit(self):
 
         self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(int, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
 
         self.storlifts.update({
             '^=': self._storLiftPref,
             '~=': self._storLiftRegx,
+            'range=': self._storLiftRange,
         })
 
         self.regex = None
@@ -1333,7 +1327,14 @@ class Str(Type):
         if enumstr is not None:
             self.envals = enumstr.split(',')
 
-    def _storLiftPref(self, cmpr, valu):
+    def _storLiftRange(self, cmpr, valu):
+        minx = self._normForLift(valu[0])
+        maxx = self._normForLift(valu[1])
+        return (
+            (cmpr, (minx, maxx), self.stortype),
+        )
+
+    def _normForLift(self, valu):
 
         # doesnt have to be normable...
         if self.opts.get('lower'):
@@ -1346,10 +1347,17 @@ class Str(Type):
         if self.opts.get('onespace'):
             valu = s_chop.onespace(valu)
 
+        return valu
+
+    def _storLiftPref(self, cmpr, valu):
+        valu = self._normForLift(valu)
         return (('^=', valu, self.stortype),)
 
     def _storLiftRegx(self, cmpr, valu):
         return ((cmpr, valu, self.stortype),)
+
+    def _normPyInt(self, valu):
+        return self._normPyStr(str(valu))
 
     def _normPyStr(self, valu):
 
@@ -1430,6 +1438,34 @@ class Time(IntBase):
 
         self.ismin = self.opts.get('ismin')
         self.ismax = self.opts.get('ismax')
+        self.storlifts.update({
+            '@=': self._liftByIval,
+        })
+
+    def _liftByIval(self, cmpr, valu):
+
+        if type(valu) not in (list, tuple):
+            norm, info = self.norm(valu)
+            return (
+                ('=', norm, self.stortype),
+            )
+
+        ticktock = self.getTickTock(valu)
+        return (
+            (cmpr, ticktock, self.stortype),
+        )
+
+    def _storLiftRange(self, cmpr, valu):
+
+        if type(valu) not in (list, tuple):
+            mesg = f'Range value must be a list: {valu!r}'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        ticktock = self.getTickTock(valu)
+
+        return (
+            (cmpr, ticktock, self.stortype),
+        )
 
     def _ctorCmprAt(self, valu):
         return self.modl.types.get('ival')._ctorCmprAt(valu)
@@ -1520,6 +1556,10 @@ class Time(IntBase):
         Returns:
             (int, int): A ordered pair of integers.
         '''
+        if len(vals) != 2:
+            mesg = 'Time range must have a length of 2: %r' % (vals,)
+            raise s_exc.BadTypeValu(mesg=mesg)
+
         val0, val1 = vals
 
         try:

@@ -215,10 +215,10 @@ class HotCount(s_base.Base):
         self.cache = collections.defaultdict(int)
         self.dirty = set()
 
-        self.countdb = self.slab.initdb(name)
+        self.countdb = self.slab.initdb(name, integerkey=True)
 
         for lkey, lval in self.slab.scanByFull(db=self.countdb):
-            self.cache[lkey] = s_msgpack.un(lval)
+            self.cache[lkey] = s_common.int64un(lval)
 
         slab.on('commit', self._onSlabCommit)
 
@@ -228,16 +228,22 @@ class HotCount(s_base.Base):
         if self.dirty:
             self.sync()
 
-    def inc(self, byts, valu=1):
+    def inc(self, name: str, valu=1):
+        byts = name.encode()
         self.cache[byts] += valu
         self.dirty.add(byts)
 
-    def get(self, name):
+    def set(self, name: str, valu: int):
+        byts = name.encode()
+        self.cache[byts] += valu
+        self.dirty.add(byts)
+
+    def get(self, name: str):
         return self.cache.get(name.encode(), 0)
 
     def sync(self):
 
-        tups = [(p, s_msgpack.en(self.cache[p])) for p in self.dirty]
+        tups = [(p, s_common.int64en(self.cache[p])) for p in self.dirty]
         if not tups:
             return
 
@@ -247,16 +253,16 @@ class HotCount(s_base.Base):
     def pack(self):
         return {n.decode(): v for (n, v) in self.cache.items()}
 
-class MultiQueue(s_nexus.Pusher):
+class MultiQueue(s_base.Base):
     '''
     Allows creation/consumption of multiple durable queues in a slab.
     '''
-    async def __anit__(self, slab, name, nexsroot: s_nexus.NexsRoot = None):  # type: ignore
+    async def __anit__(self, slab, name, nexsroot: s_nexus.NexsRoot = None, auth=None):  # type: ignore
 
-        iden = f'mq:{slab.path}:{name}'
-        await s_nexus.Pusher.__anit__(self, iden, nexsroot=nexsroot)
+        await s_base.Base.__anit__(self)
 
         self.slab = slab
+        self.auth = auth
 
         self.abrv = slab.getNameAbrv(f'{name}:abrv')
         self.qdata = self.slab.initdb(f'{name}:qdata')
@@ -293,26 +299,19 @@ class MultiQueue(s_nexus.Pusher):
     def offset(self, name):
         return self.offsets.get(name)
 
+    @s_nexus.Pusher.onPushAuto('multiqueue:add')
     async def add(self, name, info):
-        return await self._push('multiqueue:add', name, info)
 
-    @s_nexus.Pusher.onPush('multiqueue:add')
-    async def _onAdd(self, name, info):
         if self.queues.get(name) is not None:
             mesg = f'A queue exists with the name {name}.'
             raise s_exc.DupName(mesg=mesg, name=name)
 
-        item = self.queues.get(name)
-        if item is None:
-            self.queues.set(name, info)
-            self.sizes.set(name, 0)
-            self.offsets.set(name, 0)
+        self.queues.set(name, info)
+        self.sizes.set(name, 0)
+        self.offsets.set(name, 0)
 
+    @s_nexus.Pusher.onPushAuto('multiqueue:rem')
     async def rem(self, name):
-        return await self._push('multiqueue:rem', name)
-
-    @s_nexus.Pusher.onPush('multiqueue:rem')
-    async def _onRem(self, name):
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
@@ -335,18 +334,12 @@ class MultiQueue(s_nexus.Pusher):
             return itemoffs, item
         return -1, None
 
+    @s_nexus.Pusher.onPushAuto('multiqueue:put')
     async def put(self, name, item):
-        return await self._push('multiqueue:put', name, item)
+        await self.puts(name, (item,))
 
-    @s_nexus.Pusher.onPush('multiqueue:put')
-    async def _onPut(self, name, item):
-        return await self._onPuts(name, (item,))
-
+    @s_nexus.Pusher.onPushAuto('multiqueue:puts')
     async def puts(self, name, items):
-        return await self._push('multiqueue:puts', name, items)
-
-    @s_nexus.Pusher.onPush('multiqueue:puts')
-    async def _onPuts(self, name, items):
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
@@ -370,7 +363,7 @@ class MultiQueue(s_nexus.Pusher):
 
         return retn
 
-    async def gets(self, name, offs, size=None, cull=False, wait=False):
+    async def gets(self, name, offs, size=None, wait=False):
         '''
         Yield (offs, item) tuples from the message queue.
         '''
@@ -378,9 +371,6 @@ class MultiQueue(s_nexus.Pusher):
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
-
-        if cull and offs > 0:
-            await self.cull(name, offs - 1)
 
         abrv = self.abrv.nameToAbrv(name)
 
@@ -410,14 +400,11 @@ class MultiQueue(s_nexus.Pusher):
 
             await evnt.wait()
 
+    @s_nexus.Pusher.onPushAuto('multiqueue:cull')
     async def cull(self, name, offs):
         '''
         Remove up-to (and including) the queue entry at offs.
         '''
-        return await self._push('multiqueue:cull', name, offs)
-
-    @s_nexus.Pusher.onPush('multiqueue:cull')
-    async def _onCull(self, name, offs):
         if offs < 0:
             return
 
@@ -812,15 +799,15 @@ class Slab(s_base.Base):
         self.locking_memory = False
         logger.debug('memory locking thread ended')
 
-    def initdb(self, name, dupsort=False):
+    def initdb(self, name, dupsort=False, integerkey=False):
         while True:
             try:
                 if self.readonly:
                     # In a readonly environment, we can't make our own write transaction, but we
                     # can have the lmdb module create one for us by not specifying the transaction
-                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort)
+                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort, integerkey=integerkey)
                 else:
-                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort)
+                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort, integerkey=integerkey)
                     self.dirty = True
                     self.forcecommit()
 

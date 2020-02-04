@@ -1081,7 +1081,7 @@ class StormTypesTest(s_test.SynTest):
 
             nodes = await core.nodes('''
                 $q = $lib.queue.get(blah)
-                for ($offs, $ipv4) in $q.gets(0, cull=0, wait=0) {
+                for ($offs, $ipv4) in $q.gets(0, wait=0) {
                     inet:ipv4=$ipv4
                 }
             ''')
@@ -1151,8 +1151,8 @@ class StormTypesTest(s_test.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     await core.nodes('$lib.queue.del(synq)', user=woot)
 
-                rule = (True, ('storm', 'queue', 'del', 'synq'))
-                await root.addUserRule('wootuser', rule, indx=None)
+                rule = (True, ('del', ))
+                await root.addUserRule('wootuser', rule, indx=None, gateiden='queue:synq')
                 await core.nodes('$lib.queue.del(synq)', user=woot)
                 with self.raises(s_exc.NoSuchName):
                     await core.nodes('$lib.queue.get(synq)')

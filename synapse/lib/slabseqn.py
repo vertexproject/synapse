@@ -152,6 +152,14 @@ class SlabSeqn:
             indx = s_common.int64un(lkey)
             yield indx, byts
 
+    def get(self, offs):
+        '''
+        Retrieve a single row by offset
+        '''
+        lkey = s_common.int64en(offs)
+        valu = self.slab.get(lkey, db=self.db)
+        return s_msgpack.un(valu)
+
     def slice(self, offs, size):
 
         imax = size - 1

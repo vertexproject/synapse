@@ -45,12 +45,7 @@ class HiveTest(s_test.SynTest):
                     self.len(2, valus)
                     self.eq(set(valus), {200, 'hoho'})
 
-                    data = {}
-
-                    async def onSetHehe(valu):
-                        data['hehe'] = valu
-
-                    self.eq(200, hivedict.get('hehe', onedit=onSetHehe))
+                    self.eq(200, hivedict.get('hehe'))
 
                     self.eq(200, await hivedict.set('hehe', 300))
 
@@ -152,28 +147,24 @@ class HiveTest(s_test.SynTest):
 
                 self.nn(user)
 
-                self.false(user.admin)
-                self.len(0, user.rules)
-                self.len(0, user.roles)
+                self.false(user.info.get('admin'))
+                self.len(0, user.info.get('rules'))
+                self.len(1, user.info.get('roles'))
 
-                await user.info.set('admin', True)
-
-                self.true(user.admin)
+                await user.setAdmin(True)
+                self.true(user.info.get('admin'))
 
                 self.true(user.allowed(('foo', 'bar')))
-                # FIXME:  elev went away
-                # self.false(user.allowed(('foo', 'bar'), elev=False))
 
                 await user.addRule((True, ('foo',)))
 
-                # self.true(user.allowed(('foo', 'bar'), elev=False))
+                self.true(user.allowed(('foo', 'bar')))
 
-                # self.len(1, user.permcache)
+                self.len(1, user.permcache)
 
                 await user.delRule((True, ('foo',)))
 
                 self.len(0, user.permcache)
-                # self.false(user.allowed(('foo', 'bar'), elev=False))
 
                 await user.addRule((True, ('foo',)))
 
@@ -181,61 +172,59 @@ class HiveTest(s_test.SynTest):
 
                 self.len(0, user.permcache)
 
-                # self.true(user.allowed(('foo', 'bar'), elev=False))
-
                 self.true(user.allowed(('baz', 'faz')))
-                # self.false(user.allowed(('baz', 'faz'), elev=False))
 
-                self.len(2, user.permcache)
+                self.len(1, user.permcache)
 
                 await role.addRule((True, ('baz', 'faz')))
 
-                # self.true(user.allowed(('baz', 'faz'), elev=False))
-                # self.true(user.allowed(('foo', 'bar'), elev=False))
+                self.len(0, user.permcache)
 
-                self.len(2, user.permcache)
+                self.true(user.allowed(('baz', 'faz')))
+
+                self.len(1, user.permcache)
 
                 await user.setLocked(True)
 
-                # self.false(user.allowed(('baz', 'faz'), elev=True))
-                # self.false(user.allowed(('baz', 'faz'), elev=False))
+                self.false(user.allowed(('baz', 'faz')))
 
+                await user.setAdmin(False)
                 await user.setLocked(False)
 
-                self.true(user.allowed(('baz', 'faz'), elev=False))
-                self.true(user.allowed(('foo', 'bar'), elev=False))
+                self.true(user.allowed(('baz', 'faz')))
+                self.true(user.allowed(('foo', 'bar')))
 
                 # Add a DENY to the beginning of the rule list
                 await role.addRule((False, ('baz', 'faz')), indx=0)
-                self.false(user.allowed(('baz', 'faz'), elev=False))
+                self.false(user.allowed(('baz', 'faz')))
 
                 # Delete the DENY
                 await role.delRuleIndx(0)
 
                 # After deleting, former ALLOW rule applies
-                self.true(user.allowed(('baz', 'faz'), elev=False, default='yolo'))
+                self.true(user.allowed(('baz', 'faz')))
 
                 # non-existent rule returns default
-                self.none(user.allowed(('boo', 'foo'), elev=False))
-                self.eq('yolo', user.allowed(('boo', 'foo'), elev=False, default='yolo'))
+                self.none(user.allowed(('boo', 'foo')))
+                self.eq('yolo', user.allowed(('boo', 'foo'), default='yolo'))
 
                 await self.asyncraises(s_exc.NoSuchRole, user.revoke('accountants'))
 
                 await user.revoke('ninjas')
-                self.none(user.allowed(('baz', 'faz'), elev=False))
+                self.none(user.allowed(('baz', 'faz')))
 
                 await user.grant('ninjas')
-                self.true(user.allowed(('baz', 'faz'), elev=False))
+                self.true(user.allowed(('baz', 'faz')))
 
                 await self.asyncraises(s_exc.NoSuchRole, auth.delRole('accountants'))
 
                 await auth.delRole('ninjas')
-                self.false(user.allowed(('baz', 'faz'), elev=False))
+                self.false(user.allowed(('baz', 'faz')))
 
                 await self.asyncraises(s_exc.NoSuchUser, auth.delUser('fred@accountancy.com'))
 
                 await auth.delUser('visi@vertex.link')
-                self.false(user.allowed(('baz', 'faz'), elev=False))
+                self.false(user.allowed(('baz', 'faz')))
 
     async def test_hive_dir(self):
 
@@ -346,14 +335,18 @@ class HiveTest(s_test.SynTest):
             self.eq(99, tree['kids']['hehe']['kids']['haha']['value'])
 
     async def test_hive_authgate_perms(self):
+
         async with self.getTestCoreAndProxy() as (core, prox):
+
             await prox.addAuthUser('fred')
             await prox.addAuthUser('bobo')
             await prox.setUserPasswd('fred', 'secret')
             await prox.setUserPasswd('bobo', 'secret')
+
             view2 = await core.view.fork()
-            await alist(core.eval('[test:int=10]'))
-            await alist(view2.eval('[test:int=11]'))
+
+            await core.nodes('[test:int=10]')
+            await view2.nodes('[test:int=11]')
 
             async with core.getLocalProxy(user='fred') as fredcore:
                 viewopts = {'view': view2.iden}
@@ -369,10 +362,10 @@ class HiveTest(s_test.SynTest):
                 # Add to a non-existent authgate
                 rule = (True, ('view', 'read'))
                 badiden = 'XXX'
-                await self.asyncraises(s_exc.NoSuchAuthGate, prox.addUserRule('fred', rule, iden=badiden))
+                await self.asyncraises(s_exc.NoSuchAuthGate, prox.addUserRule('fred', rule, gateiden=badiden))
 
                 # Rando can access forked view with explicit perms
-                await prox.addUserRule('fred', rule, iden=viewiden)
+                await prox.addUserRule('fred', rule, gateiden=viewiden)
                 self.eq(2, await fredcore.count('test:int', opts=viewopts))
 
                 await prox.addAuthRole('friends')
@@ -384,7 +377,7 @@ class HiveTest(s_test.SynTest):
                 # fred can write to forked view's write layer with explicit perm through role
 
                 rule = (True, ('prop:set',))
-                await prox.addRoleRule('friends', rule, iden=layriden)
+                await prox.addRoleRule('friends', rule, gateiden=layriden)
 
                 # Before granting, still fails
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=12]', opts=viewopts))
@@ -397,16 +390,16 @@ class HiveTest(s_test.SynTest):
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=12]', opts=viewopts))
 
                 # After removing rule from friends, fails again
-                await prox.delAuthRule('friends', rule, iden=layriden)
+                await prox.delRoleRule('friends', rule, gateiden=layriden)
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
 
                 rule = (True, ('node:add',))
-                await prox.addUserRule('fred', rule, iden=layriden)
+                await prox.addUserRule('fred', rule, gateiden=layriden)
                 self.eq(1, await fredcore.count('[test:int=12]', opts=viewopts))
 
                 # Add an explicit DENY for adding test:int nodes
                 rule = (False, ('node:add', 'test:int'))
-                await prox.addUserRule('fred', rule, indx=0, iden=layriden)
+                await prox.addUserRule('fred', rule, indx=0, gateiden=layriden)
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=13]', opts=viewopts))
 
                 # Adding test:str is allowed though
@@ -418,7 +411,7 @@ class HiveTest(s_test.SynTest):
 
                 # Deleting a user that has a role with an Authgate-specific rule
                 rule = (True, ('prop:set',))
-                await prox.addRoleRule('friends', rule, iden=layriden)
+                await prox.addRoleRule('friends', rule, gateiden=layriden)
                 self.eq(1, await fredcore.count('test:int=11 [:loc=sp]', opts=viewopts))
                 await prox.addUserRole('bobo', 'friends')
                 await prox.delAuthUser('bobo')
@@ -428,19 +421,21 @@ class HiveTest(s_test.SynTest):
                 await prox.delAuthRole('friends')
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int=11 [:loc=ru]', opts=viewopts))
 
-                await view2.fini()
-                await view2.trash()
+                wlyr = view2.layers[0]
 
-                # Verify that trashing the view deletes the authgate from the hive
-                self.none(core.auth.getAuthGate(viewiden))
+                await core.delView(view2.iden)
+                await core.delLayer(wlyr.iden)
+
+                # Verify that trashing the layer and view deletes the authgate from the hive
+                self.none(core.auth.getAuthGate(wlyr.iden))
+                self.none(core.auth.getAuthGate(view2.iden))
 
                 # Verify that trashing the write layer deletes the remaining rules and backing store
-                wlyr = view2.layers[0]
-                await wlyr.fini()
-                await wlyr.trash()
                 self.false(pathlib.Path(wlyr.dirn).exists())
-                rules = await core.auth.getUserByName('fred').rules
-                self.len(0, rules)
+                fred = await core.auth.getUserByName('fred')
+
+                self.len(0, fred.getRules(gateiden=wlyr.iden))
+                self.len(0, fred.getRules(gateiden=view2.iden))
 
     async def test_hive_auth_persistence(self):
         with self.getTestDir() as fdir:
@@ -453,10 +448,10 @@ class HiveTest(s_test.SynTest):
                 viewiden = view2.iden
                 layriden = view2.layers[0].iden
                 rule = (True, ('view', 'read',))
-                await prox.addUserRule('fred', rule, iden=viewiden)
+                await prox.addUserRule('fred', rule, gateiden=viewiden)
                 await prox.addAuthRole('friends')
                 rule = (True, ('prop:set',))
-                await prox.addRoleRule('friends', rule, iden=layriden)
+                await prox.addRoleRule('friends', rule, gateiden=layriden)
                 await prox.addUserRole('fred', 'friends')
 
             # Restart the core/auth and make sure perms work

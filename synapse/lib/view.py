@@ -238,11 +238,8 @@ class View(s_nexus.Pusher):  # type: ignore
             'layers': self.info.get('layers'),
         }
 
+    @s_nexus.Pusher.onPushAuto('view:addlayer')
     async def addLayer(self, layriden, indx=None):
-        return await self._push('view:addlayer', layriden, indx)
-
-    @s_nexus.Pusher.onPush('view:addlayer')
-    async def _onAddLayer(self, layriden, indx=None):
 
         for view in self.core.views.values():
             if view.parent is self:
@@ -262,15 +259,12 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.info.set('layers', [l.iden for l in self.layers])
 
+    @s_nexus.Pusher.onPushAuto('view:setlayers')
     async def setLayers(self, layers):
         '''
         Set the view layers from a list of idens.
         NOTE: view layers are stored "top down" (the write layer is self.layers[0])
         '''
-        return await self._push('view:setlayers', layers)
-
-    @s_nexus.Pusher.onPush('view:setlayers')
-    async def _onSetLayers(self, layers):
         for view in self.core.views.values():
             if view.parent is self:
                 raise s_exc.ReadOnlyLayer(mesg='May not change layers that have been forked from')
@@ -309,8 +303,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if vdef is None:
             vdef = {}
-
-        wlyr = self.layers[-1]
 
         layr = await self.core.addLayer(ldef)
 
@@ -542,48 +534,35 @@ class View(s_nexus.Pusher):  # type: ignore
     async def getTrigger(self, iden):
         return await self.triggers.get(iden)
 
-    @s_nexus.Pusher.onPush('trigger:del')
+    @s_nexus.Pusher.onPushAuto('trigger:del')
     async def delTrigger(self, iden):
         '''
         Delete a trigger from the view.
         '''
-        await self._push('trigger:del', iden)
-
-    @s_nexus.Pusher.onPush('trigger:del')
-    async def _onDelTrigger(self, iden):
         self.triggers.delete(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='delete')
 
+    @s_nexus.Pusher.onPushAuto('trigger:update')
     async def updateTrigger(self, iden, query):
         '''
         Change an existing trigger's query.
         '''
-        await self._push('trigger:update', iden, query)
-
-    @s_nexus.Pusher.onPush('trigger:update')
-    async def _onPushUpdateTrigger(self, iden, query):
         self.triggers.mod(iden, query)
         await self.core.fire('core:trigger:action', iden=iden, action='mod')
 
+    @s_nexus.Pusher.onPushAuto('trigger:enable')
     async def enableTrigger(self, iden):
         '''
         Enable an existing trigger.
         '''
-        await self._push('trigger:enable', iden)
-
-    @s_nexus.Pusher.onPush('trigger:enable')
-    async def _onPushEnableTrigger(self, iden):
         self.triggers.enable(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='enable')
 
+    @s_nexus.Pusher.onPushAuto('trigger:disable')
     async def disableTrigger(self, iden):
         '''
         Disable an existing trigger.
         '''
-        await self._push('trigger:disable', iden)
-
-    @s_nexus.Pusher.onPush('trigger:disable')
-    async def _onDisableTrigger(self, iden, parm=None):
         self.triggers.disable(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='disable')
 
@@ -601,12 +580,8 @@ class View(s_nexus.Pusher):  # type: ignore
         Delete the metadata for this view.
 
         Note: this does not delete any layer storage.
-
-        FIXME:  change dist?
         '''
         await self.fini()
-        await self.core.auth.delAuthGate(self.iden)
-
         for (iden, _) in self.triggers.list():
             self.triggers.delete(iden)
 
