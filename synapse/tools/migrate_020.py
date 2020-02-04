@@ -16,6 +16,7 @@ TODO:
     - Any migr for views?  Need to iter over views?
     - Teardown / restore options
     - Progress reporting for long migration steps
+    - Set an error threshold for canceling migration?  esp on nodes?
 '''
 import os
 import sys
@@ -33,6 +34,7 @@ import synapse.lib.base as s_base
 import synapse.lib.hive as s_hive
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
+import synapse.lib.nexus as s_nexus
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.modules as s_modules
@@ -49,18 +51,27 @@ class Migrator(s_base.Base):
     async def __anit__(self, conf):
         await s_base.Base.__anit__(self)
         self.dirn = conf.get('dirn')
-
         self.migrlayer = conf.get('layer')
+        self.nexusoff = conf.get('nexusoff', False)
 
         # load data model for stortypes
         self.model = s_datamodel.Model()
         await self._trnDatamodel()
 
         # create a new slab for tracking migration data
-        path = os.path.join(self.dirn, 'slabs', 'migr.lmdb')
+        path = os.path.join(self.dirn, 'migr', 'migr.lmdb')
         self.migrslab = await s_lmdbslab.Slab.anit(path, readonly=False)
         self.migrdb = self.migrslab.initdb('migr')
         self.onfini(self.migrslab.fini)
+
+        # optionally create migration nexus
+        if not self.nexusoff:
+            path = os.path.join(self.dirn, 'migr')
+            self.nexusroot = await s_nexus.NexsRoot.anit(path)
+            self.onfini(self.nexusroot.fini)
+            logger.info(f'Storing migration splices at {path}')
+        else:
+            self.nexusroot = None
 
         # open hive
         path = os.path.join(self.dirn, 'slabs', 'cell.lmdb')
@@ -281,7 +292,7 @@ class Migrator(s_base.Base):
         return
 
     #############################################################
-    # Migration data ops
+    # Migration logging / record keeping
     #############################################################
 
     async def _migrlogAdd(self, migrop, logtyp, key, val):
@@ -491,7 +502,11 @@ class Migrator(s_base.Base):
         path = os.path.join(dirn, 'layers')
         lyrstor = await s_layer.LayerStorage.anit(storinfo, path)
         self.onfini(lyrstor)
-        wlyr = await lyrstor.initLayr(layrinfo)
+
+        if self.nexusroot is not None:
+            wlyr = await lyrstor.initLayr(layrinfo, self.nexusroot)
+        else:
+            wlyr = await lyrstor.initLayr(layrinfo)
         self.onfini(wlyr)
 
         return wlyr
@@ -508,9 +523,15 @@ class Migrator(s_base.Base):
 
         '''
         migrop = 'nodes'
+        meta = None
+
         try:
-            sodes = await wlyr.storNodeEdits(nodeedits, None)  # meta=None
+            if self.nexusoff:
+                sodes = [await wlyr._storNodeEdit(ne, meta) for ne in nodeedits]
+            else:
+                sodes = await wlyr.storNodeEdits(nodeedits, meta)
             return sodes
+
         except Exception as e:
             lyriden = wlyr.iden
             logger.exception(f'unable to store nodeedits on {lyriden}: {nodeedits}')
@@ -523,6 +544,8 @@ async def main(argv, outp=s_output.stdout):
     pars = argparse.ArgumentParser(prog='synapse.tools.migrate_stor', description='Tool for migrating Synapse storage.')
     pars.add_argument('--dirn', required=True, type=str)
     pars.add_argument('--layer', required=False, type=str, help='Migrate specific layer by iden')
+    pars.add_argument('--nexus-off', action='store_true', required=False,
+                      help="Do not create Nexus splicelog")
     pars.add_argument('--log-level', default='debug', choices=s_const.LOG_LEVEL_CHOICES,
                       help='Specify the log level', type=str.upper)
 
@@ -533,6 +556,7 @@ async def main(argv, outp=s_output.stdout):
     conf = {
         'dirn': opts.dirn,
         'layer': opts.layer,
+        'nexusoff': opts.nexus_off,
     }
 
     migr = await Migrator.anit(conf=conf)
