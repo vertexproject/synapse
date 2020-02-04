@@ -11,7 +11,7 @@ import synapse.tests.utils as s_t_utils
 class EchoAuthApi(s_cell.CellApi):
 
     def isadmin(self):
-        return self.user.admin
+        return self.user.isAdmin()
 
     async def icando(self, *path):
         await self._reqUserAllowed(path)
@@ -76,19 +76,19 @@ class CellTest(s_t_utils.SynTest):
                     self.false(await proxy.allowed(('hehe', 'haha')))
 
                     # User can get authinfo data for themselves and their roles
-                    uatm = await proxy.getAuthInfo('visi')
-                    self.eq(uatm[0], 'visi')
-                    self.eq(uatm[1].get('iden'), user.iden)
-                    self.eq(uatm[1].get('roles'), ('testrole',))
-                    self.eq(uatm[1].get('rules'), ((True, ('foo', 'bar')),))
-                    ratm = await proxy.getAuthInfo('testrole')
-                    self.eq(ratm[0], 'testrole')
-                    self.eq(ratm[1].get('iden'), testrole.iden)
+                    uatm = await proxy.getUserInfo('visi')
+                    self.eq(uatm.get('name'), 'visi')
+                    self.eq(uatm.get('iden'), user.iden)
+                    self.eq(uatm.get('roles'), ('all', 'testrole'))
+                    self.eq(uatm.get('rules'), ((True, ('foo', 'bar')),))
+                    ratm = await proxy.getRoleInfo('testrole')
+                    self.eq(ratm.get('name'), 'testrole')
+                    self.eq(ratm.get('iden'), testrole.iden)
 
                     # User cannot get authinfo for other items since they are
                     # not an admin or do not have those roles.
-                    await self.asyncraises(s_exc.AuthDeny, proxy.getAuthInfo('root'))
-                    await self.asyncraises(s_exc.AuthDeny, proxy.getAuthInfo('privrole'))
+                    await self.asyncraises(s_exc.AuthDeny, proxy.getUserInfo('root'))
+                    await self.asyncraises(s_exc.AuthDeny, proxy.getRoleInfo('privrole'))
 
                     # Basic auth checks
                     self.true(await proxy.icando('foo', 'bar'))
@@ -140,14 +140,14 @@ class CellTest(s_t_utils.SynTest):
                     visi_url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
 
                     await proxy.setUserLocked('visi', True)
-                    info = await proxy.getAuthInfo('visi')
-                    self.true(info[1].get('locked'))
+                    info = await proxy.getUserInfo('visi')
+                    self.true(info.get('locked'))
                     await self.asyncraises(s_exc.AuthDeny,
                                            s_telepath.openurl(visi_url))
 
                     await proxy.setUserLocked('visi', False)
-                    info = await proxy.getAuthInfo('visi')
-                    self.false(info[1].get('locked'))
+                    info = await proxy.getUserInfo('visi')
+                    self.false(info.get('locked'))
                     async with await s_telepath.openurl(visi_url) as visi_proxy:
                         self.false(await visi_proxy.isadmin())
 
@@ -156,9 +156,9 @@ class CellTest(s_t_utils.SynTest):
                     await self.asyncraises(s_exc.NoSuchUser,
                                            proxy.setUserArchived('newp', True))
                     await proxy.setUserArchived('visi', True)
-                    info = await proxy.getAuthInfo('visi')
-                    self.true(info[1].get('archived'))
-                    self.true(info[1].get('locked'))
+                    info = await proxy.getUserInfo('visi')
+                    self.true(info.get('archived'))
+                    self.true(info.get('locked'))
                     users = await proxy.getAuthUsers()
                     self.len(1, users)
                     users = await proxy.getAuthUsers(archived=True)
@@ -167,9 +167,9 @@ class CellTest(s_t_utils.SynTest):
                                            s_telepath.openurl(visi_url))
 
                     await proxy.setUserArchived('visi', False)
-                    info = await proxy.getAuthInfo('visi')
-                    self.false(info[1].get('archived'))
-                    self.true(info[1].get('locked'))
+                    info = await proxy.getUserInfo('visi')
+                    self.false(info.get('archived'))
+                    self.true(info.get('locked'))
                     users = await proxy.getAuthUsers(archived=True)
                     self.len(2, users)
 
@@ -186,19 +186,16 @@ class CellTest(s_t_utils.SynTest):
                 # Ensure we can delete a rule by its item and index position
                 async with echo.getLocalProxy() as proxy:  # type: EchoAuthApi
                     rule = (True, ('hive:set', 'foo', 'bar'))
-                    self.isin(rule, user.rules)
-                    await proxy.delAuthRule('visi', rule)
-                    self.notin(rule, user.rules)
+                    self.isin(rule, user.info.get('rules'))
+                    await proxy.delUserRule('visi', rule)
+                    self.notin(rule, user.info.get('rules'))
                     # Removing a non-existing rule by *rule* has no consequence
-                    await proxy.delAuthRule('visi', rule)
+                    await proxy.delUserRule('visi', rule)
 
-                    rule = user.rules[0]
-                    self.isin(rule, user.rules)
-                    await proxy.delAuthRuleIndx('visi', 0)
-                    self.notin(rule, user.rules)
-                    # Sad path around cell deletion
-                    await self.asyncraises(s_exc.BadArg, proxy.delAuthRuleIndx('visi', -1))
-                    await self.asyncraises(s_exc.BadArg, proxy.delAuthRuleIndx('visi', 1000000))
+                    rule = user.info.get('rules')[0]
+                    self.isin(rule, user.info.get('rules'))
+                    await proxy.delUserRule('visi', rule)
+                    self.notin(rule, user.info.get('rules'))
 
     async def test_cell_unix_sock(self):
 

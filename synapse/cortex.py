@@ -1807,7 +1807,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             if not count % 1000: # pragma: no cover
                 await asyncio.sleep(0)
 
-            if user.iden == mesg[1]['user'] or user.admin:
+            if user.iden == mesg[1]['user'] or user.isAdmin():
                 yield mesg
 
     async def initCoreMirror(self, url):
@@ -2118,7 +2118,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # allow an admin to directly open the cortex hive
         # (perhaps this should be a Cell() level pattern)
-        if path[0] == 'hive' and user.admin:
+        if path[0] == 'hive' and user.isAdmin():
             return await s_hive.HiveApi.anit(self.hive, user)
 
         if path[0] == 'layer':

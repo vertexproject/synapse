@@ -8,7 +8,7 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-class SemVer(s_types.Type):
+class SemVer(s_types.Int):
     '''
     Provides support for parsing a semantic version string into its component
     parts. This normalizes a version string into an integer to allow version
@@ -24,6 +24,7 @@ class SemVer(s_types.Type):
     strings if that information is present.
     '''
     def postTypeInit(self):
+        s_types.Int.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
@@ -58,9 +59,6 @@ class SemVer(s_types.Type):
         major, minor, patch = s_version.unpackVersion(valu)
         valu = s_version.fmtVersion(major, minor, patch)
         return valu
-
-    def indx(self, valu):
-        return valu.to_bytes(8, 'big')
 
 class ItModule(s_module.CoreModule):
     async def initCoreModule(self):
@@ -114,7 +112,7 @@ class ItModule(s_module.CoreModule):
         prop = node.get('software')
         if prop:
             opts = {'vars': {'soft': prop}}
-            nodes = node.snap.nodes('it:prod:soft=$soft', opts=opts)
+            nodes = await node.snap.nodes('it:prod:soft=$soft', opts=opts)
             if nodes:
                 name = nodes[0].get('name')
                 if name:

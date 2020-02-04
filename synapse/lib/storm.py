@@ -1035,7 +1035,7 @@ class DelNodeCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         if self.opts.force:
-            if runt.user is not None and not runt.user.admin:
+            if runt.user is not None and not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'
                 raise s_exc.AuthDeny(mesg=mesg)
 
@@ -1098,7 +1098,7 @@ class ReIndexCmd(Cmd):
 
         snap = runt.snap
 
-        if snap.user is not None and not snap.user.admin:
+        if snap.user is not None and not snap.user.isAdmin():
             await snap.warn('reindex requires an admin')
             return
 
@@ -1829,7 +1829,7 @@ class SpliceUndoCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         if self.opts.force:
-            if not runt.user.admin:
+            if not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'
                 raise s_exc.AuthDeny(mesg=mesg)
 

@@ -199,7 +199,7 @@ class HiveTest(s_test.SynTest):
                 self.false(user.allowed(('baz', 'faz')))
 
                 # Delete the DENY
-                await role.delRuleIndx(0)
+                await role.delRule((False, ('baz', 'faz')))
 
                 # After deleting, former ALLOW rule applies
                 self.true(user.allowed(('baz', 'faz')))

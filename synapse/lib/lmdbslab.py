@@ -299,7 +299,6 @@ class MultiQueue(s_base.Base):
     def offset(self, name):
         return self.offsets.get(name)
 
-    @s_nexus.Pusher.onPushAuto('multiqueue:add')
     async def add(self, name, info):
 
         if self.queues.get(name) is not None:
@@ -310,7 +309,6 @@ class MultiQueue(s_base.Base):
         self.sizes.set(name, 0)
         self.offsets.set(name, 0)
 
-    @s_nexus.Pusher.onPushAuto('multiqueue:rem')
     async def rem(self, name):
 
         if self.queues.get(name) is None:
@@ -334,11 +332,9 @@ class MultiQueue(s_base.Base):
             return itemoffs, item
         return -1, None
 
-    @s_nexus.Pusher.onPushAuto('multiqueue:put')
     async def put(self, name, item):
         await self.puts(name, (item,))
 
-    @s_nexus.Pusher.onPushAuto('multiqueue:puts')
     async def puts(self, name, items):
 
         if self.queues.get(name) is None:
@@ -400,7 +396,6 @@ class MultiQueue(s_base.Base):
 
             await evnt.wait()
 
-    @s_nexus.Pusher.onPushAuto('multiqueue:cull')
     async def cull(self, name, offs):
         '''
         Remove up-to (and including) the queue entry at offs.

@@ -17,7 +17,7 @@ import synapse.lookup.iana as s_l_iana
 
 logger = logging.getLogger(__name__)
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
-srv6re = regex.compile(r'^\[([a-f0-9:]+)\]:(\d+)$')
+srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\]:(\d+)$')
 
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 
@@ -107,8 +107,8 @@ class Addr(s_types.Str):
 
                 return f'{proto}://[{ipv6}]:{port}', {'subs': subs}
 
-            raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                    mesg='invalid IPv6 w/ port')
+            mesg = f'Invalid IPv6 w/port ({orig})'
+            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
 
         elif valu.count(':') >= 2:
             ipv6 = self.modl.type('inet:ipv6').norm(valu)[0]

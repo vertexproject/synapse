@@ -161,7 +161,7 @@ class CoreSpawnTest(s_test.SynTest):
                 ),
             }
 
-            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
+            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ] -> inet:ipv4 [ :asn=0 ]')
 
             async with core.getLocalProxy() as prox:
 
