@@ -132,12 +132,13 @@ class LayerTest(s_t_utils.SynTest):
 
                 async with self.getTestCore(dirn=path01) as core01:
 
-                    conf = {'upstream': core00.getLocalUrl('*/layer')}
+                    url = core00.getLocalUrl('*/layer')
+                    conf = {'upstream': url}
                     layr = await core01.addLayer(ldef=conf)
                     await core01.view.addLayer(layr.iden)
 
                     offs = core00.getView().layers[0].getSpliceOffset()
-                    evnt = await layr.waitUpstreamOffs(offs)
+                    evnt = await layr.waitUpstreamOffs(url, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                     self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
@@ -148,24 +149,134 @@ class LayerTest(s_t_utils.SynTest):
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
 
                     offs = core00.getView().layers[0].getSpliceOffset()
-                    evnt = await layr.waitUpstreamOffs(offs)
+                    evnt = await layr.waitUpstreamOffs(url, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
 
-                    downoffs = layr.getSpliceOffset()
-
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
                 offs = core00.getView().layers[0].getSpliceOffset()
-
-                self.gt(offs, downoffs)
 
                 # test what happens when we go down and come up again...
                 async with self.getTestCore(dirn=path01) as core01:
 
                     layr = core01.getView().layers[-1]
 
-                    evnt = await layr.waitUpstreamOffs(offs)
+                    evnt = await layr.waitUpstreamOffs(url, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                     self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
+
+                    await core00.nodes('[ inet:ipv4=5.6.7.8 ]')
+
+                    offs = core00.getView().layers[0].getSpliceOffset()
+                    evnt = await layr.waitUpstreamOffs(url, offs)
+                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                    self.len(1, await core01.nodes('inet:ipv4=5.6.7.8'))
+
+    async def test_layer_multi_upstream(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+            path02 = s_common.gendir(dirn, 'core02')
+
+            async with self.getTestCore(dirn=path00) as core00:
+
+                await core00.nodes('[test:str=foobar +#hehe.haha]')
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+                async with self.getTestCore(dirn=path01) as core01:
+
+                    await core01.nodes('[test:str=barfoo +#haha.hehe]')
+                    await core01.nodes('[ inet:ipv4=4.3.2.1 ]')
+
+                    async with self.getTestCore(dirn=path02) as core02:
+
+                        url00 = core00.getLocalUrl('*/layer')
+                        url01 = core01.getLocalUrl('*/layer')
+
+                        conf = {'upstream': [url00, url01]}
+
+                        layr = await core02.addLayer(ldef=conf)
+                        await core02.view.addLayer(layr.iden)
+
+                        # core00 is synced
+                        offs = core00.getView().layers[0].getSpliceOffset()
+                        evnt = await layr.waitUpstreamOffs(url00, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=1.2.3.4'))
+                        nodes = await core02.nodes('test:str=foobar')
+                        self.len(1, nodes)
+                        self.nn(nodes[0].tags.get('hehe.haha'))
+
+                        # core01 is synced
+                        offs = core01.getView().layers[0].getSpliceOffset()
+                        evnt = await layr.waitUpstreamOffs(url01, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=4.3.2.1'))
+                        nodes = await core02.nodes('test:str=barfoo')
+                        self.len(1, nodes)
+                        self.nn(nodes[0].tags.get('haha.hehe'))
+
+                        # updates from core00 show up
+                        await core00.nodes('[ inet:fqdn=vertex.link ]')
+
+                        offs = core00.getView().layers[0].getSpliceOffset()
+                        evnt = await layr.waitUpstreamOffs(url00, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:fqdn=vertex.link'))
+
+                        # updates from core01 show up
+                        await core01.nodes('[ inet:fqdn=google.com ]')
+
+                        offs = core01.getView().layers[0].getSpliceOffset()
+                        evnt = await layr.waitUpstreamOffs(url01, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:fqdn=google.com'))
+
+                    await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
+                    await core01.nodes('[ inet:ipv4=6.6.6.6 ]')
+
+                    # test what happens when we go down and come up again...
+                    async with self.getTestCore(dirn=path02) as core02:
+
+                        layr = core02.getView().layers[-1]
+
+                        # test we catch up to core00
+                        offs = core00.getView().layers[0].getSpliceOffset()
+                        evnt = await layr.waitUpstreamOffs(url00, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=5.5.5.5'))
+
+                        # test we catch up to core01
+                        offs = core01.getView().layers[0].getSpliceOffset()
+                        evnt = await layr.waitUpstreamOffs(url01, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=6.6.6.6'))
+
+                        # test we get updates from core00
+                        await core00.nodes('[ inet:ipv4=5.6.7.8 ]')
+
+                        offs = core00.getView().layers[0].getSpliceOffset()
+                        evnt = await layr.waitUpstreamOffs(url00, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=5.6.7.8'))
+
+                        # test we get updates from core01
+                        await core01.nodes('[ inet:ipv4=8.7.6.5 ]')
+
+                        offs = core01.getView().layers[0].getSpliceOffset()
+                        evnt = await layr.waitUpstreamOffs(url01, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=8.7.6.5'))

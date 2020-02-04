@@ -813,11 +813,15 @@ class Layer(s_nexus.Pusher):
         self.ctorname = f'{self.__class__.__module__}.{self.__class__.__name__}'
 
         self.windows = []
-        self.upstreamwaits = collections.defaultdict(list)
+        self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
 
         uplayr = layrinfo.get('upstream')
         if uplayr is not None:
-            await self.initUpstreamSync(uplayr)
+            if isinstance(uplayr, (tuple, list)):
+                for layr in uplayr:
+                    await self.initUpstreamSync(layr)
+            else:
+                await self.initUpstreamSync(uplayr)
 
         self.onfini(self._onLayrFini)
 
@@ -1447,7 +1451,7 @@ class Layer(s_nexus.Pusher):
 
                         self.offsets.set(url, offs)
 
-                        waits = [v for k, v in self.upstreamwaits.items() if k <= offs]
+                        waits = [v for k, v in self.upstreamwaits[url].items() if k <= offs]
                         for wait in waits:
                             [e.set() for e in wait]
 
@@ -1489,9 +1493,9 @@ class Layer(s_nexus.Pusher):
 
                             for newoff, item in items:
                                 await self.storNodeEdits(item, {})
-                                self.offsets.set(url, newoff)
+                                self.offsets.set(url, newoff+1)
 
-                                waits = self.upstreamwaits.pop(newoff+1, None)
+                                waits = self.upstreamwaits[url].pop(newoff+1, None)
                                 if waits is not None:
                                     [e.set() for e in waits]
 
@@ -1717,13 +1721,13 @@ class Layer(s_nexus.Pusher):
     def getSpliceOffset(self):
         return self.splicelog.index()
 
-    async def waitUpstreamOffs(self, offs):
+    async def waitUpstreamOffs(self, url, offs):
         evnt = asyncio.Event()
 
-        if self.getSpliceOffset() >= offs:
+        if self.offsets.get(url) >= offs:
             evnt.set()
         else:
-            self.upstreamwaits[offs].append(evnt)
+            self.upstreamwaits[url][offs].append(evnt)
 
         return evnt
 
