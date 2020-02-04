@@ -903,6 +903,26 @@ class HiveAuth(s_nexus.Pusher):
 
         return user
 
+    @s_nexus.Pusher.onPushAuto('user:name')
+    async def setUserName(self, iden, name):
+
+        if self.usersbyname.get(name) is not None:
+            raise s_exc.DupUserName(name=name)
+
+        user = await self.reqUser(iden)
+        user.name = name
+        await user.node.set(name)
+
+    @s_nexus.Pusher.onPushAuto('role:name')
+    async def setRoleName(self, iden, name):
+
+        if self.rolesbyname.get(name) is not None:
+            raise s_exc.DupRoleName(name=name)
+
+        role = await self.reqRole(iden)
+        role.name = name
+        await role.node.set(name)
+
     @s_nexus.Pusher.onPushAuto('user:info')
     async def setUserInfo(self, iden, name, valu, gateiden=None):
 
@@ -1235,17 +1255,17 @@ class HiveRuler(s_base.Base):
         await self.setRules(rules, gateiden=gateiden)
         return True
 
-    async def delRuleIndx(self, indx, gateiden=None):
-
-        rules = self.getRules(gateiden=gateiden)
-
-        try:
-            rules.pop(indx)
-        except IndexError:
-            raise s_exc.BadArg(mesg='Rule does not exist at specified index.',
-                               valu=indx) from None
-
-        await self.setRules(rules, gateiden=gateiden)
+#    async def delRuleIndx(self, indx, gateiden=None):
+#
+#        rules = self.getRules(gateiden=gateiden)
+#
+#        try:
+#            rules.pop(indx)
+#        except IndexError:
+#            raise s_exc.BadArg(mesg='Rule does not exist at specified index.',
+#                               valu=indx) from None
+#
+#        await self.setRules(rules, gateiden=gateiden)
 
 class HiveRole(HiveRuler):
     '''
@@ -1258,13 +1278,16 @@ class HiveRole(HiveRuler):
         return {
             'type': 'role',
             'iden': self.iden,
-            'name': self.info.get('name'),
+            'name': self.name,
             'rules': self.info.get('rules'),
             'authgates': {name: info.pack() for (name, info) in self.authgates.items()},
         }
 
     async def _setRulrInfo(self, name, valu, gateiden=None):
         return await self.auth.setRoleInfo(self.iden, name, valu, gateiden=gateiden)
+
+    async def setName(self, name):
+        return await self.auth.setRoleName(self.iden, name)
 
     def clearAuthCache(self):
         for user in self.auth.users():
@@ -1307,8 +1330,8 @@ class HiveUser(HiveRuler):
     def pack(self):
         return {
             'type': 'user',
-            'iden': self.node.name(),
-            'name': self.info.get('name'),
+            'iden': self.iden,
+            'name': self.name,
             'rules': self.info.get('rules', ()),
             'roles': self.info.get('roles', ()),
             'admin': self.info.get('admin', ()),
@@ -1320,6 +1343,9 @@ class HiveUser(HiveRuler):
 
     async def _setRulrInfo(self, name, valu, gateiden=None):
         return await self.auth.setUserInfo(self.iden, name, valu, gateiden=gateiden)
+
+    async def setName(self, name):
+        return await self.auth.setUserName(self.iden, name)
 
     def allowed(self, perm, default=None, gateiden=None):
         return self.permcache.get((perm, default, gateiden))
@@ -1442,6 +1468,9 @@ class HiveUser(HiveRuler):
         roles.remove(role.iden)
         await self.auth.setUserInfo(self.iden, 'roles', roles)
 
+    def isLocked(self):
+        return self.info.get('locked')
+
     def isAdmin(self, gateiden=None):
 
         if gateiden is None:
@@ -1461,6 +1490,8 @@ class HiveUser(HiveRuler):
 
     async def setArchived(self, archived):
         await self.auth.setUserInfo(self.iden, 'archived', archived)
+        if archived:
+            await self.setLocked(True)
 
     def tryPasswd(self, passwd):
 

@@ -277,7 +277,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 # The callback created node also has norm set on it
                 self.eq(nodes[0].get('norm'), 'mypipe')
 
-                node = await snap.addNode('it:dev:mutex=MyMutex')
+                node = await snap.addNode('it:dev:mutex', 'MyMutex')
                 self.eq(node.ndef[1], 'MyMutex')
                 nodes = await snap.nodes('it:dev:str=MyMutex')
                 self.len(1, nodes)
@@ -301,7 +301,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     iden = s_common.guid((key, valu))
                     props = {
                         'key': key,
-                        'prop': valu,
+                        prop: valu,
                     }
                     node = await snap.addNode('it:dev:regval', iden, props)
                     self.eq(node.ndef[1], iden)

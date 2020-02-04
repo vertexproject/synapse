@@ -298,6 +298,7 @@ class SpawnCore(s_base.Base):
         self.pid = os.getpid()
         self.views = {}
         self.layers = {}
+        self.nexsroot = None
         self.spawninfo = spawninfo
 
         self.conf = spawninfo.get('conf')
@@ -342,7 +343,9 @@ class SpawnCore(s_base.Base):
 
             layrinfo['readonly'] = True
 
-            layr = await ctor.anit(layrinfo)
+            layrdirn = s_common.genpath(self.dirn, 'layers', iden)
+
+            layr = await ctor.anit(layrinfo, layrdirn)
             self.onfini(layr)
 
             self.layers[iden] = layr
@@ -381,6 +384,13 @@ class SpawnCore(s_base.Base):
 
         # TODO: Add Dmon management functions ($lib.dmon support)
         # TODO: Add Axon management functions ($lib.bytes support)
+
+    async def dyncall(self, iden, todo, gatekeys=()):
+        return self.prox.dyncall(iden, todo, gatekeys=gatekeys)
+
+    async def dyniter(self, iden, todo, gatekeys=()):
+        async for item in self.prox.dyniter(iden, todo, gatekeys=gatekeys):
+            yield item
 
     def getStormQuery(self, text):
         '''

@@ -425,7 +425,7 @@ class View(s_nexus.Pusher):  # type: ignore
             if view.parent is not None and view.parent == self:
                 raise s_exc.SynErr(mesg='Cannot merge a view that has children itself')
 
-        if user is None or user.admin:
+        if user is None or user.isAdmin():
             return True
 
         CHUNKSIZE = 1000

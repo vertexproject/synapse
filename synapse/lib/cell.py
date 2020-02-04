@@ -307,36 +307,54 @@ class CellApi(s_base.Base):
         await user.revoke(rolename)
         await self.cell.fire('user:mod', act='revoke', name=username, role=rolename)
 
-    async def getAuthInfo(self, name):
-        '''
-        An API endpoint for getting user and role info.
+    async def getUserInfo(self, name):
+        user = await self.cell.auth.reqUserByName(name)
+        if self.user.isAdmin() or self.user.iden == user.iden:
+            info = user.pack()
+            info['roles'] = [self.cell.auth.role(r).name for r in info['roles']]
+            return info
 
-        Args:
-            name (str): Name of the item requested.
+        mesg = 'getUserInfo denied for non-admin and non-self'
+        raise s_exc.AuthDeny(mesg=mesg)
 
-        Notes:
-            Authinfo for an item is available to a remote user under the following conditions:
-            1. The remote user is an admin.
-            2. The remote user is requesting their authitem data.
-            3. The remote user is requesting role information for roles they have.
+    async def getRoleInfo(self, name):
+        role = await self.cell.auth.reqRoleByName(name)
+        if self.user.isAdmin() or role.iden in self.user.info.get('roles', ()):
+            return role.pack()
 
-        Returns:
-            tuple(str, dict): The name and packed information about the auth item.
-        '''
-        item = await self.cell.auth.getRulerByName(name)
-        pack = item.pack()
-        item_iden = pack.get('iden')
+        mesg = 'getRoleInfo denied for non-admin and non-member'
+        raise s_exc.AuthDeny(mesg=mesg)
 
-        if self.user.isAdmin() or \
-                (pack.get('type') == 'user' and self.user.iden == item_iden) or \
-                (pack.get('type') == 'role' and self.user.hasRole(item_iden)):
-            # translate role guids to names for back compat
-            if pack.get('type') == 'user':
-                pack['roles'] = [self.cell.auth.role(r).name for r in pack['roles']]
-            return (name, pack)
-
-        raise s_exc.AuthDeny(mesg='User does not have permission to get authinfo for the requested item.',
-                             name=name)
+#    async def getAuthInfo(self, name):
+#        '''
+#        An API endpoint for getting user and role info.
+#
+#        Args:
+#            name (str): Name of the item requested.
+#
+#        Notes:
+#            Authinfo for an item is available to a remote user under the following conditions:
+#            1. The remote user is an admin.
+#            2. The remote user is requesting their authitem data.
+#            3. The remote user is requesting role information for roles they have.
+#
+#        Returns:
+#            tuple(str, dict): The name and packed information about the auth item.
+#        '''
+#        item = await self.cell.auth.getRulerByName(name)
+#        pack = item.pack()
+#        item_iden = pack.get('iden')
+#
+#        if self.user.isAdmin() or \
+#                (pack.get('type') == 'user' and self.user.iden == item_iden) or \
+#                (pack.get('type') == 'role' and self.user.hasRole(item_iden)):
+#            # translate role guids to names for back compat
+#            if pack.get('type') == 'user':
+#                pack['roles'] = [self.cell.auth.role(r).name for r in pack['roles']]
+#            return (name, pack)
+#
+#        raise s_exc.AuthDeny(mesg='User does not have permission to get authinfo for the requested item.',
+#                             name=name)
 
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health',))
