@@ -951,11 +951,8 @@ class Layer(s_nexus.Pusher):
             for buid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu):
                 yield await self.getStorNode(buid)
 
-    async def storNodeEdits(self, nodeedits, meta):
-        return await self._push('edits', nodeedits, meta)
-
-    @s_nexus.Pusher.onPush('edits', passoff=True)
-    async def _onStorNodeEdits(self, nodeedits, meta, nexsoff=None):
+    @s_nexus.Pusher.onPushAuto('edits', passoff=True)
+    async def storNodeEdits(self, nodeedits, meta, nexsoff=None):
         assert nexsoff is not None
         self.splicelog.append(nexsoff)
         retn = [await self._storNodeEdit(e, meta) for e in nodeedits]

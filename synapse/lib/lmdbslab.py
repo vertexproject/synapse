@@ -299,11 +299,8 @@ class MultiQueue(s_nexus.Pusher):
     def offset(self, name):
         return self.offsets.get(name)
 
+    @s_nexus.Pusher.onPushAuto('multiqueue:add')
     async def add(self, name, info):
-        return await self._push('multiqueue:add', name, info)
-
-    @s_nexus.Pusher.onPush('multiqueue:add')
-    async def _onAdd(self, name, info):
         if self.queues.get(name) is not None:
             mesg = f'A queue exists with the name {name}.'
             raise s_exc.DupName(mesg=mesg, name=name)
@@ -314,11 +311,8 @@ class MultiQueue(s_nexus.Pusher):
             self.sizes.set(name, 0)
             self.offsets.set(name, 0)
 
+    @s_nexus.Pusher.onPushAuto('multiqueue:rem')
     async def rem(self, name):
-        return await self._push('multiqueue:rem', name)
-
-    @s_nexus.Pusher.onPush('multiqueue:rem')
-    async def _onRem(self, name):
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
@@ -341,18 +335,12 @@ class MultiQueue(s_nexus.Pusher):
             return itemoffs, item
         return -1, None
 
+    @s_nexus.Pusher.onPushAuto('multiqueue:put')
     async def put(self, name, item):
-        return await self._push('multiqueue:put', name, item)
+        return await self._hndlputs(name, (item,))
 
-    @s_nexus.Pusher.onPush('multiqueue:put')
-    async def _onPut(self, name, item):
-        return await self._onPuts(name, (item,))
-
+    @s_nexus.Pusher.onPushAuto('multiqueue:puts')
     async def puts(self, name, items):
-        return await self._push('multiqueue:puts', name, items)
-
-    @s_nexus.Pusher.onPush('multiqueue:puts')
-    async def _onPuts(self, name, items):
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
@@ -416,14 +404,11 @@ class MultiQueue(s_nexus.Pusher):
 
             await evnt.wait()
 
+    @s_nexus.Pusher.onPushAuto('multiqueue:cull')
     async def cull(self, name, offs):
         '''
         Remove up-to (and including) the queue entry at offs.
         '''
-        return await self._push('multiqueue:cull', name, offs)
-
-    @s_nexus.Pusher.onPush('multiqueue:cull')
-    async def _onCull(self, name, offs):
         if offs < 0:
             return
 
