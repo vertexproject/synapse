@@ -1,7 +1,8 @@
 import os
+import copy
 import asyncio
 import logging
-import copy
+import warnings
 import contextlib
 import collections
 
@@ -146,6 +147,10 @@ class CoreApi(s_cell.CellApi):
         '''
         Deletes a trigger from the cortex
         '''
+        mesg = 'delTrigger will be deprecated in 0.2.x, ' \
+               'triggers should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         trig = await self.cell.getTrigger(iden)
         trig.confirm(self.user, ('trigger', 'del'))
         await self.cell.delTrigger(iden)
@@ -156,6 +161,10 @@ class CoreApi(s_cell.CellApi):
         '''
         Change an existing trigger's query
         '''
+        mesg = 'updateTrigger will be deprecated in 0.2.x, ' \
+               'triggers should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         trig = await self.cell.getTrigger(iden)
         trig.confirm(self.user, ('trigger', 'set'))
         await self.cell.updateTrigger(iden, query)
@@ -166,6 +175,10 @@ class CoreApi(s_cell.CellApi):
         '''
         Enable an existing trigger
         '''
+        mesg = 'enableTrigger will be deprecated in 0.2.x, ' \
+               'triggers should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         trig = await self.cell.getTrigger(iden)
         trig.confirm(self.user, ('trigger', 'set'))
         await self.cell.enableTrigger(iden)
@@ -176,6 +189,10 @@ class CoreApi(s_cell.CellApi):
         '''
         Disable an existing trigger
         '''
+        mesg = 'disableTrigger will be deprecated in 0.2.x, ' \
+               'triggers should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         trig = await self.cell.getTrigger(iden)
         trig.confirm(self.user, ('trigger', 'set'))
         await self.cell.disableTrigger(iden)
@@ -186,6 +203,10 @@ class CoreApi(s_cell.CellApi):
         '''
         Lists all the triggers that the current user is authorized to access
         '''
+        mesg = 'listTrigger will be deprecated in 0.2.x, ' \
+               'triggers should be accessed via storm instead'
+        warnings.warn(mesg, PendingDeprecationWarning)
+
         trigs = []
         view = await self._getView(view)
         rawtrigs = await view.listTriggers()
@@ -228,8 +249,8 @@ class CoreApi(s_cell.CellApi):
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
-        self.user.confirm(('cron', 'add'))
-
+        # FIXME deprecated annotation
+        self.user.confirm(('cron', 'add'), gateiden='cortex')
         return await self.cell.addCronJob(self.user, query, reqs, incunit, incval)
 
     async def delCronJob(self, iden):
@@ -239,9 +260,8 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
-        gate = self.cell.auth.reqAuthGate(iden)
-        gate.confirm(self.user, ('cron', 'del'))
-
+        # FIXME deprecated annotation
+        self.user.confirm(('cron', 'del'), gateiden=iden)
         await self.cell.delCronJob.delete(iden)
 
     async def updateCronJob(self, iden, query):
@@ -251,10 +271,8 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        # FIXME: discuss this model
-        # await cron.reqAllowed(self.user, ('cron', 'set'))
-        gate = self.cell.auth.reqAuthGate(iden)
-        gate.confirm(self.user, ('cron', 'set'))
+        # FIXME deprecated annotation
+        self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.updateCronJob(iden, query)
 
     async def enableCronJob(self, iden):
@@ -264,8 +282,8 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        gate = self.cell.auth.reqAuthGate(iden)
-        gate.confirm(self.user, ('cron', 'set'))
+        # FIXME deprecated annotation
+        self.user.confirm(('cron', 'edit'), gateiden=iden)
         await self.cell.enableCronJob(iden)
 
     async def disableCronJob(self, iden):
@@ -275,23 +293,27 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        gate = self.cell.auth.reqAuthGate(iden)
-        gate.confirm(self.user, ('cron', 'set'))
+        # FIXME deprecated annotation
+        self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.disableCronJob(iden)
 
     async def listCronJobs(self):
         '''
         Get information about all the cron jobs accessible to the current user
         '''
-        crons = []
+        # FIXME deprecated annotation
 
-        for iden, cron in self.cell.agenda.list():
-            if not cron.allowed(self.user, ('cron', 'get')):
+        crons = []
+        for iden, cron in self.cell.listCronJobs():
+
+            if not self.user.allowed(('cron', 'get'), gateiden=iden):
                 continue
 
             info = cron.pack()
-            info['username'] = self.cell.getUserName(cron.useriden)
-            crons.append((iden, info))
+            info['iden'] = iden
+            info['username'] = self.getUserName(cron.useriden)
+
+            crons.append(info)
 
         return crons
 
@@ -2011,6 +2033,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('csv',), s_stormtypes.LibCsv)
         self.addStormLib(('str',), s_stormtypes.LibStr)
         self.addStormLib(('pkg',), s_stormtypes.LibPkg)
+        self.addStormLib(('cron',), s_stormtypes.LibCron)
         self.addStormLib(('dmon',), s_stormtypes.LibDmon)
         self.addStormLib(('feed',), s_stormtypes.LibFeed)
         self.addStormLib(('time',), s_stormtypes.LibTime)
@@ -2019,9 +2042,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('view',), s_stormtypes.LibView)
         self.addStormLib(('queue',), s_stormtypes.LibQueue)
         self.addStormLib(('stats',), s_stormtypes.LibStats)
-        self.addStormLib(('service',), s_stormtypes.LibService)
         self.addStormLib(('bytes',), s_stormtypes.LibBytes)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
+        self.addStormLib(('trigger',), s_stormtypes.LibTrigger)
+        self.addStormLib(('service',), s_stormtypes.LibService)
         self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
 
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
@@ -3604,6 +3628,95 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden (bytes):  The iden of the cron job to be changed
         '''
         await self.cell.agenda.disable(iden)
+
+    @staticmethod
+    def _convert_reqdict(reqdict):
+        return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
+
+    async def addCronJob(self, user, query, reqs, incunit=None, incval=1):
+        '''
+        Add a cron job to the cortex.  Convenience wrapper around agenda.add
+
+        A cron job is a persistently-stored item that causes storm queries to be run in the future.  The specification
+        for the times that the queries run can be one-shot or recurring.
+
+        Args:
+            query (str):  The storm query to execute in the future
+            reqs (Union[Dict[str, Union[int, List[int]]], List[Dict[...]]]):
+                Either a dict of the fixed time fields or a list of such dicts.  The keys are in the set ('year',
+                'month', 'dayofmonth', 'dayofweek', 'hour', 'minute'.  The values must be positive integers, except for
+                the key of 'dayofmonth' in which it may also be a negative integer which represents the number of days
+                from the end of the month with -1 representing the last day of the month.  All values may also be lists
+                of valid values.
+            incunit (Optional[str]):
+                A member of the same set as above, with an additional member 'day'.  If is None (default), then the
+                appointment is one-shot and will not recur.
+            incval (Union[int, List[int]):
+                A integer or a list of integers of the number of units
+
+        Returns (bytes):
+            An iden that can be used to later modify, query, and delete the job.
+
+        Notes:
+            reqs must have fields present or incunit must not be None (or both)
+            The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
+        '''
+        try:
+            if incunit is not None:
+                if isinstance(incunit, (list, tuple)):
+                    incunit = [s_agenda.TimeUnit.fromString(i) for i in incunit]
+                else:
+                    incunit = s_agenda.TimeUnit.fromString(incunit)
+            if isinstance(reqs, Mapping):
+                newreqs = self._convert_reqdict(reqs)
+            else:
+                newreqs = [self._convert_reqdict(req) for req in reqs]
+        except KeyError:
+            raise s_exc.BadConfValu('Unrecognized time unit')
+
+        return await self.agenda.add(user.iden, query, newreqs, incunit, incval)
+
+    async def delCronJob(self, iden):
+        '''
+        Delete a cron job
+
+        Args:
+            iden (bytes):  The iden of the cron job to be deleted
+        '''
+        await self.agenda.delete(iden)
+
+    async def updateCronJob(self, iden, query):
+        '''
+        Change an existing cron job's query
+
+        Args:
+            iden (bytes):  The iden of the cron job to be changed
+        '''
+        await self.agenda.mod(iden, query)
+
+    async def enableCronJob(self, iden):
+        '''
+        Enable a cron job
+
+        Args:
+            iden (bytes):  The iden of the cron job to be changed
+        '''
+        await self.agenda.enable(iden)
+
+    async def disableCronJob(self, iden):
+        '''
+        Enable a cron job
+
+        Args:
+            iden (bytes):  The iden of the cron job to be changed
+        '''
+        await self.agenda.disable(iden)
+
+    async def listCronJobs(self):
+        '''
+        Get information about all the cron jobs accessible to the current user
+        '''
+        return self.agenda.list()
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):
