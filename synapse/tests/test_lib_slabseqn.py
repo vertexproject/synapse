@@ -52,10 +52,24 @@ class SlabSeqn(s_t_utils.SynTest):
             retn = tuple(seqn.iter(100))
             self.eq(retn, ())
 
+            evnt = seqn.getOffsetEvent(4)
+            self.true(evnt.is_set())
+
+            evnt1 = seqn.getOffsetEvent(8)
+            evnt2 = seqn.getOffsetEvent(9)
+            evnt3 = seqn.getOffsetEvent(8)
+
             seqn.save(items)
             retn = tuple(seqn.iter(0))
             self.len(9, retn)
 
             self.eq('foo', seqn.getByIndxByts(b'\x00' * 8))
+
+            self.true(evnt1.is_set())
+            self.false(evnt2.is_set())
+            self.true(evnt3.is_set())
+
+            seqn.add('bar')
+            self.true(evnt2.is_set())
 
             await slab.fini()

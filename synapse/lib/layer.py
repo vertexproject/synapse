@@ -974,7 +974,7 @@ class Layer(s_nexus.Pusher):
     @s_nexus.Pusher.onPushAuto('edits', passoff=True)
     async def storNodeEdits(self, nodeedits, meta, nexsoff=None):
         assert nexsoff is not None
-        self.splicelog.append(nexsoff)
+        self.splicelog.add(nexsoff)
         retn = [await self._storNodeEdit(e, meta) for e in nodeedits]
         self.offsets.set('splice:applied', nexsoff)
         return retn
