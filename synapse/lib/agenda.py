@@ -622,8 +622,6 @@ class Agenda(s_base.Base):
         if appt is None:
             raise s_exc.NoSuchIden()
 
-        await self.core.auth.delAuthGate(iden)
-
         try:
             heappos = self.apptheap.index(appt)
         except ValueError:
