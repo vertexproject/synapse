@@ -908,7 +908,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         # Change distribution
         self.nexsroot = await s_nexus.NexsRoot.anit(dirn)
         self.onfini(self.nexsroot.fini)
-        self.nexswaits = collections.defaultdict(list)
 
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
@@ -1850,6 +1849,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
                     logger.warning(f'mirror loop connected ({url} offset={offs})')
 
+                    # FIXME:  doesn't this spin forever if non new data in proxy?
                     while not proxy.isfini:
 
                         # gotta do this in the loop as well...
@@ -1887,13 +1887,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
                                 items.append(nexi)
 
-                            for nexi in items:
-                                iden, evt, args, kwargs = nexi[1]
-                                await self.nexsroot.eat(iden, evt, args, kwargs)
-
-                                waits = self.nexswaits.pop(nexi[0] + 1, None)
-                                if waits is not None:
-                                    [e.set() for e in waits]
+                            for _, args in items:
+                                await self.nexsroot.eat(*args)
 
             except asyncio.CancelledError: # pragma: no cover
                 return
@@ -1906,15 +1901,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def getNexusOffs(self):
         return self.nexsroot.getOffset()
 
-    async def waitNexusOffs(self, offs):
-        evnt = asyncio.Event()
-
-        if self.nexsroot.getOffset() >= offs:
-            evnt.set()
-        else:
-            self.nexswaits[offs].append(evnt)
-
-        return evnt
+    async def getNexusOffsEvent(self, offs):
+        return self.nexsroot.nexuslog.getOffsetEvent(offs)
 
 #    async def _getWaitFor(self, name, valu):
 #        form = self.model.form(name)
