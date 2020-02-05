@@ -1009,7 +1009,7 @@ class Layer(s_nexus.Pusher):
         assert nexsoff is not None
         offs = self.splicelog.add(nexsoff)
 
-        [(await wind.puts([(offs, nexsoff)])) for wind in tuple(self.windows)]
+        [(await wind.put((offs, nexsoff))) for wind in tuple(self.windows)]
 
         retn = [await self._storNodeEdit(e, meta) for e in nodeedits]
         self.offsets.set('splice:applied', nexsoff)
