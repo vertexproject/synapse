@@ -1007,7 +1007,7 @@ class Layer(s_nexus.Pusher):
     @s_nexus.Pusher.onPushAuto('edits', passoff=True)
     async def storNodeEdits(self, nodeedits, meta, nexsoff=None):
         assert nexsoff is not None
-        offs = self.splicelog.append(nexsoff)
+        offs = self.splicelog.add(nexsoff)
 
         [(await wind.puts([(offs, nexsoff)])) for wind in tuple(self.windows)]
 
