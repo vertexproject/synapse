@@ -1,6 +1,7 @@
 import sys
 import asyncio
 import logging
+import warnings
 
 import synapse.common as s_common
 import synapse.telepath as s_telepath
@@ -31,4 +32,5 @@ async def main(argv):  # pragma: no cover
         await cmdr.runCmdLoop()
 
 if __name__ == '__main__': # pragma: no cover
+    warnings.filterwarnings("default", category=PendingDeprecationWarning)
     asyncio.run(main(sys.argv[1:]))

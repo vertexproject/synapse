@@ -18,6 +18,7 @@ class SynModule(s_module.CoreModule):
         self.core.addRuntLift('syn:form', self._liftRuntSynForm)
         self.core.addRuntLift('syn:prop', self._liftRuntSynProp)
         self.core.addRuntLift('syn:tagprop', self._liftRuntSynTagProp)
+        # FIXME addRuntLift('syn:splice')
 
         self.core.addRuntLift('syn:prop:ro', self._liftRuntSynPropRo)
         self.core.addRuntLift('syn:prop:base', self._liftRuntSynPropBase)

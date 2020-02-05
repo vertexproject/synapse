@@ -28,6 +28,17 @@ Backward Compatibility Breaks
 
 - FIXME add one liners and/or additional bullets here and visi will explain them :D
 
+v0.1.49 - 2019-02-03
+====================
+
+Bugfixes
+--------
+- Fix an issue where pivot operations which pointed to ``syn:splice`` nodes raised exceptions which could teardown a
+  Storm runtime unexpectedly.  Attempting to directly lift ``syn:splice`` nodes by primary or secondary properties now
+  generates no nodes.
+  (`#1529 <https://github.com/vertexproject/synapse/pull/1529>`_)
+
+
 v0.1.48 - 2019-02-03
 ====================
 
