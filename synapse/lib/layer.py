@@ -94,14 +94,17 @@ class LayerApi(s_cell.CellApi):
         #self.storperm = ('layer:stor', self.layr.iden)
 
     async def iterLayerSplices(self):
+        await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.iterLayerSplices():
             yield item
 
     async def syncSplices(self, offs):
+        await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.syncSplices(offs):
             yield item
 
     async def getSpliceOffset(self):
+        await self._reqUserAllowed(self.liftperm)
         return self.layr.getSpliceOffset()
 
     #async def getLiftRows(self, lops):
@@ -709,8 +712,8 @@ class Layer(s_nexus.Pusher):
 
     async def __anit__(self, layrinfo, dirn, conf=None, nexsroot=None):
 
-        self.iden = layrinfo.get('iden')
         self.nexsroot = nexsroot
+        self.iden = layrinfo.get('iden')
         await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=nexsroot)
 
         self.dirn = dirn
@@ -1004,9 +1007,9 @@ class Layer(s_nexus.Pusher):
     @s_nexus.Pusher.onPushAuto('edits', passoff=True)
     async def storNodeEdits(self, nodeedits, meta, nexsoff=None):
         assert nexsoff is not None
-        spliceoffs = self.splicelog.append(nexsoff)
+        offs = self.splicelog.append(nexsoff)
 
-        [(await wind.puts([(spliceoffs, nexsoff)])) for wind in tuple(self.windows)]
+        [(await wind.puts([(offs, nexsoff)])) for wind in tuple(self.windows)]
 
         retn = [await self._storNodeEdit(e, meta) for e in nodeedits]
         self.offsets.set('splice:applied', nexsoff)
@@ -1358,7 +1361,8 @@ class Layer(s_nexus.Pusher):
             abrv = lkey[32:]
 
             valu = s_msgpack.un(byts)
-            yield self.getAbrvProp(abrv), valu
+            prop = await self.getAbrvProp(abrv)
+            yield prop[0], valu
 
     async def iterLayerSplices(self):
 
@@ -1371,7 +1375,7 @@ class Layer(s_nexus.Pusher):
             if not buid == nodeedits[0]:
                 if nodeedits[0] is not None:
                     async for prop, valu in self.iterNodeData(nodeedits[0]):
-                        edit = (EDIT_NODEDATA_SET, (name, valu))
+                        edit = (EDIT_NODEDATA_SET, (prop, valu))
                         nodeedits[2].append(edit)
 
                     yield nodeedits
@@ -1424,7 +1428,7 @@ class Layer(s_nexus.Pusher):
 
         if nodeedits[0] is not None:
             async for prop, valu in self.iterNodeData(nodeedits[0]):
-                edit = (EDIT_NODEDATA_SET, (name, valu))
+                edit = (EDIT_NODEDATA_SET, (prop, valu))
                 nodeedits[2].append(edit)
 
             yield nodeedits
@@ -1491,11 +1495,11 @@ class Layer(s_nexus.Pusher):
 
                                 items.append(nexi)
 
-                            for newoff, item in items:
+                            for spliceoffs, item in items:
                                 await self.storNodeEdits(item, {})
-                                self.offsets.set(url, newoff+1)
+                                self.offsets.set(url, spliceoffs + 1)
 
-                                waits = self.upstreamwaits[url].pop(newoff+1, None)
+                                waits = self.upstreamwaits[url].pop(spliceoffs + 1, None)
                                 if waits is not None:
                                     [e.set() for e in waits]
 

@@ -129,6 +129,14 @@ class LayerTest(s_t_utils.SynTest):
 
                 await core00.nodes('[test:str=foobar +#hehe.haha]')
                 await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+                await core00.addTagProp('score', ('int', {}), {})
+
+                async with await core00.snap() as snap:
+
+                    props = {'tick': 12345}
+                    node = await snap.addNode('test:str', 'foo', props=props)
+                    await node.setTagProp('bar', 'score', 10)
+                    await node.setData('baz', 'nodedataiscool')
 
                 async with self.getTestCore(dirn=path01) as core01:
 
@@ -137,6 +145,7 @@ class LayerTest(s_t_utils.SynTest):
                     layr = await core01.addLayer(ldef=conf)
                     await core01.view.addLayer(layr.iden)
 
+                    # test initial sync
                     offs = core00.getView().layers[0].getSpliceOffset()
                     evnt = await layr.waitUpstreamOffs(url, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
@@ -146,6 +155,14 @@ class LayerTest(s_t_utils.SynTest):
                     self.len(1, nodes)
                     self.nn(nodes[0].tags.get('hehe.haha'))
 
+                    async with await core01.snap() as snap:
+                        node = await snap.getNodeByNdef(('test:str', 'foo'))
+                        self.nn(node)
+                        self.eq(node.props.get('tick'), 12345)
+                        self.eq(node.tagprops.get(('bar', 'score')), 10)
+                        self.eq(await node.getData('baz'), 'nodedataiscool')
+
+                    # make sure updates show up
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
 
                     offs = core00.getView().layers[0].getSpliceOffset()
