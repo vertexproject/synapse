@@ -4,21 +4,18 @@ Migrate storage from 0.1.x to 0.2.x.
 TODO:
     - Support non-inplace migration?
     - Migrating mirrors (what about existing remote layer?)
-    - Tagprops
     - Handling for pause/restart
     - Validation (esp. check .created)
-    - Extended models
-    - Other stuff besides nodes/tags - nodedata, offsets?
+    - Offset migration
     - Prompt and/or execute a backup?
     - Add ability to do a specific step on a specifc layer?
     - Any migr for views?  Need to iter over views?
     - Teardown / restore options
-    - Progress reporting for long migration steps
     - Set an error threshold for canceling migration?  esp on nodes?
-    - Are tagprops being added to the model?
     - need to execute a model migration also?  or can that be done after data migration?
     - inbound conditions to start, i.e. at least at 0.1.Y
     - check slab opening props
+    - handle custom modules that may have a custom type (and therefore no stortype)
 '''
 import os
 import sys
@@ -46,6 +43,16 @@ import synapse.lib.modelrev as s_modelrev
 
 logger = logging.getLogger(__name__)
 
+ALL_MIGROPS = (
+    'dmodel',
+    'hiveauth',
+    'hivestor',
+    'hivelyr',
+    'nodes',
+    'nodedata',
+    'hive',
+)
+
 class Migrator(s_base.Base):
     '''
     Standalone tool for migrating Synapse storage.
@@ -55,9 +62,14 @@ class Migrator(s_base.Base):
         self.migrdir = 'migration'
 
         self.dirn = conf.get('dirn')
+        self.migrops = conf.get('migrops')
         self.migrlayer = conf.get('layer')
         self.nodelim = conf.get('nodelim')
         self.nexusoff = conf.get('nexusoff', False)
+        self.usehivev1 = conf.get('usehivev1', False)
+
+        if self.migrops is None:
+            self.migrops = ALL_MIGROPS
 
         # data model
         self.model = None
@@ -80,23 +92,31 @@ class Migrator(s_base.Base):
         # open hive
         path = os.path.join(self.dirn, 'slabs', 'cell.lmdb')
         self.hiveslab = await s_lmdbslab.Slab.anit(path, readonly=False)
-        self.hivedb = self.hiveslab.initdb('hive')
-        self.hive = await s_hive.SlabHive.anit(self.hiveslab, db=self.hivedb)
-        self.onfini(self.hive.fini)
         self.onfini(self.hiveslab.fini)
+        self.hivedb = self.hiveslab.initdb('hive')
+        self.hivedb_v1 = self.hiveslab.initdb('hive_v1')  # on final step this will contain original copy
+        self.hivedb_v2 = self.hiveslab.initdb('hive_v2')  # working copy during migration
+
+        # copy hive before we get started
+        if self.usehivev1:
+            await self._migrHive(self.hivedb_v1, self.hivedb)  # can also be used to unwind hive migration
+        await self._migrHive(self.hivedb, self.hivedb_v2, rmsrc=False)
+        self.hive = await s_hive.SlabHive.anit(self.hiveslab, db=self.hivedb_v2)
+        self.onfini(self.hive.fini)
 
     async def migrate(self):
         '''
         Execute the migration
         '''
-        # backup the hive before starting
-        await self._migrBackupHive()
-
         # datamodel migration
-        await self._migrDatamodel()
+        if 'dmodel' in self.migrops:
+            await self._migrDatamodel()
 
         # storage info migration
-        storinfo, layridens = await self._migrHiveStorInfo()
+        if 'hivestor' in self.migrops:
+            storinfo, layridens = await self._migrHiveStorInfo()
+        else:
+            storinfo, layridens = None, []
 
         if self.migrlayer is not None:
             logger.info(f'Restricting migration to one layer: {self.migrlayer}')
@@ -106,37 +126,50 @@ class Migrator(s_base.Base):
         for iden in layridens:
             logger.info(f'Starting migration for storage {storinfo.get("iden")} and layer {iden}')
             wlyr = await self._destGetWlyr(self.dirn, storinfo, iden)
-            await self._migrNodes(iden, wlyr)
-            await self._migrNodeData(iden, wlyr)
-            # await self._migrOffsets(foo)
-            await self._migrHiveLayerInfo(storinfo, iden)
+
+            if 'nodes' in self.migrops:
+                await self._migrNodes(iden, wlyr)
+
+            if 'nodedata' in self.migrops:
+                await self._migrNodeData(iden, wlyr)
+
+            # await self._migrOffsets(foo)  # TODO
+
+            if 'hivelyr' in self.migrops:
+                await self._migrHiveLayerInfo(storinfo, iden)
 
         # auth migration
-        await self._migrHiveAuth()  # TODO
+        if 'hiveauth' in self.migrops:
+            await self._migrHiveAuth()  # TODO
+
+        # migrate cell (replace hive with hive_v2)
+        if 'hive' in self.migrops:
+            await self._migrHive(self.hivedb, self.hivedb_v1, rmsrc=False)
+            await self._migrHive(self.hivedb_v2, self.hivedb, rmsrc=True)
 
     #############################################################
     # Migration operations
     #############################################################
 
-    async def _migrBackupHive(self):
+    async def _migrHive(self, src, dest, rmsrc=False):
         '''
-        Create a copy of the hive slab, overwriting any existing backups.
+        Create a copy of the hive, overwriting destination and optionally removing source.
+
+        Args:
+            src (str): Target db to copy
+            dest (str): Destination db to copy to
+            rmsrc (bool): Whether to remove the source after copying
         '''
-        migrop = 'buhive'
-        bucellpath = os.path.join(self.dirn, 'slabs', 'cell_v1.lmdb')
-        if os.path.exists(bucellpath):
-            shutil.rmtree(bucellpath)
+        migrop = 'hive'
 
-        shutil.copytree(
-            os.path.join(self.dirn, 'slabs', 'cell.lmdb'), bucellpath)
+        self.hiveslab.dropdb(dest)
+        self.hiveslab.copydb(src, self.hiveslab, dest)
 
-        shutil.copy(
-            os.path.join(self.dirn, 'slabs', 'cell.opts.yaml'),
-            os.path.join(self.dirn, 'slabs', 'cell_v1.opts.yaml'),
-        )
+        if rmsrc:
+            self.hiveslab.dropdb(src)
 
-        logger.info(f'Completed Hive backup')
-        await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
+        logger.info(f'Completed Hive copy from {src} to {dest}')
+        await self._migrlogAdd(migrop, 'prog', 'none', (src, dest, s_common.now()))
 
     async def _migrDatamodel(self):
         '''
@@ -155,6 +188,19 @@ class Migrator(s_base.Base):
             mdefs.extend(modu.getModelDefs(self))  # probably not the self its expecting...
 
         self.model.addDataModels(mdefs)
+
+        # load custom modules
+        # check for cell.yaml first otherwise an empty file will be created by yamlload
+        yamlpath = os.path.join(self.dirn, 'cell.yaml')
+        if os.path.exists(yamlpath):
+            conf = s_common.yamlload(self.dirn, 'cell.yaml')
+            if conf is not None:
+                mdefs = []
+                for mod in conf.get('modules', []):
+                    modu = s_dyndeps.tryDynLocal(mod)
+                    mdefs.extend(modu.getModelDefs(self))
+
+                self.model.addDataModels(mdefs)
 
         # load extended model
         extprops = await (await self.hive.open(('cortex', 'model', 'props'))).dict()
@@ -307,7 +353,8 @@ class Migrator(s_base.Base):
         # check if 0.2.0 write layer exists with data
         dest_fcntpre = await wlyr.getFormCounts()
         if dest_fcntpre:
-            logger.warning(f'Destination {iden} is not empty: {dest_fcntpre}')
+            logger.warning(f'Destination {iden} is not empty')
+            logger.debug(dest_fcntpre)
 
         # update modelrev
         await wlyr.setModelVers(s_modelrev.maxvers)
@@ -365,13 +412,13 @@ class Migrator(s_base.Base):
             await self._migrlogAdd(migrop, 'stat', f'{iden}:form', (scnt, dcnt))
 
         rprt.append('\n')
-        rprt.append(f'Migrated {stot:,} nodes in {t_dur_s} seconds ({int(stot/t_dur_s)} nodes/s avg)')
+        prprt = '\n'.join(rprt)
+        logger.debug(f'Final form count for {iden}: {prprt}')
+
         await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot, dtot))
         await self._migrlogAdd(migrop, 'stat', f'{iden}:duration', (stot, t_dur))
 
-        prprt = '\n'.join(rprt)
-        logger.info(f'Final form count for {iden}: {prprt}')
-
+        logger.info(f'Migrated {stot:,} nodes in {t_dur_s} seconds ({int(stot/t_dur_s)} nodes/s avg)')
         logger.info(f'Completed node migration for {iden}')
         await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
 
@@ -408,7 +455,7 @@ class Migrator(s_base.Base):
                 await self._migrlogAdd(migrop, 'chkpnt', iden, (nodedata, stot, s_common.now()))
                 break
 
-            if stot % 10000000 == 0:
+            if stot % 1000000 == 0:
                 logger.info(f'...on node {stot:,} for layer {iden}')
 
             nodeedit = await self._trnNodedataToNodeedit(nodedata)
@@ -580,7 +627,8 @@ class Migrator(s_base.Base):
             formnorm = form[1:]
         else:
             err = {'mesg': f'Unable to norm form {form}', 'node': node}
-            logger.error(err)
+            logger.error(err['mesg'])
+            logger.debug(err)
             await self._migrlogAdd(migrop, 'error', buid, err)
             return None
 
@@ -590,15 +638,17 @@ class Migrator(s_base.Base):
         mform = self.model.form(formnorm)
         if mform is None:
             err = {'mesg': f'Unable to determine form for {formnorm}', 'node': node}
-            logger.error(err)
+            logger.error(err['mesg'])
+            logger.debug(err)
             await self._migrlogAdd(migrop, 'error', buid, err)
             return None
 
         # create first edit for the node
 
-        if not hasattr(mform.type, 'stortype'):
+        if not hasattr(mform.type, 'stortype') or mform.type.stortype is None:
             err = {'mesg': f'Unable to determine stortype for {formnorm}', 'node': node}
-            logger.error(err)
+            logger.error(err['mesg'])
+            logger.debug(err)
             await self._migrlogAdd(migrop, 'error', buid, err)
             return None
 
@@ -608,13 +658,15 @@ class Migrator(s_base.Base):
         # iterate over secondary properties
         for sprop, sval in node[1]['props'].items():
             sformnorm = sprop.replace('*', '')
-            if not hasattr(mform.prop(sformnorm).type, 'stortype'):
-                err = {'mesg': f'Unable to determine stortype for sprop {formnorm}', 'node': node}
-                logger.error(err)
+            prop = mform.prop(sformnorm)
+            if prop is None or not hasattr(prop.type, 'stortype') or prop.type.stortype is None:
+                err = {'mesg': f'Unable to determine stortype for sprop {formnorm}, {sformnorm}', 'node': node}
+                logger.error(err['mesg'])
+                logger.debug(err)
                 await self._migrlogAdd(migrop, 'error', buid, err)
                 return None
 
-            stortype = mform.prop(sformnorm).type.stortype
+            stortype = prop.type.stortype
             edits.append((s_layer.EDIT_PROP_SET, (sformnorm, sval, None, stortype)))  # name, valu, oldv, stype
 
         # set tags
@@ -631,13 +683,15 @@ class Migrator(s_base.Base):
 
                 if tptype is None:
                     err = {'mesg': f'Unable to find tagprop datamodel for {tpname}', 'node': node}
-                    logger.error(err)
+                    logger.error(err['mesg'])
+                    logger.debug(err)
                     await self._migrlogAdd(migrop, 'error', buid, err)
                     return None
 
-                if not hasattr(tptype.base, 'stortype'):
+                if not hasattr(tptype.base, 'stortype') or tptype.base.stortype is None:
                     err = {'mesg': f'Unable to determine stortype for {tpname}', 'node': node}
-                    logger.error(err)
+                    logger.error(err['mesg'])
+                    logger.debug(err)
                     await self._migrlogAdd(migrop, 'error', buid, err)
                     return None
 
@@ -725,7 +779,8 @@ class Migrator(s_base.Base):
             raise
         except Exception as e:
             lyriden = wlyr.iden
-            logger.exception(f'unable to store nodeedits on {lyriden}: {nodeedits}')
+            logger.exception(f'unable to store nodeedits on {lyriden}')
+            logger.debug(f'nodeedits: {nodeedits}')
             for ne in nodeedits:
                 err = {'mesg': f'Unable to store nodeedit on {lyriden}', 'nodeedit': ne}
                 await self._migrlogAdd(migrop, 'error', ne[0], err)
@@ -734,11 +789,14 @@ class Migrator(s_base.Base):
 async def main(argv, outp=s_output.stdout):
     pars = argparse.ArgumentParser(prog='synapse.tools.migrate_stor', description='Tool for migrating Synapse storage.')
     pars.add_argument('--dirn', required=True, type=str)
+    pars.add_argument('--migr-ops', required=False, type=str, nargs='+', choices=ALL_MIGROPS,
+                      help='Limit migration operations to run.')
     pars.add_argument('--layer', required=False, type=str, help='Migrate specific layer by iden')
     pars.add_argument('--nodelim', required=False, type=int, help="Stop after migrating nodelim nodes")
     pars.add_argument('--nexus-off', action='store_true', required=False,
                       help="Do not create Nexus splicelog")
-    pars.add_argument('--log-level', default='debug', choices=s_const.LOG_LEVEL_CHOICES,
+    pars.add_argument('--use-hivev1', action='store_true', required=False, help='Initialize hive from hive_v1 backup')
+    pars.add_argument('--log-level', default='info', choices=s_const.LOG_LEVEL_CHOICES,
                       help='Specify the log level', type=str.upper)
 
     opts = pars.parse_args(argv)
@@ -747,9 +805,11 @@ async def main(argv, outp=s_output.stdout):
 
     conf = {
         'dirn': opts.dirn,
+        'migrops': opts.migr_ops,
         'layer': opts.layer,
         'nodelim': opts.nodelim,
         'nexusoff': opts.nexus_off,
+        'usehivev1': opts.use_hivev1,
     }
 
     migr = await Migrator.anit(conf=conf)
