@@ -364,6 +364,22 @@ class CellApi(s_base.Base):
     async def getDmonSessions(self):
         return await self.cell.getDmonSessions()
 
+    @adminapi
+    async def listHiveKey(self, path=None):
+        return await self.cell.listHiveKey(path=path)
+
+    @adminapi
+    async def getHiveKey(self, path):
+        return await self.cell.getHiveKey(path)
+
+    @adminapi
+    async def setHiveKey(self, path, valu):
+        return await self.cell.setHiveKey(path, valu)
+
+    @adminapi
+    async def popHiveKey(self, path):
+        return await self.cell.popHiveKey(path)
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.

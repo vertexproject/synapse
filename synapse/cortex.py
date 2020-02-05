@@ -135,11 +135,8 @@ class CoreApi(s_cell.CellApi):
         Adds a trigger to the cortex
 
         '''
-        wlyr = self.cell.view.layers[0]
-        await wlyr._reqUserAllowed(self.user, ('trigger', 'add'))
-
         view = await self._getView(view)
-
+        self.user.confirm(('trigger', 'add'), gateiden='cortex')
         iden = await view.addTrigger(condition, query, info, disabled, user=self.user)
         return iden
 
@@ -147,76 +144,53 @@ class CoreApi(s_cell.CellApi):
         '''
         Deletes a trigger from the cortex
         '''
-        mesg = 'delTrigger will be deprecated in 0.2.x, ' \
-               'triggers should be accessed via storm instead'
-        warnings.warn(mesg, PendingDeprecationWarning)
-
-        trig = await self.cell.getTrigger(iden)
-        trig.confirm(self.user, ('trigger', 'del'))
-        await self.cell.delTrigger(iden)
-
+        #FIXME deprecation warning
+        view = await self._getView(view)
+        self.user.confirm(('trigger', 'del'), gateiden=iden)
         await view.delTrigger(iden)
 
     async def updateTrigger(self, iden, query, view=None):
         '''
         Change an existing trigger's query
         '''
-        mesg = 'updateTrigger will be deprecated in 0.2.x, ' \
-               'triggers should be accessed via storm instead'
-        warnings.warn(mesg, PendingDeprecationWarning)
-
-        trig = await self.cell.getTrigger(iden)
-        trig.confirm(self.user, ('trigger', 'set'))
-        await self.cell.updateTrigger(iden, query)
-
+        #FIXME deprecation warning
+        view = await self._getView(view)
+        self.user.confirm(('trigger', 'set'), gateiden=iden)
         await view.updateTrigger(iden, query)
 
     async def enableTrigger(self, iden, view=None):
         '''
         Enable an existing trigger
         '''
-        mesg = 'enableTrigger will be deprecated in 0.2.x, ' \
-               'triggers should be accessed via storm instead'
-        warnings.warn(mesg, PendingDeprecationWarning)
-
-        trig = await self.cell.getTrigger(iden)
-        trig.confirm(self.user, ('trigger', 'set'))
-        await self.cell.enableTrigger(iden)
-
+        #FIXME deprecation warning
+        view = await self._getView(view)
+        self.user.confirm(('trigger', 'set'), gateiden=iden)
         await view.enableTrigger(iden)
 
     async def disableTrigger(self, iden, view=None):
         '''
         Disable an existing trigger
         '''
-        mesg = 'disableTrigger will be deprecated in 0.2.x, ' \
-               'triggers should be accessed via storm instead'
-        warnings.warn(mesg, PendingDeprecationWarning)
-
-        trig = await self.cell.getTrigger(iden)
-        trig.confirm(self.user, ('trigger', 'set'))
-        await self.cell.disableTrigger(iden)
-
+        #FIXME deprecation warning
+        view = await self._getView(view)
+        self.user.confirm(('trigger', 'set'), gateiden=iden)
         await view.disableTrigger(iden)
 
     async def listTriggers(self, view=None):
         '''
         Lists all the triggers that the current user is authorized to access
         '''
-        mesg = 'listTrigger will be deprecated in 0.2.x, ' \
-               'triggers should be accessed via storm instead'
-        warnings.warn(mesg, PendingDeprecationWarning)
+        # FIXME deprecation warning
+        view = await self._getView(view)
 
         trigs = []
-        view = await self._getView(view)
-        rawtrigs = await view.listTriggers()
+        for iden, trig in await view.listTriggers():
+            if not self.user.allowed(('trigger', 'get'), gateiden=iden):
+                continue
 
-        for (iden, trig) in rawtrigs:
-            if await trig.allowed(self.user, ('trigger', 'get')):
-                info = trig.pack()
-                # pack the username into the return as a convenience
-                info['username'] = self.cell.getUserName(trig.useriden)
-                trigs.append((iden, info))
+            info = trig.pack()
+            info['username'] = self.cell.getUserName(trig.useriden)
+            trigs.append((iden, info))
 
         return trigs
 
@@ -251,7 +225,7 @@ class CoreApi(s_cell.CellApi):
         '''
         # FIXME deprecated annotation
         self.user.confirm(('cron', 'add'), gateiden='cortex')
-        return await self.cell.addCronJob(self.user, query, reqs, incunit, incval)
+        return await self.cell.addCronJob(self.user.iden, query, reqs, incunit, incval)
 
     async def delCronJob(self, iden):
         '''
@@ -262,7 +236,7 @@ class CoreApi(s_cell.CellApi):
         '''
         # FIXME deprecated annotation
         self.user.confirm(('cron', 'del'), gateiden=iden)
-        await self.cell.delCronJob.delete(iden)
+        await self.cell.delCronJob(iden)
 
     async def updateCronJob(self, iden, query):
         '''
@@ -304,16 +278,16 @@ class CoreApi(s_cell.CellApi):
         # FIXME deprecated annotation
 
         crons = []
-        for iden, cron in self.cell.listCronJobs():
+        for iden, cron in await self.cell.listCronJobs():
 
             if not self.user.allowed(('cron', 'get'), gateiden=iden):
                 continue
 
             info = cron.pack()
             info['iden'] = iden
-            info['username'] = self.getUserName(cron.useriden)
+            info['username'] = self.cell.getUserName(cron.useriden)
 
-            crons.append(info)
+            crons.append((iden, info))
 
         return crons
 
@@ -3541,7 +3515,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     def _convert_reqdict(reqdict):
         return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
 
-    async def addCronJob(self, user, query, reqs, incunit=None, incval=1):
+    async def addCronJob(self, useriden, query, reqs, incunit=None, incval=1):
         '''
         Add a cron job to the cortex.  Convenience wrapper around agenda.add
 
@@ -3582,12 +3556,17 @@ class Cortex(s_cell.Cell):  # type: ignore
         except KeyError:
             raise s_exc.BadConfValu('Unrecognized time unit')
 
-        return await self._push('cron:add', user.iden, s_common.guid(), query, newreqs, incunit, incval)
+        user = await self.auth.reqUser(useriden)
+
+        iden = s_common.guid()
+        await self._push('cron:add', useriden, iden, query, newreqs, incunit, incval)
+        await user.setAdmin(True, gateiden=iden)
+        return iden
 
     @s_nexus.Pusher.onPush('cron:add')
     async def _onAddCronJob(self, useriden, croniden, query, newreqs, incunit=None, incval=1):
-
-        return await self.agenda.add(useriden, croniden, query, newreqs, incunit, incval)
+        await self.agenda.add(useriden, croniden, query, newreqs, incunit, incval)
+        await self.auth.addAuthGate(croniden, 'cronjob')
 
     @s_nexus.Pusher.onPushAuto('cron:del')
     async def delCronJob(self, iden):
@@ -3598,6 +3577,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden (bytes):  The iden of the cron job to be deleted
         '''
         await self.cell.agenda.delete(iden)
+        await self.auth.delAuthGate(iden)
 
     @s_nexus.Pusher.onPushAuto('cron:mod')
     async def updateCronJob(self, iden, query):
@@ -3632,49 +3612,6 @@ class Cortex(s_cell.Cell):  # type: ignore
     @staticmethod
     def _convert_reqdict(reqdict):
         return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
-
-    async def addCronJob(self, user, query, reqs, incunit=None, incval=1):
-        '''
-        Add a cron job to the cortex.  Convenience wrapper around agenda.add
-
-        A cron job is a persistently-stored item that causes storm queries to be run in the future.  The specification
-        for the times that the queries run can be one-shot or recurring.
-
-        Args:
-            query (str):  The storm query to execute in the future
-            reqs (Union[Dict[str, Union[int, List[int]]], List[Dict[...]]]):
-                Either a dict of the fixed time fields or a list of such dicts.  The keys are in the set ('year',
-                'month', 'dayofmonth', 'dayofweek', 'hour', 'minute'.  The values must be positive integers, except for
-                the key of 'dayofmonth' in which it may also be a negative integer which represents the number of days
-                from the end of the month with -1 representing the last day of the month.  All values may also be lists
-                of valid values.
-            incunit (Optional[str]):
-                A member of the same set as above, with an additional member 'day'.  If is None (default), then the
-                appointment is one-shot and will not recur.
-            incval (Union[int, List[int]):
-                A integer or a list of integers of the number of units
-
-        Returns (bytes):
-            An iden that can be used to later modify, query, and delete the job.
-
-        Notes:
-            reqs must have fields present or incunit must not be None (or both)
-            The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
-        '''
-        try:
-            if incunit is not None:
-                if isinstance(incunit, (list, tuple)):
-                    incunit = [s_agenda.TimeUnit.fromString(i) for i in incunit]
-                else:
-                    incunit = s_agenda.TimeUnit.fromString(incunit)
-            if isinstance(reqs, Mapping):
-                newreqs = self._convert_reqdict(reqs)
-            else:
-                newreqs = [self._convert_reqdict(req) for req in reqs]
-        except KeyError:
-            raise s_exc.BadConfValu('Unrecognized time unit')
-
-        return await self.agenda.add(user.iden, query, newreqs, incunit, incval)
 
     async def delCronJob(self, iden):
         '''

@@ -212,7 +212,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def iterStormPodes(self, text, opts=None, user=None):
         if user is None:
-            user = await self.auth.getUserByName('root')
+            user = await self.core.auth.getUserByName('root')
 
         info = {'query': text}
         if opts is not None:
@@ -519,14 +519,15 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         trigiden = s_common.guid()
 
-        return await self._push('trigger:add', trigiden, condition, query, info, disabled, user)
+        if user is None:
+            user = self.core.auth.getUserByName('root')
+
+        return await self._push('trigger:add', trigiden, condition, query, info, disabled, user.iden)
 
     @s_nexus.Pusher.onPush('trigger:add')
-    async def _onPushAddTrigger(self, trigiden, condition, query, info, disabled, user):
-        if user is None:
-            user = await self.core.auth.getUserByName('root')
-
-        self.triggers.add(trigiden, user.iden, condition, query, info=info)
+    async def _onPushAddTrigger(self, trigiden, condition, query, info, disabled, useriden):
+        self.triggers.add(trigiden, useriden, condition, query, info=info)
+        await self.core.auth.addAuthGate(trigiden, 'trigger')
         if disabled:
             self.triggers.disable(trigiden)
         await self.core.fire('core:trigger:action', iden=trigiden, action='add')
@@ -540,6 +541,7 @@ class View(s_nexus.Pusher):  # type: ignore
         Delete a trigger from the view.
         '''
         self.triggers.delete(iden)
+        await self.core.auth.delAuthGate(iden)
         await self.core.fire('core:trigger:action', iden=iden, action='delete')
 
     @s_nexus.Pusher.onPushAuto('trigger:update')

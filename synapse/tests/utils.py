@@ -509,7 +509,8 @@ class TstOutPut(s_output.OutPutStr):
         outs = str(self)
         if outs.find(substr) == -1:
             if throw:
-                raise Exception('TestOutPut.expect(%s) not in %s' % (substr, outs))
+                mesg = 'TestOutPut.expect(%s) not in %s' % (substr, outs)
+                raise s_exc.SynErr(mesg=mesg)
             return False
         return True
 
