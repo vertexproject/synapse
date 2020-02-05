@@ -137,7 +137,7 @@ class CoreApi(s_cell.CellApi):
         wlyr = self.cell.view.layers[0]
         await wlyr._reqUserAllowed(self.user, ('trigger', 'add'))
 
-        view = self._getView(view)
+        view = await self._getView(view)
 
         iden = await view.addTrigger(condition, query, info, disabled, user=self.user)
         return iden
@@ -187,7 +187,7 @@ class CoreApi(s_cell.CellApi):
         Lists all the triggers that the current user is authorized to access
         '''
         trigs = []
-        view = self._getView(view)
+        view = await self._getView(view)
         rawtrigs = await view.listTriggers()
 
         for (iden, trig) in rawtrigs:
