@@ -117,7 +117,6 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.getTagPropAbrv('visi', 'foo'))
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x01', layr.getTagPropAbrv('whip', None))
 
-
     async def test_layer_upstream(self):
 
         with self.getTestDir() as dirn:
