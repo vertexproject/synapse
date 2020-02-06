@@ -19,8 +19,6 @@ TODO:
 '''
 import os
 import sys
-import time
-import shutil
 import asyncio
 import logging
 import argparse
@@ -43,7 +41,7 @@ import synapse.lib.modelrev as s_modelrev
 
 logger = logging.getLogger(__name__)
 
-ALL_MIGROPS = (
+ALL_MIGROPS = [
     'dmodel',
     'hiveauth',
     'hivestor',
@@ -51,11 +49,23 @@ ALL_MIGROPS = (
     'nodes',
     'nodedata',
     'hive',
-)
+]
 
 class Migrator(s_base.Base):
     '''
     Standalone tool for migrating Synapse storage.
+
+    migrate() is the primary method which steps through sequential migration steps.
+    The step is then carried out by a dedicated _migr* method which calls
+    _src*, _trn*, _dest* methods as needed to read from the 0.1.x source, translate data to 0.2.0 syntax,
+    and finally write to the destination layer, respectively.
+
+    Source 0.1.x data is not modified until the "hive" operation which replaces the 0.1.x hive,
+    and in this case a copy is kept in the db hive_v1.  Only after this step can an 0.2.x cortex be run.
+
+    A migration dir is created to store two sets of data:
+        - migr.lmdb: Stats, progress logs, checkpoints, and error logs specific to migration
+        - nexus.lmdb: Migration splices which will not be present in the final 0.2.x cortex
     '''
     async def __anit__(self, conf):
         await s_base.Base.__anit__(self)
@@ -100,7 +110,9 @@ class Migrator(s_base.Base):
         # copy hive before we get started
         if self.usehivev1:
             await self._migrHive(self.hivedb_v1, self.hivedb)  # can also be used to unwind hive migration
-        await self._migrHive(self.hivedb, self.hivedb_v2, rmsrc=False)
+        elif self.migrops != ['hive']:
+            # if "hive" is the only opr we assume a hivedb_v2 has already been created
+            await self._migrHive(self.hivedb, self.hivedb_v2, rmsrc=False)
         self.hive = await s_hive.SlabHive.anit(self.hiveslab, db=self.hivedb_v2)
         self.onfini(self.hive.fini)
 
@@ -357,6 +369,7 @@ class Migrator(s_base.Base):
             logger.debug(dest_fcntpre)
 
         # update modelrev
+        # TODO: or should this be left, and then model migration happens on first startup?
         await wlyr.setModelVers(s_modelrev.maxvers)
 
         # migrate data
@@ -376,7 +389,7 @@ class Migrator(s_base.Base):
                 await self._migrlogAdd(migrop, 'chkpnt', iden, (node[0], stot, s_common.now()))
                 break
 
-            if stot % 10000000 == 0:
+            if stot % 1000000 == 0:
                 logger.info(f'...on node {stot:,} for layer {iden}')
 
             nodeedit = await self._trnNodeToNodeedit(node)
@@ -409,7 +422,7 @@ class Migrator(s_base.Base):
             dcnt = dest_fcnt.get(form, 0)
             dtot += dcnt
             rprt.append('{:<25s}{!s:<10s}{!s:<10s}'.format(form, scnt, dcnt))
-            await self._migrlogAdd(migrop, 'stat', f'{iden}:form', (scnt, dcnt))
+            await self._migrlogAdd(migrop, 'stat', f'{iden}:form:{form}', (scnt, dcnt))
 
         rprt.append('\n')
         prprt = '\n'.join(rprt)
@@ -502,23 +515,64 @@ class Migrator(s_base.Base):
             key:
             val:
         '''
-        if isinstance(key, bytes):
-            bkey = key
-        else:
-            bkey = key.encode()
-
-        lkey = migrop.encode() + b'00' + logtyp.encode() + b'00' + bkey
-        lval = s_msgpack.en(val)
         try:
-            self.migrslab.put(lkey, lval, db=self.migrdb)
+            if isinstance(key, bytes):
+                bkey = key
+            else:
+                bkey = key.encode()
+
+            lkey = migrop.encode() + b'\x00' + logtyp.encode() + b'\x00' + bkey
+            lval = s_msgpack.en(val)
+
+            self.migrslab.put(lkey, lval, overwrite=True, db=self.migrdb)
+
         except asyncio.CancelledError:
             raise
         except Exception as e:
             logger.exception(f'Unable to store migration log: {migrop}; {logtyp}; {key}; {val}')
             pass
 
-    async def _migrlogGet(self, migrop, logtyp, key=None):
-        pass  # TODO
+    async def _migrlogGet(self, migrop=None, logtyp=None, key=None):
+        '''
+        Return a list of log messages optionally filtered by a set of lkey parameters.
+
+        Returns:
+            (list): List of dicts representing log message.
+        '''
+        if key is None:
+            bkey = None
+        elif isinstance(key, bytes):
+            bkey = key
+        else:
+            bkey = key.encode()
+
+        lprefbld = []
+        if migrop is not None:
+            lprefbld.append(migrop.encode())
+            if logtyp is not None:
+                lprefbld.append(logtyp.encode())
+                if bkey is not None:
+                    lprefbld.append(bkey)
+
+        lpref = b'\x00'.join(lprefbld)
+
+        res = []
+        for lkey, lval in self.migrslab.scanByPref(lpref, db=self.migrdb):
+            splt = lkey.split(b'\x00')
+
+            try:
+                skey = splt[2].decode()
+            except UnicodeDecodeError:
+                skey = splt[2]
+
+            res.append({
+                'migrop': splt[0].decode(),
+                'logtyp': splt[1].decode(),
+                'key': skey,
+                'val': s_msgpack.un(lval),
+            })
+
+        return res
 
     #############################################################
     # Source (0.1.x) operations
