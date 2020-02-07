@@ -2,7 +2,6 @@ import os
 import copy
 import asyncio
 import logging
-import warnings
 import contextlib
 import collections
 
@@ -212,7 +211,7 @@ class CoreApi(s_cell.CellApi):
             iden (bytes):  The iden of the cron job to be changed
         '''
         # FIXME deprecated annotation
-        self.user.confirm(('cron', 'edit'), gateiden=iden)
+        self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.enableCronJob(iden)
 
     async def disableCronJob(self, iden):

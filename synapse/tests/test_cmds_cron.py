@@ -7,7 +7,6 @@ import synapse.lib.cmdr as s_cmdr
 import synapse.lib.provenance as s_provenance
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
 
 MINSECS = 60
 HOURSECS = 60 * MINSECS
@@ -16,7 +15,6 @@ DAYSECS = 24 * HOURSECS
 class CmdCronTest(s_t_utils.SynTest):
 
     async def test_cron(self):
-        self.skip('#FIXME CRON TEST IS RACY AND BORKED')
         MONO_DELT = 1543827303.0
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
         sync = asyncio.Event()
@@ -43,6 +41,23 @@ class CmdCronTest(s_t_utils.SynTest):
 
                 outp = self.getTestOutp()
                 async with await s_cmdr.getItemCmdr(core, outp=outp) as cmdr:
+
+                    async def waitForCron(guid):
+                        '''
+                        Because the wall clock is "frozen" for this test unless we manually advance it, we can't sleep
+                        non-zero amounts.  However, we are running in the same asyncio loop as the agenda.  Just
+                        sleep(0) in a loop until the cron job is not running anymore
+                        '''
+
+                        for i in range(30):
+                            await asyncio.sleep(0)
+                            crons = await core.listCronJobs()
+                            cron = [c for c in crons if c[0] == guid][0]
+                            if not cron[1]['isrunning']:
+                                break
+                        else:
+                            # the cron job didn't finish after ten sleeps?!
+                            self.true(0)
 
                     # Various silliness
 
@@ -141,6 +156,8 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     # Make sure the old one didn't run and the new query ran
                     unixtime += 60
+                    await asyncio.sleep(0)
+                    outp.clear()
                     await self.agenlen(1, core.eval('graph:node:type=m1'))
                     await self.agenlen(1, core.eval('graph:node:type=m2'))
 
@@ -156,6 +173,7 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     # Make sure deleted job didn't run
                     unixtime += 60
+                    await asyncio.sleep(0)
                     await self.agenlen(1, core.eval('graph:node:type=m1'))
                     await self.agenlen(1, core.eval('graph:node:type=m2'))
 
@@ -166,6 +184,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
 
                     unixtime += 7 * MINSECS
+                    await asyncio.sleep(0)
 
                     # Make sure it runs.  We add the cron list to give the cron scheduler a chance to run
                     await cmdr.runCmdLine('cron list')
@@ -180,11 +199,13 @@ class CmdCronTest(s_t_utils.SynTest):
                     guid1 = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
 
                     unixtime += DAYSECS
+                    await asyncio.sleep(0)
 
                     # Make sure it *didn't* run
                     await self.agenlen(0, core.eval('graph:node:type=d1'))
 
                     unixtime += DAYSECS
+                    await asyncio.sleep(0)
 
                     # Make sure it runs.  We add the cron list to give the cron scheduler a chance to run
 
@@ -192,6 +213,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     await self.agenlen(1, core.eval('graph:node:type=d1'))
 
                     unixtime += DAYSECS * 2
+                    await asyncio.sleep(0)
                     await cmdr.runCmdLine('cron list')
                     await self.agenlen(2, core.eval('graph:node:type=d1'))
 
@@ -200,11 +222,13 @@ class CmdCronTest(s_t_utils.SynTest):
                     # Test fixed day of week: every Monday and Thursday at 3am
                     unixtime = datetime.datetime(year=2018, month=12, day=11, hour=7, minute=10,
                                                  tzinfo=tz.utc).timestamp()  # A Tuesday
+                    await asyncio.sleep(0)
 
                     await cmdr.runCmdLine("cron add -H 3 -d Mon,Thursday {[graph:node='*' :type=d2]}")
                     guid2 = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
                     unixtime = datetime.datetime(year=2018, month=12, day=13, hour=3, minute=10,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
+                    await asyncio.sleep(0)
                     await cmdr.runCmdLine('cron list')
                     await self.agenlen(1, core.eval('graph:node:type=d2'))
 
@@ -222,9 +246,11 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     unixtime = datetime.datetime(year=2018, month=12, day=29, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
+                    await asyncio.sleep(0)
                     await cmdr.runCmdLine('cron list')
                     await self.agenlen(0, core.eval('graph:node:type=d3'))  # Not yet
                     unixtime += DAYSECS
+                    await asyncio.sleep(0)
                     await cmdr.runCmdLine('cron list')
                     await self.agenlen(1, core.eval('graph:node:type=d3'))
                     await cmdr.runCmdLine(f"cron del {guid}")
@@ -237,6 +263,7 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     unixtime = datetime.datetime(year=2019, month=2, day=4, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
+                    await asyncio.sleep(0)
                     await cmdr.runCmdLine('cron list')
                     await self.agenlen(1, core.eval('graph:node:type=month1'))
 
@@ -248,6 +275,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     guid2 = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
                     unixtime = datetime.datetime(year=2021, month=1, day=1, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
+                    await asyncio.sleep(0)
                     await cmdr.runCmdLine('cron list')
                     await self.agenlen(1, core.eval('graph:node:type=year1'))
 
@@ -255,6 +283,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine("cron add -m February -d=-2 {[graph:node='*' :type=year2]}")
                     unixtime = datetime.datetime(year=2021, month=2, day=27, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
+                    await asyncio.sleep(0)
                     await cmdr.runCmdLine('cron list')
                     await self.agenlen(1, core.eval('graph:node:type=year2'))
 
@@ -284,15 +313,25 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(outp.expect('Missing query'))
 
                     await cmdr.runCmdLine("at +5 minutes {[graph:node='*' :type=at1]}")
+
                     unixtime += 5 * MINSECS
+                    await asyncio.sleep(0)
+
                     await cmdr.runCmdLine('cron list')
                     await self.agenlen(1, core.eval('graph:node:type=at1'))
 
                     await cmdr.runCmdLine("at +1 day +7 days {[graph:node='*' :type=at2]}")
                     guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
+
                     unixtime += DAYSECS
+
+                    await waitForCron(guid)
+
                     await self.agenlen(1, core.eval('graph:node:type=at2'))
+
                     unixtime += 6 * DAYSECS + 1
+                    await asyncio.sleep(0)
+
                     await cmdr.runCmdLine('cron list')
                     await self.agenlen(2, core.eval('graph:node:type=at2'))
 
@@ -300,6 +339,8 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     unixtime = datetime.datetime(year=2021, month=4, day=17, hour=4, minute=15,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
+                    await asyncio.sleep(0)
+
                     await cmdr.runCmdLine('cron list')
                     await self.agenlen(1, core.eval('graph:node:type=at3'))
                     outp.clear()
