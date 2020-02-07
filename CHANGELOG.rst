@@ -3,6 +3,17 @@ Synapse Changelog
 *****************
 
 
+v0.1.50 - 2019-02-07
+====================
+
+Features and Enhancements
+-------------------------
+- Add Storm commands for managing triggers and cron jobs from inside of Storm directly. The existing ``trigger`` and
+  ``cron`` commands available in the Cmdr tool have been marked as PendingDeprecation and will be removed in 0.3.0.
+  Cmdr will emit these warnings directly if used. Related Telepath APIs have also been marked for PendingDeprecation.
+  Cortex administrators can enable Python warnings to see those APIs being used.
+  (`#1513 <https://github.com/vertexproject/synapse/pull/1513>`_)
+
 v0.1.49 - 2019-02-03
 ====================
 
