@@ -418,7 +418,7 @@ class AstTest(s_test.SynTest):
             '''
             mesgs = await s_test.alist(core.streamstorm(q))
             errs = [m[1] for m in mesgs if m[0] == 'err']
-            self.eq(errs[0][0], 'BadPropValu')
+            self.eq(errs[0][0], 'BadTypeValu')
 
     async def test_ast_array_pivot(self):
 

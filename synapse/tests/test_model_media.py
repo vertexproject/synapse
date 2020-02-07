@@ -28,7 +28,6 @@ class MediaModelTest(s_t_utils.SynTest):
                     'title': 'synapse is awesome! ',
                     'summary': 'I forget ',
                     'published': 0,
-                    'author': '?,?',
                     'org': 'vertex',
                 }
                 node = await snap.addNode(formname, valu, props=input_props)

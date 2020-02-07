@@ -612,13 +612,17 @@ class Snap(s_base.Base):
 
         if not isinstance(prop.type, s_types.Array):
             mesg = f'Array synax is invalid on non array type: {prop.type.name}.'
-            raise s_exc.BadCtorType(mesg=mesg)
+            raise s_exc.BadTypeValu(mesg=mesg)
 
         cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu)
 
+        formname = None
+        if prop.form is not None:
+            formname = prop.form.name
+
         for layr in self.layers:
 
-            genr = layr.liftByPropArray(prop.form.name, prop.name, cmprvals)
+            genr = layr.liftByPropArray(formname, prop.name, cmprvals)
 
             async for node in self._joinStorGenr(layr, genr):
                 if node.bylayer['props'].get(prop.name) != layr:
