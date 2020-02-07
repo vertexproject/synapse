@@ -54,11 +54,6 @@ class Snap(s_base.Base):
         self.user = user
         self.store_splices = self.core.conf.get('splice:en')
 
-        self.model = self.core.model
-
-        self.mods = await self.core.getStormMods()
-
-        # it is optimal for a snap to have layers in "bottom up" order
         self.layers = list(reversed(view.layers))
         self.wlyr = self.layers[-1]
 
@@ -95,27 +90,24 @@ class Snap(s_base.Base):
     # APIs that wrap cortex APIs to provide a boundary for the storm runtime
     # ( in many instances a sub-process snap will override )
 
-    def getDataModel(self):
-        return self.model
-
     async def getCoreAxon(self):
         await self.core.axready.wait()
         return self.core.axon
 
-    async def addStormSvc(self, sdef):
-        return await self.core.addStormSvc(sdef)
+    # async def addStormSvc(self, sdef):
+    #     return await self.core.addStormSvc(sdef)
 
-    async def delStormSvc(self, iden):
-        return await self.core.delStormSvc(iden)
+    # async def delStormSvc(self, iden):
+    #     return await self.core.delStormSvc(iden)
 
-    def getStormSvc(self, iden):
-        return self.core.getStormSvc(iden)
+    # def getStormSvc(self, iden):
+    #     return self.core.getStormSvc(iden)
 
-    def getStormSvcs(self):
-        return self.core.getStormSvcs()
+    # def getStormSvcs(self):
+    #     return self.core.getStormSvcs()
 
-    def getStormCmd(self, name):
-        return self.core.getStormCmd(name)
+    # def getStormCmd(self, name):
+    #     return self.core.getStormCmd(name)
 
     # Queue funcs
     #async def addCoreQueue(self, name, info):
@@ -149,95 +141,95 @@ class Snap(s_base.Base):
         #return await self.core.putCoreQueue(name, item)
 
     # feed funcs
-    async def getFeedFuncs(self):
-        return await self.core.getFeedFuncs()
+    # async def getFeedFuncs(self):
+    #     return await self.core.getFeedFuncs()
 
     # storm pkgfuncs
     # FIXME: why all these pass-throughs?
-    async def addStormPkg(self, pkgdef):
-        return await self.core.addStormPkg(pkgdef)
+    # async def addStormPkg(self, pkgdef):
+    #     return await self.core.addStormPkg(pkgdef)
 
-    async def delStormPkg(self, iden):
-        return await self.core.delStormPkg(iden)
+    # async def delStormPkg(self, iden):
+    #     return await self.core.delStormPkg(iden)
 
-    async def getStormPkgs(self):
-        return await self.core.getStormPkgs()
+    # async def getStormPkgs(self):
+    #     return await self.core.getStormPkgs()
 
-    def getStormVars(self):
-        return self.core.stormvars
+    # def getStormVars(self):
+    #     return self.core.stormvars
 
-    async def getStormLib(self, path):
-        return self.core.getStormLib(path)
+    # async def getStormLib(self, path):
+    #     return self.core.getStormLib(path)
 
-    async def getStormDmon(self, iden):
-        return await self.core.getStormDmon(iden)
+    # async def getStormDmon(self, iden):
+    #     return await self.core.getStormDmon(iden)
 
-    async def delStormDmon(self, iden):
-        await self.core.delStormDmon(iden)
+    # async def delStormDmon(self, iden):
+    #     await self.core.delStormDmon(iden)
 
-    async def getStormDmons(self):
-        return await self.core.getStormDmons()
+    # async def getStormDmons(self):
+    #     return await self.core.getStormDmons()
 
-    async def addStormDmon(self, ddef):
-        return await self.core.addStormDmon(ddef)
+    # async def addStormDmon(self, ddef):
+    #     return await self.core.addStormDmon(ddef)
 
-    async def addView(self, layers):
-        return await self.core.addView(self.user.iden, layers)
+    # async def addView(self, layers):
+    #     return await self.core.addView(self.user.iden, layers)
 
-    async def delView(self, iden):
-        return await self.core.delView(iden=iden)
+    # async def delView(self, iden):
+    #     return await self.core.delView(iden=iden)
 
-    def getView(self, iden=None):
-        return self.core.getView(iden=iden)
+    # def getView(self, iden=None):
+    #     return self.core.getView(iden=iden)
 
-    def listViews(self):
-        return list(self.core.views.values())
+    # def listViews(self):
+    #     return list(self.core.views.values())
 
-    async def addTrigger(self, condition, query, info, disabled=False):
-        return await self.core.addTrigger(condition, query, info=info, disabled=disabled)
+    # async def addTrigger(self, condition, query, info, disabled=False):
+    #     return await self.core.addTrigger(condition, query, info=info, disabled=disabled)
 
-    async def delTrigger(self, iden):
-        return await self.core.delTrigger(iden)
+    # async def delTrigger(self, iden):
+    #     return await self.core.delTrigger(iden)
 
-    async def updateTrigger(self, iden, query):
-        return await self.core.updateTrigger(iden, query)
+    # async def updateTrigger(self, iden, query):
+    #     return await self.core.updateTrigger(iden, query)
 
-    async def enableTrigger(self, iden):
-        return await self.core.enableTrigger(iden)
+    # async def enableTrigger(self, iden):
+    #     return await self.core.enableTrigger(iden)
 
-    async def disableTrigger(self, iden):
-        return await self.core.disableTrigger(iden)
+    # async def disableTrigger(self, iden):
+    #     return await self.core.disableTrigger(iden)
 
-    async def listTriggers(self):
-        return await self.core.listTriggers()
+    # async def listTriggers(self):
+    #     return await self.core.listTriggers()
 
-    def getUserName(self, iden, defv='<unknown>'):
-        return self.core.getUserName(iden, defv)
+    # def getUserName(self, iden, defv='<unknown>'):
+    #     return self.core.getUserName(iden, defv)
 
-    async def addCronJob(self, query, reqdict, incunit, incval):
-        return await self.core.addCronJob(self.user, query, reqdict, incunit, incval)
+    # async def addCronJob(self, query, reqdict, incunit, incval):
+    #     return await self.core.addCronJob(self.user, query, reqdict, incunit, incval)
 
-    async def delCronJob(self, iden):
-        return await self.core.delCronJob(iden)
+    # async def delCronJob(self, iden):
+    #     return await self.core.delCronJob(iden)
 
-    async def updateCronJob(self, iden, query):
-        return await self.core.updateCronJob(iden, query)
+    # async def updateCronJob(self, iden, query):
+    #     return await self.core.updateCronJob(iden, query)
 
-    async def enableCronJob(self, iden):
-        return await self.core.enableCronJob(iden)
+    # async def enableCronJob(self, iden):
+    #     return await self.core.enableCronJob(iden)
 
-    async def disableCronJob(self, iden):
-        return await self.core.disableCronJob(iden)
+    # async def disableCronJob(self, iden):
+    #     return await self.core.disableCronJob(iden)
 
-    async def listCronJobs(self):
-        return await self.core.listCronJobs()
+    # async def listCronJobs(self):
+    #     return await self.core.listCronJobs()
 
-    def getStormMod(self, name):
-        return self.mods.get(name)
+    # def getStormMod(self, name):
+    #     return self.mods.get(name)
 
-    async def spliceHistory(self):
-        async for splice in self.core.spliceHistory(self.user):
-            yield splice
+    # async def spliceHistory(self):
+    #     async for splice in self.core.spliceHistory(self.user):
+    #         yield splice
 
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):
@@ -372,7 +364,7 @@ class Snap(s_base.Base):
     async def nodesByTagProp(self, form, tag, name):
         '''
         '''
-        prop = self.model.getTagProp(name)
+        prop = self.core.model.getTagProp(name)
         if prop is None:
             mesg = f'No tag property named {name}'
             raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
@@ -384,7 +376,7 @@ class Snap(s_base.Base):
 
     async def nodesByTagPropValu(self, form, tag, name, cmpr, valu):
 
-        prop = self.model.getTagProp(name)
+        prop = self.core.model.getTagProp(name)
         if prop is None:
             mesg = f'No tag property named {name}'
             raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
@@ -470,7 +462,7 @@ class Snap(s_base.Base):
 
     async def nodesByProp(self, full):
 
-        prop = self.model.prop(full)
+        prop = self.core.model.prop(full)
         if prop is None:
             mesg = f'No property named "{full}".'
             raise s_exc.NoSuchProp(mesg=mesg)
@@ -527,7 +519,7 @@ class Snap(s_base.Base):
                 yield node
             return
 
-        prop = self.model.prop(full)
+        prop = self.core.model.prop(full)
         if prop is None:
             mesg = f'No property named "{full}".'
             raise s_exc.NoSuchProp(mesg=mesg)
@@ -585,7 +577,7 @@ class Snap(s_base.Base):
                 yield node
 
     async def nodesByTagValu(self, tag, cmpr, valu, form=None):
-        norm, info = self.model.type('ival').norm(valu)
+        norm, info = self.core.model.type('ival').norm(valu)
         for layr in self.layers:
             genr = layr.liftByTagValu(tag, cmpr, norm, form=form)
             async for node in self._joinStorGenr(layr, genr):
@@ -595,17 +587,17 @@ class Snap(s_base.Base):
 
     async def nodesByPropTypeValu(self, name, valu):
 
-        _type = self.model.types.get(name)
+        _type = self.core.model.types.get(name)
         if _type is None:
             raise s_exc.NoSuchType(name=name)
 
-        for prop in self.model.getPropsByType(name):
+        for prop in self.core.model.getPropsByType(name):
             async for node in self.nodesByPropValu(prop.full, '=', valu):
                 yield node
 
     async def nodesByPropArray(self, full, cmpr, valu):
 
-        prop = self.model.prop(full)
+        prop = self.core.model.prop(full)
         if prop is None:
             mesg = f'No property named "{full}".'
             raise s_exc.NoSuchProp(mesg=mesg)
@@ -657,7 +649,7 @@ class Snap(s_base.Base):
 
                 if isinstance(prop.type, s_types.Ndef):
                     ndefname, ndefvalu = propvalu
-                    ndefform = self.model.form(ndefname)
+                    ndefform = self.core.model.form(ndefname)
                     if ndefform is None:
                         raise s_exc.NoSuchForm(name=ndefname)
 
@@ -665,7 +657,7 @@ class Snap(s_base.Base):
                         yield item
 
                 if isinstance(prop.type, s_types.Array):
-                    arrayform = self.model.form(prop.type.arraytype.name)
+                    arrayform = self.core.model.form(prop.type.arraytype.name)
                     if arrayform is not None:
                         for arrayvalu in propvalu:
                             for e in recurse(arrayform, arrayvalu, {}):
@@ -678,7 +670,7 @@ class Snap(s_base.Base):
                 if propsubs is not None:
                     for subname, subvalu in propsubs.items():
                         fullname = f'{prop.full}:{subname}'
-                        subprop = self.model.prop(fullname)
+                        subprop = self.core.model.prop(fullname)
                         if subprop is None:
                             continue
 
@@ -687,7 +679,7 @@ class Snap(s_base.Base):
                         subnorm, subinfo = subprop.type.norm(subvalu)
                         edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype)))
 
-                propform = self.model.form(prop.type.name)
+                propform = self.core.model.form(prop.type.name)
                 if propform is None:
                     continue
 
@@ -831,11 +823,17 @@ class Snap(s_base.Base):
             mesg = 'The snapshot is in ready only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        form = self.model.form(name)
+        form = self.core.model.form(name)
         if form is None:
             raise s_exc.NoSuchForm(name=name)
 
-        adds = self.getNodeAdds(form, valu, props=props)
+        try:
+            adds = self.getNodeAdds(form, valu, props=props)
+        except Exception as e:
+            if not self.strict:
+                await self.warn(f'addNode: {e}')
+                return None
+            raise
 
         # depth first, so the last one is our added node
         nodes = await self.addNodeEdits(adds)
@@ -1043,30 +1041,43 @@ class Snap(s_base.Base):
                 if props is not None:
                     props.pop('.created', None)
 
-                node = await self.addNode(formname, formvalu, props=props)
-                if node is not None:
-                    tags = forminfo.get('tags')
-                    if tags is not None:
-                        for tag, asof in tags.items():
-                            await node.addTag(tag, valu=asof)
+                oldstrict = self.strict
+                self.strict = True
+                try:
+                    node = await self.addNode(formname, formvalu, props=props)
+                    if node is not None:
+                        tags = forminfo.get('tags')
+                        if tags is not None:
+                            for tag, asof in tags.items():
+                                await node.addTag(tag, valu=asof)
 
-                    tagprops = forminfo.get('tagprops', {})
-                    if tagprops is not None:
-                        for tag, props in tagprops.items():
-                            for prop, valu in props.items():
-                                try:
-                                    await node.setTagProp(tag, prop, valu)
-                                except s_exc.NoSuchTagProp:
-                                    mesg = f'Tagprop [{prop}] does not exist, cannot set it on [{formname}={formvalu}]'
-                                    logger.warning(mesg)
-                                    continue
+                        tagprops = forminfo.get('tagprops', {})
+                        if tagprops is not None:
+                            for tag, props in tagprops.items():
+                                for prop, valu in props.items():
+                                    try:
+                                        await node.setTagProp(tag, prop, valu)
+                                    except s_exc.NoSuchTagProp:
+                                        mesg = \
+                                            f'Tagprop [{prop}] does not exist, cannot set it on [{formname}={formvalu}]'
+                                        logger.warning(mesg)
+                                        continue
+
+                except Exception as e:
+                    if not oldstrict:
+                        await self.warn(f'addNodes failed on {formname}, {formvalu}, {forminfo}: {e}')
+                        continue
+                    raise
+
+                finally:
+                    self.strict = oldstrict
 
                 yield node
 
             except asyncio.CancelledError:  # pragma: no cover
                 raise
 
-            except Exception as e:
+            except Exception:
                 logger.exception(f'Error making node: [{formname}={formvalu}]')
 
     #async def stor(self, sops, splices=None):

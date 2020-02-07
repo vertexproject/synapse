@@ -13,8 +13,6 @@ import synapse.lib.link as s_link
 import synapse.lib.spawn as s_spawn
 import synapse.lib.msgpack as s_msgpack
 
-from synapse.common import todo as s_todo
-
 import synapse.tests.utils as s_test
 
 logger = logging.getLogger(__name__)
@@ -529,20 +527,19 @@ class CoreSpawnTest(s_test.SynTest):
                 self.stormIsInPrint('stormpkg', msgs)
 
     async def test_model_extensions(self):
-        self.skip('Model extensions not supported for spawn.')
-        # FIXME: they are (should be) in 0.2.0
         async with self.getTestCore() as core:
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
             async with core.getLocalProxy() as prox:
                 opts = {'spawn': True}
-                # test adding model extensions
+                # Adding model extensions must work
                 await core.addFormProp('inet:ipv4', '_woot', ('int', {}), {})
                 await core.nodes('[inet:ipv4=1.2.3.4 :_woot=10]')
                 await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
                 msgs = await prox.storm('inet:ipv4=1.2.3.4', opts=opts).list()
                 self.len(3, msgs)
                 self.eq(msgs[1][1][1]['props'].get('_woot'), 10)
-                # TODO:  implement TODO in core.getModelDefs
+
+                # FIXME:  pending core.getModelDefs fixup
                 # msgs = await prox.storm('inet:ipv4:_woot=10', opts=opts).list()
                 # self.len(3, msgs)
                 # self.eq(msgs[1][1][1]['props'].get('_woot'), 10)

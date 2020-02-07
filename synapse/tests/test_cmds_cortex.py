@@ -147,8 +147,8 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             # Warning test
             guid = s_common.guid()
-            podes = await alist(core.eval(f'[test:guid={guid}]'))
-            podes = await alist(core.eval(f'[test:edge=(("test:guid", {guid}), ("test:str", abcd))]'))
+            await alist(core.eval(f'[test:guid={guid}]'))
+            await alist(core.eval(f'[test:edge=(("test:guid", {guid}), ("test:str", abcd))]'))
 
             q = 'storm test:str=abcd <- test:edge :n1:form -> *'
             outp = self.getTestOutp()
@@ -283,7 +283,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                     objs = list(genr)
 
                 # FIXME
-                #self.eq(objs[0][0], 'node:add')
+                # self.eq(objs[0][0], 'node:add')
 
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
@@ -327,7 +327,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('log --on --nodes-only')
                 cmdr.locs['log:fmt'] = 'newp'
                 with self.getAsyncLoggerStream('synapse.cmds.cortex',
-                                                     'Unknown encoding format: newp') as stream:
+                                               'Unknown encoding format: newp') as stream:
                     await cmdr.runCmdLine('storm test:str')
                     self.true(await stream.wait(2))
 

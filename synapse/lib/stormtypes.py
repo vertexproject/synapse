@@ -96,7 +96,7 @@ class Lib(StormType):
 
         path = self.name + (name,)
 
-        slib = await self.runt.snap.getStormLib(path)
+        slib = self.runt.snap.core.getStormLib(path)
         if slib is None:
             raise s_exc.NoSuchName(name=name)
 
@@ -120,15 +120,17 @@ class LibPkg(Lib):
         })
 
     async def _libPkgAdd(self, pkgdef):
-        self.runt.user.confirm(('storm', 'pkg', 'add'))
-        await self.runt.snap.addStormPkg(pkgdef)
+        todo = s_common.todo('addStormPkg', pkgdef)
+        gatekeys = ((self.runt.user.iden, ('pkgs', 'add'), None),)
+        await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _libPkgDel(self, name):
-        self.runt.user.confirm(('storm', 'pkg', 'del'))
-        return await self.runt.snap.delStormPkg(name)
+        todo = s_common.todo('delStormPkg', name)
+        gatekeys = ((self.runt.user.iden, ('pkgs', 'add'), None),)
+        await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _libPkgList(self):
-        return await self.runt.snap.getStormPkgs()
+        return await self.runt.snap.core.getStormPkgs()
 
 class LibDmon(Lib):
 
@@ -141,7 +143,7 @@ class LibDmon(Lib):
 
     async def _libDmonDel(self, iden):
 
-        dmon = await self.runt.snap.getStormDmon(iden)
+        dmon = await self.runt.snap.core.getStormDmon(iden)
         if dmon is None:
             mesg = f'No storm dmon with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -149,10 +151,10 @@ class LibDmon(Lib):
         if dmon.ddef.get('user') != self.runt.user.iden:
             self.runt.user.confirm(('storm', 'dmon', 'del', iden))
 
-        await self.runt.snap.delStormDmon(iden)
+        await self.runt.core.delStormDmon(iden)
 
     async def _libDmonList(self):
-        dmons = await self.runt.snap.getStormDmons()
+        dmons = await self.runt.snap.core.getStormDmons()
         return [d.pack() for d in dmons]
 
     async def _libDmonAdd(self, quer, name='noname'):
@@ -177,7 +179,7 @@ class LibDmon(Lib):
             'stormopts': opts,
         }
 
-        dmon = await self.runt.snap.addStormDmon(ddef)
+        dmon = await self.runt.snap.core.addStormDmon(ddef)
 
         return dmon.pack()
 
@@ -199,15 +201,15 @@ class LibService(Lib):
             'name': name,
             'url': url,
         }
-        return await self.runt.snap.addStormSvc(sdef)
+        return await self.runt.snap.core.addStormSvc(sdef)
 
     async def _libSvcDel(self, iden):
         self.runt.user.confirm(('storm', 'service', 'del'))
-        return await self.runt.snap.delStormSvc(iden)
+        return await self.runt.snap.core.delStormSvc(iden)
 
     async def _libSvcGet(self, name):
         self.runt.user.confirm(('storm', 'service', 'get', name))
-        ssvc = self.runt.snap.getStormSvc(name)
+        ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
@@ -217,7 +219,7 @@ class LibService(Lib):
         self.runt.user.confirm(('storm', 'service', 'list'))
         retn = []
 
-        for ssvc in self.runt.snap.getStormSvcs():
+        for ssvc in self.runt.snap.core.getStormSvcs():
             sdef = dict(ssvc.sdef)
             sdef['ready'] = ssvc.ready.is_set()
             retn.append(sdef)
@@ -226,7 +228,7 @@ class LibService(Lib):
 
     async def _libSvcWait(self, name):
         self.runt.user.confirm(('storm', 'service', 'get'))
-        ssvc = self.runt.snap.getStormSvc(name)
+        ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
@@ -253,7 +255,7 @@ class LibBase(Lib):
 
     async def _libBaseImport(self, name):
 
-        mdef = self.runt.getStormMod(name)
+        mdef = await self.runt.snap.core.getStormMod(name)
         if mdef is None:
             mesg = f'No storm module named {name}.'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
@@ -395,7 +397,7 @@ class LibTime(Lib):
         '''
         Format a Synapse timestamp into a string value using strftime.
         '''
-        timetype = self.runt.snap.model.type('time')
+        timetype = self.runt.snap.core.model.type('time')
         # Give a times string a shot at being normed prior to formating.
         try:
             norm, _ = timetype.norm(valu)
@@ -512,7 +514,7 @@ class LibFeed(Lib):
             return self.runt.snap.addFeedNodes(name, data)
 
     async def _libList(self):
-        return await self.runt.snap.getFeedFuncs()
+        return await self.runt.snap.core.getFeedFuncs()
 
     async def _libIngest(self, name, data, seqn=None):
         '''
@@ -559,7 +561,7 @@ class LibQueue(Lib):
         }
 
         todo = s_common.todo('addCoreQueue', name, info)
-        gatekeys = ((self.runt.user.iden, ('queue', 'add'), 'cortex'),)
+        gatekeys = ((self.runt.user.iden, ('queue', 'add'), None),)
         info = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
         return Queue(self.runt, name, info)
@@ -1394,7 +1396,7 @@ class LibView(Lib):
         '''
         Add a view to the cortex.
         '''
-        self.runt.reqAllowed(('view', 'add'))
+        self.runt.confirm(('view', 'add'))
 
         view = await self.runt.snap.core.addView(layers)
 
@@ -1408,7 +1410,7 @@ class LibView(Lib):
         '''
         Delete a view in the cortex.
         '''
-        view = self.runt.snap.getView(iden)
+        view = self.runt.snap.core.getView(iden=iden)
         if view is None:
             mesg = f'No view with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -1418,7 +1420,7 @@ class LibView(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, iden=iden)
 
         if not view.info.get('owner') == self.runt.user.iden:
-            self.runt.reqAllowed(('view', 'del'))
+            self.runt.confirm(('view', 'del'))
 
         await self.runt.snap.delView(iden=view.iden)
 
@@ -1428,9 +1430,9 @@ class LibView(Lib):
         '''
         Fork a view in the cortex.
         '''
-        self.runt.reqAllowed(('view', 'add'))
+        self.runt.confirm(('view', 'add'))
 
-        view = self.runt.snap.getView(iden)
+        view = self.runt.snap.core.getView(iden=iden)
         if view is None:
             mesg = f'No view with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -1443,9 +1445,9 @@ class LibView(Lib):
         '''
         Retrieve a view from the cortex.
         '''
-        self.runt.reqAllowed(('view', 'read'))
+        self.runt.confirm(('view', 'read'))
 
-        view = self.runt.snap.getView(iden)
+        view = self.runt.snap.core.getView(iden=iden)
         if view is None:
             mesg = f'No view with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -1456,7 +1458,7 @@ class LibView(Lib):
         '''
         List the views in the cortex.
         '''
-        self.runt.reqAllowed(('view', 'read'))
+        self.runt.confirm(('view', 'read'))
 
         views = self.runt.snap.listViews()
 
@@ -1468,13 +1470,13 @@ class LibView(Lib):
 
         When complete, the view is deleted.
         '''
-        view = self.runt.snap.getView(iden)
+        view = self.runt.snap.core.getView(iden=iden)
         if view is None:
             mesg = f'No view with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
         if not view.info.get('owner') == self.runt.user.iden:
-            self.runt.reqAllowed(('view', 'del'))
+            self.runt.confirm(('view', 'del'))
 
         view.layers[0].readonly = True
         try:
@@ -1538,7 +1540,7 @@ class LibTrigger(Lib):
         exactly one.
         '''
         matches = []
-        trigs = await self.runt.snap.listTriggers()
+        trigs = await self.runt.snap.core.listTriggers()
 
         for (iden, trig) in trigs:
             if iden.startswith(prefix) and await trig.allowed(self.runt.user, perm):
@@ -1557,7 +1559,7 @@ class LibTrigger(Lib):
         '''
         Add a trigger to the cortex.
         '''
-        self.runt.reqAllowed(('trigger', 'add'))
+        self.runt.confirm(('trigger', 'add'))
 
         if query is None:
             mesg = 'Missing query parameter'
@@ -1597,7 +1599,7 @@ class LibTrigger(Lib):
 
         info = {'form': form, 'tag': tag, 'prop': prop}
 
-        iden = await self.runt.snap.addTrigger(cond, query, info=info,
+        iden = await self.runt.snap.core.addTrigger(cond, query, info=info,
                                                disabled=disabled)
         return iden
 
@@ -1607,7 +1609,7 @@ class LibTrigger(Lib):
         '''
         iden = await self._matchIdens(prefix, ('trigger', 'del'))
 
-        await self.runt.snap.delTrigger(iden)
+        await self.runt.snap.core.delTrigger(iden)
 
         return iden
 
@@ -1623,7 +1625,7 @@ class LibTrigger(Lib):
         query = query[1:-1]
 
         iden = await self._matchIdens(prefix, ('trigger', 'set'))
-        await self.runt.snap.updateTrigger(iden, query)
+        await self.runt.snap.core.updateTrigger(iden, query)
 
         return iden
 
@@ -1631,7 +1633,7 @@ class LibTrigger(Lib):
         '''
         List triggers in the cortex.
         '''
-        triglist = await self.runt.snap.listTriggers()
+        triglist = await self.runt.snap.core.listTriggers()
 
         triggers = []
         for iden, trigger in triglist:
@@ -1639,7 +1641,7 @@ class LibTrigger(Lib):
                 continue
 
             trig = trigger.pack()
-            user = self.runt.snap.getUserName(trig.get('useriden'))
+            user = self.runt.snap.core.getUserName(trig.get('useriden'))
 
             triggers.append({
                 'iden': iden,
@@ -1693,7 +1695,7 @@ class LibCron(Lib):
         exactly one.
         '''
         matches = []
-        crons = await self.runt.snap.listCronJobs()
+        crons = await self.runt.snap.core.listCronJobs()
 
         for (iden, cron) in crons:
             if iden.startswith(prefix) and await cron.allowed(self.runt.user, perm):
@@ -1830,7 +1832,7 @@ class LibCron(Lib):
         '''
         Add a cron job to the cortex.
         '''
-        self.runt.reqAllowed(('cron', 'add'))
+        self.runt.confirm(('cron', 'add'))
 
         incunit = None
         incval = None
@@ -1943,14 +1945,14 @@ class LibCron(Lib):
         # Remove the curly braces
         query = query[1:-1]
 
-        iden = await self.runt.snap.addCronJob(query, reqdict, incunit, incval)
+        iden = await self.runt.snap.core.addCronJob(query, reqdict, incunit, incval)
         return iden
 
     async def _methCronAt(self, **kwargs):
         '''
         Add non-recurring cron jobs to the cortex.
         '''
-        self.runt.reqAllowed(('cron', 'add'))
+        self.runt.confirm(('cron', 'add'))
 
         tslist = []
         now = time.time()
@@ -2007,7 +2009,7 @@ class LibCron(Lib):
 
         query = query[1:-1]
 
-        iden = await self.runt.snap.addCronJob(query, reqdicts, None, None)
+        iden = await self.runt.snap.core.addCronJob(query, reqdicts, None, None)
         return iden
 
     async def _methCronDel(self, prefix):
@@ -2016,7 +2018,7 @@ class LibCron(Lib):
         '''
         iden = await self._matchIdens(prefix, ('cron', 'del'))
 
-        await self.runt.snap.delCronJob(iden)
+        await self.runt.snap.core.delCronJob(iden)
 
         return iden
 
@@ -2032,7 +2034,7 @@ class LibCron(Lib):
         query = query[1:-1]
 
         iden = await self._matchIdens(prefix, ('cron', 'set'))
-        await self.runt.snap.updateCronJob(iden, query)
+        await self.runt.snap.core.updateCronJob(iden, query)
 
         return iden
 
@@ -2046,7 +2048,7 @@ class LibCron(Lib):
         '''
         List cron jobs in the cortex.
         '''
-        cronlist = await self.runt.snap.listCronJobs()
+        cronlist = await self.runt.snap.core.listCronJobs()
 
         jobs = []
         for iden, cronjob in cronlist:
@@ -2054,7 +2056,7 @@ class LibCron(Lib):
                 continue
 
             cron = cronjob.pack()
-            user = self.runt.snap.getUserName(cron.get('useriden'))
+            user = self.runt.snap.core.getUserName(cron.get('useriden'))
 
             laststart = cron.get('laststarttime')
             lastend = cron.get('lastfinishtime')
@@ -2081,7 +2083,7 @@ class LibCron(Lib):
         Get information about a cron job.
         '''
         matches = []
-        crons = await self.runt.snap.listCronJobs()
+        crons = await self.runt.snap.core.listCronJobs()
 
         for (iden, cron) in crons:
             if iden.startswith(prefix) and await cron.allowed(self.runt.user, ('cron', 'get')):
@@ -2097,7 +2099,7 @@ class LibCron(Lib):
         iden = matches[0]
         cronjob = [cron[1] for cron in crons if cron[0] == iden][0]
         cron = cronjob.pack()
-        user = self.runt.snap.getUserName(cron.get('useriden'))
+        user = self.runt.snap.core.getUserName(cron.get('useriden'))
 
         laststart = cron.get('laststarttime')
         lastend = cron.get('lastfinishtime')
@@ -2130,7 +2132,7 @@ class LibCron(Lib):
         Enable a cron job in the cortex.
         '''
         iden = await self._matchIdens(prefix, ('cron', 'set'))
-        await self.runt.snap.enableCronJob(iden)
+        await self.runt.snap.core.enableCronJob(iden)
 
         return iden
 
@@ -2139,7 +2141,7 @@ class LibCron(Lib):
         Disable a cron job in the cortex.
         '''
         iden = await self._matchIdens(prefix, ('cron', 'set'))
-        await self.runt.snap.disableCronJob(iden)
+        await self.runt.snap.core.disableCronJob(iden)
 
         return iden
 

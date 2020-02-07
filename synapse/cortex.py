@@ -23,7 +23,6 @@ import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
-import synapse.lib.spawn as s_spawn
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
 import synapse.lib.dyndeps as s_dyndeps
@@ -823,7 +822,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.stormcmds = {}
         self.spawnpool = None
 
-        # differentiate these for spawning
         self.storm_cmd_ctors = {}
         self.storm_cmd_cdefs = {}
 
@@ -930,6 +928,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # self._initPushLoop()
         # self._initFeedLoops()
 
+        import synapse.lib.spawn as s_spawn  # get around circular dependency
         self.spawnpool = await s_spawn.SpawnPool.anit(self)
         self.onfini(self.spawnpool)
         self.on('user:mod', self._onEvtBumpSpawnPool)
@@ -1032,7 +1031,8 @@ class Cortex(s_cell.Cell):  # type: ignore
                     'ctors': list(self.storm_cmd_ctors.items()),
                 },
                 'libs': tuple(self.libroot),
-                'mods': await self.getStormMods()
+                'mods': await self.getStormMods(),
+                'pkgs': await self.getStormPkgs(),
             },
             'model': await self.getModelDefs(),
         }
@@ -1247,6 +1247,12 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def getStormMods(self):
         return self.stormmods
+
+    async def getStormMod(self, name):
+        return self.stormmods.get(name)
+
+    def getDataModel(self):
+        return self.model
 
     async def _tryLoadStormPkg(self, pkgdef):
         try:

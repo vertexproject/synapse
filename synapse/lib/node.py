@@ -9,8 +9,6 @@ import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 
-import synapse.lib.editatom as s_editatom
-
 logger = logging.getLogger(__name__)
 
 class Node:
@@ -33,7 +31,7 @@ class Node:
 
         # if set, the node is complete.
         self.ndef = sode[1].get('ndef')
-        self.form = snap.model.form(self.ndef[0])
+        self.form = snap.core.model.form(self.ndef[0])
 
         self.props = sode[1].get('props')
         if self.props is None:
@@ -55,7 +53,7 @@ class Node:
             #self._loadNodeData(rawprops)
 
         #if self.ndef is not None:
-            #self.form = self.snap.model.form(self.ndef[0])
+            #self.form = self.snap.core.model.form(self.ndef[0])
             #self.isrunt = self.form.isrunt
 
     def __repr__(self):
@@ -416,7 +414,7 @@ class Node:
             valu = tuple(valu)
 
         if valu != (None, None):
-            valu = self.snap.model.type('ival').norm(valu)[0]
+            valu = self.snap.core.model.type('ival').norm(valu)[0]
 
         curv = self.tags.get(name)
         if curv == valu:
@@ -455,7 +453,7 @@ class Node:
         #await self._addTagRaw(name, valu)
         #await self._setTagProp(name, valu)
 
-        #indx = self.snap.model.types['ival'].indx(valu)
+        #indx = self.snap.core.model.types['ival'].indx(valu)
         #info = {'univ': True}
         #await self._setTagProp(name, valu, indx, info)
         #await self._setTagProp(name, valu, indx, info)
@@ -556,7 +554,7 @@ class Node:
         for tagprop in self.getTagProps(tag):
 
             curv = self.getTagProp(tag, tagprop)
-            prop = self.snap.model.getTagProp(tagprop)
+            prop = self.snap.core.model.getTagProp(tagprop)
 
             if prop is None: # pragma: no cover
                 logger.warn(f'Cant delete tag prop ({tagprop}) without model prop!')
@@ -588,7 +586,7 @@ class Node:
         if not self.hasTag(tag):
             await self.addTag(tag)
 
-        prop = self.snap.model.getTagProp(name)
+        prop = self.snap.core.model.getTagProp(name)
         if prop is None:
             raise s_exc.NoSuchTagProp(mesg='Tag prop does not exist in this Cortex.',
                                       name=name)
@@ -606,13 +604,13 @@ class Node:
             (s_layer.EDIT_TAGPROP_SET, (tag, name, norm, curv, prop.type.stortype)),
         )
 
-        sode = await self.snap.addNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.addNodeEdit((self.buid, self.form.name, edits))
 
         self.tagprops[tagkey] = norm
 
     async def delTagProp(self, tag, name):
 
-        prop = self.snap.model.getTagProp(name)
+        prop = self.snap.core.model.getTagProp(name)
         if prop is None:
             raise s_exc.NoSuchTagProp(name=name)
 

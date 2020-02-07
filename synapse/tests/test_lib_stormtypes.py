@@ -329,7 +329,7 @@ class StormTypesTest(s_test.SynTest):
                     [ graph:node={n2} :data=$foo ]
                 '''
 
-                msgs = await core.streamstorm(text).list()
+                await core.streamstorm(text).list()
 
                 # make sure we gunzip correctly
                 opts = {'vars': {'iden': n2}}
@@ -342,7 +342,7 @@ class StormTypesTest(s_test.SynTest):
                     $bar = :data
                     [ graph:node={n3} :data=$bar.gzip() ]
                 '''
-                msgs = await core.streamstorm(text).list()
+                await core.streamstorm(text).list()
 
                 # make sure we gzip correctly
                 opts = {'vars': {'iden': n3}}
@@ -372,11 +372,11 @@ class StormTypesTest(s_test.SynTest):
                     [ graph:node={n2} :data=$foo ]
                 '''
                 text = text.format(valu=node1.ndef[1], n2=n2)
-                msgs = await core.streamstorm(text).list()
+                await core.streamstorm(text).list()
 
                 # make sure we bunzip correctly
                 opts = {'vars': {'iden': n2}}
-                nodes = await snap.nodes('graph:node=$iden')
+                nodes = await snap.nodes('graph:node=$iden', opts=opts)
                 self.eq(hstr, nodes[0].props['data'])
 
                 # bzip
@@ -386,11 +386,11 @@ class StormTypesTest(s_test.SynTest):
                     [ graph:node={n3} :data=$bar.bzip() ]
                 '''
                 text = text.format(valu=node2.ndef[1], n3=n3)
-                msgs = await core.streamstorm(text).list()
+                await core.streamstorm(text).list()
 
                 # make sure we bzip correctly
                 opts = {'vars': {'iden': n3}}
-                nodes = await snap.nodes('graph:node=$iden')
+                nodes = await snap.nodes('graph:node=$iden', opts=opts)
                 self.eq(ggstr, nodes[0].props['data'])
 
     async def test_storm_lib_bytes_json(self):
@@ -410,11 +410,11 @@ class StormTypesTest(s_test.SynTest):
                     [ graph:node={n2} :data=$foo ]
                 '''
                 text = text.format(valu=node1.ndef[1], n2=n2)
-                msgs = await core.streamstorm(text).list()
+                await core.streamstorm(text).list()
 
                 # make sure we json loaded correctly
                 opts = {'vars': {'iden': n2}}
-                nodes = await snap.nodes('graph:node=$iden')
+                nodes = await snap.nodes('graph:node=$iden', opts=opts)
                 self.eq(foo, nodes[0].props['data'])
 
     async def test_storm_lib_list(self):
@@ -508,8 +508,8 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_csv(self):
         async with self.getTestCore() as core:
-            nodes = await core.eval('[test:str=1234 :tick=2001]').list()
-            nodes = await core.eval('[test:str=9876 :tick=3001]').list()
+            await core.eval('[test:str=1234 :tick=2001]').list()
+            await core.eval('[test:str=9876 :tick=3001]').list()
 
             q = "test:str " \
                 "$tick=$node.repr(tick) " \
@@ -552,8 +552,9 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_text_add(self):
         async with self.getTestCore() as core:
-            nodes = await core.nodes(
-                '[ test:int=10 ] $text=$lib.text(hehe) { +test:int>=10 $text.add(haha) } [ test:str=$text.str() ] +test:str')
+            nodes = await core.nodes('''
+                [ test:int=10 ] $text=$lib.text(hehe) { +test:int>=10 $text.add(haha) }
+                [ test:str=$text.str() ] +test:str''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'hehehaha'))
 
@@ -724,7 +725,7 @@ class StormTypesTest(s_test.SynTest):
     async def test_persistent_vars(self):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
-                async with core.getLocalProxy() as prox:  # type: s_cortex.CoreApi
+                async with core.getLocalProxy() as prox:
                     # User setup for $lib.user.vars() tests
                     ret1 = await prox.addAuthUser('user1')
                     iden1 = ret1.get('iden')
@@ -1394,9 +1395,9 @@ class StormTypesTest(s_test.SynTest):
 
             data = [
                 (('test:str', 'sup!'), {'props': {'tick': '2001'},
-                                         'tags': {'test': (None, None)}}),
+                                        'tags': {'test': (None, None)}}),
                 (('test:str', 'dawg'), {'props': {'tick': '3001'},
-                                         'tags': {}}),
+                                        'tags': {}}),
             ]
             svars['data'] = data
             q = '$genr=$lib.feed.genr("syn.nodes", $data) $lib.print($genr) yield $genr'
@@ -1412,7 +1413,7 @@ class StormTypesTest(s_test.SynTest):
             svars['data'] = data
             q = '$lib.feed.ingest("syn.nodes", $data)'
             msgs = await core.streamstorm(q, opts).list()
-            self.stormIsInWarn("BadPropValu: Error adding node: test:int 'newp'", msgs)
+            self.stormIsInWarn("BadTypeValu", msgs)
             errs = [m for m in msgs if m[0] == 'err']
             self.len(0, errs)
 
