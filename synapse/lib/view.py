@@ -64,6 +64,11 @@ class View(s_nexus.Pusher):  # type: ignore
         # isolate some initialization to easily override for SpawnView.
         await self._initViewLayers()
 
+    def pack(self):
+        d = {'iden': self.iden}
+        d.update(self.info.pack())
+        return d
+
     async def getFormCounts(self):
         counts = collections.defaultdict(int)
         for layr in self.layers:

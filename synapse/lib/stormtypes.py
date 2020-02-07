@@ -559,40 +559,27 @@ class LibQueue(Lib):
         }
 
         todo = s_common.todo('addCoreQueue', name, info)
-        gatekeys = ((self.runt.user.iden, ('storm', 'queue', 'add'), 'cortex'),)
-
+        gatekeys = ((self.runt.user.iden, ('queue', 'add'), 'cortex'),)
         info = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
         return Queue(self.runt, name, info)
 
     async def _methQueueGet(self, name):
-
-        todo = s_common.todo('status', name)
-
-        info = await self.dyncall('multiqueue', todo)
-        if info is None:
-            mesg = f'No queue named {name} exists.'
-            raise s_exc.NoSuchName(mesg=mesg, name=name)
+        todo = s_common.todo('getCoreQueue', name)
+        gatekeys = ((self.runt.user.iden, ('queue', 'get'), f'queue:{name}'),)
+        info = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
         return Queue(self.runt, name, info)
 
     async def _methQueueDel(self, name):
-
-        todo = s_common.todo('exists', name)
-        if not await self.dyncall('multiqueue', todo):
-            mesg = f'No queue named "{name}" exists!'
-            raise s_exc.NoSuchName(mesg=mesg, name=name)
-
-        gatekeys = (
-            (self.runt.user.iden, ('del',), f'queue:{name}'),
-        )
-
         todo = s_common.todo('delCoreQueue', name)
+        gatekeys = ((self.runt.user.iden, ('queue', 'del',), f'queue:{name}'), )
         await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueueList(self):
-        todo = s_common.todo('list')
-        return await self.dyncall('multiqueue', todo)
+        # FIXME:  perms?
+        todo = s_common.todo('listCoreQueues')
+        return await self.dyncall('cortex', todo)
 
 class Queue(StormType):
     '''
@@ -618,12 +605,11 @@ class Queue(StormType):
 
     async def _methQueueCull(self, offs):
         offs = intify(offs)
-        todo = s_common.todo('cull', self.name, offs)
+        todo = s_common.todo('coreQueueCull', self.name, offs)
         gatekeys = self._getGateKeys('get')
-        await self.runt.dyncall('multiqueue', todo, gatekeys=gatekeys)
+        await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
-    async def _methQueueGets(self, offs=0, wait=True, size=None):
-
+    async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
         wait = intify(wait)
         offs = intify(offs)
 
@@ -641,12 +627,12 @@ class Queue(StormType):
         gatekeys = self._getGateKeys('put')
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
-    async def _methQueueGet(self, offs=0, wait=True):
+    async def _methQueueGet(self, offs=0, cull=True, wait=True):
 
         offs = intify(offs)
         wait = intify(wait)
 
-        todo = s_common.todo('coreQueueGet', self.name, offs, wait=wait)
+        todo = s_common.todo('coreQueueGet', self.name, offs, cull=cull, wait=wait)
         gatekeys = self._getGateKeys('get')
 
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
@@ -654,8 +640,8 @@ class Queue(StormType):
     async def _methQueuePut(self, item):
         return await self._methQueuePuts((item,))
 
-    def _getGateKeys(self, name):
-        return ((self.runt.user.iden, (name,), self.gateiden),)
+    def _getGateKeys(self, perm):
+        return ((self.runt.user.iden, ('queue', perm), self.gateiden),)
 
 class LibTelepath(Lib):
 

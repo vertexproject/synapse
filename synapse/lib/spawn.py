@@ -201,7 +201,12 @@ class SpawnProc(s_base.Base):
 
         def doit():
             self.todo.put(mesg)
-            return self.done.get()
+            try:
+                return self.done.get()
+            except (TypeError, OSError) as e:
+                logger.warning('Queue torn out from underneath me. (%s)', e)
+                assert self.isfini
+                return True
 
         return await self.executor(doit)
 
@@ -333,7 +338,6 @@ class SpawnCore(s_base.Base):
         node = await self.hive.open(('auth',))
         self.auth = await s_hive.HiveAuth.anit(node)
         self.onfini(self.auth.fini)
-
         for layrinfo in self.spawninfo.get('layers'):
 
             iden = layrinfo.get('iden')
@@ -364,29 +368,29 @@ class SpawnCore(s_base.Base):
 
         # initialize pass-through methods from the telepath proxy
         # Lift
-        self.runRuntLift = self.prox.runRuntLift
-        # StormType Queue APIs
-        self.addCoreQueue = self.prox.addCoreQueue
-        self.hasCoreQueue = self.prox.hasCoreQueue
-        self.delCoreQueue = self.prox.delCoreQueue
-        self.getCoreQueue = self.prox.getCoreQueue
-        self.getCoreQueues = self.prox.getCoreQueues
-        self.getsCoreQueue = self.prox.getsCoreQueue
-        self.putCoreQueue = self.prox.putCoreQueue
-        self.putsCoreQueue = self.prox.putsCoreQueue
-        self.cullCoreQueue = self.prox.cullCoreQueue
-        # Feedfunc support
-        self.getFeedFuncs = self.prox.getFeedFuncs
-        # storm pkgfuncs
-        self.addStormPkg = self.prox.addStormPkg
-        self.delStormPkg = self.prox.delStormPkg
-        self.getStormPkgs = self.prox.getStormPkgs
+        # self.runRuntLift = self.prox.runRuntLift
+        # # StormType Queue APIs
+        # self.addCoreQueue = self.prox.addCoreQueue
+        # self.hasCoreQueue = self.prox.hasCoreQueue
+        # self.delCoreQueue = self.prox.delCoreQueue
+        # self.getCoreQueue = self.prox.getCoreQueue
+        # self.getCoreQueues = self.prox.getCoreQueues
+        # self.getsCoreQueue = self.prox.getsCoreQueue
+        # self.putCoreQueue = self.prox.putCoreQueue
+        # self.putsCoreQueue = self.prox.putsCoreQueue
+        # self.cullCoreQueue = self.prox.cullCoreQueue
+        # # Feedfunc support
+        # self.getFeedFuncs = self.prox.getFeedFuncs
+        # # storm pkgfuncs
+        # self.addStormPkg = self.prox.addStormPkg
+        # self.delStormPkg = self.prox.delStormPkg
+        # self.getStormPkgs = self.prox.getStormPkgs
 
         # TODO: Add Dmon management functions ($lib.dmon support)
         # TODO: Add Axon management functions ($lib.bytes support)
 
     async def dyncall(self, iden, todo, gatekeys=()):
-        return self.prox.dyncall(iden, todo, gatekeys=gatekeys)
+        return await self.prox.dyncall(iden, todo, gatekeys=gatekeys)
 
     async def dyniter(self, iden, todo, gatekeys=()):
         async for item in self.prox.dyniter(iden, todo, gatekeys=gatekeys):

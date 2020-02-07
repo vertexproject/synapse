@@ -6,8 +6,6 @@ import logging
 import functools
 import contextlib
 
-import collections.abc as c_abc
-
 import tornado.web as t_web
 
 import synapse.exc as s_exc

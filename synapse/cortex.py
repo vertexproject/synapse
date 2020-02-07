@@ -725,57 +725,6 @@ class CoreApi(s_cell.CellApi):
     async def getStormPkg(self, name):
         return await self.cell.getStormPkg(name)
 
-    # APIs to support spawned cortexes
-    @s_cell.adminapi
-    async def runRuntLift(self, *args, **kwargs):
-        async for item in self.cell.runRuntLift(*args, **kwargs):
-            yield item
-
-    #@s_cell.adminapi
-    #async def addCoreQueue(self, name, info):
-        #return await self.cell.addCoreQueue(name, info)
-
-    #@s_cell.adminapi
-    #async def delCoreQueue(self, name):
-        #return await self.cell.delCoreQueue(name)
-
-    #@s_cell.adminapi
-    #async def coreQueueGets(self, name):
-        #return await self.cell.delCoreQueue(name)
-
-    #@s_cell.adminapi
-    #async def hasCoreQueue(self, name):
-        #return await self.cell.hasCoreQueue(name)
-
-    #@s_cell.adminapi
-    #async def delCoreQueue(self, name):
-        #return await self.cell.delCoreQueue(name)
-
-    #@s_cell.adminapi
-    #async def getCoreQueue(self, name):
-        #return await self.cell.getCoreQueue(name)
-
-    #@s_cell.adminapi
-    #async def getCoreQueues(self):
-        #return await self.cell.getCoreQueues()
-
-    #@s_cell.adminapi
-    #async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
-        #async for item in self.cell.getsCoreQueue(name, offs=offs, wait=wait, cull=cull, size=size):
-            #yield item
-
-    #@s_cell.adminapi
-    #async def putCoreQueue(self, name, item):
-        #return await self.cell.putCoreQueue(name, item)
-
-    #@s_cell.adminapi
-    #async def putsCoreQueue(self, name, items):
-        #return await self.cell.putsCoreQueue(name, items)
-
-    #@s_cell.adminapi
-    #async def cullCoreQueue(self, name, offs):
-        #return await self.cell.cullCoreQueue(name, offs)
-
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -1009,6 +958,11 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self._push('queue:add', name, info)
 
+    @s_nexus.Pusher.onPush('queue:add')
+    async def _addCoreQueue(self, name, info):
+        if self.multiqueue.exists(name):
+            return
+
         await self.auth.addAuthGate(f'queue:{name}', 'queue')
 
         creator = info.get('creator')
@@ -1016,11 +970,11 @@ class Cortex(s_cell.Cell):  # type: ignore
             user = await self.auth.reqUser(creator)
             await user.setAdmin(True, gateiden=f'queue:{name}')
 
-        return info
+        await self.multiqueue.add(name, info)
 
-    @s_nexus.Pusher.onPush('queue:add')
-    async def _addCoreQueue(self, name, info):
-        return await self.multiqueue.add(name, info)
+    @s_nexus.Pusher.onPushAuto('queue:list')
+    async def listCoreQueues(self):
+        return self.multiqueue.list()
 
     async def getCoreQueue(self, name):
         return self.multiqueue.status(name)
@@ -1038,13 +992,13 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _delCoreQueue(self, name):
         await self.multiqueue.rem(name)
 
-    async def coreQueueGet(self, name, offs=0, wait=None):
-        async for item in self.multiqueue.gets(name, offs, wait=wait):
+    async def coreQueueGet(self, name, offs=0, cull=True, wait=None):
+        async for item in self.multiqueue.gets(name, offs, cull=cull, wait=wait):
             return item
 
-    async def coreQueueGets(self, name, offs=0, wait=None, size=None):
+    async def coreQueueGets(self, name, offs=0, cull=True, wait=None, size=None):
         count = 0
-        async for item in self.multiqueue.gets(name, offs, wait=wait):
+        async for item in self.multiqueue.gets(name, offs, cull=cull, wait=wait):
 
             yield item
 
@@ -1052,18 +1006,12 @@ class Cortex(s_cell.Cell):  # type: ignore
             if size is not None and count >= size:
                 return
 
+    @s_nexus.Pusher.onPushAuto('queue:puts')
     async def coreQueuePuts(self, name, items):
-        return await self._push('queue:puts', name, items)
-
-    @s_nexus.Pusher.onPush('queue:puts')
-    async def _coreQueuePuts(self, name, items):
         await self.multiqueue.puts(name, items)
 
+    @s_nexus.Pusher.onPushAuto('queue:cull')
     async def coreQueueCull(self, name, offs):
-        await self._push('queue:cull', name, offs)
-
-    @s_nexus.Pusher.onPush('queue:cull')
-    async def _coreQueueCull(self, name, offs):
         await self.multiqueue.cull(name, offs)
 
     async def getSpawnInfo(self):

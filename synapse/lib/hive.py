@@ -891,6 +891,10 @@ class HiveAuth(s_nexus.Pusher):
         '''
         return self.usersbyname.get(name)
 
+    async def getUserIdenByName(self, name):
+        user = await self.getUserByName(name)
+        return None if user is None else user.iden
+
     async def getRoleByName(self, name, gateiden=None):
         return self.rolesbyname.get(name)
 

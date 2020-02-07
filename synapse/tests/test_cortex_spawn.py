@@ -13,6 +13,8 @@ import synapse.lib.link as s_link
 import synapse.lib.spawn as s_spawn
 import synapse.lib.msgpack as s_msgpack
 
+from synapse.common import todo as s_todo
+
 import synapse.tests.utils as s_test
 
 logger = logging.getLogger(__name__)
@@ -27,7 +29,8 @@ def make_core(dirn, conf, queries, queue, event):
         async with await s_cortex.Cortex.anit(dirn=dirn, conf=conf) as core:
             for q in queries:
                 await core.nodes(q)
-            await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+            core.view.layers[0].layrslab.forcecommit()
+
             spawninfo = await core.getSpawnInfo()
             queue.put(spawninfo)
             # Don't block the ioloop..
@@ -59,88 +62,91 @@ class CoreSpawnTest(s_test.SynTest):
         with self.getTestDir() as dirn:
             args = (dirn, conf, queries, queue, event)
             proc = mpctx.Process(target=make_core, args=args)
-            proc.start()
-            spawninfo = queue.get(timeout=30)
+            try:
+                proc.start()
+                spawninfo = queue.get(timeout=30)
 
-            async with await s_spawn.SpawnCore.anit(spawninfo) as core:
-                root = await core.auth.getUserByName('root')
-                q = '''test:str
-                $lib.print($lib.str.format("{n}", n=$node.repr()))
-                | limit 1'''
-                item = {
-                    'user': root.iden,
-                    'view': list(core.views.keys())[0],
-                    'storm': {
-                        'query': q,
-                        'opts': None,
+                async with await s_spawn.SpawnCore.anit(spawninfo) as core:
+                    root = await core.auth.getUserByName('root')
+                    q = '''test:str
+                    $lib.print($lib.str.format("{n}", n=$node.repr()))
+                    | limit 1'''
+                    item = {
+                        'user': root.iden,
+                        'view': list(core.views.keys())[0],
+                        'storm': {
+                            'query': q,
+                            'opts': None,
+                        }
                     }
-                }
 
-                # Test the storm implementation used by spawncore
-                msgs = await s_test.alist(s_spawn.storm(core, item))
-                podes = [m[1] for m in msgs if m[0] == 'node']
-                e = 'Cortex from the aether!'
-                self.len(1, podes)
-                self.eq(podes[0][0], ('test:str', e))
-                self.stormIsInPrint(e, msgs)
+                    # Test the storm implementation used by spawncore
+                    msgs = await s_test.alist(s_spawn.storm(core, item))
+                    podes = [m[1] for m in msgs if m[0] == 'node']
+                    e = 'Cortex from the aether!'
+                    self.len(1, podes)
+                    self.eq(podes[0][0], ('test:str', e))
+                    self.stormIsInPrint(e, msgs)
 
-                # Direct test of the _innerloop code.
+                    # Direct test of the _innerloop code.
+                    todo = mpctx.Queue()
+                    done = mpctx.Queue()
+
+                    # Test poison - this would cause the corework to exit
+                    todo.put(None)
+                    self.none(await s_spawn._innerloop(core, todo, done))
+
+                    # Test a real item with a link associated with it. This ends
+                    # up getting a bunch of telepath message directly.
+                    todo_item = item.copy()
+                    link0, sock0 = await s_link.linksock()
+                    todo_item['link'] = link0.getSpawnInfo()
+                    todo.put(todo_item)
+                    self.true(await s_spawn._innerloop(core, todo, done))
+                    resp = done.get(timeout=12)
+                    self.false(resp)
+                    buf0 = sock0.recv(1024 * 16)
+                    unpk = s_msgpack.Unpk()
+                    msgs = [msg for (offset, msg) in unpk.feed(buf0)]
+                    self.eq({'t2:genr', 't2:yield'},
+                            {m[0] for m in msgs})
+
+                    await link0.fini()  # We're done with the link now
+                    todo.close()
+                    done.close()
+
+                # Test the workloop directly - this again just gets telepath
+                # messages back. This does use poison to kill the workloop.
                 todo = mpctx.Queue()
                 done = mpctx.Queue()
 
-                # Test poison - this would cause the corework to exit
-                todo.put(None)
-                self.none(await s_spawn._innerloop(core, todo, done))
-
-                # Test a real item with a link associated with it. This ends
-                # up getting a bunch of telepath message directly.
+                task = asyncio.create_task(s_spawn._workloop(spawninfo, todo, done))
+                await asyncio.sleep(0.01)
+                link1, sock1 = await s_link.linksock()
                 todo_item = item.copy()
-                link0, sock0 = await s_link.linksock()
-                todo_item['link'] = link0.getSpawnInfo()
+                todo_item['link'] = link1.getSpawnInfo()
                 todo.put(todo_item)
-                self.true(await s_spawn._innerloop(core, todo, done))
-                resp = done.get(timeout=12)
+                # Don't block the IO loop!
+                resp = await s_coro.executor(done.get, timeout=12)
                 self.false(resp)
-                buf0 = sock0.recv(1024 * 16)
+                buf0 = sock1.recv(1024 * 16)
                 unpk = s_msgpack.Unpk()
                 msgs = [msg for (offset, msg) in unpk.feed(buf0)]
                 self.eq({'t2:genr', 't2:yield'},
                         {m[0] for m in msgs})
+                await link1.fini()  # We're done with the link now
+                # Poison the queue - this should close the task
+                todo.put(None)
+                self.none(await asyncio.wait_for(task, timeout=12))
 
-                await link0.fini()  # We're done with the link now
                 todo.close()
                 done.close()
 
-            # Test the workloop directly - this again just gets telepath
-            # messages back. This does use poison to kill the workloop.
-            todo = mpctx.Queue()
-            done = mpctx.Queue()
+            finally:
 
-            task = asyncio.create_task(s_spawn._workloop(spawninfo, todo, done))
-            await asyncio.sleep(0.01)
-            link1, sock1 = await s_link.linksock()
-            todo_item = item.copy()
-            todo_item['link'] = link1.getSpawnInfo()
-            todo.put(todo_item)
-            # Don't block the IO loop!
-            resp = await s_coro.executor(done.get, timeout=12)
-            self.false(resp)
-            buf0 = sock1.recv(1024 * 16)
-            unpk = s_msgpack.Unpk()
-            msgs = [msg for (offset, msg) in unpk.feed(buf0)]
-            self.eq({'t2:genr', 't2:yield'},
-                    {m[0] for m in msgs})
-            await link1.fini()  # We're done with the link now
-            # Poison the queue - this should close the task
-            todo.put(None)
-            self.none(await asyncio.wait_for(task, timeout=12))
-
-            todo.close()
-            done.close()
-
-            queue.close()
-            event.set()
-            proc.join(12)
+                queue.close()
+                event.set()
+                proc.join(12)
 
     async def test_cortex_spawn_telepath(self):
         conf = {
@@ -287,6 +293,7 @@ class CoreSpawnTest(s_test.SynTest):
                 msgs = {'msgs': []}
 
                 tf2opts = {'spawn': True, 'vars': {'hehe': 'haha'}}
+
                 async def taskfunc2():
                     async for mesg in prox.storm('test:int=1 | sleep 15', opts=tf2opts):
                         msgs['msgs'].append(mesg)
@@ -316,6 +323,7 @@ class CoreSpawnTest(s_test.SynTest):
 
                 # test kill -9 ing a spawn proc
                 logger.info('sigkill test')
+                assert len(core.spawnpool.spawnq)
                 victimproc = core.spawnpool.spawnq[0]  # type: s_spawn.SpawnProc
                 victimpid = victimproc.proc.pid
                 sig = signal.SIGKILL
@@ -444,13 +452,13 @@ class CoreSpawnTest(s_test.SynTest):
                     self.len(1, errs)
                     self.eq(errs[0][0], 'AuthDeny')
 
-                    rule = (True, ('storm', 'queue', 'add'))
-                    await root.addUserRule('synapse', rule, indx=None)
+                    rule = (True, ('queue', 'add'))
+                    await synu.addRule(rule)
                     msgs = await prox.storm('queue.add synq', opts=opts).list()
                     self.stormIsInPrint('queue added: synq', msgs)
 
-                    rule = (True, ('storm', 'queue', 'synq', 'put'))
-                    await root.addUserRule('synapse', rule, indx=None)
+                    rule = (True, ('queue', 'put'))
+                    await synu.addRule(rule, gateiden='queue:synq')
 
                     q = '$q = $lib.queue.get(synq) $q.puts((bar, baz))'
                     msgs = await prox.storm(q, opts=opts).list()
@@ -467,8 +475,8 @@ class CoreSpawnTest(s_test.SynTest):
                     self.len(1, errs)
                     self.eq(errs[0][0], 'AuthDeny')
 
-                    rule = (True, ('storm', 'queue', 'synq', 'get'))
-                    await root.addUserRule('wootuser', rule, indx=None)
+                    rule = (True, ('queue', 'get'))
+                    await woot.addRule(rule, gateiden='queue:synq')
 
                     q = '$lib.print($lib.queue.get(synq).get(wait=False))'
                     msgs = await prox.storm(q, opts=opts).list()
@@ -479,8 +487,8 @@ class CoreSpawnTest(s_test.SynTest):
                     self.len(1, errs)
                     self.eq(errs[0][0], 'AuthDeny')
 
-                    rule = (True, ('storm', 'queue', 'del', 'synq'))
-                    await root.addUserRule('wootuser', rule, indx=None)
+                    rule = (True, ('queue', 'del'))
+                    await woot.addRule(rule, gateiden='queue:synq')
 
                     msgs = await prox.storm('$lib.queue.del(synq)', opts=opts).list()
                     with self.raises(s_exc.NoSuchName):

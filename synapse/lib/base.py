@@ -7,6 +7,7 @@ import logging
 import weakref
 import contextlib
 import collections
+import inspect
 
 if __debug__:
     import traceback
@@ -31,12 +32,13 @@ def _fini_atexit(): # pragma: no cover
         if item.isfini:
             continue
 
-        if not item._fini_atexit:
-            if __debug__:
-                print(f'At exit: Missing fini for {item}')
-                for depth, call in enumerate(item.call_stack[:-2]):
-                    print(f'{depth+1:3}: {call.strip()}')
-            continue
+        # FIXME nic debug
+        # if not item._fini_atexit:
+        #     if __debug__:
+        #         print(f'At exit: Missing fini for {item}')
+        #         for depth, call in enumerate(item.call_stack[:-2]):
+        #             print(f'{depth+1:3}: {call.strip()}')
+        #     continue
 
         try:
             if __debug__:
@@ -375,6 +377,9 @@ class Base:
         if __debug__:
             import synapse.lib.threads as s_threads  # avoid import cycle
             assert s_threads.iden() == self.tid
+
+        # FIXME: Nic debug
+        # print(' ' * (len(inspect.stack()) - 5) + f'{self.__class__.__name__} finiing')
 
         self._syn_refs -= 1
         if self._syn_refs > 0:
