@@ -3,227 +3,274 @@ import copy
 import json
 import contextlib
 
-import synapse.common as s_common
-
-import synapse.lib.base as s_base
-import synapse.lib.hive as s_hive
-import synapse.lib.lmdbslab as s_lmdbslab
-
 import synapse.tests.utils as s_t_utils
 
 import synapse.tools.migrate_020 as s_migr
 
-TESTDIR = os.path.split(__file__)[0]
-ASSETDIR = os.path.join(TESTDIR, 'files', 'migration')
+REGR_REPO = '/home/mike/git/synapse-regression'  # TODO hard-coded for testing, replace with utils.getRegrDir
 
-def getAssetPath(*paths):
-    fp = os.path.join(ASSETDIR, *paths)
-    assert os.path.isfile(fp)
-    return fp
-
+# Nodes that are expected to be unmigratable
+NOMIGR_NDEF = [
+    ["migr:test", 22],
+]
 
 def getAssetBytes(*paths):
-    fp = getAssetPath(*paths)
+    fp = os.path.join(*paths)
+    assert os.path.isfile(fp)
     with open(fp, 'rb') as f:
         byts = f.read()
     return byts
-
 
 def getAssetJson(*paths):
     byts = getAssetBytes(*paths)
     obj = json.loads(byts.decode())
     return obj
 
-class MigrationCore(s_base.Base):
+def convertJsonLists(elm):
+    '''
+    Recursively convert lists to tuples for equality comparisons.
+    '''
 
-    async def __anit__(self, dirn):
-        await s_base.Base.__anit__(self)
-        self.dirn = dirn
+    if isinstance(elm, list):
+        for i, e in enumerate(elm):
+            elm[i] = convertJsonLists(e)
 
-    async def createCore(self):
-        # raw test rows
-        testbyts = getAssetBytes('migrrows.txt')
-        testrows = testbyts.split(b'000000')
+        return tuple(elm)
 
-        # initialize dirn
-        iden = s_common.guid()
-        pathlyr = s_common.gendir(self.dirn, 'layers', iden, 'layer.lmdb')
-        pathcell = s_common.gendir(self.dirn, 'slabs', 'cell.lmdb')
+    elif isinstance(elm, dict):
+        for k, v in elm.items():
+            elm[k] = convertJsonLists(v)
 
-        path = s_common.genpath(self.dirn, 'cell.guid')
-        with open(path, 'w') as fd:
-            fd.write(s_common.guid())
+        return elm
 
-        # initialize hive
-        hiveslab = await s_lmdbslab.Slab.anit(pathcell, readonly=False)
-        hivedb = hiveslab.initdb('hive')
-        hive = await s_hive.SlabHive.anit(hiveslab, db=hivedb)
-        self.onfini(hiveslab.fini)
-        self.onfini(hive.fini)
-
-        # add base layer to hive
-        hlyrs = await hive.open(('cortex', 'layers', iden))
-        layrinfo = await hlyrs.dict()
-        await layrinfo.set('type', 'lmdb')
-        await layrinfo.set('owner', 'root')
-        await layrinfo.set('name', '??')
-
-        # default view
-        viden = s_common.guid()
-        hcellinf = await hive.open(('cellinfo', ))
-        cellinf = await hcellinf.dict()
-        await cellinf.set('defaultview', viden)
-
-        hviews = await hive.open(('cortex', 'views', viden))
-        viewinfo = await hviews.dict()
-        await viewinfo.set('owner', 'root')
-        await viewinfo.set('name', '??')
-        await viewinfo.set('layers', [iden])
-
-        # hive default user
-        husr = await hive.open(('auth', 'users'))
-        usrinfo = await husr.dict()
-        await usrinfo.set(s_common.guid(), 'root')
-
-        # add partial extended models
-        extprops = await (await hive.open(('cortex', 'model', 'props'))).dict()
-        await extprops.set(s_common.guid(), ('inet:ipv4', '_rdxp', ('int', {}), {}))  # not adding "_rdxpz"
-
-        extunivs = await (await hive.open(('cortex', 'model', 'univs'))).dict()
-        await extunivs.set(s_common.guid(), ('_rdxu', ('str', {'lower': True}), {}))
-
-        exttagprops = await (await hive.open(('cortex', 'model', 'tagprops'))).dict()
-        await exttagprops.set(s_common.guid(), ('score', ('int', {}), {}))  # not adding "nah"
-
-        # initialize bybuid db
-        slab = await s_lmdbslab.Slab.anit(pathlyr, map_async=True, readonly=False)
-        bybuid = slab.initdb('bybuid')
-        self.onfini(slab.fini)
-
-        # add data (rows are sequential as keys/val)
-        for i in range(0, len(testrows), 2):
-            slab.put(testrows[i], testrows[i + 1], db=bybuid)
-
-        rrows = []
-        for lkey, lval in slab.scanByFull(db=bybuid):
-            rrows.append((lkey, lval))
-
-        assert len(rrows) == len(testrows) / 2
-
-        await self.fini()
-
-        return iden
+    else:
+        return elm
 
 class MigrationTest(s_t_utils.SynTest):
 
-    async def _convertJsonPode(self, pode):
-        '''
-        Convert json lists to tuples for eq testing.
-        '''
-        # convert if comp form
-        if isinstance(pode[0][1], list):
-            pode[0][1][0] = tuple(pode[0][1][0])
-            pode[0][1][1] = tuple(pode[0][1][1])
-            pode[0][1] = tuple(pode[0][1])
-
-        pode[0] = tuple(pode[0])
-
-        for topk, topv in pode[1].items():
-            if isinstance(topv, dict):
-                for botk, botv in pode[1][topk].items():
-                    if isinstance(botv, list):
-                        pode[1][topk][botk] = tuple(botv)
-
-            # comp form repr
-            elif isinstance(topv, list):
-                pode[1][topk][0] = tuple(pode[1][topk][0])
-                pode[1][topk][1] = tuple(pode[1][topk][1])
-                pode[1][topk] = tuple(pode[1][topk])
-
-        return pode
-
     @contextlib.asynccontextmanager
     async def _getTestMigrCore(self, conf):
-        # create migration core
-        migrcore = await MigrationCore.anit(conf['dirn'])
-        iden = await migrcore.createCore()
+        '''
+        Use regression cortex as the base migration dirn.
+
+        Args:
+            conf (dict): Migration tool configuration
+
+        Yields:
+            (list): List of podes in the cortex
+            (s_migr.Migrator): Migrator service object
+            (tuple): test data, dest dirn, dest local layers, Migrator
+        '''
+        path_cortex = ('cortexes', '0.1.49-migr')
+        path_assets = ('assets', '0.1.49-migr')
+
+        regr = os.path.join(REGR_REPO, *path_cortex)
+        assets = os.path.join(REGR_REPO, *path_assets)
+
+        # get test data
+        tdata = {}
+        podesj = getAssetJson(assets, 'podes.json')
+        ndj = getAssetJson(assets, 'nodedata.json')
+
+        # strip out data we don't expect to migrate
+        podesj = [p for p in podesj if p[0] not in NOMIGR_NDEF]
+        ndj = [nd for nd in ndj if nd[0] not in NOMIGR_NDEF]
+
+        tdata['podes'] = convertJsonLists(podesj)
+        tdata['nodedata'] = convertJsonLists(ndj)
 
         # initialize migration tool
-        tconf = copy.deepcopy(conf)
+        with self.getTestDir(copyfrom=regr) as src:
+            with self.getTestDir(copyfrom=conf.get('dest')) as dest:
+                tconf = copy.deepcopy(conf)
+                tconf['src'] = src
+                tconf['dest'] = dest
 
-        async with await s_migr.Migrator.anit(tconf) as migr:
-            yield iden, migr
+                locallyrs = os.listdir(os.path.join(src, 'layers'))
 
-    @contextlib.asynccontextmanager
-    async def _getTestCore(self, dirn):
-        async with self.getTestCore(dirn=dirn) as core:
-            await core.addFormProp('inet:ipv4', '_rdxp', ('int', {}), {})
-            await core.addFormProp('inet:ipv4', '_rdxpz', ('int', {}), {})
-            await core.addUnivProp('_rdxu', ('str', {'lower': True}), {})
-            await core.addTagProp('score', ('int', {}), {})
-            await core.addTagProp('nah', ('int', {}), {})
+                async with await s_migr.Migrator.anit(tconf) as migr:
+                    yield tdata, dest, locallyrs, migr
 
-            yield core
+    async def test_migr(self):
+        conf = {
+            'src': None,
+            'dest': None,
+            'migrops': [
+                'dirn',
+                'dmodel',
+                'hiveauth',
+                'hivestor',
+                'hivelyr',
+                'nodes',
+                'nodedata',
+            ],
+        }
 
-    async def test_migration(self):
+        async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
+            await migr.migrate()
 
-        with self.getTestDir() as dirn:
-            conf = {
-                'dirn': dirn,
-                'migrops': [
-                    'dmodel',
-                    'hiveauth',
-                    'hivestor',
-                    'hivelyr',
-                    'nodes',
-                    # 'nodedata',
-                    'hive',
-                ],
-            }
+            iden = locallyrs[0]  # update if regression cortex has more local layers
 
-            async with self._getTestMigrCore(conf) as (iden, migr):
+            # abbreviated stats check
+            stats = await migr._migrlogGet('nodes', 'stat', f'{iden}:form')
+            self.gt(len(stats), 0)
+            for stat in stats:
+                skey = stat['key']
+                sval = stat['val']  # (src_cnt, dest_cnt)
+
+                if skey.endswith('inet:ipv4'):
+                    self.eq((2, 2), sval)
+                elif skey.endswith('file:bytes'):
+                    self.eq((2, 2), sval)
+                elif skey.endswith('syn:tag'):
+                    self.eq((6, 6), sval)
+
+            totnodes = await migr._migrlogGet('nodes', 'stat', f'{iden}:totnodes')
+            self.eq(32, totnodes[0]['val'][0])
+
+            totnodedata = await migr._migrlogGet('nodedata', 'stat', f'{iden}:totnodes')
+            self.eq(4, totnodedata[0]['val'][0])
+
+            await migr.fini()
+
+            # startup 0.2.0 core
+            async with self.getTestCore(dirn=dest) as core:
+                tpodes = tdata['podes']
+                tnodedata = tdata['nodedata']
+
+                # check all nodes
+                nodes = await core.nodes('.created -meta:source:name=test')
+
+                podes = [n.pack(dorepr=True) for n in nodes]
+                self.eq(podes, tpodes)
+
+                nodedata = []
+                for n in nodes:
+                    nodedata.append([n.ndef, [nd async for nd in n.iterData()]])
+                nodedata = convertJsonLists(nodedata)
+                self.eq(nodedata, tnodedata)
+
+                # manually check node subset
+                self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+                self.len(2, await core.nodes('inet:dns:a:ipv4=1.2.3.4'))
+
+    async def test_migr_nexusoff(self):
+        conf = {
+            'src': None,
+            'dest': None,
+            'nexusoff': True,
+            'migrops': [
+                'dirn',
+                'dmodel',
+                'hiveauth',
+                'hivestor',
+                'hivelyr',
+                'nodes',
+                'nodedata',
+            ],
+        }
+
+        async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
+            await migr.migrate()
+
+            iden = locallyrs[0]  # update if regression cortex has more local layers
+
+            # abbreviated stats check
+            totnodes = await migr._migrlogGet('nodes', 'stat', f'{iden}:totnodes')
+            self.eq(32, totnodes[0]['val'][0])
+
+            totnodedata = await migr._migrlogGet('nodedata', 'stat', f'{iden}:totnodes')
+            self.eq(4, totnodedata[0]['val'][0])
+
+            await migr.fini()
+
+            # startup 0.2.0 core
+            async with self.getTestCore(dirn=dest) as core:
+                tpodes = tdata['podes']
+                tnodedata = tdata['nodedata']
+
+                # check all nodes
+                nodes = await core.nodes('.created -meta:source:name=test')
+
+                podes = [n.pack(dorepr=True) for n in nodes]
+                self.eq(podes, tpodes)
+
+                nodedata = []
+                for n in nodes:
+                    nodedata.append([n.ndef, [nd async for nd in n.iterData()]])
+                nodedata = convertJsonLists(nodedata)
+                self.eq(nodedata, tnodedata)
+
+                # manually check node subset
+                self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+                self.len(2, await core.nodes('inet:dns:a:ipv4=1.2.3.4'))
+
+    async def test_migr_restart(self):
+        conf = {
+            'src': None,
+            'dest': None,
+            'migrops': [
+                'dirn',
+                'dmodel',
+                'hiveauth',
+                'hivestor',
+                'hivelyr',
+                'nodes',
+                'nodedata',
+            ],
+        }
+
+        async with self._getTestMigrCore(conf) as (tdata0, dest0, locallyrs0, migr0):
+            await migr0.migrate()
+
+            iden = locallyrs0[0]  # update if regression cortex has more local layers
+
+            # abbreviated stats check
+            totnodes = await migr0._migrlogGet('nodes', 'stat', f'{iden}:totnodes')
+            self.eq(32, totnodes[0]['val'][0])
+
+            totnodedata = await migr0._migrlogGet('nodedata', 'stat', f'{iden}:totnodes')
+            self.eq(4, totnodedata[0]['val'][0])
+
+            await migr0.fini()
+
+            # run migration again
+            conf['dest'] = dest0
+
+            async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
+                # check that destination is populated before starting migration
+                iden = locallyrs[0]
+                lyrslab = os.path.join(dest, 'layers', iden, 'layer_v2.lmdb')
+                self.true(os.path.exists(lyrslab))
+
                 await migr.migrate()
 
-                stats = await migr._migrlogGet('nodes', 'stat', f'{iden}:form')
-                for stat in stats:
-                    skey = stat['key']
-                    sval = stat['val']  # (src_cnt, dest_cnt)
+                # abbreviated stats check
+                totnodes = await migr._migrlogGet('nodes', 'stat', f'{iden}:totnodes')
+                self.eq(32, totnodes[0]['val'][0])
 
-                    if skey.endswith('inet:ipv4'):
-                        self.eq((2, 1), sval)  # expecting one ipv4 to fail due to missing props currently
-                    elif skey.endswith('syn:tag'):
-                        self.eq((3, 3), sval)
-                    else:
-                        self.eq((1, 1), sval)
+                totnodedata = await migr._migrlogGet('nodedata', 'stat', f'{iden}:totnodes')
+                self.eq(4, totnodedata[0]['val'][0])
 
                 await migr.fini()
 
-            # startup 0.2.0 core
-            async with self._getTestCore(dirn=dirn) as core:
-                testpodes = getAssetJson('migrpodes.json')
+                # startup 0.2.0 core
+                async with self.getTestCore(dirn=dest) as core:
+                    tpodes = tdata['podes']
+                    tnodedata = tdata['nodedata']
 
-                tpode = await self._convertJsonPode(testpodes[0])
-                nodes = await core.nodes('inet:ipv4=1.2.3.4')
-                self.len(1, nodes)
-                pode = nodes[0].pack(dorepr=True)
-                self.eq(pode, tpode)
+                    # check all nodes
+                    nodes = await core.nodes('.created -meta:source:name=test')
 
-                # node adds are currently atomic, so this entry should not exist
-                nodes = await core.nodes('inet:ipv4=5.6.7.8')
-                self.len(0, nodes)
+                    podes = [n.pack(dorepr=True) for n in nodes]
+                    self.eq(podes, tpodes)
 
-                tpode = await self._convertJsonPode(testpodes[2])
-                nodes = await core.nodes('file:bytes=c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2')
-                self.len(1, nodes)
-                pode = nodes[0].pack(dorepr=True)
-                self.eq(pode, tpode)
+                    nodedata = []
+                    for n in nodes:
+                        nodedata.append([n.ndef, [nd async for nd in n.iterData()]])
+                    nodedata = convertJsonLists(nodedata)
+                    self.eq(nodedata, tnodedata)
 
-                tpode = await self._convertJsonPode(testpodes[3])
-                scmd = (
-                    f'edge:has=((inet:ipv4, 1.2.3.4),'
-                    f'(file:bytes, c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2))'
-                )
-                nodes = await core.nodes(scmd)
-                self.len(1, nodes)
-                pode = nodes[0].pack(dorepr=True)
-                self.eq(pode, tpode)
+                    # manually check node subset
+                    self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+                    self.len(2, await core.nodes('inet:dns:a:ipv4=1.2.3.4'))

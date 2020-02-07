@@ -1,5 +1,5 @@
 '''
-Migrate storage from 0.1.x to 0.2.x.
+Migrate Synapse from 0.1.x to 0.2.x.
 
 TODO:
     - Support non-inplace migration?
@@ -19,6 +19,8 @@ TODO:
 '''
 import os
 import sys
+import csv
+import shutil
 import asyncio
 import logging
 import argparse
@@ -41,27 +43,26 @@ import synapse.lib.modelrev as s_modelrev
 
 logger = logging.getLogger(__name__)
 
-ALL_MIGROPS = [
+ALL_MIGROPS = (
+    'dirn',
     'dmodel',
     'hiveauth',
     'hivestor',
     'hivelyr',
     'nodes',
     'nodedata',
-    'hive',
-]
+)
 
 class Migrator(s_base.Base):
     '''
-    Standalone tool for migrating Synapse storage.
+    Standalone tool for migrating Synapse from a source Cortex to a new destination 0.2.x Cortex.
 
     migrate() is the primary method which steps through sequential migration steps.
     The step is then carried out by a dedicated _migr* method which calls
-    _src*, _trn*, _dest* methods as needed to read from the 0.1.x source, translate data to 0.2.0 syntax,
+    _src*, _trn*, _dest* methods as needed to read from the 0.1.x source, translate data to 0.2.x syntax,
     and finally write to the destination layer, respectively.
 
-    Source 0.1.x data is not modified until the "hive" operation which replaces the 0.1.x hive,
-    and in this case a copy is kept in the db hive_v1.  Only after this step can an 0.2.x cortex be run.
+    Source 0.1.x data is not modified, and migration can be run as a background operation.
 
     A migration dir is created to store two sets of data:
         - migr.lmdb: Stats, progress logs, checkpoints, and error logs specific to migration
@@ -71,12 +72,12 @@ class Migrator(s_base.Base):
         await s_base.Base.__anit__(self)
         self.migrdir = 'migration'
 
-        self.dirn = conf.get('dirn')
+        self.src = conf.get('src')
+        self.dest = conf.get('dest')
         self.migrops = conf.get('migrops')
         self.migrlayer = conf.get('layer')
         self.nodelim = conf.get('nodelim')
         self.nexusoff = conf.get('nexusoff', False)
-        self.usehivev1 = conf.get('usehivev1', False)
 
         if self.migrops is None:
             self.migrops = ALL_MIGROPS
@@ -84,60 +85,48 @@ class Migrator(s_base.Base):
         # data model
         self.model = None
 
-        # create a new slab for tracking migration data
-        path = os.path.join(self.dirn, self.migrdir, 'migr.lmdb')
-        self.migrslab = await s_lmdbslab.Slab.anit(path, readonly=False)
-        self.migrdb = self.migrslab.initdb('migr')
-        self.onfini(self.migrslab.fini)
-
-        # optionally create migration nexus
-        if not self.nexusoff:
-            path = os.path.join(self.dirn, self.migrdir)
-            self.nexusroot = await s_nexus.NexsRoot.anit(path)
-            self.onfini(self.nexusroot.fini)
-            logger.info(f'Storing migration splices at {path}')
-        else:
-            self.nexusroot = None
-
-        # open hive
-        path = os.path.join(self.dirn, 'slabs', 'cell.lmdb')
-        self.hiveslab = await s_lmdbslab.Slab.anit(path, readonly=False)
-        self.onfini(self.hiveslab.fini)
-        self.hivedb = self.hiveslab.initdb('hive')
-        self.hivedb_v1 = self.hiveslab.initdb('hive_v1')  # on final step this will contain original copy
-        self.hivedb_v2 = self.hiveslab.initdb('hive_v2')  # working copy during migration
-
-        # copy hive before we get started
-        if self.usehivev1:
-            await self._migrHive(self.hivedb_v1, self.hivedb)  # can also be used to unwind hive migration
-        elif self.migrops != ['hive']:
-            # if "hive" is the only opr we assume a hivedb_v2 has already been created
-            await self._migrHive(self.hivedb, self.hivedb_v2, rmsrc=False)
-        self.hive = await s_hive.SlabHive.anit(self.hiveslab, db=self.hivedb_v2)
-        self.onfini(self.hive.fini)
+        # storage
+        self.migrslab = None
+        self.migrdb = None
+        self.nexusroot = None
+        self.hiveslab = None
+        self.hivedb = None
+        self.hive = None
 
     async def migrate(self):
         '''
         Execute the migration
         '''
+        if self.dest is None:
+            raise Exception('Destination dirn must be specified for migration.')
+
+        # setup destination directory
+        locallyrs = await self._migrDirn()
+
+        # initialize storage for migration
+        await self._initStors()
+
         # datamodel migration
         if 'dmodel' in self.migrops:
             await self._migrDatamodel()
 
         # storage info migration
         if 'hivestor' in self.migrops:
-            storinfo, layridens = await self._migrHiveStorInfo()
+            storinfo = await self._migrHiveStorInfo()
         else:
-            storinfo, layridens = None, []
+            storinfo = {}
 
         if self.migrlayer is not None:
             logger.info(f'Restricting migration to one layer: {self.migrlayer}')
-            layridens = [self.migrlayer]
+            if self.migrlayer not in locallyrs:
+                logger.error(f'Layer iden not found in local layers: {self.migrlayer}, {locallyrs}')
+                return
+            locallyrs = [self.migrlayer]
 
         # full layer migration
-        for iden in layridens:
+        for iden in locallyrs:
             logger.info(f'Starting migration for storage {storinfo.get("iden")} and layer {iden}')
-            wlyr = await self._destGetWlyr(self.dirn, storinfo, iden)
+            wlyr = await self._destGetWlyr(self.dest, storinfo, iden)
 
             if 'nodes' in self.migrops:
                 await self._migrNodes(iden, wlyr)
@@ -154,34 +143,162 @@ class Migrator(s_base.Base):
         if 'hiveauth' in self.migrops:
             await self._migrHiveAuth()  # TODO
 
-        # migrate cell (replace hive with hive_v2)
-        if 'hive' in self.migrops:
-            await self._migrHive(self.hivedb, self.hivedb_v1, rmsrc=False)
-            await self._migrHive(self.hivedb_v2, self.hivedb, rmsrc=True)
+    async def formCounts(self):
+        '''
+        Print form count comparison between source and destination.
+
+        Returns:
+            (list): List of formatted tables by layer as string
+        '''
+        srclyrs = os.listdir(os.path.join(self.src, 'layers'))
+
+        if self.dest is not None:
+            destlyrs = os.listdir(os.path.join(self.dest, 'layers'))
+        else:
+            destlyrs = []
+
+        outs = []
+        for iden in srclyrs:
+            hasdest = True
+            if iden not in destlyrs:
+                logger.warning(f'Layer {iden} not present in destination')
+                hasdest = False
+
+            # open source slab
+            src_path = os.path.join(self.src, 'layers', iden, 'layer.lmdb')
+            src_slab = await s_lmdbslab.Slab.anit(src_path, readonly=True)
+            self.onfini(src_slab.fini)
+            src_bybuid = src_slab.initdb('bybuid')
+
+            src_fcnt = collections.defaultdict(int)
+            src_tot = 0
+            async for form in self._srcIterForms(src_slab, src_bybuid):
+                src_fcnt[form] += 1
+                src_tot += 1
+                if src_tot % 100 == 0:
+                    await asyncio.sleep(0)
+                if src_tot % 1000000 == 0:
+                    logger.debug(f'...counted {src_tot} nodes so far')
+
+            # open dest slab
+            if hasdest:
+                destpath = os.path.join(self.dest, 'layers', iden, 'layer_v2.lmdb')
+                destslab = await s_lmdbslab.Slab.anit(destpath, readonly=True)
+                self.onfini(destslab.fini)
+                dest_fcnt = await destslab.getHotCount('count:forms')
+                dest_fcnt = dest_fcnt.pack()
+            else:
+                dest_fcnt = {}
+
+            # print report
+            rprt = [
+                '\n',
+                f'Form counts for layer {iden}:',
+                f'{"FORM":<25}{"SRC_CNT":<15}{"DEST_CNT":<15}{"DIFF":<15}',
+            ]
+            dest_tot = 0
+            diff_tot = 0
+            for form, scnt in src_fcnt.items():
+                dcnt = dest_fcnt.get(form, 0)
+                dest_tot += dcnt
+                diff = dcnt - scnt
+                diff_tot += diff
+                rprt.append(f'{form:<25}{scnt:<15}{dcnt:<15}{diff:<15}')
+
+            rprt.append(f'{"TOTAL":<25}{src_tot:<15}{dest_tot:<15}{diff_tot:<15}')
+            rprt.append('\n')
+            prprt = '\n'.join(rprt)
+
+            outs.append(prprt)
+
+        return outs
+
+    async def _initStors(self, migr=True, nexus=True, hive=True):
+        '''
+        Initialize required source/destination slabs for migration.
+        '''
+        # slab for tracking migration data
+        if migr:
+            path = os.path.join(self.dest, self.migrdir, 'migr.lmdb')
+            self.migrslab = await s_lmdbslab.Slab.anit(path, readonly=False)
+            self.migrdb = self.migrslab.initdb('migr')
+            self.onfini(self.migrslab.fini)
+
+        # optionally create migration nexus
+        if nexus and not self.nexusoff:
+            path = os.path.join(self.dest, self.migrdir)
+            self.nexusroot = await s_nexus.NexsRoot.anit(path)
+            self.onfini(self.nexusroot.fini)
+            logger.info(f'Storing migration splices at {path}')
+
+        # open hive
+        if hive:
+            path = os.path.join(self.dest, 'slabs', 'cell.lmdb')
+            self.hiveslab = await s_lmdbslab.Slab.anit(path, readonly=False)
+            self.onfini(self.hiveslab.fini)
+            self.hivedb = self.hiveslab.initdb('hive')
+            self.hive = await s_hive.SlabHive.anit(self.hiveslab, db=self.hivedb)
+            self.onfini(self.hive.fini)
+
+        logger.debug('Finished storage initialization')
+        return
 
     #############################################################
     # Migration operations
     #############################################################
 
-    async def _migrHive(self, src, dest, rmsrc=False):
+    async def _migrDirn(self):
         '''
-        Create a copy of the hive, overwriting destination and optionally removing source.
+        Setup the destination cortex dirn.  If dest already exists it will not be overwritten.
+        Copies all data *except* the layers
 
-        Args:
-            src (str): Target db to copy
-            dest (str): Destination db to copy to
-            rmsrc (bool): Whether to remove the source after copying
+        Returns:
+            (list): Discovered local physical layers
         '''
-        migrop = 'hive'
+        migrop = 'dirn'
 
-        self.hiveslab.dropdb(dest)
-        self.hiveslab.copydb(src, self.hiveslab, dest)
+        dest = self.dest
+        src = self.src
+        logger.info(f'Starting cortex dirn migration: {src} to {dest}')
 
-        if rmsrc:
-            self.hiveslab.dropdb(src)
+        lyrdir = os.path.join(src, 'layers')
+        locallyrs = []
+        for item in os.listdir(lyrdir):
+            if os.path.isdir(os.path.join(lyrdir, item)):
+                locallyrs.append(item)
 
-        logger.info(f'Completed Hive copy from {src} to {dest}')
-        await self._migrlogAdd(migrop, 'prog', 'none', (src, dest, s_common.now()))
+        logger.info(f'Found {len(locallyrs)} src physical layers.')
+        logger.debug(f'Source layers: {locallyrs}')
+
+        destexists = os.path.exists(dest)
+
+        if 'dirn' not in self.migrops:
+            logger.info(f'Skipping dirn migration step; dest exists={destexists}')
+            return locallyrs
+
+        if destexists and len(os.listdir(dest)) > 0:
+            logger.warning('Destination cortex dirn is not empty, attempting to continue migration to it.')
+            return locallyrs
+
+        elif not destexists:
+            s_common.gendir(dest)
+
+        for sdir in os.listdir(src):
+            spath = os.path.join(src, sdir)
+            dpath = os.path.join(dest, sdir)
+
+            if sdir == 'layers':
+                for lyr in locallyrs:
+                    os.makedirs(os.path.join(dpath, lyr))
+
+            elif os.path.isfile(spath):
+                shutil.copy(spath, dpath)
+
+            elif os.path.isdir(spath):
+                shutil.copytree(spath, dpath, ignore=shutil.ignore_patterns('sock'))
+
+        logger.info(f'Completed dirn copy from {src} to {dest}')
+        return locallyrs
 
     async def _migrDatamodel(self):
         '''
@@ -203,9 +320,9 @@ class Migrator(s_base.Base):
 
         # load custom modules
         # check for cell.yaml first otherwise an empty file will be created by yamlload
-        yamlpath = os.path.join(self.dirn, 'cell.yaml')
+        yamlpath = os.path.join(self.dest, 'cell.yaml')
         if os.path.exists(yamlpath):
-            conf = s_common.yamlload(self.dirn, 'cell.yaml')
+            conf = s_common.yamlload(self.dest, 'cell.yaml')
             if conf is not None:
                 mdefs = []
                 for mod in conf.get('modules', []):
@@ -284,15 +401,10 @@ class Migrator(s_base.Base):
         # Set default storage
         await self.hive.set(('cellinfo', 'layr:stor:default'), storiden)
 
-        # Get existing layers
-        layridens = []
-        for iden, layrnode in await self.hive.open(('cortex', 'layers')):
-            layridens.append(iden)
-
         logger.info('Copmleted Hive storage info migration')
         await self._migrlogAdd(migrop, 'prog', storiden, s_common.now())
 
-        return storinfo, layridens
+        return storinfo
 
     async def _migrHiveLayerInfo(self, storinfo, iden):
         '''
@@ -357,7 +469,7 @@ class Migrator(s_base.Base):
         nodelim = self.nodelim
 
         # open storage
-        path = os.path.join(self.dirn, 'layers', iden, 'layer.lmdb')
+        path = os.path.join(self.src, 'layers', iden, 'layer.lmdb')
         src_slab = await s_lmdbslab.Slab.anit(path, map_async=True, readonly=True)
         src_bybuid = src_slab.initdb('bybuid')  # <buid><prop>=<valu>
         self.onfini(src_slab.fini)
@@ -414,14 +526,14 @@ class Migrator(s_base.Base):
         dest_fcnt = await wlyr.getFormCounts()
 
         # store and log creation stats
-        rprt = ['\n', '{:<25s}{:<10s}{:<10s}'.format('FORM', 'SRC_CNT', 'DEST_CNT')]
+        rprt = ['\n', f'{"FORM":<25}{"SRC_CNT":<15}{"DEST_CNT":<15}']
         stot = 0
         dtot = 0
         for form, scnt in src_fcnt.items():
             stot += scnt
             dcnt = dest_fcnt.get(form, 0)
             dtot += dcnt
-            rprt.append('{:<25s}{!s:<10s}{!s:<10s}'.format(form, scnt, dcnt))
+            rprt.append(f'{form:<25}{scnt:<15}{dcnt:<15}')
             await self._migrlogAdd(migrop, 'stat', f'{iden}:form:{form}', (scnt, dcnt))
 
         rprt.append('\n')
@@ -450,7 +562,7 @@ class Migrator(s_base.Base):
         nodelim = self.nodelim
 
         # open storage
-        path = os.path.join(self.dirn, 'layers', iden, 'nodedata.lmdb')
+        path = os.path.join(self.src, 'layers', iden, 'nodedata.lmdb')
         src_slab = await s_lmdbslab.Slab.anit(path, map_async=True, readonly=True)
         src_bybuid = src_slab.initdb('bybuid')
         self.onfini(src_slab.fini)
@@ -490,7 +602,7 @@ class Migrator(s_base.Base):
         t_dur_s = int(t_dur / 1000) + 1
 
         logger.info(f'Migrated {stot:,} nodedata entries in {t_dur_s} seconds ({int(stot/t_dur_s)} nodes/s avg)')
-        await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot, stot))
+        await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot, None))
         await self._migrlogAdd(migrop, 'stat', f'{iden}:duration', (stot, t_dur))
 
         logger.info(f'Completed nodedata migration for {iden}')
@@ -505,15 +617,6 @@ class Migrator(s_base.Base):
     async def _migrlogAdd(self, migrop, logtyp, key, val):
         '''
         Add an error record to the migration data
-
-        TODO:
-            - enum for migrop
-
-        Args:
-            migrop:
-            logtyp:
-            key:
-            val:
         '''
         try:
             if isinstance(key, bytes):
@@ -588,6 +691,18 @@ class Migrator(s_base.Base):
             'tags': tags,
             'tagprops': tagprops,
         })
+
+    async def _srcIterForms(self, buidslab, buiddb):
+        '''
+        Iterate only to retrieve literal node forms.
+
+        Yields:
+            (str): Form name for a unique node
+        '''
+        for lkey, _ in buidslab.scanByFull(db=buiddb):
+            prop = lkey[32:].decode('utf8')
+            if prop[0] == '*':
+                yield prop[1:]
 
     async def _srcIterNodes(self, buidslab, buiddb):
         '''
@@ -842,34 +957,45 @@ class Migrator(s_base.Base):
 
 async def main(argv, outp=s_output.stdout):
     pars = argparse.ArgumentParser(prog='synapse.tools.migrate_stor', description='Tool for migrating Synapse storage.')
-    pars.add_argument('--dirn', required=True, type=str)
-    pars.add_argument('--migr-ops', required=False, type=str, nargs='+', choices=ALL_MIGROPS,
+    pars.add_argument('--src', required=True, type=str, help='Source cortex dirn to migrate from.')
+    pars.add_argument('--dest', required=False, type=str, help='Destination cortex dirn to migrate to.')
+    pars.add_argument('--migr-ops', required=False, type=str.lower, nargs='+', choices=ALL_MIGROPS,
                       help='Limit migration operations to run.')
     pars.add_argument('--layer', required=False, type=str, help='Migrate specific layer by iden')
     pars.add_argument('--nodelim', required=False, type=int, help="Stop after migrating nodelim nodes")
-    pars.add_argument('--nexus-off', action='store_true', required=False,
-                      help="Do not create Nexus splicelog")
-    pars.add_argument('--use-hivev1', action='store_true', required=False, help='Initialize hive from hive_v1 backup')
-    pars.add_argument('--log-level', default='info', choices=s_const.LOG_LEVEL_CHOICES,
+    pars.add_argument('--nexus-off', required=False, action='store_true', help="Do not create Nexus splicelog")
+    pars.add_argument('--log-level', required=False, default='info', choices=s_const.LOG_LEVEL_CHOICES,
                       help='Specify the log level', type=str.upper)
+    pars.add_argument('--form-counts', required=False, action='store_true',
+                      help='Print form count comparison betweeen src/dest (overrides any migration options).')
 
     opts = pars.parse_args(argv)
 
     s_common.setlogging(logger, opts.log_level)
 
+    formcounts = opts.form_counts
+    dest = opts.dest
+
     conf = {
-        'dirn': opts.dirn,
+        'src': opts.src,
+        'dest': dest,
         'migrops': opts.migr_ops,
         'layer': opts.layer,
         'nodelim': opts.nodelim,
         'nexusoff': opts.nexus_off,
-        'usehivev1': opts.use_hivev1,
+        'formcounts': formcounts,
     }
 
     migr = await Migrator.anit(conf=conf)
 
     try:
-        await migr.migrate()
+        if formcounts:
+            outs = await migr.formCounts()
+            for out in outs:
+                outp.printf(out)
+
+        else:
+            await migr.migrate()
 
     except Exception:
         await migr.fini()
