@@ -213,12 +213,33 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         # Remove the curly braces
         query = query[1:-1]
 
-        iden = await core.addTrigger(cond, query, info={'form': form, 'tag': tag, 'prop': prop},
-                                     disabled=opts.disabled)
+        tdef = {'cond': cond, 'storm': query}
+
+        if form is not None:
+            tdef['form'] = form
+
+        if prop is not None:
+            tdef['prop'] = prop
+
+        if tag is not None:
+            tdef['tag'] = tag
+
+        opts = {'vars': {'tdef': tdef}}
+
+        iden = await core.callStorm('return($lib.trigger.add($tdef).get(iden))', opts=opts)
+
         self.printf(f'Added trigger {iden}')
 
     async def _handle_list(self, core, opts):
-        triglist = await core.listTriggers()
+
+        triglist = await core.callStorm('''
+            $trigs = $lib.list()
+            for $trig in $lib.trigger.list() {
+                $trigs.append($trig.pack())
+            }
+            return ($trigs)
+        ''')
+        #triglist = await core.listTriggers()
 
         if not triglist:
             self.printf('No triggers found')
@@ -252,7 +273,10 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         iden = await self._match_idens(core, prefix)
         if iden is None:
             return
-        await core.updateTrigger(iden, query)
+
+        opts = {'vars': {'iden': iden, 'storm': query}}
+        await self.core.callStorm('$lib.trigger.get($iden).set(storm, $storm)', opts=opts)
+
         self.printf(f'Modified trigger {iden}')
 
     async def _handle_del(self, core, opts):
@@ -260,7 +284,10 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         iden = await self._match_idens(core, prefix)
         if iden is None:
             return
-        await core.delTrigger(iden)
+
+        opts = {'vars': {'iden': iden}}
+        await self.core.callStorm('$lib.trigger.del($iden)', opts=opts)
+
         self.printf(f'Deleted trigger {iden}')
 
     async def _handle_enable(self, core, opts):
@@ -268,7 +295,8 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         iden = await self._match_idens(core, prefix)
         if iden is None:
             return
-        await core.enableTrigger(iden)
+        opts = {'vars': {'iden': iden}}
+        await self.core.callStorm('$lib.trigger.get($iden).set(enabled, $(1))', opts=opts)
         self.printf(f'Enabled trigger {iden}')
 
     async def _handle_disable(self, core, opts):
@@ -276,7 +304,8 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         iden = await self._match_idens(core, prefix)
         if iden is None:
             return
-        await core.disableTrigger(iden)
+        opts = {'vars': {'iden': iden}}
+        await self.core.callStorm('$lib.trigger.get($iden).set(enabled, $(0))', opts=opts)
         self.printf(f'Disabled trigger {iden}')
 
     async def runCmdOpts(self, opts):

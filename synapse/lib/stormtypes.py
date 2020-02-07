@@ -1540,90 +1540,74 @@ class LibTrigger(Lib):
         self.locls.update({
             'add': self._methTriggerAdd,
             'del': self._methTriggerDel,
-            'mod': self._methTriggerMod,
             'list': self._methTriggerList,
-            'enable': self._methTriggerEnable,
-            'disable': self._methTriggerDisable,
         })
 
-    async def _matchIdens(self, prefix, perm):
+    async def _matchIdens(self, prefix):
         '''
         Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
         exactly one.
         '''
-        matches = []
-        trigs = await self.runt.snap.listTriggers()
+        useriden = self.runt.user.iden
+        viewiden = self.runt.snap.view.iden
 
-        for (iden, trig) in trigs:
-            if iden.startswith(prefix) and await trig.allowed(self.runt.user, perm):
+        matches = []
+
+        todo = s_common.todo('packTriggers', useriden)
+        trigs = await self.runt.dyncall(viewiden, todo)
+
+        for tdef in trigs:
+            iden = tdef.get('iden')
+            if iden.startswith(prefix):
                 matches.append(iden)
 
         if len(matches) == 1:
             return matches[0]
+
         elif len(matches) == 0:
             mesg = 'Provided iden does not match any valid authorized triggers.'
             raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+
         else:
             mesg = 'Provided iden matches more than one trigger.'
             raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
-    async def _methTriggerAdd(self, cond, form=None, tag=None, prop=None, query=None, disabled=False):
+    async def _methTriggerAdd(self, tdef): #cond, form=None, tag=None, prop=None, query=None, disabled=False):
         '''
         Add a trigger to the cortex.
         '''
-        self.runt.reqAllowed(('trigger', 'add'))
+        useriden = self.runt.user.iden
+        viewiden = self.runt.snap.view.iden
 
-        if query is None:
-            mesg = 'Missing query parameter'
-            raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
-                                          prop=prop, query=query, disabled=disabled)
+        tdef['user'] = useriden
+        tdef['view'] = viewiden
 
-        if cond.startswith('tag') and tag is None:
-            mesg = 'Missing tag parameter'
-            raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
-                                          prop=prop, query=query, disabled=disabled)
+        gatekeys = (
+            (useriden, ('trigger', 'add'), viewiden),
+        )
 
-        elif cond.startswith('node'):
-            if form is None:
-                mesg = 'Missing form parameter'
-                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
-                                              prop=prop, query=query, disabled=disabled)
-            if tag is not None:
-                mesg = 'node:* does not support a tag'
-                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
-                                              prop=prop, query=query, disabled=disabled)
+        todo = ('addTrigger', (tdef,), {})
 
-        elif cond.startswith('prop'):
-            if prop is None:
-                mesg = 'Missing prop parameter'
-                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
-                                              prop=prop, query=query, disabled=disabled)
-            if tag is not None:
-                mesg = 'prop:set does not support a tag'
-                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
-                                              prop=prop, query=query, disabled=disabled)
+        tdef = await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
-        # Remove the curly braces
-        query = query[1:-1]
-
-        if tag is not None:
-            tag = tag[1:]
-
-        info = {'form': form, 'tag': tag, 'prop': prop}
-
-        iden = await self.runt.snap.addTrigger(cond, query, info=info,
-                                               disabled=disabled)
-        return iden
+        return Trigger(self.runt, tdef)
 
     async def _methTriggerDel(self, prefix):
         '''
         Delete a trigger from the cortex.
         '''
-        iden = await self._matchIdens(prefix, ('trigger', 'del'))
+        useriden = self.runt.user.iden
+        viewiden = self.runt.snap.view.iden
+        trigiden = await self._matchIdens(prefix)
 
-        await self.runt.snap.delTrigger(iden)
+        todo = s_common.todo('delTrigger', trigiden)
+        gatekeys = (
+            (useriden, ('trigger', 'del'), trigiden),
+        )
 
-        return iden
+        await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+
+        return trigiden
 
     async def _methTriggerMod(self, prefix, query):
         '''
@@ -1645,47 +1629,46 @@ class LibTrigger(Lib):
         '''
         List triggers in the cortex.
         '''
-        triglist = await self.runt.snap.listTriggers()
+        #triglist = await self.runt.snap.listTriggers()
+        useriden = self.runt.user.iden
+        viewiden = self.runt.snap.view.iden
+
+        todo = s_common.todo('packTriggers', useriden)
 
         triggers = []
-        for iden, trigger in triglist:
-            if not await trigger.allowed(self.runt.user, ('trigger', 'get')):
-                continue
-
-            trig = trigger.pack()
-            user = self.runt.snap.getUserName(trig.get('useriden'))
-
-            triggers.append({
-                'iden': iden,
-                'idenshort': iden[:8] + '..',
-                'user': user or '<None>',
-                'query': trig.get('storm') or '<missing>',
-                'cond': trig.get('cond') or '<missing>',
-                'enabled': 'Y' if trig.get('enabled', True) else 'N',
-                'tag': '#' + (trig.get('tag') or '<missing>'),
-                'form': trig.get('form') or '',
-                'prop': trig.get('prop') or '<missing>',
-            })
-
+        for tdef in await self.dyncall(viewiden, todo):
+            triggers.append(Trigger(self.runt, tdef))
         return triggers
 
-    async def _methTriggerEnable(self, prefix):
-        '''
-        Enable a trigger in the cortex.
-        '''
-        iden = await self._matchIdens(prefix, ('trigger', 'set'))
-        await self.runt.snap.enableTrigger(iden)
+class Trigger(StormType):
 
-        return iden
+    def __init__(self, runt, tdef):
 
-    async def _methTriggerDisable(self, prefix):
-        '''
-        Disable a trigger in the cortex.
-        '''
-        iden = await self._matchIdens(prefix, ('trigger', 'set'))
-        await self.runt.snap.disableTrigger(iden)
+        StormType.__init__(self)
+        self.runt = runt
+        self.tdef = tdef
 
-        return iden
+        self.locls.update({
+            'get': self.tdef.get,
+            'set': self.set,
+            'pack': self.pack,
+        })
+
+    async def set(self, name, valu):
+        useriden = self.runt.user.iden
+        viewiden = self.runt.snap.view.iden
+
+        gatekeys = (
+            (useriden, ('trigger', 'mod'), viewiden),
+        )
+
+        todo = ('setTrigInfo', (name, valu), {})
+        await self.runt.dyncall(viewide, todo, gatekeys=gatekeys)
+
+        self.tdef[name] = valu
+
+    async def pack(self):
+        return self.tdef.copy()
 
 class LibCron(Lib):
 

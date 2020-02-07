@@ -518,23 +518,23 @@ class StormSvcTest(s_test.SynTest):
                         'url': durl,
                     }
                     with patchcore(core, 'setStormSvcEvents', badSetStormSvcEvents):
-                        ssvciden = await core.addStormSvc(sdef)
-                        await ssvc.ready.wait()
-                        await core.delStormSvc(ssvc.iden)
+                        svci = await core.addStormSvc(sdef)
+                        self.true(await core.waitStormSvc('dead', timeout=0.2))
+                        await core.delStormSvc(svci.get('iden'))
 
                     self.len(1, badiden)
-                    self.eq(ssvc.iden, badiden.pop())
+                    self.eq(svci.get('iden'), badiden.pop())
 
                     async def badRunStormSvcAdd(iden):
                         badiden.append(iden)
                         raise s_exc.SynErr('Kaboom')
 
                     with patchcore(core, '_runStormSvcAdd', badRunStormSvcAdd):
-                        ssvc = await core.addStormSvc(sdef)
-                        await ssvc.ready.wait()
-                        await core.delStormSvc(ssvc.iden)
+                        svci = await core.addStormSvc(sdef)
+                        self.true(await core.waitStormSvc('dead', timeout=0.2))
+                        await core.delStormSvc(svci.get('iden'))
                     self.len(1, badiden)
-                    self.eq(ssvc.iden, badiden[0])
+                    self.eq(svci.get('iden'), badiden[0])
 
     async def test_storm_svc_restarts(self):
 

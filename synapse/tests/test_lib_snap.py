@@ -147,7 +147,6 @@ class SnapTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 nodes = await alist(snap.nodesByProp('test:pivcomp:lulz'))
                 self.len(1, nodes)
-                breakpoint()
                 nodes = await alist(snap.nodesByPropValu('test:str', '=', 'rofl'))
                 self.len(1, nodes)
 
