@@ -604,13 +604,17 @@ class Snap(s_base.Base):
 
         if not isinstance(prop.type, s_types.Array):
             mesg = f'Array synax is invalid on non array type: {prop.type.name}.'
-            raise s_exc.BadCtorType(mesg=mesg)
+            raise s_exc.BadTypeValu(mesg=mesg)
 
         cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu)
 
+        formname = None
+        if prop.form is not None:
+            formname = prop.form.name
+
         for layr in self.layers:
 
-            genr = layr.liftByPropArray(prop.form.name, prop.name, cmprvals)
+            genr = layr.liftByPropArray(formname, prop.name, cmprvals)
 
             async for node in self._joinStorGenr(layr, genr):
                 if node.bylayer['props'].get(prop.name) != layr:
@@ -1080,32 +1084,6 @@ class Snap(s_base.Base):
             except Exception:
                 logger.exception(f'Error making node: [{formname}={formvalu}]')
 
-    #async def stor(self, sops, splices=None):
-        #raise Exception('omg')
-
-        #if not splices or not self.store_splices:
-            #await self.wlyr.stor(sops)
-            #return
-
-        #now = s_common.now()
-        #user = self.user.iden
-
-        #wasnew, providen, provstack = self.core.provstor.commit()
-        #if wasnew:
-            #await self.fire('prov:new', time=now, user=user, prov=providen, provstack=provstack)
-
-        #for splice in splices:
-            #name, info = splice
-            #info.update(time=now, user=user, prov=providen)
-            #await self.fire(name, **info)
-
-        #await self.wlyr.stor(sops, splices=splices)
-
-    #async def getLiftNodes(self, lops, rawprop, cmpf=None):
-        #genr = self.getLiftRows(lops)
-        #async for node in self.getRowNodes(genr, rawprop, cmpf):
-            #yield node
-
     async def getRuntNodes(self, full, valu=None, cmpr=None):
 
         todo = s_common.todo('runRuntLift', full, valu, cmpr)
@@ -1115,90 +1093,6 @@ class Snap(s_base.Base):
             node.isrunt = True
 
             yield node
-
-#    async def getLiftRows(self, lops):
-#        '''
-#        Yield row tuples from a series of lift operations.
-#
-#        Row tuples only requirement is that the first element
-#        be the binary id of a node.
-#
-#        Args:
-#            lops (list): A list of lift operations.
-#
-#        Yields:
-#            (tuple): (layer_indx, (buid, ...)) rows.
-#        '''
-#        for layeridx, layr in enumerate(self.layers):
-#            async for x in layr.getLiftRows(lops):
-#                yield layeridx, x
-#
-#    async def getRowNodes(self, rows, rawprop, cmpf=None):
-#        '''
-#        Join a row generator into (row, Node()) tuples.
-#
-#        A row generator yields tuples of node buid, rawprop dict
-#
-#        Args:
-#            rows: A generator of (layer_idx, (buid, ...)) tuples.
-#            rawprop(str):  "raw" propname e.g. if a tag, starts with "#".  Used
-#                for filtering so that we skip the props for a buid if we're
-#                asking from a higher layer than the row was from (and hence,
-#                we'll presumable get/have gotten the row when that layer is
-#                lifted.
-#            cmpf (func): A comparison function used to filter nodes.
-#        Yields:
-#            (tuple): (row, node)
-#        '''
-#        count = 0
-#        async for origlayer, row in rows:
-#            count += 1
-#            if not count % 5:
-#                await asyncio.sleep(0)  # give other tasks some time
-#
-#            buid, rawprops = row
-#            node = self.livenodes.get(buid)
-#
-#            if node is None:
-#                props = {}     # rawprop: valu
-#                proplayr = {}  # rawprop: layr
-#
-#                for layeridx, layr in enumerate(self.layers):
-#
-#                    if layeridx == origlayer:
-#                        layerprops = rawprops
-#                    else:
-#                        layerprops = await layr.getBuidProps(buid)
-#
-#                    props.update(layerprops)
-#                    proplayr.update({k: layr for k in layerprops})
-#
-#                node = s_node.Node(self, buid, props.items(), proplayr=proplayr)
-#                if node.ndef is None:
-#                    continue
-#
-#                # Add node to my buidcache
-#                self.buidcache.append(node)
-#                self.livenodes[buid] = node
-#
-#            # If the node's prop I'm filtering on came from a different layer, skip it
-#            rawrawprop = ('*' if rawprop == node.form.name else '') + rawprop
-#            if node.proplayr[rawrawprop] != self.layers[origlayer]:
-#                continue
-#
-#            if cmpf:
-#                if rawprop == node.form.name:
-#                    valu = node.ndef[1]
-#                else:
-#                    valu = node.get(rawprop)
-#                if valu is None:
-#                    # cmpr required to evaluate something; cannot know if this
-#                    # node is valid or not without the prop being present.
-#                    continue
-#                if not cmpf(valu):
-#                    continue
-#
-#            yield row, node
 
     async def getNodeData(self, buid, name, defv=None):
         '''

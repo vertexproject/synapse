@@ -14,6 +14,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.ast as s_ast
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
@@ -125,72 +126,26 @@ class CoreApi(s_cell.CellApi):
             raise s_exc.NoSuchView(iden=iden)
 
         self.user.confirm(('view', 'read'), gateiden=view.iden)
-
         return view
 
-    async def addTrigger(self, condition, query, info, disabled=False, view=None):
+    async def callStorm(self, text, opts=None):
         '''
-        Adds a trigger to the cortex
+        Return the value expressed in a return() statement within storm.
+        '''
+        iden = (opts or {}).get('view')
+        view = self.cell.getView(iden)
+        try:
 
-        '''
-        view = await self._getView(view)
-        self.user.confirm(('trigger', 'add'), gateiden='cortex')
-        iden = await view.addTrigger(condition, query, info, disabled, user=self.user)
-        return iden
+            async for pode in view.iterStormPodes(text, opts=opts, user=self.user):
+                asyncio.sleep(0)
 
-    async def delTrigger(self, iden, view=None):
-        '''
-        Deletes a trigger from the cortex
-        '''
-        #FIXME deprecation warning
-        view = await self._getView(view)
-        self.user.confirm(('trigger', 'del'), gateiden=iden)
-        await view.delTrigger(iden)
+        except s_ast.StormReturn as e:
 
-    async def updateTrigger(self, iden, query, view=None):
-        '''
-        Change an existing trigger's query
-        '''
-        # FIXME deprecation warning
-        view = await self._getView(view)
-        self.user.confirm(('trigger', 'set'), gateiden=iden)
-        await view.updateTrigger(iden, query)
+            retn = e.item
+            if isinstance(retn, s_stormtypes.Prim):
+                retn = retn.value()
 
-    async def enableTrigger(self, iden, view=None):
-        '''
-        Enable an existing trigger
-        '''
-        # FIXME deprecation warning
-        view = await self._getView(view)
-        self.user.confirm(('trigger', 'set'), gateiden=iden)
-        await view.enableTrigger(iden)
-
-    async def disableTrigger(self, iden, view=None):
-        '''
-        Disable an existing trigger
-        '''
-        # FIXME deprecation warning
-        view = await self._getView(view)
-        self.user.confirm(('trigger', 'set'), gateiden=iden)
-        await view.disableTrigger(iden)
-
-    async def listTriggers(self, view=None):
-        '''
-        Lists all the triggers that the current user is authorized to access
-        '''
-        # FIXME deprecation warning
-        view = await self._getView(view)
-
-        trigs = []
-        for iden, trig in await view.listTriggers():
-            if not self.user.allowed(('trigger', 'get'), gateiden=iden):
-                continue
-
-            info = trig.pack()
-            info['username'] = self.cell.getUserName(trig.useriden)
-            trigs.append((iden, info))
-
-        return trigs
+            return retn
 
     # FIXME:  add view parm here (it wouldn't be stored on the view though)
     async def addCronJob(self, query, reqs, incunit=None, incval=1):
@@ -901,7 +856,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.onfini(finidmon)
 
-        self.trigstor = s_trigger.TriggerStorage(self)
+        #self.trigstor = s_trigger.TriggerStorage(self)
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
 
@@ -936,7 +891,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.dynitems.update({
             'cron': self.agenda,
             'cortex': self,
-            'triggers': self.trigstor,
             'multiqueue': self.multiqueue,
         })
 
@@ -1356,13 +1310,18 @@ class Cortex(s_cell.Cell):  # type: ignore
         if ssvc is not None:
             return ssvc
 
+    async def waitStormSvc(self, name, timeout=None):
+        ssvc = self.getStormSvc(name)
+        return await s_coro.event_wait(ssvc.ready, timeout=timeout)
+
     async def addStormSvc(self, sdef):
         '''
         Add a registered storm service to the cortex.
         '''
         if sdef.get('iden') is None:
             sdef['iden'] = s_common.guid()
-        return await self._push('storm:svc:add', sdef)
+
+        return await self._push('svc:add', sdef)
 
     @s_nexus.Pusher.onPush('svc:add')
     async def _onAddStormSvc(self, sdef):
@@ -2247,14 +2206,33 @@ class Cortex(s_cell.Cell):  # type: ignore
         mrev = s_modelrev.ModelRev(self)
         await mrev.revCoreLayers()
 
+    async def _loadView(self, node):
+
+        view = await s_view.View.anit(self, node)
+
+        self.views[view.iden] = view
+        self.dynitems[view.iden] = view
+
+        async def fini():
+            self.views.pop(view.iden, None)
+            self.dynitems.pop(view.iden, None)
+
+        view.onfini(fini)
+
+        #async def dele():
+            #await self.hive.pop(('cortex', 'views', view.iden))
+            #await self.auth.delAuthGate(iden)
+
+        #view.ondele(dele)
+        return view
+
     # FIXME: mirror split horizon problem with addLayer, addView
     async def _initCoreViews(self):
 
         defiden = self.cellinfo.get('defaultview')
 
         for iden, node in await self.hive.open(('cortex', 'views')):
-            view = await s_view.View.anit(self, node)
-            self.views[iden] = view
+            view = await self._loadView(node)
             if iden == defiden:
                 self.view = view
 
@@ -2386,12 +2364,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         for name, valu in vdef.items():
             await info.set(name, valu)
 
-        view = await s_view.View.anit(self, node)
-        self.views[iden] = view
+        view = await self._loadView(node)
 
         await self.auth.addAuthGate(iden, 'view')
 
         await self.bumpSpawnPool()
+
         return view
 
     @s_nexus.Pusher.onPushAuto('view:del')

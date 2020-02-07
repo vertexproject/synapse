@@ -23,6 +23,8 @@ def chop_imei(imei):
 class Phone(s_types.Str):
 
     def postTypeInit(self):
+        s_types.Str.postTypeInit(self)
+        self.opts['globsuffix'] = True
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 

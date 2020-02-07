@@ -391,7 +391,7 @@ stormcmds = (
                             'help': 'Create the trigger in disabled state.'}),
         ),
         'storm': '''
-            $iden = $lib.trigger.add($cmdopts.condition,
+            $trig = $lib.trigger.add($cmdopts)
                                      $cmdopts.form,
                                      $cmdopts.tag,
                                      $cmdopts.prop,
@@ -432,6 +432,7 @@ stormcmds = (
             $triggers = $lib.trigger.list()
 
             if $triggers {
+
                 $lib.print("user       iden         en? cond      object                    storm query")
 
                 for $trigger in $triggers {

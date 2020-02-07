@@ -55,10 +55,10 @@ class ViewTest(s_t_utils.SynTest):
 
             # Forker and forkee have their layer configuration frozen
             tmplayr = await core.addLayer()
-            await self.asyncraises(s_exc.ReadOnlyLayer, core.view.addLayer(tmplayr))
-            await self.asyncraises(s_exc.ReadOnlyLayer, view2.addLayer(tmplayr))
-            await self.asyncraises(s_exc.ReadOnlyLayer, core.view.setLayers([tmplayr]))
-            await self.asyncraises(s_exc.ReadOnlyLayer, view2.setLayers([tmplayr]))
+            await self.asyncraises(s_exc.ReadOnlyLayer, core.view.addLayer(tmplayr.iden))
+            await self.asyncraises(s_exc.ReadOnlyLayer, view2.addLayer(tmplayr.iden))
+            await self.asyncraises(s_exc.ReadOnlyLayer, core.view.setLayers([tmplayr.iden]))
+            await self.asyncraises(s_exc.ReadOnlyLayer, view2.setLayers([tmplayr.iden]))
 
             # You can't merge a non-forked view
             await self.asyncraises(s_exc.SynErr, view2.core.view.merge())
@@ -86,11 +86,17 @@ class ViewTest(s_t_utils.SynTest):
 
     async def test_view_trigger(self):
         async with self.getTestCore() as core:
+
             # Fork the main view
             view2 = await core.view.fork()
 
             # A trigger inherited from the main view fires on the forked view when the condition matches
-            await core.view.addTrigger('node:add', '[ test:str=mainhit ]', info={'form': 'test:int'})
+            await core.view.addTrigger({
+                'cond': 'node:add',
+                'form': 'test:int',
+                'storm': '[ test:str=mainhit ]'
+            })
+
             nodes = await alist(core.eval('[ test:int=11 ]', opts={'view': view2.iden}))
             self.len(1, nodes)
 
@@ -101,7 +107,12 @@ class ViewTest(s_t_utils.SynTest):
             self.len(0, nodes)
 
             # A trigger on the child view fires on the child view but not the main view
-            await view2.addTrigger('node:add', '[ test:str=forkhit ]', info={'form': 'test:int'})
+            await view2.addTrigger({
+                'cond': 'node:add',
+                'form': 'test:int',
+                'storm': '[ test:str=forkhit ]',
+            })
+
             nodes = await alist(view2.eval('[ test:int=12 ]'))
 
             nodes = await view2.nodes('test:str=forkhit')
