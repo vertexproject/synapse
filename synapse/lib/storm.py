@@ -399,7 +399,7 @@ stormcmds = (
                             'help': 'Create the trigger in disabled state.'}),
         ),
         'storm': '''
-            $trig = $lib.trigger.add($cmdopts)
+            $trig = $lib.trigger.add($cmdopts.condition,
                                      $cmdopts.form,
                                      $cmdopts.tag,
                                      $cmdopts.prop,
