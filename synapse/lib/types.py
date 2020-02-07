@@ -1301,6 +1301,7 @@ class Str(Type):
         ('lower', False),
         ('strip', False),
         ('onespace', False),
+        ('globsuffix', False),
     )
 
     def repr(self, norm):
@@ -1312,6 +1313,7 @@ class Str(Type):
         self.setNormFunc(int, self._normPyInt)
 
         self.storlifts.update({
+            '=': self._storLiftEq,
             '^=': self._storLiftPref,
             '~=': self._storLiftRegx,
             'range=': self._storLiftRange,
@@ -1326,6 +1328,15 @@ class Str(Type):
         enumstr = self.opts.get('enums')
         if enumstr is not None:
             self.envals = enumstr.split(',')
+
+    def _storLiftEq(self, cmpr, valu):
+
+        if self.opts.get('globsuffix') and valu.endswith('*'):
+            return (
+                ('^=', valu[:-1], self.stortype),
+            )
+
+        return self._storLiftNorm(cmpr, valu)
 
     def _storLiftRange(self, cmpr, valu):
         minx = self._normForLift(valu[0])

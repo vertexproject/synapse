@@ -36,9 +36,6 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.eq(node.get('org'), oguid)
                 # defvals
                 node = await snap.addNode('tel:mob:tac', 2)
-                self.eq(node.get('manu'), '??')
-                self.eq(node.get('model'), '??')
-                self.eq(node.get('internal'), '??')
 
                 # tel:mob:imid
                 node = await snap.addNode('tel:mob:imid', (490154203237518, 310150123456789))
@@ -143,9 +140,9 @@ class TelcoModelTest(s_t_utils.SynTest):
                 node = await snap.addNode('tel:mob:imei', '39015420323751')
                 self.eq(node.ndef[1], 390154203237519)
                 # Invalid checksum
-                await self.asyncraises(s_exc.BadPropValu, snap.addNode('tel:mob:imei', 490154203237519))
-                await self.asyncraises(s_exc.BadPropValu, snap.addNode('tel:mob:imei', '20'))
-                await self.asyncraises(s_exc.BadPropValu, snap.addNode('tel:mob:imei', 'hehe'))
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('tel:mob:imei', 490154203237519))
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('tel:mob:imei', '20'))
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('tel:mob:imei', 'hehe'))
 
     async def test_telco_imsi(self):
         async with self.getTestCore() as core:
@@ -153,8 +150,8 @@ class TelcoModelTest(s_t_utils.SynTest):
                 node = await snap.addNode('tel:mob:imsi', '310150123456789')
                 self.eq(node.ndef[1], 310150123456789)
                 self.eq(node.get('mcc'), '310')
-                await self.asyncraises(s_exc.BadPropValu, snap.addNode('tel:mob:imsi', 'hehe'))
-                await self.asyncraises(s_exc.BadPropValu, snap.addNode('tel:mob:imsi', 1111111111111111))
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('tel:mob:imsi', 'hehe'))
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('tel:mob:imsi', 1111111111111111))
 
     async def test_telco_phone(self):
         async with self.getTestCore() as core:
@@ -259,4 +256,4 @@ class TelcoModelTest(s_t_utils.SynTest):
 
                 # add bad svc type
                 guid = s_common.guid()
-                await self.asyncraises(s_exc.BadPropValu, snap.addNode('tel:txtmesg', guid, {'svctype': 'foo'}))
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('tel:txtmesg', guid, {'svctype': 'foo'}))

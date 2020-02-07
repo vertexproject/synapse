@@ -891,7 +891,7 @@ class HiveAuth(s_nexus.Pusher):
         '''
         return self.usersbyname.get(name)
 
-    async def getRoleByName(self, name, gateiden=None):
+    async def getRoleByName(self, name):
         return self.rolesbyname.get(name)
 
     async def _addUserNode(self, node):
