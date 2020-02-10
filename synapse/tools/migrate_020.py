@@ -2,7 +2,6 @@
 Migrate Synapse from 0.1.x to 0.2.x.
 
 TODO:
-    - Support non-inplace migration?
     - Migrating mirrors (what about existing remote layer?)
     - Handling for pause/restart
     - Validation (esp. check .created)
@@ -19,7 +18,6 @@ TODO:
 '''
 import os
 import sys
-import csv
 import shutil
 import asyncio
 import logging
@@ -78,6 +76,8 @@ class Migrator(s_base.Base):
         self.migrlayer = conf.get('layer')
         self.nodelim = conf.get('nodelim')
         self.nexusoff = conf.get('nexusoff', False)
+
+        self.editbatchsize = 10
 
         if self.migrops is None:
             self.migrops = ALL_MIGROPS
@@ -143,6 +143,36 @@ class Migrator(s_base.Base):
         if 'hiveauth' in self.migrops:
             await self._migrHiveAuth()  # TODO
 
+    async def _initStors(self, migr=True, nexus=True, hive=True):
+        '''
+        Initialize required source/destination slabs for migration.
+        '''
+        # slab for tracking migration data
+        if migr:
+            path = os.path.join(self.dest, self.migrdir, 'migr.lmdb')
+            self.migrslab = await s_lmdbslab.Slab.anit(path, readonly=False)
+            self.migrdb = self.migrslab.initdb('migr')
+            self.onfini(self.migrslab.fini)
+
+        # optionally create migration nexus
+        if nexus and not self.nexusoff:
+            path = os.path.join(self.dest, self.migrdir)
+            self.nexusroot = await s_nexus.NexsRoot.anit(path)
+            self.onfini(self.nexusroot.fini)
+            logger.info(f'Storing migration splices at {path}')
+
+        # open hive
+        if hive:
+            path = os.path.join(self.dest, 'slabs', 'cell.lmdb')
+            self.hiveslab = await s_lmdbslab.Slab.anit(path, readonly=False)
+            self.onfini(self.hiveslab.fini)
+            self.hivedb = self.hiveslab.initdb('hive')
+            self.hive = await s_hive.SlabHive.anit(self.hiveslab, db=self.hivedb)
+            self.onfini(self.hive.fini)
+
+        logger.debug('Finished storage initialization')
+        return
+
     async def formCounts(self):
         '''
         Print form count comparison between source and destination.
@@ -177,7 +207,7 @@ class Migrator(s_base.Base):
                 src_tot += 1
                 if src_tot % 100 == 0:
                     await asyncio.sleep(0)
-                if src_tot % 1000000 == 0:
+                if src_tot % 10000000 == 0:
                     logger.debug(f'...counted {src_tot} nodes so far')
 
             # open dest slab
@@ -190,58 +220,45 @@ class Migrator(s_base.Base):
             else:
                 dest_fcnt = {}
 
-            # print report
-            rprt = [
-                '\n',
-                f'Form counts for layer {iden}:',
-                f'{"FORM":<25}{"SRC_CNT":<15}{"DEST_CNT":<15}{"DIFF":<15}',
-            ]
-            dest_tot = 0
-            diff_tot = 0
-            for form, scnt in src_fcnt.items():
-                dcnt = dest_fcnt.get(form, 0)
-                dest_tot += dcnt
-                diff = dcnt - scnt
-                diff_tot += diff
-                rprt.append(f'{form:<25}{scnt:<15}{dcnt:<15}{diff:<15}')
-
-            rprt.append(f'{"TOTAL":<25}{src_tot:<15}{dest_tot:<15}{diff_tot:<15}')
-            rprt.append('\n')
-            prprt = '\n'.join(rprt)
-
-            outs.append(prprt)
+            outs.append(await self._getFormCountsPrnt(iden, src_fcnt, dest_fcnt))
 
         return outs
 
-    async def _initStors(self, migr=True, nexus=True, hive=True):
+    async def _getFormCountsPrnt(self, iden, src_fcnt, dest_fcnt, addlog=None):
         '''
-        Initialize required source/destination slabs for migration.
+
+        Args:
+            iden (str): Layer identifier for counts
+            src_fcnt (dict): Dictionary of form name : source counts
+            dest_fct (dict):  Dictionary of form name : dest counts
+            addlog (str or None): Optionally add form count logs for a migrop
+
+        Returns:
+            (str): Pretty print-able form count comparison table
         '''
-        # slab for tracking migration data
-        if migr:
-            path = os.path.join(self.dest, self.migrdir, 'migr.lmdb')
-            self.migrslab = await s_lmdbslab.Slab.anit(path, readonly=False)
-            self.migrdb = self.migrslab.initdb('migr')
-            self.onfini(self.migrslab.fini)
+        rprt = [
+            '\n',
+            f'Form counts for layer {iden}:',
+            f'{"FORM":<35}{"SRC_CNT":<15}{"DEST_CNT":<15}{"DIFF":<15}',
+        ]
+        src_tot = 0
+        dest_tot = 0
+        diff_tot = 0
+        for form, scnt in src_fcnt.items():
+            src_tot += scnt
+            dcnt = dest_fcnt.get(form, 0)
+            dest_tot += dcnt
+            diff = dcnt - scnt
+            diff_tot += diff
+            rprt.append(f'{form:<35}{scnt:<15}{dcnt:<15}{diff:<15}')
+            if addlog is not None:
+                await self._migrlogAdd(addlog, 'stat', f'{iden}:form:{form}', (scnt, dcnt))
 
-        # optionally create migration nexus
-        if nexus and not self.nexusoff:
-            path = os.path.join(self.dest, self.migrdir)
-            self.nexusroot = await s_nexus.NexsRoot.anit(path)
-            self.onfini(self.nexusroot.fini)
-            logger.info(f'Storing migration splices at {path}')
+        rprt.append(f'{"TOTAL":<35}{src_tot:<15}{dest_tot:<15}{diff_tot:<15}')
+        rprt.append('\n')
+        prprt = '\n'.join(rprt)
 
-        # open hive
-        if hive:
-            path = os.path.join(self.dest, 'slabs', 'cell.lmdb')
-            self.hiveslab = await s_lmdbslab.Slab.anit(path, readonly=False)
-            self.onfini(self.hiveslab.fini)
-            self.hivedb = self.hiveslab.initdb('hive')
-            self.hive = await s_hive.SlabHive.anit(self.hiveslab, db=self.hivedb)
-            self.onfini(self.hive.fini)
-
-        logger.debug('Finished storage initialization')
-        return
+        return prprt
 
     #############################################################
     # Migration operations
@@ -467,18 +484,13 @@ class Migrator(s_base.Base):
         '''
         migrop = 'nodes'
         nodelim = self.nodelim
+        editchnks = self.editbatchsize
 
         # open storage
         path = os.path.join(self.src, 'layers', iden, 'layer.lmdb')
         src_slab = await s_lmdbslab.Slab.anit(path, map_async=True, readonly=True)
         src_bybuid = src_slab.initdb('bybuid')  # <buid><prop>=<valu>
         self.onfini(src_slab.fini)
-
-        # check if 0.2.0 write layer exists with data
-        dest_fcntpre = await wlyr.getFormCounts()
-        if dest_fcntpre:
-            logger.warning(f'Destination {iden} is not empty')
-            logger.debug(dest_fcntpre)
 
         # update modelrev
         # TODO: or should this be left, and then model migration happens on first startup?
@@ -487,7 +499,6 @@ class Migrator(s_base.Base):
         # migrate data
         src_fcnt = collections.defaultdict(int)
         nodeedits = []
-        editchnks = 10  # batch size for nodeedits to add
         t_strt = s_common.now()
         stot = 0
         async for node in self._srcIterNodes(src_slab, src_bybuid):
@@ -524,21 +535,11 @@ class Migrator(s_base.Base):
 
         # collect final destination form count stats
         dest_fcnt = await wlyr.getFormCounts()
+        dtot = sum(dest_fcnt.values())
 
         # store and log creation stats
-        rprt = ['\n', f'{"FORM":<25}{"SRC_CNT":<15}{"DEST_CNT":<15}']
-        stot = 0
-        dtot = 0
-        for form, scnt in src_fcnt.items():
-            stot += scnt
-            dcnt = dest_fcnt.get(form, 0)
-            dtot += dcnt
-            rprt.append(f'{form:<25}{scnt:<15}{dcnt:<15}')
-            await self._migrlogAdd(migrop, 'stat', f'{iden}:form:{form}', (scnt, dcnt))
-
-        rprt.append('\n')
-        prprt = '\n'.join(rprt)
-        logger.debug(f'Final form count for {iden}: {prprt}')
+        prprt = await self._getFormCountsPrnt(iden, src_fcnt, dest_fcnt, addlog=migrop)
+        logger.debug(prprt)
 
         await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot, dtot))
         await self._migrlogAdd(migrop, 'stat', f'{iden}:duration', (stot, t_dur))
@@ -560,6 +561,7 @@ class Migrator(s_base.Base):
         '''
         migrop = 'nodedata'
         nodelim = self.nodelim
+        editchnks = self.editbatchsize
 
         # open storage
         path = os.path.join(self.src, 'layers', iden, 'nodedata.lmdb')
@@ -569,7 +571,6 @@ class Migrator(s_base.Base):
 
         # migrate data
         nodeedits = []
-        editchnks = 10  # batch size for nodeedits to add
         t_strt = s_common.now()
         stot = 0
         async for nodedata in self._srcIterNodedata(src_slab, src_bybuid):
@@ -813,7 +814,6 @@ class Migrator(s_base.Base):
             return None
 
         # create first edit for the node
-
         if not hasattr(mform.type, 'stortype') or mform.type.stortype is None:
             err = {'mesg': f'Unable to determine stortype for {formnorm}', 'node': node}
             logger.error(err['mesg'])
