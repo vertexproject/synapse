@@ -891,11 +891,6 @@ class Migrator(s_base.Base):
             err = {'mesg': f'Unable to parse form name {fname}', 'node': node}
             return err, None
 
-        # safety check that buid matches
-        if buid != s_common.buid((fname, fval)):
-            err = {'mesg': f'Calculated buid does not match inbound {buid}, {fname}, {fval}', 'node': node}
-            return err, None
-
         edits = []
 
         # setup storage type
