@@ -503,9 +503,8 @@ class CoreApi(s_cell.CellApi):
         wlyr = self.cell.view.layers[0]
         await wlyr._reqUserAllowed(self.user, ('feed:data', *name.split('.')))
 
-        with s_provenance.claim('feed:data', name=name):
-
-            async with await self.cell.snap(user=self.user) as snap:
+        async with await self.cell.snap(user=self.user) as snap:
+            with s_provenance.claim('feed:data', name=name, user=snap.user.iden):
                 snap.strict = False
                 return await snap.addFeedData(name, items, seqn=seqn)
 
