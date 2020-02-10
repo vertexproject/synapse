@@ -226,8 +226,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
         opts = {'vars': {'tdef': tdef}}
 
-        # FIXME: Nic tmp
-        # iden = await core.callStorm('return($lib.trigger.add($tdef).get(iden))', opts=opts)
+        iden = await core.callStorm('return($lib.trigger.add($tdef).get(iden))', opts=opts)
         iden = 'foo'
 
         self.printf(f'Added trigger {iden}')
@@ -241,7 +240,6 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
             }
             return ($trigs)
         ''')
-        #triglist = await core.listTriggers()
 
         if not triglist:
             self.printf('No triggers found')
@@ -249,18 +247,20 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
         self.printf(f'{"user":10} {"iden":12} {"en?":3} {"cond":9} {"object":14} {"":10} {"storm query"}')
 
-        for iden, trig in triglist:
+        for trig in triglist:
+            iden = trig['iden']
             idenf = iden[:8] + '..'
-            user = trig.get('username') or '<None>'
-            query = trig.get('storm') or '<missing>'
-            cond = trig.get('cond') or '<missing'
+            user = trig.get('username', '<None>')
+            query = trig.get('storm', '<missing>')
+            cond = trig.get('cond', '<missing')
             enabled = 'Y' if trig.get('enabled', True) else 'N'
             if cond.startswith('tag:'):
-                tag = '#' + (trig.get('tag') or '<missing>')
-                form = trig.get('form') or ''
+                tag = '#' + trig.get('tag', '<missing>')
+                form = trig.get('form', '')
                 obj, obj2 = form, tag
             else:
-                obj, obj2 = trig.get('prop') or trig.get('form') or '<missing>', ''
+                obj = trig.get('prop', trig.get('form', '<missing>'))
+                obj2 = ''
 
             self.printf(f'{user:10} {idenf:12} {enabled:3} {cond:9} {obj:14} {obj2:10} {query}')
 

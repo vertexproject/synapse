@@ -7,7 +7,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
-import synapse.lib.hive as s_hive
 import synapse.lib.snap as s_snap
 import synapse.lib.nexus as s_nexus
 import synapse.lib.trigger as s_trigger
@@ -588,10 +587,17 @@ class View(s_nexus.Pusher):  # type: ignore
     async def packTriggers(self, useriden):
 
         triggers = []
-        user = self.core.auth.user(useriden)
+        auth = self.core.auth
+        user = auth.user(useriden)
         for (iden, trig) in await self.listTriggers():
             if user.allowed(('trigger', 'get'), gateiden=iden):
-                triggers.append(trig.pack())
+                packed = trig.pack()
+
+                useriden = packed['user']
+                triguser = auth.user(useriden)
+                packed['username'] = triguser.name
+
+                triggers.append(packed)
 
         return triggers
 

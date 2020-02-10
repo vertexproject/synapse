@@ -1570,12 +1570,8 @@ class LibTrigger(Lib):
         tdef['user'] = useriden
         tdef['view'] = viewiden
 
-        gatekeys = (
-            (useriden, ('trigger', 'add'), viewiden),
-        )
-
+        gatekeys = ((useriden, ('trigger', 'add'), viewiden),)
         todo = ('addTrigger', (tdef,), {})
-
         tdef = await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
         return Trigger(self.runt, tdef)
