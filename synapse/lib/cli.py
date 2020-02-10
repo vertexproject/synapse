@@ -87,7 +87,6 @@ class Cmd:
         opts = {}
 
         args = collections.deque([synt for synt in self._cmd_syntax if not synt[0].startswith('-')])
-
         switches = {synt[0]: synt for synt in self._cmd_syntax if synt[0].startswith('-')}
 
         # populate defaults and lists
@@ -472,7 +471,7 @@ class CmdHelp(Cmd):
     '''
     _cmd_name = 'help'
     _cmd_syntax = (  # type: ignore
-        ('cmds', {'type': 'list'})
+        ('cmds', {'type': 'list'}),
     )
 
     async def runCmdOpts(self, opts):

@@ -20,6 +20,19 @@ class EchoAuthApi(s_cell.CellApi):
 class EchoAuth(s_cell.Cell):
     cellapi = EchoAuthApi
 
+    async def answer(self):
+        return 42
+
+    async def badanswer(self):
+        raise s_exc.BadArg(mesg='ad hominem')
+
+    async def stream(self, doraise=False):
+        yield 1
+        yield 2
+        if doraise:
+            raise s_exc.BadTime(mesg='call again later')
+
+
 class CellTest(s_t_utils.SynTest):
 
     async def test_cell_auth(self):
@@ -66,7 +79,7 @@ class CellTest(s_t_utils.SynTest):
                 await user.setPasswd('foo')
                 await user.addRule((True, ('foo', 'bar')))
                 testrole = await echo.auth.addRole('testrole')
-                privrole = await echo.auth.addRole('privrole')
+                await echo.auth.addRole('privrole')
                 await user.grant('testrole')
 
                 visi_url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
@@ -323,3 +336,16 @@ class CellTest(s_t_utils.SynTest):
 
             async with await s_cell.Cell.anit(dirn) as cell:
                 self.none(await cell.hive.get(('redbaloons',)))
+
+    async def test_cell_dyncall(self):
+
+        with self.getTestDir() as dirn:
+            async with await EchoAuth.anit(dirn) as cell, cell.getLocalProxy() as prox:
+                cell.dynitems['self'] = cell
+                self.eq(42, await prox.dyncall('self', s_common.todo('answer')))
+                await self.asyncraises(s_exc.BadArg, prox.dyncall('self', s_common.todo('badanswer')))
+
+                self.eq([1, 2], await s_t_utils.alist(await prox.dyncall('self', s_common.todo('stream'))))
+
+                todo = s_common.todo('stream', doraise=True)
+                await self.agenraises(s_exc.BadTime, await prox.dyncall('self', todo))

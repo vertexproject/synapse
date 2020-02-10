@@ -20,7 +20,11 @@ class ProvenanceTest(s_t_utils.SynTest):
             # Non-existent iden
             self.none(await core.getProvStack('abcd'))
 
-            await core.addTrigger('node:add', '[ test:int=1 ]', info={'form': 'test:str'})
+            await real.view.addTrigger({
+                'cond': 'node:add',
+                'form': 'test:str',
+                'storm': '[ test:int=1 ]',
+            })
             await s_common.aspin(core.eval('[ test:str=foo ]'))
             await self.agenlen(1, core.eval('test:int'))
 

@@ -995,7 +995,8 @@ class Layer(s_nexus.Pusher):
 
     async def liftByPropValu(self, form, prop, cmprvals):
         for cmpr, valu, kind in cmprvals:
-            # print('liftByPropValu %r %r %r %r %r' % (form, prop, cmpr, valu, kind))
+            if kind & 0x8000:
+                kind = STOR_TYPE_MSGP
             for buid in self.stortypes[kind].indxByProp(form, prop, cmpr, valu):
                 yield await self.getStorNode(buid)
 
@@ -1103,19 +1104,31 @@ class Layer(s_nexus.Pusher):
             if oldv == valu and oldt == stortype:
                 return None
 
-            for oldi in self.getStorIndx(oldt, oldv):
-                self.layrslab.delete(abrv + oldi, buid, db=self.byprop)
-                if univabrv is not None:
-                    self.layrslab.delete(univabrv + oldi, buid, db=self.byprop)
+            if oldt & STOR_FLAG_ARRAY:
+
+                for oldi in self.getStorIndx(oldt, oldv):
+                    self.layrslab.delete(abrv + oldi, buid, db=self.byarray)
+                    if univabrv is not None:
+                        self.layrslab.delete(univabrv + oldi, buid, db=self.byarray)
+
+                for indx in self.getStorIndx(STOR_TYPE_MSGP, oldv):
+                    self.layrslab.delete(abrv + indx, buid, db=self.byprop)
+                    if univabrv is not None:
+                        self.layrslab.delete(univabrv + indx, buid, db=self.byprop)
+
+            else:
+
+                for oldi in self.getStorIndx(oldt, oldv):
+                    self.layrslab.delete(abrv + oldi, buid, db=self.byprop)
+                    if univabrv is not None:
+                        self.layrslab.delete(univabrv + oldi, buid, db=self.byprop)
 
         if stortype & STOR_FLAG_ARRAY:
 
-            realtype = stortype & 0x7fff
-            for aval in valu:
-                for indx in self.getStorIndx(realtype, aval):
-                    self.layrslab.put(abrv + indx, buid, db=self.byarray)
-                    if univabrv is not None:
-                        self.layrslab.put(univabrv + indx, buid, db=self.byarray)
+            for indx in self.getStorIndx(stortype, valu):
+                self.layrslab.put(abrv + indx, buid, db=self.byarray)
+                if univabrv is not None:
+                    self.layrslab.put(univabrv + indx, buid, db=self.byarray)
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 self.layrslab.put(abrv + indx, buid, db=self.byprop)
@@ -1154,7 +1167,7 @@ class Layer(s_nexus.Pusher):
 
         if stortype & STOR_FLAG_ARRAY:
 
-            realtype = stortype & 0xefff
+            realtype = stortype & 0x7fff
 
             for aval in valu:
                 for indx in self.getStorIndx(realtype, aval):
@@ -1302,7 +1315,7 @@ class Layer(s_nexus.Pusher):
 
         if stortype & 0x8000:
 
-            realtype = stortype & 0xefff
+            realtype = stortype & 0x7fff
 
             retn = []
             [retn.extend(self.getStorIndx(realtype, aval)) for aval in valu]

@@ -302,7 +302,7 @@ class MultiQueue(s_base.Base):
     async def add(self, name, info):
 
         if self.queues.get(name) is not None:
-            mesg = f'A queue exists with the name {name}.'
+            mesg = f'A queue already exists with the name {name}.'
             raise s_exc.DupName(mesg=mesg, name=name)
 
         self.queues.set(name, info)
@@ -359,7 +359,7 @@ class MultiQueue(s_base.Base):
 
         return retn
 
-    async def gets(self, name, offs, size=None, wait=False):
+    async def gets(self, name, offs, size=None, cull=False, wait=False):
         '''
         Yield (offs, item) tuples from the message queue.
         '''
@@ -367,6 +367,9 @@ class MultiQueue(s_base.Base):
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+        if cull and offs > 0:
+            await self.cull(name, offs - 1)
 
         abrv = self.abrv.nameToAbrv(name)
 

@@ -1,27 +1,18 @@
 import asyncio
 import logging
 import argparse
-import collections
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
-import synapse.lib.boss as s_boss
-import synapse.lib.hive as s_hive
-import synapse.lib.link as s_link
-import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
-import synapse.lib.view as s_view
-import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
-import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -340,7 +331,8 @@ stormcmds = (
         'name': 'view.get',
         'descr': 'Get a view from the cortex.',
         'cmdargs': (
-            ('iden', {'nargs': '?', 'help': 'Iden of the view to get. If no iden is provided, the main view will be returned.'}),
+            ('iden', {'nargs': '?',
+                      'help': 'Iden of the view to get. If no iden is provided, the main view will be returned.'}),
         ),
         'storm': '''
             $view = $lib.view.get($cmdopts.iden)
@@ -399,12 +391,7 @@ stormcmds = (
                             'help': 'Create the trigger in disabled state.'}),
         ),
         'storm': '''
-            $iden = $lib.trigger.add($cmdopts.condition,
-                                     $cmdopts.form,
-                                     $cmdopts.tag,
-                                     $cmdopts.prop,
-                                     $cmdopts.query,
-                                     $cmdopts.disabled)
+            $trig = $lib.trigger.add($cmdopts)
 
             $lib.print("Added trigger: {iden}", iden=$iden)
         ''',
@@ -440,6 +427,7 @@ stormcmds = (
             $triggers = $lib.trigger.list()
 
             if $triggers {
+
                 $lib.print("user       iden         en? cond      object                    storm query")
 
                 for $trigger in $triggers {
@@ -766,7 +754,7 @@ class StormDmon(s_base.Base):
                     self.status = 'exited'
                     await self.waitfini(timeout=1)
 
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 logger.warning(f'Dmon loop cancelled: ({self.iden})')
                 raise
 
@@ -798,7 +786,7 @@ class Runtime:
         self.snap = snap
         self.user = user
 
-        self.model = snap.getDataModel()
+        self.model = snap.core.getDataModel()
 
         self.task = asyncio.current_task()
 
@@ -825,9 +813,6 @@ class Runtime:
     async def dyniter(self, iden, todo, gatekeys=()):
         async for item in self.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
-
-    def getStormMod(self, name):
-        return self.snap.getStormMod(name)
 
     async def getStormQuery(self, text):
         return self.snap.core.getStormQuery(text)
@@ -1130,7 +1115,7 @@ class Cmd:
         self.pars.printf = snap.printf
         try:
             self.opts = self.pars.parse_args(self.argv)
-        except s_exc.BadSyntax as e:
+        except s_exc.BadSyntax:
             pass
         for line in self.pars.mesgs:
             await snap.printf(line)
@@ -1149,11 +1134,13 @@ class Cmd:
         '''
         if name.startswith('$'):
             varn = name[1:]
+
             def func(path):
                 return path.getVar(varn, defv=None)
             return func
 
         if name.startswith(':'):
+
             prop = name[1:]
             def func(path):
                 return path.node.get(prop)

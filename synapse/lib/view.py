@@ -7,7 +7,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
-import synapse.lib.hive as s_hive
 import synapse.lib.snap as s_snap
 import synapse.lib.nexus as s_nexus
 import synapse.lib.trigger as s_trigger
@@ -35,11 +34,23 @@ class View(s_nexus.Pusher):  # type: ignore
         self.iden = node.name()
         self.info = await node.dict()
 
+        trignode = await node.open(('triggers',))
+        self.trigdict = await trignode.dict()
+
         self.triggers = s_trigger.Triggers(self)
+        for iden, tdef in self.trigdict.items():
+            try:
+                self.triggers.load(tdef)
+
+            except asyncio.CancelledError:
+                raise
+
+            except Exception as e:
+                logger.exception(f'Failed to load trigger {tdef!r}')
 
         self.core = core
 
-        await self.core.auth.addAuthGate(self.iden, 'view')
+        #await self.core.auth.addAuthGate(self.iden, 'view')
         await s_nexus.Pusher.__anit__(self, iden=self.iden, nexsroot=core.nexsroot)
 
         self.layers = []
@@ -63,6 +74,11 @@ class View(s_nexus.Pusher):  # type: ignore
 
         # isolate some initialization to easily override for SpawnView.
         await self._initViewLayers()
+
+    def pack(self):
+        d = {'iden': self.iden}
+        d.update(self.info.pack())
+        return d
 
     async def getFormCounts(self):
         counts = collections.defaultdict(int)
@@ -212,7 +228,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def iterStormPodes(self, text, opts=None, user=None):
         if user is None:
-            user = await self.auth.getUserByName('root')
+            user = await self.core.auth.getUserByName('root')
 
         info = {'query': text}
         if opts is not None:
@@ -513,23 +529,34 @@ class View(s_nexus.Pusher):  # type: ignore
         if self.parent is not None:
             await self.parent.runPropSet(node, prop, oldv)
 
-    async def addTrigger(self, condition, query, info, disabled=False, user=None):
+    async def addTrigger(self, tdef):
         '''
         Adds a trigger to the view.
         '''
-        trigiden = s_common.guid()
+        tdef['iden'] = s_common.guid()
 
-        return await self._push('trigger:add', trigiden, condition, query, info, disabled, user)
+        tdef = await self._push('trigger:add', tdef)
+        user = self.core.auth.user(tdef.get('user'))
+
+        await user.setAdmin(True, gateiden=tdef.get('iden'))
+
+        return tdef
 
     @s_nexus.Pusher.onPush('trigger:add')
-    async def _onPushAddTrigger(self, trigiden, condition, query, info, disabled, user):
-        if user is None:
-            user = await self.core.auth.getUserByName('root')
+    async def _onPushAddTrigger(self, tdef):
 
-        self.triggers.add(trigiden, user.iden, condition, query, info=info)
-        if disabled:
-            self.triggers.disable(trigiden)
-        await self.core.fire('core:trigger:action', iden=trigiden, action='add')
+        root = await self.core.auth.getUserByName('root')
+
+        tdef.setdefault('user', root.iden)
+        tdef.setdefault('enabled', True)
+
+        self.core.getStormQuery(tdef.get('storm'))
+
+        trig = self.triggers.load(tdef)
+        await self.trigdict.set(trig.iden, tdef)
+        await self.core.auth.addAuthGate(trig.iden, 'trigger')
+
+        return trig.pack()
 
     async def getTrigger(self, iden):
         return await self.triggers.get(iden)
@@ -539,32 +566,14 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Delete a trigger from the view.
         '''
-        self.triggers.delete(iden)
-        await self.core.fire('core:trigger:action', iden=iden, action='delete')
+        trig = self.triggers.pop(iden)
+        await self.trigdict.pop(trig.iden)
+        await self.core.auth.delAuthGate(trig.iden)
 
-    @s_nexus.Pusher.onPushAuto('trigger:update')
-    async def updateTrigger(self, iden, query):
-        '''
-        Change an existing trigger's query.
-        '''
-        self.triggers.mod(iden, query)
-        await self.core.fire('core:trigger:action', iden=iden, action='mod')
-
-    @s_nexus.Pusher.onPushAuto('trigger:enable')
-    async def enableTrigger(self, iden):
-        '''
-        Enable an existing trigger.
-        '''
-        self.triggers.enable(iden)
-        await self.core.fire('core:trigger:action', iden=iden, action='enable')
-
-    @s_nexus.Pusher.onPushAuto('trigger:disable')
-    async def disableTrigger(self, iden):
-        '''
-        Disable an existing trigger.
-        '''
-        self.triggers.disable(iden)
-        await self.core.fire('core:trigger:action', iden=iden, action='disable')
+    @s_nexus.Pusher.onPushAuto('trigger:set')
+    async def setTrigInfo(self, iden, name, valu):
+        trig = self.triggers.get(iden)
+        await trig.set(name, valu)
 
     async def listTriggers(self):
         '''
@@ -575,6 +584,23 @@ class View(s_nexus.Pusher):  # type: ignore
             trigs.extend(await self.parent.listTriggers())
         return trigs
 
+    async def packTriggers(self, useriden):
+
+        triggers = []
+        auth = self.core.auth
+        user = auth.user(useriden)
+        for (iden, trig) in await self.listTriggers():
+            if user.allowed(('trigger', 'get'), gateiden=iden):
+                packed = trig.pack()
+
+                useriden = packed['user']
+                triguser = auth.user(useriden)
+                packed['username'] = triguser.name
+
+                triggers.append(packed)
+
+        return triggers
+
     async def delete(self):
         '''
         Delete the metadata for this view.
@@ -582,8 +608,7 @@ class View(s_nexus.Pusher):  # type: ignore
         Note: this does not delete any layer storage.
         '''
         await self.fini()
-        for (iden, _) in self.triggers.list():
-            self.triggers.delete(iden)
+        await self.node.pop()
 
     def getSpawnInfo(self):
         return {

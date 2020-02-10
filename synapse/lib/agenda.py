@@ -565,13 +565,6 @@ class Agenda(s_base.Base):
         appt = _Appt(self, iden, recur, indx, query, useriden, recs)
         self._addappt(iden, appt)
 
-        user = self.core.auth.user(useriden)
-
-        # the user that creates the job is its admin
-        gate = await self.core.auth.addAuthGate(iden, 'cronjob')
-        gateuser = await gate.getGateUser(user)
-        await gateuser.setAdmin(True)
-
         appt.doc = doc
 
         await self._storeAppt(appt)
@@ -628,8 +621,6 @@ class Agenda(s_base.Base):
         appt = self.appts.get(iden)
         if appt is None:
             raise s_exc.NoSuchIden()
-
-        await self.core.auth.delAuthGate(iden)
 
         try:
             heappos = self.apptheap.index(appt)

@@ -6,8 +6,6 @@ import logging
 import functools
 import contextlib
 
-import collections.abc as c_abc
-
 import tornado.web as t_web
 
 import synapse.exc as s_exc
@@ -260,6 +258,45 @@ class CellApi(s_base.Base):
         role = await self.cell.auth.reqRoleByName(name)
         await role.setAdmin(admin, gateiden=gateiden)
 
+    @adminapi
+    async def getAuthInfo(self, name):
+        #FIXME deprecated
+        user = await self.cell.auth.getUserByName(name)
+        if user is not None:
+            info = user.pack()
+            info['roles'] = [self.cell.auth.role(r).name for r in info['roles']]
+            return info
+
+        role = await self.cell.auth.getRoleByName(name)
+        if role is not None:
+            return role.pack()
+
+        raise s_exc.NoSuchName(name=name)
+
+    @adminapi
+    async def addAuthRule(self, name, rule, indx=None, gateiden=None):
+        #FIXME deprecated
+        item = await self.cell.auth.getUserByName(name)
+        if item is None:
+            item = await self.cell.auth.getRoleByName(name)
+        await item.addRule(rule, indx=indx, gateiden=gateiden)
+
+    @adminapi
+    async def delAuthRule(self, name, rule, gateiden=None):
+        #FIXME deprecated
+        item = await self.cell.auth.getUserByName(name)
+        if item is None:
+            item = await self.cell.auth.getRoleByName(name)
+        await item.delRule(rule, gateiden=gateiden)
+
+    @adminapi
+    async def setAuthAdmin(self, name, isadmin):
+        #FIXME deprecated
+        item = await self.cell.auth.getUserByName(name)
+        if item is None:
+            item = await self.cell.auth.getRoleByName(name)
+        await item.setAdmin(isadmin)
+
     async def setUserPasswd(self, name, passwd):
         user = await self.cell.auth.getUserByName(name)
         if user is None:
@@ -363,6 +400,22 @@ class CellApi(s_base.Base):
     @adminapi
     async def getDmonSessions(self):
         return await self.cell.getDmonSessions()
+
+    @adminapi
+    async def listHiveKey(self, path=None):
+        return await self.cell.listHiveKey(path=path)
+
+    @adminapi
+    async def getHiveKey(self, path):
+        return await self.cell.getHiveKey(path)
+
+    @adminapi
+    async def setHiveKey(self, path, valu):
+        return await self.cell.setHiveKey(path, valu)
+
+    @adminapi
+    async def popHiveKey(self, path):
+        return await self.cell.popHiveKey(path)
 
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
