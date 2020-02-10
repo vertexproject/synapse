@@ -26,9 +26,9 @@ import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
 import synapse.lib.view as s_view
-
 import synapse.lib.storm as s_storm
 import synapse.lib.dyndeps as s_dyndeps
+import synapse.lib.hiveauth as s_hiveauth
 
 logger = logging.getLogger(__name__)
 
@@ -351,7 +351,7 @@ class SpawnCore(s_base.Base):
 
         # TODO cortex configured for remote auth...
         node = await self.hive.open(('auth',))
-        self.auth = await s_hive.HiveAuth.anit(node)
+        self.auth = await s_hiveauth.Auth.anit(node)
         self.onfini(self.auth.fini)
         for layrinfo in self.spawninfo.get('layers'):
 
