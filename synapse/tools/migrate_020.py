@@ -24,6 +24,8 @@ import logging
 import argparse
 import collections
 
+import yappi  # TODO: remove
+
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
@@ -51,6 +53,12 @@ ALL_MIGROPS = (
     'nodedata',
 )
 
+ADD_MODES = (
+    'nexus',    # Layer.storNodeEdits() w/nexus
+    'nonexus',  # Layer._storNodeEdit() w/o nexus
+    'editor',   # Layer.editors[<op>]() w/o nexus
+)
+
 class Migrator(s_base.Base):
     '''
     Standalone tool for migrating Synapse from a source Cortex to a new destination 0.2.x Cortex.
@@ -70,17 +78,41 @@ class Migrator(s_base.Base):
         await s_base.Base.__anit__(self)
         self.migrdir = 'migration'
 
+        logger.debug(f'Migrator conf: {conf}')
+
         self.src = conf.get('src')
         self.dest = conf.get('dest')
-        self.migrops = conf.get('migrops')
         self.migrlayer = conf.get('layer')
         self.nodelim = conf.get('nodelim')
-        self.nexusoff = conf.get('nexusoff', False)
 
-        self.editbatchsize = 10
-
+        self.migrops = conf.get('migrops')
         if self.migrops is None:
             self.migrops = ALL_MIGROPS
+
+        self.addmode = conf.get('addmode')
+        if self.addmode is None:
+            self.addmode = 'nexus'
+
+        self.editbatchsize = conf.get('editbatchsize')
+        if self.editbatchsize is None:
+            self.editbatchsize = 10
+
+        self.fairiter = conf.get('fairiter')
+        if self.fairiter is None:
+            self.fairiter = 10
+
+        self.safetyoff = conf.get('safetyoff')
+        if self.safetyoff is None:
+            self.safetyoff = False
+
+        if self.safetyoff:
+            logger.warning('Node value checking before addition has been disabled')
+
+        self.srcslabopts = {
+            'readonly': True,
+            'map_async': True,
+            'readahead': False,
+        }
 
         # data model
         self.model = None
@@ -129,7 +161,10 @@ class Migrator(s_base.Base):
             wlyr = await self._destGetWlyr(self.dest, storinfo, iden)
 
             if 'nodes' in self.migrops:
+                #yappi.start()
                 await self._migrNodes(iden, wlyr)
+                # yappi.get_func_stats().print_all()
+                # yappi.stop()
 
             if 'nodedata' in self.migrops:
                 await self._migrNodeData(iden, wlyr)
@@ -143,31 +178,59 @@ class Migrator(s_base.Base):
         if 'hiveauth' in self.migrops:
             await self._migrHiveAuth()  # TODO
 
+    async def dumpErrors(self):
+        '''
+        Fetch all node migration errors and dump to an mpk file.
+
+        Returns:
+            (str): File path
+        '''
+        path = os.path.join(self.dest, self.migrdir, 'migr.lmdb')
+        if not os.path.exists(path):
+            logger.error(f'Migration stor does not exist at {path}')
+            return None
+
+        # initialize migration data slab
+        await self._initStors(migr=True, nexus=False, hive=False)
+
+        logger.info('Starting dump of migration errors')
+        dumpf = os.path.join(self.dest, self.migrdir, f'migrerrors_{s_common.now()}.mpk')
+        errs = await self._migrlogGet(migrop='nodes', logtyp='error')
+        with open(dumpf, 'wb') as fd:
+            for err in errs:
+                fd.write(s_msgpack.en(err))
+
+        return dumpf
+
     async def _initStors(self, migr=True, nexus=True, hive=True):
         '''
-        Initialize required source/destination slabs for migration.
+        Initialize required non-layer destination slabs for migration.
         '''
         # slab for tracking migration data
         if migr:
             path = os.path.join(self.dest, self.migrdir, 'migr.lmdb')
-            self.migrslab = await s_lmdbslab.Slab.anit(path, readonly=False)
+            if self.migrslab is None:
+                self.migrslab = await s_lmdbslab.Slab.anit(path, readonly=False)
             self.migrdb = self.migrslab.initdb('migr')
             self.onfini(self.migrslab.fini)
 
         # optionally create migration nexus
-        if nexus and not self.nexusoff:
+        if nexus and self.addmode == 'nexus':
             path = os.path.join(self.dest, self.migrdir)
-            self.nexusroot = await s_nexus.NexsRoot.anit(path)
+            if self.nexusroot is None:
+                self.nexusroot = await s_nexus.NexsRoot.anit(path)
             self.onfini(self.nexusroot.fini)
             logger.info(f'Storing migration splices at {path}')
 
         # open hive
         if hive:
             path = os.path.join(self.dest, 'slabs', 'cell.lmdb')
-            self.hiveslab = await s_lmdbslab.Slab.anit(path, readonly=False)
+            if self.hiveslab is None:
+                self.hiveslab = await s_lmdbslab.Slab.anit(path, readonly=False)
             self.onfini(self.hiveslab.fini)
             self.hivedb = self.hiveslab.initdb('hive')
-            self.hive = await s_hive.SlabHive.anit(self.hiveslab, db=self.hivedb)
+            if self.hive is None:
+                self.hive = await s_hive.SlabHive.anit(self.hiveslab, db=self.hivedb)
             self.onfini(self.hive.fini)
 
         logger.debug('Finished storage initialization')
@@ -180,6 +243,7 @@ class Migrator(s_base.Base):
         Returns:
             (list): List of formatted tables by layer as string
         '''
+        fairiter = self.fairiter
         srclyrs = os.listdir(os.path.join(self.src, 'layers'))
 
         if self.dest is not None:
@@ -196,7 +260,7 @@ class Migrator(s_base.Base):
 
             # open source slab
             src_path = os.path.join(self.src, 'layers', iden, 'layer.lmdb')
-            src_slab = await s_lmdbslab.Slab.anit(src_path, readonly=True)
+            src_slab = await s_lmdbslab.Slab.anit(src_path, **self.srcslabopts)
             self.onfini(src_slab.fini)
             src_bybuid = src_slab.initdb('bybuid')
 
@@ -205,7 +269,7 @@ class Migrator(s_base.Base):
             async for form in self._srcIterForms(src_slab, src_bybuid):
                 src_fcnt[form] += 1
                 src_tot += 1
-                if src_tot % 100 == 0:
+                if src_tot % fairiter == 0:
                     await asyncio.sleep(0)
                 if src_tot % 10000000 == 0:
                     logger.debug(f'...counted {src_tot} nodes so far')
@@ -476,7 +540,7 @@ class Migrator(s_base.Base):
     async def _migrNodes(self, iden, wlyr):
         '''
         Migrate nodes for a given layer.
-        Individual operations are responsible for logging errors, with this migr method continuing past them.
+        All errors are logged and continued.
 
         Args:
             iden (str): Iden of the layer
@@ -485,10 +549,13 @@ class Migrator(s_base.Base):
         migrop = 'nodes'
         nodelim = self.nodelim
         editchnks = self.editbatchsize
+        fairiter = self.fairiter
+        chknodes = not self.safetyoff
+        addmode = self.addmode
 
         # open storage
         path = os.path.join(self.src, 'layers', iden, 'layer.lmdb')
-        src_slab = await s_lmdbslab.Slab.anit(path, map_async=True, readonly=True)
+        src_slab = await s_lmdbslab.Slab.anit(path, **self.srcslabopts)
         src_bybuid = src_slab.initdb('bybuid')  # <buid><prop>=<valu>
         self.onfini(src_slab.fini)
 
@@ -502,32 +569,45 @@ class Migrator(s_base.Base):
         t_strt = s_common.now()
         stot = 0
         async for node in self._srcIterNodes(src_slab, src_bybuid):
-            form = node[1]['ndef'][0].replace('.', '').replace('*', '')
+            buid = node[0]
+            form = node[1]['ndef'][0].replace('*', '')
             src_fcnt[form] += 1
 
             stot += 1
             if nodelim is not None and stot >= nodelim:
                 logger.warning(f'Stopping node migration due to reaching nodelim {stot}')
                 # checkpoint is the next node to add
-                await self._migrlogAdd(migrop, 'chkpnt', iden, (node[0], stot, s_common.now()))
+                await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot, s_common.now()))
                 break
 
             if stot % 1000000 == 0:
                 logger.info(f'...on node {stot:,} for layer {iden}')
 
-            nodeedit = await self._trnNodeToNodeedit(node)
-            if nodeedit is None:
+            if stot % fairiter == 0:
+                await asyncio.sleep(0)
+
+            err, nodeedit = await self._trnNodeToNodeedit(node, chknodes)
+            if err is not None:
+                logger.warning(err['mesg'])
+                logger.debug(err)
+                await self._migrlogAdd(migrop, 'error', buid, err)
                 continue
 
             nodeedits.append(nodeedit)
             if len(nodeedits) == editchnks:
-                await self._destAddNodes(migrop, wlyr, nodeedits)
+                err = await self._destAddNodes(wlyr, nodeedits, addmode)
+
+                if err is not None:
+                    logger.warning(f'unable to store nodeedits on {iden}')
+                    for ne in nodeedits:
+                        logger.debug(f'error nodeedit group item: {ne}')
+                        await self._migrlogAdd(migrop, 'error', buid, err)
+
                 nodeedits = []
-                await asyncio.sleep(0)
 
         # add last edit chunk if needed
         if len(nodeedits) > 0:
-            await self._destAddNodes(migrop, wlyr, nodeedits)
+            await self._destAddNodes(wlyr, nodeedits, addmode)
 
         t_end = s_common.now()
         t_dur = t_end - t_strt
@@ -553,7 +633,7 @@ class Migrator(s_base.Base):
     async def _migrNodeData(self, iden, wlyr):
         '''
         Migrate nodedata for a given layer.
-        Individual operations are responsible for logging errors, with this migr method continuing past them.
+        All errors are logged and continued.
 
         Args:
             iden (str): Iden of the layer
@@ -562,10 +642,12 @@ class Migrator(s_base.Base):
         migrop = 'nodedata'
         nodelim = self.nodelim
         editchnks = self.editbatchsize
+        fairiter = self.fairiter
+        addmode = self.addmode
 
         # open storage
         path = os.path.join(self.src, 'layers', iden, 'nodedata.lmdb')
-        src_slab = await s_lmdbslab.Slab.anit(path, map_async=True, readonly=True)
+        src_slab = await s_lmdbslab.Slab.anit(path, **self.srcslabopts)
         src_bybuid = src_slab.initdb('bybuid')
         self.onfini(src_slab.fini)
 
@@ -584,19 +666,28 @@ class Migrator(s_base.Base):
             if stot % 1000000 == 0:
                 logger.info(f'...on node {stot:,} for layer {iden}')
 
+            if stot % fairiter == 0:
+                await asyncio.sleep(0)
+
             nodeedit = await self._trnNodedataToNodeedit(nodedata)
             if nodeedit is None:
                 continue
 
             nodeedits.append(nodeedit)
             if len(nodeedits) == editchnks:
-                await self._destAddNodes(migrop, wlyr, nodeedits)
+                err = await self._destAddNodes(wlyr, nodeedits, addmode)
+
+                if err is not None:
+                    logger.warning(f'unable to store nodeedits on {iden}')
+                    for ne in nodeedits:
+                        logger.debug(f'error nodeedit group item: {ne}')
+                        await self._migrlogAdd(migrop, 'error', ne[0], err)
+
                 nodeedits = []
-                await asyncio.sleep(0)
 
         # add last edit chunk if needed
         if len(nodeedits) > 0:
-            await self._destAddNodes(migrop, wlyr, nodeedits)
+            await self._destAddNodes(wlyr, nodeedits, addmode)
 
         t_end = s_common.now()
         t_dur = t_end - t_strt
@@ -777,49 +868,63 @@ class Migrator(s_base.Base):
     # Translation operations
     #############################################################
 
-    async def _trnNodeToNodeedit(self, node):
+    async def _trnNodeToNodeedit(self, node, chknodes=True):
         '''
         Create translation of node info to an 0.2.0 node edit.
 
         Args:
             node (tuple): (<buid>, {'ndef': ..., 'props': ..., 'tags': ..., 'tagprops': ...}
+            chknodes (bool): Whether to require valid node norming and buid comparisons in order to add
 
         Returns:
-            nodeedit (tuple): (<buid>, <form>, [edits]) where edits is list of (<type>, <info>)
+            (tuple): (cond, nodedit)
+                cond: None or error dict
+                nodeedit: (<buid>, <form>, [edits]) where edits is list of (<type>, <info>)
         '''
-        migrop = 'nodes'
-
         buid = node[0]
-        form = node[1]['ndef'][0]
+        fname = node[1]['ndef'][0]
         fval = node[1]['ndef'][1]
 
-        if form[0] == '*':
-            formnorm = form[1:]
+        if fname[0] == '*':
+            fname = fname[1:]
         else:
-            err = {'mesg': f'Unable to norm form {form}', 'node': node}
-            logger.error(err['mesg'])
-            logger.debug(err)
-            await self._migrlogAdd(migrop, 'error', buid, err)
-            return None
+            err = {'mesg': f'Unable to parse form name {fname}', 'node': node}
+            return err, None
+
+        # safety check that buid matches
+        if buid != s_common.buid((fname, fval)):
+            err = {'mesg': f'Calculated buid does not match inbound {buid}, {fname}, {fval}', 'node': node}
+            return err, None
 
         edits = []
 
         # setup storage type
-        mform = self.model.form(formnorm)
+        mform = self.model.form(fname)
         if mform is None:
-            err = {'mesg': f'Unable to determine form for {formnorm}', 'node': node}
-            logger.error(err['mesg'])
-            logger.debug(err)
-            await self._migrlogAdd(migrop, 'error', buid, err)
-            return None
+            err = {'mesg': f'Unable to determine model form for {fname}', 'node': node}
+            return err, None
 
         # create first edit for the node
         if not hasattr(mform.type, 'stortype') or mform.type.stortype is None:
-            err = {'mesg': f'Unable to determine stortype for {formnorm}', 'node': node}
-            logger.error(err['mesg'])
-            logger.debug(err)
-            await self._migrlogAdd(migrop, 'error', buid, err)
-            return None
+            err = {'mesg': f'Unable to determine stortype for {fname}', 'node': node}
+            return err, None
+
+        # safety check for buid/norming
+        if chknodes:
+            normerr = None
+            try:
+                formnorm, _ = mform.type.norm(fval)
+                if fval != formnorm:
+                    normerr = {'mesg': f'Normed form val does not match inbound {fname}, {fval}, {formnorm}'}
+                if buid != s_common.buid((fname, fval)):
+                    normerr = {'mesg': f'Calculated buid does not match inbound {buid}, {fname}, {fval}'}
+            except Exception as e:
+                normerr = {'mesg': f'Exception while safety checking buid/norming: {buid}, {fname}, {fval}'}
+                pass
+
+            if normerr is not None:
+                normerr['node'] = node
+                return normerr, None
 
         stortype = mform.type.stortype
         edits.append((s_layer.EDIT_NODE_ADD, (fval, stortype)))  # name, stype
@@ -829,11 +934,8 @@ class Migrator(s_base.Base):
             sformnorm = sprop.replace('*', '')
             prop = mform.prop(sformnorm)
             if prop is None or not hasattr(prop.type, 'stortype') or prop.type.stortype is None:
-                err = {'mesg': f'Unable to determine stortype for sprop {formnorm}, {sformnorm}', 'node': node}
-                logger.error(err['mesg'])
-                logger.debug(err)
-                await self._migrlogAdd(migrop, 'error', buid, err)
-                return None
+                err = {'mesg': f'Unable to determine stortype for sprop {fname}, {sformnorm}', 'node': node}
+                return err, None
 
             stortype = prop.type.stortype
             edits.append((s_layer.EDIT_PROP_SET, (sformnorm, sval, None, stortype)))  # name, valu, oldv, stype
@@ -852,23 +954,17 @@ class Migrator(s_base.Base):
 
                 if tptype is None:
                     err = {'mesg': f'Unable to find tagprop datamodel for {tpname}', 'node': node}
-                    logger.error(err['mesg'])
-                    logger.debug(err)
-                    await self._migrlogAdd(migrop, 'error', buid, err)
-                    return None
+                    return err, None
 
                 if not hasattr(tptype.base, 'stortype') or tptype.base.stortype is None:
                     err = {'mesg': f'Unable to determine stortype for {tpname}', 'node': node}
-                    logger.error(err['mesg'])
-                    logger.debug(err)
-                    await self._migrlogAdd(migrop, 'error', buid, err)
-                    return None
+                    return err, None
 
                 stortype = tptype.base.stortype
                 edits.append((s_layer.EDIT_TAGPROP_SET,
                               (tnamenorm, tpname, tpval, None, stortype)))  # tag, prop, valu, oldv, stype
 
-        return buid, formnorm, edits
+        return None, (buid, fname, edits)
 
     async def _trnNodedataToNodeedit(self, nodedata):
         '''
@@ -880,8 +976,6 @@ class Migrator(s_base.Base):
         Returns:
             nodeedit (tuple): (<buid>, <form>, [edits]) where edits is list of (<type>, <info>)
         '''
-        migrop = 'nodedata'
-
         buid = nodedata[0]
         name = nodedata[1]
         valu = nodedata[2]
@@ -924,36 +1018,46 @@ class Migrator(s_base.Base):
 
         return wlyr
 
-    async def _destAddNodes(self, migrop, wlyr, nodeedits):
+    async def _destAddNodes(self, wlyr, nodeedits, addmode):
         '''
         Add nodes/nodedata to a write layer from nodeedits.
 
         Args:
             wlyr (synapse.lib.Layer): Layer to add node to
             nodeedits (list): list of nodeedits [ (<buid>, <form>, [edits]) ]
+            addmode (str): One of ADD_MODES
 
         Returns:
-
+            (dict or None): Error dict or None if successful
         '''
         meta = None
 
         try:
-            if self.nexusoff:
-                sodes = [await wlyr._storNodeEdit(ne, meta) for ne in nodeedits]
+            if addmode == 'nexus':
+                await wlyr.storNodeEdits(nodeedits, meta)
+
+            elif addmode == 'nonexus':
+                for ne in nodeedits:
+                    await wlyr._storNodeEdit(ne, meta)
+
+            elif addmode == 'editor':
+                for ne in nodeedits:
+                    buid, form, edits = ne
+                    for edit in edits:
+                        wlyr.editors[edit[0]](buid, form, edit)
+
             else:
-                sodes = await wlyr.storNodeEdits(nodeedits, meta)
-            return sodes
+                err = {'mesg': f'Unrecognized addmode {addmode}'}
+                return err
 
         except asyncio.CancelledError:
             raise
         except Exception as e:
             lyriden = wlyr.iden
-            logger.exception(f'unable to store nodeedits on {lyriden}')
-            logger.debug(f'nodeedits: {nodeedits}')
-            for ne in nodeedits:
-                err = {'mesg': f'Unable to store nodeedit on {lyriden}', 'nodeedit': ne}
-                await self._migrlogAdd(migrop, 'error', ne[0], err)
-            return None
+            err = {'mesg': f'Unable to store nodeedits on {lyriden}'}
+            return err
+
+        return None
 
 async def main(argv, outp=s_output.stdout):
     pars = argparse.ArgumentParser(prog='synapse.tools.migrate_stor', description='Tool for migrating Synapse storage.')
@@ -963,16 +1067,24 @@ async def main(argv, outp=s_output.stdout):
                       help='Limit migration operations to run.')
     pars.add_argument('--layer', required=False, type=str, help='Migrate specific layer by iden')
     pars.add_argument('--nodelim', required=False, type=int, help="Stop after migrating nodelim nodes")
-    pars.add_argument('--nexus-off', required=False, action='store_true', help="Do not create Nexus splicelog")
+    pars.add_argument('--add-mode', required=False, type=str.lower, choices=ADD_MODES,
+                      help='Method to use for adding nodes.')
+    pars.add_argument('--edit-batchsize', required=False, type=int, help='Batch size for writing new nodeedits')
+    pars.add_argument('--fair-iter', required=False, type=int, help='Yield loop after so many node iters')
+    pars.add_argument('--safety-off', required=False, action='store_true',
+                      help='Do not check node values before adding')
     pars.add_argument('--log-level', required=False, default='info', choices=s_const.LOG_LEVEL_CHOICES,
                       help='Specify the log level', type=str.upper)
     pars.add_argument('--form-counts', required=False, action='store_true',
-                      help='Print form count comparison betweeen src/dest (overrides any migration options).')
+                      help='Print form count comparison betweeen src/dest (ignores any migration options).')
+    pars.add_argument('--dump-errors', required=False, action='store_true',
+                      help='Dump migration errors to an mpk file.')
 
     opts = pars.parse_args(argv)
 
     s_common.setlogging(logger, opts.log_level)
 
+    dumperrors = opts.dump_errors
     formcounts = opts.form_counts
     dest = opts.dest
 
@@ -982,14 +1094,21 @@ async def main(argv, outp=s_output.stdout):
         'migrops': opts.migr_ops,
         'layer': opts.layer,
         'nodelim': opts.nodelim,
-        'nexusoff': opts.nexus_off,
+        'addmode': opts.add_mode,
+        'editbatchsize': opts.edit_batchsize,
+        'fairiter': opts.fair_iter,
+        'safetyoff': opts.safety_off,
         'formcounts': formcounts,
     }
 
     migr = await Migrator.anit(conf=conf)
 
     try:
-        if formcounts:
+        if dumperrors:
+            dumpf = await migr.dumpErrors()
+            outp.printf(f'Dump file located at {dumpf}')
+
+        elif formcounts:
             outs = await migr.formCounts()
             for out in outs:
                 outp.printf(out)
