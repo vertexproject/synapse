@@ -85,3 +85,14 @@ class ProvenanceTest(s_t_utils.SynTest):
             self.len(6, recent_frames)
             for frame in recent_frames:
                 self.eq(frame, ('stormcmd', (('argv', ()), ('name', 'uniq'))))
+
+            # Run a feed function and validate the user is recorded.
+            await core.addFeedData('syn.nodes', [(('test:int', 1138), {})])
+            # We have to brute force the last prov stack to get the data
+            # Since we don't have splices to track
+            stacks = await alist(core.provStacks(0, 1000))
+            feed_stack = stacks[-1]
+            frame = feed_stack[1][1][0]
+            self.eq(frame[0], 'feed:data')
+            self.eq(frame[1].get('name'), 'syn.nodes')
+            self.isin('user', frame[1])
