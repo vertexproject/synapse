@@ -2729,15 +2729,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             layr = nstat.get('layer')
             self.gt(layr.get('lock_goal'), 0)
 
-    async def test_offset(self):
-        async with self.getTestCoreAndProxy() as (realcore, core):
-            iden = s_common.guid()
-            self.eq(await core.getFeedOffs(iden), 0)
-            self.none(await core.setFeedOffs(iden, 10))
-            self.eq(await core.getFeedOffs(iden), 10)
-            self.none(await core.setFeedOffs(iden, 0))
-            self.eq(await core.getFeedOffs(iden), 0)
-            await self.asyncraises(s_exc.BadConfValu, core.setFeedOffs(iden, -1))
+    # FIXME:  we can delete, right?
+    # async def test_offset(self):
+    #     async with self.getTestCoreAndProxy() as (realcore, core):
+    #         iden = s_common.guid()
+    #         self.eq(await core.getFeedOffs(iden), 0)
+    #         self.none(await core.setFeedOffs(iden, 10))
+    #         self.eq(await core.getFeedOffs(iden), 10)
+    #         self.none(await core.setFeedOffs(iden, 0))
+    #         self.eq(await core.getFeedOffs(iden), 0)
+    #         await self.asyncraises(s_exc.BadConfValu, core.setFeedOffs(iden, -1))
 
     async def test_storm_sub_query(self):
 

@@ -1,4 +1,5 @@
 import gc
+import os
 import atexit
 import signal
 import asyncio
@@ -7,7 +8,6 @@ import logging
 import weakref
 import contextlib
 import collections
-import inspect
 
 if __debug__:
     import traceback
@@ -18,6 +18,8 @@ import synapse.glob as s_glob
 import synapse.lib.coro as s_coro
 
 logger = logging.getLogger(__name__)
+
+OMIT_FINI_WARNS = os.environ.get('SYNDEV_OMIT_FINI_WARNS', False)
 
 def _fini_atexit(): # pragma: no cover
 
@@ -32,7 +34,7 @@ def _fini_atexit(): # pragma: no cover
         if item.isfini:
             continue
 
-        if not item._fini_atexit:
+        if not item._fini_atexit and not OMIT_FINI_WARNS:
             if __debug__:
                 print(f'At exit: Missing fini for {item}')
                 for depth, call in enumerate(item.call_stack[:-2]):

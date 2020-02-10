@@ -392,11 +392,6 @@ stormcmds = (
         ),
         'storm': '''
             $trig = $lib.trigger.add($cmdopts)
-                                     $cmdopts.form,
-                                     $cmdopts.tag,
-                                     $cmdopts.prop,
-                                     $cmdopts.query,
-                                     $cmdopts.disabled)
 
             $lib.print("Added trigger: {iden}", iden=$iden)
         ''',

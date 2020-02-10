@@ -226,7 +226,9 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
         opts = {'vars': {'tdef': tdef}}
 
-        iden = await core.callStorm('return($lib.trigger.add($tdef).get(iden))', opts=opts)
+        # FIXME: Nic tmp
+        # iden = await core.callStorm('return($lib.trigger.add($tdef).get(iden))', opts=opts)
+        iden = 'foo'
 
         self.printf(f'Added trigger {iden}')
 
