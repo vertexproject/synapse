@@ -1,3 +1,5 @@
+# FIXME: delete
+
 '''
 The layer library contains the base Layer object and helpers used for
 cortex construction.

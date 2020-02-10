@@ -1099,9 +1099,9 @@ class Snap(s_base.Base):
         Get nodedata from closest to write layer, no merging involved
         '''
         for layr in reversed(self.layers):
-            envl = await layr.getNodeData(buid, name, defv=defv)
-            if envl is not None:
-                return envl.get('data')
+            valu = await layr.getNodeData(buid, name)
+            if valu is not s_common.NoValu:
+                return valu
         return defv
 
     async def setNodeData(self, buid, name, item):
@@ -1109,6 +1109,9 @@ class Snap(s_base.Base):
         return await self.wlyr.setNodeData(buid, name, envl)
 
     async def iterNodeData(self, buid):
+        '''
+        Returns:  Iterable[Tuple[str, Any]]
+        '''
         some = False
         for layr in reversed(self.layers):
             async for item in layr.iterNodeData(buid):

@@ -502,8 +502,6 @@ class Node:
 
         pref = name + '.'
 
-        tagprops = [x for x in self.tagprops.keys() if x[0] == name]
-
         subtags = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
         subtags.sort(reverse=True)
 
@@ -688,6 +686,8 @@ class Node:
         for name in list(self.props.keys()):
             await self.pop(name, init=True)
 
+        # FIXME:  delete node data
+
         edits = (
             (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype)),
         )
@@ -703,13 +703,13 @@ class Node:
         edits = (
             (s_layer.EDIT_NODEDATA_SET, (name, valu)),
         )
-        await self.snap.addNodeEdit(self.buid, self.form.name, edits)
+        await self.snap.addNodeEdit((self.buid, self.form.name, edits))
 
     async def popData(self, name):
         edits = (
             (s_layer.EDIT_NODEDATA_DEL, (name,)),
         )
-        await self.snap.addNodeEdit(self.buid, self.form.name, edits)
+        await self.snap.addNodeEdit((self.buid, self.form.name, edits))
 
     async def iterData(self):
         async for item in self.snap.iterNodeData(self.buid):

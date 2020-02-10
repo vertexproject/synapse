@@ -1134,19 +1134,19 @@ class NodeData(Prim):
             raise s_exc.AuthDeny(perm=perm, mesg=mesg)
 
     async def _getNodeData(self, name):
-        self._reqAllowed(('storm', 'node', 'data', 'get', name))
+        self._reqAllowed(('node', 'data', 'get', name))
         return await self.valu.getData(name)
 
     async def _setNodeData(self, name, valu):
-        self._reqAllowed(('storm', 'node', 'data', 'set', name))
+        self._reqAllowed(('node', 'data', 'set', name))
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):
-        self._reqAllowed(('storm', 'node', 'data', 'pop', name))
+        self._reqAllowed(('node', 'data', 'pop', name))
         return await self.valu.popData(name)
 
     async def _listNodeData(self):
-        self._reqAllowed(('storm', 'node', 'data', 'list'))
+        self._reqAllowed(('node', 'data', 'list'))
         return [x async for x in self.valu.iterData()]
 
 class Node(Prim):
@@ -1398,8 +1398,11 @@ class LibView(Lib):
         '''
         self.runt.confirm(('view', 'add'))
 
-        view = await self.runt.snap.core.addView(layers)
-
+        vdef = {
+            'creator': self.runt.user.iden,
+            'layers': layers
+        }
+        view = await self.runt.snap.core.addView(vdef)
         if view is None:
             mesg = f'Failed to add view.'
             raise s_exc.StormRuntimeError(mesg=mesg, layers=layers)
@@ -1422,7 +1425,7 @@ class LibView(Lib):
         if not view.info.get('owner') == self.runt.user.iden:
             self.runt.confirm(('view', 'del'))
 
-        await self.runt.snap.delView(iden=view.iden)
+        await self.runt.snap.core.delView(iden=view.iden)
 
         return True
 
@@ -1437,7 +1440,7 @@ class LibView(Lib):
             mesg = f'No view with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        newview = await view.fork(owner=self.runt.user.iden)
+        newview = await view.fork(ldef={'creator': self.runt.user.iden}, vdef={'creator': self.runt.user.iden})
 
         return View(newview, path=self.path)
 
@@ -1460,7 +1463,8 @@ class LibView(Lib):
         '''
         self.runt.confirm(('view', 'read'))
 
-        views = self.runt.snap.listViews()
+        views = self.runt.snap.core.listViews()
+        print('views=', views)
 
         return [View(view, path=self.path) for view in views]
 

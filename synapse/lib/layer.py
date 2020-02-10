@@ -790,6 +790,7 @@ class Layer(s_nexus.Pusher):
             self._editTagPropDel,
             self._editNodeDataSet,
             self._editNodeDataDel,
+            self._editNodeDataWipe,
         ]
 
         self.canrev = True
@@ -820,6 +821,7 @@ class Layer(s_nexus.Pusher):
     def getTagPropAbrv(self, *args):
         return self.tagpropabrv.bytsToAbrv(s_msgpack.en(args))
 
+    # FIXME:  this is hot code:  why is this async?!
     async def getAbrvProp(self, abrv):
         byts = self.propabrv.abrvToByts(abrv)
         if byts is None:
@@ -1275,6 +1277,14 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.delete(buid + abrv, db=self.nodedata)
 
+    async def _editNodeDataWipe(self, buid, form, edit):
+        '''
+        Edit action that removes all node data for a node
+        '''
+
+        for lkey, byts in self.layrslab.scanByPref(buid, db=self.nodedata):
+            self.layrslab.delete(lkey)
+
     def getStorIndx(self, stortype, valu):
 
         if stortype & 0x8000:
@@ -1329,7 +1339,7 @@ class Layer(s_nexus.Pusher):
 
         byts = self.layrslab.get(buid + abrv, db=self.nodedata)
         if byts is None:
-            return None
+            return s_common.NoValu
         return s_msgpack.un(byts)
 
     async def iterNodeData(self, buid):
@@ -1338,7 +1348,7 @@ class Layer(s_nexus.Pusher):
             abrv = lkey[32:]
 
             valu = s_msgpack.un(byts)
-            yield self.getAbrvProp(abrv), valu
+            yield (await self.getAbrvProp(abrv))[0], valu
 
     #async def _storFireSplices(self, splices):
         #'''
@@ -1626,16 +1636,6 @@ class Layer(s_nexus.Pusher):
         #'''
         #Bulk delete all instances of a form prop.
         #'''
-
-    #async def setNodeData(self, buid, name, item): # pragma: no cover
-        #raise NotImplementedError
-
-    #async def getNodeData(self, buid, name, defv=None): # pragma: no cover
-        #raise NotImplementedError
-
-    #async def iterNodeData(self, buid): # pragma: no cover
-        #for x in (): yield x
-        #raise NotImplementedError
 
     async def delete(self):
         '''
