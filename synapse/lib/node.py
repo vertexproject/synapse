@@ -706,6 +706,7 @@ class Node:
         await self.snap.addNodeEdit((self.buid, self.form.name, edits))
 
     async def popData(self, name):
+        # FIXME:  this method name is wrong.  It doesn't return data
         edits = (
             (s_layer.EDIT_NODEDATA_DEL, (name,)),
         )
