@@ -1064,11 +1064,6 @@ class SynTest(unittest.TestCase):
         kwargs.update({'host': host, 'port': port})
         return s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
-    async def agetTestProxy(self, dmon, name, **kwargs):
-        host, port = dmon.addr
-        kwargs.update({'host': host, 'port': port})
-        return await s_telepath.openurl(f'tcp:///{name}', **kwargs)
-
     @contextlib.contextmanager
     def getTestDir(self, mirror=None, copyfrom=None, chdir=False):
         '''

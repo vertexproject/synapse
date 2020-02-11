@@ -210,9 +210,13 @@ class SlabSeqn:
         return evnt
 
     async def waitForOffset(self, offs, timeout=None):
+        '''
+        Returns:
+            true if the event got set, False if timed out
+        '''
 
         if offs < self.indx:
-            return
+            return True
 
         evnt = self.getOffsetEvent(offs)
-        await s_coro.event_wait(evnt, timeout=timeout)
+        return await s_coro.event_wait(evnt, timeout=timeout)

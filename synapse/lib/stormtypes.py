@@ -609,7 +609,7 @@ class Queue(StormType):
         offs = intify(offs)
         todo = s_common.todo('coreQueueCull', self.name, offs)
         gatekeys = self._getGateKeys('get')
-        await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
         wait = intify(wait)

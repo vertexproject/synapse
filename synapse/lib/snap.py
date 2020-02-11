@@ -1119,8 +1119,9 @@ class Snap(s_base.Base):
         Get nodedata from closest to write layer, no merging involved
         '''
         for layr in reversed(self.layers):
-            valu = await layr.getNodeData(buid, name)
-            if valu is not s_common.NoValu:
+            todo = s_common.todo('getNodeData', buid, name)
+            valu = await self.core.dyncall(layr.iden, todo)
+            if valu is not None:  # FIXME:  None/NoValu confusion
                 return valu
         return defv
 
@@ -1130,7 +1131,8 @@ class Snap(s_base.Base):
         '''
         some = False
         for layr in reversed(self.layers):
-            async for item in layr.iterNodeData(buid):
+            todo = s_common.todo('iterNodeData', buid)
+            async for item in self.core.dyniter(layr.iden, todo):
                 some = True
                 yield item
             if some:
