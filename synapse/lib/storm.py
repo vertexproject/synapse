@@ -1170,6 +1170,35 @@ class Cmd:
         mesg = 'Unknown prop/variable syntax'
         raise s_exc.BadSyntax(mesg=mesg, valu=name)
 
+    @classmethod
+    def getStorNode(cls, form='syn:cmd'):
+        ndef = (form, cls.name)
+        buid = s_common.buid(ndef)
+
+        props = {
+            'doc': cls.getCmdBrief()
+        }
+
+        inpt = cls.forms.get('input')
+        outp = cls.forms.get('output')
+
+        if inpt:
+            props['input'] = tuple(inpt)
+
+        if outp:
+            props['output'] = tuple(outp)
+
+        if cls.svciden:
+            props['svciden'] = cls.svciden
+
+        if cls.pkgname:
+            props['package'] = cls.pkgname
+
+        return (buid, {
+            'ndef': ndef,
+            'props': props,
+        })
+
 class PureCmd(Cmd):
 
     def __init__(self, cdef, argv):
