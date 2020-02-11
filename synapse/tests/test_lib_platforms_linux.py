@@ -34,6 +34,11 @@ class LinuxTest(s_t_utils.SynTest):
                     locktotal = s_thisplat.getCurrentLockedMemory()
                     self.eq(locktotal, beforelock)
 
+                    # Make sure we get the largest mapped region
+                    with s_thisplat.mmap(0, int(fsize / 2), 0x1, 0x8001, f.fileno(), 0):
+                        addr, size = s_thisplat.getFileMappedRegion(fn)
+                        self.eq(size, fsize)
+
             # Sad tests
             bfn = pathlib.Path(dirn) / 'mapfile.newp'
             self.raises(s_exc.NoSuchFile, s_thisplat.getFileMappedRegion, bfn)

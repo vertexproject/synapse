@@ -170,7 +170,7 @@ class SlabAbrv:
 
         item = self.slab.last(db=self.abrv2name)
         if item is not None:
-            self.offs = s_common.int64un(item[0])
+            self.offs = s_common.int64un(item[0]) + 1
 
     @s_cache.memoize(10000)
     def abrvToName(self, abrv):
@@ -676,7 +676,13 @@ class Slab(s_base.Base):
             self.schedCallSafe(self.lockdoneevent.clear)
             self.resizeevent.clear()
 
-            memstart, memlen = s_thisplat.getFileMappedRegion(path)
+            try:
+                memstart, memlen = s_thisplat.getFileMappedRegion(path)
+            except s_exc.NoSuchFile:
+                logger.warning('map not found for %s', path)
+                self.schedCallSafe(self.lockdoneevent.set)
+                continue
+
             if memlen > max_to_lock:
                 memlen = max_to_lock
                 if not limit_warned:
@@ -689,7 +695,7 @@ class Slab(s_base.Base):
             # too-long length)
             filesize = os.fstat(fileno).st_size
             goal_end = memstart + min(memlen, filesize)
-            self.lock_goal = goal_end
+            self.lock_goal = goal_end - memstart
 
             self.lock_progress = 0
             prev_memend = memstart
@@ -705,6 +711,9 @@ class Slab(s_base.Base):
                     with s_thisplat.mmap(0, length=new_memend - prev_memend, prot=PROT, flags=FLAGS, fd=fileno,
                                          offset=prev_memend - memstart):
                         s_thisplat.mlock(prev_memend, memlen)
+                except OSError:
+                    logger.warning('error while attempting to lock memory')
+                    break
                 finally:
                     self.prefaulting = False
 

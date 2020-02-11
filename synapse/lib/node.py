@@ -123,8 +123,11 @@ class Node:
         '''
         Return the serializable/packed version of the node.
 
+        Args:
+            dorepr (bool): Include repr information for human readable versions of properties.
+
         Returns:
-            (tuple): An (iden, info) node tuple.
+            (tuple): An (ndef, info) node tuple.
         '''
         tagprops = collections.defaultdict(dict)
         [tagprops[tag].__setitem__(prop, valu) for (tag, prop), valu in self.tagprops.items()]
@@ -587,7 +590,8 @@ class Node:
 
         prop = self.snap.model.getTagProp(name)
         if prop is None:
-            raise s_exc.NoSuchTagProp(name=name)
+            raise s_exc.NoSuchTagProp(mesg='Tag prop does not exist in this Cortex.',
+                                      name=name)
 
         try:
             norm, info = prop.type.norm(valu)

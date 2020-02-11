@@ -152,6 +152,45 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(0, await core.nodes('#foo.bar:score=100'))
                 self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
 
+                # test for adding two tags with the same prop to the same node
+                nodes = await core.nodes('[ test:int=10 +#foo:score=20 +#bar:score=20 ]')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.eq(20, nodes[0].getTagProp('bar', 'score'))
+                nodes = await core.nodes('#:score')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.eq(20, nodes[0].getTagProp('bar', 'score'))
+
+                #    remove one of the tag props and everything still works
+                nodes = await core.nodes('[ test:int=10 -#bar:score ]')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.false(nodes[0].hasTagProp('bar', 'score'))
+                nodes = await core.nodes('#:score')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.false(nodes[0].hasTagProp('bar', 'score'))
+
+                await core.nodes('[ test:int=10 -#foo:score ]')
+                nodes = await core.nodes('#:score')
+                self.len(0, nodes)
+
+                #    same, except for _changing_ the tagprop instead of removing
+                await core.nodes('test:int=10 [ +#foo:score=20 +#bar:score=20 ]')
+                nodes = await core.nodes('test:int=10 [ +#bar:score=30 ]')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.eq(30, nodes[0].getTagProp('bar', 'score'))
+                nodes = await core.nodes('#:score')
+                self.len(1, nodes)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                self.eq(30, nodes[0].getTagProp('bar', 'score'))
+
+                await core.nodes('test:int=10 [ -#foo -#bar ]')
+                nodes = await core.nodes('#:score')
+                self.len(0, nodes)
+
                 with self.raises(s_exc.NoSuchCmpr):
                     await core.nodes('test:int=10 +#foo.bar:score*newp=66')
 
@@ -2659,6 +2698,31 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core1:
             await core1.addFeedData('syn.nodes', podes)
             await self.agenlen(3, core1.eval('test:int'))
+
+            await core1.addTagProp('test', ('int', {}), {})
+            async with await core1.snap() as snap:
+                node = await snap.getNodeByNdef(('test:int', 1))
+                await node.setTagProp('beep.beep', 'test', 1138)
+                pode = node.pack()
+
+            pode = (('test:int', 4), pode[1])
+
+            await core1.addFeedData('syn.nodes', [pode])
+            nodes = await core1.nodes('test:int=4')
+            self.eq(1138, nodes[0].getTagProp('beep.beep', 'test'))
+
+            # Put bad data in
+            with self.getAsyncLoggerStream('synapse.lib.snap',
+                                           "Error making node: [test:str=newp]") as stream:
+                data = [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})]
+                await core1.addFeedData('syn.nodes', data)
+                self.true(await stream.wait(6))
+
+            with self.getAsyncLoggerStream('synapse.lib.snap',
+                                           'Tagprop [newp] does not exist, cannot set it') as stream:
+                data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
+                await core1.addFeedData('syn.nodes', data)
+                self.true(await stream.wait(6))
 
     async def test_stat(self):
 

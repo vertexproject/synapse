@@ -74,8 +74,10 @@ class Snap(s_base.Base):
         self.debug = False      # Set to true to enable debug output.
         self.write = False      # True when the snap has a write lock on a layer.
 
-        self.tagcache = s_cache.FixedCache(self._addTagNode, size=10000)
-        self.buidcache = collections.deque(maxlen=100000)  # Keeps alive the most recently accessed node objects
+        self._tagcachesize = 10000
+        self._buidcachesize = 100000
+        self.tagcache = s_cache.FixedCache(self._addTagNode, size=self._tagcachesize)
+        self.buidcache = collections.deque(maxlen=self._buidcachesize)  # Keeps alive the most recently accessed node objects
         self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
 
         self.onfini(self.stack.close)
@@ -188,6 +190,45 @@ class Snap(s_base.Base):
     def listViews(self):
         return list(self.core.views.values())
 
+    async def addTrigger(self, condition, query, info, disabled=False):
+        return await self.core.addTrigger(condition, query, info=info, disabled=disabled)
+
+    async def delTrigger(self, iden):
+        return await self.core.delTrigger(iden)
+
+    async def updateTrigger(self, iden, query):
+        return await self.core.updateTrigger(iden, query)
+
+    async def enableTrigger(self, iden):
+        return await self.core.enableTrigger(iden)
+
+    async def disableTrigger(self, iden):
+        return await self.core.disableTrigger(iden)
+
+    async def listTriggers(self):
+        return await self.core.listTriggers()
+
+    def getUserName(self, iden, defv='<unknown>'):
+        return self.core.getUserName(iden, defv)
+
+    async def addCronJob(self, query, reqdict, incunit, incval):
+        return await self.core.addCronJob(self.user, query, reqdict, incunit, incval)
+
+    async def delCronJob(self, iden):
+        return await self.core.delCronJob(iden)
+
+    async def updateCronJob(self, iden, query):
+        return await self.core.updateCronJob(iden, query)
+
+    async def enableCronJob(self, iden):
+        return await self.core.enableCronJob(iden)
+
+    async def disableCronJob(self, iden):
+        return await self.core.disableCronJob(iden)
+
+    async def listCronJobs(self):
+        return await self.core.listCronJobs()
+
     def getStormMod(self, name):
         return self.mods.get(name)
 
@@ -258,6 +299,11 @@ class Snap(s_base.Base):
 
     async def getOffset(self, iden, offs):
         return await self.wlyr.getOffset(iden, offs)
+
+    async def clearCache(self):
+        self.tagcache.clear()
+        self.buidcache.clear()
+        self.livenodes.clear()
 
     async def printf(self, mesg):
         await self.fire('print', mesg=mesg)
@@ -754,21 +800,38 @@ class Snap(s_base.Base):
         '''
 
         for (formname, formvalu), forminfo in nodedefs:
+            try:
+                props = forminfo.get('props')
 
-            props = forminfo.get('props')
+                # remove any universal created props...
+                if props is not None:
+                    props.pop('.created', None)
 
-            # remove any universal created props...
-            if props is not None:
-                props.pop('.created', None)
+                node = await self.addNode(formname, formvalu, props=props)
+                if node is not None:
+                    tags = forminfo.get('tags')
+                    if tags is not None:
+                        for tag, asof in tags.items():
+                            await node.addTag(tag, valu=asof)
 
-            node = await self.addNode(formname, formvalu, props=props)
-            if node is not None:
-                tags = forminfo.get('tags')
-                if tags is not None:
-                    for tag, asof in tags.items():
-                        await node.addTag(tag, valu=asof)
+                    tagprops = forminfo.get('tagprops', {})
+                    if tagprops is not None:
+                        for tag, props in tagprops.items():
+                            for prop, valu in props.items():
+                                try:
+                                    await node.setTagProp(tag, prop, valu)
+                                except s_exc.NoSuchTagProp:
+                                    mesg = f'Tagprop [{prop}] does not exist, cannot set it on [{formname}={formvalu}]'
+                                    logger.warning(mesg)
+                                    continue
 
-            yield node
+                yield node
+
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+
+            except Exception as e:
+                logger.exception(f'Error making node: [{formname}={formvalu}]')
 
     async def stor(self, sops, splices=None):
 

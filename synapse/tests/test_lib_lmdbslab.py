@@ -14,6 +14,17 @@ import synapse.lib.thisplat as s_thisplat
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
+def getFileMapCount(filename):
+    filename = str(filename)
+    count = 0
+    with open(f'/proc/{os.getpid()}/maps') as maps:
+        for line in maps:
+            if len(line) < 50:
+                continue
+            if line.rstrip().endswith(filename):
+                count += 1
+    return count
+
 class LmdbSlabTest(s_t_utils.SynTest):
 
     async def test_lmdbslab_base(self):
@@ -415,10 +426,22 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq((('hehe', 20), ), info1.items())
 
     async def test_slab_initdb_grow(self):
+        self.thisHostMust(platform='linux')
+
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'slab.lmdb')
             async with await s_lmdbslab.Slab.anit(path, map_size=1024, lockmemory=True) as slab:
+                mapcount = getFileMapCount('slab.lmdb/data.mdb')
+                self.eq(1, mapcount)
+
+                mapsize = slab.mapsize
                 [slab.initdb(str(i)) for i in range(10)]
+                self.gt(slab.mapsize, mapsize)
+
+                # Make sure there is still only one map
+                self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
+                mapcount = getFileMapCount('slab.lmdb/data.mdb')
+                self.eq(1, mapcount)
 
     def test_slab_math(self):
         self.eq(s_lmdbslab._mapsizeround(100), 128)
@@ -631,6 +654,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 # And we still have no valu for 02
                 self.none(abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
 
+                # And we don't overwrite existing values on restart
+                valu = abrv.nameToAbrv('hoho')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x02')
+
+                valu = abrv.nameToAbrv('haha')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
+
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
     async def test_lmdbslabmemlock(self):
@@ -646,3 +676,23 @@ class LmdbSlabMemLockTest(s_t_utils.SynTest):
                 self.true(await asyncio.wait_for(lmdbslab.lockdoneevent.wait(), 8))
                 lockmem = s_thisplat.getCurrentLockedMemory()
                 self.ge(lockmem - beforelockmem, 4000)
+
+    async def test_multiple_grow(self):
+        '''
+        Trigger multiple grow events rapidly and ensure memlock thread survives.
+        '''
+        self.thisHostMust(hasmemlocking=True)
+
+        with self.getTestDir() as dirn:
+
+            count = 0
+            byts = b'\x00' * 1024
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=10 * 1024 * 1024, growsize=5000, lockmemory=True) as slab:
+                foo = slab.initdb('foo')
+                while count < 8000:
+                    count += 1
+                    slab.put(s_common.guid(count).encode('utf8'), s_common.guid(count).encode('utf8') + byts, db=foo)
+                self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
+                lockmem = s_thisplat.getCurrentLockedMemory()
+                self.gt(lockmem, 0)
