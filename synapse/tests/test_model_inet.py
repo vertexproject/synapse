@@ -1561,6 +1561,135 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    async def test_whois_ipquery(self):
+        rec = s_common.guid()
+        query_ipv4 = s_common.guid()
+        props_ipv4 = {
+            'time': 2554869000000,
+            'fqdn': 'arin.whois.net',
+            'ipv4': 167772160,
+            'success': True,
+            'rec': rec,
+        }
+        query_ipv6 = s_common.guid()
+        props_ipv6 = {
+            'time': 2554869000000,
+            'url': 'http://myrdap/rdap/?query=3300%3A100%3A1%3A%3Affff',
+            'ipv6': '3300:100:1::ffff',
+            'success': False,
+        }
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('inet:whois:ipquery', query_ipv4, props=props_ipv4)
+                self.checkNode(node, (('inet:whois:ipquery', query_ipv4), props_ipv4))
+
+                node = await snap.addNode('inet:whois:ipquery', query_ipv6, props=props_ipv6)
+                self.checkNode(node, (('inet:whois:ipquery', query_ipv6), props_ipv6))
+
+    async def test_whois_iprec(self):
+        contact = s_common.guid()
+        addlcontact = s_common.guid()
+
+        rec_ipv4 = s_common.guid()
+        props_ipv4 = {
+            'net4': '10.0.0.0/28',
+            'asof': 2554869000000,
+            'created': 2554858000000,
+            'updated': 2554858000000,
+            'text': 'this is  a bunch of \nrecord text 123123',
+            'asn': 12345,
+            'id': 'NET-10-0-0-0-1',
+            'name': 'vtx',
+            'parentid': 'NET-10-0-0-0-0',
+            'registrant': contact,
+            'contacts': (addlcontact, ),
+            'country': 'US',
+            'status': 'validated',
+            'type': 'direct allocation',
+            'links': ('http://rdap.com/foo', 'http://rdap.net/bar'),
+        }
+        expected_ipv4 = copy.deepcopy(props_ipv4)
+        expected_ipv4.update({
+            'net4': (167772160, 167772175),
+            'net4:min': 167772160,
+            'net4:max': 167772175,
+            'country': 'us',
+        })
+
+        rec_ipv6 = s_common.guid()
+        props_ipv6 = {
+            'net6': '2001:db8::/101',
+            'asof': 2554869000000,
+            'created': 2554858000000,
+            'updated': 2554858000000,
+            'text': 'this is  a bunch of \nrecord text 123123',
+            'asn': 12345,
+            'id': 'NET-10-0-0-0-0',
+            'name': 'EU-VTX-1',
+            'registrant': contact,
+            'country': 'tp',
+            'status': 'renew prohibited',
+            'type': 'allocated-BY-rir',
+        }
+        expected_ipv6 = copy.deepcopy(props_ipv6)
+        expected_ipv6.update({
+            'net6': ('2001:db8::', '2001:db8::7ff:ffff'),
+            'net6:min': '2001:db8::',
+            'net6:max': '2001:db8::7ff:ffff',
+            'type': 'allocated-by-rir',
+        })
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('inet:whois:iprec', rec_ipv4, props=props_ipv4)
+                self.checkNode(node, (('inet:whois:iprec', rec_ipv4), expected_ipv4))
+
+                node = await snap.addNode('inet:whois:iprec', rec_ipv6, props=props_ipv6)
+                self.checkNode(node, (('inet:whois:iprec', rec_ipv6), expected_ipv6))
+
+                # check regid pivot
+                scmd = f'inet:whois:iprec={rec_ipv4} :parentid -> inet:whois:iprec:id'
+                nodes = await core.eval(scmd).list()
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('inet:whois:iprec', rec_ipv6))
+
+                # bad country code
+                guid = s_common.guid()
+                props = {'country': 'u9'}
+                await self.asyncraises(s_exc.BadPropValu, snap.addNode('inet:whois:iprec', guid, props=props))
+
+    async def test_whois_ipcontact(self):
+        pscontact = s_common.guid()
+        contact = s_common.guid()
+        subcontact = s_common.guid()
+        props = {
+            'contact': pscontact,
+            'asof': 2554869000000,
+            'created': 2554858000000,
+            'updated': 2554858000000,
+            'role': 'registrant',
+            'roles': ('abuse', 'technical', 'administrative'),
+            'asn': 123456,
+            'id': 'SPM-3',
+            'links': ('http://myrdap.com/SPM3',),
+            'status': 'active',
+            'contacts': (subcontact,),
+        }
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('inet:whois:ipcontact', contact, props=props)
+                self.checkNode(node, (('inet:whois:ipcontact', contact), props))
+
+                # check regid pivot
+                iprec_guid = s_common.guid()
+                await snap.addNode(f'inet:whois:iprec', iprec_guid, props={'id': props['id']})
+                scmd = f'inet:whois:ipcontact={contact} :id -> inet:whois:iprec:id'
+                nodes = await core.eval(scmd).list()
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('inet:whois:iprec', iprec_guid))
+
     async def test_wifi_ap(self):
 
         place = s_common.guid()
