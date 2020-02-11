@@ -30,7 +30,6 @@ import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
-import synapse.lib.trigger as s_trigger
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -2286,7 +2285,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # Replace all views' references to old layer iden with new layer iden
         node = await self.hive.open(('cortex', 'views'))
-        for iden, viewnode in node:
+        for _, viewnode in node:
             info = await viewnode.dict()
             layers = info.get('layers')
             newlayers = [newlayriden if layr == oldlayriden else layr for layr in layers]
@@ -2408,6 +2407,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         del self.layers[iden]
 
         await self.auth.delAuthGate(iden)
+        self.dynitems.pop(iden)
 
         await self.hive.pop(('cortex', 'layers', iden))
 
@@ -2536,6 +2536,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         layr = await layrstor.initLayr(layrinfo, nexsroot=self.nexsroot)
 
         self.layers[layr.iden] = layr
+        self.dynitems[layr.iden] = layr
 
         await self.auth.addAuthGate(layr.iden, 'layer')
 
@@ -2566,7 +2567,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         node = await self.hive.open(('cortex', 'layers'))
 
         # TODO eventually hold this and watch for changes
-        for iden, node in node:
+        for _, node in node:
             layrinfo = await node.dict()
             await self._initLayr(layrinfo)
 
@@ -2869,7 +2870,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         ret = []
         for name, ctor in self.feedfuncs.items():
             # TODO - Future support for feed functions defined via Storm.
-            doc = getattr(ctor, '__doc__')
+            doc = getattr(ctor, '__doc__', None)
             if doc is None:
                 doc = 'No feed docstring'
             doc = doc.strip()

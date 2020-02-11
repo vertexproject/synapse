@@ -975,7 +975,7 @@ class Layer(s_nexus.Pusher):
 
     @s_nexus.Pusher.onPushAuto('edits', passoff=True)
     async def storNodeEdits(self, nodeedits, meta, nexsoff=None):
-        assert nexsoff is not None
+        assert nexsoff is not None, "Nexus bypassed"
         self.splicelog.add(nexsoff)
         retn = [await self._storNodeEdit(e, meta) for e in nodeedits]
         self.offsets.set('splice:applied', nexsoff)
@@ -985,7 +985,6 @@ class Layer(s_nexus.Pusher):
         '''
         Execute a series of storage operations for the given node.
         '''
-
         buid, form, edits = nodeedit
 
         changed = []

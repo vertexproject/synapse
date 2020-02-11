@@ -1464,7 +1464,6 @@ class LibView(Lib):
         self.runt.confirm(('view', 'read'))
 
         views = self.runt.snap.core.listViews()
-        print('views=', views)
 
         return [View(view, path=self.path) for view in views]
 

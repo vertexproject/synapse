@@ -1107,7 +1107,8 @@ class StormTypesTest(s_test.SynTest):
             ''')
             self.len(2, nodes)
 
-            nodes = await core.nodes('$q = $lib.queue.get(blah) for ($offs, $ipv4) in $q.gets(wait=0) { inet:ipv4=$ipv4 }')
+            q = '$q = $lib.queue.get(blah) for ($offs, $ipv4) in $q.gets(wait=0) { inet:ipv4=$ipv4 }'
+            nodes = await core.nodes(q)
             self.len(0, nodes)
 
             msgs = await core.streamstorm('queue.del visi').list()
