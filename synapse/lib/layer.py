@@ -94,11 +94,19 @@ class LayerApi(s_cell.CellApi):
         #self.storperm = ('layer:stor', self.layr.iden)
 
     async def iterLayerSplices(self):
+        '''
+        Scan the full layer and yield artificial nodeedit splices.
+        '''
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.iterLayerSplices():
             yield item
 
     async def syncSplices(self, offs):
+        '''
+        Yield (offs, mesg) tuples from the splicelog starting from the given offset.
+
+        Once caught up with storage, yield them in realtime
+        '''
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.syncSplices(offs):
             yield item
@@ -106,6 +114,10 @@ class LayerApi(s_cell.CellApi):
     async def getSpliceOffset(self):
         await self._reqUserAllowed(self.liftperm)
         return self.layr.getSpliceOffset()
+
+    async def getIden(self):
+        await self._reqUserAllowed(self.liftperm)
+        return self.layr.iden
 
     #async def getLiftRows(self, lops):
         #await self._reqUserAllowed(self.liftperm)
@@ -1038,6 +1050,30 @@ class Layer(s_nexus.Pusher):
 
         return sode
 
+    @s_nexus.Pusher.onPushAuto('editsnolift', passoff=True)
+    async def storNodeEditsNoLift(self, nodeedits, meta, nexsoff=None):
+        assert nexsoff is not None
+        offs = self.splicelog.add(nexsoff)
+
+        [(await wind.put((offs, nexsoff))) for wind in tuple(self.windows)]
+
+        [await self._storNodeEditNoLift(e, meta) for e in nodeedits]
+        self.offsets.set('splice:applied', nexsoff)
+
+    async def _storNodeEditNoLift(self, nodeedit, meta):
+        '''
+        Execute a series of storage operations for the given node.
+
+        Does not return the updated node.
+        '''
+
+        buid, form, edits = nodeedit
+
+        for edit in edits:
+            self.editors[edit[0]](buid, form, edit)
+
+        await asyncio.sleep(0)
+
     def _editNodeAdd(self, buid, form, edit):
 
         valu, stortype = edit[1]
@@ -1385,7 +1421,9 @@ class Layer(s_nexus.Pusher):
             yield prop[0], valu
 
     async def iterLayerSplices(self):
-
+        '''
+        Scan the full layer and yield artificial nodeedit splices.
+        '''
         nodeedits = (None, None, None)
 
         for lkey, lval in self.layrslab.scanByFull(db=self.bybuid):
@@ -1464,24 +1502,25 @@ class Layer(s_nexus.Pusher):
 
                 async with await s_telepath.openurl(url) as proxy:
 
-                    offs = self.offsets.get(url)
+                    iden = await proxy.getIden()
+                    offs = self.offsets.get(iden)
                     logger.warning(f'upstream sync connected ({url} offset={offs})')
 
                     if offs == 0:
                         offs = await proxy.getSpliceOffset()
 
                         async for item in proxy.iterLayerSplices():
-                            await self.storNodeEdits([item], {})
+                            await self.storNodeEditsNoLift([item], {})
 
-                        self.offsets.set(url, offs)
+                        self.offsets.set(iden, offs)
 
-                        waits = [v for k, v in self.upstreamwaits[url].items() if k <= offs]
+                        waits = [v for k, v in self.upstreamwaits[iden].items() if k <= offs]
                         for wait in waits:
                             [e.set() for e in wait]
 
                     while not proxy.isfini:
 
-                        offs = self.offsets.get(url)
+                        offs = self.offsets.get(iden)
 
                         # pump them into a queue so we can consume them in chunks
                         q = asyncio.Queue(maxsize=1000)
@@ -1516,10 +1555,10 @@ class Layer(s_nexus.Pusher):
                                 items.append(nexi)
 
                             for spliceoffs, item in items:
-                                await self.storNodeEdits(item, {})
-                                self.offsets.set(url, spliceoffs + 1)
+                                await self.storNodeEditsNoLift(item, {})
+                                self.offsets.set(iden, spliceoffs + 1)
 
-                                waits = self.upstreamwaits[url].pop(spliceoffs + 1, None)
+                                waits = self.upstreamwaits[iden].pop(spliceoffs + 1, None)
                                 if waits is not None:
                                     [e.set() for e in waits]
 
@@ -1726,7 +1765,11 @@ class Layer(s_nexus.Pusher):
                 yield mesg
 
     async def syncSplices(self, offs):
+        '''
+        Yield (offs, mesg) tuples from the splicelog starting from the given offset.
 
+        Once caught up with storage, yield them in realtime
+        '''
         for offs, nexsoff in self.splicelog.iter(offs):
             yield (offs, self.nexsroot.nexuslog.get(nexsoff)[2][0])
 
@@ -1752,13 +1795,13 @@ class Layer(s_nexus.Pusher):
     def getSpliceOffset(self):
         return self.splicelog.index()
 
-    async def waitUpstreamOffs(self, url, offs):
+    async def waitUpstreamOffs(self, iden, offs):
         evnt = asyncio.Event()
 
-        if self.offsets.get(url) >= offs:
+        if self.offsets.get(iden) >= offs:
             evnt.set()
         else:
-            self.upstreamwaits[url][offs].append(evnt)
+            self.upstreamwaits[iden][offs].append(evnt)
 
         return evnt
 

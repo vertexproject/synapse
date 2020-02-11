@@ -126,6 +126,8 @@ class LayerTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=path00) as core00:
 
+                layriden = core00.view.layers[0].iden
+
                 await core00.nodes('[test:str=foobar +#hehe.haha]')
                 await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
                 await core00.addTagProp('score', ('int', {}), {})
@@ -146,7 +148,7 @@ class LayerTest(s_t_utils.SynTest):
 
                     # test initial sync
                     offs = core00.getView().layers[0].getSpliceOffset()
-                    evnt = await layr.waitUpstreamOffs(url, offs)
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                     self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
@@ -165,7 +167,7 @@ class LayerTest(s_t_utils.SynTest):
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
 
                     offs = core00.getView().layers[0].getSpliceOffset()
-                    evnt = await layr.waitUpstreamOffs(url, offs)
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
@@ -178,7 +180,7 @@ class LayerTest(s_t_utils.SynTest):
 
                     layr = core01.getView().layers[-1]
 
-                    evnt = await layr.waitUpstreamOffs(url, offs)
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                     self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
@@ -186,7 +188,7 @@ class LayerTest(s_t_utils.SynTest):
                     await core00.nodes('[ inet:ipv4=5.6.7.8 ]')
 
                     offs = core00.getView().layers[0].getSpliceOffset()
-                    evnt = await layr.waitUpstreamOffs(url, offs)
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                     self.len(1, await core01.nodes('inet:ipv4=5.6.7.8'))
@@ -201,10 +203,14 @@ class LayerTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=path00) as core00:
 
+                iden00 = core00.view.layers[0].iden
+
                 await core00.nodes('[test:str=foobar +#hehe.haha]')
                 await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
 
                 async with self.getTestCore(dirn=path01) as core01:
+
+                    iden01 = core01.view.layers[0].iden
 
                     await core01.nodes('[test:str=barfoo +#haha.hehe]')
                     await core01.nodes('[ inet:ipv4=4.3.2.1 ]')
@@ -221,7 +227,7 @@ class LayerTest(s_t_utils.SynTest):
 
                         # core00 is synced
                         offs = core00.getView().layers[0].getSpliceOffset()
-                        evnt = await layr.waitUpstreamOffs(url00, offs)
+                        evnt = await layr.waitUpstreamOffs(iden00, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                         self.len(1, await core02.nodes('inet:ipv4=1.2.3.4'))
@@ -231,7 +237,7 @@ class LayerTest(s_t_utils.SynTest):
 
                         # core01 is synced
                         offs = core01.getView().layers[0].getSpliceOffset()
-                        evnt = await layr.waitUpstreamOffs(url01, offs)
+                        evnt = await layr.waitUpstreamOffs(iden01, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                         self.len(1, await core02.nodes('inet:ipv4=4.3.2.1'))
@@ -243,7 +249,7 @@ class LayerTest(s_t_utils.SynTest):
                         await core00.nodes('[ inet:fqdn=vertex.link ]')
 
                         offs = core00.getView().layers[0].getSpliceOffset()
-                        evnt = await layr.waitUpstreamOffs(url00, offs)
+                        evnt = await layr.waitUpstreamOffs(iden00, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                         self.len(1, await core02.nodes('inet:fqdn=vertex.link'))
@@ -252,7 +258,7 @@ class LayerTest(s_t_utils.SynTest):
                         await core01.nodes('[ inet:fqdn=google.com ]')
 
                         offs = core01.getView().layers[0].getSpliceOffset()
-                        evnt = await layr.waitUpstreamOffs(url01, offs)
+                        evnt = await layr.waitUpstreamOffs(iden01, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                         self.len(1, await core02.nodes('inet:fqdn=google.com'))
@@ -267,14 +273,14 @@ class LayerTest(s_t_utils.SynTest):
 
                         # test we catch up to core00
                         offs = core00.getView().layers[0].getSpliceOffset()
-                        evnt = await layr.waitUpstreamOffs(url00, offs)
+                        evnt = await layr.waitUpstreamOffs(iden00, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                         self.len(1, await core02.nodes('inet:ipv4=5.5.5.5'))
 
                         # test we catch up to core01
                         offs = core01.getView().layers[0].getSpliceOffset()
-                        evnt = await layr.waitUpstreamOffs(url01, offs)
+                        evnt = await layr.waitUpstreamOffs(iden01, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                         self.len(1, await core02.nodes('inet:ipv4=6.6.6.6'))
@@ -283,7 +289,7 @@ class LayerTest(s_t_utils.SynTest):
                         await core00.nodes('[ inet:ipv4=5.6.7.8 ]')
 
                         offs = core00.getView().layers[0].getSpliceOffset()
-                        evnt = await layr.waitUpstreamOffs(url00, offs)
+                        evnt = await layr.waitUpstreamOffs(iden00, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                         self.len(1, await core02.nodes('inet:ipv4=5.6.7.8'))
@@ -292,7 +298,7 @@ class LayerTest(s_t_utils.SynTest):
                         await core01.nodes('[ inet:ipv4=8.7.6.5 ]')
 
                         offs = core01.getView().layers[0].getSpliceOffset()
-                        evnt = await layr.waitUpstreamOffs(url01, offs)
+                        evnt = await layr.waitUpstreamOffs(iden01, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                         self.len(1, await core02.nodes('inet:ipv4=8.7.6.5'))
