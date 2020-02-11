@@ -699,11 +699,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'The cortex is free to use most of the resources of the system.',
             'type': 'boolean'
         },
-        'feeds': {
-            'default': [],
-            'description': 'A list of feed dictionaries.',
-            'type': 'array'
-        },
         'layer:lmdb:map_async': {
             'default': False,
             'description': 'Set the default lmdb:map_async value in LMDB layers.',
@@ -732,10 +727,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'default': True,
             'description': 'Enable storing splices for layer changes.',
             'type': 'boolean'
-        },
-        'splice:sync': {
-            'description': 'A telepath URL for an upstream cortex.',
-            'type': 'string'
         },
         'storm:log': {
             'default': False,
@@ -2692,181 +2683,6 @@ class Cortex(s_cell.Cell):  # type: ignore
     def getStormCmds(self):
         return list(self.stormcmds.items())
 
-# FIXME: change these to daemons
-#    def _initPushLoop(self):
-#
-#        if self.conf.get('splice:sync') is None:
-#            return
-#
-#        self.schedCoro(self._runPushLoop())
-#
-#    async def _runPushLoop(self):
-#
-#        url = self.conf.get('splice:sync')
-#
-#        iden = self.getCellIden()
-#
-#        logger.info('sync loop init: %s', url)
-#
-#        while not self.isfini:
-#            timeout = 1
-#            try:
-#
-#                url = self.conf.get('splice:sync')
-#
-#                async with await s_telepath.openurl(url) as core:
-#
-#                    # use our iden as the feed iden
-#                    offs = await core.getFeedOffs(iden)
-#
-#                    while not self.isfini:
-#                        layer = self.getLayer()
-#
-#                        items = [x async for x in layer.splices(offs, 10000)]
-#
-#                        if not items:
-#                            await self.waitfini(timeout=1)
-#                            continue
-#
-#                        size = len(items)
-#                        indx = (await layer.stat())['splicelog_indx']
-#
-#                        perc = float(offs) / float(indx) * 100.0
-#
-#                        logger.info('splice push: %d %d/%d (%.4f%%)', size, offs, indx, perc)
-#
-#                        offs = await core.addFeedData('syn.splice', items, seqn=(iden, offs))
-#                        await self.fire('core:splice:sync:sent')
-#
-#            except asyncio.CancelledError:
-#                break
-#
-#            except Exception as e:  # pragma: no cover
-#                if isinstance(e, OSError):
-#                    timeout = 60
-#
-#                logger.exception('sync error')
-#                await self.waitfini(timeout)
-#
-#    def _initCryoLoop(self):
-#
-#        tankurl = self.conf.get('splice:cryotank')
-#        if tankurl is None:
-#            return
-#
-#        self.schedCoro(self._runCryoLoop())
-#
-#    def _initFeedLoops(self):
-#        '''
-#        feeds:
-#            - cryotank: tcp://cryo.vertex.link/cryo00/tank01
-#              xtype: syn.splice
-#        '''
-#        feeds = self.conf.get('feeds', ())
-#        if not feeds:
-#            return
-#
-#        for feed in feeds:
-#
-#            # do some validation before we fire tasks...
-#            typename = feed.get('type')
-#            if self.getFeedFunc(typename) is None:
-#                raise s_exc.NoSuchType(name=typename)
-#
-#            self.schedCoro(self._runFeedLoop(feed))
-#
-#    async def _runFeedLoop(self, feed):
-#
-#        url = feed.get('cryotank')
-#        typename = feed.get('type')
-#        fsize = feed.get('size', 1000)
-#
-#        logger.info('feed loop init: %s @ %s', typename, url)
-#
-#        while not self.isfini:
-#            timeout = 1
-#            try:
-#
-#                url = feed.get('cryotank')
-#
-#                async with await s_telepath.openurl(url) as tank:
-#
-#                    layer = self.getLayer()
-#
-#                    iden = await tank.iden()
-#
-#                    offs = await layer.getOffset(iden)
-#
-#                    while not self.isfini:
-#
-#                        items = [item async for item in tank.slice(offs, fsize)]
-#                        if not items:
-#                            await self.waitfini(timeout=2)
-#                            continue
-#
-#                        datas = [i[1] for i in items]
-#
-#                        offs = await self.addFeedData(typename, datas, seqn=(iden, offs))
-#                        await self.fire('core:feed:loop')
-#                        logger.debug('Processed [%s] records with [%s]',
-#                                     len(datas), typename)
-#
-#            except asyncio.CancelledError:
-#                break
-#
-#            except Exception as e:  # pragma: no cover
-#                if isinstance(e, OSError):
-#                    timeout = 60
-#                logger.exception('feed error')
-#                await self.waitfini(timeout)
-#
-#    async def _runCryoLoop(self):
-#
-#        online = False
-#        tankurl = self.conf.get('splice:cryotank')
-#
-#        # TODO:  what to do when write layer changes?
-#
-#        # push splices for our main layer
-#        layr = self.getLayer()
-#
-#        while not self.isfini:
-#            timeout = 2
-#            try:
-#
-#                async with await s_telepath.openurl(tankurl) as tank:
-#
-#                    if not online:
-#                        online = True
-#                        logger.info('splice cryotank: online')
-#
-#                    offs = await tank.offset(self.iden)
-#
-#                    while not self.isfini:
-#
-#                        items = [item async for item in layr.splices(offs, 10000)]
-#
-#                        if not len(items):
-#                            layr.spliced.clear()
-#                            await s_coro.event_wait(layr.spliced, timeout=1)
-#                            continue
-#
-#                        logger.info('tanking splices: %d', len(items))
-#
-#                        offs = await tank.puts(items, seqn=(self.iden, offs))
-#                        await self.fire('core:splice:cryotank:sent')
-#
-#            except asyncio.CancelledError:  # pragma: no cover
-#                break
-#
-#            except Exception as e:  # pragma: no cover
-#                if isinstance(e, OSError):
-#                    timeout = 60
-#                online = False
-#                logger.exception('splice cryotank offline')
-#
-#                await self.waitfini(timeout)
-
     def setFeedFunc(self, name, func):
         '''
         Set a data ingest function.
@@ -3253,16 +3069,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         async with await self.snap() as snap:
             snap.strict = False
             return await snap.addFeedData(name, items, seqn=seqn)
-
-    # async def getFeedOffs(self, iden):
-    #    return await self.getLayer().getOffset(iden)
-
-    # async def setFeedOffs(self, iden, offs):
-    #    if offs < 0:
-        #    mesg = 'Offset must be >= 0.'
-        #    raise s_exc.BadConfValu(mesg=mesg, offs=offs, iden=iden)
-
-    #    return await self.getLayer().setOffset(iden, offs)
 
     async def snap(self, user=None, view=None):
         '''

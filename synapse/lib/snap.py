@@ -1057,6 +1057,7 @@ class Snap(s_base.Base):
             (list): A list of xact messages.
         '''
 
+        # TODO make this produce splices and call without lift
         for (formname, formvalu), forminfo in nodedefs:
             try:
                 props = forminfo.get('props')

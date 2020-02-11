@@ -151,7 +151,7 @@ class LibDmon(Lib):
         if dmon.ddef.get('user') != self.runt.user.iden:
             self.runt.user.confirm(('storm', 'dmon', 'del', iden))
 
-        await self.runt.core.delStormDmon(iden)
+        await self.runt.snap.core.delStormDmon(iden)
 
     async def _libDmonList(self):
         dmons = await self.runt.snap.core.getStormDmons()
@@ -609,7 +609,7 @@ class Queue(StormType):
         offs = intify(offs)
         todo = s_common.todo('coreQueueCull', self.name, offs)
         gatekeys = self._getGateKeys('get')
-        await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
         wait = intify(wait)
