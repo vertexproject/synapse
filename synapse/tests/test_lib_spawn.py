@@ -526,6 +526,29 @@ class CoreSpawnTest(s_test.SynTest):
                 msgs = await prox.storm('pkg.list', opts=opts).list()
                 self.stormIsInPrint('stormpkg', msgs)
 
+    async def test_spawn_node_data(self):
+
+        # Largely mimics test_storm_lib_queue
+        async with self.getTestCore() as core:
+            opts = {'spawn': True}
+
+            async with core.getLocalProxy() as prox:
+
+                await core.nodes('[test:int=10]')
+                await prox.storm('test:int=10 $node.data.set(foo, hehe)', opts=opts).list()
+
+                msgs = await prox.storm('test:int $foo=$node.data.get(foo) $lib.print($foo)', opts=opts).list()
+                self.stormIsInPrint('hehe', msgs)
+
+                q = 'test:int for $item in $node.data.list() { $lib.print($item) }'
+                msgs = await prox.storm(q, opts=opts).list()
+                self.stormIsInPrint("('foo', 'hehe')", msgs)
+
+                await core.nodes('test:int=10 $node.data.set(woot, woot)')
+
+                msgs = await prox.storm('test:int=10 $node.data.pop(woot) $lib.print($node.data.get(woot))').list()
+                self.stormIsInPrint("None", msgs)
+
     async def test_model_extensions(self):
         async with self.getTestCore() as core:
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')

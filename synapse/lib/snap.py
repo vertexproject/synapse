@@ -70,7 +70,8 @@ class Snap(s_base.Base):
         self._tagcachesize = 10000
         self._buidcachesize = 100000
         self.tagcache = s_cache.FixedCache(self._addTagNode, size=self._tagcachesize)
-        self.buidcache = collections.deque(maxlen=self._buidcachesize)  # Keeps alive the most recently accessed node objects
+        # Keeps alive the most recently accessed node objects
+        self.buidcache = collections.deque(maxlen=self._buidcachesize)
         self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
 
         self.onfini(self.stack.close)
@@ -530,7 +531,7 @@ class Snap(s_base.Base):
             return
 
         if prop.isrunt:
-            for storcmpr, storvalu, stortype in cmprvals:
+            for storcmpr, storvalu, _ in cmprvals:
                 async for node in self.getRuntNodes(prop.full, valu=storvalu, cmpr=storcmpr):
                     yield node
             return
@@ -632,8 +633,6 @@ class Snap(s_base.Base):
 
     def getNodeAdds(self, form, valu, props=None, addnode=True):
 
-        tick = s_common.now()
-
         # TODO consider nesting these to allow short circuit on existing
         def recurse(f, v, p, doadd=True):
 
@@ -709,12 +708,25 @@ class Snap(s_base.Base):
         nodes = await self.addNodeEdits((edit,))
         return nodes[0]
 
-    async def addNodeEdits(self, edits):
+    async def issueNodeEdits(self, edits):
+        '''
+        Sends the edits to the write layer and gets back storage nodes
 
+        Note:
+           Pretty much only useful for node data actions
+
+        '''
         meta = self.getSnapMeta()
-        sodes = await self.wlyr.storNodeEdits(edits, meta)
-        wlyr = self.wlyr
+        todo = s_common.todo('storNodeEdits', edits, meta)
+        return await self.core.dyncall(self.wlyr.iden, todo)
 
+    async def addNodeEdits(self, edits):
+        '''
+        Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
+        '''
+        sodes = await self.issueNodeEdits(edits)
+
+        wlyr = self.wlyr
         nodes = []
         callbacks = []
 
@@ -1112,10 +1124,6 @@ class Snap(s_base.Base):
                 return valu
         return defv
 
-    async def setNodeData(self, buid, name, item):
-        envl = {'user': self.user.iden, 'time': s_common.now(), 'data': item}
-        return await self.wlyr.setNodeData(buid, name, envl)
-
     async def iterNodeData(self, buid):
         '''
         Returns:  Iterable[Tuple[str, Any]]
@@ -1127,8 +1135,3 @@ class Snap(s_base.Base):
                 yield item
             if some:
                 return
-
-    async def popNodeData(self, buid, name):
-        envl = await self.wlyr.popNodeData(buid, name)
-        if envl is not None:
-            return envl.get('data')
