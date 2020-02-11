@@ -22,7 +22,7 @@ MIGR_ERR = {
     'logtyp': 'error',
     'key': b'\xc8ak\x08\xb8\x8fJ\xcd\xad/\xc4F\x08\x7f@\xc9k\xf8\xc4\xca\x807|\xacK\xe5\xff<\x88+7\xef',
     'val': {
-        'mesg': 'Unable to determine model form for migr:test',
+        'mesg': "Unable to determine stortype for migr:test: 'NoneType' object has no attribute 'type'",
         'node': (
             b'\xc8ak\x08\xb8\x8fJ\xcd\xad/\xc4F\x08\x7f@\xc9k\xf8\xc4\xca\x807|\xacK\xe5\xff<\x88+7\xef',
             {
@@ -133,7 +133,7 @@ class MigrationTest(s_t_utils.SynTest):
             iden = locallyrs[0]  # update if regression cortex has more local layers
 
             # abbreviated stats check
-            stats = await migr._migrlogGet('nodes', 'stat', f'{iden}:form')
+            stats = [log async for log in migr._migrlogGet('nodes', 'stat', f'{iden}:form')]
             self.gt(len(stats), 0)
             for stat in stats:
                 skey = stat['key']
@@ -146,10 +146,10 @@ class MigrationTest(s_t_utils.SynTest):
                 elif skey.endswith('syn:tag'):
                     self.eq((6, 6), sval)
 
-            totnodes = await migr._migrlogGet('nodes', 'stat', f'{iden}:totnodes')
+            totnodes = [log async for log in migr._migrlogGet('nodes', 'stat', f'{iden}:totnodes')]
             self.eq(32, totnodes[0]['val'][0])
 
-            totnodedata = await migr._migrlogGet('nodedata', 'stat', f'{iden}:totnodes')
+            totnodedata = [log async for log in migr._migrlogGet('nodedata', 'stat', f'{iden}:totnodes')]
             self.eq(4, totnodedata[0]['val'][0])
 
             # test dump errors
@@ -168,6 +168,10 @@ class MigrationTest(s_t_utils.SynTest):
 
             # startup 0.2.0 core
             async with self.getTestCore(dirn=dest) as core:
+                # check that nexus root has offsets from migration
+                self.gt(await core.getNexusOffs(), 1)
+
+                # test validation data
                 tpodes = tdata['podes']
                 tnodedata = tdata['nodedata']
 
@@ -210,10 +214,10 @@ class MigrationTest(s_t_utils.SynTest):
             iden = locallyrs[0]  # update if regression cortex has more local layers
 
             # abbreviated stats check
-            totnodes = await migr._migrlogGet('nodes', 'stat', f'{iden}:totnodes')
+            totnodes = [log async for log in migr._migrlogGet('nodes', 'stat', f'{iden}:totnodes')]
             self.eq(32, totnodes[0]['val'][0])
 
-            totnodedata = await migr._migrlogGet('nodedata', 'stat', f'{iden}:totnodes')
+            totnodedata = [log async for log in migr._migrlogGet('nodedata', 'stat', f'{iden}:totnodes')]
             self.eq(4, totnodedata[0]['val'][0])
 
             await migr.fini()
@@ -261,10 +265,10 @@ class MigrationTest(s_t_utils.SynTest):
             iden = locallyrs[0]  # update if regression cortex has more local layers
 
             # abbreviated stats check
-            totnodes = await migr._migrlogGet('nodes', 'stat', f'{iden}:totnodes')
+            totnodes = [log async for log in migr._migrlogGet('nodes', 'stat', f'{iden}:totnodes')]
             self.eq(32, totnodes[0]['val'][0])
 
-            totnodedata = await migr._migrlogGet('nodedata', 'stat', f'{iden}:totnodes')
+            totnodedata = [log async for log in migr._migrlogGet('nodedata', 'stat', f'{iden}:totnodes')]
             self.eq(4, totnodedata[0]['val'][0])
 
             await migr.fini()
@@ -311,10 +315,10 @@ class MigrationTest(s_t_utils.SynTest):
             iden = locallyrs0[0]  # update if regression cortex has more local layers
 
             # abbreviated stats check
-            totnodes = await migr0._migrlogGet('nodes', 'stat', f'{iden}:totnodes')
+            totnodes = [log async for log in migr0._migrlogGet('nodes', 'stat', f'{iden}:totnodes')]
             self.eq(32, totnodes[0]['val'][0])
 
-            totnodedata = await migr0._migrlogGet('nodedata', 'stat', f'{iden}:totnodes')
+            totnodedata = [log async for log in migr0._migrlogGet('nodedata', 'stat', f'{iden}:totnodes')]
             self.eq(4, totnodedata[0]['val'][0])
 
             await migr0.fini()
@@ -331,10 +335,10 @@ class MigrationTest(s_t_utils.SynTest):
                 await migr.migrate()
 
                 # abbreviated stats check
-                totnodes = await migr._migrlogGet('nodes', 'stat', f'{iden}:totnodes')
+                totnodes = [log async for log in migr._migrlogGet('nodes', 'stat', f'{iden}:totnodes')]
                 self.eq(32, totnodes[0]['val'][0])
 
-                totnodedata = await migr._migrlogGet('nodedata', 'stat', f'{iden}:totnodes')
+                totnodedata = [log async for log in migr._migrlogGet('nodedata', 'stat', f'{iden}:totnodes')]
                 self.eq(4, totnodedata[0]['val'][0])
 
                 await migr.fini()

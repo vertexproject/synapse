@@ -3,18 +3,13 @@ Migrate Synapse from 0.1.x to 0.2.x.
 
 TODO:
     - Migrating mirrors (what about existing remote layer?)
-    - Handling for pause/restart
-    - Validation (esp. check .created)
-    - Offset migration
+    - Restart capability?
+    - Validation option?
     - Prompt and/or execute a backup?
-    - Add ability to do a specific step on a specifc layer?
     - Any migr for views?  Need to iter over views?
-    - Teardown / restore options
     - Set an error threshold for canceling migration?  esp on nodes?
-    - need to execute a model migration also?  or can that be done after data migration?
+    - handling datamodel changes / migration
     - inbound conditions to start, i.e. at least at 0.1.Y
-    - check slab opening props
-    - handle custom modules that may have a custom type (and therefore no stortype)
 '''
 import os
 import sys
@@ -31,6 +26,7 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.base as s_base
 import synapse.lib.hive as s_hive
+import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
@@ -70,9 +66,7 @@ class Migrator(s_base.Base):
 
     Source 0.1.x data is not modified, and migration can be run as a background operation.
 
-    A migration dir is created to store two sets of data:
-        - migr.lmdb: Stats, progress logs, checkpoints, and error logs specific to migration
-        - nexus.lmdb: Migration splices which will not be present in the final 0.2.x cortex
+    A migration dir is created to store stats, progress logs, checkpoints, and error logs specific to migration.
     '''
     async def __anit__(self, conf):
         await s_base.Base.__anit__(self)
@@ -93,13 +87,16 @@ class Migrator(s_base.Base):
         if self.addmode is None:
             self.addmode = 'nexus'
 
+        if self.addmode != 'nexus':
+            logger.warning('Add mode is bypassing nexus - no splices will exist in 0.2.x cortex')
+
         self.editbatchsize = conf.get('editbatchsize')
         if self.editbatchsize is None:
-            self.editbatchsize = 10
+            self.editbatchsize = 100
 
         self.fairiter = conf.get('fairiter')
         if self.fairiter is None:
-            self.fairiter = 10
+            self.fairiter = 100
 
         self.safetyoff = conf.get('safetyoff')
         if self.safetyoff is None:
@@ -108,10 +105,19 @@ class Migrator(s_base.Base):
         if self.safetyoff:
             logger.warning('Node value checking before addition has been disabled')
 
+        self.srcdedicated = conf.get('srcdedicated')
+        if self.srcdedicated is None:
+            self.srcdedicated = False
+
+        self.destdedicated = conf.get('destdedicated')
+        if self.destdedicated is None:
+            self.destdedicated = False
+
         self.srcslabopts = {
             'readonly': True,
             'map_async': True,
             'readahead': False,
+            'lockmemory': self.srcdedicated,
         }
 
         # data model
@@ -161,15 +167,21 @@ class Migrator(s_base.Base):
             wlyr = await self._destGetWlyr(self.dest, storinfo, iden)
 
             if 'nodes' in self.migrops:
-                #yappi.start()
                 await self._migrNodes(iden, wlyr)
-                # yappi.get_func_stats().print_all()
+                # TODO: remove yappi
+                # yappi.set_clock_type("wall")
+                # yappi.start()
+                # await self._migrNodes(iden, wlyr)
                 # yappi.stop()
+                # stats = yappi.get_func_stats()
+                # stats.strip_dirs()
+                # stats.print_all(out=sys.stdout,
+                #                 columns={0: ("name", 50), 1: ("ncall", 15), 2: ("tsub", 8), 3: ("ttot", 8),
+                #                          4: ("tavg", 8)})
+                # yappi.get_thread_stats().print_all()
 
             if 'nodedata' in self.migrops:
                 await self._migrNodeData(iden, wlyr)
-
-            # await self._migrOffsets(foo)  # TODO
 
             if 'hivelyr' in self.migrops:
                 await self._migrHiveLayerInfo(storinfo, iden)
@@ -195,9 +207,8 @@ class Migrator(s_base.Base):
 
         logger.info('Starting dump of migration errors')
         dumpf = os.path.join(self.dest, self.migrdir, f'migrerrors_{s_common.now()}.mpk')
-        errs = await self._migrlogGet(migrop='nodes', logtyp='error')
         with open(dumpf, 'wb') as fd:
-            for err in errs:
+            async for err in self._migrlogGet(migrop='nodes', logtyp='error'):
                 fd.write(s_msgpack.en(err))
 
         return dumpf
@@ -216,11 +227,10 @@ class Migrator(s_base.Base):
 
         # optionally create migration nexus
         if nexus and self.addmode == 'nexus':
-            path = os.path.join(self.dest, self.migrdir)
+            path = os.path.join(self.dest)
             if self.nexusroot is None:
                 self.nexusroot = await s_nexus.NexsRoot.anit(path)
             self.onfini(self.nexusroot.fini)
-            logger.info(f'Storing migration splices at {path}')
 
         # open hive
         if hive:
@@ -482,7 +492,7 @@ class Migrator(s_base.Base):
         # Set default storage
         await self.hive.set(('cellinfo', 'layr:stor:default'), storiden)
 
-        logger.info('Copmleted Hive storage info migration')
+        logger.info('Completed Hive storage info migration')
         await self._migrlogAdd(migrop, 'prog', storiden, s_common.now())
 
         return storinfo
@@ -552,6 +562,7 @@ class Migrator(s_base.Base):
         fairiter = self.fairiter
         chknodes = not self.safetyoff
         addmode = self.addmode
+        model = self.model
 
         # open storage
         path = os.path.join(self.src, 'layers', iden, 'layer.lmdb')
@@ -586,9 +597,10 @@ class Migrator(s_base.Base):
             if stot % fairiter == 0:
                 await asyncio.sleep(0)
 
-            err, nodeedit = await self._trnNodeToNodeedit(node, chknodes)
+            err, nodeedit = await self._trnNodeToNodeedit(node, model, chknodes)
             if err is not None:
                 logger.warning(err['mesg'])
+                err['node'] = node
                 logger.debug(err)
                 await self._migrlogAdd(migrop, 'error', buid, err)
                 continue
@@ -624,7 +636,7 @@ class Migrator(s_base.Base):
         await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot, dtot))
         await self._migrlogAdd(migrop, 'stat', f'{iden}:duration', (stot, t_dur))
 
-        logger.info(f'Migrated {stot:,} nodes in {t_dur_s} seconds ({int(stot/t_dur_s)} nodes/s avg)')
+        logger.info(f'Migrated {stot:,} of {dtot:,} nodes in {t_dur_s} seconds ({int(stot/t_dur_s)} nodes/s avg)')
         logger.info(f'Completed node migration for {iden}')
         await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
 
@@ -687,7 +699,13 @@ class Migrator(s_base.Base):
 
         # add last edit chunk if needed
         if len(nodeedits) > 0:
-            await self._destAddNodes(wlyr, nodeedits, addmode)
+            err = await self._destAddNodes(wlyr, nodeedits, addmode)
+
+            if err is not None:
+                logger.warning(f'unable to store nodeedits on {iden}')
+                for ne in nodeedits:
+                    logger.debug(f'error nodeedit group item: {ne}')
+                    await self._migrlogAdd(migrop, 'error', ne[0], err)
 
         t_end = s_common.now()
         t_dur = t_end - t_strt
@@ -729,9 +747,9 @@ class Migrator(s_base.Base):
 
     async def _migrlogGet(self, migrop=None, logtyp=None, key=None):
         '''
-        Return a list of log messages optionally filtered by a set of lkey parameters.
+        Yields log messages optionally filtered by a set of lkey parameters.
 
-        Returns:
+        Yields:
             (list): List of dicts representing log message.
         '''
         if key is None:
@@ -751,7 +769,6 @@ class Migrator(s_base.Base):
 
         lpref = b'\x00'.join(lprefbld)
 
-        res = []
         for lkey, lval in self.migrslab.scanByPref(lpref, db=self.migrdb):
             splt = lkey.split(b'\x00')
 
@@ -760,14 +777,12 @@ class Migrator(s_base.Base):
             except UnicodeDecodeError:
                 skey = splt[2]
 
-            res.append({
+            yield {
                 'migrop': splt[0].decode(),
                 'logtyp': splt[1].decode(),
                 'key': skey,
                 'val': s_msgpack.un(lval),
-            })
-
-        return res
+            }
 
     #############################################################
     # Source (0.1.x) operations
@@ -868,12 +883,13 @@ class Migrator(s_base.Base):
     # Translation operations
     #############################################################
 
-    async def _trnNodeToNodeedit(self, node, chknodes=True):
+    async def _trnNodeToNodeedit(self, node, model, chknodes=True):
         '''
         Create translation of node info to an 0.2.0 node edit.
 
         Args:
             node (tuple): (<buid>, {'ndef': ..., 'props': ..., 'tags': ..., 'tagprops': ...}
+            model (Obj): Datamodel instance
             chknodes (bool): Whether to require valid node norming and buid comparisons in order to add
 
         Returns:
@@ -894,15 +910,21 @@ class Migrator(s_base.Base):
         edits = []
 
         # setup storage type
-        mform = self.model.form(fname)
-        if mform is None:
-            err = {'mesg': f'Unable to determine model form for {fname}', 'node': node}
-            return err, None
-
-        # create first edit for the node
-        if not hasattr(mform.type, 'stortype') or mform.type.stortype is None:
-            err = {'mesg': f'Unable to determine stortype for {fname}', 'node': node}
-            return err, None
+        if chknodes:
+            try:
+                mform = model.form(fname)
+                stortype = mform.type.stortype
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+            except Exception as e:
+                err = {'mesg': f'Unable to determine stortype for {fname}: {e}'}
+                return err, None
+        else:
+            mform = None
+            stortype = self._destGetFormStype(fname)
+            if stortype is None:
+                err = {'mesg': f'Unable to determine stortype for {fname}'}
+                return err, None
 
         # safety check for buid/norming
         if chknodes:
@@ -913,27 +935,28 @@ class Migrator(s_base.Base):
                     normerr = {'mesg': f'Normed form val does not match inbound {fname}, {fval}, {formnorm}'}
                 if buid != s_common.buid((fname, fval)):
                     normerr = {'mesg': f'Calculated buid does not match inbound {buid}, {fname}, {fval}'}
+
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
             except Exception as e:
-                normerr = {'mesg': f'Exception while safety checking buid/norming: {buid}, {fname}, {fval}'}
+                normerr = {'mesg': f'Buid/norming exception {e}: {buid}, {fname}, {fval}'}
                 pass
 
             if normerr is not None:
                 normerr['node'] = node
                 return normerr, None
 
-        stortype = mform.type.stortype
         edits.append((s_layer.EDIT_NODE_ADD, (fval, stortype)))  # name, stype
 
         # iterate over secondary properties
         for sprop, sval in node[1]['props'].items():
-            sformnorm = sprop.replace('*', '')
-            prop = mform.prop(sformnorm)
-            if prop is None or not hasattr(prop.type, 'stortype') or prop.type.stortype is None:
-                err = {'mesg': f'Unable to determine stortype for sprop {fname}, {sformnorm}', 'node': node}
+            sprop = sprop.replace('*', '')
+            stortype = self._destGetPropStype(fname, sprop)
+            if stortype is None:
+                err = {'mesg': f'Unable to determine stortype for sprop {sprop}'}
                 return err, None
 
-            stortype = prop.type.stortype
-            edits.append((s_layer.EDIT_PROP_SET, (sformnorm, sval, None, stortype)))  # name, valu, oldv, stype
+            edits.append((s_layer.EDIT_PROP_SET, (sprop, sval, None, stortype)))  # name, valu, oldv, stype
 
         # set tags
         for tname, tval in node[1]['tags'].items():
@@ -945,17 +968,15 @@ class Migrator(s_base.Base):
             tnamenorm = tname[1:]
 
             for tpname, tpval in tprops.items():
-                tptype = self.model.tagprops.get(tpname)
-
-                if tptype is None:
-                    err = {'mesg': f'Unable to find tagprop datamodel for {tpname}', 'node': node}
+                try:
+                    tptype = model.tagprops.get(tpname)
+                    stortype = tptype.base.stortype
+                except asyncio.CancelledError:  # pragma: no cover
+                    raise
+                except Exception as e:
+                    err = {'mesg': f'Unable to determine stortype for tagprop {tpname}: {e}'}
                     return err, None
 
-                if not hasattr(tptype.base, 'stortype') or tptype.base.stortype is None:
-                    err = {'mesg': f'Unable to determine stortype for {tpname}', 'node': node}
-                    return err, None
-
-                stortype = tptype.base.stortype
                 edits.append((s_layer.EDIT_TAGPROP_SET,
                               (tnamenorm, tpname, tpval, None, stortype)))  # tag, prop, valu, oldv, stype
 
@@ -983,6 +1004,29 @@ class Migrator(s_base.Base):
     # Destination (0.2.0) operations
     #############################################################
 
+    @s_cache.memoize(10)
+    def _destGetFormStype(self, form):
+        stortype = None
+        try:
+            mform = self.model.form(form)
+            stortype = mform.type.stortype
+        except Exception as e:
+            logger.debug(f'Form stortype exception: {form}, {e}')
+            pass
+        return stortype
+
+    @s_cache.memoize(20)
+    def _destGetPropStype(self, form, sprop):
+        stortype = None
+        try:
+            mform = self.model.form(form)
+            prop = mform.prop(sprop)
+            stortype = prop.type.stortype
+        except Exception as e:
+            logger.debug(f'Secondary prop stortype exception: {form}, {sprop}, {e}')
+            pass
+        return stortype
+
     async def _destGetWlyr(self, dirn, storinfo, iden):
         '''
         Get the write Layer object for the destination.
@@ -998,7 +1042,8 @@ class Migrator(s_base.Base):
             'iden': iden,
             'readonly': False,
             'conf': {
-                'lockmemory': None,
+                'lockmemory': self.destdedicated,
+                'map_async': True,
             },
         }
         path = os.path.join(dirn, 'layers')
@@ -1039,7 +1084,25 @@ class Migrator(s_base.Base):
                 for ne in nodeedits:
                     buid, form, edits = ne
                     for edit in edits:
-                        wlyr.editors[edit[0]](buid, form, edit)
+                        editor = edit[0]
+                        if editor == s_layer.EDIT_NODE_ADD:
+                            valu, stortype = edit[1]
+
+                            byts = s_msgpack.en((form, valu, stortype))
+                            if not wlyr.layrslab.put(buid + b'\x00', byts, db=wlyr.bybuid, overwrite=False):
+                                continue
+
+                            abrv = wlyr.getPropAbrv(form, None)
+                            for indx in wlyr.getStorIndx(stortype, valu):
+                                wlyr.layrslab.put(abrv + indx, buid, db=wlyr.byprop)
+
+                            wlyr.formcounts.inc(form)
+
+                            # bypasses setting .created to now()
+                            # which would then be overwritten by EDIT_PROP_SET
+
+                        else:
+                            wlyr.editors[editor](buid, form, edit)
 
             else:
                 err = {'mesg': f'Unrecognized addmode {addmode}'}
@@ -1060,14 +1123,22 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--dest', required=False, type=str, help='Destination cortex dirn to migrate to.')
     pars.add_argument('--migr-ops', required=False, type=str.lower, nargs='+', choices=ALL_MIGROPS,
                       help='Limit migration operations to run.')
-    pars.add_argument('--layer', required=False, type=str, help='Migrate specific layer by iden')
-    pars.add_argument('--nodelim', required=False, type=int, help="Stop after migrating nodelim nodes")
-    pars.add_argument('--add-mode', required=False, type=str.lower, choices=ADD_MODES,
+    pars.add_argument('--layer', required=False, type=str,
+                      help='Migrate specific layer by iden')
+    pars.add_argument('--nodelim', required=False, type=int,
+                      help="Stop after migrating nodelim nodes")
+    pars.add_argument('--add-mode', required=False, type=str.lower, default='nexus', choices=ADD_MODES,
                       help='Method to use for adding nodes.')
-    pars.add_argument('--edit-batchsize', required=False, type=int, help='Batch size for writing new nodeedits')
-    pars.add_argument('--fair-iter', required=False, type=int, help='Yield loop after so many node iters')
+    pars.add_argument('--edit-batchsize', required=False, type=int, default=100,
+                      help='Batch size for writing new nodeedits')
+    pars.add_argument('--fair-iter', required=False, type=int, default=100,
+                      help='Yield loop after so many node iters')
     pars.add_argument('--safety-off', required=False, action='store_true',
                       help='Do not check node values before adding')
+    pars.add_argument('--src-dedicated', required=False, type=bool, default=False,
+                      help='Open source layer slab as dedicated (lockmemory=True).')
+    pars.add_argument('--dest-dedicated', required=False, type=bool, default=False,
+                      help='Open destination write layer as dedicated (lockmemory=True).')
     pars.add_argument('--log-level', required=False, default='info', choices=s_const.LOG_LEVEL_CHOICES,
                       help='Specify the log level', type=str.upper)
     pars.add_argument('--form-counts', required=False, action='store_true',
@@ -1093,6 +1164,8 @@ async def main(argv, outp=s_output.stdout):
         'editbatchsize': opts.edit_batchsize,
         'fairiter': opts.fair_iter,
         'safetyoff': opts.safety_off,
+        'srcdedicated': opts.src_dedicated,
+        'destdedicated': opts.dest_dedicated,
         'formcounts': formcounts,
     }
 
