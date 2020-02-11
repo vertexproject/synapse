@@ -1399,13 +1399,14 @@ class Layer(s_nexus.Pusher):
 
     async def getNodeData(self, buid, name):
         '''
-        Return a generator of all a buid's node data
+        Return a single element of a buid's node data
         '''
         abrv = self.getPropAbrv(name, None)
 
         byts = self.layrslab.get(buid + abrv, db=self.nodedata)
+        # FIXME:  None/NoValu confusion
         if byts is None:
-            return s_common.NoValu
+            return None
         return s_msgpack.un(byts)
 
     async def iterNodeData(self, buid):

@@ -211,4 +211,4 @@ class SlabSeqn:
     async def waitForOffset(self, offs):
         if offs < self.indx:
             return
-        await self.getOffsetEvent(offs)
+        await self.getOffsetEvent(offs).wait()

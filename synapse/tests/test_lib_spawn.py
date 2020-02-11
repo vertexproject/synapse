@@ -528,7 +528,7 @@ class CoreSpawnTest(s_test.SynTest):
 
     async def test_spawn_node_data(self):
 
-        # Largely mimics test_storm_lib_queue
+        # Largely mimics test_storm_node_data
         async with self.getTestCore() as core:
             opts = {'spawn': True}
 
@@ -545,24 +545,54 @@ class CoreSpawnTest(s_test.SynTest):
                 self.stormIsInPrint("('foo', 'hehe')", msgs)
 
                 await core.nodes('test:int=10 $node.data.set(woot, woot)')
+                q = 'test:int=10 $node.data.pop(woot) $lib.print($node.data.get(woot))'
 
-                msgs = await prox.storm('test:int=10 $node.data.pop(woot) $lib.print($node.data.get(woot))').list()
+                msgs = await prox.storm(q, opts=opts).list()
                 self.stormIsInPrint("None", msgs)
 
     async def test_model_extensions(self):
-        async with self.getTestCore() as core:
+        async with self.getTestCoreAndProxy() as (core, prox):
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
-            async with core.getLocalProxy() as prox:
-                opts = {'spawn': True}
-                # Adding model extensions must work
-                await core.addFormProp('inet:ipv4', '_woot', ('int', {}), {})
-                await core.nodes('[inet:ipv4=1.2.3.4 :_woot=10]')
-                await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
-                msgs = await prox.storm('inet:ipv4=1.2.3.4', opts=opts).list()
-                self.len(3, msgs)
-                self.eq(msgs[1][1][1]['props'].get('_woot'), 10)
+            opts = {'spawn': True}
+            # Adding model extensions must work
+            await core.addFormProp('inet:ipv4', '_woot', ('int', {}), {})
+            await core.nodes('[inet:ipv4=1.2.3.4 :_woot=10]')
+            await core.view.layers[0].layrslab.waiter(1, 'commit').wait()
+            msgs = await prox.storm('inet:ipv4=1.2.3.4', opts=opts).list()
+            self.len(3, msgs)
+            self.eq(msgs[1][1][1]['props'].get('_woot'), 10)
 
-                # FIXME:  pending core.getModelDefs fixup
-                # msgs = await prox.storm('inet:ipv4:_woot=10', opts=opts).list()
-                # self.len(3, msgs)
-                # self.eq(msgs[1][1][1]['props'].get('_woot'), 10)
+            # FIXME:  pending core.getModelDefs fixup
+            # msgs = await prox.storm('inet:ipv4:_woot=10', opts=opts).list()
+            # self.len(3, msgs)
+            # self.eq(msgs[1][1][1]['props'].get('_woot'), 10)
+
+    async def test_spawn_dmon_cmds(self):
+        '''
+        Copied from test-cortex_storm_lib_dmon_cmds
+        '''
+        async with self.getTestCoreAndProxy() as (_, prox):
+            opts = {'spawn': True}
+            await prox.storm('''
+                $q = $lib.queue.add(visi)
+                $lib.queue.add(boom)
+
+                $lib.dmon.add(${
+                    $lib.print('Starting wootdmon')
+                    $lib.queue.get(visi).put(blah)
+                    for ($offs, $item) in $lib.queue.get(boom).gets(wait=1) {
+                        [ inet:ipv4=$item ]
+                    }
+                }, name=wootdmon)
+
+                for ($offs, $item) in $q.gets(size=1) { $q.cull($offs) }
+            ''', opts=opts).list()
+
+            await asyncio.sleep(0)
+
+            # dmon is now fully running
+            msgs = await prox.storm('dmon.list', opts=opts).list()
+            self.stormIsInPrint('(wootdmon            ): running', msgs)
+
+            msgs = await prox.storm('$lib.dmon.del($ddef.iden)').list()
+            await asyncio.sleep(5)
