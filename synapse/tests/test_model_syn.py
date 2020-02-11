@@ -160,7 +160,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.false(node.get('univ'))
             self.eq('int', node.get('type'))
             self.eq('test:type10', node.get('form'))
-            self.eq('no docstring', node.get('doc'))
+            self.eq('', node.get('doc'))
             self.eq('intprop', node.get('relname'))
             self.eq('intprop', node.get('base'))
             self.false(node.get('extmodel'))
@@ -265,8 +265,9 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('test:edge', nodes[0].ndef[0])
 
-            # Sad path lifts
-#            await self.asyncraises(s_exc.BadCmprValu, core.eval('syn:form~="beep"').list())
+            # Test a cmpr that isn't '='
+            nodes = await core.eval('syn:form~="test:type"').list()
+            self.len(2, nodes)
 
             # Syn:splice uses a null lift handler
             self.len(1, await core.nodes('[test:str=test]'))
@@ -448,12 +449,13 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('syn:cmd +:input*[=inet:ipv4]')
                 self.len(1, nodes)
 
-                # sad path lift
-#                await self.asyncraises(s_exc.BadCmprValu, core.nodes('syn:cmd~="beep"'))
+                # Test a cmpr that isn't '='
+                nodes = await core.nodes('syn:cmd~="foo"')
+                self.len(1, nodes)
 
                 await core.nodes(f'service.del {iden}')
 
-                # check that runt nodes for the commands are gone
+                # Check that runt nodes for the commands are gone
                 nodes = await core.nodes('syn:cmd +:package')
                 self.len(0, nodes)
 

@@ -56,7 +56,7 @@ class TagProp:
         return (buid, {
             'ndef': ndef,
             'props': {
-                'doc': self.info.get('doc', 'no docstring'),
+                'doc': self.info.get('doc', ''),
                 'type': self.type.name,
             },
         })
@@ -180,7 +180,7 @@ class Prop:
 
         buid = s_common.buid(ndef)
         props = {
-            'doc': self.info.get('doc', 'no docstring'),
+            'doc': self.info.get('doc', ''),
             'type': self.type.name,
             'relname': self.name,
             'univ': self.isuniv,
@@ -232,7 +232,7 @@ class Form:
         buid = s_common.buid(ndef)
 
         props = {
-            'doc': self.info.get('doc', self.type.info.get('doc', '??')),
+            'doc': self.info.get('doc', self.type.info.get('doc', '')),
             'type': self.type.name,
         }
 

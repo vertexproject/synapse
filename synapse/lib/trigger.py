@@ -345,7 +345,7 @@ class Trigger:
 
         props = {
             'doc': self.tdef.get('doc', ''),
-            'name': self.tdef.get('name'),
+            'name': self.tdef.get('name', ''),
             'vers': self.tdef.get('ver', 1),
             'cond': self.tdef.get('cond'),
             'storm': self.tdef.get('storm'),
