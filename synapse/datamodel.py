@@ -102,8 +102,10 @@ class Prop:
 
         if form is not None:
             form.setProp(name, self)
+            self.modl.propsbytype[self.type.name].append(self)
 
-        self.modl.propsbytype[self.type.name].append(self)
+    def __repr__(self):
+        return f'DataModel Prop: {self.full}'
 
     def onSet(self, func):
         '''
@@ -174,6 +176,9 @@ class Prop:
         info = {'type': self.typedef}
         info.update(self.info)
         return info
+
+    def getPropDef(self):
+        return (self.name, self.typedef, self.info)
 
     def getStorNode(self, form='syn:prop'):
         ndef = (form, self.full)
@@ -374,6 +379,10 @@ class Form:
         info.update(self.info)
         return info
 
+    def getFormDef(self):
+        propdefs = [p.getPropDef() for p in self.props.values() if not p.isuniv]
+        return (self.name, self.info, propdefs)
+
 class ModelInfo:
     '''
     A summary of the information in a DataModel, sufficent for parsing storm queries.
@@ -553,15 +562,15 @@ class Model:
 
         return base.clone(typedef[1])
 
-    def getModelDef(self):
+    def getModelDefs(self):
         '''
         Returns:
             A list of one model definition compatible with addDataModels that represents the current data model
         '''
-        return [('all', self._modeldef)]
-
-    def getModelDefs(self):
-        return self.modeldefs
+        mdef = self._modeldef.copy()
+        # dynamically generate form defs due to extended props
+        mdef['forms'] = [f.getFormDef() for f in self.forms.values()]
+        return [('all', mdef)]
 
     def getModelDict(self):
         retn = {
@@ -660,8 +669,6 @@ class Model:
         if _type is None:
             raise s_exc.NoSuchType(name=formname)
 
-        self._modeldef['forms'].append((formname, forminfo, propdefs))
-
         form = Form(self, formname, forminfo)
 
         self.forms[formname] = form
@@ -720,9 +727,7 @@ class Model:
         if isinstance(prop.type, s_types.Array):
             self.arraysbytype[prop.type.arraytype.name].append(prop)
 
-        # full = f'{form.name}:{name}'
         self.props[prop.full] = prop
-        # self.props[(form.name, name)] = prop
 
     def delTagProp(self, name):
         return self.tagprops.pop(name)

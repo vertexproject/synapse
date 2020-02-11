@@ -90,9 +90,6 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getModelDict()
 
-    async def getModelDef(self):
-        return await self.cell.getModelDef()
-
     async def getModelDefs(self):
         return await self.cell.getModelDefs()
 
@@ -2083,9 +2080,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         return self.model.getModelDict()
 
     async def getModelDefs(self):
-        defs = self.model.getModelDefs()
-        # TODO add extended model defs
-        return defs
+        return self.model.getModelDefs()
 
     async def getFormCounts(self):
         '''
@@ -3222,7 +3217,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     def getCoreInfo(self):
         return {
             'version': synapse.version,
-            'modeldef': self.model.getModelDef(),
+            'modeldef': self.model.getModelDefs(),
             'stormcmds': {cmd: {} for cmd in self.stormcmds.keys()},
         }
 
