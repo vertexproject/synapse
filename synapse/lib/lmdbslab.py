@@ -1161,6 +1161,7 @@ class Scan:
         self.atitem = None
         self.bumped = False
         self.iterfunc = None
+        self.curs = None
 
     def __enter__(self):
         self.slab._acqXactForReading()
@@ -1172,6 +1173,7 @@ class Scan:
         self.bump()
         self.slab.scans.discard(self)
         self.slab._relXactForReading()
+        self.curs = None
 
     def last_key(self):
         '''
