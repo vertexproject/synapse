@@ -1759,7 +1759,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def initCoreMirror(self, url):
         '''
-        Initialize this cortex as a down-stream mirror from a telepath url, receiving splices from another cortex.
+        Initialize this cortex as a down-stream mirror from a telepath url.
 
         Note:
             This cortex *must* be initialized from a backup of the target cortex!
@@ -2240,14 +2240,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         view.onfini(fini)
 
-        #async def dele():
-            #await self.hive.pop(('cortex', 'views', view.iden))
-            #await self.auth.delAuthGate(iden)
-
-        #view.ondele(dele)
         return view
 
-    # FIXME: mirror split horizon problem with addLayer, addView
     async def _initCoreViews(self):
 
         defiden = self.cellinfo.get('defaultview')

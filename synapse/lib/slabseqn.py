@@ -3,6 +3,7 @@ import asyncio
 
 import synapse.common as s_common
 
+import synapse.lib.coro as s_coro
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -208,7 +209,10 @@ class SlabSeqn:
 
         return evnt
 
-    async def waitForOffset(self, offs):
+    async def waitForOffset(self, offs, timeout=None):
+
         if offs < self.indx:
             return
-        await self.getOffsetEvent(offs)
+
+        evnt = self.getOffsetEvent(offs)
+        await s_coro.event_wait(evnt, timeout=timeout)
