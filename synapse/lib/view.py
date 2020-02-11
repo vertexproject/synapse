@@ -38,19 +38,18 @@ class View(s_nexus.Pusher):  # type: ignore
         self.trigdict = await trignode.dict()
 
         self.triggers = s_trigger.Triggers(self)
-        for iden, tdef in self.trigdict.items():
+        for _, tdef in self.trigdict.items():
             try:
                 self.triggers.load(tdef)
 
             except asyncio.CancelledError:
                 raise
 
-            except Exception as e:
+            except Exception:
                 logger.exception(f'Failed to load trigger {tdef!r}')
 
         self.core = core
 
-        #await self.core.auth.addAuthGate(self.iden, 'view')
         await s_nexus.Pusher.__anit__(self, iden=self.iden, nexsroot=core.nexsroot)
 
         self.layers = []
@@ -209,11 +208,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 await chan.put(('err', enfo))
 
             finally:
-                if cancelled:
-                    return
-                tock = s_common.now()
-                took = tock - tick
-                await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
+                if not cancelled:
+                    tock = s_common.now()
+                    took = tock - tick
+                    await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
 
         await synt.worker(runStorm())
 
@@ -246,13 +244,6 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.NoSuchLayer(iden=self.invalid)
 
         return await self.snapctor(self, user)
-
-    def pack(self):
-        return {
-            'iden': self.iden,
-            'owner': self.info.get('owner'),
-            'layers': self.info.get('layers'),
-        }
 
     @s_nexus.Pusher.onPushAuto('view:addlayer')
     async def addLayer(self, layriden, indx=None):
@@ -309,6 +300,8 @@ class View(s_nexus.Pusher):  # type: ignore
         Make a new view inheriting from this view with the same layers and a new write layer on top
 
         Args:
+            ldef:  layer parameter dict
+            vdef:  view parameter dict
             Passed through to cortex.addLayer
 
         Returns:
@@ -332,6 +325,9 @@ class View(s_nexus.Pusher):  # type: ignore
         Merge this view into its parent.  All changes made to this view will be applied to the parent.
 
         When complete, delete this view.
+
+        Note:
+            The view's own write layer will *not* be deleted.
         '''
         fromlayr = self.layers[0]
         if self.parent is None:
@@ -354,7 +350,8 @@ class View(s_nexus.Pusher):  # type: ignore
         async with await self.parent.snap(user=user) as snap:
             snap.disableTriggers()
             snap.strict = False
-            with snap.getStormRuntime(user=user) as runt:
+            # FIXME:  change to using layer data itself
+            with snap.getStormRuntime(user=user):
                 while True:
                     splicechunk = [x async for x in fromlayr.splices(fromoff, CHUNKSIZE)]
 

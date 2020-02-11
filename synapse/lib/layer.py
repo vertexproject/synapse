@@ -213,15 +213,15 @@ class IndxBy:
         raise s_exc.NoSuchImpl(name='getNodeValu')
 
     def buidsByDups(self, indx):
-        for lkey, buid in self.layr.layrslab.scanByDups(self.abrv + indx, db=self.db):
+        for _, buid in self.layr.layrslab.scanByDups(self.abrv + indx, db=self.db):
             yield buid
 
     def buidsByPref(self, indx=b''):
-        for lkey, buid in self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db):
+        for _, buid in self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db):
             yield buid
 
     def buidsByRange(self, minindx, maxindx):
-        for lkey, buid in self.layr.layrslab.scanByRange(self.abrv + minindx, self.abrv + maxindx, db=self.db):
+        for _, buid in self.layr.layrslab.scanByRange(self.abrv + minindx, self.abrv + maxindx, db=self.db):
             yield buid
 
     def scanByDups(self, indx):
@@ -580,7 +580,7 @@ class StorTypeTime(StorTypeInt):
     def _liftAtIval(self, liftby, valu):
         minindx = self.getIntIndx(valu[0])
         maxindx = self.getIntIndx(valu[1] - 1)
-        for lkey, buid in liftby.scanByRange(minindx, maxindx):
+        for _, buid in liftby.scanByRange(minindx, maxindx):
             yield buid
 
 class StorTypeIval(StorType):
@@ -853,6 +853,7 @@ class Layer(s_nexus.Pusher):
     def getTagPropAbrv(self, *args):
         return self.tagpropabrv.bytsToAbrv(s_msgpack.en(args))
 
+    # FIXME:  this is hot code:  why is this async?!
     async def getAbrvProp(self, abrv):
         byts = self.propabrv.abrvToByts(abrv)
         if byts is None:
@@ -946,7 +947,7 @@ class Layer(s_nexus.Pusher):
         if form is not None:
             abrv += self.getPropAbrv(form, None)
 
-        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
+        for _, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
             yield await self.getStorNode(buid)
 
     async def liftByTagValu(self, tag, cmpr, valu, form=None):
@@ -959,7 +960,7 @@ class Layer(s_nexus.Pusher):
         if filt is None:
             raise s_exc.NoSuchCmpr(cmpr=cmpr)
 
-        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
+        for _, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
             # filter based on the ival value before lifting the node...
             valu = self.getNodeTag(buid, tag)
             if filt(valu):
@@ -967,14 +968,14 @@ class Layer(s_nexus.Pusher):
 
     async def hasTagProp(self, name):
         abrv = self.getTagPropAbrv(None, None, name)
-        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
+        for _ in self.layrslab.scanByPref(abrv, db=self.bytagprop):
             return True
 
         return False
 
     async def liftByTagProp(self, form, tag, prop):
         abrv = self.getTagPropAbrv(form, tag, prop)
-        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
+        for _, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
             yield await self.getStorNode(buid)
 
     async def liftByTagPropValu(self, form, tag, prop, cmprvals):
@@ -984,7 +985,7 @@ class Layer(s_nexus.Pusher):
 
     async def liftByProp(self, form, prop):
         abrv = self.getPropAbrv(form, prop)
-        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+        for _, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
             yield await self.getStorNode(buid)
 
     # NOTE: form vs prop valu lifting is differentiated to allow merge sort
@@ -1073,6 +1074,8 @@ class Layer(s_nexus.Pusher):
             self.layrslab.delete(abrv + indx, buid, db=self.byprop)
 
         self.formcounts.inc(form, valu=-1)
+
+        self._wipeNodeData(buid)
 
         return (
             (EDIT_NODE_DEL, (valu, stortype)),
@@ -1329,7 +1332,7 @@ class Layer(s_nexus.Pusher):
 
         abrv = self.getPropAbrv(form, prop)
 
-        for lval, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+        for _, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
             bkey = buid + b'\x01' + penc
             byts = self.layrslab.get(bkey, db=self.bybuid)
 
@@ -1347,7 +1350,7 @@ class Layer(s_nexus.Pusher):
 
         abrv = self.getPropAbrv(None, prop)
 
-        for lval, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+        for _, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
             bkey = buid + b'\x01' + penc
             byts = self.layrslab.get(bkey, db=self.bybuid)
 
@@ -1360,20 +1363,25 @@ class Layer(s_nexus.Pusher):
             yield buid, valu
 
     async def getNodeData(self, buid, name):
-
+        '''
+        Return a generator of all a buid's node data
+        '''
         abrv = self.getPropAbrv(name, None)
 
         byts = self.layrslab.get(buid + abrv, db=self.nodedata)
         if byts is None:
-            return None
+            return s_common.NoValu
         return s_msgpack.un(byts)
 
     async def iterNodeData(self, buid):
-
+        '''
+        Return a generator of all a buid's node data
+        '''
         for lkey, byts in self.layrslab.scanByPref(buid, db=self.nodedata):
             abrv = lkey[32:]
 
             valu = s_msgpack.un(byts)
+<<<<<<< HEAD
             prop = await self.getAbrvProp(abrv)
             yield prop[0], valu
 
@@ -1523,6 +1531,14 @@ class Layer(s_nexus.Pusher):
                 logger.exception('error in initUpstreamSync loop')
 
             await self.waitfini(1)
+            yield (await self.getAbrvProp(abrv))[0], valu
+
+    def _wipeNodeData(self, buid):
+        '''
+        Remove all node data for a buid
+        '''
+        for lkey, _ in self.layrslab.scanByPref(buid, db=self.nodedata):
+            self.layrslab.delete(lkey, db=self.nodedata)
 
     #async def _storFireSplices(self, splices):
         #'''
@@ -1837,16 +1853,6 @@ class Layer(s_nexus.Pusher):
         #'''
         #Bulk delete all instances of a form prop.
         #'''
-
-    #async def setNodeData(self, buid, name, item): # pragma: no cover
-        #raise NotImplementedError
-
-    #async def getNodeData(self, buid, name, defv=None): # pragma: no cover
-        #raise NotImplementedError
-
-    #async def iterNodeData(self, buid): # pragma: no cover
-        #for x in (): yield x
-        #raise NotImplementedError
 
     async def delete(self):
         '''
