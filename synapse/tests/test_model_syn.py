@@ -160,9 +160,8 @@ class SynModelTest(s_t_utils.SynTest):
             self.false(node.get('univ'))
             self.eq('int', node.get('type'))
             self.eq('test:type10', node.get('form'))
-            self.eq('no docstring', node.get('doc'))
+            self.eq('', node.get('doc'))
             self.eq('intprop', node.get('relname'))
-            self.eq('20', node.get('defval'))
             self.eq('intprop', node.get('base'))
             self.false(node.get('extmodel'))
 
@@ -204,7 +203,9 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:prop', 'test:comp.created'), node.ndef)
-            self.true(node.get('univ'))
+
+            # Bound universal props don't actually show up as univ
+            self.false(node.get('univ'))
 
             nodes = await core.eval('syn:prop:univ=1').list()
             self.ge(len(nodes), 2)
@@ -221,8 +222,10 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(('syn:prop', 'test:comp._sneaky'), node.ndef)
-            self.true(node.get('univ'))
             self.true(node.get('extmodel'))
+
+            # Bound universal props don't actually show up as univ
+            self.false(node.get('univ'))
 
             # Tag prop data is also represented
             nodes = await core.eval('syn:tagprop=beep').list()
@@ -235,7 +238,7 @@ class SynModelTest(s_t_utils.SynTest):
             # Ensure that we can filter / pivot across the model nodes
             nodes = await core.eval('syn:form=test:comp -> syn:prop:form').list()
             # form is a prop, two universal properties (+2 test univ) and two model secondary properties.
-            self.true(len(nodes) >= 7)
+            self.ge(len(nodes), 7)
 
             # implicit pivot works as well
             nodes = await core.nodes('syn:prop:form=test:comp -> syn:form | uniq')
@@ -245,7 +248,7 @@ class SynModelTest(s_t_utils.SynTest):
             # Go from a syn:type to a syn:form to a syn:prop with a filter
             q = 'syn:type:subof=comp +syn:type:doc~=".*fake.*" -> syn:form:type -> syn:prop:form'
             nodes = await core.eval(q).list()
-            self.true(len(nodes) >= 7)
+            self.ge(len(nodes), 7)
 
             # Some forms inherit from a single type
             nodes = await core.eval('syn:type="inet:addr" -> syn:type:subof').list()
@@ -262,8 +265,9 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('test:edge', nodes[0].ndef[0])
 
-            # Sad path lifts
-            await self.asyncraises(s_exc.BadCmprValu, core.eval('syn:form~="beep"').list())
+            # Test a cmpr that isn't '='
+            nodes = await core.eval('syn:form~="test:type"').list()
+            self.len(2, nodes)
 
             # Syn:splice uses a null lift handler
             self.len(1, await core.nodes('[test:str=test]'))
@@ -311,10 +315,8 @@ class SynModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('syn:trigger')
             self.len(0, nodes)
 
-            waiter = core.waiter(1, 'core:trigger:action')
-            await core.addTrigger('node:add', '[inet:user=1] | testcmd', info={'form': 'inet:ipv4'})
-            evnts = await waiter.wait(3)
-            self.len(1, evnts)
+            tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': '[inet:user=1] | testcmd'}
+            await core.view.addTrigger(tdef)
 
             triggers = core.view.triggers.list()
             iden = triggers[0][0]
@@ -335,11 +337,10 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq('hehe', nodes[0].get('doc'))
 
             # Trigger reloads and make some more triggers to play with
-            waiter = core.waiter(2, 'core:trigger:action')
-            await core.addTrigger('prop:set', '[inet:user=1] | testcmd', info={'prop': 'inet:ipv4:asn'})
-            await core.addTrigger('tag:add', '[inet:user=1] | testcmd', info={'tag': 'hehe.haha'})
-            evnts = await waiter.wait(3)
-            self.len(2, evnts)
+            tdef = {'cond': 'prop:set', 'prop': 'inet:ipv4:asn', 'storm': '[inet:user=1] | testcmd'}
+            await core.view.addTrigger(tdef)
+            tdef = {'cond': 'tag:add', 'tag': 'hehe.haha', 'storm': '[inet:user=1] | testcmd'}
+            await core.view.addTrigger(tdef)
 
             # lift by all props and valus
             nodes = await core.nodes('syn:trigger')
@@ -367,7 +368,10 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(3, nodes)
             nodes = await core.nodes('syn:trigger:cond=node:add')
             self.len(1, nodes)
-            nodes = await core.nodes('syn:trigger:user=root')
+
+            root = await core.auth.getUserByName('root')
+
+            nodes = await core.nodes(f'syn:trigger:user={root.iden}')
             self.len(3, nodes)
             nodes = await core.nodes('syn:trigger:storm="[inet:user=1] | testcmd"')
             self.len(3, nodes)
@@ -379,9 +383,8 @@ class SynModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             nodes = await core.nodes('syn:trigger:tag=hehe.haha')
             self.len(1, nodes)
-
-            # Sad path lifts
-            await self.asyncraises(s_exc.BadCmprValu, core.nodes('syn:trigger:storm~="beep"'))
+            nodes = await core.nodes('syn:trigger:storm~="inet:user"')
+            self.len(3, nodes)
 
     async def test_syn_cmd_runts(self):
 
@@ -446,11 +449,41 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('syn:cmd +:input*[=inet:ipv4]')
                 self.len(1, nodes)
 
-                # sad path lift
-                await self.asyncraises(s_exc.BadCmprValu, core.nodes('syn:cmd~="beep"'))
+                # Test a cmpr that isn't '='
+                nodes = await core.nodes('syn:cmd~="foo"')
+                self.len(1, nodes)
 
                 await core.nodes(f'service.del {iden}')
 
-                # check that runt nodes for the commands are gone
+                # Check that runt nodes for the commands are gone
                 nodes = await core.nodes('syn:cmd +:package')
                 self.len(0, nodes)
+
+    async def test_syn_cron_runts(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('cron', 'add')))
+
+            async with core.getLocalProxy(user='visi') as proxy:
+                cron0 = await proxy.addCronJob('inet:ipv4', {'hour': 2})
+
+                nodes = await core.nodes('syn:cron')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('syn:cron', cron0))
+                self.eq(nodes[0].get('doc'), '')
+                self.eq(nodes[0].get('name'), '')
+                self.eq(nodes[0].get('storm'), 'inet:ipv4')
+
+                nodes = await core.nodes(f'syn:cron={cron0} [ :doc=hehe :name=haha ]')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('syn:cron', cron0))
+                self.eq(nodes[0].get('doc'), 'hehe')
+                self.eq(nodes[0].get('name'), 'haha')
+
+                nodes = await core.nodes(f'syn:cron={cron0}')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('syn:cron', cron0))
+                self.eq(nodes[0].get('doc'), 'hehe')
+                self.eq(nodes[0].get('name'), 'haha')
