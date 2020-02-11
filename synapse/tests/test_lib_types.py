@@ -20,9 +20,6 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(t.info.get('bases'), ())
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
-        self.raises(s_exc.BadCmprValu, t.getIndxOps, 'newp', 'in=')
-        self.raises(s_exc.BadCmprValu, t.getIndxOps, 'newp', 'range=')
-        self.raises(s_exc.BadCmprValu, t.getIndxOps, ['newp'], 'range=')
 
     def test_bool(self):
         model = s_datamodel.Model()
@@ -113,7 +110,7 @@ class TypesTest(s_t_utils.SynTest):
                 (b'\x01\x00\x01', b'\x01\x00\x01'),
                 (b'\xd4\x1d\x8c\xd9\x8f\x00\xb2\x04\xe9\x80\t\x98\xec\xf8B~',
                  b'\xd4\x1d\x8c\xd9\x8f\x00\xb2\x04\xe9\x80\t\x98\xec\xf8B~'),
-                (65537, s_exc.NoSuchFunc),
+                (65537, s_exc.BadTypeValu),
             ]
 
             for v, b in testvectors:
@@ -623,7 +620,7 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         t = model.type('range')
 
-        self.raises(s_exc.NoSuchFunc, t.norm, 1)
+        self.raises(s_exc.BadTypeValu, t.norm, 1)
         self.raises(s_exc.BadTypeValu, t.norm, '1')
         self.raises(s_exc.BadTypeValu, t.norm, (1,))
         self.raises(s_exc.BadTypeValu, t.norm, (1, -1))
@@ -1040,12 +1037,12 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ test:array=(1.2.3.4, 5.6.7.8) ]')
             self.len(1, nodes)
 
-            nodes = await core.nodes('test:array*contains=1.2.3.4')
+            nodes = await core.nodes('test:array*[=1.2.3.4]')
             self.len(1, nodes)
 
             nodes = await core.nodes('[ test:arraycomp=((1.2.3.4, 5.6.7.8), 10) ]')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:arraycomp', ([0x01020304, 0x05060708], 10)))
+            self.eq(nodes[0].ndef, ('test:arraycomp', ((0x01020304, 0x05060708), 10)))
             self.eq(nodes[0].get('int'), 10)
             self.eq(nodes[0].get('ipv4s'), (0x01020304, 0x05060708))
 
@@ -1061,7 +1058,7 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:witharray:fqdns=(vertex.link, WOOT.COM)')
             self.len(1, nodes)
 
-            nodes = await core.nodes('test:witharray:fqdns*contains=vertex.link')
+            nodes = await core.nodes('test:witharray:fqdns*[=vertex.link]')
             self.len(1, nodes)
 
             nodes = await core.nodes('test:witharray [ :fqdns=(hehe.com, haha.com) ]')
@@ -1071,8 +1068,8 @@ class TypesTest(s_t_utils.SynTest):
             self.len(2, nodes)
 
             # make sure the multi-array entries got deleted
-            nodes = await core.nodes('test:witharray:fqdns*contains=vertex.link')
+            nodes = await core.nodes('test:witharray:fqdns*[=vertex.link]')
             self.len(0, nodes)
 
-            nodes = await core.nodes('test:witharray:fqdns*contains=hehe.com')
+            nodes = await core.nodes('test:witharray:fqdns*[=hehe.com]')
             self.len(1, nodes)

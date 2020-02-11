@@ -608,18 +608,26 @@ class Snap(s_base.Base):
 
         cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu)
 
+        if prop.isform:
+
+            for layr in self.layers:
+                genr = layr.liftByPropArray(prop.name, None, cmprvals)
+                async for node in self._joinStorGenr(layr, genr):
+                    if node.bylayer['ndef'] != layr:
+                        continue
+                    yield node
+
+            return
+
         formname = None
         if prop.form is not None:
             formname = prop.form.name
 
         for layr in self.layers:
-
             genr = layr.liftByPropArray(formname, prop.name, cmprvals)
-
             async for node in self._joinStorGenr(layr, genr):
                 if node.bylayer['props'].get(prop.name) != layr:
                     continue
-
                 yield node
 
     def getNodeAdds(self, form, valu, props=None, addnode=True):
