@@ -87,7 +87,6 @@ class SynModule(s_module.CoreModule):
 
     async def _doRuntLift(self, genr, full, valu=None, cmpr=None, indx=None):
 
-        filt = None
         if cmpr is not None:
             filt = self.model.prop(full).type.getCmprCtor(cmpr)(valu)
             if filt is None:
