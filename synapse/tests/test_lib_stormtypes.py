@@ -1181,7 +1181,8 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'hehe'))
 
-            nodes = await core.nodes('test:int for ($name, $valu) in $node.data.list() { [ test:str=$name ] } +test:str')
+            q = 'test:int for ($name, $valu) in $node.data.list() { [ test:str=$name ] } +test:str'
+            nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'foo'))
 
@@ -1484,6 +1485,7 @@ class StormTypesTest(s_test.SynTest):
                 $newview=$lib.view.add(({newlayer.iden},))
                 $lib.print($newview.pack().iden)
             '''
+            newiden = None
             mesgs = await core.streamstorm(q).list()
             for mesg in mesgs:
                 if mesg[0] == 'print':
@@ -1538,7 +1540,6 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes(q)
 
             self.notin(forkiden, core.views)
-            self.notin(forklayr, core.layers)
 
             # Sad paths
             await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.view.del(foo)'))

@@ -18,14 +18,13 @@ import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
-
+import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
 import synapse.lib.health as s_health
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
-
-import synapse.lib.const as s_const
+import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 
 logger = logging.getLogger(__name__)
@@ -227,15 +226,12 @@ class CellApi(s_base.Base):
     async def addUserRule(self, name, rule, indx=None, gateiden=None):
         user = await self.cell.auth.reqUserByName(name)
         retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
-        #await self.cell.fire('user:mod', act='addrule', name=name, rule=rule, indx=indx, iden=iden)
         return retn
 
     @adminapi
     async def addRoleRule(self, name, rule, indx=None, gateiden=None):
         role = await self.cell.auth.reqRoleByName(name)
         retn = await role.addRule(rule, indx=indx, gateiden=gateiden)
-        # FIXME what are these for ( and the need to be role:mod if we're keeping them )
-        #await self.cell.fire('user:mod', act='addrule', name=name, rule=rule, indx=indx, iden=iden)
         return retn
 
     @adminapi
@@ -703,7 +699,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellAuth(self):
         node = await self.hive.open(('auth',))
-        auth = await s_hive.HiveAuth.anit(node)
+        auth = await s_hiveauth.Auth.anit(node)
 
         self.onfini(auth.fini)
         return auth

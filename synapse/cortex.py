@@ -2346,33 +2346,15 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         return self.offs.get(iden)
 
-    async def setOffset(self, iden, offs):
-        '''
-        '''
-        # TODO NEXUS
-        return self.offs.set(iden, offs)
-
-    async def delOffset(self, iden):
-        '''
-        '''
-        # TODO NEXUS
-        return self.offs.delete(iden)
-
     async def addView(self, vdef):
 
         vdef.setdefault('iden', s_common.guid())
-        vdef.setdefault('parent', None)
-        vdef.setdefault('worldreadable', False)
-        vdef.setdefault('creator', self.auth.rootuser.iden)
-
-        creator = vdef.get('creator')
-        user = await self.auth.reqUser(creator)
-
-        # this should not get saved
-        worldread = vdef.pop('worldreadable')
-
+        worldread = vdef.get('worldreadable', False)
         view = await self._push('view:add', vdef)
 
+        vdef.setdefault('creator', self.auth.rootuser.iden)
+        creator = vdef.get('creator')
+        user = await self.auth.reqUser(creator)
         await user.setAdmin(True, gateiden=view.iden)
 
         if worldread:
@@ -2384,7 +2366,17 @@ class Cortex(s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('view:add')
     async def _addView(self, vdef):
 
-        iden = vdef.get('iden')
+        iden = vdef['iden']
+        vdef.setdefault('parent', None)
+        vdef.setdefault('worldreadable', False)
+        vdef.setdefault('creator', self.auth.rootuser.iden)
+
+        creator = vdef.get('creator')
+        await self.auth.reqUser(creator)
+
+        # this should not get saved
+        vdef.pop('worldreadable')
+
         node = await self.hive.open(('cortex', 'views', iden))
 
         info = await node.dict()
@@ -2501,6 +2493,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             return self.view
 
         return self.views.get(iden)
+
+    def listViews(self):
+        # FIXME:  perms?
+        return list(self.views.values())
 
     async def addLayer(self, ldef=None):
         '''
