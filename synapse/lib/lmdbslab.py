@@ -333,7 +333,7 @@ class MultiQueue(s_base.Base):
         return -1, None
 
     async def put(self, name, item):
-        await self.puts(name, (item,))
+        return await self.puts(name, (item,))
 
     async def puts(self, name, items):
 
