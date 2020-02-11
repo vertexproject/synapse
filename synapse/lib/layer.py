@@ -1381,7 +1381,6 @@ class Layer(s_nexus.Pusher):
             abrv = lkey[32:]
 
             valu = s_msgpack.un(byts)
-<<<<<<< HEAD
             prop = await self.getAbrvProp(abrv)
             yield prop[0], valu
 
