@@ -125,27 +125,6 @@ class Type:
             'props': props,
         })
 
-#    def getStorNode(self):
-#
-#        ndef = ('syn:prop', self.full)
-#        buid = s_common.buid(ndef)
-#
-#        props = {
-#            'doc': self.info.get('doc', '??'),
-#            'type': self.type.name,
-#            'relname': self.name,
-#            'univ': self.isuniv,
-#            'base': self.name.split(':')[-1],
-#            'ro': int(self.info.get('ro', False)),
-#            'extmodel': self.isext,
-#        }
-#
-#        if self.form is not None:
-#            props['form'] = self.form.name
-#
-#        return (buid, {'props': props, 'ndef': ndef})
-
-
     def getCompOffs(self, name):
         '''
         If this type is a compound, return the field offset for the given
