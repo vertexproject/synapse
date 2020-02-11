@@ -2242,8 +2242,12 @@ class SpliceUndoCmd(Cmd):
             tag = splice.props.get('tag')
             parts = tag.split('.')
             runt.reqLayerAllowed(('tag:del', *parts))
-
             await node.delTag(tag)
+
+            oldv = splice.props.get('oldv')
+            if oldv is not None:
+                runt.reqLayerAllowed(('tag:add', *parts))
+                await node.addTag(tag, valu=oldv)
 
     async def undoTagDel(self, runt, splice, node):
 
@@ -2261,8 +2265,6 @@ class SpliceUndoCmd(Cmd):
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
-            runt.reqLayerAllowed(('tag:del', *parts))
-
             prop = splice.props.get('prop')
 
             oldv = splice.props.get('oldv')

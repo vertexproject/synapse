@@ -866,6 +866,18 @@ class StormTest(s_t_utils.SynTest):
                 nodes = await alist(asvisi.eval("test:str=foo"))
                 self.eq(tagv, nodes[0][1]['tags'].get('rep'))
 
+                # undo updating a tag
+                nodes = await alist(asvisi.eval("test:str=foo [ +#rep=2000 ]"))
+                oldv = nodes[0][1]['tags'].get('rep')
+                nodes = await alist(asvisi.eval("test:str=foo [ +#rep=3000 ]"))
+                self.ne(oldv, nodes[0][1]['tags'].get('rep'))
+
+                q = 'splice.list | limit 1 | splice.undo'
+                await alist(asvisi.eval(q))
+
+                nodes = await alist(asvisi.eval("test:str=foo"))
+                self.eq(oldv, nodes[0][1]['tags'].get('rep'))
+
                 # undo adding a tagprop
 
                 nodes = await alist(asvisi.eval("test:str=foo [ +#rep:risk=50 ]"))
