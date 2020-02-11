@@ -1592,10 +1592,10 @@ class ReIndexCmd(Cmd):
             tname = None
 
             if self.opts.fire_handler.startswith('#'):
-                name, _ = runt.snap.model.prop('syn:tag').type.norm(self.opts.fire_handler)
+                name, _ = runt.model.prop('syn:tag').type.norm(self.opts.fire_handler)
                 tname = '#' + name
             else:
-                obj = runt.snap.model.prop(self.opts.fire_handler)
+                obj = runt.model.prop(self.opts.fire_handler)
                 if obj is None:
                     raise s_exc.NoSuchProp(mesg='',
                                            name=self.opts.fire_handler)
