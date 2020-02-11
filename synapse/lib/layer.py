@@ -1530,7 +1530,6 @@ class Layer(s_nexus.Pusher):
                 logger.exception('error in initUpstreamSync loop')
 
             await self.waitfini(1)
-            yield (await self.getAbrvProp(abrv))[0], valu
 
     def _wipeNodeData(self, buid):
         '''
