@@ -48,6 +48,19 @@ class TagProp:
             'type': self.tdef,
         }
 
+    def getStorNode(self, form='syn:tagprop'):
+
+        ndef = ('syn:tagprop', self.name)
+        buid = s_common.buid(ndef)
+
+        return (buid, {
+            'ndef': ndef,
+            'props': {
+                'doc': self.info.get('doc', ''),
+                'type': self.type.name,
+            },
+        })
+
 class Prop:
     '''
     The Prop class represents a property defined within the data model.
@@ -66,19 +79,19 @@ class Prop:
             if name.startswith('.'):
                 self.univ = modl.prop(name)
                 self.full = '%s%s' % (form.name, name)
+                self.isext = name.startswith('._')
             else:
                 self.full = '%s:%s' % (form.name, name)
+                self.isext = name.startswith('_')
             self.isuniv = False
             self.isrunt = form.isrunt
             self.compoffs = form.type.getCompOffs(self.name)
-            self.isext = name.startswith('_')
         else:
             self.full = name
             self.isuniv = True
             self.isrunt = False
             self.compoffs = None
             self.isext = name.startswith('._')
-
         self.isform = False     # for quick Prop()/Form() detection
 
         self.form = form
@@ -89,8 +102,10 @@ class Prop:
 
         if form is not None:
             form.setProp(name, self)
+            self.modl.propsbytype[self.type.name].append(self)
 
-        self.modl.propsbytype[self.type.name].append(self)
+    def __repr__(self):
+        return f'DataModel Prop: {self.full}'
 
     def onSet(self, func):
         '''
@@ -162,13 +177,15 @@ class Prop:
         info.update(self.info)
         return info
 
-    def getStorNode(self):
+    def getPropDef(self):
+        return (self.name, self.typedef, self.info)
 
-        ndef = ('syn:prop', self.full)
+    def getStorNode(self, form='syn:prop'):
+        ndef = (form, self.full)
+
         buid = s_common.buid(ndef)
-
         props = {
-            'doc': self.info.get('doc', '??'),
+            'doc': self.info.get('doc', ''),
             'type': self.type.name,
             'relname': self.name,
             'univ': self.isuniv,
@@ -215,19 +232,26 @@ class Form:
         #self.defvals = {}   # name: valu
         self.refsout = None
 
-    def getStorNode(self):
-
-        ndef = ('syn:form', self.name)
+    def getStorNode(self, form='syn:form'):
+        ndef = (form, self.name)
         buid = s_common.buid(ndef)
 
+        props = {
+            'doc': self.info.get('doc', self.type.info.get('doc', '')),
+            'type': self.type.name,
+        }
+
+        if form == 'syn:form':
+            props['runt'] = self.isrunt
+        elif form == 'syn:prop':
+            props['univ'] = False
+            props['extmodel'] = False
+            props['form'] = self.name
+
         return (buid, {
-            'ndef': ndef,
-            'props': {
-                'doc': self.info.get('doc', '??'),
-                'type': self.type.name,
-                'runt': self.isrunt,
-            },
-        })
+                    'ndef': ndef,
+                    'props': props,
+                })
 
     def setProp(self, name, prop):
         self.refsout = None
@@ -354,6 +378,10 @@ class Form:
         info = {'props': props}
         info.update(self.info)
         return info
+
+    def getFormDef(self):
+        propdefs = [p.getPropDef() for p in self.props.values() if not p.isuniv]
+        return (self.name, self.info, propdefs)
 
 class ModelInfo:
     '''
@@ -523,7 +551,8 @@ class Model:
         return props
 
     def getProps(self):
-        return [p for p in self.props.values() if not p.isform]
+        return [pobj for pname, pobj in self.props.items()
+                if not (isinstance(pname, tuple) or pobj.isform)]
 
     def getTypeClone(self, typedef):
 
@@ -533,15 +562,15 @@ class Model:
 
         return base.clone(typedef[1])
 
-    def getModelDef(self):
+    def getModelDefs(self):
         '''
         Returns:
             A list of one model definition compatible with addDataModels that represents the current data model
         '''
-        return [('all', self._modeldef)]
-
-    def getModelDefs(self):
-        return self.modeldefs
+        mdef = self._modeldef.copy()
+        # dynamically generate form defs due to extended props
+        mdef['forms'] = [f.getFormDef() for f in self.forms.values()]
+        return [('all', mdef)]
 
     def getModelDict(self):
         retn = {
@@ -640,8 +669,6 @@ class Model:
         if _type is None:
             raise s_exc.NoSuchType(name=formname)
 
-        self._modeldef['forms'].append((formname, forminfo, propdefs))
-
         form = Form(self, formname, forminfo)
 
         self.forms[formname] = form
@@ -700,9 +727,7 @@ class Model:
         if isinstance(prop.type, s_types.Array):
             self.arraysbytype[prop.type.arraytype.name].append(prop)
 
-        # full = f'{form.name}:{name}'
         self.props[prop.full] = prop
-        # self.props[(form.name, name)] = prop
 
     def delTagProp(self, name):
         return self.tagprops.pop(name)
