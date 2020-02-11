@@ -1,5 +1,7 @@
 import os
+import asyncio
 
+import synapse.lib.coro as s_coro
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 
@@ -66,10 +68,29 @@ class SlabSeqn(s_t_utils.SynTest):
             self.eq('foo', seqn.getByIndxByts(b'\x00' * 8))
 
             self.true(evnt1.is_set())
+            self.true(await seqn.waitForOffset(8, timeout=0.5))
             self.false(evnt2.is_set())
+            self.false(await seqn.waitForOffset(9, timeout=0.1))
             self.true(evnt3.is_set())
+
+            state = None
+
+            started = asyncio.Event()
+
+            async def taskloop():
+                nonlocal state
+                state = 'started'
+                started.set()
+                state = await seqn.waitForOffset(9, timeout=5)
+
+            task = asyncio.get_running_loop().create_task(taskloop())
+            self.true(await s_coro.event_wait(started, 2))
+            self.eq(state, 'started')
 
             seqn.add('bar')
             self.true(evnt2.is_set())
+
+            self.true(state)
+            await task
 
             await slab.fini()
