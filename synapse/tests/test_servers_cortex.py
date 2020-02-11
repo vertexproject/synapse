@@ -1,3 +1,5 @@
+import asyncio
+
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -58,17 +60,20 @@ class CortexServerTest(s_t_utils.SynTest):
 
                 # add a node for core01 to sync before window
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
-
-                await asyncio.sleep(0)
+                offs = core00.nexsroot.getOffset()
 
                 async with await s_s_cortex.main(argv, outp=outp) as core01:
+
+                    # TODO functionalize this API on the cortex (cell?)
+                    await core01.nexsroot.nexuslog.waitForOffset(offs - 1)
 
                     self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
 
                     # add a node for core01 to sync via window
                     self.len(1, await core00.nodes('[ inet:ipv4=6.6.6.6 ]'))
 
-                    await asyncio.sleep(0)
+                    offs = core00.nexsroot.getOffset()
+                    await core01.nexsroot.nexuslog.waitForOffset(offs - 1)
 
                     self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
 

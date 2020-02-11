@@ -1082,8 +1082,19 @@ class Layer(s_nexus.Pusher):
             return None
 
         abrv = self.getPropAbrv(form, None)
-        for indx in self.getStorIndx(stortype, valu):
-            self.layrslab.put(abrv + indx, buid, db=self.byprop)
+
+        if stortype & STOR_FLAG_ARRAY:
+
+            for indx in self.getStorIndx(stortype, valu):
+                self.layrslab.put(abrv + indx, buid, db=self.byarray)
+
+            for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
+                self.layrslab.put(abrv + indx, buid, db=self.byprop)
+
+        else:
+
+            for indx in self.getStorIndx(stortype, valu):
+                self.layrslab.put(abrv + indx, buid, db=self.byprop)
 
         self.formcounts.inc(form)
 
@@ -1105,8 +1116,19 @@ class Layer(s_nexus.Pusher):
         form, valu, stortype = s_msgpack.un(byts)
 
         abrv = self.getPropAbrv(form, None)
-        for indx in self.getStorIndx(stortype, valu):
-            self.layrslab.delete(abrv + indx, buid, db=self.byprop)
+
+        if stortype & STOR_FLAG_ARRAY:
+
+            for indx in self.getStorIndx(stortype, valu):
+                self.layrslab.delete(abrv + indx, buid, db=self.byarray)
+
+            for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
+                self.layrslab.delete(abrv + indx, buid, db=self.byprop)
+
+        else:
+
+            for indx in self.getStorIndx(stortype, valu):
+                self.layrslab.delete(abrv + indx, buid, db=self.byprop)
 
         self.formcounts.inc(form, valu=-1)
 
