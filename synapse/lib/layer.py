@@ -1383,6 +1383,23 @@ class Layer(s_nexus.Pusher):
 
         return self.stortypes[stortype].indx(valu)
 
+    async def iterFormRows(self, form):
+
+        abrv = self.getPropAbrv(form, None)
+
+        for _, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+
+            bkey = buid + b'\x00'
+            byts = self.layrslab.get(bkey, db=self.bybuid)
+
+            await asyncio.sleep(0)
+
+            if byts is None:
+                continue
+
+            form, valu, stortype = s_msgpack.un(byts)
+            yield buid, valu
+
     async def iterPropRows(self, form, prop):
 
         penc = prop.encode()
