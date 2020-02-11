@@ -48,6 +48,19 @@ class TagProp:
             'type': self.tdef,
         }
 
+    def getStorNode(self, form='syn:tagprop'):
+
+        ndef = ('syn:tagprop', self.name)
+        buid = s_common.buid(ndef)
+
+        return (buid, {
+            'ndef': ndef,
+            'props': {
+                'doc': self.info.get('doc', ''),
+                'type': self.type.name,
+            },
+        })
+
 class Prop:
     '''
     The Prop class represents a property defined within the data model.
@@ -66,19 +79,19 @@ class Prop:
             if name.startswith('.'):
                 self.univ = modl.prop(name)
                 self.full = '%s%s' % (form.name, name)
+                self.isext = name.startswith('._')
             else:
                 self.full = '%s:%s' % (form.name, name)
+                self.isext = name.startswith('_')
             self.isuniv = False
             self.isrunt = form.isrunt
             self.compoffs = form.type.getCompOffs(self.name)
-            self.isext = name.startswith('_')
         else:
             self.full = name
             self.isuniv = True
             self.isrunt = False
             self.compoffs = None
             self.isext = name.startswith('._')
-
         self.isform = False     # for quick Prop()/Form() detection
 
         self.form = form
@@ -162,13 +175,12 @@ class Prop:
         info.update(self.info)
         return info
 
-    def getStorNode(self):
+    def getStorNode(self, form='syn:prop'):
+        ndef = (form, self.full)
 
-        ndef = ('syn:prop', self.full)
         buid = s_common.buid(ndef)
-
         props = {
-            'doc': self.info.get('doc', '??'),
+            'doc': self.info.get('doc', ''),
             'type': self.type.name,
             'relname': self.name,
             'univ': self.isuniv,
@@ -215,19 +227,26 @@ class Form:
         #self.defvals = {}   # name: valu
         self.refsout = None
 
-    def getStorNode(self):
-
-        ndef = ('syn:form', self.name)
+    def getStorNode(self, form='syn:form'):
+        ndef = (form, self.name)
         buid = s_common.buid(ndef)
 
+        props = {
+            'doc': self.info.get('doc', self.type.info.get('doc', '')),
+            'type': self.type.name,
+        }
+
+        if form == 'syn:form':
+            props['runt'] = self.isrunt
+        elif form == 'syn:prop':
+            props['univ'] = False
+            props['extmodel'] = False
+            props['form'] = self.name
+
         return (buid, {
-            'ndef': ndef,
-            'props': {
-                'doc': self.info.get('doc', '??'),
-                'type': self.type.name,
-                'runt': self.isrunt,
-            },
-        })
+                    'ndef': ndef,
+                    'props': props,
+                })
 
     def setProp(self, name, prop):
         self.refsout = None
@@ -523,7 +542,8 @@ class Model:
         return props
 
     def getProps(self):
-        return [p for p in self.props.values() if not p.isform]
+        return [pobj for pname, pobj in self.props.items()
+                if not (isinstance(pname, tuple) or pobj.isform)]
 
     def getTypeClone(self, typedef):
 

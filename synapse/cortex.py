@@ -1000,18 +1000,18 @@ class Cortex(s_cell.Cell):  # type: ignore
         async def onSetTrigDoc(node, prop, valu):
             valu = str(valu)
             iden = node.ndef[1]
-            trig = await node.snap.view.triggers.get(iden)
-            trig.confirm(node.snap.user, ('trigger', 'set', 'doc'))
-            await trig.setDoc(valu)
+            trig = node.snap.view.triggers.get(iden)
+            node.snap.user.confirm(('trigger', 'set', 'doc'), gateiden=iden)
+            await trig.set('doc', valu)
             node.props[prop.name] = valu
             await self.fire('core:trigger:action', iden=iden, action='mod')
 
         async def onSetTrigName(node, prop, valu):
             valu = str(valu)
             iden = node.ndef[1]
-            trig = await node.snap.view.triggers.get(iden)
-            trig.confirm(node.snap.user, ('trigger', 'set', 'name'))
-            await trig.setName(valu)
+            trig = node.snap.view.triggers.get(iden)
+            node.snap.user.confirm(('trigger', 'set', 'name'), gateiden=iden)
+            await trig.set('name', valu)
             node.props[prop.name] = valu
             await self.fire('core:trigger:action', iden=iden, action='mod')
 
@@ -1030,9 +1030,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             appt.confirm(node.snap.user, ('cron', 'set', 'name'))
             await appt.setName(valu)
             node.props[prop.name] = valu
-
-        # TODO runt node lifting needs to become per view
-        self.addRuntLift('syn:cron', self.agenda.onLiftRunts)
 
         self.addRuntPropSet('syn:cron:doc', onSetCronDoc)
         self.addRuntPropSet('syn:cron:name', onSetCronName)
@@ -1134,6 +1131,36 @@ class Cortex(s_cell.Cell):  # type: ignore
         ctor.pkgname = cdef.get('pkgname')
         ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
         ctor.forms = cdef.get('forms', {})
+
+        def getStorNode(form='syn:cmd'):
+            ndef = (form, cdef.get('name'))
+            buid = s_common.buid(ndef)
+
+            props = {
+                'doc': ctor.getCmdBrief()
+            }
+
+            inpt = ctor.forms.get('input')
+            outp = ctor.forms.get('output')
+
+            if inpt:
+                props['input'] = tuple(inpt)
+
+            if outp:
+                props['output'] = tuple(outp)
+
+            if ctor.svciden:
+                props['svciden'] = ctor.svciden
+
+            if ctor.pkgname:
+                props['package'] = ctor.pkgname
+
+            return (buid, {
+                'ndef': ndef,
+                'props': props,
+            })
+
+        ctor.getStorNode = getStorNode
 
         name = cdef.get('name')
         self.stormcmds[name] = ctor

@@ -270,8 +270,8 @@ class _Appt:
         self.lastresult = None
         self.enabled = True
 
-    def getRuntInfo(self):
-        buid = s_common.buid(('syn:cron', self.iden))
+    def getStorNode(self, form='syn:cron'):
+        buid = s_common.buid((form, self.iden))
         return (buid, {
             'ndef': ('syn:cron', self.iden),
             'props': {
@@ -411,21 +411,6 @@ class Agenda(s_base.Base):
         self.enabled = False
         self._schedtask = None  # The task of the scheduler loop.  Doesn't run until we're enabled
         await self._load_all()
-
-    async def onLiftRunts(self, full, valu=None, cmpr=None):
-
-        if valu is None:
-            for iden, cjob in self.appts.items():
-                yield cjob.getRuntInfo()
-
-            return
-
-        iden = str(valu)
-        cjob = self.appts.get(iden)
-        if cjob is None:
-            return
-
-        yield cjob.getRuntInfo()
 
     async def start(self):
         '''

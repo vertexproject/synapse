@@ -338,3 +338,34 @@ class Trigger:
 
     def pack(self):
         return self.tdef.copy()
+
+    def getStorNode(self, form='syn:trigger'):
+        ndef = (form, self.iden)
+        buid = s_common.buid(ndef)
+
+        props = {
+            'doc': self.tdef.get('doc', ''),
+            'name': self.tdef.get('name', ''),
+            'vers': self.tdef.get('ver', 1),
+            'cond': self.tdef.get('cond'),
+            'storm': self.tdef.get('storm'),
+            'enabled': self.tdef.get('enabled'),
+            'user': self.tdef.get('user'),
+        }
+
+        tag = self.tdef.get('tag')
+        if tag is not None:
+            props['tag'] = tag
+
+        form = self.tdef.get('form')
+        if form is not None:
+            props['form'] = form
+
+        prop = self.tdef.get('prop')
+        if prop is not None:
+            props['prop'] = prop
+
+        return (buid, {
+            'ndef': ndef,
+            'props': props,
+        })
