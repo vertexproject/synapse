@@ -406,9 +406,6 @@ class SpawnCore(s_base.Base):
         self.getStormDmon = self.prox.getStormDmon
         self.getStormDmons = self.prox.getStormDmons
 
-        # TODO: Add Dmon management functions ($lib.dmon support)
-        # TODO: Add Axon management functions ($lib.bytes support)
-
     async def dyncall(self, iden, todo, gatekeys=()):
         return await self.prox.dyncall(iden, todo, gatekeys=gatekeys)
 
