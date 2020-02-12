@@ -1,11 +1,13 @@
 import bz2
 import gzip
 import json
+import time
 import base64
 import asyncio
 import logging
 import binascii
 import datetime
+import calendar
 import collections
 
 import synapse.exc as s_exc
@@ -94,7 +96,7 @@ class Lib(StormType):
 
         path = self.name + (name,)
 
-        slib = await self.runt.snap.getStormLib(path)
+        slib = self.runt.snap.core.getStormLib(path)
         if slib is None:
             raise s_exc.NoSuchName(name=name)
 
@@ -118,15 +120,17 @@ class LibPkg(Lib):
         })
 
     async def _libPkgAdd(self, pkgdef):
-        self.runt.user.confirm(('storm', 'pkg', 'add'))
-        await self.runt.snap.addStormPkg(pkgdef)
+        todo = s_common.todo('addStormPkg', pkgdef)
+        gatekeys = ((self.runt.user.iden, ('pkgs', 'add'), None),)
+        await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _libPkgDel(self, name):
-        self.runt.user.confirm(('storm', 'pkg', 'del'))
-        return await self.runt.snap.delStormPkg(name)
+        todo = s_common.todo('delStormPkg', name)
+        gatekeys = ((self.runt.user.iden, ('pkgs', 'add'), None),)
+        await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _libPkgList(self):
-        return await self.runt.snap.getStormPkgs()
+        return await self.runt.snap.core.getStormPkgs()
 
 class LibDmon(Lib):
 
@@ -139,19 +143,18 @@ class LibDmon(Lib):
 
     async def _libDmonDel(self, iden):
 
-        dmon = await self.runt.snap.getStormDmon(iden)
+        dmon = await self.runt.snap.core.getStormDmon(iden)
         if dmon is None:
             mesg = f'No storm dmon with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        if dmon.ddef.get('user') != self.runt.user.iden:
-            self.runt.user.confirm(('storm', 'dmon', 'del', iden))
+        if dmon.get('user') != self.runt.user.iden:
+            self.runt.user.confirm(('dmon', 'del', iden))
 
-        await self.runt.snap.delStormDmon(iden)
+        await self.runt.snap.core.delStormDmon(iden)
 
     async def _libDmonList(self):
-        dmons = await self.runt.snap.getStormDmons()
-        return [d.pack() for d in dmons]
+        return await self.runt.snap.core.getStormDmons()
 
     async def _libDmonAdd(self, quer, name='noname'):
         '''
@@ -159,7 +162,7 @@ class LibDmon(Lib):
 
         $lib.dmon.add(${ myquery })
         '''
-        self.runt.user.confirm(('storm', 'dmon', 'add'))
+        self.runt.user.confirm(('dmon', 'add'))
 
         # closure style capture of runtime
         runtvars = {k: v for (k, v) in self.runt.vars.items() if s_msgpack.isok(v)}
@@ -175,9 +178,8 @@ class LibDmon(Lib):
             'stormopts': opts,
         }
 
-        dmon = await self.runt.snap.addStormDmon(ddef)
-
-        return dmon.pack()
+        dmoniden = await self.runt.snap.core.addStormDmon(ddef)
+        return dmoniden
 
 class LibService(Lib):
 
@@ -192,30 +194,30 @@ class LibService(Lib):
 
     async def _libSvcAdd(self, name, url):
 
-        self.runt.user.confirm(('storm', 'service', 'add'))
+        self.runt.user.confirm(('service', 'add'))
         sdef = {
             'name': name,
             'url': url,
         }
-        return await self.runt.snap.addStormSvc(sdef)
+        return await self.runt.snap.core.addStormSvc(sdef)
 
     async def _libSvcDel(self, iden):
-        self.runt.user.confirm(('storm', 'service', 'del'))
-        return await self.runt.snap.delStormSvc(iden)
+        self.runt.user.confirm(('service', 'del'))
+        return await self.runt.snap.core.delStormSvc(iden)
 
     async def _libSvcGet(self, name):
-        self.runt.user.confirm(('storm', 'service', 'get', name))
-        ssvc = self.runt.snap.getStormSvc(name)
+        self.runt.user.confirm(('service', 'get', name))
+        ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
         return ssvc
 
     async def _libSvcList(self):
-        self.runt.user.confirm(('storm', 'service', 'list'))
+        self.runt.user.confirm(('service', 'list'))
         retn = []
 
-        for ssvc in self.runt.snap.getStormSvcs():
+        for ssvc in self.runt.snap.core.getStormSvcs():
             sdef = dict(ssvc.sdef)
             sdef['ready'] = ssvc.ready.is_set()
             retn.append(sdef)
@@ -223,8 +225,8 @@ class LibService(Lib):
         return retn
 
     async def _libSvcWait(self, name):
-        self.runt.user.confirm(('storm', 'service', 'get'))
-        ssvc = self.runt.snap.getStormSvc(name)
+        self.runt.user.confirm(('service', 'get'))
+        ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
@@ -251,7 +253,7 @@ class LibBase(Lib):
 
     async def _libBaseImport(self, name):
 
-        mdef = self.runt.getStormMod(name)
+        mdef = await self.runt.snap.core.getStormMod(name)
         if mdef is None:
             mesg = f'No storm module named {name}.'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
@@ -393,7 +395,7 @@ class LibTime(Lib):
         '''
         Format a Synapse timestamp into a string value using strftime.
         '''
-        timetype = self.runt.snap.model.type('time')
+        timetype = self.runt.snap.core.model.type('time')
         # Give a times string a shot at being normed prior to formating.
         try:
             norm, _ = timetype.norm(valu)
@@ -505,12 +507,12 @@ class LibFeed(Lib):
         Returns:
             s_node.Node: An async generator that yields nodes.
         '''
-        self.runt.reqLayerAllowed(('feed:data', *name.split('.')))
+        self.runt.layerConfirm(('feed:data', *name.split('.')))
         with s_provenance.claim('feed:data', name=name):
             return self.runt.snap.addFeedNodes(name, data)
 
     async def _libList(self):
-        return await self.runt.snap.getFeedFuncs()
+        return await self.runt.snap.core.getFeedFuncs()
 
     async def _libIngest(self, name, data, seqn=None):
         '''
@@ -531,7 +533,7 @@ class LibFeed(Lib):
             None or the sequence offset value.
         '''
 
-        self.runt.reqLayerAllowed(('feed:data', *name.split('.')))
+        self.runt.layerConfirm(('feed:data', *name.split('.')))
         with s_provenance.claim('feed:data', name=name):
             strict = self.runt.snap.strict
             self.runt.snap.strict = False
@@ -557,40 +559,27 @@ class LibQueue(Lib):
         }
 
         todo = s_common.todo('addCoreQueue', name, info)
-        gatekeys = ((self.runt.user.iden, ('storm', 'queue', 'add'), 'cortex'),)
-
+        gatekeys = ((self.runt.user.iden, ('queue', 'add'), None),)
         info = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
         return Queue(self.runt, name, info)
 
     async def _methQueueGet(self, name):
-
-        todo = s_common.todo('status', name)
-
-        info = await self.dyncall('multiqueue', todo)
-        if info is None:
-            mesg = f'No queue named {name} exists.'
-            raise s_exc.NoSuchName(mesg=mesg, name=name)
+        todo = s_common.todo('getCoreQueue', name)
+        gatekeys = ((self.runt.user.iden, ('queue', 'get'), f'queue:{name}'),)
+        info = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
         return Queue(self.runt, name, info)
 
     async def _methQueueDel(self, name):
-
-        todo = s_common.todo('exists', name)
-        if not await self.dyncall('multiqueue', todo):
-            mesg = f'No queue named "{name}" exists!'
-            raise s_exc.NoSuchName(mesg=mesg, name=name)
-
-        gatekeys = (
-            (self.runt.user.iden, ('del',), f'queue:{name}'),
-        )
-
         todo = s_common.todo('delCoreQueue', name)
+        gatekeys = ((self.runt.user.iden, ('queue', 'del',), f'queue:{name}'), )
         await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueueList(self):
-        todo = s_common.todo('list')
-        return await self.dyncall('multiqueue', todo)
+        # FIXME:  perms?
+        todo = s_common.todo('listCoreQueues')
+        return await self.dyncall('cortex', todo)
 
 class Queue(StormType):
     '''
@@ -616,12 +605,11 @@ class Queue(StormType):
 
     async def _methQueueCull(self, offs):
         offs = intify(offs)
-        todo = s_common.todo('cull', self.name, offs)
+        todo = s_common.todo('coreQueueCull', self.name, offs)
         gatekeys = self._getGateKeys('get')
-        await self.runt.dyncall('multiqueue', todo, gatekeys=gatekeys)
+        await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
-    async def _methQueueGets(self, offs=0, wait=True, size=None):
-
+    async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
         wait = intify(wait)
         offs = intify(offs)
 
@@ -639,12 +627,12 @@ class Queue(StormType):
         gatekeys = self._getGateKeys('put')
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
-    async def _methQueueGet(self, offs=0, wait=True):
+    async def _methQueueGet(self, offs=0, cull=True, wait=True):
 
         offs = intify(offs)
         wait = intify(wait)
 
-        todo = s_common.todo('coreQueueGet', self.name, offs, wait=wait)
+        todo = s_common.todo('coreQueueGet', self.name, offs, cull=cull, wait=wait)
         gatekeys = self._getGateKeys('get')
 
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
@@ -652,8 +640,8 @@ class Queue(StormType):
     async def _methQueuePut(self, item):
         return await self._methQueuePuts((item,))
 
-    def _getGateKeys(self, name):
-        return ((self.runt.user.iden, (name,), self.gateiden),)
+    def _getGateKeys(self, perm):
+        return ((self.runt.user.iden, ('queue', perm), self.gateiden),)
 
 class LibTelepath(Lib):
 
@@ -667,7 +655,7 @@ class LibTelepath(Lib):
         Open and return a telepath RPC proxy.
         '''
         scheme = url.split('://')[0]
-        self.runt.user.confirm(('storm', 'lib', 'telepath', 'open', scheme))
+        self.runt.user.confirm(('lib', 'telepath', 'open', scheme))
         return Proxy(await self.runt.getTeleProxy(url))
 
 class Proxy(StormType):
@@ -956,43 +944,12 @@ class List(Prim):
         '''
         return len(self)
 
-class StormHiveDict(Prim):
-    # A Storm API for a HiveDict
-    def __init__(self, valu, path=None):
-        Prim.__init__(self, valu, path=path)
-        self.locls.update({
-            'get': self._methGet,
-            'pop': self._methPop,
-            'set': self._methSet,
-            'list': self._methList,
-        })
-
-    def _reqStr(self, name):
-        if not isinstance(name, str):
-            mesg = 'The name of a persistent variable must be a string.'
-            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
-
-    async def _methGet(self, name, default=None):
-        self._reqStr(name)
-        return self.valu.get(name, default=default)
-
-    async def _methPop(self, name, default=None):
-        self._reqStr(name)
-        return await self.valu.pop(name, default=default)
-
-    async def _methSet(self, name, valu):
-        self._reqStr(name)
-        await self.valu.set(name, valu)
-
-    async def _methList(self):
-        return list(self.valu.items())
-
 class LibUser(Lib):
     def addLibFuncs(self):
-        hivedict = StormHiveDict(self.runt.user.pvars)
+        uservars = LibUserVars(self.runt, ())
         self.locls.update({
             'name': self._libUserName,
-            'vars': hivedict,
+            'vars': uservars
         })
 
     async def _libUserName(self, path=None):
@@ -1003,7 +960,6 @@ class LibGlobals(Lib):
     Global persistent Storm variables
     '''
     def __init__(self, runt, name):
-        self._stormvars = runt.snap.getStormVars()
         Lib.__init__(self, runt, name)
 
     def addLibFuncs(self):
@@ -1021,28 +977,68 @@ class LibGlobals(Lib):
 
     async def _methGet(self, name, default=None):
         self._reqStr(name)
-        self.runt.user.confirm(('storm', 'globals', 'get', name))
-        return self._stormvars.get(name, default=default)
+        self.runt.user.confirm(('globals', 'get', name))
+        return await self.runt.snap.core.getStormVar(name, default=default)
 
     async def _methPop(self, name, default=None):
         self._reqStr(name)
-        self.runt.user.confirm(('storm', 'globals', 'pop', name))
-        return await self._stormvars.pop(name, default=default)
+        self.runt.user.confirm(('globals', 'pop', name))
+        return await self.runt.snap.core.popStormVar(name, default=default)
 
     async def _methSet(self, name, valu):
         self._reqStr(name)
-        self.runt.user.confirm(('storm', 'globals', 'set', name))
-        await self._stormvars.set(name, valu)
+        self.runt.user.confirm(('globals', 'set', name))
+        return await self.runt.snap.core.setStormVar(name, valu)
 
     async def _methList(self):
         ret = []
-        for key, valu in list(self._stormvars.items()):
+        async for key, valu in self.runt.snap.core.itemsStormVar():
             try:
-                self.runt.user.confirm(('storm:globals:get', key))
+                self.runt.user.confirm(('globals', 'get', key))
             except s_exc.AuthDeny:
                 continue
             else:
                 ret.append((key, valu))
+        return ret
+
+class LibUserVars(Lib):
+    '''
+    Global persistent per-user Storm variables
+    '''
+    def __init__(self, runt, name):
+        Lib.__init__(self, runt, name)
+        self.auth = runt.snap.core.auth
+        self.useriden = runt.user.iden
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'get': self._methGet,
+            'pop': self._methPop,
+            'set': self._methSet,
+            'list': self._methList,
+        })
+
+    def _reqStr(self, name):
+        if not isinstance(name, str):
+            mesg = 'The name of a persistent variable must be a string.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+    async def _methGet(self, name, default=None):
+        self._reqStr(name)
+        return await self.auth.getUserVar(self.useriden, name, default=default)
+
+    async def _methPop(self, name, default=None):
+        self._reqStr(name)
+        return await self.auth.popUserVar(self.useriden, name, default=default)
+
+    async def _methSet(self, name, valu):
+        self._reqStr(name)
+        return await self.auth.setUserVar(self.useriden, name, valu)
+
+    async def _methList(self):
+        ret = []
+        async for key, valu in self.auth.itemsUserVar(self.useriden):
+            ret.append((key, valu))
         return ret
 
 class LibVars(Lib):
@@ -1136,19 +1132,19 @@ class NodeData(Prim):
             raise s_exc.AuthDeny(perm=perm, mesg=mesg)
 
     async def _getNodeData(self, name):
-        self._reqAllowed(('storm', 'node', 'data', 'get', name))
+        self._reqAllowed(('node', 'data', 'get', name))
         return await self.valu.getData(name)
 
     async def _setNodeData(self, name, valu):
-        self._reqAllowed(('storm', 'node', 'data', 'set', name))
+        self._reqAllowed(('node', 'data', 'set', name))
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):
-        self._reqAllowed(('storm', 'node', 'data', 'pop', name))
+        self._reqAllowed(('node', 'data', 'pop', name))
         return await self.valu.popData(name)
 
     async def _listNodeData(self):
-        self._reqAllowed(('storm', 'node', 'data', 'list'))
+        self._reqAllowed(('node', 'data', 'list'))
         return [x async for x in self.valu.iterData()]
 
 class Node(Prim):
@@ -1398,10 +1394,13 @@ class LibView(Lib):
         '''
         Add a view to the cortex.
         '''
-        self.runt.reqAllowed(('view', 'add'))
+        self.runt.confirm(('view', 'add'))
 
-        view = await self.runt.snap.core.addView(layers)
-
+        vdef = {
+            'creator': self.runt.user.iden,
+            'layers': layers
+        }
+        view = await self.runt.snap.core.addView(vdef)
         if view is None:
             mesg = f'Failed to add view.'
             raise s_exc.StormRuntimeError(mesg=mesg, layers=layers)
@@ -1412,7 +1411,7 @@ class LibView(Lib):
         '''
         Delete a view in the cortex.
         '''
-        view = self.runt.snap.getView(iden)
+        view = self.runt.snap.core.getView(iden=iden)
         if view is None:
             mesg = f'No view with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -1422,9 +1421,9 @@ class LibView(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, iden=iden)
 
         if not view.info.get('owner') == self.runt.user.iden:
-            self.runt.reqAllowed(('view', 'del'))
+            self.runt.confirm(('view', 'del'))
 
-        await self.runt.snap.delView(iden=view.iden)
+        await self.runt.snap.core.delView(iden=view.iden)
 
         return True
 
@@ -1432,14 +1431,14 @@ class LibView(Lib):
         '''
         Fork a view in the cortex.
         '''
-        self.runt.reqAllowed(('view', 'add'))
+        self.runt.confirm(('view', 'add'))
 
-        view = self.runt.snap.getView(iden)
+        view = self.runt.snap.core.getView(iden=iden)
         if view is None:
             mesg = f'No view with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        newview = await view.fork(owner=self.runt.user.iden)
+        newview = await view.fork(ldef={'creator': self.runt.user.iden}, vdef={'creator': self.runt.user.iden})
 
         return View(newview, path=self.path)
 
@@ -1447,9 +1446,9 @@ class LibView(Lib):
         '''
         Retrieve a view from the cortex.
         '''
-        self.runt.reqAllowed(('view', 'read'))
+        self.runt.confirm(('view', 'read'))
 
-        view = self.runt.snap.getView(iden)
+        view = self.runt.snap.core.getView(iden=iden)
         if view is None:
             mesg = f'No view with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -1460,9 +1459,9 @@ class LibView(Lib):
         '''
         List the views in the cortex.
         '''
-        self.runt.reqAllowed(('view', 'read'))
+        self.runt.confirm(('view', 'read'))
 
-        views = self.runt.snap.listViews()
+        views = self.runt.snap.core.listViews()
 
         return [View(view, path=self.path) for view in views]
 
@@ -1472,13 +1471,13 @@ class LibView(Lib):
 
         When complete, the view is deleted.
         '''
-        view = self.runt.snap.getView(iden)
+        view = self.runt.snap.core.getView(iden=iden)
         if view is None:
             mesg = f'No view with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
         if not view.info.get('owner') == self.runt.user.iden:
-            self.runt.reqAllowed(('view', 'del'))
+            self.runt.confirm(('view', 'del'))
 
         view.layers[0].readonly = True
         try:
@@ -1523,6 +1522,607 @@ class View(Prim):
             'owner': self.valu.info.get('owner'),
             'layers': layrinfo,
         }
+
+class LibTrigger(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'add': self._methTriggerAdd,
+            'del': self._methTriggerDel,
+            'list': self._methTriggerList,
+        })
+
+    async def _matchIdens(self, prefix):
+        '''
+        Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
+        exactly one.
+        '''
+        useriden = self.runt.user.iden
+        viewiden = self.runt.snap.view.iden
+
+        matches = []
+
+        todo = s_common.todo('packTriggers', useriden)
+        trigs = await self.dyncall(viewiden, todo)
+
+        for tdef in trigs:
+            iden = tdef.get('iden')
+            if iden.startswith(prefix):
+                matches.append(iden)
+
+        if len(matches) == 1:
+            return matches[0]
+
+        elif len(matches) == 0:
+            mesg = 'Provided iden does not match any valid authorized triggers.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+
+        else:
+            mesg = 'Provided iden matches more than one trigger.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+
+    async def _methTriggerAdd(self, tdef): # cond, form=None, tag=None, prop=None, query=None, disabled=False):
+        '''
+        Add a trigger to the cortex.
+        '''
+        useriden = self.runt.user.iden
+        viewiden = self.runt.snap.view.iden
+
+        tdef['user'] = useriden
+        tdef['view'] = viewiden
+
+        gatekeys = ((useriden, ('trigger', 'add'), viewiden),)
+        todo = ('addTrigger', (tdef,), {})
+        tdef = await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+
+        return Trigger(self.runt, tdef)
+
+    async def _methTriggerDel(self, prefix):
+        '''
+        Delete a trigger from the cortex.
+        '''
+        useriden = self.runt.user.iden
+        viewiden = self.runt.snap.view.iden
+        trigiden = await self._matchIdens(prefix)
+
+        todo = s_common.todo('delTrigger', trigiden)
+        gatekeys = (
+            (useriden, ('trigger', 'del'), trigiden),
+        )
+
+        await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+
+        return trigiden
+
+    async def _methTriggerMod(self, prefix, query):
+        '''
+        Modify a trigger in the cortex.
+        '''
+        if not query.startswith('{'):
+            mesg = 'Expected second argument to start with {'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix, query=query)
+
+        # Remove the curly braces
+        query = query[1:-1]
+
+        iden = await self._matchIdens(prefix, ('trigger', 'set'))
+        await self.runt.snap.core.updateTrigger(iden, query)
+
+        return iden
+
+    async def _methTriggerList(self):
+        '''
+        List triggers in the cortex.
+        '''
+        useriden = self.runt.user.iden
+        viewiden = self.runt.snap.view.iden
+
+        todo = s_common.todo('packTriggers', useriden)
+
+        triggers = []
+        for tdef in await self.dyncall(viewiden, todo):
+            triggers.append(Trigger(self.runt, tdef))
+        return triggers
+
+class Trigger(StormType):
+
+    def __init__(self, runt, tdef):
+
+        StormType.__init__(self)
+        self.runt = runt
+        self.tdef = tdef
+
+        self.locls.update({
+            'get': self.tdef.get,
+            'set': self.set,
+            'pack': self.pack,
+        })
+
+    async def set(self, name, valu):
+        useriden = self.runt.user.iden
+        viewiden = self.runt.snap.view.iden
+
+        gatekeys = (
+            (useriden, ('trigger', 'mod'), viewiden),
+        )
+
+        todo = ('setTrigInfo', (name, valu), {})
+        await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+
+        self.tdef[name] = valu
+
+    async def pack(self):
+        return self.tdef.copy()
+
+class LibCron(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'at': self._methCronAt,
+            'add': self._methCronAdd,
+            'del': self._methCronDel,
+            'mod': self._methCronMod,
+            'list': self._methCronList,
+            'stat': self._methCronStat,
+            'enable': self._methCronEnable,
+            'disable': self._methCronDisable,
+        })
+
+    async def _matchIdens(self, prefix, perm):
+        '''
+        Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
+        exactly one.
+        '''
+        matches = []
+        crons = await self.runt.snap.core.listCronJobs()
+
+        for (iden, cron) in crons:
+            if iden.startswith(prefix) and await cron.allowed(self.runt.user, perm):
+                matches.append(iden)
+
+        if len(matches) == 1:
+            return matches[0]
+        elif len(matches) == 0:
+            mesg = 'Provided iden does not match any valid authorized cron job.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+        else:
+            mesg = 'Provided iden matches more than one cron job.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+
+    def _parseWeekday(self, val):
+        ''' Try to match a day-of-week abbreviation, then try a day-of-week full name '''
+        val = val.title()
+        try:
+            return list(calendar.day_abbr).index(val)
+        except ValueError:
+            try:
+                return list(calendar.day_name).index(val)
+            except ValueError:
+                return None
+
+    def _parseIncval(self, incunit, incval):
+        ''' Parse a non-day increment value. Should be an integer or a comma-separated integer list. '''
+        try:
+            retn = [int(val) for val in incval.split(',')]
+        except ValueError:
+            return None
+
+        return retn[0] if len(retn) == 1 else retn
+
+    def _parseReq(self, requnit, reqval):
+        ''' Parse a non-day fixed value '''
+        assert reqval[0] != '='
+
+        try:
+            retn = []
+            for val in reqval.split(','):
+                if requnit == 'month':
+                    if reqval[0].isdigit():
+                        retn.append(int(reqval))  # must be a month (1-12)
+                    else:
+                        try:
+                            retn.append(list(calendar.month_abbr).index(val.title()))
+                        except ValueError:
+                            retn.append(list(calendar.month_name).index(val.title()))
+                else:
+                    retn.append(int(val))
+        except ValueError:
+            return None
+
+        return retn[0] if len(retn) == 1 else retn
+
+    def _parseDay(self, optval):
+        ''' Parse a --day argument '''
+        isreq = not optval.startswith('+')
+        if not isreq:
+            optval = optval[1:]
+
+        try:
+            retnval = []
+            unit = None
+            for val in optval.split(','):
+                if not val:
+                    raise ValueError
+                if val[-1].isdigit():
+                    newunit = 'dayofmonth' if isreq else 'day'
+                    if unit is None:
+                        unit = newunit
+                    elif newunit != unit:
+                        raise ValueError
+                    retnval.append(int(val))
+                else:
+                    newunit = 'dayofweek'
+                    if unit is None:
+                        unit = newunit
+                    elif newunit != unit:
+                        raise ValueError
+
+                    weekday = self._parseWeekday(val)
+                    if weekday is None:
+                        raise ValueError
+                    retnval.append(weekday)
+            if len(retnval) == 0:
+                raise ValueError
+        except ValueError:
+            return None, None
+        if len(retnval) == 1:
+            retnval = retnval[0]
+        return unit, retnval
+
+    def _parseAlias(self, opts):
+        retn = {}
+
+        hourly = opts.get('hourly')
+        if hourly is not None:
+            retn['hour'] = '+1'
+            retn['minute'] = str(int(hourly))
+            return retn
+
+        daily = opts.get('daily')
+        if daily is not None:
+            fields = time.strptime(daily, '%H:%M')
+            retn['day'] = '+1'
+            retn['hour'] = str(fields.tm_hour)
+            retn['minute'] = str(fields.tm_min)
+            return retn
+
+        monthly = opts.get('monthly')
+        if monthly is not None:
+            day, rest = monthly.split(':', 1)
+            fields = time.strptime(rest, '%H:%M')
+            retn['month'] = '+1'
+            retn['day'] = day
+            retn['hour'] = str(fields.tm_hour)
+            retn['minute'] = str(fields.tm_min)
+            return retn
+
+        yearly = opts.get('yearly')
+        if yearly is not None:
+            fields = yearly.split(':')
+            if len(fields) != 4:
+                raise ValueError(f'Failed to parse parameter {yearly}')
+            retn['year'] = '+1'
+            retn['month'], retn['day'], retn['hour'], retn['minute'] = fields
+            return retn
+
+        return None
+
+    async def _methCronAdd(self, **kwargs):
+        '''
+        Add a cron job to the cortex.
+        '''
+        self.runt.confirm(('cron', 'add'))
+
+        incunit = None
+        incval = None
+        reqdict = {}
+        valinfo = {  # unit: (minval, next largest unit)
+            'month': (1, 'year'),
+            'dayofmonth': (1, 'month'),
+            'hour': (0, 'day'),
+            'minute': (0, 'hour'),
+        }
+
+        query = kwargs.get('query', None)
+        if query is None:
+            mesg = 'Query parameter is required.'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        if not query.startswith('{'):
+            mesg = 'Query parameter must start with {'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        try:
+            alias_opts = self._parseAlias(kwargs)
+        except ValueError as e:
+            mesg = f'Failed to parse ..ly parameter: {" ".join(e.args)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        if alias_opts:
+            year = kwargs.get('year')
+            month = kwargs.get('month')
+            day = kwargs.get('day')
+            hour = kwargs.get('hour')
+            minute = kwargs.get('minute')
+
+            if year or month or day or hour or minute:
+                mesg = 'May not use both alias (..ly) and explicit options at the same time'
+                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+            opts = alias_opts
+        else:
+            opts = kwargs
+
+        for optname in ('year', 'month', 'day', 'hour', 'minute'):
+            optval = opts.get(optname)
+
+            if optval is None:
+                if incunit is None and not reqdict:
+                    continue
+                # The option isn't set, but a higher unit is.  Go ahead and set the required part to the lowest valid
+                # value, e.g. so --month 2 would run on the *first* of every other month at midnight
+                if optname == 'day':
+                    reqdict['dayofmonth'] = 1
+                else:
+                    reqdict[optname] = valinfo[optname][0]
+                continue
+
+            isreq = not optval.startswith('+')
+
+            if optname == 'day':
+                unit, val = self._parseDay(optval)
+                if val is None:
+                    mesg = f'Failed to parse day value "{optval}"'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                if unit == 'dayofweek':
+                    if incunit is not None:
+                        mesg = 'May not provide a recurrence value with day of week'
+                        raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                    if reqdict:
+                        mesg = 'May not fix month or year with day of week'
+                        raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                    incunit, incval = unit, val
+                elif unit == 'day':
+                    incunit, incval = unit, val
+                else:
+                    assert unit == 'dayofmonth'
+                    reqdict[unit] = val
+                continue
+
+            if not isreq:
+                if incunit is not None:
+                    mesg = 'May not provide more than 1 recurrence parameter'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                if reqdict:
+                    mesg = 'Fixed unit may not be larger than recurrence unit'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                incunit = optname
+                incval = self._parseIncval(optname, optval)
+                if incval is None:
+                    mesg = 'Failed to parse parameter'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                continue
+
+            if optname == 'year':
+                mesg = 'Year may not be a fixed value'
+                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+            reqval = self._parseReq(optname, optval)
+            if reqval is None:
+                mesg = f'Failed to parse fixed parameter "{optval}"'
+                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+            reqdict[optname] = reqval
+
+        # If not set, default (incunit, incval) to (1, the next largest unit)
+        if incunit is None:
+            if not reqdict:
+                mesg = 'Must provide at least one optional argument'
+                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+            requnit = next(iter(reqdict))  # the first key added is the biggest unit
+            incunit = valinfo[requnit][1]
+            incval = 1
+
+        # Remove the curly braces
+        query = query[1:-1]
+
+        iden = await self.runt.snap.core.addCronJob(query, reqdict, incunit, incval)
+        return iden
+
+    async def _methCronAt(self, **kwargs):
+        '''
+        Add non-recurring cron jobs to the cortex.
+        '''
+        self.runt.confirm(('cron', 'add'))
+
+        tslist = []
+        now = time.time()
+
+        query = kwargs.get('query', None)
+        if query is None:
+            mesg = 'Query parameter is required.'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        if not query.startswith('{'):
+            mesg = 'Query parameter must start with {'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        for optname in ('day', 'hour', 'minute'):
+            opts = kwargs.get(optname)
+
+            if not opts:
+                continue
+
+            for optval in opts.split(','):
+                try:
+                    arg = f'{optval} {optname}'
+                    ts = now + s_time.delta(arg) / 1000.0
+                    tslist.append(ts)
+                except (ValueError, s_exc.BadTypeValu):
+                    mesg = f'Trouble parsing "{arg}"'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        dts = kwargs.get('dt')
+        if dts:
+            for dt in dts.split(','):
+                try:
+                    ts = s_time.parse(dt) / 1000.0
+                    tslist.append(ts)
+                except (ValueError, s_exc.BadTypeValu):
+                    mesg = f'Trouble parsing "{dt}"'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        def _ts_to_reqdict(ts):
+            dt = datetime.datetime.fromtimestamp(ts, datetime.timezone.utc)
+            return {
+                'minute': dt.minute,
+                'hour': dt.hour,
+                'dayofmonth': dt.day,
+                'month': dt.month,
+                'year': dt.year
+            }
+
+        if not tslist:
+            mesg = 'At least one requirement must be provided'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        reqdicts = [_ts_to_reqdict(ts) for ts in tslist]
+
+        query = query[1:-1]
+
+        iden = await self.runt.snap.core.addCronJob(query, reqdicts, None, None)
+        return iden
+
+    async def _methCronDel(self, prefix):
+        '''
+        Delete a cron job from the cortex.
+        '''
+        iden = await self._matchIdens(prefix, ('cron', 'del'))
+
+        await self.runt.snap.core.delCronJob(iden)
+
+        return iden
+
+    async def _methCronMod(self, prefix, query):
+        '''
+        Modify a cron job in the cortex.
+        '''
+        if not query.startswith('{'):
+            mesg = 'Expected second argument to start with {'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix, query=query)
+
+        # Remove the curly braces
+        query = query[1:-1]
+
+        iden = await self._matchIdens(prefix, ('cron', 'set'))
+        await self.runt.snap.core.updateCronJob(iden, query)
+
+        return iden
+
+    @staticmethod
+    def _formatTimestamp(ts):
+        # N.B. normally better to use fromtimestamp with UTC timezone,
+        # but we don't want timezone to print out
+        return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
+
+    async def _methCronList(self):
+        '''
+        List cron jobs in the cortex.
+        '''
+        cronlist = await self.runt.snap.core.listCronJobs()
+
+        jobs = []
+        for iden, cronjob in cronlist:
+            if not await cronjob.allowed(self.runt.user, ('cron', 'get')):
+                continue
+
+            cron = cronjob.pack()
+            user = self.runt.snap.core.getUserName(cron.get('useriden'))
+
+            laststart = cron.get('laststarttime')
+            lastend = cron.get('lastfinishtime')
+            result = cron.get('lastresult')
+
+            jobs.append({
+                'iden': iden,
+                'idenshort': iden[:8] + '..',
+                'user': user or '<None>',
+                'query': cron.get('query') or '<missing>',
+                'isrecur': 'Y' if cron.get('recur') else 'N',
+                'isrunning': 'Y' if cron.get('isrunning') else 'N',
+                'enabled': 'Y' if cron.get('enabled', True) else 'N',
+                'startcount': cron.get('startcount') or 0,
+                'laststart': 'Never' if laststart is None else self._formatTimestamp(laststart),
+                'lastend': 'Never' if lastend is None else self._formatTimestamp(lastend),
+                'iserr': 'X' if result is not None and not result.startswith('finished successfully') else ' '
+            })
+
+        return jobs
+
+    async def _methCronStat(self, prefix):
+        '''
+        Get information about a cron job.
+        '''
+        matches = []
+        crons = await self.runt.snap.core.listCronJobs()
+
+        for (iden, cron) in crons:
+            if iden.startswith(prefix) and await cron.allowed(self.runt.user, ('cron', 'get')):
+                matches.append(iden)
+
+        if len(matches) == 0:
+            mesg = 'Provided iden does not match any valid authorized cron job.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+        elif len(matches) > 1:
+            mesg = 'Provided iden matches more than one cron job.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+
+        iden = matches[0]
+        cronjob = [cron[1] for cron in crons if cron[0] == iden][0]
+        cron = cronjob.pack()
+        user = self.runt.snap.core.getUserName(cron.get('useriden'))
+
+        laststart = cron.get('laststarttime')
+        lastend = cron.get('lastfinishtime')
+
+        job = {
+            'iden': iden,
+            'user': user or '<None>',
+            'query': cron.get('query') or '<missing>',
+            'isrecur': 'Y' if cron.get('recur') else 'N',
+            'isrunning': 'Y' if cron.get('isrunning') else 'N',
+            'enabled': 'Y' if cron.get('enabled', True) else 'N',
+            'startcount': cron.get('startcount') or 0,
+            'laststart': 'Never' if laststart is None else self._formatTimestamp(laststart),
+            'lastend': 'Never' if lastend is None else self._formatTimestamp(lastend),
+            'lastresult': cron.get('lastresult') or '<None>',
+            'recs': []
+        }
+
+        for reqdict, incunit, incval in cron.get('recs', []):
+            job['recs'].append({
+                'reqdict': reqdict or '<None>',
+                'incunit': incunit or '<None>',
+                'incval': incval or '<None>'
+            })
+
+        return job
+
+    async def _methCronEnable(self, prefix):
+        '''
+        Enable a cron job in the cortex.
+        '''
+        iden = await self._matchIdens(prefix, ('cron', 'set'))
+        await self.runt.snap.core.enableCronJob(iden)
+
+        return iden
+
+    async def _methCronDisable(self, prefix):
+        '''
+        Disable a cron job in the cortex.
+        '''
+        iden = await self._matchIdens(prefix, ('cron', 'set'))
+        await self.runt.snap.core.disableCronJob(iden)
+
+        return iden
 
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):

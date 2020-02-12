@@ -6,8 +6,6 @@ import logging
 import functools
 import contextlib
 
-import collections.abc as c_abc
-
 import tornado.web as t_web
 
 import synapse.exc as s_exc
@@ -20,14 +18,13 @@ import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
-
+import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
 import synapse.lib.health as s_health
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
-
-import synapse.lib.const as s_const
+import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 
 logger = logging.getLogger(__name__)
@@ -229,15 +226,12 @@ class CellApi(s_base.Base):
     async def addUserRule(self, name, rule, indx=None, gateiden=None):
         user = await self.cell.auth.reqUserByName(name)
         retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
-        #await self.cell.fire('user:mod', act='addrule', name=name, rule=rule, indx=indx, iden=iden)
         return retn
 
     @adminapi
     async def addRoleRule(self, name, rule, indx=None, gateiden=None):
         role = await self.cell.auth.reqRoleByName(name)
         retn = await role.addRule(rule, indx=indx, gateiden=gateiden)
-        # FIXME what are these for ( and the need to be role:mod if we're keeping them )
-        #await self.cell.fire('user:mod', act='addrule', name=name, rule=rule, indx=indx, iden=iden)
         return retn
 
     @adminapi
@@ -259,6 +253,45 @@ class CellApi(s_base.Base):
     async def setRoleAdmin(self, name, admin, gateiden=None):
         role = await self.cell.auth.reqRoleByName(name)
         await role.setAdmin(admin, gateiden=gateiden)
+
+    @adminapi
+    async def getAuthInfo(self, name):
+        #FIXME deprecated
+        user = await self.cell.auth.getUserByName(name)
+        if user is not None:
+            info = user.pack()
+            info['roles'] = [self.cell.auth.role(r).name for r in info['roles']]
+            return info
+
+        role = await self.cell.auth.getRoleByName(name)
+        if role is not None:
+            return role.pack()
+
+        raise s_exc.NoSuchName(name=name)
+
+    @adminapi
+    async def addAuthRule(self, name, rule, indx=None, gateiden=None):
+        #FIXME deprecated
+        item = await self.cell.auth.getUserByName(name)
+        if item is None:
+            item = await self.cell.auth.getRoleByName(name)
+        await item.addRule(rule, indx=indx, gateiden=gateiden)
+
+    @adminapi
+    async def delAuthRule(self, name, rule, gateiden=None):
+        #FIXME deprecated
+        item = await self.cell.auth.getUserByName(name)
+        if item is None:
+            item = await self.cell.auth.getRoleByName(name)
+        await item.delRule(rule, gateiden=gateiden)
+
+    @adminapi
+    async def setAuthAdmin(self, name, isadmin):
+        #FIXME deprecated
+        item = await self.cell.auth.getUserByName(name)
+        if item is None:
+            item = await self.cell.auth.getRoleByName(name)
+        await item.setAdmin(isadmin)
 
     async def setUserPasswd(self, name, passwd):
         user = await self.cell.auth.getUserByName(name)
@@ -307,36 +340,54 @@ class CellApi(s_base.Base):
         await user.revoke(rolename)
         await self.cell.fire('user:mod', act='revoke', name=username, role=rolename)
 
-    async def getAuthInfo(self, name):
-        '''
-        An API endpoint for getting user and role info.
+    async def getUserInfo(self, name):
+        user = await self.cell.auth.reqUserByName(name)
+        if self.user.isAdmin() or self.user.iden == user.iden:
+            info = user.pack()
+            info['roles'] = [self.cell.auth.role(r).name for r in info['roles']]
+            return info
 
-        Args:
-            name (str): Name of the item requested.
+        mesg = 'getUserInfo denied for non-admin and non-self'
+        raise s_exc.AuthDeny(mesg=mesg)
 
-        Notes:
-            Authinfo for an item is available to a remote user under the following conditions:
-            1. The remote user is an admin.
-            2. The remote user is requesting their authitem data.
-            3. The remote user is requesting role information for roles they have.
+    async def getRoleInfo(self, name):
+        role = await self.cell.auth.reqRoleByName(name)
+        if self.user.isAdmin() or role.iden in self.user.info.get('roles', ()):
+            return role.pack()
 
-        Returns:
-            tuple(str, dict): The name and packed information about the auth item.
-        '''
-        item = await self.cell.auth.getRulerByName(name)
-        pack = item.pack()
-        item_iden = pack.get('iden')
+        mesg = 'getRoleInfo denied for non-admin and non-member'
+        raise s_exc.AuthDeny(mesg=mesg)
 
-        if self.user.isAdmin() or \
-                (pack.get('type') == 'user' and self.user.iden == item_iden) or \
-                (pack.get('type') == 'role' and self.user.hasRole(item_iden)):
-            # translate role guids to names for back compat
-            if pack.get('type') == 'user':
-                pack['roles'] = [self.cell.auth.role(r).name for r in pack['roles']]
-            return (name, pack)
-
-        raise s_exc.AuthDeny(mesg='User does not have permission to get authinfo for the requested item.',
-                             name=name)
+#    async def getAuthInfo(self, name):
+#        '''
+#        An API endpoint for getting user and role info.
+#
+#        Args:
+#            name (str): Name of the item requested.
+#
+#        Notes:
+#            Authinfo for an item is available to a remote user under the following conditions:
+#            1. The remote user is an admin.
+#            2. The remote user is requesting their authitem data.
+#            3. The remote user is requesting role information for roles they have.
+#
+#        Returns:
+#            tuple(str, dict): The name and packed information about the auth item.
+#        '''
+#        item = await self.cell.auth.getRulerByName(name)
+#        pack = item.pack()
+#        item_iden = pack.get('iden')
+#
+#        if self.user.isAdmin() or \
+#                (pack.get('type') == 'user' and self.user.iden == item_iden) or \
+#                (pack.get('type') == 'role' and self.user.hasRole(item_iden)):
+#            # translate role guids to names for back compat
+#            if pack.get('type') == 'user':
+#                pack['roles'] = [self.cell.auth.role(r).name for r in pack['roles']]
+#            return (name, pack)
+#
+#        raise s_exc.AuthDeny(mesg='User does not have permission to get authinfo for the requested item.',
+#                             name=name)
 
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health',))
@@ -345,6 +396,22 @@ class CellApi(s_base.Base):
     @adminapi
     async def getDmonSessions(self):
         return await self.cell.getDmonSessions()
+
+    @adminapi
+    async def listHiveKey(self, path=None):
+        return await self.cell.listHiveKey(path=path)
+
+    @adminapi
+    async def getHiveKey(self, path):
+        return await self.cell.getHiveKey(path)
+
+    @adminapi
+    async def setHiveKey(self, path, valu):
+        return await self.cell.setHiveKey(path, valu)
+
+    @adminapi
+    async def popHiveKey(self, path):
+        return await self.cell.popHiveKey(path)
 
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
@@ -632,7 +699,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellAuth(self):
         node = await self.hive.open(('auth',))
-        auth = await s_hive.HiveAuth.anit(node)
+        auth = await s_hiveauth.Auth.anit(node)
 
         self.onfini(auth.fini)
         return auth

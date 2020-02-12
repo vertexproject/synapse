@@ -120,7 +120,7 @@ class HandlerBase:
             self.sendAuthReqired()
             return False
 
-        if not user.admin:
+        if not user.isAdmin():
             self.sendRestErr('AuthDeny', f'User {user.iden} ({user.name}) is not an admin.')
             return False
 
@@ -214,7 +214,7 @@ class HandlerBase:
         if user is None:
             return None
 
-        if user.locked:
+        if user.isLocked():
             return None
 
         if not user.tryPasswd(passwd):
@@ -471,7 +471,7 @@ class AuthUserPasswdV1(Handler):
 
         password = body.get('passwd')
 
-        if current_user.admin or current_user.iden == user.iden:
+        if current_user.isAdmin() or current_user.iden == user.iden:
             try:
                 await user.setPasswd(password)
             except s_exc.BadArg as e:
@@ -541,7 +541,7 @@ class AuthGrantV1(Handler):
             self.sendRestErr('NoSuchRole', f'Role iden {iden} not found.')
             return
 
-        await user.grantRole(role)
+        await user.grant(role.name)
 
         self.sendRestRetn(user.pack())
 
@@ -575,7 +575,7 @@ class AuthRevokeV1(Handler):
             self.sendRestErr('NoSuchRole', f'Role iden {iden} not found.')
             return
 
-        await user.revokeRole(role)
+        await user.revoke(role.name)
         self.sendRestRetn(user.pack())
 
         return

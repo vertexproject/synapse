@@ -1184,7 +1184,7 @@ class InetModelTest(s_t_utils.SynTest):
             # Type Tests
             t = core.model.type(formname)
 
-            self.raises(s_exc.NoSuchFunc, t.norm, 'vertex.link/person1')  # No longer a sepr
+            self.raises(s_exc.BadTypeValu, t.norm, 'vertex.link/person1')
             enorm = ('vertex.link', 'person1')
             edata = {'subs': {'user': 'person1',
                               'site': 'vertex.link',

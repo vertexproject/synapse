@@ -37,7 +37,7 @@ class ChangeDist(s_base.Base):
 
     async def __aiter__(self):
 
-        while True:
+        while not self.isfini:
 
             for item in self.nexuslog.iter(self.offs):
                 self.offs = item[0] + 1
@@ -84,14 +84,14 @@ class NexsRoot(s_base.Base):
         item = (nexsiden, event, args, kwargs)
 
         nexus = self._nexskids[nexsiden]
-        indx = self.nexuslog.append(item)
+        indx = self.nexuslog.add(item)
         [dist.update() for dist in tuple(self.mirrors)]
 
         func, passoff = nexus._nexshands[event]
         if passoff:
-            return await func(nexus, *args, nexsoff=indx, **kwargs)
+            return indx, await func(nexus, *args, nexsoff=indx, **kwargs)
 
-        return await func(nexus, *args, **kwargs)
+        return indx, await func(nexus, *args, **kwargs)
 
     async def eat(self, nexsiden: str, event: str, args: List[Any], kwargs: Dict[str, Any]) -> Any:
         '''
@@ -101,6 +101,9 @@ class NexsRoot(s_base.Base):
         return await nexus._push(event, *args, **kwargs)
 
     def getOffset(self):
+        '''
+        Returns the next offset that would be written
+        '''
         return self.nexuslog.index()
 
     async def iter(self, offs: int):
@@ -193,7 +196,9 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         '''
         nexsiden = self._nexsiden
         if self._nexsroot:  # Distribute through the change root
-            return await self._nexsroot.issue(nexsiden, event, args, kwargs)
+            offs, retn = await self._nexsroot.issue(nexsiden, event, args, kwargs)
+            await self._nexsroot.nexuslog.waitForOffset(offs)
+            return retn
 
         # There's no change distribution, so directly execute
         return await self._nexshands[event][0](self, *args, **kwargs)

@@ -355,6 +355,9 @@ class Daemon(s_base.Base):
         except asyncio.CancelledError: # pragma: no cover
             raise
 
+        except ConnectionResetError:
+            logger.debug('Dmon.onLinkMesg Handler: connection reset')
+
         except Exception:
             logger.exception('Dmon.onLinkMesg Handler: %.80r' % (mesg,))
 

@@ -235,7 +235,7 @@ class HotCount(s_base.Base):
 
     def set(self, name: str, valu: int):
         byts = name.encode()
-        self.cache[byts] += valu
+        self.cache[byts] = valu
         self.dirty.add(byts)
 
     def get(self, name: str):
@@ -299,18 +299,16 @@ class MultiQueue(s_base.Base):
     def offset(self, name):
         return self.offsets.get(name)
 
-    @s_nexus.Pusher.onPushAuto('multiqueue:add')
     async def add(self, name, info):
 
         if self.queues.get(name) is not None:
-            mesg = f'A queue exists with the name {name}.'
+            mesg = f'A queue already exists with the name {name}.'
             raise s_exc.DupName(mesg=mesg, name=name)
 
         self.queues.set(name, info)
         self.sizes.set(name, 0)
         self.offsets.set(name, 0)
 
-    @s_nexus.Pusher.onPushAuto('multiqueue:rem')
     async def rem(self, name):
 
         if self.queues.get(name) is None:
@@ -334,11 +332,9 @@ class MultiQueue(s_base.Base):
             return itemoffs, item
         return -1, None
 
-    @s_nexus.Pusher.onPushAuto('multiqueue:put')
     async def put(self, name, item):
-        await self.puts(name, (item,))
+        return await self.puts(name, (item,))
 
-    @s_nexus.Pusher.onPushAuto('multiqueue:puts')
     async def puts(self, name, items):
 
         if self.queues.get(name) is None:
@@ -363,7 +359,7 @@ class MultiQueue(s_base.Base):
 
         return retn
 
-    async def gets(self, name, offs, size=None, wait=False):
+    async def gets(self, name, offs, size=None, cull=False, wait=False):
         '''
         Yield (offs, item) tuples from the message queue.
         '''
@@ -371,6 +367,9 @@ class MultiQueue(s_base.Base):
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+        if cull and offs > 0:
+            await self.cull(name, offs - 1)
 
         abrv = self.abrv.nameToAbrv(name)
 
@@ -400,7 +399,6 @@ class MultiQueue(s_base.Base):
 
             await evnt.wait()
 
-    @s_nexus.Pusher.onPushAuto('multiqueue:cull')
     async def cull(self, name, offs):
         '''
         Remove up-to (and including) the queue entry at offs.
@@ -1163,6 +1161,7 @@ class Scan:
         self.atitem = None
         self.bumped = False
         self.iterfunc = None
+        self.curs = None
 
     def __enter__(self):
         self.slab._acqXactForReading()
@@ -1174,6 +1173,7 @@ class Scan:
         self.bump()
         self.slab.scans.discard(self)
         self.slab._relXactForReading()
+        self.curs = None
 
     def last_key(self):
         '''

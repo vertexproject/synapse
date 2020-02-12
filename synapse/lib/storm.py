@@ -1,31 +1,186 @@
 import asyncio
 import logging
 import argparse
-import collections
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
-import synapse.lib.boss as s_boss
-import synapse.lib.hive as s_hive
-import synapse.lib.link as s_link
-import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
-import synapse.lib.view as s_view
-import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
-import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
+
+addtriggerdescr = '''
+Add a trigger to the cortex.
+
+Notes:
+    Valid values for condition are:
+        * tag:add
+        * tag:del
+        * node:add
+        * node:del
+        * prop:set
+
+When condition is tag:add or tag:del, you may optionally provide a form name
+to restrict the trigger to fire only on tags added or deleted from nodes of
+those forms.
+
+Tag names must start with #.
+
+The added tag is provided to the query as an embedded variable '$tag'.
+
+Simple one level tag globbing is supported, only at the end after a period,
+that is aka.* matches aka.foo and aka.bar but not aka.foo.bar. aka* is not
+supported.
+
+Examples:
+    # Adds a tag to every inet:ipv4 added
+    trigger.add node:add --form inet:ipv4 --query {[ +#mytag ]}
+
+    # Adds a tag #todo to every node as it is tagged #aka
+    trigger.add tag:add --tag #aka --query {[ +#todo ]}
+
+    # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
+    trigger.add tag:add --form inet:ipv4 --tag #aka --query {[ +#todo ]}
+'''
+
+addcrondescr = '''
+Add a recurring cron job to a cortex.
+
+Syntax:
+    cron.add [optional arguments] {query}
+
+    --minute int[,int...][=]
+    --hour
+    --day
+    --month
+    --year
+
+       *or:*
+
+    [--hourly <min> |
+     --daily <hour>:<min> |
+     --monthly <day>:<hour>:<min> |
+     --yearly <month>:<day>:<hour>:<min>]
+
+Notes:
+    All times are interpreted as UTC.
+
+    All arguments are interpreted as the job period, unless the value ends in
+    an equals sign, in which case the argument is interpreted as the recurrence
+    period.  Only one recurrence period parameter may be specified.
+
+    Currently, a fixed unit must not be larger than a specified recurrence
+    period.  i.e. '--hour 7 --minute +15' (every 15 minutes from 7-8am?) is not
+    supported.
+
+    Value values for fixed hours are 0-23 on a 24-hour clock where midnight is 0.
+
+    If the --day parameter value does not start with a '+' and is an integer, it is
+    interpreted as a fixed day of the month.  A negative integer may be
+    specified to count from the end of the month with -1 meaning the last day
+    of the month.  All fixed day values are clamped to valid days, so for
+    example '-d 31' will run on February 28.
+    If the fixed day parameter is a value in ([Mon, Tue, Wed, Thu, Fri, Sat,
+    Sun] if locale is set to English) it is interpreted as a fixed day of the
+    week.
+
+    Otherwise, if the parameter value starts with a '+', then it is interpreted
+    as a recurrence interval of that many days.
+
+    If no plus-sign-starting parameter is specified, the recurrence period
+    defaults to the unit larger than all the fixed parameters.   e.g. '--minute 5'
+    means every hour at 5 minutes past, and --hour 3, --minute 1 means 3:01 every day.
+
+    At least one optional parameter must be provided.
+
+    All parameters accept multiple comma-separated values.  If multiple
+    parameters have multiple values, all combinations of those values are used.
+
+    All fixed units not specified lower than the recurrence period default to
+    the lowest valid value, e.g. --month +2 will be scheduled at 12:00am the first of
+    every other month.  One exception is if the largest fixed value is day of the
+    week, then the default period is set to be a week.
+
+    A month period with a day of week fixed value is not currently supported.
+
+    Fixed-value year (i.e. --year 2019) is not supported.  See the 'at'
+    command for one-time cron jobs.
+
+    As an alternative to the above options, one may use exactly one of
+    --hourly, --daily, --monthly, --yearly with a colon-separated list of
+    fixed parameters for the value.  It is an error to use both the individual
+    options and these aliases at the same time.
+
+Examples:
+    Run a query every last day of the month at 3 am
+    cron.add --hour 3 --day -1 {#foo}
+
+    Run a query every 8 hours
+    cron.add --hour +8 {#foo}
+
+    Run a query every Wednesday and Sunday at midnight and noon
+    cron.add --hour 0,12 --day Wed,Sun {#foo}
+
+    Run a query every other day at 3:57pm
+    cron.add --day +2 --minute 57 --hour 15 {#foo}
+
+'''
+
+atcrondescr = '''
+Adds a non-recurring cron job.
+
+It will execute a Storm query at one or more specified times.
+
+Modifying/details/deleting cron jobs created with 'at' use the same commands as
+other cron jobs:  cron.mod/stat/del respectively.
+
+Syntax:
+    cron.at [optional arguments] {query}
+
+    --dt timestring
+
+       *or:*
+
+    --minute int[,int...]
+    --hour
+    --day
+
+Notes:
+    This command accepts one or more time specifications followed by exactly
+    one storm query in curly braces.  Each time specification may be in synapse
+    time delta format (e.g --day +1) or synapse time format (e.g.
+    20501217030432101).  Seconds will be ignored, as cron jobs' granularity is
+    limited to minutes.
+
+    All times are interpreted as UTC.
+
+    The other option for time specification is a relative time from now.  This
+    consists of a plus sign, a positive integer, then one of 'minutes, hours,
+    days'.
+
+    Note that the record for a cron job is stored until explicitly deleted via
+    "cron.del".
+
+Examples:
+    # Run a storm query in 5 minutes
+    cron.at --minute +5 {[inet:ipv4=1]}
+
+    # Run a storm query tomorrow and in a week
+    cron.at --day +1,+7 {[inet:ipv4=1]}
+
+    # Run a query at the end of the year Zulu
+    cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
+
+'''
 
 stormcmds = (
     {
@@ -176,7 +331,8 @@ stormcmds = (
         'name': 'view.get',
         'descr': 'Get a view from the cortex.',
         'cmdargs': (
-            ('iden', {'nargs': '?', 'help': 'Iden of the view to get. If no iden is provided, the main view will be returned.'}),
+            ('iden', {'nargs': '?',
+                      'help': 'Iden of the view to get. If no iden is provided, the main view will be returned.'}),
         ),
         'storm': '''
             $view = $lib.view.get($cmdopts.iden)
@@ -220,6 +376,265 @@ stormcmds = (
         'storm': '''
             $lib.view.merge($cmdopts.iden)
             $lib.print("View merged: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
+    {
+        'name': 'trigger.add',
+        'descr': addtriggerdescr,
+        'cmdargs': (
+            ('condition', {'help': 'Condition for the trigger.'}),
+            ('--form', {'help': 'Form to fire on.'}),
+            ('--tag', {'help': 'Tag to fire on.'}),
+            ('--prop', {'help': 'Property to fire on.'}),
+            ('--query', {'help': 'Query for the trigger to execute.'}),
+            ('--disabled', {'default': False, 'action': 'store_true',
+                            'help': 'Create the trigger in disabled state.'}),
+        ),
+        'storm': '''
+            $trig = $lib.trigger.add($cmdopts)
+
+            $lib.print("Added trigger: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'trigger.del',
+        'descr': 'Delete a trigger from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.del($cmdopts.iden)
+            $lib.print("Deleted trigger: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'trigger.mod',
+        'descr': "Modify an existing trigger's query.",
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
+            ('query', {'help': 'New storm query for the trigger.'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.mod($cmdopts.iden, $cmdopts.query)
+            $lib.print("Modified trigger: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'trigger.list',
+        'descr': "List existing triggers in the cortex.",
+        'cmdargs': (),
+        'storm': '''
+            $triggers = $lib.trigger.list()
+
+            if $triggers {
+
+                $lib.print("user       iden         en? cond      object                    storm query")
+
+                for $trigger in $triggers {
+                    $user = $trigger.user.ljust(10)
+                    $iden = $trigger.idenshort.ljust(12)
+                    $enabled = $trigger.enabled.ljust(3)
+                    $cond = $trigger.cond.ljust(9)
+
+                    if $cond.startswith('tag:') {
+                        $obj = $trigger.form.ljust(14)
+                        $obj2 = $trigger.tag.ljust(10)
+                    } else {
+                        $obj = $trigger.prop.ljust(14)
+                        $obj2 = $trigger.form.ljust(10)
+                    }
+
+                    $lib.print("{user} {iden} {enabled} {cond} {obj} {obj2} {query}",
+                              user=$user, iden=$iden, enabled=$enabled, cond=$cond,
+                              obj=$obj, obj2=$obj2, query=$trigger.query)
+                }
+            } else {
+                $lib.print("No triggers found")
+            }
+        ''',
+    },
+    {
+        'name': 'trigger.enable',
+        'descr': 'Enable a trigger in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.enable($cmdopts.iden)
+            $lib.print("Enabled trigger: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'trigger.disable',
+        'descr': 'Disable a trigger in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.disable($cmdopts.iden)
+            $lib.print("Disabled trigger: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'cron.add',
+        'descr': addcrondescr,
+        'cmdargs': (
+            ('query', {'help': 'Query for the cron job to execute.'}),
+            ('--minute', {'help': 'Minute value for job or recurrence period.'}),
+            ('--hour', {'help': 'Hour value for job or recurrence period.'}),
+            ('--day', {'help': 'Day value for job or recurrence period.'}),
+            ('--month', {'help': 'Month value for job or recurrence period.'}),
+            ('--year', {'help': 'Year value for recurrence period.'}),
+            ('--hourly', {'help': 'Fixed parameters for an hourly job.'}),
+            ('--daily', {'help': 'Fixed parameters for a daily job.'}),
+            ('--monthly', {'help': 'Fixed parameters for a monthly job.'}),
+            ('--yearly', {'help': 'Fixed parameters for a yearly job.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.add(query=$cmdopts.query,
+                                  minute=$cmdopts.minute,
+                                  hour=$cmdopts.hour,
+                                  day=$cmdopts.day,
+                                  month=$cmdopts.month,
+                                  year=$cmdopts.year,
+                                  hourly=$cmdopts.hourly,
+                                  daily=$cmdopts.daily,
+                                  monthly=$cmdopts.monthly,
+                                  yearly=$cmdopts.yearly)
+
+            $lib.print("Created cron job: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'cron.at',
+        'descr': atcrondescr,
+        'cmdargs': (
+            ('query', {'help': 'Query for the cron job to execute.'}),
+            ('--minute', {'help': 'Minute(s) to execute at.'}),
+            ('--hour', {'help': 'Hour(s) to execute at.'}),
+            ('--day', {'help': 'Day(s) to execute at.'}),
+            ('--dt', {'help': 'Datetime(s) to execute at.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.at(query=$cmdopts.query,
+                                 minute=$cmdopts.minute,
+                                 hour=$cmdopts.hour,
+                                 day=$cmdopts.day,
+                                 dt=$cmdopts.dt)
+
+            $lib.print("Created cron job: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'cron.del',
+        'descr': 'Delete a cron job from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.del($cmdopts.iden)
+            $lib.print("Deleted cron job: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'cron.mod',
+        'descr': "Modify an existing cron job's query.",
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+            ('query', {'help': 'New storm query for the cron job.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.mod($cmdopts.iden, $cmdopts.query)
+            $lib.print("Modified cron job: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'cron.list',
+        'descr': "List existing cron jobs in the cortex.",
+        'cmdargs': (),
+        'storm': '''
+            $jobs = $lib.cron.list()
+
+            if $jobs {
+                $lib.print("user       iden       en? rpt? now? err? # start last start       last end         query")
+
+                for $job in $jobs {
+                    $user = $job.user.ljust(10)
+                    $iden = $job.idenshort.ljust(10)
+                    $enabled = $job.enabled.ljust(3)
+                    $isrecur = $job.isrecur.ljust(4)
+                    $isrunning = $job.isrunning.ljust(4)
+                    $iserr = $job.iserr.ljust(4)
+                    $startcount = $lib.str.format("{startcount}", startcount=$job.startcount).ljust(7)
+                    $laststart = $job.laststart.ljust(16)
+                    $lastend = $job.lastend.ljust(16)
+
+                    $lib.print("{user} {iden} {enabled} {isrecur} {isrunning} {iserr} {startcount} {laststart} {lastend} {query}",
+                               user=$user, iden=$iden, enabled=$enabled, isrecur=$isrecur,
+                               isrunning=$isrunning, iserr=$iserr, startcount=$startcount,
+                               laststart=$laststart, lastend=$lastend, query=$job.query)
+                }
+            } else {
+                $lib.print("No cron jobs found")
+            }
+        ''',
+    },
+    {
+        'name': 'cron.stat',
+        'descr': "Gives detailed information about a cron job.",
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+        ),
+        'storm': '''
+            $job = $lib.cron.stat($cmdopts.iden)
+
+            if $job {
+                $lib.print('iden:            {iden}', iden=$job.iden)
+                $lib.print('user:            {user}', user=$job.user)
+                $lib.print('enabled:         {enabled}', enabled=$job.enabled)
+                $lib.print('recurring:       {isrecur}', isrecur=$job.isrecur)
+                $lib.print('# starts:        {startcount}', startcount=$job.startcount)
+                $lib.print('last start time: {laststart}', laststart=$job.laststart)
+                $lib.print('last end time:   {lastend}', lastend=$job.lastend)
+                $lib.print('last result:     {lastresult}', lastresult=$job.lastresult)
+                $lib.print('query:           {query}', query=$job.query)
+
+                if $job.recs {
+                    $lib.print('entries:         incunit    incval required')
+
+                    for $rec in $job.recs {
+                        $incunit = $lib.str.format('{incunit}', incunit=$rec.incunit).ljust(10)
+                        $incval = $lib.str.format('{incval}', incval=$rec.incval).ljust(6)
+
+                        $lib.print('                 {incunit} {incval} {reqdict}',
+                                   incunit=$incunit, incval=$incval, reqdict=$rec.reqdict)
+                    }
+                } else {
+                    $lib.print('entries:         <None>')
+                }
+            }
+        ''',
+    },
+    {
+        'name': 'cron.enable',
+        'descr': 'Enable a cron job in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.enable($cmdopts.iden)
+            $lib.print("Enabled cron job: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'cron.disable',
+        'descr': 'Disable a cron job in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.disable($cmdopts.iden)
+            $lib.print("Disabled cron job: {iden}", iden=$iden)
         ''',
     },
 )
@@ -339,7 +754,7 @@ class StormDmon(s_base.Base):
                     self.status = 'exited'
                     await self.waitfini(timeout=1)
 
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 logger.warning(f'Dmon loop cancelled: ({self.iden})')
                 raise
 
@@ -371,7 +786,7 @@ class Runtime:
         self.snap = snap
         self.user = user
 
-        self.model = snap.getDataModel()
+        self.model = snap.core.getDataModel()
 
         self.task = asyncio.current_task()
 
@@ -398,9 +813,6 @@ class Runtime:
     async def dyniter(self, iden, todo, gatekeys=()):
         async for item in self.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
-
-    def getStormMod(self, name):
-        return self.snap.getStormMod(name)
 
     async def getStormQuery(self, text):
         return self.snap.core.getStormQuery(text)
@@ -703,7 +1115,7 @@ class Cmd:
         self.pars.printf = snap.printf
         try:
             self.opts = self.pars.parse_args(self.argv)
-        except s_exc.BadSyntax as e:
+        except s_exc.BadSyntax:
             pass
         for line in self.pars.mesgs:
             await snap.printf(line)
@@ -722,11 +1134,13 @@ class Cmd:
         '''
         if name.startswith('$'):
             varn = name[1:]
+
             def func(path):
                 return path.getVar(varn, defv=None)
             return func
 
         if name.startswith(':'):
+
             prop = name[1:]
             def func(path):
                 return path.node.get(prop)
@@ -755,6 +1169,35 @@ class Cmd:
 
         mesg = 'Unknown prop/variable syntax'
         raise s_exc.BadSyntax(mesg=mesg, valu=name)
+
+    @classmethod
+    def getStorNode(cls, form='syn:cmd'):
+        ndef = (form, cls.name)
+        buid = s_common.buid(ndef)
+
+        props = {
+            'doc': cls.getCmdBrief()
+        }
+
+        inpt = cls.forms.get('input')
+        outp = cls.forms.get('output')
+
+        if inpt:
+            props['input'] = tuple(inpt)
+
+        if outp:
+            props['output'] = tuple(outp)
+
+        if cls.svciden:
+            props['svciden'] = cls.svciden
+
+        if cls.pkgname:
+            props['package'] = cls.pkgname
+
+        return (buid, {
+            'ndef': ndef,
+            'props': props,
+        })
 
 class PureCmd(Cmd):
 
@@ -1035,7 +1478,7 @@ class DelNodeCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         if self.opts.force:
-            if runt.user is not None and not runt.user.admin:
+            if runt.user is not None and not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'
                 raise s_exc.AuthDeny(mesg=mesg)
 
@@ -1098,7 +1541,7 @@ class ReIndexCmd(Cmd):
 
         snap = runt.snap
 
-        if snap.user is not None and not snap.user.admin:
+        if snap.user is not None and not snap.user.isAdmin():
             await snap.warn('reindex requires an admin')
             return
 
@@ -1149,10 +1592,10 @@ class ReIndexCmd(Cmd):
             tname = None
 
             if self.opts.fire_handler.startswith('#'):
-                name, _ = runt.snap.model.prop('syn:tag').type.norm(self.opts.fire_handler)
+                name, _ = runt.model.prop('syn:tag').type.norm(self.opts.fire_handler)
                 tname = '#' + name
             else:
-                obj = runt.snap.model.prop(self.opts.fire_handler)
+                obj = runt.model.prop(self.opts.fire_handler)
                 if obj is None:
                     raise s_exc.NoSuchProp(mesg='',
                                            name=self.opts.fire_handler)
@@ -1829,7 +2272,7 @@ class SpliceUndoCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         if self.opts.force:
-            if not runt.user.admin:
+            if not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'
                 raise s_exc.AuthDeny(mesg=mesg)
 

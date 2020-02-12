@@ -270,8 +270,8 @@ class _Appt:
         self.lastresult = None
         self.enabled = True
 
-    def getRuntInfo(self):
-        buid = s_common.buid(('syn:cron', self.iden))
+    def getStorNode(self, form='syn:cron'):
+        buid = s_common.buid((form, self.iden))
         return (buid, {
             'ndef': ('syn:cron', self.iden),
             'props': {
@@ -412,21 +412,6 @@ class Agenda(s_base.Base):
         self._schedtask = None  # The task of the scheduler loop.  Doesn't run until we're enabled
         await self._load_all()
 
-    async def onLiftRunts(self, full, valu=None, cmpr=None):
-
-        if valu is None:
-            for iden, cjob in self.appts.items():
-                yield cjob.getRuntInfo()
-
-            return
-
-        iden = str(valu)
-        cjob = self.appts.get(iden)
-        if cjob is None:
-            return
-
-        yield cjob.getRuntInfo()
-
     async def start(self):
         '''
         Enable cron jobs to start running, start the scheduler loop
@@ -565,13 +550,6 @@ class Agenda(s_base.Base):
         appt = _Appt(self, iden, recur, indx, query, useriden, recs)
         self._addappt(iden, appt)
 
-        user = self.core.auth.user(useriden)
-
-        # the user that creates the job is its admin
-        gate = await self.core.auth.addAuthGate(iden, 'cronjob')
-        gateuser = await gate.getGateUser(user)
-        await gateuser.setAdmin(True)
-
         appt.doc = doc
 
         await self._storeAppt(appt)
@@ -628,8 +606,6 @@ class Agenda(s_base.Base):
         appt = self.appts.get(iden)
         if appt is None:
             raise s_exc.NoSuchIden()
-
-        await self.core.auth.delAuthGate(iden)
 
         try:
             heappos = self.apptheap.index(appt)

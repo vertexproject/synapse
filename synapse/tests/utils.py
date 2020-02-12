@@ -509,7 +509,8 @@ class TstOutPut(s_output.OutPutStr):
         outs = str(self)
         if outs.find(substr) == -1:
             if throw:
-                raise Exception('TestOutPut.expect(%s) not in %s' % (substr, outs))
+                mesg = 'TestOutPut.expect(%s) not in %s' % (substr, outs)
+                raise s_exc.SynErr(mesg=mesg)
             return False
         return True
 
@@ -1063,11 +1064,6 @@ class SynTest(unittest.TestCase):
         kwargs.update({'host': host, 'port': port})
         return s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
-    async def agetTestProxy(self, dmon, name, **kwargs):
-        host, port = dmon.addr
-        kwargs.update({'host': host, 'port': port})
-        return await s_telepath.openurl(f'tcp:///{name}', **kwargs)
-
     @contextlib.contextmanager
     def getTestDir(self, mirror=None, copyfrom=None, chdir=False):
         '''
@@ -1570,6 +1566,17 @@ class SynTest(unittest.TestCase):
             mesgs (list): A list of storm messages.
         '''
         print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'warn'])
+        self.isin(mesg, print_str)
+
+    def stormIsInErr(self, mesg, mesgs):
+        '''
+        Check if a string is present in all of the error messages from a stream of storm messages.
+
+        Args:
+            mesg (str): A string to check.
+            mesgs (list): A list of storm messages.
+        '''
+        print_str = '\n'.join([m[1][1].get('mesg') for m in mesgs if m[0] == 'err'])
         self.isin(mesg, print_str)
 
     def istufo(self, obj):

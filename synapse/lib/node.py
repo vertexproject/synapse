@@ -9,8 +9,6 @@ import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 
-import synapse.lib.editatom as s_editatom
-
 logger = logging.getLogger(__name__)
 
 class Node:
@@ -29,11 +27,9 @@ class Node:
         # Tracks which property is retrieved from which layer
         self.bylayer = bylayer
 
-        #print('NODE FROM SODE: %r' % (sode,))
-
         # if set, the node is complete.
         self.ndef = sode[1].get('ndef')
-        self.form = snap.model.form(self.ndef[0])
+        self.form = snap.core.model.form(self.ndef[0])
 
         self.props = sode[1].get('props')
         if self.props is None:
@@ -46,17 +42,6 @@ class Node:
         self.tagprops = sode[1].get('tagprops')
         if self.tagprops is None:
             self.tagprops = {}
-
-        # raw prop -> layer it was set at
-        #self.proplayr = collections.defaultdict(lambda: self.snap.wlyr, proplayr or {})
-
-        # self.buid may be None during initial node construction...
-        #if rawprops is not None:
-            #self._loadNodeData(rawprops)
-
-        #if self.ndef is not None:
-            #self.form = self.snap.model.form(self.ndef[0])
-            #self.isrunt = self.form.isrunt
 
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
@@ -373,7 +358,7 @@ class Node:
         retn = []
 
         # brute force rather than build a tree.  faster in small sets.
-        for size, tag, valu in sorted([(len(t), t, v) for (t, v) in self.tags.items()], reverse=True):
+        for _, tag, valu in sorted([(len(t), t, v) for (t, v) in self.tags.items()], reverse=True):
 
             look = tag + '.'
             if any([r.startswith(look) for (r, rv) in retn]):
@@ -416,7 +401,7 @@ class Node:
             valu = tuple(valu)
 
         if valu != (None, None):
-            valu = self.snap.model.type('ival').norm(valu)[0]
+            valu = self.snap.core.model.type('ival').norm(valu)[0]
 
         curv = self.tags.get(name)
         if curv == valu:
@@ -455,7 +440,7 @@ class Node:
         #await self._addTagRaw(name, valu)
         #await self._setTagProp(name, valu)
 
-        #indx = self.snap.model.types['ival'].indx(valu)
+        #indx = self.snap.core.model.types['ival'].indx(valu)
         #info = {'univ': True}
         #await self._setTagProp(name, valu, indx, info)
         #await self._setTagProp(name, valu, indx, info)
@@ -503,8 +488,6 @@ class Node:
             return False
 
         pref = name + '.'
-
-        tagprops = [x for x in self.tagprops.keys() if x[0] == name]
 
         subtags = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
         subtags.sort(reverse=True)
@@ -556,7 +539,7 @@ class Node:
         for tagprop in self.getTagProps(tag):
 
             curv = self.getTagProp(tag, tagprop)
-            prop = self.snap.model.getTagProp(tagprop)
+            prop = self.snap.core.model.getTagProp(tagprop)
 
             if prop is None: # pragma: no cover
                 logger.warn(f'Cant delete tag prop ({tagprop}) without model prop!')
@@ -588,7 +571,7 @@ class Node:
         if not self.hasTag(tag):
             await self.addTag(tag)
 
-        prop = self.snap.model.getTagProp(name)
+        prop = self.snap.core.model.getTagProp(name)
         if prop is None:
             raise s_exc.NoSuchTagProp(mesg='Tag prop does not exist in this Cortex.',
                                       name=name)
@@ -606,13 +589,13 @@ class Node:
             (s_layer.EDIT_TAGPROP_SET, (tag, name, norm, curv, prop.type.stortype)),
         )
 
-        sode = await self.snap.addNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.addNodeEdit((self.buid, self.form.name, edits))
 
         self.tagprops[tagkey] = norm
 
     async def delTagProp(self, tag, name):
 
-        prop = self.snap.model.getTagProp(name)
+        prop = self.snap.core.model.getTagProp(name)
         if prop is None:
             raise s_exc.NoSuchTagProp(name=name)
 
@@ -684,7 +667,7 @@ class Node:
 
         # TODO put these into one edit...
 
-        for size, tag in sorted(tags, reverse=True):
+        for _, tag in sorted(tags, reverse=True):
             await self.delTag(tag, init=True)
 
         for name in list(self.props.keys()):
@@ -705,13 +688,17 @@ class Node:
         edits = (
             (s_layer.EDIT_NODEDATA_SET, (name, valu)),
         )
-        await self.snap.addNodeEdit(self.buid, self.form.name, edits)
+        await self.snap.issueNodeEdits(((self.buid, self.form.name, edits),))
 
     async def popData(self, name):
+        retn = await self.snap.getNodeData(self.buid, name)
+
         edits = (
-            (s_layer.EDIT_NODEDATA_DEL, (name,)),
+            (s_layer.EDIT_NODEDATA_DEL, name),
         )
-        await self.snap.addNodeEdit(self.buid, self.form.name, edits)
+        await self.snap.issueNodeEdits(((self.buid, self.form.name, edits),))
+
+        return retn
 
     async def iterData(self):
         async for item in self.snap.iterNodeData(self.buid):

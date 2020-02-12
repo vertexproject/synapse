@@ -28,6 +28,28 @@ Backward Compatibility Breaks
 
 - FIXME add one liners and/or additional bullets here and visi will explain them :D
 
+v0.1.50 - 2019-02-07
+====================
+
+Features and Enhancements
+-------------------------
+- Add Storm commands for managing triggers and cron jobs from inside of Storm directly. The existing ``trigger`` and
+  ``cron`` commands available in the Cmdr tool have been marked as PendingDeprecation and will be removed in 0.3.0.
+  Cmdr will emit these warnings directly if used. Related Telepath APIs have also been marked for PendingDeprecation.
+  Cortex administrators can enable Python warnings to see those APIs being used.
+  (`#1513 <https://github.com/vertexproject/synapse/pull/1513>`_)
+
+v0.1.49 - 2019-02-03
+====================
+
+Bugfixes
+--------
+- Fix an issue where pivot operations which pointed to ``syn:splice`` nodes raised exceptions which could teardown a
+  Storm runtime unexpectedly.  Attempting to directly lift ``syn:splice`` nodes by primary or secondary properties now
+  generates no nodes.
+  (`#1529 <https://github.com/vertexproject/synapse/pull/1529>`_)
+
+
 v0.1.48 - 2019-02-03
 ====================
 

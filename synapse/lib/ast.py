@@ -593,7 +593,7 @@ class CmdOper(Oper):
         name = self.kids[0].value()
         argv = self.kids[1].value()
 
-        ctor = runt.snap.getStormCmd(name)
+        ctor = runt.snap.core.getStormCmd(name)
         if ctor is None:
             mesg = 'Storm command not found.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
@@ -2590,9 +2590,9 @@ class EditNodeAdd(Edit):
 
         NOTE: CALLER MUST CHECK PERMS
         '''
-        valu = await self.kids[2].compute(path)
+        vals = await self.kids[2].compute(path)
 
-        for valu in self.form.type.getTypeVals(valu):
+        for valu in self.form.type.getTypeVals(vals):
             try:
                 newn = await path.runt.snap.addNode(self.name, valu)
             except self.excignore:

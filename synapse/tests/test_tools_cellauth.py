@@ -200,8 +200,8 @@ class CellAuthTest(s_t_utils.SynTest):
             await s_cellauth.main(argv, outp)
             # print(str(outp))
             outp.expect(f'adding rule to {name}: (True, [{rule!r}])')
-            user = await prox.getAuthInfo(name)
-            self.eq(user[1].get('rules'),
+            user = await prox.getUserInfo(name)
+            self.eq(user.get('rules'),
                     ((True, ('node:add',)),))
 
             outp.clear()
@@ -209,8 +209,8 @@ class CellAuthTest(s_t_utils.SynTest):
             await s_cellauth.main(argv, outp)
             # print(str(outp))
             outp.expect(f'deleting rule index: 0')
-            user = await prox.getAuthInfo(name)
-            self.eq(user[1].get('rules'), ())
+            user = await prox.getUserInfo(name)
+            self.eq(user.get('rules'), ())
 
             outp.clear()
             viewiden = core.view.iden
@@ -218,4 +218,3 @@ class CellAuthTest(s_t_utils.SynTest):
             await s_cellauth.main(argv, outp)
 
             outp.expect(f'adding rule to {name}: (False, [{rule!r}])')
-            outp.expect(f'deny: node:add on {viewiden}')

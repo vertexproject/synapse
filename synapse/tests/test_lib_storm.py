@@ -170,6 +170,7 @@ class StormTest(s_t_utils.SynTest):
             for arg, ename in args:
                 async with await core.snap() as snap:
                     events = {}
+
                     async def func(event):
                         name, _ = event
                         events[name] = True

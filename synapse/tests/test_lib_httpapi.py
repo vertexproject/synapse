@@ -80,7 +80,7 @@ class HttpApiTest(s_tests.SynTest):
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
 
-                self.true(newb.locked)
+                self.true(newb.isLocked())
 
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
                     item = await resp.json()
@@ -314,15 +314,15 @@ class HttpApiTest(s_tests.SynTest):
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
                     roles = item['result']['roles']
-                    self.len(1, roles)
-                    self.eq(analystiden, roles[0])
+                    self.len(2, roles)
+                    self.isin(analystiden, roles)
 
                 info = {'user': visiiden, 'role': analystiden}
                 async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/revoke', json=info) as resp:
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
                     roles = item['result']['roles']
-                    self.len(0, roles)
+                    self.len(1, roles)
 
             # lets try out session based login
 

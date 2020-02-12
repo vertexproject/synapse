@@ -55,17 +55,22 @@ import shutil
 import asyncio
 import logging
 import ipaddress
+import contextlib
+import collections
 
 import regex
 import xxhash
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.gis as s_gis
 import synapse.lib.base as s_base
+import synapse.lib.cell as s_cell
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
+import synapse.lib.queue as s_queue
 
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
@@ -78,15 +83,41 @@ BUID_CACHE_SIZE = 10000
 
 import synapse.lib.msgpack as s_msgpack
 
-#class LayerApi(s_cell.CellApi):
+class LayerApi(s_cell.CellApi):
 
-    #async def __anit__(self, core, link, user, layr):
+    async def __anit__(self, core, link, user, layr):
 
-        #await s_cell.CellApi.__anit__(self, core, link, user)
+        await s_cell.CellApi.__anit__(self, core, link, user)
 
-        #self.layr = layr
-        #self.liftperm = ('layer:lift', self.layr.iden)
+        self.layr = layr
+        self.liftperm = ('layer:lift', self.layr.iden)
         #self.storperm = ('layer:stor', self.layr.iden)
+
+    async def iterLayerSplices(self):
+        '''
+        Scan the full layer and yield artificial nodeedit splices.
+        '''
+        await self._reqUserAllowed(self.liftperm)
+        async for item in self.layr.iterLayerSplices():
+            yield item
+
+    async def syncSplices(self, offs):
+        '''
+        Yield (offs, mesg) tuples from the splicelog starting from the given offset.
+
+        Once caught up with storage, yield them in realtime
+        '''
+        await self._reqUserAllowed(self.liftperm)
+        async for item in self.layr.syncSplices(offs):
+            yield item
+
+    async def getSpliceOffset(self):
+        await self._reqUserAllowed(self.liftperm)
+        return self.layr.getSpliceOffset()
+
+    async def getIden(self):
+        await self._reqUserAllowed(self.liftperm)
+        return self.layr.iden
 
     #async def getLiftRows(self, lops):
         #await self._reqUserAllowed(self.liftperm)
@@ -194,15 +225,15 @@ class IndxBy:
         raise s_exc.NoSuchImpl(name='getNodeValu')
 
     def buidsByDups(self, indx):
-        for lkey, buid in self.layr.layrslab.scanByDups(self.abrv + indx, db=self.db):
+        for _, buid in self.layr.layrslab.scanByDups(self.abrv + indx, db=self.db):
             yield buid
 
     def buidsByPref(self, indx=b''):
-        for lkey, buid in self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db):
+        for _, buid in self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db):
             yield buid
 
     def buidsByRange(self, minindx, maxindx):
-        for lkey, buid in self.layr.layrslab.scanByRange(self.abrv + minindx, self.abrv + maxindx, db=self.db):
+        for _, buid in self.layr.layrslab.scanByRange(self.abrv + minindx, self.abrv + maxindx, db=self.db):
             yield buid
 
     def scanByDups(self, indx):
@@ -561,7 +592,7 @@ class StorTypeTime(StorTypeInt):
     def _liftAtIval(self, liftby, valu):
         minindx = self.getIntIndx(valu[0])
         maxindx = self.getIntIndx(valu[1] - 1)
-        for lkey, buid in liftby.scanByRange(minindx, maxindx):
+        for _, buid in liftby.scanByRange(minindx, maxindx):
             yield buid
 
 class StorTypeIval(StorType):
@@ -693,6 +724,7 @@ class Layer(s_nexus.Pusher):
 
     async def __anit__(self, layrinfo, dirn, conf=None, nexsroot=None):
 
+        self.nexsroot = nexsroot
         self.iden = layrinfo.get('iden')
         await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=nexsroot)
 
@@ -795,6 +827,19 @@ class Layer(s_nexus.Pusher):
         self.canrev = True
         self.ctorname = f'{self.__class__.__module__}.{self.__class__.__name__}'
 
+        self.windows = []
+        self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
+
+        uplayr = layrinfo.get('upstream')
+        if uplayr is not None:
+            if isinstance(uplayr, (tuple, list)):
+                for layr in uplayr:
+                    await self.initUpstreamSync(layr)
+            else:
+                await self.initUpstreamSync(uplayr)
+
+        self.onfini(self._onLayrFini)
+
     def getSpawnInfo(self):
         return {
             'iden': self.iden,
@@ -820,6 +865,7 @@ class Layer(s_nexus.Pusher):
     def getTagPropAbrv(self, *args):
         return self.tagpropabrv.bytsToAbrv(s_msgpack.en(args))
 
+    # FIXME:  this is hot code:  why is this async?!
     async def getAbrvProp(self, abrv):
         byts = self.propabrv.abrvToByts(abrv)
         if byts is None:
@@ -913,7 +959,7 @@ class Layer(s_nexus.Pusher):
         if form is not None:
             abrv += self.getPropAbrv(form, None)
 
-        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
+        for _, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
             yield await self.getStorNode(buid)
 
     async def liftByTagValu(self, tag, cmpr, valu, form=None):
@@ -926,7 +972,7 @@ class Layer(s_nexus.Pusher):
         if filt is None:
             raise s_exc.NoSuchCmpr(cmpr=cmpr)
 
-        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
+        for _, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
             # filter based on the ival value before lifting the node...
             valu = self.getNodeTag(buid, tag)
             if filt(valu):
@@ -934,14 +980,14 @@ class Layer(s_nexus.Pusher):
 
     async def hasTagProp(self, name):
         abrv = self.getTagPropAbrv(None, None, name)
-        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
+        for _ in self.layrslab.scanByPref(abrv, db=self.bytagprop):
             return True
 
         return False
 
     async def liftByTagProp(self, form, tag, prop):
         abrv = self.getTagPropAbrv(form, tag, prop)
-        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
+        for _, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
             yield await self.getStorNode(buid)
 
     async def liftByTagPropValu(self, form, tag, prop, cmprvals):
@@ -951,7 +997,7 @@ class Layer(s_nexus.Pusher):
 
     async def liftByProp(self, form, prop):
         abrv = self.getPropAbrv(form, prop)
-        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+        for _, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
             yield await self.getStorNode(buid)
 
     # NOTE: form vs prop valu lifting is differentiated to allow merge sort
@@ -962,7 +1008,8 @@ class Layer(s_nexus.Pusher):
 
     async def liftByPropValu(self, form, prop, cmprvals):
         for cmpr, valu, kind in cmprvals:
-            # print('liftByPropValu %r %r %r %r %r' % (form, prop, cmpr, valu, kind))
+            if kind & 0x8000:
+                kind = STOR_TYPE_MSGP
             for buid in self.stortypes[kind].indxByProp(form, prop, cmpr, valu):
                 yield await self.getStorNode(buid)
 
@@ -973,8 +1020,11 @@ class Layer(s_nexus.Pusher):
 
     @s_nexus.Pusher.onPushAuto('edits', passoff=True)
     async def storNodeEdits(self, nodeedits, meta, nexsoff=None):
-        assert nexsoff is not None
-        self.splicelog.append(nexsoff)
+        assert nexsoff is not None, "Nexus bypassed"
+        offs = self.splicelog.add(nexsoff)
+
+        [(await wind.put((offs, nexsoff))) for wind in tuple(self.windows)]
+
         retn = [await self._storNodeEdit(e, meta) for e in nodeedits]
         self.offsets.set('splice:applied', nexsoff)
         return retn
@@ -983,7 +1033,6 @@ class Layer(s_nexus.Pusher):
         '''
         Execute a series of storage operations for the given node.
         '''
-
         buid, form, edits = nodeedit
 
         changed = []
@@ -1000,6 +1049,30 @@ class Layer(s_nexus.Pusher):
 
         return sode
 
+    @s_nexus.Pusher.onPushAuto('editsnolift', passoff=True)
+    async def storNodeEditsNoLift(self, nodeedits, meta, nexsoff=None):
+        assert nexsoff is not None
+        offs = self.splicelog.add(nexsoff)
+
+        [(await wind.put((offs, nexsoff))) for wind in tuple(self.windows)]
+
+        [await self._storNodeEditNoLift(e, meta) for e in nodeedits]
+        self.offsets.set('splice:applied', nexsoff)
+
+    async def _storNodeEditNoLift(self, nodeedit, meta):
+        '''
+        Execute a series of storage operations for the given node.
+
+        Does not return the updated node.
+        '''
+
+        buid, form, edits = nodeedit
+
+        for edit in edits:
+            self.editors[edit[0]](buid, form, edit)
+
+        await asyncio.sleep(0)
+
     def _editNodeAdd(self, buid, form, edit):
 
         valu, stortype = edit[1]
@@ -1009,8 +1082,19 @@ class Layer(s_nexus.Pusher):
             return None
 
         abrv = self.getPropAbrv(form, None)
-        for indx in self.getStorIndx(stortype, valu):
-            self.layrslab.put(abrv + indx, buid, db=self.byprop)
+
+        if stortype & STOR_FLAG_ARRAY:
+
+            for indx in self.getStorIndx(stortype, valu):
+                self.layrslab.put(abrv + indx, buid, db=self.byarray)
+
+            for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
+                self.layrslab.put(abrv + indx, buid, db=self.byprop)
+
+        else:
+
+            for indx in self.getStorIndx(stortype, valu):
+                self.layrslab.put(abrv + indx, buid, db=self.byprop)
 
         self.formcounts.inc(form)
 
@@ -1032,10 +1116,23 @@ class Layer(s_nexus.Pusher):
         form, valu, stortype = s_msgpack.un(byts)
 
         abrv = self.getPropAbrv(form, None)
-        for indx in self.getStorIndx(stortype, valu):
-            self.layrslab.delete(abrv + indx, buid, db=self.byprop)
+
+        if stortype & STOR_FLAG_ARRAY:
+
+            for indx in self.getStorIndx(stortype, valu):
+                self.layrslab.delete(abrv + indx, buid, db=self.byarray)
+
+            for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
+                self.layrslab.delete(abrv + indx, buid, db=self.byprop)
+
+        else:
+
+            for indx in self.getStorIndx(stortype, valu):
+                self.layrslab.delete(abrv + indx, buid, db=self.byprop)
 
         self.formcounts.inc(form, valu=-1)
+
+        self._wipeNodeData(buid)
 
         return (
             (EDIT_NODE_DEL, (valu, stortype)),
@@ -1067,19 +1164,31 @@ class Layer(s_nexus.Pusher):
             if oldv == valu and oldt == stortype:
                 return None
 
-            for oldi in self.getStorIndx(oldt, oldv):
-                self.layrslab.delete(abrv + oldi, buid, db=self.byprop)
-                if univabrv is not None:
-                    self.layrslab.delete(univabrv + oldi, buid, db=self.byprop)
+            if oldt & STOR_FLAG_ARRAY:
+
+                for oldi in self.getStorIndx(oldt, oldv):
+                    self.layrslab.delete(abrv + oldi, buid, db=self.byarray)
+                    if univabrv is not None:
+                        self.layrslab.delete(univabrv + oldi, buid, db=self.byarray)
+
+                for indx in self.getStorIndx(STOR_TYPE_MSGP, oldv):
+                    self.layrslab.delete(abrv + indx, buid, db=self.byprop)
+                    if univabrv is not None:
+                        self.layrslab.delete(univabrv + indx, buid, db=self.byprop)
+
+            else:
+
+                for oldi in self.getStorIndx(oldt, oldv):
+                    self.layrslab.delete(abrv + oldi, buid, db=self.byprop)
+                    if univabrv is not None:
+                        self.layrslab.delete(univabrv + oldi, buid, db=self.byprop)
 
         if stortype & STOR_FLAG_ARRAY:
 
-            realtype = stortype & 0x7fff
-            for aval in valu:
-                for indx in self.getStorIndx(realtype, aval):
-                    self.layrslab.put(abrv + indx, buid, db=self.byarray)
-                    if univabrv is not None:
-                        self.layrslab.put(univabrv + indx, buid, db=self.byarray)
+            for indx in self.getStorIndx(stortype, valu):
+                self.layrslab.put(abrv + indx, buid, db=self.byarray)
+                if univabrv is not None:
+                    self.layrslab.put(univabrv + indx, buid, db=self.byarray)
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 self.layrslab.put(abrv + indx, buid, db=self.byprop)
@@ -1118,7 +1227,7 @@ class Layer(s_nexus.Pusher):
 
         if stortype & STOR_FLAG_ARRAY:
 
-            realtype = stortype & 0xefff
+            realtype = stortype & 0x7fff
 
             for aval in valu:
                 for indx in self.getStorIndx(realtype, aval):
@@ -1266,7 +1375,7 @@ class Layer(s_nexus.Pusher):
 
         if stortype & 0x8000:
 
-            realtype = stortype & 0xefff
+            realtype = stortype & 0x7fff
 
             retn = []
             [retn.extend(self.getStorIndx(realtype, aval)) for aval in valu]
@@ -1274,13 +1383,30 @@ class Layer(s_nexus.Pusher):
 
         return self.stortypes[stortype].indx(valu)
 
+    async def iterFormRows(self, form):
+
+        abrv = self.getPropAbrv(form, None)
+
+        for _, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+
+            bkey = buid + b'\x00'
+            byts = self.layrslab.get(bkey, db=self.bybuid)
+
+            await asyncio.sleep(0)
+
+            if byts is None:
+                continue
+
+            form, valu, stortype = s_msgpack.un(byts)
+            yield buid, valu
+
     async def iterPropRows(self, form, prop):
 
         penc = prop.encode()
 
         abrv = self.getPropAbrv(form, prop)
 
-        for lval, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+        for _, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
             bkey = buid + b'\x01' + penc
             byts = self.layrslab.get(bkey, db=self.bybuid)
 
@@ -1298,7 +1424,7 @@ class Layer(s_nexus.Pusher):
 
         abrv = self.getPropAbrv(None, prop)
 
-        for lval, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+        for _, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
             bkey = buid + b'\x01' + penc
             byts = self.layrslab.get(bkey, db=self.bybuid)
 
@@ -1311,21 +1437,184 @@ class Layer(s_nexus.Pusher):
             yield buid, valu
 
     async def getNodeData(self, buid, name):
-
+        '''
+        Return a single element of a buid's node data
+        '''
         abrv = self.getPropAbrv(name, None)
 
         byts = self.layrslab.get(buid + abrv, db=self.nodedata)
+        # FIXME:  None/NoValu confusion
         if byts is None:
             return None
         return s_msgpack.un(byts)
 
     async def iterNodeData(self, buid):
-
+        '''
+        Return a generator of all a buid's node data
+        '''
         for lkey, byts in self.layrslab.scanByPref(buid, db=self.nodedata):
             abrv = lkey[32:]
 
             valu = s_msgpack.un(byts)
-            yield self.getAbrvProp(abrv), valu
+            prop = await self.getAbrvProp(abrv)
+            yield prop[0], valu
+
+    async def iterLayerSplices(self):
+        '''
+        Scan the full layer and yield artificial nodeedit splices.
+        '''
+        nodeedits = (None, None, None)
+
+        for lkey, lval in self.layrslab.scanByFull(db=self.bybuid):
+            buid = lkey[:32]
+            flag = lkey[32]
+
+            if not buid == nodeedits[0]:
+                if nodeedits[0] is not None:
+                    async for prop, valu in self.iterNodeData(nodeedits[0]):
+                        edit = (EDIT_NODEDATA_SET, (prop, valu))
+                        nodeedits[2].append(edit)
+
+                    yield nodeedits
+
+            if flag == 0:
+                form, valu, stortype = s_msgpack.un(lval)
+
+                nodeedits = (buid, form, [])
+
+                edit = (EDIT_NODE_ADD, (valu, stortype))
+                nodeedits[2].append(edit)
+                continue
+
+            if flag == 1:
+                if not nodeedits[0] == buid:
+                    continue
+
+                name = lkey[33:].decode()
+                valu, stortype = s_msgpack.un(lval)
+
+                edit = (EDIT_PROP_SET, (name, valu, None, stortype))
+                nodeedits[2].append(edit)
+                continue
+
+            if flag == 2:
+                if not nodeedits[0] == buid:
+                    continue
+
+                name = lkey[33:].decode()
+                tagv = s_msgpack.un(lval)
+
+                edit = (EDIT_TAG_SET, (name, tagv, None))
+                nodeedits[2].append(edit)
+                continue
+
+            if flag == 3:
+                if not nodeedits[0] == buid:
+                    continue
+
+                tag, prop = lkey[33:].decode().split(':')
+                valu, stortype = s_msgpack.un(lval)
+
+                buid = lkey[:32]
+
+                edit = (EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype))
+                nodeedits[2].append(edit)
+                continue
+
+            logger.warning(f'unrecognized storage row: {flag}')
+
+        if nodeedits[0] is not None:
+            async for prop, valu in self.iterNodeData(nodeedits[0]):
+                edit = (EDIT_NODEDATA_SET, (prop, valu))
+                nodeedits[2].append(edit)
+
+            yield nodeedits
+
+    async def initUpstreamSync(self, url):
+        self.schedCoro(self._initUpstreamSync(url))
+
+    async def _initUpstreamSync(self, url):
+
+        while not self.isfini:
+
+            try:
+
+                async with await s_telepath.openurl(url) as proxy:
+
+                    iden = await proxy.getIden()
+                    offs = self.offsets.get(iden)
+                    logger.warning(f'upstream sync connected ({url} offset={offs})')
+
+                    if offs == 0:
+                        offs = await proxy.getSpliceOffset()
+
+                        async for item in proxy.iterLayerSplices():
+                            await self.storNodeEditsNoLift([item], {})
+
+                        self.offsets.set(iden, offs)
+
+                        waits = [v for k, v in self.upstreamwaits[iden].items() if k <= offs]
+                        for wait in waits:
+                            [e.set() for e in wait]
+
+                    while not proxy.isfini:
+
+                        offs = self.offsets.get(iden)
+
+                        # pump them into a queue so we can consume them in chunks
+                        q = asyncio.Queue(maxsize=1000)
+
+                        async def consume(x):
+                            try:
+                                async for item in proxy.syncSplices(x):
+                                    await q.put(item)
+                            finally:
+                                await q.put(None)
+
+                        proxy.schedCoro(consume(offs))
+
+                        done = False
+                        while not done:
+
+                            # get the next item so we maybe block...
+                            item = await q.get()
+                            if item is None:
+                                break
+
+                            items = [item]
+
+                            # check if there are more we can eat
+                            for i in range(q.qsize()):
+
+                                nexi = await q.get()
+                                if nexi is None:
+                                    done = True
+                                    break
+
+                                items.append(nexi)
+
+                            for spliceoffs, item in items:
+                                await self.storNodeEditsNoLift(item, {})
+                                self.offsets.set(iden, spliceoffs + 1)
+
+                                waits = self.upstreamwaits[iden].pop(spliceoffs + 1, None)
+                                if waits is not None:
+                                    [e.set() for e in waits]
+
+            except asyncio.CancelledError: # pragma: no cover
+                return
+
+            except Exception:
+                logger.exception('error in initUpstreamSync loop')
+
+            await self.waitfini(1)
+
+    def _wipeNodeData(self, buid):
+        '''
+        Remove all node data for a buid
+        '''
+        for lkey, _ in self.layrslab.scanByPref(buid, db=self.nodedata):
+            self.layrslab.delete(lkey, db=self.nodedata)
 
     #async def _storFireSplices(self, splices):
         #'''
@@ -1515,14 +1804,45 @@ class Layer(s_nexus.Pusher):
                 yield mesg
 
     async def syncSplices(self, offs):
+        '''
+        Yield (offs, mesg) tuples from the splicelog starting from the given offset.
 
-        for item in self.splicelog.iter(offs):
-            yield item
+        Once caught up with storage, yield them in realtime
+        '''
+        for offs, nexsoff in self.splicelog.iter(offs):
+            yield (offs, self.nexsroot.nexuslog.get(nexsoff)[2][0])
 
         # FIXME:  discuss: use offsets instead of window?
         async with self.getSpliceWindow() as wind:
-            async for item in wind:
-                yield self.nexsroot.nexuslog.get(item)
+            async for offs, nexsoff in wind:
+                yield (offs, self.nexsroot.nexuslog.get(nexsoff)[2][0])
+
+    @contextlib.asynccontextmanager
+    async def getSpliceWindow(self):
+
+        async with await s_queue.Window.anit(maxsize=10000) as wind:
+
+            async def fini():
+                self.windows.remove(wind)
+
+            wind.onfini(fini)
+
+            self.windows.append(wind)
+
+            yield wind
+
+    def getSpliceOffset(self):
+        return self.splicelog.index()
+
+    async def waitUpstreamOffs(self, iden, offs):
+        evnt = asyncio.Event()
+
+        if self.offsets.get(iden) >= offs:
+            evnt.set()
+        else:
+            self.upstreamwaits[iden][offs].append(evnt)
+
+        return evnt
 
     #async def setModelVers(self, vers):  # pragma: no cover
         #raise NotImplementedError
@@ -1613,16 +1933,6 @@ class Layer(s_nexus.Pusher):
         #'''
         #Bulk delete all instances of a form prop.
         #'''
-
-    #async def setNodeData(self, buid, name, item): # pragma: no cover
-        #raise NotImplementedError
-
-    #async def getNodeData(self, buid, name, defv=None): # pragma: no cover
-        #raise NotImplementedError
-
-    #async def iterNodeData(self, buid): # pragma: no cover
-        #for x in (): yield x
-        #raise NotImplementedError
 
     async def delete(self):
         '''
