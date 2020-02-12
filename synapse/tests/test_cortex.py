@@ -1383,48 +1383,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.ModAlreadyLoaded):
                 await core.loadCoreModule('synapse.tests.utils.TestModule')
 
-    async def test_feed_conf(self):
-        self.skip('Pending moving feedloop to daemon')
-
-        async with self.getTestCryo() as cryo:
-            croot = cryo.auth.getUserByName('root')
-            await croot.setPasswd('croot')
-
-            host, port = await cryo.dmon.listen('tcp://127.0.0.1:0/')
-
-            tname = 'tank:blahblah'
-            tank_addr = f'tcp://root:croot@{host}:{port}/*/{tname}'
-
-            recs = ['a', 'b', 'c']
-
-            conf = {
-                'feeds': [
-                    {'type': 'com.test.record',
-                     'cryotank': tank_addr,
-                     'size': 1,
-                     }
-                ],
-            }
-
-            # initialize the tank and get his iden
-            async with await s_telepath.openurl(tank_addr) as tank:
-                iden = await tank.iden()
-
-            # Spin up a source core configured to eat data from the cryotank
-            with self.getTestDir() as dirn:
-
-                async with self.getTestCore(dirn=dirn, conf=conf) as core:
-
-                    waiter = core.waiter(3, 'core:feed:loop')
-
-                    async with await s_telepath.openurl(tank_addr) as tank:
-                        await tank.puts(recs)
-                    self.true(await waiter.wait(4))
-
-                    offs = await core.view.layers[0].getOffset(iden)
-                    self.eq(offs, 3)
-                    await self.agenlen(2, core.storm('test:str'))
-
     async def test_cortex_coreinfo(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
