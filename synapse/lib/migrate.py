@@ -76,24 +76,8 @@ class Migration(s_base.Base):
                     logger.info(f'Processed {i} delayed values.')
 
     async def editNodeNdef(self, oldv, newv):
-
-        oldb = s_common.buid(oldv)
-
-        for layr in self.layers:
-
-            indx = await layr.getFormIndx(oldb)
-
-            # save off any old indx valu so we can scan for them
-            if indx is not None:
-                self.slab.put(oldb, indx, overwrite=False, db=self.oldb2indx)
-
-            await layr.editNodeNdef(oldv, newv)
-
-        if self.ndefdelay is not None:
-            self.ndefdelay.append((oldv, newv))
-            return
-
-        await self.editNdefProps(oldv, newv)
+        # TODO re-implement for 0.2.x once needed
+        pass
 
     async def setFormName(self, oldn, newn):
         '''
