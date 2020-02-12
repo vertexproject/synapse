@@ -667,6 +667,7 @@ class Migrator(s_base.Base):
         nodeedits = []
         t_strt = s_common.now()
         stot = 0
+        dtot = 0
         async for nodedata in self._srcIterNodedata(src_slab, src_bybuid):
             stot += 1
             if nodelim is not None and stot >= nodelim:
@@ -694,6 +695,8 @@ class Migrator(s_base.Base):
                     for ne in nodeedits:
                         logger.debug(f'error nodeedit group item: {ne}')
                         await self._migrlogAdd(migrop, 'error', ne[0], err)
+                else:
+                    dtot += len(nodeedits)
 
                 nodeedits = []
 
@@ -706,13 +709,16 @@ class Migrator(s_base.Base):
                 for ne in nodeedits:
                     logger.debug(f'error nodeedit group item: {ne}')
                     await self._migrlogAdd(migrop, 'error', ne[0], err)
+            else:
+                dtot += len(nodeedits)
 
         t_end = s_common.now()
         t_dur = t_end - t_strt
         t_dur_s = int(t_dur / 1000) + 1
+        rate = int(stot / t_dur_s)
 
-        logger.info(f'Migrated {stot:,} nodedata entries in {t_dur_s} seconds ({int(stot/t_dur_s)} nodes/s avg)')
-        await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot, None))
+        logger.info(f'Migrated {stot:,} of {dtot:,} nodedata entries in {t_dur_s} seconds ({rate} nodes/s avg)')
+        await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot, dtot))
         await self._migrlogAdd(migrop, 'stat', f'{iden}:duration', (stot, t_dur))
 
         logger.info(f'Completed nodedata migration for {iden}')
@@ -1074,11 +1080,11 @@ class Migrator(s_base.Base):
 
         try:
             if addmode == 'nexus':
-                await wlyr.storNodeEdits(nodeedits, meta)
+                await wlyr.storNodeEditsNoLift(nodeedits, meta)
 
             elif addmode == 'nonexus':
                 for ne in nodeedits:
-                    await wlyr._storNodeEdit(ne, meta)
+                    await wlyr._storNodeEditNoLift(ne, meta)
 
             elif addmode == 'editor':
                 for ne in nodeedits:
