@@ -675,6 +675,22 @@ class CoreApi(s_cell.CellApi):
     async def getStormPkg(self, name):
         return await self.cell.getStormPkg(name)
 
+    async def addStormDmon(self, ddef):
+        dmon = await self.cell.addStormDmon(ddef)
+        return dmon.pack()
+
+    async def getStormDmons(self):
+        dmons = await self.cell.getStormDmons()
+        return [dmon.pack() for dmon in dmons]
+
+    async def getStormDmon(self, iden):
+        dmon = await self.cell.getStormDmons(iden)
+        return dmon.pack()
+
+    async def delStormDmon(self, iden):
+        return await self.cell.delStormDmon(iden)
+
+
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.

@@ -401,6 +401,11 @@ class SpawnCore(s_base.Base):
         # self.delStormPkg = self.prox.delStormPkg
         # self.getStormPkgs = self.prox.getStormPkgs
 
+        self.addStormDmon = self.prox.addStormDmon
+        self.delStormDmon = self.prox.delStormDmon
+        self.getStormDmon = self.prox.getStormDmon
+        self.getStormDmons = self.prox.getStormDmons
+
         # TODO: Add Dmon management functions ($lib.dmon support)
         # TODO: Add Axon management functions ($lib.bytes support)
 

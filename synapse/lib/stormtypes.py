@@ -148,14 +148,13 @@ class LibDmon(Lib):
             mesg = f'No storm dmon with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        if dmon.ddef.get('user') != self.runt.user.iden:
-            self.runt.user.confirm(('storm', 'dmon', 'del', iden))
+        if dmon.get('user') != self.runt.user.iden:
+            self.runt.user.confirm(('dmon', 'del', iden))
 
         await self.runt.snap.core.delStormDmon(iden)
 
     async def _libDmonList(self):
-        dmons = await self.runt.snap.core.getStormDmons()
-        return [d.pack() for d in dmons]
+        return await self.runt.snap.core.getStormDmons()
 
     async def _libDmonAdd(self, quer, name='noname'):
         '''
@@ -163,7 +162,7 @@ class LibDmon(Lib):
 
         $lib.dmon.add(${ myquery })
         '''
-        self.runt.user.confirm(('storm', 'dmon', 'add'))
+        self.runt.user.confirm(('dmon', 'add'))
 
         # closure style capture of runtime
         runtvars = {k: v for (k, v) in self.runt.vars.items() if s_msgpack.isok(v)}
@@ -179,9 +178,8 @@ class LibDmon(Lib):
             'stormopts': opts,
         }
 
-        dmon = await self.runt.snap.core.addStormDmon(ddef)
-
-        return dmon.pack()
+        dmoniden = await self.runt.snap.core.addStormDmon(ddef)
+        return dmoniden
 
 class LibService(Lib):
 
@@ -196,7 +194,7 @@ class LibService(Lib):
 
     async def _libSvcAdd(self, name, url):
 
-        self.runt.user.confirm(('storm', 'service', 'add'))
+        self.runt.user.confirm(('service', 'add'))
         sdef = {
             'name': name,
             'url': url,
@@ -204,11 +202,11 @@ class LibService(Lib):
         return await self.runt.snap.core.addStormSvc(sdef)
 
     async def _libSvcDel(self, iden):
-        self.runt.user.confirm(('storm', 'service', 'del'))
+        self.runt.user.confirm(('service', 'del'))
         return await self.runt.snap.core.delStormSvc(iden)
 
     async def _libSvcGet(self, name):
-        self.runt.user.confirm(('storm', 'service', 'get', name))
+        self.runt.user.confirm(('service', 'get', name))
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
@@ -216,7 +214,7 @@ class LibService(Lib):
         return ssvc
 
     async def _libSvcList(self):
-        self.runt.user.confirm(('storm', 'service', 'list'))
+        self.runt.user.confirm(('service', 'list'))
         retn = []
 
         for ssvc in self.runt.snap.core.getStormSvcs():
@@ -227,7 +225,7 @@ class LibService(Lib):
         return retn
 
     async def _libSvcWait(self, name):
-        self.runt.user.confirm(('storm', 'service', 'get'))
+        self.runt.user.confirm(('service', 'get'))
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
@@ -657,7 +655,7 @@ class LibTelepath(Lib):
         Open and return a telepath RPC proxy.
         '''
         scheme = url.split('://')[0]
-        self.runt.user.confirm(('storm', 'lib', 'telepath', 'open', scheme))
+        self.runt.user.confirm(('lib', 'telepath', 'open', scheme))
         return Proxy(await self.runt.getTeleProxy(url))
 
 class Proxy(StormType):
@@ -979,24 +977,24 @@ class LibGlobals(Lib):
 
     async def _methGet(self, name, default=None):
         self._reqStr(name)
-        self.runt.user.confirm(('storm', 'globals', 'get', name))
+        self.runt.user.confirm(('globals', 'get', name))
         return await self.runt.snap.core.getStormVar(name, default=default)
 
     async def _methPop(self, name, default=None):
         self._reqStr(name)
-        self.runt.user.confirm(('storm', 'globals', 'pop', name))
+        self.runt.user.confirm(('globals', 'pop', name))
         return await self.runt.snap.core.popStormVar(name, default=default)
 
     async def _methSet(self, name, valu):
         self._reqStr(name)
-        self.runt.user.confirm(('storm', 'globals', 'set', name))
+        self.runt.user.confirm(('globals', 'set', name))
         return await self.runt.snap.core.setStormVar(name, valu)
 
     async def _methList(self):
         ret = []
         async for key, valu in self.runt.snap.core.itemsStormVar():
             try:
-                self.runt.user.confirm(('storm', 'globals', 'get', key))
+                self.runt.user.confirm(('globals', 'get', key))
             except s_exc.AuthDeny:
                 continue
             else:
@@ -1545,7 +1543,7 @@ class LibTrigger(Lib):
         matches = []
 
         todo = s_common.todo('packTriggers', useriden)
-        trigs = await self.runt.dyncall(viewiden, todo)
+        trigs = await self.dyncall(viewiden, todo)
 
         for tdef in trigs:
             iden = tdef.get('iden')
@@ -1575,7 +1573,7 @@ class LibTrigger(Lib):
 
         gatekeys = ((useriden, ('trigger', 'add'), viewiden),)
         todo = ('addTrigger', (tdef,), {})
-        tdef = await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+        tdef = await self.dyncall(viewiden, todo, gatekeys=gatekeys)
 
         return Trigger(self.runt, tdef)
 
@@ -1592,7 +1590,7 @@ class LibTrigger(Lib):
             (useriden, ('trigger', 'del'), trigiden),
         )
 
-        await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+        await self.dyncall(viewiden, todo, gatekeys=gatekeys)
 
         return trigiden
 
@@ -1649,7 +1647,7 @@ class Trigger(StormType):
         )
 
         todo = ('setTrigInfo', (name, valu), {})
-        await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+        await self.dyncall(viewiden, todo, gatekeys=gatekeys)
 
         self.tdef[name] = valu
 

@@ -31,8 +31,6 @@ class CortexTest(s_t_utils.SynTest):
             '''
             self.len(2, await core.nodes(text))
 
-            #[ print(n) for n in await core.nodes('syn:prop=test:int') ]
-
             text = '''
                 syn:prop=test:int $prop=$node.value() *$prop=10 -syn:prop
             '''
@@ -166,11 +164,11 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
                 self.false(nodes[0].hasTagProp('bar', 'score'))
 
-                #FIXME indexing on tag prop name only?
-                #nodes = await core.nodes('#:score')
-                #self.len(1, nodes)
-                #self.eq(20, nodes[0].getTagProp('foo', 'score'))
-                #self.false(nodes[0].hasTagProp('bar', 'score'))
+                # FIXME indexing on tag prop name only?
+                # nodes = await core.nodes('#:score')
+                # self.len(1, nodes)
+                # self.eq(20, nodes[0].getTagProp('foo', 'score'))
+                # self.false(nodes[0].hasTagProp('bar', 'score'))
 
                 await core.nodes('[ test:int=10 -#foo:score ]')
                 nodes = await core.nodes('#:score')
@@ -3682,7 +3680,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(layr.lockmemory)
 
     async def test_cortex_storm_lib_dmon(self):
-        async with self.getTestCore() as core:
+        async with self.getTestCoreAndProxy() as (core, prox):
             nodes = await core.nodes('''
 
                 $lib.print(hi)
@@ -3717,7 +3715,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 $lib.queue.del(rx)
             ''')
             self.len(1, nodes)
-            self.len(0, await core.getStormDmons())
+            self.len(0, await prox.getStormDmons())
 
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('$lib.dmon.del(newp)')
@@ -3730,15 +3728,15 @@ class CortexBasicTest(s_t_utils.SynTest):
                 async with core.getLocalProxy() as prox:
                     await core.nodes('$lib.queue.add(visi)')
                     ddef = {'storm': '$lib.queue.get(visi).put(done) for $tick in $lib.time.ticker(1) {}'}
-                    dmon = await core.addStormDmon(ddef)
+                    dmoniden = await prox.addStormDmon(ddef)
                     # Storm task pairs are promoted as tasks
                     retn = await prox.ps()
                     dmon_loop_tasks = [task for task in retn if task.get('name') == 'storm:dmon:loop']
                     dmon_main_tasks = [task for task in retn if task.get('name') == 'storm:dmon:main']
                     self.len(1, dmon_loop_tasks)
                     self.len(1, dmon_main_tasks)
-                    self.eq(dmon_loop_tasks[0].get('info').get('iden'), dmon.iden)
-                    self.eq(dmon_main_tasks[0].get('info').get('iden'), dmon.iden)
+                    self.eq(dmon_loop_tasks[0].get('info').get('iden'), dmoniden)
+                    self.eq(dmon_main_tasks[0].get('info').get('iden'), dmoniden)
                     # We can kill the loop task and it will respawn
                     mpid = dmon_main_tasks[0].get('iden')
                     lpid = dmon_loop_tasks[0].get('iden')
@@ -3765,14 +3763,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.nodes('$lib.queue.get(visi).gets(size=2)')
 
             with self.raises(s_exc.NoSuchIden):
-                await core.delStormDmon(s_common.guid())
+                await prox.delStormDmon('XXX')
 
-            iden = s_common.guid()
+            iden = 'XXX'
             with self.raises(s_exc.NeedConfValu):
                 await core.runStormDmon(iden, {})
 
             with self.raises(s_exc.NoSuchUser):
-                await core.runStormDmon(iden, {'user': s_common.guid()})
+                await core.runStormDmon(iden, {'user': 'XXX'})
 
     async def test_cortex_storm_dmon_view(self):
 
