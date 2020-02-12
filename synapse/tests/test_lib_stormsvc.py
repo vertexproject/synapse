@@ -91,14 +91,17 @@ class NewServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
     )
 
 class ChangingService(s_cell.Cell):
-    confdefs = (
-        ('updated', {'type': 'bool', 'defval': False,
-                     'doc': 'If true, serve new cell api'}),
-    )
+    confdefs = {
+        'updated': {
+            'type': 'boolean',
+            'default': False,
+            'description': 'If true, serve new cell api.',
+        }
+    }
 
     async def getTeleApi(self, link, mesg, path):
 
-        user = self._getCellUser(mesg)
+        user = await self._getCellUser(mesg)
 
         if self.conf.get('updated'):
             return await NewServiceAPI.anit(self, link, user)
@@ -233,6 +236,30 @@ class LifterService(s_stormsvc.StormSvc):
             'storm': '-}',
         },
     }
+
+class StormvarService(s_stormsvc.StormSvc):
+    _storm_svc_name = 'stormvar'
+    _storm_svc_pkgs = (
+        {
+            'name': 'stormvar',
+            'version': (0, 0, 1),
+            'commands': (
+                {
+                    'name': 'magic',
+                    'cmdargs': (
+                        ('--stormvar', {'default': False, 'action': 'store_true'}),
+                        ('name', {}),
+                    ),
+                    'storm': '''
+                    $name = $cmdopts.name
+                    $fooz = $lib.vars.get($name)
+                    $fooz = $path.vars.$name
+                    $lib.print('my foo var is {f}', f=$fooz)
+                    ''',
+                },
+            )
+        },
+    )
 
 @contextlib.contextmanager
 def patchcore(core, attr, newfunc):
@@ -491,23 +518,23 @@ class StormSvcTest(s_test.SynTest):
                         'url': durl,
                     }
                     with patchcore(core, 'setStormSvcEvents', badSetStormSvcEvents):
-                        ssvc = await core.addStormSvc(sdef)
-                        await ssvc.ready.wait()
-                        await core.delStormSvc(ssvc.iden)
+                        svci = await core.addStormSvc(sdef)
+                        self.true(await core.waitStormSvc('dead', timeout=0.2))
+                        await core.delStormSvc(svci.get('iden'))
 
                     self.len(1, badiden)
-                    self.eq(ssvc.iden, badiden.pop())
+                    self.eq(svci.get('iden'), badiden.pop())
 
                     async def badRunStormSvcAdd(iden):
                         badiden.append(iden)
                         raise s_exc.SynErr('Kaboom')
 
                     with patchcore(core, '_runStormSvcAdd', badRunStormSvcAdd):
-                        ssvc = await core.addStormSvc(sdef)
-                        await ssvc.ready.wait()
-                        await core.delStormSvc(ssvc.iden)
+                        svci = await core.addStormSvc(sdef)
+                        self.true(await core.waitStormSvc('dead', timeout=0.2))
+                        await core.delStormSvc(svci.get('iden'))
                     self.len(1, badiden)
-                    self.eq(ssvc.iden, badiden[0])
+                    self.eq(svci.get('iden'), badiden[0])
 
     async def test_storm_svc_restarts(self):
 
@@ -517,7 +544,7 @@ class StormSvcTest(s_test.SynTest):
                     async with await ChangingService.anit(svcd) as chng:
                         chng.dmon.share('chng', chng)
 
-                        root = chng.auth.getUserByName('root')
+                        root = await chng.auth.getUserByName('root')
                         await root.setPasswd('root')
 
                         info = await chng.dmon.listen('tcp://127.0.0.1:0/')
@@ -582,3 +609,29 @@ class StormSvcTest(s_test.SynTest):
                 self.isin('old.bar', core.stormmods)
                 self.isin('new.baz', core.stormmods)
                 self.notin('old.baz', core.stormmods)
+
+    async def test_storm_vars(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestDmon() as dmon:
+                dmon.share('svar', StormvarService())
+                host, port = dmon.addr
+                surl = f'tcp://127.0.0.1:{port}/svar'
+
+                async with await s_cortex.Cortex.anit(dirn) as core:
+                    await core.nodes(f'service.add svar {surl}')
+                    await core.nodes('$lib.service.wait(svar)')
+
+                    await core.nodes('[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 ]')
+
+                    scmd = f'inet:ipv4=1.2.3.4 $foo=$node.repr() | magic --stormvar foo'
+                    msgs = await core.streamstorm(scmd).list()
+                    self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
+
+                    scmd = f'inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 $foo=$node.repr() | magic --stormvar foo'
+                    msgs = await core.streamstorm(scmd).list()
+                    self.stormIsInPrint('my foo var is 1.2.3.4', msgs)
+                    self.stormIsInPrint('my foo var is 5.6.7.8', msgs)
+
+                    scmd = f'$foo="8.8.8.8" | magic --stormvar foo'
+                    msgs = await core.streamstorm(scmd).list()
+                    self.stormIsInPrint('my foo var is 8.8.8.8', msgs)

@@ -355,6 +355,9 @@ class Daemon(s_base.Base):
         except asyncio.CancelledError: # pragma: no cover
             raise
 
+        except ConnectionResetError:
+            logger.debug('Dmon.onLinkMesg Handler: connection reset')
+
         except Exception:
             logger.exception('Dmon.onLinkMesg Handler: %.80r' % (mesg,))
 
@@ -417,7 +420,7 @@ class Daemon(s_base.Base):
             if isinstance(item, s_telepath.Aware):
                 item = await s_coro.ornot(item.getTeleApi, link, mesg, path)
                 if isinstance(item, s_base.Base):
-                    link.onfini(item.fini)
+                    link.onfini(item)
 
             reply[1]['sharinfo'] = s_reflect.getShareInfo(item)
 

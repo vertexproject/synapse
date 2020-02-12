@@ -19,6 +19,7 @@ import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
+import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
@@ -170,13 +171,13 @@ class SlabAbrv:
 
         item = self.slab.last(db=self.abrv2name)
         if item is not None:
-            self.offs = s_common.int64un(item[0])
+            self.offs = s_common.int64un(item[0]) + 1
 
     @s_cache.memoize(10000)
     def abrvToByts(self, abrv):
         byts = self.slab.get(abrv, db=self.abrv2name)
         if byts is not None:
-            return byts.decode()
+            return byts
 
     @s_cache.memoize(10000)
     def bytsToAbrv(self, byts):
@@ -195,6 +196,10 @@ class SlabAbrv:
         return abrv
 
     @s_cache.memoize(10000)
+    def nameToAbrv(self, name):
+        return self.bytsToAbrv(name.encode())
+
+    @s_cache.memoize(10000)
     def bytsToInt(self, byts):
         abrv = self.bytsToAbrv(byts)
         return s_common.int64un(abrv)
@@ -210,10 +215,10 @@ class HotCount(s_base.Base):
         self.cache = collections.defaultdict(int)
         self.dirty = set()
 
-        self.countdb = self.slab.initdb(name)
+        self.countdb = self.slab.initdb(name, integerkey=True)
 
         for lkey, lval in self.slab.scanByFull(db=self.countdb):
-            self.cache[lkey] = s_msgpack.un(lval)
+            self.cache[lkey] = s_common.int64un(lval)
 
         slab.on('commit', self._onSlabCommit)
 
@@ -223,16 +228,22 @@ class HotCount(s_base.Base):
         if self.dirty:
             self.sync()
 
-    def inc(self, byts, valu=1):
+    def inc(self, name: str, valu=1):
+        byts = name.encode()
         self.cache[byts] += valu
         self.dirty.add(byts)
 
-    def get(self, name):
+    def set(self, name: str, valu: int):
+        byts = name.encode()
+        self.cache[byts] = valu
+        self.dirty.add(byts)
+
+    def get(self, name: str):
         return self.cache.get(name.encode(), 0)
 
     def sync(self):
 
-        tups = [(p, s_msgpack.en(self.cache[p])) for p in self.dirty]
+        tups = [(p, s_common.int64en(self.cache[p])) for p in self.dirty]
         if not tups:
             return
 
@@ -242,13 +253,16 @@ class HotCount(s_base.Base):
     def pack(self):
         return {n.decode(): v for (n, v) in self.cache.items()}
 
-class MultiQueue:
+class MultiQueue(s_base.Base):
     '''
     Allows creation/consumption of multiple durable queues in a slab.
     '''
-    def __init__(self, slab, name):
+    async def __anit__(self, slab, name, nexsroot: s_nexus.NexsRoot = None, auth=None):  # type: ignore
+
+        await s_base.Base.__anit__(self)
 
         self.slab = slab
+        self.auth = auth
 
         self.abrv = slab.getNameAbrv(f'{name}:abrv')
         self.qdata = self.slab.initdb(f'{name}:qdata')
@@ -257,7 +271,7 @@ class MultiQueue:
         self.queues = SlabDict(self.slab, db=self.slab.initdb(f'{name}:meta'))
         self.offsets = SlabDict(self.slab, db=self.slab.initdb(f'{name}:offs'))
 
-        self.waiters = collections.defaultdict(asyncio.Event)
+        self.waiters = collections.defaultdict(asyncio.Event)  # type: ignore
 
     def list(self):
         return [self.status(n) for n in self.queues.keys()]
@@ -285,17 +299,15 @@ class MultiQueue:
     def offset(self, name):
         return self.offsets.get(name)
 
-    def add(self, name, info):
+    async def add(self, name, info):
 
         if self.queues.get(name) is not None:
-            mesg = f'A queue exists with the name {name}.'
+            mesg = f'A queue already exists with the name {name}.'
             raise s_exc.DupName(mesg=mesg, name=name)
 
-        item = self.queues.get(name)
-        if item is None:
-            self.queues.set(name, info)
-            self.sizes.set(name, 0)
-            self.offsets.set(name, 0)
+        self.queues.set(name, info)
+        self.sizes.set(name, 0)
+        self.offsets.set(name, 0)
 
     async def rem(self, name):
 
@@ -320,10 +332,10 @@ class MultiQueue:
             return itemoffs, item
         return -1, None
 
-    def put(self, name, item):
-        return self.puts(name, (item,))
+    async def put(self, name, item):
+        return await self.puts(name, (item,))
 
-    def puts(self, name, items):
+    async def puts(self, name, items):
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
@@ -453,12 +465,14 @@ class Slab(s_base.Base):
     A "monolithic" LMDB instance for use in a asyncio loop thread.
     '''
     COMMIT_PERIOD = 0.5  # time between commits
+    DEFAULT_MAPSIZE = s_const.gibibyte
+    DEFAULT_GROWSIZE = None
 
     async def __anit__(self, path, **kwargs):
 
         await s_base.Base.__anit__(self)
 
-        kwargs.setdefault('map_size', s_const.gibibyte)
+        kwargs.setdefault('map_size', self.DEFAULT_MAPSIZE)
         kwargs.setdefault('lockmemory', False)
 
         opts = kwargs
@@ -487,10 +501,11 @@ class Slab(s_base.Base):
         opts.setdefault('writemap', True)
 
         self.maxsize = opts.pop('maxsize', None)
-        self.growsize = opts.pop('growsize', None)
+        self.growsize = opts.pop('growsize', self.DEFAULT_GROWSIZE)
 
         self.readonly = opts.get('readonly', False)
         self.lockmemory = opts.pop('lockmemory', False)
+        opts.setdefault('map_async', True)
 
         self.mapsize = _mapsizeround(mapsize)
         if self.maxsize is not None:
@@ -554,8 +569,10 @@ class Slab(s_base.Base):
     def getNameAbrv(self, name):
         return SlabAbrv(self, name)
 
-    def getMultiQueue(self, name):
-        return MultiQueue(self, name)
+    async def getMultiQueue(self, name, nexsroot=None):
+        mq = await MultiQueue.anit(self, name, nexsroot=None)
+        self.onfini(mq)
+        return mq
 
     def statinfo(self):
         return {
@@ -728,7 +745,13 @@ class Slab(s_base.Base):
             self.schedCallSafe(self.lockdoneevent.clear)
             self.resizeevent.clear()
 
-            memstart, memlen = s_thisplat.getFileMappedRegion(path)
+            try:
+                memstart, memlen = s_thisplat.getFileMappedRegion(path)
+            except s_exc.NoSuchFile:
+                logger.warning('map not found for %s', path)
+                self.schedCallSafe(self.lockdoneevent.set)
+                continue
+
             if memlen > max_to_lock:
                 memlen = max_to_lock
                 if not limit_warned:
@@ -741,7 +764,7 @@ class Slab(s_base.Base):
             # too-long length)
             filesize = os.fstat(fileno).st_size
             goal_end = memstart + min(memlen, filesize)
-            self.lock_goal = goal_end
+            self.lock_goal = goal_end - memstart
 
             self.lock_progress = 0
             prev_memend = memstart
@@ -757,6 +780,9 @@ class Slab(s_base.Base):
                     with s_thisplat.mmap(0, length=new_memend - prev_memend, prot=PROT, flags=FLAGS, fd=fileno,
                                          offset=prev_memend - memstart):
                         s_thisplat.mlock(prev_memend, memlen)
+                except OSError:
+                    logger.warning('error while attempting to lock memory')
+                    break
                 finally:
                     self.prefaulting = False
 
@@ -772,15 +798,15 @@ class Slab(s_base.Base):
         self.locking_memory = False
         logger.debug('memory locking thread ended')
 
-    def initdb(self, name, dupsort=False):
+    def initdb(self, name, dupsort=False, integerkey=False):
         while True:
             try:
                 if self.readonly:
                     # In a readonly environment, we can't make our own write transaction, but we
                     # can have the lmdb module create one for us by not specifying the transaction
-                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort)
+                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort, integerkey=integerkey)
                 else:
-                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort)
+                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort, integerkey=integerkey)
                     self.dirty = True
                     self.forcecommit()
 
@@ -1136,6 +1162,7 @@ class Scan:
         self.atitem = None
         self.bumped = False
         self.iterfunc = None
+        self.curs = None
 
     def __enter__(self):
         self.slab._acqXactForReading()
@@ -1147,6 +1174,7 @@ class Scan:
         self.bump()
         self.slab.scans.discard(self)
         self.slab._relXactForReading()
+        self.curs = None
 
     def last_key(self):
         '''

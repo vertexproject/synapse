@@ -270,8 +270,8 @@ class _Appt:
         self.lastresult = None
         self.enabled = True
 
-    def getRuntInfo(self):
-        buid = s_common.buid(('syn:cron', self.iden))
+    def getStorNode(self, form='syn:cron'):
+        buid = s_common.buid((form, self.iden))
         return (buid, {
             'ndef': ('syn:cron', self.iden),
             'props': {
@@ -363,12 +363,12 @@ class _Appt:
             self.nexttime = None
             return
 
-    async def reqAllowed(self, user, perm):
-        if not await self.allowed(user, perm):
+    def confirm(self, user, perm):
+        if not self.allowed(user, perm):
             mesg = 'User does not own or have permissions to cron job.'
             raise s_exc.AuthDeny(perm=perm, mesg=mesg)
 
-    async def allowed(self, user, perm):
+    def allowed(self, user, perm):
         if user.iden == self.useriden:
             return True
 
@@ -411,21 +411,6 @@ class Agenda(s_base.Base):
         self.enabled = False
         self._schedtask = None  # The task of the scheduler loop.  Doesn't run until we're enabled
         await self._load_all()
-
-    async def onLiftRunts(self, full, valu=None, cmpr=None):
-
-        if valu is None:
-            for iden, cjob in self.appts.items():
-                yield cjob.getRuntInfo()
-
-            return
-
-        iden = str(valu)
-        cjob = self.appts.get(iden)
-        if cjob is None:
-            return
-
-        yield cjob.getRuntInfo()
 
     async def start(self):
         '''
@@ -509,7 +494,7 @@ class Agenda(s_base.Base):
     def list(self):
         return list(self.appts.items())
 
-    async def add(self, useriden, query: str, reqs, incunit=None, incvals=None, doc=''):
+    async def add(self, useriden: str, croniden: str, query: str, reqs, incunit=None, incvals=None, doc=''):
         '''
         Persistently adds an appointment
 
@@ -533,7 +518,7 @@ class Agenda(s_base.Base):
         Returns:
             iden of new appointment
         '''
-        iden = s_common.guid()
+        iden = croniden
         recur = incunit is not None
         indx = self._next_indx
         self._next_indx += 1
@@ -554,7 +539,7 @@ class Agenda(s_base.Base):
             reqs = [reqs]
 
         # Find all combinations of values in reqdict values and incvals values
-        recs = []
+        recs = []  # type: ignore
         for req in reqs:
 
             reqdicts = self._dictproduct(req)

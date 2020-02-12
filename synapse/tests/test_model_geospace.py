@@ -192,6 +192,7 @@ class GeoTest(s_t_utils.SynTest):
                 self.len(1, nodes)
 
     async def test_near(self):
+
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 # These two nodes are 2,605m apart
@@ -227,18 +228,18 @@ class GeoTest(s_t_utils.SynTest):
                 self.nn(node)
 
             # Node filtering behavior
-            nodes = await alist(core.eval('geo:place +:latlong*near=((34.1, -118.3), 10km)'))
+            nodes = await core.nodes('geo:place +:latlong*near=((34.1, -118.3), 10km)')
             self.len(2, nodes)
-            nodes = await alist(core.eval('geo:place +geo:place:latlong*near=((34.1, -118.3), 10km)'))
+            nodes = await core.nodes('geo:place +geo:place:latlong*near=((34.1, -118.3), 10km)')
             self.len(2, nodes)
 
-            nodes = await alist(core.eval('geo:place +:latlong*near=((34.1, -118.3), 50m)'))
+            nodes = await core.nodes('geo:place +:latlong*near=((34.1, -118.3), 50m)')
             self.len(0, nodes)
 
             # +1's come from the unknown loc without a latlong prop
-            nodes = await alist(core.eval('geo:place -:latlong*near=((34.1, -118.3), 10km)'))
+            nodes = await core.nodes('geo:place -:latlong*near=((34.1, -118.3), 10km)')
             self.len(0 + 1, nodes)
-            nodes = await alist(core.eval('geo:place -:latlong*near=((34.1, -118.3), 50m)'))
+            nodes = await core.nodes('geo:place -:latlong*near=((34.1, -118.3), 50m)')
             self.len(2 + 1, nodes)
 
             # Storm variable use to filter nodes based on a given location.

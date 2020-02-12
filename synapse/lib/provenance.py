@@ -182,9 +182,3 @@ class ProvStor(s_base.Base):
             providen = self.getProvIden(provstack)
             setiden(providen)
         return wasnew, s_common.ehex(providen), provstack
-
-    def migratePre010(self, layer):
-        '''
-        Ask layer to migrate its old provstack DBs into me
-        '''
-        layer.migrateProvPre010(self.slab)

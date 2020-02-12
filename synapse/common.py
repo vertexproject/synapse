@@ -155,6 +155,12 @@ def vertup(vstr):
     '''
     return tuple([int(x) for x in vstr.split('.')])
 
+def todo(name, *args, **kwargs):
+    '''
+    Construct and return a todo tuple of (name, args, kwargs).
+    '''
+    return (name, args, kwargs)
+
 def genpath(*paths):
     path = os.path.join(*paths)
     path = os.path.expanduser(path)

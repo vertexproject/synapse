@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import collections
 
@@ -67,9 +68,25 @@ class Type:
 
         self.storlifts = {
             '=': self._storLiftNorm,
+            '?=': self._storLiftSafe,
+            'in=': self._storLiftIn,
         }
 
         self.postTypeInit()
+
+    def _storLiftSafe(self, cmpr, valu):
+        try:
+            return self.storlifts['=']('=', valu)
+        except asyncio.CancelledError: # pragma: no cover
+            raise
+        except Exception:
+            return ()
+
+    def _storLiftIn(self, cmpr, valu):
+        retn = []
+        for realvalu in valu:
+            retn.extend(self.getStorCmprs('=', realvalu))
+        return retn
 
     def _storLiftNorm(self, cmpr, valu):
         # NOTE: this may also be used for any other supported
@@ -78,7 +95,35 @@ class Type:
         return ((cmpr, norm, self.stortype),)
 
     def getStorCmprs(self, cmpr, valu):
-        return self.storlifts[cmpr](cmpr, valu)
+
+        func = self.storlifts.get(cmpr)
+        if func is None:
+            mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
+            raise s_exc.NoSuchCmpr(mesg=mesg)
+
+        return func(cmpr, valu)
+
+    def getStorNode(self, form='syn:type'):
+        ndef = (form, self.name)
+        buid = s_common.buid(ndef)
+
+        ctor = '.'.join([self.__class__.__module__, self.__class__.__qualname__])
+        props = {
+            'doc': self.info.get('doc'),
+            'ctor': ctor,
+        }
+
+        opts = {k: v for k, v in self.opts.items()}
+        if opts:
+            props['opts'] = opts
+
+        if self.subof is not None:
+            props['subof'] = self.subof
+
+        return (buid, {
+            'ndef': ndef,
+            'props': props,
+        })
 
     def getCompOffs(self, name):
         '''
@@ -86,14 +131,6 @@ class Type:
         property name or None.
         '''
         return None
-
-    #def getLiftOps(self, tabl, cmpr, oper):
-        #'''
-        #If this type has special lift operations it needs to do (like a regex
-        #search), that will be handled by a sub class. Base types with no special
-        #needs can let the Prop/Univ/Form classes handle the generic lift case.
-        #'''
-        #return None
 
     def _normStormNode(self, node):
         return self.norm(node.ndef[1])
@@ -215,46 +252,6 @@ class Type:
             return minv <= valu <= maxv
         return cmpr
 
-    #def indxByEq(self, valu):
-        #norm, info = self.norm(valu)
-
-        #indx = self.indx(norm)
-        #if indx is None:
-            #raise s_exc.NoSuchIndx(name=self.name)
-
-        #return (
-            #('eq', indx),
-        #)
-
-    #def indxByIn(self, vals):
-
-        #opers = []
-        #if not isinstance(vals, (list, tuple)):
-            #raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='in=')
-
-        #for valu in vals:
-            #opers.extend(self.getIndxOps(valu))
-
-        #return opers
-
-    #def indxByRange(self, valu):
-
-        #if not isinstance(valu, (list, tuple)):
-            #raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='range=')
-
-        #if len(valu) != 2:
-            #raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='range=')
-
-        #minv, _ = self.norm(valu[0])
-        #maxv, _ = self.norm(valu[1])
-
-        #mini = self.indx(minv)
-        #maxi = self.indx(maxv)
-
-        #return (
-            #('range', (mini, maxi)),
-        #)
-
     def setNormFunc(self, typo, func):
         '''
         Register a normalizer function for a given python type.
@@ -284,7 +281,7 @@ class Type:
         '''
         func = self._type_norms.get(type(valu))
         if func is None:
-            raise s_exc.NoSuchFunc(name=self.name, mesg='no norm for type: %r' % (type(valu),))
+            raise s_exc.BadTypeValu(name=self.name, mesg='no norm for type: %r' % (type(valu),))
 
         return func(valu)
 
@@ -294,13 +291,6 @@ class Type:
         This may return a string or a tuple of values for display purposes.
         '''
         return str(norm)
-
-    #def indx(self, norm):  # pragma: no cover
-        #'''
-        #Return the property index bytes for the given *normalized* value.
-        #'''
-        #name = self.__class__.__name__
-        #raise s_exc.NoSuchImpl(name='%s.indx' % name)
 
     def merge(self, oldv, newv):
         '''
@@ -351,22 +341,6 @@ class Type:
         topt.update(opts)
         return self.__class__(self.modl, self.name, self.info, topt)
 
-    #def getIndxOps(self, valu, cmpr='='):
-        #'''
-        #Return a list of index operation tuples to lift values in a table.
-
-        #Valid index operations include:
-            #('eq', <indx>)
-            #('pref', <indx>)
-            #('range', (<minindx>, <maxindx>))
-        #'''
-        #func = self.indxcmpr.get(cmpr)
-
-        #if func is None:
-            #raise s_exc.NoSuchCmpr(name=self.name, cmpr=cmpr)
-
-        #return func(valu)
-
 class Bool(Type):
 
     stortype = s_layer.STOR_TYPE_U8
@@ -375,9 +349,6 @@ class Bool(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(bool, self._normPyInt)
-
-    #def indx(self, norm):
-        #return norm.to_bytes(length=1, byteorder='big')
 
     def _normPyStr(self, valu):
 
@@ -402,38 +373,6 @@ class Bool(Type):
         return repr(bool(valu))
 
 class Array(Type):
-
-    #def getLiftOpsV2(self, prop, valu, cmpr='='):
-
-        #if valu is None:
-            #iops = (('pref', b'\x00'),)
-            #return (
-                #('indx', ('byprop', prop.pref, iops)),
-            #)
-
-        #if cmpr == '=':
-            #norm, info = self.norm(valu)
-            #iops = (
-                #('eq', b'\x00' + s_common.buid(norm)),
-            #)
-            #return (
-                #('indx', ('byprop', prop.pref, iops)),
-            #)
-
-        #if cmpr == 'contains=':
-            #norm, info = self.arraytype.norm(valu)
-            #byts = self.arraytype.indx(norm)
-            #iops = (
-                #('eq', b'\x01' + self.arraytype.indx(norm)),
-            #)
-            #return (
-                #('indx', ('byprop', prop.pref, iops)),
-            #)
-
-        # TODO we *could* retrieve and munge the iops from arraytype...
-
-        #mesg = f'Array type has no lift by: {cmpr}.'
-        #raise s_exc.NoSuchCmpr(mesg=mesg)
 
     def postTypeInit(self):
 
@@ -636,16 +575,19 @@ class Hex(Type):
                                     mesg='Size must be a multiple of 2')
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(bytes, self._normPyBytes)
+        self.storlifts.update({
+            '=': self._storLiftEq,
+        })
 
-    #def indxByEq(self, valu):
-        #if isinstance(valu, str) and valu.endswith('*'):
-            #valu = valu.rstrip('*')
-            #norm = s_chop.hexstr(valu)
-            #return (
-                #('pref', self.indx(norm)),
-            #)
+    def _storLiftEq(self, cmpr, valu):
 
-        #return Type.indxByEq(self, valu)
+        if type(valu) == str:
+            if valu.endswith('*'):
+                return (
+                    ('^=', valu[:-1].lower(), self.stortype),
+                )
+
+        return self._storLiftNorm(cmpr, valu)
 
     def _normPyStr(self, valu):
         valu = s_chop.hexstr(valu)
@@ -657,18 +599,17 @@ class Hex(Type):
     def _normPyBytes(self, valu):
         return self._normPyStr(s_common.ehex(valu))
 
-    #def indx(self, norm):
-        #return self._getIndxChop(s_common.uhex(norm))
-
 intstors = {
     (1, True): s_layer.STOR_TYPE_I8,
     (2, True): s_layer.STOR_TYPE_I16,
     (4, True): s_layer.STOR_TYPE_I32,
     (8, True): s_layer.STOR_TYPE_I64,
+    (16, True): s_layer.STOR_TYPE_I128,
     (1, False): s_layer.STOR_TYPE_U8,
     (2, False): s_layer.STOR_TYPE_U16,
     (4, False): s_layer.STOR_TYPE_U32,
     (8, False): s_layer.STOR_TYPE_U64,
+    (16, False): s_layer.STOR_TYPE_U128,
 }
 
 class IntBase(Type):
@@ -741,7 +682,7 @@ class Int(IntBase):
         self.signed = self.opts.get('signed')
         self.stortype = intstors.get((self.size, self.signed))
         if self.stortype is None:
-            mesg = 'Invalid integer size.'
+            mesg = f'Invalid integer size ({self.size})'
             raise s_exc.BadTypeDef(mesg=mesg)
 
         self.enumnorm = {}
@@ -832,9 +773,6 @@ class Int(IntBase):
 
         return valu, {}
 
-    #def indx(self, valu):
-        #return (valu + self._indx_offset).to_bytes(self.size, 'big')
-
     def repr(self, norm):
 
         text = self.enumrepr.get(norm)
@@ -865,6 +803,19 @@ class Ival(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyIter)
         self.setNormFunc(tuple, self._normPyIter)
+        self.storlifts.update({
+            '@=': self._storLiftAt,
+        })
+
+    def _storLiftAt(self, cmpr, valu):
+
+        if type(valu) not in (list, tuple):
+            return self._storLiftNorm(cmpr, valu)
+
+        ticktock = self.timetype.getTickTock(valu)
+        return (
+            ('@=', ticktock, self.stortype),
+        )
 
     def _ctorCmprAt(self, valu):
 
@@ -906,15 +857,6 @@ class Ival(Type):
             return True
 
         return cmpr
-
-    #def getLiftOps(self, tabl, cmpr, oper):
-        #if cmpr != '@=':
-            #return None
-        #form, prop, valu = oper
-        #norm, _ = self.norm(valu)
-        #return (
-            #(tabl + ':ival', (form, prop, norm)),
-        #)
 
     def _normPyInt(self, valu):
         minv, _ = self.timetype._normPyInt(valu)
@@ -967,16 +909,6 @@ class Ival(Type):
         mint = min(oldv[0], newv[0])
         maxt = max(oldv[1], newv[1])
         return (mint, maxt)
-
-    #def indx(self, norm):
-
-        #if norm is None:
-            #return b''
-
-        #indx = self.timetype.indx(norm[0])
-        #indx += self.timetype.indx(norm[1])
-
-        #return indx
 
     def repr(self, norm):
         mint = self.timetype.repr(norm[0])
@@ -1285,6 +1217,7 @@ class Str(Type):
         ('lower', False),
         ('strip', False),
         ('onespace', False),
+        ('globsuffix', False),
     )
 
     def repr(self, norm):
@@ -1293,11 +1226,13 @@ class Str(Type):
     def postTypeInit(self):
 
         self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(int, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
 
         self.storlifts.update({
+            '=': self._storLiftEq,
             '^=': self._storLiftPref,
             '~=': self._storLiftRegx,
+            'range=': self._storLiftRange,
         })
 
         self.regex = None
@@ -1310,7 +1245,23 @@ class Str(Type):
         if enumstr is not None:
             self.envals = enumstr.split(',')
 
-    def _storLiftPref(self, cmpr, valu):
+    def _storLiftEq(self, cmpr, valu):
+
+        if self.opts.get('globsuffix') and valu.endswith('*'):
+            return (
+                ('^=', valu[:-1], self.stortype),
+            )
+
+        return self._storLiftNorm(cmpr, valu)
+
+    def _storLiftRange(self, cmpr, valu):
+        minx = self._normForLift(valu[0])
+        maxx = self._normForLift(valu[1])
+        return (
+            (cmpr, (minx, maxx), self.stortype),
+        )
+
+    def _normForLift(self, valu):
 
         # doesnt have to be normable...
         if self.opts.get('lower'):
@@ -1323,10 +1274,17 @@ class Str(Type):
         if self.opts.get('onespace'):
             valu = s_chop.onespace(valu)
 
+        return valu
+
+    def _storLiftPref(self, cmpr, valu):
+        valu = self._normForLift(valu)
         return (('^=', valu, self.stortype),)
 
     def _storLiftRegx(self, cmpr, valu):
         return ((cmpr, valu, self.stortype),)
+
+    def _normPyInt(self, valu):
+        return self._normPyStr(str(valu))
 
     def _normPyStr(self, valu):
 
@@ -1407,6 +1365,34 @@ class Time(IntBase):
 
         self.ismin = self.opts.get('ismin')
         self.ismax = self.opts.get('ismax')
+        self.storlifts.update({
+            '@=': self._liftByIval,
+        })
+
+    def _liftByIval(self, cmpr, valu):
+
+        if type(valu) not in (list, tuple):
+            norm, info = self.norm(valu)
+            return (
+                ('=', norm, self.stortype),
+            )
+
+        ticktock = self.getTickTock(valu)
+        return (
+            (cmpr, ticktock, self.stortype),
+        )
+
+    def _storLiftRange(self, cmpr, valu):
+
+        if type(valu) not in (list, tuple):
+            mesg = f'Range value must be a list: {valu!r}'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        ticktock = self.getTickTock(valu)
+
+        return (
+            (cmpr, ticktock, self.stortype),
+        )
 
     def _ctorCmprAt(self, valu):
         return self.modl.types.get('ival')._ctorCmprAt(valu)
@@ -1497,6 +1483,10 @@ class Time(IntBase):
         Returns:
             (int, int): A ordered pair of integers.
         '''
+        if len(vals) != 2:
+            mesg = 'Time range must have a length of 2: %r' % (vals,)
+            raise s_exc.BadTypeValu(mesg=mesg)
+
         val0, val1 = vals
 
         try:

@@ -17,7 +17,7 @@ import synapse.lookup.iana as s_l_iana
 
 logger = logging.getLogger(__name__)
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
-srv6re = regex.compile(r'^\[([a-f0-9:]+)\]:(\d+)$')
+srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\]:(\d+)$')
 
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 
@@ -107,8 +107,8 @@ class Addr(s_types.Str):
 
                 return f'{proto}://[{ipv6}]:{port}', {'subs': subs}
 
-            raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                    mesg='invalid IPv6 w/ port')
+            mesg = f'Invalid IPv6 w/port ({orig})'
+            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
 
         elif valu.count(':') >= 2:
             ipv6 = self.modl.type('inet:ipv6').norm(valu)[0]
@@ -210,6 +210,40 @@ class Fqdn(s_types.Type):
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
+        self.storlifts.update({
+            '=': self._storLiftEq,
+        })
+
+    def _storLiftEq(self, cmpr, valu):
+
+        if type(valu) == str:
+
+            if valu == '':
+                mesg = 'Cannot generate fqdn index bytes for a empty string.'
+                raise s_exc.BadLiftValu(valu=valu, name=self.name, mesg=mesg)
+
+            if valu == '*':
+                return (
+                    ('=', '*', self.stortype),
+                )
+
+            if valu.startswith('*.'):
+                norm, info = self.norm(valu[2:])
+                return (
+                    ('=', f'*.{norm}', self.stortype),
+                )
+
+            if valu.startswith('*'):
+                norm, info = self.norm(valu[1:])
+                return (
+                    ('=', f'*{norm}', self.stortype),
+                )
+
+            if '*' in valu:
+                mesg = 'Wild card may only appear at the beginning.'
+                raise s_exc.BadLiftValu(valu=valu, name=self.name, mesg=mesg)
+
+        return self._storLiftNorm(cmpr, valu)
 
     def _ctorCmprEq(self, text):
         if text == '':
@@ -264,7 +298,7 @@ class Fqdn(s_types.Type):
         if len(parts) == 2:
             subs['domain'] = parts[1]
         else:
-            subs['sfx'] = 1
+            subs['issuffix'] = 1
 
         return valu, {'subs': subs}
 
@@ -718,8 +752,12 @@ class InetModule(s_module.CoreModule):
         domain = node.get('domain')
 
         if domain is None:
+            await node.set('iszone', False)
             await node.set('issuffix', True)
             return
+
+        if node.get('issuffix') is None:
+            await node.set('issuffix', False)
 
         # almost certainly in the cache anyway....
         parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
@@ -728,6 +766,8 @@ class InetModule(s_module.CoreModule):
             await node.set('iszone', True)
             await node.set('zone', fqdn)
             return
+
+        await node.set('iszone', False)
 
         if parent.get('iszone'):
             await node.set('zone', domain)
@@ -742,7 +782,7 @@ class InetModule(s_module.CoreModule):
         fqdn = node.ndef[1]
 
         issuffix = node.get('issuffix')
-        async for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
+        async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
             await child.set('iszone', issuffix)
 
     async def _onSetFqdnIsZone(self, node, oldv):
@@ -775,7 +815,7 @@ class InetModule(s_module.CoreModule):
         fqdn = node.ndef[1]
         zone = node.get('zone')
 
-        async for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
+        async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
 
             # if they are their own zone level, skip
             if child.get('iszone'):

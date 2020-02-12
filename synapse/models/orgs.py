@@ -58,6 +58,12 @@ class OuModule(s_module.CoreModule):
                 ('ou:conference:attendee', ('comp', {'fields': (('conference', 'ou:conference'), ('person', 'ps:person'))}), {
                     'doc': 'Represents a person attending a conference represented by an ou:conference node.',
                 }),
+                ('ou:conference:event', ('guid', {}), {
+                    'doc': 'A conference event with a name and associated conference.',
+                }),
+                ('ou:conference:event:attendee', ('comp', {'fields': (('conference', 'ou:conference:event'), ('person', 'ps:person'))}), {
+                    'doc': 'Represents a person attending a conference event represented by an ou:conference:event node.',
+                }),
             ),
             'forms': (
                 ('ou:org', {}, (
@@ -227,6 +233,10 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The full name of the conference.',
                         'ex': 'decfon 2017',
                     }),
+                    ('desc', ('str', {'lower': True}), {
+                        'doc': 'A description of the conference.',
+                        'ex': 'annual cybersecurity conference',
+                    }),
                     ('base', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The base name which is shared by all conference instances.',
                         'ex': 'defcon',
@@ -265,7 +275,59 @@ class OuModule(s_module.CoreModule):
                     ('role:speaker', ('bool', {}), {
                         'doc': 'The person was a speaker or presenter at the conference.',
                     }),
+                    ('roles', ('array', {'type': 'str', 'lower': True}), {
+                        'doc': 'List of the roles the person had at the conference.',
+                    }),
                  )),
+                ('ou:conference:event', {}, (
+                    ('conference', ('ou:conference', {}), {
+                        'ro': True,
+                        'doc': 'The conference to which the event is associated.',
+                    }),
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The geo:place where the event occurred.',
+                    }),
+                    ('name', ('str', {'lower': True}), {
+                        'doc': 'The name of the conference event.',
+                        'ex': 'foobar conference dinner',
+                    }),
+                    ('desc', ('str', {'lower': True}), {
+                        'doc': 'A description of the conference event.',
+                        'ex': 'foobar conference networking dinner at ridge hotel',
+                    }),
+                    ('url', ('inet:url', ()), {
+                        'doc': 'The inet:url node for the conference event website.',
+                    }),
+                    ('contact', ('ps:contact', ()), {
+                        'doc': 'Contact info for the event',
+                    }),
+                    ('start', ('time', {}), {
+                        'doc': 'The event start date / time.',
+                    }),
+                    ('end', ('time', {}), {
+                        'doc': 'The event end date / time.',
+                    }),
+                )),
+                ('ou:conference:event:attendee', {}, (
+
+                    ('event', ('ou:conference:event', {}), {
+                        'ro': True,
+                        'doc': 'The conference event which was attended.',
+                    }),
+                    ('person', ('ps:person', {}), {
+                        'ro': True,
+                        'doc': 'The person who attended the conference event.',
+                    }),
+                    ('arrived', ('time', {}), {
+                        'doc': 'The time when a person arrived to the conference event.',
+                    }),
+                    ('departed', ('time', {}), {
+                        'doc': 'The time when a person departed from the conference event.',
+                    }),
+                    ('roles', ('array', {'type': 'str', 'lower': True}), {
+                        'doc': 'List of the roles the person had at the conference event.',
+                    }),
+                )),
             )
         }
 

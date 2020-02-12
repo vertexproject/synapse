@@ -14,6 +14,17 @@ import synapse.lib.thisplat as s_thisplat
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
+def getFileMapCount(filename):
+    filename = str(filename)
+    count = 0
+    with open(f'/proc/{os.getpid()}/maps') as maps:
+        for line in maps:
+            if len(line) < 50:
+                continue
+            if line.rstrip().endswith(filename):
+                count += 1
+    return count
+
 class LmdbSlabTest(s_t_utils.SynTest):
 
     async def test_lmdbslab_base(self):
@@ -415,10 +426,22 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq((('hehe', 20), ), info1.items())
 
     async def test_slab_initdb_grow(self):
+        self.thisHostMust(platform='linux')
+
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'slab.lmdb')
             async with await s_lmdbslab.Slab.anit(path, map_size=1024, lockmemory=True) as slab:
+                mapcount = getFileMapCount('slab.lmdb/data.mdb')
+                self.eq(1, mapcount)
+
+                mapsize = slab.mapsize
                 [slab.initdb(str(i)) for i in range(10)]
+                self.gt(slab.mapsize, mapsize)
+
+                # Make sure there is still only one map
+                self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
+                mapcount = getFileMapCount('slab.lmdb/data.mdb')
+                self.eq(1, mapcount)
 
     def test_slab_math(self):
         self.eq(s_lmdbslab._mapsizeround(100), 128)
@@ -452,13 +475,14 @@ class LmdbSlabTest(s_t_utils.SynTest):
         '''
         forcecommit in runSyncLoop can very occasionally trigger a mapfull
         '''
-        fake_confdefs = (
-            ('lmdb:mapsize', {'type': 'int', 'defval': s_const.mebibyte}),
-            ('lmdb:maxsize', {'type': 'int', 'defval': None}),
-            ('lmdb:growsize', {'type': 'int', 'defval': 128 * s_const.kibibyte}),
-            ('lmdb:readahead', {'type': 'bool', 'defval': True}),
-        )
-        with patch('synapse.lib.lmdblayer.LmdbLayer.confdefs', fake_confdefs):
+        # fake_confdefs = (
+        #     ('lmdb:mapsize', {'type': 'int', 'defval': s_const.mebibyte}),
+        #     ('lmdb:maxsize', {'type': 'int', 'defval': None}),
+        #     ('lmdb:growsize', {'type': 'int', 'defval': 128 * s_const.kibibyte}),
+        #     ('lmdb:readahead', {'type': 'bool', 'defval': True}),
+        # )
+        with patch('synapse.lib.lmdbslab.Slab.DEFAULT_MAPSIZE', s_const.mebibyte), \
+                patch('synapse.lib.lmdbslab.Slab.DEFAULT_GROWSIZE', 128 * s_const.kibibyte):
             batchsize = 4000
             numbatches = 2
             async with self.getTestCore() as core:
@@ -500,7 +524,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             async with await s_lmdbslab.Slab.anit(path) as slab:
 
-                mque = slab.getMultiQueue('test')
+                mque = await slab.getMultiQueue('test')
 
                 self.false(mque.exists('woot'))
 
@@ -511,18 +535,18 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     await mque.get('woot', 0)
 
                 with self.raises(s_exc.NoSuchName):
-                    mque.put('woot', 'lulz')
+                    await mque.put('woot', 'lulz')
 
                 with self.raises(s_exc.NoSuchName):
                     mque.status('woot')
 
-                mque.add('woot', {'some': 'info'})
+                await mque.add('woot', {'some': 'info'})
 
                 self.true(mque.exists('woot'))
 
-                self.eq(0, mque.put('woot', 'hehe'))
-                self.eq(1, mque.put('woot', 'haha'))
-                self.eq(2, mque.put('woot', 'hoho'))
+                self.eq(0, await mque.put('woot', 'hehe'))
+                self.eq(1, await mque.put('woot', 'haha'))
+                self.eq(2, await mque.put('woot', 'hoho'))
 
                 self.eq(3, mque.size('woot'))
 
@@ -545,11 +569,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 await mque.cull('woot', -1)
                 self.eq(mque.status('woot'), status[0])
 
-                self.raises(s_exc.DupName, mque.add, 'woot', {})
+                await self.asyncraises(s_exc.DupName, mque.add('woot', {}))
 
             async with await s_lmdbslab.Slab.anit(path) as slab:
 
-                mque = slab.getMultiQueue('test')
+                mque = await slab.getMultiQueue('test')
 
                 self.eq(2, mque.size('woot'))
                 self.eq(3, mque.offset('woot'))
@@ -577,8 +601,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.eq(data, ((1, 'haha'), (2, 'hoho')))
 
-                mque.put('woot', 'lulz')
-                mque.put('woot', None)
+                await mque.put('woot', 'lulz')
+                await mque.put('woot', None)
 
                 await asyncio.wait_for(task, 2)
 
@@ -588,7 +612,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.eq((2, 'hoho'), await mque.get('woot', 2))
 
-                mque.put('woot', 'huhu')
+                await mque.put('woot', 'huhu')
 
                 await mque.rem('woot')
 
@@ -607,20 +631,20 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 valu = abrv.nameToAbrv('haha')
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
 
-                name = abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x01')
-                self.eq(name, 'haha')
+                name = abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x01')
+                self.eq(name, b'haha')
 
-                self.none(abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
+                self.none(abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
 
             # And persistence
             async with await s_lmdbslab.Slab.anit(path) as slab:
                 abrv = s_lmdbslab.SlabAbrv(slab, 'test')
                 # recall first
-                name = abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x00')
-                self.eq(name, 'hehe')
+                name = abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x00')
+                self.eq(name, b'hehe')
 
-                name = abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x01')
-                self.eq(name, 'haha')
+                name = abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x01')
+                self.eq(name, b'haha')
                 # Remaking them makes the values we already had
                 valu = abrv.nameToAbrv('hehe')
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x00')
@@ -629,7 +653,32 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
 
                 # And we still have no valu for 02
-                self.none(abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
+                self.none(abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x02'))
+
+                # And we don't overwrite existing values on restart
+                valu = abrv.nameToAbrv('hoho')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x02')
+
+                valu = abrv.nameToAbrv('haha')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
+
+    async def test_lmdbslab_hotcount(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True) as slab, \
+                    await s_lmdbslab.HotCount.anit(slab, 'counts') as ctr:
+                self.eq(0, ctr.get('foo'))
+                self.eq({}, ctr.pack())
+                ctr.inc('foo')
+                self.eq({'foo': 1}, ctr.pack())
+                self.eq(1, ctr.get('foo'))
+                ctr.set('bar', 42)
+                self.eq({'foo': 1, 'bar': 42}, ctr.pack())
+                ctr.sync()
+                self.eq({'foo': 1, 'bar': 42}, ctr.pack())
 
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
@@ -646,3 +695,24 @@ class LmdbSlabMemLockTest(s_t_utils.SynTest):
                 self.true(await asyncio.wait_for(lmdbslab.lockdoneevent.wait(), 8))
                 lockmem = s_thisplat.getCurrentLockedMemory()
                 self.ge(lockmem - beforelockmem, 4000)
+
+    async def test_multiple_grow(self):
+        '''
+        Trigger multiple grow events rapidly and ensure memlock thread survives.
+        '''
+        self.thisHostMust(hasmemlocking=True)
+
+        with self.getTestDir() as dirn:
+
+            count = 0
+            byts = b'\x00' * 1024
+            path = os.path.join(dirn, 'test.lmdb')
+            mapsize = 10 * 1024 * 1024
+            async with await s_lmdbslab.Slab.anit(path, map_size=mapsize, growsize=5000, lockmemory=True) as slab:
+                foo = slab.initdb('foo')
+                while count < 8000:
+                    count += 1
+                    slab.put(s_common.guid(count).encode('utf8'), s_common.guid(count).encode('utf8') + byts, db=foo)
+                self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
+                lockmem = s_thisplat.getCurrentLockedMemory()
+                self.gt(lockmem, 0)

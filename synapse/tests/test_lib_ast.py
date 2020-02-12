@@ -418,13 +418,23 @@ class AstTest(s_test.SynTest):
             '''
             mesgs = await s_test.alist(core.streamstorm(q))
             errs = [m[1] for m in mesgs if m[0] == 'err']
-            self.eq(errs[0][0], 'BadPropValu')
+            self.eq(errs[0][0], 'BadTypeValu')
 
     async def test_ast_array_pivot(self):
 
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(1, 2, 3) ]')
+            self.len(1, nodes)
+
+            # Check that subs were added
+            nodes = await core.nodes('test:int=1')
+            self.len(1, nodes)
+            nodes = await core.nodes('test:int=2')
+            self.len(1, nodes)
+            nodes = await core.nodes('test:int=3')
+            self.len(1, nodes)
+
             nodes = await core.nodes('test:arrayprop -> *')
             self.len(3, nodes)
 

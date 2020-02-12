@@ -1,30 +1,186 @@
 import asyncio
 import logging
 import argparse
-import collections
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
-import synapse.lib.boss as s_boss
-import synapse.lib.hive as s_hive
-import synapse.lib.link as s_link
-import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
-import synapse.lib.view as s_view
-import synapse.lib.cache as s_cache
+import synapse.lib.time as s_time
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
-import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
+
+addtriggerdescr = '''
+Add a trigger to the cortex.
+
+Notes:
+    Valid values for condition are:
+        * tag:add
+        * tag:del
+        * node:add
+        * node:del
+        * prop:set
+
+When condition is tag:add or tag:del, you may optionally provide a form name
+to restrict the trigger to fire only on tags added or deleted from nodes of
+those forms.
+
+Tag names must start with #.
+
+The added tag is provided to the query as an embedded variable '$tag'.
+
+Simple one level tag globbing is supported, only at the end after a period,
+that is aka.* matches aka.foo and aka.bar but not aka.foo.bar. aka* is not
+supported.
+
+Examples:
+    # Adds a tag to every inet:ipv4 added
+    trigger.add node:add --form inet:ipv4 --query {[ +#mytag ]}
+
+    # Adds a tag #todo to every node as it is tagged #aka
+    trigger.add tag:add --tag #aka --query {[ +#todo ]}
+
+    # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
+    trigger.add tag:add --form inet:ipv4 --tag #aka --query {[ +#todo ]}
+'''
+
+addcrondescr = '''
+Add a recurring cron job to a cortex.
+
+Syntax:
+    cron.add [optional arguments] {query}
+
+    --minute int[,int...][=]
+    --hour
+    --day
+    --month
+    --year
+
+       *or:*
+
+    [--hourly <min> |
+     --daily <hour>:<min> |
+     --monthly <day>:<hour>:<min> |
+     --yearly <month>:<day>:<hour>:<min>]
+
+Notes:
+    All times are interpreted as UTC.
+
+    All arguments are interpreted as the job period, unless the value ends in
+    an equals sign, in which case the argument is interpreted as the recurrence
+    period.  Only one recurrence period parameter may be specified.
+
+    Currently, a fixed unit must not be larger than a specified recurrence
+    period.  i.e. '--hour 7 --minute +15' (every 15 minutes from 7-8am?) is not
+    supported.
+
+    Value values for fixed hours are 0-23 on a 24-hour clock where midnight is 0.
+
+    If the --day parameter value does not start with a '+' and is an integer, it is
+    interpreted as a fixed day of the month.  A negative integer may be
+    specified to count from the end of the month with -1 meaning the last day
+    of the month.  All fixed day values are clamped to valid days, so for
+    example '-d 31' will run on February 28.
+    If the fixed day parameter is a value in ([Mon, Tue, Wed, Thu, Fri, Sat,
+    Sun] if locale is set to English) it is interpreted as a fixed day of the
+    week.
+
+    Otherwise, if the parameter value starts with a '+', then it is interpreted
+    as a recurrence interval of that many days.
+
+    If no plus-sign-starting parameter is specified, the recurrence period
+    defaults to the unit larger than all the fixed parameters.   e.g. '--minute 5'
+    means every hour at 5 minutes past, and --hour 3, --minute 1 means 3:01 every day.
+
+    At least one optional parameter must be provided.
+
+    All parameters accept multiple comma-separated values.  If multiple
+    parameters have multiple values, all combinations of those values are used.
+
+    All fixed units not specified lower than the recurrence period default to
+    the lowest valid value, e.g. --month +2 will be scheduled at 12:00am the first of
+    every other month.  One exception is if the largest fixed value is day of the
+    week, then the default period is set to be a week.
+
+    A month period with a day of week fixed value is not currently supported.
+
+    Fixed-value year (i.e. --year 2019) is not supported.  See the 'at'
+    command for one-time cron jobs.
+
+    As an alternative to the above options, one may use exactly one of
+    --hourly, --daily, --monthly, --yearly with a colon-separated list of
+    fixed parameters for the value.  It is an error to use both the individual
+    options and these aliases at the same time.
+
+Examples:
+    Run a query every last day of the month at 3 am
+    cron.add --hour 3 --day -1 {#foo}
+
+    Run a query every 8 hours
+    cron.add --hour +8 {#foo}
+
+    Run a query every Wednesday and Sunday at midnight and noon
+    cron.add --hour 0,12 --day Wed,Sun {#foo}
+
+    Run a query every other day at 3:57pm
+    cron.add --day +2 --minute 57 --hour 15 {#foo}
+
+'''
+
+atcrondescr = '''
+Adds a non-recurring cron job.
+
+It will execute a Storm query at one or more specified times.
+
+Modifying/details/deleting cron jobs created with 'at' use the same commands as
+other cron jobs:  cron.mod/stat/del respectively.
+
+Syntax:
+    cron.at [optional arguments] {query}
+
+    --dt timestring
+
+       *or:*
+
+    --minute int[,int...]
+    --hour
+    --day
+
+Notes:
+    This command accepts one or more time specifications followed by exactly
+    one storm query in curly braces.  Each time specification may be in synapse
+    time delta format (e.g --day +1) or synapse time format (e.g.
+    20501217030432101).  Seconds will be ignored, as cron jobs' granularity is
+    limited to minutes.
+
+    All times are interpreted as UTC.
+
+    The other option for time specification is a relative time from now.  This
+    consists of a plus sign, a positive integer, then one of 'minutes, hours,
+    days'.
+
+    Note that the record for a cron job is stored until explicitly deleted via
+    "cron.del".
+
+Examples:
+    # Run a storm query in 5 minutes
+    cron.at --minute +5 {[inet:ipv4=1]}
+
+    # Run a storm query tomorrow and in a week
+    cron.at --day +1,+7 {[inet:ipv4=1]}
+
+    # Run a query at the end of the year Zulu
+    cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
+
+'''
 
 stormcmds = (
     {
@@ -186,7 +342,352 @@ stormcmds = (
 
             }
         '''
-    }
+    },
+    {
+        'name': 'view.add',
+        'descr': 'Add a view to the cortex.',
+        'cmdargs': (
+            ('--layers', {'default': [], 'nargs': '*', 'help': 'Layers for the view.'}),
+        ),
+        'storm': '''
+            $view = $lib.view.add($cmdopts.layers)
+            $lib.print("View added: {iden}", iden=$view.pack().iden)
+        ''',
+    },
+    {
+        'name': 'view.del',
+        'descr': 'Delete a view from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to delete.'}),
+        ),
+        'storm': '''
+            $lib.view.del($cmdopts.iden)
+            $lib.print("View deleted: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
+    {
+        'name': 'view.fork',
+        'descr': 'Fork a view in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to fork.'}),
+        ),
+        'storm': '''
+            $forkview = $lib.view.fork($cmdopts.iden)
+            $lib.print("View {iden} forked to new view: {forkiden}",
+                        iden=$cmdopts.iden,
+                        forkiden=$forkview.pack().iden)
+        ''',
+    },
+    {
+        'name': 'view.get',
+        'descr': 'Get a view from the cortex.',
+        'cmdargs': (
+            ('iden', {'nargs': '?',
+                      'help': 'Iden of the view to get. If no iden is provided, the main view will be returned.'}),
+        ),
+        'storm': '''
+            $view = $lib.view.get($cmdopts.iden)
+            $viewvalu = $view.pack()
+
+            $lib.print("View {iden} owned by {owner}", iden=$viewvalu.iden, owner=$viewvalu.owner)
+            $lib.print("Layers:")
+            for $layer in $viewvalu.layers {
+                $lib.print("  {iden} ctor: {ctor} readonly: {readonly}",
+                           iden=$layer.iden,
+                           ctor=$layer.ctor,
+                           readonly=$layer.readonly)
+            }
+        ''',
+    },
+    {
+        'name': 'view.list',
+        'descr': 'List the views in the cortex.',
+        'cmdargs': (),
+        'storm': '''
+            for $view in $lib.view.list() {
+                $viewvalu = $view.pack()
+
+                $lib.print("View {iden} owned by {owner}", iden=$viewvalu.iden, owner=$viewvalu.owner)
+                $lib.print("Layers:")
+                for $layer in $viewvalu.layers {
+                    $lib.print("  {iden} ctor: {ctor} readonly: {readonly}",
+                               iden=$layer.iden,
+                               ctor=$layer.ctor,
+                               readonly=$layer.readonly)
+                }
+            }
+        ''',
+    },
+    {
+        'name': 'view.merge',
+        'descr': 'Merge a forked view into its parent view.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the view to merge.'}),
+        ),
+        'storm': '''
+            $lib.view.merge($cmdopts.iden)
+            $lib.print("View merged: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
+    {
+        'name': 'trigger.add',
+        'descr': addtriggerdescr,
+        'cmdargs': (
+            ('condition', {'help': 'Condition for the trigger.'}),
+            ('--form', {'help': 'Form to fire on.'}),
+            ('--tag', {'help': 'Tag to fire on.'}),
+            ('--prop', {'help': 'Property to fire on.'}),
+            ('--query', {'help': 'Query for the trigger to execute.'}),
+            ('--disabled', {'default': False, 'action': 'store_true',
+                            'help': 'Create the trigger in disabled state.'}),
+        ),
+        'storm': '''
+            $trig = $lib.trigger.add($cmdopts)
+
+            $lib.print("Added trigger: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'trigger.del',
+        'descr': 'Delete a trigger from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.del($cmdopts.iden)
+            $lib.print("Deleted trigger: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'trigger.mod',
+        'descr': "Modify an existing trigger's query.",
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
+            ('query', {'help': 'New storm query for the trigger.'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.mod($cmdopts.iden, $cmdopts.query)
+            $lib.print("Modified trigger: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'trigger.list',
+        'descr': "List existing triggers in the cortex.",
+        'cmdargs': (),
+        'storm': '''
+            $triggers = $lib.trigger.list()
+
+            if $triggers {
+
+                $lib.print("user       iden         en? cond      object                    storm query")
+
+                for $trigger in $triggers {
+                    $user = $trigger.user.ljust(10)
+                    $iden = $trigger.idenshort.ljust(12)
+                    $enabled = $trigger.enabled.ljust(3)
+                    $cond = $trigger.cond.ljust(9)
+
+                    if $cond.startswith('tag:') {
+                        $obj = $trigger.form.ljust(14)
+                        $obj2 = $trigger.tag.ljust(10)
+                    } else {
+                        $obj = $trigger.prop.ljust(14)
+                        $obj2 = $trigger.form.ljust(10)
+                    }
+
+                    $lib.print("{user} {iden} {enabled} {cond} {obj} {obj2} {query}",
+                              user=$user, iden=$iden, enabled=$enabled, cond=$cond,
+                              obj=$obj, obj2=$obj2, query=$trigger.query)
+                }
+            } else {
+                $lib.print("No triggers found")
+            }
+        ''',
+    },
+    {
+        'name': 'trigger.enable',
+        'descr': 'Enable a trigger in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.enable($cmdopts.iden)
+            $lib.print("Enabled trigger: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'trigger.disable',
+        'descr': 'Disable a trigger in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.trigger.disable($cmdopts.iden)
+            $lib.print("Disabled trigger: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'cron.add',
+        'descr': addcrondescr,
+        'cmdargs': (
+            ('query', {'help': 'Query for the cron job to execute.'}),
+            ('--minute', {'help': 'Minute value for job or recurrence period.'}),
+            ('--hour', {'help': 'Hour value for job or recurrence period.'}),
+            ('--day', {'help': 'Day value for job or recurrence period.'}),
+            ('--month', {'help': 'Month value for job or recurrence period.'}),
+            ('--year', {'help': 'Year value for recurrence period.'}),
+            ('--hourly', {'help': 'Fixed parameters for an hourly job.'}),
+            ('--daily', {'help': 'Fixed parameters for a daily job.'}),
+            ('--monthly', {'help': 'Fixed parameters for a monthly job.'}),
+            ('--yearly', {'help': 'Fixed parameters for a yearly job.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.add(query=$cmdopts.query,
+                                  minute=$cmdopts.minute,
+                                  hour=$cmdopts.hour,
+                                  day=$cmdopts.day,
+                                  month=$cmdopts.month,
+                                  year=$cmdopts.year,
+                                  hourly=$cmdopts.hourly,
+                                  daily=$cmdopts.daily,
+                                  monthly=$cmdopts.monthly,
+                                  yearly=$cmdopts.yearly)
+
+            $lib.print("Created cron job: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'cron.at',
+        'descr': atcrondescr,
+        'cmdargs': (
+            ('query', {'help': 'Query for the cron job to execute.'}),
+            ('--minute', {'help': 'Minute(s) to execute at.'}),
+            ('--hour', {'help': 'Hour(s) to execute at.'}),
+            ('--day', {'help': 'Day(s) to execute at.'}),
+            ('--dt', {'help': 'Datetime(s) to execute at.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.at(query=$cmdopts.query,
+                                 minute=$cmdopts.minute,
+                                 hour=$cmdopts.hour,
+                                 day=$cmdopts.day,
+                                 dt=$cmdopts.dt)
+
+            $lib.print("Created cron job: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'cron.del',
+        'descr': 'Delete a cron job from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.del($cmdopts.iden)
+            $lib.print("Deleted cron job: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'cron.mod',
+        'descr': "Modify an existing cron job's query.",
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+            ('query', {'help': 'New storm query for the cron job.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.mod($cmdopts.iden, $cmdopts.query)
+            $lib.print("Modified cron job: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'cron.list',
+        'descr': "List existing cron jobs in the cortex.",
+        'cmdargs': (),
+        'storm': '''
+            $jobs = $lib.cron.list()
+
+            if $jobs {
+                $lib.print("user       iden       en? rpt? now? err? # start last start       last end         query")
+
+                for $job in $jobs {
+                    $user = $job.user.ljust(10)
+                    $iden = $job.idenshort.ljust(10)
+                    $enabled = $job.enabled.ljust(3)
+                    $isrecur = $job.isrecur.ljust(4)
+                    $isrunning = $job.isrunning.ljust(4)
+                    $iserr = $job.iserr.ljust(4)
+                    $startcount = $lib.str.format("{startcount}", startcount=$job.startcount).ljust(7)
+                    $laststart = $job.laststart.ljust(16)
+                    $lastend = $job.lastend.ljust(16)
+
+                    $lib.print("{user} {iden} {enabled} {isrecur} {isrunning} {iserr} {startcount} {laststart} {lastend} {query}",
+                               user=$user, iden=$iden, enabled=$enabled, isrecur=$isrecur,
+                               isrunning=$isrunning, iserr=$iserr, startcount=$startcount,
+                               laststart=$laststart, lastend=$lastend, query=$job.query)
+                }
+            } else {
+                $lib.print("No cron jobs found")
+            }
+        ''',
+    },
+    {
+        'name': 'cron.stat',
+        'descr': "Gives detailed information about a cron job.",
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+        ),
+        'storm': '''
+            $job = $lib.cron.stat($cmdopts.iden)
+
+            if $job {
+                $lib.print('iden:            {iden}', iden=$job.iden)
+                $lib.print('user:            {user}', user=$job.user)
+                $lib.print('enabled:         {enabled}', enabled=$job.enabled)
+                $lib.print('recurring:       {isrecur}', isrecur=$job.isrecur)
+                $lib.print('# starts:        {startcount}', startcount=$job.startcount)
+                $lib.print('last start time: {laststart}', laststart=$job.laststart)
+                $lib.print('last end time:   {lastend}', lastend=$job.lastend)
+                $lib.print('last result:     {lastresult}', lastresult=$job.lastresult)
+                $lib.print('query:           {query}', query=$job.query)
+
+                if $job.recs {
+                    $lib.print('entries:         incunit    incval required')
+
+                    for $rec in $job.recs {
+                        $incunit = $lib.str.format('{incunit}', incunit=$rec.incunit).ljust(10)
+                        $incval = $lib.str.format('{incval}', incval=$rec.incval).ljust(6)
+
+                        $lib.print('                 {incunit} {incval} {reqdict}',
+                                   incunit=$incunit, incval=$incval, reqdict=$rec.reqdict)
+                    }
+                } else {
+                    $lib.print('entries:         <None>')
+                }
+            }
+        ''',
+    },
+    {
+        'name': 'cron.enable',
+        'descr': 'Enable a cron job in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.enable($cmdopts.iden)
+            $lib.print("Enabled cron job: {iden}", iden=$iden)
+        ''',
+    },
+    {
+        'name': 'cron.disable',
+        'descr': 'Disable a cron job in the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.disable($cmdopts.iden)
+            $lib.print("Disabled cron job: {iden}", iden=$iden)
+        ''',
+    },
 )
 
 class StormDmon(s_base.Base):
@@ -280,12 +781,18 @@ class StormDmon(s_base.Base):
             mesg = evnt[1].get('mesg', '')
             logger.info(f'Dmon - {self.iden} - {mesg}')
 
+        def dmonWarn(evnt):
+            mesg = evnt[1].get('mesg', '')
+            logger.info(f'Dmon - {self.iden} - WARNING: {mesg}')
+
         while not self.isfini:
 
             try:
 
                 self.status = 'running'
                 async with await self.core.snap(user=self.user, view=view) as snap:
+
+                    snap.on('warn', dmonWarn)
                     snap.on('print', dmonPrint)
 
                     async for nodepath in snap.storm(text, opts=opts, user=self.user):
@@ -298,7 +805,7 @@ class StormDmon(s_base.Base):
                     self.status = 'exited'
                     await self.waitfini(timeout=1)
 
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 logger.warning(f'Dmon loop cancelled: ({self.iden})')
                 raise
 
@@ -330,7 +837,7 @@ class Runtime:
         self.snap = snap
         self.user = user
 
-        self.model = snap.getDataModel()
+        self.model = snap.core.getDataModel()
 
         self.task = asyncio.current_task()
 
@@ -350,10 +857,13 @@ class Runtime:
         self.modulefuncs = {}
 
         self.proxies = {}
-        self.elevated = False
 
-    def getStormMod(self, name):
-        return self.snap.getStormMod(name)
+    async def dyncall(self, iden, todo, gatekeys=()):
+        return await self.snap.core.dyncall(iden, todo, gatekeys=gatekeys)
+
+    async def dyniter(self, iden, todo, gatekeys=()):
+        async for item in self.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
+            yield item
 
     async def getStormQuery(self, text):
         return self.snap.core.getStormQuery(text)
@@ -382,9 +892,6 @@ class Runtime:
 
     async def warn(self, mesg, **info):
         return await self.snap.warn(mesg, **info)
-
-    def elevate(self):
-        self.elevated = True
 
     def tick(self):
         pass
@@ -445,39 +952,16 @@ class Runtime:
             if node is not None:
                 yield node, self.initPath(node)
 
-    def reqLayerAllowed(self, perms):
-        if self._allowed(perms, ask_layer=True):
-            return
+    def layerConfirm(self, perms):
+        iden = self.snap.wlyr.iden
+        return self.user.confirm(perms, gateiden=iden)
 
-        perm = '.'.join(perms)
-        mesg = f'User must have permission {perm} on write layer'
-        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
-
-    def reqAllowed(self, perms):
+    def confirm(self, perms, gateiden=None):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
 
         '''
-        if self._allowed(perms):
-            return True
-
-        perm = '.'.join(perms)
-        mesg = f'User must have permission {perm}'
-        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
-
-    @s_cache.memoize(size=100)
-    def _allowed(self, perms, ask_layer=False):
-        '''
-        Note:
-            Caching results is acceptable because the cache lifetime is that of a single query
-        '''
-        if self.user is None or self.user.admin or self.elevated:
-            return True
-
-        if ask_layer:
-            return self.snap.wlyr.allowed(self.user, perms)
-        else:
-            return self.user.allowed(perms)
+        return self.user.confirm(perms, gateiden=gateiden)
 
     def loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
@@ -565,6 +1049,23 @@ class Runtime:
                 # don't override our parent's version of a function
                 continue
             self.vars[name] = valu
+
+    async def propDownVars(self, runt):
+        '''
+        Propagate down the vars from a called runtime (passed in by parameter) that are not functions
+        and do not conflict with the sub-runtime (self).
+        '''
+        for name, valu in runt.vars.items():
+            if valu is s_common.novalu:
+                continue
+            if not self.canPropName(name):
+                # don't override the function in the sub-runtime
+                continue
+            if name in self.runtvars:
+                # don't propagate vars already defined as runtvars
+                continue
+            self.setVar(name, valu)
+            self.runtvars.add(name)
 
 class Parser(argparse.ArgumentParser):
 
@@ -665,7 +1166,7 @@ class Cmd:
         self.pars.printf = snap.printf
         try:
             self.opts = self.pars.parse_args(self.argv)
-        except s_exc.BadSyntax as e:
+        except s_exc.BadSyntax:
             pass
         for line in self.pars.mesgs:
             await snap.printf(line)
@@ -684,11 +1185,13 @@ class Cmd:
         '''
         if name.startswith('$'):
             varn = name[1:]
+
             def func(path):
                 return path.getVar(varn, defv=None)
             return func
 
         if name.startswith(':'):
+
             prop = name[1:]
             def func(path):
                 return path.node.get(prop)
@@ -717,6 +1220,35 @@ class Cmd:
 
         mesg = 'Unknown prop/variable syntax'
         raise s_exc.BadSyntax(mesg=mesg, valu=name)
+
+    @classmethod
+    def getStorNode(cls, form='syn:cmd'):
+        ndef = (form, cls.name)
+        buid = s_common.buid(ndef)
+
+        props = {
+            'doc': cls.getCmdBrief()
+        }
+
+        inpt = cls.forms.get('input')
+        outp = cls.forms.get('output')
+
+        if inpt:
+            props['input'] = tuple(inpt)
+
+        if outp:
+            props['output'] = tuple(outp)
+
+        if cls.svciden:
+            props['svciden'] = cls.svciden
+
+        if cls.pkgname:
+            props['package'] = cls.pkgname
+
+        return (buid, {
+            'ndef': ndef,
+            'props': props,
+        })
 
 class PureCmd(Cmd):
 
@@ -751,9 +1283,16 @@ class PureCmd(Cmd):
 
             async def wrapgenr():
                 # wrap paths in a scope to isolate vars
+                hasnodes = False
                 async for node, path in genr:
+                    if not hasnodes:
+                        hasnodes = True
                     path.initframe(initvars=cmdvars, initrunt=subr)
                     yield node, path
+
+                # when there are no inbound nodes prop down the vars if they don't conflict
+                if not hasnodes:
+                    await subr.propDownVars(runt)
 
             subr.loadRuntVars(query)
 
@@ -990,7 +1529,7 @@ class DelNodeCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         if self.opts.force:
-            if runt.user is not None and not runt.user.admin:
+            if runt.user is not None and not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'
                 raise s_exc.AuthDeny(mesg=mesg)
 
@@ -999,9 +1538,9 @@ class DelNodeCmd(Cmd):
 
             # make sure we can delete the tags...
             for tag in node.tags.keys():
-                runt.reqLayerAllowed(('tag:del', *tag.split('.')))
+                runt.layerConfirm(('tag:del', *tag.split('.')))
 
-            runt.reqLayerAllowed(('node:del', node.form.name))
+            runt.layerConfirm(('node:del', node.form.name))
 
             await node.delete(force=self.opts.force)
 
@@ -1013,22 +1552,6 @@ class DelNodeCmd(Cmd):
         # a bit odd, but we need to be detected as a generator
         if False:
             yield
-
-class SudoCmd(Cmd):
-    '''
-    Use admin privileges to bypass standard query permissions.
-
-    Example:
-
-        sudo | [ inet:fqdn=vertex.link ]
-    '''
-    name = 'sudo'
-
-    async def execStormCmd(self, runt, genr):
-        runt.reqAllowed(('storm', 'cmd', 'sudo'))
-        runt.elevate()
-        async for item in genr:
-            yield item
 
 # TODO
 # class AddNodeCmd(Cmd):     # addnode inet:ipv4 1.2.3.4 5.6.7.8
@@ -1055,11 +1578,11 @@ class ReIndexCmd(Cmd):
     name = 'reindex'
 
     def getArgParser(self):
+        # FIXME: does any of this still apply?
         pars = Cmd.getArgParser(self)
         mutx = pars.add_mutually_exclusive_group(required=True)
         mutx.add_argument('--type', default=None, help='Re-index all properties of a specified type.')
         mutx.add_argument('--subs', default=False, action='store_true', help='Re-parse and set sub props.')
-        mutx.add_argument('--form-counts', default=False, action='store_true', help='Re-calculate all form counts.')
         mutx.add_argument('--fire-handler', default=None,
                           help='Fire onAdd/wasSet/runTagAdd commands for a fully qualified form/property'
                                ' or tag name on inbound nodes.')
@@ -1069,7 +1592,7 @@ class ReIndexCmd(Cmd):
 
         snap = runt.snap
 
-        if snap.user is not None and not snap.user.admin:
+        if snap.user is not None and not snap.user.isAdmin():
             await snap.warn('reindex requires an admin')
             return
 
@@ -1114,22 +1637,16 @@ class ReIndexCmd(Cmd):
 
             return
 
-        if self.opts.form_counts:
-            await snap.printf(f'reindex form counts (full) beginning...')
-            await snap.core._calcFormCounts()
-            await snap.printf(f'...done')
-            return
-
         if self.opts.fire_handler:
             obj = None
             name = None
             tname = None
 
             if self.opts.fire_handler.startswith('#'):
-                name, _ = runt.snap.model.prop('syn:tag').type.norm(self.opts.fire_handler)
+                name, _ = runt.model.prop('syn:tag').type.norm(self.opts.fire_handler)
                 tname = '#' + name
             else:
-                obj = runt.snap.model.prop(self.opts.fire_handler)
+                obj = runt.model.prop(self.opts.fire_handler)
                 if obj is None:
                     raise s_exc.NoSuchProp(mesg='',
                                            name=self.opts.fire_handler)
@@ -1177,7 +1694,9 @@ class MoveTagCmd(Cmd):
     async def execStormCmd(self, runt, genr):
         snap = runt.snap
 
-        nodes = [node async for node in snap.getNodesBy('syn:tag', self.opts.oldtag)]
+        opts = {'vars': {'tag': self.opts.oldtag}}
+        nodes = await snap.nodes('syn:tag=$tag', opts=opts)
+
         if not nodes:
             raise s_exc.BadOperArg(mesg='Cannot move a tag which does not exist.',
                                    oldtag=self.opts.oldtag)
@@ -1197,7 +1716,8 @@ class MoveTagCmd(Cmd):
         retag = {oldstr: newstr}
 
         # first we set all the syn:tag:isnow props
-        async for node in snap.getNodesBy('syn:tag', self.opts.oldtag, cmpr='^='):
+        oldtag = self.opts.oldtag.strip('#')
+        async for node in snap.nodesByPropValu('syn:tag', '^=', oldtag):
 
             tagstr = node.ndef[1]
             tagparts = tagstr.split('.')
@@ -1226,7 +1746,7 @@ class MoveTagCmd(Cmd):
 
         # now we re-tag all the nodes...
         count = 0
-        async for node in snap.getNodesBy(f'#{oldstr}'):
+        async for node in snap.nodesByTag(oldstr):
 
             count += 1
 
@@ -1541,3 +2061,302 @@ class ScrapeCmd(Cmd):
 
             if self.opts.join:
                 yield node, path
+
+class SpliceListCmd(Cmd):
+    '''
+    Retrieve a list of splices backwards from the end of the splicelog.
+
+    Examples:
+
+        # Show the last 10 splices.
+        splice.list | limit 10
+
+        # Show splices after a specific time.
+        splice.list --mintime "2020/01/06 15:38:10.991"
+
+        # Show splices from a specific timeframe.
+        splice.list --mintimestamp 1578422719360 --maxtimestamp 1578422719367
+
+    Notes:
+
+        If both a time string and timestamp value are provided for a min or max,
+        the timestamp will take precedence over the time string value.
+    '''
+
+    name = 'splice.list'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+
+        pars.add_argument('--maxtimestamp', type=int, default=None,
+                          help='Only yield splices which occurred on or before this timestamp.')
+        pars.add_argument('--mintimestamp', type=int, default=None,
+                          help='Only yield splices which occurred on or after this timestamp.')
+        pars.add_argument('--maxtime', type=str, default=None,
+                          help='Only yield splices which occurred on or before this time.')
+        pars.add_argument('--mintime', type=str, default=None,
+                          help='Only yield splices which occurred on or after this time.')
+
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        maxtime = None
+        if self.opts.maxtimestamp:
+            maxtime = self.opts.maxtimestamp
+        elif self.opts.maxtime:
+            try:
+                maxtime = s_time.parse(self.opts.maxtime, chop=True)
+            except s_exc.BadTypeValu as e:
+                mesg = f'Error during maxtime parsing - {str(e)}'
+
+                raise s_exc.StormRuntimeError(mesg=mesg, valu=self.opts.maxtime) from None
+
+        mintime = None
+        if self.opts.mintimestamp:
+            mintime = self.opts.mintimestamp
+        elif self.opts.mintime:
+            try:
+                mintime = s_time.parse(self.opts.mintime, chop=True)
+            except s_exc.BadTypeValu as e:
+                mesg = f'Error during mintime parsing - {str(e)}'
+
+                raise s_exc.StormRuntimeError(mesg=mesg, valu=self.opts.mintime) from None
+
+        i = 0
+
+        async for splice in runt.snap.spliceHistory():
+
+            if maxtime and maxtime < splice[1]['time']:
+                continue
+
+            if mintime and mintime > splice[1]['time']:
+                return
+
+            guid = s_common.guid(splice)
+            splicebuid = s_common.buid(('syn:splice', guid))
+
+            buid = s_common.buid(splice[1]['ndef'])
+            iden = s_common.ehex(buid)
+
+            rows = [('*syn:splice', guid)]
+            rows.append(('splice', splice))
+
+            rows.append(('.created', s_common.now()))
+            rows.append(('type', splice[0]))
+            rows.append(('iden', iden))
+
+            rows.append(('form', splice[1]['ndef'][0]))
+            rows.append(('time', splice[1]['time']))
+            rows.append(('user', splice[1]['user']))
+            rows.append(('prov', splice[1]['prov']))
+
+            prop = splice[1].get('prop')
+            if prop:
+                rows.append(('prop', prop))
+
+            tag = splice[1].get('tag')
+            if tag:
+                rows.append(('tag', tag))
+
+            if 'valu' in splice[1]:
+                rows.append(('valu', splice[1]['valu']))
+            elif splice[0] == 'node:del':
+                rows.append(('valu', splice[1]['ndef'][1]))
+
+            if 'curv' in splice[1]:
+                rows.append(('oldv', splice[1]['curv']))
+
+            if 'oldv' in splice[1]:
+                rows.append(('oldv', splice[1]['oldv']))
+
+            node = s_node.Node(runt.snap, splicebuid, rows)
+            yield (node, runt.initPath(node))
+
+            i += 1
+            # Yield to other tasks occasionally
+            if not i % 1000:
+                await asyncio.sleep(0)
+
+class SpliceUndoCmd(Cmd):
+    '''
+    Reverse the actions of syn:splice runt nodes.
+
+    Examples:
+
+        # Undo the last 5 splices.
+        splice.list | limit 5 | splice.undo
+
+        # Undo splices after a specific time.
+        splice.list --mintime "2020/01/06 15:38:10.991" | splice.undo
+
+        # Undo splices from a specific timeframe.
+        splice.list --mintimestamp 1578422719360 --maxtimestamp 1578422719367 | splice.undo
+    '''
+
+    name = 'splice.undo'
+
+    def __init__(self, argv):
+        self.undo = {
+            'prop:set': self.undoPropSet,
+            'prop:del': self.undoPropDel,
+            'node:add': self.undoNodeAdd,
+            'node:del': self.undoNodeDel,
+            'tag:add': self.undoTagAdd,
+            'tag:del': self.undoTagDel,
+            'tag:prop:set': self.undoTagPropSet,
+            'tag:prop:del': self.undoTagPropDel,
+        }
+
+        Cmd.__init__(self, argv)
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        forcehelp = 'Force delete nodes even if it causes broken references (requires admin).'
+        pars.add_argument('--force', default=False, action='store_true', help=forcehelp)
+        return pars
+
+    async def undoPropSet(self, runt, splice, node):
+
+        name = splice.props.get('prop')
+        if name == '.created':
+            return
+
+        if node:
+            prop = node.form.props.get(name)
+            if prop is None:
+                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+
+            oldv = splice.props.get('oldv')
+            if oldv is not None:
+                runt.layerConfirm(('prop:set', prop.full))
+                await node.set(name, oldv)
+            else:
+                runt.layerConfirm(('prop:del', prop.full))
+                await node.pop(name)
+
+    async def undoPropDel(self, runt, splice, node):
+
+        name = splice.props.get('prop')
+        if name == '.created':
+            return
+
+        if node:
+            prop = node.form.props.get(name)
+            if prop is None:
+                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+
+            valu = splice.props.get('valu')
+
+            runt.layerConfirm(('prop:set', prop.full))
+            await node.set(name, valu)
+
+    async def undoNodeAdd(self, runt, splice, node):
+
+        if node:
+            for tag in node.tags.keys():
+                runt.layerConfirm(('tag:del', *tag.split('.')))
+
+            runt.layerConfirm(('node:del', node.form.name))
+            await node.delete(force=self.opts.force)
+
+    async def undoNodeDel(self, runt, splice, node):
+
+        if node is None:
+            form = splice.props.get('form')
+            valu = splice.props.get('valu')
+
+            if form and (valu is not None):
+                runt.layerConfirm(('node:add', form))
+                await runt.snap.addNode(form, valu)
+
+    async def undoTagAdd(self, runt, splice, node):
+
+        if node:
+            tag = splice.props.get('tag')
+            parts = tag.split('.')
+            runt.layerConfirm(('tag:del', *parts))
+
+            await node.delTag(tag)
+
+    async def undoTagDel(self, runt, splice, node):
+
+        if node:
+            tag = splice.props.get('tag')
+            parts = tag.split('.')
+            runt.layerConfirm(('tag:add', *parts))
+
+            valu = splice.props.get('valu')
+            if valu is not None:
+                await node.addTag(tag, valu=valu)
+
+    async def undoTagPropSet(self, runt, splice, node):
+
+        if node:
+            tag = splice.props.get('tag')
+            parts = tag.split('.')
+            runt.layerConfirm(('tag:del', *parts))
+
+            prop = splice.props.get('prop')
+
+            oldv = splice.props.get('oldv')
+            if oldv is not None:
+                runt.layerConfirm(('tag:add', *parts))
+                await node.setTagProp(tag, prop, oldv)
+            else:
+                runt.layerConfirm(('tag:del', *parts))
+                await node.delTagProp(tag, prop)
+
+    async def undoTagPropDel(self, runt, splice, node):
+
+        if node:
+            tag = splice.props.get('tag')
+            parts = tag.split('.')
+            runt.layerConfirm(('tag:add', *parts))
+
+            prop = splice.props.get('prop')
+
+            valu = splice.props.get('valu')
+            if valu is not None:
+                await node.setTagProp(tag, prop, valu)
+
+    async def execStormCmd(self, runt, genr):
+
+        if self.opts.force:
+            if not runt.user.isAdmin():
+                mesg = '--force requires admin privs.'
+                raise s_exc.AuthDeny(mesg=mesg)
+
+        i = 0
+
+        async for node, path in genr:
+
+            if not node.form.name == 'syn:splice':
+                mesg = 'splice.undo only accepts syn:splice nodes'
+                raise s_exc.StormRuntimeError(mesg=mesg, form=node.form.name)
+
+            if False:  # make this method an async generator function
+                yield None
+
+            splicetype = node.props.get('type')
+
+            if splicetype in self.undo:
+
+                iden = node.props.get('iden')
+                if iden is None:
+                    continue
+
+                buid = s_common.uhex(iden)
+                if len(buid) != 32:
+                    raise s_exc.NoSuchIden(mesg='Iden must be 32 bytes', iden=iden)
+
+                splicednode = await runt.snap.getNodeByBuid(buid)
+
+                await self.undo[splicetype](runt, node, splicednode)
+            else:
+                raise s_exc.StormRuntimeError(mesg='Unknown splice type.', splicetype=splicetype)
+
+            i += 1
+            # Yield to other tasks occasionally
+            if not i % 1000:
+                await asyncio.sleep(0)

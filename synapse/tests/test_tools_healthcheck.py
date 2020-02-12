@@ -52,7 +52,7 @@ class HealthcheckTest(s_t_utils.SynTest):
             logger.info('Checking with the incorrect password')
             outp.clear()
             _, port = await core.dmon.listen('tcp://127.0.0.1:0')
-            root = core.auth.getUserByName('root')
+            root = await core.auth.getUserByName('root')
             await root.setPasswd('secret')
             retn = await s_t_healthcheck.main(['-c', f'tcp://root:newp@127.0.0.1:{port}/cortex', '-t', '0.2'], outp)
             self.eq(retn, 1)

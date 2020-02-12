@@ -23,6 +23,8 @@ def chop_imei(imei):
 class Phone(s_types.Str):
 
     def postTypeInit(self):
+        s_types.Str.postTypeInit(self)
+        self.opts['globsuffix'] = True
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
@@ -82,17 +84,12 @@ def imeicsum(text):
 
     return str(chek)
 
-class Imsi(s_types.Type):
-    def postTypeInit(self):
-        self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(int, self._normPyInt)
+class Imsi(s_types.Int):
 
-    def _normPyStr(self, valu):
-        digs = digits(valu)
-        if not digs:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='requires a digit string')
-        return self._normPyInt(int(digs))
+    def postTypeInit(self):
+        self.opts['size'] = 8
+        self.opts['signed'] = False
+        return s_types.Int.postTypeInit(self)
 
     def _normPyInt(self, valu):
         imsi = str(valu)
@@ -105,29 +102,13 @@ class Imsi(s_types.Type):
         # TODO full imsi analysis tree
         return valu, {'subs': {'mcc': mcc}}
 
-    def indx(self, valu):
-        '''
-
-        Args:
-            valu (int):
-
-        Returns:
-            bytes:
-        '''
-        return valu.to_bytes(8, byteorder='big')
-
 # TODO: support pre 2004 "old" imei format
-class Imei(s_types.Type):
-    def postTypeInit(self):
-        self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(int, self._normPyInt)
+class Imei(s_types.Int):
 
-    def _normPyStr(self, valu):
-        digs = digits(valu)
-        if not digs:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='requires a digit string')
-        return self._normPyInt(int(digs))
+    def postTypeInit(self):
+        self.opts['size'] = 8
+        self.opts['signed'] = False
+        return s_types.Int.postTypeInit(self)
 
     def _normPyInt(self, valu):
         imei = str(valu)
@@ -148,17 +129,6 @@ class Imei(s_types.Type):
 
         raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                 mesg='Failed to norm IMEI')
-
-    def indx(self, valu):
-        '''
-
-        Args:
-            valu (int):
-
-        Returns:
-            bytes:
-        '''
-        return valu.to_bytes(7, byteorder='big')
 
 class TelcoModule(s_module.CoreModule):
     def getModelDefs(self):

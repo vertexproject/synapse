@@ -22,9 +22,10 @@ distrepr = (
     (10.0, 'cm'),
 )
 
-class Dist(s_types.IntBase):
+class Dist(s_types.Int):
 
     def postTypeInit(self):
+        s_types.Int.postTypeInit(self)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
 
@@ -57,11 +58,12 @@ class Dist(s_types.IntBase):
 
         return '%d mm' % (norm,)
 
-class Latitude(s_types.Type):
+class Latitude(s_types.Int):
     SCALE = 10**8  # ~1mm resolution
     SPACE = 90 * 10**8
 
     def postTypeInit(self):
+        s_types.Int.postTypeInit(self)
         self.setNormFunc(int, self._normIntStr)
         self.setNormFunc(str, self._normIntStr)
         self.setNormFunc(float, self._normFloat)
@@ -84,9 +86,6 @@ class Latitude(s_types.Type):
                                     mesg='Invalid float format')
         return self._normFloat(valu)
 
-    #def indx(self, norm):
-        #return int(norm * Latitude.SCALE + Latitude.SPACE).to_bytes(5, 'big')
-
 class LatLong(s_types.Type):
 
     stortype = s_layer.STOR_TYPE_LATLONG
@@ -97,11 +96,9 @@ class LatLong(s_types.Type):
         self.setNormFunc(tuple, self._normPyTuple)
 
         self.setCmprCtor('near=', self._cmprNear)
-        #self.setLiftHintCmprCtor('near=', self._cmprNear)
         self.storlifts.update({
             'near=': self._storLiftNear,
         })
-        #self.indxcmpr['near='] = self._indxNear
 
     def _normCmprValu(self, valu):
         latlong, dist = valu
@@ -122,20 +119,6 @@ class LatLong(s_types.Type):
         dist = self.modl.type('geo:dist').norm(valu[1])[0]
         return ((cmpr, (latlong, dist), self.stortype),)
 
-    #def _indxNear(self, valu):
-        #(lat, long), dist = self._normCmprValu(valu)
-        #latmin, latmax, longmin, longmax = s_gis.bbox(lat, long, dist)
-
-        #latmin, longmin = self.norm((latmin, longmin))[0]
-        #latmax, longmax = self.norm((latmax, longmax))[0]
-
-        #minv = self.indx((latmin, longmin))
-        #maxv = self.indx((latmax, longmax))
-
-        #return (
-            #('range', (minv, maxv)),
-        #)
-
     def _normPyStr(self, valu):
         valu = tuple(valu.strip().split(','))
         return self._normPyTuple(valu)
@@ -154,17 +137,15 @@ class LatLong(s_types.Type):
 
         return (latv, lonv), {'subs': {'lat': latv, 'lon': lonv}}
 
-    #def indx(self, valu):
-        #return self.modl.type('geo:latitude').indx(valu[0]) + self.modl.type('geo:longitude').indx(valu[1])
-
     def repr(self, norm):
         return f'{norm[0]},{norm[1]}'
 
-class Longitude(s_types.Type):
+class Longitude(s_types.Int):
     SCALE = 10**8  # ~1mm resolution
     SPACE = 180 * 10**8
 
     def postTypeInit(self):
+        s_types.Int.postTypeInit(self)
         self.setNormFunc(int, self._normIntStr)
         self.setNormFunc(str, self._normIntStr)
         self.setNormFunc(float, self._normFloat)
@@ -186,9 +167,6 @@ class Longitude(s_types.Type):
         valu = int(valu * Longitude.SCALE) / Longitude.SCALE
 
         return valu, {}
-
-    #def indx(self, norm):
-        #return int(norm * Longitude.SCALE + Longitude.SPACE).to_bytes(5, 'big')
 
 class GeoModule(s_module.CoreModule):
 

@@ -1,3 +1,7 @@
+'''
+Spawn is mechanism so that a cortex can execute different queries in separate processes
+'''
+
 import os
 import asyncio
 import logging
@@ -11,6 +15,7 @@ import concurrent.futures
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
@@ -21,10 +26,9 @@ import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
 import synapse.lib.view as s_view
-
 import synapse.lib.storm as s_storm
 import synapse.lib.dyndeps as s_dyndeps
-import synapse.lib.grammar as s_grammar
+import synapse.lib.hiveauth as s_hiveauth
 
 logger = logging.getLogger(__name__)
 
@@ -201,7 +205,12 @@ class SpawnProc(s_base.Base):
 
         def doit():
             self.todo.put(mesg)
-            return self.done.get()
+            try:
+                return self.done.get()
+            except (TypeError, OSError) as e:
+                logger.warning('Queue torn out from underneath me. (%s)', e)
+                assert self.isfini
+                return True
 
         return await self.executor(doit)
 
@@ -290,6 +299,9 @@ class SpawnPool(s_base.Base):
         return proc
 
 class SpawnCore(s_base.Base):
+    '''
+    A SpawnCore instance is the substitute for a Cortex in non-cortex processes
+    '''
 
     async def __anit__(self, spawninfo):
 
@@ -298,6 +310,7 @@ class SpawnCore(s_base.Base):
         self.pid = os.getpid()
         self.views = {}
         self.layers = {}
+        self.nexsroot = None
         self.spawninfo = spawninfo
 
         self.conf = spawninfo.get('conf')
@@ -305,7 +318,15 @@ class SpawnCore(s_base.Base):
         self.dirn = spawninfo.get('dirn')
 
         self.stormcmds = {}
+        self.storm_cmd_ctors = {}
+        self.storm_cmd_cdefs = {}
         self.stormmods = spawninfo['storm']['mods']
+        self.pkginfo = spawninfo['storm']['pkgs']
+
+        self.stormpkgs = {}     # name: pkgdef
+
+        for pkgdef in self.pkginfo:
+            await self._tryLoadStormPkg(pkgdef)
 
         for name, ctor in spawninfo['storm']['cmds']['ctors']:
             self.stormcmds[name] = ctor
@@ -330,9 +351,8 @@ class SpawnCore(s_base.Base):
 
         # TODO cortex configured for remote auth...
         node = await self.hive.open(('auth',))
-        self.auth = await s_hive.HiveAuth.anit(node)
+        self.auth = await s_hiveauth.Auth.anit(node)
         self.onfini(self.auth.fini)
-
         for layrinfo in self.spawninfo.get('layers'):
 
             iden = layrinfo.get('iden')
@@ -342,7 +362,9 @@ class SpawnCore(s_base.Base):
 
             layrinfo['readonly'] = True
 
-            layr = await ctor.anit(layrinfo)
+            layrdirn = s_common.genpath(self.dirn, 'layers', iden)
+
+            layr = await ctor.anit(layrinfo, layrdirn)
             self.onfini(layr)
 
             self.layers[iden] = layr
@@ -361,34 +383,35 @@ class SpawnCore(s_base.Base):
 
         # initialize pass-through methods from the telepath proxy
         # Lift
-        self.runRuntLift = self.prox.runRuntLift
-        # StormType Queue APIs
-        self.addCoreQueue = self.prox.addCoreQueue
-        self.hasCoreQueue = self.prox.hasCoreQueue
-        self.delCoreQueue = self.prox.delCoreQueue
-        self.getCoreQueue = self.prox.getCoreQueue
-        self.getCoreQueues = self.prox.getCoreQueues
-        self.getsCoreQueue = self.prox.getsCoreQueue
-        self.putCoreQueue = self.prox.putCoreQueue
-        self.putsCoreQueue = self.prox.putsCoreQueue
-        self.cullCoreQueue = self.prox.cullCoreQueue
-        # Feedfunc support
-        self.getFeedFuncs = self.prox.getFeedFuncs
-        # storm pkgfuncs
-        self.addStormPkg = self.prox.addStormPkg
-        self.delStormPkg = self.prox.delStormPkg
-        self.getStormPkgs = self.prox.getStormPkgs
+        # self.runRuntLift = self.prox.runRuntLift
+        # # StormType Queue APIs
+        # self.addCoreQueue = self.prox.addCoreQueue
+        # self.hasCoreQueue = self.prox.hasCoreQueue
+        # self.delCoreQueue = self.prox.delCoreQueue
+        # self.getCoreQueue = self.prox.getCoreQueue
+        # self.getCoreQueues = self.prox.getCoreQueues
+        # self.getsCoreQueue = self.prox.getsCoreQueue
+        # self.putCoreQueue = self.prox.putCoreQueue
+        # self.putsCoreQueue = self.prox.putsCoreQueue
+        # self.cullCoreQueue = self.prox.cullCoreQueue
+        # # Feedfunc support
+        # self.getFeedFuncs = self.prox.getFeedFuncs
+        # # storm pkgfuncs
+        # self.addStormPkg = self.prox.addStormPkg
+        # self.delStormPkg = self.prox.delStormPkg
+        # self.getStormPkgs = self.prox.getStormPkgs
 
-        # TODO: Add Dmon management functions ($lib.dmon support)
-        # TODO: Add Axon management functions ($lib.bytes support)
+        self.addStormDmon = self.prox.addStormDmon
+        self.delStormDmon = self.prox.delStormDmon
+        self.getStormDmon = self.prox.getStormDmon
+        self.getStormDmons = self.prox.getStormDmons
 
-    def getStormQuery(self, text):
-        '''
-        Parse storm query text and return a Query object.
-        '''
-        query = s_grammar.Parser(text).query()
-        query.init(self)
-        return query
+    async def dyncall(self, iden, todo, gatekeys=()):
+        return await self.prox.dyncall(iden, todo, gatekeys=gatekeys)
+
+    async def dyniter(self, iden, todo, gatekeys=()):
+        async for item in self.prox.dyniter(iden, todo, gatekeys=gatekeys):
+            yield item
 
     def _logStormQuery(self, text, user):
         '''
@@ -398,17 +421,46 @@ class SpawnCore(s_base.Base):
             lvl = self.conf.get('storm:log:level')
             logger.log(lvl, 'Executing spawn storm query {%s} as [%s] from [%s]', text, user.name, self.pid)
 
-    def getStormCmd(self, name):
-        return self.stormcmds.get(name)
+    async def addStormPkg(self, pkgdef):
+        '''
+        Do it for the proxy, then myself
+        '''
+        todo = s_common.todo('addStormPkg', pkgdef)
+        await self.dyncall('cortex', todo)
 
-    async def getStormMods(self):
-        return self.stormmods
+        await self.loadStormPkg(pkgdef)
 
-    def getStormLib(self, path):
-        root = self.libroot
-        for name in path:
-            step = root[1].get(name)
-            if step is None:
-                return None
-            root = step
-        return root
+    async def delStormPkg(self, name):
+        '''
+        Do it for the proxy, then myself
+        '''
+        todo = s_common.todo('delStormPkg', name)
+        await self.dyncall('cortex', todo)
+
+        pkgdef = await self.pkghive.pop(name, None)
+        if pkgdef is None:
+            mesg = f'No storm package: {name}.'
+            raise s_exc.NoSuchPkg(mesg=mesg)
+
+        await self._dropStormPkg(pkgdef)
+
+    async def bumpSpawnPool(self):
+        pass
+
+    async def getStormPkgs(self):
+        return list(self.stormpkgs.values())
+
+    # A little selective inheritance
+    # TODO:  restructure cortex to avoid this hackery
+    _confirmStormPkg = s_cortex.Cortex._confirmStormPkg
+    _dropStormPkg = s_cortex.Cortex._dropStormPkg
+    _reqStormCmd = s_cortex.Cortex._reqStormCmd
+    _setStormCmd = s_cortex.Cortex._setStormCmd
+    _tryLoadStormPkg = s_cortex.Cortex._tryLoadStormPkg
+    getDataModel = s_cortex.Cortex.getDataModel
+    getStormCmd = s_cortex.Cortex.getStormCmd
+    getStormLib = s_cortex.Cortex.getStormLib
+    getStormMods = s_cortex.Cortex.getStormMods
+    getStormPkg = s_cortex.Cortex.getStormPkg
+    getStormQuery = s_cortex.Cortex.getStormQuery
+    loadStormPkg = s_cortex.Cortex.loadStormPkg

@@ -86,7 +86,7 @@ class SnapTest(s_t_utils.SynTest):
                     # Test read, then a bunch of reads, then read coherency
 
                     await alist(snap.addNodes([(('test:int', x), {}) for x in range(1, 20)]))
-                    nodes = await alist(snap.getNodesBy('test:int'))
+                    nodes = await alist(snap.nodesByProp('test:int'))
 
                     self.eq(nodes[0].buid, node0.buid)
                     self.eq(id(nodes[0]), id(node0))
@@ -124,9 +124,31 @@ class SnapTest(s_t_utils.SynTest):
                 self.ge(node.props.get('.created', 0), 5)
                 self.eq(node.tags.get('cool'), (1, 2))
 
-                nodes = await alist(snap.getNodesBy('test:str', 'hehe'))
+                nodes = await alist(snap.nodesByPropValu('test:str', '=', 'hehe'))
                 self.len(1, nodes)
                 self.eq(nodes[0], node)
+
+    async def test_addNodesAuto(self):
+        '''
+        Secondary props that are forms when set make nodes
+        '''
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+
+                node = await snap.addNode('test:guid', '*')
+                await node.set('size', 42)
+                nodes = await alist(snap.nodesByPropValu('test:int', '=', 42))
+                self.len(1, nodes)
+
+                # For good measure, set a secondary prop that is itself a comp type that has an element that is a form
+                node = await snap.addNode('test:haspivcomp', 42)
+                await node.set('have', ('woot', 'rofl'))
+                nodes = await alist(snap.nodesByPropValu('test:pivcomp', '=', ('woot', 'rofl')))
+                self.len(1, nodes)
+                nodes = await alist(snap.nodesByProp('test:pivcomp:lulz'))
+                self.len(1, nodes)
+                nodes = await alist(snap.nodesByPropValu('test:str', '=', 'rofl'))
+                self.len(1, nodes)
 
     async def test_addNodeRace(self):
         ''' Test when a reader might retrieve a partially constructed node '''
@@ -224,14 +246,15 @@ class SnapTest(s_t_utils.SynTest):
         Notes:
             This method is broken out so subclasses can override.
         '''
+        # FIXME
+        self.skip('These need to be converted to 2 views instead of 2 cortices')
         async with self.getTestCore() as core0:
 
             async with self.getTestCore() as core1:
 
-                config = {'url': core0.getLocalUrl('*/layer')}
-                layr = await core1.addLayer(type='remote', config=config)
+                layr = await core1.addLayer()
 
-                await core1.view.addLayer(layr)
+                await core1.addLayer(layr)
                 yield core0, core1
 
     async def test_cortex_lift_layers_simple(self):
@@ -285,3 +308,47 @@ class SnapTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
             self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', 0x01020304)))
+
+    async def test_clearcache(self):
+
+        # Type hinting since we dont do the type hinting
+        # properly in the Cortex anymore... :(
+        import synapse.lib.snap as s_snap
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap0:  # type: s_snap.Snap
+
+                original_node0 = await snap0.addNode('test:str', 'node0')
+                self.len(1, snap0.buidcache)
+                self.len(1, snap0.livenodes)
+                self.len(0, snap0.tagcache)
+
+                await original_node0.addTag('foo.bar.baz')
+                self.len(4, snap0.buidcache)
+                self.len(4, snap0.livenodes)
+                self.len(3, snap0.tagcache)
+
+                async with await core.snap() as snap1:  # type: s_snap.Snap
+                    snap1_node0 = await snap1.getNodeByNdef(('test:str', 'node0'))
+                    await snap1_node0.delTag('foo.bar.baz')
+                    self.notin('foo.bar.baz', snap1_node0.tags)
+                    # Our reference to original_node0 still has the tag though
+                    self.isin('foo.bar.baz', original_node0.tags)
+
+                # We rely on the layer's row cache to be correct in this test.
+
+                # Lift is cached..
+                same_node0 = await snap0.getNodeByNdef(('test:str', 'node0'))
+                self.eq(id(original_node0), id(same_node0))
+
+                # flush snap0 cache!
+                await snap0.clearCache()
+                self.len(0, snap0.buidcache)
+                self.len(0, snap0.livenodes)
+                self.len(0, snap0.tagcache)
+
+                # After clearing the cache and lifting nodes, the new node
+                # was lifted directly from the layer.
+                new_node0 = await snap0.getNodeByNdef(('test:str', 'node0'))
+                self.ne(id(original_node0), id(new_node0))
+                self.notin('foo.bar.baz', new_node0.tags)

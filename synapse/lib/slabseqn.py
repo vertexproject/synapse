@@ -1,5 +1,9 @@
+import heapq
+import asyncio
+
 import synapse.common as s_common
 
+import synapse.lib.coro as s_coro
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -17,16 +21,26 @@ class SlabSeqn:
         self.db = self.slab.initdb(name)
 
         self.indx = self.nextindx()
+        self.offsevents = []  # type: ignore # List[Tuple[int, int, asyncio.Event]] as a heap
+        self._waitcounter = 0
+
+    def _wake_waiters(self):
+        while self.offsevents and self.offsevents[0][0] < self.indx:
+            _, _, evnt = heapq.heappop(self.offsevents)
+            evnt.set()
 
     def add(self, item):
         '''
         Add a single item to the sequence.
         '''
-        byts = s_msgpack.en(item)
-        lkey = s_common.int64en(self.indx)
+        indx = self.indx
+        self.slab.put(s_common.int64en(indx), s_msgpack.en(item), db=self.db)
 
-        self.slab.put(lkey, byts, db=self.db)
         self.indx += 1
+
+        self._wake_waiters()
+
+        return indx
 
     def last(self):
 
@@ -75,19 +89,9 @@ class SlabSeqn:
         origindx = self.indx
         self.indx = indx
 
+        self._wake_waiters()
+
         return {'indx': indx, 'size': size, 'count': len(items), 'time': tick, 'took': took, 'orig': origindx}
-
-    def append(self, item):
-
-        byts = s_msgpack.en(item)
-
-        indx = self.indx
-        lkey = s_common.int64en(indx)
-
-        self.slab.put(lkey, byts, db=self.db)
-
-        self.indx += 1
-        return indx
 
     def index(self):
         '''
@@ -152,6 +156,14 @@ class SlabSeqn:
             indx = s_common.int64un(lkey)
             yield indx, byts
 
+    def get(self, offs):
+        '''
+        Retrieve a single row by offset
+        '''
+        lkey = s_common.int64en(offs)
+        valu = self.slab.get(lkey, db=self.db)
+        return s_msgpack.un(valu)
+
     def slice(self, offs, size):
 
         imax = size - 1
@@ -178,3 +190,33 @@ class SlabSeqn:
         byts = self.slab.get(indxbyts, db=self.db)
         if byts is not None:
             return s_msgpack.un(byts)
+
+    def getOffsetEvent(self, offs):
+        '''
+        Returns an asyncio Event that will be set when the particular offset is written.  The event will be set if the
+        offset has already been reached.
+        '''
+        evnt = asyncio.Event()
+
+        if offs < self.indx:
+            evnt.set()
+            return evnt
+
+        # We add a simple counter to the tuple to cause stable (and FIFO) sorting and prevent ties
+        heapq.heappush(self.offsevents, (offs, self._waitcounter, evnt))
+
+        self._waitcounter += 1
+
+        return evnt
+
+    async def waitForOffset(self, offs, timeout=None):
+        '''
+        Returns:
+            true if the event got set, False if timed out
+        '''
+
+        if offs < self.indx:
+            return True
+
+        evnt = self.getOffsetEvent(offs)
+        return await s_coro.event_wait(evnt, timeout=timeout)

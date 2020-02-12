@@ -2,6 +2,132 @@
 Synapse Changelog
 *****************
 
+v0.2.0 - 2020-xx-xx
+===================
+
+Features and Enhancements
+-------------------------
+- This release includes significant storage optimizations that require a data migration.
+  However, the 0.2.0 migration contains NO model migrations and is strictly limited to the internal
+  LMDB layer storage format.  The new format provides performance enhancements that significantly
+  improve data ingest performance and reduce the memory footprint of the layer.
+
+- This release includes feature enhancments to the authorization subsystem to facilitate permissions
+  on a per-view and per-layer basis.  Additionally, APIs and tools for manipulating the auth subsystem
+  have been integrated into storm to allow user/role/rule editing from within storm queries.
+
+Backward Compatibility Breaks
+-----------------------------
+- The splice message format has been optimized to be both smaller and to allow several atomic edits
+  to be contained in one message.  This speeds up performance of the runtime, minimizes bandwidth,
+
+- The cellauth command has been removed as a stand alone tool.  Users should now use
+  the "auth" commands that are built into synapse.tools.cmdr or the commands / API built into the Storm
+  runtime.  This change was partially needed due to breaking API changes that eliminate ambiguity between
+  "user" manipulation APIs vs "role" manipulation APIs.
+
+- FIXME add one liners and/or additional bullets here and visi will explain them :D
+
+v0.1.50 - 2019-02-07
+====================
+
+Features and Enhancements
+-------------------------
+- Add Storm commands for managing triggers and cron jobs from inside of Storm directly. The existing ``trigger`` and
+  ``cron`` commands available in the Cmdr tool have been marked as PendingDeprecation and will be removed in 0.3.0.
+  Cmdr will emit these warnings directly if used. Related Telepath APIs have also been marked for PendingDeprecation.
+  Cortex administrators can enable Python warnings to see those APIs being used.
+  (`#1513 <https://github.com/vertexproject/synapse/pull/1513>`_)
+
+v0.1.49 - 2019-02-03
+====================
+
+Bugfixes
+--------
+- Fix an issue where pivot operations which pointed to ``syn:splice`` nodes raised exceptions which could teardown a
+  Storm runtime unexpectedly.  Attempting to directly lift ``syn:splice`` nodes by primary or secondary properties now
+  generates no nodes.
+  (`#1529 <https://github.com/vertexproject/synapse/pull/1529>`_)
+
+
+v0.1.48 - 2019-02-03
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``ou:conference:event`` and ``ou:conference:attendee`` forms to facilitate more fine grained conference tracking.
+  (`#1523 <https://github.com/vertexproject/synapse/pull/1523>`_)
+- Make the ``syn.nodes`` ingest aware of tagprops.
+  (`#1525 <https://github.com/vertexproject/synapse/pull/1525>`_)
+
+Bugfixes
+--------
+- Make the LMDB Memory Locking loop safer.
+  (`#1522 <https://github.com/vertexproject/synapse/pull/1522>`_)
+  (`#1526 <https://github.com/vertexproject/synapse/pull/1526>`_)
+- Address a test race encountered during the teardown of Link objects where server side CellAPI instances were not
+  having ``fini()`` called.
+  (`#1524 <https://github.com/vertexproject/synapse/pull/1524>`_)
+
+
+v0.1.47 - 2019-01-30
+====================
+
+Bugfixes
+--------
+- Fix a bug related to LMDB Abbreviation helpers where it would be off by on restarts.
+  (`#1518 <https://github.com/vertexproject/synapse/pull/1518>`_)
+- Fix issues related to the memory locking code used by an LMDB slab.
+  (`#1516 <https://github.com/vertexproject/synapse/pull/1516>`_)
+- Fix a bug related to Tagprop indexing preventing the correct storage of multiple tagprops of the same name on a node.
+  (`#1520 <https://github.com/vertexproject/synapse/pull/1520>`_)
+
+
+v0.1.46 - 2019-01-17
+====================
+
+Features and Enhancements
+-------------------------
+- Add StormTypes and StormCmd support for enumerating and working with Cortex View's via the Storm runtime.
+  (`#1507 <https://github.com/vertexproject/synapse/pull/1507>`_)
+- In StormCmd's implemented via pure Storm (PureCmd), push the parent runtime variables down into the subruntime when
+  there are no nodes feed into the cmd during execution.
+  (`#1479 <https://github.com/vertexproject/synapse/pull/1479>`_)
+- Harden the ``syn.nodes`` ingest function so that it tries to make every input node given to it, instead of potentially
+  exiting on an error.
+  (`#1511 <https://github.com/vertexproject/synapse/pull/1511>`_)
+- Make the ``$lib.time.sleep()`` and ``$lib.time.ticker()`` StormType functions flush the Snap cache of nodes. This can
+  prevent Node caching issues for StormDmon users.
+  (`#1512 <https://github.com/vertexproject/synapse/pull/1512>`_)
+- Add ``$node.pack()`` function to the ``$node`` StormType object to return the packed node inside of the Storm runtime.
+  (`#1514 <https://github.com/vertexproject/synapse/pull/1514>`_)
+
+Improved Documentation
+----------------------
+- Update User Guide documentation for Storm Variables.
+  (`#1509 <https://github.com/vertexproject/synapse/pull/1509>`_)
+
+
+v0.1.45 - 2019-01-17
+====================
+
+Features and Enhancements
+-------------------------
+- Rewrote the base Synapse benchmark script for a modern Cortex.
+  (`#1503 <https://github.com/vertexproject/synapse/pull/1503>`_)
+- ``StormDmon`` objects now respect the ``view`` argument in their ``stormopts`` structure, and the ``$lib.dmon.add()``
+  StormType function will capture the current ``View`` iden to populate that structure.
+  (`#1504 <https://github.com/vertexproject/synapse/pull/1504>`_)
+- Add Storm commands to list and undo splices.
+  (`#1496 <https://github.com/vertexproject/synapse/pull/1496>`_)
+- Add the API plumbing to allow a forked ``View`` to have its splices merged back into the parent view.
+  (`#1505 <https://github.com/vertexproject/synapse/pull/1505>`_)
+
+Improved Documentation
+----------------------
+- Update User Guide documentation for Tag Properties (tagprops).
+  (`#1502 <https://github.com/vertexproject/synapse/pull/1502>`_)
+
 
 v0.1.44 - 2019-01-08
 ====================

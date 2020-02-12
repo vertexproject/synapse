@@ -121,10 +121,11 @@ class Benchmarker:
             yield core, prox
 
     @isatrial
-    async def do00EmptyString(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
-        count = await acount(prox.eval(''))
-        assert count == 0
-        return 1
+    async def do00EmptyQuery(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        for _ in range(self.workfactor // 10):
+            count = await acount(prox.eval(''))
+            assert count == 0
+        return self.workfactor // 10
 
     @isatrial
     async def do01SimpleCount(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:

@@ -245,8 +245,6 @@ class CryoCell(s_cell.Cell):
     cellapi = CryoApi
     tankapi = TankApi
 
-    confdefs = ()
-
     async def __anit__(self, dirn, conf=None, readonly=False):
 
         await s_cell.Cell.__anit__(self, dirn, conf)

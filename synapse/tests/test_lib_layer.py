@@ -1,7 +1,9 @@
+import asyncio
 import contextlib
 from unittest.mock import patch
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -18,13 +20,13 @@ async def iterPropForm(self, form=None, prop=None):
 def patch_snap(snap):
     old_layr = []
     for layr in snap.layers:
-        old_layr.append((layr.iterPropRows, layr.iterUnivRows, layr.iterFormRows))
-        layr.iterPropRows, layr.iterUnivRows, layr.iterFormRows = (iterPropForm,) * 3
+        old_layr.append((layr.iterPropRows, layr.iterUnivRows))
+        layr.iterPropRows, layr.iterUnivRows = (iterPropForm,) * 2
 
     yield
 
     for layr_idx, layr in enumerate(snap.layers):
-        layr.iterPropRows, layr.iterUnivRows, layr.iterFormRows = old_layr[layr_idx]
+        layr.iterPropRows, layr.iterUnivRows = old_layr[layr_idx]
 
 
 class LayerTest(s_t_utils.SynTest):
@@ -73,7 +75,7 @@ class LayerTest(s_t_utils.SynTest):
             self.isin('.created', propbag)
 
             async with await core.snap() as snap:
-                nodes = await alist(snap.getNodesBy('test:str'))
+                nodes = await snap.nodes('test:str')
                 self.len(1, nodes)
                 node = nodes[0]
                 self.eq(node.props['tick'], 978307200000)
@@ -83,7 +85,7 @@ class LayerTest(s_t_utils.SynTest):
 
             # new snap -> no cached buids in snap
             async with await core.snap() as snap:
-                nodes = await alist(snap.getNodesBy('test:str'))
+                nodes = snap.nodes('test:str')
                 self.len(1, nodes)
                 node = nodes[0]
                 self.eq(node.props['tick'], 1009843200000,)
@@ -93,48 +95,210 @@ class LayerTest(s_t_utils.SynTest):
             self.notin(testbuid, buidcache)
 
             async with await core.snap() as snap:
-                nodes = await alist(snap.getNodesBy('test:str'))
+                nodes = await snap.nodes('test:str')
                 self.len(0, nodes)
 
             self.notin(testbuid, buidcache)
 
-    async def test_splicemigration_pre010(self):
-        async with self.getRegrCore('pre-010') as core:
-            splices1 = await s_t_utils.alist(core.view.layers[0].splices(0, 1000))
-            self.gt(len(splices1), 100)
-            self.false(core.view.layers[0].layrslab.dbexists('splices'))
+    async def test_layer_abrv(self):
 
-        def baddrop(self, name):
-            raise s_exc.DbOutOfSpace()
+        async with self.getTestCore() as core:
 
-        with self.getRegrDir('cortexes', 'pre-010') as dirn:
-            # Simulate a crash during recovery
-            with self.raises(s_exc.DbOutOfSpace):
-                with patch('synapse.lib.lmdbslab.Slab.dropdb', baddrop):
-                    async with await s_cortex.Cortex.anit(dirn) as core:
-                        pass
+            layr = core.view.layers[0]
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.getPropAbrv('visi', 'foo'))
+            # another to check the cache...
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.getPropAbrv('visi', 'foo'))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x05', layr.getPropAbrv('whip', None))
+            self.eq(('visi', 'foo'), await layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x04'))
+            self.eq(('whip', None), await layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x05'))
 
-            # Make sure when it comes back we're not stuck
-            with patch('synapse.lib.lmdbslab.PROGRESS_PERIOD', 50), patch('synapse.lib.lmdbslab.COPY_CHUNKSIZE', 50):
-                with self.getLoggerStream('synapse.lib.lmdblayer') as stream:
-                    async with await s_cortex.Cortex.anit(dirn) as core:
-                        splices2 = await s_t_utils.alist(core.view.layers[0].splices(0, 1000))
-                        self.false(core.view.layers[0].layrslab.dbexists('splices'))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.getTagPropAbrv('visi', 'foo'))
+            # another to check the cache...
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.getTagPropAbrv('visi', 'foo'))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x01', layr.getTagPropAbrv('whip', None))
 
-                    self.eq(splices1, splices2)
+    async def test_layer_upstream(self):
 
-                    stream.seek(0)
-                    mesgs = stream.read()
-                    self.isin('Incomplete migration', mesgs)
+        with self.getTestDir() as dirn:
 
-            with self.getLoggerStream('synapse.lib.lmdblayer') as stream:
-                # Make sure the third time around we didn't migrate and we still have our splices
-                async with await s_cortex.Cortex.anit(dirn) as core:
-                    splices3 = await s_t_utils.alist(core.view.layers[0].splices(0, 1000))
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
 
-                self.eq(splices1, splices3)
+            async with self.getTestCore(dirn=path00) as core00:
 
-                # Test for no hint of migration happening
-                stream.seek(0)
-                mesgs = stream.read()
-                self.notin('migration', mesgs)
+                layriden = core00.view.layers[0].iden
+
+                await core00.nodes('[test:str=foobar +#hehe.haha]')
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+                await core00.addTagProp('score', ('int', {}), {})
+
+                async with await core00.snap() as snap:
+
+                    props = {'tick': 12345}
+                    node = await snap.addNode('test:str', 'foo', props=props)
+                    await node.setTagProp('bar', 'score', 10)
+                    await node.setData('baz', 'nodedataiscool')
+
+                async with self.getTestCore(dirn=path01) as core01:
+
+                    url = core00.getLocalUrl('*/layer')
+                    conf = {'upstream': url}
+                    layr = await core01.addLayer(ldef=conf)
+                    await core01.view.addLayer(layr.iden)
+
+                    # test initial sync
+                    offs = core00.getView().layers[0].getSpliceOffset()
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
+                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                    self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
+                    nodes = await core01.nodes('test:str=foobar')
+                    self.len(1, nodes)
+                    self.nn(nodes[0].tags.get('hehe.haha'))
+
+                    async with await core01.snap() as snap:
+                        node = await snap.getNodeByNdef(('test:str', 'foo'))
+                        self.nn(node)
+                        self.eq(node.props.get('tick'), 12345)
+                        self.eq(node.tagprops.get(('bar', 'score')), 10)
+                        self.eq(await node.getData('baz'), 'nodedataiscool')
+
+                    # make sure updates show up
+                    await core00.nodes('[ inet:fqdn=vertex.link ]')
+
+                    offs = core00.getView().layers[0].getSpliceOffset()
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
+                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                    self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
+
+                await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
+                offs = core00.getView().layers[0].getSpliceOffset()
+
+                # test what happens when we go down and come up again...
+                async with self.getTestCore(dirn=path01) as core01:
+
+                    layr = core01.getView().layers[-1]
+
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
+                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                    self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
+
+                    await core00.nodes('[ inet:ipv4=5.6.7.8 ]')
+
+                    offs = core00.getView().layers[0].getSpliceOffset()
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
+                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                    self.len(1, await core01.nodes('inet:ipv4=5.6.7.8'))
+
+    async def test_layer_multi_upstream(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+            path02 = s_common.gendir(dirn, 'core02')
+
+            async with self.getTestCore(dirn=path00) as core00:
+
+                iden00 = core00.view.layers[0].iden
+
+                await core00.nodes('[test:str=foobar +#hehe.haha]')
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+                async with self.getTestCore(dirn=path01) as core01:
+
+                    iden01 = core01.view.layers[0].iden
+
+                    await core01.nodes('[test:str=barfoo +#haha.hehe]')
+                    await core01.nodes('[ inet:ipv4=4.3.2.1 ]')
+
+                    async with self.getTestCore(dirn=path02) as core02:
+
+                        url00 = core00.getLocalUrl('*/layer')
+                        url01 = core01.getLocalUrl('*/layer')
+
+                        conf = {'upstream': [url00, url01]}
+
+                        layr = await core02.addLayer(ldef=conf)
+                        await core02.view.addLayer(layr.iden)
+
+                        # core00 is synced
+                        offs = core00.getView().layers[0].getSpliceOffset()
+                        evnt = await layr.waitUpstreamOffs(iden00, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=1.2.3.4'))
+                        nodes = await core02.nodes('test:str=foobar')
+                        self.len(1, nodes)
+                        self.nn(nodes[0].tags.get('hehe.haha'))
+
+                        # core01 is synced
+                        offs = core01.getView().layers[0].getSpliceOffset()
+                        evnt = await layr.waitUpstreamOffs(iden01, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=4.3.2.1'))
+                        nodes = await core02.nodes('test:str=barfoo')
+                        self.len(1, nodes)
+                        self.nn(nodes[0].tags.get('haha.hehe'))
+
+                        # updates from core00 show up
+                        await core00.nodes('[ inet:fqdn=vertex.link ]')
+
+                        offs = core00.getView().layers[0].getSpliceOffset()
+                        evnt = await layr.waitUpstreamOffs(iden00, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:fqdn=vertex.link'))
+
+                        # updates from core01 show up
+                        await core01.nodes('[ inet:fqdn=google.com ]')
+
+                        offs = core01.getView().layers[0].getSpliceOffset()
+                        evnt = await layr.waitUpstreamOffs(iden01, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:fqdn=google.com'))
+
+                    await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
+                    await core01.nodes('[ inet:ipv4=6.6.6.6 ]')
+
+                    # test what happens when we go down and come up again...
+                    async with self.getTestCore(dirn=path02) as core02:
+
+                        layr = core02.getView().layers[-1]
+
+                        # test we catch up to core00
+                        offs = core00.getView().layers[0].getSpliceOffset()
+                        evnt = await layr.waitUpstreamOffs(iden00, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=5.5.5.5'))
+
+                        # test we catch up to core01
+                        offs = core01.getView().layers[0].getSpliceOffset()
+                        evnt = await layr.waitUpstreamOffs(iden01, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=6.6.6.6'))
+
+                        # test we get updates from core00
+                        await core00.nodes('[ inet:ipv4=5.6.7.8 ]')
+
+                        offs = core00.getView().layers[0].getSpliceOffset()
+                        evnt = await layr.waitUpstreamOffs(iden00, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=5.6.7.8'))
+
+                        # test we get updates from core01
+                        await core01.nodes('[ inet:ipv4=8.7.6.5 ]')
+
+                        offs = core01.getView().layers[0].getSpliceOffset()
+                        evnt = await layr.waitUpstreamOffs(iden01, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=8.7.6.5'))
