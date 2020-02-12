@@ -904,6 +904,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             'cron': self.agenda,
             'cortex': self,
             'multiqueue': self.multiqueue,
+            'axon': self.axon
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
@@ -2707,6 +2708,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     def getStormCmds(self):
         return list(self.stormcmds.items())
+
+    async def getAxon(self):
+        await self.core.axready.wait()
+        return self.core.axon.iden
 
 # FIXME: change these to daemons
 #    def _initPushLoop(self):

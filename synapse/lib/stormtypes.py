@@ -372,8 +372,9 @@ class LibBytes(Lib):
             mesg = '$lib.bytes.put() requires a bytes argument'
             raise s_exc.BadArg(mesg=mesg)
 
-        axon = await self.runt.snap.getCoreAxon()
-        size, sha2 = await axon.put(byts)
+        await self.runt.snap.core.getAxon()
+        todo = s_common.todo('put', byts)
+        size, sha2 = await self.dyncall('axon', todo)
 
         return (size, s_common.ehex(sha2))
 
