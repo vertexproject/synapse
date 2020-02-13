@@ -506,6 +506,7 @@ class Slab(s_base.Base):
 
         self.readonly = opts.get('readonly', False)
         self.lockmemory = opts.pop('lockmemory', False)
+        opts.setdefault('map_async', True)
 
         self.mapsize = _mapsizeround(mapsize)
         if self.maxsize is not None:

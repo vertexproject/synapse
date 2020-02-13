@@ -3728,7 +3728,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 async with core.getLocalProxy() as prox:
                     await core.nodes('$lib.queue.add(visi)')
                     ddef = {'storm': '$lib.queue.get(visi).put(done) for $tick in $lib.time.ticker(1) {}'}
-                    dmoniden = await prox.addStormDmon(ddef)
+                    dmonpack = await prox.addStormDmon(ddef)
+                    dmoniden = dmonpack.get('iden')
                     # Storm task pairs are promoted as tasks
                     retn = await prox.ps()
                     dmon_loop_tasks = [task for task in retn if task.get('name') == 'storm:dmon:loop']
@@ -3758,19 +3759,19 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(0, dmon_loop_tasks)
                     self.len(0, dmon_main_tasks)
 
+                    iden = 'XXX'
+                    with self.raises(s_exc.NoSuchIden):
+                        await prox.delStormDmon(iden)
+
+                    with self.raises(s_exc.NeedConfValu):
+                        await core.runStormDmon(iden, {})
+
+                    with self.raises(s_exc.NoSuchUser):
+                        await core.runStormDmon(iden, {'user': 'XXX'})
+
             async with await s_cortex.Cortex.anit(dirn) as core:
                 # two entries means he ran twice ( once on add and once on restart )
                 await core.nodes('$lib.queue.get(visi).gets(size=2)')
-
-            with self.raises(s_exc.NoSuchIden):
-                await prox.delStormDmon('XXX')
-
-            iden = 'XXX'
-            with self.raises(s_exc.NeedConfValu):
-                await core.runStormDmon(iden, {})
-
-            with self.raises(s_exc.NoSuchUser):
-                await core.runStormDmon(iden, {'user': 'XXX'})
 
     async def test_cortex_storm_dmon_view(self):
 

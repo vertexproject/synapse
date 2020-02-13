@@ -595,4 +595,3 @@ class CoreSpawnTest(s_test.SynTest):
             self.stormIsInPrint('(wootdmon            ): running', msgs)
 
             msgs = await prox.storm('$lib.dmon.del($ddef.iden)').list()
-            await asyncio.sleep(5)

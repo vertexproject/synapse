@@ -676,16 +676,13 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.getStormPkg(name)
 
     async def addStormDmon(self, ddef):
-        dmon = await self.cell.addStormDmon(ddef)
-        return dmon.pack()
+        return await self.cell.addStormDmon(ddef)
 
     async def getStormDmons(self):
-        dmons = await self.cell.getStormDmons()
-        return [dmon.pack() for dmon in dmons]
+        return await self.cell.getStormDmons()
 
     async def getStormDmon(self, iden):
-        dmon = await self.cell.getStormDmons(iden)
-        return dmon.pack()
+        return await self.cell.getStormDmon(iden)
 
     async def delStormDmon(self, iden):
         return await self.cell.delStormDmon(iden)
@@ -884,6 +881,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             'cron': self.agenda,
             'cortex': self,
             'multiqueue': self.multiqueue,
+            'axon': self.axon
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
@@ -2482,7 +2480,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         dmon = await self.runStormDmon(iden, ddef)
         await self.stormdmonhive.set(iden, ddef)
-        return dmon
+        return dmon.pack()
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:del')
     async def delStormDmon(self, iden):
@@ -2528,10 +2526,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         return dmon
 
     async def getStormDmon(self, iden):
-        return self.stormdmons.get(iden)
+        dmon = self.stormdmons.get(iden)
+        if dmon is not None:
+            return dmon.pack()
 
     async def getStormDmons(self):
-        return list(self.stormdmons.values())
+        return list(d.pack() for d in self.stormdmons.values())
 
     def addStormLib(self, path, ctor):
 
@@ -2558,6 +2558,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     def getStormCmds(self):
         return list(self.stormcmds.items())
+
+    async def getAxon(self):
+        await self.core.axready.wait()
+        return self.core.axon.iden
 
     def setFeedFunc(self, name, func):
         '''
