@@ -107,7 +107,7 @@ class Benchmarker:
             count = info.get('count')
             mean = info.get('mean') * 1000000
             stddev = info.get('stddev') * 1000000
-            print(f'{name:30}: {totmean:8.3}s / {count:5} = {mean:8.3}μs stddev: {stddev:6.4}μs')
+            print(f'{name:30}: {totmean:8.3}s / {count:5} = {mean:9.5}μs stddev: {stddev:6.4}μs')
 
     def reportdata(self):
         retn = []
