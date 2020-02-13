@@ -419,10 +419,6 @@ class Node:
                 await self.snap.addTagNode(tag)
 
                 edits.append((s_layer.EDIT_TAG_SET, (tag, (None, None), None)))
-                #await self._addTagRaw(tag, (None, None))
-
-            #await self._addTagRaw(tags[-1], valu)
-            #return
 
         else:
             # merge values into one interval
@@ -436,40 +432,6 @@ class Node:
         nodeedit = (self.buid, self.form.name, edits)
 
         await self.snap.addNodeEdit(nodeedit)
-
-        #await self._addTagRaw(name, valu)
-        #await self._setTagProp(name, valu)
-
-        #indx = self.snap.core.model.types['ival'].indx(valu)
-        #info = {'univ': True}
-        #await self._setTagProp(name, valu, indx, info)
-        #await self._setTagProp(name, valu, indx, info)
-
-#    async def _setTagProp(self, name, norm): #, indx, info):
-#
-#        oldv = self.tags.get(name)
-#
-#        self.tags[name] = norm
-#
-#        edits = [
-#            (s_layer.EDIT_TAG_SET, (name, norm, oldv)),
-#        ]
-#
-#        nodeedit = (self.buid, self.form.name, edits)
-#
-#        await self.snap.addNodeEdit(nodeedit)
-#
-#    async def _addTagRaw(self, name, norm):
-#
-#        # these are cached based on norm...
-#        await self.snap.addTagNode(name)
-#
-#        await self._setTagProp(name, norm)
-#
-#        await self.snap.view.runTagAdd(self, name, norm)
-#        await self.snap.wlyr.fire('tag:add', tag=name, node=self.iden())
-#
-#        return True
 
     async def delTag(self, tag, init=False):
         '''

@@ -35,6 +35,7 @@ import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slaboffs as s_slaboffs
 import synapse.lib.stormhttp as s_stormhttp
+import synapse.lib.stormwhois as s_stormwhois
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -402,9 +403,8 @@ class CoreApi(s_cell.CellApi):
 
         self.user.confirm(('feed:data', *parts), gateiden=wlyr.iden)
 
-        with s_provenance.claim('feed:data', name=name):
-
-            async with await self.cell.snap(user=self.user) as snap:
+        async with await self.cell.snap(user=self.user) as snap:
+            with s_provenance.claim('feed:data', name=name, user=snap.user.iden):
                 snap.strict = False
                 # FIXME:  is this enough to make snap a nexus?  Alternative is to add a cortex pass-through
                 return await snap.addFeedData(name, items, seqn=seqn)
@@ -1940,6 +1940,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
 
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
+        self.addStormLib(('inet', 'whois'), s_stormwhois.LibWhois)
         self.addStormLib(('base64',), s_stormtypes.LibBase64)
 
     def _initSplicers(self):
