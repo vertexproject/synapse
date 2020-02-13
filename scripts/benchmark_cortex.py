@@ -105,8 +105,8 @@ class Benchmarker:
         for name, info in self.reportdata():
             totmean = info.get('totmean')
             count = info.get('count')
-            mean = info.get('mean')
-            stddev = info.get('stddev')
+            mean = info.get('mean') * 1000000
+            stddev = info.get('stddev') * 1000000
             print(f'{name:30}: {totmean:8.3}s / {count:5} = {mean:8.3}μs stddev: {stddev:6.4}μs')
 
     def reportdata(self):
@@ -116,8 +116,8 @@ class Benchmarker:
             tottimes = [m[0] for m in measurements[1:]]
             pertimes = [m[0] / m[1] for m in measurements[1:]]
             totmean = statistics.mean(tottimes)
-            mean = statistics.mean(pertimes) * 100000
-            stddev = statistics.stdev(pertimes) * 100000
+            mean = statistics.mean(pertimes)
+            stddev = statistics.stdev(pertimes)
             count = measurements[0][1]
 
             retn.append((name, {'measurements': measurements,
