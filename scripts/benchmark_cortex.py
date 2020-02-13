@@ -4,6 +4,7 @@ import time
 import random
 import asyncio
 import logging
+import argparse
 import contextlib
 import statistics
 import collections
@@ -12,6 +13,8 @@ from typing import List, Dict, AsyncIterator, Tuple, Any, Callable
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
+
+import synapse.lib.time as s_time
 
 import synapse.tests.utils as s_t_utils
 
@@ -97,18 +100,34 @@ class Benchmarker:
         self.workfactor = workfactor
         self.testdata = testdata
 
-    def report(self, configname: str):
-        print(f'Config: {self.coreconfig}, Num Iters: {self.num_iters} Debug: {__debug__}')
+    def printreport(self, configname: str):
+        print(f'Config {configname}: {self.coreconfig}, Num Iters: {self.num_iters} Debug: {__debug__}')
+        for name, info in self.reportdata():
+            totmean = info.get('totmean')
+            count = info.get('count')
+            mean = info.get('mean') * 1000000
+            stddev = info.get('stddev') * 1000000
+            print(f'{name:30}: {totmean:8.3}s / {count:5} = {mean:9.5}μs stddev: {stddev:6.4}μs')
+
+    def reportdata(self):
+        retn = []
         for name, measurements in self.measurements.items():
             # ms = ', '.join(f'{m[0]:0.3}' for m in measurements)
             tottimes = [m[0] for m in measurements[1:]]
             pertimes = [m[0] / m[1] for m in measurements[1:]]
             totmean = statistics.mean(tottimes)
-            mean = statistics.mean(pertimes) * 100000
-            stddev = statistics.stdev(pertimes) * 100000
+            mean = statistics.mean(pertimes)
+            stddev = statistics.stdev(pertimes)
             count = measurements[0][1]
 
-            print(f'{name:30}: {totmean:8.3}s / {count:5} = {mean:8.3}μs stddev: {stddev:6.4}μs')
+            retn.append((name, {'measurements': measurements,
+                                'tottimes': tottimes,
+                                'pertimes': pertimes,
+                                'totmean': totmean,
+                                'mean': mean,
+                                'stddev': stddev,
+                                'count': count}))
+        return retn
 
     async def _loadtestdata(self, core):
         await s_common.aspin(core.addNodes(self.testdata.ips))
@@ -121,10 +140,11 @@ class Benchmarker:
             yield core, prox
 
     @isatrial
-    async def do00EmptyString(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
-        count = await acount(prox.eval(''))
+    async def do00EmptyQuery(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
+        for _ in range(self.workfactor // 10):
+            count = await acount(prox.eval(''))
         assert count == 0
-        return 1
+        return self.workfactor // 10
 
     @isatrial
     async def do01SimpleCount(self, core: s_cortex.Cortex, prox: s_telepath.Client) -> int:
@@ -247,29 +267,58 @@ class Benchmarker:
 Configs: Dict[str, Dict] = {
     'simple': {},
     'mapasync': {'layer:lmdb:map_async': True},
-    'dedicated': {'dedicated': True}
+    'dedicated': {'dedicated': True},
+    'dedicatedasync': {'dedicated': True, 'layer:lmdb:map_async': True},
 }
 
-def benchmarkAll(confignames: List = None, num_procs=1, workfactor=1000, tmpdir=None) -> None:
+def benchmarkAll(confignames: List = None, num_procs=1, workfactor=1000, tmpdir=None,
+                 jsondir: str =None,
+                 jsonprefix: str =None,
+                 ) -> None:
+
+    if jsondir:
+        s_common.gendir(jsondir)
 
     testdata = TestData(workfactor)
     if not confignames:
         confignames = ['simple']
     for configname in confignames:
+        tick = s_common.now()
         config = Configs[configname]
         bench = Benchmarker(config, testdata, workfactor)
         print(f'{num_procs}-process benchmarking: {configname}')
         asyncio.run(bench.runSuite(config, num_procs))
-        bench.report(configname)
+        bench.printreport(configname)
 
-if __name__ == '__main__':
-    import argparse
+        if jsondir:
+            data = {'time': tick,
+                    'config': config,
+                    'configname': configname,
+                    'workfactor': workfactor,
+                    'niters': bench.num_iters,
+                    'results': bench.reportdata()
+                    }
+            fn = f'{s_time.repr(tick, pack=True)}_{configname}.json'
+            if jsonprefix:
+                fn = f'{jsonprefix}{fn}'
+            s_common.jssave(data, jsondir, fn)
 
+def getParser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', nargs='*', default=None)
     # parser.add_argument('--num-clients', type=int, default=1)
     parser.add_argument('--workfactor', type=int, default=1000)
     parser.add_argument('--tmpdir', nargs=1)
+    parser.add_argument('--jsondir', default=None, type=str,
+                        help='Directory to output JSON report data too.')
+    parser.add_argument('--jsonprefix', default=None, type=str,
+                        help='Prefix to append to the autogenerated filename for json output.')
+    return parser
+
+if __name__ == '__main__':
+
+    parser = getParser()
     opts = parser.parse_args()
 
-    benchmarkAll(opts.config, 1, opts.workfactor, opts.tmpdir)
+    benchmarkAll(opts.config, 1, opts.workfactor, opts.tmpdir,
+                 jsondir=opts.jsondir, jsonprefix=opts.jsonprefix)
