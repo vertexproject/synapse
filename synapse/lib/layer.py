@@ -1630,7 +1630,7 @@ class Layer(s_nexus.Pusher):
         return True
 
     async def getModelVers(self):
-        await self.layrinfo.get('model:version', (-1, -1, -1))
+        return self.layrinfo.get('model:version', (-1, -1, -1))
 
     async def setModelVers(self, vers):
         await self.layrinfo.set('model:version', vers)
