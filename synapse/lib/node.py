@@ -226,7 +226,6 @@ class Node:
                 return False
 
         props = {prop.name: norm}
-
         splice = self.snap.getNodeAdds(self.form, self.ndef[1], props, addnode=False)
 
         await self.snap.addNodeEdits(splice)

@@ -1040,7 +1040,9 @@ class Layer(s_nexus.Pusher):
 
     @s_nexus.Pusher.onPushAuto('edits')
     async def storNodeEdits(self, nodeedits, meta):
-
+        '''
+        Execute a series of node edit operations, returning the updated nodes.
+        '''
         changes = [(e[0], e[1], await self._storNodeEdit(e)) for e in nodeedits]
         offs = self.splicelog.add((changes, meta))
 
@@ -1077,7 +1079,11 @@ class Layer(s_nexus.Pusher):
 
     @s_nexus.Pusher.onPushAuto('editsnolift')
     async def storNodeEditsNoLift(self, nodeedits, meta):
+        '''
+        Execute a series of node edit operations.
 
+        Does not return the updated nodes.
+        '''
         changes = [(e[0], e[1], await self._storNodeEdit(e)) for e in nodeedits]
         offs = self.splicelog.add((changes, meta))
 
