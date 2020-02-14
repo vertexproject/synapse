@@ -791,11 +791,11 @@ class Layer(s_nexus.Pusher):
 
         self.splicelog = s_slabseqn.SlabSeqn(self.spliceslab, 'splices')
 
-        self.fallback = layrinfo.get('fallback', False)
+        self.fallback = self.conf.get('fallback', False)
         if self.fallback:
             splicepath = os.path.join(self.dirn, 'splices.lmdb')
-            self.fallbackslab = await s_lmdbslab.Slab.anit(path, readonly=True)
-            self.onfini(self.spliceslab)
+            self.fallbackslab = await s_lmdbslab.Slab.anit(splicepath)
+            self.onfini(self.fallbackslab)
 
             self.fallbacklog = s_slabseqn.SlabSeqn(self.fallbackslab, 'splices')
 
@@ -1047,7 +1047,7 @@ class Layer(s_nexus.Pusher):
         [(await wind.put((offs, changes))) for wind in tuple(self.windows)]
 
         if self.fallback:
-            splices = [x async for x in self.makeSplices((changes, meta))]
+            splices = [x[1] async for x in self.makeSplices((offs, (changes, meta)))]
             self.fallbacklog.save(splices)
 
         self.offsets.set('splice:applied', offs)
@@ -1084,8 +1084,8 @@ class Layer(s_nexus.Pusher):
         [(await wind.put((offs, changes))) for wind in tuple(self.windows)]
 
         if self.fallback:
-            async for oldsplice in self.makeSplices((changes, meta)):
-                self.fallbacklog.add(oldsplice)
+            splices = [x[1] async for x in self.makeSplices((offs, (changes, meta)))]
+            self.fallbacklog.save(splices)
 
         self.offsets.set('splice:applied', offs)
 
