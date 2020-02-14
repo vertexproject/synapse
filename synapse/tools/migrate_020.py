@@ -109,10 +109,6 @@ class Migrator(s_base.Base):
         if self.srcdedicated is None:
             self.srcdedicated = False
 
-        self.destdedicated = conf.get('destdedicated')
-        if self.destdedicated is None:
-            self.destdedicated = False
-
         self.srcslabopts = {
             'readonly': True,
             'map_async': True,
@@ -469,8 +465,7 @@ class Migrator(s_base.Base):
         Migrate to new storage info syntax.
 
         Returns:
-            (dict): Storage information
-            (list): List of layer idens
+            (HiveDict): Storage information
         '''
         migrop = 'hivestor'
 
@@ -483,19 +478,13 @@ class Migrator(s_base.Base):
         await stordict.set('type', 'local')
         await stordict.set('conf', {})
 
-        storinfo = {
-            'iden': storiden,
-            'type': 'local',
-            'conf': {},
-        }
-
         # Set default storage
         await self.hive.set(('cellinfo', 'layr:stor:default'), storiden)
 
         logger.info('Completed Hive storage info migration')
         await self._migrlogAdd(migrop, 'prog', storiden, s_common.now())
 
-        return storinfo
+        return stordict
 
     async def _migrHiveLayerInfo(self, storinfo, iden):
         '''
@@ -504,7 +493,7 @@ class Migrator(s_base.Base):
         TODO: Move some of this into a translation step
 
         Args:
-            storinfo (dict): Storage information
+            storinfo (HiveDict): Storage information
             iden (str): Iden of the layer
         '''
         migrop = 'hivelyr'
@@ -636,7 +625,7 @@ class Migrator(s_base.Base):
         await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot, dtot))
         await self._migrlogAdd(migrop, 'stat', f'{iden}:duration', (stot, t_dur))
 
-        logger.info(f'Migrated {stot:,} of {dtot:,} nodes in {t_dur_s} seconds ({int(stot/t_dur_s)} nodes/s avg)')
+        logger.info(f'Migrated {dtot:,} of {stot:,} nodes in {t_dur_s} seconds ({int(stot/t_dur_s)} nodes/s avg)')
         logger.info(f'Completed node migration for {iden}')
         await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
 
@@ -717,7 +706,7 @@ class Migrator(s_base.Base):
         t_dur_s = int(t_dur / 1000) + 1
         rate = int(stot / t_dur_s)
 
-        logger.info(f'Migrated {stot:,} of {dtot:,} nodedata entries in {t_dur_s} seconds ({rate} nodes/s avg)')
+        logger.info(f'Migrated {dtot:,} of {stot:,} nodedata entries in {t_dur_s} seconds ({rate} nodes/s avg)')
         await self._migrlogAdd(migrop, 'stat', f'{iden}:totnodes', (stot, dtot))
         await self._migrlogAdd(migrop, 'stat', f'{iden}:duration', (stot, t_dur))
 
@@ -1038,28 +1027,14 @@ class Migrator(s_base.Base):
         Get the write Layer object for the destination.
 
         Args:
-            storinfo (dict): Storage information dict
+            storinfo (HiveDict): Storage information dict
             iden (str): iden of the layer to create object for
 
         Returns:
             (synapse.lib.Layer): Write layer
         '''
-        layrinfo = {
-            'iden': iden,
-            'readonly': False,
-            'conf': {
-                'lockmemory': self.destdedicated,
-                'map_async': True,
-            },
-        }
-        path = os.path.join(dirn, 'layers')
-        lyrstor = await s_layer.LayerStorage.anit(storinfo, path)
-        self.onfini(lyrstor)
-
-        if self.nexusroot is not None:
-            wlyr = await lyrstor.initLayr(layrinfo, self.nexusroot)
-        else:
-            wlyr = await lyrstor.initLayr(layrinfo)
+        path = os.path.join(dirn, 'layers', iden)
+        wlyr = await s_layer.Layer.anit(storinfo, path, nexsroot=self.nexusroot)
         self.onfini(wlyr)
 
         return wlyr
@@ -1143,8 +1118,6 @@ async def main(argv, outp=s_output.stdout):
                       help='Do not check node values before adding')
     pars.add_argument('--src-dedicated', required=False, type=bool, default=False,
                       help='Open source layer slab as dedicated (lockmemory=True).')
-    pars.add_argument('--dest-dedicated', required=False, type=bool, default=False,
-                      help='Open destination write layer as dedicated (lockmemory=True).')
     pars.add_argument('--log-level', required=False, default='info', choices=s_const.LOG_LEVEL_CHOICES,
                       help='Specify the log level', type=str.upper)
     pars.add_argument('--form-counts', required=False, action='store_true',
@@ -1171,7 +1144,6 @@ async def main(argv, outp=s_output.stdout):
         'fairiter': opts.fair_iter,
         'safetyoff': opts.safety_off,
         'srcdedicated': opts.src_dedicated,
-        'destdedicated': opts.dest_dedicated,
         'formcounts': formcounts,
     }
 
