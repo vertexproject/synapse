@@ -47,6 +47,7 @@ ALL_MIGROPS = (
     'hivelyr',
     'nodes',
     'nodedata',
+    'triggers',
 )
 
 ADD_MODES = (
@@ -123,8 +124,9 @@ class Migrator(s_base.Base):
         self.migrslab = None
         self.migrdb = None
         self.nexusroot = None
-        self.hiveslab = None
+        self.cellslab = None
         self.hivedb = None
+        self.trigdb = None
         self.hive = None
 
     async def migrate(self):
@@ -186,6 +188,10 @@ class Migrator(s_base.Base):
         if 'hiveauth' in self.migrops:
             await self._migrHiveAuth()  # TODO
 
+        # trigger migration
+        if 'triggers' in self.migrops:
+            await self._migrTriggers()
+
     async def dumpErrors(self):
         '''
         Fetch all node migration errors and dump to an mpk file.
@@ -199,7 +205,7 @@ class Migrator(s_base.Base):
             return None
 
         # initialize migration data slab
-        await self._initStors(migr=True, nexus=False, hive=False)
+        await self._initStors(migr=True, nexus=False, cell=False)
 
         logger.info('Starting dump of migration errors')
         dumpf = os.path.join(self.dest, self.migrdir, f'migrerrors_{s_common.now()}.mpk')
@@ -209,7 +215,7 @@ class Migrator(s_base.Base):
 
         return dumpf
 
-    async def _initStors(self, migr=True, nexus=True, hive=True):
+    async def _initStors(self, migr=True, nexus=True, cell=True):
         '''
         Initialize required non-layer destination slabs for migration.
         '''
@@ -228,15 +234,20 @@ class Migrator(s_base.Base):
                 self.nexusroot = await s_nexus.NexsRoot.anit(path)
             self.onfini(self.nexusroot.fini)
 
-        # open hive
-        if hive:
+        # open cell
+        if cell:
             path = os.path.join(self.dest, 'slabs', 'cell.lmdb')
-            if self.hiveslab is None:
-                self.hiveslab = await s_lmdbslab.Slab.anit(path, readonly=False)
-            self.onfini(self.hiveslab.fini)
-            self.hivedb = self.hiveslab.initdb('hive')
+            if self.cellslab is None:
+                self.cellslab = await s_lmdbslab.Slab.anit(path, readonly=False)
+            self.onfini(self.cellslab.fini)
+
+            # triggers
+            self.trigdb = self.cellslab.initdb('triggers')
+
+            # hive
+            self.hivedb = self.cellslab.initdb('hive')
             if self.hive is None:
-                self.hive = await s_hive.SlabHive.anit(self.hiveslab, db=self.hivedb)
+                self.hive = await s_hive.SlabHive.anit(self.cellslab, db=self.hivedb)
             self.onfini(self.hive.fini)
 
         logger.debug('Finished storage initialization')
@@ -470,16 +481,19 @@ class Migrator(s_base.Base):
         migrop = 'hivestor'
 
         # Set storage information
-        storiden = s_common.guid()
+        storiden = await self.hive.get(('cellinfo', 'layr:stor:default'))
+        if storiden is not None:
+            logger.info(f'Using existing default storage: {storiden}')
+        else:
+            storiden = s_common.guid()
+            await self.hive.set(('cellinfo', 'layr:stor:default'), storiden)
+
         stornode = await self.hive.open(('cortex', 'storage', storiden))
         stordict = await stornode.dict()
 
         await stordict.set('iden', storiden)
         await stordict.set('type', 'local')
         await stordict.set('conf', {})
-
-        # Set default storage
-        await self.hive.set(('cellinfo', 'layr:stor:default'), storiden)
 
         logger.info('Completed Hive storage info migration')
         await self._migrlogAdd(migrop, 'prog', storiden, s_common.now())
@@ -515,7 +529,8 @@ class Migrator(s_base.Base):
                 creator = uiden
 
         if creator is None:
-            raise Exception('Unable to add creator')  # TODO: handle this differently
+            logger.error(f'Unable to convert user name {owner} to iden, layer {iden} not properly setup in Hive')
+            return
 
         # conf
         # TODO should be translating existing config?
@@ -527,14 +542,62 @@ class Migrator(s_base.Base):
         await layrinfo.pop('type')
         await layrinfo.pop('config')
 
-        # update layer info for 0.1.x
+        # update layer info for 0.2.x
         await layrinfo.set('iden', iden)
         await layrinfo.set('creator', creator)
         await layrinfo.set('conf', conf)
         await layrinfo.set('stor', storinfo.get('iden'))
+        await layrinfo.set('model:version', s_modelrev.maxvers)
 
         logger.info('Completed Hive layer info migration')
         await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
+
+    async def _migrTriggers(self):
+        '''
+        Remove old trigger entries and store in the hive.
+
+        TODO:
+            - Can we assume the storm query is already parseable?
+        '''
+        migrop = 'triggers'
+
+        viewtrgs = {}
+
+        scnt = 0
+        dcnt = 0
+        for iden, valu in self.cellslab.scanByFull(db=self.trigdb):
+            scnt += 1
+            ruledict = s_msgpack.un(valu)
+
+            try:
+                viewiden = ruledict.pop('viewiden')
+                useriden = ruledict.pop('useriden')
+            except KeyError:
+                err = {'err': f'Missing iden values for trigger', 'rule': ruledict}
+                logger.warning(err)
+                trgiden = s_common.guid(ruledict)
+                await self._migrlogAdd(migrop, 'error', trgiden, err)
+                continue
+
+            ruledict['user'] = useriden
+
+            trgiden = s_common.guid(ruledict)
+            ruledict['iden'] = trgiden
+
+            trgdict = viewtrgs.get(viewiden)
+            if trgdict is None:
+                trgnode = await self.hive.open(('cortex', 'views', viewiden, 'triggers'))
+                trgdict = await trgnode.dict()
+                viewtrgs[viewiden] = trgdict
+
+            await trgdict.set(trgiden, ruledict)
+            dcnt += 1
+            self.cellslab.pop(iden, db=self.trigdb)  # remove old trigger
+
+        await self._migrlogAdd(migrop, 'stat', f'tottriggers', (scnt, dcnt))
+
+        logger.info(f'Completed trigger migration for {dcnt} of {scnt}')
+        await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
 
     async def _migrNodes(self, iden, wlyr):
         '''
@@ -558,10 +621,6 @@ class Migrator(s_base.Base):
         src_slab = await s_lmdbslab.Slab.anit(path, **self.srcslabopts)
         src_bybuid = src_slab.initdb('bybuid')  # <buid><prop>=<valu>
         self.onfini(src_slab.fini)
-
-        # update modelrev
-        # TODO: or should this be left, and then model migration happens on first startup?
-        await wlyr.setModelVers(s_modelrev.maxvers)
 
         # migrate data
         src_fcnt = collections.defaultdict(int)

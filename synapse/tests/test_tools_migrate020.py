@@ -174,23 +174,15 @@ class MigrationTest(s_t_utils.SynTest):
         # check that triggers are active
         root = await core.auth.getUserByName('root')
         triggers = await core.view.packTriggers(root.iden)
-        # TODO: trigger check
+        self.len(2, triggers)
         tnodes = await core.nodes('[ inet:ipv4=9.9.9.9 ]')
-        # self.nn(tnodes[0].tags.get('trgtag'))
+        self.nn(tnodes[0].tags.get('trgtag'))
 
     async def test_migr_nexus(self):
         conf = {
             'src': None,
             'dest': None,
-            'migrops': [
-                'dirn',
-                'dmodel',
-                'hiveauth',
-                'hivestor',
-                'hivelyr',
-                'nodes',
-                'nodedata',
-            ],
+            'migrops': None,
         }
 
         async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
@@ -309,3 +301,8 @@ class MigrationTest(s_t_utils.SynTest):
                 async with self.getTestCore(dirn=dest) as core:
                     # check core data
                     await self._checkCore(core, tdata)
+
+                    # check that hive information didn't get duplicated
+                    hnode = await core.hive.open(('cortex', 'storage'))
+                    hdict = await hnode.dict()
+                    self.len(1, [x for x in hdict.items()])
