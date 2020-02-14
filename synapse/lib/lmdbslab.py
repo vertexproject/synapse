@@ -474,6 +474,7 @@ class Slab(s_base.Base):
 
         kwargs.setdefault('map_size', self.DEFAULT_MAPSIZE)
         kwargs.setdefault('lockmemory', False)
+        kwargs.setdefault('map_async', True)
 
         opts = kwargs
 

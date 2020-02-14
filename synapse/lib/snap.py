@@ -862,6 +862,9 @@ class Snap(s_base.Base):
         if form is None:
             raise s_exc.NoSuchForm(name=name)
 
+        if form.isrunt:
+            raise s_exc.IsRuntForm(mesg='Cannot make runt nodes.',
+                                   form=form.full, prop=valu)
         try:
             adds = self.getNodeAdds(form, valu, props=props)
         except Exception as e:
@@ -1068,6 +1071,7 @@ class Snap(s_base.Base):
             (list): A list of xact messages.
         '''
 
+        # TODO make this produce splices and call without lift
         for (formname, formvalu), forminfo in nodedefs:
             try:
                 props = forminfo.get('props')

@@ -50,7 +50,7 @@ class TagProp:
 
     def getStorNode(self, form='syn:tagprop'):
 
-        ndef = ('syn:tagprop', self.name)
+        ndef = (form, self.name)
         buid = s_common.buid(ndef)
 
         return (buid, {
