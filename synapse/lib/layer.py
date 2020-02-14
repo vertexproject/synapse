@@ -869,7 +869,10 @@ class Layer(s_nexus.Pusher):
         }
 
     async def stat(self):
-        return self.layrslab.statinfo()
+        return {
+            'splicelog_indx': self.splicelog.index(),
+            **self.layrslab.statinfo()
+        }
 
     async def _onLayrFini(self):
         [(await wind.fini()) for wind in self.windows]
@@ -1680,11 +1683,13 @@ class Layer(s_nexus.Pusher):
 
     async def splicesBack(self, offs, size=None):
         if size:
-            for _, mesg in self.splicelog.sliceBack(offs, size):
-                yield mesg
+            for item in self.splicelog.sliceBack(offs, size):
+                async for _, oldsplice in self.makeSplices(item):
+                    yield oldsplice
         else:
-            for _, mesg in self.splicelog.iterBack(offs):
-                yield mesg
+            for item in self.splicelog.iterBack(offs):
+                async for _, oldsplice in self.makeSplices(item):
+                    yield oldsplice
 
     async def syncSplices(self, offs):
         '''
