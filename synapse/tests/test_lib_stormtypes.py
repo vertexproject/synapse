@@ -1455,16 +1455,16 @@ class StormTypesTest(s_test.SynTest):
 
                 mainlayr = core.view.layers[0].iden
 
-                q = '$lib.print($lib.layer.get().value().iden)'
+                q = '$lib.print($lib.layer.get().pack().iden)'
                 mesgs = await core.streamstorm(q).list()
                 self.stormIsInPrint(mainlayr, mesgs)
 
-                q = f'$lib.print($lib.layer.get({mainlayr}).value().iden)'
+                q = f'$lib.print($lib.layer.get({mainlayr}).pack().iden)'
                 mesgs = await core.streamstorm(q).list()
                 self.stormIsInPrint(mainlayr, mesgs)
 
                 # Create a new layer
-                q = f'$lib.print($lib.layer.add().value().iden)'
+                q = f'$lib.print($lib.layer.add().pack().iden)'
                 mesgs = await core.streamstorm(q).list()
                 for mesg in mesgs:
                     if mesg[0] == 'print':
@@ -1475,7 +1475,10 @@ class StormTypesTest(s_test.SynTest):
                 # Add an existing layer
                 self.notin(existinglayr, core.layers)
 
-                q = f'$lib.print($lib.layer.add({existinglayr}).value().iden)'
+                q = f'''
+                    $conf = $lib.dict(layers=({existinglayr}))
+                    $lib.print($lib.layer.add($conf).pack().iden)
+                '''
                 mesgs = await core.streamstorm(q).list()
                 for mesg in mesgs:
                     if mesg[0] == 'print':
@@ -1486,7 +1489,7 @@ class StormTypesTest(s_test.SynTest):
                 # List the layers in the cortex
                 q = '''
                     for $layer in $lib.layer.list() {
-                        $lib.print($layer.value().iden)
+                        $lib.print($layer.pack().iden)
                     }
                 '''
                 idens = []

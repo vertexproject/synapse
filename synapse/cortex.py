@@ -2342,6 +2342,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return self.layers.get(iden)
 
+    def listLayers(self):
+        return self.layers.values()
+
     def getView(self, iden=None):
         '''
         Get a View object.

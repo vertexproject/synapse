@@ -206,21 +206,6 @@ class Snap(s_base.Base):
     # async def addCronJob(self, query, reqdict, incunit, incval):
     #     return await self.core.addCronJob(self.user, query, reqdict, incunit, incval)
 
-    async def addLayer(self, conf=None, stor=None):
-        return await self.core.addLayer(conf, stor)
-
-    async def delLayer(self, iden):
-        return await self.core.delLayer(iden)
-
-    async def getLayer(self, iden):
-        return self.core.getLayer(iden)
-
-    async def listLayers(self):
-        return self.core.layers.values()
-
-    def getStormMod(self, name):
-        return self.mods.get(name)
-
     # async def delCronJob(self, iden):
     #     return await self.core.delCronJob(iden)
 

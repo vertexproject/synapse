@@ -245,17 +245,16 @@ stormcmds = (
         'descr': 'Add a layer to the cortex.',
         'cmdargs': (
             ('--confvar', {'help': 'Name of the variable with a layer configuration dict.'}),
-            ('--stor', {'help': 'Type of storage for the layer.'}),
         ),
         'storm': '''
             if $cmdopts.confvar {
                 $conf = $lib.vars.get($cmdopts.confvar)
-                $layer = $lib.layer.add($conf, stor=$cmdopts.stor)
+                $layer = $lib.layer.add($conf)
             } else {
-                $layer = $lib.layer.add(stor=$cmdopts.stor)
+                $layer = $lib.layer.add()
             }
 
-            $lib.print("Layer added: {iden}", iden=$layer.value().iden)
+            $lib.print("Layer added: {iden}", iden=$layer.pack().iden)
         ''',
     },
     {
@@ -266,7 +265,7 @@ stormcmds = (
         ),
         'storm': '''
             $lib.layer.del($cmdopts.iden)
-            $lib.print("Layer removed: {iden}", name=$cmdopts.iden)
+            $lib.print("Layer removed: {iden}", iden=$cmdopts.iden)
         ''',
     },
     {
@@ -277,7 +276,7 @@ stormcmds = (
         ),
         'storm': '''
             $layer = $lib.layer.get($cmdopts.iden)
-            $lib.print($layer.value().iden)
+            $lib.print($layer.pack().iden)
         ''',
     },
     {
@@ -287,7 +286,7 @@ stormcmds = (
         'storm': '''
             $lib.print('Layers:')
             for $layer in $lib.layer.list() {
-                $lib.print($layer.value().iden)
+                $lib.print($layer.pack().iden)
             }
         ''',
     },

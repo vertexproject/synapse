@@ -1389,13 +1389,13 @@ class LibLayer(Lib):
             'list': self._libLayerList,
         })
 
-    async def _libLayerAdd(self, conf=None, stor=None):
+    async def _libLayerAdd(self, conf=None):
         '''
         Add a layer to the cortex.
         '''
-        self.runt.reqAllowed(('layer', 'add'))
+        self.runt.confirm(('layer', 'add'))
 
-        layer = await self.runt.snap.addLayer(conf, stor)
+        layer = await self.runt.snap.core.addLayer(conf)
 
         return Layer(layer, path=self.path)
 
@@ -1403,22 +1403,22 @@ class LibLayer(Lib):
         '''
         Delete a layer from the cortex.
         '''
-        self.runt.reqAllowed(('layer', 'del'))
+        self.runt.confirm(('layer', 'del'))
 
-        layer = await self.runt.snap.getLayer(iden)
+        layer = self.runt.snap.core.getLayer(iden)
         if layer is None:
             mesg = f'No layer with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        await self.runt.snap.delLayer(iden)
+        await self.runt.snap.core.delLayer(iden)
 
     async def _libLayerGet(self, iden=None):
         '''
         Get a layer from the cortex.
         '''
-        self.runt.reqAllowed(('layer', 'read'))
+        self.runt.confirm(('layer', 'read'))
 
-        layer = await self.runt.snap.getLayer(iden)
+        layer = self.runt.snap.core.getLayer(iden)
         if layer is None:
             mesg = f'No layer with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -1429,9 +1429,9 @@ class LibLayer(Lib):
         '''
         List the layers in a cortex.
         '''
-        self.runt.reqAllowed(('layer', 'read'))
+        self.runt.confirm(('layer', 'read'))
 
-        layers = await self.runt.snap.listLayers()
+        layers = self.runt.snap.core.listLayers()
 
         return [Layer(l, path=self.path) for l in layers]
 
@@ -1442,11 +1442,13 @@ class Layer(Prim):
     def __init__(self, layer, path=None):
         Prim.__init__(self, layer, path=path)
         self.locls.update({
-            'value': self._methLayerValue,
+            'pack': self._methLayerPack,
         })
 
-    async def _methLayerValue(self):
+    async def _methLayerPack(self):
         return {'iden': self.valu.iden,
+                'ctor': self.valu.ctorname,
+                'readonly': self.valu.readonly,
                 }
 
 class LibView(Lib):
