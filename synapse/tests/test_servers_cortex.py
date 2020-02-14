@@ -65,7 +65,7 @@ class CortexServerTest(s_t_utils.SynTest):
                 async with await s_s_cortex.main(argv, outp=outp) as core01:
 
                     # TODO functionalize this API on the cortex (cell?)
-                    await core01.nexsroot.nexuslog.waitForOffset(offs - 1)
+                    await core01.nexsroot.waitForOffset(offs - 1)
 
                     self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
 
@@ -73,7 +73,7 @@ class CortexServerTest(s_t_utils.SynTest):
                     self.len(1, await core00.nodes('[ inet:ipv4=6.6.6.6 ]'))
 
                     offs = core00.nexsroot.getOffset()
-                    await core01.nexsroot.nexuslog.waitForOffset(offs - 1)
+                    await core01.nexsroot.waitForOffset(offs - 1)
 
                     self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
 

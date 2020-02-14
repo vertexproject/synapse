@@ -372,8 +372,9 @@ class LibBytes(Lib):
             mesg = '$lib.bytes.put() requires a bytes argument'
             raise s_exc.BadArg(mesg=mesg)
 
-        axon = await self.runt.snap.getCoreAxon()
-        size, sha2 = await axon.put(byts)
+        await self.runt.snap.core.getAxon()
+        todo = s_common.todo('put', byts)
+        size, sha2 = await self.dyncall('axon', todo)
 
         return (size, s_common.ehex(sha2))
 
@@ -1530,6 +1531,7 @@ class LibTrigger(Lib):
             'add': self._methTriggerAdd,
             'del': self._methTriggerDel,
             'list': self._methTriggerList,
+            'get': self._methTriggerGet,
         })
 
     async def _matchIdens(self, prefix):
@@ -1616,13 +1618,19 @@ class LibTrigger(Lib):
         '''
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
+        triggers = []
 
         todo = s_common.todo('packTriggers', useriden)
-
-        triggers = []
         for tdef in await self.dyncall(viewiden, todo):
             triggers.append(Trigger(self.runt, tdef))
         return triggers
+
+    async def _methTriggerGet(self, iden):
+        triggers = await self._methTriggerList()
+        for trig in triggers:
+            if trig.tdef.get('iden') == iden:
+                return trig
+        return None
 
 class Trigger(StormType):
 
@@ -1631,6 +1639,7 @@ class Trigger(StormType):
         StormType.__init__(self)
         self.runt = runt
         self.tdef = tdef
+        self.iden = self.tdef['iden']
 
         self.locls.update({
             'get': self.tdef.get,
@@ -1642,12 +1651,9 @@ class Trigger(StormType):
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
 
-        gatekeys = (
-            (useriden, ('trigger', 'mod'), viewiden),
-        )
-
-        todo = ('setTrigInfo', (name, valu), {})
-        await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+        gatekeys = ((useriden, ('trigger', 'set'), viewiden),)
+        todo = ('setTrigInfo', (self.iden, name, valu), {})
+        await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
         self.tdef[name] = valu
 

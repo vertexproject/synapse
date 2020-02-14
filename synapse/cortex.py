@@ -35,6 +35,7 @@ import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slaboffs as s_slaboffs
 import synapse.lib.stormhttp as s_stormhttp
+import synapse.lib.stormwhois as s_stormwhois
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -402,9 +403,8 @@ class CoreApi(s_cell.CellApi):
 
         self.user.confirm(('feed:data', *parts), gateiden=wlyr.iden)
 
-        with s_provenance.claim('feed:data', name=name):
-
-            async with await self.cell.snap(user=self.user) as snap:
+        async with await self.cell.snap(user=self.user) as snap:
+            with s_provenance.claim('feed:data', name=name, user=snap.user.iden):
                 snap.strict = False
                 # FIXME:  is this enough to make snap a nexus?  Alternative is to add a cortex pass-through
                 return await snap.addFeedData(name, items, seqn=seqn)
@@ -676,16 +676,13 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.getStormPkg(name)
 
     async def addStormDmon(self, ddef):
-        dmon = await self.cell.addStormDmon(ddef)
-        return dmon.pack()
+        return await self.cell.addStormDmon(ddef)
 
     async def getStormDmons(self):
-        dmons = await self.cell.getStormDmons()
-        return [dmon.pack() for dmon in dmons]
+        return await self.cell.getStormDmons()
 
     async def getStormDmon(self, iden):
-        dmon = await self.cell.getStormDmons(iden)
-        return dmon.pack()
+        return await self.cell.getStormDmon(iden)
 
     async def delStormDmon(self, iden):
         return await self.cell.delStormDmon(iden)
@@ -715,18 +712,13 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'The cortex is free to use most of the resources of the system.',
             'type': 'boolean'
         },
-        'feeds': {
-            'default': [],
-            'description': 'A list of feed dictionaries.',
-            'type': 'array'
-        },
         'layer:lmdb:map_async': {
-            'default': False,
+            'default': True,
             'description': 'Set the default lmdb:map_async value in LMDB layers.',
             'type': 'boolean'
         },
         'layers:lockmemory': {
-            'default': True,
+            'default': False,
             'description': 'Should new layers lock memory for performance by default.',
             'type': 'boolean'
         },
@@ -749,10 +741,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Enable storing splices for layer changes.',
             'type': 'boolean'
         },
-        'splice:sync': {
-            'description': 'A telepath URL for an upstream cortex.',
-            'type': 'string'
-        },
         'storm:log': {
             'default': False,
             'description': 'Log storm queries via system logger.',
@@ -766,6 +754,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     }
 
     cellapi = CoreApi
+    layrctor = s_layer.Layer.anit
 
     async def __anit__(self, dirn, conf=None):
 
@@ -780,10 +769,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.views = {}
         self.layers = {}
-        # self.counts = {}
         self.modules = {}
-        self.storage = {}
-        self.storctors = {}
         self.splicers = {}
         self.feedfuncs = {}
         self.stormcmds = {}
@@ -818,9 +804,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.view = None  # The default/main view
 
-        # Change distribution
-        self.nexsroot = await s_nexus.NexsRoot.anit(dirn)
-        self.onfini(self.nexsroot.fini)
+        # initialize change distribution
+        await self._initNexsRoot()
 
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
@@ -829,13 +814,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self._initSplicers()
         self._initStormLibs()
         self._initFeedFuncs()
-
-        await self._initStorCtors()
-
-        if self.inaugural:
-            await self._initDefLayrStor()
-
-        await self._loadLayrStors()
 
         self._initCortexHttpApi()
 
@@ -851,7 +829,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # Initialize our storage and views
         await self._initCoreAxon()
 
-        await self._migrateViewsLayers()
+        #await self._migrateViewsLayers()
         await self._initCoreLayers()
         await self._initCoreViews()
         self.onfini(self._finiStor)
@@ -868,7 +846,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.onfini(finidmon)
 
-        #self.trigstor = s_trigger.TriggerStorage(self)
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
 
@@ -904,9 +881,14 @@ class Cortex(s_cell.Cell):  # type: ignore
             'cron': self.agenda,
             'cortex': self,
             'multiqueue': self.multiqueue,
+            'axon': self.axon
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
+
+    async def _initNexsRoot(self):
+        self.nexsroot = await s_nexus.NexsRoot.anit(self.dirn)
+        self.onfini(self.nexsroot.fini)
 
     async def _onEvtBumpSpawnPool(self, evnt):
         await self.bumpSpawnPool()
@@ -1855,10 +1837,6 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def getNexusOffsEvent(self, offs):
         return self.nexsroot.nexuslog.getOffsetEvent(offs)
 
-#    async def _getWaitFor(self, name, valu):
-#        form = self.model.form(name)
-#        return form.getWaitFor(valu)
-
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
         self.stormvars = await stormvarsnode.dict()
@@ -1962,6 +1940,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('telepath',), s_stormtypes.LibTelepath)
 
         self.addStormLib(('inet', 'http'), s_stormhttp.LibHttp)
+        self.addStormLib(('inet', 'whois'), s_stormwhois.LibWhois)
         self.addStormLib(('base64',), s_stormtypes.LibBase64)
 
     def _initSplicers(self):
@@ -1979,72 +1958,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'tag:prop:del': self._onFeedTagPropDel,
         }
         self.splicers.update(**splicers)
-
-    async def _initStorCtors(self):
-        '''
-        Registration for built-in Layer ctors
-        '''
-        self.addLayrStorClass(s_layer.LayerStorage)
-
-    async def _loadLayrStors(self):
-
-        for iden, node in await self.hive.open(('cortex', 'storage')):
-            storinfo = await node.dict()
-            try:
-                await self._initLayrStor(storinfo)
-
-            except asyncio.CancelledError: # pragma: no cover
-                raise
-
-            except Exception:
-                logger.exception('error loading layer storage!')
-
-        iden = self.cellinfo.get('layr:stor:default')
-        self.defstor = self.storage.get(iden)
-
-    async def _initDefLayrStor(self):
-        layr = await self.addLayrStor('local', {})
-        await self.cellinfo.set('layr:stor:default', layr.iden)
-
-    @s_nexus.Pusher.onPushAuto('storage:add')
-    async def addLayrStor(self, typename, typeconf):
-        iden = s_common.guid()
-        clas = self.storctors.get(typename)
-        if clas is None:
-            raise s_exc.NoSuchStor(name=typename)
-
-        await clas.reqValidConf(typeconf)
-
-        node = await self.hive.open(('cortex', 'storage', iden))
-
-        info = await node.dict()
-
-        await info.set('iden', iden)
-        await info.set('type', typename)
-        await info.set('conf', typeconf)
-
-        return await self._initLayrStor(info)
-
-    async def _initLayrStor(self, storinfo):
-
-        iden = storinfo.get('iden')
-        typename = storinfo.get('type')
-
-        clas = self.storctors.get(typename)
-
-        # We don't want to persist the path, as it makes backup more difficult
-        path = s_common.gendir(self.dirn, 'layers')
-
-        layrstor = await clas.anit(storinfo, path)
-
-        self.storage[iden] = layrstor
-
-        self.onfini(layrstor)
-
-        return layrstor
-
-    def addLayrStorClass(self, clas):
-        self.storctors[clas.stortype] = clas
 
     def _initFeedFuncs(self):
         '''
@@ -2278,53 +2191,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self.cellinfo.set('defaultview', view.iden)
             self.view = view
 
-    async def _migrateViewsLayers(self):
-        '''
-        Move directories and idens to current scheme where cortex, views, and layers all have unique idens
-
-        Note:
-            This changes directories and hive data, not existing View or Layer objects
-
-        TODO:  due to our migration policy, remove in 0.3.0
-
-        '''
-        defiden = self.cellinfo.get('defaultview')
-        if defiden is not None:
-            # No need for migration; we're up-to-date
-            return
-
-        oldlayriden = self.iden
-        newlayriden = s_common.guid()
-
-        oldviewiden = self.iden
-        newviewiden = s_common.guid()
-
-        if not await self.hive.exists(('cortex', 'views', oldviewiden)):
-            # No view info present; this is a fresh cortex
-            return
-
-        await self.hive.rename(('cortex', 'views', oldviewiden), ('cortex', 'views', newviewiden))
-        logger.info('Migrated view from duplicate iden %s to new iden %s', oldviewiden, newviewiden)
-
-        # Move view/layer metadata
-        await self.hive.rename(('cortex', 'layers', oldlayriden), ('cortex', 'layers', newlayriden))
-        logger.info('Migrated layer from duplicate iden %s to new iden %s', oldlayriden, newlayriden)
-
-        # Move layer data
-        oldpath = os.path.join(self.dirn, 'layers', oldlayriden)
-        newpath = os.path.join(self.dirn, 'layers', newlayriden)
-        os.rename(oldpath, newpath)
-
-        # Replace all views' references to old layer iden with new layer iden
-        node = await self.hive.open(('cortex', 'views'))
-        for _, viewnode in node:
-            info = await viewnode.dict()
-            layers = info.get('layers')
-            newlayers = [newlayriden if layr == oldlayriden else layr for layr in layers]
-            await info.set('layers', newlayers)
-
-        await self.cellinfo.set('defaultview', newviewiden)
-
     async def _migrateLayerOffset(self):
         '''
         In case this is a downstream mirror, move the offsets for the old layr iden to the new layr iden
@@ -2414,10 +2280,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         if view is None:
             # TODO probably need a retn convention here...
             raise s_exc.NoSuchView(iden=iden)
-
-        #if view.parent is not None:
-            #await self.delLayer(view.layers[0].iden)
-            #await view.layers[0].delete()
 
         await self.hive.pop(('cortex', 'views', iden))
         await view.delete()
@@ -2511,7 +2373,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         ldef.setdefault('iden', s_common.guid())
         ldef.setdefault('conf', {})
-        ldef.setdefault('stor', self.defstor.iden)
         ldef.setdefault('creator', self.auth.rootuser.iden)
 
         # FIXME: why do we have two levels of conf?
@@ -2523,20 +2384,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('layer:add')
     async def _addLayer(self, ldef):
 
-        stor = ldef.get('stor')
-
-        layrstor = self.storage.get(stor)
-        if layrstor is None:
-            raise s_exc.NoSuchIden(iden=stor)
-
-        conf = ldef.get('conf')
-        await layrstor.reqValidLayrConf(conf)
-
-        creator = ldef.get('creator')
-        await self.auth.reqUser(creator)
-
         iden = ldef.get('iden')
-
         creator = ldef.get('creator')
 
         user = await self.auth.reqUser(creator)
@@ -2559,13 +2407,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Instantiate a Layer() instance via the provided layer info HiveDict.
         '''
-        stor = layrinfo.get('stor')
-        layrstor = self.storage.get(stor)
-
-        if layrstor is None:
-            raise s_exc.SynErr('missing layer storage')
-
-        layr = await layrstor.initLayr(layrinfo, nexsroot=self.nexsroot)
+        layr = await self._ctorLayr(layrinfo)
 
         self.layers[layr.iden] = layr
         self.dynitems[layr.iden] = layr
@@ -2575,6 +2417,14 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.bumpSpawnPool()
 
         return layr
+
+    async def _ctorLayr(self, layrinfo):
+        '''
+        Actually construct the Layer instance for the given HiveDict.
+        '''
+        iden = layrinfo.get('iden')
+        path = s_common.gendir(self.dirn, 'layers', iden)
+        return await s_layer.Layer.anit(layrinfo, path, nexsroot=self.nexsroot)
 
     async def joinTeleLayer(self, url, indx=None):
         '''
@@ -2631,7 +2481,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         dmon = await self.runStormDmon(iden, ddef)
         await self.stormdmonhive.set(iden, ddef)
-        return dmon
+        return dmon.pack()
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:del')
     async def delStormDmon(self, iden):
@@ -2677,10 +2527,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         return dmon
 
     async def getStormDmon(self, iden):
-        return self.stormdmons.get(iden)
+        dmon = self.stormdmons.get(iden)
+        if dmon is not None:
+            return dmon.pack()
 
     async def getStormDmons(self):
-        return list(self.stormdmons.values())
+        return list(d.pack() for d in self.stormdmons.values())
 
     def addStormLib(self, path, ctor):
 
@@ -2708,180 +2560,9 @@ class Cortex(s_cell.Cell):  # type: ignore
     def getStormCmds(self):
         return list(self.stormcmds.items())
 
-# FIXME: change these to daemons
-#    def _initPushLoop(self):
-#
-#        if self.conf.get('splice:sync') is None:
-#            return
-#
-#        self.schedCoro(self._runPushLoop())
-#
-#    async def _runPushLoop(self):
-#
-#        url = self.conf.get('splice:sync')
-#
-#        iden = self.getCellIden()
-#
-#        logger.info('sync loop init: %s', url)
-#
-#        while not self.isfini:
-#            timeout = 1
-#            try:
-#
-#                url = self.conf.get('splice:sync')
-#
-#                async with await s_telepath.openurl(url) as core:
-#
-#                    # use our iden as the feed iden
-#                    offs = await core.getFeedOffs(iden)
-#
-#                    while not self.isfini:
-#                        layer = self.getLayer()
-#
-#                        items = [x async for x in layer.splices(offs, 10000)]
-#
-#                        if not items:
-#                            await self.waitfini(timeout=1)
-#                            continue
-#
-#                        size = len(items)
-#                        indx = (await layer.stat())['splicelog_indx']
-#
-#                        perc = float(offs) / float(indx) * 100.0
-#
-#                        logger.info('splice push: %d %d/%d (%.4f%%)', size, offs, indx, perc)
-#
-#                        offs = await core.addFeedData('syn.splice', items, seqn=(iden, offs))
-#                        await self.fire('core:splice:sync:sent')
-#
-#            except asyncio.CancelledError:
-#                break
-#
-#            except Exception as e:  # pragma: no cover
-#                if isinstance(e, OSError):
-#                    timeout = 60
-#
-#                logger.exception('sync error')
-#                await self.waitfini(timeout)
-#
-#    def _initCryoLoop(self):
-#
-#        tankurl = self.conf.get('splice:cryotank')
-#        if tankurl is None:
-#            return
-#
-#        self.schedCoro(self._runCryoLoop())
-#
-#    def _initFeedLoops(self):
-#        '''
-#        feeds:
-#            - cryotank: tcp://cryo.vertex.link/cryo00/tank01
-#              xtype: syn.splice
-#        '''
-#        feeds = self.conf.get('feeds', ())
-#        if not feeds:
-#            return
-#
-#        for feed in feeds:
-#
-#            # do some validation before we fire tasks...
-#            typename = feed.get('type')
-#            if self.getFeedFunc(typename) is None:
-#                raise s_exc.NoSuchType(name=typename)
-#
-#            self.schedCoro(self._runFeedLoop(feed))
-#
-#    async def _runFeedLoop(self, feed):
-#
-#        url = feed.get('cryotank')
-#        typename = feed.get('type')
-#        fsize = feed.get('size', 1000)
-#
-#        logger.info('feed loop init: %s @ %s', typename, url)
-#
-#        while not self.isfini:
-#            timeout = 1
-#            try:
-#
-#                url = feed.get('cryotank')
-#
-#                async with await s_telepath.openurl(url) as tank:
-#
-#                    layer = self.getLayer()
-#
-#                    iden = await tank.iden()
-#
-#                    offs = await layer.getOffset(iden)
-#
-#                    while not self.isfini:
-#
-#                        items = [item async for item in tank.slice(offs, fsize)]
-#                        if not items:
-#                            await self.waitfini(timeout=2)
-#                            continue
-#
-#                        datas = [i[1] for i in items]
-#
-#                        offs = await self.addFeedData(typename, datas, seqn=(iden, offs))
-#                        await self.fire('core:feed:loop')
-#                        logger.debug('Processed [%s] records with [%s]',
-#                                     len(datas), typename)
-#
-#            except asyncio.CancelledError:
-#                break
-#
-#            except Exception as e:  # pragma: no cover
-#                if isinstance(e, OSError):
-#                    timeout = 60
-#                logger.exception('feed error')
-#                await self.waitfini(timeout)
-#
-#    async def _runCryoLoop(self):
-#
-#        online = False
-#        tankurl = self.conf.get('splice:cryotank')
-#
-#        # TODO:  what to do when write layer changes?
-#
-#        # push splices for our main layer
-#        layr = self.getLayer()
-#
-#        while not self.isfini:
-#            timeout = 2
-#            try:
-#
-#                async with await s_telepath.openurl(tankurl) as tank:
-#
-#                    if not online:
-#                        online = True
-#                        logger.info('splice cryotank: online')
-#
-#                    offs = await tank.offset(self.iden)
-#
-#                    while not self.isfini:
-#
-#                        items = [item async for item in layr.splices(offs, 10000)]
-#
-#                        if not len(items):
-#                            layr.spliced.clear()
-#                            await s_coro.event_wait(layr.spliced, timeout=1)
-#                            continue
-#
-#                        logger.info('tanking splices: %d', len(items))
-#
-#                        offs = await tank.puts(items, seqn=(self.iden, offs))
-#                        await self.fire('core:splice:cryotank:sent')
-#
-#            except asyncio.CancelledError:  # pragma: no cover
-#                break
-#
-#            except Exception as e:  # pragma: no cover
-#                if isinstance(e, OSError):
-#                    timeout = 60
-#                online = False
-#                logger.exception('splice cryotank offline')
-#
-#                await self.waitfini(timeout)
+    async def getAxon(self):
+        await self.core.axready.wait()
+        return self.core.axon.iden
 
     def setFeedFunc(self, name, func):
         '''
@@ -3269,16 +2950,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         async with await self.snap() as snap:
             snap.strict = False
             return await snap.addFeedData(name, items, seqn=seqn)
-
-    # async def getFeedOffs(self, iden):
-    #    return await self.getLayer().getOffset(iden)
-
-    # async def setFeedOffs(self, iden, offs):
-    #    if offs < 0:
-        #    mesg = 'Offset must be >= 0.'
-        #    raise s_exc.BadConfValu(mesg=mesg, offs=offs, iden=iden)
-
-    #    return await self.getLayer().setOffset(iden, offs)
 
     async def snap(self, user=None, view=None):
         '''

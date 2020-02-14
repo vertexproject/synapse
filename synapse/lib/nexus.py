@@ -81,12 +81,22 @@ class NexsRoot(s_base.Base):
         self.nexuslog = s_slabseqn.SlabSeqn(self.nexusslab, 'nexuslog')
 
     async def issue(self, nexsiden: str, event: str, args: Any, kwargs: Any) -> Any:
+        '''
+        Issue a change event for the given nexsiden instance.
+        '''
         item = (nexsiden, event, args, kwargs)
 
-        nexus = self._nexskids[nexsiden]
         indx = self.nexuslog.add(item)
+
         [dist.update() for dist in tuple(self.mirrors)]
 
+        return await self._apply(indx, item)
+
+    async def _apply(self, indx, item):
+
+        nexsiden, event, args, kwargs = item
+
+        nexus = self._nexskids[nexsiden]
         func, passoff = nexus._nexshands[event]
         if passoff:
             return indx, await func(nexus, *args, nexsoff=indx, **kwargs)
@@ -105,6 +115,9 @@ class NexsRoot(s_base.Base):
         Returns the next offset that would be written
         '''
         return self.nexuslog.index()
+
+    async def waitForOffset(self, offs, timeout=None):
+        return await self.nexuslog.waitForOffset(offs, timeout=timeout)
 
     async def iter(self, offs: int):
         maxoffs = offs
@@ -197,7 +210,7 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         nexsiden = self._nexsiden
         if self._nexsroot:  # Distribute through the change root
             offs, retn = await self._nexsroot.issue(nexsiden, event, args, kwargs)
-            await self._nexsroot.nexuslog.waitForOffset(offs)
+            await self._nexsroot.waitForOffset(offs)
             return retn
 
         # There's no change distribution, so directly execute

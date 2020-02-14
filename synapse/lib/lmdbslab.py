@@ -474,6 +474,7 @@ class Slab(s_base.Base):
 
         kwargs.setdefault('map_size', self.DEFAULT_MAPSIZE)
         kwargs.setdefault('lockmemory', False)
+        kwargs.setdefault('map_async', True)
 
         opts = kwargs
 
@@ -505,6 +506,7 @@ class Slab(s_base.Base):
 
         self.readonly = opts.get('readonly', False)
         self.lockmemory = opts.pop('lockmemory', False)
+        opts.setdefault('map_async', True)
 
         self.mapsize = _mapsizeround(mapsize)
         if self.maxsize is not None:

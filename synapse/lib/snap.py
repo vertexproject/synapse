@@ -91,10 +91,6 @@ class Snap(s_base.Base):
     # APIs that wrap cortex APIs to provide a boundary for the storm runtime
     # ( in many instances a sub-process snap will override )
 
-    async def getCoreAxon(self):
-        await self.core.axready.wait()
-        return self.core.axon
-
     # async def addStormSvc(self, sdef):
     #     return await self.core.addStormSvc(sdef)
 
@@ -1057,6 +1053,7 @@ class Snap(s_base.Base):
             (list): A list of xact messages.
         '''
 
+        # TODO make this produce splices and call without lift
         for (formname, formvalu), forminfo in nodedefs:
             try:
                 props = forminfo.get('props')

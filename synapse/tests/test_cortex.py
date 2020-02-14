@@ -1381,48 +1381,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.ModAlreadyLoaded):
                 await core.loadCoreModule('synapse.tests.utils.TestModule')
 
-    async def test_feed_conf(self):
-        self.skip('Pending moving feedloop to daemon')
-
-        async with self.getTestCryo() as cryo:
-            croot = cryo.auth.getUserByName('root')
-            await croot.setPasswd('croot')
-
-            host, port = await cryo.dmon.listen('tcp://127.0.0.1:0/')
-
-            tname = 'tank:blahblah'
-            tank_addr = f'tcp://root:croot@{host}:{port}/*/{tname}'
-
-            recs = ['a', 'b', 'c']
-
-            conf = {
-                'feeds': [
-                    {'type': 'com.test.record',
-                     'cryotank': tank_addr,
-                     'size': 1,
-                     }
-                ],
-            }
-
-            # initialize the tank and get his iden
-            async with await s_telepath.openurl(tank_addr) as tank:
-                iden = await tank.iden()
-
-            # Spin up a source core configured to eat data from the cryotank
-            with self.getTestDir() as dirn:
-
-                async with self.getTestCore(dirn=dirn, conf=conf) as core:
-
-                    waiter = core.waiter(3, 'core:feed:loop')
-
-                    async with await s_telepath.openurl(tank_addr) as tank:
-                        await tank.puts(recs)
-                    self.true(await waiter.wait(4))
-
-                    offs = await core.view.layers[0].getOffset(iden)
-                    self.eq(offs, 3)
-                    await self.agenlen(2, core.storm('test:str'))
-
     async def test_cortex_coreinfo(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -2683,7 +2641,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = '[test:int=1 test:int=2 test:int=3]'
             podes = [n.pack() async for n in core0.eval(q)]
             self.len(3, podes)
+
         async with self.getTestCore() as core1:
+
             await core1.addFeedData('syn.nodes', podes)
             await self.agenlen(3, core1.eval('test:int'))
 
@@ -2700,17 +2660,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(1138, nodes[0].getTagProp('beep.beep', 'test'))
 
             # Put bad data in
-            with self.getAsyncLoggerStream('synapse.lib.snap',
-                                           "Error making node: [test:str=newp]") as stream:
-                data = [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})]
-                await core1.addFeedData('syn.nodes', data)
-                self.true(await stream.wait(6))
+            data = [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})]
+            await core1.addFeedData('syn.nodes', data)
+            self.len(1, await core1.nodes('test:str=newp -#test.newp'))
 
-            with self.getAsyncLoggerStream('synapse.lib.snap',
-                                           'Tagprop [newp] does not exist, cannot set it') as stream:
-                data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
-                await core1.addFeedData('syn.nodes', data)
-                self.true(await stream.wait(6))
+            data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
+            await core1.addFeedData('syn.nodes', data)
+            self.len(1, await core1.nodes('test:str=opps +#test.newp'))
 
     async def test_stat(self):
 
@@ -3391,156 +3347,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             mesgs = await core.streamstorm(q).list()
             self.stormIsInPrint('1bar', mesgs)
 
-# FIXME:  pending splices
-#    async def test_feed_splice(self):
-#
-#        iden = s_common.guid()
-#
-#        async with self.getTestCore() as core:
-#
-#            offs = await core.getFeedOffs(iden)
-#            self.eq(0, offs)
-#
-#            mesg = ('node:add', {'ndef': ('test:str', 'foo')})
-#            offs = await core.addFeedData('syn.splice', [mesg], seqn=(iden, offs))
-#
-#            self.eq(1, offs)
-#
-#            async with await core.snap() as snap:
-#                node = await snap.getNodeByNdef(('test:str', 'foo'))
-#                self.nn(node)
-#
-#            mesg = ('prop:set', {'ndef': ('test:str', 'foo'), 'prop': 'tick', 'valu': 200})
-#            offs = await core.addFeedData('syn.splice', [mesg], seqn=(iden, offs))
-#
-#            async with await core.snap() as snap:
-#                node = await snap.getNodeByNdef(('test:str', 'foo'))
-#                self.eq(200, node.get('tick'))
-#
-#            mesg = ('prop:del', {'ndef': ('test:str', 'foo'), 'prop': 'tick'})
-#            offs = await core.addFeedData('syn.splice', [mesg], seqn=(iden, offs))
-#
-#            async with await core.snap() as snap:
-#                node = await snap.getNodeByNdef(('test:str', 'foo'))
-#                self.none(node.get('tick'))
-#
-#            mesg = ('tag:add', {'ndef': ('test:str', 'foo'), 'tag': 'bar', 'valu': (200, 300)})
-#            offs = await core.addFeedData('syn.splice', [mesg], seqn=(iden, offs))
-#
-#            async with await core.snap() as snap:
-#                node = await snap.getNodeByNdef(('test:str', 'foo'))
-#                self.eq((200, 300), node.getTag('bar'))
-#
-#            mesg = ('tag:del', {'ndef': ('test:str', 'foo'), 'tag': 'bar'})
-#            offs = await core.addFeedData('syn.splice', [mesg], seqn=(iden, offs))
-#
-#            async with await core.snap() as snap:
-#                node = await snap.getNodeByNdef(('test:str', 'foo'))
-#                self.none(node.getTag('bar'))
-#
-#            await core.addTagProp('score', ('int', {}), {})
-#            splice = ('tag:prop:set', {'ndef': ('test:str', 'foo'), 'tag': 'lol', 'prop': 'score', 'valu': 100,
-#                                       'curv': None})
-#            await core.addFeedData('syn.splice', [splice])
-#
-#            self.len(1, await core.nodes('#lol:score=100'))
-#
-#            splice = ('tag:prop:del', {'ndef': ('test:str', 'foo'), 'tag': 'lol', 'prop': 'score', 'valu': 100})
-#            await core.addFeedData('syn.splice', [splice])
-#
-#            self.len(0, await core.nodes('#lol:score=100'))
-#
-#    async def test_splice_generation(self):
-#
-#        async with self.getTestCore() as core:
-#
-#            await core.addTagProp('confidence', ('int', {}), {})
-#
-#            await core.nodes('[test:str=hello]')
-#            await core.nodes('test:str=hello [:tick="2001"]')
-#            await core.nodes('test:str=hello [:tick="2002"]')
-#            await core.nodes('test:str [+#foo.bar]')
-#            await core.nodes('test:str [+#foo.bar=(2000,2002)]')
-#            await core.nodes('test:str [+#foo.bar=(2000,20020601)]')
-#            # Add a tag inside the time window of the previously added tag
-#            await core.nodes('test:str [+#foo.bar=(2000,20020501)]')
-#            await core.nodes('test:str [-#foo]')
-#            await core.nodes('test:str [-:tick]')
-#
-#            await core.nodes('test:str=hello [ +#lol:confidence=100 ]')
-#            await core.nodes('test:str=hello [ -#lol:confidence  ]')
-#
-#            await core.nodes('test:str | delnode --force')
-#
-#            _splices = await alist(core.view.layers[0].splices(0, 10000))
-#            splices = []
-#            # strip out user and time
-#            for splice in _splices:
-#                splice[1].pop('user', None)
-#                splice[1].pop('time', None)
-#                splice[1].pop('prov', None)
-#                splices.append(splice)
-#
-#            # Ensure the splices are unique
-#            self.len(len(splices), {s_msgpack.en(s) for s in splices})
-#
-#            # Check to ensure a few expected splices exist
-#            mesg = ('node:add', {'ndef': ('test:str', 'hello')})
-#            self.isin(mesg, splices)
-#
-#            mesg = ('prop:set', {'ndef': ('test:str', 'hello'), 'prop': 'tick', 'valu': 978307200000})
-#            self.isin(mesg, splices)
-#
-#            mesg = ('prop:set',
-#                    {'ndef': ('test:str', 'hello'), 'prop': 'tick', 'valu': 1009843200000, 'oldv': 978307200000})
-#            self.isin(mesg, splices)
-#
-#            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo', 'valu': (None, None)})
-#            self.isin(mesg, splices)
-#
-#            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (None, None)})
-#            self.isin(mesg, splices)
-#
-#            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1009843200000)})
-#            self.isin(mesg, splices)
-#
-#            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1022889600000)})
-#            self.isin(mesg, splices)
-#
-#            # Ensure our inside-window tag add did not generate a splice.
-#            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1020211200000)})
-#            self.notin(mesg, splices)
-#
-#            mesg = ('tag:del', {'ndef': ('test:str', 'hello'), 'tag': 'foo', 'valu': (None, None)})
-#            self.isin(mesg, splices)
-#
-#            mesg = ('prop:del', {'ndef': ('test:str', 'hello'), 'prop': 'tick', 'valu': 1009843200000})
-#            self.isin(mesg, splices)
-#
-#            mesg = ('node:del', {'ndef': ('test:str', 'hello')})
-#            self.isin(mesg, splices)
-#
-#            mesg = ('tag:prop:set', {'ndef': ('test:str', 'hello'), 'tag': 'lol', 'prop': 'confidence', 'valu': 100,
-#                                     'curv': None})
-#            self.isin(mesg, splices)
-#
-#            mesg = ('tag:prop:del', {'ndef': ('test:str', 'hello'), 'tag': 'lol', 'prop': 'confidence', 'valu': 100})
-#            self.isin(mesg, splices)
-#
-#        # Splices may be disabled though.
-#        async with self.getTestCore(conf={'splice:en': False}) as core:
-#            nodes = await core.nodes('[test:str=hello]')
-#            self.len(1, nodes)
-#            splices = await alist(core.view.layers[0].splices(0, 10000))
-#            self.len(0, splices)
-#
-#    async def test_cortex_waitfor(self):
-#
-#        async with self.getTestCore() as core:
-#            evnt = await core._getWaitFor('inet:fqdn', 'vertex.link')
-#            await core.nodes('[ inet:fqdn=vertex.link ]')
-#            self.true(evnt.is_set())
-
     async def test_cortex_mirror(self):
 
         with self.getTestDir() as dirn:
@@ -3772,7 +3578,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 async with core.getLocalProxy() as prox:
                     await core.nodes('$lib.queue.add(visi)')
                     ddef = {'storm': '$lib.queue.get(visi).put(done) for $tick in $lib.time.ticker(1) {}'}
-                    dmoniden = await prox.addStormDmon(ddef)
+                    dmonpack = await prox.addStormDmon(ddef)
+                    dmoniden = dmonpack.get('iden')
                     # Storm task pairs are promoted as tasks
                     retn = await prox.ps()
                     dmon_loop_tasks = [task for task in retn if task.get('name') == 'storm:dmon:loop']
@@ -3802,19 +3609,19 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(0, dmon_loop_tasks)
                     self.len(0, dmon_main_tasks)
 
+                    iden = 'XXX'
+                    with self.raises(s_exc.NoSuchIden):
+                        await prox.delStormDmon(iden)
+
+                    with self.raises(s_exc.NeedConfValu):
+                        await core.runStormDmon(iden, {})
+
+                    with self.raises(s_exc.NoSuchUser):
+                        await core.runStormDmon(iden, {'user': 'XXX'})
+
             async with await s_cortex.Cortex.anit(dirn) as core:
                 # two entries means he ran twice ( once on add and once on restart )
                 await core.nodes('$lib.queue.get(visi).gets(size=2)')
-
-            with self.raises(s_exc.NoSuchIden):
-                await prox.delStormDmon('XXX')
-
-            iden = 'XXX'
-            with self.raises(s_exc.NeedConfValu):
-                await core.runStormDmon(iden, {})
-
-            with self.raises(s_exc.NoSuchUser):
-                await core.runStormDmon(iden, {'user': 'XXX'})
 
     async def test_cortex_storm_dmon_view(self):
 
