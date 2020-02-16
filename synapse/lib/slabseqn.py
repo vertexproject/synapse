@@ -124,11 +124,26 @@ class SlabSeqn:
             (indx, valu): The index and valu of the item.
         '''
         startkey = s_common.int64en(offs)
-
         for lkey, lval in self.slab.scanByRange(startkey, db=self.db):
             indx = s_common.int64un(lkey)
             valu = s_msgpack.un(lval)
             yield indx, valu
+
+    def trim(self, offs):
+        '''
+        Delete entries starting at offset and moving forward.
+        '''
+        retn = False
+
+        startkey = s_common.int64en(offs)
+        for lkey, lval in self.slab.scanByRange(startkey, db=self.db):
+            retn = True
+            self.slab.delete(lkey, db=self.db)
+
+        if retn:
+            self.indx = self.nextindx()
+
+        return retn
 
     def iterBack(self, offs):
         '''
@@ -162,7 +177,8 @@ class SlabSeqn:
         '''
         lkey = s_common.int64en(offs)
         valu = self.slab.get(lkey, db=self.db)
-        return s_msgpack.un(valu)
+        if valu is not None:
+            return s_msgpack.un(valu)
 
     def slice(self, offs, size):
 

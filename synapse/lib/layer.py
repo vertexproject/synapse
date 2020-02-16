@@ -725,6 +725,8 @@ class Layer(s_nexus.Pusher):
     async def __anit__(self, layrinfo, dirn, conf=None, nexsroot=None):
 
         self.nexsroot = nexsroot
+        self.layrinfo = layrinfo
+
         self.iden = layrinfo.get('iden')
         await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=nexsroot)
 
@@ -1616,93 +1618,6 @@ class Layer(s_nexus.Pusher):
         for lkey, _ in self.layrslab.scanByPref(buid, db=self.nodedata):
             self.layrslab.delete(lkey, db=self.nodedata)
 
-    #async def _storFireSplices(self, splices):
-        #'''
-        #Fire events, windows, etc for splices.
-        #'''
-        #indx = await self._storSplices(splices)
-
-        #self.spliced.set()
-        #self.spliced.clear()
-
-        #items = [(indx + i, s) for (i, s) in enumerate(splices)]
-
-        # go fast and protect against edit-while-iter issues
-        #[(await wind.puts(items)) for wind in tuple(self.windows)]
-
-        #[(await self.dist(s)) for s in splices]
-
-    #async def _liftByFormRe(self, oper):
-
-        #form, query, info = oper[1]
-
-        #regx = regex.compile(query)
-
-        #count = 0
-
-        #async for buid, valu in self.iterFormRows(form):
-
-            #count += 1
-            #if not count % FAIR_ITERS:
-                #await asyncio.sleep(0)  # give other tasks a chance
-
-            # for now... but maybe repr eventually?
-            #if not isinstance(valu, str):
-                #valu = str(valu)
-
-            #if not regx.search(valu):
-                #continue
-
-            #yield (buid,)
-
-    #async def _liftByUnivRe(self, oper):
-
-        #prop, query, info = oper[1]
-#
-        #regx = regex.compile(query)
-
-        #count = 0
-
-        #async for buid, valu in self.iterUnivRows(prop):
-
-            #count += 1
-            #if not count % FAIR_ITERS:
-                #await asyncio.sleep(0)  # give other tasks a chance
-
-            # for now... but maybe repr eventually?
-            #if not isinstance(valu, str):
-                #valu = str(valu)
-
-            #if not regx.search(valu):
-                #continue
-
-            #yield (buid,)
-
-    #async def _liftByPropRe(self, oper):
-        # ('regex', (<form>, <prop>, <regex>, info))
-        #form, prop, query, info = oper[1]
-
-        #regx = regex.compile(query)
-
-        #count = 0
-
-        # full table scan...
-        #async for buid, valu in self.iterPropRows(form, prop):
-
-            #count += 1
-            #if not count % FAIR_ITERS:
-                #await asyncio.sleep(0)  # give other tasks a chance
-
-            # for now... but maybe repr eventually?
-            #if not isinstance(valu, str):
-                #valu = str(valu)
-
-            #if not regx.search(valu):
-                #continue
-
-            # yield buid, form, prop, valu
-            #yield (buid,)
-
     # TODO: Hack until we get interval trees pushed all the way through
     def _cmprIval(self, item, othr):
 
@@ -1714,82 +1629,11 @@ class Layer(s_nexus.Pusher):
 
         return True
 
-    #async def _liftByPropIval(self, oper):
-        #form, prop, ival = oper[1]
-        #count = 0
-        #async for buid, valu in self.iterPropRows(form, prop):
-            #count += 1
-
-            #if not count % FAIR_ITERS:
-                #await asyncio.sleep(0)
-
-            #if type(valu) not in (list, tuple):
-                #continue
-
-            #if len(valu) != 2:
-                #continue
-
-            #if not self._cmprIval(ival, valu):
-                #continue
-
-            #yield (buid,)
-
-    #async def _liftByUnivIval(self, oper):
-        #_, prop, ival = oper[1]
-        #count = 0
-        #async for buid, valu in self.iterUnivRows(prop):
-            #count += 1
-
-            #if not count % FAIR_ITERS:
-                #await asyncio.sleep(0)
-
-            #if type(valu) not in (list, tuple):
-                #continue
-
-            #if len(valu) != 2:
-                #continue
-
-            #if not self._cmprIval(ival, valu):
-                #continue
-
-            #yield (buid,)
-
-    #async def _liftByFormIval(self, oper):
-        #_, form, ival = oper[1]
-        #count = 0
-        #async for buid, valu in self.iterFormRows(form):
-            #count += 1
-
-            #if not count % FAIR_ITERS:
-                #await asyncio.sleep(0)
-
-            #if type(valu) not in (list, tuple):
-                #continue
-
-            #if len(valu) != 2:
-                #continue
-
-            #if not self._cmprIval(ival, valu):
-                #continue
-
-            #yield (buid,)
-
-    # The following functions are abstract methods that must be implemented by a subclass
-
-    #async def getModelVers(self):  # pragma: no cover
-        #raise NotImplementedError
-
     async def getModelVers(self):
-
-        byts = self.layrslab.get(b'layer:model:version')
-        if byts is None:
-            return (-1, -1, -1)
-
-        return s_msgpack.un(byts)
+        return self.layrinfo.get('model:version', (-1, -1, -1))
 
     async def setModelVers(self, vers):
-        byts = s_msgpack.en(vers)
-        self.layrslab.put(b'layer:model:version', byts)
+        await self.layrinfo.set('model:version', vers)
 
     async def splices(self, offs, size):
         if self.nexsroot is None:
@@ -1855,135 +1699,9 @@ class Layer(s_nexus.Pusher):
 
         return evnt
 
-    #async def setModelVers(self, vers):  # pragma: no cover
-        #raise NotImplementedError
-
-    #async def setOffset(self, iden, offs):  # pragma: no cover
-        #raise NotImplementedError
-
-    #async def getOffset(self, iden):  # pragma: no cover
-        #raise NotImplementedError
-
-    #async def abort(self):  # pragma: no cover
-        #raise NotImplementedError
-
-    #async def getBuidProps(self, buid):  # pragma: no cover
-        #raise NotImplementedError
-
-    #async def _storPropSet(self, oper):  # pragma: no cover
-        #raise NotImplementedError
-
-    #async def _storTagPropSet(self, oper): # pragma: no cover
-        #raise NotImplementedError
-
-    #async def _storTagPropDel(self, oper): # pragma: no cover
-        #raise NotImplementedError
-
-    #async def _storBuidSet(self, oper):  # pragma: no cover
-        #raise NotImplementedError
-
-    #async def _storPropDel(self, oper):  # pragma: no cover
-        #raise NotImplementedError
-
-    #async def _liftByIndx(self, oper):  # pragma: no cover
-        #raise NotImplementedError
-
-    #async def _liftByTagProp(self, oper): # pragma: no cover
-        #raise NotImplementedError
-
-    #async def iterFormRows(self, form):  # pragma: no cover
-        #'''
-        #Iterate (buid, valu) rows for the given form in this layer.
-        #'''
-        #for x in (): yield x
-        #raise NotImplementedError
-
-    #async def hasTagProp(self, name): # pragma: no cover
-        #raise NotImplementedError
-
-    #async def iterPropRows(self, form, prop):  # pragma: no cover
-        #'''
-        #Iterate (buid, valu) rows for the given form:prop in this layer.
-        #'''
-        #for x in (): yield x
-        #raise NotImplementedError
-
-    #async def iterUnivRows(self, prop):  # pragma: no cover
-        #'''
-        #Iterate (buid, valu) rows for the given universal prop
-        #'''
-        #for x in (): yield x
-        #raise NotImplementedError
-
-    #async def stat(self):  # pragma: no cover
-        #raise NotImplementedError
-
-    #async def splices(self, offs, size):  # pragma: no cover
-        #for x in (): yield x
-        #raise NotImplementedError
-
-    #async def syncSplices(self, offs):  # pragma: no cover
-        #'''
-        #Yield (offs, mesg) tuples from the given offset.
-
-        #Once caught up with storage, yield them in realtime.
-        #'''
-        #for x in (): yield x
-        #raise NotImplementedError
-
-    #async def getNodeNdef(self, buid):  # pragma: no cover
-        #raise NotImplementedError
-
-    #async def delUnivProp(self, propname, info=None): # pragma: no cover
-        #'''
-        #Bulk delete all instances of a universal prop.
-        #'''
-        #raise NotImplementedError
-
-    #async def delFormProp(self, formname, propname, info=None): # pragma: no cover
-        #'''
-        #Bulk delete all instances of a form prop.
-        #'''
-
     async def delete(self):
         '''
         Delete the underlying storage
         '''
         await self.fini()
         shutil.rmtree(self.dirn, ignore_errors=True)
-
-class LayerStorage(s_base.Base):
-    '''
-    An LayerStorage acts as a factory instance for Layers.
-    '''
-
-    stortype = 'local'
-
-    async def __anit__(self, info, dirn):
-
-        await s_base.Base.__anit__(self)
-
-        self.info = info
-        self.iden = info.get('iden')
-        self.name = info.get('name')
-        self.conf = info.get('conf')
-        self.dirn = dirn
-
-        if self.iden is None:
-            mesg = f'LayerStorage ({self.stortype}) needs an iden!'
-            raise s_exc.NeedConfValu(mesg=mesg, name=self.iden)
-
-    async def initLayr(self, layrinfo, nexsroot: s_nexus.NexsRoot = None):
-        iden = layrinfo.get('iden')
-        if iden is None:
-            raise s_exc.NeedConfValu(mesg='Missing layer iden', name=self)
-
-        path = s_common.gendir(self.dirn, iden)
-        return await Layer.anit(layrinfo, path, nexsroot=nexsroot)
-
-    async def reqValidLayrConf(self, conf):
-        return
-
-    @staticmethod
-    async def reqValidConf(conf):
-        return
