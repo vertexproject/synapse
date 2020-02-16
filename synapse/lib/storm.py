@@ -431,22 +431,32 @@ stormcmds = (
                 $lib.print("user       iden         en? cond      object                    storm query")
 
                 for $trigger in $triggers {
-                    $user = $trigger.user.ljust(10)
-                    $iden = $trigger.idenshort.ljust(12)
-                    $enabled = $trigger.enabled.ljust(3)
+                    $user = $trigger.username.ljust(10)
+                    $iden = $trigger.iden.ljust(12)
+                    $enabled = $lib.model.type(bool).repr($trigger.enabled).ljust(6)
                     $cond = $trigger.cond.ljust(9)
 
+                    $fo = ""
+                    if $($trigger.form) {
+                        $fo = $trigger.form
+                    }
+
+                    $pr = ""
+                    if $($trigger.prop) {
+                        $pr = $trigger.prop
+                    }
+
                     if $cond.startswith('tag:') {
-                        $obj = $trigger.form.ljust(14)
+                        $obj = $fo.ljust(14)
                         $obj2 = $trigger.tag.ljust(10)
                     } else {
-                        $obj = $trigger.prop.ljust(14)
-                        $obj2 = $trigger.form.ljust(10)
+                        $obj = $pr.ljust(14)
+                        $obj2 = $fo.ljust(10)
                     }
 
                     $lib.print("{user} {iden} {enabled} {cond} {obj} {obj2} {query}",
                               user=$user, iden=$iden, enabled=$enabled, cond=$cond,
-                              obj=$obj, obj2=$obj2, query=$trigger.query)
+                              obj=$obj, obj2=$obj2, query=$trigger.storm)
                 }
             } else {
                 $lib.print("No triggers found")
@@ -532,8 +542,8 @@ stormcmds = (
             ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
         ),
         'storm': '''
-            $iden = $lib.cron.del($cmdopts.iden)
-            $lib.print("Deleted cron job: {iden}", iden=$iden)
+            $lib.cron.del($cmdopts.iden)
+            $lib.print("Deleted cron job: {iden}", iden=$cmdopts.iden)
         ''',
     },
     {
@@ -1090,7 +1100,7 @@ class Cmd:
     name = 'cmd'
     pkgname = ''
     svciden = ''
-    forms = {}
+    forms = {}  # type: ignore
 
     def __init__(self, argv):
         self.opts = None
@@ -1142,6 +1152,7 @@ class Cmd:
         if name.startswith(':'):
 
             prop = name[1:]
+
             def func(path):
                 return path.node.get(prop)
             return func

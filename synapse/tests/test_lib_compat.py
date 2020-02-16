@@ -26,6 +26,7 @@ class CompatTest(s_tests.SynTest):
         self.false(fred.allowed(('tag:add', 'newp')))
 
     async def test_compat_cellauth(self):
+        self.skip('We need 020 built into the migration test stuff')
 
         # This copies a bit of the regression helper code
         with self.getRegrDir('cortexes', 'old-cell-auth') as dirn:

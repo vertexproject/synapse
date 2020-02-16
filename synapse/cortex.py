@@ -232,11 +232,7 @@ class CoreApi(s_cell.CellApi):
             if not self.user.allowed(('cron', 'get'), gateiden=iden):
                 continue
 
-            info = cron.pack()
-            info['iden'] = iden
-            info['username'] = self.cell.getUserName(cron.useriden)
-
-            crons.append((iden, info))
+            crons.append((iden, cron))
 
         return crons
 
@@ -815,6 +811,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.view = None  # The default/main view
 
+        self.provstor = await s_provenance.ProvStor.anit(self.dirn)
+        self.onfini(self.provstor.fini)
+
         # Change distribution
         self.nexsroot = await s_nexus.NexsRoot.anit(dirn)
         self.onfini(self.nexsroot.fini)
@@ -855,9 +854,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self._checkLayerModels()
         await self._initCoreQueues()
 
-        self.provstor = await s_provenance.ProvStor.anit(self.dirn)
-        self.onfini(self.provstor.fini)
-
         self.addHealthFunc(self._cortexHealth)
 
         async def finidmon():
@@ -865,7 +861,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.onfini(finidmon)
 
-        #self.trigstor = s_trigger.TriggerStorage(self)
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
 
@@ -1408,7 +1403,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Delete storm packages associated with a service.
         '''
         oldpkgs = []
-        for name, pdef in self.pkghive.items():
+        for _, pdef in self.pkghive.items():
             pkgiden = pdef.get('svciden')
             if pkgiden and pkgiden == iden:
                 oldpkgs.append(pdef)
@@ -1827,7 +1822,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                             items = [item]
 
                             # check if there are more we can eat
-                            for i in range(q.qsize()):
+                            for _ in range(q.qsize()):
 
                                 nexi = await q.get()
                                 if nexi is None:
@@ -1928,7 +1923,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             logger.warning(f'Removing old command: [{name}]')
             await self.cmdhive.pop(name)
 
-        for name, pkgdef in self.pkghive.items():
+        for pkgdef in self.pkghive.values():
             await self._tryLoadStormPkg(pkgdef)
 
     async def _trySetStormCmd(self, name, cdef):
@@ -1951,6 +1946,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('user',), s_stormtypes.LibUser)
         self.addStormLib(('vars',), s_stormtypes.LibVars)
         self.addStormLib(('view',), s_stormtypes.LibView)
+        self.addStormLib(('model',), s_stormtypes.LibModel)
         self.addStormLib(('queue',), s_stormtypes.LibQueue)
         self.addStormLib(('stats',), s_stormtypes.LibStats)
         self.addStormLib(('bytes',), s_stormtypes.LibBytes)
@@ -1986,7 +1982,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def _loadLayrStors(self):
 
-        for iden, node in await self.hive.open(('cortex', 'storage')):
+        for _, node in await self.hive.open(('cortex', 'storage')):
             storinfo = await node.dict()
             try:
                 await self._initLayrStor(storinfo)
@@ -2413,10 +2409,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             # TODO probably need a retn convention here...
             raise s_exc.NoSuchView(iden=iden)
 
-        #if view.parent is not None:
-            #await self.delLayer(view.layers[0].iden)
-            #await view.layers[0].delete()
-
         await self.hive.pop(('cortex', 'views', iden))
         await view.delete()
 
@@ -2709,8 +2701,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         return list(self.stormcmds.items())
 
     async def getAxon(self):
-        await self.core.axready.wait()
-        return self.core.axon.iden
+        await self.axready.wait()
+        return self.axon.iden
 
 # FIXME: change these to daemons
 #    def _initPushLoop(self):
@@ -3528,7 +3520,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
-        await self.cell.agenda.delete(iden)
+        await self.agenda.delete(iden)
         await self.auth.delAuthGate(iden)
 
     @s_nexus.Pusher.onPushAuto('cron:mod')
@@ -3539,7 +3531,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        await self.cell.agenda.mod(iden, query)
+        await self.agenda.mod(iden, query)
 
     @s_nexus.Pusher.onPushAuto('cron:enable')
     async def enableCronJob(self, iden):
@@ -3549,49 +3541,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        await self.cell.agenda.enable(iden)
-
-    @s_nexus.Pusher.onPushAuto('cron:disable')
-    async def disableCronJob(self, iden):
-        '''
-        Enable a cron job
-
-        Args:
-            iden (bytes):  The iden of the cron job to be changed
-        '''
-        await self.cell.agenda.disable(iden)
-
-    @staticmethod
-    def _convert_reqdict(reqdict):
-        return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
-
-    async def delCronJob(self, iden):
-        '''
-        Delete a cron job
-
-        Args:
-            iden (bytes):  The iden of the cron job to be deleted
-        '''
-        await self.agenda.delete(iden)
-
-    async def updateCronJob(self, iden, query):
-        '''
-        Change an existing cron job's query
-
-        Args:
-            iden (bytes):  The iden of the cron job to be changed
-        '''
-        await self.agenda.mod(iden, query)
-
-    async def enableCronJob(self, iden):
-        '''
-        Enable a cron job
-
-        Args:
-            iden (bytes):  The iden of the cron job to be changed
-        '''
         await self.agenda.enable(iden)
 
+    @s_nexus.Pusher.onPushAuto('cron:disable')
     async def disableCronJob(self, iden):
         '''
         Enable a cron job
@@ -3605,7 +3557,20 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Get information about all the cron jobs accessible to the current user
         '''
-        return self.agenda.list()
+        crons = []
+
+        for iden, cron in self.agenda.list():
+
+            info = cron.pack()
+
+            info['iden'] = iden
+
+            user = self.auth.user(cron.useriden)
+            info['username'] = user.name
+
+            crons.append((iden, info))
+
+        return crons
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):

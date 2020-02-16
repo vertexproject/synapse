@@ -1792,16 +1792,27 @@ class Layer(s_nexus.Pusher):
         self.layrslab.put(b'layer:model:version', byts)
 
     async def splices(self, offs, size):
+        if self.nexsroot is None:
+            return
+
+        nexuslog = self.nexsroot.nexuslog
+
         for _, mesg in self.splicelog.slice(offs, size):
-            yield mesg
+            # mesg is actually just an offset into the nexus log
+            yield nexuslog.get(mesg)
 
     async def splicesBack(self, offs, size=None):
+        if self.nexsroot is None:
+            return
+
+        nexuslog = self.nexsroot.nexuslog
+
         if size:
             for _, mesg in self.splicelog.sliceBack(offs, size):
-                yield mesg
+                yield nexuslog.get(mesg)
         else:
             for _, mesg in self.splicelog.iterBack(offs):
-                yield mesg
+                yield nexuslog.get(mesg)
 
     async def syncSplices(self, offs):
         '''

@@ -636,7 +636,6 @@ class Node:
         '''
 
         formname, formvalu = self.ndef
-        #print('DELETING %r' % (self.ndef,))
 
         if self.form.isrunt:
             raise s_exc.IsRuntForm(mesg='Cannot delete runt nodes',
@@ -645,7 +644,7 @@ class Node:
         tags = [(len(t), t) for t in self.tags.keys()]
 
         # check for tag permissions
-        # TODO
+        # FIXME:  let's resolve this for good
 
         # check for any nodes which reference us...
         if not force:

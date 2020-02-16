@@ -14,7 +14,8 @@ class RegMethType(type):
     '''
     def __init__(cls, name: str, bases: List[type], attrs: Dict[str, Any]):
         # Start with my parents' definitions
-        cls._regclstupls = sum((getattr(scls, '_regclstupls', []) for scls in bases), [])
+        cls._regclstupls: List[Tuple[str, Callable, bool]] = \
+            sum((getattr(scls, '_regclstupls', []) for scls in bases), [])
 
         # Add my own definitions
         for meth in attrs.values():
@@ -84,6 +85,7 @@ class NexsRoot(s_base.Base):
         item = (nexsiden, event, args, kwargs)
 
         nexus = self._nexskids[nexsiden]
+
         indx = self.nexuslog.add(item)
         [dist.update() for dist in tuple(self.mirrors)]
 
