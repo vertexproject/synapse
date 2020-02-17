@@ -244,15 +244,24 @@ stormcmds = (
         'name': 'layer.add',
         'descr': 'Add a layer to the cortex.',
         'cmdargs': (
+            ('--lockmemory', {'help': 'Should the layer lock memory for performance.'}),
+            ('--readonly', {'help': 'Should the layer be readonly.'}),
+            ('--growsize', {'help': 'Amount to grow the map size when necessary.'}),
+            ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
             ('--confvar', {'help': 'Name of the variable with a layer configuration dict.'}),
         ),
         'storm': '''
             if $cmdopts.confvar {
                 $conf = $lib.vars.get($cmdopts.confvar)
-                $layer = $lib.layer.add($conf)
             } else {
-                $layer = $lib.layer.add()
+                $conf = $lib.dict(lockmemory=$cmdopts.lockmemory,
+                                  growsize=$cmdopts.growsize,
+                                  upstream=$cmdopts.upstream,
+                                  readonly=$cmdopts.readonly,
+                                  )
             }
+
+            $layer = $lib.layer.add($conf)
 
             $lib.print("Layer added: {iden}", iden=$layer.pack().iden)
         ''',
