@@ -33,7 +33,11 @@ def intify(x):
         if x == 'false':
             return 0
 
-        return int(x, 0)
+        try:
+            return int(x, 0)
+
+        except ValueError:
+            return len(x) > 0
 
     return int(x)
 
@@ -77,12 +81,15 @@ class StormType:
         raise s_exc.NoSuchName(name=name, styp=self.__class__.__name__)
 
 class Lib(StormType):
+    '''
+    A collection of storm methods under a name
+    '''
 
     def __init__(self, runt, name=()):
         StormType.__init__(self)
         self.runt = runt
         self.name = name
-
+        self.auth = runt.snap.core.auth
         self.addLibFuncs()
 
     def addLibFuncs(self):
@@ -513,6 +520,7 @@ class LibFeed(Lib):
             return self.runt.snap.addFeedNodes(name, data)
 
     async def _libList(self):
+        # FIXME
         return await self.runt.snap.core.getFeedFuncs()
 
     async def _libIngest(self, name, data, seqn=None):
@@ -945,6 +953,9 @@ class List(Prim):
         '''
         return len(self)
 
+class Bool(Prim):
+    pass
+
 class LibUser(Lib):
     def addLibFuncs(self):
         uservars = LibUserVars(self.runt, ())
@@ -979,20 +990,24 @@ class LibGlobals(Lib):
     async def _methGet(self, name, default=None):
         self._reqStr(name)
         self.runt.user.confirm(('globals', 'get', name))
+        #FIXME
         return await self.runt.snap.core.getStormVar(name, default=default)
 
     async def _methPop(self, name, default=None):
         self._reqStr(name)
         self.runt.user.confirm(('globals', 'pop', name))
+        #FIXME
         return await self.runt.snap.core.popStormVar(name, default=default)
 
     async def _methSet(self, name, valu):
         self._reqStr(name)
         self.runt.user.confirm(('globals', 'set', name))
+        #FIXME
         return await self.runt.snap.core.setStormVar(name, valu)
 
     async def _methList(self):
         ret = []
+        #FIXME
         async for key, valu in self.runt.snap.core.itemsStormVar():
             try:
                 self.runt.user.confirm(('globals', 'get', key))
@@ -1008,7 +1023,6 @@ class LibUserVars(Lib):
     '''
     def __init__(self, runt, name):
         Lib.__init__(self, runt, name)
-        self.auth = runt.snap.core.auth
         self.useriden = runt.user.iden
 
     def addLibFuncs(self):
@@ -1473,6 +1487,7 @@ class LibView(Lib):
             'creator': self.runt.user.iden,
             'layers': layers
         }
+        #FIXME
         view = await self.runt.snap.core.addView(vdef)
         if view is None:
             mesg = f'Failed to add view.'
@@ -1484,47 +1499,49 @@ class LibView(Lib):
         '''
         Delete a view in the cortex.
         '''
-        view = self.runt.snap.core.getView(iden=iden)
-        if view is None:
-            mesg = f'No view with iden: {iden}'
-            raise s_exc.NoSuchIden(mesg=mesg)
-
-        if view is self.runt.snap.core.view:
-            mesg = f'Deleting the main view is not permitted.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=iden)
-
-        if not view.info.get('owner') == self.runt.user.iden:
-            self.runt.confirm(('view', 'del'))
-
-        await self.runt.snap.core.delView(iden=view.iden)
-
-        return True
+        # FIXME: doesn't this belong on View?
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('view', 'del'), iden),)
+        todo = ('delView', (iden,), {})
+        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methViewFork(self, iden):
         '''
         Fork a view in the cortex.
         '''
-        self.runt.confirm(('view', 'add'))
+        # FIXME: doesn't this belong on View?
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('view', 'add'), iden),)
 
-        view = self.runt.snap.core.getView(iden=iden)
-        if view is None:
-            mesg = f'No view with iden: {iden}'
-            raise s_exc.NoSuchIden(mesg=mesg)
-
-        newview = await view.fork(ldef={'creator': self.runt.user.iden}, vdef={'creator': self.runt.user.iden})
+        ldef = {'creator': self.runt.user.iden}
+        vdef = {'creator': self.runt.user.iden}
+        todo = s_common.todo('fork', ldef=ldef, vdef=vdef)
+        newview = await self.runt.dyncall(iden, todo, gatekeys=gatekeys)
 
         return View(newview, path=self.path)
+
+    async def _methViewMerge(self, iden):
+        # FIXME: doesn't this belong on View?
+        '''
+        Merge a forked view back into its parent.
+
+        When complete, the view is deleted.
+        '''
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('view', 'get'), iden),)
+        todo = ('merge', (), {})
+        return await self.runt.dyncall(iden, todo, gatekeys=gatekeys)
 
     async def _methViewGet(self, iden=None):
         '''
         Retrieve a view from the cortex.
         '''
-        self.runt.confirm(('view', 'read'))
-
-        view = self.runt.snap.core.getView(iden=iden)
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('view', 'get'), iden),)
+        todo = ('getView', (), {'iden': iden})
+        view = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
         if view is None:
-            mesg = f'No view with iden: {iden}'
-            raise s_exc.NoSuchIden(mesg=mesg)
+            raise s_exc.NoSuchView(mesg=iden)
 
         return View(view, path=self.path)
 
@@ -1532,43 +1549,12 @@ class LibView(Lib):
         '''
         List the views in the cortex.
         '''
-        self.runt.confirm(('view', 'read'))
-
-        views = self.runt.snap.core.listViews()
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('view', 'read'), None),)
+        todo = ('listViews', (), {})
+        views = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
         return [View(view, path=self.path) for view in views]
-
-    async def _methViewMerge(self, iden):
-        '''
-        Merge a forked view back into its parent.
-
-        When complete, the view is deleted.
-        '''
-        view = self.runt.snap.core.getView(iden=iden)
-        if view is None:
-            mesg = f'No view with iden: {iden}'
-            raise s_exc.NoSuchIden(mesg=mesg)
-
-        if not view.info.get('owner') == self.runt.user.iden:
-            self.runt.confirm(('view', 'del'))
-
-        view.layers[0].readonly = True
-        try:
-            await view.mergeAllowed(self.runt.user)
-            await view.merge()
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
-
-        except s_exc.AuthDeny as e:
-            view.layers[0].readonly = False
-            perm = e.get('perm')
-            mesg = f'Insufficient permissions to perform merge: {e.get("mesg")}'
-            raise s_exc.AuthDeny(mesg=mesg, perm=perm, iden=iden) from None
-
-        except Exception as e:
-            view.layers[0].readonly = False
-            mesg = f'Error during merge - {str(e)}'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=iden) from None
 
 class View(Prim):
     '''
@@ -1580,6 +1566,7 @@ class View(Prim):
             'pack': self._methViewPack,
         })
 
+    # FIXME: discuss normalize this stuff tdef/deref
     async def _methViewPack(self):
 
         layrinfo = []
@@ -1604,6 +1591,9 @@ class LibTrigger(Lib):
             'del': self._methTriggerDel,
             'list': self._methTriggerList,
             'get': self._methTriggerGet,
+            'enable': self._methTriggerEnable,
+            'disable': self._methTriggerDisable,
+            'mod': self._methTriggerMod
         })
 
     async def _matchIdens(self, prefix):
@@ -1614,28 +1604,25 @@ class LibTrigger(Lib):
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
 
-        matches = []
-
-        todo = s_common.todo('packTriggers', useriden)
+        todo = s_common.todo('listTriggers', useriden)
         trigs = await self.dyncall(viewiden, todo)
+        match = None
 
-        for tdef in trigs:
-            iden = tdef.get('iden')
+        for trig in trigs:
+            iden = trig.get('iden')
             if iden.startswith(prefix):
-                matches.append(iden)
+                if match is not None:
+                    mesg = 'Provided iden matches more than one trigger.'
+                    raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+                match = trig
 
-        if len(matches) == 1:
-            return matches[0]
-
-        elif len(matches) == 0:
+        if match is None:
             mesg = 'Provided iden does not match any valid authorized triggers.'
             raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
-        else:
-            mesg = 'Provided iden matches more than one trigger.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+        return match
 
-    async def _methTriggerAdd(self, tdef): # cond, form=None, tag=None, prop=None, query=None, disabled=False):
+    async def _methTriggerAdd(self, tdef): # cond, form=None, tag=None, prop=None, storm=None, disabled=False):
         '''
         Add a trigger to the cortex.
         '''
@@ -1644,6 +1631,12 @@ class LibTrigger(Lib):
 
         tdef['user'] = useriden
         tdef['view'] = viewiden
+        tdef['cond'] = tdef.pop('condition')
+        tdef['storm'] = tdef.pop('query')
+
+        tag = tdef.get('tag')
+        if tag is not None and tag[0] == '#':
+            tdef['tag'] = tag[1:]
 
         gatekeys = ((useriden, ('trigger', 'add'), viewiden),)
         todo = ('addTrigger', (tdef,), {})
@@ -1657,13 +1650,11 @@ class LibTrigger(Lib):
         '''
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
-        trigiden = await self._matchIdens(prefix)
+        tdef = await self._matchIdens(prefix)
+        trigiden = tdef['iden']
 
         todo = s_common.todo('delTrigger', trigiden)
-        gatekeys = (
-            (useriden, ('trigger', 'del'), trigiden),
-        )
-
+        gatekeys = ((useriden, ('trigger', 'del'), trigiden),)
         await self.dyncall(viewiden, todo, gatekeys=gatekeys)
 
         return trigiden
@@ -1672,6 +1663,9 @@ class LibTrigger(Lib):
         '''
         Modify a trigger in the cortex.
         '''
+        useriden = self.runt.user.iden
+        viewiden = self.runt.snap.view.iden
+
         if not query.startswith('{'):
             mesg = 'Expected second argument to start with {'
             raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix, query=query)
@@ -1679,8 +1673,11 @@ class LibTrigger(Lib):
         # Remove the curly braces
         query = query[1:-1]
 
-        iden = await self._matchIdens(prefix, ('trigger', 'set'))
-        await self.runt.snap.core.updateTrigger(iden, query)
+        tdef = await self._matchIdens(prefix)
+        iden = tdef['iden']
+        gatekeys = ((useriden, ('trigger', 'set'), iden),)
+        todo = s_common.todo('setTriggerInfo', iden, 'storm', query)
+        await self.dyncall(viewiden, todo, gatekeys=gatekeys)
 
         return iden
 
@@ -1692,9 +1689,10 @@ class LibTrigger(Lib):
         viewiden = self.runt.snap.view.iden
         triggers = []
 
-        todo = s_common.todo('packTriggers', useriden)
+        todo = s_common.todo('listTriggers', useriden)
         for tdef in await self.dyncall(viewiden, todo):
             triggers.append(Trigger(self.runt, tdef))
+
         return triggers
 
     async def _methTriggerGet(self, iden):
@@ -1703,6 +1701,31 @@ class LibTrigger(Lib):
             if trig.tdef.get('iden') == iden:
                 return trig
         return None
+
+    async def _methTriggerEnable(self, prefix):
+        '''
+        Enable a trigger in the cortex.
+        '''
+        return await self._triggerendisable(prefix, True)
+
+    async def _methTriggerDisable(self, prefix):
+        '''
+        Enable a trigger in the cortex.
+        '''
+        return await self._triggerendisable(prefix, False)
+
+    async def _triggerendisable(self, prefix, state):
+        tdef = await self._matchIdens(prefix)
+        iden = tdef['iden']
+
+        useriden = self.runt.user.iden
+        viewiden = self.runt.snap.view.iden
+        gatekeys = ((useriden, ('trigger', 'set'), iden),)
+        todo = s_common.todo('enableTrigger', iden)
+        todo = s_common.todo('setTriggerInfo', iden, 'enabled', state)
+        await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+
+        return iden
 
 class Trigger(StormType):
 
@@ -1714,10 +1737,17 @@ class Trigger(StormType):
         self.iden = self.tdef['iden']
 
         self.locls.update({
-            'get': self.tdef.get,
+            # 'get': self.tdef.get,
             'set': self.set,
             'pack': self.pack,
         })
+
+    async def deref(self, name):
+        valu = self.tdef.get(name, s_common.NoValu)
+        if valu is not s_common.NoValu:
+            return valu
+
+        return await StormType.deref(self, name)
 
     async def set(self, name, valu):
         useriden = self.runt.user.iden
@@ -1748,24 +1778,27 @@ class LibCron(Lib):
 
     async def _matchIdens(self, prefix, perm):
         '''
-        Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
+        Returns the cron that starts with prefix.  Prints out error and returns None if it doesn't match
         exactly one.
         '''
-        matches = []
-        crons = await self.runt.snap.core.listCronJobs()
+        user = self.runt.user
 
-        for (iden, cron) in crons:
-            if iden.startswith(prefix) and await cron.allowed(self.runt.user, perm):
-                matches.append(iden)
+        todo = s_common.todo('listCronJobs')
+        crons = await self.dyncall('cortex', todo)
+        matchcron = None
 
-        if len(matches) == 1:
-            return matches[0]
-        elif len(matches) == 0:
-            mesg = 'Provided iden does not match any valid authorized cron job.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
-        else:
-            mesg = 'Provided iden matches more than one cron job.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+        for iden, cron in crons:
+            if iden.startswith(prefix) and user.allowed(perm, gateiden=iden):
+                if matchcron is not None:
+                    mesg = 'Provided iden matches more than one cron job.'
+                    raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+                matchcron = cron
+
+        if matchcron is not None:
+            return matchcron
+
+        mesg = 'Provided iden does not match any valid authorized cron job.'
+        raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
     def _parseWeekday(self, val):
         ''' Try to match a day-of-week abbreviation, then try a day-of-week full name '''
@@ -1889,8 +1922,6 @@ class LibCron(Lib):
         '''
         Add a cron job to the cortex.
         '''
-        self.runt.confirm(('cron', 'add'))
-
         incunit = None
         incval = None
         reqdict = {}
@@ -2002,15 +2033,16 @@ class LibCron(Lib):
         # Remove the curly braces
         query = query[1:-1]
 
-        iden = await self.runt.snap.core.addCronJob(query, reqdict, incunit, incval)
+        todo = s_common.todo('addCronJob', self.runt.user.iden, query, reqdict, incunit, incval)
+        gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
+        iden = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+
         return iden
 
     async def _methCronAt(self, **kwargs):
         '''
         Add non-recurring cron jobs to the cortex.
         '''
-        self.runt.confirm(('cron', 'add'))
-
         tslist = []
         now = time.time()
 
@@ -2066,18 +2098,22 @@ class LibCron(Lib):
 
         query = query[1:-1]
 
-        iden = await self.runt.snap.core.addCronJob(query, reqdicts, None, None)
+        todo = s_common.todo('addCronJob', self.runt.user.iden, query, reqdicts, None, None)
+        gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
+        iden = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+
         return iden
 
     async def _methCronDel(self, prefix):
         '''
         Delete a cron job from the cortex.
         '''
-        iden = await self._matchIdens(prefix, ('cron', 'del'))
+        cron = await self._matchIdens(prefix, ('cron', 'del'))
+        iden = cron['iden']
 
-        await self.runt.snap.core.delCronJob(iden)
-
-        return iden
+        todo = s_common.todo('delCronJob', iden)
+        gatekeys = ((self.runt.user.iden, ('cron', 'del'), iden),)
+        return await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methCronMod(self, prefix, query):
         '''
@@ -2090,8 +2126,12 @@ class LibCron(Lib):
         # Remove the curly braces
         query = query[1:-1]
 
-        iden = await self._matchIdens(prefix, ('cron', 'set'))
-        await self.runt.snap.core.updateCronJob(iden, query)
+        cron = await self._matchIdens(prefix, ('cron', 'set'))
+        iden = cron['iden']
+
+        todo = s_common.todo('updateCronJob', iden, query)
+        gatekeys = ((self.runt.user.iden, ('cron', 'set'), iden),)
+        return await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
         return iden
 
@@ -2105,15 +2145,14 @@ class LibCron(Lib):
         '''
         List cron jobs in the cortex.
         '''
-        cronlist = await self.runt.snap.core.listCronJobs()
+        todo = s_common.todo('listCronJobs')
+        gatekeys = ((self.runt.user.iden, ('cron', 'get'), None),)
+        cronlist = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
         jobs = []
-        for iden, cronjob in cronlist:
-            if not await cronjob.allowed(self.runt.user, ('cron', 'get')):
-                continue
+        for iden, cron in cronlist:
 
-            cron = cronjob.pack()
-            user = self.runt.snap.core.getUserName(cron.get('useriden'))
+            user = cron.get('username')
 
             laststart = cron.get('laststarttime')
             lastend = cron.get('lastfinishtime')
@@ -2139,30 +2178,14 @@ class LibCron(Lib):
         '''
         Get information about a cron job.
         '''
-        matches = []
-        crons = await self.runt.snap.core.listCronJobs()
-
-        for (iden, cron) in crons:
-            if iden.startswith(prefix) and await cron.allowed(self.runt.user, ('cron', 'get')):
-                matches.append(iden)
-
-        if len(matches) == 0:
-            mesg = 'Provided iden does not match any valid authorized cron job.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
-        elif len(matches) > 1:
-            mesg = 'Provided iden matches more than one cron job.'
-            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
-
-        iden = matches[0]
-        cronjob = [cron[1] for cron in crons if cron[0] == iden][0]
-        cron = cronjob.pack()
-        user = self.runt.snap.core.getUserName(cron.get('useriden'))
+        cron = await self._matchIdens(prefix, ('cron', 'get'))
+        user = cron.get('username')
 
         laststart = cron.get('laststarttime')
         lastend = cron.get('lastfinishtime')
 
         job = {
-            'iden': iden,
+            'iden': cron.get('iden'),
             'user': user or '<None>',
             'query': cron.get('query') or '<missing>',
             'isrecur': 'Y' if cron.get('recur') else 'N',
@@ -2188,7 +2211,10 @@ class LibCron(Lib):
         '''
         Enable a cron job in the cortex.
         '''
-        iden = await self._matchIdens(prefix, ('cron', 'set'))
+        cron = await self._matchIdens(prefix, ('cron', 'set'))
+        iden = cron['iden']
+
+        # FIXME
         await self.runt.snap.core.enableCronJob(iden)
 
         return iden
@@ -2197,15 +2223,53 @@ class LibCron(Lib):
         '''
         Disable a cron job in the cortex.
         '''
-        iden = await self._matchIdens(prefix, ('cron', 'set'))
+        cron = await self._matchIdens(prefix, ('cron', 'set'))
+        iden = cron['iden']
+
+        # FIXME
         await self.runt.snap.core.disableCronJob(iden)
 
         return iden
 
+class LibModel(Lib):
+    '''
+    A collection of method around the data model
+    '''
+    def __init__(self, runt, name=()):
+        Lib.__init__(self, runt, name)
+        self.model = runt.model
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'type': self._methType,
+        })
+
+    @s_cache.memoize(size=100)
+    def _getmodeltypeobject(self, typename):
+        modeltype = self.model.type(typename)
+        return ModelType(modeltype)
+
+    async def _methType(self, typename):
+        return self._getmodeltypeobject(typename)
+
+class ModelType(Prim):
+    '''
+    A Storm types wrapper around a lib.types.Type
+    '''
+    def __init__(self, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.locls.update({
+            'repr': self._methRepr,
+        })
+
+    async def _methRepr(self, valu):
+        nval = self.valu.norm(valu)
+        return self.valu.repr(nval[0])
+
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):
 
-    if isinstance(valu, (str, tuple, list, dict, int)) or valu is None:
+    if isinstance(valu, (str, tuple, list, dict, int, bool)) or valu is None:
         return valu
 
     if isinstance(valu, Prim):
@@ -2238,6 +2302,9 @@ def fromprim(valu, path=None):
 
     if isinstance(valu, bytes):
         return Bytes(valu, path=path)
+
+    if isinstance(valu, bool):
+        return Bool(valu, path=path)
 
     if isinstance(valu, StormType):
         return valu

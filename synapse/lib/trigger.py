@@ -3,16 +3,11 @@ import logging
 import contextlib
 import collections
 import contextvars
-import dataclasses
-
-from typing import Optional
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.chop as s_chop
 import synapse.lib.cache as s_cache
-import synapse.lib.msgpack as s_msgpack
 import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
@@ -96,13 +91,13 @@ class Triggers:
             # check for form specific globs
             globs = self.tagaddglobs.get(node.form.name)
             if globs is not None:
-                for expr, trig in globs.get(tag):
+                for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars)
 
             # check for form agnostic globs
             globs = self.tagaddglobs.get(None)
             if globs is not None:
-                for expr, trig in globs.get(tag):
+                for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars)
 
     async def runTagSet(self, node, tag, oldv):
@@ -119,13 +114,13 @@ class Triggers:
             # check for form specific globs
             globs = self.tagsetglobs.get(node.form.name)
             if globs is not None:
-                for expr, trig in globs.get(tag):
+                for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars)
 
             # check for form agnostic globs
             globs = self.tagsetglobs.get(None)
             if globs is not None:
-                for expr, trig in globs.get(tag):
+                for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars)
 
     async def runTagDel(self, node, tag):
@@ -142,13 +137,13 @@ class Triggers:
             # check for form specific globs
             globs = self.tagdelglobs.get(node.form.name)
             if globs is not None:
-                for expr, trig in globs.get(tag):
+                for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars)
 
             # check for form agnostic globs
             globs = self.tagdelglobs.get(None)
             if globs is not None:
-                for expr, trig in globs.get(tag):
+                for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars)
 
     def load(self, tdef):
@@ -156,7 +151,7 @@ class Triggers:
         trig = Trigger(self.view, tdef)
 
         # Make sure the query parses
-        storm = trig.tdef.get('storm')
+        storm = trig.tdef['storm']
         self.view.core.getStormQuery(storm)
 
         self.triggers[trig.iden] = trig
@@ -164,23 +159,23 @@ class Triggers:
         cond = trig.tdef.get('cond')
 
         if cond == 'node:add':
-            form = trig.tdef.get('form')
+            form = trig.tdef['form']
             self.nodeadd[form].append(trig)
             return trig
 
         if cond == 'node:del':
-            form = trig.tdef.get('form')
+            form = trig.tdef['form']
             self.nodedel[form].append(trig)
             return trig
 
         if cond == 'prop:set':
-            prop = trig.tdef.get('prop')
+            prop = trig.tdef['prop']
             self.propset[prop].append(trig)
             return trig
 
         if cond == 'tag:add':
 
-            tag = trig.tdef.get('tag')
+            tag = trig.tdef['tag']
             form = trig.tdef.get('form')
 
             if '*' not in tag:
@@ -234,12 +229,12 @@ class Triggers:
         cond = trig.tdef.get('cond')
 
         if cond == 'node:add':
-            form = trig.tdef.get('form')
+            form = trig.tdef['form']
             self.nodeadd[form].remove(trig)
             return trig
 
         if cond == 'node:del':
-            form = trig.tdef.get('form')
+            form = trig.tdef['form']
             self.nodedel[form].remove(trig)
             return trig
 
@@ -263,7 +258,7 @@ class Triggers:
 
         if cond == 'tag:del':
 
-            tag = trig.tdef.get('tag')
+            tag = trig.tdef['tag']
             form = trig.tdef.get('form')
 
             if '*' not in tag:
@@ -287,14 +282,16 @@ class Trigger:
     def __init__(self, view, tdef):
         self.view = view
         self.tdef = tdef
+        # FIXME: need json schema check
+        assert 'storm' in tdef
+
         self.iden = tdef.get('iden')
 
     async def set(self, name, valu):
         '''
         Set one of the dynamic elements of the trigger definition.
         '''
-        if name not in ('enabled', 'storm', 'doc', 'name'):
-            return False
+        assert name in ('enabled', 'storm', 'doc', 'name')
 
         self.tdef[name] = valu
         await self.view.trigdict.set(self.iden, self.tdef)

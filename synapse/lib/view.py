@@ -331,14 +331,14 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         fromlayr = self.layers[0]
         if self.parent is None:
-            raise s_exc.SynErr('Cannot merge a view than has not been forked')
+            raise s_exc.CantMergeView(mesg='Cannot merge a view than has not been forked')
 
         if self.parent.layers[0].readonly:
             raise s_exc.ReadOnlyLayer(mesg="May not merge if the parent's write layer is read-only")
 
         for view in self.core.views.values():
             if view.parent is not None and view.parent == self:
-                raise s_exc.SynErr(mesg='Cannot merge a view that has children itself')
+                raise s_exc.CantMergeView(mesg='Cannot merge a view that has children itself')
 
         CHUNKSIZE = 1000
         fromoff = 0
@@ -548,6 +548,7 @@ class View(s_nexus.Pusher):  # type: ignore
         tdef.setdefault('enabled', True)
 
         self.core.getStormQuery(tdef.get('storm'))
+        # FIXME:  add json schema validation
 
         trig = self.triggers.load(tdef)
         await self.trigdict.set(trig.iden, tdef)
@@ -568,25 +569,25 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.core.auth.delAuthGate(trig.iden)
 
     @s_nexus.Pusher.onPushAuto('trigger:set')
-    async def setTrigInfo(self, iden, name, valu):
+    async def setTriggerInfo(self, iden, name, valu):
         trig = self.triggers.get(iden)
         await trig.set(name, valu)
 
-    async def listTriggers(self):
+    async def _listTriggers(self):
         '''
         List all the triggers in the view.
         '''
         trigs = self.triggers.list()
         if self.parent is not None:
-            trigs.extend(await self.parent.listTriggers())
+            trigs.extend(await self.parent._listTriggers())
         return trigs
 
-    async def packTriggers(self, useriden):
+    async def listTriggers(self, useriden):
 
         triggers = []
         auth = self.core.auth
         user = auth.user(useriden)
-        for (iden, trig) in await self.listTriggers():
+        for (iden, trig) in await self._listTriggers():
             if user.allowed(('trigger', 'get'), gateiden=iden):
                 packed = trig.pack()
 

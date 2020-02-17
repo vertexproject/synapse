@@ -92,6 +92,7 @@ class CantDelNode(SynErr): pass
 class CantDelProp(SynErr): pass
 class CantDelUniv(SynErr): pass
 class CantDelRootUser(SynErr): pass
+class CantMergeView(SynErr): pass
 class CantRevLayer(SynErr): pass
 class CliFini(SynErr):
     '''
