@@ -2,9 +2,6 @@ import os
 import sys
 import glob
 import argparse
-import collections
-
-from pprint import pprint
 
 import numpy as np  # standard convention for this library
 import matplotlib.pyplot as m_plt
@@ -128,9 +125,6 @@ def make_graphs(agg_data, outdir):
 
                 p2d[prefix] = np_pertimes
                 c2p2d[config] = p2d
-
-    # pprint(p2e2c2d.get('t2large_64gb'))
-    # pprint(e2c2p2d.get('do09DelNodes'))
 
     # Generate first set of charts.
     print('Making first set of charts.')
