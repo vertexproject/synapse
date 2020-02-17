@@ -160,13 +160,13 @@ def make_graphs(agg_data, outdir):
             m_plt.close(fig)
 
     print('Making second set of charts.')
-    for prefix, e2c2d in p2e2c2d.items():
-        for exp_name, c2d in e2c2d.items():
-            configs = sorted(c2d.keys())
+    for exp_name, c2p2d in e2c2p2d.items():
+        for config, p2d in c2p2d.items():
+            prefixes = sorted(p2d.keys())
 
-            means = [np.mean(c2d.get(c)) for c in configs]
-            stds = [np.std(c2d.get(c)) for c in configs]
-            x_pos = np.arange(len(configs))
+            means = [np.mean(p2d.get(p)) for p in prefixes]
+            stds = [np.std(p2d.get(p)) for p in prefixes]
+            x_pos = np.arange(len(prefixes))
 
             # Make our plots...
 
@@ -175,13 +175,13 @@ def make_graphs(agg_data, outdir):
                    alpha=0.5, ecolor='black', capsize=10)
             ax.set_ylabel('times and stuff')
             ax.set_xticks(x_pos)
-            ax.set_xticklabels(configs)
-            ax.set_title(f'{prefix} -> {exp_name}')
+            ax.set_xticklabels(prefixes)
+            ax.set_title(f'{exp_name} -> {config}')
             ax.yaxis.grid(True)
 
             # Save the figure and show
             m_plt.tight_layout()
-            fp = s_common.genpath(outdir, f'{prefix}_{exp_name}.png')
+            fp = s_common.genpath(outdir, f'{exp_name}_{config}.png')
             m_plt.savefig(fp)
             m_plt.close(fig)
 
