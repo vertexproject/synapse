@@ -3,7 +3,7 @@ import contextlib
 
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
-
+from synapse.tests.utils import alist
 
 async def iterPropForm(self, form=None, prop=None):
     bad_valu = [(b'foo', "bar"), (b'bar', ('bar',)), (b'biz', 4965), (b'baz', (0, 56))]
