@@ -2681,7 +2681,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             counts = nstat.get('formcounts')
             self.eq(counts.get('test:str'), 1)
 
-        conf = {'dedicated': True}
+        conf = {'layers:lockmemory': True}
         async with self.getTestCoreAndProxy(conf=conf) as (realcore, core):
             nstat = await core.stat()
             layr = nstat.get('layer')

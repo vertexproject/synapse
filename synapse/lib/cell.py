@@ -521,6 +521,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
 
         item = self.dynitems.get(iden)
+        if item is None:
+            raise s_exc.NoSuchIden(mesg=iden)
+
         name, args, kwargs = todo
         meth = getattr(item, name)
 
