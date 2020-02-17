@@ -145,7 +145,7 @@ class LayerTest(s_t_utils.SynTest):
                     await core01.view.addLayer(layr.iden)
 
                     # test initial sync
-                    offs = core00.getView().layers[0].getSpliceOffset()
+                    offs = core00.getView().layers[0].getNodeEditOffset()
                     evnt = await layr.waitUpstreamOffs(layriden, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -164,14 +164,14 @@ class LayerTest(s_t_utils.SynTest):
                     # make sure updates show up
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
 
-                    offs = core00.getView().layers[0].getSpliceOffset()
+                    offs = core00.getView().layers[0].getNodeEditOffset()
                     evnt = await layr.waitUpstreamOffs(layriden, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
 
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
-                offs = core00.getView().layers[0].getSpliceOffset()
+                offs = core00.getView().layers[0].getNodeEditOffset()
 
                 # test what happens when we go down and come up again...
                 async with self.getTestCore(dirn=path01) as core01:
@@ -185,7 +185,7 @@ class LayerTest(s_t_utils.SynTest):
 
                     await core00.nodes('[ inet:ipv4=5.6.7.8 ]')
 
-                    offs = core00.getView().layers[0].getSpliceOffset()
+                    offs = core00.getView().layers[0].getNodeEditOffset()
                     evnt = await layr.waitUpstreamOffs(layriden, offs)
                     await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -224,7 +224,7 @@ class LayerTest(s_t_utils.SynTest):
                         await core02.view.addLayer(layr.iden)
 
                         # core00 is synced
-                        offs = core00.getView().layers[0].getSpliceOffset()
+                        offs = core00.getView().layers[0].getNodeEditOffset()
                         evnt = await layr.waitUpstreamOffs(iden00, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -234,7 +234,7 @@ class LayerTest(s_t_utils.SynTest):
                         self.nn(nodes[0].tags.get('hehe.haha'))
 
                         # core01 is synced
-                        offs = core01.getView().layers[0].getSpliceOffset()
+                        offs = core01.getView().layers[0].getNodeEditOffset()
                         evnt = await layr.waitUpstreamOffs(iden01, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -246,7 +246,7 @@ class LayerTest(s_t_utils.SynTest):
                         # updates from core00 show up
                         await core00.nodes('[ inet:fqdn=vertex.link ]')
 
-                        offs = core00.getView().layers[0].getSpliceOffset()
+                        offs = core00.getView().layers[0].getNodeEditOffset()
                         evnt = await layr.waitUpstreamOffs(iden00, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -255,7 +255,7 @@ class LayerTest(s_t_utils.SynTest):
                         # updates from core01 show up
                         await core01.nodes('[ inet:fqdn=google.com ]')
 
-                        offs = core01.getView().layers[0].getSpliceOffset()
+                        offs = core01.getView().layers[0].getNodeEditOffset()
                         evnt = await layr.waitUpstreamOffs(iden01, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -270,14 +270,14 @@ class LayerTest(s_t_utils.SynTest):
                         layr = core02.getView().layers[-1]
 
                         # test we catch up to core00
-                        offs = core00.getView().layers[0].getSpliceOffset()
+                        offs = core00.getView().layers[0].getNodeEditOffset()
                         evnt = await layr.waitUpstreamOffs(iden00, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                         self.len(1, await core02.nodes('inet:ipv4=5.5.5.5'))
 
                         # test we catch up to core01
-                        offs = core01.getView().layers[0].getSpliceOffset()
+                        offs = core01.getView().layers[0].getNodeEditOffset()
                         evnt = await layr.waitUpstreamOffs(iden01, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -286,7 +286,7 @@ class LayerTest(s_t_utils.SynTest):
                         # test we get updates from core00
                         await core00.nodes('[ inet:ipv4=5.6.7.8 ]')
 
-                        offs = core00.getView().layers[0].getSpliceOffset()
+                        offs = core00.getView().layers[0].getNodeEditOffset()
                         evnt = await layr.waitUpstreamOffs(iden00, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -295,7 +295,7 @@ class LayerTest(s_t_utils.SynTest):
                         # test we get updates from core01
                         await core01.nodes('[ inet:ipv4=8.7.6.5 ]')
 
-                        offs = core01.getView().layers[0].getSpliceOffset()
+                        offs = core01.getView().layers[0].getNodeEditOffset()
                         evnt = await layr.waitUpstreamOffs(iden01, offs)
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
@@ -308,7 +308,7 @@ class LayerTest(s_t_utils.SynTest):
             layr = core.view.layers[0]
             root = await core.auth.getUserByName('root')
 
-            splices = await alist(layr.splices01x(0, 10))
+            splices = await alist(layr.splices(0, 10))
             spliceoffs = splices[-1][0][0] + 1
 
             await core.addTagProp('risk', ('int', {'minval': 0, 'maxval': 100}), {'doc': 'risk score'})
@@ -316,7 +316,7 @@ class LayerTest(s_t_utils.SynTest):
             # Convert a node:add splice
             await core.nodes('[ test:str=foo ]')
 
-            splices = await alist(layr.splices01x(spliceoffs, 10))
+            splices = await alist(layr.splices(spliceoffs, 10))
 
             splice = splices[0][1]
             self.eq(splice[0], 'node:add')
@@ -329,7 +329,7 @@ class LayerTest(s_t_utils.SynTest):
             # Convert a prop:set splice with no oldv
             await core.nodes("test:str=foo [ :tick=2000 ]")
 
-            splices = await alist(layr.splices01x(spliceoffs, 10))
+            splices = await alist(layr.splices(spliceoffs, 10))
 
             splice = splices[0][1]
             self.eq(splice[0], 'prop:set')
@@ -345,7 +345,7 @@ class LayerTest(s_t_utils.SynTest):
             # Convert a prop:set splice with an oldv
             await core.nodes("test:str=foo [ :tick=2001 ]")
 
-            splices = await alist(layr.splices01x(spliceoffs, 10))
+            splices = await alist(layr.splices(spliceoffs, 10))
 
             splice = splices[0][1]
             self.eq(splice[0], 'prop:set')
@@ -361,7 +361,7 @@ class LayerTest(s_t_utils.SynTest):
             # Convert a prop:del splice
             await core.nodes("test:str=foo [ -:tick ]")
 
-            splices = await alist(layr.splices01x(spliceoffs, 10))
+            splices = await alist(layr.splices(spliceoffs, 10))
 
             splice = splices[0][1]
             self.eq(splice[0], 'prop:del')
@@ -376,7 +376,7 @@ class LayerTest(s_t_utils.SynTest):
             # Convert a tag:add splice with no oldv
             await core.nodes("test:str=foo [ +#haha=2000 ]")
 
-            splices = await alist(layr.splices01x(spliceoffs, 10))
+            splices = await alist(layr.splices(spliceoffs, 10))
 
             splice = splices[4][1]
             self.eq(splice[0], 'tag:add')
@@ -392,7 +392,7 @@ class LayerTest(s_t_utils.SynTest):
             # Convert a tag:add splice with an oldv
             await core.nodes("test:str=foo [ +#haha=2001 ]")
 
-            splices = await alist(layr.splices01x(spliceoffs, 10))
+            splices = await alist(layr.splices(spliceoffs, 10))
 
             splice = splices[0][1]
             self.eq(splice[0], 'tag:add')
@@ -408,7 +408,7 @@ class LayerTest(s_t_utils.SynTest):
             # Convert a tag:del splice
             await core.nodes("test:str=foo [ -#haha ]")
 
-            splices = await alist(layr.splices01x(spliceoffs, 10))
+            splices = await alist(layr.splices(spliceoffs, 10))
 
             splice = splices[0][1]
             self.eq(splice[0], 'tag:del')
@@ -423,7 +423,7 @@ class LayerTest(s_t_utils.SynTest):
             # Convert a tag:prop:add splice with no oldv
             await core.nodes("test:str=foo [ +#rep:risk=50 ]")
 
-            splices = await alist(layr.splices01x(spliceoffs, 10))
+            splices = await alist(layr.splices(spliceoffs, 10))
 
             splice = splices[5][1]
             self.eq(splice[0], 'tag:prop:set')
@@ -440,7 +440,7 @@ class LayerTest(s_t_utils.SynTest):
             # Convert a tag:prop:add splice with an oldv
             await core.nodes("test:str=foo [ +#rep:risk=0 ]")
 
-            splices = await alist(layr.splices01x(spliceoffs, 10))
+            splices = await alist(layr.splices(spliceoffs, 10))
 
             splice = splices[0][1]
             self.eq(splice[0], 'tag:prop:set')
@@ -457,7 +457,7 @@ class LayerTest(s_t_utils.SynTest):
             # Convert a tag:prop:del splice
             await core.nodes("test:str=foo [ -#rep:risk ]")
 
-            splices = await alist(layr.splices01x(spliceoffs, 10))
+            splices = await alist(layr.splices(spliceoffs, 10))
 
             splice = splices[0][1]
             self.eq(splice[0], 'tag:prop:del')
@@ -473,7 +473,7 @@ class LayerTest(s_t_utils.SynTest):
             # Convert a node:del splice
             await core.nodes('test:str=foo | delnode')
 
-            splices = await alist(layr.splices01x(spliceoffs, 10))
+            splices = await alist(layr.splices(spliceoffs, 10))
 
             splice = splices[2][1]
             self.eq(splice[0], 'node:del')
@@ -490,7 +490,7 @@ class LayerTest(s_t_utils.SynTest):
 
             layr = core.view.layers[0]
 
-            splice =  layr.fallbacklog.get(0)
+            splice =  layr.splicelog.get(0)
             self.eq(splice[0], 'node:add')
             self.eq(splice[1]['ndef'][0], 'meta:source')
             self.eq(splice[1]['user'], root.iden)

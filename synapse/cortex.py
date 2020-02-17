@@ -505,16 +505,16 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.getNexusChanges(offs):
             yield item
 
-    async def syncLayerSplices(self, iden, offs, layriden=None):
+    async def syncLayerNodeEdits(self, iden, offs, layriden=None):
         '''
-        Yield (indx, mesg) splices for the given layer beginning at offset.
+        Yield (indx, mesg) nodeedit sets for the given layer beginning at offset.
 
-        Once caught up, this API will begin yielding splices in real-time.
+        Once caught up, this API will begin yielding nodeedits in real-time.
         The generator will only terminate on network disconnect or if the
-        consumer falls behind the max window size of 10,000 splice messages.
+        consumer falls behind the max window size of 10,000 nodeedit messages.
         '''
         self.user.confirm(('sync',), gateiden=iden)
-        async for item in self.cell.syncLayerSplices(iden, offs):
+        async for item in self.cell.syncLayerNodeEdits(iden, offs):
             yield item
 
     @s_cell.adminapi
@@ -1727,15 +1727,15 @@ class Cortex(s_cell.Cell):  # type: ignore
         async for item in self.nexsroot.iter(offs):
             yield item
 
-    async def syncLayerSplices(self, iden, offs):
+    async def syncLayerNodeEdits(self, iden, offs):
         '''
-        Yield (offs, mesg) tuples for splices in a layer.
+        Yield (offs, mesg) tuples for nodeedits in a layer.
         '''
         layr = self.getLayer(iden)
         if layr is None:
             raise s_exc.NoSuchLayer(iden=iden)
 
-        async for item in layr.syncSplices(offs):
+        async for item in layr.syncNodeEdits(offs):
             yield item
 
     async def spliceHistory(self, user):

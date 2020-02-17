@@ -93,37 +93,37 @@ class LayerApi(s_cell.CellApi):
         self.liftperm = ('layer:lift', self.layr.iden)
         #self.storperm = ('layer:stor', self.layr.iden)
 
-    async def iterLayerSplices(self):
+    async def iterLayerNodeEdits(self):
         '''
-        Scan the full layer and yield artificial nodeedit splices.
+        Scan the full layer and yield artificial nodeedit sets.
         '''
         await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.iterLayerSplices():
+        async for item in self.layr.iterLayerNodeEdits():
             yield item
 
-    async def syncSplices(self, offs):
+    async def syncNodeEdits(self, offs):
         '''
-        Yield (offs, mesg) tuples from the splicelog starting from the given offset.
+        Yield (offs, nodeedits) tuples from the nodeedit log starting from the given offset.
 
         Once caught up with storage, yield them in realtime.
         '''
         await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.syncSplices(offs):
+        async for item in self.layr.syncNodeEdits(offs):
             yield item
 
-    async def splices01x(self, offs, size):
+    async def splices(self, offs, size):
         '''
-        Yield (offs, mesg) tuples from the splicelog starting from the given offset.
+        Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
 
-        Splices will be in backwards compatible 01x format.
+        Nodeedits will be flattened into splices before being yielded.
         '''
         await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.splices01x(offs, size):
+        async for item in self.layr.splices(offs, size):
             yield item
 
-    async def getSpliceOffset(self):
+    async def getNodeEditOffset(self):
         await self._reqUserAllowed(self.liftperm)
-        return self.layr.getSpliceOffset()
+        return self.layr.getNodeEditOffset()
 
     async def getIden(self):
         await self._reqUserAllowed(self.liftperm)
@@ -765,18 +765,18 @@ class Layer(s_nexus.Pusher):
         self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
-        path = s_common.genpath(self.dirn, 'splices_v2.lmdb')
-        self.spliceslab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
+        path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
+        self.nodeeditslab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
         self.offsets = await self.layrslab.getHotCount('offsets')
 
-        # FIXME:  if offset > last splice, replay splice
+        # FIXME:  if offset > last nodeedits, replay nodeedits
 
         self.tagabrv = self.layrslab.getNameAbrv('tagabrv')
         self.propabrv = self.layrslab.getNameAbrv('propabrv')
         self.tagpropabrv = self.layrslab.getNameAbrv('tagpropabrv')
 
         self.onfini(self.layrslab)
-        self.onfini(self.spliceslab)
+        self.onfini(self.nodeeditslab)
 
         self.bybuid = self.layrslab.initdb('bybuid')
 
@@ -789,15 +789,15 @@ class Layer(s_nexus.Pusher):
 
         self.countdb = self.layrslab.initdb('counters')
 
-        self.splicelog = s_slabseqn.SlabSeqn(self.spliceslab, 'splices')
+        self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
 
         self.fallback = self.conf.get('fallback', False)
         if self.fallback:
             splicepath = os.path.join(self.dirn, 'splices.lmdb')
-            self.fallbackslab = await s_lmdbslab.Slab.anit(splicepath)
-            self.onfini(self.fallbackslab)
+            self.spliceslab = await s_lmdbslab.Slab.anit(splicepath)
+            self.onfini(self.spliceslab)
 
-            self.fallbacklog = s_slabseqn.SlabSeqn(self.fallbackslab, 'splices')
+            self.splicelog = s_slabseqn.SlabSeqn(self.spliceslab, 'splices')
 
         self.stortypes = [
 
@@ -870,7 +870,7 @@ class Layer(s_nexus.Pusher):
 
     async def stat(self):
         return {
-            'splicelog_indx': self.splicelog.index(),
+            'nodeeditlog_indx': self.nodeeditlog.index(),
             **self.layrslab.statinfo()
         }
 
@@ -1047,15 +1047,15 @@ class Layer(s_nexus.Pusher):
         Execute a series of node edit operations, returning the updated nodes.
         '''
         changes = [(e[0], e[1], await self._storNodeEdit(e)) for e in nodeedits]
-        offs = self.splicelog.add((changes, meta))
+        offs = self.nodeeditlog.add((changes, meta))
 
         [(await wind.put((offs, changes))) for wind in tuple(self.windows)]
 
         if self.fallback:
             splices = [x[1] async for x in self.makeSplices((offs, (changes, meta)))]
-            self.fallbacklog.save(splices)
+            self.splicelog.save(splices)
 
-        self.offsets.set('splice:applied', offs)
+        self.offsets.set('nodeedit:applied', offs)
 
         retn = []
         for buid, form, changed in changes:
@@ -1088,15 +1088,15 @@ class Layer(s_nexus.Pusher):
         Does not return the updated nodes.
         '''
         changes = [(e[0], e[1], await self._storNodeEdit(e)) for e in nodeedits]
-        offs = self.splicelog.add((changes, meta))
+        offs = self.nodeeditlog.add((changes, meta))
 
         [(await wind.put((offs, changes))) for wind in tuple(self.windows)]
 
         if self.fallback:
             splices = [x[1] async for x in self.makeSplices((offs, (changes, meta)))]
-            self.fallbacklog.save(splices)
+            self.splicelog.save(splices)
 
-        self.offsets.set('splice:applied', offs)
+        self.offsets.set('nodeedit:applied', offs)
 
     def _editNodeAdd(self, buid, form, edit):
 
@@ -1503,9 +1503,9 @@ class Layer(s_nexus.Pusher):
             prop = await self.getAbrvProp(abrv)
             yield prop[0], valu
 
-    async def iterLayerSplices(self):
+    async def iterLayerNodeEdits(self):
         '''
-        Scan the full layer and yield artificial nodeedit splices.
+        Scan the full layer and yield artificial sets of nodeedits.
         '''
         nodeedits = (None, None, None)
 
@@ -1590,9 +1590,9 @@ class Layer(s_nexus.Pusher):
                     logger.warning(f'upstream sync connected ({url} offset={offs})')
 
                     if offs == 0:
-                        offs = await proxy.getSpliceOffset()
+                        offs = await proxy.getNodeEditOffset()
 
-                        async for item in proxy.iterLayerSplices():
+                        async for item in proxy.iterLayerNodeEdits():
                             await self.storNodeEditsNoLift([item], {})
 
                         self.offsets.set(iden, offs)
@@ -1610,7 +1610,7 @@ class Layer(s_nexus.Pusher):
 
                         async def consume(x):
                             try:
-                                async for item in proxy.syncSplices(x):
+                                async for item in proxy.syncNodeEdits(x):
                                     await q.put(item)
                             finally:
                                 await q.put(None)
@@ -1637,11 +1637,11 @@ class Layer(s_nexus.Pusher):
 
                                 items.append(nexi)
 
-                            for spliceoffs, item in items:
+                            for nodeeditoffs, item in items:
                                 await self.storNodeEditsNoLift(item, {})
-                                self.offsets.set(iden, spliceoffs + 1)
+                                self.offsets.set(iden, nodeeditoffs + 1)
 
-                                waits = self.upstreamwaits[iden].pop(spliceoffs + 1, None)
+                                waits = self.upstreamwaits[iden].pop(nodeeditoffs + 1, None)
                                 if waits is not None:
                                     [e.set() for e in waits]
 
@@ -1678,14 +1678,14 @@ class Layer(s_nexus.Pusher):
         await self.layrinfo.set('model:version', vers)
 
     async def splices(self, offs, size):
-        if self.nexsroot is None:
-            return
+        '''
+        Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
 
-        nexuslog = self.nexsroot.nexuslog
-
-        for _, mesg in self.splicelog.slice(offs, size):
-            # mesg is actually just an offset into the nexus log
-            yield nexuslog.get(mesg)
+        Nodeedits will be flattened into splices before being yielded.
+        '''
+        for nodeedits in self.nodeeditlog.slice(offs, size):
+            async for splice in self.makeSplices(nodeedits):
+                yield splice
 
     async def splicesBack(self, offs, size=None):
         if self.nexsroot is None:
@@ -1694,41 +1694,31 @@ class Layer(s_nexus.Pusher):
         nexuslog = self.nexsroot.nexuslog
 
         if size:
-            for item in self.splicelog.sliceBack(offs, size):
-                async for _, oldsplice in self.makeSplices(item):
-                    yield oldsplice
+            for nodeedits in self.nodeeditlog.sliceBack(offs, size):
+                async for splice in self.makeSplices(item):
+                    yield splice
         else:
-            for item in self.splicelog.iterBack(offs):
-                async for _, oldsplice in self.makeSplices(item):
-                    yield oldsplice
+            for nodeedits in self.nodeeditlog.iterBack(offs):
+                async for splice in self.makeSplices(item):
+                    yield splice
 
-    async def syncSplices(self, offs):
+    async def syncNodeEdits(self, offs):
         '''
-        Yield (offs, mesg) tuples from the splicelog starting from the given offset.
+        Yield (offs, nodeedits) tuples from the nodeedit log starting from the given offset.
 
         Once caught up with storage, yield them in realtime.
         '''
-        for offs, splice in self.splicelog.iter(offs):
+        for offs, splice in self.nodeeditlog.iter(offs):
             yield (offs, splice[0])
 
         # FIXME:  discuss: use offsets instead of window?
-        async with self.getSpliceWindow() as wind:
+        async with self.getNodeEditWindow() as wind:
             async for offs, splice in wind:
                 yield (offs, splice)
 
-    async def splices01x(self, offs, size):
-        '''
-        Yield (offs, mesg) tuples from the splicelog starting from the given offset.
-
-        Splices will be in backwards compatible 01x format.
-        '''
-        for splice in self.splicelog.slice(offs, size):
-            async for oldsplice in self.makeSplices(splice):
-                yield oldsplice
-
     async def makeSplices(self, nodeedits):
         '''
-        Convert an 02x set of nodeedits into 01x format splices.
+        Flatten a set of nodeedits into splices.
         '''
         offs = nodeedits[0]
 
@@ -1824,7 +1814,7 @@ class Layer(s_nexus.Pusher):
                     yield (spliceoffs, ('tag:prop:del', props))
 
     @contextlib.asynccontextmanager
-    async def getSpliceWindow(self):
+    async def getNodeEditWindow(self):
 
         async with await s_queue.Window.anit(maxsize=10000) as wind:
 
@@ -1837,8 +1827,8 @@ class Layer(s_nexus.Pusher):
 
             yield wind
 
-    def getSpliceOffset(self):
-        return self.splicelog.index()
+    def getNodeEditOffset(self):
+        return self.nodeeditlog.index()
 
     async def waitUpstreamOffs(self, iden, offs):
         evnt = asyncio.Event()

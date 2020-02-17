@@ -333,7 +333,8 @@ class View(s_nexus.Pusher):  # type: ignore
         if self.parent is None:
             raise s_exc.CantMergeView(mesg='Cannot merge a view than has not been forked')
 
-        if self.parent.layers[0].readonly:
+        parentlayr = self.parent.layers[0]
+        if parentlayr.readonly:
             raise s_exc.ReadOnlyLayer(mesg="May not merge if the parent's write layer is read-only")
 
         for view in self.core.views.values():
@@ -352,17 +353,21 @@ class View(s_nexus.Pusher):  # type: ignore
             snap.strict = False
             # FIXME:  change to using layer data itself
             with snap.getStormRuntime(user=user):
-                while True:
-                    splicechunk = [x async for x in fromlayr.splices(fromoff, CHUNKSIZE)]
 
-                    await snap.addFeedData('syn.splice', splicechunk)
+                async for nodeedits in fromlayr.iterLayerNodeEdits():
+                    await parentlayr.storNodeEditsNoLift([nodeedits], {})
 
-                    if len(splicechunk) < CHUNKSIZE:
-                        break
-
-                    fromoff += CHUNKSIZE
-                    await asyncio.sleep(0)
-
+#                while True:
+#                    splicechunk = [x async for x in fromlayr.splices(fromoff, CHUNKSIZE)]
+#
+#                    await snap.addFeedData('syn.splice', splicechunk)
+#
+#                    if len(splicechunk) < CHUNKSIZE:
+#                        break
+#
+#                    fromoff += CHUNKSIZE
+#                    await asyncio.sleep(0)
+#
         await self.core.delView(self.iden)
 
     # FIXME:  all these should be refactored and call runt.confirmLayer
@@ -448,7 +453,7 @@ class View(s_nexus.Pusher):  # type: ignore
             while True:
 
                 splicecount = 0
-                async for splice in fromlayr.splices(fromoff, CHUNKSIZE):
+                async for _, splice in fromlayr.splices(fromoff, CHUNKSIZE):
                     # FIXME: this sucks; we shouldn't dupe layer perm checking here
                     check = self.permCheck.get(splice[0])
                     if check is None:

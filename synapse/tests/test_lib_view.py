@@ -74,9 +74,6 @@ class ViewTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.SynErr, view2.core.delView(view2.iden))
             await view3.core.delView(view3.iden)
 
-            # FIXME
-            self.skip('Need splices working')
-
             # Merge the child back into the parent
             await view2.merge()
 
