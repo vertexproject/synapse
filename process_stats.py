@@ -173,7 +173,7 @@ def make_graphs(agg_data, outdir):
             fig, ax = m_plt.subplots()
             ax.bar(x_pos, means, yerr=stds, align='center',
                    alpha=0.5, ecolor='black', capsize=10)
-            ax.set_ylabel('times and stuff')
+            ax.set_ylabel('time units. Lower is better.')
             ax.set_xticks(x_pos)
             ax.set_xticklabels(prefixes)
             fig.autofmt_xdate()
