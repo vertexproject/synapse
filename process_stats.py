@@ -147,14 +147,14 @@ def make_graphs(agg_data, outdir):
             fig, ax = m_plt.subplots()
             ax.bar(x_pos, means, yerr=stds, align='center',
                    alpha=0.5, ecolor='black', capsize=10)
-            ax.set_ylabel('times and stuff')
+            ax.set_ylabel('time units. Lower is better.')
             ax.set_xticks(x_pos)
             ax.set_xticklabels(configs)
+            fig.autofmt_xdate()
             ax.set_title(f'{prefix} -> {exp_name}')
             ax.yaxis.grid(True)
 
             # Save the figure and show
-            m_plt.tight_layout()
             fp = s_common.genpath(outdir, f'{prefix}_{exp_name}.png')
             m_plt.savefig(fp)
             m_plt.close(fig)
@@ -176,11 +176,11 @@ def make_graphs(agg_data, outdir):
             ax.set_ylabel('times and stuff')
             ax.set_xticks(x_pos)
             ax.set_xticklabels(prefixes)
+            fig.autofmt_xdate()
             ax.set_title(f'{exp_name} -> {config}')
             ax.yaxis.grid(True)
 
             # Save the figure and show
-            m_plt.tight_layout()
             fp = s_common.genpath(outdir, f'{exp_name}_{config}.png')
             m_plt.savefig(fp)
             m_plt.close(fig)
