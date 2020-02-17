@@ -2,6 +2,7 @@ import os
 import sys
 import glob
 import argparse
+import collections
 
 from pprint import pprint
 
@@ -77,6 +78,7 @@ def crunch_data(agg_data):
 
     This injects numpy arrays into agg_data.
     '''
+    print('Inplace data crunching')
     for prefix, configdata in agg_data.items():
         for config, aggdata in configdata.items():
             for exp_name, exp_agg_results in aggdata.get('results').items():
@@ -93,15 +95,97 @@ def make_graphs(agg_data, outdir):
     '''
     Make matplotlib bar charts for visualizing test differences.
 
+    Charts are made with the following hierarchies
+    1. For each prefix, for each experiment, show the mean times across all the configs.
+    2. For each experiment, for each config, show the mean times across all the prefixes.
+
+    Error bars are inserted into chars as standard deviation values.
+
     Args:
         agg_data:
         outdir:
 
     Returns:
-
+        None
     '''
+    p2e2c2d = {}
+    e2c2p2d = {}
+    for prefix, configdata in agg_data.items():
+        for config, aggdata in configdata.items():
+            for exp_name, exp_agg_results in aggdata.get('results').items():
+                np_pertimes = exp_agg_results.get('np_pertimes')
 
-    pass
+                # rollup Set 1
+                e2c2d = p2e2c2d.setdefault(prefix, {})
+                c2d = e2c2d.setdefault(exp_name, {})
+
+                c2d[config] = np_pertimes
+                e2c2d[exp_name] = c2d
+
+                # rollup Set 2
+                c2p2d = e2c2p2d.setdefault(exp_name, {})
+                p2d = c2p2d.setdefault(config, {})
+
+                p2d[prefix] = np_pertimes
+                c2p2d[config] = p2d
+
+    # pprint(p2e2c2d.get('t2large_64gb'))
+    # pprint(e2c2p2d.get('do09DelNodes'))
+
+    # Generate first set of charts.
+    print('Making first set of charts.')
+    for prefix, e2c2d in p2e2c2d.items():
+        for exp_name, c2d in e2c2d.items():
+            configs = sorted(c2d.keys())
+
+            means = [np.mean(c2d.get(c)) for c in configs]
+            stds = [np.std(c2d.get(c)) for c in configs]
+            x_pos = np.arange(len(configs))
+
+            # Make our plots...
+
+            fig, ax = m_plt.subplots()
+            ax.bar(x_pos, means, yerr=stds, align='center',
+                   alpha=0.5, ecolor='black', capsize=10)
+            ax.set_ylabel('times and stuff')
+            ax.set_xticks(x_pos)
+            ax.set_xticklabels(configs)
+            ax.set_title(f'{prefix} -> {exp_name}')
+            ax.yaxis.grid(True)
+
+            # Save the figure and show
+            m_plt.tight_layout()
+            fp = s_common.genpath(outdir, f'{prefix}_{exp_name}.png')
+            m_plt.savefig(fp)
+            m_plt.close(fig)
+
+    print('Making second set of charts.')
+    for prefix, e2c2d in p2e2c2d.items():
+        for exp_name, c2d in e2c2d.items():
+            configs = sorted(c2d.keys())
+
+            means = [np.mean(c2d.get(c)) for c in configs]
+            stds = [np.std(c2d.get(c)) for c in configs]
+            x_pos = np.arange(len(configs))
+
+            # Make our plots...
+
+            fig, ax = m_plt.subplots()
+            ax.bar(x_pos, means, yerr=stds, align='center',
+                   alpha=0.5, ecolor='black', capsize=10)
+            ax.set_ylabel('times and stuff')
+            ax.set_xticks(x_pos)
+            ax.set_xticklabels(configs)
+            ax.set_title(f'{prefix} -> {exp_name}')
+            ax.yaxis.grid(True)
+
+            # Save the figure and show
+            m_plt.tight_layout()
+            fp = s_common.genpath(outdir, f'{prefix}_{exp_name}.png')
+            m_plt.savefig(fp)
+            m_plt.close(fig)
+
+    print('Done making charts.')
 
 def main(argv):
     pars = getParser()
