@@ -89,7 +89,7 @@ class Migrator(s_base.Base):
             self.addmode = 'nexus'
 
         if self.addmode != 'nexus':
-            logger.warning('Add mode is bypassing nexus - no splices will exist in 0.2.x cortex')
+            logger.warning('Add mode is bypassing nexus - no migration splices will exist in 0.2.x cortex')
 
         self.editbatchsize = conf.get('editbatchsize')
         if self.editbatchsize is None:
@@ -647,7 +647,7 @@ class Migrator(s_base.Base):
 
             err, nodeedit = await self._trnNodeToNodeedit(node, model, chknodes)
             if err is not None:
-                logger.warning(err['mesg'])
+                logger.warning(err)
                 err['node'] = node
                 logger.debug(err)
                 await self._migrlogAdd(migrop, 'error', buid, err)
@@ -658,7 +658,7 @@ class Migrator(s_base.Base):
                 err = await self._destAddNodes(wlyr, nodeedits, addmode)
 
                 if err is not None:
-                    logger.warning(f'unable to store nodeedits on {iden}')
+                    logger.warning(err)
                     for ne in nodeedits:
                         logger.debug(f'error nodeedit group item: {ne}')
                         await self._migrlogAdd(migrop, 'error', buid, err)
@@ -739,7 +739,7 @@ class Migrator(s_base.Base):
                 err = await self._destAddNodes(wlyr, nodeedits, addmode)
 
                 if err is not None:
-                    logger.warning(f'unable to store nodeedits on {iden}')
+                    logger.warning(err)
                     for ne in nodeedits:
                         logger.debug(f'error nodeedit group item: {ne}')
                         await self._migrlogAdd(migrop, 'error', ne[0], err)
@@ -753,7 +753,7 @@ class Migrator(s_base.Base):
             err = await self._destAddNodes(wlyr, nodeedits, addmode)
 
             if err is not None:
-                logger.warning(f'unable to store nodeedits on {iden}')
+                logger.warning(err)
                 for ne in nodeedits:
                     logger.debug(f'error nodeedit group item: {ne}')
                     await self._migrlogAdd(migrop, 'error', ne[0], err)
@@ -1152,7 +1152,7 @@ class Migrator(s_base.Base):
             raise
         except Exception as e:
             lyriden = wlyr.iden
-            err = {'mesg': f'Unable to store nodeedits on {lyriden}'}
+            err = {'mesg': f'Unable to store nodeedits on {lyriden}: {e}'}
             return err
 
         return None
