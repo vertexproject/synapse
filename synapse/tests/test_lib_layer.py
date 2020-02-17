@@ -301,7 +301,7 @@ class LayerTest(s_t_utils.SynTest):
 
                         self.len(1, await core02.nodes('inet:ipv4=8.7.6.5'))
 
-    async def test_layer_01x_splices(self):
+    async def test_layer_splices(self):
 
         async with self.getTestCore() as core:
 

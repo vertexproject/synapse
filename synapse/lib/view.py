@@ -341,9 +341,6 @@ class View(s_nexus.Pusher):  # type: ignore
             if view.parent is not None and view.parent == self:
                 raise s_exc.CantMergeView(mesg='Cannot merge a view that has children itself')
 
-        CHUNKSIZE = 1000
-        fromoff = 0
-
         if user is None:
             user = await self.core.auth.getUserByName('root')
 
@@ -351,23 +348,12 @@ class View(s_nexus.Pusher):  # type: ignore
         async with await self.parent.snap(user=user) as snap:
             snap.disableTriggers()
             snap.strict = False
-            # FIXME:  change to using layer data itself
+
             with snap.getStormRuntime(user=user):
 
                 async for nodeedits in fromlayr.iterLayerNodeEdits():
                     await parentlayr.storNodeEditsNoLift([nodeedits], {})
 
-#                while True:
-#                    splicechunk = [x async for x in fromlayr.splices(fromoff, CHUNKSIZE)]
-#
-#                    await snap.addFeedData('syn.splice', splicechunk)
-#
-#                    if len(splicechunk) < CHUNKSIZE:
-#                        break
-#
-#                    fromoff += CHUNKSIZE
-#                    await asyncio.sleep(0)
-#
         await self.core.delView(self.iden)
 
     # FIXME:  all these should be refactored and call runt.confirmLayer

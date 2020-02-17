@@ -1740,15 +1740,15 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def spliceHistory(self, user):
         '''
-        Yield splices backwards from the end of the splice log.
+        Yield splices backwards from the end of the nodeedit log.
 
         Will only return user's own splices unless they are an admin.
         '''
         layr = self.view.layers[0]
-        indx = (await layr.stat())['splicelog_indx']
+        indx = (await layr.stat())['nodeeditlog_indx']
 
         count = 0
-        async for mesg in layr.splicesBack(indx):
+        async for _, mesg in layr.splicesBack(indx):
             count += 1
             if not count % 1000: # pragma: no cover
                 await asyncio.sleep(0)

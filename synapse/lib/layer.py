@@ -1688,18 +1688,14 @@ class Layer(s_nexus.Pusher):
                 yield splice
 
     async def splicesBack(self, offs, size=None):
-        if self.nexsroot is None:
-            return
-
-        nexuslog = self.nexsroot.nexuslog
 
         if size:
             for nodeedits in self.nodeeditlog.sliceBack(offs, size):
-                async for splice in self.makeSplices(item):
+                async for splice in self.makeSplices(nodeedits):
                     yield splice
         else:
             for nodeedits in self.nodeeditlog.iterBack(offs):
-                async for splice in self.makeSplices(item):
+                async for splice in self.makeSplices(nodeedits):
                     yield splice
 
     async def syncNodeEdits(self, offs):
