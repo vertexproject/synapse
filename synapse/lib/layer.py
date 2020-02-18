@@ -852,7 +852,7 @@ class Layer(s_nexus.Pusher):
 
         lastnodeedit = self.nodeeditlog.last()
 
-        if 'nodeedit:applied' not in self.offsets.cache:
+        if b'nodeedit:applied' not in self.offsets.cache:
             appliedoffs = -1
         else:
             appliedoffs = self.offsets.get('nodeedit:applied')

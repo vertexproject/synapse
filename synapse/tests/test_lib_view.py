@@ -84,6 +84,8 @@ class ViewTest(s_t_utils.SynTest):
     async def test_view_trigger(self):
         async with self.getTestCore() as core:
 
+            root = await core.auth.getUserByName('root')
+
             # Fork the main view
             view2 = await core.view.fork()
 
@@ -119,7 +121,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(0, nodes)
 
             # listTriggers should show view and inherited triggers
-            trigs = await view2.listTriggers()
+            trigs = await view2.listTriggers(root.iden)
             self.len(2, trigs)
 
             await view2.fini()
