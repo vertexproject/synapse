@@ -1560,8 +1560,6 @@ class LibTrigger(Lib):
 
         tdef['user'] = useriden
         tdef['view'] = viewiden
-        tdef['cond'] = tdef.pop('condition')
-        tdef['storm'] = tdef.pop('query')
 
         tag = tdef.get('tag')
         if tag is not None and tag[0] == '#':
@@ -1683,7 +1681,7 @@ class Trigger(StormType):
         viewiden = self.runt.snap.view.iden
 
         gatekeys = ((useriden, ('trigger', 'set'), viewiden),)
-        todo = ('setTrigInfo', (self.iden, name, valu), {})
+        todo = ('setTriggerInfo', (self.iden, name, valu), {})
         await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
         self.tdef[name] = valu
