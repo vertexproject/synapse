@@ -520,8 +520,8 @@ class LibFeed(Lib):
             return self.runt.snap.addFeedNodes(name, data)
 
     async def _libList(self):
-        # FIXME
-        return await self.runt.snap.core.getFeedFuncs()
+        todo = ('getFeedFuncs', (), {})
+        return await self.runt.dyncall('cortex', todo)
 
     async def _libIngest(self, name, data, seqn=None):
         '''
@@ -586,9 +586,18 @@ class LibQueue(Lib):
         await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueueList(self):
-        # FIXME:  perms?
+        retn = []
+
         todo = s_common.todo('listCoreQueues')
-        return await self.dyncall('cortex', todo)
+        qlist = await self.dyncall('cortex', todo)
+
+        for queue in qlist:
+            if not self.runt.user.allowed(('queue', 'get'), f"queue:{queue['name']}"):
+                continue
+
+            retn.append(queue)
+
+        return retn
 
 class Queue(StormType):
     '''
@@ -989,31 +998,34 @@ class LibGlobals(Lib):
 
     async def _methGet(self, name, default=None):
         self._reqStr(name)
-        self.runt.user.confirm(('globals', 'get', name))
-        #FIXME
-        return await self.runt.snap.core.getStormVar(name, default=default)
+
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('globals', 'get', name), None),)
+        todo = s_common.todo('getStormVar', name, default=default)
+        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methPop(self, name, default=None):
         self._reqStr(name)
-        self.runt.user.confirm(('globals', 'pop', name))
-        #FIXME
-        return await self.runt.snap.core.popStormVar(name, default=default)
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('globals', 'pop', name), None),)
+        todo = s_common.todo('popStormVar', name, default=default)
+        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methSet(self, name, valu):
         self._reqStr(name)
-        self.runt.user.confirm(('globals', 'set', name))
-        #FIXME
-        return await self.runt.snap.core.setStormVar(name, valu)
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('globals', 'set', name), None),)
+        todo = s_common.todo('setStormVar', name, valu)
+        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methList(self):
         ret = []
-        #FIXME
-        async for key, valu in self.runt.snap.core.itemsStormVar():
-            try:
-                self.runt.user.confirm(('globals', 'get', key))
-            except s_exc.AuthDeny:
-                continue
-            else:
+        user = self.runt.user
+
+        todo = ('itemsStormVar', (), {})
+
+        async for key, valu in self.runt.dyniter('cortex', todo):
+            if user.allowed(('globals', 'get', key)):
                 ret.append((key, valu))
         return ret
 
