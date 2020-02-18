@@ -6,6 +6,9 @@ import synapse.lib.cmd as s_cmd
 import synapse.lib.grammar as s_grammar
 import synapse.lib.trigger as s_trigger
 
+
+# FIXME:  delete this file
+
 AddHelp = '''
 Add triggers in a cortex.
 

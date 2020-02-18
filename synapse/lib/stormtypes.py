@@ -1561,6 +1561,14 @@ class LibTrigger(Lib):
         tdef['user'] = useriden
         tdef['view'] = viewiden
 
+        query = tdef.pop('query', None)
+        if query is not None:
+            tdef['storm'] = query
+
+        cond = tdef.pop('condition', None)
+        if cond is not None:
+            tdef['cond'] = cond
+
         tag = tdef.get('tag')
         if tag is not None and tag[0] == '#':
             tdef['tag'] = tag[1:]
@@ -2141,8 +2149,8 @@ class LibCron(Lib):
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
 
-        # FIXME
-        await self.runt.snap.core.enableCronJob(iden)
+        todo = ('enableCronJob', (iden,), {})
+        await self.runt.dyncall('cortex', todo)
 
         return iden
 
@@ -2153,8 +2161,8 @@ class LibCron(Lib):
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
 
-        # FIXME
-        await self.runt.snap.core.disableCronJob(iden)
+        todo = ('disableCronJob', (iden,), {})
+        await self.runt.dyncall('cortex', todo)
 
         return iden
 
