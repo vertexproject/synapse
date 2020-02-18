@@ -769,8 +769,6 @@ class Layer(s_nexus.Pusher):
         self.nodeeditslab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
         self.offsets = await self.layrslab.getHotCount('offsets')
 
-        # FIXME:  if offset > last nodeedits, replay nodeedits
-
         self.tagabrv = self.layrslab.getNameAbrv('tagabrv')
         self.propabrv = self.layrslab.getNameAbrv('propabrv')
         self.tagpropabrv = self.layrslab.getNameAbrv('tagpropabrv')
@@ -849,6 +847,19 @@ class Layer(s_nexus.Pusher):
 
         self.windows = []
         self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
+
+        # If offset > last nodeedits, replay nodeedits
+
+        lastnodeedit = self.nodeeditlog.last()
+
+        if 'nodeedit:applied' not in self.offsets.cache:
+            appliedoffs = -1
+        else:
+            appliedoffs = self.offsets.get('nodeedit:applied')
+
+        if lastnodeedit is not None and lastnodeedit[0] > appliedoffs:
+            nodeedits = [e[1][0] for e in self.nodeeditlog.iter(appliedoffs + 1)]
+            [await self.storNodeEditsNoLift(e, {}) for e in nodeedits]
 
         uplayr = layrinfo.get('upstream')
         if uplayr is not None:
