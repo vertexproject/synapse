@@ -857,7 +857,7 @@ class Layer(s_nexus.Pusher):
         else:
             appliedoffs = self.offsets.get('nodeedit:applied')
 
-        if lastnodeedit is not None and lastnodeedit[0] > appliedoffs:
+        if not self.readonly and lastnodeedit is not None and lastnodeedit[0] > appliedoffs:
             nodeedits = [e[1][0] for e in self.nodeeditlog.iter(appliedoffs + 1)]
             [await self.storNodeEditsNoLift(e, {}) for e in nodeedits]
 
