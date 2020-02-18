@@ -1477,8 +1477,9 @@ class LibView(Lib):
         '''
         List the views in the cortex.
         '''
+        # FIXME:  should we just list the views user has access to?
         useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('view', 'read'), None),)
+        gatekeys = ((useriden, ('view', 'get'), None),)
         todo = ('listViews', (), {})
         views = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 

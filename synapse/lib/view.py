@@ -329,22 +329,15 @@ class View(s_nexus.Pusher):  # type: ignore
         Note:
             The view's own write layer will *not* be deleted.
         '''
-        fromlayr = self.layers[0]
-        if self.parent is None:
-            raise s_exc.CantMergeView(mesg='Cannot merge a view than has not been forked')
-
-        if self.parent.layers[0].readonly:
-            raise s_exc.ReadOnlyLayer(mesg="May not merge if the parent's write layer is read-only")
-
-        for view in self.core.views.values():
-            if view.parent is not None and view.parent == self:
-                raise s_exc.CantMergeView(mesg='Cannot merge a view that has children itself')
-
         CHUNKSIZE = 1000
         fromoff = 0
 
+        fromlayr = self.layers[0]
+
         if user is None:
             user = await self.core.auth.getUserByName('root')
+
+        await self.mergeAllowed(user)
 
         await self.core.boss.promote('storm', user=user, info={'merging': self.iden})
         async with await self.parent.snap(user=user) as snap:
@@ -428,7 +421,7 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         fromlayr = self.layers[0]
         if self.parent is None:
-            raise s_exc.SynErr('Cannot merge a view than has not been forked')
+            raise s_exc.CantMergeView(mesg=f'Cannot merge a view {self.iden} than has not been forked')
 
         parentlayr = self.parent.layers[0]
         if parentlayr.readonly:
@@ -436,10 +429,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
         for view in self.core.views.values():
             if view.parent is not None and view.parent == self:
-                raise s_exc.SynErr(mesg='Cannot merge a view that has children itself')
+                raise s_exc.CantMergeView(mesg='Cannot merge a view that has children itself')
 
-        if user is None or user.isAdmin():
-            return True
+        if user is None or user.isAdmin():  # FIXME: also admin of parent
+            return
 
         CHUNKSIZE = 1000
         fromoff = 0
