@@ -254,51 +254,51 @@ class SnapTest(s_t_utils.SynTest):
             layr1 = await core0.addLayer()
             view1 = await core0.addView({'layers': [layr1.iden, layr0.iden]})
 
-            yield view0, view1
+            yield view0, core0.getView(view1)
 
     async def test_cortex_lift_layers_simple(self):
-        async with self._getTestCoreMultiLayer() as (core0, core1):
-            ''' Test that you can write to core0 and read it from core 1 '''
-            self.len(1, await alist(core0.eval('[ inet:ipv4=1.2.3.4 :asn=42 +#woot=(2014, 2015)]')))
-            self.len(1, await alist(core1.eval('inet:ipv4')))
-            self.len(1, await alist(core1.eval('inet:ipv4=1.2.3.4')))
-            self.len(1, await alist(core1.eval('inet:ipv4:asn=42')))
-            self.len(1, await alist(core1.eval('inet:ipv4 +:asn=42')))
-            self.len(1, await alist(core1.eval('inet:ipv4 +#woot')))
+        async with self._getTestCoreMultiLayer() as (view0, view1):
+            ''' Test that you can write to view0 and read it from view1 '''
+            self.len(1, await alist(view0.eval('[ inet:ipv4=1.2.3.4 :asn=42 +#woot=(2014, 2015)]')))
+            self.len(1, await alist(view1.eval('inet:ipv4')))
+            self.len(1, await alist(view1.eval('inet:ipv4=1.2.3.4')))
+            self.len(1, await alist(view1.eval('inet:ipv4:asn=42')))
+            self.len(1, await alist(view1.eval('inet:ipv4 +:asn=42')))
+            self.len(1, await alist(view1.eval('inet:ipv4 +#woot')))
 
     async def test_cortex_lift_layers_bad_filter(self):
         '''
         Test a two layer cortex where a lift operation gives the wrong result
         '''
-        async with self._getTestCoreMultiLayer() as (core0, core1):
+        async with self._getTestCoreMultiLayer() as (view0, view1):
 
-            self.len(1, await alist(core0.eval('[ inet:ipv4=1.2.3.4 :asn=42 +#woot=(2014, 2015)]')))
-            self.len(1, await alist(core1.eval('inet:ipv4=1.2.3.4 [ :asn=31337 +#woot=2016 ]')))
+            self.len(1, await alist(view0.eval('[ inet:ipv4=1.2.3.4 :asn=42 +#woot=(2014, 2015)]')))
+            self.len(1, await alist(view1.eval('inet:ipv4=1.2.3.4 [ :asn=31337 +#woot=2016 ]')))
 
-            self.len(0, await alist(core0.eval('inet:ipv4:asn=31337')))
-            self.len(1, await alist(core1.eval('inet:ipv4:asn=31337')))
+            self.len(0, await alist(view0.eval('inet:ipv4:asn=31337')))
+            self.len(1, await alist(view1.eval('inet:ipv4:asn=31337')))
 
-            self.len(1, await alist(core0.eval('inet:ipv4:asn=42')))
-            self.len(0, await alist(core1.eval('inet:ipv4:asn=42')))
+            self.len(1, await alist(view0.eval('inet:ipv4:asn=42')))
+            self.len(0, await alist(view1.eval('inet:ipv4:asn=42')))
 
     async def test_cortex_lift_layers_dup(self):
         '''
         Test a two layer cortex where a lift operation might give the same node twice incorrectly
         '''
-        async with self._getTestCoreMultiLayer() as (core0, core1):
-            # add to core1 first so we can cause creation in both...
-            self.len(1, await alist(core1.eval('[ inet:ipv4=1.2.3.4 :asn=42 ]')))
-            self.len(1, await alist(core0.eval('[ inet:ipv4=1.2.3.4 :asn=42 ]')))
+        async with self._getTestCoreMultiLayer() as (view0, view1):
+            # add to view1 first so we can cause creation in both...
+            self.len(1, await alist(view1.eval('[ inet:ipv4=1.2.3.4 :asn=42 ]')))
+            self.len(1, await alist(view0.eval('[ inet:ipv4=1.2.3.4 :asn=42 ]')))
 
             # lift by primary and ensure only one...
-            self.len(1, await alist(core1.eval('inet:ipv4')))
+            self.len(1, await alist(view1.eval('inet:ipv4')))
 
             # lift by secondary and ensure only one...
-            self.len(1, await alist(core1.eval('inet:ipv4:asn=42')))
+            self.len(1, await alist(view1.eval('inet:ipv4:asn=42')))
 
             # now set one to a diff value that we will ask for but should be masked
-            self.len(1, await alist(core0.eval('[ inet:ipv4=1.2.3.4 :asn=99 ]')))
-            self.len(0, await alist(core1.eval('inet:ipv4:asn=99')))
+            self.len(1, await alist(view0.eval('[ inet:ipv4=1.2.3.4 :asn=99 ]')))
+            self.len(0, await alist(view1.eval('inet:ipv4:asn=99')))
 
     async def test_cortex_lift_bytype(self):
         async with self.getTestCore() as core:

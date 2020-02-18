@@ -12,7 +12,8 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(1, (await core.getFormCounts()).get('test:int'))
 
             # Fork the main view
-            view2 = await core.view.fork()
+            view2_iden = await core.view.fork()
+            view2 = core.getView(view2_iden)
 
             # The new view has the same nodes as the old view
             nodes = await alist(view2.eval('test:int=10'))
@@ -69,7 +70,9 @@ class ViewTest(s_t_utils.SynTest):
             view2.parent.layers[0].readonly = False
 
             # You can't delete a view or merge it if it has children
-            view3 = await view2.fork()
+            view3_iden = await view2.fork()
+            view3 = core.getView(view3_iden)
+
             await self.asyncraises(s_exc.SynErr, view2.merge())
             await self.asyncraises(s_exc.SynErr, view2.core.delView(view2.iden))
             await view3.core.delView(view3.iden)
@@ -87,7 +90,8 @@ class ViewTest(s_t_utils.SynTest):
             root = await core.auth.getUserByName('root')
 
             # Fork the main view
-            view2 = await core.view.fork()
+            view2_iden = await core.view.fork()
+            view2 = core.getView(view2_iden)
 
             # A trigger inherited from the main view fires on the forked view when the condition matches
             await core.view.addTrigger({
