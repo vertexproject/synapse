@@ -329,10 +329,8 @@ class View(s_nexus.Pusher):  # type: ignore
         Note:
             The view's own write layer will *not* be deleted.
         '''
-        CHUNKSIZE = 1000
-        fromoff = 0
-
         fromlayr = self.layers[0]
+        parentlayr = self.parent.layers[0]
 
         if useriden is None:
             user = await self.core.auth.getUserByName('root')
@@ -345,22 +343,14 @@ class View(s_nexus.Pusher):  # type: ignore
         async with await self.parent.snap(user=user) as snap:
             snap.disableTriggers()
             snap.strict = False
-            # FIXME:  change to using layer data itself
+
             with snap.getStormRuntime(user=user):
-                while True:
-                    splicechunk = [x async for x in fromlayr.splices(fromoff, CHUNKSIZE)]
 
-                    await snap.addFeedData('syn.splice', splicechunk)
-
-                    if len(splicechunk) < CHUNKSIZE:
-                        break
-
-                    fromoff += CHUNKSIZE
-                    await asyncio.sleep(0)
+                async for nodeedits in fromlayr.iterLayerNodeEdits():
+                    await parentlayr.storNodeEditsNoLift([nodeedits], {})
 
         await self.core.delView(self.iden)
 
-    # FIXME:  all these should be refactored and call runt.confirmLayer
     def _confirm(self, user, parentlayr, perms):
         if not parentlayr.allowed(user, perms):
             perm = '.'.join(perms)
@@ -443,7 +433,7 @@ class View(s_nexus.Pusher):  # type: ignore
             while True:
 
                 splicecount = 0
-                async for splice in fromlayr.splices(fromoff, CHUNKSIZE):
+                async for _, splice in fromlayr.splices(fromoff, CHUNKSIZE):
                     # FIXME: this sucks; we shouldn't dupe layer perm checking here
                     check = self.permCheck.get(splice[0])
                     if check is None:
