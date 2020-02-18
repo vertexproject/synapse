@@ -871,13 +871,16 @@ class Layer(s_nexus.Pusher):
 
         self.onfini(self._onLayrFini)
 
-    def getSpawnInfo(self):
+    def pack(self):
         return {
             'iden': self.iden,
             'dirn': self.dirn,
             'readonly': self.readonly,
             'ctor': self.ctorname,
         }
+
+    def getSpawnInfo(self):
+        return self.pack()
 
     async def stat(self):
         return {
