@@ -1427,11 +1427,16 @@ class LibView(Lib):
             'creator': self.runt.user.iden,
             'layers': layers
         }
-        #FIXME
-        view = await self.runt.snap.core.addView(vdef)
-        if view is None:
+
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('view', 'add'), None),)
+        todo = ('addView', (vdef,), {})
+        viewiden = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        if viewiden is None:
             mesg = f'Failed to add view.'
             raise s_exc.StormRuntimeError(mesg=mesg, layers=layers)
+
+        view = self.runt.snap.core.getView(viewiden)
 
         return View(view, path=self.path)
 
@@ -1456,7 +1461,9 @@ class LibView(Lib):
         ldef = {'creator': self.runt.user.iden}
         vdef = {'creator': self.runt.user.iden}
         todo = s_common.todo('fork', ldef=ldef, vdef=vdef)
-        newview = await self.runt.dyncall(iden, todo, gatekeys=gatekeys)
+        newviewiden = await self.runt.dyncall(iden, todo, gatekeys=gatekeys)
+
+        newview = self.runt.snap.core.getView(newviewiden)
 
         return View(newview, path=self.path)
 
@@ -1476,12 +1483,10 @@ class LibView(Lib):
         '''
         Retrieve a view from the cortex.
         '''
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('view', 'get'), iden),)
-        todo = ('getView', (), {'iden': iden})
-        view = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        view = self.runt.snap.core.getView(iden=iden)
         if view is None:
             raise s_exc.NoSuchView(mesg=iden)
+        self.runt.user.confirm(('view', 'get'), gateiden=view.iden)
 
         return View(view, path=self.path)
 
@@ -1489,13 +1494,15 @@ class LibView(Lib):
         '''
         List the views in the cortex.
         '''
-        # FIXME:  should we just list the views user has access to?
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('view', 'get'), None),)
-        todo = ('listViews', (), {})
-        views = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        retn = []
 
-        return [View(view, path=self.path) for view in views]
+        views = self.runt.snap.core.listViews()
+        for view in views:
+            if not self.runt.user.allowed(('view', 'get'), gateiden=view.iden):
+                continue
+            retn.append(View(view, path=self.path))
+
+        return retn
 
 class View(Prim):
     '''
@@ -1509,20 +1516,7 @@ class View(Prim):
 
     # FIXME: discuss normalize this stuff tdef/deref
     async def _methViewPack(self):
-
-        layrinfo = []
-        for layr in self.valu.layers:
-            layrinfo.append({
-                'ctor': layr.ctorname,
-                'iden': layr.iden,
-                'readonly': layr.readonly,
-            })
-
-        return {
-            'iden': self.valu.iden,
-            'creator': self.valu.info.get('creator'),
-            'layers': layrinfo,
-        }
+        return self.valu.pack()
 
 class LibTrigger(Lib):
 

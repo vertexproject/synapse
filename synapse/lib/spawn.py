@@ -457,6 +457,8 @@ class SpawnCore(s_base.Base):
     _reqStormCmd = s_cortex.Cortex._reqStormCmd
     _setStormCmd = s_cortex.Cortex._setStormCmd
     _tryLoadStormPkg = s_cortex.Cortex._tryLoadStormPkg
+    getView = s_cortex.Cortex.getView
+    listViews = s_cortex.Cortex.listViews
     getDataModel = s_cortex.Cortex.getDataModel
     getStormCmd = s_cortex.Cortex.getStormCmd
     getStormLib = s_cortex.Cortex.getStormLib
