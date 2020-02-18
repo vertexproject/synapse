@@ -2144,7 +2144,7 @@ class SpliceListCmd(Cmd):
 
         i = 0
 
-        async for splice in runt.snap.spliceHistory():
+        async for splice in runt.snap.core.spliceHistory(runt.user):
 
             if maxtime and maxtime < splice[1]['time']:
                 continue
@@ -2158,38 +2158,41 @@ class SpliceListCmd(Cmd):
             buid = s_common.buid(splice[1]['ndef'])
             iden = s_common.ehex(buid)
 
-            rows = [('*syn:splice', guid)]
-            rows.append(('splice', splice))
-
-            rows.append(('.created', s_common.now()))
-            rows.append(('type', splice[0]))
-            rows.append(('iden', iden))
-
-            rows.append(('form', splice[1]['ndef'][0]))
-            rows.append(('time', splice[1]['time']))
-            rows.append(('user', splice[1]['user']))
-            rows.append(('prov', splice[1]['prov']))
+            props = {'.created': s_common.now(),
+                     'splice': splice,
+                     'type': splice[0],
+                     'iden': iden,
+                     'form': splice[1]['ndef'][0],
+                     'time': splice[1]['time'],
+                     'user': splice[1]['user'],
+                     'prov': splice[1]['prov'],
+                     }
 
             prop = splice[1].get('prop')
             if prop:
-                rows.append(('prop', prop))
+                props['prop'] = prop
 
             tag = splice[1].get('tag')
             if tag:
-                rows.append(('tag', tag))
+                props['tag'] = tag
 
             if 'valu' in splice[1]:
-                rows.append(('valu', splice[1]['valu']))
+                props['valu'] = splice[1]['valu']
             elif splice[0] == 'node:del':
-                rows.append(('valu', splice[1]['ndef'][1]))
-
-            if 'curv' in splice[1]:
-                rows.append(('oldv', splice[1]['curv']))
+                props['valu'] = splice[1]['ndef'][1]
 
             if 'oldv' in splice[1]:
-                rows.append(('oldv', splice[1]['oldv']))
+                props['oldv'] = splice[1]['oldv']
 
-            node = s_node.Node(runt.snap, splicebuid, rows)
+            fullnode = (buid, {
+                'ndef': ('syn:splice', guid),
+                'tags': {},
+                'props': props,
+                'tagprops': {},
+            })
+
+            node = s_node.Node(runt.snap, fullnode)
+
             yield (node, runt.initPath(node))
 
             i += 1
@@ -2300,7 +2303,7 @@ class SpliceUndoCmd(Cmd):
 
             oldv = splice.props.get('oldv')
             if oldv is not None:
-                runt.reqLayerAllowed(('tag:add', *parts))
+                runt.layerConfirm(('tag:add', *parts))
                 await node.addTag(tag, valu=oldv)
 
     async def undoTagDel(self, runt, splice, node):

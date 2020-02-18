@@ -1748,7 +1748,7 @@ class StormTypesTest(s_test.SynTest):
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.view.list()'))
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.view.get()'))
 
-                await prox.addUserRule('visi', (True, ('view', 'read')))
+                await prox.addUserRule('visi', (True, ('view', 'get')))
 
                 await asvisi.eval('$lib.view.list()').list()
                 await asvisi.eval('$lib.view.get()').list()
@@ -1770,7 +1770,6 @@ class StormTypesTest(s_test.SynTest):
 
                 self.isin(addiden, core.views)
 
-                print('***********')
                 q = f'''
                     $forkview=$lib.view.fork({mainiden})
                     $lib.print($forkview.pack().iden)
@@ -1782,10 +1781,12 @@ class StormTypesTest(s_test.SynTest):
 
                 self.isin(forkediden, core.views)
 
+                # Owner can 'get' the forked view
+                q = f'$lib.view.get({forkediden})'
+                await asvisi.storm(q).list()
+
                 # Del and Merge require 'del' permission unless performed by the owner
                 # Delete a view the user owns
-
-
 
                 q = f'$lib.view.del({addiden})'
                 await asvisi.storm(q).list()

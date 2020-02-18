@@ -1529,7 +1529,7 @@ class LibView(Lib):
         '''
         useriden = self.runt.user.iden
         gatekeys = ((useriden, ('view', 'get'), iden),)
-        todo = ('merge', (), {})
+        todo = ('merge', (), {'useriden': useriden})
         return await self.runt.dyncall(iden, todo, gatekeys=gatekeys)
 
     async def _methViewGet(self, iden=None):
@@ -1549,8 +1549,9 @@ class LibView(Lib):
         '''
         List the views in the cortex.
         '''
+        # FIXME:  should we just list the views user has access to?
         useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('view', 'read'), None),)
+        gatekeys = ((useriden, ('view', 'get'), None),)
         todo = ('listViews', (), {})
         views = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
@@ -1579,7 +1580,7 @@ class View(Prim):
 
         return {
             'iden': self.valu.iden,
-            'owner': self.valu.info.get('owner'),
+            'creator': self.valu.info.get('creator'),
             'layers': layrinfo,
         }
 
@@ -1631,8 +1632,6 @@ class LibTrigger(Lib):
 
         tdef['user'] = useriden
         tdef['view'] = viewiden
-        tdef['cond'] = tdef.pop('condition')
-        tdef['storm'] = tdef.pop('query')
 
         tag = tdef.get('tag')
         if tag is not None and tag[0] == '#':
@@ -1754,7 +1753,7 @@ class Trigger(StormType):
         viewiden = self.runt.snap.view.iden
 
         gatekeys = ((useriden, ('trigger', 'set'), viewiden),)
-        todo = ('setTrigInfo', (self.iden, name, valu), {})
+        todo = ('setTriggerInfo', (self.iden, name, valu), {})
         await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
         self.tdef[name] = valu
