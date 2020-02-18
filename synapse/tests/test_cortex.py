@@ -3629,8 +3629,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
                 self.len(1, await core.nodes('[test:int=1]'))
                 await core.nodes('$q=$lib.queue.add(dmon)')
-                view2 = await core.view.fork()
-                view2_iden = view2.iden
+                view2_iden = await core.view.fork()
 
                 q = '''
                 $lib.dmon.add(${
@@ -3918,13 +3917,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.NoSuchLayer, core.delLayer('XXX'))
 
             # Fork the main view
-            view2 = await core.view.fork()
-
-            viewiden = view2.iden
+            view2_iden = await core.view.fork()
 
             # Can't delete a view twice
-            await core.delView(viewiden)
-            await self.asyncraises(s_exc.NoSuchView, core.delView(viewiden))
+            await core.delView(view2_iden)
+            await self.asyncraises(s_exc.NoSuchView, core.delView(view2_iden))
 
     async def test_cortex_view_opts(self):
         '''

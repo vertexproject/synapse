@@ -2190,9 +2190,9 @@ class Cortex(s_cell.Cell):  # type: ignore
                 'layers': (layr.iden,),
                 'worldreadable': True,
             }
-            view = await self.addView(vdef)
-            await self.cellinfo.set('defaultview', view.iden)
-            self.view = view
+            viewiden = await self.addView(vdef)
+            await self.cellinfo.set('defaultview', viewiden)
+            self.view = self.getView(viewiden)
 
     async def _migrateLayerOffset(self):
         '''
@@ -2222,19 +2222,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def addView(self, vdef):
 
         vdef.setdefault('iden', s_common.guid())
-        worldread = vdef.get('worldreadable', False)
-        view = await self._push('view:add', vdef)
-
-        vdef.setdefault('creator', self.auth.rootuser.iden)
-        creator = vdef.get('creator')
-        user = await self.auth.reqUser(creator)
-        await user.setAdmin(True, gateiden=view.iden)
-
-        if worldread:
-            role = await self.auth.getRoleByName('all')
-            await role.addRule((True, ('view', 'read')), gateiden=view.iden)
-
-        return view
+        return await self._push('view:add', vdef)
 
     @s_nexus.Pusher.onPush('view:add')
     async def _addView(self, vdef):
@@ -2244,11 +2232,17 @@ class Cortex(s_cell.Cell):  # type: ignore
         vdef.setdefault('worldreadable', False)
         vdef.setdefault('creator', self.auth.rootuser.iden)
 
-        creator = vdef.get('creator')
-        await self.auth.reqUser(creator)
+        creator = vdef.get('creator', self.auth.rootuser.iden)
+        user = await self.auth.reqUser(creator)
+        await self.auth.addAuthGate(iden, 'view')
+        await user.setAdmin(True, gateiden=iden)
 
-        # this should not get saved
-        vdef.pop('worldreadable')
+        # worldreadable is not get persisted with the view; the state ends up in perms
+        worldread = vdef.pop('worldreadable', False)
+
+        if worldread:
+            role = await self.auth.getRoleByName('all')
+            await role.addRule((True, ('view', 'read')), gateiden=iden)
 
         node = await self.hive.open(('cortex', 'views', iden))
 
@@ -2256,13 +2250,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         for name, valu in vdef.items():
             await info.set(name, valu)
 
-        view = await self._loadView(node)
-
-        await self.auth.addAuthGate(iden, 'view')
+        await self._loadView(node)
 
         await self.bumpSpawnPool()
 
-        return view
+        return iden
 
     @s_nexus.Pusher.onPushAuto('view:del')
     async def delView(self, iden):

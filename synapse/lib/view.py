@@ -77,6 +77,10 @@ class View(s_nexus.Pusher):  # type: ignore
     def pack(self):
         d = {'iden': self.iden}
         d.update(self.info.pack())
+
+        layrinfo = [l.pack() for l in self.layers]
+        d['layers'] = layrinfo
+
         return d
 
     async def getFormCounts(self):

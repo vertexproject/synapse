@@ -1586,6 +1586,7 @@ class StormTypesTest(s_test.SynTest):
             # Get the main view
             q = '$lib.print($lib.view.get().pack().iden)'
             mesgs = await core.streamstorm(q).list()
+            mainiden = None
             for mesg in mesgs:
                 if mesg[0] == 'print':
                     mainiden = mesg[1]['mesg']
@@ -1744,8 +1745,11 @@ class StormTypesTest(s_test.SynTest):
 
             async with core.getLocalProxy(user='visi') as asvisi:
 
-                # List and Get require 'read' permission
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.view.list()'))
+                # List should return an empty list
+                nodes = await asvisi.eval('$lib.view.list()').list()
+                self.len(0, nodes)
+
+                # Get require 'read' permission
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.view.get()'))
 
                 await prox.addUserRule('visi', (True, ('view', 'get')))
