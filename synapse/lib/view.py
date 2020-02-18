@@ -320,7 +320,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return await self.core.addView(vdef)
 
-    async def merge(self, user=None):
+    async def merge(self, useriden=None):
         '''
         Merge this view into its parent.  All changes made to this view will be applied to the parent.
 
@@ -334,8 +334,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
         fromlayr = self.layers[0]
 
-        if user is None:
+        if useriden is None:
             user = await self.core.auth.getUserByName('root')
+        else:
+            user = await self.core.auth.reqUser(useriden)
 
         await self.mergeAllowed(user)
 

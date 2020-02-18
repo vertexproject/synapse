@@ -1457,7 +1457,7 @@ class LibView(Lib):
         '''
         useriden = self.runt.user.iden
         gatekeys = ((useriden, ('view', 'get'), iden),)
-        todo = ('merge', (), {})
+        todo = ('merge', (), {'useriden': useriden})
         return await self.runt.dyncall(iden, todo, gatekeys=gatekeys)
 
     async def _methViewGet(self, iden=None):
