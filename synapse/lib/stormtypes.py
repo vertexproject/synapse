@@ -1507,7 +1507,7 @@ class View(Prim):
 
         return {
             'iden': self.valu.iden,
-            'owner': self.valu.info.get('owner'),
+            'creator': self.valu.info.get('creator'),
             'layers': layrinfo,
         }
 

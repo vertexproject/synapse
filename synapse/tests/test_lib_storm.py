@@ -640,8 +640,6 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_splicelist(self):
 
-        self.skip('020 FIXME')
-
         async with self.getTestCoreAndProxy() as (core, prox):
 
             mesgs = await core.streamstorm('[ test:str=foo ]').list()
@@ -705,8 +703,6 @@ class StormTest(s_t_utils.SynTest):
                 self.len(11, nodes)
 
     async def test_storm_spliceundo(self):
-
-        self.skip('020 FIXME')
 
         async with self.getTestCoreAndProxy() as (core, prox):
 

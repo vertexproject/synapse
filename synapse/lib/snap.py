@@ -1012,11 +1012,11 @@ class Snap(s_base.Base):
             raise ctor(mesg=mesg, **info)
         return False
 
-    def splice(self, name, **info):
-        '''
-        Construct a partial splice record for later feeding into Snap.stor method
-        '''
-        return (name, info)
+    #def splice(self, name, **info):
+        #'''
+        #Construct a partial splice record for later feeding into Snap.stor method
+        #'''
+        #return (name, info)
 
     #########################################################################
 
