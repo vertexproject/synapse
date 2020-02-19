@@ -789,13 +789,6 @@ class Layer(s_nexus.Pusher):
 
         self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
 
-        #self.fallback = self.conf.get('fallback', False)
-        #if self.fallback:
-            #splicepath = os.path.join(self.dirn, 'splices.lmdb')
-            #self.spliceslab = await s_lmdbslab.Slab.anit(splicepath)
-            #self.onfini(self.spliceslab)
-            #self.splicelog = s_slabseqn.SlabSeqn(self.spliceslab, 'splices')
-
         self.stortypes = [
 
             None,
@@ -1731,8 +1724,6 @@ class Layer(s_nexus.Pusher):
                     'time': time,
                     'user': user,
                     'prov': prov,
-                    'form': form,
-                    'iden': s_common.ehex(buid),
                 }
 
                 if edit == EDIT_NODE_ADD:
