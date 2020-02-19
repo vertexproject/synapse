@@ -1,11 +1,13 @@
 import bz2
 import gzip
 import json
+import time
 import base64
 import asyncio
 import logging
 import binascii
 import datetime
+import calendar
 import collections
 
 import synapse.exc as s_exc
@@ -1506,6 +1508,629 @@ class View(Prim):
             'owner': self.valu.info.get('owner'),
             'layers': layrinfo,
         }
+
+class LibTrigger(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'add': self._methTriggerAdd,
+            'del': self._methTriggerDel,
+            'mod': self._methTriggerMod,
+            'list': self._methTriggerList,
+            'enable': self._methTriggerEnable,
+            'disable': self._methTriggerDisable,
+        })
+
+    async def _matchIdens(self, prefix, perm):
+        '''
+        Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
+        exactly one.
+        '''
+        matches = []
+        trigs = await self.runt.snap.listTriggers()
+
+        for (iden, trig) in trigs:
+            if iden.startswith(prefix) and await trig.allowed(self.runt.user, perm):
+                matches.append(iden)
+
+        if len(matches) == 1:
+            return matches[0]
+        elif len(matches) == 0:
+            mesg = 'Provided iden does not match any valid authorized triggers.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+        else:
+            mesg = 'Provided iden matches more than one trigger.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+
+    async def _methTriggerAdd(self, cond, form=None, tag=None, prop=None, query=None, disabled=False):
+        '''
+        Add a trigger to the cortex.
+        '''
+        self.runt.reqAllowed(('trigger', 'add'))
+
+        if query is None:
+            mesg = 'Missing query parameter'
+            raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
+                                          prop=prop, query=query, disabled=disabled)
+
+        if cond.startswith('tag') and tag is None:
+            mesg = 'Missing tag parameter'
+            raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
+                                          prop=prop, query=query, disabled=disabled)
+
+        elif cond.startswith('node'):
+            if form is None:
+                mesg = 'Missing form parameter'
+                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
+                                              prop=prop, query=query, disabled=disabled)
+            if tag is not None:
+                mesg = 'node:* does not support a tag'
+                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
+                                              prop=prop, query=query, disabled=disabled)
+
+        elif cond.startswith('prop'):
+            if prop is None:
+                mesg = 'Missing prop parameter'
+                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
+                                              prop=prop, query=query, disabled=disabled)
+            if tag is not None:
+                mesg = 'prop:set does not support a tag'
+                raise s_exc.StormRuntimeError(mesg=mesg, cond=cond, form=form, tag=tag,
+                                              prop=prop, query=query, disabled=disabled)
+
+        # Remove the curly braces
+        query = query[1:-1]
+
+        if tag is not None:
+            tag = tag[1:]
+
+        info = {'form': form, 'tag': tag, 'prop': prop}
+
+        iden = await self.runt.snap.addTrigger(cond, query, info=info,
+                                               disabled=disabled)
+        return iden
+
+    async def _methTriggerDel(self, prefix):
+        '''
+        Delete a trigger from the cortex.
+        '''
+        iden = await self._matchIdens(prefix, ('trigger', 'del'))
+
+        await self.runt.snap.delTrigger(iden)
+
+        return iden
+
+    async def _methTriggerMod(self, prefix, query):
+        '''
+        Modify a trigger in the cortex.
+        '''
+        if not query.startswith('{'):
+            mesg = 'Expected second argument to start with {'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix, query=query)
+
+        # Remove the curly braces
+        query = query[1:-1]
+
+        iden = await self._matchIdens(prefix, ('trigger', 'set'))
+        await self.runt.snap.updateTrigger(iden, query)
+
+        return iden
+
+    async def _methTriggerList(self):
+        '''
+        List triggers in the cortex.
+        '''
+        triglist = await self.runt.snap.listTriggers()
+
+        triggers = []
+        for iden, trigger in triglist:
+            if not await trigger.allowed(self.runt.user, ('trigger', 'get')):
+                continue
+
+            trig = trigger.pack()
+            user = self.runt.snap.getUserName(trig.get('useriden'))
+
+            triggers.append({
+                'iden': iden,
+                'idenshort': iden[:8] + '..',
+                'user': user or '<None>',
+                'query': trig.get('storm') or '<missing>',
+                'cond': trig.get('cond') or '<missing>',
+                'enabled': 'Y' if trig.get('enabled', True) else 'N',
+                'tag': '#' + (trig.get('tag') or '<missing>'),
+                'form': trig.get('form') or '',
+                'prop': trig.get('prop') or '<missing>',
+            })
+
+        return triggers
+
+    async def _methTriggerEnable(self, prefix):
+        '''
+        Enable a trigger in the cortex.
+        '''
+        iden = await self._matchIdens(prefix, ('trigger', 'set'))
+        await self.runt.snap.enableTrigger(iden)
+
+        return iden
+
+    async def _methTriggerDisable(self, prefix):
+        '''
+        Disable a trigger in the cortex.
+        '''
+        iden = await self._matchIdens(prefix, ('trigger', 'set'))
+        await self.runt.snap.disableTrigger(iden)
+
+        return iden
+
+class LibCron(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'at': self._methCronAt,
+            'add': self._methCronAdd,
+            'del': self._methCronDel,
+            'mod': self._methCronMod,
+            'list': self._methCronList,
+            'stat': self._methCronStat,
+            'enable': self._methCronEnable,
+            'disable': self._methCronDisable,
+        })
+
+    async def _matchIdens(self, prefix, perm):
+        '''
+        Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
+        exactly one.
+        '''
+        matches = []
+        crons = await self.runt.snap.listCronJobs()
+
+        for (iden, cron) in crons:
+            if iden.startswith(prefix) and await cron.allowed(self.runt.user, perm):
+                matches.append(iden)
+
+        if len(matches) == 1:
+            return matches[0]
+        elif len(matches) == 0:
+            mesg = 'Provided iden does not match any valid authorized cron job.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+        else:
+            mesg = 'Provided iden matches more than one cron job.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+
+    def _parseWeekday(self, val):
+        ''' Try to match a day-of-week abbreviation, then try a day-of-week full name '''
+        val = val.title()
+        try:
+            return list(calendar.day_abbr).index(val)
+        except ValueError:
+            try:
+                return list(calendar.day_name).index(val)
+            except ValueError:
+                return None
+
+    def _parseIncval(self, incunit, incval):
+        ''' Parse a non-day increment value. Should be an integer or a comma-separated integer list. '''
+        try:
+            retn = [int(val) for val in incval.split(',')]
+        except ValueError:
+            return None
+
+        return retn[0] if len(retn) == 1 else retn
+
+    def _parseReq(self, requnit, reqval):
+        ''' Parse a non-day fixed value '''
+        assert reqval[0] != '='
+
+        try:
+            retn = []
+            for val in reqval.split(','):
+                if requnit == 'month':
+                    if reqval[0].isdigit():
+                        retn.append(int(reqval))  # must be a month (1-12)
+                    else:
+                        try:
+                            retn.append(list(calendar.month_abbr).index(val.title()))
+                        except ValueError:
+                            retn.append(list(calendar.month_name).index(val.title()))
+                else:
+                    retn.append(int(val))
+        except ValueError:
+            return None
+
+        return retn[0] if len(retn) == 1 else retn
+
+    def _parseDay(self, optval):
+        ''' Parse a --day argument '''
+        isreq = not optval.startswith('+')
+        if not isreq:
+            optval = optval[1:]
+
+        try:
+            retnval = []
+            unit = None
+            for val in optval.split(','):
+                if not val:
+                    raise ValueError
+                if val[-1].isdigit():
+                    newunit = 'dayofmonth' if isreq else 'day'
+                    if unit is None:
+                        unit = newunit
+                    elif newunit != unit:
+                        raise ValueError
+                    retnval.append(int(val))
+                else:
+                    newunit = 'dayofweek'
+                    if unit is None:
+                        unit = newunit
+                    elif newunit != unit:
+                        raise ValueError
+
+                    weekday = self._parseWeekday(val)
+                    if weekday is None:
+                        raise ValueError
+                    retnval.append(weekday)
+            if len(retnval) == 0:
+                raise ValueError
+        except ValueError:
+            return None, None
+        if len(retnval) == 1:
+            retnval = retnval[0]
+        return unit, retnval
+
+    def _parseAlias(self, opts):
+        retn = {}
+
+        hourly = opts.get('hourly')
+        if hourly is not None:
+            retn['hour'] = '+1'
+            retn['minute'] = str(int(hourly))
+            return retn
+
+        daily = opts.get('daily')
+        if daily is not None:
+            fields = time.strptime(daily, '%H:%M')
+            retn['day'] = '+1'
+            retn['hour'] = str(fields.tm_hour)
+            retn['minute'] = str(fields.tm_min)
+            return retn
+
+        monthly = opts.get('monthly')
+        if monthly is not None:
+            day, rest = monthly.split(':', 1)
+            fields = time.strptime(rest, '%H:%M')
+            retn['month'] = '+1'
+            retn['day'] = day
+            retn['hour'] = str(fields.tm_hour)
+            retn['minute'] = str(fields.tm_min)
+            return retn
+
+        yearly = opts.get('yearly')
+        if yearly is not None:
+            fields = yearly.split(':')
+            if len(fields) != 4:
+                raise ValueError(f'Failed to parse parameter {yearly}')
+            retn['year'] = '+1'
+            retn['month'], retn['day'], retn['hour'], retn['minute'] = fields
+            return retn
+
+        return None
+
+    async def _methCronAdd(self, **kwargs):
+        '''
+        Add a cron job to the cortex.
+        '''
+        self.runt.reqAllowed(('cron', 'add'))
+
+        incunit = None
+        incval = None
+        reqdict = {}
+        valinfo = {  # unit: (minval, next largest unit)
+            'month': (1, 'year'),
+            'dayofmonth': (1, 'month'),
+            'hour': (0, 'day'),
+            'minute': (0, 'hour'),
+        }
+
+        query = kwargs.get('query', None)
+        if query is None:
+            mesg = 'Query parameter is required.'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        if not query.startswith('{'):
+            mesg = 'Query parameter must start with {'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        try:
+            alias_opts = self._parseAlias(kwargs)
+        except ValueError as e:
+            mesg = f'Failed to parse ..ly parameter: {" ".join(e.args)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        if alias_opts:
+            year = kwargs.get('year')
+            month = kwargs.get('month')
+            day = kwargs.get('day')
+            hour = kwargs.get('hour')
+            minute = kwargs.get('minute')
+
+            if year or month or day or hour or minute:
+                mesg = 'May not use both alias (..ly) and explicit options at the same time'
+                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+            opts = alias_opts
+        else:
+            opts = kwargs
+
+        for optname in ('year', 'month', 'day', 'hour', 'minute'):
+            optval = opts.get(optname)
+
+            if optval is None:
+                if incunit is None and not reqdict:
+                    continue
+                # The option isn't set, but a higher unit is.  Go ahead and set the required part to the lowest valid
+                # value, e.g. so --month 2 would run on the *first* of every other month at midnight
+                if optname == 'day':
+                    reqdict['dayofmonth'] = 1
+                else:
+                    reqdict[optname] = valinfo[optname][0]
+                continue
+
+            isreq = not optval.startswith('+')
+
+            if optname == 'day':
+                unit, val = self._parseDay(optval)
+                if val is None:
+                    mesg = f'Failed to parse day value "{optval}"'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                if unit == 'dayofweek':
+                    if incunit is not None:
+                        mesg = 'May not provide a recurrence value with day of week'
+                        raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                    if reqdict:
+                        mesg = 'May not fix month or year with day of week'
+                        raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                    incunit, incval = unit, val
+                elif unit == 'day':
+                    incunit, incval = unit, val
+                else:
+                    assert unit == 'dayofmonth'
+                    reqdict[unit] = val
+                continue
+
+            if not isreq:
+                if incunit is not None:
+                    mesg = 'May not provide more than 1 recurrence parameter'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                if reqdict:
+                    mesg = 'Fixed unit may not be larger than recurrence unit'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                incunit = optname
+                incval = self._parseIncval(optname, optval)
+                if incval is None:
+                    mesg = 'Failed to parse parameter'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+                continue
+
+            if optname == 'year':
+                mesg = 'Year may not be a fixed value'
+                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+            reqval = self._parseReq(optname, optval)
+            if reqval is None:
+                mesg = f'Failed to parse fixed parameter "{optval}"'
+                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+            reqdict[optname] = reqval
+
+        # If not set, default (incunit, incval) to (1, the next largest unit)
+        if incunit is None:
+            if not reqdict:
+                mesg = 'Must provide at least one optional argument'
+                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+            requnit = next(iter(reqdict))  # the first key added is the biggest unit
+            incunit = valinfo[requnit][1]
+            incval = 1
+
+        # Remove the curly braces
+        query = query[1:-1]
+
+        iden = await self.runt.snap.addCronJob(query, reqdict, incunit, incval)
+        return iden
+
+    async def _methCronAt(self, **kwargs):
+        '''
+        Add non-recurring cron jobs to the cortex.
+        '''
+        self.runt.reqAllowed(('cron', 'add'))
+
+        tslist = []
+        now = time.time()
+
+        query = kwargs.get('query', None)
+        if query is None:
+            mesg = 'Query parameter is required.'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        if not query.startswith('{'):
+            mesg = 'Query parameter must start with {'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        for optname in ('day', 'hour', 'minute'):
+            opts = kwargs.get(optname)
+
+            if not opts:
+                continue
+
+            for optval in opts.split(','):
+                try:
+                    arg = f'{optval} {optname}'
+                    ts = now + s_time.delta(arg) / 1000.0
+                    tslist.append(ts)
+                except (ValueError, s_exc.BadTypeValu):
+                    mesg = f'Trouble parsing "{arg}"'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        dts = kwargs.get('dt')
+        if dts:
+            for dt in dts.split(','):
+                try:
+                    ts = s_time.parse(dt) / 1000.0
+                    tslist.append(ts)
+                except (ValueError, s_exc.BadTypeValu):
+                    mesg = f'Trouble parsing "{dt}"'
+                    raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        def _ts_to_reqdict(ts):
+            dt = datetime.datetime.fromtimestamp(ts, datetime.timezone.utc)
+            return {
+                'minute': dt.minute,
+                'hour': dt.hour,
+                'dayofmonth': dt.day,
+                'month': dt.month,
+                'year': dt.year
+            }
+
+        if not tslist:
+            mesg = 'At least one requirement must be provided'
+            raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+
+        reqdicts = [_ts_to_reqdict(ts) for ts in tslist]
+
+        query = query[1:-1]
+
+        iden = await self.runt.snap.addCronJob(query, reqdicts, None, None)
+        return iden
+
+    async def _methCronDel(self, prefix):
+        '''
+        Delete a cron job from the cortex.
+        '''
+        iden = await self._matchIdens(prefix, ('cron', 'del'))
+
+        await self.runt.snap.delCronJob(iden)
+
+        return iden
+
+    async def _methCronMod(self, prefix, query):
+        '''
+        Modify a cron job in the cortex.
+        '''
+        if not query.startswith('{'):
+            mesg = 'Expected second argument to start with {'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix, query=query)
+
+        # Remove the curly braces
+        query = query[1:-1]
+
+        iden = await self._matchIdens(prefix, ('cron', 'set'))
+        await self.runt.snap.updateCronJob(iden, query)
+
+        return iden
+
+    @staticmethod
+    def _formatTimestamp(ts):
+        # N.B. normally better to use fromtimestamp with UTC timezone,
+        # but we don't want timezone to print out
+        return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
+
+    async def _methCronList(self):
+        '''
+        List cron jobs in the cortex.
+        '''
+        cronlist = await self.runt.snap.listCronJobs()
+
+        jobs = []
+        for iden, cronjob in cronlist:
+            if not await cronjob.allowed(self.runt.user, ('cron', 'get')):
+                continue
+
+            cron = cronjob.pack()
+            user = self.runt.snap.getUserName(cron.get('useriden'))
+
+            laststart = cron.get('laststarttime')
+            lastend = cron.get('lastfinishtime')
+            result = cron.get('lastresult')
+
+            jobs.append({
+                'iden': iden,
+                'idenshort': iden[:8] + '..',
+                'user': user or '<None>',
+                'query': cron.get('query') or '<missing>',
+                'isrecur': 'Y' if cron.get('recur') else 'N',
+                'isrunning': 'Y' if cron.get('isrunning') else 'N',
+                'enabled': 'Y' if cron.get('enabled', True) else 'N',
+                'startcount': cron.get('startcount') or 0,
+                'laststart': 'Never' if laststart is None else self._formatTimestamp(laststart),
+                'lastend': 'Never' if lastend is None else self._formatTimestamp(lastend),
+                'iserr': 'X' if result is not None and not result.startswith('finished successfully') else ' '
+            })
+
+        return jobs
+
+    async def _methCronStat(self, prefix):
+        '''
+        Get information about a cron job.
+        '''
+        matches = []
+        crons = await self.runt.snap.listCronJobs()
+
+        for (iden, cron) in crons:
+            if iden.startswith(prefix) and await cron.allowed(self.runt.user, ('cron', 'get')):
+                matches.append(iden)
+
+        if len(matches) == 0:
+            mesg = 'Provided iden does not match any valid authorized cron job.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+        elif len(matches) > 1:
+            mesg = 'Provided iden matches more than one cron job.'
+            raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+
+        iden = matches[0]
+        cronjob = [cron[1] for cron in crons if cron[0] == iden][0]
+        cron = cronjob.pack()
+        user = self.runt.snap.getUserName(cron.get('useriden'))
+
+        laststart = cron.get('laststarttime')
+        lastend = cron.get('lastfinishtime')
+
+        job = {
+            'iden': iden,
+            'user': user or '<None>',
+            'query': cron.get('query') or '<missing>',
+            'isrecur': 'Y' if cron.get('recur') else 'N',
+            'isrunning': 'Y' if cron.get('isrunning') else 'N',
+            'enabled': 'Y' if cron.get('enabled', True) else 'N',
+            'startcount': cron.get('startcount') or 0,
+            'laststart': 'Never' if laststart is None else self._formatTimestamp(laststart),
+            'lastend': 'Never' if lastend is None else self._formatTimestamp(lastend),
+            'lastresult': cron.get('lastresult') or '<None>',
+            'recs': []
+        }
+
+        for reqdict, incunit, incval in cron.get('recs', []):
+            job['recs'].append({
+                'reqdict': reqdict or '<None>',
+                'incunit': incunit or '<None>',
+                'incval': incval or '<None>'
+            })
+
+        return job
+
+    async def _methCronEnable(self, prefix):
+        '''
+        Enable a cron job in the cortex.
+        '''
+        iden = await self._matchIdens(prefix, ('cron', 'set'))
+        await self.runt.snap.enableCronJob(iden)
+
+        return iden
+
+    async def _methCronDisable(self, prefix):
+        '''
+        Disable a cron job in the cortex.
+        '''
+        iden = await self._matchIdens(prefix, ('cron', 'set'))
+        await self.runt.snap.disableCronJob(iden)
+
+        return iden
 
 # These will go away once we have value objects in storm runtime
 def toprim(valu, path=None):

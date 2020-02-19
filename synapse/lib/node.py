@@ -502,8 +502,10 @@ class Node:
         await self._setTagProp(name, valu, indx, info)
 
     async def _setTagProp(self, name, norm, indx, info):
+        oldv = self.tags.get(name)
         self.tags[name] = norm
-        splice = self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
+
+        splice = self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm, oldv=oldv)
         self.proplayr['#' + name] = self.snap.wlyr
         await self.snap.stor((('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),), [splice])
 
@@ -590,7 +592,8 @@ class Node:
 
         prop = self.snap.model.getTagProp(name)
         if prop is None:
-            raise s_exc.NoSuchTagProp(name=name)
+            raise s_exc.NoSuchTagProp(mesg='Tag prop does not exist in this Cortex.',
+                                      name=name)
 
         try:
             norm, info = prop.type.norm(valu)

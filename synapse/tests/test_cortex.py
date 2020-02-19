@@ -2699,10 +2699,29 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.addFeedData('syn.nodes', podes)
             await self.agenlen(3, core1.eval('test:int'))
 
+            await core1.addTagProp('test', ('int', {}), {})
+            async with await core1.snap() as snap:
+                node = await snap.getNodeByNdef(('test:int', 1))
+                await node.setTagProp('beep.beep', 'test', 1138)
+                pode = node.pack()
+
+            pode = (('test:int', 4), pode[1])
+
+            await core1.addFeedData('syn.nodes', [pode])
+            nodes = await core1.nodes('test:int=4')
+            self.eq(1138, nodes[0].getTagProp('beep.beep', 'test'))
+
             # Put bad data in
             with self.getAsyncLoggerStream('synapse.lib.snap',
                                            "Error making node: [test:str=newp]") as stream:
-                await core1.addFeedData('syn.nodes', [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})])
+                data = [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})]
+                await core1.addFeedData('syn.nodes', data)
+                self.true(await stream.wait(6))
+
+            with self.getAsyncLoggerStream('synapse.lib.snap',
+                                           'Tagprop [newp] does not exist, cannot set it') as stream:
+                data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
+                await core1.addFeedData('syn.nodes', data)
                 self.true(await stream.wait(6))
 
     async def test_stat(self):
@@ -2720,12 +2739,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             counts = nstat.get('formcounts')
             self.eq(counts.get('test:str'), 1)
             self.eq(counts, core_counts)
-
-        conf = {'dedicated': True}
-        async with self.getTestCoreAndProxy(conf=conf) as (realcore, core):
-            nstat = await core.stat()
-            layr = nstat.get('layer')
-            self.gt(layr.get('lock_goal'), 0)
 
     async def test_offset(self):
         async with self.getTestCoreAndProxy() as (realcore, core):
@@ -3489,20 +3502,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                     {'ndef': ('test:str', 'hello'), 'prop': 'tick', 'valu': 1009843200000, 'oldv': 978307200000})
             self.isin(mesg, splices)
 
-            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo', 'valu': (None, None)})
+            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo', 'valu': (None, None), 'oldv': None})
             self.isin(mesg, splices)
 
-            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (None, None)})
+            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (None, None), 'oldv': None})
             self.isin(mesg, splices)
 
-            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1009843200000)})
+            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1009843200000), 'oldv': (None, None)})
             self.isin(mesg, splices)
 
-            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1022889600000)})
+            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1022889600000), 'oldv': (946684800000, 1009843200000)})
             self.isin(mesg, splices)
 
             # Ensure our inside-window tag add did not generate a splice.
-            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1020211200000)})
+            mesg = ('tag:add', {'ndef': ('test:str', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1020211200000), 'oldv': (946684800000, 1022889600000)})
             self.notin(mesg, splices)
 
             mesg = ('tag:del', {'ndef': ('test:str', 'hello'), 'tag': 'foo', 'valu': (None, None)})

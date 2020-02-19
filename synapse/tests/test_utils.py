@@ -203,3 +203,6 @@ class TestUtils(s_t_utils.SynTest):
 
             mesgs = await core.streamstorm('iden newp').list()
             self.stormIsInWarn('Failed to decode iden', mesgs)
+
+            mesgs = await core.streamstorm('[test:str=').list()
+            self.stormIsInErr('Unexpected end', mesgs)

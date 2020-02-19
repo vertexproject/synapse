@@ -190,6 +190,45 @@ class Snap(s_base.Base):
     def listViews(self):
         return list(self.core.views.values())
 
+    async def addTrigger(self, condition, query, info, disabled=False):
+        return await self.core.addTrigger(condition, query, info=info, disabled=disabled)
+
+    async def delTrigger(self, iden):
+        return await self.core.delTrigger(iden)
+
+    async def updateTrigger(self, iden, query):
+        return await self.core.updateTrigger(iden, query)
+
+    async def enableTrigger(self, iden):
+        return await self.core.enableTrigger(iden)
+
+    async def disableTrigger(self, iden):
+        return await self.core.disableTrigger(iden)
+
+    async def listTriggers(self):
+        return await self.core.listTriggers()
+
+    def getUserName(self, iden, defv='<unknown>'):
+        return self.core.getUserName(iden, defv)
+
+    async def addCronJob(self, query, reqdict, incunit, incval):
+        return await self.core.addCronJob(self.user, query, reqdict, incunit, incval)
+
+    async def delCronJob(self, iden):
+        return await self.core.delCronJob(iden)
+
+    async def updateCronJob(self, iden, query):
+        return await self.core.updateCronJob(iden, query)
+
+    async def enableCronJob(self, iden):
+        return await self.core.enableCronJob(iden)
+
+    async def disableCronJob(self, iden):
+        return await self.core.disableCronJob(iden)
+
+    async def listCronJobs(self):
+        return await self.core.listCronJobs()
+
     def getStormMod(self, name):
         return self.mods.get(name)
 
@@ -774,6 +813,17 @@ class Snap(s_base.Base):
                     if tags is not None:
                         for tag, asof in tags.items():
                             await node.addTag(tag, valu=asof)
+
+                    tagprops = forminfo.get('tagprops', {})
+                    if tagprops is not None:
+                        for tag, props in tagprops.items():
+                            for prop, valu in props.items():
+                                try:
+                                    await node.setTagProp(tag, prop, valu)
+                                except s_exc.NoSuchTagProp:
+                                    mesg = f'Tagprop [{prop}] does not exist, cannot set it on [{formname}={formvalu}]'
+                                    logger.warning(mesg)
+                                    continue
 
                 yield node
 

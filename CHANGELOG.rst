@@ -3,6 +3,66 @@ Synapse Changelog
 *****************
 
 
+v0.1.51 - 2019-02-13
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``inet:whois:ipquery``, ``inet:whois:iprec``, ``inet:whois:ipcontact`` and ``inet:whois:regid`` forms to track IP
+  WHOIS information.  Add a ``$lib.inet.whois.guid()`` Stormtypes function that can be used to assist in stable guid
+  generation for the ``inet:whois:iprec`` forms.
+  (`#1495 <https://github.com/vertexproject/synapse/pull/1495>`_)
+
+Bugfixes
+--------
+- Fix an issue where Provenance claims did not contain the user iden during a ``feed:data`` claim.
+  (`#1531 <https://github.com/vertexproject/synapse/pull/1531>`_)
+- Fix an issue where ``tag:add`` splices did not record ``oldv``.
+  (`#1534 <https://github.com/vertexproject/synapse/pull/1534>`_)
+
+
+v0.1.50 - 2019-02-07
+====================
+
+Features and Enhancements
+-------------------------
+- Add Storm commands for managing triggers and cron jobs from inside of Storm directly. The existing ``trigger`` and
+  ``cron`` commands available in the Cmdr tool have been marked as PendingDeprecation and will be removed in 0.3.0.
+  Cmdr will emit these warnings directly if used. Related Telepath APIs have also been marked for PendingDeprecation.
+  Cortex administrators can enable Python warnings to see those APIs being used.
+  (`#1513 <https://github.com/vertexproject/synapse/pull/1513>`_)
+
+v0.1.49 - 2019-02-03
+====================
+
+Bugfixes
+--------
+- Fix an issue where pivot operations which pointed to ``syn:splice`` nodes raised exceptions which could teardown a
+  Storm runtime unexpectedly.  Attempting to directly lift ``syn:splice`` nodes by primary or secondary properties now
+  generates no nodes.
+  (`#1529 <https://github.com/vertexproject/synapse/pull/1529>`_)
+
+
+v0.1.48 - 2019-02-03
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``ou:conference:event`` and ``ou:conference:attendee`` forms to facilitate more fine grained conference tracking.
+  (`#1523 <https://github.com/vertexproject/synapse/pull/1523>`_)
+- Make the ``syn.nodes`` ingest aware of tagprops.
+  (`#1525 <https://github.com/vertexproject/synapse/pull/1525>`_)
+
+Bugfixes
+--------
+- Make the LMDB Memory Locking loop safer.
+  (`#1522 <https://github.com/vertexproject/synapse/pull/1522>`_)
+  (`#1526 <https://github.com/vertexproject/synapse/pull/1526>`_)
+- Address a test race encountered during the teardown of Link objects where server side CellAPI instances were not
+  having ``fini()`` called.
+  (`#1524 <https://github.com/vertexproject/synapse/pull/1524>`_)
+
+
 v0.1.47 - 2019-01-30
 ====================
 
