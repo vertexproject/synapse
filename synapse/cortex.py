@@ -738,11 +738,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Enable storing splices for layer changes.',
             'type': 'boolean'
         },
-        'splice:fallback': {
-            'default': False,
-            'description': 'Should new layers generate fallback splices by default.',
-            'type': 'boolean'
-        },
         'storm:log': {
             'default': False,
             'description': 'Log storm queries via system logger.',
@@ -2378,7 +2373,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         # FIXME: why do we have two levels of conf?
         conf = ldef.get('conf')
         conf.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
-        conf.setdefault('fallback', self.conf.get('splice:fallback'))
 
         return await self._push('layer:add', ldef)
 

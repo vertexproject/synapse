@@ -478,18 +478,3 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(splice[1]['ndef'], ('test:str', 'foo'))
             self.eq(splice[1]['user'], root.iden)
             self.nn(splice[1].get('time'))
-
-    async def test_layer_fallback_splices(self):
-
-        conf = {'splice:fallback': True}
-        async with self.getTestCore(conf=conf) as core:
-
-            root = await core.auth.getUserByName('root')
-
-            layr = core.view.layers[0]
-
-            splice = layr.splicelog.get(0)
-            self.eq(splice[0], 'node:add')
-            self.eq(splice[1]['ndef'][0], 'meta:source')
-            self.eq(splice[1]['user'], root.iden)
-            self.nn(splice[1].get('time'))
