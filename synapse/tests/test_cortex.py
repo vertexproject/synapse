@@ -3387,12 +3387,17 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.true(await s_coro.event_wait(evnt, timeout=2.0))
 
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
+                    await core00.nodes('queue.add visi')
 
                     offs = await core00.getNexusOffs() - 1
                     evnt = await core01.getNexusOffsEvent(offs)
                     self.true(await s_coro.event_wait(evnt, timeout=2.0))
 
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
+
+                    msgs = await core01.streamstorm('queue.list').list()
+                    # FIXME:  uncomment when nexsroot bootstrap fixed
+                    # self.stormIsInPrint('visi', msgs)
 
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 

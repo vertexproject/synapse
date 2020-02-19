@@ -996,7 +996,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             node.snap.user.confirm(('trigger', 'set', 'doc'), gateiden=iden)
             await trig.set('doc', valu)
             node.props[prop.name] = valu
-            await self.fire('core:trigger:action', iden=iden, action='mod')
 
         async def onSetTrigName(node, prop, valu):
             valu = str(valu)
@@ -1005,7 +1004,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             node.snap.user.confirm(('trigger', 'set', 'name'), gateiden=iden)
             await trig.set('name', valu)
             node.props[prop.name] = valu
-            await self.fire('core:trigger:action', iden=iden, action='mod')
 
         async def onSetCronDoc(node, prop, valu):
             valu = str(valu)

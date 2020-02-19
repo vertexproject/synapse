@@ -84,6 +84,8 @@ class ViewTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:int=12')
             self.len(1, nodes)
 
+            # FIXME: Test perms (from proxy)
+
     async def test_view_trigger(self):
         async with self.getTestCore() as core:
 

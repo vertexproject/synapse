@@ -530,13 +530,7 @@ class View(s_nexus.Pusher):  # type: ignore
         Adds a trigger to the view.
         '''
         tdef['iden'] = s_common.guid()
-
-        tdef = await self._push('trigger:add', tdef)
-        user = self.core.auth.user(tdef.get('user'))
-
-        await user.setAdmin(True, gateiden=tdef.get('iden'))
-
-        return tdef
+        return await self._push('trigger:add', tdef)
 
     @s_nexus.Pusher.onPush('trigger:add')
     async def _onPushAddTrigger(self, tdef):
@@ -546,17 +540,20 @@ class View(s_nexus.Pusher):  # type: ignore
         tdef.setdefault('user', root.iden)
         tdef.setdefault('enabled', True)
 
-        self.core.getStormQuery(tdef.get('storm'))
+        user = self.core.auth.user(tdef['user'])
+
+        self.core.getStormQuery(tdef['storm'])
         # FIXME:  add json schema validation
 
         trig = self.triggers.load(tdef)
         await self.trigdict.set(trig.iden, tdef)
         await self.core.auth.addAuthGate(trig.iden, 'trigger')
+        await user.setAdmin(True, gateiden=tdef.get('iden'))
 
         return trig.pack()
 
     async def getTrigger(self, iden):
-        return await self.triggers.get(iden)
+        return self.triggers.get(iden)
 
     @s_nexus.Pusher.onPushAuto('trigger:del')
     async def delTrigger(self, iden):
@@ -572,7 +569,7 @@ class View(s_nexus.Pusher):  # type: ignore
         trig = self.triggers.get(iden)
         await trig.set(name, valu)
 
-    async def _listTriggers(self):
+    async def listTriggers(self):
         '''
         List all the triggers in the view.
         '''
@@ -580,23 +577,6 @@ class View(s_nexus.Pusher):  # type: ignore
         if self.parent is not None:
             trigs.extend(await self.parent._listTriggers())
         return trigs
-
-    async def listTriggers(self, useriden):
-
-        triggers = []
-        auth = self.core.auth
-        user = auth.user(useriden)
-        for (iden, trig) in await self._listTriggers():
-            if user.allowed(('trigger', 'get'), gateiden=iden):
-                packed = trig.pack()
-
-                useriden = packed['user']
-                triguser = auth.user(useriden)
-                packed['username'] = triguser.name
-
-                triggers.append(packed)
-
-        return triggers
 
     async def delete(self):
         '''
