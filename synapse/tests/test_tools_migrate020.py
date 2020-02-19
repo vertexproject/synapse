@@ -175,8 +175,18 @@ class MigrationTest(s_t_utils.SynTest):
         root = await core.auth.getUserByName('root')
         triggers = await core.view.packTriggers(root.iden)
         self.len(2, triggers)
+        self.len(2, await core.eval('syn:trigger').list())
         tnodes = await core.nodes('[ inet:ipv4=9.9.9.9 ]')
         self.nn(tnodes[0].tags.get('trgtag'))
+
+        # user permissions
+        spam = await core.auth.addUser('spam')
+        await spam.addRule((True, ('trigger', 'add')))
+        fred = await core.auth.getUserByName('fred')
+        async with core.getLocalProxy(user='spam') as proxy:
+            tnodes = await proxy.eval('syn:trigger').list()
+            tfred = await proxy.callStorm('return ($lib.trigger.list())')
+            # TODO
 
     async def test_migr_nexus(self):
         conf = {
@@ -286,6 +296,12 @@ class MigrationTest(s_t_utils.SynTest):
             conf['dest'] = dest0
 
             async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
+                # check form counts
+                fcntprnt = await migr.formCounts()
+                self.len(1, fcntprnt)
+                fnum = len([x for x in tdata['podes'] if x[0][0] == 'inet:fqdn'])
+                self.isin(f'inet:fqdn{fnum}{fnum}0', fcntprnt[0].replace(' ', ''))
+
                 # check that destination is populated before starting migration
                 iden = locallyrs[0]
                 lyrslab = os.path.join(dest, 'layers', iden, 'layer_v2.lmdb')

@@ -1,15 +1,5 @@
 '''
 Migrate Synapse from 0.1.x to 0.2.x.
-
-TODO:
-    - Migrating mirrors (what about existing remote layer?)
-    - Restart capability?
-    - Validation option?
-    - Prompt and/or execute a backup?
-    - Any migr for views?  Need to iter over views?
-    - Set an error threshold for canceling migration?  esp on nodes?
-    - handling datamodel changes / migration
-    - inbound conditions to start, i.e. at least at 0.1.Y
 '''
 import os
 import sys
@@ -18,8 +8,6 @@ import asyncio
 import logging
 import argparse
 import collections
-
-import yappi  # TODO: remove
 
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
@@ -56,6 +44,201 @@ ADD_MODES = (
     'editor',   # Layer.editors[<op>]() w/o nexus
 )
 
+MIN_VER = (0, 1, 'x')  # TODO: currently no way to check this
+
+class MigrAuth:
+    '''
+    Loads the Hive auth tree from 0.1.x and translates it to 0.2.x
+    '''
+    def __init__(self, srctree):
+        self.wasmigrated = self._checkWasMigrated(srctree)  # FIXME
+        self.srctree = srctree
+        self.desttree = None
+
+        self.usersbyiden = {}
+        self.rolesbyiden = {}
+        self.authgatesbyiden = {}
+        self.usersbyname = {}
+        self.rolesbyname = {}
+        self.authgatesbyname = collections.defaultdict(list)
+
+    async def translate(self):
+        await self._srcReadTree()
+        await self._trnAuth()
+        await self._destCreateTree()
+        return self.desttree
+
+    def _checkWasMigrated(self, srctree):
+        '''
+        Check if the tree is already in 0.2.x format.
+        # FIXME
+
+        Returns:
+            (bool): True if already migrated, else False.
+        '''
+        if 'roles' in srctree['kids'].keys():
+            logger.info('Hive auth has already been migrated')
+            return True
+        else:
+            return False
+
+    async def _srcReadTree(self):
+        for uiden, uvals in self.srctree['kids']['users']['kids'].items():
+            self.usersbyiden[uiden] = uvals['kids']
+            self.usersbyname[uvals['value']] = uiden
+
+        for riden, rvals in self.srctree['kids'].get('roles', {}).get('kids', {}).items():
+            self.rolesbyiden[riden] = {
+                'rules': rvals.get('kids', {}).get('rules', {}).get('value', ())
+            }
+            name = rvals['value']
+            if name is not None:
+                self.rolesbyname[name] = riden
+
+        for giden, gvals in self.srctree['kids']['authgates']['kids'].items():
+            authgate = {
+                'rolesbyiden': {},
+                'usersbyiden': {},
+            }
+
+            for riden, rvals in gvals.get('roles', {}).get('kids', {}).items():
+                authgate['rolesbyiden'][riden] = {
+                    'rules': rvals.get('kids', {}).get('rules', {}).get('value', ())
+                }
+
+            for uiden, uvals in gvals.get('roles', {}).get('users', {}).items():
+                authgate['usersbyiden'][uiden] = uvals.get('kids', {})
+
+            self.authgatesbyiden[giden] = authgate
+            self.authgatesbyname[gvals['value']].append(giden)
+
+    async def _trnAuth(self):
+        '''
+        Create destination tree.
+        FIXME: Authgates by user
+        '''
+        # create 'all' role if it doesn't exist
+        if 'all' not in self.rolesbyname:
+            iden = s_common.guid()
+            self.rolesbyname['all'] = iden
+            self.rolesbyiden[iden] = {}
+
+        # add all role to all the users
+        for uiden, uvals in self.usersbyiden.items():
+            roles = uvals.get('roles', {}).get('value', [])
+            roles = list(roles)
+            roles.append(self.rolesbyname['all'])
+            uvals['roles'] = {'values': tuple(roles)}
+
+        # create cortex authgate if it doesn't exist
+        if 'cortex' not in self.authgatesbyname:
+            self.authgatesbyname['cortex'].append('cortex')
+            self.authgatesbyiden['cortex'] = {
+                'rolesbyiden': {},
+                'usersbyiden': {},
+            }
+
+        # replace layr with layer
+        gates = self.authgatesbyname.pop('layr')
+        self.authgatesbyname['layer'] = gates
+
+        # add view:read rules to all role in views if they don't exist
+        alliden = self.rolesbyname['all']
+        for aiden in self.authgatesbyname['view']:
+            gate = self.authgatesbyiden[aiden]
+            allrole = gate['rolesbyiden'].get(self.rolesbyname['all'])
+            if allrole is None:
+                gate['rolesbyiden'][alliden] = ((True, ('view', 'read')),)
+
+        # FIXME: for now add all users to all layers and views (except cortex)
+        for aiden, avals in self.authgatesbyiden.items():
+            if aiden == 'cortex':
+                continue
+
+            gateusers = avals['usersbyiden']
+            for uiden, uvals in self.usersbyiden.items():
+                if uiden not in gateusers:
+                    gateusers[uiden] = {}
+                    if uvals.get('admin', {}).get('value', False):
+                        gateusers[uiden]['admin'] = {'value': True}
+
+    async def _destCreateTree(self):
+        gatekids = {}
+        rolekids = {}
+        userkids = {}
+
+        # assume all users have a name
+        for uname, uiden in self.usersbyname.items():
+            uvals = self.usersbyiden[uiden]
+            userkids[uiden] = {
+                'kids': uvals,
+                'value': uname,
+            }
+
+        # load all roles
+        rname_lookup = {v: k for k, v in self.rolesbyname.items()}
+        for riden, rvals in self.rolesbyiden.items():
+            rname = rname_lookup.get(riden)
+            rolekids[riden] = {
+                'kids': {
+                    'rules': {
+                        'value': rvals
+                    }
+                },
+                'value': rname
+            }
+
+        # load all authgates and child roles, users
+        aname_lookup = {i: k for k, v in self.authgatesbyname.items() for i in v}
+        for aiden, avals in self.authgatesbyiden.items():
+            aroles = {
+                'value': None,
+                'kids': {}
+            }
+            for riden, rvals in avals['rolesbyiden'].items():
+                aroles['kids'][riden] = {
+                        'kids': {
+                            'rules': {
+                                'value': rvals
+                            }
+                        },
+                        'value': None
+                    }
+
+            ausers = {
+                'value': None,
+                'kids': {}
+            }
+            for uiden, uvals in avals['usersbyiden'].items():
+                ausers['kids'][uiden] = {
+                    'kids': uvals,
+                    'value': None
+                }
+
+            # TODO: may not need to remove empty kids
+            if not aroles['kids']:
+                aroles.pop('kids')
+            if not ausers['kids']:
+                ausers.pop('kids')
+
+            gatekids[aiden] = {
+                'kids': {
+                    'roles': aroles,
+                    'users': ausers,
+                },
+                'value': aname_lookup.get(aiden),
+            }
+
+        # store final tree
+        self.desttree = {
+            'value': None,
+            'kids': {
+                'authgates': {'kids': gatekids, 'value': None},
+                'roles': {'kids': rolekids, 'value': None},
+                'users': {'kids': userkids, 'value': None},
+            }
+        }
+
 class Migrator(s_base.Base):
     '''
     Standalone tool for migrating Synapse from a source Cortex to a new destination 0.2.x Cortex.
@@ -64,6 +247,8 @@ class Migrator(s_base.Base):
     The step is then carried out by a dedicated _migr* method which calls
     _src*, _trn*, _dest* methods as needed to read from the 0.1.x source, translate data to 0.2.x syntax,
     and finally write to the destination layer, respectively.
+
+    Auth migration is handled through a standalone class MigrAuth.
 
     Source 0.1.x data is not modified, and migration can be run as a background operation.
 
@@ -166,17 +351,6 @@ class Migrator(s_base.Base):
 
             if 'nodes' in self.migrops:
                 await self._migrNodes(iden, wlyr)
-                # TODO: remove yappi
-                # yappi.set_clock_type("wall")
-                # yappi.start()
-                # await self._migrNodes(iden, wlyr)
-                # yappi.stop()
-                # stats = yappi.get_func_stats()
-                # stats.strip_dirs()
-                # stats.print_all(out=sys.stdout,
-                #                 columns={0: ("name", 50), 1: ("ncall", 15), 2: ("tsub", 8), 3: ("ttot", 8),
-                #                          4: ("tavg", 8)})
-                # yappi.get_thread_stats().print_all()
 
             if 'nodedata' in self.migrops:
                 await self._migrNodeData(iden, wlyr)
@@ -461,45 +635,6 @@ class Migrator(s_base.Base):
         logger.info('Completed datamodel migration')
         await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
 
-    async def _migrHiveAuth(self):
-        '''
-        TODO right now just blowing away authgates to allow startup
-        '''
-        migrop = 'hiveauth'
-        await self.hive.pop(('auth', 'authgates'))
-
-        logger.info('Completed HiveAuth migration')
-        await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
-
-    async def _migrHiveStorInfo(self):
-        '''
-        Migrate to new storage info syntax.
-
-        Returns:
-            (HiveDict): Storage information
-        '''
-        migrop = 'hivestor'
-
-        # Set storage information
-        storiden = await self.hive.get(('cellinfo', 'layr:stor:default'))
-        if storiden is not None:
-            logger.info(f'Using existing default storage: {storiden}')
-        else:
-            storiden = s_common.guid()
-            await self.hive.set(('cellinfo', 'layr:stor:default'), storiden)
-
-        stornode = await self.hive.open(('cortex', 'storage', storiden))
-        stordict = await stornode.dict()
-
-        await stordict.set('iden', storiden)
-        await stordict.set('type', 'local')
-        await stordict.set('conf', {})
-
-        logger.info('Completed Hive storage info migration')
-        await self._migrlogAdd(migrop, 'prog', storiden, s_common.now())
-
-        return stordict
-
     async def _migrHiveLayerInfo(self, storinfo, iden):
         '''
         As each layer is migrated update the hive info.
@@ -551,6 +686,57 @@ class Migrator(s_base.Base):
 
         logger.info('Completed Hive layer info migration')
         await self._migrlogAdd(migrop, 'prog', iden, s_common.now())
+
+    async def _migrHiveAuth(self):
+        '''
+        Should be run after layer info is updated in the hive.
+        '''
+        migrop = 'hiveauth'
+
+        srctree = await self.hive.saveHiveTree(('auth01x',))
+        if srctree == {'value': None}:
+            srctree = await self.hive.saveHiveTree(('auth',))
+        else:
+            logger.info(f'Using backup auth01x for migration')
+
+        migrauth = MigrAuth(srctree)
+        desttree = await migrauth.translate()
+
+        # save a backup then replace
+        await self.hive.loadHiveTree(srctree, ('auth01x',))
+        await self.hive.loadHiveTree(desttree, ('auth',))
+
+        logger.info('Completed HiveAuth migration')
+        await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
+
+    async def _migrHiveStorInfo(self):
+        '''
+        Migrate to new storage info syntax.
+
+        Returns:
+            (HiveDict): Storage information
+        '''
+        migrop = 'hivestor'
+
+        # Set storage information
+        storiden = await self.hive.get(('cellinfo', 'layr:stor:default'))
+        if storiden is not None:
+            logger.info(f'Using existing default storage: {storiden}')
+        else:
+            storiden = s_common.guid()
+            await self.hive.set(('cellinfo', 'layr:stor:default'), storiden)
+
+        stornode = await self.hive.open(('cortex', 'storage', storiden))
+        stordict = await stornode.dict()
+
+        await stordict.set('iden', storiden)
+        await stordict.set('type', 'local')
+        await stordict.set('conf', {})
+
+        logger.info('Completed Hive storage info migration')
+        await self._migrlogAdd(migrop, 'prog', storiden, s_common.now())
+
+        return stordict
 
     async def _migrTriggers(self):
         '''
