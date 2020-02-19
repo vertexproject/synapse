@@ -847,19 +847,6 @@ class Layer(s_nexus.Pusher):
         self.windows = []
         self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
 
-        # If offset > last nodeedits, replay nodeedits
-
-        lastnodeedit = self.nodeeditlog.last()
-
-        if b'nodeedit:applied' not in self.offsets.cache:
-            appliedoffs = -1
-        else:
-            appliedoffs = self.offsets.get('nodeedit:applied')
-
-        if not self.readonly and lastnodeedit is not None and lastnodeedit[0] > appliedoffs:
-            nodeedits = [e[1][0] for e in self.nodeeditlog.iter(appliedoffs + 1)]
-            [await self.storNodeEditsNoLift(e, {}) for e in nodeedits]
-
         uplayr = layrinfo.get('upstream')
         if uplayr is not None:
             if isinstance(uplayr, (tuple, list)):
@@ -1075,12 +1062,6 @@ class Layer(s_nexus.Pusher):
         offs = self.nodeeditlog.add((changes, meta))
 
         [(await wind.put((offs, changes))) for wind in tuple(self.windows)]
-
-        #if self.fallback:
-            #splices = [x[1] async for x in self.makeSplices(offs, changes, meta)]
-            #self.splicelog.save(splices)
-
-        self.offsets.set('nodeedit:applied', offs)
 
         return changes
 
