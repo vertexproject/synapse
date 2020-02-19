@@ -7,6 +7,7 @@ import contextvars
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.chop as s_chop
 import synapse.lib.cache as s_cache
 import synapse.lib.provenance as s_provenance
 
@@ -54,7 +55,6 @@ class Triggers:
         depth = RecursionDepth.get()
         if depth > 64:
             raise s_exc.RecursionLimitHit(mesg='Hit trigger limit')
-
         token = RecursionDepth.set(depth + 1)
 
         try:
@@ -75,7 +75,7 @@ class Triggers:
         with self._recursion_check():
             [await trig.execute(node) for trig in self.propset.get(prop.full, ())]
             if prop.univ is not None:
-                [await trig.execute(node) for trig in self.propset.get(prop.univ, ())]
+                [await trig.execute(node) for trig in self.propset.get(prop.univ.full, ())]
 
     async def runTagAdd(self, node, tag):
 
@@ -154,61 +154,63 @@ class Triggers:
         storm = trig.tdef['storm']
         self.view.core.getStormQuery(storm)
 
-        self.triggers[trig.iden] = trig
-
         cond = trig.tdef.get('cond')
+        tag = trig.tdef.get('tag')
+        form = trig.tdef.get('form')
+        prop = trig.tdef.get('prop')
+
+        if cond not in Conditions:
+            raise s_exc.NoSuchCond(name=cond)
+
+        if cond in ('node:add', 'node:del') and form is None:
+            raise s_exc.BadOptValu(mesg='form must be present for node:add or node:del')
+        if cond in ('node:add', 'node:del') and tag is not None:
+            raise s_exc.BadOptValu(mesg='tag must not be present for node:add or node:del')
+        if cond in ('tag:add', 'tag:del'):
+            if tag is None:
+                raise s_exc.BadOptValu(mesg='missing tag')
+            s_chop.validateTagMatch(tag)
+        if prop is not None and cond != 'prop:set':
+            raise s_exc.BadOptValu(mesg='prop parameter invalid')
 
         if cond == 'node:add':
-            form = trig.tdef['form']
             self.nodeadd[form].append(trig)
-            return trig
 
-        if cond == 'node:del':
-            form = trig.tdef['form']
+        elif cond == 'node:del':
             self.nodedel[form].append(trig)
-            return trig
 
-        if cond == 'prop:set':
-            prop = trig.tdef['prop']
+        elif cond == 'prop:set':
+            if prop is None:
+                raise s_exc.BadOptValu(mesg='missing prop parameter')
+            if form is not None or tag is not None:
+                raise s_exc.BadOptValu(mesg='form and tag must not be present for prop:set')
             self.propset[prop].append(trig)
-            return trig
 
-        if cond == 'tag:add':
-
-            tag = trig.tdef['tag']
-            form = trig.tdef.get('form')
+        elif cond == 'tag:add':
 
             if '*' not in tag:
                 self.tagadd[(form, tag)].append(trig)
-                return trig
+            else:
+                # we have a glob add
+                self.tagaddglobs[form].add(tag, trig)
 
-            # we have a glob add
-            self.tagaddglobs[form].add(tag, trig)
-            return trig
+        elif cond == 'tag:del':
 
-        if cond == 'tag:del':
+            if '*' not in tag:
+                self.tagdel[(form, tag)].append(trig)
+            else:
+                self.tagdelglobs[form].add(tag, trig)
 
-            tag = trig.tdef.get('tag')
-            form = trig.tdef.get('form')
+        elif cond == 'tag:set':
 
-            if '*' not in trig.tag:
-                self.tagdel[(trig.form, trig.tag)].append(trig)
-                return trig
+            if '*' not in tag:
+                self.tagset[(form, tag)].append(trig)
+            else:
+                # we have a glob add
+                self.tagsetglobs[form].add(tag, trig)
 
-            self.tagdelglobs[trig.form].add(trig.tag, trig)
-            return trig
-
-        if cond == 'tag:set':
-
-            if '*' not in trig.tag:
-                self.tagset[(trig.form, trig.tag)].append(trig)
-                return trig
-
-            # we have a glob add
-            self.tagsetglobs[trig.form].add(trig.tag, trig)
-            return trig
-
-        raise s_exc.NoSuchCond(name=cond)
+        self.triggers[trig.iden] = trig
+        return trig
 
     def list(self):
         return list(self.triggers.items())
@@ -293,6 +295,12 @@ class Trigger:
         '''
         assert name in ('enabled', 'storm', 'doc', 'name')
 
+        if valu == self.tdef[name]:
+            return
+
+        if name == 'storm':
+            self.view.core.getStormQuery(valu)
+
         self.tdef[name] = valu
         await self.view.trigdict.set(self.iden, self.tdef)
 
@@ -331,10 +339,16 @@ class Trigger:
             except asyncio.CancelledError: # pragma: no cover
                 raise
             except Exception:
-                logger.exception('Trigger encountered exception running storm query %s', self.storm)
+                logger.exception('Trigger encountered exception running storm query %s', storm)
 
     def pack(self):
-        return self.tdef.copy()
+        tdef = self.tdef.copy()
+
+        useriden = tdef['user']
+        triguser = self.view.core.auth.user(useriden)
+        tdef['username'] = triguser.name
+
+        return tdef
 
     def getStorNode(self, form='syn:trigger'):
         ndef = (form, self.iden)

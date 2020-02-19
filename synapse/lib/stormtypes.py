@@ -1536,19 +1536,20 @@ class LibTrigger(Lib):
         Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
         exactly one.
         '''
-        useriden = self.runt.user.iden
-        viewiden = self.runt.snap.view.iden
+        user = self.runt.user
 
-        todo = s_common.todo('listTriggers', useriden)
-        trigs = await self.dyncall(viewiden, todo)
         match = None
+        trigs = await self.runt.snap.view.listTriggers()
 
-        for trig in trigs:
-            iden = trig.get('iden')
+        for iden, trig in trigs:
             if iden.startswith(prefix):
                 if match is not None:
                     mesg = 'Provided iden matches more than one trigger.'
                     raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+
+                if not user.allowed(('trigger', 'get'), gateiden=iden):
+                    continue
+
                 match = trig
 
         if match is None:
@@ -1591,14 +1592,12 @@ class LibTrigger(Lib):
         '''
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
-        tdef = await self._matchIdens(prefix)
-        trigiden = tdef['iden']
+        trig = await self._matchIdens(prefix)
+        iden = trig.iden
 
-        todo = s_common.todo('delTrigger', trigiden)
-        gatekeys = ((useriden, ('trigger', 'del'), trigiden),)
+        todo = s_common.todo('delTrigger', iden)
+        gatekeys = ((useriden, ('trigger', 'del'), iden),)
         await self.dyncall(viewiden, todo, gatekeys=gatekeys)
-
-        return trigiden
 
     async def _methTriggerMod(self, prefix, query):
         '''
@@ -1614,8 +1613,8 @@ class LibTrigger(Lib):
         # Remove the curly braces
         query = query[1:-1]
 
-        tdef = await self._matchIdens(prefix)
-        iden = tdef['iden']
+        trig = await self._matchIdens(prefix)
+        iden = trig.iden
         gatekeys = ((useriden, ('trigger', 'set'), iden),)
         todo = s_common.todo('setTriggerInfo', iden, 'storm', query)
         await self.dyncall(viewiden, todo, gatekeys=gatekeys)
@@ -1626,22 +1625,25 @@ class LibTrigger(Lib):
         '''
         List triggers in the cortex.
         '''
-        useriden = self.runt.user.iden
-        viewiden = self.runt.snap.view.iden
+        user = self.runt.user
+        view = self.runt.snap.view
         triggers = []
 
-        todo = s_common.todo('listTriggers', useriden)
-        for tdef in await self.dyncall(viewiden, todo):
-            triggers.append(Trigger(self.runt, tdef))
+        for iden, trig in await view.listTriggers():
+            if not user.allowed(('trigger', 'get'), gateiden=iden):
+                continue
+            triggers.append(Trigger(self.runt, trig.pack()))
 
         return triggers
 
     async def _methTriggerGet(self, iden):
-        triggers = await self._methTriggerList()
-        for trig in triggers:
-            if trig.tdef.get('iden') == iden:
-                return trig
-        return None
+        trigger = await self.runt.snap.view.getTrigger(iden)
+        if iden is None:
+            return None
+
+        self.runt.user.confirm(('trigger', 'get'), gateiden=iden)
+
+        return Trigger(self.runt, trigger.pack())
 
     async def _methTriggerEnable(self, prefix):
         '''
@@ -1656,8 +1658,8 @@ class LibTrigger(Lib):
         return await self._triggerendisable(prefix, False)
 
     async def _triggerendisable(self, prefix, state):
-        tdef = await self._matchIdens(prefix)
-        iden = tdef['iden']
+        trig = await self._matchIdens(prefix)
+        iden = trig.iden
 
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
