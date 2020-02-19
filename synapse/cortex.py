@@ -804,9 +804,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.provstor = await s_provenance.ProvStor.anit(self.dirn)
         self.onfini(self.provstor.fini)
 
-        # initialize change distribution
-        await self._initNexsRoot()
-
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
 
@@ -881,10 +878,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
-
-    async def _initNexsRoot(self):
-        self.nexsroot = await s_nexus.NexsRoot.anit(self.dirn)
-        self.onfini(self.nexsroot.fini)
 
     async def _onEvtBumpSpawnPool(self, evnt):
         await self.bumpSpawnPool()

@@ -1020,9 +1020,19 @@ class Layer(s_nexus.Pusher):
             for buid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu):
                 yield await self.getStorNode(buid)
 
+    async def storNodeEdits(self, nodeedits, meta):
+        '''
+        Store a list of nodeedits (buid, form, edits) and return storage nodes
+        with an additional "edits" field representing the changes that occured.
+        '''
+        chgs = await self._push('edits', nodeedits, meta)
+        return [await self._liftNodeEditItem(i) for i in chgs]
+
+    async def storNodeEditsNoLift(self, nodeedits, meta):
+        await self._push('edits', nodeedits, meta)
+
     @s_nexus.Pusher.onPushAuto('edits', passoff=True)
-    async def storNodeEdits(self, nodeedits, meta, nexsoff=None):
-        assert nexsoff is not None, "Nexus bypassed"
+    async def _storNodeEdits(self, nodeedits, meta, nexsoff=None):
         offs = self.splicelog.add(nexsoff)
 
         [(await wind.put((offs, nexsoff))) for wind in tuple(self.windows)]
@@ -1031,9 +1041,16 @@ class Layer(s_nexus.Pusher):
         self.offsets.set('splice:applied', nexsoff)
         return retn
 
+    async def _liftNodeEditItem(self, item):
+        sode = await self.getStorNode(item[0])
+        sode[1]['edits'] = item[1]
+        return sode
+
     async def _storNodeEdit(self, nodeedit, meta):
         '''
         Execute a series of storage operations for the given node.
+
+        Returns a (buid, edits) tuple of the actual changes.
         '''
         buid, form, edits = nodeedit
 
@@ -1043,37 +1060,9 @@ class Layer(s_nexus.Pusher):
             if items is not None:
                 changed.extend(items)
 
-        sode = await self.getStorNode(buid)
-
-        sode[1]['edits'] = changed
-
         await asyncio.sleep(0)
 
-        return sode
-
-    @s_nexus.Pusher.onPushAuto('editsnolift', passoff=True)
-    async def storNodeEditsNoLift(self, nodeedits, meta, nexsoff=None):
-        assert nexsoff is not None
-        offs = self.splicelog.add(nexsoff)
-
-        [(await wind.put((offs, nexsoff))) for wind in tuple(self.windows)]
-
-        [await self._storNodeEditNoLift(e, meta) for e in nodeedits]
-        self.offsets.set('splice:applied', nexsoff)
-
-    async def _storNodeEditNoLift(self, nodeedit, meta):
-        '''
-        Execute a series of storage operations for the given node.
-
-        Does not return the updated node.
-        '''
-
-        buid, form, edits = nodeedit
-
-        for edit in edits:
-            self.editors[edit[0]](buid, form, edit)
-
-        await asyncio.sleep(0)
+        return (buid, changed)
 
     def _editNodeAdd(self, buid, form, edit):
 
