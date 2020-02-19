@@ -114,20 +114,3 @@ class MigrTest(s_testutils.SynTest):
 
             await self.agenlen(2, layr.iterFormRows('test:migr'))
             await self.agenlen(2, layr.iterPropRows('test:migr', 'tick'))
-
-    async def test_migr_proprename(self):
-
-        async with self.getTestCore() as core:
-
-            self.len(1, await core.eval('[ test:str=test :tick=2001 ]').list())
-
-            # Hand jam in a new prop
-            core.model.addFormProp('test:str', 'tock', ('time', {}), {})
-
-            # rename all test:str nodes to test:migr
-            async with await s_migrate.Migration.anit(core) as migr:
-                await migr.renameProp('test:str', 'tick', 'tock')
-
-            nodes = await core.nodes('test:str:tock')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('tock'), 978307200000)
