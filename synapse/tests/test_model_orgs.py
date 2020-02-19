@@ -57,7 +57,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'url': 'http://www.arrowinc.link',
                     'us:cage': '7qe71',
                     'founded': '2015',
-                    'disolved': '2019',
+                    'dissolved': '2019',
                 }
                 node = await snap.addNode('ou:org', guid0, oprops)
                 self.eq(node.ndef[1], guid0),
@@ -71,7 +71,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('url'), 'http://www.arrowinc.link')
                 self.eq(node.get('us:cage'), '7qe71')
                 self.eq(node.get('founded'), 1420070400000)
-                self.eq(node.get('disolved'), 1546300800000)
+                self.eq(node.get('dissolved'), 1546300800000)
 
                 nodes = (await alist(snap.getNodesBy('ou:name')))
                 self.sorteq([x.ndef[1] for x in nodes], (normname,) + altnames)
