@@ -1061,7 +1061,7 @@ class Layer(s_nexus.Pusher):
         retn = []
         for buid, form, edits in changes:
             sode = await self.getStorNode(buid)
-            sode[1]['edits'] = changed
+            sode[1]['edits'] = edits
             retn.append(sode)
 
         return retn
