@@ -24,6 +24,7 @@ import synapse.lib.config as s_config
 import synapse.lib.health as s_health
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -358,37 +359,6 @@ class CellApi(s_base.Base):
         mesg = 'getRoleInfo denied for non-admin and non-member'
         raise s_exc.AuthDeny(mesg=mesg)
 
-#    async def getAuthInfo(self, name):
-#        '''
-#        An API endpoint for getting user and role info.
-#
-#        Args:
-#            name (str): Name of the item requested.
-#
-#        Notes:
-#            Authinfo for an item is available to a remote user under the following conditions:
-#            1. The remote user is an admin.
-#            2. The remote user is requesting their authitem data.
-#            3. The remote user is requesting role information for roles they have.
-#
-#        Returns:
-#            tuple(str, dict): The name and packed information about the auth item.
-#        '''
-#        item = await self.cell.auth.getRulerByName(name)
-#        pack = item.pack()
-#        item_iden = pack.get('iden')
-#
-#        if self.user.isAdmin() or \
-#                (pack.get('type') == 'user' and self.user.iden == item_iden) or \
-#                (pack.get('type') == 'role' and self.user.hasRole(item_iden)):
-#            # translate role guids to names for back compat
-#            if pack.get('type') == 'user':
-#                pack['roles'] = [self.cell.auth.role(r).name for r in pack['roles']]
-#            return (name, pack)
-#
-#        raise s_exc.AuthDeny(mesg='User does not have permission to get authinfo for the requested item.',
-#                             name=name)
-
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health',))
         return await self.cell.getHealthCheck()
@@ -454,17 +424,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         with open(path, 'r') as fd:
             self.iden = fd.read().strip()
 
-        await s_nexus.Pusher.__anit__(self, self.iden)
-
-        await self._initCellDmon()
-
         if conf is None:
             conf = {}
 
         self.conf = self._initCellConf(conf)
 
-        self.cmds = {}
+        await s_nexus.Pusher.__anit__(self, self.iden)
 
+        await self._initCellDmon()
+
+        self.cmds = {}
         self.sessions = {}
 
         self.boss = await s_boss.Boss.anit()
@@ -473,6 +442,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._initCellSlab(readonly=readonly)
 
         self.hive = await self._initCellHive()
+
+        # self.cellinfo, a HiveDict for general purpose persistent storage
+        node = await self.hive.open(('cellinfo',))
+        self.cellinfo = await node.dict()
+        self.onfini(node)
+
+        if self.inaugural:
+            await self.cellinfo.set('synapse:version', s_version.version)
+
+        synvers = self.cellinfo.get('synapse:version')
+        if synvers is None or synvers < s_version.version:
+            await self.cellinfo.set('synapse:version', s_version.version)
+
         self.auth = await self._initCellAuth()
 
         auth_passwd = self.conf.get('auth:passwd')
@@ -484,12 +466,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             user = await self.auth.getUserByName('root')
             await user.setPasswd(auth_passwd)
 
-        await self._initCellHttp()
+        self.setNexsRoot(await self._initNexsRoot())
 
-        # self.cellinfo, a HiveDict for general purpose persistent storage
-        node = await self.hive.open(('cellinfo',))
-        self.cellinfo = await node.dict()
-        self.onfini(node)
+        await self._initCellHttp()
 
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
@@ -502,6 +481,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.dynitems = {
             'auth': self.auth,
         }
+
+    async def _initNexsRoot(self):
+        nexsroot = await s_nexus.NexsRoot.anit(self.dirn)
+        self.onfini(nexsroot.fini)
+        return nexsroot
 
     async def dyniter(self, iden, todo, gatekeys=()):
 

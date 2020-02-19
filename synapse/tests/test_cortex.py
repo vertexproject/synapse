@@ -20,6 +20,17 @@ class CortexTest(s_t_utils.SynTest):
     '''
     The tests that should be run with different types of layers
     '''
+    async def test_cortex_must_upgrade(self):
+
+        with self.getTestDir() as dirn:
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+                self.nn(await core.cellinfo.pop('cortex:version'))
+
+            with self.raises(s_exc.BadStorageVersion):
+                async with await s_cortex.Cortex.anit(dirn) as core:
+                    pass
+
     async def test_cortex_prop_deref(self):
 
         async with self.getTestCore() as core:

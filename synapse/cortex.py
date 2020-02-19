@@ -30,6 +30,7 @@ import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
+import synapse.lib.version as s_version
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -737,11 +738,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Enable storing splices for layer changes.',
             'type': 'boolean'
         },
-        'splice:fallback': {
-            'default': False,
-            'description': 'Should new layers generate fallback splices by default.',
-            'type': 'boolean'
-        },
         'storm:log': {
             'default': False,
             'description': 'Log storm queries via system logger.',
@@ -760,6 +756,14 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def __anit__(self, dirn, conf=None):
 
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
+
+        if self.inaugural:
+            await self.cellinfo.set('cortex:version', s_version.version)
+
+        corevers = self.cellinfo.get('cortex:version')
+        if corevers is None:
+            mesg = 'cortex:version is unset. please upgrade this cortex to version 2.'
+            raise s_exc.BadStorageVersion(mesg=mesg)
 
         offsdb = self.slab.initdb('offsets')
         self.offs = s_slaboffs.SlabOffs(self.slab, offsdb)
@@ -808,9 +812,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         # FIXME:  add feature flag
         self.provstor = await s_provenance.ProvStor.anit(self.dirn)
         self.onfini(self.provstor.fini)
-
-        # initialize change distribution
-        await self._initNexsRoot()
 
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
@@ -886,10 +887,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
-
-    async def _initNexsRoot(self):
-        self.nexsroot = await s_nexus.NexsRoot.anit(self.dirn)
-        self.onfini(self.nexsroot.fini)
 
     async def _onEvtBumpSpawnPool(self, evnt):
         await self.bumpSpawnPool()
@@ -2370,7 +2367,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         # FIXME: why do we have two levels of conf?
         conf = ldef.get('conf')
         conf.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
-        conf.setdefault('fallback', self.conf.get('splice:fallback'))
 
         return await self._push('layer:add', ldef)
 

@@ -238,8 +238,8 @@ class HotCount(s_base.Base):
         self.cache[byts] = valu
         self.dirty.add(byts)
 
-    def get(self, name: str):
-        return self.cache.get(name.encode(), 0)
+    def get(self, name: str, defv=0):
+        return self.cache.get(name.encode(), defv)
 
     def sync(self):
 
