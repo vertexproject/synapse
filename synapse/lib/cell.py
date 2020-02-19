@@ -24,6 +24,7 @@ import synapse.lib.config as s_config
 import synapse.lib.health as s_health
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -441,6 +442,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._initCellSlab(readonly=readonly)
 
         self.hive = await self._initCellHive()
+
+        # self.cellinfo, a HiveDict for general purpose persistent storage
+        node = await self.hive.open(('cellinfo',))
+        self.cellinfo = await node.dict()
+        self.onfini(node)
+
+        if self.inaugural:
+            await self.cellinfo.set('synapse:version', s_version.version)
+
+        synvers = self.cellinfo.get('synapse:version')
+        if synvers is None or synvers < s_version.version:
+            await self.cellinfo.set('synapse:version', s_version.version)
+
         self.auth = await self._initCellAuth()
 
         auth_passwd = self.conf.get('auth:passwd')
@@ -455,11 +469,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.setNexsRoot(await self._initNexsRoot())
 
         await self._initCellHttp()
-
-        # self.cellinfo, a HiveDict for general purpose persistent storage
-        node = await self.hive.open(('cellinfo',))
-        self.cellinfo = await node.dict()
-        self.onfini(node)
 
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
