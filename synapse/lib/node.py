@@ -226,9 +226,9 @@ class Node:
                 return False
 
         props = {prop.name: norm}
-        splice = self.snap.getNodeAdds(self.form, self.ndef[1], props, addnode=False)
+        nodeedits = self.snap.getNodeAdds(self.form, self.ndef[1], props, addnode=False)
 
-        await self.snap.addNodeEdits(splice)
+        await self.snap.addNodeEdits(nodeedits)
 
         return True
 
@@ -279,7 +279,7 @@ class Node:
             return False
 
         edits = (
-            (s_layer.EDIT_PROP_DEL, (prop.name, curv, prop.type.stortype)),
+            (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype)),
         )
 
         await self.snap.addNodeEdit((self.buid, self.form.name, edits))
@@ -460,14 +460,10 @@ class Node:
         for sublen, subtag in subtags:
 
             edits.extend(self._getTagPropDel(subtag))
-
-            curv = self.tags.get(subtag)
-            edits.append((s_layer.EDIT_TAG_DEL, (subtag, curv)))
+            edits.append((s_layer.EDIT_TAG_DEL, (subtag, None)))
 
         edits.extend(self._getTagPropDel(name))
-
-        curv = self.tags.get(name)
-        edits.append((s_layer.EDIT_TAG_DEL, (name, curv)))
+        edits.append((s_layer.EDIT_TAG_DEL, (name, None)))
 
         nodeedit = (self.buid, self.form.name, edits)
 
@@ -500,14 +496,13 @@ class Node:
         edits = []
         for tagprop in self.getTagProps(tag):
 
-            curv = self.getTagProp(tag, tagprop)
             prop = self.snap.core.model.getTagProp(tagprop)
 
             if prop is None: # pragma: no cover
                 logger.warn(f'Cant delete tag prop ({tagprop}) without model prop!')
                 continue
 
-            edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, tagprop, curv, prop.type.stortype)))
+            edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, tagprop, None, prop.type.stortype)))
 
         return edits
 
@@ -545,10 +540,9 @@ class Node:
             return await self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, name=prop.name, valu=valu, emesg=str(e))
 
         tagkey = (tag, name)
-        curv = self.tagprops.get(tagkey)
 
         edits = (
-            (s_layer.EDIT_TAGPROP_SET, (tag, name, norm, curv, prop.type.stortype)),
+            (s_layer.EDIT_TAGPROP_SET, (tag, name, norm, None, prop.type.stortype)),
         )
 
         await self.snap.addNodeEdit((self.buid, self.form.name, edits))
@@ -566,7 +560,7 @@ class Node:
             return False
 
         edits = (
-            (s_layer.EDIT_TAGPROP_DEL, (tag, name, curv, prop.type.stortype)),
+            (s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)),
         )
 
         sode = await self.snap.addNodeEdit((self.buid, self.form.name, edits))
@@ -647,7 +641,7 @@ class Node:
 
     async def setData(self, name, valu):
         edits = (
-            (s_layer.EDIT_NODEDATA_SET, (name, valu)),
+            (s_layer.EDIT_NODEDATA_SET, (name, valu, None)),
         )
         await self.snap.issueNodeEdits(((self.buid, self.form.name, edits),))
 
@@ -655,7 +649,7 @@ class Node:
         retn = await self.snap.getNodeData(self.buid, name)
 
         edits = (
-            (s_layer.EDIT_NODEDATA_DEL, name),
+            (s_layer.EDIT_NODEDATA_DEL, (name, None)),
         )
         await self.snap.issueNodeEdits(((self.buid, self.form.name, edits),))
 

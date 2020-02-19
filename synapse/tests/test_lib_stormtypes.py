@@ -1457,6 +1457,7 @@ class StormTypesTest(s_test.SynTest):
             # Get the main view
             q = '$lib.print($lib.view.get().pack().iden)'
             mesgs = await core.streamstorm(q).list()
+            mainiden = None
             for mesg in mesgs:
                 if mesg[0] == 'print':
                     mainiden = mesg[1]['mesg']
@@ -1615,11 +1616,14 @@ class StormTypesTest(s_test.SynTest):
 
             async with core.getLocalProxy(user='visi') as asvisi:
 
-                # List and Get require 'read' permission
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.view.list()'))
+                # List should return an empty list
+                nodes = await asvisi.eval('$lib.view.list()').list()
+                self.len(0, nodes)
+
+                # Get require 'read' permission
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.view.get()'))
 
-                await prox.addUserRule('visi', (True, ('view', 'read')))
+                await prox.addUserRule('visi', (True, ('view', 'get')))
 
                 await asvisi.eval('$lib.view.list()').list()
                 await asvisi.eval('$lib.view.get()').list()
@@ -1641,7 +1645,6 @@ class StormTypesTest(s_test.SynTest):
 
                 self.isin(addiden, core.views)
 
-                print('***********')
                 q = f'''
                     $forkview=$lib.view.fork({mainiden})
                     $lib.print($forkview.pack().iden)
@@ -1653,10 +1656,12 @@ class StormTypesTest(s_test.SynTest):
 
                 self.isin(forkediden, core.views)
 
+                # Owner can 'get' the forked view
+                q = f'$lib.view.get({forkediden})'
+                await asvisi.storm(q).list()
+
                 # Del and Merge require 'del' permission unless performed by the owner
                 # Delete a view the user owns
-
-
 
                 q = f'$lib.view.del({addiden})'
                 await asvisi.storm(q).list()

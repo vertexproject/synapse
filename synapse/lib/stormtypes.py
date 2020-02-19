@@ -520,8 +520,8 @@ class LibFeed(Lib):
             return self.runt.snap.addFeedNodes(name, data)
 
     async def _libList(self):
-        # FIXME
-        return await self.runt.snap.core.getFeedFuncs()
+        todo = ('getFeedFuncs', (), {})
+        return await self.runt.dyncall('cortex', todo)
 
     async def _libIngest(self, name, data, seqn=None):
         '''
@@ -586,9 +586,18 @@ class LibQueue(Lib):
         await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueueList(self):
-        # FIXME:  perms?
+        retn = []
+
         todo = s_common.todo('listCoreQueues')
-        return await self.dyncall('cortex', todo)
+        qlist = await self.dyncall('cortex', todo)
+
+        for queue in qlist:
+            if not self.runt.user.allowed(('queue', 'get'), f"queue:{queue['name']}"):
+                continue
+
+            retn.append(queue)
+
+        return retn
 
 class Queue(StormType):
     '''
@@ -989,31 +998,34 @@ class LibGlobals(Lib):
 
     async def _methGet(self, name, default=None):
         self._reqStr(name)
-        self.runt.user.confirm(('globals', 'get', name))
-        #FIXME
-        return await self.runt.snap.core.getStormVar(name, default=default)
+
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('globals', 'get', name), None),)
+        todo = s_common.todo('getStormVar', name, default=default)
+        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methPop(self, name, default=None):
         self._reqStr(name)
-        self.runt.user.confirm(('globals', 'pop', name))
-        #FIXME
-        return await self.runt.snap.core.popStormVar(name, default=default)
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('globals', 'pop', name), None),)
+        todo = s_common.todo('popStormVar', name, default=default)
+        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methSet(self, name, valu):
         self._reqStr(name)
-        self.runt.user.confirm(('globals', 'set', name))
-        #FIXME
-        return await self.runt.snap.core.setStormVar(name, valu)
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('globals', 'set', name), None),)
+        todo = s_common.todo('setStormVar', name, valu)
+        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methList(self):
         ret = []
-        #FIXME
-        async for key, valu in self.runt.snap.core.itemsStormVar():
-            try:
-                self.runt.user.confirm(('globals', 'get', key))
-            except s_exc.AuthDeny:
-                continue
-            else:
+        user = self.runt.user
+
+        todo = ('itemsStormVar', (), {})
+
+        async for key, valu in self.runt.dyniter('cortex', todo):
+            if user.allowed(('globals', 'get', key)):
                 ret.append((key, valu))
         return ret
 
@@ -1415,11 +1427,16 @@ class LibView(Lib):
             'creator': self.runt.user.iden,
             'layers': layers
         }
-        #FIXME
-        view = await self.runt.snap.core.addView(vdef)
-        if view is None:
+
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('view', 'add'), None),)
+        todo = ('addView', (vdef,), {})
+        viewiden = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        if viewiden is None:
             mesg = f'Failed to add view.'
             raise s_exc.StormRuntimeError(mesg=mesg, layers=layers)
+
+        view = self.runt.snap.core.getView(viewiden)
 
         return View(view, path=self.path)
 
@@ -1444,7 +1461,9 @@ class LibView(Lib):
         ldef = {'creator': self.runt.user.iden}
         vdef = {'creator': self.runt.user.iden}
         todo = s_common.todo('fork', ldef=ldef, vdef=vdef)
-        newview = await self.runt.dyncall(iden, todo, gatekeys=gatekeys)
+        newviewiden = await self.runt.dyncall(iden, todo, gatekeys=gatekeys)
+
+        newview = self.runt.snap.core.getView(newviewiden)
 
         return View(newview, path=self.path)
 
@@ -1457,19 +1476,17 @@ class LibView(Lib):
         '''
         useriden = self.runt.user.iden
         gatekeys = ((useriden, ('view', 'get'), iden),)
-        todo = ('merge', (), {})
+        todo = ('merge', (), {'useriden': useriden})
         return await self.runt.dyncall(iden, todo, gatekeys=gatekeys)
 
     async def _methViewGet(self, iden=None):
         '''
         Retrieve a view from the cortex.
         '''
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('view', 'get'), iden),)
-        todo = ('getView', (), {'iden': iden})
-        view = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        view = self.runt.snap.core.getView(iden=iden)
         if view is None:
             raise s_exc.NoSuchView(mesg=iden)
+        self.runt.user.confirm(('view', 'get'), gateiden=view.iden)
 
         return View(view, path=self.path)
 
@@ -1477,12 +1494,15 @@ class LibView(Lib):
         '''
         List the views in the cortex.
         '''
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('view', 'read'), None),)
-        todo = ('listViews', (), {})
-        views = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        retn = []
 
-        return [View(view, path=self.path) for view in views]
+        views = self.runt.snap.core.listViews()
+        for view in views:
+            if not self.runt.user.allowed(('view', 'get'), gateiden=view.iden):
+                continue
+            retn.append(View(view, path=self.path))
+
+        return retn
 
 class View(Prim):
     '''
@@ -1496,20 +1516,7 @@ class View(Prim):
 
     # FIXME: discuss normalize this stuff tdef/deref
     async def _methViewPack(self):
-
-        layrinfo = []
-        for layr in self.valu.layers:
-            layrinfo.append({
-                'ctor': layr.ctorname,
-                'iden': layr.iden,
-                'readonly': layr.readonly,
-            })
-
-        return {
-            'iden': self.valu.iden,
-            'owner': self.valu.info.get('owner'),
-            'layers': layrinfo,
-        }
+        return self.valu.pack()
 
 class LibTrigger(Lib):
 
@@ -1559,6 +1566,14 @@ class LibTrigger(Lib):
 
         tdef['user'] = useriden
         tdef['view'] = viewiden
+
+        query = tdef.pop('query', None)
+        if query is not None:
+            tdef['storm'] = query
+
+        cond = tdef.pop('condition', None)
+        if cond is not None:
+            tdef['cond'] = cond
 
         tag = tdef.get('tag')
         if tag is not None and tag[0] == '#':
@@ -2140,8 +2155,8 @@ class LibCron(Lib):
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
 
-        # FIXME
-        await self.runt.snap.core.enableCronJob(iden)
+        todo = ('enableCronJob', (iden,), {})
+        await self.runt.dyncall('cortex', todo)
 
         return iden
 
@@ -2152,8 +2167,8 @@ class LibCron(Lib):
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
 
-        # FIXME
-        await self.runt.snap.core.disableCronJob(iden)
+        todo = ('disableCronJob', (iden,), {})
+        await self.runt.dyncall('cortex', todo)
 
         return iden
 

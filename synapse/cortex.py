@@ -505,16 +505,16 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.getNexusChanges(offs):
             yield item
 
-    async def syncLayerSplices(self, iden, offs, layriden=None):
+    async def syncLayerNodeEdits(self, iden, offs, layriden=None):
         '''
-        Yield (indx, mesg) splices for the given layer beginning at offset.
+        Yield (indx, mesg) nodeedit sets for the given layer beginning at offset.
 
-        Once caught up, this API will begin yielding splices in real-time.
+        Once caught up, this API will begin yielding nodeedits in real-time.
         The generator will only terminate on network disconnect or if the
-        consumer falls behind the max window size of 10,000 splice messages.
+        consumer falls behind the max window size of 10,000 nodeedit messages.
         '''
         self.user.confirm(('sync',), gateiden=iden)
-        async for item in self.cell.syncLayerSplices(iden, offs):
+        async for item in self.cell.syncLayerNodeEdits(iden, offs):
             yield item
 
     @s_cell.adminapi
@@ -735,6 +735,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         'splice:en': {
             'default': True,
             'description': 'Enable storing splices for layer changes.',
+            'type': 'boolean'
+        },
+        'splice:fallback': {
+            'default': False,
+            'description': 'Should new layers generate fallback splices by default.',
             'type': 'boolean'
         },
         'storm:log': {
@@ -1715,28 +1720,28 @@ class Cortex(s_cell.Cell):  # type: ignore
         async for item in self.nexsroot.iter(offs):
             yield item
 
-    async def syncLayerSplices(self, iden, offs):
+    async def syncLayerNodeEdits(self, iden, offs):
         '''
-        Yield (offs, mesg) tuples for splices in a layer.
+        Yield (offs, mesg) tuples for nodeedits in a layer.
         '''
         layr = self.getLayer(iden)
         if layr is None:
             raise s_exc.NoSuchLayer(iden=iden)
 
-        async for item in layr.syncSplices(offs):
+        async for item in layr.syncNodeEdits(offs):
             yield item
 
     async def spliceHistory(self, user):
         '''
-        Yield splices backwards from the end of the splice log.
+        Yield splices backwards from the end of the nodeedit log.
 
         Will only return user's own splices unless they are an admin.
         '''
         layr = self.view.layers[0]
-        indx = (await layr.stat())['splicelog_indx']
+        indx = (await layr.stat())['nodeeditlog_indx']
 
         count = 0
-        async for mesg in layr.splicesBack(indx):
+        async for _, mesg in layr.splicesBack(indx):
             count += 1
             if not count % 1000: # pragma: no cover
                 await asyncio.sleep(0)
@@ -2177,9 +2182,9 @@ class Cortex(s_cell.Cell):  # type: ignore
                 'layers': (layr.iden,),
                 'worldreadable': True,
             }
-            view = await self.addView(vdef)
-            await self.cellinfo.set('defaultview', view.iden)
-            self.view = view
+            viewiden = await self.addView(vdef)
+            await self.cellinfo.set('defaultview', viewiden)
+            self.view = self.getView(viewiden)
 
     async def _migrateLayerOffset(self):
         '''
@@ -2209,19 +2214,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def addView(self, vdef):
 
         vdef.setdefault('iden', s_common.guid())
-        worldread = vdef.get('worldreadable', False)
-        view = await self._push('view:add', vdef)
-
-        vdef.setdefault('creator', self.auth.rootuser.iden)
-        creator = vdef.get('creator')
-        user = await self.auth.reqUser(creator)
-        await user.setAdmin(True, gateiden=view.iden)
-
-        if worldread:
-            role = await self.auth.getRoleByName('all')
-            await role.addRule((True, ('view', 'read')), gateiden=view.iden)
-
-        return view
+        return await self._push('view:add', vdef)
 
     @s_nexus.Pusher.onPush('view:add')
     async def _addView(self, vdef):
@@ -2231,11 +2224,17 @@ class Cortex(s_cell.Cell):  # type: ignore
         vdef.setdefault('worldreadable', False)
         vdef.setdefault('creator', self.auth.rootuser.iden)
 
-        creator = vdef.get('creator')
-        await self.auth.reqUser(creator)
+        creator = vdef.get('creator', self.auth.rootuser.iden)
+        user = await self.auth.reqUser(creator)
+        await self.auth.addAuthGate(iden, 'view')
+        await user.setAdmin(True, gateiden=iden)
 
-        # this should not get saved
-        vdef.pop('worldreadable')
+        # worldreadable is not get persisted with the view; the state ends up in perms
+        worldread = vdef.pop('worldreadable', False)
+
+        if worldread:
+            role = await self.auth.getRoleByName('all')
+            await role.addRule((True, ('view', 'read')), gateiden=iden)
 
         node = await self.hive.open(('cortex', 'views', iden))
 
@@ -2243,13 +2242,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         for name, valu in vdef.items():
             await info.set(name, valu)
 
-        view = await self._loadView(node)
-
-        await self.auth.addAuthGate(iden, 'view')
+        await self._loadView(node)
 
         await self.bumpSpawnPool()
 
-        return view
+        return iden
 
     @s_nexus.Pusher.onPushAuto('view:del')
     async def delView(self, iden):
@@ -2368,6 +2365,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # FIXME: why do we have two levels of conf?
         conf = ldef.get('conf')
         conf.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
+        conf.setdefault('fallback', self.conf.get('splice:fallback'))
 
         return await self._push('layer:add', ldef)
 
