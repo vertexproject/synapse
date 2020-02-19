@@ -1086,7 +1086,7 @@ class Layer(s_nexus.Pusher):
 
         Does not return the updated nodes.
         '''
-        await self.push('edits', nodeedits, meta)
+        await self._push('edits', nodeedits, meta)
 
     def _editNodeAdd(self, buid, form, edit):
 
@@ -1710,7 +1710,7 @@ class Layer(s_nexus.Pusher):
         time = meta.get('time')
         prov = meta.get('prov')
 
-        for nodeoffs, (buid, form, edits) in enumerate(nodeedits[1][0]):
+        for nodeoffs, (buid, form, edits) in enumerate(nodeedits):
 
             formvalu = None
 
