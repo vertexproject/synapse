@@ -50,8 +50,10 @@ class MigrAuth:
     '''
     Loads the Hive auth tree from 0.1.x and translates it to 0.2.x
     '''
-    def __init__(self, srctree):
+    def __init__(self, srctree, defaultview, triggers):
         self.wasmigrated = self._checkWasMigrated(srctree)  # FIXME
+        self.defaultview = defaultview
+        self.triggers = triggers
         self.srctree = srctree
         self.desttree = None
 
@@ -83,6 +85,9 @@ class MigrAuth:
             return False
 
     async def _srcReadTree(self):
+        '''
+        Load source hive auth tree into a flatter local structure
+        '''
         for uiden, uvals in self.srctree['kids']['users']['kids'].items():
             self.usersbyiden[uiden] = uvals['kids']
             self.usersbyname[uvals['value']] = uiden
@@ -101,12 +106,12 @@ class MigrAuth:
                 'usersbyiden': {},
             }
 
-            for riden, rvals in gvals.get('roles', {}).get('kids', {}).items():
+            for riden, rvals in gvals.get('kids', {}).get('roles', {}).get('kids', {}).items():
                 authgate['rolesbyiden'][riden] = {
                     'rules': rvals.get('kids', {}).get('rules', {}).get('value', ())
                 }
 
-            for uiden, uvals in gvals.get('roles', {}).get('users', {}).items():
+            for uiden, uvals in gvals.get('kids', {}).get('users', {}).get('kids', {}).items():
                 authgate['usersbyiden'][uiden] = uvals.get('kids', {})
 
             self.authgatesbyiden[giden] = authgate
@@ -114,8 +119,7 @@ class MigrAuth:
 
     async def _trnAuth(self):
         '''
-        Create destination tree.
-        FIXME: Authgates by user
+        Change/add/remove auth properties to translate to 0.2.x syntax.
         '''
         # create 'all' role if it doesn't exist
         if 'all' not in self.rolesbyname:
@@ -138,36 +142,59 @@ class MigrAuth:
                 'usersbyiden': {},
             }
 
+        # add trigger authgates
+        for tiden, uidens in self.triggers.items():
+            self.authgatesbyname['trigger'].append(tiden)
+            tusers = {}
+            for uiden in uidens:
+                tusers[uiden] = {'admin': {'value': True}}  # FIXME
+
+            self.authgatesbyiden[tiden] = {
+                'rolesbyiden': {},
+                'usersbyiden': tusers,
+            }
+
         # replace layr with layer
         gates = self.authgatesbyname.pop('layr')
         self.authgatesbyname['layer'] = gates
 
-        # add view:read rules to all role in views if they don't exist
+        # add view:read rules to all role for defaultview
         alliden = self.rolesbyname['all']
-        for aiden in self.authgatesbyname['view']:
-            gate = self.authgatesbyiden[aiden]
-            allrole = gate['rolesbyiden'].get(self.rolesbyname['all'])
-            if allrole is None:
-                gate['rolesbyiden'][alliden] = ((True, ('view', 'read')),)
+        readrule = ((True, ('view', 'read')),)
+        self.authgatesbyiden[self.defaultview]['rolesbyiden'][alliden] = readrule
 
-        # FIXME: for now add all users to all layers and views (except cortex)
+        # add all uesrs to defaultview with read permissions
+        for uiden, uvals in self.usersbyiden.items():
+            if uiden not in self.authgatesbyiden[self.defaultview]['usersbyiden']:
+                self.authgatesbyiden[self.defaultview]['usersbyiden'][uiden] = {
+                    'rules': {'value': readrule}
+                }
+
+        # Add root user to all authgates if not already there (except cortex)
+        rootiden = self.usersbyname['root']
         for aiden, avals in self.authgatesbyiden.items():
             if aiden == 'cortex':
                 continue
 
-            gateusers = avals['usersbyiden']
-            for uiden, uvals in self.usersbyiden.items():
-                if uiden not in gateusers:
-                    gateusers[uiden] = {}
-                    if uvals.get('admin', {}).get('value', False):
-                        gateusers[uiden]['admin'] = {'value': True}
+            if rootiden not in avals['usersbyiden']:
+                avals['usersbyiden'][rootiden] = {
+                    'admin': {'value': True}
+                }
 
     async def _destCreateTree(self):
+        '''
+        Load auth values into a data structure that can be loaded into the hive auth tree.
+        '''
         gatekids = {}
         rolekids = {}
         userkids = {}
 
-        # assume all users have a name
+        # reverse lookups for name by iden
+        uname_lookup = {v: k for k, v in self.usersbyname.items()}
+        rname_lookup = {v: k for k, v in self.rolesbyname.items()}
+        aname_lookup = {i: k for k, v in self.authgatesbyname.items() for i in v}
+
+        # assume every user has a name
         for uname, uiden in self.usersbyname.items():
             uvals = self.usersbyiden[uiden]
             userkids[uiden] = {
@@ -175,34 +202,31 @@ class MigrAuth:
                 'value': uname,
             }
 
-        # load all roles
-        rname_lookup = {v: k for k, v in self.rolesbyname.items()}
+        # load roles
         for riden, rvals in self.rolesbyiden.items():
             rname = rname_lookup.get(riden)
             rolekids[riden] = {
                 'kids': {
-                    'rules': {
-                        'value': rvals
-                    }
+                    'value': rvals,
                 },
                 'value': rname
             }
 
-        # load all authgates and child roles, users
-        aname_lookup = {i: k for k, v in self.authgatesbyname.items() for i in v}
+        # load authgates and child roles, users
         for aiden, avals in self.authgatesbyiden.items():
             aroles = {
                 'value': None,
                 'kids': {}
             }
             for riden, rvals in avals['rolesbyiden'].items():
+                rname = rname_lookup[riden]
                 aroles['kids'][riden] = {
                         'kids': {
                             'rules': {
                                 'value': rvals
                             }
                         },
-                        'value': None
+                        'value': rname
                     }
 
             ausers = {
@@ -210,12 +234,12 @@ class MigrAuth:
                 'kids': {}
             }
             for uiden, uvals in avals['usersbyiden'].items():
+                uname = uname_lookup[uiden]
                 ausers['kids'][uiden] = {
                     'kids': uvals,
-                    'value': None
+                    'value': uname
                 }
 
-            # TODO: may not need to remove empty kids
             if not aroles['kids']:
                 aroles.pop('kids')
             if not ausers['kids']:
@@ -358,13 +382,13 @@ class Migrator(s_base.Base):
             if 'hivelyr' in self.migrops:
                 await self._migrHiveLayerInfo(storinfo, iden)
 
-        # auth migration
-        if 'hiveauth' in self.migrops:
-            await self._migrHiveAuth()  # TODO
-
         # trigger migration
         if 'triggers' in self.migrops:
             await self._migrTriggers()
+
+        # auth migration
+        if 'hiveauth' in self.migrops:
+            await self._migrHiveAuth()
 
     async def dumpErrors(self):
         '''
@@ -382,10 +406,10 @@ class Migrator(s_base.Base):
         await self._initStors(migr=True, nexus=False, cell=False)
 
         logger.info('Starting dump of migration errors')
+        errs = [err async for err in self._migrlogGet(migrop='nodes', logtyp='error')]
         dumpf = os.path.join(self.dest, self.migrdir, f'migrerrors_{s_common.now()}.mpk')
         with open(dumpf, 'wb') as fd:
-            async for err in self._migrlogGet(migrop='nodes', logtyp='error'):
-                fd.write(s_msgpack.en(err))
+            fd.write(s_msgpack.en(errs))
 
         return dumpf
 
@@ -422,6 +446,7 @@ class Migrator(s_base.Base):
             self.hivedb = self.cellslab.initdb('hive')
             if self.hive is None:
                 self.hive = await s_hive.SlabHive.anit(self.cellslab, db=self.hivedb)
+            self.onfini(self.hive.root.fini)
             self.onfini(self.hive.fini)
 
         logger.debug('Finished storage initialization')
@@ -689,9 +714,18 @@ class Migrator(s_base.Base):
 
     async def _migrHiveAuth(self):
         '''
-        Should be run after layer info is updated in the hive.
+        Inplace migration in the new destination cortex for auth/permissions.
+        Needs be run after layer info and triggers are updated in the hive.
         '''
         migrop = 'hiveauth'
+
+        # get triggers that will need authgates added
+        triggers = collections.defaultdict(set)
+        for viewiden, viewnode in await self.hive.open(('cortex', 'views')):
+            for trigiden, trignode in await viewnode.open(('triggers',)):
+                triggers[trigiden].add(trignode.valu.get('user'))
+
+        defaultview = await self.hive.get(('cellinfo', 'defaultview'))
 
         srctree = await self.hive.saveHiveTree(('auth01x',))
         if srctree == {'value': None}:
@@ -699,7 +733,7 @@ class Migrator(s_base.Base):
         else:
             logger.info(f'Using backup auth01x for migration')
 
-        migrauth = MigrAuth(srctree)
+        migrauth = MigrAuth(srctree, defaultview, triggers)
         desttree = await migrauth.translate()
 
         # save a backup then replace
@@ -1280,7 +1314,7 @@ class Migrator(s_base.Base):
         '''
         path = os.path.join(dirn, 'layers', iden)
         wlyr = await s_layer.Layer.anit(storinfo, path, nexsroot=self.nexusroot)
-        self.onfini(wlyr)
+        self.onfini(wlyr.fini)
 
         return wlyr
 
