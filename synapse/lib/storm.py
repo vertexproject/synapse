@@ -244,24 +244,17 @@ stormcmds = (
         'name': 'layer.add',
         'descr': 'Add a layer to the cortex.',
         'cmdargs': (
-            ('--lockmemory', {'help': 'Should the layer lock memory for performance.'}),
-            ('--readonly', {'help': 'Should the layer be readonly.'}),
+            ('iden', {'nargs': '?',
+                      'help': 'Iden of the layer to add. If no iden is provided, a new layer will be created.'}),
+            ('--lockmemory', {'help': 'Should the layer lock memory for performance.',
+                              'action': 'store_true'}),
+            ('--readonly', {'help': 'Should the layer be readonly.',
+                            'action': 'store_true'}),
             ('--growsize', {'help': 'Amount to grow the map size when necessary.'}),
             ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
-            ('--confvar', {'help': 'Name of the variable with a layer configuration dict.'}),
         ),
         'storm': '''
-            if $cmdopts.confvar {
-                $conf = $lib.vars.get($cmdopts.confvar)
-            } else {
-                $conf = $lib.dict(lockmemory=$cmdopts.lockmemory,
-                                  growsize=$cmdopts.growsize,
-                                  upstream=$cmdopts.upstream,
-                                  readonly=$cmdopts.readonly,
-                                  )
-            }
-
-            $layer = $lib.layer.add($conf)
+            $layer = $lib.layer.add($cmdopts)
 
             $lib.print("Layer added: {iden}", iden=$layer.iden)
         ''',
@@ -274,18 +267,24 @@ stormcmds = (
         ),
         'storm': '''
             $lib.layer.del($cmdopts.iden)
-            $lib.print("Layer removed: {iden}", iden=$cmdopts.iden)
+            $lib.print("Layer deleted: {iden}", iden=$cmdopts.iden)
         ''',
     },
     {
         'name': 'layer.get',
         'descr': 'Get a layer from the cortex.',
         'cmdargs': (
-            ('--iden', {'help': 'Iden of the layer to delete.'}),
+            ('iden', {'nargs': '?',
+                      'help': 'Iden of the layer to get. If no iden is provided, the main layer will be returned.'}),
         ),
         'storm': '''
-            $layer = $lib.layer.get($cmdopts.iden)
-            $lib.print($layer.iden)
+            $layr = $lib.layer.get($cmdopts.iden)
+            $layrvalu = $layr.pack()
+
+            $lib.print("Layer {iden} ctor: {ctor} readonly: {readonly}",
+                       iden=$layrvalu.iden,
+                       ctor=$layrvalu.ctor,
+                       readonly=$layrvalu.readonly)
         ''',
     },
     {
@@ -294,8 +293,12 @@ stormcmds = (
         'cmdargs': (),
         'storm': '''
             $lib.print('Layers:')
-            for $layer in $lib.layer.list() {
-                $lib.print($layer.iden)
+            for $layr in $lib.layer.list() {
+                $layrvalu = $layr.pack()
+                $lib.print("  {iden} ctor: {ctor} readonly: {readonly}",
+                           iden=$layrvalu.iden,
+                           ctor=$layrvalu.ctor,
+                           readonly=$layrvalu.readonly)
             }
         ''',
     },

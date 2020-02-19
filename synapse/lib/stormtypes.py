@@ -1415,14 +1415,19 @@ class LibLayer(Lib):
             'list': self._libLayerList,
         })
 
-    async def _libLayerAdd(self, ldef=None):
+    async def _libLayerAdd(self, ldef={}):
         '''
         Add a layer to the cortex.
         '''
         self.runt.confirm(('layer', 'add'))
 
-        if ldef is None:
-            ldef = {}
+        iden = ldef.pop('iden', None)
+        if iden is not None:
+            ldef['iden'] = iden
+
+        lockmemory = ldef.pop('lockmemory', None)
+        if lockmemory is not None:
+            ldef['conf'] = {'lockmemory': lockmemory}
 
         ldef.setdefault('creator', self.runt.user.iden)
 
@@ -1489,10 +1494,7 @@ class Layer(Prim):
         })
 
     async def _methLayerPack(self):
-        return {'iden': self.valu.iden,
-                'ctor': self.valu.ctorname,
-                'readonly': self.valu.readonly,
-                }
+        return self.valu.pack()
 
 class LibView(Lib):
 

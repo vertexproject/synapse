@@ -1451,7 +1451,11 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core2:
 
-            existinglayr = core2.view.layers[0].iden
+            await core2.nodes('[ inet:ipv4=1.2.3.4 ]')
+            url = core2.getLocalUrl('*/layer')
+
+            layriden = core2.view.layers[0].iden
+            offs = core2.view.layers[0].getNodeEditOffset()
 
             async with self.getTestCoreAndProxy() as (core, prox):
 
@@ -1473,20 +1477,6 @@ class StormTypesTest(s_test.SynTest):
                         newlayr = mesg[1]['mesg']
 
                 self.isin(newlayr, core.layers)
-
-                # Add an existing layer
-                self.notin(existinglayr, core.layers)
-
-                q = f'''
-                    $conf = $lib.dict(layers=({existinglayr}))
-                    $lib.print($lib.layer.add($conf).iden)
-                '''
-                mesgs = await core.streamstorm(q).list()
-                for mesg in mesgs:
-                    if mesg[0] == 'print':
-                        addlayr = mesg[1]['mesg']
-
-                self.isin(addlayr, core.layers)
 
                 # List the layers in the cortex
                 q = '''
@@ -1542,26 +1532,23 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await asvisi.storm(q).list()
                     self.stormIsInPrint(mainlayr, mesgs)
 
-                    q = f'layer.get --iden {mainlayr}'
+                    q = f'layer.get {mainlayr}'
                     mesgs = await asvisi.storm(q).list()
                     self.stormIsInPrint(mainlayr, mesgs)
 
                     q = 'layer.list'
                     idens = []
                     mesgs = await asvisi.storm(q).list()
-                    for mesg in mesgs:
-                        if mesg[0] == 'print':
-                            idens.append(mesg[1]['mesg'])
 
                     for layr in core.layers.keys():
-                        self.isin(layr, idens)
+                        self.stormIsInPrint(layr, mesgs)
 
                     # Add requires 'add' permission
                     await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.layer.add()'))
 
                     await prox.addAuthRule('visi', (True, ('layer', 'add')))
 
-                    q = f'layer.add'
+                    q = 'layer.add'
                     mesgs = await core.streamstorm(q).list()
                     for mesg in mesgs:
                         if mesg[0] == 'print':
@@ -1578,6 +1565,27 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await asvisi.storm(q).list()
 
                     self.notin(visilayr, core.layers)
+
+                    # Test add layer opts
+                    q = f'layer.add --lockmemory'
+                    mesgs = await core.streamstorm(q).list()
+                    for mesg in mesgs:
+                        if mesg[0] == 'print':
+                            locklayr = mesg[1]['mesg'].split(' ')[-1]
+
+                    layr = core.getLayer(locklayr)
+                    self.true(layr.lockmemory)
+
+                    q = f'layer.add --upstream {url}'
+                    mesgs = await core.streamstorm(q).list()
+                    for mesg in mesgs:
+                        if mesg[0] == 'print':
+                            uplayr = mesg[1]['mesg'].split(' ')[-1]
+
+                    layr = core.getLayer(uplayr)
+
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
+                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
     async def test_storm_lib_view(self):
 
