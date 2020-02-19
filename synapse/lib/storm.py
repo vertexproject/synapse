@@ -263,7 +263,7 @@ stormcmds = (
 
             $layer = $lib.layer.add($conf)
 
-            $lib.print("Layer added: {iden}", iden=$layer.pack().iden)
+            $lib.print("Layer added: {iden}", iden=$layer.iden)
         ''',
     },
     {
@@ -285,7 +285,7 @@ stormcmds = (
         ),
         'storm': '''
             $layer = $lib.layer.get($cmdopts.iden)
-            $lib.print($layer.pack().iden)
+            $lib.print($layer.iden)
         ''',
     },
     {
@@ -295,7 +295,7 @@ stormcmds = (
         'storm': '''
             $lib.print('Layers:')
             for $layer in $lib.layer.list() {
-                $lib.print($layer.pack().iden)
+                $lib.print($layer.iden)
             }
         ''',
     },

@@ -1415,51 +1415,67 @@ class LibLayer(Lib):
             'list': self._libLayerList,
         })
 
-    async def _libLayerAdd(self, conf=None):
+    async def _libLayerAdd(self, ldef=None):
         '''
         Add a layer to the cortex.
         '''
         self.runt.confirm(('layer', 'add'))
 
-        layer = await self.runt.snap.core.addLayer(conf)
+        if ldef is None:
+            ldef = {}
 
-        return Layer(layer, path=self.path)
+        ldef.setdefault('creator', self.runt.user.iden)
+
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('layer', 'add'), None),)
+        todo = ('addLayer', (ldef,), {})
+        layr = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        if layr is None:
+            mesg = f'Failed to add layer.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        return Layer(layr, path=self.path)
 
     async def _libLayerDel(self, iden):
         '''
         Delete a layer from the cortex.
         '''
-        self.runt.confirm(('layer', 'del'))
-
         layer = self.runt.snap.core.getLayer(iden)
         if layer is None:
             mesg = f'No layer with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        await self.runt.snap.core.delLayer(iden)
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('layer', 'del'), iden),)
+        todo = ('delLayer', (iden,), {})
+        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _libLayerGet(self, iden=None):
         '''
         Get a layer from the cortex.
         '''
-        self.runt.confirm(('layer', 'read'))
-
-        layer = self.runt.snap.core.getLayer(iden)
-        if layer is None:
+        layr = self.runt.snap.core.getLayer(iden)
+        if layr is None:
             mesg = f'No layer with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        return Layer(layer, path=self.path)
+        self.runt.user.confirm(('layer', 'read'), gateiden=layr.iden)
+
+        return Layer(layr, path=self.path)
 
     async def _libLayerList(self):
         '''
         List the layers in a cortex.
         '''
-        self.runt.confirm(('layer', 'read'))
+        retn = []
 
         layers = self.runt.snap.core.listLayers()
+        for layr in layers:
+            if not self.runt.user.allowed(('layer', 'read'), gateiden=layr.iden):
+                continue
+            retn.append(Layer(layr, path=self.path))
 
-        return [Layer(l, path=self.path) for l in layers]
+        return retn
 
 class Layer(Prim):
     '''
@@ -1468,6 +1484,7 @@ class Layer(Prim):
     def __init__(self, layer, path=None):
         Prim.__init__(self, layer, path=path)
         self.locls.update({
+            'iden': layer.iden,
             'pack': self._methLayerPack,
         })
 

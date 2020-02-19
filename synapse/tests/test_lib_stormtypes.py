@@ -1457,16 +1457,16 @@ class StormTypesTest(s_test.SynTest):
 
                 mainlayr = core.view.layers[0].iden
 
-                q = '$lib.print($lib.layer.get().pack().iden)'
+                q = '$lib.print($lib.layer.get().iden)'
                 mesgs = await core.streamstorm(q).list()
                 self.stormIsInPrint(mainlayr, mesgs)
 
-                q = f'$lib.print($lib.layer.get({mainlayr}).pack().iden)'
+                q = f'$lib.print($lib.layer.get({mainlayr}).iden)'
                 mesgs = await core.streamstorm(q).list()
                 self.stormIsInPrint(mainlayr, mesgs)
 
                 # Create a new layer
-                q = f'$lib.print($lib.layer.add().pack().iden)'
+                q = f'$lib.print($lib.layer.add().iden)'
                 mesgs = await core.streamstorm(q).list()
                 for mesg in mesgs:
                     if mesg[0] == 'print':
@@ -1479,7 +1479,7 @@ class StormTypesTest(s_test.SynTest):
 
                 q = f'''
                     $conf = $lib.dict(layers=({existinglayr}))
-                    $lib.print($lib.layer.add($conf).pack().iden)
+                    $lib.print($lib.layer.add($conf).iden)
                 '''
                 mesgs = await core.streamstorm(q).list()
                 for mesg in mesgs:
@@ -1491,7 +1491,7 @@ class StormTypesTest(s_test.SynTest):
                 # List the layers in the cortex
                 q = '''
                     for $layer in $lib.layer.list() {
-                        $lib.print($layer.pack().iden)
+                        $lib.print($layer.iden)
                     }
                 '''
                 idens = []
@@ -1529,8 +1529,11 @@ class StormTypesTest(s_test.SynTest):
 
                 async with core.getLocalProxy(user='visi') as asvisi:
 
-                    # List and Get require 'read' permission
-                    await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.layer.list()'))
+                    # List should return an empty list
+                    nodes = await asvisi.eval('$lib.layer.list()').list()
+                    self.len(0, nodes)
+
+                    # Get requires 'read' permission on the layer
                     await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.layer.get()'))
 
                     await prox.addAuthRule('visi', (True, ('layer', 'read')))
