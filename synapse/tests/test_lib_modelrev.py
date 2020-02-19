@@ -134,7 +134,7 @@ class ModelRevTest(s_tests.SynTest):
 
     async def test_modelrev_0_1_3(self):
 
-        async with self.getRegrCore('0.1.2') as core:
+        async with self.getRegrCore('model-0.1.2') as core:
             self.len(1, await core.nodes('ou:org:dissolved +:dissolved'))
             self.len(1, await core.nodes('ou:org:dissolved>=2012 +:dissolved'))
             self.len(1, await core.nodes('ou:org:dissolved=20120202 +:dissolved'))

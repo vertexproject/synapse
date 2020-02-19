@@ -311,7 +311,7 @@ class LmdbLayer(s_layer.Layer):
             oldbpkey = buid + oldpenc
             newbpkey = buid + newpenc
 
-            valubyts = self.layrslab.get(bpkey, db=self.bybuid)
+            valubyts = self.layrslab.get(oldbpkey, db=self.bybuid)
 
             valu, indx = s_msgpack.un(valubyts)
 

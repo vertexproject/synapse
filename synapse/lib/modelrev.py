@@ -107,4 +107,4 @@ class ModelRev:
 
     async def _ouOrgDissolve(self, layers):
         for layr in layers:
-            layr.editPropName('ou:org', 'disolved', 'dissolved')
+            await layr.editPropName('ou:org', 'disolved', 'dissolved')
