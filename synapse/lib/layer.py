@@ -789,13 +789,12 @@ class Layer(s_nexus.Pusher):
 
         self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
 
-        self.fallback = self.conf.get('fallback', False)
-        if self.fallback:
-            splicepath = os.path.join(self.dirn, 'splices.lmdb')
-            self.spliceslab = await s_lmdbslab.Slab.anit(splicepath)
-            self.onfini(self.spliceslab)
-
-            self.splicelog = s_slabseqn.SlabSeqn(self.spliceslab, 'splices')
+        #self.fallback = self.conf.get('fallback', False)
+        #if self.fallback:
+            #splicepath = os.path.join(self.dirn, 'splices.lmdb')
+            #self.spliceslab = await s_lmdbslab.Slab.anit(splicepath)
+            #self.onfini(self.spliceslab)
+            #self.splicelog = s_slabseqn.SlabSeqn(self.spliceslab, 'splices')
 
         self.stortypes = [
 
@@ -847,19 +846,6 @@ class Layer(s_nexus.Pusher):
 
         self.windows = []
         self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
-
-        # If offset > last nodeedits, replay nodeedits
-
-        lastnodeedit = self.nodeeditlog.last()
-
-        if b'nodeedit:applied' not in self.offsets.cache:
-            appliedoffs = -1
-        else:
-            appliedoffs = self.offsets.get('nodeedit:applied')
-
-        if not self.readonly and lastnodeedit is not None and lastnodeedit[0] > appliedoffs:
-            nodeedits = [e[1][0] for e in self.nodeeditlog.iter(appliedoffs + 1)]
-            [await self.storNodeEditsNoLift(e, {}) for e in nodeedits]
 
         uplayr = layrinfo.get('upstream')
         if uplayr is not None:
@@ -1055,8 +1041,20 @@ class Layer(s_nexus.Pusher):
             for buid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu):
                 yield await self.getStorNode(buid)
 
-    @s_nexus.Pusher.onPushAuto('edits')
     async def storNodeEdits(self, nodeedits, meta):
+
+        changes = await self._push('edits', nodeedits, meta)
+
+        retn = []
+        for buid, form, edits in changes:
+            sode = await self.getStorNode(buid)
+            sode[1]['edits'] = edits
+            retn.append(sode)
+
+        return retn
+
+    @s_nexus.Pusher.onPushAuto('edits')
+    async def _storNodeEdits(self, nodeedits, meta):
         '''
         Execute a series of node edit operations, returning the updated nodes.
         '''
@@ -1065,23 +1063,18 @@ class Layer(s_nexus.Pusher):
 
         [(await wind.put((offs, changes))) for wind in tuple(self.windows)]
 
-        if self.fallback:
-            splices = [x[1] async for x in self.makeSplices((offs, (changes, meta)))]
-            self.splicelog.save(splices)
+        return changes
 
-        self.offsets.set('nodeedit:applied', offs)
-
-        retn = []
-        for buid, form, changed in changes:
-            sode = await self.getStorNode(buid)
-            sode[1]['edits'] = changed
-            retn.append(sode)
-
-        return retn
+    async def _editToSode(self, nodeedit):
+        sode = await self.getStorNode(nodeedit[0])
+        sode[1]['edits'] = nodeedit[2]
+        return sode
 
     async def _storNodeEdit(self, nodeedit):
         '''
         Execute a series of storage operations for the given node.
+
+        Returns a (buid, edits) tuple of the actual changes.
         '''
         buid, form, edits = nodeedit
 
@@ -1094,23 +1087,13 @@ class Layer(s_nexus.Pusher):
         await asyncio.sleep(0)
         return changed
 
-    @s_nexus.Pusher.onPushAuto('editsnolift')
     async def storNodeEditsNoLift(self, nodeedits, meta):
         '''
         Execute a series of node edit operations.
 
         Does not return the updated nodes.
         '''
-        changes = [(e[0], e[1], await self._storNodeEdit(e)) for e in nodeedits]
-        offs = self.nodeeditlog.add((changes, meta))
-
-        [(await wind.put((offs, changes))) for wind in tuple(self.windows)]
-
-        if self.fallback:
-            splices = [x[1] async for x in self.makeSplices((offs, (changes, meta)))]
-            self.splicelog.save(splices)
-
-        self.offsets.set('nodeedit:applied', offs)
+        await self.push('edits', nodeedits, meta)
 
     def _editNodeAdd(self, buid, form, edit):
 
@@ -1697,19 +1680,19 @@ class Layer(s_nexus.Pusher):
 
         Nodeedits will be flattened into splices before being yielded.
         '''
-        for nodeedits in self.nodeeditlog.slice(offs, size):
-            async for splice in self.makeSplices(nodeedits):
+        for offset, (nodeedits, meta) in self.nodeeditlog.slice(offs, size):
+            async for splice in self.makeSplices(offset, nodeedits, meta):
                 yield splice
 
     async def splicesBack(self, offs, size=None):
 
         if size:
-            for nodeedits in self.nodeeditlog.sliceBack(offs, size):
-                async for splice in self.makeSplices(nodeedits):
+            for offset, (nodeedits, meta) in self.nodeeditlog.sliceBack(offs, size):
+                async for splice in self.makeSplices(offset, nodeedits, meta):
                     yield splice
         else:
-            for nodeedits in self.nodeeditlog.iterBack(offs):
-                async for splice in self.makeSplices(nodeedits):
+            for offset, (nodeedits, meta) in self.nodeeditlog.iterBack(offs):
+                async for splice in self.makeSplices(offset, nodeedits, meta):
                     yield splice
 
     async def syncNodeEdits(self, offs):
@@ -1726,13 +1709,10 @@ class Layer(s_nexus.Pusher):
             async for offs, splice in wind:
                 yield (offs, splice)
 
-    async def makeSplices(self, nodeedits):
+    async def makeSplices(self, offs, nodeedits, meta):
         '''
         Flatten a set of nodeedits into splices.
         '''
-        offs = nodeedits[0]
-
-        meta = nodeedits[1][1]
         user = meta.get('user')
         time = meta.get('time')
         prov = meta.get('prov')
@@ -1747,10 +1727,13 @@ class Layer(s_nexus.Pusher):
                     continue
 
                 spliceoffs = (offs, nodeoffs, editoffs)
-                props = {'time': time,
-                         'user': user,
-                         'prov': prov,
-                         }
+                props = {
+                    'time': time,
+                    'user': user,
+                    'prov': prov,
+                    'form': form,
+                    'iden': s_common.ehex(buid),
+                }
 
                 if edit == EDIT_NODE_ADD:
                     formvalu, stortype = info

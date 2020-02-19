@@ -11,7 +11,6 @@ async def iterPropForm(self, form=None, prop=None):
     for buid, valu in bad_valu:
         yield buid, valu
 
-
 @contextlib.contextmanager
 def patch_snap(snap):
     old_layr = []
@@ -23,7 +22,6 @@ def patch_snap(snap):
 
     for layr_idx, layr in enumerate(snap.layers):
         layr.iterPropRows, layr.iterUnivRows = old_layr[layr_idx]
-
 
 class LayerTest(s_t_utils.SynTest):
 
@@ -490,7 +488,7 @@ class LayerTest(s_t_utils.SynTest):
 
             layr = core.view.layers[0]
 
-            splice =  layr.splicelog.get(0)
+            splice = layr.splicelog.get(0)
             self.eq(splice[0], 'node:add')
             self.eq(splice[1]['ndef'][0], 'meta:source')
             self.eq(splice[1]['user'], root.iden)
