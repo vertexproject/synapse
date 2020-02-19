@@ -289,6 +289,43 @@ class LmdbLayer(s_layer.Layer):
             valu, indx = s_msgpack.un(lval)
             return indx
 
+    async def editPropName(self, form, oldname, newname):
+        '''
+        A migration-only method to rename a property.
+        '''
+        prop = self.core.model.prop(f'{form}:{newname}')
+        if prop is None:
+            mesg = 'editPropName newname is not in the model'
+            raise s_exc.SynErr(mesg=mesg)
+
+        oldpenc = oldname.encode()
+        newpenc = newname.encode()
+
+        oldpref = form.encode() + b'\x00' + oldpenc + b'\x00'
+        newpref = form.encode() + b'\x00' + newpenc + b'\x00'
+
+        for oldpvkey, byts in self.layrslab.scanByPref(oldpref, db=self.byprop):
+
+            buid = s_msgpack.un(byts)[0]
+
+            oldbpkey = buid + oldpenc
+            newbpkey = buid + newpenc
+
+            valubyts = self.layrslab.get(bpkey, db=self.bybuid)
+
+            valu, indx = s_msgpack.un(valubyts)
+
+            newindx = prop.type.indx(valu)
+            newpvkey = newpref + newindx
+
+            newvalubyts = s_msgpack.en((valu, newindx))
+
+            self.layrslab.put(newbpkey, newvalubyts, db=self.bybuid)
+            self.layrslab.delete(oldbpkey, db=self.bybuid)
+
+            self.layrslab.put(newpvkey, byts, db=self.byprop)
+            self.layrslab.delete(oldpvkey, byts, db=self.byprop)
+
     async def editNodeNdef(self, oldv, newv):
         '''
         Migration-only method

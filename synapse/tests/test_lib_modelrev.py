@@ -131,3 +131,10 @@ class ModelRevTest(s_tests.SynTest):
 
             self.eq('this is not changed', node0.get('address'))
             self.eq('this has one space', node1.get('address'))
+
+    async def test_modelrev_0_1_3(self):
+
+        async with self.getRegrCore('0.1.2') as core:
+            self.len(1, await core.nodes('ou:org:dissolved +:dissolved'))
+            self.len(1, await core.nodes('ou:org:dissolved>=2012 +:dissolved'))
+            self.len(1, await core.nodes('ou:org:dissolved=20120202 +:dissolved'))

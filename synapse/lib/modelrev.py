@@ -6,7 +6,7 @@ import synapse.lib.migrate as s_migrate
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 1, 2)
+maxvers = (0, 1, 3)
 
 class ModelRev:
 
@@ -106,6 +106,5 @@ class ModelRev:
         pass
 
     async def _ouOrgDissolve(self, layers):
-
-        async with self.getCoreMigr(layers) as migr:
-            await migr.renameProp('ou:org', 'disolved', 'dissolved')
+        for layr in layers:
+            layr.editPropName('ou:org', 'disolved', 'dissolved')
