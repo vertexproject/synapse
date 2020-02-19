@@ -30,6 +30,7 @@ import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
+import synapse.lib.version as s_version
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -760,6 +761,14 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def __anit__(self, dirn, conf=None):
 
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
+
+        if self.inaugural:
+            await self.cellinfo.set('cortex:version', s_version.version)
+
+        corevers = self.cellinfo.get('cortex:version')
+        if corevers is None:
+            mesg = 'cortex:version is unset. please upgrade this cortex to version 2.'
+            raise s_exc.BadStorageVersion(mesg=mesg)
 
         offsdb = self.slab.initdb('offsets')
         self.offs = s_slaboffs.SlabOffs(self.slab, offsdb)
