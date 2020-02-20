@@ -255,7 +255,6 @@ stormcmds = (
         ),
         'storm': '''
             $layer = $lib.layer.add($cmdopts)
-
             $lib.print("Layer added: {iden}", iden=$layer.iden)
         ''',
     },
