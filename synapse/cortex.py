@@ -2175,9 +2175,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # if we have no views, we are initializing.  Add a default main view and layer.
         if not self.views:
-            layr = await self.addLayer()
+            layriden = await self.addLayer()
             vdef = {
-                'layers': (layr.iden,),
+                'layers': (layriden,),
                 'worldreadable': True,
             }
             viewiden = await self.addView(vdef)
@@ -2393,7 +2393,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # forward wind the new layer to the current model version
         await layr.setModelVers(s_modelrev.maxvers)
 
-        return layr
+        return layr.iden
 
     async def _initLayr(self, layrinfo):
         '''
@@ -2431,10 +2431,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             }
         }
 
-        layr = await self.addLayer(**info)
-        await self.view.addLayer(layr, indx=indx)
+        layriden = await self.addLayer(**info)
+        await self.view.addLayer(layriden, indx=indx)
         # FIXME: unchange this; change dist methods can return heavy objects
-        return layr.iden
+        return layriden
 
     async def _initCoreLayers(self):
 

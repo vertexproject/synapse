@@ -1624,7 +1624,8 @@ class StormTypesTest(s_test.SynTest):
             self.isin(forklayr, core.layers)
 
             # Add a view
-            newlayer = await core.addLayer()
+            newiden = await core.addLayer()
+            newlayer = core.getLayer(newiden)
 
             q = f'''
                 $newview=$lib.view.add(({newlayer.iden},))
@@ -1719,7 +1720,8 @@ class StormTypesTest(s_test.SynTest):
             self.isin(helperfork, core.views)
 
             # Add a view
-            newlayer2 = await core.addLayer()
+            newiden2 = await core.addLayer()
+            newlayer2 = core.getLayer(newiden2)
 
             q = f'view.add --layers {newlayer.iden} {newlayer2.iden}'
             mesgs = await core.streamstorm(q).list()

@@ -1434,10 +1434,12 @@ class LibLayer(Lib):
         useriden = self.runt.user.iden
         gatekeys = ((useriden, ('layer', 'add'), None),)
         todo = ('addLayer', (ldef,), {})
-        layr = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
-        if layr is None:
+        layriden = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        if layriden is None:
             mesg = f'Failed to add layer.'
             raise s_exc.StormRuntimeError(mesg=mesg)
+
+        layr = self.runt.snap.core.getView(layriden)
 
         return Layer(layr, path=self.path)
 

@@ -68,7 +68,8 @@ class LayerTest(s_t_utils.SynTest):
 
                     url = core00.getLocalUrl('*/layer')
                     conf = {'upstream': url}
-                    layr = await core01.addLayer(ldef=conf)
+                    iden = await core01.addLayer(ldef=conf)
+                    layr = core01.getLayer(iden)
                     await core01.view.addLayer(layr.iden)
 
                     # test initial sync
@@ -147,7 +148,8 @@ class LayerTest(s_t_utils.SynTest):
 
                         conf = {'upstream': [url00, url01]}
 
-                        layr = await core02.addLayer(ldef=conf)
+                        iden = await core02.addLayer(ldef=conf)
+                        layr = core02.getLayer(iden)
                         await core02.view.addLayer(layr.iden)
 
                         # core00 is synced
