@@ -447,7 +447,7 @@ stormcmds = (
             ('--form', {'help': 'Form to fire on.'}),
             ('--tag', {'help': 'Tag to fire on.'}),
             ('--prop', {'help': 'Property to fire on.'}),
-            ('--query', {'help': 'Query for the trigger to execute.'}),
+            ('--query', {'help': 'Query for the trigger to execute.', 'required': True}),
             ('--disabled', {'default': False, 'action': 'store_true',
                             'help': 'Create the trigger in disabled state.'}),
         ),

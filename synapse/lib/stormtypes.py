@@ -1669,9 +1669,20 @@ class LibTrigger(Lib):
         if cond is not None:
             tdef['cond'] = cond
 
-        tag = tdef.get('tag')
-        if tag is not None and tag[0] == '#':
-            tdef['tag'] = tag[1:]
+        tag = tdef.pop('tag', None)
+        if tag is not None:
+            if tag[0] == '#':
+                tdef['tag'] = tag[1:]
+            else:
+                tdef['tag'] = tag
+
+        form = tdef.pop('form', None)
+        if form is not None:
+            tdef['form'] = form
+
+        prop = tdef.pop('prop', None)
+        if prop is not None:
+            tdef['prop'] = prop
 
         gatekeys = ((useriden, ('trigger', 'add'), viewiden),)
         todo = ('addTrigger', (tdef,), {})
@@ -1783,7 +1794,7 @@ class Trigger(StormType):
         if valu is not s_common.NoValu:
             return valu
 
-        return await StormType.deref(self, name)
+        return self.locls.get(name)
 
     async def set(self, name, valu):
         useriden = self.runt.user.iden

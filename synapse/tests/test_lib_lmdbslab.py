@@ -713,6 +713,8 @@ class LmdbSlabMemLockTest(s_t_utils.SynTest):
                 while count < 8000:
                     count += 1
                     slab.put(s_common.guid(count).encode('utf8'), s_common.guid(count).encode('utf8') + byts, db=foo)
+
+                await asyncio.sleep(0.01)
                 self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
                 lockmem = s_thisplat.getCurrentLockedMemory()
                 self.gt(lockmem, 0)
