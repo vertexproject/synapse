@@ -48,10 +48,46 @@ MIN_VER = (0, 1, 'x')  # TODO: currently no way to check this
 
 class MigrAuth:
     '''
-    Loads the Hive auth tree from 0.1.x and translates it to 0.2.x
+    Loads the Hive auth tree from 0.1.x and translates it to 0.2.x.
+
+    Instance representation of auth:
+        usersbyname (dict): { <name>: <iden>, ... }
+        usersbyiden (dict): {
+            <iden>: {
+                'roles': [<roleiden1>, <roleiden2>, ...],
+                'rules': [<ruletuple1>, <ruletuple2>, ...],
+                ...
+                <other user auth k,v pairs, e.g. admin, profile, etc.>,
+            }
+            ...
+        }
+
+        rolesbyname (dict): { <name>: <iden>, ... }
+        rolesbyiden (dict): {
+            <iden>: {
+                'rules': [<ruletuple1>, <ruletuple2>, ...]
+            },
+            ...
+        }
+
+        authgatesbyname (dict): { <name e.g. view>: [<iden1>, <iden2>, ...], ... }
+        authgatesbyiden (dict): {
+            <iden>: {
+                'rolesbyiden': {
+                    <roleiden>: {
+                        'rules': [<ruletuple1>, <ruletuple2>, ...]
+                    },
+                    ...
+                },
+                'usersbyiden': {
+                    <useriden>: <user authgate dict, e.g. admin (a subset of user auth dict)>,
+                    ...
+                }
+            },
+            ...
+        }
     '''
     def __init__(self, srctree, defaultview, triggers):
-        self.wasmigrated = self._checkWasMigrated(srctree)  # FIXME
         self.defaultview = defaultview
         self.triggers = triggers
         self.srctree = srctree
@@ -64,37 +100,106 @@ class MigrAuth:
         self.rolesbyname = {}
         self.authgatesbyname = collections.defaultdict(list)
 
+        self.userhierarchy = {}
+
     async def translate(self):
+        '''
+        Execute data translation steps, finishing with a 0.2.x hive auth tree
+        '''
         await self._srcReadTree()
         await self._trnAuth()
         await self._destCreateTree()
+        self.userhierarchy = await self.getUserHierarchy()
         return self.desttree
 
-    def _checkWasMigrated(self, srctree):
+    async def getUserHierarchy(self):
         '''
-        Check if the tree is already in 0.2.x format.
-        # FIXME
+        Convenience representation of a user's permission hierarchy which is defined by the rules
+        and roles for a given user, and the rules and roles for a given object (authgate).
+
+            (<user iden 1>, <user name 1>): {
+                (<obj iden>, <obj name>): set(
+                    <object role rules>,
+                    <user rules -- if admin applies to all objects>
+                    <object user rules -- if admin applies to object>,
+                    <user role rules>
+                )
+                ...
+            }
 
         Returns:
-            (bool): True if already migrated, else False.
+            (dict): User hierarchies
         '''
-        if 'roles' in srctree['kids'].keys():
-            logger.info('Hive auth has already been migrated')
-            return True
-        else:
-            return False
+        hierarchy = {}
+
+        # reverse lookups for name by iden
+        uname_lookup = {v: k for k, v in self.usersbyname.items()}
+        aname_lookup = {i: k for k, v in self.authgatesbyname.items() for i in v}
+
+        for uiden, uvals in self.usersbyiden.items():
+            uname = uname_lookup[uiden]
+            isadmin = False
+
+            # user rules or admin
+            urules = set()
+            if uvals.get('admin'):
+                isadmin = True
+                urules.add(('admin', ))
+            else:
+                for allow, rule in uvals.get('rules', ()):
+                    if allow:
+                        urules.add(rule)
+
+                # user role rules
+                for riden in uvals.get('roles', ()):
+                    for allow, rule in self.rolesbyiden[riden].get('rules', ()):
+                        if allow:
+                            urules.add(rule)
+
+            hierarchy[(uiden, uname)] = {}
+
+            # iterate over authgates
+            for aiden, avals in self.authgatesbyiden.items():
+                aname = aname_lookup[aiden]
+
+                objrules = set()
+
+                if isadmin:
+                    objrules.update(urules)
+
+                else:
+                    # authgate user rules
+                    if avals['usersbyiden'].get(uiden, {}).get('admin'):
+                        objrules.add(('admin', ))
+
+                    else:
+                        objrules.update(urules)
+
+                        for allow, rule in avals['usersbyiden'].get(uiden, {}).get('rules', ()):
+                            if allow:
+                                objrules.add(rule)
+
+                        # authgate role rules
+                        for riden, rvals in avals['rolesbyiden'].items():
+                            for allow, rule in rvals.get('rules', ()):
+                                if allow:
+                                    objrules.add(rule)
+
+                hierarchy[(uiden, uname)][(aiden, aname)] = tuple(objrules)
+
+        return hierarchy
 
     async def _srcReadTree(self):
         '''
         Load source hive auth tree into a flatter local structure
         '''
         for uiden, uvals in self.srctree['kids']['users']['kids'].items():
-            self.usersbyiden[uiden] = uvals['kids']
+            self.usersbyiden[uiden] = await self._srcReadUserKids(uvals['kids'])
             self.usersbyname[uvals['value']] = uiden
 
         for riden, rvals in self.srctree['kids'].get('roles', {}).get('kids', {}).items():
             self.rolesbyiden[riden] = {
-                'rules': rvals.get('kids', {}).get('rules', {}).get('value', ())
+                'rules': list(rvals.get('kids', {}).get('rules', {}).get('value', []))
             }
             name = rvals['value']
             if name is not None:
@@ -108,33 +213,72 @@ class MigrAuth:
 
             for riden, rvals in gvals.get('kids', {}).get('roles', {}).get('kids', {}).items():
                 authgate['rolesbyiden'][riden] = {
-                    'rules': rvals.get('kids', {}).get('rules', {}).get('value', ())
+                    'rules': list(rvals.get('kids', {}).get('rules', {}).get('value', []))
                 }
 
             for uiden, uvals in gvals.get('kids', {}).get('users', {}).get('kids', {}).items():
-                authgate['usersbyiden'][uiden] = uvals.get('kids', {})
+                authgate['usersbyiden'][uiden] = await self._srcReadUserKids(uvals.get('kids', {}))
 
             self.authgatesbyiden[giden] = authgate
             self.authgatesbyname[gvals['value']].append(giden)
 
+    async def _srcReadUserKids(self, ukids):
+        '''
+        Iterate over user kid properties and return flat dict.
+
+        Args:
+            ukids: Hive tree representation of user kids
+
+        Returns:
+            (dict): Flat k, value pairs
+        '''
+        udict = {}
+        for valname, val in ukids.items():
+            value = val['value']
+            if isinstance(value, tuple):
+                value = list(value)
+            udict[valname] = value
+
+        return udict
+
     async def _trnAuth(self):
         '''
-        Change/add/remove auth properties to translate to 0.2.x syntax.
+        Modify auth properties to translate to 0.2.x syntax.
         '''
-        # create 'all' role if it doesn't exist
+        await self._trnAuthRoles()
+        await self._trnAuthUsers()
+        await self._trnAuthGates()
+
+    async def _trnAuthRoles(self):
+        '''
+        Actions:
+            - Add 'all' role with no rules if it doesn't exist
+        '''
         if 'all' not in self.rolesbyname:
             iden = s_common.guid()
             self.rolesbyname['all'] = iden
-            self.rolesbyiden[iden] = {}
+            self.rolesbyiden[iden] = {'rules': []}
 
-        # add all role to all the users
+    async def _trnAuthUsers(self):
+        '''
+        Actions:
+            - Add 'all' role each user
+        '''
+        allrole = self.rolesbyname['all']
         for uiden, uvals in self.usersbyiden.items():
-            roles = uvals.get('roles', {}).get('value', [])
-            roles = list(roles)
-            roles.append(self.rolesbyname['all'])
-            uvals['roles'] = {'value': tuple(roles)}
+            roles = uvals.get('roles', [])
+            roles.append(allrole)
+            uvals['roles'] = roles
 
-        # create cortex authgate if it doesn't exist
+    async def _trnAuthGates(self):
+        '''
+        Actions:
+            - Create cortex authgate with no roles or users if it doesn't exist
+            - Create trigger authgates with users=owner w/admin True  (TODO: should be this be admin?)
+            - Add view:read rule to all role in defaultview
+            - Add root user to all authgates (except cortex) if it doesn't exist
+            - Change authgate name 'layr' to 'layer'
+        '''
         if 'cortex' not in self.authgatesbyname:
             self.authgatesbyname['cortex'].append('cortex')
             self.authgatesbyiden['cortex'] = {
@@ -142,30 +286,23 @@ class MigrAuth:
                 'usersbyiden': {},
             }
 
-        # add trigger authgates
         for tiden, uidens in self.triggers.items():
             self.authgatesbyname['trigger'].append(tiden)
             tusers = {}
             for uiden in uidens:
-                tusers[uiden] = {'admin': {'value': True}}  # FIXME
+                tusers[uiden] = {'admin': True}
 
             self.authgatesbyiden[tiden] = {
                 'rolesbyiden': {},
                 'usersbyiden': tusers,
             }
 
-        # replace layr with layer
-        gates = self.authgatesbyname.pop('layr')
-        self.authgatesbyname['layer'] = gates
-
-        # add view:read rules to all role for defaultview
         alliden = self.rolesbyname['all']
-        readrule = ((True, ('view', 'read')),)
+        readrule = (True, ('view', 'read'))
         self.authgatesbyiden[self.defaultview]['rolesbyiden'][alliden] = {
-            'rules': readrule
+            'rules': [readrule]
         }
 
-        # Add root user to all authgates if not already there (except cortex)
         rootiden = self.usersbyname['root']
         for aiden, avals in self.authgatesbyiden.items():
             if aiden == 'cortex':
@@ -173,8 +310,11 @@ class MigrAuth:
 
             if rootiden not in avals['usersbyiden']:
                 avals['usersbyiden'][rootiden] = {
-                    'admin': {'value': True}
+                    'admin': True
                 }
+
+        gates = self.authgatesbyname.pop('layr')
+        self.authgatesbyname['layer'] = gates
 
     async def _destCreateTree(self):
         '''
@@ -193,7 +333,7 @@ class MigrAuth:
         for uname, uiden in self.usersbyname.items():
             uvals = self.usersbyiden[uiden]
             userkids[uiden] = {
-                'kids': uvals,
+                'kids': {k: {'value': v} for k, v in uvals.items()},
                 'value': uname,
             }
 
@@ -235,14 +375,9 @@ class MigrAuth:
             for uiden, uvals in avals['usersbyiden'].items():
                 uname = uname_lookup[uiden]
                 ausers['kids'][uiden] = {
-                    'kids': uvals,
+                    'kids': {k: {'value': v} for k, v in uvals.items()},
                     'value': uname
                 }
-
-            if not aroles['kids']:
-                aroles.pop('kids')
-            if not ausers['kids']:
-                ausers.pop('kids')
 
             gatekids[aiden] = {
                 'kids': {
@@ -662,8 +797,6 @@ class Migrator(s_base.Base):
     async def _migrHiveLayerInfo(self, storinfo, iden):
         '''
         As each layer is migrated update the hive info.
-
-        TODO: Move some of this into a translation step
 
         Args:
             storinfo (HiveDict): Storage information

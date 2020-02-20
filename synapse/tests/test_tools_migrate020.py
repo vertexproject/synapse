@@ -242,6 +242,7 @@ class MigrationTest(s_t_utils.SynTest):
         defview = views[0]
         secview = views[1]
 
+        ## user permissions
         # bobo
         # - read main view
         # - read/write to forked view via role
@@ -250,8 +251,14 @@ class MigrationTest(s_t_utils.SynTest):
         async with core.getLocalProxy(user='bobo') as proxy:
             self.gt(await proxy.count('inet:ipv4'), 0)
             await self.asyncraises(s_exc.AuthDeny, proxy.count('[inet:ipv4=10.10.10.10]'))
+
+            self.eq(2, await proxy.count('syn:trigger'))
+            # await self.asyncraises(s_exc.AuthDeny, proxy.count('trigger.list'))
             await self.asyncraises(s_exc.StormRuntimeError, proxy.count(f'trigger.del {tagtrg}'))
             await self.asyncraises(s_exc.StormRuntimeError, proxy.count(f'trigger.del {nodetrg}'))
+            # trigadd = 'trigger.add --node:add --form inet:ipv4 --query {[+#bobotag]}'
+            # await self.asyncraises(s_exc.AuthDeny, proxy.count(f'trigger.add {trigadd}'))
+            self.eq(2, await proxy.count('syn:trigger'))
 
             self.gt(await proxy.count('inet:ipv4 [+#bobotag]'), 0)
             await self.asyncraises(s_exc.AuthDeny, proxy.count('#trgtag [-#trgtag]'))
@@ -260,7 +267,6 @@ class MigrationTest(s_t_utils.SynTest):
             self.gt(await proxy.count('inet:ipv4', opts={'view': secview}), 0)
             self.gt(await proxy.count('[inet:ipv4=10.9.10.1]', opts={'view': secview}), 0)
 
-        ## user permissions
         # fred
         # - read to main view
         # - read access to forked view via rule
@@ -269,8 +275,16 @@ class MigrationTest(s_t_utils.SynTest):
         async with core.getLocalProxy(user='fred') as proxy:
             self.gt(await proxy.count('inet:ipv4'), 0)
             await self.asyncraises(s_exc.AuthDeny, proxy.count('[inet:ipv4=10.10.10.10]'))
-            # await self.asyncraises(s_exc.StormRuntimeError, proxy.count(f'trigger.del {tagtrg}'))
-            # await self.asyncraises(s_exc.StormRuntimeError, proxy.count(f'trigger.del {nodetrg}'))
+
+            self.eq(2, await proxy.count('syn:trigger'))
+            # self.ge(await proxy.count(f'trigger.list'), 0)
+
+            await self.asyncraises(s_exc.AuthDeny, proxy.count(f'trigger.del {tagtrg}'))
+            await proxy.count(f'trigger.del {nodetrg}')
+            self.eq(1, await proxy.count('syn:trigger'))
+
+            # await proxy.count('trigger.add node:add --form file:bytes --query {[+#trgtag]}')
+            # self.eq(2, await proxy.count('syn:trigger'))
 
             self.gt(await proxy.count('inet:ipv4 [+#trgtag]'), 0)
             await self.asyncraises(s_exc.AuthDeny, proxy.count('#trgtag [-#bobotag]'))
@@ -281,16 +295,20 @@ class MigrationTest(s_t_utils.SynTest):
 
         # root
         # - read/write to main view
-        # - read/write to forked view  # TODO
+        # - read/write to forked view
         # - get/del triggers
         async with core.getLocalProxy(user='root') as proxy:
             self.gt(await proxy.count('inet:ipv4'), 0)
             self.gt(await proxy.count('[inet:ipv4=10.10.10.11]'), 0)
-            self.eq(2, await proxy.count('syn:trigger'))
 
+            # self.eq(2, await proxy.count('syn:trigger'))
+            self.eq(1, await proxy.count('syn:trigger'))
             await proxy.eval(f'$lib.trigger.del({tagtrg})').list()
-            await proxy.eval(f'$lib.trigger.del({nodetrg})').list()
+            # await proxy.eval(f'$lib.trigger.del({nodetrg})').list()
             self.eq(0, await proxy.count('syn:trigger'))
+
+            self.gt(await proxy.count('inet:ipv4', opts={'view': secview}), 0)
+            self.gt(await proxy.count('[inet:ipv4=10.9.10.1]', opts={'view': secview}), 0)
 
     async def test_migr_nexus(self):
         conf = {
