@@ -241,6 +241,67 @@ stormcmds = (
         '''
     },
     {
+        'name': 'layer.add',
+        'descr': 'Add a layer to the cortex.',
+        'cmdargs': (
+            ('iden', {'nargs': '?',
+                      'help': 'Iden of the layer to add. If no iden is provided, a new layer will be created.'}),
+            ('--lockmemory', {'help': 'Should the layer lock memory for performance.',
+                              'action': 'store_true'}),
+            ('--readonly', {'help': 'Should the layer be readonly.',
+                            'action': 'store_true'}),
+            ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': int}),
+            ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
+        ),
+        'storm': '''
+            $layer = $lib.layer.add($cmdopts)
+            $lib.print("Layer added: {iden}", iden=$layer.iden)
+        ''',
+    },
+    {
+        'name': 'layer.del',
+        'descr': 'Delete a layer from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the layer to delete.'}),
+        ),
+        'storm': '''
+            $lib.layer.del($cmdopts.iden)
+            $lib.print("Layer deleted: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
+    {
+        'name': 'layer.get',
+        'descr': 'Get a layer from the cortex.',
+        'cmdargs': (
+            ('iden', {'nargs': '?',
+                      'help': 'Iden of the layer to get. If no iden is provided, the main layer will be returned.'}),
+        ),
+        'storm': '''
+            $layr = $lib.layer.get($cmdopts.iden)
+            $layrvalu = $layr.pack()
+
+            $lib.print("Layer {iden} ctor: {ctor} readonly: {readonly}",
+                       iden=$layrvalu.iden,
+                       ctor=$layrvalu.ctor,
+                       readonly=$layrvalu.readonly)
+        ''',
+    },
+    {
+        'name': 'layer.list',
+        'descr': 'List the layers in the cortex.',
+        'cmdargs': (),
+        'storm': '''
+            $lib.print('Layers:')
+            for $layr in $lib.layer.list() {
+                $layrvalu = $layr.pack()
+                $lib.print("  {iden} ctor: {ctor} readonly: {readonly}",
+                           iden=$layrvalu.iden,
+                           ctor=$layrvalu.ctor,
+                           readonly=$layrvalu.readonly)
+            }
+        ''',
+    },
+    {
         'name': 'pkg.list',
         'descr': 'List the storm packages loaded in the cortex.',
         'cmdrargs': (),

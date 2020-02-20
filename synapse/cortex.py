@@ -1060,7 +1060,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _initCoreQueues(self):
         path = os.path.join(self.dirn, 'slabs', 'queues.lmdb')
 
-        slab = await s_lmdbslab.Slab.anit(path, map_async=True)
+        slab = await s_lmdbslab.Slab.anit(path)
         self.onfini(slab.fini)
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
@@ -1928,6 +1928,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('queue',), s_stormtypes.LibQueue)
         self.addStormLib(('stats',), s_stormtypes.LibStats)
         self.addStormLib(('bytes',), s_stormtypes.LibBytes)
+        self.addStormLib(('layer',), s_stormtypes.LibLayer)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
         self.addStormLib(('trigger',), s_stormtypes.LibTrigger)
         self.addStormLib(('service',), s_stormtypes.LibService)
@@ -2176,9 +2177,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # if we have no views, we are initializing.  Add a default main view and layer.
         if not self.views:
-            layr = await self.addLayer()
+            layriden = await self.addLayer()
             vdef = {
-                'layers': (layr.iden,),
+                'layers': (layriden,),
                 'worldreadable': True,
             }
             viewiden = await self.addView(vdef)
@@ -2332,6 +2333,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return self.layers.get(iden)
 
+    def listLayers(self):
+        return self.layers.values()
+
     def getView(self, iden=None):
         '''
         Get a View object.
@@ -2391,7 +2395,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # forward wind the new layer to the current model version
         await layr.setModelVers(s_modelrev.maxvers)
 
-        return layr
+        return layr.iden
 
     async def _initLayr(self, layrinfo):
         '''
@@ -2429,10 +2433,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             }
         }
 
-        layr = await self.addLayer(**info)
-        await self.view.addLayer(layr, indx=indx)
+        layriden = await self.addLayer(**info)
+        await self.view.addLayer(layriden, indx=indx)
         # FIXME: unchange this; change dist methods can return heavy objects
-        return layr.iden
+        return layriden
 
     async def _initCoreLayers(self):
 

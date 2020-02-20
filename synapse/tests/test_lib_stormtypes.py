@@ -1447,6 +1447,147 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[1][0], ('test:comp', (4, 'bar')))
             self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
 
+    async def test_storm_lib_layer(self):
+
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            mainlayr = core.view.layers[0].iden
+
+            q = '$lib.print($lib.layer.get().iden)'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint(mainlayr, mesgs)
+
+            q = f'$lib.print($lib.layer.get({mainlayr}).iden)'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInPrint(mainlayr, mesgs)
+
+            # Create a new layer
+            q = f'$lib.print($lib.layer.add().iden)'
+            mesgs = await core.streamstorm(q).list()
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    newlayr = mesg[1]['mesg']
+
+            self.isin(newlayr, core.layers)
+
+            # List the layers in the cortex
+            q = '''
+                for $layer in $lib.layer.list() {
+                    $lib.print($layer.iden)
+                }
+            '''
+            idens = []
+            mesgs = await core.streamstorm(q).list()
+            for mesg in mesgs:
+                if mesg[0] == 'print':
+                    idens.append(mesg[1]['mesg'])
+
+            self.sorteq(idens, core.layers)
+
+            # Delete a layer
+            q = f'$lib.print($lib.layer.del({newlayr}))'
+            mesgs = await core.streamstorm(q).list()
+
+            self.notin(newlayr, core.layers)
+
+            # Sad paths
+
+            q = f'$lib.layer.get(foo)'
+            with self.raises(s_exc.NoSuchIden):
+                nodes = await core.nodes(q)
+
+            q = f'$lib.layer.del(foo)'
+            with self.raises(s_exc.NoSuchIden):
+                nodes = await core.nodes(q)
+
+            q = f'$lib.layer.del({mainlayr})'
+            with self.raises(s_exc.LayerInUse):
+                nodes = await core.nodes(q)
+
+            # Test permissions
+
+            await prox.addAuthUser('visi')
+            await prox.setUserPasswd('visi', 'secret')
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+
+                # List should return an empty list
+                nodes = await asvisi.eval('$lib.layer.list()').list()
+                self.len(0, nodes)
+
+                # Get requires 'read' permission on the layer
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.layer.get()'))
+
+                await prox.addAuthRule('visi', (True, ('layer', 'read')))
+
+                q = 'layer.get'
+                mesgs = await asvisi.storm(q).list()
+                self.stormIsInPrint(mainlayr, mesgs)
+
+                q = f'layer.get {mainlayr}'
+                mesgs = await asvisi.storm(q).list()
+                self.stormIsInPrint(mainlayr, mesgs)
+
+                q = 'layer.list'
+                idens = []
+                mesgs = await asvisi.storm(q).list()
+
+                for layr in core.layers.keys():
+                    self.stormIsInPrint(layr, mesgs)
+
+                # Add requires 'add' permission
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.layer.add()'))
+
+                await prox.addAuthRule('visi', (True, ('layer', 'add')))
+
+                q = 'layer.add'
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        visilayr = mesg[1]['mesg'].split(' ')[-1]
+
+                self.isin(visilayr, core.layers)
+
+                # Del requires 'del' permission
+                await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.layer.del({visilayr})'))
+
+                await prox.addAuthRule('visi', (True, ('layer', 'del')))
+
+                q = f'layer.del {visilayr}'
+                mesgs = await asvisi.storm(q).list()
+
+                self.notin(visilayr, core.layers)
+
+                # Test add layer opts
+                q = f'layer.add --lockmemory --growsize 5000'
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        locklayr = mesg[1]['mesg'].split(' ')[-1]
+
+                layr = core.getLayer(locklayr)
+                self.true(layr.lockmemory)
+                self.eq(layr.layrslab.growsize, 5000)
+
+            async with self.getTestCore() as core2:
+
+                await core2.nodes('[ inet:ipv4=1.2.3.4 ]')
+                url = core2.getLocalUrl('*/layer')
+
+                layriden = core2.view.layers[0].iden
+                offs = core2.view.layers[0].getNodeEditOffset()
+
+                q = f'layer.add --upstream {url}'
+                mesgs = await core.streamstorm(q).list()
+                for mesg in mesgs:
+                    if mesg[0] == 'print':
+                        uplayr = mesg[1]['mesg'].split(' ')[-1]
+
+                layr = core.getLayer(uplayr)
+
+                evnt = await layr.waitUpstreamOffs(layriden, offs)
+                await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
     async def test_storm_lib_view(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -1483,7 +1624,8 @@ class StormTypesTest(s_test.SynTest):
             self.isin(forklayr, core.layers)
 
             # Add a view
-            newlayer = await core.addLayer()
+            newiden = await core.addLayer()
+            newlayer = core.getLayer(newiden)
 
             q = f'''
                 $newview=$lib.view.add(({newlayer.iden},))
@@ -1578,7 +1720,8 @@ class StormTypesTest(s_test.SynTest):
             self.isin(helperfork, core.views)
 
             # Add a view
-            newlayer2 = await core.addLayer()
+            newiden2 = await core.addLayer()
+            newlayer2 = core.getLayer(newiden2)
 
             q = f'view.add --layers {newlayer.iden} {newlayer2.iden}'
             mesgs = await core.streamstorm(q).list()

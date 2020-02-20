@@ -336,7 +336,7 @@ class Trigger:
         '''
         assert name in ('enabled', 'storm', 'doc', 'name')
 
-        if valu == self.tdef[name]:
+        if valu == self.tdef.get(name):
             return
 
         if name == 'storm':
@@ -377,7 +377,7 @@ class Trigger:
 
             try:
                 await s_common.aspin(node.storm(storm, opts=opts, user=user))
-            except asyncio.CancelledError: # pragma: no cover
+            except (asyncio.CancelledError, s_exc.RecursionLimitHit):
                 raise
             except Exception:
                 logger.exception('Trigger encountered exception running storm query %s', storm)

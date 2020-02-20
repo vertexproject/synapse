@@ -330,10 +330,10 @@ class View(s_nexus.Pusher):  # type: ignore
         if vdef is None:
             vdef = {}
 
-        layr = await self.core.addLayer(ldef)
+        layriden = await self.core.addLayer(ldef)
 
         vdef['parent'] = self.iden
-        vdef['layers'] = [layr.iden] + [l.iden for l in self.layers]
+        vdef['layers'] = [layriden] + [l.iden for l in self.layers]
 
         return await self.core.addView(vdef)
 
