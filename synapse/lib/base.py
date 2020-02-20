@@ -743,7 +743,7 @@ async def schedGenr(genr, maxsize=100):
     '''
     q = asyncio.Queue(maxsize=maxsize)
 
-    async def genrtask():
+    async def genrtask(base):
         try:
             async for item in genr:
                 await q.put((True, item))
@@ -751,11 +751,12 @@ async def schedGenr(genr, maxsize=100):
             await q.put((False, None))
 
         except Exception as e:
-            await q.put((False, e))
+            if not base.isfini:
+                await q.put((False, e))
 
     async with await Base.anit() as base:
 
-        base.schedCoro(genrtask())
+        base.schedCoro(genrtask(base))
 
         while True:
 

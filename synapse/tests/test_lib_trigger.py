@@ -14,7 +14,7 @@ class TrigTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             tdef = {'cond': 'node:add', 'form': 'test:guid', 'storm': '[ test:guid="*" ]'}
             await core.view.addTrigger(tdef)
-            await core.nodes('[ test:guid="*" ]')
+            await self.asyncraises(s_exc.RecursionLimitHit, core.nodes('[ test:guid="*" ]'))
 
     async def test_modification_persistence(self):
 
