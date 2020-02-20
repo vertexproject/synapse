@@ -736,10 +736,6 @@ class Layer(s_nexus.Pusher):
     '''
     The base class for a cortex layer.
     '''
-    confdefs = {
-        'lockmemory': {'default': True, 'type': 'bool', 'doc': 'Lock the LMDB memory maps for performance.'},
-    }
-
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
@@ -753,8 +749,6 @@ class Layer(s_nexus.Pusher):
 
         self.dirn = dirn
         self.readonly = layrinfo.get('readonly')
-
-        self.layrinfo.setdefault('lockmemory', self.confdefs.get('lockmemory'))
 
         self.lockmemory = self.layrinfo.get('lockmemory')
         path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
