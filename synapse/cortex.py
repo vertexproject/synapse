@@ -81,7 +81,6 @@ class CoreApi(s_cell.CellApi):
         ret = await self.cell.joinTeleLayer(url, indx=indx)
         return ret
 
-    # FIXME:  ModelDict/Def/Defs is a mess
     async def getModelDict(self):
         '''
         Return a dictionary which describes the data model.
@@ -145,7 +144,6 @@ class CoreApi(s_cell.CellApi):
 
             return retn
 
-    # FIXME:  add view parm here (it wouldn't be stored on the view though)
     async def addCronJob(self, query, reqs, incunit=None, incval=1):
         '''
         Add a cron job to the cortex
@@ -259,9 +257,6 @@ class CoreApi(s_cell.CellApi):
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
-        Deprecated in 0.2.0.
-
-        FIXME:  add view parm?
         Add a tag to a node specified by iden.
 
         Args:
@@ -269,6 +264,7 @@ class CoreApi(s_cell.CellApi):
             tag (str):  A tag string.
             valu (tuple):  A time interval tuple or (None, None).
         '''
+        #FIXME deprecated
         await self._reqDefLayerAllowed(('tag:add', *tag.split('.')))
         return await self.cell.addNodeTag(self.user, iden, tag, valu)
 
@@ -281,6 +277,7 @@ class CoreApi(s_cell.CellApi):
             iden (str): A hex encoded node BUID.
             tag (str):  A tag string.
         '''
+        #FIXME deprecated
         await self._reqDefLayerAllowed(('tag:del', *tag.split('.')))
         return await self.cell.delNodeTag(self.user, iden, tag)
 
@@ -289,8 +286,8 @@ class CoreApi(s_cell.CellApi):
         Deprecated in 0.2.0.
 
         Set a property on a single node.
-        FIXME:  how to move to cortex and still have enforcement?
         '''
+        #FIXME deprecated
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -403,7 +400,6 @@ class CoreApi(s_cell.CellApi):
         async with await self.cell.snap(user=self.user) as snap:
             with s_provenance.claim('feed:data', name=name, user=snap.user.iden):
                 snap.strict = False
-                # FIXME:  is this enough to make snap a nexus?  Alternative is to add a cortex pass-through
                 return await snap.addFeedData(name, items, seqn=seqn)
 
     async def count(self, text, opts=None):
@@ -420,7 +416,6 @@ class CoreApi(s_cell.CellApi):
         view = await self._getViewFromOpts(opts)
 
         i = 0
-        # FIXME:  make a count method on view
         async for _ in view.eval(text, opts=opts, user=self.user):
             i += 1
         return i
@@ -2217,18 +2212,23 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def addView(self, vdef):
 
         vdef.setdefault('iden', s_common.guid())
+        vdef.setdefault('parent', None)
+        vdef.setdefault('worldreadable', False)
+        vdef.setdefault('creator', self.auth.rootuser.iden)
+
+        s_view.reqValidVdef(vdef)
+
         return await self._push('view:add', vdef)
 
     @s_nexus.Pusher.onPush('view:add')
     async def _addView(self, vdef):
 
-        iden = vdef['iden']
-        vdef.setdefault('parent', None)
-        vdef.setdefault('worldreadable', False)
-        vdef.setdefault('creator', self.auth.rootuser.iden)
+        s_view.reqValidVdef(vdef)
 
+        iden = vdef['iden']
         creator = vdef.get('creator', self.auth.rootuser.iden)
         user = await self.auth.reqUser(creator)
+
         await self.auth.addAuthGate(iden, 'view')
         await user.setAdmin(True, gateiden=iden)
 
@@ -2355,7 +2355,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         return self.views.get(iden)
 
     def listViews(self):
-        # FIXME:  perms?
         return list(self.views.values())
 
     async def addLayer(self, ldef=None):
@@ -2365,14 +2364,17 @@ class Cortex(s_cell.Cell):  # type: ignore
         ldef = ldef or {}
 
         ldef.setdefault('iden', s_common.guid())
-        ldef.setdefault('conf', {})
         ldef.setdefault('creator', self.auth.rootuser.iden)
         ldef.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
+
+        s_layer.reqValidLdef(ldef)
 
         return await self._push('layer:add', ldef)
 
     @s_nexus.Pusher.onPush('layer:add')
     async def _addLayer(self, ldef):
+
+        s_layer.reqValidLdef(ldef)
 
         iden = ldef.get('iden')
         creator = ldef.get('creator')

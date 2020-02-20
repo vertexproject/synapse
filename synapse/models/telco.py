@@ -52,10 +52,9 @@ class Phone(s_types.Str):
         return self._normPyStr(str(valu))
 
     def repr(self, valu):
-        # FIXME implement more geo aware reprs
         # XXX geo-aware reprs are practically a function of cc which
         # XXX the raw value may only have after doing a s_l_phone lookup
-        if valu[0] == '1':  # FIXME Length check
+        if valu[0] == '1' and len(valu) == 11:
             area = valu[1:4]
             pref = valu[4:7]
             numb = valu[7:11]

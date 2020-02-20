@@ -1362,19 +1362,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
-    async def test_mirror_offset_migration(self):
-        '''
-        0.1.0-mirror has previously mirrored from 0.1.0.  Make sure that the post-migrated mirror picks up from where
-        it left off after the layers changed idens
-        '''
-        # FIXME
-        self.skip('Need to implement, test 0.1.x -> 0.2.0 layer metadata migration')
-        with self.getAsyncLoggerStream('synapse.cortex', 'offset=6)') as stream:
-            async with self.getRegrCore('0.1.0') as core, self.getRegrCore('0.1.0-mirror') as coremirr:
-                url = core.getLocalUrl()
-                await coremirr.initCoreMirror(url)
-                self.true(await stream.wait(4))
-
 class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed
@@ -1826,8 +1813,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.BadPropValu, node.set('tick', (20, 30)))
 
                 snap.strict = False
-                # FIXME:  discuss if this is still correct behavior.  Fails
-                self.skip('hmm norming of novalu')
                 self.none(await snap.addNode('test:str', s_common.novalu))
 
                 self.false(await node.set('newpnewp', 10))

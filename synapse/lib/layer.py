@@ -72,9 +72,9 @@ import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
 
+import synapse.lib.config as s_config
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
-
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +82,17 @@ FAIR_ITERS = 10  # every this many rows, yield CPU to other tasks
 BUID_CACHE_SIZE = 10000
 
 import synapse.lib.msgpack as s_msgpack
+
+reqValidLdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'lockmemory': {'type': 'boolean'},
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'creator', 'lockmemory'],
+})
 
 class LayerApi(s_cell.CellApi):
 
@@ -732,7 +743,7 @@ class Layer(s_nexus.Pusher):
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, layrinfo, dirn, conf=None, nexsroot=None):
+    async def __anit__(self, layrinfo, dirn, nexsroot=None):
 
         self.nexsroot = nexsroot
         self.layrinfo = layrinfo
@@ -878,8 +889,7 @@ class Layer(s_nexus.Pusher):
     def getTagPropAbrv(self, *args):
         return self.tagpropabrv.bytsToAbrv(s_msgpack.en(args))
 
-    # FIXME:  this is hot code:  why is this async?!
-    async def getAbrvProp(self, abrv):
+    def getAbrvProp(self, abrv):
         byts = self.propabrv.abrvToByts(abrv)
         if byts is None:
             return None
@@ -1474,10 +1484,9 @@ class Layer(s_nexus.Pusher):
         abrv = self.getPropAbrv(name, None)
 
         byts = self.layrslab.get(buid + abrv, db=self.nodedata)
-        # FIXME:  None/NoValu confusion
         if byts is None:
-            return None
-        return s_msgpack.un(byts)
+            return False, None
+        return True, s_msgpack.un(byts)
 
     async def iterNodeData(self, buid):
         '''
@@ -1487,7 +1496,7 @@ class Layer(s_nexus.Pusher):
             abrv = lkey[32:]
 
             valu = s_msgpack.un(byts)
-            prop = await self.getAbrvProp(abrv)
+            prop = self.getAbrvProp(abrv)
             yield prop[0], valu
 
     async def iterLayerNodeEdits(self):

@@ -2,6 +2,7 @@ import asyncio
 import logging
 import itertools
 import collections
+import fastjsonschema
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -9,9 +10,21 @@ import synapse.common as s_common
 import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.nexus as s_nexus
+import synapse.lib.config as s_config
 import synapse.lib.trigger as s_trigger
 
 logger = logging.getLogger(__name__)
+
+reqValidVdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'parent': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'parent', 'creator'],
+})
 
 class View(s_nexus.Pusher):  # type: ignore
     '''
@@ -530,22 +543,26 @@ class View(s_nexus.Pusher):  # type: ignore
         Adds a trigger to the view.
         '''
         tdef['iden'] = s_common.guid()
-        return await self._push('trigger:add', tdef)
-
-    @s_nexus.Pusher.onPush('trigger:add')
-    async def _onPushAddTrigger(self, tdef):
 
         root = await self.core.auth.getUserByName('root')
 
         tdef.setdefault('user', root.iden)
         tdef.setdefault('enabled', True)
 
-        user = self.core.auth.user(tdef['user'])
+        s_trigger.reqValidTdef(tdef)
 
+        return await self._push('trigger:add', tdef)
+
+    @s_nexus.Pusher.onPush('trigger:add')
+    async def _onPushAddTrigger(self, tdef):
+
+        s_trigger.reqValidTdef(tdef)
+
+        user = self.core.auth.user(tdef['user'])
         self.core.getStormQuery(tdef['storm'])
-        # FIXME:  add json schema validation
 
         trig = self.triggers.load(tdef)
+
         await self.trigdict.set(trig.iden, tdef)
         await self.core.auth.addAuthGate(trig.iden, 'trigger')
         await user.setAdmin(True, gateiden=tdef.get('iden'))

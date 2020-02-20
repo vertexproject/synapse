@@ -1,8 +1,12 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
+
 from synapse.common import aspin
+
 import synapse.telepath as s_telepath
 import synapse.tests.utils as s_t_utils
+
+import fastjsonschema
 
 class TrigTest(s_t_utils.SynTest):
 
@@ -118,7 +122,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:int=8'))
 
             # Bad trigger parms
-            with self.raises(s_exc.NoSuchCond):
+            with self.raises(fastjsonschema.exceptions.JsonSchemaException):
                 await view.addTrigger({'cond': 'nocond', 'storm': 'test:int=4', 'form': 'test:str'})
 
             with self.raises(s_exc.BadSyntax):
@@ -130,7 +134,7 @@ class TrigTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadOptValu):
                 await view.addTrigger({'cond': 'prop:set', 'storm': 'test:int=4', 'form': 'test:str', 'prop': 'foo'})
 
-            with self.raises(s_exc.BadOptValu):
+            with self.raises(fastjsonschema.exceptions.JsonSchemaException):
                 await view.addTrigger({'cond': 'tag:add', 'storm': '[ +#count test:str=$tag ]'})
 
             with self.raises(s_exc.BadOptValu):

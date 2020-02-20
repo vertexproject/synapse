@@ -105,13 +105,8 @@ class Hive(s_base.Base, s_telepath.Aware):
         self.conf.setdefault('auth:en', False)
         self.conf.setdefault('auth:path', 'hive/auth')
 
-        # event dist by path
-        self.editsbypath = collections.defaultdict(set)
-
         self.root = await Node.anit(self, (), None)
         self.nodes[()] = self.root
-
-        self.root.link(self._onNodeEdit)
 
         await self._storLoadHive()
 
@@ -182,33 +177,8 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         return self.auth
 
-    async def _onNodeEdit(self, mesg):
-
-        path = mesg[1].get('path')
-        for meth in self.editsbypath.get(path, ()):
-
-            try:
-                await s_coro.ornot(meth, mesg)
-
-            except asyncio.CancelledError:
-                raise
-
-            except Exception:
-                logger.exception('hive edit error with mesg %s', mesg)
-
     async def _onHiveFini(self):
         await self.root.fini()
-
-    def onedit(self, path, func, base=None):
-
-        # FIXME:  reconsider this whole use case given new change dist scheme
-
-        if base is not None:
-            async def fini():
-                self.editsbypath[path].discard(func)
-            base.onfini(fini)
-
-        self.editsbypath[path].add(func)
 
     async def get(self, full):
         '''
