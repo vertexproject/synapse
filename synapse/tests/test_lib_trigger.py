@@ -34,8 +34,8 @@ class TrigTest(s_t_utils.SynTest):
                 self.eq(triggers[0][1].tdef['storm'], '[inet:user=2 .test:univ=4] | testcmd')
 
                 # Sad cases
-                self.asyncraises(s_exc.BadSyntax, core.view.setTriggerInfo(iden, 'storm', ' | | badstorm '))
-                self.asyncraises(s_exc.NoSuchIden, core.view.setTriggerInfo('deadb33f', 'storm', 'inet:user'))
+                await self.asyncraises(s_exc.BadSyntax, core.view.setTriggerInfo(iden, 'storm', ' | | badstorm '))
+                await self.asyncraises(s_exc.NoSuchIden, core.view.setTriggerInfo('deadb33f', 'storm', 'inet:user'))
 
     async def test_trigger_basics(self):
 
@@ -194,7 +194,7 @@ class TrigTest(s_t_utils.SynTest):
 
                 # Mod trigger auth failure
                 opts = {'vars': {'iden': iden}}
-                self.asyncraises(s_exc.AuthDeny, fred.callStorm('$lib.trigger.get($iden)', opts=opts))
+                await self.asyncraises(s_exc.AuthDeny, fred.callStorm('$lib.trigger.get($iden)', opts=opts))
 
             # additional NoSuchIden failures
             await self.asyncraises(s_exc.NoSuchIden, view.getTrigger('newp'))
@@ -230,8 +230,14 @@ class TrigTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             root = await core.auth.getUserByName('root')
-            iden0 = core.view.triggers.add(root.iden, 'tag:add', '[ +#count0 ]', {'tag': 'foo.*.bar'})
-            iden1 = core.view.triggers.add(root.iden, 'tag:del', '[ +#count1 ]', {'tag': 'baz.*.faz'})
+
+            tdef = {'iden': '1', 'user': root.iden, 'cond': 'tag:add', 'storm': '[ +#count0 ]',
+                    'tag': 'foo.*.bar', 'enabled': True}
+            trig1 = core.view.triggers.load(tdef)
+
+            tdef = {'iden': '2', 'user': root.iden, 'cond': 'tag:del', 'storm': '[ +#count1 ]',
+                    'tag': 'baz.*.faz', 'form': 'test:guid', 'enabled': True}
+            trig2 = core.view.triggers.load(tdef)
 
             await core.nodes('[ test:guid="*" +#foo.asdf.bar ]')
             await core.nodes('[ test:guid="*" +#baz.asdf.faz ]')
@@ -240,10 +246,12 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('#count0'))
             self.len(1, await core.nodes('#count1'))
 
-            core.view.triggers.delete(iden0)
-            core.view.triggers.delete(iden1)
+            core.view.triggers.pop(trig1.iden)
+            core.view.triggers.pop(trig2.iden)
 
             await core.nodes('test:guid | delnode')
+
+            # Triggers don't fire after they've been deleted
 
             await core.nodes('[ test:guid="*" +#foo.asdf.bar ]')
             await core.nodes('[ test:guid="*" +#baz.asdf.faz ]')
@@ -296,7 +304,7 @@ class TrigTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     await proxy.eval('$lib.trigger.del($iden)', opts={'vars': {'iden': trigs[0][0]}}).list()
 
-                self.agenlen(1, proxy.eval('syn:trigger'))
+                await self.agenlen(1, proxy.eval('syn:trigger'))
 
                 with self.raises(s_exc.AuthDeny):
                     opts = {'vars': {'iden': trigiden}}
@@ -318,6 +326,7 @@ class TrigTest(s_t_utils.SynTest):
                 'form': 'test:str',
                 'storm': '[ test:int=1 ]',
             })
+            iden = tdef['iden']
 
             nodes = await core.nodes('syn:trigger')
             self.len(1, nodes)

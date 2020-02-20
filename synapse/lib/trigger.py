@@ -336,7 +336,7 @@ class Trigger:
         '''
         assert name in ('enabled', 'storm', 'doc', 'name')
 
-        if valu == self.tdef[name]:
+        if valu == self.tdef.get(name):
             return
 
         if name == 'storm':
