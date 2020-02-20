@@ -198,7 +198,15 @@ class MigrationTest(s_t_utils.SynTest):
         for n in nodes:
             nodedata.append([n.ndef, [nd async for nd in n.iterData()]])
         nodedata = convertJsonLists(nodedata)
-        self.eq(nodedata, tnodedata)
+        try:
+            self.eq(nodedata, tnodedata)
+        except AssertionError:
+            # print a more useful diff on error
+            notincore = list(itertools.filterfalse(lambda x: x in nodedata, tnodedata))
+            self.eq([], notincore)
+            notintest = list(itertools.filterfalse(lambda x: x in tnodedata, nodedata))
+            self.eq([], notintest)
+            raise
 
         # manually check node subset
         self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
@@ -231,12 +239,12 @@ class MigrationTest(s_t_utils.SynTest):
 
         # views
         views = list(core.views.keys())
-        defview = views[-1]
-        secview = views[-2]
+        defview = views[0]
+        secview = views[1]
 
         # bobo
         # - read main view
-        # - read/write to forked view  # TODO
+        # - read/write to forked view via role
         # - no access to triggers  # TODO
         # - can add/del bobotag but not trgtag
         async with core.getLocalProxy(user='bobo') as proxy:
@@ -249,12 +257,13 @@ class MigrationTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.AuthDeny, proxy.count('#trgtag [-#trgtag]'))
             await self.asyncraises(s_exc.AuthDeny, proxy.count('inet:ipv4 [+#newbobotag]'))
 
-            #self.eq(0, await proxy.count('inet:ipv4', opts={'view': secview}))
+            self.gt(await proxy.count('inet:ipv4', opts={'view': secview}), 0)
+            self.gt(await proxy.count('[inet:ipv4=10.9.10.1]', opts={'view': secview}), 0)
 
         ## user permissions
         # fred
         # - read to main view
-        # - no access to forked view  # TODO
+        # - read access to forked view via rule
         # - get/add triggers, but not delete  # TODO
         # - can add/del trgtag but not bobotag
         async with core.getLocalProxy(user='fred') as proxy:
@@ -267,7 +276,8 @@ class MigrationTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.AuthDeny, proxy.count('#trgtag [-#bobotag]'))
             await self.asyncraises(s_exc.AuthDeny, proxy.count('inet:ipv4 [+#newfredtag]'))
 
-            #self.eq(0, await proxy.count('inet:ipv4', opts={'view': secview}))
+            self.gt(await proxy.count('inet:ipv4', opts={'view': secview}), 0)
+            await self.asyncraises(s_exc.AuthDeny, proxy.count('[inet:ipv4=10.9.10.1]', opts={'view': secview}))
 
         # root
         # - read/write to main view

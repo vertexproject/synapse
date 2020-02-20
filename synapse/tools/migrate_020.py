@@ -132,7 +132,7 @@ class MigrAuth:
             roles = uvals.get('roles', {}).get('value', [])
             roles = list(roles)
             roles.append(self.rolesbyname['all'])
-            uvals['roles'] = {'values': tuple(roles)}
+            uvals['roles'] = {'value': tuple(roles)}
 
         # create cortex authgate if it doesn't exist
         if 'cortex' not in self.authgatesbyname:
@@ -161,14 +161,9 @@ class MigrAuth:
         # add view:read rules to all role for defaultview
         alliden = self.rolesbyname['all']
         readrule = ((True, ('view', 'read')),)
-        self.authgatesbyiden[self.defaultview]['rolesbyiden'][alliden] = readrule
-
-        # add all uesrs to defaultview with read permissions
-        for uiden, uvals in self.usersbyiden.items():
-            if uiden not in self.authgatesbyiden[self.defaultview]['usersbyiden']:
-                self.authgatesbyiden[self.defaultview]['usersbyiden'][uiden] = {
-                    'rules': {'value': readrule}
-                }
+        self.authgatesbyiden[self.defaultview]['rolesbyiden'][alliden] = {
+            'rules': readrule
+        }
 
         # Add root user to all authgates if not already there (except cortex)
         rootiden = self.usersbyname['root']
@@ -206,11 +201,14 @@ class MigrAuth:
         for riden, rvals in self.rolesbyiden.items():
             rname = rname_lookup.get(riden)
             rolekids[riden] = {
-                'kids': {
-                    'value': rvals,
-                },
                 'value': rname
             }
+            if rvals.get('rules'):
+                rolekids[riden]['kids'] = {
+                    'rules': {
+                        'value': rvals['rules'],
+                    }
+                }
 
         # load authgates and child roles, users
         for aiden, avals in self.authgatesbyiden.items():
@@ -221,12 +219,13 @@ class MigrAuth:
             for riden, rvals in avals['rolesbyiden'].items():
                 rname = rname_lookup[riden]
                 aroles['kids'][riden] = {
-                        'kids': {
-                            'rules': {
-                                'value': rvals
-                            }
-                        },
-                        'value': rname
+                    'value': rname
+                }
+                if rvals.get('rules'):
+                    aroles['kids'][riden]['kids'] = {
+                        'rules': {
+                            'value': rvals['rules']
+                        }
                     }
 
             ausers = {
@@ -510,7 +509,7 @@ class Migrator(s_base.Base):
         Args:
             iden (str): Layer identifier for counts
             src_fcnt (dict): Dictionary of form name : source counts
-            dest_fct (dict):  Dictionary of form name : dest counts
+            dest_fcnt (dict):  Dictionary of form name : dest counts
             addlog (str or None): Optionally add form count logs for a migrop
 
         Returns:
@@ -1261,7 +1260,7 @@ class Migrator(s_base.Base):
         Create translation of node info to an 0.2.0 node edit.
 
         Args:
-            node (tuple): (<buid>, <name>, <val>)
+            nodedata (tuple): (<buid>, <name>, <val>)
 
         Returns:
             nodeedit (tuple): (<buid>, <form>, [edits]) where edits is list of (<type>, <info>)
