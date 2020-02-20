@@ -257,7 +257,7 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def getAuthInfo(self, name):
-        #FIXME deprecated
+        s_common.deprecated('getAuthInfo')
         user = await self.cell.auth.getUserByName(name)
         if user is not None:
             info = user.pack()
@@ -272,7 +272,7 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def addAuthRule(self, name, rule, indx=None, gateiden=None):
-        #FIXME deprecated
+        s_common.deprecated('addAuthRule')
         item = await self.cell.auth.getUserByName(name)
         if item is None:
             item = await self.cell.auth.getRoleByName(name)
@@ -280,7 +280,7 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def delAuthRule(self, name, rule, gateiden=None):
-        #FIXME deprecated
+        s_common.deprecated('delAuthRule')
         item = await self.cell.auth.getUserByName(name)
         if item is None:
             item = await self.cell.auth.getRoleByName(name)
@@ -288,7 +288,7 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def setAuthAdmin(self, name, isadmin):
-        #FIXME deprecated
+        s_common.deprecated('setAuthAdmin')
         item = await self.cell.auth.getUserByName(name)
         if item is None:
             item = await self.cell.auth.getRoleByName(name)

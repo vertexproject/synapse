@@ -29,9 +29,6 @@ class PsModule(s_module.CoreModule):
                 ('ps:contact', ('guid', {}), {
                     'doc': 'A GUID for a contact info record',
                 }),
-
-                # FIXME add wireless elemements like NMEI and IMEI once modeled - pre 010 item
-
             ),
             'forms': (
                 ('ps:tokn', {}, ()),
