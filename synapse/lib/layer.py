@@ -751,6 +751,7 @@ class Layer(s_nexus.Pusher):
         self.readonly = layrinfo.get('readonly')
 
         self.lockmemory = self.layrinfo.get('lockmemory')
+        self.growsize = self.layrinfo.get('growsize')
         path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
 
         self.fresh = not os.path.exists(path)
@@ -761,6 +762,7 @@ class Layer(s_nexus.Pusher):
             'map_async': True,
             'readahead': True,
             'lockmemory': self.lockmemory,
+            'growsize': self.growsize,
         }
 
         self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)

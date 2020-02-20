@@ -1405,6 +1405,99 @@ class StatTally(Prim):
     async def get(self, name):
         return self.counters.get(name, 0)
 
+class LibLayer(Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'add': self._libLayerAdd,
+            'del': self._libLayerDel,
+            'get': self._libLayerGet,
+            'list': self._libLayerList,
+        })
+
+    async def _libLayerAdd(self, ldef={}):
+        '''
+        Add a layer to the cortex.
+        '''
+        self.runt.confirm(('layer', 'add'))
+
+        iden = ldef.pop('iden', None)
+        if iden is not None:
+            ldef['iden'] = iden
+
+        lockmemory = ldef.pop('lockmemory', None)
+        if lockmemory is not None:
+            ldef['lockmemory'] = lockmemory
+
+        ldef.setdefault('creator', self.runt.user.iden)
+
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('layer', 'add'), None),)
+        todo = ('addLayer', (ldef,), {})
+        layriden = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        if layriden is None:
+            mesg = f'Failed to add layer.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        return Layer(layr, path=self.path)
+
+    async def _libLayerDel(self, iden):
+        '''
+        Delete a layer from the cortex.
+        '''
+        layer = self.runt.snap.core.getLayer(iden)
+        if layer is None:
+            mesg = f'No layer with iden: {iden}'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        useriden = self.runt.user.iden
+        gatekeys = ((useriden, ('layer', 'del'), iden),)
+        todo = ('delLayer', (iden,), {})
+        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+
+    async def _libLayerGet(self, iden=None):
+        '''
+        Get a layer from the cortex.
+        '''
+        layr = self.runt.snap.core.getLayer(iden)
+        if layr is None:
+            mesg = f'No layer with iden: {iden}'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        self.runt.user.confirm(('layer', 'read'), gateiden=layr.iden)
+
+        return Layer(layr, path=self.path)
+
+    async def _libLayerList(self):
+        '''
+        List the layers in a cortex.
+        '''
+        retn = []
+
+        layers = self.runt.snap.core.listLayers()
+        for layr in layers:
+            if not self.runt.user.allowed(('layer', 'read'), gateiden=layr.iden):
+                continue
+            retn.append(Layer(layr, path=self.path))
+
+        return retn
+
+class Layer(Prim):
+    '''
+    Implements the STORM api for a layer instance.
+    '''
+    def __init__(self, layer, path=None):
+        Prim.__init__(self, layer, path=path)
+        self.locls.update({
+            'iden': layer.iden,
+            'pack': self._methLayerPack,
+        })
+
+    async def _methLayerPack(self):
+        return self.valu.pack()
+
 class LibView(Lib):
 
     def addLibFuncs(self):
