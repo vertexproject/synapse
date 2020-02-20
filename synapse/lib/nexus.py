@@ -70,8 +70,8 @@ class NexsRoot(s_base.Base):
 
         self.mirrors: List[ChangeDist] = []
 
-        path = s_common.genpath(self.dirn, 'nexus.lmdb')
-        self.nexusslab = await s_lmdbslab.Slab.anit(path)
+        path = s_common.genpath(self.dirn, 'slabs', 'nexus.lmdb')
+        self.nexusslab = await s_lmdbslab.Slab.anit(path, map_async=False)
 
         async def fini():
             await self.nexusslab.fini()

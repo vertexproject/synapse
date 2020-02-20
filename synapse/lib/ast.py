@@ -2616,8 +2616,6 @@ class EditNodeAdd(Edit):
         # case 2: <query> [ foo:bar=($node, 20) ]
         # case 2: <query> $blah=:baz [ foo:bar=($blah, 20) ]
 
-        #async with await s_base.Base.anit() as base:
-
         runtsafe = self.isruntsafe(runt)
 
         async def feedfunc():

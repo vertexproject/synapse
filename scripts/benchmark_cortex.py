@@ -232,7 +232,7 @@ class Benchmarker:
         return self.workfactor
 
     async def run(self, core: s_cortex.Cortex, name: str, dirn: str, coro) -> None:
-        for i in range(self.num_iters):
+        for _ in range(self.num_iters):
             # We set up the cortex each time to avoid intra-cortex caching
             # (there's still a substantial amount of OS caching)
             async with self.getCortexAndProxy(dirn) as (core, prox):
@@ -266,15 +266,15 @@ class Benchmarker:
                 await self.run(core, funcname, dirn, func)
 
 Configs: Dict[str, Dict] = {
-    'simple': {},
+    'simple': {'layer:lmdb:map_async': False},
     'mapasync': {'layer:lmdb:map_async': True},
-    'dedicated': {'dedicated': True},
+    'dedicated': {'dedicated': True, 'layer:lmdb:map_async': False},
     'dedicatedasync': {'dedicated': True, 'layer:lmdb:map_async': True},
 }
 
 def benchmarkAll(confignames: List = None, num_procs=1, workfactor=1000, tmpdir=None,
-                 jsondir: str =None,
-                 jsonprefix: str =None,
+                 jsondir: str = None,
+                 jsonprefix: str = None,
                  ) -> None:
 
     if jsondir:

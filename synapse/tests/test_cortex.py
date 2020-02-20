@@ -3390,7 +3390,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 async with await s_cortex.Cortex.anit(dirn=path01) as core01:
                     offs = await core00.getNexusOffs() - 1
                     mirroffs = await core01.getNexusOffs() - 1
-                    self.gt(offs, mirroffs)
+                    self.ge(offs, mirroffs)
 
                     evnt = await core01.getNexusOffsEvent(offs)
 
