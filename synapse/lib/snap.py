@@ -1120,8 +1120,8 @@ class Snap(s_base.Base):
         '''
         for layr in reversed(self.layers):
             todo = s_common.todo('getNodeData', buid, name)
-            valu = await self.core.dyncall(layr.iden, todo)
-            if valu is not None:  # FIXME:  None/NoValu confusion
+            ok, valu = await self.core.dyncall(layr.iden, todo)
+            if ok:
                 return valu
         return defv
 

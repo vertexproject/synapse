@@ -1319,7 +1319,6 @@ class Str(Type):
 
 class Tag(Str):
 
-    #FIXME TODO tags may need to be special type with Loc
     def postTypeInit(self):
         Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)

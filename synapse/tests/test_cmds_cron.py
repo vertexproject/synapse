@@ -134,19 +134,6 @@ class CmdCronTest(s_t_utils.SynTest):
                     # Make sure it ran
                     await self.agenlen(1, core.eval('graph:node:type=m1'))
 
-                    # Make sure the provenance of the new splices looks right
-# FIXME decide what to do about cron test checking prov/splices
-#                    splices = await alist(core.splices(oldsplices, 1000))
-#                    self.gt(len(splices), 1)
-#                    aliases = [splice[1]['prov'] for splice in splices]
-#                    self.true(all(a == aliases[0] for a in aliases))
-#                    prov = await core.getProvStack(aliases[0])
-#                    rootiden = prov[1][1][1]['user']
-#                    correct = ({}, (
-#                               ('cron', {'iden': guid}),
-#                               ('storm', {'q': "[graph:node='*' :type=m1]", 'user': rootiden})))
-#                    self.eq(prov, correct)
-
                     await cmdr.runCmdLine(f"cron mod {guid[:6]} {{[graph:node='*' :type=m2]}}")
                     self.true(outp.expect('Modified cron job'))
                     await cmdr.runCmdLine(f"cron edit xxx {{[graph:node='*' :type=m2]}}")

@@ -380,7 +380,6 @@ class InetModelTest(s_t_utils.SynTest):
             expected_ndef = (formname, valu)
 
             # Demonstrate cascading formation
-            # FIXME use checkNode
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
