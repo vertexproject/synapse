@@ -451,10 +451,6 @@ class TestModule(s_module.CoreModule):
                 if k.startswith('.'):
                     prop = fnme + k
                 self._runtsByPropValu[prop].append(buid)
-                # TODO FIXME
-                #if modl.prop(prop).type.indx(propvalu):
-                    # Can the secondary property be indexed for lift?
-                    #self._runtsByPropValu[(prop, propvalu)].append(buid)
 
     def getModelDefs(self):
         return (

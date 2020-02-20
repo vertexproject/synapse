@@ -9,6 +9,7 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.cache as s_cache
+import synapse.lib.config as s_config
 import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,46 @@ Conditions = set((
 ))
 
 RecursionDepth = contextvars.ContextVar('RecursionDepth', default=0)
+
+# TODO: standardize regex for form/prop/tags
+reqValidTdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'cond': {'enum': ['node:add', 'node:del', 'tag:add', 'tag:set', 'tag:del', 'prop:set']},
+        'storm': {'type': 'string'},
+        'enabled': {'type': 'boolean'},
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'user', 'storm', 'enabled'],
+    'allOf': [
+        {
+            'if': {'properties': {'cond': {'const': 'node:add'}}},
+            'then': {'properties': {'form': {'type': 'string'}}, 'required': ['form']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'node:del'}}},
+            'then': {'properties': {'form': {'type': 'string'}}, 'required': ['form']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'tag:add'}}},
+            'then': {'properties': {'form': {'type': 'string'}, 'tag': {'type': 'string'}}, 'required': ['tag']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'tag:set'}}},
+            'then': {'properties': {'form': {'type': 'string'}, 'tag': {'type': 'string'}}, 'required': ['tag']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'tag:del'}}},
+            'then': {'properties': {'form': {'type': 'string'}, 'tag': {'type': 'string'}}, 'required': ['tag']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'prop:set'}}},
+            'then': {'properties': {'prop': {'type': 'string'}}, 'required': ['prop']},
+        },
+    ],
+})
 
 class Triggers:
     '''
