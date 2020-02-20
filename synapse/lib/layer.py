@@ -725,9 +725,9 @@ class Layer(s_nexus.Pusher):
     '''
     The base class for a cortex layer.
     '''
-    confdefs = (
-        ('lockmemory', {'default': True, 'type': 'bool', 'doc': 'Lock the LMDB memory maps for performance.'}),
-    )
+    confdefs = {
+        'lockmemory': {'default': True, 'type': 'bool', 'doc': 'Lock the LMDB memory maps for performance.'},
+    }
 
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
@@ -743,13 +743,9 @@ class Layer(s_nexus.Pusher):
         self.dirn = dirn
         self.readonly = layrinfo.get('readonly')
 
-        conf = layrinfo.get('conf')
-        if conf is None:
-            conf = {}
+        self.layrinfo.setdefault('lockmemory', self.confdefs.get('lockmemory'))
 
-        self.conf = s_common.config(conf, self.confdefs)
-
-        self.lockmemory = self.conf.get('lockmemory')
+        self.lockmemory = self.layrinfo.get('lockmemory')
         path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
 
         self.fresh = not os.path.exists(path)
@@ -760,6 +756,7 @@ class Layer(s_nexus.Pusher):
             'map_async': True,
             'readahead': True,
             'lockmemory': self.lockmemory,
+            'growsize': self.layrinfo.get('growsize'),
         }
 
         self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)

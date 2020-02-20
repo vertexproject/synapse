@@ -2367,10 +2367,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         ldef.setdefault('iden', s_common.guid())
         ldef.setdefault('conf', {})
         ldef.setdefault('creator', self.auth.rootuser.iden)
-
-        # FIXME: why do we have two levels of conf?
-        conf = ldef.get('conf')
-        conf.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
+        ldef.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
 
         return await self._push('layer:add', ldef)
 

@@ -1427,7 +1427,7 @@ class LibLayer(Lib):
 
         lockmemory = ldef.pop('lockmemory', None)
         if lockmemory is not None:
-            ldef['conf'] = {'lockmemory': lockmemory}
+            ldef['lockmemory'] = lockmemory
 
         ldef.setdefault('creator', self.runt.user.iden)
 
