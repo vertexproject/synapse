@@ -1439,7 +1439,7 @@ class LibLayer(Lib):
             mesg = f'Failed to add layer.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        layr = self.runt.snap.core.getView(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
 
         return Layer(layr, path=self.path)
 
