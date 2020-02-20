@@ -251,7 +251,8 @@ class SnapTest(s_t_utils.SynTest):
             view0 = core0.view
             layr0 = view0.layers[0]
 
-            layr1 = await core0.addLayer()
+            iden1 = await core0.addLayer()
+            layr1 = core0.getLayer(iden1)
             view1 = await core0.addView({'layers': [layr1.iden, layr0.iden]})
 
             yield view0, core0.getView(view1)
