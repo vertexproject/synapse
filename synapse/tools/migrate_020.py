@@ -86,9 +86,10 @@ class MigrAuth:
             ...
         }
     '''
-    def __init__(self, srctree, defaultview, triggers):
+    def __init__(self, srctree, defaultview, triggers, queues):
         self.defaultview = defaultview
         self.triggers = triggers
+        self.queues = queues
         self.srctree = srctree
         self.desttree = None
 
@@ -104,14 +105,17 @@ class MigrAuth:
     async def translate(self):
         '''
         Execute data translation steps, finishing with a 0.2.x hive auth tree
+
+        Returns:
+            (dict): Hive auth tree representation
         '''
         await self._srcReadTree()
         await self._trnAuth()
         await self._destCreateTree()
-        self.userhierarchy = await self.getUserHierarchy()
+        await self._loadUserHierarchy()
         return self.desttree
 
-    async def getUserHierarchy(self):
+    async def _loadUserHierarchy(self):
         '''
         Convenience representation of a user's permission hierarchy which is defined by the rules
         and roles for a given user, and the rules and roles for a given object (authgate).
@@ -125,9 +129,6 @@ class MigrAuth:
                 )
                 ...
             }
-
-        Returns:
-            (dict): User hierarchies
         '''
         hierarchy = {}
 
@@ -186,7 +187,7 @@ class MigrAuth:
 
                 hierarchy[(uiden, uname)][(aiden, aname)] = tuple(objrules)
 
-        return hierarchy
+        self.userhierarchy = hierarchy
 
     async def _srcReadTree(self):
         '''
@@ -252,7 +253,13 @@ class MigrAuth:
         '''
         Actions:
             - Add 'all' role with no rules if it doesn't exist
+            - Convert ('storm', 'queue', ...) rules to ('queue', ...)
         '''
+        for riden, rvals in self.rolesbyiden.items():
+            for i, rule in enumerate(rvals.get('rules', [])):
+                if rule[1][:2] == ('storm', 'queue'):
+                    rvals['rules'][i] = (rule[0], rule[1][1:])
+
         if 'all' not in self.rolesbyname:
             iden = s_common.guid()
             self.rolesbyname['all'] = iden
@@ -262,6 +269,7 @@ class MigrAuth:
         '''
         Actions:
             - Add 'all' role each user
+            - Convert ('storm', 'queue', ...) rules to ('queue', ...)
         '''
         allrole = self.rolesbyname['all']
         for uiden, uvals in self.usersbyiden.items():
@@ -269,11 +277,16 @@ class MigrAuth:
             roles.append(allrole)
             uvals['roles'] = roles
 
+            for i, rule in enumerate(uvals.get('rules', [])):
+                if rule[1][:2] == ('storm', 'queue'):
+                    uvals['rules'][i] = (rule[0], rule[1][1:])
+
     async def _trnAuthGates(self):
         '''
         Actions:
             - Create cortex authgate with no roles or users if it doesn't exist
             - Create trigger authgates with users=owner w/admin True
+            - Create queue authgates with users=owner w/admin True
             - Add view:read rule to all role in defaultview
             - Add root user to all authgates (except cortex) if it doesn't exist
             - Change authgate name 'layr' to 'layer'
@@ -294,6 +307,14 @@ class MigrAuth:
             self.authgatesbyiden[tiden] = {
                 'rolesbyiden': {},
                 'usersbyiden': tusers,
+            }
+
+        for qname, uiden in self.queues:
+            qiden = f'queue:{qname}'
+            self.authgatesbyname['queue'].append(qiden)
+            self.authgatesbyiden[qiden] = {
+                'rolesbyiden': {},
+                'usersbyiden': {uiden: {'admin': True}},
             }
 
         alliden = self.rolesbyname['all']
@@ -852,6 +873,27 @@ class Migrator(s_base.Base):
         '''
         migrop = 'hiveauth'
 
+        # get queues that need authgates added (no data migration/translation required)
+        path = os.path.join(self.dest, 'slabs', 'queues.lmdb')
+        qslab = await s_lmdbslab.Slab.anit(path, map_async=True)
+        self.onfini(qslab.fini)
+
+        queues = []  # list of (<queue name>, <user iden>)
+        multiqueue = await qslab.getMultiQueue('cortex:queue')
+        for q in multiqueue.list():
+            name = q.get('name')
+            uiden = q.get('meta', {}).get('user')
+
+            if name is None or uiden is None:
+                err = {'err': f'Missing iden values for queue', 'queue': q}
+                logger.warning(err)
+                await self._migrlogAdd(migrop, 'error', f'queue:{name}', err)
+                continue
+
+            queues.append((name, uiden))
+
+        logger.info(f'Found {len(queues)} queues to migrate to AuthGates')
+
         # get triggers that will need authgates added
         triggers = collections.defaultdict(set)
         for viewiden, viewnode in await self.hive.open(('cortex', 'views')):
@@ -866,12 +908,18 @@ class Migrator(s_base.Base):
         else:
             logger.info(f'Using backup auth01x for migration')
 
-        migrauth = MigrAuth(srctree, defaultview, triggers)
+        migrauth = MigrAuth(srctree, defaultview, triggers, queues)
         desttree = await migrauth.translate()
 
         # save a backup then replace
         await self.hive.loadHiveTree(srctree, ('auth01x',))
         await self.hive.loadHiveTree(desttree, ('auth',))
+
+        # save user hierarchy
+        dumpf = os.path.join(self.dest, self.migrdir, f'authhier_{s_common.now()}.mpk')
+        with open(dumpf, 'wb') as fd:
+            fd.write(s_msgpack.en(migrauth.userhierarchy))
+        logger.info(f'Saved msgpackd user hierarchy to {dumpf}')
 
         logger.info('Completed HiveAuth migration')
         await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
@@ -1412,7 +1460,7 @@ class Migrator(s_base.Base):
     # Destination (0.2.0) operations
     #############################################################
 
-    @s_cache.memoize(10)
+    @s_cache.memoize(16)
     def _destGetFormStype(self, form):
         stortype = None
         try:
@@ -1423,7 +1471,7 @@ class Migrator(s_base.Base):
             pass
         return stortype
 
-    @s_cache.memoize(20)
+    @s_cache.memoize(32)
     def _destGetPropStype(self, form, sprop):
         stortype = None
         try:
