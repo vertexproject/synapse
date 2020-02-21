@@ -23,7 +23,7 @@ tagre = regex.compile(r'(\w+\.)*\w+')
 class Type:
 
     _opt_defs = ()
-    stortype = None
+    stortype: int = None  # type: ignore
 
     def __init__(self, modl, name, info, opts):
         '''

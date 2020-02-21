@@ -59,8 +59,6 @@ class Dist(s_types.Int):
         return '%d mm' % (norm,)
 
 class Latitude(s_types.Int):
-    SCALE = 10**8  # ~1mm resolution
-    SPACE = 90 * 10**8
 
     def postTypeInit(self):
         s_types.Int.postTypeInit(self)
@@ -74,7 +72,7 @@ class Latitude(s_types.Int):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Latitude may only be -90.0 to 90.0')
 
-        valu = int(valu * Latitude.SCALE) / Latitude.SCALE
+        valu = round(valu, 8)
 
         return valu, {}
 
@@ -108,6 +106,7 @@ class LatLong(s_types.Type):
 
     def _cmprNear(self, valu):
         latlong, dist = self._normCmprValu(valu)
+
         def cmpr(valu):
             if s_gis.haversine(valu, latlong) <= dist:
                 return True
@@ -141,8 +140,6 @@ class LatLong(s_types.Type):
         return f'{norm[0]},{norm[1]}'
 
 class Longitude(s_types.Int):
-    SCALE = 10**8  # ~1mm resolution
-    SPACE = 180 * 10**8
 
     def postTypeInit(self):
         s_types.Int.postTypeInit(self)
@@ -164,7 +161,7 @@ class Longitude(s_types.Int):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Longitude may only be -180.0 to 180.0')
 
-        valu = int(valu * Longitude.SCALE) / Longitude.SCALE
+        valu = round(valu, 8)
 
         return valu, {}
 

@@ -694,11 +694,11 @@ class StorTypeLatLon(StorType):
 
         latmin, latmax, lonmin, lonmax = s_gis.bbox(lat, lon, dist)
 
-        lonminindx = int(((lonmin * self.scale) + self.lonspace)).to_bytes(5, 'big')
-        lonmaxindx = int(((lonmax * self.scale) + self.lonspace)).to_bytes(5, 'big')
+        lonminindx = (round(lonmin * self.scale) + self.lonspace).to_bytes(5, 'big')
+        lonmaxindx = (round(lonmax * self.scale) + self.lonspace).to_bytes(5, 'big')
 
-        latminindx = int(((latmin * self.scale) + self.latspace)).to_bytes(5, 'big')
-        latmaxindx = int(((latmax * self.scale) + self.latspace)).to_bytes(5, 'big')
+        latminindx = (round(latmin * self.scale) + self.latspace).to_bytes(5, 'big')
+        latmaxindx = (round(latmax * self.scale) + self.latspace).to_bytes(5, 'big')
 
         # scan by lon range and down-select the results to matches.
         for lkey, buid in liftby.scanByRange(lonminindx, lonmaxindx):
@@ -723,13 +723,13 @@ class StorTypeLatLon(StorType):
                 yield buid
 
     def _getLatLonIndx(self, latlong):
-        # yield index bytes in lon/lat order to allow cheap optimial indexing
-        latindx = int(((latlong[0] * self.scale) + self.latspace)).to_bytes(5, 'big')
-        lonindx = int(((latlong[1] * self.scale) + self.lonspace)).to_bytes(5, 'big')
+        # yield index bytes in lon/lat order to allow cheap optimal indexing
+        latindx = (round(latlong[0] * self.scale) + self.latspace).to_bytes(5, 'big')
+        lonindx = (round(latlong[1] * self.scale) + self.lonspace).to_bytes(5, 'big')
         return lonindx + latindx
 
     def indx(self, valu):
-        # yield index bytes in lon/lat order to allow cheap optimial indexing
+        # yield index bytes in lon/lat order to allow cheap optimal indexing
         return (self._getLatLonIndx(valu),)
 
 class Layer(s_nexus.Pusher):
