@@ -592,7 +592,7 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         trigs = self.triggers.list()
         if self.parent is not None:
-            trigs.extend(await self.parent._listTriggers())
+            trigs.extend(await self.parent.listTriggers())
         return trigs
 
     async def delete(self):

@@ -172,7 +172,7 @@ class CoreApi(s_cell.CellApi):
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
-        # FIXME deprecated annotation
+        s_common.deprecated('addCronJob')
         self.user.confirm(('cron', 'add'), gateiden='cortex')
         return await self.cell.addCronJob(self.user.iden, query, reqs, incunit, incval)
 
@@ -183,7 +183,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
-        # FIXME deprecated annotation
+        s_common.deprecated('delCronJob')
         self.user.confirm(('cron', 'del'), gateiden=iden)
         await self.cell.delCronJob(iden)
 
@@ -194,7 +194,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        # FIXME deprecated annotation
+        s_common.deprecated('updateCronJob')
         self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.updateCronJob(iden, query)
 
@@ -205,7 +205,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        # FIXME deprecated annotation
+        s_common.deprecated('enableCronJob')
         self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.enableCronJob(iden)
 
@@ -216,7 +216,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        # FIXME deprecated annotation
+        s_common.deprecated('disableCronJob')
         self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.disableCronJob(iden)
 
@@ -224,7 +224,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Get information about all the cron jobs accessible to the current user
         '''
-        # FIXME deprecated annotation
+        s_common.deprecated('listCronJobs')
 
         crons = []
         for iden, cron in await self.cell.listCronJobs():
@@ -264,7 +264,7 @@ class CoreApi(s_cell.CellApi):
             tag (str):  A tag string.
             valu (tuple):  A time interval tuple or (None, None).
         '''
-        #FIXME deprecated
+        s_common.deprecated('addNodeTag')
         await self._reqDefLayerAllowed(('tag:add', *tag.split('.')))
         return await self.cell.addNodeTag(self.user, iden, tag, valu)
 
@@ -277,7 +277,7 @@ class CoreApi(s_cell.CellApi):
             iden (str): A hex encoded node BUID.
             tag (str):  A tag string.
         '''
-        #FIXME deprecated
+        s_common.deprecated('delNodeTag')
         await self._reqDefLayerAllowed(('tag:del', *tag.split('.')))
         return await self.cell.delNodeTag(self.user, iden, tag)
 
@@ -287,7 +287,7 @@ class CoreApi(s_cell.CellApi):
 
         Set a property on a single node.
         '''
-        #FIXME deprecated
+        s_common.deprecated('setNodeProp')
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -310,7 +310,7 @@ class CoreApi(s_cell.CellApi):
 
         Delete a property from a single node.
         '''
-
+        s_common.deprecated('delNodeProp')
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -332,6 +332,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Deprecated in 0.2.0.
         '''
+        s_common.deprecated('addNode')
         async with await self.cell.snap(user=self.user) as snap:
             self.user.confirm(('node:add', form), gateiden=snap.wlyr.iden)
             with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
@@ -351,6 +352,7 @@ class CoreApi(s_cell.CellApi):
 
         Deprecated in 0.2.0
         '''
+        s_common.deprecated('addNodes')
 
         # First check that that user may add each form
         done = {}

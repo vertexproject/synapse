@@ -1957,34 +1957,30 @@ class StormTypesTest(s_test.SynTest):
             await core.storm('trigger.add tag:add --tag #another --query {[ +#count2 ]}').list()
 
             # Syntax mistakes
-            # FIXME:  need json schema validation plus checking
-            # mesgs = await core.streamstorm('trigger.mod "" {#foo}').list()
-            # self.stormIsInErr('matches more than one', mesgs)
+            mesgs = await core.streamstorm('trigger.mod "" {#foo}').list()
+            self.stormIsInErr('matches more than one', mesgs)
 
-            # mesgs = await core.streamstorm('trigger.add tag:add --prop another --query {[ +#count2 ]}').list()
-            # self.stormIsInErr('Missing tag parameter', mesgs)
+            mesgs = await core.streamstorm('trigger.add tag:add --prop another --query {[ +#count2 ]}').list()
+            self.stormIsInErr("data must contain ['tag']", mesgs)
 
-            # mesgs = await core.streamstorm('trigger.add tug:udd --prop another --query {[ +#count2 ]}').list()
-            # self.stormIsInErr('Invalid trigger condition', mesgs)
+            mesgs = await core.streamstorm('trigger.add tug:udd --prop another --query {[ +#count2 ]}').list()
+            self.stormIsInErr('data.cond must be one of', mesgs)
 
-            # mesgs = await core.streamstorm('trigger.add tag:add --form inet:ipv4').list()
-            # self.stormIsInErr('Missing query parameter', mesgs)
+            mesgs = await core.streamstorm('trigger.add tag:add --form inet:ipv4 --tag #test').list()
+            self.stormIsInPrint('the following arguments are required: --query', mesgs)
 
-            # mesgs = await core.streamstorm('trigger.add node:add --form test:str --tag #foo --query {test:str}').list()
-            # self.stormIsInErr('node:* does not support', mesgs)
+            mesgs = await core.streamstorm('trigger.add node:add --form test:str --tag #foo --query {test:str}').list()
+            self.stormIsInErr('tag must not be present for node:add or node:del', mesgs)
 
-            # mesgs = await core.streamstorm('trigger.add prop:set --tag #foo --query {test:str}').list()
-            # self.stormIsInErr('Missing prop parameter', mesgs)
+            mesgs = await core.streamstorm('trigger.add prop:set --tag #foo --query {test:str}').list()
+            self.stormIsInErr("data must contain ['prop']", mesgs)
 
-            # q = 'trigger.add prop:set --prop test:type10.intprop --tag #foo --query {test:str}'
-            # mesgs = await core.streamstorm(q).list()
-            # self.stormIsInErr('prop:set does not support a tag', mesgs)
+            q = 'trigger.add prop:set --prop test:type10.intprop --tag #foo --query {test:str}'
+            mesgs = await core.streamstorm(q).list()
+            self.stormIsInErr('form and tag must not be present for prop:set', mesgs)
 
-            # mesgs = await core.streamstorm('trigger.add tag:add --tag #tag --form test:int').list()
-            # self.stormIsInErr('Missing query', mesgs)
-
-            # mesgs = await core.streamstorm('trigger.add node:add --tag #tag1 --query {test:str}').list()
-            # self.stormIsInErr('Missing form', mesgs)
+            mesgs = await core.streamstorm('trigger.add node:add --tag #tag1 --query {test:str}').list()
+            self.stormIsInErr("data must contain ['form']", mesgs)
 
             mesgs = await core.streamstorm(f'trigger.mod {goodbuid2} test:str').list()
             self.stormIsInErr('start with {', mesgs)

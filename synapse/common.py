@@ -14,6 +14,7 @@ import logging
 import binascii
 import builtins
 import tempfile
+import warnings
 import functools
 import itertools
 import threading
@@ -643,3 +644,7 @@ def config(conf, confdefs):
         conf.setdefault(name, info.get('defval'))
 
     return conf
+
+def deprecated(meth):
+    mesg = f'API ({meth}) is deprecated in 0.2.0.'
+    warnings.warn(mesg, DeprecationWarning)
