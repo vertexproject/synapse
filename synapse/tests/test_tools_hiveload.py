@@ -4,7 +4,6 @@ import synapse.common as s_common
 import synapse.tests.utils as s_test
 
 import synapse.lib.cell as s_cell
-import synapse.lib.hive as s_hive
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.tools.hive.load as s_hiveload

@@ -5,7 +5,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -314,7 +313,7 @@ class Daemon(s_base.Base):
             except Exception as e:  # pragma: no cover
                 logger.warning('Error during socket server close()', exc_info=e)
 
-        for name, share in self.shared.items():
+        for _, share in self.shared.items():
             if isinstance(share, s_base.Base):
                 await share.fini()
 
@@ -406,6 +405,7 @@ class Daemon(s_base.Base):
                 raise s_exc.NoSuchName(name=name)
 
             sess = await Sess.anit()
+
             async def sessfini():
                 self.sessions.pop(sess.iden, None)
 

@@ -15,7 +15,8 @@ async def main(argv, outp=s_output.stdout):
 
     pars.add_argument('--trim', default=False, action='store_true', help='Trim all other hive nodes (DANGER!)')
     pars.add_argument('--path', default=None, help='A hive path string to use as the root.')
-    pars.add_argument('--yaml', default=False, action='store_true', help='Parse the savefile as a YAML file (default: msgpack)')
+    pars.add_argument('--yaml', default=False, action='store_true',
+                      help='Parse the savefile as a YAML file (default: msgpack)')
 
     pars.add_argument('hiveurl', help='The telepath URL for the remote hive.')
     pars.add_argument('filepath', help='The local file path to load.')
@@ -32,7 +33,12 @@ async def main(argv, outp=s_output.stdout):
         path = opts.path.split('/')
 
     async with await s_telepath.openurl(opts.hiveurl) as hive:
-        await hive.loadHiveTree(tree, path=path, trim=opts.trim)
+        classes = hive.sharinfo.get('classes', ())
+        if 'synapse.lib.hive.HiveApi' in classes:
+            await hive.loadHiveTree(tree, path=path, trim=opts.trim)
+        else:
+            todo = s_common.todo('loadHiveTree', tree, path=path, trim=opts.trim)
+            await hive.dyncall('cell', todo)
 
 if __name__ == '__main__':  # pragma: no cover
     asyncio.run(main(sys.argv[1:]))

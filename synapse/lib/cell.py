@@ -480,6 +480,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.dynitems = {
             'auth': self.auth,
+            'cell': self
         }
 
     async def _initNexsRoot(self):
@@ -651,7 +652,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         hurl = self.conf.get('hive')
         if hurl is not None:
-            # TODO - We need to add tests for a Cell using a remote hive.
             self.remote_hive = True
             return await s_hive.openurl(hurl)
 
