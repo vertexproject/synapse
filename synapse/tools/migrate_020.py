@@ -44,8 +44,6 @@ ADD_MODES = (
     'editor',   # Layer.editors[<op>]() w/o nexus
 )
 
-MIN_VER = (0, 1, 'x')  # TODO: currently no way to check this
-
 class MigrAuth:
     '''
     Loads the Hive auth tree from 0.1.x and translates it to 0.2.x.
@@ -274,7 +272,7 @@ class MigrAuth:
         '''
         Actions:
             - Create cortex authgate with no roles or users if it doesn't exist
-            - Create trigger authgates with users=owner w/admin True  (TODO: should be this be admin?)
+            - Create trigger authgates with users=owner w/admin True
             - Add view:read rule to all role in defaultview
             - Add root user to all authgates (except cortex) if it doesn't exist
             - Change authgate name 'layr' to 'layer'
@@ -824,15 +822,16 @@ class Migrator(s_base.Base):
             logger.error(f'Unable to convert user name {owner} to iden, layer {iden} not properly setup in Hive')
             return
 
-        # conf
-        # TODO should be translating existing config?
-        conf = {'lockmemory': True}
-
-        # remove remaining 0.1.x keys
-        # TODO check whether we should be keeping these...
+        # remove unneeded 0.1.x keys
+        srcconf = await layrinfo.pop('config')
         await layrinfo.pop('name')
         await layrinfo.pop('type')
-        await layrinfo.pop('config')
+
+        # conf
+        conf = {}
+        srcdedicated = srcconf.get('dedicated')
+        if srcdedicated is not None:
+            conf['lockmemory'] = srcdedicated
 
         # update layer info for 0.2.x
         await layrinfo.set('iden', iden)
@@ -907,9 +906,7 @@ class Migrator(s_base.Base):
     async def _migrTriggers(self):
         '''
         Remove old trigger entries and store in the hive.
-
-        TODO:
-            - Can we assume the storm query is already parseable?
+        Assumes that the storm queries are parseable.
         '''
         migrop = 'triggers'
 
