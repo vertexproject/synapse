@@ -599,9 +599,6 @@ class Node:
 
         tags = [(len(t), t) for t in self.tags.keys()]
 
-        # check for tag permissions
-        # FIXME:  let's resolve this for good
-
         # check for any nodes which reference us...
         if not force:
 

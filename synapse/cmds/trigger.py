@@ -314,7 +314,9 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         self.printf(f'Disabled trigger {iden}')
 
     async def runCmdOpts(self, opts):
-        # FIXME deprecation warning
+
+        s_common.deprecated('trigger')
+
         line = opts.get('line')
         if line is None:
             self.printf(self.__doc__)

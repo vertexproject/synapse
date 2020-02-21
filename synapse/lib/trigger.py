@@ -325,9 +325,6 @@ class Trigger:
     def __init__(self, view, tdef):
         self.view = view
         self.tdef = tdef
-        # FIXME: need json schema check
-        assert 'storm' in tdef
-
         self.iden = tdef.get('iden')
 
     async def set(self, name, valu):
