@@ -214,8 +214,6 @@ class MigrationTest(s_t_utils.SynTest):
 
         # check that triggers are active
         root = await core.auth.getUserByName('root')
-        triggers = await core.view.packTriggers(root.iden)
-        self.len(2, triggers)
         self.len(2, await core.eval('syn:trigger').list())
         tnodes = await core.nodes('[ inet:ipv4=9.9.9.9 ]')
         self.nn(tnodes[0].tags.get('trgtag'))

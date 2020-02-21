@@ -22,6 +22,7 @@ import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.modules as s_modules
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 
@@ -829,9 +830,10 @@ class Migrator(s_base.Base):
 
         # conf
         conf = {}
-        srcdedicated = srcconf.get('dedicated')
-        if srcdedicated is not None:
-            conf['lockmemory'] = srcdedicated
+        if srcconf is not None:
+            srcdedicated = srcconf.get('dedicated')
+            if srcdedicated is not None:
+                conf['lockmemory'] = srcdedicated
 
         # update layer info for 0.2.x
         await layrinfo.set('iden', iden)
@@ -882,6 +884,9 @@ class Migrator(s_base.Base):
             (HiveDict): Storage information
         '''
         migrop = 'hivestor'
+
+        # Set cortex:version to lateset
+        await self.hive.set(('cellinfo', 'cortex:version'), s_version.version)
 
         # Set storage information
         storiden = await self.hive.get(('cellinfo', 'layr:stor:default'))
@@ -1399,7 +1404,7 @@ class Migrator(s_base.Base):
         name = nodedata[1]
         valu = nodedata[2]
 
-        edits = [(s_layer.EDIT_NODEDATA_SET, (name, valu))]
+        edits = [(s_layer.EDIT_NODEDATA_SET, (name, valu, None))]
 
         return buid, None, edits
 
@@ -1467,7 +1472,7 @@ class Migrator(s_base.Base):
 
             elif addmode == 'nonexus':
                 for ne in nodeedits:
-                    await wlyr._storNodeEditNoLift(ne, meta)
+                    await wlyr._storNodeEdit(ne)
 
             elif addmode == 'editor':
                 for ne in nodeedits:
