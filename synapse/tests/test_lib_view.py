@@ -127,7 +127,7 @@ class ViewTest(s_t_utils.SynTest):
             self.len(0, nodes)
 
             # listTriggers should show view and inherited triggers
-            trigs = await view2.listTriggers(root.iden)
+            trigs = await view2.listTriggers()
             self.len(2, trigs)
 
             await view2.fini()

@@ -350,3 +350,5 @@ class CellTest(s_t_utils.SynTest):
 
                 todo = s_common.todo('stream', doraise=True)
                 await self.agenraises(s_exc.BadTime, await prox.dyncall('self', todo))
+
+# TODO: cell with remote hive
