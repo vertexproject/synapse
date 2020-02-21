@@ -16,6 +16,8 @@ import synapse.lib.hashitem as s_hashitem
 
 logger = logging.getLogger(__name__)
 
+re_iden = '^[0-9a-f]{32}$'
+
 JS_VALIDATORS = {}
 
 def getJsSchema(confbase, confdefs):

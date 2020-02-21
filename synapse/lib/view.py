@@ -2,6 +2,7 @@ import asyncio
 import logging
 import itertools
 import collections
+import fastjsonschema
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -9,9 +10,21 @@ import synapse.common as s_common
 import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.nexus as s_nexus
+import synapse.lib.config as s_config
 import synapse.lib.trigger as s_trigger
 
 logger = logging.getLogger(__name__)
+
+reqValidVdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'parent': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'parent', 'creator'],
+})
 
 class View(s_nexus.Pusher):  # type: ignore
     '''
@@ -77,6 +90,10 @@ class View(s_nexus.Pusher):  # type: ignore
     def pack(self):
         d = {'iden': self.iden}
         d.update(self.info.pack())
+
+        layrinfo = [l.pack() for l in self.layers]
+        d['layers'] = layrinfo
+
         return d
 
     async def getFormCounts(self):
@@ -313,14 +330,14 @@ class View(s_nexus.Pusher):  # type: ignore
         if vdef is None:
             vdef = {}
 
-        layr = await self.core.addLayer(ldef)
+        layriden = await self.core.addLayer(ldef)
 
         vdef['parent'] = self.iden
-        vdef['layers'] = [layr.iden] + [l.iden for l in self.layers]
+        vdef['layers'] = [layriden] + [l.iden for l in self.layers]
 
         return await self.core.addView(vdef)
 
-    async def merge(self, user=None):
+    async def merge(self, useriden=None):
         '''
         Merge this view into its parent.  All changes made to this view will be applied to the parent.
 
@@ -330,105 +347,100 @@ class View(s_nexus.Pusher):  # type: ignore
             The view's own write layer will *not* be deleted.
         '''
         fromlayr = self.layers[0]
-        if self.parent is None:
-            raise s_exc.SynErr('Cannot merge a view than has not been forked')
 
-        if self.parent.layers[0].readonly:
-            raise s_exc.ReadOnlyLayer(mesg="May not merge if the parent's write layer is read-only")
-
-        for view in self.core.views.values():
-            if view.parent is not None and view.parent == self:
-                raise s_exc.SynErr(mesg='Cannot merge a view that has children itself')
-
-        CHUNKSIZE = 1000
-        fromoff = 0
-
-        if user is None:
+        if useriden is None:
             user = await self.core.auth.getUserByName('root')
+        else:
+            user = await self.core.auth.reqUser(useriden)
+
+        await self.mergeAllowed(user)
+
+        parentlayr = self.parent.layers[0]
 
         await self.core.boss.promote('storm', user=user, info={'merging': self.iden})
         async with await self.parent.snap(user=user) as snap:
             snap.disableTriggers()
             snap.strict = False
-            # FIXME:  change to using layer data itself
+
             with snap.getStormRuntime(user=user):
-                while True:
-                    splicechunk = [x async for x in fromlayr.splices(fromoff, CHUNKSIZE)]
 
-                    await snap.addFeedData('syn.splice', splicechunk)
-
-                    if len(splicechunk) < CHUNKSIZE:
-                        break
-
-                    fromoff += CHUNKSIZE
-                    await asyncio.sleep(0)
+                async for nodeedits in fromlayr.iterLayerNodeEdits():
+                    await parentlayr.storNodeEditsNoLift([nodeedits], {})
 
         await self.core.delView(self.iden)
 
-    # FIXME:  all these should be refactored and call runt.confirmLayer
-    def _confirm(self, user, parentlayr, perms):
-        if not parentlayr.allowed(user, perms):
-            perm = '.'.join(perms)
-            mesg = f'User must have permission {perm} on write layer'
-            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
+    def _confirm(self, user, perms):
+        layriden = self.layers[0].iden
+        if user.allowed(perms, gateiden=layriden):
+            return
 
-    async def _nodeAddConfirm(self, user, snap, parentlayr, splice):
+        perm = '.'.join(perms)
+        mesg = f'User must have permission {perm} on write layer {layriden} of view {self.iden}'
+        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
+
+    async def _nodeAddConfirm(self, user, snap, splice):
         perms = ('node:add', splice['ndef'][0])
-        self._confirm(user, parentlayr, perms)
+        self.parent._confirm(user, perms)
 
-    async def _nodeDelConfirm(self, user, snap, parentlayr, splice):
+    async def _nodeDelConfirm(self, user, snap, splice):
         buid = s_common.buid(splice['ndef'])
         node = await snap.getNodeByBuid(buid)
 
         if node is not None:
             for tag in node.tags.keys():
                 perms = ('tag:del', *tag.split('.'))
-                self._confirm(user, parentlayr, perms)
+                self.parent._confirm(user, perms)
 
             perms = ('node:del', splice['ndef'][0])
-            self._confirm(user, parentlayr, perms)
+            self.parent._confirm(user, perms)
 
-    async def _propSetConfirm(self, user, snap, parentlayr, splice):
+    async def _propSetConfirm(self, user, snap, splice):
         ndef = splice.get('ndef')
         prop = splice.get('prop')
 
         perms = ('prop:set', ':'.join([ndef[0], prop]))
-        self._confirm(user, parentlayr, perms)
+        self.parent._confirm(user, perms)
 
-    async def _propDelConfirm(self, user, snap, parentlayr, splice):
+    async def _propDelConfirm(self, user, snap, splice):
         ndef = splice.get('ndef')
         prop = splice.get('prop')
 
         perms = ('prop:del', ':'.join([ndef[0], prop]))
-        self._confirm(user, parentlayr, perms)
+        self.parent._confirm(user, perms)
 
-    async def _tagAddConfirm(self, user, snap, parentlayr, splice):
+    async def _tagAddConfirm(self, user, snap, splice):
         tag = splice.get('tag')
         perms = ('tag:add', *tag.split('.'))
-        self._confirm(user, parentlayr, perms)
+        self.parent._confirm(user, perms)
 
-    async def _tagDelConfirm(self, user, snap, parentlayr, splice):
+    async def _tagDelConfirm(self, user, snap, splice):
         tag = splice.get('tag')
         perms = ('tag:del', *tag.split('.'))
-        self._confirm(user, parentlayr, perms)
+        self.parent._confirm(user, perms)
 
-    async def _tagPropSetConfirm(self, user, snap, parentlayr, splice):
+    async def _tagPropSetConfirm(self, user, snap, splice):
         tag = splice.get('tag')
         perms = ('tag:add', *tag.split('.'))
-        self._confirm(user, parentlayr, perms)
+        self.parent._confirm(user, perms)
 
-    async def _tagPropDelConfirm(self, user, snap, parentlayr, splice):
+    async def _tagPropDelConfirm(self, user, snap, splice):
         tag = splice.get('tag')
         perms = ('tag:del', *tag.split('.'))
-        self._confirm(user, parentlayr, perms)
+        self.parent._confirm(user, perms)
 
     async def mergeAllowed(self, user=None):
         '''
         Check whether a user can merge a view into its parent.
         '''
+        # FIXME:  reconsider whether to delete view
+
+        user.confirm(('view', 'del'), gateiden=self.iden)
+
         fromlayr = self.layers[0]
         if self.parent is None:
-            raise s_exc.SynErr('Cannot merge a view than has not been forked')
+            raise s_exc.CantMergeView(mesg=f'Cannot merge a view {self.iden} than has not been forked')
+
+        user.confirm(('view', 'get'), gateiden=self.parent.iden)
 
         parentlayr = self.parent.layers[0]
         if parentlayr.readonly:
@@ -436,10 +448,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
         for view in self.core.views.values():
             if view.parent is not None and view.parent == self:
-                raise s_exc.SynErr(mesg='Cannot merge a view that has children itself')
+                raise s_exc.CantMergeView(mesg='Cannot merge a view that has children itself')
 
-        if user is None or user.isAdmin():
-            return True
+        if user is None or user.isAdmin() or user.isAdmin(gateiden=parentlayr.iden):
+            return
 
         CHUNKSIZE = 1000
         fromoff = 0
@@ -448,14 +460,14 @@ class View(s_nexus.Pusher):  # type: ignore
             while True:
 
                 splicecount = 0
-                async for splice in fromlayr.splices(fromoff, CHUNKSIZE):
-                    # FIXME: this sucks; we shouldn't dupe layer perm checking here
+                async for _, splice in fromlayr.splices(fromoff, CHUNKSIZE):
+
                     check = self.permCheck.get(splice[0])
                     if check is None:
                         raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge',
                                            splicetype=splice[0])
 
-                    await check(user, snap, parentlayr, splice[1])
+                    await check(user, snap, splice[1])
 
                     splicecount += 1
 
@@ -532,31 +544,33 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         tdef['iden'] = s_common.guid()
 
-        tdef = await self._push('trigger:add', tdef)
-        user = self.core.auth.user(tdef.get('user'))
-
-        await user.setAdmin(True, gateiden=tdef.get('iden'))
-
-        return tdef
-
-    @s_nexus.Pusher.onPush('trigger:add')
-    async def _onPushAddTrigger(self, tdef):
-
         root = await self.core.auth.getUserByName('root')
 
         tdef.setdefault('user', root.iden)
         tdef.setdefault('enabled', True)
 
-        self.core.getStormQuery(tdef.get('storm'))
+        s_trigger.reqValidTdef(tdef)
+
+        return await self._push('trigger:add', tdef)
+
+    @s_nexus.Pusher.onPush('trigger:add')
+    async def _onPushAddTrigger(self, tdef):
+
+        s_trigger.reqValidTdef(tdef)
+
+        user = self.core.auth.user(tdef['user'])
+        self.core.getStormQuery(tdef['storm'])
 
         trig = self.triggers.load(tdef)
+
         await self.trigdict.set(trig.iden, tdef)
         await self.core.auth.addAuthGate(trig.iden, 'trigger')
+        await user.setAdmin(True, gateiden=tdef.get('iden'))
 
         return trig.pack()
 
     async def getTrigger(self, iden):
-        return await self.triggers.get(iden)
+        return self.triggers.get(iden)
 
     @s_nexus.Pusher.onPushAuto('trigger:del')
     async def delTrigger(self, iden):
@@ -568,7 +582,7 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.core.auth.delAuthGate(trig.iden)
 
     @s_nexus.Pusher.onPushAuto('trigger:set')
-    async def setTrigInfo(self, iden, name, valu):
+    async def setTriggerInfo(self, iden, name, valu):
         trig = self.triggers.get(iden)
         await trig.set(name, valu)
 
@@ -580,23 +594,6 @@ class View(s_nexus.Pusher):  # type: ignore
         if self.parent is not None:
             trigs.extend(await self.parent.listTriggers())
         return trigs
-
-    async def packTriggers(self, useriden):
-
-        triggers = []
-        auth = self.core.auth
-        user = auth.user(useriden)
-        for (iden, trig) in await self.listTriggers():
-            if user.allowed(('trigger', 'get'), gateiden=iden):
-                packed = trig.pack()
-
-                useriden = packed['user']
-                triguser = auth.user(useriden)
-                packed['username'] = triguser.name
-
-                triggers.append(packed)
-
-        return triggers
 
     async def delete(self):
         '''

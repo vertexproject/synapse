@@ -73,19 +73,6 @@ class HiveTest(s_test.SynTest):
 
                 self.none(await hive.get(('foo', 'bar', 'lulz')))
 
-                oneditcount = 0
-
-                def onedit(valu):
-                    nonlocal oneditcount
-                    oneditcount += 1
-
-                hive.onedit(('baz', 'faz'), onedit)
-
-                await hive.set(('baz',), 400)
-                self.eq(0, oneditcount)
-                await hive.set(('baz', 'faz'), 401)
-                self.eq(1, oneditcount)
-
     async def test_hive_telepath(self):
 
         # confirm that the primitives used by higher level APIs

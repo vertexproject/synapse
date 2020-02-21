@@ -847,6 +847,9 @@ class Snap(s_base.Base):
         if form is None:
             raise s_exc.NoSuchForm(name=name)
 
+        if form.isrunt:
+            raise s_exc.IsRuntForm(mesg='Cannot make runt nodes.',
+                                   form=form.full, prop=valu)
         try:
             adds = self.getNodeAdds(form, valu, props=props)
         except Exception as e:
@@ -1009,11 +1012,11 @@ class Snap(s_base.Base):
             raise ctor(mesg=mesg, **info)
         return False
 
-    def splice(self, name, **info):
-        '''
-        Construct a partial splice record for later feeding into Snap.stor method
-        '''
-        return (name, info)
+    #def splice(self, name, **info):
+        #'''
+        #Construct a partial splice record for later feeding into Snap.stor method
+        #'''
+        #return (name, info)
 
     #########################################################################
 
@@ -1117,8 +1120,8 @@ class Snap(s_base.Base):
         '''
         for layr in reversed(self.layers):
             todo = s_common.todo('getNodeData', buid, name)
-            valu = await self.core.dyncall(layr.iden, todo)
-            if valu is not None:  # FIXME:  None/NoValu confusion
+            ok, valu = await self.core.dyncall(layr.iden, todo)
+            if ok:
                 return valu
         return defv
 

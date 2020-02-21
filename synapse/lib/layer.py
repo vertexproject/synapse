@@ -72,9 +72,9 @@ import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
 
+import synapse.lib.config as s_config
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
-
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +82,17 @@ FAIR_ITERS = 10  # every this many rows, yield CPU to other tasks
 BUID_CACHE_SIZE = 10000
 
 import synapse.lib.msgpack as s_msgpack
+
+reqValidLdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'lockmemory': {'type': 'boolean'},
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'creator', 'lockmemory'],
+})
 
 class LayerApi(s_cell.CellApi):
 
@@ -93,27 +104,37 @@ class LayerApi(s_cell.CellApi):
         self.liftperm = ('layer:lift', self.layr.iden)
         #self.storperm = ('layer:stor', self.layr.iden)
 
-    async def iterLayerSplices(self):
+    async def iterLayerNodeEdits(self):
         '''
-        Scan the full layer and yield artificial nodeedit splices.
+        Scan the full layer and yield artificial nodeedit sets.
         '''
         await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.iterLayerSplices():
+        async for item in self.layr.iterLayerNodeEdits():
             yield item
 
-    async def syncSplices(self, offs):
+    async def syncNodeEdits(self, offs):
         '''
-        Yield (offs, mesg) tuples from the splicelog starting from the given offset.
+        Yield (offs, nodeedits) tuples from the nodeedit log starting from the given offset.
 
-        Once caught up with storage, yield them in realtime
+        Once caught up with storage, yield them in realtime.
         '''
         await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.syncSplices(offs):
+        async for item in self.layr.syncNodeEdits(offs):
             yield item
 
-    async def getSpliceOffset(self):
+    async def splices(self, offs, size):
+        '''
+        Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
+
+        Nodeedits will be flattened into splices before being yielded.
+        '''
         await self._reqUserAllowed(self.liftperm)
-        return self.layr.getSpliceOffset()
+        async for item in self.layr.splices(offs, size):
+            yield item
+
+    async def getNodeEditOffset(self):
+        await self._reqUserAllowed(self.liftperm)
+        return self.layr.getNodeEditOffset()
 
     async def getIden(self):
         await self._reqUserAllowed(self.liftperm)
@@ -200,15 +221,15 @@ STOR_TYPE_I128 = 20
 STOR_FLAG_ARRAY = 0x8000
 
 EDIT_NODE_ADD = 0     # (<type>, (<valu>, <type>))
-EDIT_NODE_DEL = 1     # (<type>, (<valu>))
-EDIT_PROP_SET = 2     # (<type>, (<prop>, <valu>, <oldv>))
-EDIT_PROP_DEL = 3     # (<type>, (<prop>, <oldv>))
+EDIT_NODE_DEL = 1     # (<type>, (<valu>, <type>))
+EDIT_PROP_SET = 2     # (<type>, (<prop>, <valu>, <oldv>, <type>))
+EDIT_PROP_DEL = 3     # (<type>, (<prop>, <oldv>, <type>))
 EDIT_TAG_SET = 4      # (<type>, (<tag>, <valu>, <oldv>))
 EDIT_TAG_DEL = 5      # (<type>, (<tag>, <oldv>))
-EDIT_TAGPROP_SET = 6  # (<type>, (<tag>, <prop>, <valu>, <oldv>))
-EDIT_TAGPROP_DEL = 7  # (<type>, (<tag>, <prop>, <oldv>))
-EDIT_NODEDATA_SET = 8 # (<type>, (<name>, <valu>))
-EDIT_NODEDATA_DEL = 9 # (<type>, (<name>))
+EDIT_TAGPROP_SET = 6  # (<type>, (<tag>, <prop>, <valu>, <oldv>, <type>))
+EDIT_TAGPROP_DEL = 7  # (<type>, (<tag>, <prop>, <oldv>, <type>))
+EDIT_NODEDATA_SET = 8 # (<type>, (<name>, <valu>, <oldv>))
+EDIT_NODEDATA_DEL = 9 # (<type>, (<name>, <valu>))
 
 class IndxBy:
     '''
@@ -715,14 +736,10 @@ class Layer(s_nexus.Pusher):
     '''
     The base class for a cortex layer.
     '''
-    confdefs = (
-        ('lockmemory', {'default': True, 'type': 'bool', 'doc': 'Lock the LMDB memory maps for performance.'}),
-    )
-
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, layrinfo, dirn, conf=None, nexsroot=None):
+    async def __anit__(self, layrinfo, dirn, nexsroot=None):
 
         self.nexsroot = nexsroot
         self.layrinfo = layrinfo
@@ -733,13 +750,8 @@ class Layer(s_nexus.Pusher):
         self.dirn = dirn
         self.readonly = layrinfo.get('readonly')
 
-        conf = layrinfo.get('conf')
-        if conf is None:
-            conf = {}
-
-        self.conf = s_common.config(conf, self.confdefs)
-
-        self.lockmemory = self.conf.get('lockmemory')
+        self.lockmemory = self.layrinfo.get('lockmemory')
+        self.growsize = self.layrinfo.get('growsize')
         path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
 
         self.fresh = not os.path.exists(path)
@@ -750,23 +762,22 @@ class Layer(s_nexus.Pusher):
             'map_async': True,
             'readahead': True,
             'lockmemory': self.lockmemory,
+            'growsize': self.growsize,
         }
 
         self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
-        path = s_common.genpath(self.dirn, 'splices_v2.lmdb')
-        self.spliceslab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
+        path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
+        self.nodeeditslab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
         self.offsets = await self.layrslab.getHotCount('offsets')
-
-        # FIXME:  if offset > last splice, replay splice
 
         self.tagabrv = self.layrslab.getNameAbrv('tagabrv')
         self.propabrv = self.layrslab.getNameAbrv('propabrv')
         self.tagpropabrv = self.layrslab.getNameAbrv('tagpropabrv')
 
         self.onfini(self.layrslab)
-        self.onfini(self.spliceslab)
+        self.onfini(self.nodeeditslab)
 
         self.bybuid = self.layrslab.initdb('bybuid')
 
@@ -779,7 +790,7 @@ class Layer(s_nexus.Pusher):
 
         self.countdb = self.layrslab.initdb('counters')
 
-        self.splicelog = s_slabseqn.SlabSeqn(self.spliceslab, 'splices')
+        self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
 
         self.stortypes = [
 
@@ -842,7 +853,7 @@ class Layer(s_nexus.Pusher):
 
         self.onfini(self._onLayrFini)
 
-    def getSpawnInfo(self):
+    def pack(self):
         return {
             'iden': self.iden,
             'dirn': self.dirn,
@@ -850,8 +861,14 @@ class Layer(s_nexus.Pusher):
             'ctor': self.ctorname,
         }
 
+    def getSpawnInfo(self):
+        return self.pack()
+
     async def stat(self):
-        return self.layrslab.statinfo()
+        return {
+            'nodeeditlog_indx': self.nodeeditlog.index(),
+            **self.layrslab.statinfo()
+        }
 
     async def _onLayrFini(self):
         [(await wind.fini()) for wind in self.windows]
@@ -867,8 +884,7 @@ class Layer(s_nexus.Pusher):
     def getTagPropAbrv(self, *args):
         return self.tagpropabrv.bytsToAbrv(s_msgpack.en(args))
 
-    # FIXME:  this is hot code:  why is this async?!
-    async def getAbrvProp(self, abrv):
+    def getAbrvProp(self, abrv):
         byts = self.propabrv.abrvToByts(abrv)
         if byts is None:
             return None
@@ -1020,20 +1036,40 @@ class Layer(s_nexus.Pusher):
             for buid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu):
                 yield await self.getStorNode(buid)
 
-    @s_nexus.Pusher.onPushAuto('edits', passoff=True)
-    async def storNodeEdits(self, nodeedits, meta, nexsoff=None):
-        assert nexsoff is not None, "Nexus bypassed"
-        offs = self.splicelog.add(nexsoff)
+    async def storNodeEdits(self, nodeedits, meta):
 
-        [(await wind.put((offs, nexsoff))) for wind in tuple(self.windows)]
+        changes = await self._push('edits', nodeedits, meta)
 
-        retn = [await self._storNodeEdit(e, meta) for e in nodeedits]
-        self.offsets.set('splice:applied', nexsoff)
+        retn = []
+        for buid, form, edits in changes:
+            sode = await self.getStorNode(buid)
+            sode[1]['edits'] = edits
+            retn.append(sode)
+
         return retn
 
-    async def _storNodeEdit(self, nodeedit, meta):
+    @s_nexus.Pusher.onPushAuto('edits')
+    async def _storNodeEdits(self, nodeedits, meta):
+        '''
+        Execute a series of node edit operations, returning the updated nodes.
+        '''
+        changes = [(e[0], e[1], await self._storNodeEdit(e)) for e in nodeedits]
+        offs = self.nodeeditlog.add((changes, meta))
+
+        [(await wind.put((offs, changes))) for wind in tuple(self.windows)]
+
+        return changes
+
+    async def _editToSode(self, nodeedit):
+        sode = await self.getStorNode(nodeedit[0])
+        sode[1]['edits'] = nodeedit[2]
+        return sode
+
+    async def _storNodeEdit(self, nodeedit):
         '''
         Execute a series of storage operations for the given node.
+
+        Returns a (buid, edits) tuple of the actual changes.
         '''
         buid, form, edits = nodeedit
 
@@ -1043,37 +1079,16 @@ class Layer(s_nexus.Pusher):
             if items is not None:
                 changed.extend(items)
 
-        sode = await self.getStorNode(buid)
-
-        sode[1]['edits'] = changed
-
         await asyncio.sleep(0)
+        return changed
 
-        return sode
-
-    @s_nexus.Pusher.onPushAuto('editsnolift', passoff=True)
-    async def storNodeEditsNoLift(self, nodeedits, meta, nexsoff=None):
-        assert nexsoff is not None
-        offs = self.splicelog.add(nexsoff)
-
-        [(await wind.put((offs, nexsoff))) for wind in tuple(self.windows)]
-
-        [await self._storNodeEditNoLift(e, meta) for e in nodeedits]
-        self.offsets.set('splice:applied', nexsoff)
-
-    async def _storNodeEditNoLift(self, nodeedit, meta):
+    async def storNodeEditsNoLift(self, nodeedits, meta):
         '''
-        Execute a series of storage operations for the given node.
+        Execute a series of node edit operations.
 
-        Does not return the updated node.
+        Does not return the updated nodes.
         '''
-
-        buid, form, edits = nodeedit
-
-        for edit in edits:
-            self.editors[edit[0]](buid, form, edit)
-
-        await asyncio.sleep(0)
+        await self._push('edits', nodeedits, meta)
 
     def _editNodeAdd(self, buid, form, edit):
 
@@ -1263,8 +1278,10 @@ class Layer(s_nexus.Pusher):
 
         oldb = self.layrslab.replace(buid + b'\x02' + tenc, s_msgpack.en(valu), db=self.bybuid)
 
-        if oldb is not None and s_msgpack.un(oldb) == valu:
-            return None
+        if oldb is not None:
+            oldv = s_msgpack.un(oldb)
+            if oldv == valu:
+                return None
 
         self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
 
@@ -1361,17 +1378,34 @@ class Layer(s_nexus.Pusher):
 
     def _editNodeDataSet(self, buid, form, edit):
 
-        name, valu = edit[1]
+        name, valu, oldv = edit[1]
         abrv = self.getPropAbrv(name, None)
 
-        self.layrslab.replace(buid + abrv, s_msgpack.en(valu), db=self.nodedata)
+        oldb = self.layrslab.replace(buid + abrv, s_msgpack.en(valu), db=self.nodedata)
+
+        if oldb is not None:
+            oldv = s_msgpack.un(oldb)
+            if oldb == valu:
+                return None
+
+        return (
+            (EDIT_NODEDATA_SET, (name, valu, oldv)),
+        )
 
     def _editNodeDataDel(self, buid, form, edit):
 
-        name = edit[1]
+        name, valu = edit[1]
         abrv = self.getPropAbrv(name, None)
 
-        self.layrslab.delete(buid + abrv, db=self.nodedata)
+        oldb = self.layrslab.pop(buid + abrv, db=self.nodedata)
+        if oldb is None:
+            return None
+
+        oldv = s_msgpack.un(oldb)
+
+        return (
+            (EDIT_NODEDATA_DEL, (name, oldv)),
+        )
 
     def getStorIndx(self, stortype, valu):
 
@@ -1445,10 +1479,9 @@ class Layer(s_nexus.Pusher):
         abrv = self.getPropAbrv(name, None)
 
         byts = self.layrslab.get(buid + abrv, db=self.nodedata)
-        # FIXME:  None/NoValu confusion
         if byts is None:
-            return None
-        return s_msgpack.un(byts)
+            return False, None
+        return True, s_msgpack.un(byts)
 
     async def iterNodeData(self, buid):
         '''
@@ -1458,12 +1491,12 @@ class Layer(s_nexus.Pusher):
             abrv = lkey[32:]
 
             valu = s_msgpack.un(byts)
-            prop = await self.getAbrvProp(abrv)
+            prop = self.getAbrvProp(abrv)
             yield prop[0], valu
 
-    async def iterLayerSplices(self):
+    async def iterLayerNodeEdits(self):
         '''
-        Scan the full layer and yield artificial nodeedit splices.
+        Scan the full layer and yield artificial sets of nodeedits.
         '''
         nodeedits = (None, None, None)
 
@@ -1474,7 +1507,7 @@ class Layer(s_nexus.Pusher):
             if not buid == nodeedits[0]:
                 if nodeedits[0] is not None:
                     async for prop, valu in self.iterNodeData(nodeedits[0]):
-                        edit = (EDIT_NODEDATA_SET, (prop, valu))
+                        edit = (EDIT_NODEDATA_SET, (prop, valu, None))
                         nodeedits[2].append(edit)
 
                     yield nodeedits
@@ -1527,7 +1560,7 @@ class Layer(s_nexus.Pusher):
 
         if nodeedits[0] is not None:
             async for prop, valu in self.iterNodeData(nodeedits[0]):
-                edit = (EDIT_NODEDATA_SET, (prop, valu))
+                edit = (EDIT_NODEDATA_SET, (prop, valu, None))
                 nodeedits[2].append(edit)
 
             yield nodeedits
@@ -1548,9 +1581,9 @@ class Layer(s_nexus.Pusher):
                     logger.warning(f'upstream sync connected ({url} offset={offs})')
 
                     if offs == 0:
-                        offs = await proxy.getSpliceOffset()
+                        offs = await proxy.getNodeEditOffset()
 
-                        async for item in proxy.iterLayerSplices():
+                        async for item in proxy.iterLayerNodeEdits():
                             await self.storNodeEditsNoLift([item], {})
 
                         self.offsets.set(iden, offs)
@@ -1568,7 +1601,7 @@ class Layer(s_nexus.Pusher):
 
                         async def consume(x):
                             try:
-                                async for item in proxy.syncSplices(x):
+                                async for item in proxy.syncNodeEdits(x):
                                     await q.put(item)
                             finally:
                                 await q.put(None)
@@ -1595,11 +1628,11 @@ class Layer(s_nexus.Pusher):
 
                                 items.append(nexi)
 
-                            for spliceoffs, item in items:
+                            for nodeeditoffs, item in items:
                                 await self.storNodeEditsNoLift(item, {})
-                                self.offsets.set(iden, spliceoffs + 1)
+                                self.offsets.set(iden, nodeeditoffs + 1)
 
-                                waits = self.upstreamwaits[iden].pop(spliceoffs + 1, None)
+                                waits = self.upstreamwaits[iden].pop(nodeeditoffs + 1, None)
                                 if waits is not None:
                                     [e.set() for e in waits]
 
@@ -1636,33 +1669,137 @@ class Layer(s_nexus.Pusher):
         await self.layrinfo.set('model:version', vers)
 
     async def splices(self, offs, size):
-        for _, mesg in self.splicelog.slice(offs, size):
-            yield mesg
+        '''
+        Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
+
+        Nodeedits will be flattened into splices before being yielded.
+        '''
+        for offset, (nodeedits, meta) in self.nodeeditlog.slice(offs, size):
+            async for splice in self.makeSplices(offset, nodeedits, meta):
+                yield splice
 
     async def splicesBack(self, offs, size=None):
+
         if size:
-            for _, mesg in self.splicelog.sliceBack(offs, size):
-                yield mesg
+            for offset, (nodeedits, meta) in self.nodeeditlog.sliceBack(offs, size):
+                async for splice in self.makeSplices(offset, nodeedits, meta):
+                    yield splice
         else:
-            for _, mesg in self.splicelog.iterBack(offs):
-                yield mesg
+            for offset, (nodeedits, meta) in self.nodeeditlog.iterBack(offs):
+                async for splice in self.makeSplices(offset, nodeedits, meta):
+                    yield splice
 
-    async def syncSplices(self, offs):
+    async def syncNodeEdits(self, offs):
         '''
-        Yield (offs, mesg) tuples from the splicelog starting from the given offset.
+        Yield (offs, nodeedits) tuples from the nodeedit log starting from the given offset.
 
-        Once caught up with storage, yield them in realtime
+        Once caught up with storage, yield them in realtime.
         '''
-        for offs, nexsoff in self.splicelog.iter(offs):
-            yield (offs, self.nexsroot.nexuslog.get(nexsoff)[2][0])
+        for offs, splice in self.nodeeditlog.iter(offs):
+            yield (offs, splice[0])
 
         # FIXME:  discuss: use offsets instead of window?
-        async with self.getSpliceWindow() as wind:
-            async for offs, nexsoff in wind:
-                yield (offs, self.nexsroot.nexuslog.get(nexsoff)[2][0])
+        async with self.getNodeEditWindow() as wind:
+            async for offs, splice in wind:
+                yield (offs, splice)
+
+    async def makeSplices(self, offs, nodeedits, meta):
+        '''
+        Flatten a set of nodeedits into splices.
+        '''
+        user = meta.get('user')
+        time = meta.get('time')
+        prov = meta.get('prov')
+
+        for nodeoffs, (buid, form, edits) in enumerate(nodeedits):
+
+            formvalu = None
+
+            for editoffs, (edit, info) in enumerate(edits):
+
+                if edit == EDIT_NODEDATA_SET or edit == EDIT_NODEDATA_DEL:
+                    continue
+
+                spliceoffs = (offs, nodeoffs, editoffs)
+                props = {
+                    'time': time,
+                    'user': user,
+                    'prov': prov,
+                }
+
+                if edit == EDIT_NODE_ADD:
+                    formvalu, stortype = info
+                    props['ndef'] = (form, formvalu)
+
+                    yield (spliceoffs, ('node:add', props))
+                    continue
+
+                if edit == EDIT_NODE_DEL:
+                    formvalu, stortype = info
+                    props['ndef'] = (form, formvalu)
+
+                    yield (spliceoffs, ('node:del', props))
+                    continue
+
+                if formvalu is None:
+                    formvalu = self.getNodeValu(buid)
+
+                props['ndef'] = (form, formvalu)
+
+                if edit == EDIT_PROP_SET:
+                    prop, valu, oldv, stortype = info
+                    props['prop'] = prop
+                    props['valu'] = valu
+                    props['oldv'] = oldv
+
+                    yield (spliceoffs, ('prop:set', props))
+                    continue
+
+                if edit == EDIT_PROP_DEL:
+                    prop, valu, stortype = info
+                    props['prop'] = prop
+                    props['valu'] = valu
+
+                    yield (spliceoffs, ('prop:del', props))
+                    continue
+
+                if edit == EDIT_TAG_SET:
+                    tag, valu, oldv = info
+                    props['tag'] = tag
+                    props['valu'] = valu
+                    props['oldv'] = oldv
+
+                    yield (spliceoffs, ('tag:add', props))
+                    continue
+
+                if edit == EDIT_TAG_DEL:
+                    tag, valu = info
+                    props['tag'] = tag
+                    props['valu'] = valu
+
+                    yield (spliceoffs, ('tag:del', props))
+                    continue
+
+                if edit == EDIT_TAGPROP_SET:
+                    tag, prop, valu, oldv, stortype = info
+                    props['tag'] = tag
+                    props['prop'] = prop
+                    props['valu'] = valu
+                    props['oldv'] = oldv
+
+                    yield (spliceoffs, ('tag:prop:set', props))
+                    continue
+
+                if edit == EDIT_TAGPROP_DEL:
+                    tag, prop, valu, stortype = info
+                    props['tag'] = tag
+                    props['prop'] = prop
+                    props['valu'] = valu
+
+                    yield (spliceoffs, ('tag:prop:del', props))
 
     @contextlib.asynccontextmanager
-    async def getSpliceWindow(self):
+    async def getNodeEditWindow(self):
 
         async with await s_queue.Window.anit(maxsize=10000) as wind:
 
@@ -1675,8 +1812,8 @@ class Layer(s_nexus.Pusher):
 
             yield wind
 
-    def getSpliceOffset(self):
-        return self.splicelog.index()
+    def getNodeEditOffset(self):
+        return self.nodeeditlog.index()
 
     async def waitUpstreamOffs(self, iden, offs):
         evnt = asyncio.Event()

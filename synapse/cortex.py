@@ -30,6 +30,7 @@ import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
+import synapse.lib.version as s_version
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -80,7 +81,6 @@ class CoreApi(s_cell.CellApi):
         ret = await self.cell.joinTeleLayer(url, indx=indx)
         return ret
 
-    # FIXME:  ModelDict/Def/Defs is a mess
     async def getModelDict(self):
         '''
         Return a dictionary which describes the data model.
@@ -144,7 +144,6 @@ class CoreApi(s_cell.CellApi):
 
             return retn
 
-    # FIXME:  add view parm here (it wouldn't be stored on the view though)
     async def addCronJob(self, query, reqs, incunit=None, incval=1):
         '''
         Add a cron job to the cortex
@@ -173,7 +172,7 @@ class CoreApi(s_cell.CellApi):
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
-        # FIXME deprecated annotation
+        s_common.deprecated('addCronJob')
         self.user.confirm(('cron', 'add'), gateiden='cortex')
         return await self.cell.addCronJob(self.user.iden, query, reqs, incunit, incval)
 
@@ -184,7 +183,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
-        # FIXME deprecated annotation
+        s_common.deprecated('delCronJob')
         self.user.confirm(('cron', 'del'), gateiden=iden)
         await self.cell.delCronJob(iden)
 
@@ -195,7 +194,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        # FIXME deprecated annotation
+        s_common.deprecated('updateCronJob')
         self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.updateCronJob(iden, query)
 
@@ -206,7 +205,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        # FIXME deprecated annotation
+        s_common.deprecated('enableCronJob')
         self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.enableCronJob(iden)
 
@@ -217,7 +216,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        # FIXME deprecated annotation
+        s_common.deprecated('disableCronJob')
         self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.disableCronJob(iden)
 
@@ -225,7 +224,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Get information about all the cron jobs accessible to the current user
         '''
-        # FIXME deprecated annotation
+        s_common.deprecated('listCronJobs')
 
         crons = []
         for iden, cron in await self.cell.listCronJobs():
@@ -233,11 +232,7 @@ class CoreApi(s_cell.CellApi):
             if not self.user.allowed(('cron', 'get'), gateiden=iden):
                 continue
 
-            info = cron.pack()
-            info['iden'] = iden
-            info['username'] = self.cell.getUserName(cron.useriden)
-
-            crons.append((iden, info))
+            crons.append((iden, cron))
 
         return crons
 
@@ -262,9 +257,6 @@ class CoreApi(s_cell.CellApi):
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
-        Deprecated in 0.2.0.
-
-        FIXME:  add view parm?
         Add a tag to a node specified by iden.
 
         Args:
@@ -272,6 +264,7 @@ class CoreApi(s_cell.CellApi):
             tag (str):  A tag string.
             valu (tuple):  A time interval tuple or (None, None).
         '''
+        s_common.deprecated('addNodeTag')
         await self._reqDefLayerAllowed(('tag:add', *tag.split('.')))
         return await self.cell.addNodeTag(self.user, iden, tag, valu)
 
@@ -284,6 +277,7 @@ class CoreApi(s_cell.CellApi):
             iden (str): A hex encoded node BUID.
             tag (str):  A tag string.
         '''
+        s_common.deprecated('delNodeTag')
         await self._reqDefLayerAllowed(('tag:del', *tag.split('.')))
         return await self.cell.delNodeTag(self.user, iden, tag)
 
@@ -292,8 +286,8 @@ class CoreApi(s_cell.CellApi):
         Deprecated in 0.2.0.
 
         Set a property on a single node.
-        FIXME:  how to move to cortex and still have enforcement?
         '''
+        s_common.deprecated('setNodeProp')
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -316,7 +310,7 @@ class CoreApi(s_cell.CellApi):
 
         Delete a property from a single node.
         '''
-
+        s_common.deprecated('delNodeProp')
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -338,6 +332,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Deprecated in 0.2.0.
         '''
+        s_common.deprecated('addNode')
         async with await self.cell.snap(user=self.user) as snap:
             self.user.confirm(('node:add', form), gateiden=snap.wlyr.iden)
             with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
@@ -357,6 +352,7 @@ class CoreApi(s_cell.CellApi):
 
         Deprecated in 0.2.0
         '''
+        s_common.deprecated('addNodes')
 
         # First check that that user may add each form
         done = {}
@@ -406,7 +402,6 @@ class CoreApi(s_cell.CellApi):
         async with await self.cell.snap(user=self.user) as snap:
             with s_provenance.claim('feed:data', name=name, user=snap.user.iden):
                 snap.strict = False
-                # FIXME:  is this enough to make snap a nexus?  Alternative is to add a cortex pass-through
                 return await snap.addFeedData(name, items, seqn=seqn)
 
     async def count(self, text, opts=None):
@@ -423,7 +418,6 @@ class CoreApi(s_cell.CellApi):
         view = await self._getViewFromOpts(opts)
 
         i = 0
-        # FIXME:  make a count method on view
         async for _ in view.eval(text, opts=opts, user=self.user):
             i += 1
         return i
@@ -509,16 +503,16 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.getNexusChanges(offs):
             yield item
 
-    async def syncLayerSplices(self, iden, offs, layriden=None):
+    async def syncLayerNodeEdits(self, iden, offs, layriden=None):
         '''
-        Yield (indx, mesg) splices for the given layer beginning at offset.
+        Yield (indx, mesg) nodeedit sets for the given layer beginning at offset.
 
-        Once caught up, this API will begin yielding splices in real-time.
+        Once caught up, this API will begin yielding nodeedits in real-time.
         The generator will only terminate on network disconnect or if the
-        consumer falls behind the max window size of 10,000 splice messages.
+        consumer falls behind the max window size of 10,000 nodeedit messages.
         '''
         self.user.confirm(('sync',), gateiden=iden)
-        async for item in self.cell.syncLayerSplices(iden, offs):
+        async for item in self.cell.syncLayerNodeEdits(iden, offs):
             yield item
 
     @s_cell.adminapi
@@ -760,6 +754,14 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
 
+        if self.inaugural:
+            await self.cellinfo.set('cortex:version', s_version.version)
+
+        corevers = self.cellinfo.get('cortex:version')
+        if corevers is None:
+            mesg = 'cortex:version is unset. please upgrade this cortex to version 2.'
+            raise s_exc.BadStorageVersion(mesg=mesg)
+
         offsdb = self.slab.initdb('offsets')
         self.offs = s_slaboffs.SlabOffs(self.slab, offsdb)
 
@@ -804,8 +806,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.view = None  # The default/main view
 
-        # initialize change distribution
-        await self._initNexsRoot()
+        # FIXME:  add feature flag
+        self.provstor = await s_provenance.ProvStor.anit(self.dirn)
+        self.onfini(self.provstor.fini)
 
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
@@ -829,15 +832,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         # Initialize our storage and views
         await self._initCoreAxon()
 
-        #await self._migrateViewsLayers()
         await self._initCoreLayers()
         await self._initCoreViews()
         self.onfini(self._finiStor)
         await self._checkLayerModels()
         await self._initCoreQueues()
-
-        self.provstor = await s_provenance.ProvStor.anit(self.dirn)
-        self.onfini(self.provstor.fini)
 
         self.addHealthFunc(self._cortexHealth)
 
@@ -885,10 +884,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
-
-    async def _initNexsRoot(self):
-        self.nexsroot = await s_nexus.NexsRoot.anit(self.dirn)
-        self.onfini(self.nexsroot.fini)
 
     async def _onEvtBumpSpawnPool(self, evnt):
         await self.bumpSpawnPool()
@@ -998,7 +993,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             node.snap.user.confirm(('trigger', 'set', 'doc'), gateiden=iden)
             await trig.set('doc', valu)
             node.props[prop.name] = valu
-            await self.fire('core:trigger:action', iden=iden, action='mod')
 
         async def onSetTrigName(node, prop, valu):
             valu = str(valu)
@@ -1007,7 +1001,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             node.snap.user.confirm(('trigger', 'set', 'name'), gateiden=iden)
             await trig.set('name', valu)
             node.props[prop.name] = valu
-            await self.fire('core:trigger:action', iden=iden, action='mod')
 
         async def onSetCronDoc(node, prop, valu):
             valu = str(valu)
@@ -1067,7 +1060,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _initCoreQueues(self):
         path = os.path.join(self.dirn, 'slabs', 'queues.lmdb')
 
-        slab = await s_lmdbslab.Slab.anit(path, map_async=True)
+        slab = await s_lmdbslab.Slab.anit(path)
         self.onfini(slab.fini)
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
@@ -1392,7 +1385,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Delete storm packages associated with a service.
         '''
         oldpkgs = []
-        for name, pdef in self.pkghive.items():
+        for _, pdef in self.pkghive.items():
             pkgiden = pdef.get('svciden')
             if pkgiden and pkgiden == iden:
                 oldpkgs.append(pdef)
@@ -1726,28 +1719,28 @@ class Cortex(s_cell.Cell):  # type: ignore
         async for item in self.nexsroot.iter(offs):
             yield item
 
-    async def syncLayerSplices(self, iden, offs):
+    async def syncLayerNodeEdits(self, iden, offs):
         '''
-        Yield (offs, mesg) tuples for splices in a layer.
+        Yield (offs, mesg) tuples for nodeedits in a layer.
         '''
         layr = self.getLayer(iden)
         if layr is None:
             raise s_exc.NoSuchLayer(iden=iden)
 
-        async for item in layr.syncSplices(offs):
+        async for item in layr.syncNodeEdits(offs):
             yield item
 
     async def spliceHistory(self, user):
         '''
-        Yield splices backwards from the end of the splice log.
+        Yield splices backwards from the end of the nodeedit log.
 
         Will only return user's own splices unless they are an admin.
         '''
         layr = self.view.layers[0]
-        indx = (await layr.stat())['splicelog_indx']
+        indx = (await layr.stat())['nodeeditlog_indx']
 
         count = 0
-        async for mesg in layr.splicesBack(indx):
+        async for _, mesg in layr.splicesBack(indx):
             count += 1
             if not count % 1000: # pragma: no cover
                 await asyncio.sleep(0)
@@ -1811,7 +1804,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                             items = [item]
 
                             # check if there are more we can eat
-                            for i in range(q.qsize()):
+                            for _ in range(q.qsize()):
 
                                 nexi = await q.get()
                                 if nexi is None:
@@ -1908,7 +1901,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             logger.warning(f'Removing old command: [{name}]')
             await self.cmdhive.pop(name)
 
-        for name, pkgdef in self.pkghive.items():
+        for pkgdef in self.pkghive.values():
             await self._tryLoadStormPkg(pkgdef)
 
     async def _trySetStormCmd(self, name, cdef):
@@ -1931,9 +1924,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormLib(('user',), s_stormtypes.LibUser)
         self.addStormLib(('vars',), s_stormtypes.LibVars)
         self.addStormLib(('view',), s_stormtypes.LibView)
+        self.addStormLib(('model',), s_stormtypes.LibModel)
         self.addStormLib(('queue',), s_stormtypes.LibQueue)
         self.addStormLib(('stats',), s_stormtypes.LibStats)
         self.addStormLib(('bytes',), s_stormtypes.LibBytes)
+        self.addStormLib(('layer',), s_stormtypes.LibLayer)
         self.addStormLib(('globals',), s_stormtypes.LibGlobals)
         self.addStormLib(('trigger',), s_stormtypes.LibTrigger)
         self.addStormLib(('service',), s_stormtypes.LibService)
@@ -2182,14 +2177,14 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # if we have no views, we are initializing.  Add a default main view and layer.
         if not self.views:
-            layr = await self.addLayer()
+            layriden = await self.addLayer()
             vdef = {
-                'layers': (layr.iden,),
+                'layers': (layriden,),
                 'worldreadable': True,
             }
-            view = await self.addView(vdef)
-            await self.cellinfo.set('defaultview', view.iden)
-            self.view = view
+            viewiden = await self.addView(vdef)
+            await self.cellinfo.set('defaultview', viewiden)
+            self.view = self.getView(viewiden)
 
     async def _migrateLayerOffset(self):
         '''
@@ -2219,33 +2214,32 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def addView(self, vdef):
 
         vdef.setdefault('iden', s_common.guid())
-        worldread = vdef.get('worldreadable', False)
-        view = await self._push('view:add', vdef)
-
-        vdef.setdefault('creator', self.auth.rootuser.iden)
-        creator = vdef.get('creator')
-        user = await self.auth.reqUser(creator)
-        await user.setAdmin(True, gateiden=view.iden)
-
-        if worldread:
-            role = await self.auth.getRoleByName('all')
-            await role.addRule((True, ('view', 'read')), gateiden=view.iden)
-
-        return view
-
-    @s_nexus.Pusher.onPush('view:add')
-    async def _addView(self, vdef):
-
-        iden = vdef['iden']
         vdef.setdefault('parent', None)
         vdef.setdefault('worldreadable', False)
         vdef.setdefault('creator', self.auth.rootuser.iden)
 
-        creator = vdef.get('creator')
-        await self.auth.reqUser(creator)
+        s_view.reqValidVdef(vdef)
 
-        # this should not get saved
-        vdef.pop('worldreadable')
+        return await self._push('view:add', vdef)
+
+    @s_nexus.Pusher.onPush('view:add')
+    async def _addView(self, vdef):
+
+        s_view.reqValidVdef(vdef)
+
+        iden = vdef['iden']
+        creator = vdef.get('creator', self.auth.rootuser.iden)
+        user = await self.auth.reqUser(creator)
+
+        await self.auth.addAuthGate(iden, 'view')
+        await user.setAdmin(True, gateiden=iden)
+
+        # worldreadable is not get persisted with the view; the state ends up in perms
+        worldread = vdef.pop('worldreadable', False)
+
+        if worldread:
+            role = await self.auth.getRoleByName('all')
+            await role.addRule((True, ('view', 'read')), gateiden=iden)
 
         node = await self.hive.open(('cortex', 'views', iden))
 
@@ -2253,13 +2247,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         for name, valu in vdef.items():
             await info.set(name, valu)
 
-        view = await self._loadView(node)
-
-        await self.auth.addAuthGate(iden, 'view')
+        await self._loadView(node)
 
         await self.bumpSpawnPool()
 
-        return view
+        return iden
 
     @s_nexus.Pusher.onPushAuto('view:del')
     async def delView(self, iden):
@@ -2341,6 +2333,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return self.layers.get(iden)
 
+    def listLayers(self):
+        return self.layers.values()
+
     def getView(self, iden=None):
         '''
         Get a View object.
@@ -2362,7 +2357,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         return self.views.get(iden)
 
     def listViews(self):
-        # FIXME:  perms?
         return list(self.views.values())
 
     async def addLayer(self, ldef=None):
@@ -2372,17 +2366,17 @@ class Cortex(s_cell.Cell):  # type: ignore
         ldef = ldef or {}
 
         ldef.setdefault('iden', s_common.guid())
-        ldef.setdefault('conf', {})
         ldef.setdefault('creator', self.auth.rootuser.iden)
+        ldef.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
 
-        # FIXME: why do we have two levels of conf?
-        conf = ldef.get('conf')
-        conf.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
+        s_layer.reqValidLdef(ldef)
 
         return await self._push('layer:add', ldef)
 
     @s_nexus.Pusher.onPush('layer:add')
     async def _addLayer(self, ldef):
+
+        s_layer.reqValidLdef(ldef)
 
         iden = ldef.get('iden')
         creator = ldef.get('creator')
@@ -2401,7 +2395,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # forward wind the new layer to the current model version
         await layr.setModelVers(s_modelrev.maxvers)
 
-        return layr
+        return layr.iden
 
     async def _initLayr(self, layrinfo):
         '''
@@ -2439,10 +2433,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             }
         }
 
-        layr = await self.addLayer(**info)
-        await self.view.addLayer(layr, indx=indx)
+        layriden = await self.addLayer(**info)
+        await self.view.addLayer(layriden, indx=indx)
         # FIXME: unchange this; change dist methods can return heavy objects
-        return layr.iden
+        return layriden
 
     async def _initCoreLayers(self):
 
@@ -2561,8 +2555,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         return list(self.stormcmds.items())
 
     async def getAxon(self):
-        await self.core.axready.wait()
-        return self.core.axon.iden
+        await self.axready.wait()
+        return self.axon.iden
 
     def setFeedFunc(self, name, func):
         '''
@@ -3195,7 +3189,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
-        await self.cell.agenda.delete(iden)
+        await self.agenda.delete(iden)
         await self.auth.delAuthGate(iden)
 
     @s_nexus.Pusher.onPushAuto('cron:mod')
@@ -3206,7 +3200,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        await self.cell.agenda.mod(iden, query)
+        await self.agenda.mod(iden, query)
 
     @s_nexus.Pusher.onPushAuto('cron:enable')
     async def enableCronJob(self, iden):
@@ -3216,49 +3210,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        await self.cell.agenda.enable(iden)
-
-    @s_nexus.Pusher.onPushAuto('cron:disable')
-    async def disableCronJob(self, iden):
-        '''
-        Enable a cron job
-
-        Args:
-            iden (bytes):  The iden of the cron job to be changed
-        '''
-        await self.cell.agenda.disable(iden)
-
-    @staticmethod
-    def _convert_reqdict(reqdict):
-        return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
-
-    async def delCronJob(self, iden):
-        '''
-        Delete a cron job
-
-        Args:
-            iden (bytes):  The iden of the cron job to be deleted
-        '''
-        await self.agenda.delete(iden)
-
-    async def updateCronJob(self, iden, query):
-        '''
-        Change an existing cron job's query
-
-        Args:
-            iden (bytes):  The iden of the cron job to be changed
-        '''
-        await self.agenda.mod(iden, query)
-
-    async def enableCronJob(self, iden):
-        '''
-        Enable a cron job
-
-        Args:
-            iden (bytes):  The iden of the cron job to be changed
-        '''
         await self.agenda.enable(iden)
 
+    @s_nexus.Pusher.onPushAuto('cron:disable')
     async def disableCronJob(self, iden):
         '''
         Enable a cron job
@@ -3272,7 +3226,20 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Get information about all the cron jobs accessible to the current user
         '''
-        return self.agenda.list()
+        crons = []
+
+        for iden, cron in self.agenda.list():
+
+            info = cron.pack()
+
+            info['iden'] = iden
+
+            user = self.auth.user(cron.useriden)
+            info['username'] = user.name
+
+            crons.append((iden, info))
+
+        return crons
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):

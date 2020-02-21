@@ -92,6 +92,7 @@ class CantDelNode(SynErr): pass
 class CantDelProp(SynErr): pass
 class CantDelUniv(SynErr): pass
 class CantDelRootUser(SynErr): pass
+class CantMergeView(SynErr): pass
 class CantRevLayer(SynErr): pass
 class CliFini(SynErr):
     '''
@@ -117,6 +118,7 @@ class DataAlreadyExists(SynErr):
 
 class DbOutOfSpace(SynErr): pass
 class DupName(SynErr): pass
+class DupIden(SynErr): pass
 class DupFileName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupRoleName(SynErr): pass

@@ -562,10 +562,9 @@ class CoreSpawnTest(s_test.SynTest):
             self.len(3, msgs)
             self.eq(msgs[1][1][1]['props'].get('_woot'), 10)
 
-            # FIXME:  pending core.getModelDefs fixup
-            # msgs = await prox.storm('inet:ipv4:_woot=10', opts=opts).list()
-            # self.len(3, msgs)
-            # self.eq(msgs[1][1][1]['props'].get('_woot'), 10)
+            msgs = await prox.storm('inet:ipv4:_woot=10', opts=opts).list()
+            self.len(3, msgs)
+            self.eq(msgs[1][1][1]['props'].get('_woot'), 10)
 
     async def test_spawn_dmon_cmds(self):
         '''

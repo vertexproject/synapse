@@ -20,6 +20,17 @@ class CortexTest(s_t_utils.SynTest):
     '''
     The tests that should be run with different types of layers
     '''
+    async def test_cortex_must_upgrade(self):
+
+        with self.getTestDir() as dirn:
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+                self.nn(await core.cellinfo.pop('cortex:version'))
+
+            with self.raises(s_exc.BadStorageVersion):
+                async with await s_cortex.Cortex.anit(dirn) as core:
+                    pass
+
     async def test_cortex_prop_deref(self):
 
         async with self.getTestCore() as core:
@@ -1351,19 +1362,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
-    async def test_mirror_offset_migration(self):
-        '''
-        0.1.0-mirror has previously mirrored from 0.1.0.  Make sure that the post-migrated mirror picks up from where
-        it left off after the layers changed idens
-        '''
-        # FIXME
-        self.skip('Need to implement, test 0.1.x -> 0.2.0 layer metadata migration')
-        with self.getAsyncLoggerStream('synapse.cortex', 'offset=6)') as stream:
-            async with self.getRegrCore('0.1.0') as core, self.getRegrCore('0.1.0-mirror') as coremirr:
-                url = core.getLocalUrl()
-                await coremirr.initCoreMirror(url)
-                self.true(await stream.wait(4))
-
 class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed
@@ -1815,8 +1813,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.BadPropValu, node.set('tick', (20, 30)))
 
                 snap.strict = False
-                # FIXME:  discuss if this is still correct behavior.  Fails
-                self.skip('hmm norming of novalu')
                 self.none(await snap.addNode('test:str', s_common.novalu))
 
                 self.false(await node.set('newpnewp', 10))
@@ -2681,7 +2677,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             counts = nstat.get('formcounts')
             self.eq(counts.get('test:str'), 1)
 
-        conf = {'dedicated': True}
+        conf = {'layers:lockmemory': True}
         async with self.getTestCoreAndProxy(conf=conf) as (realcore, core):
             nstat = await core.stat()
             layr = nstat.get('layer')
@@ -3376,6 +3372,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.true(await s_coro.event_wait(evnt, timeout=2.0))
 
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
+                    await core00.nodes('queue.add visi')
 
                     offs = await core00.getNexusOffs() - 1
                     evnt = await core01.getNexusOffsEvent(offs)
@@ -3383,13 +3380,17 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
 
+                    msgs = await core01.streamstorm('queue.list').list()
+                    # FIXME:  uncomment when nexsroot bootstrap fixed
+                    # self.stormIsInPrint('visi', msgs)
+
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 
                 # test what happens when we go down and come up again...
                 async with await s_cortex.Cortex.anit(dirn=path01) as core01:
                     offs = await core00.getNexusOffs() - 1
                     mirroffs = await core01.getNexusOffs() - 1
-                    self.gt(offs, mirroffs)
+                    self.ge(offs, mirroffs)
 
                     evnt = await core01.getNexusOffsEvent(offs)
 
@@ -3497,8 +3498,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=path01) as core01:
 
                 self.len(1, await core01.eval('[ test:str=core01 ]').list())
-                layer1 = await core01.addLayer()
-                iden00b = layer1.iden
+                iden00b = await core01.addLayer()
                 iden01 = core01.getLayer().iden
                 # Set the default view for core01 to have a read layer with
                 # the new iden
@@ -3629,8 +3629,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
                 self.len(1, await core.nodes('[test:int=1]'))
                 await core.nodes('$q=$lib.queue.add(dmon)')
-                view2 = await core.view.fork()
-                view2_iden = view2.iden
+                view2_iden = await core.view.fork()
 
                 q = '''
                 $lib.dmon.add(${
@@ -3918,13 +3917,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.NoSuchLayer, core.delLayer('XXX'))
 
             # Fork the main view
-            view2 = await core.view.fork()
-
-            viewiden = view2.iden
+            view2_iden = await core.view.fork()
 
             # Can't delete a view twice
-            await core.delView(viewiden)
-            await self.asyncraises(s_exc.NoSuchView, core.delView(viewiden))
+            await core.delView(view2_iden)
+            await self.asyncraises(s_exc.NoSuchView, core.delView(view2_iden))
 
     async def test_cortex_view_opts(self):
         '''

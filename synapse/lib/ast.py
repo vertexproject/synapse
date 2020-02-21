@@ -2313,15 +2313,15 @@ class VarValue(RunValue, Cond):
 class VarDeref(RunValue):
 
     async def compute(self, path):
-        valu = await self.kids[0].compute(path)
+        base = await self.kids[0].compute(path)
         name = await self.kids[1].compute(path)
-        valu = s_stormtypes.fromprim(valu, path=path)
+        valu = s_stormtypes.fromprim(base, path=path)
         return await valu.deref(name)
 
     async def runtval(self, runt):
-        valu = await self.kids[0].runtval(runt)
+        base = await self.kids[0].runtval(runt)
         name = await self.kids[1].runtval(runt)
-        valu = s_stormtypes.fromprim(valu)
+        valu = s_stormtypes.fromprim(base)
         return await valu.deref(name)
 
 class FuncCall(RunValue):
@@ -2615,8 +2615,6 @@ class EditNodeAdd(Edit):
         # case 1: <query> [ foo:bar=(:baz, 20) ]
         # case 2: <query> [ foo:bar=($node, 20) ]
         # case 2: <query> $blah=:baz [ foo:bar=($blah, 20) ]
-
-        #async with await s_base.Base.anit() as base:
 
         runtsafe = self.isruntsafe(runt)
 

@@ -99,10 +99,7 @@ async def main(argv, outp=s_output.stdout):
 
             async for mesg in core.storm(text, opts=stormopts):
 
-                if mesg[0] == 'node:add':
-                    newcount += 1
-
-                elif mesg[0] == 'node':
+                if mesg[0] == 'node':
                     nodecount += 1
 
                 elif mesg[0] == 'err' and not opts.debug:
@@ -121,20 +118,20 @@ async def main(argv, outp=s_output.stdout):
         if opts.cli:
             await s_cmdr.runItemCmdr(core, outp, True)
 
-        return newcount, nodecount
+        return nodecount
 
     if opts.test:
         async with s_cortex.getTempCortex() as core:
-            newcount, nodecount = await addCsvData(core)
+            nodecount = await addCsvData(core)
 
     else:
         async with await s_telepath.openurl(opts.cortex) as core:
-            newcount, nodecount = await addCsvData(core)
+            nodecount = await addCsvData(core)
 
     if logfd is not None:
         logfd.close()
 
-    outp.printf('%d nodes (%d created).' % (nodecount, newcount,))
+    outp.printf('%d nodes.' % (nodecount, ))
 
 def makeargparser():
     desc = '''

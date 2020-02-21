@@ -14,7 +14,8 @@ class RegMethType(type):
     '''
     def __init__(cls, name: str, bases: List[type], attrs: Dict[str, Any]):
         # Start with my parents' definitions
-        cls._regclstupls = sum((getattr(scls, '_regclstupls', []) for scls in bases), [])
+        cls._regclstupls: List[Tuple[str, Callable, bool]] = \
+            sum((getattr(scls, '_regclstupls', []) for scls in bases), [])
 
         # Add my own definitions
         for meth in attrs.values():
@@ -69,8 +70,8 @@ class NexsRoot(s_base.Base):
 
         self.mirrors: List[ChangeDist] = []
 
-        path = s_common.genpath(self.dirn, 'nexus.lmdb')
-        self.nexusslab = await s_lmdbslab.Slab.anit(path)
+        path = s_common.genpath(self.dirn, 'slabs', 'nexus.lmdb')
+        self.nexusslab = await s_lmdbslab.Slab.anit(path, map_async=False)
 
         async def fini():
             await self.nexusslab.fini()
@@ -151,24 +152,30 @@ class Pusher(s_base.Base, metaclass=RegMethType):
     _regclstupls: List[Tuple[str, Callable, bool]] = []
 
     async def __anit__(self, iden: str, nexsroot: NexsRoot = None):  # type: ignore
+
         await s_base.Base.__anit__(self)
         self._nexshands: Dict[str, Tuple[Callable, bool]] = {}
 
-        self._nexsiden = iden
+        self.nexsiden = iden
+        self.nexsroot = None
 
-        if nexsroot:
-            assert iden
-            nexsroot._nexskids[iden] = self
-
-            def onfini():
-                prev = nexsroot._nexskids.pop(iden, None)
-                assert prev is not None
-            self.onfini(onfini)
-
-        self._nexsroot = nexsroot
+        if nexsroot is not None:
+            self.setNexsRoot(nexsroot)
 
         for event, func, passoff in self._regclstupls:  # type: ignore
             self._nexshands[event] = func, passoff
+
+    def setNexsRoot(self, nexsroot):
+
+        nexsroot._nexskids[self.nexsiden] = self
+
+        def onfini():
+            prev = nexsroot._nexskids.pop(self.nexsiden, None)
+            assert prev is not None
+
+        self.onfini(onfini)
+
+        self.nexsroot = nexsroot
 
     @classmethod
     def onPush(cls, event: str, passoff=False) -> Callable:
@@ -207,10 +214,10 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         Note:
             This method is considered 'protected', in that it should not be called from something other than self.
         '''
-        nexsiden = self._nexsiden
-        if self._nexsroot:  # Distribute through the change root
-            offs, retn = await self._nexsroot.issue(nexsiden, event, args, kwargs)
-            await self._nexsroot.waitForOffset(offs)
+        nexsiden = self.nexsiden
+        if self.nexsroot is not None:  # Distribute through the change root
+            offs, retn = await self.nexsroot.issue(nexsiden, event, args, kwargs)
+            await self.nexsroot.waitForOffset(offs)
             return retn
 
         # There's no change distribution, so directly execute

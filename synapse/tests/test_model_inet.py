@@ -380,7 +380,6 @@ class InetModelTest(s_t_utils.SynTest):
             expected_ndef = (formname, valu)
 
             # Demonstrate cascading formation
-            # FIXME use checkNode
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
@@ -1648,7 +1647,7 @@ class InetModelTest(s_t_utils.SynTest):
                 # bad country code
                 guid = s_common.guid()
                 props = {'country': 'u9'}
-                await self.asyncraises(s_exc.BadPropValu, snap.addNode('inet:whois:iprec', guid, props=props))
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('inet:whois:iprec', guid, props=props))
 
     async def test_whois_ipcontact(self):
         pscontact = s_common.guid()
