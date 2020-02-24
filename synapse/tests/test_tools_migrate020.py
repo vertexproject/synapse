@@ -15,8 +15,7 @@ import synapse.lib.msgpack as s_msgpack
 
 import synapse.tools.migrate_020 as s_migr
 
-REGR_REPO = '/home/mike/git/synapse-regression'  # TODO hard-coded for testing, replace with utils.getRegrDir
-REGR_DIR = '0.1.51-migr'
+REGR_VER = '0.1.51-migr'
 
 # Nodes that are expected to be unmigratable
 NOMIGR_NDEF = [
@@ -55,25 +54,15 @@ def getAssetJson(*paths):
     obj = json.loads(byts.decode())
     return obj
 
-def convertJsonLists(elm):
+def tupleize(obj):
     '''
-    Recursively convert lists to tuples for equality comparisons.
+    Convert list objects to tuples in a nested python struct.
     '''
-
-    if isinstance(elm, list):
-        for i, e in enumerate(elm):
-            elm[i] = convertJsonLists(e)
-
-        return tuple(elm)
-
-    elif isinstance(elm, dict):
-        for k, v in elm.items():
-            elm[k] = convertJsonLists(v)
-
-        return elm
-
-    else:
-        return elm
+    if isinstance(obj, (list, tuple)):
+        return tuple([tupleize(o) for o in obj])
+    if isinstance(obj, dict):
+        return {k: tupleize(v) for k, v in obj.items()}
+    return obj
 
 class MigrationTest(s_t_utils.SynTest):
 
@@ -90,26 +79,21 @@ class MigrationTest(s_t_utils.SynTest):
             (s_migr.Migrator): Migrator service object
             (tuple): test data, dest dirn, dest local layers, Migrator
         '''
-        path_cortex = ('cortexes', REGR_DIR)
-        path_assets = ('assets', REGR_DIR)
-
-        regr = os.path.join(REGR_REPO, *path_cortex)
-        assets = os.path.join(REGR_REPO, *path_assets)
-
         # get test data
         tdata = {}
-        podesj = getAssetJson(assets, 'podes.json')
-        ndj = getAssetJson(assets, 'nodedata.json')
+        with self.getRegrDir('assets', REGR_VER) as assetdir:
+            podesj = getAssetJson(assetdir, 'podes.json')
+            ndj = getAssetJson(assetdir, 'nodedata.json')
 
         # strip out data we don't expect to migrate
         podesj = [p for p in podesj if p[0] not in NOMIGR_NDEF]
         ndj = [nd for nd in ndj if nd[0] not in NOMIGR_NDEF]
 
-        tdata['podes'] = convertJsonLists(podesj)
-        tdata['nodedata'] = convertJsonLists(ndj)
+        tdata['podes'] = tupleize(podesj)
+        tdata['nodedata'] = tupleize(ndj)
 
         # initialize migration tool
-        with self.getTestDir(copyfrom=regr) as src:
+        with self.getRegrDir('cortexes', REGR_VER) as src:
             with self.getTestDir(copyfrom=conf.get('dest')) as dest:
                 tconf = copy.deepcopy(conf)
                 tconf['src'] = src
@@ -199,7 +183,7 @@ class MigrationTest(s_t_utils.SynTest):
         nodedata = []
         for n in nodes:
             nodedata.append([n.ndef, [nd async for nd in n.iterData()]])
-        nodedata = convertJsonLists(nodedata)
+        nodedata = tupleize(nodedata)
         try:
             self.eq(nodedata, tnodedata)
         except AssertionError:
@@ -490,10 +474,7 @@ class MigrationTest(s_t_utils.SynTest):
         '''
         Test that migration service is being properly initialized from cmdline args.
         '''
-        path_cortex = ('cortexes', REGR_DIR)
-        regr = os.path.join(REGR_REPO, *path_cortex)
-
-        with self.getTestDir(copyfrom=regr) as src:
+        with self.getRegrDir('cortexes', REGR_VER) as src:
             with self.getTestDir() as destp:
                 dest = os.path.join(destp, 'woot')  # verify svc is creating dir if it doesn't exist
 
@@ -525,10 +506,7 @@ class MigrationTest(s_t_utils.SynTest):
                     self.len(1, nodes)
 
     async def test_migr_errconf(self):
-        path_cortex = ('cortexes', REGR_DIR)
-        regr = os.path.join(REGR_REPO, *path_cortex)
-
-        with self.getTestDir(copyfrom=regr) as src:
+        with self.getRegrDir('cortexes', REGR_VER) as src:
             with self.getTestDir() as dest:
 
                 conf = {
@@ -578,10 +556,7 @@ class MigrationTest(s_t_utils.SynTest):
                     self.len(0, nodes)
 
     async def test_migr_missingidens(self):
-        path_cortex = ('cortexes', REGR_DIR)
-        regr = os.path.join(REGR_REPO, *path_cortex)
-
-        with self.getTestDir(copyfrom=regr) as src:
+        with self.getRegrDir('cortexes', REGR_VER) as src:
             with self.getTestDir() as dest:
 
                 conf = {
@@ -620,10 +595,7 @@ class MigrationTest(s_t_utils.SynTest):
                     self.len(1, nodes)
 
     async def test_migr_yamlmod(self):
-        path_cortex = ('cortexes', REGR_DIR)
-        regr = os.path.join(REGR_REPO, *path_cortex)
-
-        with self.getTestDir(copyfrom=regr) as src:
+        with self.getRegrDir('cortexes', REGR_VER) as src:
             with self.getTestDir() as dest:
                 locallyrs = os.listdir(os.path.join(src, 'layers'))
 
