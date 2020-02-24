@@ -184,12 +184,15 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq([], agenda.list())
 
                 rootiden = 'aaaaa'
-
-                await self.asyncraises(ValueError, agenda.add(rootiden, 'fakeiden', '', {s_agenda.TimeUnit.MINUTE: 1}))
+                cdef = {'useriden': rootiden, 'iden': 'fakeiden', 'storm': '',
+                        'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
+                await self.asyncraises(ValueError, agenda.add(cdef))
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('newp'))
 
                 # Schedule a one-shot 1 minute from now
-                await agenda.add(rootiden, 'IDEN1', '[test:str=foo]', {s_agenda.TimeUnit.MINUTE: 1})
+                cdef = {'useriden': rootiden, 'iden': 'IDEN1', 'storm': '[test:str=foo]',
+                        'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
+                await agenda.add(cdef)
                 await asyncio.sleep(0)  # give the scheduler a shot to wait
                 unixtime += 61
                 await sync.wait()  # wait for the query to run
@@ -204,19 +207,26 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(appts[0][1].nexttime, None)
 
                 # Schedule a query to run every Wednesday and Friday at 10:15am
-                guid = await agenda.add(rootiden, 'IDEN2', '[test:str=bar]', {s_tu.HOUR: 10, s_tu.MINUTE: 15},
-                                        incunit=s_agenda.TimeUnit.DAYOFWEEK, incvals=(2, 4))
+                cdef = {'useriden': rootiden, 'iden': 'IDEN2', 'storm': '[test:str=bar]',
+                        'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
+                        'incunit': s_agenda.TimeUnit.DAYOFWEEK,
+                        'incvals': (2, 4)}
+                guid = await agenda.add(cdef)
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
-                guid2 = await agenda.add(rootiden, 'IDEN3', '[test:str=baz]',
-                                         {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
-                                         incunit=s_agenda.TimeUnit.MONTH, incvals=1)
+                cdef = {'useriden': rootiden, 'iden': 'IDEN3', 'storm': '[test:str=baz]',
+                        'reqs': {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
+                        'incunit': s_agenda.TimeUnit.MONTH,
+                        'incvals': 1}
+                guid2 = await agenda.add(cdef)
 
                 xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2018}
                 lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2018}
 
                 # And one-shots for Christmas and last day of Hanukkah of 2018
-                await agenda.add(rootiden, 'IDEN4', '#happyholidays', (xmas, lasthanu))
+                cdef = {'useriden': rootiden, 'iden': 'IDEN4', 'storm': '#happyholidays',
+                        'reqs': (xmas, lasthanu)}
+                await agenda.add(cdef)
 
                 await asyncio.sleep(0)
                 unixtime += 1
@@ -286,8 +296,9 @@ class AgendaTest(s_t_utils.SynTest):
                 self.len(0, agenda.apptheap)
 
                 # Test that isrunning updated, cancelling works
-                guid = await agenda.add(rootiden, 'IDEN5', 'inet:ipv4=1 | sleep 120', {},
-                                        incunit=s_agenda.TimeUnit.MINUTE, incvals=1)
+                cdef = {'useriden': rootiden, 'iden': 'IDEN5', 'storm': 'inet:ipv4=1 | sleep 120',
+                        'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE, 'incvals': 1}
+                guid = await agenda.add(cdef)
                 unixtime += 60
                 await sync.wait()
                 sync.clear()
@@ -306,8 +317,10 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.delete(guid)
 
                 # Test bad queries record exception
-                guid = await agenda.add(rootiden, '#foo', 'IDEN', {},
-                                        incunit=s_agenda.TimeUnit.MINUTE, incvals=1)
+                cdef = {'useriden': rootiden, 'iden': '#foo', 'storm': 'IDEN',
+                        'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE,
+                        'incvals': 1}
+                guid = await agenda.add(cdef)
                 # bypass the API because it would actually syntax check
                 agenda.appts[guid].query = 'badquery'
                 unixtime += 60
@@ -325,12 +338,18 @@ class AgendaTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=fdir) as core:
                 agenda = core.agenda
                 # Schedule a query to run every Wednesday and Friday at 10:15am
-                guid1 = await agenda.add('visi', 'IDEN1', '[test:str=bar]', {s_tu.HOUR: 10, s_tu.MINUTE: 15},
-                                         incunit=s_agenda.TimeUnit.DAYOFWEEK, incvals=(2, 4))
+                cdef = {'useriden': 'visi', 'iden': 'IDEN1', 'storm': '[test:str=bar]',
+                        'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
+                        'incunit': s_agenda.TimeUnit.DAYOFWEEK,
+                        'incvals': (2, 4)}
+                guid1 = await agenda.add(cdef)
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
-                await agenda.add('visi', 'IDEN2', '[test:str=baz]', {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
-                                 incunit=s_agenda.TimeUnit.MONTH, incvals=1)
+                cdef = {'useriden': 'visi', 'iden': 'IDEN2', 'storm': '[test:str=baz]',
+                        'reqs': {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
+                        'incunit': s_agenda.TimeUnit.MONTH,
+                        'incvals': 1}
+                await agenda.add(cdef)
 
                 xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2099}
                 lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2099}
@@ -338,7 +357,9 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.delete(guid1)
 
                 # And one-shots for Christmas and last day of Hanukkah of 2018
-                guid3 = await agenda.add('visi', 'IDEN3', '#happyholidays', (xmas, lasthanu))
+                cdef = {'useriden': 'visi', 'iden': 'IDEN3', 'storm': '#happyholidays',
+                        'reqs': (xmas, lasthanu)}
+                guid3 = await agenda.add(cdef)
 
                 await agenda.mod(guid3, '#bahhumbug')
 
@@ -356,12 +377,15 @@ class AgendaTest(s_t_utils.SynTest):
             newb = await core.auth.addUser('newb')
             async with core.getLocalProxy(user='visi') as proxy:
 
+                cdef = {'storm': 'inet:ipv4', 'reqs': {'hour': 2}}
                 with self.raises(s_exc.AuthDeny):
-                    await proxy.addCronJob('inet:ipv4', {'hour': 2})
+                    await proxy.addCronJob(cdef)
 
                 await visi.addRule((True, ('cron', 'add')))
-                cron0 = await proxy.addCronJob('inet:ipv4', {'hour': 2})
-                cron1 = await proxy.addCronJob('inet:ipv6', {'hour': 2})
+                cron0 = await proxy.addCronJob(cdef)
+
+                cdef = {'storm': 'inet:ipv6', 'reqs': {'hour': 2}}
+                cron1 = await proxy.addCronJob(cdef)
 
                 await proxy.delCronJob(cron0)
 

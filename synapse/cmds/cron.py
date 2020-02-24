@@ -448,8 +448,12 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
         # Remove the curly braces
         query = opts.query[1:-1]
-
-        iden = await core.addCronJob(query, reqdict, incunit, incval)
+        cdef = {'storm': query,
+                'reqs': reqdict,
+                'incunit': incunit,
+                'incvals': incval,
+                }
+        iden = await core.addCronJob(cdef)
         self.printf(f'Created cron job {iden}')
 
     @staticmethod
@@ -724,5 +728,11 @@ Examples:
 
         reqdicts = [_ts_to_reqdict(ts) for ts in tslist]
 
-        iden = await core.addCronJob(query, reqdicts, None, None)
+        cdef = {'storm': query,
+                'reqs': reqdicts,
+                'incunit': None,
+                'incvals': None,
+                }
+
+        iden = await core.addCronJob(cdef)
         self.printf(f'Created cron job {iden}')

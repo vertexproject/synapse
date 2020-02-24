@@ -139,7 +139,7 @@ class CoreApi(s_cell.CellApi):
 
             return retn
 
-    async def addCronJob(self, query, reqs, incunit=None, incval=1):
+    async def addCronJob(self, cdef):
         '''
         Add a cron job to the cortex
 
@@ -157,7 +157,7 @@ class CoreApi(s_cell.CellApi):
             incunit (Optional[str]):
                 A member of the same set as above, with an additional member 'day'.  If is None (default), then the
                 appointment is one-shot and will not recur.
-            incval (Union[int, List[int]):
+            incvals (Union[int, List[int]):
                 A integer or a list of integers of the number of units
 
         Returns (bytes):
@@ -167,9 +167,11 @@ class CoreApi(s_cell.CellApi):
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
+        cdef['useriden'] = self.user.iden
+
         s_common.deprecated('addCronJob')
         self.user.confirm(('cron', 'add'), gateiden='cortex')
-        return await self.cell.addCronJob(self.user.iden, query, reqs, incunit, incval)
+        return await self.cell.addCronJob(cdef)
 
     async def delCronJob(self, iden):
         '''
@@ -3091,7 +3093,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     def _convert_reqdict(reqdict):
         return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
 
-    async def addCronJob(self, useriden, query, reqs, incunit=None, incval=1):
+    async def addCronJob(self, cdef):
         '''
         Add a cron job to the cortex.  Convenience wrapper around agenda.add
 
@@ -3109,7 +3111,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             incunit (Optional[str]):
                 A member of the same set as above, with an additional member 'day'.  If is None (default), then the
                 appointment is one-shot and will not recur.
-            incval (Union[int, List[int]):
+            incvals (Union[int, List[int]):
                 A integer or a list of integers of the number of units
 
         Returns (bytes):
@@ -3119,30 +3121,39 @@ class Cortex(s_cell.Cell):  # type: ignore
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
+        s_agenda.reqValidCdef(s_common.convertToLists(cdef))
+
+        incunit = cdef.get('incunit')
+        reqs = cdef.get('reqs')
+
         try:
             if incunit is not None:
                 if isinstance(incunit, (list, tuple)):
                     incunit = [s_agenda.TimeUnit.fromString(i) for i in incunit]
                 else:
                     incunit = s_agenda.TimeUnit.fromString(incunit)
+                cdef['incunit'] = incunit
+
             if isinstance(reqs, Mapping):
-                newreqs = self._convert_reqdict(reqs)
+                reqs = self._convert_reqdict(reqs)
             else:
-                newreqs = [self._convert_reqdict(req) for req in reqs]
+                reqs = [self._convert_reqdict(req) for req in reqs]
+
+            cdef['reqs'] = reqs
         except KeyError:
             raise s_exc.BadConfValu('Unrecognized time unit')
 
-        user = await self.auth.reqUser(useriden)
+        user = await self.auth.reqUser(cdef['useriden'])
 
-        iden = s_common.guid()
-        await self._push('cron:add', useriden, iden, query, newreqs, incunit, incval)
-        await user.setAdmin(True, gateiden=iden)
-        return iden
+        cdef['iden'] = s_common.guid()
+        await self._push('cron:add', cdef)
+        await user.setAdmin(True, gateiden=cdef['iden'])
+        return cdef['iden']
 
     @s_nexus.Pusher.onPush('cron:add')
-    async def _onAddCronJob(self, useriden, croniden, query, newreqs, incunit=None, incval=1):
-        await self.agenda.add(useriden, croniden, query, newreqs, incunit, incval)
-        await self.auth.addAuthGate(croniden, 'cronjob')
+    async def _onAddCronJob(self, cdef):
+        await self.agenda.add(cdef)
+        await self.auth.addAuthGate(cdef['iden'], 'cronjob')
 
     @s_nexus.Pusher.onPushAuto('cron:del')
     async def delCronJob(self, iden):

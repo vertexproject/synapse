@@ -13,11 +13,59 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.config as s_config
 import synapse.lib.provenance as s_provenance
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
 logger = logging.getLogger(__name__)
+
+reqValidCdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'storm': {'type': 'string'},
+        'useriden': {'type': 'string', 'pattern': s_config.re_iden},
+        'incunit': {
+            'oneOf': [
+                {'type': 'null'},
+                {'enum': ['year', 'month', 'dayofmonth', 'dayofweek', 'day', 'hour', 'minute']}
+            ]
+        },
+        'incvals': {
+            'type': ['array', 'number', 'null'],
+            'items': {'type': 'number'}
+        },
+        'reqs': {
+            'oneOf': [
+                {
+                    '$ref': '#/definitions/req',
+                },
+                {
+                    'type': ['array'],
+                    'items': {'$ref': '#/definitions/req'},
+                },
+            ]
+        },
+    },
+    'additionalProperties': False,
+    'required': ['useriden', 'storm'],
+    'dependencices': {
+        'incvals': ['incunit'],
+        'incunit': ['incvals'],
+    },
+    'definitions': {
+        'req': {
+            'type': 'object',
+            'properties': {
+                'minute': {'type': 'number'},
+                'hour': {'type': 'number'},
+                'dayofmonth': {'type': 'number'},
+                'month': {'type': 'number'},
+                'year': {'type': 'number'},
+            }
+        }
+    }
+})
 
 def _dayofmonth(hardday, month, year):
     '''
@@ -494,7 +542,7 @@ class Agenda(s_base.Base):
     def list(self):
         return list(self.appts.items())
 
-    async def add(self, useriden: str, croniden: str, query: str, reqs, incunit=None, incvals=None, doc=''):
+    async def add(self, cdef):
         '''
         Persistently adds an appointment
 
@@ -518,13 +566,16 @@ class Agenda(s_base.Base):
         Returns:
             iden of new appointment
         '''
-        iden = croniden
+        iden = cdef['iden']
+        incunit = cdef.get('incunit')
+        incvals = cdef.get('incvals')
+        reqs = cdef.get('reqs', {})
+        query = cdef.get('storm')
+        useriden = cdef.get('useriden')
+
         recur = incunit is not None
         indx = self._next_indx
         self._next_indx += 1
-
-        if reqs is None:
-            reqs = {}
 
         if not query:
             raise ValueError('empty query')
@@ -550,7 +601,7 @@ class Agenda(s_base.Base):
         appt = _Appt(self, iden, recur, indx, query, useriden, recs)
         self._addappt(iden, appt)
 
-        appt.doc = doc
+        appt.doc = cdef.get('doc', '')
 
         await self._storeAppt(appt)
 

@@ -467,7 +467,8 @@ class SynModelTest(s_t_utils.SynTest):
             await visi.addRule((True, ('cron', 'add')))
 
             async with core.getLocalProxy(user='visi') as proxy:
-                cron0 = await proxy.addCronJob('inet:ipv4', {'hour': 2})
+                cdef = {'storm': 'inet:ipv4', 'reqs': {'hour': 2}}
+                cron0 = await proxy.addCronJob(cdef)
 
                 nodes = await core.nodes('syn:cron')
                 self.len(1, nodes)

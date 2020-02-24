@@ -2077,10 +2077,14 @@ class LibCron(Lib):
             incunit = valinfo[requnit][1]
             incval = 1
 
-        # Remove the curly braces
-        query = query[1:-1]
+        cdef = {'storm': query[1:-1],
+                'reqs': reqdict,
+                'incunit': incunit,
+                'incvals': incval,
+                'useriden': self.runt.user.iden
+                }
 
-        todo = s_common.todo('addCronJob', self.runt.user.iden, query, reqdict, incunit, incval)
+        todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
         iden = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
@@ -2143,9 +2147,14 @@ class LibCron(Lib):
 
         reqdicts = [_ts_to_reqdict(ts) for ts in tslist]
 
-        query = query[1:-1]
+        cdef = {'storm': query[1:-1],
+                'reqs': reqdicts,
+                'incunit': None,
+                'incvals': None,
+                'useriden': self.runt.user.iden
+                }
 
-        todo = s_common.todo('addCronJob', self.runt.user.iden, query, reqdicts, None, None)
+        todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
         iden = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
