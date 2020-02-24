@@ -1,6 +1,8 @@
 import functools
 
 import synapse.exc as s_exc
+import synapse.common as s_common
+
 import synapse.lib.cli as s_cli
 import synapse.lib.cmd as s_cmd
 import synapse.lib.grammar as s_grammar
