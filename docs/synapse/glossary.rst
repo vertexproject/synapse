@@ -118,6 +118,14 @@ Cortex
 
 A Cortex is Synapse's implementation of an individual :ref:`gloss-hypergraph`. Cortex features include scalability, key/value-based node properties, and a :ref:`gloss-data-model` which facilitates normalization.
 
+.. _gloss-cron:
+
+Cron
+----
+
+Within Synapse cron jobs are used to create scheduled tasks, similar to the Linux / Unix "cron" utility. The task to be executed by the cron job is specified using the :ref:`gloss-storm` query language.
+
+See the Storm command reference for the :ref:`storm-cron` command and the :ref:`storm-ref-automation` document for additional detail.
 
 .. _gloss-ctor:
 
@@ -134,7 +142,7 @@ D
 Daemon
 ------
 
-TBD
+Similar to a traditional Linux or Unix daemon, a Synapse daemon is a long-running or recurring query or process that runs continuously in the background. A daemon is typically implemented by a Storm :ref:`gloss-service` and may be used for tasks such as processing elements from a :ref:`gloss-queue`. A daemon allows for non-blocking background processing of non-critical tasks. Daemons are persistent and will restart if they exit.
 
 .. _gloss-data-model:
 
@@ -173,6 +181,11 @@ Directed Graph
 
 See :ref:`gloss-graph-directed`.
 
+Dmon
+----
+
+Abbreviation for :ref:`gloss-daemon`.
+
 E
 =
 
@@ -205,7 +218,7 @@ F
 Feed
 ----
 
-TBD
+A feed is an ingest API consisting of a set of ingest formats (e.g., file formats, record formats) used to parse records directly into nodes. Feeds are typically used for bulk node creation, such as ingesting data from an external source or system.
 
 .. _gloss-filter:
 
@@ -377,7 +390,9 @@ L
 Layer
 -----
 
-TBD
+Within Synapse, a layer is the substrate that contains node data and where permissions enforcement occurs. Viewed another way, a layer is a storage and write permission boundary. By default, a :ref:`gloss-cortex` has a single layer and a single :ref:`gloss-view`, meaning that by default all nodes are stored in one layer and all changes are written to that layer. However, multiple layers can be created for various purposes such as: separating data from different data sources (e.g., a read-only layer consisting of third-party data and associated tags can be created underneath a "working" layer, so that the third-party data is visible but cannot be modified); providing users with a personal "scratch space" where they can make changes in their layer without affecting the underlying main Cortex layer; or segregating data sets that should be visible / accessible to some users but not others.
+
+Layers are closely related to views (see :ref:`gloss-view`). The order in which layers are instantiated within a view matters; in a multi-layer view, typically only the topmost layer is writeable by that view's users, with subsequent (lower) layers read-only. Permissions and implementation decisions will determine whether upper-layer writes are pushed downward (merged) into lower layers.
 
 .. _gloss-leaf-tag:
 
@@ -476,7 +491,7 @@ P
 Package
 -------
 
-TBD
+A package is a set of commands and library code used to implement a Storm :ref:`gloss-service`. When a new Storm service is loaded into a Cortex, the Cortex verifes that the service is legitimate and then requests the service's package in order to load any extended Storm commands associated with the service and any library code used to implement the service.
 
 .. _gloss-pivot:
 
@@ -549,7 +564,7 @@ Q
 Queue
 -----
 
-TBD
+Within Synapse, a queue is a basic first-in, first-out (FIFO) data structure used to store and serve objects in a classic pub/sub (publish / subscribe) manner. Any primitive (such as a node iden) can be placed into a queue and then consumed from it. Queues can be used (for example) to support out-of-band processing by allowing non-critical tasks to be executed in the background. Queues are persistent; i.e., if a Cortex is restarted, the queue and any objects in the queue are retained.
 
 R
 =
@@ -614,7 +629,7 @@ See :ref:`gloss-prop-secondary`.
 Service
 -------
 
-TBD
+A Storm service is a registerable remote component that can provide packages (:ref:`gloss-package`) and additional APIs to Storm and Storm commands. A service resides on a :ref:`gloss-telepath` API endpoint outside of the Cortex. When a service is loaded into a Cortex, the Cortex queries the endpoint to determine if the service is legitimate and, if so, loads the associated :ref:`gloss-package` to implement the service. An advantage of Storm services (over, say, additional Python modules) is that services can be restarted to reload their service definitions and packages while a Cortex is still running - thus allowing a service to be updated without having to restart the entire Cortex.
 
 .. _gloss-simple-form:
 
@@ -635,7 +650,7 @@ TBD
 Splice
 ------
 
-TBD
+A splice is an atomic change made to data within a Cortex, such as node creation or deletion, adding or removing a tag, or setting, modifying, or removing a property. All changes within a Cortex are recorded as individual splices within the Cortex's splice log.
 
 .. _gloss-standard-comp-op:
 
@@ -691,7 +706,7 @@ Within Synapse, the highest (leftmost) tag element in a tag hierarchy. For examp
 Telepath
 --------
 
-TBD
+Telepath is a lightweight remote procedure call (RPC) protocol used in Synapse. See :ref:`arch-telepath` in the :ref:`dev_architecture` guide for additional detail.
 
 .. _gloss-traverse:
 
@@ -707,7 +722,7 @@ Trigger
 
 Within Synapse, a trigger is a Storm query that is executed automatically upon the occurrence of a specified event within a Cortex (such as adding a node or applying a tag). "Trigger" refers collectively to the event and the query fired ("triggered") by the event.
 
-See the Synapse :ref:`syn-trigger` command and the Storm reference on :ref:`auto-triggers` for additional detail.
+See the Storm command reference for the :ref:`storm-trigger` command and the :ref:`storm-ref-automation` for additional detail.
 
 .. _gloss-type:
 
@@ -780,4 +795,6 @@ Contrast with :ref:`gloss-constant`. See also :ref:`gloss-runtsafe` and :ref:`gl
 View
 ----
 
-TBD
+Within Synapse, a view is a set of layers (see :ref:`gloss-layer`) and associated permissions that are used to synthesize nodes from the :ref:`gloss-cortex`, determining both the nodes that are visible to users via that view and where (i.e., in what layer) any changes made by a view's users are recorded. A default Cortex consists of a single layer and a single view, meaning that by default all nodes are stored in one layer and all changes are written to that layer.
+
+In multi-layer systems, a view consists of the set of layers that should be visible to users of that view, and the order in which the layers should be instantiated for that view.  Order matters because typically only the topmost layer is writeable by that view's users, with subsequent (lower) layers read-only. Permissions and implementation decisions will determine whether upper-layer writes are pushed downward (merged) into lower layers.
