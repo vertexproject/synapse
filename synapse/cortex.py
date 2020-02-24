@@ -1115,8 +1115,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
         ctor.forms = cdef.get('forms', {})
 
-        def getStorNode(form='syn:cmd'):
-            ndef = (form, cdef.get('name'))
+        def getStorNode(form):
+            ndef = (form.name, form.type.norm(cdef.get('name'))[0])
             buid = s_common.buid(ndef)
 
             props = {
@@ -1138,9 +1138,15 @@ class Cortex(s_cell.Cell):  # type: ignore
             if ctor.pkgname:
                 props['package'] = ctor.pkgname
 
+            pnorms = {}
+            for prop, valu in props.items():
+                formprop = form.props.get(prop)
+                if formprop is not None and valu is not None:
+                    pnorms[prop] = formprop.type.norm(valu)[0]
+
             return (buid, {
                 'ndef': ndef,
-                'props': props,
+                'props': pnorms,
             })
 
         ctor.getStorNode = getStorNode
@@ -1239,12 +1245,14 @@ class Cortex(s_cell.Cell):  # type: ignore
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
         svciden = pkgdef.get('svciden')
+        pkgname = pkgdef.get('name')
 
         for mdef in mods:
             modtext = mdef.get('storm')
             self.getStormQuery(modtext)
 
         for cdef in cmds:
+            cdef['pkgname'] = pkgname
             cdef.setdefault('cmdconf', {})
             if svciden:
                 cdef['cmdconf']['svciden'] = svciden
