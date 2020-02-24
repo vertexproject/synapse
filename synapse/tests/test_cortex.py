@@ -95,8 +95,6 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.len(1, await core.nodes('#blah:user^=vi'))
 
-                self.len(1, await core.nodes('#:score'))
-                self.len(1, await core.nodes('#:score=20'))
                 self.len(1, await core.nodes('test:int#foo.bar:score'))
                 self.len(1, await core.nodes('test:int#foo.bar:score=20'))
 
@@ -119,9 +117,6 @@ class CortexTest(s_t_utils.SynTest):
                 # test use as a value...
                 q = 'test:int $valu=#foo.bar:score [ +#foo.bar:score = $($valu + 20) ] +#foo.bar:score=40'
                 self.len(1, await core.nodes(q))
-
-                with self.raises(s_exc.CantDelProp):
-                    await core.delTagProp('score')
 
                 with self.raises(s_exc.BadPropValu):
                     self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score=asdf ]'))
@@ -164,10 +159,6 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
                 self.eq(20, nodes[0].getTagProp('bar', 'score'))
-                nodes = await core.nodes('#:score')
-                self.len(1, nodes)
-                self.eq(20, nodes[0].getTagProp('foo', 'score'))
-                self.eq(20, nodes[0].getTagProp('bar', 'score'))
 
                 #    remove one of the tag props and everything still works
                 nodes = await core.nodes('[ test:int=10 -#bar:score ]')
@@ -175,15 +166,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
                 self.false(nodes[0].hasTagProp('bar', 'score'))
 
-                # FIXME indexing on tag prop name only?
-                # nodes = await core.nodes('#:score')
-                # self.len(1, nodes)
-                # self.eq(20, nodes[0].getTagProp('foo', 'score'))
-                # self.false(nodes[0].hasTagProp('bar', 'score'))
-
                 await core.nodes('[ test:int=10 -#foo:score ]')
-                nodes = await core.nodes('#:score')
-                self.len(0, nodes)
 
                 #    same, except for _changing_ the tagprop instead of removing
                 await core.nodes('test:int=10 [ +#foo:score=20 +#bar:score=20 ]')
@@ -191,14 +174,8 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
                 self.eq(30, nodes[0].getTagProp('bar', 'score'))
-                nodes = await core.nodes('#:score')
-                self.len(1, nodes)
-                self.eq(20, nodes[0].getTagProp('foo', 'score'))
-                self.eq(30, nodes[0].getTagProp('bar', 'score'))
 
                 await core.nodes('test:int=10 [ -#foo -#bar ]')
-                nodes = await core.nodes('#:score')
-                self.len(0, nodes)
 
                 with self.raises(s_exc.NoSuchCmpr):
                     await core.nodes('test:int=10 +#foo.bar:score*newp=66')

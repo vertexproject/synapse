@@ -230,10 +230,6 @@ class AstConverter(lark.Transformer):
         kids = self._convert_children(kids)
         return s_ast.FormTagProp(kids=kids)
 
-    def onlytagprop(self, kids):
-        kids = self._convert_children(kids)
-        return s_ast.OnlyTagProp(kids=kids)
-
     def tagname(self, kids):
         assert kids and len(kids) == 1
         kid = kids[0]
@@ -549,7 +545,6 @@ ruleClassMap = {
     'liftbyarray': s_ast.LiftByArray,
     'liftbytagprop': s_ast.LiftTagProp,
     'liftbyformtagprop': s_ast.LiftFormTagProp,
-    'liftbyonlytagprop': s_ast.LiftOnlyTagProp,
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,

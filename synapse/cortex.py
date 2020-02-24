@@ -528,7 +528,6 @@ class CoreApi(s_cell.CellApi):
         '''
         Return the list of splices backwards from the given offset.
         '''
-        # FIXME:  perm check
         count = 0
         async for mesg in self.cell.view.layers[0].splicesBack(offs, size):
             count += 1
@@ -800,7 +799,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.view = None  # The default/main view
 
-        # FIXME:  add feature flag
+        # FIXME: add feature flag
         self.provstor = await s_provenance.ProvStor.anit(self.dirn)
         self.onfini(self.provstor.fini)
 

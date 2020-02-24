@@ -1294,7 +1294,6 @@ class Layer(s_nexus.Pusher):
         tenc = tag.encode()
         penc = prop.encode()
 
-        p_abrv = self.getTagPropAbrv(None, None, prop)
         tp_abrv = self.getTagPropAbrv(None, tag, prop)
         ftp_abrv = self.getTagPropAbrv(form, tag, prop)
 
@@ -1308,14 +1307,12 @@ class Layer(s_nexus.Pusher):
                 return
 
             for oldi in self.getStorIndx(oldt, oldv):
-                self.layrslab.delete(p_abrv + oldi, buid, db=self.bytagprop)
                 self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
                 self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
 
         kvpairs = []
 
         for indx in self.getStorIndx(stortype, valu):
-            kvpairs.append((p_abrv + indx, buid))
             kvpairs.append((tp_abrv + indx, buid))
             kvpairs.append((ftp_abrv + indx, buid))
 
@@ -1332,7 +1329,6 @@ class Layer(s_nexus.Pusher):
         tenc = tag.encode()
         penc = prop.encode()
 
-        p_abrv = self.getTagPropAbrv(None, None, prop)
         tp_abrv = self.getTagPropAbrv(None, tag, prop)
         ftp_abrv = self.getTagPropAbrv(form, tag, prop)
 
@@ -1345,7 +1341,6 @@ class Layer(s_nexus.Pusher):
         oldv, oldt = s_msgpack.un(oldb)
 
         for oldi in self.getStorIndx(oldt, oldv):
-            self.layrslab.delete(p_abrv + oldi, buid, db=self.bytagprop)
             self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
             self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
 
