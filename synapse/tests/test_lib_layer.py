@@ -2,7 +2,9 @@ import asyncio
 import contextlib
 
 import synapse.common as s_common
+import synapse.lib.layer as s_layer
 import synapse.tests.utils as s_t_utils
+
 from synapse.tests.utils import alist
 
 async def iterPropForm(self, form=None, prop=None):
@@ -409,3 +411,65 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(splice[1]['ndef'], ('test:str', 'foo'))
             self.eq(splice[1]['user'], root.iden)
             self.nn(splice[1].get('time'))
+
+    async def test_layer_stortype_merge(self):
+
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 .seen=(2012,2014) +#foo.bar=(2012, 2014) ]')
+
+            buid = nodes[0].buid
+            ival = nodes[0].get('.seen')
+            tick = nodes[0].get('.created')
+            tagv = nodes[0].getTag('foo.bar')
+
+            newival = (ival[0] + 100, ival[1] - 100)
+            newtagv = (tagv[0] + 100, tagv[1] - 100)
+
+            nodeedits = [
+                (buid, 'inet:ipv4', (
+                    (s_layer.EDIT_PROP_SET, ('.seen', newival, ival, s_layer.STOR_TYPE_IVAL)),
+                )),
+            ]
+
+            await layr.storNodeEdits(nodeedits, {})
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 +.seen=(2012,2014)'))
+
+            nodeedits = [
+                (buid, 'inet:ipv4', (
+                    (s_layer.EDIT_PROP_SET, ('.created', tick + 200, tick, s_layer.STOR_TYPE_MINTIME)),
+                )),
+            ]
+
+            await layr.storNodeEdits(nodeedits, {})
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(tick, nodes[0].get('.created'))
+
+            nodeedits = [
+                (buid, 'inet:ipv4', (
+                    (s_layer.EDIT_PROP_SET, ('.created', tick - 200, tick, s_layer.STOR_TYPE_MINTIME)),
+                )),
+            ]
+
+            await layr.storNodeEdits(nodeedits, {})
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(tick - 200, nodes[0].get('.created'))
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+            self.eq(tick - 200, nodes[0].get('.created'))
+
+            nodeedits = [
+                (buid, 'inet:ipv4', (
+                    (s_layer.EDIT_TAG_SET, ('foo.bar', newtagv, tagv)),
+                )),
+            ]
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(tagv, nodes[0].getTag('foo.bar'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar=2015 ]')
+            self.eq((1325376000000, 1420070400001), nodes[0].getTag('foo.bar'))

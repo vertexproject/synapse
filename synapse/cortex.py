@@ -76,11 +76,6 @@ class CoreApi(s_cell.CellApi):
     def stat(self):
         return self.cell.stat()
 
-    @s_cell.adminapi
-    async def joinTeleLayer(self, url, indx=None):
-        ret = await self.cell.joinTeleLayer(url, indx=indx)
-        return ret
-
     async def getModelDict(self):
         '''
         Return a dictionary which describes the data model.
@@ -2405,24 +2400,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         iden = layrinfo.get('iden')
         path = s_common.gendir(self.dirn, 'layers', iden)
         return await s_layer.Layer.anit(layrinfo, path, nexsroot=self.nexsroot)
-
-    async def joinTeleLayer(self, url, indx=None):
-        '''
-        Convenience function to join a remote telepath layer
-        into this cortex and default view.
-        '''
-        info = {
-            'type': 'remote',
-            'creator': 'root',
-            'config': {
-                'url': url
-            }
-        }
-
-        layriden = await self.addLayer(**info)
-        await self.view.addLayer(layriden, indx=indx)
-        # FIXME: unchange this; change dist methods can return heavy objects
-        return layriden
 
     async def _initCoreLayers(self):
 

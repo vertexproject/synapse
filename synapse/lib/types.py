@@ -1353,20 +1353,24 @@ class Time(IntBase):
     )
 
     def postTypeInit(self):
+
         self.futsize = 0x7fffffffffffffff
         self.maxsize = 253402300799999  # 9999/12/31 23:59:59.999
 
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
 
-        #self.indxcmpr['@='] = self.indxByIval
         self.setCmprCtor('@=', self._ctorCmprAt)
 
         self.ismin = self.opts.get('ismin')
         self.ismax = self.opts.get('ismax')
+
         self.storlifts.update({
             '@=': self._liftByIval,
         })
+
+        if self.ismin:
+            self.stortype = s_layer.STOR_TYPE_MINTIME
 
     def _liftByIval(self, cmpr, valu):
 

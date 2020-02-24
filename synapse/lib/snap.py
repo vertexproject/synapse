@@ -629,6 +629,8 @@ class Snap(s_base.Base):
 
     def getNodeAdds(self, form, valu, props=None, addnode=True):
 
+        tick = s_common.now()
+
         # TODO consider nesting these to allow short circuit on existing
         def recurse(f, v, p, doadd=True):
 
