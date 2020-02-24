@@ -656,6 +656,6 @@ def convertToLists(elm):
     if isinstance(elm, tuple) or isinstance(elm, list):
         return [convertToLists(e) for e in elm]
     elif isinstance(elm, dict):
-        return {k:convertToLists(v) for k,v in elm.items()}
+        return {k: convertToLists(v) for k, v in elm.items()}
     else:
         return elm
