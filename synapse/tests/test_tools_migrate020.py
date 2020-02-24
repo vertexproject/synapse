@@ -1,12 +1,13 @@
-import asyncio
 import os
 import copy
 import json
-import contextlib
+import shutil
 import itertools
+import contextlib
 
 import synapse.exc as s_exc
 import synapse.cortex as s_cortex
+import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
 
@@ -419,6 +420,7 @@ class MigrationTest(s_t_utils.SynTest):
             'dest': None,
             'addmode': 'editor',
             'migrops': None,
+            'fairiter': 1,
         }
 
         async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
@@ -442,6 +444,7 @@ class MigrationTest(s_t_utils.SynTest):
             'src': None,
             'dest': None,
             'migrops': None,
+            'fairiter': 1,
         }
 
         async with self._getTestMigrCore(conf) as (tdata0, dest0, locallyrs0, migr0):
@@ -482,3 +485,264 @@ class MigrationTest(s_t_utils.SynTest):
                     hnode = await core.hive.open(('cortex', 'storage'))
                     hdict = await hnode.dict()
                     self.len(1, [x for x in hdict.items()])
+
+    async def test_migr_assvr(self):
+        '''
+        Test that migration service is being properly initialized from cmdline args.
+        '''
+        path_cortex = ('cortexes', REGR_DIR)
+        regr = os.path.join(REGR_REPO, *path_cortex)
+
+        with self.getTestDir(copyfrom=regr) as src:
+            with self.getTestDir() as destp:
+                dest = os.path.join(destp, 'woot')  # verify svc is creating dir if it doesn't exist
+
+                argv = [
+                    '--src', src,
+                    '--dest', dest,
+                    '--nodelim', '1000',
+                    '--fair-iter', '5',
+                    '--src-dedicated', 'true',
+                    '--safety-off',
+                ]
+
+                async with await s_migr.main(argv) as migr:
+                    self.eq(migr.src, src)
+                    self.eq(migr.dest, dest)
+                    self.sorteq(migr.migrops, s_migr.ALL_MIGROPS)
+                    self.eq(migr.addmode, 'nexus')
+                    self.eq(migr.editbatchsize, 100)
+                    self.eq(migr.fairiter, 5)
+                    self.eq(migr.nodelim, 1000)
+                    self.true(migr.safetyoff)
+                    self.true(migr.srcdedicated)
+
+                # startup 0.2.0 core
+                async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+                    nodes = await core.nodes('inet:ipv4=1.2.3.4')
+                    self.len(1, nodes)
+                    nodes = await core.nodes('[inet:ipv4=9.9.9.9]')
+                    self.len(1, nodes)
+
+    async def test_migr_errconf(self):
+        path_cortex = ('cortexes', REGR_DIR)
+        regr = os.path.join(REGR_REPO, *path_cortex)
+
+        with self.getTestDir(copyfrom=regr) as src:
+            with self.getTestDir() as dest:
+
+                conf = {
+                    'src': src,
+                    'dest': None,
+                }
+
+                async with await s_migr.Migrator.anit(conf) as migr:
+                    res = await migr.formCounts()
+                    fullprnt = ' '.join(res)
+                    locallyrs = os.listdir(os.path.join(src, 'layers'))
+                    self.isin(locallyrs[0], fullprnt)
+                    self.isin(locallyrs[1], fullprnt)
+
+                    await self.asyncraises(Exception, migr.migrate())
+
+                conf = {
+                    'src': src,
+                    'dest': dest,
+                    'addmode': 'foobar',
+                    'editbatchsize': 3,
+                }
+                await self.asyncraises(Exception, s_migr.Migrator.anit(conf))
+
+                conf = {
+                    'src': src,
+                    'dest': dest,
+                    'addmode': 'nexus',
+                    'editbatchsize': 3,
+                }
+
+                async with await s_migr.Migrator.anit(conf) as migr:
+                    migr.addmode = 'foobar'
+                    await migr.migrate()
+
+                    errs = [log async for log in migr._migrlogGet('nodes', 'error')]
+                    self.isin('Unrecognized addmode foobar', [x.get('val', {}).get('mesg') for x in errs])
+
+                    # migration dir gets deleted
+                    shutil.rmtree(os.path.join(dest, 'migration'))
+                    res = await migr.dumpErrors()
+                    self.none(res)
+
+                # startup 0.2.0 core - with no nodes
+                async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+                    nodes = await core.nodes('inet:ipv4=1.2.3.4')
+                    self.len(0, nodes)
+
+    async def test_migr_missingidens(self):
+        path_cortex = ('cortexes', REGR_DIR)
+        regr = os.path.join(REGR_REPO, *path_cortex)
+
+        with self.getTestDir(copyfrom=regr) as src:
+            with self.getTestDir() as dest:
+
+                conf = {
+                    'src': src,
+                    'dest': dest,
+                }
+
+                async with await s_migr.Migrator.anit(conf) as migr:
+                    await migr._migrDirn()
+                    await migr._initStors()
+
+                    # replace user idens in hive
+                    root = None
+                    fred = None
+                    newroot = s_common.guid()
+                    newfred = s_common.guid()
+
+                    users = await migr.hive.open(('auth', 'users'))
+                    usersd = await users.dict()
+                    for uiden, uname in usersd.items():
+                        if uname == 'root':
+                            root = uiden
+                        elif uname == 'fred':
+                            fred = uiden
+
+                    await migr.hive.rename(('auth', 'users', root), ('auth', 'users', newroot))
+                    await migr.hive.rename(('auth', 'users', fred), ('auth', 'users', newfred))
+
+                    await migr.migrate()
+
+                # startup 0.2.0 core
+                async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+                    nodes = await core.nodes('inet:ipv4=1.2.3.4')
+                    self.len(1, nodes)
+                    nodes = await core.nodes('[inet:ipv4=9.9.9.9]')
+                    self.len(1, nodes)
+
+    async def test_migr_yamlmod(self):
+        path_cortex = ('cortexes', REGR_DIR)
+        regr = os.path.join(REGR_REPO, *path_cortex)
+
+        with self.getTestDir(copyfrom=regr) as src:
+            with self.getTestDir() as dest:
+                locallyrs = os.listdir(os.path.join(src, 'layers'))
+
+                mods = {'modules': ['synapse.tests.utils.TestModule']}
+                s_common.yamlsave(mods, src, 'cell.yaml')
+
+                conf = {
+                    'src': src,
+                    'dest': dest,
+                    'migrops': ['dmodel', 'hivelyr', 'nodes'],
+                    'editbatchsize': 1,
+                    'nodelim': 2,
+                }
+
+                async with await s_migr.Migrator.anit(conf) as migr:
+                    # test that we can skip dirn migration if it already exists
+                    migr.migrops.append('dirn')
+                    await migr._migrDirn()
+                    del migr.migrops[-1]
+
+                    # verify that test:int was loaded and migrated
+                    await migr.migrate()
+                    stats = []
+                    for iden in locallyrs:
+                        statkey = f'{iden}:form:test:int'
+                        stats.extend([log async for log in migr._migrlogGet('nodes', 'stat', statkey)])
+
+                    self.eq((1, 1), stats[0]['val'])
+
+    async def test_migr_migrTriggers(self):
+        conf = {
+            'src': None,
+            'dest': None,
+        }
+
+        async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
+            await migr._migrDirn()
+            await migr._initStors()
+
+            # remove useridens
+            for iden, valu in migr.cellslab.scanByFull(db=migr.trigdb):
+                ruledict = s_msgpack.un(valu)
+                ruledict.pop('useriden')
+                migr.cellslab.put(iden, s_msgpack.en(ruledict), overwrite=True, db=migr.trigdb)
+
+            await migr._migrTriggers()
+
+            errs = [log async for log in migr._migrlogGet('triggers', 'error')]
+            self.isin('Missing iden values for trigger', errs[0].get('val', {}).get('err', ''))
+
+    async def test_migr_trnNodeToNodeedit(self):
+        conf = {
+            'src': None,
+            'dest': None,
+        }
+
+        async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
+            await migr._migrDirn()
+            await migr._initStors()
+            await migr._migrDatamodel()
+
+            ndef = ('foo:bar', '1.2.3.3')
+            buid = s_common.buid(ndef)
+            node = await migr._srcPackNode(buid, ndef, {}, {}, {})
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            self.none(ne)
+            self.isin('Unable to parse form name', err['mesg'])
+
+            ndef = ('*inet:fqdn', 123)
+            buid = s_common.buid(ndef)
+            node = await migr._srcPackNode(buid, ndef, {}, {}, {})
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            self.none(ne)
+            self.isin('Buid/norming exception', err['mesg'])
+
+            ndef = ('*inet:fqdn', 'foo.com.')
+            buid = s_common.buid(('inet:fqdn', 'foo.com.'))
+            node = await migr._srcPackNode(buid, ndef, {}, {}, {})
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            self.none(ne)
+            self.isin('Normed form val does not match inbound', err['mesg'])
+
+            ndef = ('*inet:fqdn', 'foo.com.')
+            buid = s_common.buid(('inet:fqdn', 'foo.com'))
+            node = await migr._srcPackNode(buid, ndef, {}, {}, {})
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            self.none(ne)
+            self.isin('Calculated buid does not match inbound', err['mesg'])
+
+            ndef = ('*inet:fqdn', 'foo.com')
+            buid = s_common.buid(('inet:fqdn', 'foo.com'))
+            node = await migr._srcPackNode(buid, ndef, {'foo:bar': 'ham'}, {}, {})
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            self.none(ne)
+            self.isin('Unable to determine stortype for sprop foo:bar', err['mesg'])
+
+            ndef = ('*inet:fqdn', 'foo.com')
+            buid = s_common.buid(('inet:fqdn', 'foo.com'))
+            node = await migr._srcPackNode(buid, ndef, {'inet:ipv4': 'ham'}, {}, {})
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            self.none(ne)
+            self.isin('Unable to determine stortype for sprop inet:ipv4', err['mesg'])
+
+            ndef = ('*inet:fqdn', 'foo.com')
+            buid = s_common.buid(('inet:fqdn', 'foo.com'))
+            node = await migr._srcPackNode(buid, ndef, {}, {}, {'newp': {'ahh': 37}})
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            self.none(ne)
+            self.isin('Unable to determine stortype for tagprop ahh', err['mesg'])
+
+            # continue on bad nodeedits
+            ndef = ('*inet:fqdn', 'foo.com')
+            buid = s_common.buid(('inet:fqdn', 'foo.com'))
+            node = await migr._srcPackNode(buid, ndef, {}, {}, {})
+            err, ne = await migr._trnNodeToNodeedit(node, migr.model, chknodes=True)
+            self.none(err)
+            ne = (ne[0], 'foo:bar', ne[2])
+
+            storinfo = await migr._migrHiveStorInfo()
+            wlyr = await migr._destGetWlyr(migr.dest, storinfo, locallyrs[0])
+            res = await migr._destAddNodes(wlyr, ne, 'nexus')
+            self.isin('Unable to store nodeedits', res.get('mesg', ''))

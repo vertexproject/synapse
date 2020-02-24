@@ -137,7 +137,7 @@ class MigrAuth:
         aname_lookup = {i: k for k, v in self.authgatesbyname.items() for i in v}
 
         for uiden, uvals in self.usersbyiden.items():
-            uname = uname_lookup[uiden]
+            uname = uname_lookup.get(uiden)
             isadmin = False
 
             # user rules or admin
@@ -349,9 +349,11 @@ class MigrAuth:
         rname_lookup = {v: k for k, v in self.rolesbyname.items()}
         aname_lookup = {i: k for k, v in self.authgatesbyname.items() for i in v}
 
-        # assume every user has a name
-        for uname, uiden in self.usersbyname.items():
-            uvals = self.usersbyiden[uiden]
+        # users
+        for uiden, uvals in self.usersbyiden.items():
+            uname = uname_lookup.get(uiden)
+            if uname is None:
+                logger.warning(f'Unable to match user iden to name: {uiden}')
             userkids[uiden] = {
                 'kids': {k: {'value': v} for k, v in uvals.items()},
                 'value': uname,
@@ -393,7 +395,9 @@ class MigrAuth:
                 'kids': {}
             }
             for uiden, uvals in avals['usersbyiden'].items():
-                uname = uname_lookup[uiden]
+                uname = uname_lookup.get(uiden)
+                if uname is None:
+                    logger.warning(f'Unable to match user iden to name: {uiden}')
                 ausers['kids'][uiden] = {
                     'kids': {k: {'value': v} for k, v in uvals.items()},
                     'value': uname
@@ -440,7 +444,6 @@ class Migrator(s_base.Base):
 
         self.src = conf.get('src')
         self.dest = conf.get('dest')
-        self.migrlayer = conf.get('layer')
         self.nodelim = conf.get('nodelim')
 
         self.migrops = conf.get('migrops')
@@ -450,6 +453,9 @@ class Migrator(s_base.Base):
         self.addmode = conf.get('addmode')
         if self.addmode is None:
             self.addmode = 'nexus'
+
+        if self.addmode not in ADD_MODES:
+            raise Exception(f'addmode {self.addmode} is not valid')
 
         if self.addmode != 'nexus':
             logger.warning('Add mode is bypassing nexus - no migration splices will exist in 0.2.x cortex')
@@ -514,13 +520,6 @@ class Migrator(s_base.Base):
             storinfo = await self._migrHiveStorInfo()
         else:
             storinfo = {}
-
-        if self.migrlayer is not None:
-            logger.info(f'Restricting migration to one layer: {self.migrlayer}')
-            if self.migrlayer not in locallyrs:
-                logger.error(f'Layer iden not found in local layers: {self.migrlayer}, {locallyrs}')
-                return
-            locallyrs = [self.migrlayer]
 
         # full layer migration
         for iden in locallyrs:
@@ -641,7 +640,7 @@ class Migrator(s_base.Base):
                 src_tot += 1
                 if src_tot % fairiter == 0:
                     await asyncio.sleep(0)
-                if src_tot % 10000000 == 0:
+                if src_tot % 10000000 == 0:  # pragma: no cover
                     logger.debug(f'...counted {src_tot} nodes so far')
 
             # open dest slab
@@ -792,7 +791,7 @@ class Migrator(s_base.Base):
                 self.model.addFormProp(form, prop, tdef, info)
             except asyncio.CancelledError:  # pragma: no cover
                 raise
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.warning(f'ext prop ({form}:{prop}) error: {e}')
 
         for prop, tdef, info in extunivs.values():
@@ -800,7 +799,7 @@ class Migrator(s_base.Base):
                 self.model.addUnivProp(prop, tdef, info)
             except asyncio.CancelledError:  # pragma: no cover
                 raise
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.warning(f'ext univ ({prop}) error: {e}')
 
         for prop, tdef, info in exttagprops.values():
@@ -808,7 +807,7 @@ class Migrator(s_base.Base):
                 self.model.addTagProp(prop, tdef, info)
             except asyncio.CancelledError:  # pragma: no cover
                 raise
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
 
         logger.info('Completed datamodel migration')
@@ -1041,7 +1040,7 @@ class Migrator(s_base.Base):
                 await self._migrlogAdd(migrop, 'chkpnt', iden, (buid, stot, s_common.now()))
                 break
 
-            if stot % 1000000 == 0:
+            if stot % 1000000 == 0:  # pragma: no cover
                 logger.info(f'...on node {stot:,} for layer {iden}')
 
             if stot % fairiter == 0:
@@ -1069,7 +1068,13 @@ class Migrator(s_base.Base):
 
         # add last edit chunk if needed
         if len(nodeedits) > 0:
-            await self._destAddNodes(wlyr, nodeedits, addmode)
+            err = await self._destAddNodes(wlyr, nodeedits, addmode)
+
+            if err is not None:
+                logger.warning(err)
+                for ne in nodeedits:
+                    logger.debug(f'error nodeedit group item: {ne}')
+                    await self._migrlogAdd(migrop, 'error', buid, err)
 
         t_end = s_common.now()
         t_dur = t_end - t_strt
@@ -1126,7 +1131,7 @@ class Migrator(s_base.Base):
                 await self._migrlogAdd(migrop, 'chkpnt', iden, (nodedata, stot, s_common.now()))
                 break
 
-            if stot % 1000000 == 0:
+            if stot % 1000000 == 0:  # pragma: no cover
                 logger.info(f'...on node {stot:,} for layer {iden}')
 
             if stot % fairiter == 0:
@@ -1195,9 +1200,9 @@ class Migrator(s_base.Base):
 
             self.migrslab.put(lkey, lval, overwrite=True, db=self.migrdb)
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pragma: no cover
             raise
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             logger.exception(f'Unable to store migration log: {migrop}; {logtyp}; {key}; {val}')
             pass
 
@@ -1550,7 +1555,7 @@ class Migrator(s_base.Base):
                 err = {'mesg': f'Unrecognized addmode {addmode}'}
                 return err
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:
             lyriden = wlyr.iden
@@ -1565,8 +1570,6 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--dest', required=False, type=str, help='Destination cortex dirn to migrate to.')
     pars.add_argument('--migr-ops', required=False, type=str.lower, nargs='+', choices=ALL_MIGROPS,
                       help='Limit migration operations to run.')
-    pars.add_argument('--layer', required=False, type=str,
-                      help='Migrate specific layer by iden')
     pars.add_argument('--nodelim', required=False, type=int,
                       help="Stop after migrating nodelim nodes")
     pars.add_argument('--add-mode', required=False, type=str.lower, default='nexus', choices=ADD_MODES,
@@ -1598,7 +1601,6 @@ async def main(argv, outp=s_output.stdout):
         'src': opts.src,
         'dest': dest,
         'migrops': opts.migr_ops,
-        'layer': opts.layer,
         'nodelim': opts.nodelim,
         'addmode': opts.add_mode,
         'editbatchsize': opts.edit_batchsize,
@@ -1622,6 +1624,8 @@ async def main(argv, outp=s_output.stdout):
 
         else:
             await migr.migrate()
+
+        return migr
 
     except Exception:
         await migr.fini()
