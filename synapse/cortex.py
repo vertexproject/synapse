@@ -296,7 +296,7 @@ class CoreApi(s_cell.CellApi):
                     raise s_exc.NoSuchIden(iden=iden)
 
                 prop = node.form.props.get(name)
-                self.user.confirm(('prop:set', prop.full), gateiden=snap.wlyr.iden)
+                self.user.confirm(('node', 'prop', 'set', prop.full), gateiden=snap.wlyr.iden)
 
                 await node.set(name, valu)
                 return node.pack()
@@ -320,7 +320,7 @@ class CoreApi(s_cell.CellApi):
 
                 prop = node.form.props.get(name)
 
-                self.user.confirm(('prop:del', prop.full), gateiden=snap.wlyr.iden)
+                self.user.confirm(('node', 'prop', 'del', prop.full), gateiden=snap.wlyr.iden)
 
                 await node.pop(name)
                 return node.pack()
@@ -331,7 +331,7 @@ class CoreApi(s_cell.CellApi):
         '''
         s_common.deprecated('addNode')
         async with await self.cell.snap(user=self.user) as snap:
-            self.user.confirm(('node:add', form), gateiden=snap.wlyr.iden)
+            self.user.confirm(('node', 'add', form), gateiden=snap.wlyr.iden)
             with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
 
                 node = await snap.addNode(form, valu, props=props)
@@ -359,7 +359,7 @@ class CoreApi(s_cell.CellApi):
             if done.get(formname):
                 continue
 
-            await self._reqDefLayerAllowed(('node:add', formname))
+            await self._reqDefLayerAllowed(('node', 'add', formname))
             done[formname] = True
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -518,7 +518,6 @@ class CoreApi(s_cell.CellApi):
         Return the list of splices at the given offset.
         '''
         layr = self.cell.getLayer(layriden)
-        self.user.confirm(('read',), gateiden=layr.iden)
         count = 0
         async for mesg in layr.splices(offs, size):
             count += 1

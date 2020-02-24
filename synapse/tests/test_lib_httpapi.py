@@ -464,7 +464,7 @@ class HttpApiTest(s_tests.SynTest):
                     item = await resp.json()
                     self.eq('BadJson', item.get('code'))
 
-                rules = [(True, ('node:add',))]
+                rules = [(True, ('node', 'add',))]
                 info = {'name': 'derpuser', 'passwd': 'derpuser', 'rules': rules}
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', json=info) as resp:
                     retn = await resp.json()

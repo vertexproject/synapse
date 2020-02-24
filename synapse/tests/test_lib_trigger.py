@@ -267,7 +267,7 @@ class TrigTest(s_t_utils.SynTest):
             visi = await core.auth.addUser('visi')
             newb = await core.auth.addUser('newb')
 
-            await visi.addRule((True, ('tag:add', 'foo')))
+            await visi.addRule((True, ('node', 'tag', 'add', 'foo')))
 
             async with core.getLocalProxy(user='visi') as proxy:
 

@@ -379,7 +379,7 @@ class View(s_nexus.Pusher):  # type: ignore
         raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
 
     async def _nodeAddConfirm(self, user, snap, splice):
-        perms = ('node:add', splice['ndef'][0])
+        perms = ('node', 'add', splice['ndef'][0])
         self.parent._confirm(user, perms)
 
     async def _nodeDelConfirm(self, user, snap, splice):
@@ -388,44 +388,44 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if node is not None:
             for tag in node.tags.keys():
-                perms = ('tag:del', *tag.split('.'))
+                perms = ('node', 'tag', 'del', *tag.split('.'))
                 self.parent._confirm(user, perms)
 
-            perms = ('node:del', splice['ndef'][0])
+            perms = ('node', 'del', splice['ndef'][0])
             self.parent._confirm(user, perms)
 
     async def _propSetConfirm(self, user, snap, splice):
         ndef = splice.get('ndef')
         prop = splice.get('prop')
-
-        perms = ('prop:set', ':'.join([ndef[0], prop]))
+        full = f'{ndef[0]}:{prop}'
+        perms = ('node', 'prop', 'set', full)
         self.parent._confirm(user, perms)
 
     async def _propDelConfirm(self, user, snap, splice):
         ndef = splice.get('ndef')
         prop = splice.get('prop')
-
-        perms = ('prop:del', ':'.join([ndef[0], prop]))
+        full = f'{ndef[0]}:{prop}'
+        perms = ('node', 'prop', 'del', full)
         self.parent._confirm(user, perms)
 
     async def _tagAddConfirm(self, user, snap, splice):
         tag = splice.get('tag')
-        perms = ('tag:add', *tag.split('.'))
+        perms = ('node', 'tag', 'add', *tag.split('.'))
         self.parent._confirm(user, perms)
 
     async def _tagDelConfirm(self, user, snap, splice):
         tag = splice.get('tag')
-        perms = ('tag:del', *tag.split('.'))
+        perms = ('node', 'tag', 'del', *tag.split('.'))
         self.parent._confirm(user, perms)
 
     async def _tagPropSetConfirm(self, user, snap, splice):
         tag = splice.get('tag')
-        perms = ('tag:add', *tag.split('.'))
+        perms = ('node', 'tag', 'add', *tag.split('.'))
         self.parent._confirm(user, perms)
 
     async def _tagPropDelConfirm(self, user, snap, splice):
         tag = splice.get('tag')
-        perms = ('tag:del', *tag.split('.'))
+        perms = ('node', 'tag', 'del', *tag.split('.'))
         self.parent._confirm(user, perms)
 
     async def mergeAllowed(self, user=None):

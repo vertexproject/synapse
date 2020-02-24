@@ -222,7 +222,7 @@ class AuthTest(s_test.SynTest):
 
                 # fred can write to forked view's write layer with explicit perm through role
 
-                rule = (True, ('prop:set',))
+                rule = (True, ('node', 'prop', 'set',))
                 await prox.addRoleRule('friends', rule, gateiden=layriden)
 
                 # Before granting, still fails
@@ -239,12 +239,12 @@ class AuthTest(s_test.SynTest):
                 await prox.delRoleRule('friends', rule, gateiden=layriden)
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int=11 [:loc=us]', opts=viewopts))
 
-                rule = (True, ('node:add',))
+                rule = (True, ('node', 'add',))
                 await prox.addUserRule('fred', rule, gateiden=layriden)
                 self.eq(1, await fredcore.count('[test:int=12]', opts=viewopts))
 
                 # Add an explicit DENY for adding test:int nodes
-                rule = (False, ('node:add', 'test:int'))
+                rule = (False, ('node', 'add', 'test:int'))
                 await prox.addUserRule('fred', rule, indx=0, gateiden=layriden)
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('[test:int=13]', opts=viewopts))
 
@@ -256,7 +256,7 @@ class AuthTest(s_test.SynTest):
                 self.eq(3, await fredcore.count('test:int', opts=viewopts))
 
                 # Deleting a user that has a role with an Authgate-specific rule
-                rule = (True, ('prop:set',))
+                rule = (True, ('node', 'prop', 'set',))
                 await prox.addRoleRule('friends', rule, gateiden=layriden)
                 self.eq(1, await fredcore.count('test:int=11 [:loc=sp]', opts=viewopts))
                 await prox.addUserRole('bobo', 'friends')
@@ -299,7 +299,7 @@ class AuthTest(s_test.SynTest):
                 rule = (True, ('view', 'read',))
                 await prox.addUserRule('fred', rule, gateiden=viewiden)
                 await prox.addAuthRole('friends')
-                rule = (True, ('prop:set',))
+                rule = (True, ('node', 'prop', 'set',))
                 await prox.addRoleRule('friends', rule, gateiden=layriden)
                 await prox.addUserRole('fred', 'friends')
 

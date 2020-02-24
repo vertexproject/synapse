@@ -69,9 +69,6 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(1, typ.getCompOffs('bar'))
             self.none(typ.getCompOffs('newp'))
 
-    def test_fieldhelper(self):
-        self.skip('Implement base fieldhelper test')
-
     def test_guid(self):
         model = s_datamodel.Model()
 
