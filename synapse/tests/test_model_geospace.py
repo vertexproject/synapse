@@ -49,6 +49,7 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(t.norm('0')[0], 0.0)
             self.eq(t.norm('12.345678901234567890')[0], 12.3456789)
             self.eq(t.norm('90')[0], 90.0)
+            self.eq(t.norm('39.94891608')[0], 39.94891608)
             self.raises(s_exc.BadTypeValu, t.norm, '90.1')
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
 
@@ -67,6 +68,7 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(t.norm('0')[0], 0.0)
             self.eq(t.norm('12.345678901234567890')[0], 12.3456789)
             self.eq(t.norm('180')[0], 180.0)
+            self.eq(t.norm('39.94891608')[0], 39.94891608)
             self.raises(s_exc.BadTypeValu, t.norm, '180.1')
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
 
@@ -178,7 +180,7 @@ class GeoTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], guid)
                 self.eq(node.get('name'), 'vertex hq')
                 self.eq(node.get('loc'), 'us.hehe.haha')
-                self.eq(node.get('latlong'), (34.13409999, -118.3215))
+                self.eq(node.get('latlong'), (34.1341, -118.3215))
                 self.eq(node.get('radius'), 1337000)
                 self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
                 self.eq(node.get('address'), '208 datong road, pudong district, shanghai, china')
