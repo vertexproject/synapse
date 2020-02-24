@@ -1113,8 +1113,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
         ctor.forms = cdef.get('forms', {})
 
-        def getStorNode(form='syn:cmd'):
-            ndef = (form, cdef.get('name'))
+        def getStorNode(form):
+            ndef = (form.name, form.type.norm(cdef.get('name'))[0])
             buid = s_common.buid(ndef)
 
             props = {
@@ -1136,9 +1136,15 @@ class Cortex(s_cell.Cell):  # type: ignore
             if ctor.pkgname:
                 props['package'] = ctor.pkgname
 
+            pnorms = {}
+            for prop, valu in props.items():
+                formprop = form.props.get(prop)
+                if formprop is not None and valu is not None:
+                    pnorms[prop] = formprop.type.norm(valu)[0]
+
             return (buid, {
                 'ndef': ndef,
-                'props': props,
+                'props': pnorms,
             })
 
         ctor.getStorNode = getStorNode

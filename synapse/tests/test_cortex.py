@@ -2221,7 +2221,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_runt(self):
         async with self.getTestCore() as core:
-            self.skip('Pending getting runt nodes working')
 
             # Ensure that lifting by form/prop/values works.
             nodes = await core.eval('test:runt').list()
@@ -2247,6 +2246,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             nodes = await core.eval('test:runt:tick=$foo', {'vars': {'foo': '2010'}}).list()
             self.len(2, nodes)
+
+            # Ensure that non-equality based lift comparators for the test runt nodes work.
+            nodes = await core.eval('test:runt~="b.*"').list()
+            self.len(3, nodes)
+
+            nodes = await core.eval('test:runt:tick*range=(1999, 2001)').list()
+            self.len(1, nodes)
 
             # Ensure that a lift by a universal property doesn't lift a runt node
             # accidentally.
@@ -2332,12 +2338,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.IsRuntForm, core.eval('[test:runt=" oh MY! "]').list())
             await self.asyncraises(s_exc.IsRuntForm, core.eval('test:runt=beep | delnode').list())
 
-            # Ensure that non-equality based lift comparators for the test runt nodes fails.
-            await self.asyncraises(s_exc.BadCmprValu, core.eval('test:runt~="b.*"').list())
-            await self.asyncraises(s_exc.BadCmprValu, core.eval('test:runt:tick*range=(1999, 2001)').list())
-
             # Sad path for underlying Cortex.runRuntLift
-            await self.agenraises(s_exc.NoSuchLift, core.runRuntLift('test:newp', 'newp'))
+            nodes = await alist(core.runRuntLift('test:newp', 'newp'))
+            self.len(0, nodes)
 
     async def test_cortex_view_invalid(self):
 
