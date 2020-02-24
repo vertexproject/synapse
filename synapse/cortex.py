@@ -1236,28 +1236,15 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Validate a storm package for loading.  Raises if invalid.
         '''
-        # validate things first...
-        name = pkgdef.get('name')
-        if name is None:
-            mesg = 'Package definition has no "name" field.'
-            raise s_exc.BadPkgDef(mesg=mesg)
+        # Validate package def
+        s_storm.reqValidPkgdef(s_common.convertToLists(pkgdef))
 
-        vers = pkgdef.get('version')
-        if vers is None:
-            mesg = 'Package definition has no "version" field.'
-            raise s_exc.BadPkgDef(mesg=mesg)
-
+        # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
         svciden = pkgdef.get('svciden')
 
-        # Validate storm contents from modules and commands
         for mdef in mods:
-
-            modname = mdef.get('name')
-            if modname is None:
-                raise s_exc.BadPkgDef(mesg='Package module is missing a name.',
-                                      package=name)
             modtext = mdef.get('storm')
             self.getStormQuery(modtext)
 
@@ -1266,9 +1253,8 @@ class Cortex(s_cell.Cell):  # type: ignore
             if svciden:
                 cdef['cmdconf']['svciden'] = svciden
 
-            cdef['pkgname'] = name
-
-            await self._reqStormCmd(cdef)
+            cmdtext = cdef.get('storm')
+            self.getStormQuery(cmdtext)
 
     async def loadStormPkg(self, pkgdef):
         '''

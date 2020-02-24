@@ -2,6 +2,7 @@ import copy
 import time
 import shutil
 import asyncio
+import fastjsonschema
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -4035,24 +4036,24 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # await core.addStormPkg(base_pkg)
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('name')
-                with self.raises(s_exc.BadPkgDef) as cm:
+                with self.raises(fastjsonschema.exceptions.JsonSchemaException) as cm:
                     await core.addStormPkg(pkg)
-                self.eq(cm.exception.get('mesg'),
-                        'Package definition has no "name" field.')
+                self.eq(cm.exception.message,
+                        "data must contain ['name', 'version'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('version')
-                with self.raises(s_exc.BadPkgDef) as cm:
+                with self.raises(fastjsonschema.exceptions.JsonSchemaException) as cm:
                     await core.addStormPkg(pkg)
-                self.eq(cm.exception.get('mesg'),
-                        'Package definition has no "version" field.')
+                self.eq(cm.exception.message,
+                        "data must contain ['name', 'version'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg['modules'][0].pop('name')
-                with self.raises(s_exc.BadPkgDef) as cm:
+                with self.raises(fastjsonschema.exceptions.JsonSchemaException) as cm:
                     await core.addStormPkg(pkg)
-                self.eq(cm.exception.get('mesg'),
-                        'Package module is missing a name.')
+                self.eq(cm.exception.message,
+                        "data must contain ['name', 'storm'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('version')

@@ -60,6 +60,9 @@ def getJsValidator(schema):
     '''
     # It is faster to hash and cache the functions here than it is to
     # generate new functions each time we have the same schema.
+
+    schema.setdefault('$schema', 'http://json-schema.org/draft-07/schema#')
+
     key = s_hashitem.hashitem(schema)
     func = JS_VALIDATORS.get(key)
     if func:

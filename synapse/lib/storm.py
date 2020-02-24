@@ -12,7 +12,9 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
+import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
+import synapse.lib.grammar as s_grammar
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -181,6 +183,52 @@ Examples:
     cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
 
 '''
+
+reqValidPkgdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string'},
+        'version': {
+            'type': ['array', 'number'],
+            'items': {'type': 'number'}
+        },
+        'modules': {
+            'type': ['array', 'null'],
+            'items': {'$ref': '#/definitions/module'}
+        },
+        'commands': {
+            'type': ['array', 'null'],
+            'items': {'$ref': '#/definitions/command'}
+        },
+        'desc': {'type': 'string'},
+        'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden}
+    },
+    'additionalProperties': True,
+    'required': ['name', 'version'],
+    'definitions': {
+        'module': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'storm': {'type': 'string'}
+            },
+            'additionalProperties': True,
+            'required': ['name', 'storm']
+        },
+        'command': {
+            'type': 'object',
+            'properties': {
+                'name': {
+                    'type': 'string',
+                    'pattern': s_grammar.re_scmd
+                },
+                'storm': {'type': 'string'}
+            },
+            'additionalProperties': True,
+            'required': ['name', 'storm']
+        }
+    }
+})
 
 stormcmds = (
     {
