@@ -3617,10 +3617,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                     with self.raises(s_exc.NoSuchIden):
                         await prox.delStormDmon(iden)
 
-                    with self.raises(s_exc.NeedConfValu):
+                    with self.raises(fastjsonschema.exceptions.JsonSchemaException):
                         await core.runStormDmon(iden, {})
 
-                    with self.raises(s_exc.NoSuchUser):
+                    with self.raises(fastjsonschema.exceptions.JsonSchemaException):
                         await core.runStormDmon(iden, {'user': 'XXX'})
 
             async with await s_cortex.Cortex.anit(dirn) as core:

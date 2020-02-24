@@ -2468,12 +2468,10 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def runStormDmon(self, iden, ddef):
 
         # validate ddef before firing task
-        uidn = ddef.get('user')
-        if uidn is None:
-            mesg = 'Storm daemon definition requires "user".'
-            raise s_exc.NeedConfValu(mesg=mesg)
+        s_storm.reqValidDdef(ddef)
+
         # FIXME:  no such call
-        await self.auth.reqUser(uidn)
+        await self.auth.reqUser(ddef['user'])
 
         # raises if parser failure
         self.getStormQuery(ddef.get('storm'))
