@@ -1559,9 +1559,9 @@ class DelNodeCmd(Cmd):
 
             # make sure we can delete the tags...
             for tag in node.tags.keys():
-                runt.layerConfirm(('tag:del', *tag.split('.')))
+                runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
-            runt.layerConfirm(('node:del', node.form.name))
+            runt.layerConfirm(('node', 'del', node.form.name))
 
             await node.delete(force=self.opts.force)
 
@@ -2253,10 +2253,10 @@ class SpliceUndoCmd(Cmd):
 
             oldv = splice.props.get('oldv')
             if oldv is not None:
-                runt.layerConfirm(('prop:set', prop.full))
+                runt.layerConfirm(('node', 'prop', 'set', prop.full))
                 await node.set(name, oldv)
             else:
-                runt.layerConfirm(('prop:del', prop.full))
+                runt.layerConfirm(('node', 'prop', 'del', prop.full))
                 await node.pop(name)
 
     async def undoPropDel(self, runt, splice, node):
@@ -2272,16 +2272,16 @@ class SpliceUndoCmd(Cmd):
 
             valu = splice.props.get('valu')
 
-            runt.layerConfirm(('prop:set', prop.full))
+            runt.layerConfirm(('node', 'prop', 'set', prop.full))
             await node.set(name, valu)
 
     async def undoNodeAdd(self, runt, splice, node):
 
         if node:
             for tag in node.tags.keys():
-                runt.layerConfirm(('tag:del', *tag.split('.')))
+                runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
-            runt.layerConfirm(('node:del', node.form.name))
+            runt.layerConfirm(('node', 'del', node.form.name))
             await node.delete(force=self.opts.force)
 
     async def undoNodeDel(self, runt, splice, node):
@@ -2291,7 +2291,7 @@ class SpliceUndoCmd(Cmd):
             valu = splice.props.get('valu')
 
             if form and (valu is not None):
-                runt.layerConfirm(('node:add', form))
+                runt.layerConfirm(('node', 'add', form))
                 await runt.snap.addNode(form, valu)
 
     async def undoTagAdd(self, runt, splice, node):
@@ -2299,13 +2299,13 @@ class SpliceUndoCmd(Cmd):
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
-            runt.layerConfirm(('tag:del', *parts))
+            runt.layerConfirm(('node', 'tag', 'del', *parts))
 
             await node.delTag(tag)
 
             oldv = splice.props.get('oldv')
             if oldv is not None:
-                runt.layerConfirm(('tag:add', *parts))
+                runt.layerConfirm(('node', 'tag', 'add', *parts))
                 await node.addTag(tag, valu=oldv)
 
     async def undoTagDel(self, runt, splice, node):
@@ -2313,7 +2313,7 @@ class SpliceUndoCmd(Cmd):
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
-            runt.layerConfirm(('tag:add', *parts))
+            runt.layerConfirm(('node', 'tag', 'add', *parts))
 
             valu = splice.props.get('valu')
             if valu is not None:
@@ -2329,10 +2329,10 @@ class SpliceUndoCmd(Cmd):
 
             oldv = splice.props.get('oldv')
             if oldv is not None:
-                runt.layerConfirm(('tag:add', *parts))
+                runt.layerConfirm(('node', 'tag', 'add', *parts))
                 await node.setTagProp(tag, prop, oldv)
             else:
-                runt.layerConfirm(('tag:del', *parts))
+                runt.layerConfirm(('node', 'tag', 'del', *parts))
                 await node.delTagProp(tag, prop)
 
     async def undoTagPropDel(self, runt, splice, node):
@@ -2340,7 +2340,7 @@ class SpliceUndoCmd(Cmd):
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
-            runt.layerConfirm(('tag:add', *parts))
+            runt.layerConfirm(('node', 'tag', 'add', *parts))
 
             prop = splice.props.get('prop')
 

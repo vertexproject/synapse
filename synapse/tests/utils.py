@@ -1705,17 +1705,17 @@ class SynTest(unittest.TestCase):
         creator = await core.auth.addRole('creator')
 
         await creator.setRules((
-            (True, ('node:add',)),
-            (True, ('prop:set',)),
-            (True, ('tag:add',)),
+            (True, ('node', 'add')),
+            (True, ('node', 'prop', 'set')),
+            (True, ('node', 'tag', 'add')),
             (True, ('feed:data',)),
         ))
 
         deleter = await core.auth.addRole('deleter')
         await deleter.setRules((
-            (True, ('node:del',)),
-            (True, ('prop:del',)),
-            (True, ('tag:del',)),
+            (True, ('node', 'del')),
+            (True, ('node', 'prop', 'del')),
+            (True, ('node', 'tag', 'del')),
         ))
 
         iadd = await core.auth.addUser('icanadd')

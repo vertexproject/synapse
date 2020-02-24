@@ -2404,9 +2404,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.addAuthUser('visi')
             await core.setUserPasswd('visi', 'secret')
 
-            await core.addUserRule('visi', (True, ('node:add',)))
-            await core.addUserRule('visi', (True, ('prop:set',)))
-            await core.addUserRule('visi', (True, ('tag:add',)))
+            await core.addUserRule('visi', (True, ('node', 'add')))
+            await core.addUserRule('visi', (True, ('node', 'prop', 'set')))
+            await core.addUserRule('visi', (True, ('node', 'tag', 'add')))
 
             async with realcore.getLocalProxy(user='visi') as asvisi:
 
@@ -2418,13 +2418,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # no perms and not elevated...
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval('test:str=foo | delnode'))
 
-                rule = (True, ('node:del',))
+                rule = (True, ('node', 'del'))
                 await core.addUserRule('visi', rule)
 
                 # should still deny because node has tag we can't delete
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval('test:str=foo | delnode'))
 
-                rule = (True, ('tag:del', 'lol'))
+                rule = (True, ('node', 'tag', 'del', 'lol'))
                 await core.addUserRule('visi', rule)
 
                 await self.agenlen(0, asvisi.eval('test:str=foo | delnode'))
@@ -2612,9 +2612,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Setup user permissions
             await core.addAuthRole('creator')
-            await core.addRoleRule('creator', (True, ('node:add',)))
-            await core.addRoleRule('creator', (True, ('prop:set',)))
-            await core.addRoleRule('creator', (True, ('tag:add',)))
+            await core.addRoleRule('creator', (True, ('node', 'add')))
+            await core.addRoleRule('creator', (True, ('node', 'prop', 'set')))
+            await core.addRoleRule('creator', (True, ('node', 'tag', 'add')))
             await core.addUserRole('root', 'creator')
             await self._validate_feed(core, gestdef, guid, seen)
 
