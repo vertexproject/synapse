@@ -166,9 +166,10 @@ STOR_TYPE_IPV6 = 18
 
 STOR_TYPE_U128 = 19
 STOR_TYPE_I128 = 20
-STOR_TYPE_FLOAT64 = 21
 
 STOR_TYPE_MINTIME = 21
+
+STOR_TYPE_FLOAT64 = 22
 
 # STOR_TYPE_TOMB      = ??
 # STOR_TYPE_FIXED     = ??
@@ -884,8 +885,9 @@ class Layer(s_nexus.Pusher):
             StorTypeInt(self, STOR_TYPE_U128, 16, False),
             StorTypeInt(self, STOR_TYPE_I128, 16, True),
 
-            StorTypeFloat(self, STOR_TYPE_FLOAT64, 8),
             StorTypeTime(self), # STOR_TYPE_MINTIME
+
+            StorTypeFloat(self, STOR_TYPE_FLOAT64, 8),
         ]
 
         self.editors = [
