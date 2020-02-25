@@ -13,8 +13,6 @@ class SynModule(s_module.CoreModule):
 
     def initCoreModule(self):
 
-        # FIXME addRuntLift('syn:splice')
-
         for form, lifter in (('syn:cmd', self._liftRuntSynCmd),
                              ('syn:cron', self._liftRuntSynCron),
                              ('syn:form', self._liftRuntSynForm),

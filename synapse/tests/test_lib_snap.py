@@ -251,11 +251,11 @@ class SnapTest(s_t_utils.SynTest):
             view0 = core0.view
             layr0 = view0.layers[0]
 
-            iden1 = await core0.addLayer()
-            layr1 = core0.getLayer(iden1)
-            view1 = await core0.addView({'layers': [layr1.iden, layr0.iden]})
+            ldef1 = await core0.addLayer()
+            layr1 = core0.getLayer(ldef1.get('iden'))
+            vdef1 = await core0.addView({'layers': [layr1.iden, layr0.iden]})
 
-            yield view0, core0.getView(view1)
+            yield view0, core0.getView(vdef1.get('iden'))
 
     async def test_cortex_lift_layers_simple(self):
         async with self._getTestCoreMultiLayer() as (view0, view1):

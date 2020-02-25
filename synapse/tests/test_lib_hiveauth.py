@@ -188,7 +188,9 @@ class AuthTest(s_test.SynTest):
             await prox.setUserPasswd('fred', 'secret')
             await prox.setUserPasswd('bobo', 'secret')
 
-            view2_iden = await core.view.fork()
+            vdef2 = await core.view.fork()
+            view2_iden = vdef2.get('iden')
+
             view2 = core.getView(view2_iden)
 
             await core.nodes('[test:int=10]')
@@ -290,7 +292,8 @@ class AuthTest(s_test.SynTest):
                 await prox.addAuthUser('fred')
                 await prox.setUserPasswd('fred', 'secret')
 
-                view2_iden = await core.view.fork()
+                vdef2 = await core.view.fork()
+                view2_iden = vdef2.get('iden')
                 view2 = core.getView(view2_iden)
 
                 await alist(core.eval('[test:int=10] [test:int=11]'))

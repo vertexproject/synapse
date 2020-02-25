@@ -674,7 +674,6 @@ class CoreApi(s_cell.CellApi):
     async def delStormDmon(self, iden):
         return await self.cell.delStormDmon(iden)
 
-
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -2170,34 +2169,16 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # if we have no views, we are initializing.  Add a default main view and layer.
         if not self.views:
-            layriden = await self.addLayer()
+            ldef = await self.addLayer()
+            layriden = ldef.get('iden')
             vdef = {
                 'layers': (layriden,),
                 'worldreadable': True,
             }
-            viewiden = await self.addView(vdef)
-            await self.cellinfo.set('defaultview', viewiden)
-            self.view = self.getView(viewiden)
-
-    async def _migrateLayerOffset(self):
-        '''
-        In case this is a downstream mirror, move the offsets for the old layr iden to the new layr iden
-
-        Precondition:
-            Layers and Views are initialized.  Mirror logic has not started.
-
-        TODO:  due to our migration policy, remove in 0.3.0
-        '''
-        oldlayriden = self.iden
-        layr = self.getLayer()
-        newlayriden = layr.iden
-
-        offs = await layr.getOffset(oldlayriden)
-        if offs == 0:
-            return
-
-        await layr.setOffset(newlayriden, offs)
-        await layr.delOffset(oldlayriden)
+            vdef = await self.addView(vdef)
+            iden = vdef.get('iden')
+            await self.cellinfo.set('defaultview', iden)
+            self.view = self.getView(iden)
 
     async def getOffset(self, iden):
         '''
@@ -2206,7 +2187,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def addView(self, vdef):
 
-        vdef.setdefault('iden', s_common.guid())
+        vdef['iden'] = s_common.guid()
         vdef.setdefault('parent', None)
         vdef.setdefault('worldreadable', False)
         vdef.setdefault('creator', self.auth.rootuser.iden)
@@ -2240,11 +2221,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         for name, valu in vdef.items():
             await info.set(name, valu)
 
-        await self._loadView(node)
+        view = await self._loadView(node)
 
         await self.bumpSpawnPool()
 
-        return iden
+        return view.pack()
 
     @s_nexus.Pusher.onPushAuto('view:del')
     async def delView(self, iden):
@@ -2329,6 +2310,14 @@ class Cortex(s_cell.Cell):  # type: ignore
     def listLayers(self):
         return self.layers.values()
 
+    async def getLayerDef(self, iden):
+        layr = self.getLayer(iden)
+        if layr is not None:
+            return layr.pack()
+
+    async def getLayerDefs(self):
+        return [l.pack() for l in self.layers.values()]
+
     def getView(self, iden=None):
         '''
         Get a View object.
@@ -2352,13 +2341,21 @@ class Cortex(s_cell.Cell):  # type: ignore
     def listViews(self):
         return list(self.views.values())
 
+    def getViewDef(self, iden):
+        view = self.getView(iden=iden)
+        if view is not None:
+            return view.pack()
+
+    def getViewDefs(self):
+        return [v.pack() for v in self.views.values()]
+
     async def addLayer(self, ldef=None):
         '''
         Add a Layer to the cortex.
         '''
         ldef = ldef or {}
 
-        ldef.setdefault('iden', s_common.guid())
+        ldef['iden'] = s_common.guid()
         ldef.setdefault('creator', self.auth.rootuser.iden)
         ldef.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
 
@@ -2388,7 +2385,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # forward wind the new layer to the current model version
         await layr.setModelVers(s_modelrev.maxvers)
 
-        return layr.iden
+        return layr.pack()
 
     async def _initLayr(self, layrinfo):
         '''
