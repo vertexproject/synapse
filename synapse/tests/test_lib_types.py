@@ -317,6 +317,12 @@ class TypesTest(s_t_utils.SynTest):
         self.false(t.cmpr(-math.nan, '<=', math.inf))
         self.true(t.cmpr('inf', '>=', '-0.0'))
 
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ test:float=42.0 ]')
+            self.len(1, nodes)
+            nodes = await core.nodes('[ test:float=inf ]')
+            self.len(1, nodes)
+
     async def test_ival(self):
         model = s_datamodel.Model()
         ival = model.types.get('ival')
