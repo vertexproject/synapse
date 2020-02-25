@@ -383,26 +383,28 @@ class AgendaTest(s_t_utils.SynTest):
 
                 await visi.addRule((True, ('cron', 'add')))
                 cron0 = await proxy.addCronJob(cdef)
+                cron0iden = cron0['iden']
 
                 cdef = {'storm': 'inet:ipv6', 'reqs': {'hour': 2}}
                 cron1 = await proxy.addCronJob(cdef)
+                cron1iden = cron1['iden']
 
-                await proxy.delCronJob(cron0)
+                await proxy.delCronJob(cron0iden)
 
             async with core.getLocalProxy(user='newb') as proxy:
 
                 with self.raises(s_exc.AuthDeny):
-                    await proxy.delCronJob(cron1)
+                    await proxy.delCronJob(cron1iden)
 
                 self.eq(await proxy.listCronJobs(), ())
                 await newb.addRule((True, ('cron', 'get')))
                 self.len(1, await proxy.listCronJobs())
 
                 with self.raises(s_exc.AuthDeny):
-                    await proxy.disableCronJob(cron1)
+                    await proxy.disableCronJob(cron1iden)
 
                 await newb.addRule((True, ('cron', 'set')))
-                self.none(await proxy.disableCronJob(cron1))
+                self.none(await proxy.disableCronJob(cron1iden))
 
                 await newb.addRule((True, ('cron', 'del')))
-                await proxy.delCronJob(cron1)
+                await proxy.delCronJob(cron1iden)

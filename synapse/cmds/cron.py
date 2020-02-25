@@ -453,8 +453,8 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
                 'incunit': incunit,
                 'incvals': incval,
                 }
-        iden = await core.addCronJob(cdef)
-        self.printf(f'Created cron job {iden}')
+        newcdef = await core.addCronJob(cdef)
+        self.printf(f'Created cron job {newcdef["iden"]}')
 
     @staticmethod
     def _format_timestamp(ts):
@@ -734,5 +734,5 @@ Examples:
                 'incvals': None,
                 }
 
-        iden = await core.addCronJob(cdef)
-        self.printf(f'Created cron job {iden}')
+        newcdef = await core.addCronJob(cdef)
+        self.printf(f'Created cron job {newcdef["iden"]}')

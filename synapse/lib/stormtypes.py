@@ -2081,14 +2081,14 @@ class LibCron(Lib):
                 'reqs': reqdict,
                 'incunit': incunit,
                 'incvals': incval,
-                'useriden': self.runt.user.iden
+                'creator': self.runt.user.iden
                 }
 
         todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
-        iden = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        newcdef = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
-        return iden
+        return newcdef['iden']
 
     async def _methCronAt(self, **kwargs):
         '''
@@ -2151,14 +2151,14 @@ class LibCron(Lib):
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,
-                'useriden': self.runt.user.iden
+                'creator': self.runt.user.iden
                 }
 
         todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
-        iden = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        newcdef = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
-        return iden
+        return newcdef['iden']
 
     async def _methCronDel(self, prefix):
         '''

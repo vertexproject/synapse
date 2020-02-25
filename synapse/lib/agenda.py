@@ -24,7 +24,7 @@ reqValidCdef = s_config.getJsValidator({
     'type': 'object',
     'properties': {
         'storm': {'type': 'string'},
-        'useriden': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'incunit': {
             'oneOf': [
                 {'type': 'null'},
@@ -48,7 +48,7 @@ reqValidCdef = s_config.getJsValidator({
         },
     },
     'additionalProperties': False,
-    'required': ['useriden', 'storm'],
+    'required': ['creator', 'storm'],
     'dependencices': {
         'incvals': ['incunit'],
         'incunit': ['incvals'],
@@ -288,7 +288,7 @@ class _Appt:
     Each such entry has a list of ApptRecs.  Each time the appointment is scheduled, the nexttime of the appointment is
     the lowest nexttime of all its ApptRecs.
     '''
-    def __init__(self, stor, iden, recur, indx, query, useriden, recs, nexttime=None):
+    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None):
         self.doc = ''
         self.name = ''
         self.stor = stor
@@ -296,7 +296,7 @@ class _Appt:
         self.recur = recur # does this appointment repeat
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
         self.query = query  # query to run
-        self.useriden = useriden # user iden to run query as
+        self.creator = creator # user iden to run query as
         self.recs = recs  # List[ApptRec]  list of the individual entries to calculate next time from
         self._recidxnexttime = None # index of rec who is up next
 
@@ -357,7 +357,7 @@ class _Appt:
             'iden': self.iden,
             'indx': self.indx,
             'query': self.query,
-            'useriden': self.useriden,
+            'creator': self.creator,
             'recs': [d.pack() for d in self.recs],
             'nexttime': self.nexttime,
             'startcount': self.startcount,
@@ -372,7 +372,7 @@ class _Appt:
         if val['ver'] != 1:
             raise s_exc.BadStorageVersion(mesg=f"Found version {val['ver']}")  # pragma: no cover
         recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
-        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['useriden'], recs, val['nexttime'])
+        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['creator'], recs, val['nexttime'])
         appt.doc = val.get('doc', '')
         appt.name = val.get('name', '')
         appt.startcount = val['startcount']
@@ -427,7 +427,7 @@ class _Appt:
             raise s_exc.AuthDeny(perm=perm, mesg=mesg)
 
     def allowed(self, user, perm):
-        if user.iden == self.useriden:
+        if user.iden == self.creator:
             return True
 
         return user.allowed(perm)
@@ -581,7 +581,7 @@ class Agenda(s_base.Base):
         incvals = cdef.get('incvals')
         reqs = cdef.get('reqs', {})
         query = cdef.get('storm')
-        useriden = cdef.get('useriden')
+        creator = cdef.get('creator')
 
         recur = incunit is not None
         indx = self._next_indx
@@ -608,7 +608,7 @@ class Agenda(s_base.Base):
                 incvals = (incvals, )
             recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
 
-        appt = _Appt(self, iden, recur, indx, query, useriden, recs)
+        appt = _Appt(self, iden, recur, indx, query, creator, recs)
         self._addappt(iden, appt)
 
         appt.doc = cdef.get('doc', '')
@@ -718,9 +718,9 @@ class Agenda(s_base.Base):
         '''
         Fire off the task to make the storm query
         '''
-        user = self.core.auth.user(appt.useriden)
+        user = self.core.auth.user(appt.creator)
         if user is None:
-            logger.warning('Unknown user %s in stored appointment', appt.useriden)
+            logger.warning('Unknown user %s in stored appointment', appt.creator)
             await self._markfailed(appt)
             return
         await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user,

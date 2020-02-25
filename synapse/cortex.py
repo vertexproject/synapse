@@ -167,7 +167,7 @@ class CoreApi(s_cell.CellApi):
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
-        cdef['useriden'] = self.user.iden
+        cdef['creator'] = self.user.iden
 
         s_common.deprecated('addCronJob')
         self.user.confirm(('cron', 'add'), gateiden='cortex')
@@ -3148,13 +3148,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         except KeyError:
             raise s_exc.BadConfValu('Unrecognized time unit')
 
-        user = await self.auth.reqUser(cdef['useriden'])
+        user = await self.auth.reqUser(cdef['creator'])
 
         iden = s_common.guid()
         cdef['iden'] = iden
         await self._push('cron:add', cdef)
         await user.setAdmin(True, gateiden=iden)
-        return iden
+        return cdef
 
     @s_nexus.Pusher.onPush('cron:add')
     async def _onAddCronJob(self, cdef):
@@ -3214,7 +3214,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             info['iden'] = iden
 
-            user = self.auth.user(cron.useriden)
+            user = self.auth.user(cron.creator)
             info['username'] = user.name
 
             crons.append((iden, info))
