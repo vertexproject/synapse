@@ -302,10 +302,11 @@ class TypesTest(s_t_utils.SynTest):
         self.true(math.isnan(t.norm('NaN')[0]))
         self.eq(t.norm('-0.0')[0], -0.0)
         self.eq(t.norm('42')[0], 42.0)
-        minmax = model.type('float').clone({'min': -10.0, 'max': 100.0})
+        minmax = model.type('float').clone({'min': -10.0, 'max': 100.0, 'maxisvalid': True, 'minisvalid': False})
         self.raises(s_exc.BadTypeValu, minmax.norm, 'NaN')
         self.raises(s_exc.BadTypeValu, minmax.norm, '-inf')
         self.raises(s_exc.BadTypeValu, minmax.norm, 'inf')
+        self.raises(s_exc.BadTypeValu, minmax.norm, '-10')
         self.raises(s_exc.BadTypeValu, minmax.norm, '-10.00001')
         self.raises(s_exc.BadTypeValu, minmax.norm, '100.00001')
         self.eq(minmax.norm('100.000')[0], 100.0)
@@ -319,6 +320,17 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
             nodes = await core.nodes('[ test:float=inf ]')
             self.len(1, nodes)
+
+            self.len(1, await core.nodes('[ test:float=42.0 :closed=0.0]'))
+            await self.asyncraises(s_exc.BadPropValu, core.nodes('[ test:float=42.0 :closed=-1.0]'))
+            self.len(1, await core.nodes('[ test:float=42.0 :closed=360.0]'))
+            await self.asyncraises(s_exc.BadPropValu, core.nodes('[ test:float=42.0 :closed=NaN]'))
+            await self.asyncraises(s_exc.BadPropValu, core.nodes('[ test:float=42.0 :closed=360.1]'))
+
+            await self.asyncraises(s_exc.BadPropValu, core.nodes('[ test:float=42.0 :open=0.0]'))
+            await self.asyncraises(s_exc.BadPropValu, core.nodes('[ test:float=42.0 :open=360.0]'))
+            self.len(1, await core.nodes('[ test:float=42.0 :open=0.001]'))
+            self.len(1, await core.nodes('[ test:float=42.0 :open=359.0]'))
 
     async def test_ival(self):
         model = s_datamodel.Model()

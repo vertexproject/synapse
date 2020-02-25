@@ -234,7 +234,8 @@ testmodel = {
         )),
 
         ('test:float', {}, (
-            ('floatprop', ('float', {'min': 0.0, 'max': 360.0}), {}),
+            ('closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
+            ('open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
         )),
 
         ('test:edge', {}, (

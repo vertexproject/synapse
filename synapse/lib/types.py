@@ -798,7 +798,9 @@ class Float(Type):
         ('fmt', '%f'),  # type:ignore # Set to an float compatible format string to control repr.
 
         ('min', None),  # Set to a value to enforce minimum value for the type.
+        ('minisvalid', True),  # Only valid if min is set.  True if min is itself a valid value (i.e. closed interval)
         ('max', None),  # Set to a value to enforce maximum value for the type.
+        ('maxisvalid', True),  # Only valid if max is set.  True if max is itself a valid value (i.e. closed interval)
     )
 
     stortype = s_layer.STOR_TYPE_FLOAT64
@@ -862,6 +864,14 @@ class Float(Type):
         self.minval = self.opts.get('min')
         self.maxval = self.opts.get('max')
 
+        if self.minval is not None:
+            isopen = self.opts.get('minisvalid')
+            self.mincmp = (lambda x, y: x >= y) if isopen else (lambda x, y: x > y)
+
+        if self.maxval is not None:
+            isopen = self.opts.get('maxisvalid')
+            self.maxcmp = (lambda x, y: x <= y) if isopen else (lambda x, y: x < y)
+
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(float, self._normPyFloat)
@@ -880,11 +890,11 @@ class Float(Type):
         return self._normPyFloat(valu)
 
     def _normPyFloat(self, valu):
-        if self.minval is not None and not valu >= self.minval:
+        if self.minval is not None and not self.mincmp(valu, self.minval):
             mesg = f'value is below min={self.minval}'
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
 
-        if self.maxval is not None and not valu <= self.maxval:
+        if self.maxval is not None and not self.maxcmp(valu, self.maxval):
             mesg = f'value is above max={self.maxval}'
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
 
