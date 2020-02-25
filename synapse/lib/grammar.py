@@ -344,7 +344,8 @@ def parseQuery(text):
     return Parser(text).query()
 
 # TODO:  commonize with storm.lark
-scmdre = regex.compile('[a-z][a-z0-9.]+')
+re_scmd = '[a-z][a-z0-9.]+'
+scmdre = regex.compile(re_scmd)
 univre = regex.compile(r'\.[a-z_][a-z0-9]*([:.][a-z0-9]+)*')
 propre = regex.compile(r'[a-z_][a-z0-9]*(:[a-z0-9]+)+([:.][a-z_ ][a-z0-9]+)*')
 formre = regex.compile(r'[a-z][a-z0-9]*(:[a-z0-9]+)+')

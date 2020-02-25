@@ -30,60 +30,53 @@ class SynModule(s_module.CoreModule):
     async def _liftRuntSynCmd(self, full, valu=None, cmpr=None):
 
         genr = self.core.stormcmds.values
-        indx = self.core.stormcmds.get
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr, indx):
+        async for node in self._doRuntLift(genr, full, valu, cmpr):
             yield node
 
     async def _liftRuntSynCron(self, full, valu=None, cmpr=None):
 
         genr = self.core.agenda.appts.values
-        indx = self.core.agenda.appts.get
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr, indx):
+        async for node in self._doRuntLift(genr, full, valu, cmpr):
             yield node
 
     async def _liftRuntSynForm(self, full, valu=None, cmpr=None):
 
         genr = self.model.forms.values
-        indx = self.model.forms.get
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr, indx):
+        async for node in self._doRuntLift(genr, full, valu, cmpr):
             yield node
 
     async def _liftRuntSynProp(self, full, valu=None, cmpr=None):
 
         genr = self.model.getProps
-        indx = self.model.props.get
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr, indx):
+        async for node in self._doRuntLift(genr, full, valu, cmpr):
             yield node
 
     async def _liftRuntSynType(self, full, valu=None, cmpr=None):
 
         genr = self.model.types.values
-        indx = self.model.types.get
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr, indx):
+        async for node in self._doRuntLift(genr, full, valu, cmpr):
             yield node
 
     async def _liftRuntSynTagProp(self, full, valu=None, cmpr=None):
 
         genr = self.model.tagprops.values
-        indx = self.model.tagprops.get
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr, indx):
+        async for node in self._doRuntLift(genr, full, valu, cmpr):
             yield node
 
     async def _liftRuntSynTrigger(self, full, valu=None, cmpr=None):
 
         genr = self.core.view.triggers.triggers.values
-        indx = self.core.view.triggers.triggers.get
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr, indx):
+        async for node in self._doRuntLift(genr, full, valu, cmpr):
             yield node
 
-    async def _doRuntLift(self, genr, full, valu=None, cmpr=None, indx=None):
+    async def _doRuntLift(self, genr, full, valu=None, cmpr=None):
 
         if cmpr is not None:
             filt = self.model.prop(full).type.getCmprCtor(cmpr)(valu)
@@ -95,22 +88,16 @@ class SynModule(s_module.CoreModule):
 
             if cmpr is None:
                 for obj in genr():
-                    yield obj.getStorNode(fullprop.name)
-                return
-
-            if cmpr == '=' and indx is not None:
-                obj = indx(valu)
-                if obj is not None:
-                    yield obj.getStorNode(fullprop.name)
+                    yield obj.getStorNode(fullprop)
                 return
 
             for obj in genr():
-                sode = obj.getStorNode(fullprop.name)
+                sode = obj.getStorNode(fullprop)
                 if filt(sode[1]['ndef'][1]):
                     yield sode
         else:
             for obj in genr():
-                sode = obj.getStorNode(fullprop.form.name)
+                sode = obj.getStorNode(fullprop.form)
                 propval = sode[1]['props'].get(fullprop.name)
 
                 if propval is not None and (cmpr is None or filt(propval)):

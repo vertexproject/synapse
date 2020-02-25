@@ -1111,8 +1111,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
         ctor.forms = cdef.get('forms', {})
 
-        def getStorNode(form='syn:cmd'):
-            ndef = (form, cdef.get('name'))
+        def getStorNode(form):
+            ndef = (form.name, form.type.norm(cdef.get('name'))[0])
             buid = s_common.buid(ndef)
 
             props = {
@@ -1134,9 +1134,15 @@ class Cortex(s_cell.Cell):  # type: ignore
             if ctor.pkgname:
                 props['package'] = ctor.pkgname
 
+            pnorms = {}
+            for prop, valu in props.items():
+                formprop = form.props.get(prop)
+                if formprop is not None and valu is not None:
+                    pnorms[prop] = formprop.type.norm(valu)[0]
+
             return (buid, {
                 'ndef': ndef,
-                'props': props,
+                'props': pnorms,
             })
 
         ctor.getStorNode = getStorNode
@@ -1228,39 +1234,27 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Validate a storm package for loading.  Raises if invalid.
         '''
-        # validate things first...
-        name = pkgdef.get('name')
-        if name is None:
-            mesg = 'Package definition has no "name" field.'
-            raise s_exc.BadPkgDef(mesg=mesg)
+        # Validate package def
+        s_storm.reqValidPkgdef(s_common.convertToLists(pkgdef))
 
-        vers = pkgdef.get('version')
-        if vers is None:
-            mesg = 'Package definition has no "version" field.'
-            raise s_exc.BadPkgDef(mesg=mesg)
-
+        # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
         svciden = pkgdef.get('svciden')
+        pkgname = pkgdef.get('name')
 
-        # Validate storm contents from modules and commands
         for mdef in mods:
-
-            modname = mdef.get('name')
-            if modname is None:
-                raise s_exc.BadPkgDef(mesg='Package module is missing a name.',
-                                      package=name)
             modtext = mdef.get('storm')
             self.getStormQuery(modtext)
 
         for cdef in cmds:
+            cdef['pkgname'] = pkgname
             cdef.setdefault('cmdconf', {})
             if svciden:
                 cdef['cmdconf']['svciden'] = svciden
 
-            cdef['pkgname'] = name
-
-            await self._reqStormCmd(cdef)
+            cmdtext = cdef.get('storm')
+            self.getStormQuery(cmdtext)
 
     async def loadStormPkg(self, pkgdef):
         '''
@@ -2470,12 +2464,10 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def runStormDmon(self, iden, ddef):
 
         # validate ddef before firing task
-        uidn = ddef.get('user')
-        if uidn is None:
-            mesg = 'Storm daemon definition requires "user".'
-            raise s_exc.NeedConfValu(mesg=mesg)
+        s_storm.reqValidDdef(ddef)
+
         # FIXME:  no such call
-        await self.auth.reqUser(uidn)
+        await self.auth.reqUser(ddef['user'])
 
         # raises if parser failure
         self.getStormQuery(ddef.get('storm'))

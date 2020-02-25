@@ -1,10 +1,9 @@
-import asyncio
+import math
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.time as s_time
-import synapse.lib.types as s_types
 import synapse.lib.const as s_const
 
 import synapse.tests.utils as s_t_utils
@@ -292,6 +291,46 @@ class TypesTest(s_t_utils.SynTest):
         self.raises(s_exc.BadTypeDef, model.type('int').clone, {'min': 100, 'max': 1})
         self.raises(s_exc.BadTypeDef, model.type('int').clone, {'enums': ((1, 'hehe'), (2, 'haha'), (3, 'HAHA'))})
         self.raises(s_exc.BadTypeDef, model.type('int').clone, {'enums': ((1, 'hehe'), (2, 'haha'), (2, 'beep'))})
+
+    async def test_float(self):
+        model = s_datamodel.Model()
+        t = model.type('float')
+
+        self.nn(t.norm(1.2345)[0])
+        self.eq(t.norm('inf')[0], math.inf)
+        self.eq(t.norm('-inf')[0], -math.inf)
+        self.true(math.isnan(t.norm('NaN')[0]))
+        self.eq(t.norm('-0.0')[0], -0.0)
+        self.eq(t.norm('42')[0], 42.0)
+        minmax = model.type('float').clone({'min': -10.0, 'max': 100.0, 'maxisvalid': True, 'minisvalid': False})
+        self.raises(s_exc.BadTypeValu, minmax.norm, 'NaN')
+        self.raises(s_exc.BadTypeValu, minmax.norm, '-inf')
+        self.raises(s_exc.BadTypeValu, minmax.norm, 'inf')
+        self.raises(s_exc.BadTypeValu, minmax.norm, '-10')
+        self.raises(s_exc.BadTypeValu, minmax.norm, '-10.00001')
+        self.raises(s_exc.BadTypeValu, minmax.norm, '100.00001')
+        self.eq(minmax.norm('100.000')[0], 100.0)
+        self.true(t.cmpr(10, '<', 20.0))
+        self.false(t.cmpr(-math.inf, '>', math.inf))
+        self.false(t.cmpr(-math.nan, '<=', math.inf))
+        self.true(t.cmpr('inf', '>=', '-0.0'))
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ test:float=42.0 ]')
+            self.len(1, nodes)
+            nodes = await core.nodes('[ test:float=inf ]')
+            self.len(1, nodes)
+
+            self.len(1, await core.nodes('[ test:float=42.0 :closed=0.0]'))
+            await self.asyncraises(s_exc.BadPropValu, core.nodes('[ test:float=42.0 :closed=-1.0]'))
+            self.len(1, await core.nodes('[ test:float=42.0 :closed=360.0]'))
+            await self.asyncraises(s_exc.BadPropValu, core.nodes('[ test:float=42.0 :closed=NaN]'))
+            await self.asyncraises(s_exc.BadPropValu, core.nodes('[ test:float=42.0 :closed=360.1]'))
+
+            await self.asyncraises(s_exc.BadPropValu, core.nodes('[ test:float=42.0 :open=0.0]'))
+            await self.asyncraises(s_exc.BadPropValu, core.nodes('[ test:float=42.0 :open=360.0]'))
+            self.len(1, await core.nodes('[ test:float=42.0 :open=0.001]'))
+            self.len(1, await core.nodes('[ test:float=42.0 :open=359.0]'))
 
     async def test_ival(self):
         model = s_datamodel.Model()

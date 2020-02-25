@@ -51,10 +51,13 @@ Storage Node (<sode>):
 
 '''
 import os
+import math
 import shutil
+import struct
 import asyncio
 import logging
 import ipaddress
+import itertools
 import contextlib
 import collections
 
@@ -66,7 +69,6 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.gis as s_gis
-import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
@@ -102,7 +104,6 @@ class LayerApi(s_cell.CellApi):
 
         self.layr = layr
         self.liftperm = ('layer:lift', self.layr.iden)
-        #self.storperm = ('layer:stor', self.layr.iden)
 
     async def iterLayerNodeEdits(self):
         '''
@@ -168,6 +169,8 @@ STOR_TYPE_I128 = 20
 
 STOR_TYPE_MINTIME = 21
 
+STOR_TYPE_FLOAT64 = 22
+
 # STOR_TYPE_TOMB      = ??
 # STOR_TYPE_FIXED     = ??
 
@@ -206,9 +209,20 @@ class IndxBy:
         for _, buid in self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db):
             yield buid
 
+    def keyBuidsByRange(self, minindx, maxindx):
+        yield from self.layr.layrslab.scanByRange(self.abrv + minindx, self.abrv + maxindx, db=self.db)
+
     def buidsByRange(self, minindx, maxindx):
-        for _, buid in self.layr.layrslab.scanByRange(self.abrv + minindx, self.abrv + maxindx, db=self.db):
-            yield buid
+        yield from (x[1] for x in self.keyBuidsByRange(minindx, maxindx))
+
+    def keyBuidsByRangeBack(self, minindx, maxindx):
+        '''
+        Yields backwards from maxindx to minindx
+        '''
+        yield from self.layr.layrslab.scanByRangeBack(self.abrv + maxindx, lmin=self.abrv + minindx, db=self.db)
+
+    def buidsByRangeBack(self, minindx, maxindx):
+        yield from (x[1] for x in self.keyBuidsByRangeBack(minindx, maxindx))
 
     def scanByDups(self, indx):
         for item in self.layr.layrslab.scanByDups(self.abrv + indx, db=self.db):
@@ -307,13 +321,11 @@ class StorType:
 
     def indxByProp(self, form, prop, cmpr, valu):
         indxby = IndxByProp(self.layr, form, prop)
-        for buid in self.indxBy(indxby, cmpr, valu):
-            yield buid
+        yield from self.indxBy(indxby, cmpr, valu)
 
     def indxByPropArray(self, form, prop, cmpr, valu):
         indxby = IndxByPropArray(self.layr, form, prop)
-        for buid in self.indxBy(indxby, cmpr, valu):
-            yield buid
+        yield from self.indxBy(indxby, cmpr, valu)
 
     def indxByTagProp(self, form, tag, prop, cmpr, valu):
         indxby = IndxByTagProp(self.layr, form, tag, prop)
@@ -540,6 +552,101 @@ class StorTypeInt(StorType):
         pkeymax = (valu[1] + self.offset).to_bytes(self.size, 'big')
         yield from liftby.buidsByRange(pkeymin, pkeymax)
 
+class StorTypeFloat(StorType):
+    FloatPacker = struct.Struct('>d')
+    fpack = FloatPacker.pack
+    FloatPackPosMax = FloatPacker.pack(math.inf)
+    FloatPackPosMin = FloatPacker.pack(0.0)
+    FloatPackNegMin = FloatPacker.pack(-math.inf)
+    FloatPackNegMax = FloatPacker.pack(-0.0)
+
+    def __init__(self, layr, stortype, size=8):
+        '''
+        Size reserved for later use
+        '''
+        assert size == 8
+
+        StorType.__init__(self, layr, stortype)
+
+        self.lifters.update({
+            '=': self._liftFloatEq,
+            '<': self._liftFloatLt,
+            '>': self._liftFloatGt,
+            '<=': self._liftFloatLe,
+            '>=': self._liftFloatGe,
+            'range=': self._liftFloatRange,
+        })
+
+    def indx(self, valu):
+        return (self.fpack(valu),)
+
+    def _liftFloatEq(self, liftby, valu):
+        yield from liftby.buidsByDups(self.fpack(valu))
+
+    def _liftFloatGeCommon(self, liftby, valu):
+        if math.isnan(valu):
+            raise s_exc.NotANumberCompared()
+
+        valupack = self.fpack(valu)
+
+        if math.copysign(1.0, valu) < 0.0:  # negative values and -0.0
+            yield from liftby.keyBuidsByRangeBack(self.FloatPackNegMax, valupack)
+            valupack = self.FloatPackPosMin
+
+        yield from liftby.keyBuidsByRange(valupack, self.FloatPackPosMax)
+
+    def _liftFloatGe(self, liftby, valu):
+        yield from (x[1] for x in self._liftFloatGeCommon(liftby, valu))
+
+    def _liftFloatGt(self, liftby, valu):
+        genr = self._liftFloatGeCommon(liftby, valu)
+        valupack = self.fpack(valu)
+        yield from (x[1] for x in itertools.dropwhile(lambda x: x[0] == valupack, genr))
+
+    def _liftFloatLeCommon(self, liftby, valu):
+        if math.isnan(valu):
+            raise s_exc.NotANumberCompared()
+
+        valupack = self.fpack(valu)
+
+        if math.copysign(1.0, valu) > 0.0:
+            yield from liftby.keyBuidsByRangeBack(self.FloatPackNegMax, self.FloatPackNegMin)
+            yield from liftby.keyBuidsByRange(self.FloatPackPosMin, valupack)
+        else:
+            yield from liftby.keyBuidsByRangeBack(valupack, self.FloatPackNegMin)
+
+    def _liftFloatLe(self, liftby, valu):
+        yield from (x[1] for x in self._liftFloatLeCommon(liftby, valu))
+
+    def _liftFloatLt(self, liftby, valu):
+        genr = self._liftFloatLeCommon(liftby, valu)
+        valupack = self.fpack(valu)
+        yield from (x[1] for x in itertools.takewhile(lambda x: x[0] != valupack, genr))
+
+    def _liftFloatRange(self, liftby, valu):
+        valumin, valumax = valu
+        assert valumin <= valumax
+        if math.isnan(valumin) or math.isnan(valumax):
+            raise s_exc.NotANumberCompared()
+
+        pkeymin, pkeymax = (self.fpack(v) for v in valu)
+
+        if math.copysign(1.0, valumin) > 0.0:
+            # Entire range is nonnegative
+            yield from liftby.buidsByRange(pkeymin, pkeymax)
+            return
+
+        if math.copysign(1.0, valumax) < 0.0:  # negative values and -0.0
+            # Entire range is negative
+            yield from liftby.buidsByRangeBack(pkeymax, pkeymin)
+            return
+
+        # Yield all values between min and -0
+        yield from liftby.buidsByRangeBack(self.FloatPackNegMax, pkeymin)
+
+        # Yield all values between 0 and max
+        yield from liftby.buidsByRange(self.FloatPackPosMin, pkeymax)
+
 class StorTypeGuid(StorType):
 
     def __init__(self, layr):
@@ -647,11 +754,11 @@ class StorTypeLatLon(StorType):
 
         latmin, latmax, lonmin, lonmax = s_gis.bbox(lat, lon, dist)
 
-        lonminindx = int(((lonmin * self.scale) + self.lonspace)).to_bytes(5, 'big')
-        lonmaxindx = int(((lonmax * self.scale) + self.lonspace)).to_bytes(5, 'big')
+        lonminindx = (round(lonmin * self.scale) + self.lonspace).to_bytes(5, 'big')
+        lonmaxindx = (round(lonmax * self.scale) + self.lonspace).to_bytes(5, 'big')
 
-        latminindx = int(((latmin * self.scale) + self.latspace)).to_bytes(5, 'big')
-        latmaxindx = int(((latmax * self.scale) + self.latspace)).to_bytes(5, 'big')
+        latminindx = (round(latmin * self.scale) + self.latspace).to_bytes(5, 'big')
+        latmaxindx = (round(latmax * self.scale) + self.latspace).to_bytes(5, 'big')
 
         # scan by lon range and down-select the results to matches.
         for lkey, buid in liftby.scanByRange(lonminindx, lonmaxindx):
@@ -676,13 +783,13 @@ class StorTypeLatLon(StorType):
                 yield buid
 
     def _getLatLonIndx(self, latlong):
-        # yield index bytes in lon/lat order to allow cheap optimial indexing
-        latindx = int(((latlong[0] * self.scale) + self.latspace)).to_bytes(5, 'big')
-        lonindx = int(((latlong[1] * self.scale) + self.lonspace)).to_bytes(5, 'big')
+        # yield index bytes in lon/lat order to allow cheap optimal indexing
+        latindx = (round(latlong[0] * self.scale) + self.latspace).to_bytes(5, 'big')
+        lonindx = (round(latlong[1] * self.scale) + self.lonspace).to_bytes(5, 'big')
         return lonindx + latindx
 
     def indx(self, valu):
-        # yield index bytes in lon/lat order to allow cheap optimial indexing
+        # yield index bytes in lon/lat order to allow cheap optimal indexing
         return (self._getLatLonIndx(valu),)
 
 class Layer(s_nexus.Pusher):
@@ -742,6 +849,8 @@ class Layer(s_nexus.Pusher):
             StorTypeInt(self, STOR_TYPE_I128, 16, True),
 
             StorTypeTime(self), # STOR_TYPE_MINTIME
+
+            StorTypeFloat(self, STOR_TYPE_FLOAT64, 8),
         ]
 
         self.editors = [
@@ -1013,7 +1122,7 @@ class Layer(s_nexus.Pusher):
         changes = await self._push('edits', nodeedits, meta)
 
         retn = []
-        for buid, form, edits in changes:
+        for buid, _, edits in changes:
             sode = await self.getStorNode(buid)
             sode[1]['edits'] = edits
             retn.append(sode)
@@ -1272,7 +1381,7 @@ class Layer(s_nexus.Pusher):
                 merged = (min(oldv[0], valu[0]), max(oldv[1], valu[1]))
 
                 if merged != valu:
-                    self.layrslab.put(buid + b'\x02' + tenc, s_msgpack.en(newv), db=self.bybuid)
+                    self.layrslab.put(buid + b'\x02' + tenc, s_msgpack.en(valu), db=self.bybuid)
                     valu = merged
 
             if oldv == valu:
@@ -1609,7 +1718,7 @@ class Layer(s_nexus.Pusher):
                             items = [item]
 
                             # check if there are more we can eat
-                            for i in range(q.qsize()):
+                            for _ in range(q.qsize()):
 
                                 nexi = await q.get()
                                 if nexi is None:

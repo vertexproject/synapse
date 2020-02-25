@@ -187,6 +187,8 @@ class NoSuchStor(SynErr):
     def __init__(self, name):
         SynErr.__init__(self, mesg=f'No storage type found named {name!r}', name=name)
 
+class NotANumberCompared(SynErr): pass
+
 class ParserExit(SynErr):
     ''' Raised by synapse.lib.cmd.Parser on Parser exit() '''
     pass

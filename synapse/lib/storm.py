@@ -12,7 +12,9 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
+import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
+import synapse.lib.grammar as s_grammar
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -181,6 +183,83 @@ Examples:
     cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
 
 '''
+
+reqValidPkgdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string'},
+        'version': {
+            'type': ['array', 'number'],
+            'items': {'type': 'number'}
+        },
+        'modules': {
+            'type': ['array', 'null'],
+            'items': {'$ref': '#/definitions/module'}
+        },
+        'commands': {
+            'type': ['array', 'null'],
+            'items': {'$ref': '#/definitions/command'}
+        },
+        'desc': {'type': 'string'},
+        'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden}
+    },
+    'additionalProperties': True,
+    'required': ['name', 'version'],
+    'definitions': {
+        'module': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'storm': {'type': 'string'}
+            },
+            'additionalProperties': True,
+            'required': ['name', 'storm']
+        },
+        'command': {
+            'type': 'object',
+            'properties': {
+                'name': {
+                    'type': 'string',
+                    'pattern': s_grammar.re_scmd
+                },
+                'storm': {'type': 'string'}
+            },
+            'additionalProperties': True,
+            'required': ['name', 'storm']
+        }
+    }
+})
+
+reqValidDdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string'},
+        'storm': {'type': 'string'},
+        'view': {'type': 'string', 'pattern': s_config.re_iden},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'stormopts': {
+            'oneOf': [
+                {'type': 'null'},
+                {'$ref': '#/definitions/stormopts'}
+            ]
+        }
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'user', 'storm'],
+    'definitions': {
+        'stormopts': {
+            'type': 'object',
+            'properties': {
+                'spawn': {'type': 'boolean'},
+                'repr': {'type': 'boolean'},
+                'path': {'type': 'string'},
+                'show': {'type': 'array', 'items': {'type': 'string'}}
+            },
+            'additionalProperties': True,
+        },
+    }
+})
 
 stormcmds = (
     {
@@ -1252,8 +1331,8 @@ class Cmd:
         raise s_exc.BadSyntax(mesg=mesg, valu=name)
 
     @classmethod
-    def getStorNode(cls, form='syn:cmd'):
-        ndef = (form, cls.name)
+    def getStorNode(cls, form):
+        ndef = (form.name, form.type.norm(cls.name)[0])
         buid = s_common.buid(ndef)
 
         props = {
@@ -1275,9 +1354,15 @@ class Cmd:
         if cls.pkgname:
             props['package'] = cls.pkgname
 
+        pnorms = {}
+        for prop, valu in props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
+
         return (buid, {
             'ndef': ndef,
-            'props': props,
+            'props': pnorms,
         })
 
 class PureCmd(Cmd):

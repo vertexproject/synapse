@@ -409,7 +409,7 @@ class MultiQueue(s_base.Base):
         indx = s_common.int64en(offs)
         abrv = self.abrv.nameToAbrv(name)
 
-        for lkey, lval in self.slab.scanByRange(abrv + int64min, abrv + indx, db=self.qdata):
+        for lkey, _ in self.slab.scanByRange(abrv + int64min, abrv + indx, db=self.qdata):
             self.slab.delete(lkey, db=self.qdata)
             self.sizes.set(name, self.sizes.get(name) - 1)
             await asyncio.sleep(0)
