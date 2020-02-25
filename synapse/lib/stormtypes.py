@@ -974,9 +974,11 @@ class StormHiveDict(Prim):
 class LibUser(Lib):
     def addLibFuncs(self):
         hivedict = StormHiveDict(self.runt.user.pvars)
+        profdict = StormHiveDict(self.runt.user.profile)
         self.locls.update({
             'name': self._libUserName,
             'vars': hivedict,
+            'profile': profdict,
         })
 
     async def _libUserName(self, path=None):
@@ -1391,7 +1393,7 @@ class LibView(Lib):
             mesg = f'Failed to add view.'
             raise s_exc.StormRuntimeError(mesg=mesg, iden=iden, layers=layers)
 
-        return View(view, path=self.path)
+        return View(self.runt, view, path=self.path)
 
     async def _methViewDel(self, iden):
         '''
@@ -1426,7 +1428,7 @@ class LibView(Lib):
 
         newview = await view.fork(owner=self.runt.user.iden)
 
-        return View(newview, path=self.path)
+        return View(self.runt, newview, path=self.path)
 
     async def _methViewGet(self, iden=None):
         '''
@@ -1439,7 +1441,7 @@ class LibView(Lib):
             mesg = f'No view with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        return View(view, path=self.path)
+        return View(self.runt, view, path=self.path)
 
     async def _methViewList(self):
         '''
@@ -1449,7 +1451,7 @@ class LibView(Lib):
 
         views = self.runt.snap.listViews()
 
-        return [View(view, path=self.path) for view in views]
+        return [View(self.runt, view, path=self.path) for view in views]
 
     async def _methViewMerge(self, iden):
         '''
@@ -1487,11 +1489,24 @@ class View(Prim):
     '''
     Implements the STORM api for a view instance.
     '''
-    def __init__(self, view, path=None):
+    def __init__(self, runt, view, path=None):
+
         Prim.__init__(self, view, path=path)
+        self.runt = runt
+
         self.locls.update({
+            'iden': view.iden,
             'pack': self._methViewPack,
+            'fork': self._methViewFork,
         })
+
+    async def _methViewFork(self):
+
+        self.runt.reqAllowed(('view', 'add'))
+
+        view = await self.valu.fork(owner=self.runt.user.iden)
+
+        return View(self.runt, view)
 
     async def _methViewPack(self):
 
