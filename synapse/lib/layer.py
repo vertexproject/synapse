@@ -622,9 +622,6 @@ class StorTypeFloat(StorType):
         genr = self._liftFloatLeCommon(liftby, valu)
         valupack = self.fpack(valu)
         yield from (x[1] for x in itertools.takewhile(lambda x: x[0] != valupack, genr))
-        # for x in genr:
-        #     breakpoint()
-        #     yield x[1]
 
     def _liftFloatRange(self, liftby, valu):
         valumin, valumax = valu
