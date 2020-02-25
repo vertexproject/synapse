@@ -175,12 +175,6 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
                 self.false(nodes[0].hasTagProp('bar', 'score'))
 
-                # FIXME indexing on tag prop name only?
-                # nodes = await core.nodes('#:score')
-                # self.len(1, nodes)
-                # self.eq(20, nodes[0].getTagProp('foo', 'score'))
-                # self.false(nodes[0].hasTagProp('bar', 'score'))
-
                 await core.nodes('[ test:int=10 -#foo:score ]')
                 nodes = await core.nodes('#:score')
                 self.len(0, nodes)
@@ -3384,8 +3378,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
 
                     msgs = await core01.streamstorm('queue.list').list()
-                    # FIXME:  uncomment when nexsroot bootstrap fixed
-                    # self.stormIsInPrint('visi', msgs)
+                    self.stormIsInPrint('visi', msgs)
 
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 

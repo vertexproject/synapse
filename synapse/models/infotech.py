@@ -321,7 +321,6 @@ class ItModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'doc': 'A free-form description of the host.',
                     }),
-                    #  FIXME we probably eventually need a bunch of stuff here...
                     ('ipv4', ('inet:ipv4', {}), {
                         'doc': 'The last known ipv4 address for the host.'
                     }),
