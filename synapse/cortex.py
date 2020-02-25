@@ -3150,10 +3150,11 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         user = await self.auth.reqUser(cdef['useriden'])
 
-        cdef['iden'] = s_common.guid()
+        iden = s_common.guid()
+        cdef['iden'] = iden
         await self._push('cron:add', cdef)
-        await user.setAdmin(True, gateiden=cdef['iden'])
-        return cdef['iden']
+        await user.setAdmin(True, gateiden=iden)
+        return iden
 
     @s_nexus.Pusher.onPush('cron:add')
     async def _onAddCronJob(self, cdef):
