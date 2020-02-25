@@ -140,55 +140,6 @@ class LayerApi(s_cell.CellApi):
         await self._reqUserAllowed(self.liftperm)
         return self.layr.iden
 
-    #async def getLiftRows(self, lops):
-        #await self._reqUserAllowed(self.liftperm)
-        #async for item in self.layr.getLiftRows(lops):
-            #yield item
-
-    #async def iterFormRows(self, form):
-        #await self._reqUserAllowed(self.liftperm)
-        #async for item in self.layr.iterFormRows(form):
-            #yield item
-
-    #async def iterPropRows(self, form, prop):
-        #await self._reqUserAllowed(self.liftperm)
-        #async for item in self.layr.iterPropRows(form, prop):
-            #yield item
-
-    #async def iterUnivRows(self, univ):
-        #await self._reqUserAllowed(self.liftperm)
-        #async for item in self.layr.iterUnivRows(univ):
-            #yield item
-
-    #async def stor(self, sops, splices=None):
-        #await self._reqUserAllowed(self.storperm)
-        #return await self.layr.stor(sops, splices=splices)
-
-    #async def getBuidProps(self, buid):
-        #await self._reqUserAllowed(self.liftperm)
-        #return await self.layr.getBuidProps(buid)
-
-    #async def getModelVers(self):
-        #return await self.layr.getModelVers()
-
-    #async def getOffset(self, iden):
-        #return await self.layr.getOffset(iden)
-
-    #async def setOffset(self, iden, valu):
-        #return await self.layr.setOffset(iden, valu)
-
-    #async def delOffset(self, iden):
-        #return await self.layr.delOffset(iden)
-
-    #async def splices(self, offs, size):
-        #await self._reqUserAllowed(self.liftperm)
-        #async for item in self.layr.splices(offs, size):
-            #yield item
-
-    #async def hasTagProp(self, name):
-        #return await self.layr.hasTagProp(name)
-
-
 STOR_TYPE_UTF8 = 1
 
 STOR_TYPE_U8 = 2
@@ -214,6 +165,8 @@ STOR_TYPE_IPV6 = 18
 
 STOR_TYPE_U128 = 19
 STOR_TYPE_I128 = 20
+
+STOR_TYPE_MINTIME = 21
 
 # STOR_TYPE_TOMB      = ??
 # STOR_TYPE_FIXED     = ??
@@ -822,6 +775,7 @@ class Layer(s_nexus.Pusher):
             StorTypeInt(self, STOR_TYPE_U128, 16, False),
             StorTypeInt(self, STOR_TYPE_I128, 16, True),
 
+            StorTypeTime(self), # STOR_TYPE_MINTIME
         ]
 
         self.editors = [
@@ -1115,14 +1069,13 @@ class Layer(s_nexus.Pusher):
 
         self.formcounts.inc(form)
 
-        created = (EDIT_PROP_SET, ('.created', s_common.now(), None, STOR_TYPE_TIME))
+        created = (EDIT_PROP_SET, ('.created', s_common.now(), None, STOR_TYPE_MINTIME))
 
-        self._editPropSet(buid, form, created)
+        retn = [(EDIT_NODE_ADD, (valu, stortype))]
 
-        return (
-            (EDIT_NODE_ADD, (valu, stortype)),
-            created,
-        )
+        retn.extend(self._editPropSet(buid, form, created))
+
+        return retn
 
     def _editNodeDel(self, buid, form, edit):
 
@@ -1169,17 +1122,31 @@ class Layer(s_nexus.Pusher):
         if penc[0] == 46: # '.' to detect universal props (as quickly as possible)
             univabrv = self.getPropAbrv(None, prop)
 
+        # merge interval values
+        if stortype == STOR_TYPE_IVAL:
+            oldb = self.layrslab.get(bkey, db=self.bybuid)
+            if oldb is not None:
+                oldv, oldt = s_msgpack.un(oldb)
+                valu = (min(*oldv, *valu), max(*oldv, *valu))
+                if valu == oldv:
+                    return ()
+
         newb = s_msgpack.en((valu, stortype))
         oldb = self.layrslab.replace(bkey, newb, db=self.bybuid)
 
         if newb == oldb:
-            return []
+            return ()
 
         if oldb is not None:
 
             oldv, oldt = s_msgpack.un(oldb)
+
+            if stortype == STOR_TYPE_MINTIME and oldv < valu:
+                self.layrslab.put(bkey, oldb, db=self.bybuid)
+                return ()
+
             if oldv == valu and oldt == stortype:
-                return None
+                return ()
 
             if oldt & STOR_FLAG_ARRAY:
 
@@ -1279,9 +1246,19 @@ class Layer(s_nexus.Pusher):
         oldb = self.layrslab.replace(buid + b'\x02' + tenc, s_msgpack.en(valu), db=self.bybuid)
 
         if oldb is not None:
+
             oldv = s_msgpack.un(oldb)
+
+            if oldv != (None, None) and valu != (None, None):
+
+                merged = (min(oldv[0], valu[0]), max(oldv[1], valu[1]))
+
+                if merged != valu:
+                    self.layrslab.put(buid + b'\x02' + tenc, s_msgpack.en(newv), db=self.bybuid)
+                    valu = merged
+
             if oldv == valu:
-                return None
+                return ()
 
         self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
 
@@ -1300,7 +1277,7 @@ class Layer(s_nexus.Pusher):
 
         oldb = self.layrslab.pop(buid + b'\x02' + tenc, db=self.bybuid)
         if oldb is None:
-            return None
+            return ()
 
         self.layrslab.delete(tagabrv + formabrv, buid, db=self.bytag)
 

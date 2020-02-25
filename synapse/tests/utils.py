@@ -117,6 +117,29 @@ class TestSubType(s_types.Type):
     def repr(self, norm):
         return str(norm)
 
+class TestRunt:
+
+    def __init__(self, name, **kwargs):
+        self.name = name
+        self.props = kwargs
+        self.props.setdefault('.created', s_common.now())
+
+    def getStorNode(self, form):
+
+        ndef = (form.name, form.type.norm(self.name)[0])
+        buid = s_common.buid(ndef)
+
+        pnorms = {}
+        for prop, valu in self.props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
+
+        return (buid, {
+            'ndef': ndef,
+            'props': pnorms,
+        })
+
 testmodel = {
 
     'ctors': (
@@ -321,18 +344,14 @@ class TestModule(s_module.CoreModule):
         self.healthy = True
         self.core.addHealthFunc(self._testModHealth)
 
-        self._runtsByBuid = {}
-        self._runtsByPropValu = collections.defaultdict(list)
-        await self._initTestRunts()
+        form = self.model.form('test:runt')
+        self.core.addRuntLift(form.full, self._testRuntLift)
 
-        #form = self.model.form('test:runt')
-        #self.core.addRuntLift(form.full, self._testRuntLift)
+        for prop in form.props.values():
+            self.core.addRuntLift(prop.full, self._testRuntLift)
 
-        #for prop in form.props.values():
-            #self.core.addRuntLift(prop.full, self._testRuntLift)
-
-        #self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
-        #self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
+        self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
+        self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
 
     async def _testModHealth(self, health):
         if self.healthy:
@@ -346,49 +365,53 @@ class TestModule(s_module.CoreModule):
         for name in items:
             await snap.addNode('test:str', name)
 
-#    async def _testRuntLift(self, full, valu=None, cmpr=None):
-#        # runt lift helpers must decide what comparators they support
-#        if cmpr is not None and cmpr != '=':
-#            raise s_exc.BadCmprValu(mesg='Test runts do not support cmpr which is not equality',
-#                                    cmpr=cmpr)
-#
-#        runts = [
-#            (' BEEP ', {'tick': modl.type('time').norm('2001')[0], 'lulz': 'beep.sys', '.created': now}),
-#            ('boop', {'tick': modl.type('time').norm('2010')[0], '.created': now}),
-#            ('blah', {'tick': modl.type('time').norm('2010')[0], 'lulz': 'blah.sys'}),
-#            ('woah', {}),
-#        ]
-#
-#        sodes = []
-#
-#        for valu, props in runts:
-#            buid = s_common.buid(('test:runt', valu))
-#
-#            sode = (buid, {
-#                'ndef': ('test:runt', valu),
-#                'props': props,
-#            })
-#
-#            sodes.append(sode)
-#
-#        if full == 'test:runt':
-#
-#        return sodes
+    async def _testRuntLift(self, full, valu=None, cmpr=None):
 
-        # Runt lift helpers must support their own normalization for data retrieval
-        #if valu is not None:
-            #prop = self.model.prop(full)
-            #valu, _ = prop.type.norm(valu)
+        now = s_common.now()
+        modl = self.core.model
 
-        # runt lift helpers must then yield buid/rows pairs for Node object creation.
-        #if valu is None:
-            #buids = self._runtsByPropValu.get(full, ())
-        #else:
-            #buids = self._runtsByPropValu.get((full, valu), ())
+        runtdefs = [
+            (' BEEP ', {'tick': modl.type('time').norm('2001')[0], 'lulz': 'beep.sys', '.created': now}),
+            ('boop', {'tick': modl.type('time').norm('2010')[0], '.created': now}),
+            ('blah', {'tick': modl.type('time').norm('2010')[0], 'lulz': 'blah.sys'}),
+            ('woah', {}),
+        ]
 
-        #rowsets = [(buid, self._runtsByBuid.get(buid, ())) for buid in buids]
-        #for buid, rows in rowsets:
-            #yield buid, rows
+        runts = {}
+        for name, props in runtdefs:
+            runts[name] = TestRunt(name, **props)
+
+        genr = runts.values
+
+        async for node in self._doRuntLift(genr, full, valu, cmpr):
+            yield node
+
+    async def _doRuntLift(self, genr, full, valu=None, cmpr=None):
+
+        if cmpr is not None:
+            filt = self.model.prop(full).type.getCmprCtor(cmpr)(valu)
+            if filt is None:
+                raise s_exc.BadCmprValu(cmpr=cmpr)
+
+        fullprop = self.model.prop(full)
+        if fullprop.isform:
+
+            if cmpr is None:
+                for obj in genr():
+                    yield obj.getStorNode(fullprop)
+                return
+
+            for obj in genr():
+                sode = obj.getStorNode(fullprop)
+                if filt(sode[1]['ndef'][1]):
+                    yield sode
+        else:
+            for obj in genr():
+                sode = obj.getStorNode(fullprop.form)
+                propval = sode[1]['props'].get(fullprop.name)
+
+                if propval is not None and (cmpr is None or filt(propval)):
+                    yield sode
 
     async def _testRuntPropSetLulz(self, node, prop, valu):
         curv = node.get(prop.name)
@@ -413,44 +436,6 @@ class TestModule(s_module.CoreModule):
         # storage of row data, so a re-lift of the node would not reflect the
         # change that a user made here.
         return True
-
-    async def _initTestRunts(self):
-        modl = self.core.model
-        fnme = 'test:runt'
-        form = modl.form(fnme)
-        now = s_common.now()
-        data = [(' BEEP ', {'tick': modl.type('time').norm('2001')[0], 'lulz': 'beep.sys', '.created': now}),
-                ('boop', {'tick': modl.type('time').norm('2010')[0], '.created': now}),
-                ('blah', {'tick': modl.type('time').norm('2010')[0], 'lulz': 'blah.sys'}),
-                ('woah', {}),
-                ]
-        for pprop, propd in data:
-            props = {}
-            pnorm, _ = form.type.norm(pprop)
-
-            for k, v in propd.items():
-                prop = form.props.get(k)
-                if prop:
-                    norm, _ = prop.type.norm(v)
-                    props[k] = norm
-
-            props.setdefault('.created', s_common.now())
-
-            #rows = [('*' + fnme, pnorm)]
-            #for k, v in props.items():
-                #rows.append((k, v))
-
-            buid = s_common.buid((fnme, pnorm))
-            #self._runtsByBuid[buid] = rows
-
-            # Allow for indirect lookup to a set of buids
-            self._runtsByPropValu[fnme].append(buid)
-            self._runtsByPropValu[(fnme, pnorm)].append(buid)
-            for k, propvalu in props.items():
-                prop = fnme + ':' + k
-                if k.startswith('.'):
-                    prop = fnme + k
-                self._runtsByPropValu[prop].append(buid)
 
     def getModelDefs(self):
         return (
@@ -1705,17 +1690,17 @@ class SynTest(unittest.TestCase):
         creator = await core.auth.addRole('creator')
 
         await creator.setRules((
-            (True, ('node:add',)),
-            (True, ('prop:set',)),
-            (True, ('tag:add',)),
+            (True, ('node', 'add')),
+            (True, ('node', 'prop', 'set')),
+            (True, ('node', 'tag', 'add')),
             (True, ('feed:data',)),
         ))
 
         deleter = await core.auth.addRole('deleter')
         await deleter.setRules((
-            (True, ('node:del',)),
-            (True, ('prop:del',)),
-            (True, ('tag:del',)),
+            (True, ('node', 'del')),
+            (True, ('node', 'prop', 'del')),
+            (True, ('node', 'tag', 'del')),
         ))
 
         iadd = await core.auth.addUser('icanadd')

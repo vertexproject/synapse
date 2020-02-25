@@ -76,11 +76,6 @@ class CoreApi(s_cell.CellApi):
     def stat(self):
         return self.cell.stat()
 
-    @s_cell.adminapi
-    async def joinTeleLayer(self, url, indx=None):
-        ret = await self.cell.joinTeleLayer(url, indx=indx)
-        return ret
-
     async def getModelDict(self):
         '''
         Return a dictionary which describes the data model.
@@ -299,7 +294,7 @@ class CoreApi(s_cell.CellApi):
                     raise s_exc.NoSuchIden(iden=iden)
 
                 prop = node.form.props.get(name)
-                self.user.confirm(('prop:set', prop.full), gateiden=snap.wlyr.iden)
+                self.user.confirm(('node', 'prop', 'set', prop.full), gateiden=snap.wlyr.iden)
 
                 await node.set(name, valu)
                 return node.pack()
@@ -323,7 +318,7 @@ class CoreApi(s_cell.CellApi):
 
                 prop = node.form.props.get(name)
 
-                self.user.confirm(('prop:del', prop.full), gateiden=snap.wlyr.iden)
+                self.user.confirm(('node', 'prop', 'del', prop.full), gateiden=snap.wlyr.iden)
 
                 await node.pop(name)
                 return node.pack()
@@ -334,7 +329,7 @@ class CoreApi(s_cell.CellApi):
         '''
         s_common.deprecated('addNode')
         async with await self.cell.snap(user=self.user) as snap:
-            self.user.confirm(('node:add', form), gateiden=snap.wlyr.iden)
+            self.user.confirm(('node', 'add', form), gateiden=snap.wlyr.iden)
             with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
 
                 node = await snap.addNode(form, valu, props=props)
@@ -362,7 +357,7 @@ class CoreApi(s_cell.CellApi):
             if done.get(formname):
                 continue
 
-            await self._reqDefLayerAllowed(('node:add', formname))
+            await self._reqDefLayerAllowed(('node', 'add', formname))
             done[formname] = True
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -521,7 +516,6 @@ class CoreApi(s_cell.CellApi):
         Return the list of splices at the given offset.
         '''
         layr = self.cell.getLayer(layriden)
-        self.user.confirm(('read',), gateiden=layr.iden)
         count = 0
         async for mesg in layr.splices(offs, size):
             count += 1
@@ -1119,8 +1113,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
         ctor.forms = cdef.get('forms', {})
 
-        def getStorNode(form='syn:cmd'):
-            ndef = (form, cdef.get('name'))
+        def getStorNode(form):
+            ndef = (form.name, form.type.norm(cdef.get('name'))[0])
             buid = s_common.buid(ndef)
 
             props = {
@@ -1142,9 +1136,15 @@ class Cortex(s_cell.Cell):  # type: ignore
             if ctor.pkgname:
                 props['package'] = ctor.pkgname
 
+            pnorms = {}
+            for prop, valu in props.items():
+                formprop = form.props.get(prop)
+                if formprop is not None and valu is not None:
+                    pnorms[prop] = formprop.type.norm(valu)[0]
+
             return (buid, {
                 'ndef': ndef,
-                'props': props,
+                'props': pnorms,
             })
 
         ctor.getStorNode = getStorNode
@@ -1236,39 +1236,27 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Validate a storm package for loading.  Raises if invalid.
         '''
-        # validate things first...
-        name = pkgdef.get('name')
-        if name is None:
-            mesg = 'Package definition has no "name" field.'
-            raise s_exc.BadPkgDef(mesg=mesg)
+        # Validate package def
+        s_storm.reqValidPkgdef(s_common.convertToLists(pkgdef))
 
-        vers = pkgdef.get('version')
-        if vers is None:
-            mesg = 'Package definition has no "version" field.'
-            raise s_exc.BadPkgDef(mesg=mesg)
-
+        # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
         svciden = pkgdef.get('svciden')
+        pkgname = pkgdef.get('name')
 
-        # Validate storm contents from modules and commands
         for mdef in mods:
-
-            modname = mdef.get('name')
-            if modname is None:
-                raise s_exc.BadPkgDef(mesg='Package module is missing a name.',
-                                      package=name)
             modtext = mdef.get('storm')
             self.getStormQuery(modtext)
 
         for cdef in cmds:
+            cdef['pkgname'] = pkgname
             cdef.setdefault('cmdconf', {})
             if svciden:
                 cdef['cmdconf']['svciden'] = svciden
 
-            cdef['pkgname'] = name
-
-            await self._reqStormCmd(cdef)
+            cmdtext = cdef.get('storm')
+            self.getStormQuery(cmdtext)
 
     async def loadStormPkg(self, pkgdef):
         '''
@@ -2420,24 +2408,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         path = s_common.gendir(self.dirn, 'layers', iden)
         return await s_layer.Layer.anit(layrinfo, path, nexsroot=self.nexsroot)
 
-    async def joinTeleLayer(self, url, indx=None):
-        '''
-        Convenience function to join a remote telepath layer
-        into this cortex and default view.
-        '''
-        info = {
-            'type': 'remote',
-            'creator': 'root',
-            'config': {
-                'url': url
-            }
-        }
-
-        layriden = await self.addLayer(**info)
-        await self.view.addLayer(layriden, indx=indx)
-        # FIXME: unchange this; change dist methods can return heavy objects
-        return layriden
-
     async def _initCoreLayers(self):
 
         node = await self.hive.open(('cortex', 'layers'))
@@ -2498,12 +2468,10 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def runStormDmon(self, iden, ddef):
 
         # validate ddef before firing task
-        uidn = ddef.get('user')
-        if uidn is None:
-            mesg = 'Storm daemon definition requires "user".'
-            raise s_exc.NeedConfValu(mesg=mesg)
+        s_storm.reqValidDdef(ddef)
+
         # FIXME:  no such call
-        await self.auth.reqUser(uidn)
+        await self.auth.reqUser(ddef['user'])
 
         # raises if parser failure
         self.getStormQuery(ddef.get('storm'))

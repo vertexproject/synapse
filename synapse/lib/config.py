@@ -58,12 +58,16 @@ def getJsValidator(schema):
     Returns:
         callable: A callable function that can be used to validate data against the json schema.
     '''
+    if schema.get('$schema') is None:
+        schema['$schema'] = 'http://json-schema.org/draft-07/schema#'
+
     # It is faster to hash and cache the functions here than it is to
     # generate new functions each time we have the same schema.
     key = s_hashitem.hashitem(schema)
     func = JS_VALIDATORS.get(key)
     if func:
         return func
+
     func = fastjsonschema.compile(schema)
     JS_VALIDATORS[key] = func
     return func

@@ -12,7 +12,9 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
+import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
+import synapse.lib.grammar as s_grammar
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -181,6 +183,83 @@ Examples:
     cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
 
 '''
+
+reqValidPkgdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string'},
+        'version': {
+            'type': ['array', 'number'],
+            'items': {'type': 'number'}
+        },
+        'modules': {
+            'type': ['array', 'null'],
+            'items': {'$ref': '#/definitions/module'}
+        },
+        'commands': {
+            'type': ['array', 'null'],
+            'items': {'$ref': '#/definitions/command'}
+        },
+        'desc': {'type': 'string'},
+        'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden}
+    },
+    'additionalProperties': True,
+    'required': ['name', 'version'],
+    'definitions': {
+        'module': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'storm': {'type': 'string'}
+            },
+            'additionalProperties': True,
+            'required': ['name', 'storm']
+        },
+        'command': {
+            'type': 'object',
+            'properties': {
+                'name': {
+                    'type': 'string',
+                    'pattern': s_grammar.re_scmd
+                },
+                'storm': {'type': 'string'}
+            },
+            'additionalProperties': True,
+            'required': ['name', 'storm']
+        }
+    }
+})
+
+reqValidDdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string'},
+        'storm': {'type': 'string'},
+        'view': {'type': 'string', 'pattern': s_config.re_iden},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'stormopts': {
+            'oneOf': [
+                {'type': 'null'},
+                {'$ref': '#/definitions/stormopts'}
+            ]
+        }
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'user', 'storm'],
+    'definitions': {
+        'stormopts': {
+            'type': 'object',
+            'properties': {
+                'spawn': {'type': 'boolean'},
+                'repr': {'type': 'boolean'},
+                'path': {'type': 'string'},
+                'show': {'type': 'array', 'items': {'type': 'string'}}
+            },
+            'additionalProperties': True,
+        },
+    }
+})
 
 stormcmds = (
     {
@@ -1243,8 +1322,8 @@ class Cmd:
         raise s_exc.BadSyntax(mesg=mesg, valu=name)
 
     @classmethod
-    def getStorNode(cls, form='syn:cmd'):
-        ndef = (form, cls.name)
+    def getStorNode(cls, form):
+        ndef = (form.name, form.type.norm(cls.name)[0])
         buid = s_common.buid(ndef)
 
         props = {
@@ -1266,9 +1345,15 @@ class Cmd:
         if cls.pkgname:
             props['package'] = cls.pkgname
 
+        pnorms = {}
+        for prop, valu in props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
+
         return (buid, {
             'ndef': ndef,
-            'props': props,
+            'props': pnorms,
         })
 
 class PureCmd(Cmd):
@@ -1559,9 +1644,9 @@ class DelNodeCmd(Cmd):
 
             # make sure we can delete the tags...
             for tag in node.tags.keys():
-                runt.layerConfirm(('tag:del', *tag.split('.')))
+                runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
-            runt.layerConfirm(('node:del', node.form.name))
+            runt.layerConfirm(('node', 'del', node.form.name))
 
             await node.delete(force=self.opts.force)
 
@@ -2253,10 +2338,10 @@ class SpliceUndoCmd(Cmd):
 
             oldv = splice.props.get('oldv')
             if oldv is not None:
-                runt.layerConfirm(('prop:set', prop.full))
+                runt.layerConfirm(('node', 'prop', 'set', prop.full))
                 await node.set(name, oldv)
             else:
-                runt.layerConfirm(('prop:del', prop.full))
+                runt.layerConfirm(('node', 'prop', 'del', prop.full))
                 await node.pop(name)
 
     async def undoPropDel(self, runt, splice, node):
@@ -2272,16 +2357,16 @@ class SpliceUndoCmd(Cmd):
 
             valu = splice.props.get('valu')
 
-            runt.layerConfirm(('prop:set', prop.full))
+            runt.layerConfirm(('node', 'prop', 'set', prop.full))
             await node.set(name, valu)
 
     async def undoNodeAdd(self, runt, splice, node):
 
         if node:
             for tag in node.tags.keys():
-                runt.layerConfirm(('tag:del', *tag.split('.')))
+                runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
-            runt.layerConfirm(('node:del', node.form.name))
+            runt.layerConfirm(('node', 'del', node.form.name))
             await node.delete(force=self.opts.force)
 
     async def undoNodeDel(self, runt, splice, node):
@@ -2291,7 +2376,7 @@ class SpliceUndoCmd(Cmd):
             valu = splice.props.get('valu')
 
             if form and (valu is not None):
-                runt.layerConfirm(('node:add', form))
+                runt.layerConfirm(('node', 'add', form))
                 await runt.snap.addNode(form, valu)
 
     async def undoTagAdd(self, runt, splice, node):
@@ -2299,13 +2384,13 @@ class SpliceUndoCmd(Cmd):
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
-            runt.layerConfirm(('tag:del', *parts))
+            runt.layerConfirm(('node', 'tag', 'del', *parts))
 
             await node.delTag(tag)
 
             oldv = splice.props.get('oldv')
             if oldv is not None:
-                runt.layerConfirm(('tag:add', *parts))
+                runt.layerConfirm(('node', 'tag', 'add', *parts))
                 await node.addTag(tag, valu=oldv)
 
     async def undoTagDel(self, runt, splice, node):
@@ -2313,7 +2398,7 @@ class SpliceUndoCmd(Cmd):
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
-            runt.layerConfirm(('tag:add', *parts))
+            runt.layerConfirm(('node', 'tag', 'add', *parts))
 
             valu = splice.props.get('valu')
             if valu is not None:
@@ -2329,10 +2414,10 @@ class SpliceUndoCmd(Cmd):
 
             oldv = splice.props.get('oldv')
             if oldv is not None:
-                runt.layerConfirm(('tag:add', *parts))
+                runt.layerConfirm(('node', 'tag', 'add', *parts))
                 await node.setTagProp(tag, prop, oldv)
             else:
-                runt.layerConfirm(('tag:del', *parts))
+                runt.layerConfirm(('node', 'tag', 'del', *parts))
                 await node.delTagProp(tag, prop)
 
     async def undoTagPropDel(self, runt, splice, node):
@@ -2340,7 +2425,7 @@ class SpliceUndoCmd(Cmd):
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
-            runt.layerConfirm(('tag:add', *parts))
+            runt.layerConfirm(('node', 'tag', 'add', *parts))
 
             prop = splice.props.get('prop')
 

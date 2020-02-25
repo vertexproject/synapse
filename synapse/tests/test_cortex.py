@@ -2,6 +2,7 @@ import copy
 import time
 import shutil
 import asyncio
+import fastjsonschema
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -2221,7 +2222,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_runt(self):
         async with self.getTestCore() as core:
-            self.skip('Pending getting runt nodes working')
 
             # Ensure that lifting by form/prop/values works.
             nodes = await core.eval('test:runt').list()
@@ -2247,6 +2247,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             nodes = await core.eval('test:runt:tick=$foo', {'vars': {'foo': '2010'}}).list()
             self.len(2, nodes)
+
+            # Ensure that non-equality based lift comparators for the test runt nodes work.
+            nodes = await core.eval('test:runt~="b.*"').list()
+            self.len(3, nodes)
+
+            nodes = await core.eval('test:runt:tick*range=(1999, 2001)').list()
+            self.len(1, nodes)
 
             # Ensure that a lift by a universal property doesn't lift a runt node
             # accidentally.
@@ -2332,12 +2339,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.IsRuntForm, core.eval('[test:runt=" oh MY! "]').list())
             await self.asyncraises(s_exc.IsRuntForm, core.eval('test:runt=beep | delnode').list())
 
-            # Ensure that non-equality based lift comparators for the test runt nodes fails.
-            await self.asyncraises(s_exc.BadCmprValu, core.eval('test:runt~="b.*"').list())
-            await self.asyncraises(s_exc.BadCmprValu, core.eval('test:runt:tick*range=(1999, 2001)').list())
-
             # Sad path for underlying Cortex.runRuntLift
-            await self.agenraises(s_exc.NoSuchLift, core.runRuntLift('test:newp', 'newp'))
+            nodes = await alist(core.runRuntLift('test:newp', 'newp'))
+            self.len(0, nodes)
 
     async def test_cortex_view_invalid(self):
 
@@ -2404,9 +2408,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.addAuthUser('visi')
             await core.setUserPasswd('visi', 'secret')
 
-            await core.addUserRule('visi', (True, ('node:add',)))
-            await core.addUserRule('visi', (True, ('prop:set',)))
-            await core.addUserRule('visi', (True, ('tag:add',)))
+            await core.addUserRule('visi', (True, ('node', 'add')))
+            await core.addUserRule('visi', (True, ('node', 'prop', 'set')))
+            await core.addUserRule('visi', (True, ('node', 'tag', 'add')))
 
             async with realcore.getLocalProxy(user='visi') as asvisi:
 
@@ -2418,13 +2422,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # no perms and not elevated...
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval('test:str=foo | delnode'))
 
-                rule = (True, ('node:del',))
+                rule = (True, ('node', 'del'))
                 await core.addUserRule('visi', rule)
 
                 # should still deny because node has tag we can't delete
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval('test:str=foo | delnode'))
 
-                rule = (True, ('tag:del', 'lol'))
+                rule = (True, ('node', 'tag', 'del', 'lol'))
                 await core.addUserRule('visi', rule)
 
                 await self.agenlen(0, asvisi.eval('test:str=foo | delnode'))
@@ -2612,9 +2616,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Setup user permissions
             await core.addAuthRole('creator')
-            await core.addRoleRule('creator', (True, ('node:add',)))
-            await core.addRoleRule('creator', (True, ('prop:set',)))
-            await core.addRoleRule('creator', (True, ('tag:add',)))
+            await core.addRoleRule('creator', (True, ('node', 'add')))
+            await core.addRoleRule('creator', (True, ('node', 'prop', 'set')))
+            await core.addRoleRule('creator', (True, ('node', 'tag', 'add')))
             await core.addUserRole('root', 'creator')
             await self._validate_feed(core, gestdef, guid, seen)
 
@@ -3613,10 +3617,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                     with self.raises(s_exc.NoSuchIden):
                         await prox.delStormDmon(iden)
 
-                    with self.raises(s_exc.NeedConfValu):
+                    with self.raises(fastjsonschema.exceptions.JsonSchemaException):
                         await core.runStormDmon(iden, {})
 
-                    with self.raises(s_exc.NoSuchUser):
+                    with self.raises(fastjsonschema.exceptions.JsonSchemaException):
                         await core.runStormDmon(iden, {'user': 'XXX'})
 
             async with await s_cortex.Cortex.anit(dirn) as core:
@@ -4035,24 +4039,24 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # await core.addStormPkg(base_pkg)
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('name')
-                with self.raises(s_exc.BadPkgDef) as cm:
+                with self.raises(fastjsonschema.exceptions.JsonSchemaException) as cm:
                     await core.addStormPkg(pkg)
-                self.eq(cm.exception.get('mesg'),
-                        'Package definition has no "name" field.')
+                self.eq(cm.exception.message,
+                        "data must contain ['name', 'version'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('version')
-                with self.raises(s_exc.BadPkgDef) as cm:
+                with self.raises(fastjsonschema.exceptions.JsonSchemaException) as cm:
                     await core.addStormPkg(pkg)
-                self.eq(cm.exception.get('mesg'),
-                        'Package definition has no "version" field.')
+                self.eq(cm.exception.message,
+                        "data must contain ['name', 'version'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg['modules'][0].pop('name')
-                with self.raises(s_exc.BadPkgDef) as cm:
+                with self.raises(fastjsonschema.exceptions.JsonSchemaException) as cm:
                     await core.addStormPkg(pkg)
-                self.eq(cm.exception.get('mesg'),
-                        'Package module is missing a name.')
+                self.eq(cm.exception.message,
+                        "data must contain ['name', 'storm'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('version')

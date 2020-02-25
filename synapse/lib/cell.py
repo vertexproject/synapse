@@ -383,6 +383,10 @@ class CellApi(s_base.Base):
     async def popHiveKey(self, path):
         return await self.cell.popHiveKey(path)
 
+    @adminapi
+    async def saveHiveTree(self, path=()):
+        return await self.cell.saveHiveTree(path=path)
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
