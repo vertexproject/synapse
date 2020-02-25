@@ -103,8 +103,8 @@ class Type:
 
         return func(cmpr, valu)
 
-    def getStorNode(self, form='syn:type'):
-        ndef = (form, self.name)
+    def getStorNode(self, form):
+        ndef = (form.name, form.type.norm(self.name)[0])
         buid = s_common.buid(ndef)
 
         ctor = '.'.join([self.__class__.__module__, self.__class__.__qualname__])
@@ -120,9 +120,15 @@ class Type:
         if self.subof is not None:
             props['subof'] = self.subof
 
+        pnorms = {}
+        for prop, valu in props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
+
         return (buid, {
             'ndef': ndef,
-            'props': props,
+            'props': pnorms,
         })
 
     def getCompOffs(self, name):
@@ -1460,6 +1466,7 @@ class Time(IntBase):
     )
 
     def postTypeInit(self):
+
         self.futsize = 0x7fffffffffffffff
         self.maxsize = 253402300799999  # 9999/12/31 23:59:59.999
 
@@ -1470,9 +1477,13 @@ class Time(IntBase):
 
         self.ismin = self.opts.get('ismin')
         self.ismax = self.opts.get('ismax')
+
         self.storlifts.update({
             '@=': self._liftByIval,
         })
+
+        if self.ismin:
+            self.stortype = s_layer.STOR_TYPE_MINTIME
 
     def _liftByIval(self, cmpr, valu):
 

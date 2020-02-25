@@ -48,17 +48,25 @@ class TagProp:
             'type': self.tdef,
         }
 
-    def getStorNode(self, form='syn:tagprop'):
+    def getStorNode(self, form):
 
-        ndef = (form, self.name)
+        ndef = (form.name, form.type.norm(self.name)[0])
         buid = s_common.buid(ndef)
+
+        props = {
+            'doc': self.info.get('doc', ''),
+            'type': self.type.name,
+        }
+
+        pnorms = {}
+        for prop, valu in props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
 
         return (buid, {
             'ndef': ndef,
-            'props': {
-                'doc': self.info.get('doc', ''),
-                'type': self.type.name,
-            },
+            'props': pnorms
         })
 
 class Prop:
@@ -180,8 +188,9 @@ class Prop:
     def getPropDef(self):
         return (self.name, self.typedef, self.info)
 
-    def getStorNode(self, form='syn:prop'):
-        ndef = (form, self.full)
+    def getStorNode(self, form):
+
+        ndef = (form.name, form.type.norm(self.full)[0])
 
         buid = s_common.buid(ndef)
         props = {
@@ -197,7 +206,13 @@ class Prop:
         if self.form is not None:
             props['form'] = self.form.name
 
-        return (buid, {'props': props, 'ndef': ndef})
+        pnorms = {}
+        for prop, valu in props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
+
+        return (buid, {'props': pnorms, 'ndef': ndef})
 
 class Form:
     '''
@@ -228,8 +243,9 @@ class Form:
         self.props = {}     # name: Prop()
         self.refsout = None
 
-    def getStorNode(self, form='syn:form'):
-        ndef = (form, self.name)
+    def getStorNode(self, form):
+
+        ndef = (form.name, form.type.norm(self.name)[0])
         buid = s_common.buid(ndef)
 
         props = {
@@ -237,16 +253,22 @@ class Form:
             'type': self.type.name,
         }
 
-        if form == 'syn:form':
+        if form.name == 'syn:form':
             props['runt'] = self.isrunt
-        elif form == 'syn:prop':
+        elif form.name == 'syn:prop':
             props['univ'] = False
             props['extmodel'] = False
             props['form'] = self.name
 
+        pnorms = {}
+        for prop, valu in props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
+
         return (buid, {
                     'ndef': ndef,
-                    'props': props,
+                    'props': pnorms,
                 })
 
     def setProp(self, name, prop):
@@ -551,7 +573,7 @@ class Model:
 
     def getProps(self):
         return [pobj for pname, pobj in self.props.items()
-                if not (isinstance(pname, tuple) or pobj.isform)]
+                if not (isinstance(pname, tuple))]
 
     def getTypeClone(self, typedef):
 

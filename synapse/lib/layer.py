@@ -168,6 +168,8 @@ STOR_TYPE_U128 = 19
 STOR_TYPE_I128 = 20
 STOR_TYPE_FLOAT64 = 21
 
+STOR_TYPE_MINTIME = 21
+
 # STOR_TYPE_TOMB      = ??
 # STOR_TYPE_FIXED     = ??
 
@@ -883,6 +885,7 @@ class Layer(s_nexus.Pusher):
             StorTypeInt(self, STOR_TYPE_I128, 16, True),
 
             StorTypeFloat(self, STOR_TYPE_FLOAT64, 8),
+            StorTypeTime(self), # STOR_TYPE_MINTIME
         ]
 
         self.editors = [
@@ -1176,14 +1179,13 @@ class Layer(s_nexus.Pusher):
 
         self.formcounts.inc(form)
 
-        created = (EDIT_PROP_SET, ('.created', s_common.now(), None, STOR_TYPE_TIME))
+        created = (EDIT_PROP_SET, ('.created', s_common.now(), None, STOR_TYPE_MINTIME))
 
-        self._editPropSet(buid, form, created)
+        retn = [(EDIT_NODE_ADD, (valu, stortype))]
 
-        return (
-            (EDIT_NODE_ADD, (valu, stortype)),
-            created,
-        )
+        retn.extend(self._editPropSet(buid, form, created))
+
+        return retn
 
     def _editNodeDel(self, buid, form, edit):
 
@@ -1230,17 +1232,31 @@ class Layer(s_nexus.Pusher):
         if penc[0] == 46: # '.' to detect universal props (as quickly as possible)
             univabrv = self.getPropAbrv(None, prop)
 
+        # merge interval values
+        if stortype == STOR_TYPE_IVAL:
+            oldb = self.layrslab.get(bkey, db=self.bybuid)
+            if oldb is not None:
+                oldv, oldt = s_msgpack.un(oldb)
+                valu = (min(*oldv, *valu), max(*oldv, *valu))
+                if valu == oldv:
+                    return ()
+
         newb = s_msgpack.en((valu, stortype))
         oldb = self.layrslab.replace(bkey, newb, db=self.bybuid)
 
         if newb == oldb:
-            return []
+            return ()
 
         if oldb is not None:
 
             oldv, oldt = s_msgpack.un(oldb)
+
+            if stortype == STOR_TYPE_MINTIME and oldv < valu:
+                self.layrslab.put(bkey, oldb, db=self.bybuid)
+                return ()
+
             if oldv == valu and oldt == stortype:
-                return None
+                return ()
 
             if oldt & STOR_FLAG_ARRAY:
 
@@ -1340,9 +1356,19 @@ class Layer(s_nexus.Pusher):
         oldb = self.layrslab.replace(buid + b'\x02' + tenc, s_msgpack.en(valu), db=self.bybuid)
 
         if oldb is not None:
+
             oldv = s_msgpack.un(oldb)
+
+            if oldv != (None, None) and valu != (None, None):
+
+                merged = (min(oldv[0], valu[0]), max(oldv[1], valu[1]))
+
+                if merged != valu:
+                    self.layrslab.put(buid + b'\x02' + tenc, s_msgpack.en(valu), db=self.bybuid)
+                    valu = merged
+
             if oldv == valu:
-                return None
+                return ()
 
         self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
 
@@ -1361,7 +1387,7 @@ class Layer(s_nexus.Pusher):
 
         oldb = self.layrslab.pop(buid + b'\x02' + tenc, db=self.bybuid)
         if oldb is None:
-            return None
+            return ()
 
         self.layrslab.delete(tagabrv + formabrv, buid, db=self.bytag)
 

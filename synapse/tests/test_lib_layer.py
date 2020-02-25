@@ -8,6 +8,7 @@ import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.utils as s_t_utils
+
 from synapse.tests.utils import alist
 
 async def iterPropForm(self, form=None, prop=None):
@@ -421,7 +422,7 @@ class LayerTest(s_t_utils.SynTest):
             layr = core.view.layers[0]
             tmpdb = layr.layrslab.initdb('temp', dupsort=True)
 
-            stor = s_layer.StorTypeFloat(s_layer.STOR_TYPE_FLOAT64, 8, True)
+            stor = s_layer.StorTypeFloat(s_layer.STOR_TYPE_FLOAT64, 8)
             vals = [math.nan, -math.inf, -99999.9, -0.0000000001, -42.1, -0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf]
 
             indxby = s_layer.IndxBy(layr, b'', tmpdb)
@@ -480,3 +481,65 @@ class LayerTest(s_t_utils.SynTest):
             # -99999.9 to -0.1
             retn = [s_msgpack.un(valu) for valu in stor.indxBy(indxby, 'range=', (-99999.9, -0.1))]
             self.eq(retn, [-99999.9, -42.1])
+
+    async def test_layer_stortype_merge(self):
+
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 .seen=(2012,2014) +#foo.bar=(2012, 2014) ]')
+
+            buid = nodes[0].buid
+            ival = nodes[0].get('.seen')
+            tick = nodes[0].get('.created')
+            tagv = nodes[0].getTag('foo.bar')
+
+            newival = (ival[0] + 100, ival[1] - 100)
+            newtagv = (tagv[0] + 100, tagv[1] - 100)
+
+            nodeedits = [
+                (buid, 'inet:ipv4', (
+                    (s_layer.EDIT_PROP_SET, ('.seen', newival, ival, s_layer.STOR_TYPE_IVAL)),
+                )),
+            ]
+
+            await layr.storNodeEdits(nodeedits, {})
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 +.seen=(2012,2014)'))
+
+            nodeedits = [
+                (buid, 'inet:ipv4', (
+                    (s_layer.EDIT_PROP_SET, ('.created', tick + 200, tick, s_layer.STOR_TYPE_MINTIME)),
+                )),
+            ]
+
+            await layr.storNodeEdits(nodeedits, {})
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(tick, nodes[0].get('.created'))
+
+            nodeedits = [
+                (buid, 'inet:ipv4', (
+                    (s_layer.EDIT_PROP_SET, ('.created', tick - 200, tick, s_layer.STOR_TYPE_MINTIME)),
+                )),
+            ]
+
+            await layr.storNodeEdits(nodeedits, {})
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(tick - 200, nodes[0].get('.created'))
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+            self.eq(tick - 200, nodes[0].get('.created'))
+
+            nodeedits = [
+                (buid, 'inet:ipv4', (
+                    (s_layer.EDIT_TAG_SET, ('foo.bar', newtagv, tagv)),
+                )),
+            ]
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(tagv, nodes[0].getTag('foo.bar'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar=2015 ]')
+            self.eq((1325376000000, 1420070400001), nodes[0].getTag('foo.bar'))

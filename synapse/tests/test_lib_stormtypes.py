@@ -731,8 +731,8 @@ class StormTypesTest(s_test.SynTest):
                     ret1 = await prox.addAuthUser('user1')
                     iden1 = ret1.get('iden')
                     await prox.setUserPasswd('user1', 'secret')
-                    await prox.addUserRule('user1', (True, ('node:add',)))
-                    await prox.addUserRule('user1', (True, ('prop:set',)))
+                    await prox.addUserRule('user1', (True, ('node', 'add')))
+                    await prox.addUserRule('user1', (True, ('node', 'prop', 'set')))
                     await prox.addUserRule('user1', (True, ('globals', 'get', 'userkey',)))
 
                     # Basic tests as root for $lib.globals
@@ -1823,12 +1823,12 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await asvisi.storm(q).list()
                 await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
 
-                await prox.addUserRule('visi', (True, ('node:add',)))
-                await prox.addUserRule('visi', (True, ('node:del',)))
-                await prox.addUserRule('visi', (True, ('prop:set',)))
-                await prox.addUserRule('visi', (True, ('prop:del',)))
-                await prox.addUserRule('visi', (True, ('tag:add',)))
-                await prox.addUserRule('visi', (True, ('tag:del',)))
+                await prox.addUserRule('visi', (True, ('node', 'add',)))
+                await prox.addUserRule('visi', (True, ('node', 'del',)))
+                await prox.addUserRule('visi', (True, ('node', 'prop', 'set',)))
+                await prox.addUserRule('visi', (True, ('node', 'prop', 'del',)))
+                await prox.addUserRule('visi', (True, ('node', 'tag', 'add',)))
+                await prox.addUserRule('visi', (True, ('node', 'tag', 'del',)))
 
                 q = f'$lib.view.merge({forkediden})'
                 await asvisi.storm(q).list()
