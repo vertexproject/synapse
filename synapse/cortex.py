@@ -140,10 +140,17 @@ class CoreApi(s_cell.CellApi):
             s_exc.AuthDeny: If the current user doesn't have read access to the view
 
         '''
-        iden = (opts or {}).get('view')
-        if iden is None:
+        if opts is None:
+            opts = {}
+
+        iden = opts.get('view', s_common.novalu)
+
+        if iden is s_common.novalu:
+            iden = self.user.profile.get('cortex:view')
+
+        if iden is None or iden is s_common.novalu:
             # This assumes everyone has access to the default view
-            return self.cell.view
+            iden = self.cell.view.iden
 
         view = self.cell.views.get(iden)
         if view is None:
@@ -2977,11 +2984,19 @@ class Cortex(s_cell.Cell):
             ret.append((modname, mod.conf))
         return ret
 
-    def _viewFromOpts(self, opts):
-        if opts is None:
-            return self.view
+    def _viewFromOpts(self, opts, user):
 
-        viewiden = opts.get('view')
+        if opts is None:
+            opts = {}
+
+        viewiden = opts.get('view', s_common.novalu)
+
+        if viewiden is s_common.novalu and user is not None:
+            viewiden = user.profile.get('cortex:view')
+
+        if viewiden is s_common.novalu:
+            viewiden = self.view.iden
+
         view = self.getView(viewiden)
         if view is None:
             raise s_exc.NoSuchView(iden=viewiden)
@@ -2993,7 +3008,7 @@ class Cortex(s_cell.Cell):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
-        view = self._viewFromOpts(opts)
+        view = self._viewFromOpts(opts, user=user)
 
         async for node in view.eval(text, opts, user):
             yield node
@@ -3005,7 +3020,7 @@ class Cortex(s_cell.Cell):
         Yields:
             (Node, Path) tuples
         '''
-        view = self._viewFromOpts(opts)
+        view = self._viewFromOpts(opts, user=user)
 
         async for mesg in view.storm(text, opts, user):
             yield mesg
@@ -3027,7 +3042,7 @@ class Cortex(s_cell.Cell):
         Yields:
             ((str,dict)): Storm messages.
         '''
-        view = self._viewFromOpts(opts)
+        view = self._viewFromOpts(opts, user=user)
 
         async for mesg in view.streamstorm(text, opts, user):
             yield mesg
@@ -3037,7 +3052,7 @@ class Cortex(s_cell.Cell):
         if user is None:
             user = self.auth.getUserByName('root')
 
-        view = self._viewFromOpts(opts)
+        view = self._viewFromOpts(opts, user=user)
 
         info = {'query': text}
         if opts is not None:
