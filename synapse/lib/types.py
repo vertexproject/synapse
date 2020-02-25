@@ -639,24 +639,28 @@ class IntBase(Type):
 
     def _ctorCmprGe(self, text):
         norm, info = self.norm(text)
+
         def cmpr(valu):
             return valu >= norm
         return cmpr
 
     def _ctorCmprLe(self, text):
         norm, info = self.norm(text)
+
         def cmpr(valu):
             return valu <= norm
         return cmpr
 
     def _ctorCmprGt(self, text):
         norm, info = self.norm(text)
+
         def cmpr(valu):
             return valu > norm
         return cmpr
 
     def _ctorCmprLt(self, text):
         norm, info = self.norm(text)
+
         def cmpr(valu):
             return valu < norm
         return cmpr
@@ -778,6 +782,115 @@ class Int(IntBase):
         text = self.enumrepr.get(norm)
         if text is not None:
             return text
+
+        return str(norm)
+
+class Float(Type):
+    _opt_defs = (
+        ('signed', True),
+
+        ('fmt', '%f'),  # Set to an integer compatible format string to control repr.
+
+        ('min', None),  # Set to a value to enforce minimum value for the type.
+        ('max', None),  # Set to a value to enforce maximum value for the type.
+    )
+
+    stortype = s_layer.STOR_TYPE_FLOAT64
+
+    def __init__(self, modl, name, info, opts):
+
+        Type.__init__(self, modl, name, info, opts)
+
+        self.setCmprCtor('>=', self._ctorCmprGe)
+        self.setCmprCtor('<=', self._ctorCmprLe)
+
+        self.setCmprCtor('>', self._ctorCmprGt)
+        self.setCmprCtor('<', self._ctorCmprLt)
+
+        self.storlifts.update({
+            '<': self._storLiftNorm,
+            '>': self._storLiftNorm,
+            '<=': self._storLiftNorm,
+            '>=': self._storLiftNorm,
+            'range=': self._storLiftRange,
+        })
+
+    def _storLiftRange(self, cmpr, valu):
+        minv, minfo = self.norm(valu[0])
+        maxv, maxfo = self.norm(valu[1])
+        return ((cmpr, (minv, maxv), self.stortype),)
+
+    def _ctorCmprGe(self, text):
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu >= norm
+        return cmpr
+
+    def _ctorCmprLe(self, text):
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu <= norm
+        return cmpr
+
+    def _ctorCmprGt(self, text):
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu > norm
+        return cmpr
+
+    def _ctorCmprLt(self, text):
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu < norm
+        return cmpr
+
+    def postTypeInit(self):
+
+        self.signed = self.opts.get('signed')
+        if self.stortype is None:
+            mesg = f'Invalid integer size ({self.size})'
+            raise s_exc.BadTypeDef(mesg=mesg)
+
+        self.enumnorm = {}
+        self.enumrepr = {}
+
+        self.minval = self.opts.get('min')
+        self.maxval = self.opts.get('max')
+
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(float, self._normPyFloat)
+
+    def _normPyStr(self, valu):
+
+        try:
+            valu = float(valu, 0)
+        except ValueError as e:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg=str(e)) from None
+        return self._normPyFloat(valu)
+
+    def _normPyInt(self, valu):
+        valu = float(valu)
+        return self._normPyFloat(valu)
+
+    def _normPyFloat(self, valu):
+
+        if self.minval is not None and valu < self.minval:
+            mesg = f'value is below min={self.minval}'
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
+
+        if self.maxval is not None and valu > self.maxval:
+            mesg = f'value is above max={self.maxval}'
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
+
+        return valu, {}
+
+    def repr(self, norm):
 
         return str(norm)
 
