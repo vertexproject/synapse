@@ -73,7 +73,7 @@ class Latitude(s_types.Type):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Latitude may only be -90.0 to 90.0')
 
-        valu = int(valu * Latitude.SCALE) / Latitude.SCALE
+        valu = round(valu, 8)
 
         return valu, {}
 
@@ -174,7 +174,7 @@ class Longitude(s_types.Type):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Longitude may only be -180.0 to 180.0')
 
-        valu = int(valu * Longitude.SCALE) / Longitude.SCALE
+        valu = round(valu, 8)
 
         return valu, {}
 
