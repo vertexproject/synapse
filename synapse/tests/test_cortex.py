@@ -10,7 +10,6 @@ import synapse.cortex as s_cortex
 
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
-import synapse.telepath as s_telepath
 
 import synapse.tools.backup as s_tools_backup
 
@@ -531,7 +530,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.nn(node.get('.created'))
                 created = node.reprs().get('.created')
 
-            # open a new snap, commiting the previous snap and do some lifts by univ prop
+            # open a new snap, committing the previous snap and do some lifts by univ prop
             async with await core.snap() as snap:
 
                 nodes = await snap.nodes('.created')

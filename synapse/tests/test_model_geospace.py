@@ -44,37 +44,24 @@ class GeoTest(s_t_utils.SynTest):
             t = core.model.type(formlat)
             self.raises(s_exc.BadTypeValu, t.norm, '-90.1')
             self.eq(t.norm('-90')[0], -90.0)
-            self.eq(t.norm('-12.345678901234567890')[0], -12.3456789)
+            self.eq(t.norm('-12.345678901234567890')[0], -12.34567890123456789)
             self.eq(t.norm('-0')[0], 0.0)
             self.eq(t.norm('0')[0], 0.0)
-            self.eq(t.norm('12.345678901234567890')[0], 12.3456789)
+            self.eq(t.norm('12.345678901234567890')[0], 12.34567890123456789)
             self.eq(t.norm('90')[0], 90.0)
             self.raises(s_exc.BadTypeValu, t.norm, '90.1')
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
 
-            self.eq(t.indx(-90), b'\x00\x00\x00\x00\x00')  # index starts at 0 and goes to 9000000000
-            self.eq(t.indx(-12.34567890123456789), b'\x01\xce\xdb\x17-')
-            self.eq(t.indx(0), b'\x02\x18q\x1a\x00')
-            self.eq(t.indx(12.34567890123456789), b'\x02b\x07\x1c\xd2')
-            self.eq(t.indx(90), b'\x040\xe24\x00')
-
             # Longitude Type Tests =====================================================================================
             t = core.model.type(formlon)
-            self.raises(s_exc.BadTypeValu, t.norm, '-180.1')
-            self.eq(t.norm('-180')[0], -180.0)
-            self.eq(t.norm('-12.345678901234567890')[0], -12.3456789)
+            self.raises(s_exc.BadTypeValu, t.norm, '-180.0')
+            self.eq(t.norm('-12.345678901234567890')[0], -12.34567890123456789)
             self.eq(t.norm('-0')[0], 0.0)
             self.eq(t.norm('0')[0], 0.0)
-            self.eq(t.norm('12.345678901234567890')[0], 12.3456789)
+            self.eq(t.norm('12.345678901234567890')[0], 12.34567890123456789)
             self.eq(t.norm('180')[0], 180.0)
             self.raises(s_exc.BadTypeValu, t.norm, '180.1')
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
-
-            self.eq(t.indx(-180), b'\x00\x00\x00\x00\x00')  # index starts at 0 and goes to 18000000000
-            self.eq(t.indx(-12.34567890123456789), b'\x03\xe7L1-')
-            self.eq(t.indx(0), b'\x040\xe24\x00')
-            self.eq(t.indx(12.34567890123456789), b'\x04zx6\xd2')
-            self.eq(t.indx(180), b'\x08a\xc4h\x00')
 
             # Latlong Type Tests =====================================================================================
             t = core.model.type(formlatlon)
@@ -85,31 +72,13 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(t.norm([89.999, 179.999]), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
             self.eq(t.norm((89.999, 179.999)), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
 
-            self.raises(s_exc.BadTypeValu, t.norm, '-91,0')
-            self.raises(s_exc.BadTypeValu, t.norm, '91,0')
-            self.raises(s_exc.BadTypeValu, t.norm, '0,-181')
-            self.raises(s_exc.BadTypeValu, t.norm, '0,181')
-            self.raises(s_exc.BadTypeValu, t.norm, ('newp', 'newp', 'still newp'))
-
             # Demonstrate precision
             self.eq(t.norm('12.345678,-12.345678'),
-                ((12.345678, -12.345678), {'subs': {'lat': 12.345678, 'lon': -12.345678}}))
+                    ((12.345678, -12.345678), {'subs': {'lat': 12.345678, 'lon': -12.345678}}))
             self.eq(t.norm('12.3456789,-12.3456789'),
-                ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
+                    ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
             self.eq(t.norm('12.34567890,-12.34567890'),
-                ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
-
-            self.eq(t.indx((-90, -180)), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-            self.eq(t.indx((90, 180)), b'\x040\xe24\x00\x08a\xc4h\x00')
-
-            self.eq(t.indx((0, 0)), b'\x02\x18q\x1a\x00\x040\xe24\x00')
-            self.eq(t.indx((0, -0)), b'\x02\x18q\x1a\x00\x040\xe24\x00')
-            self.eq(t.indx((0, 1)), b'\x02\x18q\x1a\x00\x046\xd8\x15\x00')
-            self.eq(t.indx((0, -1)), b'\x02\x18q\x1a\x00\x04*\xecS\x00')
-            self.eq(t.indx((-90, 180)), b'\x00\x00\x00\x00\x00\x08a\xc4h\x00')
-            self.eq(t.indx((90, -180)), b'\x040\xe24\x00\x00\x00\x00\x00\x00')
-            self.eq(t.indx((12.3456789, -12.3456789)), b'\x02b\x07\x1c\xd2\x03\xe7L1.')
-            self.eq(t.indx((12.34567890, -12.34567890)), b'\x02b\x07\x1c\xd2\x03\xe7L1.')
+                    ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
 
             self.eq(t.repr((0, 0)), '0,0')
             self.eq(t.repr((0, -0)), '0,0')
@@ -178,7 +147,7 @@ class GeoTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], guid)
                 self.eq(node.get('name'), 'vertex hq')
                 self.eq(node.get('loc'), 'us.hehe.haha')
-                self.eq(node.get('latlong'), (34.13409999, -118.3215))
+                self.eq(node.get('latlong'), (34.1341, -118.3215))
                 self.eq(node.get('radius'), 1337000)
                 self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
                 self.eq(node.get('address'), '208 datong road, pudong district, shanghai, china')

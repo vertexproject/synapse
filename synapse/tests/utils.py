@@ -159,6 +159,7 @@ testmodel = {
         ('test:ival', ('ival', {}), {}),
 
         ('test:int', ('int', {}), {}),
+        ('test:float', ('float', {}), {}),
         ('test:str', ('str', {}), {}),
         ('test:migr', ('str', {}), {}),
         ('test:auto', ('str', {}), {}),
@@ -230,6 +231,11 @@ testmodel = {
 
         ('test:int', {}, (
             ('loc', ('loc', {}), {}),
+        )),
+
+        ('test:float', {}, (
+            ('closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
+            ('open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
         )),
 
         ('test:edge', {}, (
