@@ -136,6 +136,7 @@ testmodel = {
         ('test:ival', ('ival', {}), {}),
 
         ('test:int', ('int', {}), {}),
+        ('test:float', ('float', {}), {}),
         ('test:str', ('str', {}), {}),
         ('test:migr', ('str', {}), {}),
         ('test:auto', ('str', {}), {}),
@@ -207,6 +208,10 @@ testmodel = {
 
         ('test:int', {}, (
             ('loc', ('loc', {}), {}),
+        )),
+
+        ('test:float', {}, (
+            ('floatprop', ('float', {'min': 0.0, 'max': 360.0}), {}),
         )),
 
         ('test:edge', {}, (

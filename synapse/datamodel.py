@@ -210,6 +210,7 @@ class Form:
         self.full = name    # so a Form() can act like a Prop().
         self.info = info
 
+        # FIXME: remove?
         #self.waits = collections.defaultdict(list)
 
         self.isform = True
@@ -224,12 +225,7 @@ class Form:
 
         self.type.form = self
 
-        # pre-compute our byprop table prefix
-        #self.pref = name.encode('utf8') + b'\x00\x00'
-        #self.utf8name = name.encode('utf8')
-
         self.props = {}     # name: Prop()
-        #self.defvals = {}   # name: valu
         self.refsout = None
 
     def getStorNode(self, form='syn:form'):
@@ -260,7 +256,6 @@ class Form:
     def delProp(self, name):
         self.refsout = None
         prop = self.props.pop(name, None)
-        #self.defvals.pop(name, None)
         return prop
 
     def getRefsOut(self):
@@ -463,6 +458,10 @@ class Model:
         # add the primitive base types
         info = {'doc': 'The base 64 bit signed integer type.'}
         item = s_types.Int(self, 'int', info, {})
+        self.addBaseType(item)
+
+        info = {'doc': 'The base floating point type.'}
+        item = s_types.Float(self, 'float', info, {})
         self.addBaseType(item)
 
         info = {'doc': 'A base range type.'}

@@ -51,11 +51,11 @@ class Type:
         self._cmpr_ctors = {}   # cmpr string to filter function constructor map
         self._cmpr_ctor_lift = {} # if set, create a cmpr which is passed along with indx ops
 
-        #self.indxcmpr = {
-            #'=': self.indxByEq,
-            #'in=': self.indxByIn,
-            #'range=': self.indxByRange,
-        #}
+        # self.indxcmpr = {
+        #    '=': self.indxByEq,
+        #    'in=': self.indxByIn,
+        #    'range=': self.indxByRange,
+        # }
 
         self.setCmprCtor('=', self._ctorCmprEq)
         self.setCmprCtor('!=', self._ctorCmprNe)
@@ -423,14 +423,14 @@ class Array(Type):
     def repr(self, valu):
         return [self.arraytype.repr(v) for v in valu]
 
-    #def indx(self, norm):
-        # return a tuple of indx bytes and the layer will know what to do
-        #vals = []
-        # prop=[foo,bar]
-        #vals.append(b'\x00' + s_common.buid(norm))
-        ## prop*contains=foo
-        #[vals.append(b'\x01' + self.arraytype.indx(v)) for v in norm]
-        #return vals
+    # #def indx(self, norm):
+    #     # return a tuple of indx bytes and the layer will know what to do
+    #     #vals = []
+    #     # prop=[foo,bar]
+    #     #vals.append(b'\x00' + s_common.buid(norm))
+    #     ## prop*contains=foo
+    #     #[vals.append(b'\x01' + self.arraytype.indx(v)) for v in norm]
+    #     #return vals
 
 class Comp(Type):
 
@@ -465,7 +465,7 @@ class Comp(Type):
         adds = []
         norms = []
 
-        for i, (name, typename) in enumerate(fields):
+        for i, (name, _) in enumerate(fields):
 
             _type = self.tcache[name]
 
@@ -489,7 +489,7 @@ class Comp(Type):
         vals = []
         fields = self.opts.get('fields')
 
-        for valu, (name, typename) in zip(valu, fields):
+        for valu, (name, _) in zip(valu, fields):
             rval = self.tcache[name].repr(valu)
             vals.append(rval)
 
@@ -561,7 +561,7 @@ class Hex(Type):
     stortype = s_layer.STOR_TYPE_UTF8
 
     _opt_defs = (
-        ('size', 0),
+        ('size', 0),  # type: ignore
     )
 
     def postTypeInit(self):
@@ -668,9 +668,10 @@ class IntBase(Type):
 class Int(IntBase):
 
     _opt_defs = (
-        ('size', 8),  # Set the storage size of the integer type in bytes.
+        ('size', 8),  # type: ignore # Set the storage size of the integer type in bytes.
         ('signed', True),
 
+        # Note: currently unused
         ('fmt', '%d'),  # Set to an integer compatible format string to control repr.
 
         ('min', None),  # Set to a value to enforce minimum value for the type.
@@ -787,9 +788,8 @@ class Int(IntBase):
 
 class Float(Type):
     _opt_defs = (
-        ('signed', True),
-
-        ('fmt', '%f'),  # Set to an integer compatible format string to control repr.
+        # Note: currently unused
+        ('fmt', '%f'),  # type:ignore # Set to an float compatible format string to control repr.
 
         ('min', None),  # Set to a value to enforce minimum value for the type.
         ('max', None),  # Set to a value to enforce maximum value for the type.
@@ -850,11 +850,6 @@ class Float(Type):
 
     def postTypeInit(self):
 
-        self.signed = self.opts.get('signed')
-        if self.stortype is None:
-            mesg = f'Invalid integer size ({self.size})'
-            raise s_exc.BadTypeDef(mesg=mesg)
-
         self.enumnorm = {}
         self.enumrepr = {}
 
@@ -868,7 +863,7 @@ class Float(Type):
     def _normPyStr(self, valu):
 
         try:
-            valu = float(valu, 0)
+            valu = float(valu)
         except ValueError as e:
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
                                     mesg=str(e)) from None
@@ -879,12 +874,11 @@ class Float(Type):
         return self._normPyFloat(valu)
 
     def _normPyFloat(self, valu):
-
-        if self.minval is not None and valu < self.minval:
+        if self.minval is not None and not valu >= self.minval:
             mesg = f'value is below min={self.minval}'
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
 
-        if self.maxval is not None and valu > self.maxval:
+        if self.maxval is not None and not valu <= self.maxval:
             mesg = f'value is above max={self.maxval}'
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
 
@@ -907,7 +901,7 @@ class Ival(Type):
         self.timetype = self.modl.type('time')
 
         # Range stuff with ival's don't make sense
-        #self.indxcmpr.pop('range=', None)
+        # self.indxcmpr.pop('range=', None)
         self._cmpr_ctors.pop('range=', None)
 
         self.setCmprCtor('@=', self._ctorCmprAt)
@@ -1276,7 +1270,7 @@ class Range(Type):
     stortype = s_layer.STOR_TYPE_MSGP
 
     _opt_defs = (
-        ('type', None),
+        ('type', None),  # type: ignore
     )
 
     def postTypeInit(self):
@@ -1325,7 +1319,7 @@ class Str(Type):
     stortype = s_layer.STOR_TYPE_UTF8
 
     _opt_defs = (
-        ('enums', None),
+        ('enums', None),  # type: ignore
         ('regex', None),
         ('lower', False),
         ('strip', False),
@@ -1461,7 +1455,7 @@ class Time(IntBase):
     stortype = s_layer.STOR_TYPE_TIME
 
     _opt_defs = (
-        ('ismin', False),
+        ('ismin', False),  # type: ignore
         ('ismax', False),
     )
 
@@ -1472,7 +1466,6 @@ class Time(IntBase):
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
 
-        #self.indxcmpr['@='] = self.indxByIval
         self.setCmprCtor('@=', self._ctorCmprAt)
 
         self.ismin = self.opts.get('ismin')
@@ -1603,7 +1596,7 @@ class Time(IntBase):
 
         try:
             _tick = self._getLiftValu(val0)
-        except ValueError as e:
+        except ValueError:
             mesg = 'Unable to process the value for val0 in _getLiftValu.'
             raise s_exc.BadTypeValu(name=self.name, valu=val0,
                                     mesg=mesg) from None

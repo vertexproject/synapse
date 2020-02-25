@@ -549,7 +549,6 @@ class StorTypeInt(StorType):
         pkeymax = (valu[1] + self.offset).to_bytes(self.size, 'big')
         yield from liftby.buidsByRange(pkeymin, pkeymax)
 
-
 class StorTypeFloat(StorType):
     FloatPacker = struct.Struct('>d')
     fpack = FloatPacker.pack
@@ -558,11 +557,11 @@ class StorTypeFloat(StorType):
     FloatPackNegMin = FloatPacker.pack(-math.inf)
     FloatPackNegMax = FloatPacker.pack(-0.0)
 
-    def __init__(self, layr, stortype, size=8, signed=True):
-
+    def __init__(self, layr, stortype, size=8):
         '''
-        Size and signed reserved for later use
+        Size reserved for later use
         '''
+        assert size == 8
 
         StorType.__init__(self, layr, stortype)
 
@@ -883,7 +882,7 @@ class Layer(s_nexus.Pusher):
             StorTypeInt(self, STOR_TYPE_U128, 16, False),
             StorTypeInt(self, STOR_TYPE_I128, 16, True),
 
-            StorTypeFloat(self, STOR_TYPE_FLOAT64, 8, True),
+            StorTypeFloat(self, STOR_TYPE_FLOAT64, 8),
         ]
 
         self.editors = [
