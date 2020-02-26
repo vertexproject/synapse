@@ -1789,9 +1789,9 @@ class LibCron(Lib):
             'at': self._methCronAt,
             'add': self._methCronAdd,
             'del': self._methCronDel,
+            'get': self._methCronGet,
             'mod': self._methCronMod,
             'list': self._methCronList,
-            'stat': self._methCronStat,
             'enable': self._methCronEnable,
             'disable': self._methCronDisable,
         })
@@ -2174,9 +2174,9 @@ class LibCron(Lib):
 
         return [CronJob(self.runt, cdef, path=self.path) for cdef in defs]
 
-    async def _methCronStat(self, prefix):
+    async def _methCronGet(self, prefix):
         '''
-        Get information about a cron job.
+        Retrieve a cron job from the cortex.
         '''
         cdef = await self._matchIdens(prefix, ('cron', 'get'))
 

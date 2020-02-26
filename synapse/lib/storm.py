@@ -748,7 +748,7 @@ stormcmds = (
             ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
         ),
         'storm': '''
-            $cron = $lib.cron.stat($cmdopts.iden)
+            $cron = $lib.cron.get($cmdopts.iden)
 
             if $cron {
                 $job = $cron.pprint()
