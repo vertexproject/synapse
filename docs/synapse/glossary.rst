@@ -46,7 +46,7 @@ See :ref:`gloss-buid`.
 BUID
 ----
 
-Short for Binary Unique Identifier. Within Synapse, a BUID is the globally unique (within a :ref:`gloss-cortex`) SHA256 digest of a node’s msgpack-encoded :ref:`gloss-ndef`.
+Short for Binary Unique Identifier. Within Synapse, a BUID is the globally unique (within a :ref:`gloss-cortex`) SHA-256 digest of a node’s msgpack-encoded :ref:`gloss-ndef`.
 
 
 C
@@ -85,7 +85,7 @@ The set of common operator symbols used to evaluate (compare) values in Storm. S
 Comparison Operator, Extended
 -----------------------------
 
-The set of Storm-specific operator symbols or expressions used to evaluate (compare) values in Storm based on custom or Storm-specific criteria. Extended comparison operators include regular expression (``~=``), time / interval (``@=``), set membership (``*in=``), tag (``#``), and so on.
+The set of Storm-specific operator symbols or expressions used to evaluate (compare) values in Storm based on custom or Storm-specific criteria. Extended comparison operators include regular expression (``~=``), time/interval (``@=``), set membership (``*in=``), tag (``#``), and so on.
 
 .. _gloss-comp-form:
 
@@ -109,7 +109,7 @@ Contrast with :ref:`gloss-variable`. See also :ref:`gloss-runtsafe` and :ref:`gl
 Constructor
 -----------
 
-Within Synapse, code that defines how a :ref:`gloss-prop` value of a given :ref:`gloss-type` can be constructed to ensure that the value is well-formed for its type. Also known as a :ref:`gloss-ctor` for short. Constructors support :ref:`gloss-type-norm` and :ref:`gloss-type-enforce`.
+Within Synapse, a constructor is code that defines how a :ref:`gloss-prop` value of a given :ref:`gloss-type` can be constructed to ensure that the value is well-formed for its type. Also known as a :ref:`gloss-ctor` for short. Constructors support :ref:`gloss-type-norm` and :ref:`gloss-type-enforce`.
 
 .. _gloss-cortex:
 
@@ -123,7 +123,7 @@ A Cortex is Synapse's implementation of an individual :ref:`gloss-hypergraph`. C
 Cron
 ----
 
-Within Synapse cron jobs are used to create scheduled tasks, similar to the Linux / Unix "cron" utility. The task to be executed by the cron job is specified using the :ref:`gloss-storm` query language.
+Within Synapse cron jobs are used to create scheduled tasks, similar to the Linux/Unix "cron" utility. The task to be executed by the cron job is specified using the :ref:`gloss-storm` query language.
 
 See the Storm command reference for the :ref:`storm-cron` command and the :ref:`storm-ref-automation` document for additional detail.
 
@@ -369,7 +369,7 @@ K
 Knowledge, Fused
 ----------------
 
-If a form within the Synapse data model has a "range" of time elements (i.e., an interval such as "first seen" / "last seen"), the form typically represents **fused knowledge** - a period of time during which an object, relationship, or event was known to exist. Forms representing fused knowledge can be thought of as combining *n* number of instance knowledge observations. ``inet:dns:query``, ``inet:dns:a``, and ``inet:whois:email`` forms are examples of fused knowledge.
+If a form within the Synapse data model has a "range" of time elements (i.e., an interval such as "first seen"/"last seen"), the form typically represents **fused knowledge** -- a period of time during which an object, relationship, or event was known to exist. Forms representing fused knowledge can be thought of as combining *n* number of instance knowledge observations. ``inet:dns:query``, ``inet:dns:a``, and ``inet:whois:email`` forms are examples of fused knowledge.
 
 See :ref:`instance-fused` for a more detailed discussion.
 
@@ -378,7 +378,7 @@ See :ref:`instance-fused` for a more detailed discussion.
 Knowledge, Instance
 -------------------
 
-If a form within the Synapse data model has a specific time element (i.e., a single date/time value), the form typically represents **instance knowledge** - a single instance or occurrence of an object, relationship, or event. ``inet:dns:request`` and ``inet:whois:rec`` forms are examples of instance knowledge.
+If a form within the Synapse data model has a specific time element (i.e., a single date/time value), the form typically represents **instance knowledge** -- a single instance or occurrence of an object, relationship, or event. ``inet:dns:request`` and ``inet:whois:rec`` forms are examples of instance knowledge.
 
 See :ref:`instance-fused` for a more detailed discussion.
 
@@ -390,9 +390,9 @@ L
 Layer
 -----
 
-Within Synapse, a layer is the substrate that contains node data and where permissions enforcement occurs. Viewed another way, a layer is a storage and write permission boundary. By default, a :ref:`gloss-cortex` has a single layer and a single :ref:`gloss-view`, meaning that by default all nodes are stored in one layer and all changes are written to that layer. However, multiple layers can be created for various purposes such as: separating data from different data sources (e.g., a read-only layer consisting of third-party data and associated tags can be created underneath a "working" layer, so that the third-party data is visible but cannot be modified); providing users with a personal "scratch space" where they can make changes in their layer without affecting the underlying main Cortex layer; or segregating data sets that should be visible / accessible to some users but not others.
+Within Synapse, a layer is the substrate that contains node data and where permissions enforcement occurs. Viewed another way, a layer is a storage and write permission boundary. By default, a :ref:`gloss-cortex` has a single layer and a single :ref:`gloss-view`, meaning that by default all nodes are stored in one layer and all changes are written to that layer. However, multiple layers can be created for various purposes such as: separating data from different data sources (e.g., a read-only layer consisting of third-party data and associated tags can be created underneath a "working" layer, so that the third-party data is visible but cannot be modified); providing users with a personal "scratch space" where they can make changes in their layer without affecting the underlying main Cortex layer; or segregating data sets that should be visible/accessible to some users but not others.
 
-Layers are closely related to views (see :ref:`gloss-view`). The order in which layers are instantiated within a view matters; in a multi-layer view, typically only the topmost layer is writeable by that view's users, with subsequent (lower) layers read-only. Permissions and implementation decisions will determine whether upper-layer writes are pushed downward (merged) into lower layers.
+Layers are closely related to views (see :ref:`gloss-view`). The order in which layers are instantiated within a view matters; in a multi-layer view, typically only the topmost layer is writeable by that view's users, with subsequent (lower) layers read-only. Explicit actions can push upper-layer writes downward (merge) into lower layers.
 
 .. _gloss-leaf-tag:
 
@@ -418,7 +418,7 @@ M
 Model
 -----
 
-Within Synapse, a system or systems used to represent data and / or assertions in a structured manner. A well-designed model allows efficient and meaningful exploration of the data to identify both known and potentially arbitrary or discoverable relationships.
+Within Synapse, a system or systems used to represent data and/or assertions in a structured manner. A well-designed model allows efficient and meaningful exploration of the data to identify both known and potentially arbitrary or discoverable relationships.
 
 .. _gloss-model-analytical:
 
@@ -530,7 +530,7 @@ Within Synapse, a derived property is one that can be extracted (derived) from a
 Property, Primary
 -----------------
 
-Within Synapse, a primary property is the property that defines a given :ref:`gloss-form` in the data model. The primary property of a form must be selected / defined such that the value of that property is unique across all possible instances of that form. Primary properties are always read-only (i.e., cannot be modified once set).
+Within Synapse, a primary property is the property that defines a given :ref:`gloss-form` in the data model. The primary property of a form must be defined such that the value of that property is unique across all possible instances of that form. Primary properties are always read-only (i.e., cannot be modified once set).
 
 .. _gloss-prop-relative:
 
@@ -564,7 +564,7 @@ Q
 Queue
 -----
 
-Within Synapse, a queue is a basic first-in, first-out (FIFO) data structure used to store and serve objects in a classic pub/sub (publish / subscribe) manner. Any primitive (such as a node iden) can be placed into a queue and then consumed from it. Queues can be used (for example) to support out-of-band processing by allowing non-critical tasks to be executed in the background. Queues are persistent; i.e., if a Cortex is restarted, the queue and any objects in the queue are retained.
+Within Synapse, a queue is a basic first-in, first-out (FIFO) data structure used to store and serve objects in a classic pub/sub (publish/subscribe) manner. Any primitive (such as a node iden) can be placed into a queue and then consumed from it. Queues can be used (for example) to support out-of-band processing by allowing non-critical tasks to be executed in the background. Queues are persistent; i.e., if a Cortex is restarted, the queue and any objects in the queue are retained.
 
 R
 =
@@ -629,7 +629,7 @@ See :ref:`gloss-prop-secondary`.
 Service
 -------
 
-A Storm service is a registerable remote component that can provide packages (:ref:`gloss-package`) and additional APIs to Storm and Storm commands. A service resides on a :ref:`gloss-telepath` API endpoint outside of the Cortex. When a service is loaded into a Cortex, the Cortex queries the endpoint to determine if the service is legitimate and, if so, loads the associated :ref:`gloss-package` to implement the service. An advantage of Storm services (over, say, additional Python modules) is that services can be restarted to reload their service definitions and packages while a Cortex is still running - thus allowing a service to be updated without having to restart the entire Cortex.
+A Storm service is a registerable remote component that can provide packages (:ref:`gloss-package`) and additional APIs to Storm and Storm commands. A service resides on a :ref:`gloss-telepath` API endpoint outside of the Cortex. When a service is loaded into a Cortex, the Cortex queries the endpoint to determine if the service is legitimate and, if so, loads the associated :ref:`gloss-package` to implement the service. An advantage of Storm services (over, say, additional Python modules) is that services can be restarted to reload their service definitions and packages while a Cortex is still running -- thus allowing a service to be updated without having to restart the entire Cortex.
 
 .. _gloss-simple-form:
 
@@ -650,7 +650,7 @@ TBD
 Splice
 ------
 
-A splice is an atomic change made to data within a Cortex, such as node creation or deletion, adding or removing a tag, or setting, modifying, or removing a property. All changes within a Cortex are recorded as individual splices within the Cortex's splice log.
+A splice is an atomic change made to data within a Cortex, such as node creation or deletion, adding or removing a tag, or setting, modifying, or removing a property. All changes within a Cortex may be retrieved as individual splices within the Cortex's splice log.
 
 .. _gloss-standard-comp-op:
 
@@ -664,7 +664,7 @@ See :ref:`gloss-comp-op-standard`.
 Storm
 -----
 
-The custom language used to interact with data in a Synapse :ref:`gloss-cortex`.
+The custom, domain-specific language used to interact with data in a Synapse :ref:`gloss-cortex`.
 
 See :ref:`storm-ref-intro` for additional detail.
 
@@ -729,7 +729,7 @@ See the Storm command reference for the :ref:`storm-trigger` command and the :re
 Type
 ----
 
-Within Synapse, a type is the definition of a data element within the data model. A type describes what the element is and enforces how it should look, including how it should be normalized, if necessary, for both storage (including indexing) and representation (display).
+Within Synapse, a type is the definition of a data element within the data model. A type describes what the element is and enforces how it should look, including how it should be normalized.
 
 See the :ref:`data-type` section in the :ref:`data-model-terms` document for additional detail.
 
@@ -745,7 +745,7 @@ Within Synapse, base types include standard types such as integers and strings, 
 Type, Model-Specific
 --------------------
 
-Within Synapse, knowledge domain-specific forms may themselves be specialized types. For example, an IPv4 address (``inet:ipv4``) is its own specialized type. While an IPv4 address is ultimately stored as an integer, the type has additional constraints (i.e., to ensure that IPv4 objects in the Cortex can only be created using integer values that fall within the allowable IPv4 address space).
+Within Synapse, knowledge-domain-specific forms may themselves be specialized types. For example, an IPv4 address (``inet:ipv4``) is its own specialized type. While an IPv4 address is ultimately stored as an integer, the type has additional constraints, e.g., IPv4 values must fall within the allowable IPv4 address space.
 
 .. _gloss-type-aware:
 
@@ -759,7 +759,7 @@ Type awareness is the feature of the :ref:`gloss-storm` query language that faci
 Type Enforcement
 ----------------
 
-Within Synapse, the process by which property values are required to conform to value and format constraints defined for that :ref:`gloss-type` within the data model before they can be set. Type enforcement helps to limit bad data being entered in to a Cortex by ensuring values entered make sense for the specified data type (i.e., that an IP address cannot be set as the value of a property defined as a domain (``inet:fqdn``) type, and that the integer value of the IP falls within the allowable set of values for IP address space).
+Within Synapse, the process by which property values are required to conform to value and format constraints defined for that :ref:`gloss-type` within the data model before they can be set. Type enforcement helps to limit bad data being entered in to a Cortex by ensuring values entered make sense for the specified data type (e.g., that an IP address cannot be set as the value of a property defined as a domain (``inet:fqdn``) type, and that the integer value of the IP falls within the allowable set of values for IP address space).
 
 .. _gloss-type-norm:
 
@@ -786,7 +786,7 @@ V
 Variable
 --------
 
-In Storm, a variable is an identifier with a value that can be defined and / or changed during normal execution, i.e., the value is variable.
+In Storm, a variable is an identifier with a value that can be defined and/or changed during normal execution, i.e., the value is variable.
 
 Contrast with :ref:`gloss-constant`. See also :ref:`gloss-runtsafe` and :ref:`gloss-non-runtsafe`.
 
@@ -795,6 +795,6 @@ Contrast with :ref:`gloss-constant`. See also :ref:`gloss-runtsafe` and :ref:`gl
 View
 ----
 
-Within Synapse, a view is a set of layers (see :ref:`gloss-layer`) and associated permissions that are used to synthesize nodes from the :ref:`gloss-cortex`, determining both the nodes that are visible to users via that view and where (i.e., in what layer) any changes made by a view's users are recorded. A default Cortex consists of a single layer and a single view, meaning that by default all nodes are stored in one layer and all changes are written to that layer.
+Within Synapse, a view is a ordered set of layers (see :ref:`gloss-layer`) and associated permissions that are used to synthesize nodes from the :ref:`gloss-cortex`, determining both the nodes that are visible to users via that view and where (i.e., in what layer) any changes made by a view's users are recorded. A default Cortex consists of a single layer and a single view, meaning that by default all nodes are stored in one layer and all changes are written to that layer.
 
-In multi-layer systems, a view consists of the set of layers that should be visible to users of that view, and the order in which the layers should be instantiated for that view.  Order matters because typically only the topmost layer is writeable by that view's users, with subsequent (lower) layers read-only. Permissions and implementation decisions will determine whether upper-layer writes are pushed downward (merged) into lower layers.
+In multi-layer systems, a view consists of the set of layers that should be visible to users of that view, and the order in which the layers should be instantiated for that view.  Order matters because typically only the topmost layer is writeable by that view's users, with subsequent (lower) layers read-only. Explicit actions can push upper-layer writes downward (merge) into lower layers.
