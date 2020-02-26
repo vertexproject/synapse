@@ -1455,7 +1455,6 @@ class StormTypesTest(s_test.SynTest):
 
             q = '$lib.print($lib.layer.get().iden)'
             mesgs = await core.streamstorm(q).list()
-            print(repr(mesgs))
             self.stormIsInPrint(mainlayr, mesgs)
 
             q = f'$lib.print($lib.layer.get({mainlayr}).iden)'
@@ -2541,3 +2540,29 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'True'))
+
+    async def test_storm_lib_userview(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.setAdmin(True)
+
+            await core.nodes('$lib.user.profile.set(cortex:view, $lib.view.get().fork().iden)', user=visi)
+
+            self.nn(visi.profile.get('cortex:view'))
+
+            self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 ]', user=visi))
+
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4', user=visi))
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4', user=visi, opts={'view': core.view.iden}))
+
+            async with core.getLocalProxy(user='visi') as prox:
+                self.len(1, await prox.eval('inet:ipv4=1.2.3.4').list())
+                self.len(0, await prox.eval('inet:ipv4=1.2.3.4', opts={'view': None}).list())
+                self.len(0, await prox.eval('inet:ipv4=1.2.3.4', opts={'view': core.view.iden}).list())
+
+            async with core.getLocalProxy(user='root') as prox:
+                self.len(0, await prox.eval('inet:ipv4=1.2.3.4').list())
