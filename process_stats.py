@@ -15,7 +15,7 @@ def get_fn_prefix(bn):
 
 def aggregate_raw_data(raw_data):
     '''
-    Aggregate raw data into a workable hierachy.
+    Aggregate raw data into a workable hierarchy.
 
     Args:
         raw_data:
@@ -27,7 +27,7 @@ def aggregate_raw_data(raw_data):
         3. Experiment name.
 
         The num_iters value, workfactor, and count (per experiment) are all asserted to be equal.
-        Unequal data cannot be combined into the same prefix-config-expreriment name set.
+        Unequal data cannot be combined into the same prefix-config-experiment name set.
 
     Returns:
         dict: Dictionary of raw data.
