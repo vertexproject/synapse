@@ -282,9 +282,6 @@ class CmdCoreTest(s_t_utils.SynTest):
                     genr = s_encoding.iterdata(fd, close_fd=False, format='mpk')
                     objs = list(genr)
 
-                # FIXME
-                # self.eq(objs[0][0], 'node:add')
-
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 # Our default format is mpk

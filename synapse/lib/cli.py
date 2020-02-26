@@ -29,10 +29,8 @@ logger = logging.getLogger(__name__)
 class Cmd:
     '''
     Base class for modular commands in the synapse CLI.
-
-    FIXME: document the _cmd_syntax definitions.
     '''
-    _cmd_name = 'FIXME'
+    _cmd_name = 'fixme'
     _cmd_syntax = ()
 
     def __init__(self, cli, **opts):
@@ -357,8 +355,6 @@ class Cli(s_base.Base):
         Run commands from a user in an interactive fashion until fini() or EOFError is raised.
         '''
         while not self.isfini:
-
-            # FIXME completion
 
             self.cmdtask = None
 

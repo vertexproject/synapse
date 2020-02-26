@@ -323,8 +323,6 @@ stormcmds = (
         'name': 'layer.add',
         'descr': 'Add a layer to the cortex.',
         'cmdargs': (
-            ('iden', {'nargs': '?',
-                      'help': 'Iden of the layer to add. If no iden is provided, a new layer will be created.'}),
             ('--lockmemory', {'help': 'Should the layer lock memory for performance.',
                               'action': 'store_true'}),
             ('--readonly', {'help': 'Should the layer be readonly.',
@@ -461,7 +459,7 @@ stormcmds = (
             ('iden', {'help': 'Iden of the view to fork.'}),
         ),
         'storm': '''
-            $forkview = $lib.view.fork($cmdopts.iden)
+            $forkview = $lib.view.get($cmdopts.iden).fork()
             $lib.print("View {iden} forked to new view: {forkiden}",
                         iden=$cmdopts.iden,
                         forkiden=$forkview.pack().iden)
@@ -512,9 +510,20 @@ stormcmds = (
         'descr': 'Merge a forked view into its parent view.',
         'cmdargs': (
             ('iden', {'help': 'Iden of the view to merge.'}),
+            ('--delete', {'default': False, 'action': 'store_true',
+                          'help': 'Once the merge is complete, delete the layer and view.'}),
         ),
         'storm': '''
-            $lib.view.merge($cmdopts.iden)
+            $view = $lib.view.get($cmdopts.iden)
+
+            $view.merge()
+
+            if $cmdopts.delete {
+                $layriden = $view.pack().layers.index(0).iden
+
+                $lib.view.del($view.iden)
+                $lib.layer.del($layriden)
+            }
             $lib.print("View merged: {iden}", iden=$cmdopts.iden)
         ''',
     },

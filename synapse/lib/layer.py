@@ -816,41 +816,7 @@ class Layer(s_nexus.Pusher):
 
         self.fresh = not os.path.exists(path)
 
-        slabopts = {
-            'readonly': self.readonly,
-            'max_dbs': 128,
-            'map_async': True,
-            'readahead': True,
-            'lockmemory': self.lockmemory,
-            'growsize': self.growsize,
-        }
-
-        self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
-        self.formcounts = await self.layrslab.getHotCount('count:forms')
-
-        path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
-        self.nodeeditslab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
-        self.offsets = await self.layrslab.getHotCount('offsets')
-
-        self.tagabrv = self.layrslab.getNameAbrv('tagabrv')
-        self.propabrv = self.layrslab.getNameAbrv('propabrv')
-        self.tagpropabrv = self.layrslab.getNameAbrv('tagpropabrv')
-
-        self.onfini(self.layrslab)
-        self.onfini(self.nodeeditslab)
-
-        self.bybuid = self.layrslab.initdb('bybuid')
-
-        self.bytag = self.layrslab.initdb('bytag', dupsort=True)
-        self.byprop = self.layrslab.initdb('byprop', dupsort=True)
-        self.byarray = self.layrslab.initdb('byarray', dupsort=True)
-        self.bytagprop = self.layrslab.initdb('bytagprop', dupsort=True)
-
-        self.nodedata = self.layrslab.initdb('nodedata')
-
-        self.countdb = self.layrslab.initdb('counters')
-
-        self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
+        await self._initLayerStorage()
 
         self.stortypes = [
 
@@ -923,6 +889,58 @@ class Layer(s_nexus.Pusher):
             'readonly': self.readonly,
             'ctor': self.ctorname,
         }
+
+    async def truncate(self):
+
+        await self.layrslab.fini()
+        await self.nodeeditslab.fini()
+
+        path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
+        shutil.rmtree(path, ignore_errors=True)
+
+        path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
+        shutil.rmtree(path, ignore_errors=True)
+
+        await self._initLayerStorage()
+
+    async def _initLayerStorage(self):
+
+        slabopts = {
+            'readonly': self.readonly,
+            'max_dbs': 128,
+            'map_async': True,
+            'readahead': True,
+            'lockmemory': self.lockmemory,
+            'growsize': self.growsize,
+        }
+
+        path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
+
+        self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
+        self.formcounts = await self.layrslab.getHotCount('count:forms')
+
+        path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
+        self.nodeeditslab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
+        self.offsets = await self.layrslab.getHotCount('offsets')
+
+        self.tagabrv = self.layrslab.getNameAbrv('tagabrv')
+        self.propabrv = self.layrslab.getNameAbrv('propabrv')
+        self.tagpropabrv = self.layrslab.getNameAbrv('tagpropabrv')
+
+        self.onfini(self.layrslab)
+        self.onfini(self.nodeeditslab)
+
+        self.bybuid = self.layrslab.initdb('bybuid')
+
+        self.bytag = self.layrslab.initdb('bytag', dupsort=True)
+        self.byprop = self.layrslab.initdb('byprop', dupsort=True)
+        self.byarray = self.layrslab.initdb('byarray', dupsort=True)
+        self.bytagprop = self.layrslab.initdb('bytagprop', dupsort=True)
+
+        self.countdb = self.layrslab.initdb('counters')
+        self.nodedata = self.layrslab.initdb('nodedata')
+
+        self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
 
     def getSpawnInfo(self):
         return self.pack()
@@ -1403,7 +1421,6 @@ class Layer(s_nexus.Pusher):
         tenc = tag.encode()
         penc = prop.encode()
 
-        p_abrv = self.getTagPropAbrv(None, None, prop)
         tp_abrv = self.getTagPropAbrv(None, tag, prop)
         ftp_abrv = self.getTagPropAbrv(form, tag, prop)
 
@@ -1417,14 +1434,12 @@ class Layer(s_nexus.Pusher):
                 return
 
             for oldi in self.getStorIndx(oldt, oldv):
-                self.layrslab.delete(p_abrv + oldi, buid, db=self.bytagprop)
                 self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
                 self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
 
         kvpairs = []
 
         for indx in self.getStorIndx(stortype, valu):
-            kvpairs.append((p_abrv + indx, buid))
             kvpairs.append((tp_abrv + indx, buid))
             kvpairs.append((ftp_abrv + indx, buid))
 
@@ -1441,7 +1456,6 @@ class Layer(s_nexus.Pusher):
         tenc = tag.encode()
         penc = prop.encode()
 
-        p_abrv = self.getTagPropAbrv(None, None, prop)
         tp_abrv = self.getTagPropAbrv(None, tag, prop)
         ftp_abrv = self.getTagPropAbrv(form, tag, prop)
 
@@ -1454,7 +1468,6 @@ class Layer(s_nexus.Pusher):
         oldv, oldt = s_msgpack.un(oldb)
 
         for oldi in self.getStorIndx(oldt, oldv):
-            self.layrslab.delete(p_abrv + oldi, buid, db=self.bytagprop)
             self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
             self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
 

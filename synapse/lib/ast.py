@@ -948,28 +948,6 @@ class LiftFormTagProp(LiftOper):
         async for node in runt.snap.nodesByTagProp(form, tag, prop):
             yield node
 
-class LiftOnlyTagProp(LiftOper):
-    '''
-    #:baz [ = x ]
-    '''
-
-    async def lift(self, runt):
-
-        prop = await self.kids[0].compute(runt)
-
-        if len(self.kids) == 3:
-
-            cmpr = await self.kids[1].compute(runt)
-            valu = await self.kids[2].compute(runt)
-
-            async for node in runt.snap.nodesByTagPropValu(None, None, prop, cmpr, valu):
-                yield node
-
-            return
-
-        async for node in runt.snap.nodesByTagProp(None, None, prop):
-            yield node
-
 class LiftTagTag(LiftOper):
     '''
     ##foo.bar
@@ -2830,7 +2808,6 @@ class EditTagPropDel(Edit):
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
-            # FIXME:  ('tag', 'del'), right?
             runt.layerConfirm(('node', 'tag', 'del', *tagparts))
 
             await node.delTagProp(tag, prop)
