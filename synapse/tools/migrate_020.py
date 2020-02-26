@@ -86,10 +86,11 @@ class MigrAuth:
             ...
         }
     '''
-    def __init__(self, srctree, defaultview, triggers, queues):
+    def __init__(self, srctree, defaultview, triggers, queues, crons):
         self.defaultview = defaultview
         self.triggers = triggers
         self.queues = queues
+        self.crons = crons
         self.srctree = srctree
         self.desttree = None
 
@@ -287,6 +288,7 @@ class MigrAuth:
             - Create cortex authgate with no roles or users if it doesn't exist
             - Create trigger authgates with users=owner w/admin True
             - Create queue authgates with users=owner w/admin True
+            - Create cron authgates with users=owner w/admin True
             - Add view:read rule to all role in defaultview
             - Add root user to all authgates (except cortex) if it doesn't exist
             - Change authgate name 'layr' to 'layer'
@@ -313,6 +315,13 @@ class MigrAuth:
             qiden = f'queue:{qname}'
             self.authgatesbyname['queue'].append(qiden)
             self.authgatesbyiden[qiden] = {
+                'rolesbyiden': {},
+                'usersbyiden': {uiden: {'admin': True}},
+            }
+
+        for ciden, uiden in self.crons:
+            self.authgatesbyname['cronjob'].append(ciden)
+            self.authgatesbyiden[ciden] = {
                 'rolesbyiden': {},
                 'usersbyiden': {uiden: {'admin': True}},
             }
@@ -899,6 +908,11 @@ class Migrator(s_base.Base):
             for trigiden, trignode in await viewnode.open(('triggers',)):
                 triggers[trigiden].add(trignode.valu.get('user'))
 
+        # get cron jobs that need authgates added
+        crons = []  # list of (<cron iden>, <user iden>)
+        for croniden, cronvals in (await self.hive.dict(('agenda', 'appts'))).items():
+            crons.append((croniden, cronvals.get('useriden')))
+
         defaultview = await self.hive.get(('cellinfo', 'defaultview'))
 
         srctree = await self.hive.saveHiveTree(('auth01x',))
@@ -907,7 +921,7 @@ class Migrator(s_base.Base):
         else:
             logger.info(f'Using backup auth01x for migration')
 
-        migrauth = MigrAuth(srctree, defaultview, triggers, queues)
+        migrauth = MigrAuth(srctree, defaultview, triggers, queues, crons)
         desttree = await migrauth.translate()
 
         # save a backup then replace

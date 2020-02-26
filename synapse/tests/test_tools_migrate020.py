@@ -237,11 +237,12 @@ class MigrationTest(s_t_utils.SynTest):
         self.sorteq(list(core.auth.usersbyname.keys()), ['root', 'fred', 'bobo'])
         self.sorteq(list(core.auth.rolesbyname.keys()), ['all', 'cowboys', 'ninjas', 'friends'])
 
-        self.len(10, core.auth.authgates)  # 2 views, 2 layers, 2 triggers, 1 cortex, 3 queues
+        self.len(12, core.auth.authgates)  # 2 views, 2 layers, 2 triggers, 1 cortex, 3 queues, 2 crons
         self.len(2, [iden for iden, gate in core.auth.authgates.items() if gate.type == 'view'])
         self.len(2, [iden for iden, gate in core.auth.authgates.items() if gate.type == 'layer'])
         self.len(1, [iden for iden, gate in core.auth.authgates.items() if gate.type == 'cortex'])
         self.len(3, [iden for iden, gate in core.auth.authgates.items() if gate.type == 'queue'])
+        self.len(2, [iden for iden, gate in core.auth.authgates.items() if gate.type == 'cronjob'])
 
         # user attributes
         root = core.auth.usersbyname['root']
@@ -260,12 +261,17 @@ class MigrationTest(s_t_utils.SynTest):
         self.false(fred.info.get('admin'))
         self.sorteq(['all', 'ninjas'], [core.auth.rolesbyiden[riden].name for riden in fred.info.get('roles')])
         fredrules = [(True, ('tag:add', 'trgtag')), (True, ('trigger', 'add')), (True, ('trigger', 'get')),
-                     (True, ('queue', 'get')), (True, ('queue', 'add'))]
+                     (True, ('queue', 'get')), (True, ('queue', 'add')), (True, ('cron',))]
         self.sorteq(fredrules, fred.info.get('rules', ()))
 
         # trigger idens
         tagtrg = (await core.nodes('syn:trigger:cond=tag:add'))[0].ndef[1]
         nodetrg = (await core.nodes('syn:trigger:cond=node:add'))[0].ndef[1]
+
+        # crons
+        crons = await core.listCronJobs()
+        fredcron = [c for c in crons if c[1]['useriden'] == fred.iden][0]
+        bobocron = [c for c in crons if c[1]['useriden'] == bobo.iden][0]
 
         # views
         defview = await core.hive.get(('cellinfo', 'defaultview'))
@@ -278,6 +284,7 @@ class MigrationTest(s_t_utils.SynTest):
         # - no access to triggers
         # - can add/del bobotag but not trgtag
         # - has queue get/put but not queue add
+        # - cron get via friends role
         async with core.getLocalProxy(user='bobo') as proxy:
             self.gt(await proxy.count('inet:ipv4'), 0)
             await self.asyncraises(s_exc.AuthDeny, proxy.count('[inet:ipv4=10.10.10.10]'))
@@ -304,12 +311,20 @@ class MigrationTest(s_t_utils.SynTest):
             await proxy.count(f'$q = $lib.queue.get(fredq) inet:ipv4=1.2.3.4 $q.put($node.repr())')
             self.eq(1, await proxy.count(f'$q = $lib.queue.get(fredq) ($offs, $ipv4) = $q.get(0) inet:ipv4=$ipv4'))
 
+            self.len(2, await proxy.listCronJobs())
+            await proxy.count(f'cron.disable {bobocron[0]}')
+
+            await self.asyncraises(s_exc.AuthDeny, proxy.count('cron.add --hour +8 {file:bytes}'))
+            await self.asyncraises(s_exc.StormRuntimeError, proxy.count(f'cron.del {fredcron[0]}'))
+            await self.asyncraises(s_exc.StormRuntimeError, proxy.count(f'cron.disable {fredcron[0]}'))
+
         # fred
         # - read to main view
         # - read access to forked view via rule
         # - get/add all triggers, but can only delete his own
         # - can add/del trgtag but not bobotag
         # - has queue add/get, and admin on fredq
+        # - full cron rights
         async with core.getLocalProxy(user='fred') as proxy:
             self.gt(await proxy.count('inet:ipv4'), 0)
             await self.asyncraises(s_exc.AuthDeny, proxy.count('[inet:ipv4=10.10.10.10]'))
@@ -340,11 +355,21 @@ class MigrationTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.AuthDeny,
                                    proxy.count(f'$q = $lib.queue.get(rootq) inet:ipv4=1.2.3.4 $q.put($node.repr())'))
 
+            self.len(2, await proxy.listCronJobs())
+            await proxy.count(f'cron.del {bobocron[0]}')
+            self.len(1, await proxy.listCronJobs())
+
+            await proxy.count(f'cron.disable {fredcron[0]}')
+
+            await proxy.count('cron.add --hour +8 {file:bytes}')
+            self.len(2, await proxy.listCronJobs())
+
         # root
         # - read/write to main view
         # - read/write to forked view
         # - get/del triggers
         # - full rights to all queues
+        # - full rights to cronjobs
         async with core.getLocalProxy(user='root') as proxy:
             self.gt(await proxy.count('inet:ipv4'), 0)
             self.gt(await proxy.count('[inet:ipv4=10.10.10.11]'), 0)
@@ -364,6 +389,15 @@ class MigrationTest(s_t_utils.SynTest):
 
             await proxy.count(f'$q = $lib.queue.get(rootq) inet:ipv4=9.9.9.9 $q.put($node.repr())')
             self.eq(1, await proxy.count(f'$q = $lib.queue.get(rootq) ($offs, $ipv4) = $q.get(0) inet:ipv4=$ipv4'))
+
+            crons = await proxy.listCronJobs()
+            self.len(2, crons)
+
+            await proxy.count('cron.add --hour +8 {inet:email}')
+            self.len(3, await proxy.listCronJobs())
+
+            await proxy.count(f'cron.del {fredcron[0]}')
+            self.len(2, await proxy.listCronJobs())
 
     async def test_migr_nexus(self):
         conf = {
