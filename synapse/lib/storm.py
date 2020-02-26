@@ -650,7 +650,7 @@ stormcmds = (
             ('--yearly', {'help': 'Fixed parameters for a yearly job.'}),
         ),
         'storm': '''
-            $iden = $lib.cron.add(query=$cmdopts.query,
+            $cron = $lib.cron.add(query=$cmdopts.query,
                                   minute=$cmdopts.minute,
                                   hour=$cmdopts.hour,
                                   day=$cmdopts.day,
@@ -661,7 +661,7 @@ stormcmds = (
                                   monthly=$cmdopts.monthly,
                                   yearly=$cmdopts.yearly)
 
-            $lib.print("Created cron job: {iden}", iden=$iden)
+            $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
     },
     {
@@ -675,13 +675,13 @@ stormcmds = (
             ('--dt', {'help': 'Datetime(s) to execute at.'}),
         ),
         'storm': '''
-            $iden = $lib.cron.at(query=$cmdopts.query,
+            $cron = $lib.cron.at(query=$cmdopts.query,
                                  minute=$cmdopts.minute,
                                  hour=$cmdopts.hour,
                                  day=$cmdopts.day,
                                  dt=$cmdopts.dt)
 
-            $lib.print("Created cron job: {iden}", iden=$iden)
+            $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
     },
     {
@@ -712,12 +712,15 @@ stormcmds = (
         'descr': "List existing cron jobs in the cortex.",
         'cmdargs': (),
         'storm': '''
-            $jobs = $lib.cron.list()
+            $crons = $lib.cron.list()
 
-            if $jobs {
+            if $crons {
                 $lib.print("user       iden       en? rpt? now? err? # start last start       last end         query")
 
-                for $job in $jobs {
+                for $cron in $crons {
+
+                    $job = $cron.pprint()
+
                     $user = $job.user.ljust(10)
                     $iden = $job.idenshort.ljust(10)
                     $enabled = $job.enabled.ljust(3)
@@ -745,9 +748,11 @@ stormcmds = (
             ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
         ),
         'storm': '''
-            $job = $lib.cron.stat($cmdopts.iden)
+            $cron = $lib.cron.get($cmdopts.iden)
 
-            if $job {
+            if $cron {
+                $job = $cron.pprint()
+
                 $lib.print('iden:            {iden}', iden=$job.iden)
                 $lib.print('user:            {user}', user=$job.user)
                 $lib.print('enabled:         {enabled}', enabled=$job.enabled)

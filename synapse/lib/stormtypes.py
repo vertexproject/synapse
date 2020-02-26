@@ -1789,9 +1789,9 @@ class LibCron(Lib):
             'at': self._methCronAt,
             'add': self._methCronAdd,
             'del': self._methCronDel,
+            'get': self._methCronGet,
             'mod': self._methCronMod,
             'list': self._methCronList,
-            'stat': self._methCronStat,
             'enable': self._methCronEnable,
             'disable': self._methCronDisable,
         })
@@ -1807,7 +1807,9 @@ class LibCron(Lib):
         crons = await self.dyncall('cortex', todo)
         matchcron = None
 
-        for iden, cron in crons:
+        for cron in crons:
+            iden = cron.get('iden')
+
             if iden.startswith(prefix) and user.allowed(perm, gateiden=iden):
                 if matchcron is not None:
                     mesg = 'Provided iden matches more than one cron job.'
@@ -2050,14 +2052,18 @@ class LibCron(Lib):
             incunit = valinfo[requnit][1]
             incval = 1
 
-        # Remove the curly braces
-        query = query[1:-1]
+        cdef = {'storm': query[1:-1],
+                'reqs': reqdict,
+                'incunit': incunit,
+                'incvals': incval,
+                'creator': self.runt.user.iden
+                }
 
-        todo = s_common.todo('addCronJob', self.runt.user.iden, query, reqdict, incunit, incval)
+        todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
-        iden = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        cdef = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
-        return iden
+        return CronJob(self.runt, cdef, path=self.path)
 
     async def _methCronAt(self, **kwargs):
         '''
@@ -2116,13 +2122,18 @@ class LibCron(Lib):
 
         reqdicts = [_ts_to_reqdict(ts) for ts in tslist]
 
-        query = query[1:-1]
+        cdef = {'storm': query[1:-1],
+                'reqs': reqdicts,
+                'incunit': None,
+                'incvals': None,
+                'creator': self.runt.user.iden
+                }
 
-        todo = s_common.todo('addCronJob', self.runt.user.iden, query, reqdicts, None, None)
+        todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
-        iden = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        cdef = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
-        return iden
+        return CronJob(self.runt, cdef, path=self.path)
 
     async def _methCronDel(self, prefix):
         '''
@@ -2153,79 +2164,23 @@ class LibCron(Lib):
         gatekeys = ((self.runt.user.iden, ('cron', 'set'), iden),)
         return await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
-        return iden
-
-    @staticmethod
-    def _formatTimestamp(ts):
-        # N.B. normally better to use fromtimestamp with UTC timezone,
-        # but we don't want timezone to print out
-        return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
-
     async def _methCronList(self):
         '''
         List cron jobs in the cortex.
         '''
         todo = s_common.todo('listCronJobs')
         gatekeys = ((self.runt.user.iden, ('cron', 'get'), None),)
-        cronlist = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        defs = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
-        jobs = []
-        for iden, cron in cronlist:
+        return [CronJob(self.runt, cdef, path=self.path) for cdef in defs]
 
-            user = cron.get('username')
-
-            laststart = cron.get('laststarttime')
-            lastend = cron.get('lastfinishtime')
-            result = cron.get('lastresult')
-
-            jobs.append({
-                'iden': iden,
-                'idenshort': iden[:8] + '..',
-                'user': user or '<None>',
-                'query': cron.get('query') or '<missing>',
-                'isrecur': 'Y' if cron.get('recur') else 'N',
-                'isrunning': 'Y' if cron.get('isrunning') else 'N',
-                'enabled': 'Y' if cron.get('enabled', True) else 'N',
-                'startcount': cron.get('startcount') or 0,
-                'laststart': 'Never' if laststart is None else self._formatTimestamp(laststart),
-                'lastend': 'Never' if lastend is None else self._formatTimestamp(lastend),
-                'iserr': 'X' if result is not None and not result.startswith('finished successfully') else ' '
-            })
-
-        return jobs
-
-    async def _methCronStat(self, prefix):
+    async def _methCronGet(self, prefix):
         '''
-        Get information about a cron job.
+        Retrieve a cron job from the cortex.
         '''
-        cron = await self._matchIdens(prefix, ('cron', 'get'))
-        user = cron.get('username')
+        cdef = await self._matchIdens(prefix, ('cron', 'get'))
 
-        laststart = cron.get('laststarttime')
-        lastend = cron.get('lastfinishtime')
-
-        job = {
-            'iden': cron.get('iden'),
-            'user': user or '<None>',
-            'query': cron.get('query') or '<missing>',
-            'isrecur': 'Y' if cron.get('recur') else 'N',
-            'isrunning': 'Y' if cron.get('isrunning') else 'N',
-            'enabled': 'Y' if cron.get('enabled', True) else 'N',
-            'startcount': cron.get('startcount') or 0,
-            'laststart': 'Never' if laststart is None else self._formatTimestamp(laststart),
-            'lastend': 'Never' if lastend is None else self._formatTimestamp(lastend),
-            'lastresult': cron.get('lastresult') or '<None>',
-            'recs': []
-        }
-
-        for reqdict, incunit, incval in cron.get('recs', []):
-            job['recs'].append({
-                'reqdict': reqdict or '<None>',
-                'incunit': incunit or '<None>',
-                'incval': incval or '<None>'
-            })
-
-        return job
+        return CronJob(self.runt, cdef, path=self.path)
 
     async def _methCronEnable(self, prefix):
         '''
@@ -2250,6 +2205,61 @@ class LibCron(Lib):
         await self.runt.dyncall('cortex', todo)
 
         return iden
+
+class CronJob(Prim):
+    '''
+    Implements the STORM api for a cronjob instance.
+    '''
+    def __init__(self, runt, cdef, path=None):
+        Prim.__init__(self, cdef, path=path)
+        self.runt = runt
+        self.locls.update({
+            'iden': cdef.get('iden'),
+            'pack': self._methCronJobPack,
+            'pprint': self._methCronJobPprint,
+        })
+
+    async def _methCronJobPack(self):
+        return self.valu
+
+    @staticmethod
+    def _formatTimestamp(ts):
+        # N.B. normally better to use fromtimestamp with UTC timezone,
+        # but we don't want timezone to print out
+        return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
+
+    async def _methCronJobPprint(self):
+
+        user = self.valu.get('username')
+        laststart = self.valu.get('laststarttime')
+        lastend = self.valu.get('lastfinishtime')
+        result = self.valu.get('lastresult')
+        iden = self.valu.get('iden')
+
+        job = {
+            'iden': iden,
+            'idenshort': iden[:8] + '..',
+            'user': user or '<None>',
+            'query': self.valu.get('query') or '<missing>',
+            'isrecur': 'Y' if self.valu.get('recur') else 'N',
+            'isrunning': 'Y' if self.valu.get('isrunning') else 'N',
+            'enabled': 'Y' if self.valu.get('enabled', True) else 'N',
+            'startcount': self.valu.get('startcount') or 0,
+            'laststart': 'Never' if laststart is None else self._formatTimestamp(laststart),
+            'lastend': 'Never' if lastend is None else self._formatTimestamp(lastend),
+            'lastresult': self.valu.get('lastresult') or '<None>',
+            'iserr': 'X' if result is not None and not result.startswith('finished successfully') else ' ',
+            'recs': []
+        }
+
+        for reqdict, incunit, incval in self.valu.get('recs', []):
+            job['recs'].append({
+                'reqdict': reqdict or '<None>',
+                'incunit': incunit or '<None>',
+                'incval': incval or '<None>'
+            })
+
+        return job
 
 class LibModel(Lib):
     '''
