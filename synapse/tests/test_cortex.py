@@ -95,8 +95,6 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.len(1, await core.nodes('#blah:user^=vi'))
 
-                self.len(1, await core.nodes('#:score'))
-                self.len(1, await core.nodes('#:score=20'))
                 self.len(1, await core.nodes('test:int#foo.bar:score'))
                 self.len(1, await core.nodes('test:int#foo.bar:score=20'))
 
@@ -119,9 +117,6 @@ class CortexTest(s_t_utils.SynTest):
                 # test use as a value...
                 q = 'test:int $valu=#foo.bar:score [ +#foo.bar:score = $($valu + 20) ] +#foo.bar:score=40'
                 self.len(1, await core.nodes(q))
-
-                with self.raises(s_exc.CantDelProp):
-                    await core.delTagProp('score')
 
                 with self.raises(s_exc.BadPropValu):
                     self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score=asdf ]'))
@@ -164,10 +159,6 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
                 self.eq(20, nodes[0].getTagProp('bar', 'score'))
-                nodes = await core.nodes('#:score')
-                self.len(1, nodes)
-                self.eq(20, nodes[0].getTagProp('foo', 'score'))
-                self.eq(20, nodes[0].getTagProp('bar', 'score'))
 
                 #    remove one of the tag props and everything still works
                 nodes = await core.nodes('[ test:int=10 -#bar:score ]')
@@ -176,8 +167,6 @@ class CortexTest(s_t_utils.SynTest):
                 self.false(nodes[0].hasTagProp('bar', 'score'))
 
                 await core.nodes('[ test:int=10 -#foo:score ]')
-                nodes = await core.nodes('#:score')
-                self.len(0, nodes)
 
                 #    same, except for _changing_ the tagprop instead of removing
                 await core.nodes('test:int=10 [ +#foo:score=20 +#bar:score=20 ]')
@@ -185,14 +174,8 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
                 self.eq(30, nodes[0].getTagProp('bar', 'score'))
-                nodes = await core.nodes('#:score')
-                self.len(1, nodes)
-                self.eq(20, nodes[0].getTagProp('foo', 'score'))
-                self.eq(30, nodes[0].getTagProp('bar', 'score'))
 
                 await core.nodes('test:int=10 [ -#foo -#bar ]')
-                nodes = await core.nodes('#:score')
-                self.len(0, nodes)
 
                 with self.raises(s_exc.NoSuchCmpr):
                     await core.nodes('test:int=10 +#foo.bar:score*newp=66')
@@ -1432,87 +1415,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 '979b56497b5fd75813676738172c2f435aee3e4bdcf43930843eba5b34bb06fc',
             ))
 
-    async def test_splice_cryo(self):
-        self.skip('Pending moving cryoloop to daemon')
-
-        async with self.getTestCryo() as cryo:
-
-            tank_addr = cryo.getLocalUrl(share='cryotank/blahblah')
-
-            # Spin up a source core configured to send splices to dst core
-            with self.getTestDir() as dirn:
-                conf = {
-                    'splice:cryotank': tank_addr,
-                }
-                async with self.getTestCore(dirn=dirn, conf=conf) as src_core:
-
-                    waiter = src_core.waiter(1, 'core:splice:cryotank:sent')
-                    # Form a node and make sure that it exists
-                    async with await src_core.snap() as snap:
-                        self.nn(await snap.addNode('test:str', 'teehee'))
-
-                    self.true(await waiter.wait(timeout=10))
-                await src_core.waitfini()
-
-            # Now that the src core is closed, make sure that the splice exists in the tank
-            tank = cryo.tanks.get('blahblah')
-            slices = [x async for x in tank.slice(0, size=1000)]
-            # # TestModule creates one node and 3 splices
-
-            self.len(3 + 2, slices)
-            slices = slices[3:]
-            data = slices[0]
-            self.isinstance(data[1], tuple)
-            self.len(2, data[1])
-            self.eq(data[1][0], 'node:add')
-            self.eq(data[1][1].get('ndef'), ('test:str', 'teehee'))
-            self.nn(data[1][1].get('user'))
-            self.ge(data[1][1].get('time'), 0)
-
-            data = slices[1]
-            self.isinstance(data[1], tuple)
-            self.len(2, data[1])
-            self.eq(data[1][0], 'prop:set')
-            self.eq(data[1][1].get('ndef'), ('test:str', 'teehee'))
-            self.eq(data[1][1].get('prop'), '.created')
-            self.ge(data[1][1].get('valu'), 0)
-            self.none(data[1][1].get('oldv'))
-            self.nn(data[1][1].get('user'))
-            self.ge(data[1][1].get('time'), 0)
-
-    async def test_splice_sync(self):
-        self.skip('Pending moving pushloop to daemon')
-
-        async with self.getTestCore() as core0:
-            evt = asyncio.Event()
-
-            def onAdd(node):
-                evt.set()
-
-            core0.model.form('test:str').onAdd(onAdd)
-
-            # Spin up a source core configured to send splices to dst core
-            conf = {
-                'splice:sync': core0.getLocalUrl(),
-            }
-            async with self.getTestCore(conf=conf) as core1:
-
-                # Form a node and make sure that it exists
-                waiter = core1.waiter(2, 'core:splice:sync:sent')
-                async with await core1.snap() as snap:
-                    await snap.addNode('test:str', 'teehee')
-                    self.nn(await snap.getNodeByNdef(('test:str', 'teehee')))
-
-                await waiter.wait(timeout=5)
-
-            self.true(await s_coro.event_wait(evt, timeout=3))
-
-            # Now that the src core is closed, make sure that the node exists
-            # in the dst core without creating it
-            async with await core0.snap() as snap:
-                node = await snap.getNodeByNdef(('test:str', 'teehee'))
-                self.eq(node.ndef, ('test:str', 'teehee'))
-
     async def test_onadd(self):
         arg_hit = {}
 
@@ -2680,17 +2582,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             layr = nstat.get('layer')
             self.gt(layr.get('lock_goal'), 0)
 
-    # FIXME:  we can delete, right?
-    # async def test_offset(self):
-    #     async with self.getTestCoreAndProxy() as (realcore, core):
-    #         iden = s_common.guid()
-    #         self.eq(await core.getFeedOffs(iden), 0)
-    #         self.none(await core.setFeedOffs(iden, 10))
-    #         self.eq(await core.getFeedOffs(iden), 10)
-    #         self.none(await core.setFeedOffs(iden, 0))
-    #         self.eq(await core.getFeedOffs(iden), 0)
-    #         await self.asyncraises(s_exc.BadConfValu, core.setFeedOffs(iden, -1))
-
     async def test_storm_sub_query(self):
 
         async with self.getTestCore() as core:
@@ -3494,7 +3385,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=path01) as core01:
 
                 self.len(1, await core01.eval('[ test:str=core01 ]').list())
-                iden00b = await core01.addLayer()
+                iden00b = (await core01.addLayer()).get('iden')
                 iden01 = core01.getLayer().iden
                 # Set the default view for core01 to have a read layer with
                 # the new iden
@@ -3625,7 +3516,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
                 self.len(1, await core.nodes('[test:int=1]'))
                 await core.nodes('$q=$lib.queue.add(dmon)')
-                view2_iden = await core.view.fork()
+                vdef2 = await core.view.fork()
+                view2_iden = vdef2.get('iden')
 
                 q = '''
                 $lib.dmon.add(${
@@ -3789,9 +3681,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.CantDelUniv):
                     await core.delUnivProp('_woot')
 
-                with self.raises(s_exc.CantDelProp):
-                    await core.delFormProp('inet:ipv4', '_visi')
-
                 await core.nodes('._woot [ -._woot ]')
 
                 self.nn(core.model.prop('._woot'))
@@ -3834,9 +3723,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await prox.addFormProp('inet:ipv4', '_blah', ('int', {}), {})
                     self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ :_blah=10 ]'))
 
-                    with self.raises(s_exc.CantDelProp):
-                        await prox.delFormProp('inet:ipv4', '_blah')
-
                     self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ -:_blah ]'))
                     await prox.delFormProp('inet:ipv4', '_blah')
 
@@ -3852,9 +3738,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                         await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar:time="2049" ]')
 
                     self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar:added="2049" ]'))
-
-                    with self.raises(s_exc.CantDelProp):
-                        await prox.delTagProp('added')
 
                     await core.nodes('#foo.bar [ -#foo ]')
                     await prox.delTagProp('added')
@@ -3913,7 +3796,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.NoSuchLayer, core.delLayer('XXX'))
 
             # Fork the main view
-            view2_iden = await core.view.fork()
+            vdef2 = await core.view.fork()
+            view2_iden = vdef2.get('iden')
 
             # Can't delete a view twice
             await core.delView(view2_iden)

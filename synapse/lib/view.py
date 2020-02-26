@@ -330,7 +330,8 @@ class View(s_nexus.Pusher):  # type: ignore
         if vdef is None:
             vdef = {}
 
-        layriden = await self.core.addLayer(ldef)
+        ldef = await self.core.addLayer(ldef)
+        layriden = ldef.get('iden')
 
         vdef['parent'] = self.iden
         vdef['layers'] = [layriden] + [l.iden for l in self.layers]
@@ -358,6 +359,7 @@ class View(s_nexus.Pusher):  # type: ignore
         parentlayr = self.parent.layers[0]
 
         await self.core.boss.promote('storm', user=user, info={'merging': self.iden})
+
         async with await self.parent.snap(user=user) as snap:
             snap.disableTriggers()
             snap.strict = False
@@ -367,7 +369,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 async for nodeedits in fromlayr.iterLayerNodeEdits():
                     await parentlayr.storNodeEditsNoLift([nodeedits], {})
 
-        await self.core.delView(self.iden)
+        await fromlayr.truncate()
 
     def _confirm(self, user, perms):
         layriden = self.layers[0].iden
@@ -432,22 +434,16 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Check whether a user can merge a view into its parent.
         '''
-        # FIXME:  reconsider whether to delete view
-
-        user.confirm(('view', 'del'), gateiden=self.iden)
-
         fromlayr = self.layers[0]
         if self.parent is None:
             raise s_exc.CantMergeView(mesg=f'Cannot merge a view {self.iden} than has not been forked')
-
-        user.confirm(('view', 'get'), gateiden=self.parent.iden)
 
         parentlayr = self.parent.layers[0]
         if parentlayr.readonly:
             raise s_exc.ReadOnlyLayer(mesg="May not merge if the parent's write layer is read-only")
 
         for view in self.core.views.values():
-            if view.parent is not None and view.parent == self:
+            if view.parent == self:
                 raise s_exc.CantMergeView(mesg='Cannot merge a view that has children itself')
 
         if user is None or user.isAdmin() or user.isAdmin(gateiden=parentlayr.iden):
