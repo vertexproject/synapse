@@ -1000,7 +1000,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             valu = str(valu)
             iden = node.ndef[1]
             appt = await self.agenda.get(iden)
-            appt.confirm(node.snap.user, ('cron', 'set', 'doc'))
+            node.snap.user.confirm(('cron', 'set', 'doc'), gateiden=iden)
             await appt.setDoc(valu)
             node.props[prop.name] = valu
 
@@ -1008,7 +1008,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             valu = str(valu)
             iden = node.ndef[1]
             appt = await self.agenda.get(iden)
-            appt.confirm(node.snap.user, ('cron', 'set', 'name'))
+            node.snap.user.confirm(('cron', 'set', 'name'), gateiden=iden)
             await appt.setName(valu)
             node.props[prop.name] = valu
 

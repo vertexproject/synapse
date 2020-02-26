@@ -421,17 +421,6 @@ class _Appt:
             self.nexttime = None
             return
 
-    def confirm(self, user, perm):
-        if not self.allowed(user, perm):
-            mesg = 'User does not own or have permissions to cron job.'
-            raise s_exc.AuthDeny(perm=perm, mesg=mesg)
-
-    def allowed(self, user, perm):
-        if user.iden == self.creator:
-            return True
-
-        return user.allowed(perm)
-
     async def setDoc(self, text):
         '''
         Set the doc field of an appointment.
