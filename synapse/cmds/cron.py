@@ -178,7 +178,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
         exactly one.
         '''
-        idens = [iden for iden, trig in await core.listCronJobs()]
+        idens = [cron.get('iden') for cron in await core.listCronJobs()]
         matches = [iden for iden in idens if iden.startswith(prefix)]
         if len(matches) == 1:
             return matches[0]
@@ -471,7 +471,9 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             f'{"user":10} {"iden":10} {"en?":3} {"rpt?":4} {"now?":4} {"err?":4} '
             f'{"# start":7} {"last start":16} {"last end":16} {"query"}')
 
-        for iden, cron in cronlist:
+        for cron in cronlist:
+            iden = cron.get('iden')
+
             idenf = iden[:8] + '..'
             user = cron.get('username') or '<None>'
             query = cron.get('query') or '<missing>'
@@ -532,7 +534,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         ''' Prints details about a particular cron job. Not actually a different API call '''
         prefix = opts.prefix
         crons = await core.listCronJobs()
-        idens = [cron[0] for cron in crons]
+        idens = [cron.get('iden') for cron in crons]
         matches = [iden for iden in idens if iden.startswith(prefix)]
         if len(matches) == 0:
             self.printf('Error: provided iden does not match any valid authorized cron job')
@@ -542,7 +544,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             return
 
         iden = matches[0]
-        cron = [cron[1] for cron in crons if cron[0] == iden][0]
+        cron = [cron for cron in crons if cron.get('iden') == iden][0]
 
         user = cron.get('username') or '<None>'
         query = cron.get('query') or '<missing>'

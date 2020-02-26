@@ -224,12 +224,12 @@ class CoreApi(s_cell.CellApi):
         s_common.deprecated('listCronJobs')
 
         crons = []
-        for iden, cron in await self.cell.listCronJobs():
+        for cron in await self.cell.listCronJobs():
 
-            if not self.user.allowed(('cron', 'get'), gateiden=iden):
+            if not self.user.allowed(('cron', 'get'), gateiden=cron.get('iden')):
                 continue
 
-            crons.append((iden, cron))
+            crons.append(cron)
 
         return crons
 
@@ -3144,18 +3144,22 @@ class Cortex(s_cell.Cell):  # type: ignore
         except KeyError:
             raise s_exc.BadConfValu('Unrecognized time unit')
 
-        user = await self.auth.reqUser(cdef['creator'])
+        cdef['iden'] = s_common.guid()
 
-        iden = s_common.guid()
-        cdef['iden'] = iden
-        await self._push('cron:add', cdef)
-        await user.setAdmin(True, gateiden=iden)
-        return cdef
+        return await self._push('cron:add', cdef)
 
     @s_nexus.Pusher.onPush('cron:add')
     async def _onAddCronJob(self, cdef):
-        await self.agenda.add(cdef)
-        await self.auth.addAuthGate(cdef['iden'], 'cronjob')
+
+        iden = cdef['iden']
+        user = await self.auth.reqUser(cdef['creator'])
+
+        await self.auth.addAuthGate(iden, 'cronjob')
+        await user.setAdmin(True, gateiden=iden)
+
+        cron = await self.agenda.add(cdef)
+
+        return cron.pack()
 
     @s_nexus.Pusher.onPushAuto('cron:del')
     async def delCronJob(self, iden):
@@ -3208,12 +3212,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             info = cron.pack()
 
-            info['iden'] = iden
-
             user = self.auth.user(cron.creator)
             info['username'] = user.name
 
-            crons.append((iden, info))
+            crons.append(info)
 
         return crons
 

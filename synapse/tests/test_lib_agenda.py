@@ -211,14 +211,16 @@ class AgendaTest(s_t_utils.SynTest):
                         'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                         'incunit': s_agenda.TimeUnit.DAYOFWEEK,
                         'incvals': (2, 4)}
-                guid = await agenda.add(cdef)
+                appt = await agenda.add(cdef)
+                guid = appt.pack().get('iden')
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
                 cdef = {'useriden': rootiden, 'iden': 'IDEN3', 'storm': '[test:str=baz]',
                         'reqs': {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
                         'incunit': s_agenda.TimeUnit.MONTH,
                         'incvals': 1}
-                guid2 = await agenda.add(cdef)
+                appt = await agenda.add(cdef)
+                guid2 = appt.pack().get('iden')
 
                 xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2018}
                 lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2018}
@@ -298,7 +300,9 @@ class AgendaTest(s_t_utils.SynTest):
                 # Test that isrunning updated, cancelling works
                 cdef = {'useriden': rootiden, 'iden': 'IDEN5', 'storm': 'inet:ipv4=1 | sleep 120',
                         'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE, 'incvals': 1}
-                guid = await agenda.add(cdef)
+                appt= await agenda.add(cdef)
+                guid = appt.pack().get('iden')
+
                 unixtime += 60
                 await sync.wait()
                 sync.clear()
@@ -320,7 +324,9 @@ class AgendaTest(s_t_utils.SynTest):
                 cdef = {'useriden': rootiden, 'iden': '#foo', 'storm': 'IDEN',
                         'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE,
                         'incvals': 1}
-                guid = await agenda.add(cdef)
+                appt = await agenda.add(cdef)
+                guid = appt.pack().get('iden')
+
                 # bypass the API because it would actually syntax check
                 agenda.appts[guid].query = 'badquery'
                 unixtime += 60
@@ -342,7 +348,8 @@ class AgendaTest(s_t_utils.SynTest):
                         'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                         'incunit': s_agenda.TimeUnit.DAYOFWEEK,
                         'incvals': (2, 4)}
-                guid1 = await agenda.add(cdef)
+                appt = await agenda.add(cdef)
+                guid1 = appt.pack().get('iden')
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
                 cdef = {'useriden': 'visi', 'iden': 'IDEN2', 'storm': '[test:str=baz]',
@@ -359,7 +366,8 @@ class AgendaTest(s_t_utils.SynTest):
                 # And one-shots for Christmas and last day of Hanukkah of 2018
                 cdef = {'useriden': 'visi', 'iden': 'IDEN3', 'storm': '#happyholidays',
                         'reqs': (xmas, lasthanu)}
-                guid3 = await agenda.add(cdef)
+                appt = await agenda.add(cdef)
+                guid3 = appt.pack().get('iden')
 
                 await agenda.mod(guid3, '#bahhumbug')
 

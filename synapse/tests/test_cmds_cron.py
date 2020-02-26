@@ -52,8 +52,8 @@ class CmdCronTest(s_t_utils.SynTest):
                         for i in range(30):
                             await asyncio.sleep(0)
                             crons = await core.listCronJobs()
-                            cron = [c for c in crons if c[0] == guid][0]
-                            if not cron[1]['isrunning']:
+                            cron = [c for c in crons if c.get('iden') == guid][0]
+                            if not cron['isrunning']:
                                 break
                         else:
                             # the cron job didn't finish after ten sleeps?!

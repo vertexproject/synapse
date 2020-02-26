@@ -615,7 +615,7 @@ class Agenda(s_base.Base):
 
         await self._storeAppt(appt)
 
-        return iden
+        return appt
 
     async def get(self, iden):
 
