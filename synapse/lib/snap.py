@@ -88,146 +88,6 @@ class Snap(s_base.Base):
         '''
         return {'time': s_common.now(), 'user': self.user.iden}
 
-    # APIs that wrap cortex APIs to provide a boundary for the storm runtime
-    # ( in many instances a sub-process snap will override )
-
-    # async def addStormSvc(self, sdef):
-    #     return await self.core.addStormSvc(sdef)
-
-    # async def delStormSvc(self, iden):
-    #     return await self.core.delStormSvc(iden)
-
-    # def getStormSvc(self, iden):
-    #     return self.core.getStormSvc(iden)
-
-    # def getStormSvcs(self):
-    #     return self.core.getStormSvcs()
-
-    # def getStormCmd(self, name):
-    #     return self.core.getStormCmd(name)
-
-    # Queue funcs
-    #async def addCoreQueue(self, name, info):
-        #info['user'] = self.user.iden
-        #info['time'] = s_common.now()
-        #return await self.core.addCoreQueue(name, info)
-
-    #async def getCoreQueue(self, name):
-        #return await self.core.getCoreQueue(name)
-
-    #async def hasCoreQueue(self, name):
-        #return await self.core.hasCoreQueue(name)
-
-    #async def delCoreQueue(self, name):
-        #return await self.core.delCoreQueue(name)
-
-    #async def getCoreQueues(self):
-        #return await self.core.getCoreQueues()
-
-    #async def cullCoreQueue(self, name, offs):
-        #return await self.core.cullCoreQueue(name, offs)
-
-    #async def getsCoreQueue(self, name, offs=0, wait=True, cull=True, size=None):
-        #async for item in self.core.getsCoreQueue(name, offs, cull=cull, wait=wait, size=size):
-            #yield item
-
-    #async def putsCoreQueue(self, name, items):
-        #return await self.core.putsCoreQueue(name, items)
-
-    #async def putCoreQueue(self, name, item):
-        #return await self.core.putCoreQueue(name, item)
-
-    # feed funcs
-    # async def getFeedFuncs(self):
-    #     return await self.core.getFeedFuncs()
-
-    # storm pkgfuncs
-    # FIXME: why all these pass-throughs?
-    # async def addStormPkg(self, pkgdef):
-    #     return await self.core.addStormPkg(pkgdef)
-
-    # async def delStormPkg(self, iden):
-    #     return await self.core.delStormPkg(iden)
-
-    # async def getStormPkgs(self):
-    #     return await self.core.getStormPkgs()
-
-    # def getStormVars(self):
-    #     return self.core.stormvars
-
-    # async def getStormLib(self, path):
-    #     return self.core.getStormLib(path)
-
-    # async def getStormDmon(self, iden):
-    #     return await self.core.getStormDmon(iden)
-
-    # async def delStormDmon(self, iden):
-    #     await self.core.delStormDmon(iden)
-
-    # async def getStormDmons(self):
-    #     return await self.core.getStormDmons()
-
-    # async def addStormDmon(self, ddef):
-    #     return await self.core.addStormDmon(ddef)
-
-    # async def addView(self, layers):
-    #     return await self.core.addView(self.user.iden, layers)
-
-    # async def delView(self, iden):
-    #     return await self.core.delView(iden=iden)
-
-    # def getView(self, iden=None):
-    #     return self.core.getView(iden=iden)
-
-    # def listViews(self):
-    #     return list(self.core.views.values())
-
-    # async def addTrigger(self, condition, query, info, disabled=False):
-    #     return await self.core.addTrigger(condition, query, info=info, disabled=disabled)
-
-    # async def delTrigger(self, iden):
-    #     return await self.core.delTrigger(iden)
-
-    # async def updateTrigger(self, iden, query):
-    #     return await self.core.updateTrigger(iden, query)
-
-    # async def enableTrigger(self, iden):
-    #     return await self.core.enableTrigger(iden)
-
-    # async def disableTrigger(self, iden):
-    #     return await self.core.disableTrigger(iden)
-
-    # async def listTriggers(self):
-    #     return await self.core.listTriggers()
-
-    # def getUserName(self, iden, defv='<unknown>'):
-    #     return self.core.getUserName(iden, defv)
-
-    # async def addCronJob(self, query, reqdict, incunit, incval):
-    #     return await self.core.addCronJob(self.user, query, reqdict, incunit, incval)
-
-    # async def delCronJob(self, iden):
-    #     return await self.core.delCronJob(iden)
-
-    # async def updateCronJob(self, iden, query):
-    #     return await self.core.updateCronJob(iden, query)
-
-    # async def enableCronJob(self, iden):
-    #     return await self.core.enableCronJob(iden)
-
-    # async def disableCronJob(self, iden):
-    #     return await self.core.disableCronJob(iden)
-
-    # async def listCronJobs(self):
-    #     return await self.core.listCronJobs()
-
-    # def getStormMod(self, name):
-    #     return self.mods.get(name)
-
-    # async def spliceHistory(self):
-    #     async for splice in self.core.spliceHistory(self.user):
-    #         yield splice
-
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):
         if user is None:
@@ -628,6 +488,8 @@ class Snap(s_base.Base):
                 yield node
 
     def getNodeAdds(self, form, valu, props=None, addnode=True):
+
+        tick = s_common.now()
 
         # TODO consider nesting these to allow short circuit on existing
         def recurse(f, v, p, doadd=True):

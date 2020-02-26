@@ -325,9 +325,6 @@ class Trigger:
     def __init__(self, view, tdef):
         self.view = view
         self.tdef = tdef
-        # FIXME: need json schema check
-        assert 'storm' in tdef
-
         self.iden = tdef.get('iden')
 
     async def set(self, name, valu):
@@ -391,8 +388,8 @@ class Trigger:
 
         return tdef
 
-    def getStorNode(self, form='syn:trigger'):
-        ndef = (form, self.iden)
+    def getStorNode(self, form):
+        ndef = (form.name, form.type.norm(self.iden)[0])
         buid = s_common.buid(ndef)
 
         props = {
@@ -409,15 +406,21 @@ class Trigger:
         if tag is not None:
             props['tag'] = tag
 
-        form = self.tdef.get('form')
-        if form is not None:
-            props['form'] = form
+        formprop = self.tdef.get('form')
+        if formprop is not None:
+            props['form'] = formprop
 
         prop = self.tdef.get('prop')
         if prop is not None:
             props['prop'] = prop
 
+        pnorms = {}
+        for prop, valu in props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
+
         return (buid, {
             'ndef': ndef,
-            'props': props,
+            'props': pnorms,
         })

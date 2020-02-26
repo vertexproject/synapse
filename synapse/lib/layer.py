@@ -51,10 +51,13 @@ Storage Node (<sode>):
 
 '''
 import os
+import math
 import shutil
+import struct
 import asyncio
 import logging
 import ipaddress
+import itertools
 import contextlib
 import collections
 
@@ -66,7 +69,6 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.gis as s_gis
-import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
@@ -102,7 +104,6 @@ class LayerApi(s_cell.CellApi):
 
         self.layr = layr
         self.liftperm = ('layer:lift', self.layr.iden)
-        #self.storperm = ('layer:stor', self.layr.iden)
 
     async def iterLayerNodeEdits(self):
         '''
@@ -140,55 +141,6 @@ class LayerApi(s_cell.CellApi):
         await self._reqUserAllowed(self.liftperm)
         return self.layr.iden
 
-    #async def getLiftRows(self, lops):
-        #await self._reqUserAllowed(self.liftperm)
-        #async for item in self.layr.getLiftRows(lops):
-            #yield item
-
-    #async def iterFormRows(self, form):
-        #await self._reqUserAllowed(self.liftperm)
-        #async for item in self.layr.iterFormRows(form):
-            #yield item
-
-    #async def iterPropRows(self, form, prop):
-        #await self._reqUserAllowed(self.liftperm)
-        #async for item in self.layr.iterPropRows(form, prop):
-            #yield item
-
-    #async def iterUnivRows(self, univ):
-        #await self._reqUserAllowed(self.liftperm)
-        #async for item in self.layr.iterUnivRows(univ):
-            #yield item
-
-    #async def stor(self, sops, splices=None):
-        #await self._reqUserAllowed(self.storperm)
-        #return await self.layr.stor(sops, splices=splices)
-
-    #async def getBuidProps(self, buid):
-        #await self._reqUserAllowed(self.liftperm)
-        #return await self.layr.getBuidProps(buid)
-
-    #async def getModelVers(self):
-        #return await self.layr.getModelVers()
-
-    #async def getOffset(self, iden):
-        #return await self.layr.getOffset(iden)
-
-    #async def setOffset(self, iden, valu):
-        #return await self.layr.setOffset(iden, valu)
-
-    #async def delOffset(self, iden):
-        #return await self.layr.delOffset(iden)
-
-    #async def splices(self, offs, size):
-        #await self._reqUserAllowed(self.liftperm)
-        #async for item in self.layr.splices(offs, size):
-            #yield item
-
-    #async def hasTagProp(self, name):
-        #return await self.layr.hasTagProp(name)
-
-
 STOR_TYPE_UTF8 = 1
 
 STOR_TYPE_U8 = 2
@@ -214,6 +166,10 @@ STOR_TYPE_IPV6 = 18
 
 STOR_TYPE_U128 = 19
 STOR_TYPE_I128 = 20
+
+STOR_TYPE_MINTIME = 21
+
+STOR_TYPE_FLOAT64 = 22
 
 # STOR_TYPE_TOMB      = ??
 # STOR_TYPE_FIXED     = ??
@@ -253,9 +209,20 @@ class IndxBy:
         for _, buid in self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db):
             yield buid
 
+    def keyBuidsByRange(self, minindx, maxindx):
+        yield from self.layr.layrslab.scanByRange(self.abrv + minindx, self.abrv + maxindx, db=self.db)
+
     def buidsByRange(self, minindx, maxindx):
-        for _, buid in self.layr.layrslab.scanByRange(self.abrv + minindx, self.abrv + maxindx, db=self.db):
-            yield buid
+        yield from (x[1] for x in self.keyBuidsByRange(minindx, maxindx))
+
+    def keyBuidsByRangeBack(self, minindx, maxindx):
+        '''
+        Yields backwards from maxindx to minindx
+        '''
+        yield from self.layr.layrslab.scanByRangeBack(self.abrv + maxindx, lmin=self.abrv + minindx, db=self.db)
+
+    def buidsByRangeBack(self, minindx, maxindx):
+        yield from (x[1] for x in self.keyBuidsByRangeBack(minindx, maxindx))
 
     def scanByDups(self, indx):
         for item in self.layr.layrslab.scanByDups(self.abrv + indx, db=self.db):
@@ -354,13 +321,11 @@ class StorType:
 
     def indxByProp(self, form, prop, cmpr, valu):
         indxby = IndxByProp(self.layr, form, prop)
-        for buid in self.indxBy(indxby, cmpr, valu):
-            yield buid
+        yield from self.indxBy(indxby, cmpr, valu)
 
     def indxByPropArray(self, form, prop, cmpr, valu):
         indxby = IndxByPropArray(self.layr, form, prop)
-        for buid in self.indxBy(indxby, cmpr, valu):
-            yield buid
+        yield from self.indxBy(indxby, cmpr, valu)
 
     def indxByTagProp(self, form, tag, prop, cmpr, valu):
         indxby = IndxByTagProp(self.layr, form, tag, prop)
@@ -587,6 +552,101 @@ class StorTypeInt(StorType):
         pkeymax = (valu[1] + self.offset).to_bytes(self.size, 'big')
         yield from liftby.buidsByRange(pkeymin, pkeymax)
 
+class StorTypeFloat(StorType):
+    FloatPacker = struct.Struct('>d')
+    fpack = FloatPacker.pack
+    FloatPackPosMax = FloatPacker.pack(math.inf)
+    FloatPackPosMin = FloatPacker.pack(0.0)
+    FloatPackNegMin = FloatPacker.pack(-math.inf)
+    FloatPackNegMax = FloatPacker.pack(-0.0)
+
+    def __init__(self, layr, stortype, size=8):
+        '''
+        Size reserved for later use
+        '''
+        assert size == 8
+
+        StorType.__init__(self, layr, stortype)
+
+        self.lifters.update({
+            '=': self._liftFloatEq,
+            '<': self._liftFloatLt,
+            '>': self._liftFloatGt,
+            '<=': self._liftFloatLe,
+            '>=': self._liftFloatGe,
+            'range=': self._liftFloatRange,
+        })
+
+    def indx(self, valu):
+        return (self.fpack(valu),)
+
+    def _liftFloatEq(self, liftby, valu):
+        yield from liftby.buidsByDups(self.fpack(valu))
+
+    def _liftFloatGeCommon(self, liftby, valu):
+        if math.isnan(valu):
+            raise s_exc.NotANumberCompared()
+
+        valupack = self.fpack(valu)
+
+        if math.copysign(1.0, valu) < 0.0:  # negative values and -0.0
+            yield from liftby.keyBuidsByRangeBack(self.FloatPackNegMax, valupack)
+            valupack = self.FloatPackPosMin
+
+        yield from liftby.keyBuidsByRange(valupack, self.FloatPackPosMax)
+
+    def _liftFloatGe(self, liftby, valu):
+        yield from (x[1] for x in self._liftFloatGeCommon(liftby, valu))
+
+    def _liftFloatGt(self, liftby, valu):
+        genr = self._liftFloatGeCommon(liftby, valu)
+        valupack = self.fpack(valu)
+        yield from (x[1] for x in itertools.dropwhile(lambda x: x[0] == valupack, genr))
+
+    def _liftFloatLeCommon(self, liftby, valu):
+        if math.isnan(valu):
+            raise s_exc.NotANumberCompared()
+
+        valupack = self.fpack(valu)
+
+        if math.copysign(1.0, valu) > 0.0:
+            yield from liftby.keyBuidsByRangeBack(self.FloatPackNegMax, self.FloatPackNegMin)
+            yield from liftby.keyBuidsByRange(self.FloatPackPosMin, valupack)
+        else:
+            yield from liftby.keyBuidsByRangeBack(valupack, self.FloatPackNegMin)
+
+    def _liftFloatLe(self, liftby, valu):
+        yield from (x[1] for x in self._liftFloatLeCommon(liftby, valu))
+
+    def _liftFloatLt(self, liftby, valu):
+        genr = self._liftFloatLeCommon(liftby, valu)
+        valupack = self.fpack(valu)
+        yield from (x[1] for x in itertools.takewhile(lambda x: x[0] != valupack, genr))
+
+    def _liftFloatRange(self, liftby, valu):
+        valumin, valumax = valu
+        assert valumin <= valumax
+        if math.isnan(valumin) or math.isnan(valumax):
+            raise s_exc.NotANumberCompared()
+
+        pkeymin, pkeymax = (self.fpack(v) for v in valu)
+
+        if math.copysign(1.0, valumin) > 0.0:
+            # Entire range is nonnegative
+            yield from liftby.buidsByRange(pkeymin, pkeymax)
+            return
+
+        if math.copysign(1.0, valumax) < 0.0:  # negative values and -0.0
+            # Entire range is negative
+            yield from liftby.buidsByRangeBack(pkeymax, pkeymin)
+            return
+
+        # Yield all values between min and -0
+        yield from liftby.buidsByRangeBack(self.FloatPackNegMax, pkeymin)
+
+        # Yield all values between 0 and max
+        yield from liftby.buidsByRange(self.FloatPackPosMin, pkeymax)
+
 class StorTypeGuid(StorType):
 
     def __init__(self, layr):
@@ -694,11 +754,11 @@ class StorTypeLatLon(StorType):
 
         latmin, latmax, lonmin, lonmax = s_gis.bbox(lat, lon, dist)
 
-        lonminindx = int(((lonmin * self.scale) + self.lonspace)).to_bytes(5, 'big')
-        lonmaxindx = int(((lonmax * self.scale) + self.lonspace)).to_bytes(5, 'big')
+        lonminindx = (round(lonmin * self.scale) + self.lonspace).to_bytes(5, 'big')
+        lonmaxindx = (round(lonmax * self.scale) + self.lonspace).to_bytes(5, 'big')
 
-        latminindx = int(((latmin * self.scale) + self.latspace)).to_bytes(5, 'big')
-        latmaxindx = int(((latmax * self.scale) + self.latspace)).to_bytes(5, 'big')
+        latminindx = (round(latmin * self.scale) + self.latspace).to_bytes(5, 'big')
+        latmaxindx = (round(latmax * self.scale) + self.latspace).to_bytes(5, 'big')
 
         # scan by lon range and down-select the results to matches.
         for lkey, buid in liftby.scanByRange(lonminindx, lonmaxindx):
@@ -723,13 +783,13 @@ class StorTypeLatLon(StorType):
                 yield buid
 
     def _getLatLonIndx(self, latlong):
-        # yield index bytes in lon/lat order to allow cheap optimial indexing
-        latindx = int(((latlong[0] * self.scale) + self.latspace)).to_bytes(5, 'big')
-        lonindx = int(((latlong[1] * self.scale) + self.lonspace)).to_bytes(5, 'big')
+        # yield index bytes in lon/lat order to allow cheap optimal indexing
+        latindx = (round(latlong[0] * self.scale) + self.latspace).to_bytes(5, 'big')
+        lonindx = (round(latlong[1] * self.scale) + self.lonspace).to_bytes(5, 'big')
         return lonindx + latindx
 
     def indx(self, valu):
-        # yield index bytes in lon/lat order to allow cheap optimial indexing
+        # yield index bytes in lon/lat order to allow cheap optimal indexing
         return (self._getLatLonIndx(valu),)
 
 class Layer(s_nexus.Pusher):
@@ -756,41 +816,7 @@ class Layer(s_nexus.Pusher):
 
         self.fresh = not os.path.exists(path)
 
-        slabopts = {
-            'readonly': self.readonly,
-            'max_dbs': 128,
-            'map_async': True,
-            'readahead': True,
-            'lockmemory': self.lockmemory,
-            'growsize': self.growsize,
-        }
-
-        self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
-        self.formcounts = await self.layrslab.getHotCount('count:forms')
-
-        path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
-        self.nodeeditslab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
-        self.offsets = await self.layrslab.getHotCount('offsets')
-
-        self.tagabrv = self.layrslab.getNameAbrv('tagabrv')
-        self.propabrv = self.layrslab.getNameAbrv('propabrv')
-        self.tagpropabrv = self.layrslab.getNameAbrv('tagpropabrv')
-
-        self.onfini(self.layrslab)
-        self.onfini(self.nodeeditslab)
-
-        self.bybuid = self.layrslab.initdb('bybuid')
-
-        self.bytag = self.layrslab.initdb('bytag', dupsort=True)
-        self.byprop = self.layrslab.initdb('byprop', dupsort=True)
-        self.byarray = self.layrslab.initdb('byarray', dupsort=True)
-        self.bytagprop = self.layrslab.initdb('bytagprop', dupsort=True)
-
-        self.nodedata = self.layrslab.initdb('nodedata')
-
-        self.countdb = self.layrslab.initdb('counters')
-
-        self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
+        await self._initLayerStorage()
 
         self.stortypes = [
 
@@ -822,6 +848,9 @@ class Layer(s_nexus.Pusher):
             StorTypeInt(self, STOR_TYPE_U128, 16, False),
             StorTypeInt(self, STOR_TYPE_I128, 16, True),
 
+            StorTypeTime(self), # STOR_TYPE_MINTIME
+
+            StorTypeFloat(self, STOR_TYPE_FLOAT64, 8),
         ]
 
         self.editors = [
@@ -860,6 +889,58 @@ class Layer(s_nexus.Pusher):
             'readonly': self.readonly,
             'ctor': self.ctorname,
         }
+
+    async def truncate(self):
+
+        await self.layrslab.fini()
+        await self.nodeeditslab.fini()
+
+        path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
+        shutil.rmtree(path, ignore_errors=True)
+
+        path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
+        shutil.rmtree(path, ignore_errors=True)
+
+        await self._initLayerStorage()
+
+    async def _initLayerStorage(self):
+
+        slabopts = {
+            'readonly': self.readonly,
+            'max_dbs': 128,
+            'map_async': True,
+            'readahead': True,
+            'lockmemory': self.lockmemory,
+            'growsize': self.growsize,
+        }
+
+        path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
+
+        self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
+        self.formcounts = await self.layrslab.getHotCount('count:forms')
+
+        path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
+        self.nodeeditslab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
+        self.offsets = await self.layrslab.getHotCount('offsets')
+
+        self.tagabrv = self.layrslab.getNameAbrv('tagabrv')
+        self.propabrv = self.layrslab.getNameAbrv('propabrv')
+        self.tagpropabrv = self.layrslab.getNameAbrv('tagpropabrv')
+
+        self.onfini(self.layrslab)
+        self.onfini(self.nodeeditslab)
+
+        self.bybuid = self.layrslab.initdb('bybuid')
+
+        self.bytag = self.layrslab.initdb('bytag', dupsort=True)
+        self.byprop = self.layrslab.initdb('byprop', dupsort=True)
+        self.byarray = self.layrslab.initdb('byarray', dupsort=True)
+        self.bytagprop = self.layrslab.initdb('bytagprop', dupsort=True)
+
+        self.countdb = self.layrslab.initdb('counters')
+        self.nodedata = self.layrslab.initdb('nodedata')
+
+        self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
 
     def getSpawnInfo(self):
         return self.pack()
@@ -1041,7 +1122,7 @@ class Layer(s_nexus.Pusher):
         changes = await self._push('edits', nodeedits, meta)
 
         retn = []
-        for buid, form, edits in changes:
+        for buid, _, edits in changes:
             sode = await self.getStorNode(buid)
             sode[1]['edits'] = edits
             retn.append(sode)
@@ -1115,14 +1196,13 @@ class Layer(s_nexus.Pusher):
 
         self.formcounts.inc(form)
 
-        created = (EDIT_PROP_SET, ('.created', s_common.now(), None, STOR_TYPE_TIME))
+        created = (EDIT_PROP_SET, ('.created', s_common.now(), None, STOR_TYPE_MINTIME))
 
-        self._editPropSet(buid, form, created)
+        retn = [(EDIT_NODE_ADD, (valu, stortype))]
 
-        return (
-            (EDIT_NODE_ADD, (valu, stortype)),
-            created,
-        )
+        retn.extend(self._editPropSet(buid, form, created))
+
+        return retn
 
     def _editNodeDel(self, buid, form, edit):
 
@@ -1169,17 +1249,31 @@ class Layer(s_nexus.Pusher):
         if penc[0] == 46: # '.' to detect universal props (as quickly as possible)
             univabrv = self.getPropAbrv(None, prop)
 
+        # merge interval values
+        if stortype == STOR_TYPE_IVAL:
+            oldb = self.layrslab.get(bkey, db=self.bybuid)
+            if oldb is not None:
+                oldv, oldt = s_msgpack.un(oldb)
+                valu = (min(*oldv, *valu), max(*oldv, *valu))
+                if valu == oldv:
+                    return ()
+
         newb = s_msgpack.en((valu, stortype))
         oldb = self.layrslab.replace(bkey, newb, db=self.bybuid)
 
         if newb == oldb:
-            return []
+            return ()
 
         if oldb is not None:
 
             oldv, oldt = s_msgpack.un(oldb)
+
+            if stortype == STOR_TYPE_MINTIME and oldv < valu:
+                self.layrslab.put(bkey, oldb, db=self.bybuid)
+                return ()
+
             if oldv == valu and oldt == stortype:
-                return None
+                return ()
 
             if oldt & STOR_FLAG_ARRAY:
 
@@ -1279,9 +1373,19 @@ class Layer(s_nexus.Pusher):
         oldb = self.layrslab.replace(buid + b'\x02' + tenc, s_msgpack.en(valu), db=self.bybuid)
 
         if oldb is not None:
+
             oldv = s_msgpack.un(oldb)
+
+            if oldv != (None, None) and valu != (None, None):
+
+                merged = (min(oldv[0], valu[0]), max(oldv[1], valu[1]))
+
+                if merged != valu:
+                    self.layrslab.put(buid + b'\x02' + tenc, s_msgpack.en(valu), db=self.bybuid)
+                    valu = merged
+
             if oldv == valu:
-                return None
+                return ()
 
         self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
 
@@ -1300,7 +1404,7 @@ class Layer(s_nexus.Pusher):
 
         oldb = self.layrslab.pop(buid + b'\x02' + tenc, db=self.bybuid)
         if oldb is None:
-            return None
+            return ()
 
         self.layrslab.delete(tagabrv + formabrv, buid, db=self.bytag)
 
@@ -1317,7 +1421,6 @@ class Layer(s_nexus.Pusher):
         tenc = tag.encode()
         penc = prop.encode()
 
-        p_abrv = self.getTagPropAbrv(None, None, prop)
         tp_abrv = self.getTagPropAbrv(None, tag, prop)
         ftp_abrv = self.getTagPropAbrv(form, tag, prop)
 
@@ -1331,14 +1434,12 @@ class Layer(s_nexus.Pusher):
                 return
 
             for oldi in self.getStorIndx(oldt, oldv):
-                self.layrslab.delete(p_abrv + oldi, buid, db=self.bytagprop)
                 self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
                 self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
 
         kvpairs = []
 
         for indx in self.getStorIndx(stortype, valu):
-            kvpairs.append((p_abrv + indx, buid))
             kvpairs.append((tp_abrv + indx, buid))
             kvpairs.append((ftp_abrv + indx, buid))
 
@@ -1355,7 +1456,6 @@ class Layer(s_nexus.Pusher):
         tenc = tag.encode()
         penc = prop.encode()
 
-        p_abrv = self.getTagPropAbrv(None, None, prop)
         tp_abrv = self.getTagPropAbrv(None, tag, prop)
         ftp_abrv = self.getTagPropAbrv(form, tag, prop)
 
@@ -1368,7 +1468,6 @@ class Layer(s_nexus.Pusher):
         oldv, oldt = s_msgpack.un(oldb)
 
         for oldi in self.getStorIndx(oldt, oldv):
-            self.layrslab.delete(p_abrv + oldi, buid, db=self.bytagprop)
             self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
             self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
 
@@ -1619,7 +1718,7 @@ class Layer(s_nexus.Pusher):
                             items = [item]
 
                             # check if there are more we can eat
-                            for i in range(q.qsize()):
+                            for _ in range(q.qsize()):
 
                                 nexi = await q.get()
                                 if nexi is None:

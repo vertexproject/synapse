@@ -617,8 +617,6 @@ class Client(s_base.Base):
         self._t_opts = opts
         self._t_conf = conf
 
-        #TODO chop user/passwd out of url and set in opts
-
         self._t_proxy = None
         self._t_ready = asyncio.Event()
         self._t_onlink = onlink
@@ -680,6 +678,7 @@ class Client(s_base.Base):
             await self._t_proxy.fini()
 
         self._t_proxy = await openurl(url, **self._t_opts)
+
         async def fini():
             await self._fireLinkLoop()
 

@@ -48,17 +48,25 @@ class TagProp:
             'type': self.tdef,
         }
 
-    def getStorNode(self, form='syn:tagprop'):
+    def getStorNode(self, form):
 
-        ndef = (form, self.name)
+        ndef = (form.name, form.type.norm(self.name)[0])
         buid = s_common.buid(ndef)
+
+        props = {
+            'doc': self.info.get('doc', ''),
+            'type': self.type.name,
+        }
+
+        pnorms = {}
+        for prop, valu in props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
 
         return (buid, {
             'ndef': ndef,
-            'props': {
-                'doc': self.info.get('doc', ''),
-                'type': self.type.name,
-            },
+            'props': pnorms
         })
 
 class Prop:
@@ -180,8 +188,9 @@ class Prop:
     def getPropDef(self):
         return (self.name, self.typedef, self.info)
 
-    def getStorNode(self, form='syn:prop'):
-        ndef = (form, self.full)
+    def getStorNode(self, form):
+
+        ndef = (form.name, form.type.norm(self.full)[0])
 
         buid = s_common.buid(ndef)
         props = {
@@ -197,7 +206,13 @@ class Prop:
         if self.form is not None:
             props['form'] = self.form.name
 
-        return (buid, {'props': props, 'ndef': ndef})
+        pnorms = {}
+        for prop, valu in props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
+
+        return (buid, {'props': pnorms, 'ndef': ndef})
 
 class Form:
     '''
@@ -209,8 +224,6 @@ class Form:
         self.name = name
         self.full = name    # so a Form() can act like a Prop().
         self.info = info
-
-        #self.waits = collections.defaultdict(list)
 
         self.isform = True
         self.isrunt = bool(info.get('runt', False))
@@ -224,16 +237,12 @@ class Form:
 
         self.type.form = self
 
-        # pre-compute our byprop table prefix
-        #self.pref = name.encode('utf8') + b'\x00\x00'
-        #self.utf8name = name.encode('utf8')
-
         self.props = {}     # name: Prop()
-        #self.defvals = {}   # name: valu
         self.refsout = None
 
-    def getStorNode(self, form='syn:form'):
-        ndef = (form, self.name)
+    def getStorNode(self, form):
+
+        ndef = (form.name, form.type.norm(self.name)[0])
         buid = s_common.buid(ndef)
 
         props = {
@@ -241,16 +250,22 @@ class Form:
             'type': self.type.name,
         }
 
-        if form == 'syn:form':
+        if form.name == 'syn:form':
             props['runt'] = self.isrunt
-        elif form == 'syn:prop':
+        elif form.name == 'syn:prop':
             props['univ'] = False
             props['extmodel'] = False
             props['form'] = self.name
 
+        pnorms = {}
+        for prop, valu in props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
+
         return (buid, {
                     'ndef': ndef,
-                    'props': props,
+                    'props': pnorms,
                 })
 
     def setProp(self, name, prop):
@@ -260,7 +275,6 @@ class Form:
     def delProp(self, name):
         self.refsout = None
         prop = self.props.pop(name, None)
-        #self.defvals.pop(name, None)
         return prop
 
     def getRefsOut(self):
@@ -287,13 +301,6 @@ class Form:
                     self.refsout['prop'].append((name, prop.type.name))
 
         return self.refsout
-
-    #def getWaitFor(self, valu):
-        #norm, info = self.type.norm(valu)
-        #buid = s_common.buid((self.name, norm))
-        #evnt = asyncio.Event()
-        #self.waits[buid].append(evnt)
-        #return evnt
 
     def onAdd(self, func):
         '''
@@ -330,10 +337,6 @@ class Form:
         '''
         Fire the onAdd() callbacks for node creation.
         '''
-        #waits = self.waits.pop(node.buid, None)
-        #if waits is not None:
-            #[e.set() for e in waits]
-
         for func in self.onadds:
             try:
                 retn = func(node)
@@ -465,6 +468,10 @@ class Model:
         item = s_types.Int(self, 'int', info, {})
         self.addBaseType(item)
 
+        info = {'doc': 'The base floating point type.'}
+        item = s_types.Float(self, 'float', info, {})
+        self.addBaseType(item)
+
         info = {'doc': 'A base range type.'}
         item = s_types.Range(self, 'range', info, {'type': ('int', {})})
         self.addBaseType(item)
@@ -552,7 +559,7 @@ class Model:
 
     def getProps(self):
         return [pobj for pname, pobj in self.props.items()
-                if not (isinstance(pname, tuple) or pobj.isform)]
+                if not (isinstance(pname, tuple))]
 
     def getTypeClone(self, typedef):
 

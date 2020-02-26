@@ -1419,84 +1419,71 @@ class LibLayer(Lib):
         '''
         Add a layer to the cortex.
         '''
-        self.runt.confirm(('layer', 'add'))
-
-        iden = ldef.pop('iden', None)
-        if iden is not None:
-            ldef['iden'] = iden
-
-        lockmemory = ldef.pop('lockmemory', None)
-        if lockmemory is not None:
-            ldef['lockmemory'] = lockmemory
-
-        ldef.setdefault('creator', self.runt.user.iden)
+        ldef['creator'] = self.runt.user.iden
 
         useriden = self.runt.user.iden
+
         gatekeys = ((useriden, ('layer', 'add'), None),)
         todo = ('addLayer', (ldef,), {})
-        layriden = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
-        if layriden is None:
+
+        ldef = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        if ldef is None:
             mesg = f'Failed to add layer.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        layr = self.runt.snap.core.getLayer(layriden)
-
-        return Layer(layr, path=self.path)
+        return Layer(self.runt, ldef, path=self.path)
 
     async def _libLayerDel(self, iden):
         '''
         Delete a layer from the cortex.
         '''
-        layer = self.runt.snap.core.getLayer(iden)
-        if layer is None:
+        todo = s_common.todo('getLayerDef', iden)
+        ldef = await self.runt.dyncall('cortex', todo)
+        if ldef is None:
             mesg = f'No layer with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
+        layriden = ldef.get('iden')
         useriden = self.runt.user.iden
         gatekeys = ((useriden, ('layer', 'del'), iden),)
-        todo = ('delLayer', (iden,), {})
+
+        todo = ('delLayer', (layriden,), {})
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _libLayerGet(self, iden=None):
         '''
         Get a layer from the cortex.
         '''
-        layr = self.runt.snap.core.getLayer(iden)
-        if layr is None:
+        todo = s_common.todo('getLayerDef', iden)
+        ldef = await self.runt.dyncall('cortex', todo)
+        if ldef is None:
             mesg = f'No layer with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        self.runt.user.confirm(('layer', 'read'), gateiden=layr.iden)
-
-        return Layer(layr, path=self.path)
+        return Layer(self.runt, ldef, path=self.path)
 
     async def _libLayerList(self):
         '''
         List the layers in a cortex.
         '''
-        retn = []
-
-        layers = self.runt.snap.core.listLayers()
-        for layr in layers:
-            if not self.runt.user.allowed(('layer', 'read'), gateiden=layr.iden):
-                continue
-            retn.append(Layer(layr, path=self.path))
-
-        return retn
+        todo = s_common.todo('getLayerDefs')
+        defs = await self.runt.dyncall('cortex', todo)
+        return [Layer(self.runt, ldef, path=self.path) for ldef in defs]
 
 class Layer(Prim):
     '''
     Implements the STORM api for a layer instance.
     '''
-    def __init__(self, layer, path=None):
-        Prim.__init__(self, layer, path=path)
+    def __init__(self, runt, ldef, path=None):
+        Prim.__init__(self, ldef, path=path)
+        self.runt = runt
         self.locls.update({
-            'iden': layer.iden,
+            'iden': ldef.get('iden'),
             'pack': self._methLayerPack,
         })
 
     async def _methLayerPack(self):
-        return self.valu.pack()
+        return self.valu
 
 class LibView(Lib):
 
@@ -1504,10 +1491,8 @@ class LibView(Lib):
         self.locls.update({
             'add': self._methViewAdd,
             'del': self._methViewDel,
-            'fork': self._methViewFork,
             'get': self._methViewGet,
             'list': self._methViewList,
-            'merge': self._methViewMerge,
         })
 
     async def _methViewAdd(self, layers):
@@ -1524,92 +1509,80 @@ class LibView(Lib):
         useriden = self.runt.user.iden
         gatekeys = ((useriden, ('view', 'add'), None),)
         todo = ('addView', (vdef,), {})
-        viewiden = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
-        if viewiden is None:
-            mesg = f'Failed to add view.'
-            raise s_exc.StormRuntimeError(mesg=mesg, layers=layers)
-
-        view = self.runt.snap.core.getView(viewiden)
-
-        return View(view, path=self.path)
+        vdef = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        return View(self.runt, vdef, path=self.path)
 
     async def _methViewDel(self, iden):
-        '''
-        Delete a view in the cortex.
-        '''
-        # FIXME: doesn't this belong on View?
         useriden = self.runt.user.iden
         gatekeys = ((useriden, ('view', 'del'), iden),)
         todo = ('delView', (iden,), {})
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
-    async def _methViewFork(self, iden):
+    async def _methViewGet(self, iden=None):
+        '''
+        Retrieve a view from the cortex.
+        '''
+        todo = s_common.todo('getViewDef', iden)
+        vdef = await self.runt.dyncall('cortex', todo)
+        if vdef is None:
+            raise s_exc.NoSuchView(mesg=iden)
+
+        return View(self.runt, vdef, path=self.path)
+
+    async def _methViewList(self):
+        '''
+        List the views in the cortex.
+        '''
+        todo = s_common.todo('getViewDefs')
+        defs = await self.runt.dyncall('cortex', todo)
+        return [View(self.runt, vdef, path=self.path) for vdef in defs]
+
+class View(Prim):
+    '''
+    Implements the STORM api for a view instance.
+    '''
+    def __init__(self, runt, vdef, path=None):
+        Prim.__init__(self, vdef, path=path)
+        self.runt = runt
+        self.locls.update({
+            'iden': vdef.get('iden'),
+            'layers': [Layer(runt, ldef, path=path) for ldef in vdef.get('layers')],
+            'pack': self._methViewPack,
+            'fork': self._methViewFork,
+            'merge': self._methViewMerge,
+        })
+
+    async def _methViewPack(self):
+        return self.valu
+
+    async def _methViewFork(self):
         '''
         Fork a view in the cortex.
         '''
-        # FIXME: doesn't this belong on View?
         useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('view', 'add'), iden),)
+        viewiden = self.valu.get('iden')
+
+        gatekeys = ((useriden, ('view', 'add'), None),)
 
         ldef = {'creator': self.runt.user.iden}
         vdef = {'creator': self.runt.user.iden}
+
         todo = s_common.todo('fork', ldef=ldef, vdef=vdef)
-        newviewiden = await self.runt.dyncall(iden, todo, gatekeys=gatekeys)
 
-        newview = self.runt.snap.core.getView(newviewiden)
+        newv = await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
-        return View(newview, path=self.path)
+        return View(self.runt, newv, path=self.path)
 
-    async def _methViewMerge(self, iden):
-        # FIXME: doesn't this belong on View?
+    async def _methViewMerge(self):
         '''
         Merge a forked view back into its parent.
 
         When complete, the view is deleted.
         '''
         useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('view', 'get'), iden),)
-        todo = ('merge', (), {'useriden': useriden})
-        return await self.runt.dyncall(iden, todo, gatekeys=gatekeys)
-
-    async def _methViewGet(self, iden=None):
-        '''
-        Retrieve a view from the cortex.
-        '''
-        view = self.runt.snap.core.getView(iden=iden)
-        if view is None:
-            raise s_exc.NoSuchView(mesg=iden)
-        self.runt.user.confirm(('view', 'get'), gateiden=view.iden)
-
-        return View(view, path=self.path)
-
-    async def _methViewList(self):
-        '''
-        List the views in the cortex.
-        '''
-        retn = []
-
-        views = self.runt.snap.core.listViews()
-        for view in views:
-            if not self.runt.user.allowed(('view', 'get'), gateiden=view.iden):
-                continue
-            retn.append(View(view, path=self.path))
-
-        return retn
-
-class View(Prim):
-    '''
-    Implements the STORM api for a view instance.
-    '''
-    def __init__(self, view, path=None):
-        Prim.__init__(self, view, path=path)
-        self.locls.update({
-            'pack': self._methViewPack,
-        })
-
-    # FIXME: discuss normalize this stuff tdef/deref
-    async def _methViewPack(self):
-        return self.valu.pack()
+        viewiden = self.valu.get('iden')
+        todo = s_common.todo('merge', useriden=useriden)
+        return await self.runt.dyncall(viewiden, todo)
 
 class LibTrigger(Lib):
 
@@ -1790,8 +1763,8 @@ class Trigger(StormType):
         })
 
     async def deref(self, name):
-        valu = self.tdef.get(name, s_common.NoValu)
-        if valu is not s_common.NoValu:
+        valu = self.tdef.get(name, s_common.novalu)
+        if valu is not s_common.novalu:
             return valu
 
         return self.locls.get(name)
@@ -1816,9 +1789,9 @@ class LibCron(Lib):
             'at': self._methCronAt,
             'add': self._methCronAdd,
             'del': self._methCronDel,
+            'get': self._methCronGet,
             'mod': self._methCronMod,
             'list': self._methCronList,
-            'stat': self._methCronStat,
             'enable': self._methCronEnable,
             'disable': self._methCronDisable,
         })
@@ -1834,7 +1807,9 @@ class LibCron(Lib):
         crons = await self.dyncall('cortex', todo)
         matchcron = None
 
-        for iden, cron in crons:
+        for cron in crons:
+            iden = cron.get('iden')
+
             if iden.startswith(prefix) and user.allowed(perm, gateiden=iden):
                 if matchcron is not None:
                     mesg = 'Provided iden matches more than one cron job.'
@@ -2077,14 +2052,18 @@ class LibCron(Lib):
             incunit = valinfo[requnit][1]
             incval = 1
 
-        # Remove the curly braces
-        query = query[1:-1]
+        cdef = {'storm': query[1:-1],
+                'reqs': reqdict,
+                'incunit': incunit,
+                'incvals': incval,
+                'creator': self.runt.user.iden
+                }
 
-        todo = s_common.todo('addCronJob', self.runt.user.iden, query, reqdict, incunit, incval)
+        todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
-        iden = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        cdef = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
-        return iden
+        return CronJob(self.runt, cdef, path=self.path)
 
     async def _methCronAt(self, **kwargs):
         '''
@@ -2143,13 +2122,18 @@ class LibCron(Lib):
 
         reqdicts = [_ts_to_reqdict(ts) for ts in tslist]
 
-        query = query[1:-1]
+        cdef = {'storm': query[1:-1],
+                'reqs': reqdicts,
+                'incunit': None,
+                'incvals': None,
+                'creator': self.runt.user.iden
+                }
 
-        todo = s_common.todo('addCronJob', self.runt.user.iden, query, reqdicts, None, None)
+        todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
-        iden = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        cdef = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
-        return iden
+        return CronJob(self.runt, cdef, path=self.path)
 
     async def _methCronDel(self, prefix):
         '''
@@ -2180,79 +2164,23 @@ class LibCron(Lib):
         gatekeys = ((self.runt.user.iden, ('cron', 'set'), iden),)
         return await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
-        return iden
-
-    @staticmethod
-    def _formatTimestamp(ts):
-        # N.B. normally better to use fromtimestamp with UTC timezone,
-        # but we don't want timezone to print out
-        return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
-
     async def _methCronList(self):
         '''
         List cron jobs in the cortex.
         '''
         todo = s_common.todo('listCronJobs')
         gatekeys = ((self.runt.user.iden, ('cron', 'get'), None),)
-        cronlist = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        defs = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
-        jobs = []
-        for iden, cron in cronlist:
+        return [CronJob(self.runt, cdef, path=self.path) for cdef in defs]
 
-            user = cron.get('username')
-
-            laststart = cron.get('laststarttime')
-            lastend = cron.get('lastfinishtime')
-            result = cron.get('lastresult')
-
-            jobs.append({
-                'iden': iden,
-                'idenshort': iden[:8] + '..',
-                'user': user or '<None>',
-                'query': cron.get('query') or '<missing>',
-                'isrecur': 'Y' if cron.get('recur') else 'N',
-                'isrunning': 'Y' if cron.get('isrunning') else 'N',
-                'enabled': 'Y' if cron.get('enabled', True) else 'N',
-                'startcount': cron.get('startcount') or 0,
-                'laststart': 'Never' if laststart is None else self._formatTimestamp(laststart),
-                'lastend': 'Never' if lastend is None else self._formatTimestamp(lastend),
-                'iserr': 'X' if result is not None and not result.startswith('finished successfully') else ' '
-            })
-
-        return jobs
-
-    async def _methCronStat(self, prefix):
+    async def _methCronGet(self, prefix):
         '''
-        Get information about a cron job.
+        Retrieve a cron job from the cortex.
         '''
-        cron = await self._matchIdens(prefix, ('cron', 'get'))
-        user = cron.get('username')
+        cdef = await self._matchIdens(prefix, ('cron', 'get'))
 
-        laststart = cron.get('laststarttime')
-        lastend = cron.get('lastfinishtime')
-
-        job = {
-            'iden': cron.get('iden'),
-            'user': user or '<None>',
-            'query': cron.get('query') or '<missing>',
-            'isrecur': 'Y' if cron.get('recur') else 'N',
-            'isrunning': 'Y' if cron.get('isrunning') else 'N',
-            'enabled': 'Y' if cron.get('enabled', True) else 'N',
-            'startcount': cron.get('startcount') or 0,
-            'laststart': 'Never' if laststart is None else self._formatTimestamp(laststart),
-            'lastend': 'Never' if lastend is None else self._formatTimestamp(lastend),
-            'lastresult': cron.get('lastresult') or '<None>',
-            'recs': []
-        }
-
-        for reqdict, incunit, incval in cron.get('recs', []):
-            job['recs'].append({
-                'reqdict': reqdict or '<None>',
-                'incunit': incunit or '<None>',
-                'incval': incval or '<None>'
-            })
-
-        return job
+        return CronJob(self.runt, cdef, path=self.path)
 
     async def _methCronEnable(self, prefix):
         '''
@@ -2277,6 +2205,61 @@ class LibCron(Lib):
         await self.runt.dyncall('cortex', todo)
 
         return iden
+
+class CronJob(Prim):
+    '''
+    Implements the STORM api for a cronjob instance.
+    '''
+    def __init__(self, runt, cdef, path=None):
+        Prim.__init__(self, cdef, path=path)
+        self.runt = runt
+        self.locls.update({
+            'iden': cdef.get('iden'),
+            'pack': self._methCronJobPack,
+            'pprint': self._methCronJobPprint,
+        })
+
+    async def _methCronJobPack(self):
+        return self.valu
+
+    @staticmethod
+    def _formatTimestamp(ts):
+        # N.B. normally better to use fromtimestamp with UTC timezone,
+        # but we don't want timezone to print out
+        return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
+
+    async def _methCronJobPprint(self):
+
+        user = self.valu.get('username')
+        laststart = self.valu.get('laststarttime')
+        lastend = self.valu.get('lastfinishtime')
+        result = self.valu.get('lastresult')
+        iden = self.valu.get('iden')
+
+        job = {
+            'iden': iden,
+            'idenshort': iden[:8] + '..',
+            'user': user or '<None>',
+            'query': self.valu.get('query') or '<missing>',
+            'isrecur': 'Y' if self.valu.get('recur') else 'N',
+            'isrunning': 'Y' if self.valu.get('isrunning') else 'N',
+            'enabled': 'Y' if self.valu.get('enabled', True) else 'N',
+            'startcount': self.valu.get('startcount') or 0,
+            'laststart': 'Never' if laststart is None else self._formatTimestamp(laststart),
+            'lastend': 'Never' if lastend is None else self._formatTimestamp(lastend),
+            'lastresult': self.valu.get('lastresult') or '<None>',
+            'iserr': 'X' if result is not None and not result.startswith('finished successfully') else ' ',
+            'recs': []
+        }
+
+        for reqdict, incunit, incval in self.valu.get('recs', []):
+            job['recs'].append({
+                'reqdict': reqdict or '<None>',
+                'incunit': incunit or '<None>',
+                'incval': incval or '<None>'
+            })
+
+        return job
 
 class LibModel(Lib):
     '''

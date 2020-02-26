@@ -948,28 +948,6 @@ class LiftFormTagProp(LiftOper):
         async for node in runt.snap.nodesByTagProp(form, tag, prop):
             yield node
 
-class LiftOnlyTagProp(LiftOper):
-    '''
-    #:baz [ = x ]
-    '''
-
-    async def lift(self, runt):
-
-        prop = await self.kids[0].compute(runt)
-
-        if len(self.kids) == 3:
-
-            cmpr = await self.kids[1].compute(runt)
-            valu = await self.kids[2].compute(runt)
-
-            async for node in runt.snap.nodesByTagPropValu(None, None, prop, cmpr, valu):
-                yield node
-
-            return
-
-        async for node in runt.snap.nodesByTagProp(None, None, prop):
-            yield node
-
 class LiftTagTag(LiftOper):
     '''
     ##foo.bar
@@ -2533,7 +2511,7 @@ class EditParens(Edit):
 
         formname = nodeadd.kids[0].value()
 
-        runt.layerConfirm(('node:add', formname))
+        runt.layerConfirm(('node', 'add', formname))
 
         # create an isolated generator for the add vs edit
         if nodeadd.isruntsafe(runt):
@@ -2627,7 +2605,7 @@ class EditNodeAdd(Edit):
 
                     # must reach back first to trigger sudo / etc
                     if first:
-                        runt.layerConfirm(('node:add', self.name))
+                        runt.layerConfirm(('node', 'add', self.name))
                         first = False
 
                     # must use/resolve all variables from path before yield
@@ -2639,7 +2617,7 @@ class EditNodeAdd(Edit):
 
             else:
 
-                runt.layerConfirm(('node:add', self.name))
+                runt.layerConfirm(('node', 'add', self.name))
 
                 valu = await self.kids[2].runtval(runt)
 
@@ -2676,7 +2654,7 @@ class EditPropSet(Edit):
 
             if not node.form.isrunt:
                 # runt node property permissions are enforced by the callback
-                runt.layerConfirm(('prop:set', prop.full))
+                runt.layerConfirm(('node', 'prop', 'set', prop.full))
 
             try:
                 await node.set(name, valu)
@@ -2698,7 +2676,7 @@ class EditPropDel(Edit):
             if prop is None:
                 raise s_exc.NoSuchProp(name=name, form=node.form.name)
 
-            runt.layerConfirm(('prop:del', prop.full))
+            runt.layerConfirm(('node', 'prop', 'del', prop.full))
 
             await node.pop(name)
 
@@ -2727,7 +2705,7 @@ class EditUnivDel(Edit):
                 if univ is None:
                     raise s_exc.NoSuchProp(name=name)
 
-            runt.layerConfirm(('prop:del', name))
+            runt.layerConfirm(('node', 'prop', 'del', name))
 
             await node.pop(name)
             yield node, path
@@ -2757,7 +2735,7 @@ class EditTagAdd(Edit):
             for name in names:
                 parts = name.split('.')
 
-                runt.layerConfirm(('tag:add', *parts))
+                runt.layerConfirm(('node', 'tag', 'add', *parts))
 
                 if hasval:
                     valu = await self.kids[1 + oper_offset].compute(path)
@@ -2779,7 +2757,7 @@ class EditTagDel(Edit):
             name = await self.kids[0].compute(path)
             parts = name.split('.')
 
-            runt.layerConfirm(('tag:del', *parts))
+            runt.layerConfirm(('node', 'tag', 'del', *parts))
 
             await node.delTag(name)
 
@@ -2804,7 +2782,7 @@ class EditTagPropSet(Edit):
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
-            runt.layerConfirm(('tag:add', *tagparts))
+            runt.layerConfirm(('node', 'tag', 'add', *tagparts))
 
             try:
                 await node.setTagProp(tag, prop, valu)
@@ -2830,8 +2808,7 @@ class EditTagPropDel(Edit):
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
-            # FIXME:  ('tag', 'del'), right?
-            runt.layerConfirm(('tag:del', *tagparts))
+            runt.layerConfirm(('node', 'tag', 'del', *tagparts))
 
             await node.delTagProp(tag, prop)
 

@@ -230,10 +230,6 @@ class AstConverter(lark.Transformer):
         kids = self._convert_children(kids)
         return s_ast.FormTagProp(kids=kids)
 
-    def onlytagprop(self, kids):
-        kids = self._convert_children(kids)
-        return s_ast.OnlyTagProp(kids=kids)
-
     def tagname(self, kids):
         assert kids and len(kids) == 1
         kid = kids[0]
@@ -348,7 +344,8 @@ def parseQuery(text):
     return Parser(text).query()
 
 # TODO:  commonize with storm.lark
-scmdre = regex.compile('[a-z][a-z0-9.]+')
+re_scmd = '[a-z][a-z0-9.]+'
+scmdre = regex.compile(re_scmd)
 univre = regex.compile(r'\.[a-z_][a-z0-9]*([:.][a-z0-9]+)*')
 propre = regex.compile(r'[a-z_][a-z0-9]*(:[a-z0-9]+)+([:.][a-z_ ][a-z0-9]+)*')
 formre = regex.compile(r'[a-z][a-z0-9]*(:[a-z0-9]+)+')
@@ -549,7 +546,6 @@ ruleClassMap = {
     'liftbyarray': s_ast.LiftByArray,
     'liftbytagprop': s_ast.LiftTagProp,
     'liftbyformtagprop': s_ast.LiftFormTagProp,
-    'liftbyonlytagprop': s_ast.LiftOnlyTagProp,
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,

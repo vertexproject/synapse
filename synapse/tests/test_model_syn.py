@@ -467,23 +467,25 @@ class SynModelTest(s_t_utils.SynTest):
             await visi.addRule((True, ('cron', 'add')))
 
             async with core.getLocalProxy(user='visi') as proxy:
-                cron0 = await proxy.addCronJob('inet:ipv4', {'hour': 2})
+                cdef = {'storm': 'inet:ipv4', 'reqs': {'hour': 2}}
+                adef = await proxy.addCronJob(cdef)
+                iden = adef.get('iden')
 
                 nodes = await core.nodes('syn:cron')
                 self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('syn:cron', cron0))
+                self.eq(nodes[0].ndef, ('syn:cron', iden))
                 self.eq(nodes[0].get('doc'), '')
                 self.eq(nodes[0].get('name'), '')
                 self.eq(nodes[0].get('storm'), 'inet:ipv4')
 
-                nodes = await core.nodes(f'syn:cron={cron0} [ :doc=hehe :name=haha ]')
+                nodes = await core.nodes(f'syn:cron={iden} [ :doc=hehe :name=haha ]')
                 self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('syn:cron', cron0))
+                self.eq(nodes[0].ndef, ('syn:cron', iden))
                 self.eq(nodes[0].get('doc'), 'hehe')
                 self.eq(nodes[0].get('name'), 'haha')
 
-                nodes = await core.nodes(f'syn:cron={cron0}')
+                nodes = await core.nodes(f'syn:cron={iden}')
                 self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('syn:cron', cron0))
+                self.eq(nodes[0].ndef, ('syn:cron', iden))
                 self.eq(nodes[0].get('doc'), 'hehe')
                 self.eq(nodes[0].get('name'), 'haha')

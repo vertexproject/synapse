@@ -76,11 +76,6 @@ class CoreApi(s_cell.CellApi):
     def stat(self):
         return self.cell.stat()
 
-    @s_cell.adminapi
-    async def joinTeleLayer(self, url, indx=None):
-        ret = await self.cell.joinTeleLayer(url, indx=indx)
-        return ret
-
     async def getModelDict(self):
         '''
         Return a dictionary which describes the data model.
@@ -144,7 +139,7 @@ class CoreApi(s_cell.CellApi):
 
             return retn
 
-    async def addCronJob(self, query, reqs, incunit=None, incval=1):
+    async def addCronJob(self, cdef):
         '''
         Add a cron job to the cortex
 
@@ -162,7 +157,7 @@ class CoreApi(s_cell.CellApi):
             incunit (Optional[str]):
                 A member of the same set as above, with an additional member 'day'.  If is None (default), then the
                 appointment is one-shot and will not recur.
-            incval (Union[int, List[int]):
+            incvals (Union[int, List[int]):
                 A integer or a list of integers of the number of units
 
         Returns (bytes):
@@ -172,9 +167,11 @@ class CoreApi(s_cell.CellApi):
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
+        cdef['creator'] = self.user.iden
+
         s_common.deprecated('addCronJob')
         self.user.confirm(('cron', 'add'), gateiden='cortex')
-        return await self.cell.addCronJob(self.user.iden, query, reqs, incunit, incval)
+        return await self.cell.addCronJob(cdef)
 
     async def delCronJob(self, iden):
         '''
@@ -227,12 +224,12 @@ class CoreApi(s_cell.CellApi):
         s_common.deprecated('listCronJobs')
 
         crons = []
-        for iden, cron in await self.cell.listCronJobs():
+        for cron in await self.cell.listCronJobs():
 
-            if not self.user.allowed(('cron', 'get'), gateiden=iden):
+            if not self.user.allowed(('cron', 'get'), gateiden=cron.get('iden')):
                 continue
 
-            crons.append((iden, cron))
+            crons.append(cron)
 
         return crons
 
@@ -299,7 +296,7 @@ class CoreApi(s_cell.CellApi):
                     raise s_exc.NoSuchIden(iden=iden)
 
                 prop = node.form.props.get(name)
-                self.user.confirm(('prop:set', prop.full), gateiden=snap.wlyr.iden)
+                self.user.confirm(('node', 'prop', 'set', prop.full), gateiden=snap.wlyr.iden)
 
                 await node.set(name, valu)
                 return node.pack()
@@ -323,7 +320,7 @@ class CoreApi(s_cell.CellApi):
 
                 prop = node.form.props.get(name)
 
-                self.user.confirm(('prop:del', prop.full), gateiden=snap.wlyr.iden)
+                self.user.confirm(('node', 'prop', 'del', prop.full), gateiden=snap.wlyr.iden)
 
                 await node.pop(name)
                 return node.pack()
@@ -334,7 +331,7 @@ class CoreApi(s_cell.CellApi):
         '''
         s_common.deprecated('addNode')
         async with await self.cell.snap(user=self.user) as snap:
-            self.user.confirm(('node:add', form), gateiden=snap.wlyr.iden)
+            self.user.confirm(('node', 'add', form), gateiden=snap.wlyr.iden)
             with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
 
                 node = await snap.addNode(form, valu, props=props)
@@ -362,7 +359,7 @@ class CoreApi(s_cell.CellApi):
             if done.get(formname):
                 continue
 
-            await self._reqDefLayerAllowed(('node:add', formname))
+            await self._reqDefLayerAllowed(('node', 'add', formname))
             done[formname] = True
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -521,7 +518,6 @@ class CoreApi(s_cell.CellApi):
         Return the list of splices at the given offset.
         '''
         layr = self.cell.getLayer(layriden)
-        self.user.confirm(('read',), gateiden=layr.iden)
         count = 0
         async for mesg in layr.splices(offs, size):
             count += 1
@@ -534,7 +530,6 @@ class CoreApi(s_cell.CellApi):
         '''
         Return the list of splices backwards from the given offset.
         '''
-        # FIXME:  perm check
         count = 0
         async for mesg in self.cell.view.layers[0].splicesBack(offs, size):
             count += 1
@@ -681,7 +676,6 @@ class CoreApi(s_cell.CellApi):
     async def delStormDmon(self, iden):
         return await self.cell.delStormDmon(iden)
 
-
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -806,7 +800,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.view = None  # The default/main view
 
-        # FIXME:  add feature flag
+        # FIXME: add feature flag
         self.provstor = await s_provenance.ProvStor.anit(self.dirn)
         self.onfini(self.provstor.fini)
 
@@ -1006,7 +1000,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             valu = str(valu)
             iden = node.ndef[1]
             appt = await self.agenda.get(iden)
-            appt.confirm(node.snap.user, ('cron', 'set', 'doc'))
+            node.snap.user.confirm(('cron', 'set', 'doc'), gateiden=iden)
             await appt.setDoc(valu)
             node.props[prop.name] = valu
 
@@ -1014,7 +1008,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             valu = str(valu)
             iden = node.ndef[1]
             appt = await self.agenda.get(iden)
-            appt.confirm(node.snap.user, ('cron', 'set', 'name'))
+            node.snap.user.confirm(('cron', 'set', 'name'), gateiden=iden)
             await appt.setName(valu)
             node.props[prop.name] = valu
 
@@ -1119,8 +1113,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
         ctor.forms = cdef.get('forms', {})
 
-        def getStorNode(form='syn:cmd'):
-            ndef = (form, cdef.get('name'))
+        def getStorNode(form):
+            ndef = (form.name, form.type.norm(cdef.get('name'))[0])
             buid = s_common.buid(ndef)
 
             props = {
@@ -1142,9 +1136,15 @@ class Cortex(s_cell.Cell):  # type: ignore
             if ctor.pkgname:
                 props['package'] = ctor.pkgname
 
+            pnorms = {}
+            for prop, valu in props.items():
+                formprop = form.props.get(prop)
+                if formprop is not None and valu is not None:
+                    pnorms[prop] = formprop.type.norm(valu)[0]
+
             return (buid, {
                 'ndef': ndef,
-                'props': props,
+                'props': pnorms,
             })
 
         ctor.getStorNode = getStorNode
@@ -1236,39 +1236,27 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Validate a storm package for loading.  Raises if invalid.
         '''
-        # validate things first...
-        name = pkgdef.get('name')
-        if name is None:
-            mesg = 'Package definition has no "name" field.'
-            raise s_exc.BadPkgDef(mesg=mesg)
+        # Validate package def
+        s_storm.reqValidPkgdef(s_common.convertToLists(pkgdef))
 
-        vers = pkgdef.get('version')
-        if vers is None:
-            mesg = 'Package definition has no "version" field.'
-            raise s_exc.BadPkgDef(mesg=mesg)
-
+        # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
         svciden = pkgdef.get('svciden')
+        pkgname = pkgdef.get('name')
 
-        # Validate storm contents from modules and commands
         for mdef in mods:
-
-            modname = mdef.get('name')
-            if modname is None:
-                raise s_exc.BadPkgDef(mesg='Package module is missing a name.',
-                                      package=name)
             modtext = mdef.get('storm')
             self.getStormQuery(modtext)
 
         for cdef in cmds:
+            cdef['pkgname'] = pkgname
             cdef.setdefault('cmdconf', {})
             if svciden:
                 cdef['cmdconf']['svciden'] = svciden
 
-            cdef['pkgname'] = name
-
-            await self._reqStormCmd(cdef)
+            cmdtext = cdef.get('storm')
+            self.getStormQuery(cmdtext)
 
     async def loadStormPkg(self, pkgdef):
         '''
@@ -2177,34 +2165,16 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # if we have no views, we are initializing.  Add a default main view and layer.
         if not self.views:
-            layriden = await self.addLayer()
+            ldef = await self.addLayer()
+            layriden = ldef.get('iden')
             vdef = {
                 'layers': (layriden,),
                 'worldreadable': True,
             }
-            viewiden = await self.addView(vdef)
-            await self.cellinfo.set('defaultview', viewiden)
-            self.view = self.getView(viewiden)
-
-    async def _migrateLayerOffset(self):
-        '''
-        In case this is a downstream mirror, move the offsets for the old layr iden to the new layr iden
-
-        Precondition:
-            Layers and Views are initialized.  Mirror logic has not started.
-
-        TODO:  due to our migration policy, remove in 0.3.0
-        '''
-        oldlayriden = self.iden
-        layr = self.getLayer()
-        newlayriden = layr.iden
-
-        offs = await layr.getOffset(oldlayriden)
-        if offs == 0:
-            return
-
-        await layr.setOffset(newlayriden, offs)
-        await layr.delOffset(oldlayriden)
+            vdef = await self.addView(vdef)
+            iden = vdef.get('iden')
+            await self.cellinfo.set('defaultview', iden)
+            self.view = self.getView(iden)
 
     async def getOffset(self, iden):
         '''
@@ -2213,7 +2183,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def addView(self, vdef):
 
-        vdef.setdefault('iden', s_common.guid())
+        vdef['iden'] = s_common.guid()
         vdef.setdefault('parent', None)
         vdef.setdefault('worldreadable', False)
         vdef.setdefault('creator', self.auth.rootuser.iden)
@@ -2247,11 +2217,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         for name, valu in vdef.items():
             await info.set(name, valu)
 
-        await self._loadView(node)
+        view = await self._loadView(node)
 
         await self.bumpSpawnPool()
 
-        return iden
+        return view.pack()
 
     @s_nexus.Pusher.onPushAuto('view:del')
     async def delView(self, iden):
@@ -2336,6 +2306,14 @@ class Cortex(s_cell.Cell):  # type: ignore
     def listLayers(self):
         return self.layers.values()
 
+    async def getLayerDef(self, iden):
+        layr = self.getLayer(iden)
+        if layr is not None:
+            return layr.pack()
+
+    async def getLayerDefs(self):
+        return [l.pack() for l in self.layers.values()]
+
     def getView(self, iden=None):
         '''
         Get a View object.
@@ -2359,13 +2337,21 @@ class Cortex(s_cell.Cell):  # type: ignore
     def listViews(self):
         return list(self.views.values())
 
+    def getViewDef(self, iden):
+        view = self.getView(iden=iden)
+        if view is not None:
+            return view.pack()
+
+    def getViewDefs(self):
+        return [v.pack() for v in self.views.values()]
+
     async def addLayer(self, ldef=None):
         '''
         Add a Layer to the cortex.
         '''
         ldef = ldef or {}
 
-        ldef.setdefault('iden', s_common.guid())
+        ldef['iden'] = s_common.guid()
         ldef.setdefault('creator', self.auth.rootuser.iden)
         ldef.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
 
@@ -2395,7 +2381,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # forward wind the new layer to the current model version
         await layr.setModelVers(s_modelrev.maxvers)
 
-        return layr.iden
+        return layr.pack()
 
     async def _initLayr(self, layrinfo):
         '''
@@ -2419,24 +2405,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         iden = layrinfo.get('iden')
         path = s_common.gendir(self.dirn, 'layers', iden)
         return await s_layer.Layer.anit(layrinfo, path, nexsroot=self.nexsroot)
-
-    async def joinTeleLayer(self, url, indx=None):
-        '''
-        Convenience function to join a remote telepath layer
-        into this cortex and default view.
-        '''
-        info = {
-            'type': 'remote',
-            'creator': 'root',
-            'config': {
-                'url': url
-            }
-        }
-
-        layriden = await self.addLayer(**info)
-        await self.view.addLayer(layriden, indx=indx)
-        # FIXME: unchange this; change dist methods can return heavy objects
-        return layriden
 
     async def _initCoreLayers(self):
 
@@ -2498,12 +2466,10 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def runStormDmon(self, iden, ddef):
 
         # validate ddef before firing task
-        uidn = ddef.get('user')
-        if uidn is None:
-            mesg = 'Storm daemon definition requires "user".'
-            raise s_exc.NeedConfValu(mesg=mesg)
+        s_storm.reqValidDdef(ddef)
+
         # FIXME:  no such call
-        await self.auth.reqUser(uidn)
+        await self.auth.reqUser(ddef['user'])
 
         # raises if parser failure
         self.getStormQuery(ddef.get('storm'))
@@ -3128,7 +3094,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     def _convert_reqdict(reqdict):
         return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
 
-    async def addCronJob(self, useriden, query, reqs, incunit=None, incval=1):
+    async def addCronJob(self, cdef):
         '''
         Add a cron job to the cortex.  Convenience wrapper around agenda.add
 
@@ -3146,7 +3112,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             incunit (Optional[str]):
                 A member of the same set as above, with an additional member 'day'.  If is None (default), then the
                 appointment is one-shot and will not recur.
-            incval (Union[int, List[int]):
+            incvals (Union[int, List[int]):
                 A integer or a list of integers of the number of units
 
         Returns (bytes):
@@ -3156,30 +3122,44 @@ class Cortex(s_cell.Cell):  # type: ignore
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
+        s_agenda.reqValidCdef(s_common.convertToLists(cdef))
+
+        incunit = cdef.get('incunit')
+        reqs = cdef.get('reqs')
+
         try:
             if incunit is not None:
                 if isinstance(incunit, (list, tuple)):
                     incunit = [s_agenda.TimeUnit.fromString(i) for i in incunit]
                 else:
                     incunit = s_agenda.TimeUnit.fromString(incunit)
+                cdef['incunit'] = incunit
+
             if isinstance(reqs, Mapping):
-                newreqs = self._convert_reqdict(reqs)
+                reqs = self._convert_reqdict(reqs)
             else:
-                newreqs = [self._convert_reqdict(req) for req in reqs]
+                reqs = [self._convert_reqdict(req) for req in reqs]
+
+            cdef['reqs'] = reqs
         except KeyError:
             raise s_exc.BadConfValu('Unrecognized time unit')
 
-        user = await self.auth.reqUser(useriden)
+        cdef['iden'] = s_common.guid()
 
-        iden = s_common.guid()
-        await self._push('cron:add', useriden, iden, query, newreqs, incunit, incval)
-        await user.setAdmin(True, gateiden=iden)
-        return iden
+        return await self._push('cron:add', cdef)
 
     @s_nexus.Pusher.onPush('cron:add')
-    async def _onAddCronJob(self, useriden, croniden, query, newreqs, incunit=None, incval=1):
-        await self.agenda.add(useriden, croniden, query, newreqs, incunit, incval)
-        await self.auth.addAuthGate(croniden, 'cronjob')
+    async def _onAddCronJob(self, cdef):
+
+        iden = cdef['iden']
+        user = await self.auth.reqUser(cdef['creator'])
+
+        cdef = await self.agenda.add(cdef)
+
+        await self.auth.addAuthGate(iden, 'cronjob')
+        await user.setAdmin(True, gateiden=iden)
+
+        return cdef
 
     @s_nexus.Pusher.onPushAuto('cron:del')
     async def delCronJob(self, iden):
@@ -3232,12 +3212,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             info = cron.pack()
 
-            info['iden'] = iden
-
-            user = self.auth.user(cron.useriden)
+            user = self.auth.user(cron.creator)
             info['username'] = user.name
 
-            crons.append((iden, info))
+            crons.append(info)
 
         return crons
 
