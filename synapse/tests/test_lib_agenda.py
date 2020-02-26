@@ -211,16 +211,16 @@ class AgendaTest(s_t_utils.SynTest):
                         'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                         'incunit': s_agenda.TimeUnit.DAYOFWEEK,
                         'incvals': (2, 4)}
-                appt = await agenda.add(cdef)
-                guid = appt.pack().get('iden')
+                adef = await agenda.add(cdef)
+                guid = adef.get('iden')
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
                 cdef = {'useriden': rootiden, 'iden': 'IDEN3', 'storm': '[test:str=baz]',
                         'reqs': {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
                         'incunit': s_agenda.TimeUnit.MONTH,
                         'incvals': 1}
-                appt = await agenda.add(cdef)
-                guid2 = appt.pack().get('iden')
+                adef = await agenda.add(cdef)
+                guid2 = adef.get('iden')
 
                 xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2018}
                 lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2018}
@@ -300,8 +300,8 @@ class AgendaTest(s_t_utils.SynTest):
                 # Test that isrunning updated, cancelling works
                 cdef = {'useriden': rootiden, 'iden': 'IDEN5', 'storm': 'inet:ipv4=1 | sleep 120',
                         'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE, 'incvals': 1}
-                appt= await agenda.add(cdef)
-                guid = appt.pack().get('iden')
+                adef = await agenda.add(cdef)
+                guid = adef.get('iden')
 
                 unixtime += 60
                 await sync.wait()
@@ -324,8 +324,8 @@ class AgendaTest(s_t_utils.SynTest):
                 cdef = {'useriden': rootiden, 'iden': '#foo', 'storm': 'IDEN',
                         'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE,
                         'incvals': 1}
-                appt = await agenda.add(cdef)
-                guid = appt.pack().get('iden')
+                adef = await agenda.add(cdef)
+                guid = adef.get('iden')
 
                 # bypass the API because it would actually syntax check
                 agenda.appts[guid].query = 'badquery'
@@ -348,8 +348,8 @@ class AgendaTest(s_t_utils.SynTest):
                         'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                         'incunit': s_agenda.TimeUnit.DAYOFWEEK,
                         'incvals': (2, 4)}
-                appt = await agenda.add(cdef)
-                guid1 = appt.pack().get('iden')
+                adef = await agenda.add(cdef)
+                guid1 = adef.get('iden')
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
                 cdef = {'useriden': 'visi', 'iden': 'IDEN2', 'storm': '[test:str=baz]',
@@ -366,8 +366,8 @@ class AgendaTest(s_t_utils.SynTest):
                 # And one-shots for Christmas and last day of Hanukkah of 2018
                 cdef = {'useriden': 'visi', 'iden': 'IDEN3', 'storm': '#happyholidays',
                         'reqs': (xmas, lasthanu)}
-                appt = await agenda.add(cdef)
-                guid3 = appt.pack().get('iden')
+                adef = await agenda.add(cdef)
+                guid3 = adef.get('iden')
 
                 await agenda.mod(guid3, '#bahhumbug')
 
@@ -391,28 +391,28 @@ class AgendaTest(s_t_utils.SynTest):
 
                 await visi.addRule((True, ('cron', 'add')))
                 cron0 = await proxy.addCronJob(cdef)
-                cron0iden = cron0['iden']
+                cron0_iden = cron0.get('iden')
 
                 cdef = {'storm': 'inet:ipv6', 'reqs': {'hour': 2}}
                 cron1 = await proxy.addCronJob(cdef)
-                cron1iden = cron1['iden']
+                cron1_iden = cron1.get('iden')
 
-                await proxy.delCronJob(cron0iden)
+                await proxy.delCronJob(cron0_iden)
 
             async with core.getLocalProxy(user='newb') as proxy:
 
                 with self.raises(s_exc.AuthDeny):
-                    await proxy.delCronJob(cron1iden)
+                    await proxy.delCronJob(cron1_iden)
 
                 self.eq(await proxy.listCronJobs(), ())
                 await newb.addRule((True, ('cron', 'get')))
                 self.len(1, await proxy.listCronJobs())
 
                 with self.raises(s_exc.AuthDeny):
-                    await proxy.disableCronJob(cron1iden)
+                    await proxy.disableCronJob(cron1_iden)
 
                 await newb.addRule((True, ('cron', 'set')))
-                self.none(await proxy.disableCronJob(cron1iden))
+                self.none(await proxy.disableCronJob(cron1_iden))
 
                 await newb.addRule((True, ('cron', 'del')))
-                await proxy.delCronJob(cron1iden)
+                await proxy.delCronJob(cron1_iden)

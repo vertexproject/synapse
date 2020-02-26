@@ -3837,8 +3837,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.setUserPasswd('fred', 'secret')
                 cdef = {'storm': '[test:str=foo]', 'reqs': {'dayofmonth': 1},
                         'incunit': None, 'incvals': None}
-                newcdef = await core.addCronJob(cdef)
-                iden = newcdef['iden']
+                adef = await core.addCronJob(cdef)
+                iden = adef.get('iden')
 
             async with realcore.getLocalProxy(user='fred') as core:
                 # Rando user can't make cron jobs
