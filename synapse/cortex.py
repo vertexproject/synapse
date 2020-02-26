@@ -3154,12 +3154,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         iden = cdef['iden']
         user = await self.auth.reqUser(cdef['creator'])
 
-        cron = await self.agenda.add(cdef)
+        cdef = await self.agenda.add(cdef)
 
         await self.auth.addAuthGate(iden, 'cronjob')
         await user.setAdmin(True, gateiden=iden)
 
-        return cron
+        return cdef
 
     @s_nexus.Pusher.onPushAuto('cron:del')
     async def delCronJob(self, iden):
