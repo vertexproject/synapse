@@ -11,7 +11,9 @@ import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
 
+import synapse.lib.cell as s_cell
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.migrate_020 as s_migr
 
@@ -63,6 +65,32 @@ def tupleize(obj):
     if isinstance(obj, dict):
         return {k: tupleize(v) for k, v in obj.items()}
     return obj
+
+# NOTE: This service is identical to the regression repo except the confdef has been
+# updated for jsonschema and a new test value
+class MigrSvcApi(s_stormsvc.StormSvc, s_cell.CellApi):
+    _storm_svc_name = 'turtle'
+    _storm_svc_pkgs = ({
+        'name': 'turtle',
+        'version': (0, 0, 1),
+        'commands': ({'name': 'newcmd', 'storm': '[ inet:fqdn=$lib.service.get($cmdconf.svciden).test() ]'},),
+    },)
+
+    async def test(self):
+        return await self.cell.test()
+
+class MigrStormsvc(s_cell.Cell):
+    cellapi = MigrSvcApi
+    confdefs = (
+        ('myfqdn', {'type': 'string', 'default': 'snoop.io', 'description': 'A test fqdn'}),
+    )
+
+    async def __anit__(self, dirn, conf=None):
+        await s_cell.Cell.__anit__(self, dirn, conf=conf)
+        self.myfqdn = self.conf.get('myfqdn')
+
+    async def test(self):
+        return self.myfqdn
 
 class MigrationTest(s_t_utils.SynTest):
 
@@ -624,6 +652,36 @@ class MigrationTest(s_t_utils.SynTest):
                         stats.extend([log async for log in migr._migrlogGet('nodes', 'stat', statkey)])
 
                     self.eq((1, 1), stats[0]['val'])
+
+    async def test_migr_stormsvc(self):
+        conf = {
+            'src': None,
+            'dest': None,
+        }
+
+        async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
+            await migr.migrate()
+            await migr.fini()
+
+            # startup 0.2.0 core
+            async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+                # check core data
+                await self._checkCore(core, tdata)
+
+                # add in service
+                svcpath = os.path.join(dest, 'stormsvc')
+                async with await MigrStormsvc.anit(svcpath) as svc:
+                    svc.dmon.share('turtle', svc)
+                    root = await svc.auth.getUserByName('root')
+                    await root.setPasswd('root')
+                    info = await svc.dmon.listen('tcp://127.0.0.1:0/')
+                    host, port = info
+
+                    await core.nodes(f'service.add turtle tcp://root:root@127.0.0.1:{port}/turtle')
+                    await core.nodes('$lib.service.wait(turtle)')
+
+                    await core.nodes('newcmd')
+                    self.len(1, await core.nodes('inet:fqdn=snoop.io'))
 
     async def test_migr_migrTriggers(self):
         conf = {
