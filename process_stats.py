@@ -194,7 +194,7 @@ def main(argv):
         pref = get_fn_prefix(fn)
         prefs.add(pref)
         ldta = s_common.jsload(fp)
-        ldta['prefix'] = pref
+        ldta.setdefault('prefix', pref)
         raw_data.append(ldta)
 
     agg_data = aggregate_raw_data(raw_data)
