@@ -28,6 +28,8 @@ iden on each stack frame (which represents the iden for the stack that ends
 on that stack frame).
 '''
 
+ProvenanceEnabled = True
+
 class _ProvStack:
     def __init__(self):
         # We start with a dummy frame so we don't have to special case an empty stack
@@ -73,6 +75,9 @@ def claim(typ, **info):
         recent_frames = stack.provs[-6:]
         raise s_exc.RecursionLimitHit(mesg='Hit provenance claim recursion limit',
                                       type=typ, info=info, baseframe=baseframe, recent_frames=recent_frames)
+
+    if not ProvenanceEnabled:
+        info = {}
 
     stack.push(typ, **info)
 
@@ -124,20 +129,29 @@ class ProvStor(s_base.Base):
     PROV_MAP_SIZE = 64 * s_const.mebibyte
     PROV_FN = 'prov.lmdb'
 
-    async def __anit__(self, dirn):
+    async def __anit__(self, dirn, proven=True):
         await s_base.Base.__anit__(self)
-        path = str(pathlib.Path(dirn) / 'slabs' / self.PROV_FN)
-        self.slab = await s_lmdbslab.Slab.anit(path, map_size=self.PROV_MAP_SIZE)
-        self.onfini(self.slab.fini)
 
-        self.db = self.slab.initdb('prov')
+        global ProvenanceEnabled
+        ProvenanceEnabled = proven
+        self.enabled = proven
 
-        self.provseq = s_slabseqn.SlabSeqn(self.slab, 'provs')
+        if self.enabled:
+            path = str(pathlib.Path(dirn) / 'slabs' / self.PROV_FN)
+            self.slab = await s_lmdbslab.Slab.anit(path, map_size=self.PROV_MAP_SIZE)
+            self.onfini(self.slab.fini)
+
+            self.db = self.slab.initdb('prov')
+
+            self.provseq = s_slabseqn.SlabSeqn(self.slab, 'provs')
 
     def getProvStack(self, iden: bytes):
         '''
         Returns the provenance stack given the iden to it
         '''
+        if not ProvenanceEnabled:
+            return None
+
         retn = self.slab.get(iden, db=self.db)
         if retn is None:
             return None
@@ -148,6 +162,9 @@ class ProvStor(s_base.Base):
         '''
         Returns a stream of provenance stacks at the given offset
         '''
+        if not ProvenanceEnabled:
+            return None
+
         for _, iden in self.provseq.slice(offs, size):
             stack = self.getProvStack(iden)
             if stack is None:
@@ -158,6 +175,9 @@ class ProvStor(s_base.Base):
         '''
         Returns the iden corresponding to a provenance stack and stores if it hasn't seen it before
         '''
+        if not ProvenanceEnabled:
+            return None
+
         iden = _providen(provstack)
         misc, frames = provstack
         # Convert each frame back from (k, v) tuples to a dict
@@ -173,9 +193,12 @@ class ProvStor(s_base.Base):
         '''
         Writes the current provenance stack to storage if it wasn't already there and returns it
 
-        Returns (Tuple[bool, str, List[]]):
+        Returns (Tuple[bool, Optional[str], List[]]):
             Whether the stack was not cached, the iden of the prov stack, and the provstack
         '''
+        if not ProvenanceEnabled:
+            return False, None, []
+
         providen, provstack = get()
         wasnew = (providen is None)
         if wasnew:

@@ -106,3 +106,17 @@ class ProvenanceTest(s_t_utils.SynTest):
             self.eq(frame[0], 'feed:data')
             self.eq(frame[1].get('name'), 'syn.nodes')
             self.isin('user', frame[1])
+
+    async def test_prov_disabled(self):
+        '''
+        Test that things still work with provenance disabled
+        '''
+        async with self.getTestCoreAndProxy(conf={}) as (core, prox):
+            await s_common.aspin(prox.eval('[ test:str=foo ]'))
+
+            await alist(prox.provStacks(0, 1000))
+
+            self.none(await prox.getProvStack('abcd'))
+
+            retn = core.provstor.commit()
+            self.false(retn[0])

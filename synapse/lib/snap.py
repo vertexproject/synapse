@@ -86,12 +86,20 @@ class Snap(s_base.Base):
         '''
         Retrieve snap metadata to store along side nodeEdits.
         '''
-        now = s_common.now()
-        user = self.user.iden
-        wasnew, providen, provstack = self.core.provstor.commit()
-        if wasnew:
-            await self.fire('prov:new', time=now, user=user, prov=providen, provstack=provstack)
-        return {'time': now, 'user': user, 'prov': providen}
+        meta = {
+            'time': s_common.now(),
+            'user': self.user.iden
+        }
+
+        if self.core.provstor.enabled:
+            wasnew, providen, provstack = self.core.provstor.commit()
+
+            if wasnew:
+                await self.fire('prov:new', time=meta['time'], user=meta['user'], prov=providen, provstack=provstack)
+
+            meta['prov'] = providen
+
+        return meta
 
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):

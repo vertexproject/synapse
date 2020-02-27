@@ -561,13 +561,16 @@ class CoreApi(s_cell.CellApi):
     @s_cell.adminapi
     async def getProvStack(self, iden: str):
         '''
-        Return the providence stack associated with the given iden.
+        Return the provenance stack associated with the given iden.
 
         Args:
-            iden (str):  the iden from splice
+            iden (str):  the iden of the provenance stack
 
         Note: the iden appears on each splice entry as the 'prov' property
         '''
+        if iden is None:
+            return None
+
         return self.cell.provstor.getProvStack(s_common.uhex(iden))
 
     async def getPropNorm(self, prop, valu):
@@ -710,6 +713,12 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Should new layers lock memory for performance by default.',
             'type': 'boolean'
         },
+        'provenance:en': {
+            'default': False,
+            'description': 'Enable provenance tracking for all writes',
+            'type': 'boolean'
+        },
+
         'modules': {
             'default': [],
             'description': 'A list of module classes to load.',
@@ -719,10 +728,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'default': 8,
             'description': 'The max number of spare processes to keep around in the storm spawn pool.',
             'type': 'integer'
-        },
-        'splice:cryotank': {
-            'description': 'A telepath URL for a cryotank used to archive splices.',
-            'type': 'string'
         },
         'splice:en': {
             'default': True,
@@ -800,8 +805,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.view = None  # The default/main view
 
-        # FIXME: add feature flag
-        self.provstor = await s_provenance.ProvStor.anit(self.dirn)
+        proven = self.conf.get('provenance:en')
+
+        self.provstor = await s_provenance.ProvStor.anit(self.dirn, proven=proven)
         self.onfini(self.provstor.fini)
 
         # generic fini handler for the Cortex
