@@ -2,6 +2,7 @@
 Synapse utilites for dealing with Semvar versioning.
 This includes the Synapse version information.
 '''
+import sys
 import string
 
 import regex
@@ -179,6 +180,30 @@ def parseVersionParts(text, seps=vseps):
     ret.update(zip(keys, parts))
     return ret
 
+
+def reqVersion(valu, minver=None, maxver=None):
+
+    assert (minver or maxver) is not None
+    assert valu[0] is not None
+    assert len(valu) == 3
+
+    if maxver:
+        assert maxver[0] is not None
+        assert len(maxver) == 3
+
+        checkv = tuple([sys.maxsize if v is None else v for v in maxver])
+        if valu > checkv:
+            raise s_exc.SynErr(mesg='Version is larger than max version.',
+                               valu=valu, maxver=maxver)
+
+    if minver:
+        assert minver[0] is not None
+        assert len(minver) == 3
+
+        checkv = tuple([sys.maxsize if v is None else v for v in minver])
+        if valu < checkv:
+            raise s_exc.SynErr(mesg='Version is less than than minimum version.',
+                               valu=valu, minver=minver)
 
 ##############################################################################
 # The following are touched during the release process by bumpversion.

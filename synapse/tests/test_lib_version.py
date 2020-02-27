@@ -9,6 +9,13 @@ import synapse.lib.version as s_version
 
 class VersionTest(s_t_utils.SynTest):
 
+    def test_req_version(self):
+        self.none(s_version.reqVersion((0, 1, 100),
+                                       maxver=(0, 1, None),
+                                       minver=(0, 1, 0)))
+        with self.raises(s_exc.SynErr) as cm:
+            s_version.reqVersion((0, 2, 0), maxver=(0, 1, None))
+
     def test_version_basics(self):
         self.eq(s_version.mask20.bit_length(), 20)
         self.eq(s_version.mask60.bit_length(), 60)
