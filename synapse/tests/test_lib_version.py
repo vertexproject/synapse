@@ -9,12 +9,42 @@ import synapse.lib.version as s_version
 
 class VersionTest(s_t_utils.SynTest):
 
+    def _runreqtest(self, valu, minver, maxver, exp):
+        if exp is None:
+            self.none(s_version.reqVersion(valu, minver, maxver))
+        else:
+            with self.raises(exp):
+                s_version.reqVersion(valu, minver, maxver)
+
     def test_req_version(self):
-        self.none(s_version.reqVersion((0, 1, 100),
-                                       maxver=(0, 1, None),
-                                       minver=(0, 1, 0)))
-        with self.raises(s_exc.SynErr) as cm:
-            s_version.reqVersion((0, 2, 0), maxver=(0, 1, None))
+
+        # Vers, minver, maxver, result
+        tsts = [
+
+            ((0, 1, 98), (0, 1, 99), (0, 1, 101), s_exc.BadVersion),
+            ((0, 1, 99), (0, 1, 99), (0, 1, 101), None),
+            ((0, 1, 100), (0, 1, 99), (0, 1, 101), None),
+            ((0, 1, 101), (0, 1, 99), (0, 1, 101), None),
+            ((0, 1, 102), (0, 1, 99), (0, 1, 101), s_exc.BadVersion),
+
+            # ((0, 1, 100), (0, 1, 0), (0, 1, None), None),
+            #
+            # ((0, 1, 98), (0, 1, 99), (0, 1, 101), s_exc.BadVersion),
+            # ((0, 1, 98), (0, 1, None), (0, 1, 101), None),
+            # ((0, 1, 98), (0, None, None), (0, 1, 101), s_exc.BadVersion),
+            # ((0, 2, 0), (0, None, None), (0, 1, 101), None),
+            # ((0, 2, 0), (0, 2, 0), (0, 2, None), None),
+            # ((0, 2, 1), (0, 2, 0), (0, 2, None), None),
+            # ((0, 2, 0), None, (0, 1, None), s_exc.BadVersion),
+
+            # Sad paths
+            ((0, 2, 0), None, None, s_exc.BadVersion),
+            ((None, 2, 0), None, None, s_exc.BadVersion),
+            ((1, 2, 3, 4), None, None, s_exc.BadVersion),
+        ]
+        for vec in tsts:
+            print(vec)
+            self._runreqtest(*vec)
 
     def test_version_basics(self):
         self.eq(s_version.mask20.bit_length(), 20)

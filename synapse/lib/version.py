@@ -183,9 +183,12 @@ def parseVersionParts(text, seps=vseps):
 
 def reqVersion(valu, minver=None, maxver=None):
 
-    assert (minver or maxver) is not None
-    assert valu[0] is not None
-    assert len(valu) == 3
+    if valu[0] is None:
+        raise s_exc.BadVersion(mesg='valu[0] must not be None.')
+    if len(valu) != 3:
+        raise s_exc.BadVersion(mesg='value must be a semver tuple of 3 items.')
+    if (minver or maxver) is None:
+        raise s_exc.BadVersion(mesg='requires minver or maxver.')
 
     if maxver:
         assert maxver[0] is not None
@@ -193,16 +196,16 @@ def reqVersion(valu, minver=None, maxver=None):
 
         checkv = tuple([sys.maxsize if v is None else v for v in maxver])
         if valu > checkv:
-            raise s_exc.SynErr(mesg='Version is larger than max version.',
+            raise s_exc.BadVersion(mesg='Version is larger than max version.',
                                valu=valu, maxver=maxver)
 
     if minver:
         assert minver[0] is not None
         assert len(minver) == 3
 
-        checkv = tuple([sys.maxsize if v is None else v for v in minver])
+        checkv = tuple([0 if v is None else v for v in minver])
         if valu < checkv:
-            raise s_exc.SynErr(mesg='Version is less than than minimum version.',
+            raise s_exc.BadVersion(mesg='Version is less than than minimum version.',
                                valu=valu, minver=minver)
 
 ##############################################################################
