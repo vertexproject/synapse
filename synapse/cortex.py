@@ -772,9 +772,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             mesg = 'cortex:version is unset. please upgrade this cortex to version 2.'
             raise s_exc.BadStorageVersion(mesg=mesg)
 
-        offsdb = self.slab.initdb('offsets')
-        self.offs = s_slaboffs.SlabOffs(self.slab, offsdb)
-
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use
         self.dmon.share('cortex', self)
@@ -2192,11 +2189,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden = vdef.get('iden')
             await self.cellinfo.set('defaultview', iden)
             self.view = self.getView(iden)
-
-    async def getOffset(self, iden):
-        '''
-        '''
-        return self.offs.get(iden)
 
     async def addView(self, vdef):
 
