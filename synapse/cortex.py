@@ -1237,7 +1237,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Validate a storm package for loading.  Raises if invalid.
         '''
         # Validate package def
-        s_storm.reqValidPkgdef(s_common.convertToLists(pkgdef))
+        s_storm.reqValidPkgdef(pkgdef)
 
         # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
@@ -3122,7 +3122,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
-        s_agenda.reqValidCdef(s_common.convertToLists(cdef))
+        s_agenda.reqValidCdef(cdef)
 
         incunit = cdef.get('incunit')
         reqs = cdef.get('reqs')
