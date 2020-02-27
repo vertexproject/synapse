@@ -3227,7 +3227,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         crons = []
 
-        for iden, cron in self.agenda.list():
+        for _, cron in self.agenda.list():
 
             info = cron.pack()
 
