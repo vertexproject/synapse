@@ -31,6 +31,7 @@ import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modules as s_modules
 import synapse.lib.trigger as s_trigger
+import synapse.lib.version as s_version
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -46,6 +47,8 @@ logger = logging.getLogger(__name__)
 '''
 A Cortex implements the synapse hypergraph object.
 '''
+
+reqver = '>=0.1.0,<0.2.0'
 
 class CoreApi(s_cell.CellApi):
     '''
@@ -907,6 +910,18 @@ class Cortex(s_cell.Cell):
     async def __anit__(self, dirn, conf=None):
 
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
+
+        if self.inaugural:
+            retn = await self.cellinfo.set('cortex:version', s_version.version)
+
+        corevers = self.cellinfo.get('cortex:version')
+        if corevers is None:
+            # 01x Specific startup check since there is no guarantee that
+            # an older cortex was running. 02x Cortex will always have this key.
+            await self.cellinfo.set('cortex:version', s_version.version)
+        s_version.reqVersion(self.cellinfo.get('cortex:version'), reqver,
+                             exc=s_exc.BadCoreStore,
+                             mesg='cortex:version is invalid for 0.1.x')
 
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use

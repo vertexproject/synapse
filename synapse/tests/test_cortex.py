@@ -12,6 +12,7 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.version as s_version
 
 import synapse.tools.backup as s_tools_backup
 
@@ -1607,6 +1608,11 @@ class CortexBasicTest(s_t_utils.SynTest):
         data = ('foo', 'bar', 'baz')
 
         async with self.getTestCoreAndProxy() as (core, proxy):
+
+            corever = core.cellinfo.get('cortex:version')
+            cellver = core.cellinfo.get('synapse:version')
+            self.eq(corever, s_version.version)
+            self.eq(corever, cellver)
 
             nodes = ((('inet:user', 'visi'), {}),)
 
