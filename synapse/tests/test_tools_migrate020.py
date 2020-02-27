@@ -1,5 +1,6 @@
 import os
 import copy
+import glob
 import json
 import shutil
 import itertools
@@ -650,6 +651,8 @@ class MigrationTest(s_t_utils.SynTest):
                     await migr.hive.rename(('auth', 'users', root), ('auth', 'users', newroot))
                     await migr.hive.rename(('auth', 'users', fred), ('auth', 'users', newfred))
 
+                    migr.migrops = [op for op in migr.migrops if op != 'dirn']
+
                     await migr.migrate()
 
                 # startup 0.2.0 core
@@ -719,6 +722,81 @@ class MigrationTest(s_t_utils.SynTest):
 
                     await core.nodes('newcmd')
                     self.len(1, await core.nodes('inet:fqdn=snoop.io'))
+
+    async def test_migr_invalid(self):
+        conf = {
+            'src': None,
+            'dest': None,
+        }
+
+        async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
+            os.remove(os.path.join(migr.src, 'cell.yaml'))
+            await migr._migrDirn()
+            await migr._initStors()
+
+            # modify a layer to be of type=remote in the hive
+            lyrnode = await migr.hive.open(('cortex', 'layers', locallyrs[0]))
+            layrinfo = await lyrnode.dict()
+            await layrinfo.set('type', 'remote')
+
+            migr.migrops = [op for op in migr.migrops if op != 'dirn']
+
+            await migr.migrate()
+            await migr.fini()
+
+            # An error will be generated and migration halted
+            # so we can check that the cortex is not startable as 020
+            await self.asyncraises(s_exc.BadStorageVersion, s_cortex.Cortex.anit(dest, conf=None))
+
+    async def test_migr_cellyaml(self):
+        conf = {
+            'src': None,
+            'dest': None,
+            'migrops': [op for op in s_migr.ALL_MIGROPS if op != 'cellyaml'],
+        }
+
+        async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
+            await migr.migrate()
+            await migr.fini()
+
+            await self.asyncraises(s_exc.BadConfValu, s_cortex.Cortex.anit(dest, conf=None))
+
+        async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
+            migr.migrops.append('cellyaml')
+            os.remove(os.path.join(migr.src, 'cell.yaml'))
+
+            await migr.migrate()
+            await migr.fini()
+
+            # startup 0.2.0 core
+            async with await s_cortex.Cortex.anit(dest, conf=None) as core:
+                # check core data
+                await self._checkCore(core, tdata)
+
+    async def test_migr_dirn(self):
+        with self.getRegrDir('cortexes', REGR_VER) as src:
+            with self.getTestDir() as dest:
+                locallyrs = os.listdir(os.path.join(src, 'layers'))
+
+                conf = {
+                    'src': src,
+                    'dest': dest,
+                }
+
+                async with await s_migr.Migrator.anit(conf) as migr:
+                    srcglob = [x for x in glob.glob(src + '/**', recursive=True) if 'lock' not in x]
+                    nexpath = os.path.join(dest, 'slabs', 'nexus.lmdb')
+                    self.false(os.path.exists(nexpath))
+
+                    await migr._migrDirn()
+                    await migr._initStors()
+                    self.sorteq(srcglob, [x for x in glob.glob(src + '/**', recursive=True) if 'lock' not in x])
+                    self.true(os.path.exists(nexpath))
+
+                    await migr._migrDirn()
+                    await migr._initStors()
+                    self.sorteq(srcglob, [x for x in glob.glob(src + '/**', recursive=True) if 'lock' not in x])
+                    self.true(os.path.exists(nexpath))
 
     async def test_migr_migrTriggers(self):
         conf = {

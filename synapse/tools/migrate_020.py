@@ -9,6 +9,7 @@ import logging
 import argparse
 import collections
 
+import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
@@ -26,11 +27,14 @@ import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 
+import synapse.tools.backup as s_backup
+
 logger = logging.getLogger(__name__)
 
 ALL_MIGROPS = (
     'dirn',
     'dmodel',
+    'cellyaml',
     'hiveauth',
     'hivestor',
     'hivelyr',
@@ -544,17 +548,38 @@ class Migrator(s_base.Base):
         # initialize storage for migration
         await self._initStors()
 
-        # datamodel migration
+        # check if configuration is valid to start
+        isvalid = await self._chkValid()
+        if not isvalid:
+            return
+
+        # migrate all of the config and hive data first so cortex is
+        # in a valid state during node data migration
+        if 'cellyaml' in self.migrops:
+            await self._migrCellYaml()
+
         if 'dmodel' in self.migrops:
             await self._migrDatamodel()
 
-        # storage info migration
         if 'hivestor' in self.migrops:
             storinfo = await self._migrHiveStorInfo()
         else:
             storinfo = {}
 
-        # full layer migration
+        if 'hivelyr' in self.migrops:
+            for iden in locallyrs:
+                await self._migrHiveLayerInfo(storinfo, iden)
+
+        if 'triggers' in self.migrops:
+            await self._migrTriggers()
+
+        if 'cron' in self.migrops:
+            await self._migrCron()
+
+        if 'hiveauth' in self.migrops:
+            await self._migrHiveAuth()
+
+        # full layer data migration
         for iden in locallyrs:
             logger.info(f'Starting migration for storage {storinfo.get("iden")} and layer {iden}')
             wlyr = await self._destGetWlyr(self.dest, storinfo, iden)
@@ -564,21 +589,6 @@ class Migrator(s_base.Base):
 
             if 'nodedata' in self.migrops:
                 await self._migrNodeData(iden, wlyr)
-
-            if 'hivelyr' in self.migrops:
-                await self._migrHiveLayerInfo(storinfo, iden)
-
-        # trigger migration
-        if 'triggers' in self.migrops:
-            await self._migrTriggers()
-
-        # cronjob migration
-        if 'cron' in self.migrops:
-            await self._migrCron()
-
-        # auth migration
-        if 'hiveauth' in self.migrops:
-            await self._migrHiveAuth()
 
     async def dumpErrors(self):
         '''
@@ -641,6 +651,23 @@ class Migrator(s_base.Base):
 
         logger.debug('Finished storage initialization')
         return
+
+    async def _chkValid(self):
+        '''
+        Check if the cortex is in a valid state to be migrated.
+
+        Returns:
+            (bool): Whether migration can proceed
+        '''
+        # remote layers
+        lyrs = await self.hive.open(('cortex', 'layers'))
+        for lyriden, lyrinfo in lyrs:
+            lyrtype = lyrinfo.get('type')
+            if lyrtype is not None and lyrtype.valu == 'remote':
+                logger.error(f'{lyriden} is a remote layer - it must be unconfigured to proceed with migration')
+                return False
+
+        return True
 
     async def formCounts(self):
         '''
@@ -763,29 +790,69 @@ class Migrator(s_base.Base):
             logger.info(f'Skipping dirn migration step; dest exists={destexists}')
             return locallyrs
 
-        if destexists and len(os.listdir(dest)) > 0:
-            logger.warning('Destination cortex dirn is not empty, attempting to continue migration to it.')
-            return locallyrs
-
-        elif not destexists:
+        if not destexists:
             s_common.gendir(dest)
 
         for sdir in os.listdir(src):
             spath = os.path.join(src, sdir)
             dpath = os.path.join(dest, sdir)
 
-            if sdir == 'layers':
-                for lyr in locallyrs:
-                    os.makedirs(os.path.join(dpath, lyr))
+            isdir = os.path.isdir(spath)
+            isfile = os.path.isfile(spath)
+            exists = os.path.exists(dpath)
 
-            elif os.path.isfile(spath):
+            if sdir == 'layers':
+                # make locallyr dirs if they don't exist but never overwrite
+                for lyr in locallyrs:
+                    lpath = os.path.join(dpath, lyr)
+                    if not os.path.exists(lpath):
+                        os.makedirs(lpath)
+                    else:
+                        logger.info(f'Layer dir exists, leaving as-is: {lyr}')
+
+            elif isfile:
+                if exists:
+                    os.remove(dpath)
                 shutil.copy(spath, dpath)
 
-            elif os.path.isdir(spath):
+            elif spath.endswith('slabs'):
+                # delete the non-nexus items from the destination if they exist
+                if exists:
+                    for root, dnames, fnames in os.walk(dpath, topdown=True):
+                        for fname in fnames:
+                            if 'nexus' not in fname:
+                                os.remove(os.path.join(dpath, fname))
+                        for dname in list(dnames):
+                            if 'nexus' not in dname:
+                                shutil.rmtree(os.path.join(dpath, dname))
+                            dnames.remove(dname)
+
+                s_backup.backup(spath, dpath)  # so we compress the slabs
+
+            elif isdir:
+                if exists:
+                    shutil.rmtree(dpath)
                 shutil.copytree(spath, dpath, ignore=shutil.ignore_patterns('sock'))
 
         logger.info(f'Completed dirn copy from {src} to {dest}')
         return locallyrs
+
+    async def _migrCellYaml(self):
+        '''
+        If Cell YAML file exists, remove deprecated confdefs.
+        '''
+        migrop = 'cellyaml'
+
+        validconfs = s_cortex.Cortex.confdefs
+        yamlpath = os.path.join(self.dest, 'cell.yaml')
+        if os.path.exists(yamlpath):
+            conf = s_common.yamlload(self.dest, 'cell.yaml')
+            remconfs = [k for k in conf.keys() if k not in validconfs]
+            conf = {k: v for k, v in conf.items() if k not in remconfs}
+            s_common.yamlsave(conf, self.dest, 'cell.yaml')
+
+            logger.info(f'Completed cell.yaml migration, removed {remconfs}')
+            await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
 
     async def _migrDatamodel(self):
         '''
@@ -943,11 +1010,7 @@ class Migrator(s_base.Base):
 
         defaultview = await self.hive.get(('cellinfo', 'defaultview'))
 
-        srctree = await self.hive.saveHiveTree(('auth01x',))
-        if srctree == {'value': None}:
-            srctree = await self.hive.saveHiveTree(('auth',))
-        else:
-            logger.info(f'Using backup auth01x for migration')
+        srctree = await self.hive.saveHiveTree(('auth',))
 
         migrauth = MigrAuth(srctree, defaultview, triggers, queues, crons)
         desttree = await migrauth.translate()
@@ -1388,7 +1451,8 @@ class Migrator(s_base.Base):
                 props[prop] = valu
 
         # yield last node
-        yield await self._srcPackNode(buid, ndef, props, tags, tagprops)
+        if buid is not None:
+            yield await self._srcPackNode(buid, ndef, props, tags, tagprops)
 
     async def _srcIterNodedata(self, buidslab, buiddb):
         '''
