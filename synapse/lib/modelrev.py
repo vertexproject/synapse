@@ -1,28 +1,26 @@
 import logging
-import contextlib
 
 import synapse.exc as s_exc
-import synapse.lib.migrate as s_migrate
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 1, 3)
+maxvers = (0, 2, 0)
 
 class ModelRev:
 
     def __init__(self, core):
         self.core = core
         self.revs = (
-            ((0, 0, 0), self._addModelVers),
-            ((0, 1, 0), self._addFormNameSpaces),
-            ((0, 1, 1), self._normContactAddress),
-            ((0, 1, 2), self._afterUniqueIdens),
-            ((0, 1, 3), self._ouOrgDissolve),
+            # ((0, 0, 0), self._addModelVers),
+            # ((0, 1, 0), self._addFormNameSpaces),
+            # ((0, 1, 1), self._normContactAddress),
+            # ((0, 1, 2), self._afterUniqueIdens),
+            # ((0, 1, 3), self._ouOrgDissolve),
         )
 
     async def revCoreLayers(self):
 
-        version = self.revs[-1][0]
+        version = self.revs[-1][0] if self.revs else maxvers
 
         # do a first pass to detect layers at the wrong version
         # that we are not able to rev ourselves and bail...
@@ -66,45 +64,3 @@ class ModelRev:
             [await l.setModelVers(revvers) for l in todo]
 
         logger.warning('...model migrations complete!')
-
-    @contextlib.asynccontextmanager
-    async def getCoreMigr(self, layers):
-        async with await s_migrate.Migration.anit(self.core, layers=layers) as migr:
-            yield migr
-
-    async def _addModelVers(self, layers):
-        pass
-
-    async def _addFormNameSpaces(self, layers):
-
-        async with self.getCoreMigr(layers) as migr:
-
-            # delay ndef prop cascade so we can rename everything first
-            async with migr.delayNdefProps():
-
-                await migr.setFormName('seen', 'meta:seen')
-                await migr.setFormName('source', 'meta:source')
-
-                await migr.setFormName('has', 'edge:has')
-                await migr.setFormName('refs', 'edge:refs')
-                await migr.setFormName('wentto', 'edge:wentto')
-
-                await migr.setFormName('event', 'graph:event')
-                await migr.setFormName('cluster', 'graph:cluster')
-                await migr.setFormName('graph:link', 'graph:edge')
-                await migr.setFormName('graph:timelink', 'graph:timeedge')
-
-    async def _normContactAddress(self, layers):
-        async with self.getCoreMigr(layers) as migr:
-            await migr.normPropValu('ps:contact:address')
-
-    async def _afterUniqueIdens(self, layers):
-        '''
-        Nothing to do.  Merely acts as a barrier against running a version before we went to the scheme where cortex,
-        views, and layers had unique idens.  (The migration actually occurs in cortex._migrateViewLayers)
-        '''
-        pass
-
-    async def _ouOrgDissolve(self, layers):
-        for layr in layers:
-            await layr.editPropName('ou:org', 'disolved', 'dissolved')
