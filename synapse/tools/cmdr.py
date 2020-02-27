@@ -3,12 +3,31 @@ import asyncio
 import logging
 import warnings
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr
+import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
+
+minver = (0, 1, 0)
+maxver = (0, 1, None)
+
+async def runcmdr(argv, item):  # pragma: no cover
+    s_version.reqVersion(item._getSynVers(), minver=minver, maxver=maxver)
+
+    cmdr = await s_cmdr.getItemCmdr(item)
+    await cmdr.addSignalHandlers()
+    # Enable colors for users
+    cmdr.colorsenabled = True
+
+    if len(argv) == 2:
+        await cmdr.runCmdLine(argv[1])
+        return
+
+    await cmdr.runCmdLoop()
 
 async def main(argv):  # pragma: no cover
 
@@ -19,17 +38,14 @@ async def main(argv):  # pragma: no cover
     s_common.setlogging(logger, 'WARNING')
 
     async with await s_telepath.openurl(argv[0]) as item:
-
-        cmdr = await s_cmdr.getItemCmdr(item)
-        await cmdr.addSignalHandlers()
-        # Enable colors for users
-        cmdr.colorsenabled = True
-
-        if len(argv) == 2:
-            await cmdr.runCmdLine(argv[1])
-            return
-
-        await cmdr.runCmdLoop()
+        try:
+            await runcmdr(argv, item)
+        except s_exc.BadVersion as e:
+            valu = s_version.fmtVersion(*e.get('valu'))
+            pminver = s_version.fmtVersion(*["*" if v is None else v for v in minver])
+            pmaxver = s_version.fmtVersion(*["*" if v is None else v for v in maxver])
+            print(f'Cortex version {valu} is outside of the cmdr supported range ({pminver}, {pmaxver}).')
+            print(f'Please use a version of Synapse which supports {valu}')
 
 if __name__ == '__main__': # pragma: no cover
     warnings.filterwarnings("default", category=PendingDeprecationWarning)
