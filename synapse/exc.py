@@ -81,7 +81,7 @@ class BadPropValu(SynErr): pass
 class BadVersion(SynErr):
     '''Generic Bad Version exception.'''
     pass
-class BadStorageVersion(BadVersion):
+class BadStorageVersion(SynErr):
     ''' Stored persistent data is incompatible with running software '''
     pass
 
