@@ -74,81 +74,6 @@ async def printuser(user, details=False, cell=None):
                     rrep = reprrule(rule)
                     outp.printf(f'        {i} {rrep}')
 
-async def runHandleModify(opts, cell, cell_supports_authgate):
-    if opts.adduser:
-        outp.printf(f'adding user: {opts.name}')
-        user = await cell.addAuthUser(opts.name)
-
-    if opts.deluser:
-        outp.printf(f'deleting user: {opts.name}')
-        await cell.delAuthUser(opts.name)
-
-    if opts.addrole:
-        outp.printf(f'adding role: {opts.name}')
-        user = await cell.addAuthRole(opts.name)
-
-    if opts.delrole:
-        outp.printf(f'deleting role: {opts.name}')
-        await cell.delAuthRole(opts.name)
-
-    if opts.passwd:
-        outp.printf(f'setting passwd for: {opts.name}')
-        await cell.setUserPasswd(opts.name, opts.passwd)
-
-    if opts.grant:
-        outp.printf(f'granting {opts.grant} to: {opts.name}')
-        await cell.addUserRole(opts.name, opts.grant)
-
-    if opts.revoke:
-        outp.printf(f'revoking {opts.revoke} from: {opts.name}')
-        await cell.delUserRole(opts.name, opts.revoke)
-
-    if opts.admin:
-        outp.printf(f'granting admin status: {opts.name}')
-        await cell.setAuthAdmin(opts.name, True)
-
-    if opts.noadmin:
-        outp.printf(f'revoking admin status: {opts.name}')
-        await cell.setAuthAdmin(opts.name, False)
-
-    if opts.lock:
-        outp.printf(f'locking user: {opts.name}')
-        await cell.setUserLocked(opts.name, True)
-
-    if opts.unlock:
-        outp.printf(f'unlocking user: {opts.name}')
-        await cell.setUserLocked(opts.name, False)
-
-    if opts.addrule:
-
-        text = opts.addrule
-
-        # TODO: syntax for index...
-        allow = True
-        if text.startswith('!'):
-            allow = False
-            text = text[1:]
-
-        rule = (allow, text.split('.'))
-
-        outp.printf(f'adding rule to {opts.name}: {rule!r}')
-        if cell_supports_authgate:
-            await cell.addAuthRule(opts.name, rule, indx=None, iden=opts.object)
-        else:
-            await cell.addAuthRule(opts.name, rule, indx=None)
-
-    if opts.delrule is not None:
-        outp.printf(f'deleting rule index: {opts.delrule}')
-        await cell.delAuthRuleIndx(opts.name, opts.delrule)
-
-    try:
-        user = await cell.getAuthInfo(opts.name)
-    except s_exc.NoSuchName:
-        outp.printf(f'no such user: {opts.name}')
-        return 1
-
-    await printuser(user)
-
 async def handleModify(opts):
 
     cell_supports_authgate = False
@@ -163,7 +88,79 @@ async def handleModify(opts):
             if cell._getSynVers() >= min_authgate_vers:
                 cell_supports_authgate = True
 
-            await runHandleModify(opts, cell, cell_supports_authgate)
+            if opts.adduser:
+                outp.printf(f'adding user: {opts.name}')
+                user = await cell.addAuthUser(opts.name)
+
+            if opts.deluser:
+                outp.printf(f'deleting user: {opts.name}')
+                await cell.delAuthUser(opts.name)
+
+            if opts.addrole:
+                outp.printf(f'adding role: {opts.name}')
+                user = await cell.addAuthRole(opts.name)
+
+            if opts.delrole:
+                outp.printf(f'deleting role: {opts.name}')
+                await cell.delAuthRole(opts.name)
+
+            if opts.passwd:
+                outp.printf(f'setting passwd for: {opts.name}')
+                await cell.setUserPasswd(opts.name, opts.passwd)
+
+            if opts.grant:
+                outp.printf(f'granting {opts.grant} to: {opts.name}')
+                await cell.addUserRole(opts.name, opts.grant)
+
+            if opts.revoke:
+                outp.printf(f'revoking {opts.revoke} from: {opts.name}')
+                await cell.delUserRole(opts.name, opts.revoke)
+
+            if opts.admin:
+                outp.printf(f'granting admin status: {opts.name}')
+                await cell.setAuthAdmin(opts.name, True)
+
+            if opts.noadmin:
+                outp.printf(f'revoking admin status: {opts.name}')
+                await cell.setAuthAdmin(opts.name, False)
+
+            if opts.lock:
+                outp.printf(f'locking user: {opts.name}')
+                await cell.setUserLocked(opts.name, True)
+
+            if opts.unlock:
+                outp.printf(f'unlocking user: {opts.name}')
+                await cell.setUserLocked(opts.name, False)
+
+            if opts.addrule:
+
+                text = opts.addrule
+
+                # TODO: syntax for index...
+                allow = True
+                if text.startswith('!'):
+                    allow = False
+                    text = text[1:]
+
+                rule = (allow, text.split('.'))
+
+                outp.printf(f'adding rule to {opts.name}: {rule!r}')
+                if cell_supports_authgate:
+                    await cell.addAuthRule(opts.name, rule, indx=None, iden=opts.object)
+                else:
+                    await cell.addAuthRule(opts.name, rule, indx=None)
+
+            if opts.delrule is not None:
+                outp.printf(f'deleting rule index: {opts.delrule}')
+                await cell.delAuthRuleIndx(opts.name, opts.delrule)
+
+            try:
+                user = await cell.getAuthInfo(opts.name)
+            except s_exc.NoSuchName:
+                outp.printf(f'no such user: {opts.name}')
+                return 1
+
+            await printuser(user)
 
     except s_exc.BadVersion as e:
         valu = s_version.fmtVersion(*e.get('valu'))
@@ -182,32 +179,29 @@ async def handleModify(opts):
     else:
         return 0
 
-async def runHandleList(opts, cell):
-    if opts.name:
-        for name in opts.name:
-            user = await cell.getAuthInfo(name)
-            if user is None:
-                outp.printf(f'no such user: {opts.name}')
-                return 1
-
-            await printuser(user, cell=cell, details=opts.detail)
-        return 0
-
-    outp.printf(f'getting users and roles')
-
-    outp.printf('users:')
-    for user in await cell.getAuthUsers():
-        outp.printf(f'    {user}')
-
-    outp.printf('roles:')
-    for role in await cell.getAuthRoles():
-        outp.printf(f'    {role}')
-
 async def handleList(opts):
     try:
         async with await s_telepath.openurl(opts.cellurl) as cell:
             s_version.reqVersion(cell._getSynVers(), reqver)
-            await runHandleList(opts, cell)
+            if opts.name:
+                for name in opts.name:
+                    user = await cell.getAuthInfo(name)
+                    if user is None:
+                        outp.printf(f'no such user: {opts.name}')
+                        return 1
+
+                    await printuser(user, cell=cell, details=opts.detail)
+                return 0
+
+            outp.printf(f'getting users and roles')
+
+            outp.printf('users:')
+            for user in await cell.getAuthUsers():
+                outp.printf(f'    {user}')
+
+            outp.printf('roles:')
+            for role in await cell.getAuthRoles():
+                outp.printf(f'    {role}')
 
     except s_exc.BadVersion as e:
         valu = s_version.fmtVersion(*e.get('valu'))
