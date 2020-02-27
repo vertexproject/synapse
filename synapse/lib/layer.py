@@ -1823,8 +1823,9 @@ class Layer(s_nexus.Pusher):
                 props = {
                     'time': time,
                     'user': user,
-                    'prov': prov,
                 }
+                if prov is not None:
+                    props['prov'] = prov
 
                 if edit == EDIT_NODE_ADD:
                     formvalu, stortype = info
