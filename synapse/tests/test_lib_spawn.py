@@ -535,7 +535,11 @@ class CoreSpawnTest(s_test.SynTest):
             async with core.getLocalProxy() as prox:
 
                 await core.nodes('[test:int=10]')
-                await prox.storm('test:int=10 $node.data.set(foo, hehe)', opts=opts).list()
+                msgs = await prox.storm('test:int=10 $node.data.set(foo, hehe)', opts=opts).list()
+                errs = [m[1] for m in msgs if m[0] == 'err']
+                self.eq(errs[0][0], 'IsReadOnly')
+
+                await core.nodes('test:int=10 $node.data.set(foo, hehe)')
 
                 msgs = await prox.storm('test:int $foo=$node.data.get(foo) $lib.print($foo)', opts=opts).list()
                 self.stormIsInPrint('hehe', msgs)
@@ -545,10 +549,11 @@ class CoreSpawnTest(s_test.SynTest):
                 self.stormIsInPrint("('foo', 'hehe')", msgs)
 
                 await core.nodes('test:int=10 $node.data.set(woot, woot)')
-                q = 'test:int=10 $node.data.pop(woot) $lib.print($node.data.get(woot))'
+                q = 'test:int=10 $node.data.pop(woot)'
 
                 msgs = await prox.storm(q, opts=opts).list()
-                self.stormIsInPrint("None", msgs)
+                errs = [m[1] for m in msgs if m[0] == 'err']
+                self.eq(errs[0][0], 'IsReadOnly')
 
     async def test_model_extensions(self):
         async with self.getTestCoreAndProxy() as (core, prox):
