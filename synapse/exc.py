@@ -78,6 +78,9 @@ class NoPropValu(SynErr): pass
 
 class BadOptValu(SynErr): pass
 class BadPropValu(SynErr): pass
+class BadVersion(SynErr):
+    '''Generic Bad Version exception.'''
+    pass
 class BadStorageVersion(SynErr):
     ''' Stored persistent data is incompatible with running software '''
     pass

@@ -5,6 +5,7 @@ import asyncio
 import logging
 import argparse
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
@@ -12,9 +13,12 @@ import synapse.telepath as s_telepath
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.version as s_version
 import synapse.lib.encoding as s_encoding
 
 logger = logging.getLogger(__name__)
+
+reqver = '>=0.1.0,<0.2.0'
 
 def getItems(*paths):
     items = []
@@ -98,10 +102,18 @@ async def main(argv, outp=None):
 
     elif opts.cortex:
         async with await s_telepath.openurl(opts.cortex) as core:
+            try:
+                s_version.reqVersion(core._getSynVers(), reqver)
+            except s_exc.BadVersion as e:
+                valu = s_version.fmtVersion(*e.get('valu'))
+                outp.printf(f'Cortex version {valu} is outside of the feed tool supported range ({reqver}).')
+                outp.printf(f'Please use a version of Synapse which supports {valu}; '
+                      f'current version is {s_version.verstring}.')
+                return 1
             await addFeedData(core, outp, opts.format, opts.debug,
-                        chunksize=opts.chunksize,
-                        offset=opts.offset,
-                        *opts.files)
+                              chunksize=opts.chunksize,
+                              offset=opts.offset,
+                              *opts.files)
 
     else:  # pragma: no cover
         outp.printf('No valid options provided [%s]', opts)

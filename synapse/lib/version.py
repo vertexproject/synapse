@@ -6,6 +6,9 @@ import string
 
 import regex
 
+import packaging.version as p_version
+import packaging.specifiers as p_specifiers
+
 # This module is imported during synapse.__init__.  As such, we can't pull
 # arbitrary modules from Synapse here. synapse.exc is currently safe,
 # but we should not add other modules to this module.
@@ -179,6 +182,29 @@ def parseVersionParts(text, seps=vseps):
     ret.update(zip(keys, parts))
     return ret
 
+
+def reqVersion(valu, reqver):
+    '''
+    Require a given version tuple is valid for a given requirements string.
+
+    Args:
+        valu (int, int, int): Major, minor and patch value to check.
+        reqver (str): A requirements version string.
+
+    Returns:
+        None: If the value is in bounds of minver and maxver.
+
+    Raises:
+        s_exc.BadVersion: If a precondition is incorrect or a version value is out of bounds.
+    '''
+
+    spec = p_specifiers.SpecifierSet(reqver)
+    verstr = fmtVersion(*valu)
+    vers = p_version.Version(verstr)
+
+    if vers not in spec:
+        raise s_exc.BadVersion(mesg='Version is not',
+                               valu=valu, verstr=verstr, reqver=reqver)
 
 ##############################################################################
 # The following are touched during the release process by bumpversion.
