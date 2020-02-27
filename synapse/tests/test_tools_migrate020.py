@@ -274,8 +274,8 @@ class MigrationTest(s_t_utils.SynTest):
         nodetrg = (await core.nodes('syn:trigger:cond=node:add'))[0].ndef[1]
 
         crons = await core.listCronJobs()
-        fredcron = [c for c in crons if c[1]['useriden'] == fred.iden][0]
-        bobocron = [c for c in crons if c[1]['useriden'] == bobo.iden][0]
+        fredcron = [c for c in crons if c['creator'] == fred.iden][0]
+        bobocron = [c for c in crons if c['creator'] == bobo.iden][0]
 
         defview = await core.hive.get(('cellinfo', 'defaultview'))
         secview = [k for k in core.views.keys() if k != defview][0]
@@ -315,11 +315,11 @@ class MigrationTest(s_t_utils.SynTest):
             self.eq(1, await proxy.count(f'$q = $lib.queue.get(fredq) ($offs, $ipv4) = $q.get(0) inet:ipv4=$ipv4'))
 
             self.len(2, await proxy.listCronJobs())
-            await proxy.count(f'cron.disable {bobocron[0]}')
+            await proxy.count(f'cron.disable {bobocron["iden"]}')
 
             await self.asyncraises(s_exc.AuthDeny, proxy.count('cron.add --hour +8 {file:bytes}'))
-            await self.asyncraises(s_exc.StormRuntimeError, proxy.count(f'cron.del {fredcron[0]}'))
-            await self.asyncraises(s_exc.StormRuntimeError, proxy.count(f'cron.disable {fredcron[0]}'))
+            await self.asyncraises(s_exc.StormRuntimeError, proxy.count(f'cron.del {fredcron["iden"]}'))
+            await self.asyncraises(s_exc.StormRuntimeError, proxy.count(f'cron.disable {fredcron["iden"]}'))
 
         # fred
         # - read to main view
@@ -359,10 +359,10 @@ class MigrationTest(s_t_utils.SynTest):
                                    proxy.count(f'$q = $lib.queue.get(rootq) inet:ipv4=1.2.3.4 $q.put($node.repr())'))
 
             self.len(2, await proxy.listCronJobs())
-            await proxy.count(f'cron.del {bobocron[0]}')
+            await proxy.count(f'cron.del {bobocron["iden"]}')
             self.len(1, await proxy.listCronJobs())
 
-            await proxy.count(f'cron.disable {fredcron[0]}')
+            await proxy.count(f'cron.disable {fredcron["iden"]}')
 
             await proxy.count('cron.add --hour +8 {file:bytes}')
             self.len(2, await proxy.listCronJobs())
@@ -399,7 +399,7 @@ class MigrationTest(s_t_utils.SynTest):
             await proxy.count('cron.add --hour +8 {inet:email}')
             self.len(3, await proxy.listCronJobs())
 
-            await proxy.count(f'cron.del {fredcron[0]}')
+            await proxy.count(f'cron.del {fredcron["iden"]}')
             self.len(2, await proxy.listCronJobs())
 
     async def test_migr_nexus(self):

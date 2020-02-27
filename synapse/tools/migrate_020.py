@@ -36,6 +36,7 @@ ALL_MIGROPS = (
     'hivelyr',
     'nodes',
     'nodedata',
+    'cron',
     'triggers',
 )
 
@@ -571,6 +572,10 @@ class Migrator(s_base.Base):
         if 'triggers' in self.migrops:
             await self._migrTriggers()
 
+        # cronjob migration
+        if 'cron' in self.migrops:
+            await self._migrCron()
+
         # auth migration
         if 'hiveauth' in self.migrops:
             await self._migrHiveAuth()
@@ -900,7 +905,7 @@ class Migrator(s_base.Base):
     async def _migrHiveAuth(self):
         '''
         Inplace migration in the new destination cortex for auth/permissions.
-        Needs be run after layer info and triggers are updated in the hive.
+        Needs be run after layer info, triggers, and crons are updated in the hive.
         '''
         migrop = 'hiveauth'
 
@@ -925,16 +930,16 @@ class Migrator(s_base.Base):
 
         logger.info(f'Found {len(queues)} queues to migrate to AuthGates')
 
-        # get triggers that will need authgates added
+        # get triggers that will need authgates added (in 020 format)
         triggers = collections.defaultdict(set)
         for viewiden, viewnode in await self.hive.open(('cortex', 'views')):
             for trigiden, trignode in await viewnode.open(('triggers',)):
                 triggers[trigiden].add(trignode.valu.get('user'))
 
-        # get cron jobs that need authgates added
+        # get cron jobs that need authgates added (in 020 format)
         crons = []  # list of (<cron iden>, <user iden>)
         for croniden, cronvals in (await self.hive.dict(('agenda', 'appts'))).items():
-            crons.append((croniden, cronvals.get('useriden')))
+            crons.append((croniden, cronvals.get('creator')))
 
         defaultview = await self.hive.get(('cellinfo', 'defaultview'))
 
@@ -991,6 +996,24 @@ class Migrator(s_base.Base):
         await self._migrlogAdd(migrop, 'prog', storiden, s_common.now())
 
         return stordict
+
+    async def _migrCron(self):
+        '''
+        Replaces 'useriden' with 'creator'
+        '''
+        migrop = 'cron'
+
+        crons = await self.hive.open(('agenda', 'appts'))
+        for croniden, cronnode in crons:
+            info = cronnode.valu
+            uiden = info.get('useriden')
+            if uiden is not None:
+                del info['useriden']
+                info['creator'] = uiden
+                await cronnode.set(info)
+
+        logger.info('Completed Cron migration')
+        await self._migrlogAdd(migrop, 'prog', 'none', s_common.now())
 
     async def _migrTriggers(self):
         '''
