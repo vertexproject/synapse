@@ -75,10 +75,6 @@ class Migration(s_base.Base):
                 if i and i % _progress == 0:
                     logger.info(f'Processed {i} delayed values.')
 
-    async def editNodeNdef(self, oldv, newv):
-        # TODO re-implement for 0.2.x once needed
-        pass
-
     async def setFormName(self, oldn, newn):
         '''
         Rename a form within all the layers.
