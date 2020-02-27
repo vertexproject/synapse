@@ -106,8 +106,8 @@ async def main(argv, outp=None):
                 s_version.reqVersion(core._getSynVers(), reqver)
             except s_exc.BadVersion as e:
                 valu = s_version.fmtVersion(*e.get('valu'))
-                print(f'Cortex version {valu} is outside of the feed tool supported range ({reqver}).')
-                print(f'Please use a version of Synapse which supports {valu}; '
+                outp.printf(f'Cortex version {valu} is outside of the feed tool supported range ({reqver}).')
+                outp.printf(f'Please use a version of Synapse which supports {valu}; '
                       f'current version is {s_version.verstring}.')
                 return 1
             await addFeedData(core, outp, opts.format, opts.debug,

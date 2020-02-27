@@ -167,8 +167,8 @@ async def handleModify(opts):
 
     except s_exc.BadVersion as e:
         valu = s_version.fmtVersion(*e.get('valu'))
-        print(f'Cell version {valu} is outside of the cellauth supported range ({reqver}).')
-        print(f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
+        outp.printf(f'Cell version {valu} is outside of the cellauth supported range ({reqver}).')
+        outp.printf(f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
         return 1
 
     except Exception as e:  # pragma: no cover
@@ -211,8 +211,8 @@ async def handleList(opts):
 
     except s_exc.BadVersion as e:
         valu = s_version.fmtVersion(*e.get('valu'))
-        print(f'Cell version {valu} is outside of the cellauth supported range ({reqver}).')
-        print(f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
+        outp.printf(f'Cell version {valu} is outside of the cellauth supported range ({reqver}).')
+        outp.printf(f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
         return 1
 
     except Exception as e:  # pragma: no cover

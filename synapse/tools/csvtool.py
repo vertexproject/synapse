@@ -17,7 +17,6 @@ import synapse.lib.version as s_version
 reqver = '>=0.1.0,<0.2.0'
 
 async def main(argv, outp=s_output.stdout):
-
     pars = makeargparser()
 
     try:
@@ -47,9 +46,9 @@ async def main(argv, outp=s_output.stdout):
                 s_version.reqVersion(core._getSynVers(), reqver)
             except s_exc.BadVersion as e:
                 valu = s_version.fmtVersion(*e.get('valu'))
-                print(f'Cortex version {valu} is outside of the csvtool supported range ({reqver}).')
-                print(f'Please use a version of Synapse which supports {valu}; '
-                      f'current version is {s_version.verstring}.')
+                outp.printf(f'Cortex version {valu} is outside of the csvtool supported range ({reqver}).')
+                outp.printf(f'Please use a version of Synapse which supports {valu}; '
+                            f'current version is {s_version.verstring}.')
                 return 1
 
             with open(path, 'w') as fd:
@@ -146,8 +145,8 @@ async def main(argv, outp=s_output.stdout):
                 s_version.reqVersion(core._getSynVers(), reqver)
             except s_exc.BadVersion as e:
                 valu = s_version.fmtVersion(*e.get('valu'))
-                print(f'Cortex version {valu} is outside of the csvtool supported range ({reqver}).')
-                print(f'Please use a version of Synapse which supports {valu}; '
+                outp.printf(f'Cortex version {valu} is outside of the csvtool supported range ({reqver}).')
+                outp.printf(f'Please use a version of Synapse which supports {valu}; '
                       f'current version is {s_version.verstring}.')
                 return 1
 
@@ -217,5 +216,5 @@ def makeargparser():
     pars.add_argument('csvfiles', nargs='+', help='CSV files to load.')
     return pars
 
-if __name__ == '__main__': # pragma: no cover
+if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(s_base.main(main(sys.argv[1:]))))
