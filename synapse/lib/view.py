@@ -2,7 +2,6 @@ import asyncio
 import logging
 import itertools
 import collections
-import fastjsonschema
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -365,9 +364,10 @@ class View(s_nexus.Pusher):  # type: ignore
             snap.strict = False
 
             with snap.getStormRuntime(user=user):
+                meta = await snap.getSnapMeta()
 
                 async for nodeedits in fromlayr.iterLayerNodeEdits():
-                    await parentlayr.storNodeEditsNoLift([nodeedits], {})
+                    await parentlayr.storNodeEditsNoLift([nodeedits], meta)
 
         await fromlayr.truncate()
 

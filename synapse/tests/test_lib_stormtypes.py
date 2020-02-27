@@ -1455,7 +1455,6 @@ class StormTypesTest(s_test.SynTest):
 
             q = '$lib.print($lib.layer.get().iden)'
             mesgs = await core.streamstorm(q).list()
-            print(repr(mesgs))
             self.stormIsInPrint(mainlayr, mesgs)
 
             q = f'$lib.print($lib.layer.get({mainlayr}).iden)'
@@ -2127,7 +2126,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr('No terminal defined', mesgs)
 
                 ##################
-                # oldsplices = len(await alist(prox.splices(0, 1000)))
+                oldsplicespos = (await alist(prox.splices(0, 1000)))[-1][0][0]
 
                 # Start simple: add a cron job that creates a node every minute
                 q = "cron.add --minute +1 {[graph:node='*' :type=m1]}"
@@ -2145,18 +2144,18 @@ class StormTypesTest(s_test.SynTest):
                 await self.agenlen(1, prox.eval('graph:node:type=m1'))
 
                 # Make sure the provenance of the new splices looks right
-                # FIXME: pending provstack
-                # splices = await alist(prox.splices(oldsplices, 1000))
-                # self.gt(len(splices), 1)
+                splices = await alist(prox.splices(oldsplicespos + 1, 1000))
+                self.gt(len(splices), 1)
 
-                # aliases = [splice[1]['prov'] for splice in splices]
-                # self.true(all(a == aliases[0] for a in aliases))
-                # prov = await prox.getProvStack(aliases[0])
-                # rootiden = prov[1][1][1]['user']
-                # correct = ({}, (
-                #            ('cron', {'iden': guid}),
-                #            ('storm', {'q': "[graph:node='*' :type=m1]", 'user': rootiden})))
-                # self.eq(prov, correct)
+                aliases = [splice[1][1].get('prov') for splice in splices]
+                self.nn(aliases[0])
+                self.true(all(a == aliases[0] for a in aliases))
+                prov = await prox.getProvStack(aliases[0])
+                rootiden = prov[1][1][1]['user']
+                correct = ({}, (
+                           ('cron', {'iden': guid}),
+                           ('storm', {'q': "[graph:node='*' :type=m1]", 'user': rootiden})))
+                self.eq(prov, correct)
 
                 q = f"cron.mod {guid[:6]} {{[graph:node='*' :type=m2]}}"
                 mesgs = await core.streamstorm(q).list()
@@ -2541,3 +2540,29 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'True'))
+
+    async def test_storm_lib_userview(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.setAdmin(True)
+
+            await core.nodes('$lib.user.profile.set(cortex:view, $lib.view.get().fork().iden)', user=visi)
+
+            self.nn(visi.profile.get('cortex:view'))
+
+            self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 ]', user=visi))
+
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4', user=visi))
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4', user=visi, opts={'view': core.view.iden}))
+
+            async with core.getLocalProxy(user='visi') as prox:
+                self.len(1, await prox.eval('inet:ipv4=1.2.3.4').list())
+                self.len(0, await prox.eval('inet:ipv4=1.2.3.4', opts={'view': None}).list())
+                self.len(0, await prox.eval('inet:ipv4=1.2.3.4', opts={'view': core.view.iden}).list())
+
+            async with core.getLocalProxy(user='root') as prox:
+                self.len(0, await prox.eval('inet:ipv4=1.2.3.4').list())

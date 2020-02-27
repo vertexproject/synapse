@@ -186,7 +186,7 @@ class Axon(s_cell.Cell):
         if not await self.has(sha256):
             raise s_exc.NoSuchFile(sha256=s_common.ehex(sha256))
 
-        for lkey, byts in self.blobslab.scanByPref(sha256, db=self.blobs):
+        for _, byts in self.blobslab.scanByPref(sha256, db=self.blobs):
             yield byts
 
     async def put(self, byts):

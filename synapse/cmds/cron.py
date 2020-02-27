@@ -2,10 +2,11 @@ import time
 import types
 import calendar
 import datetime
-import warnings
 import functools
 
 import synapse.exc as s_exc
+import synapse.common as s_common
+
 import synapse.lib.cli as s_cli
 import synapse.lib.cmd as s_cmd
 import synapse.lib.time as s_time
@@ -169,8 +170,8 @@ one-time jobs.
 A subcommand is required.  Use 'cron -h' for more detailed help.  '''
     _cmd_name = 'cron'
 
-    _cmd_syntax = (  # type: ignore
-        ('line', {'type': 'glob'}),
+    _cmd_syntax = (
+        ('line', {'type': 'glob'}),  # type: ignore
     )
 
     async def _match_idens(self, core, prefix):
@@ -195,7 +196,8 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         subparsers = parser.add_subparsers(title='subcommands', required=True, dest='cmd',
                                            parser_class=functools.partial(s_cmd.Parser, outp=self))
 
-        subparsers.add_parser('list', aliases=['ls'], help="List cron jobs you're allowed to manipulate", usage=ListHelp)
+        subparsers.add_parser('list', aliases=['ls'], help="List cron jobs you're allowed to manipulate",
+                              usage=ListHelp)
 
         parser_add = subparsers.add_parser('add', help='add a cron job', usage=AddHelp)
         parser_add.add_argument('--minute', '-M')
@@ -578,9 +580,8 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
                 self.printf(f'                 {incunit:10} {incval:6} {reqdict}')
 
     async def runCmdOpts(self, opts):
-        mesg = 'The cron command will be deprecated in 0.2.x, ' \
-               'cron jobs should be accessed via storm commands instead'
-        warnings.warn(mesg, PendingDeprecationWarning)
+
+        s_common.deprecated('cmdr> cron')
 
         line = opts.get('line')
         if line is None:
@@ -649,8 +650,8 @@ Examples:
 '''
     _cmd_name = 'at'
 
-    _cmd_syntax = (  # type: ignore
-        ('line', {'type': 'glob'}),
+    _cmd_syntax = (
+        ('line', {'type': 'glob'}),  # type: ignore
     )
 
     def _make_argparser(self):
@@ -659,6 +660,9 @@ Examples:
         return parser
 
     async def runCmdOpts(self, opts):
+
+        s_common.deprecated('cmdr> at')
+
         line = opts.get('line')
         if line is None:
             self.printf(self.__doc__)

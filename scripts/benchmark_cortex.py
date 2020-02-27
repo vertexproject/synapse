@@ -266,10 +266,10 @@ class Benchmarker:
                 await self.run(core, funcname, dirn, func)
 
 Configs: Dict[str, Dict] = {
-    'simple': {'layer:lmdb:map_async': False},
-    'mapasync': {'layer:lmdb:map_async': True},
-    'dedicated': {'dedicated': True, 'layer:lmdb:map_async': False},
-    'dedicatedasync': {'dedicated': True, 'layer:lmdb:map_async': True},
+    'simple': {'layers:lockmemory': False, 'layer:lmdb:map_async': False},
+    'mapasync': {'layers:lockmemory': False, 'layer:lmdb:map_async': True},
+    'dedicated': {'layers:lockmemory': True, 'layer:lmdb:map_async': False},
+    'dedicatedasync': {'layers:lockmemory': True, 'layer:lmdb:map_async': True},
 }
 
 def benchmarkAll(confignames: List = None, num_procs=1, workfactor=1000, tmpdir=None,

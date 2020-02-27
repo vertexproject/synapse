@@ -34,7 +34,6 @@ import synapse.lib.version as s_version
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
-import synapse.lib.slaboffs as s_slaboffs
 import synapse.lib.stormhttp as s_stormhttp
 import synapse.lib.stormwhois as s_stormwhois
 import synapse.lib.provenance as s_provenance
@@ -108,7 +107,18 @@ class CoreApi(s_cell.CellApi):
             s_exc.AuthDeny: If the current user doesn't have read access to the view
 
         '''
-        iden = (opts or {}).get('view')
+        if opts is None:
+            opts = {}
+
+        iden = opts.get('view', s_common.novalu)
+
+        if iden is s_common.novalu:
+            iden = self.user.profile.get('cortex:view')
+
+        if iden is None or iden is s_common.novalu:
+            # This assumes everyone has access to the default view
+            iden = self.cell.view.iden
+
         return await self._getView(iden)
 
     async def _getView(self, iden):
@@ -561,13 +571,16 @@ class CoreApi(s_cell.CellApi):
     @s_cell.adminapi
     async def getProvStack(self, iden: str):
         '''
-        Return the providence stack associated with the given iden.
+        Return the provenance stack associated with the given iden.
 
         Args:
-            iden (str):  the iden from splice
+            iden (str):  the iden of the provenance stack
 
         Note: the iden appears on each splice entry as the 'prov' property
         '''
+        if iden is None:
+            return None
+
         return self.cell.provstor.getProvStack(s_common.uhex(iden))
 
     async def getPropNorm(self, prop, valu):
@@ -695,11 +708,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Enable cron jobs running.',
             'type': 'boolean'
         },
-        'dedicated': {
-            'default': False,
-            'description': 'The cortex is free to use most of the resources of the system.',
-            'type': 'boolean'
-        },
         'layer:lmdb:map_async': {
             'default': True,
             'description': 'Set the default lmdb:map_async value in LMDB layers.',
@@ -708,6 +716,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         'layers:lockmemory': {
             'default': False,
             'description': 'Should new layers lock memory for performance by default.',
+            'type': 'boolean'
+        },
+        'provenance:en': {
+            'default': False,
+            'description': 'Enable provenance tracking for all writes',
             'type': 'boolean'
         },
         'modules': {
@@ -719,10 +732,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'default': 8,
             'description': 'The max number of spare processes to keep around in the storm spawn pool.',
             'type': 'integer'
-        },
-        'splice:cryotank': {
-            'description': 'A telepath URL for a cryotank used to archive splices.',
-            'type': 'string'
         },
         'splice:en': {
             'default': True,
@@ -755,9 +764,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         if corevers is None:
             mesg = 'cortex:version is unset. please upgrade this cortex to version 2.'
             raise s_exc.BadStorageVersion(mesg=mesg)
-
-        offsdb = self.slab.initdb('offsets')
-        self.offs = s_slaboffs.SlabOffs(self.slab, offsdb)
 
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use
@@ -800,8 +806,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.view = None  # The default/main view
 
-        # FIXME: add feature flag
-        self.provstor = await s_provenance.ProvStor.anit(self.dirn)
+        proven = self.conf.get('provenance:en')
+
+        self.provstor = await s_provenance.ProvStor.anit(self.dirn, proven=proven)
         self.onfini(self.provstor.fini)
 
         # generic fini handler for the Cortex
@@ -1237,7 +1244,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Validate a storm package for loading.  Raises if invalid.
         '''
         # Validate package def
-        s_storm.reqValidPkgdef(s_common.convertToLists(pkgdef))
+        s_storm.reqValidPkgdef(pkgdef)
 
         # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
@@ -2176,11 +2183,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self.cellinfo.set('defaultview', iden)
             self.view = self.getView(iden)
 
-    async def getOffset(self, iden):
-        '''
-        '''
-        return self.offs.get(iden)
-
     async def addView(self, vdef):
 
         vdef['iden'] = s_common.guid()
@@ -2761,11 +2763,19 @@ class Cortex(s_cell.Cell):  # type: ignore
             ret.append((modname, mod.conf))
         return ret
 
-    def _viewFromOpts(self, opts):
-        if opts is None:
-            return self.view
+    def _viewFromOpts(self, opts, user):
 
-        viewiden = opts.get('view')
+        if opts is None:
+            opts = {}
+
+        viewiden = opts.get('view', s_common.novalu)
+
+        if viewiden is s_common.novalu and user is not None:
+            viewiden = user.profile.get('cortex:view')
+
+        if viewiden is s_common.novalu:
+            viewiden = self.view.iden
+
         view = self.getView(viewiden)
         if view is None:
             raise s_exc.NoSuchView(iden=viewiden)
@@ -2777,7 +2787,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Evaluate a storm query and yield Nodes only.
         '''
-        view = self._viewFromOpts(opts)
+        view = self._viewFromOpts(opts, user=user)
 
         async for node in view.eval(text, opts, user):
             yield node
@@ -2789,7 +2799,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Yields:
             (Node, Path) tuples
         '''
-        view = self._viewFromOpts(opts)
+        view = self._viewFromOpts(opts, user=user)
 
         async for mesg in view.storm(text, opts, user):
             yield mesg
@@ -2811,7 +2821,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Yields:
             ((str,dict)): Storm messages.
         '''
-        view = self._viewFromOpts(opts)
+        view = self._viewFromOpts(opts, user=user)
 
         async for mesg in view.streamstorm(text, opts, user):
             yield mesg
@@ -2821,7 +2831,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         if user is None:
             user = await self.auth.getUserByName('root')
 
-        view = self._viewFromOpts(opts)
+        view = self._viewFromOpts(opts, user=user)
 
         info = {'query': text}
         if opts is not None:
@@ -3122,7 +3132,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             reqs must have fields present or incunit must not be None (or both)
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
         '''
-        s_agenda.reqValidCdef(s_common.convertToLists(cdef))
+        s_agenda.reqValidCdef(cdef)
 
         incunit = cdef.get('incunit')
         reqs = cdef.get('reqs')
@@ -3208,7 +3218,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         crons = []
 
-        for iden, cron in self.agenda.list():
+        for _, cron in self.agenda.list():
 
             info = cron.pack()
 

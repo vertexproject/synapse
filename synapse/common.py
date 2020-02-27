@@ -645,17 +645,6 @@ def config(conf, confdefs):
 
     return conf
 
-def deprecated(meth):
-    mesg = f'API ({meth}) is deprecated in 0.2.0.'
+def deprecated(name):
+    mesg = f'"{name}" is deprecated in 0.2.0.'
     warnings.warn(mesg, DeprecationWarning)
-
-def convertToLists(elm):
-    '''
-    Recursively convert tuples to lists for jsonschema validation.
-    '''
-    if isinstance(elm, tuple) or isinstance(elm, list):
-        return [convertToLists(e) for e in elm]
-    elif isinstance(elm, dict):
-        return {k: convertToLists(v) for k, v in elm.items()}
-    else:
-        return elm

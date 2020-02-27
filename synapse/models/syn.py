@@ -1,9 +1,6 @@
 import logging
-import collections
 
 import synapse.exc as s_exc
-import synapse.common as s_common
-import synapse.datamodel as s_datamodel
 
 import synapse.lib.module as s_module
 
@@ -23,7 +20,7 @@ class SynModule(s_module.CoreModule):
                              ):
             form = self.model.form(form)
             self.core.addRuntLift(form.full, lifter)
-            for name, prop in form.props.items():
+            for _, prop in form.props.items():
                 pfull = prop.full
                 self.core.addRuntLift(pfull, lifter)
 

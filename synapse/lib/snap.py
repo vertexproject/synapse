@@ -82,11 +82,24 @@ class Snap(s_base.Base):
     def disableTriggers(self):
         self.trigson = False
 
-    def getSnapMeta(self):
+    async def getSnapMeta(self):
         '''
-        Retrieve snap metadata to store along side edits.
+        Retrieve snap metadata to store along side nodeEdits.
         '''
-        return {'time': s_common.now(), 'user': self.user.iden}
+        meta = {
+            'time': s_common.now(),
+            'user': self.user.iden
+        }
+
+        if self.core.provstor.enabled:
+            wasnew, providen, provstack = self.core.provstor.commit()
+
+            if wasnew:
+                await self.fire('prov:new', time=meta['time'], user=meta['user'], prov=providen, provstack=provstack)
+
+            meta['prov'] = providen
+
+        return meta
 
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):
@@ -183,26 +196,6 @@ class Snap(s_base.Base):
         await asyncio.sleep(0)
 
         return node
-
-        #props = {}
-        #proplayr = {}
-        #for layr in self.layers:
-            #layerprops = await layr.getBuidProps(buid)
-            #props.update(layerprops)
-            #proplayr.update({k: layr for k in layerprops})
-
-        #node = s_node.Node(self, buid, props.items(), proplayr=proplayr)
-
-        # Give other tasks a chance to run
-        #await asyncio.sleep(0)
-
-        #if node.ndef is None:
-            #return None
-
-        ## Add node to my buidcache
-        #self.buidcache.append(node)
-        #self.livenodes[buid] = node
-        #return node
 
     async def getNodeByNdef(self, ndef):
         '''
@@ -489,8 +482,6 @@ class Snap(s_base.Base):
 
     def getNodeAdds(self, form, valu, props=None, addnode=True):
 
-        tick = s_common.now()
-
         # TODO consider nesting these to allow short circuit on existing
         def recurse(f, v, p, doadd=True):
 
@@ -574,7 +565,11 @@ class Snap(s_base.Base):
            Pretty much only useful for node data actions
 
         '''
-        meta = self.getSnapMeta()
+        if self.readonly:
+            mesg = 'The snapshot is in read-only mode.'
+            raise s_exc.IsReadOnly(mesg=mesg)
+
+        meta = await self.getSnapMeta()
         todo = s_common.todo('storNodeEdits', edits, meta)
         return await self.core.dyncall(self.wlyr.iden, todo)
 
@@ -702,7 +697,7 @@ class Snap(s_base.Base):
             s_node.Node: A Node object. It may return None if the snap is unable to add or lift the node.
         '''
         if self.readonly:
-            mesg = 'The snapshot is in ready only mode.'
+            mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
         form = self.core.model.form(name)
@@ -788,118 +783,11 @@ class Snap(s_base.Base):
     async def _addTagNode(self, name):
         return await self.addNode('syn:tag', name)
 
-    #async def _addNodeFnib(self, fnib, props=None):
-
-        #with s_editatom.EditAtom(self.core.bldgbuids) as editatom:
-
-            #node = await self._addNodeFnibOps(fnib, editatom, props)
-            #if node is not None:
-                #if props is not None:
-                    #for name, valu in props.items():
-                        #await node._setops(name, valu, editatom)
-
-            #await editatom.commit(self)
-
-            #if node is None:
-                #node = editatom.mybldgbuids[fnib[3]]
-
-            #return node
-
-    #async def _addNodeFnibOps(self, fnib, editatom, props=None):
-        #'''
-        #Add a node via (form, norm, info, buid) and add ops to editatom
-        #'''
-        #form, norm, info, buid = fnib
-
-        #if form.isrunt:
-            #raise s_exc.IsRuntForm(mesg='Cannot make runt nodes.',
-                                   #form=form.full, prop=norm)
-
-        #if props is None:
-            #props = {}
-        # Check if this buid is already under construction
-        #node = editatom.getNodeBeingMade(buid)
-        #if node is not None:
-            #return node
-
-        # Check if this buid is already fully made
-        #node = await self.getNodeByBuid(buid)
-        #if node is not None:
-            #return node
-
-        # Another editatom might have created in another task during the above call, so check again
-        #node = editatom.getNodeBeingMade(buid)
-        #if node is not None:
-            #return node
-
-        #if props is None:
-            #props = {}
-
-        # lets build a node...
-        #node = s_node.Node(self, None)
-
-        #node.buid = buid
-        #node.form = form
-        #node.ndef = (form.name, norm)
-
-        #sops = form.getSetOps(buid, norm)
-        #editatom.sops.extend(sops)
-
-        #editatom.addNode(node)
-
-        # update props with any subs from form value
-        #subs = info.get('subs')
-        #if subs is not None:
-            #for name, valu in subs.items():
-                #if form.prop(name) is not None:
-                    #props[name] = valu
-
-        # update props with any defvals we are missing
-        #for name, valu in form.defvals.items():
-            #props.setdefault(name, valu)
-
-        # set all the properties with init=True
-        #for name, valu in props.items():
-            #await node._setops(name, valu, editatom, init=True)
-
-        # set our global properties
-        #tick = s_common.now()
-        #await node._setops('.created', tick, editatom, init=True)
-
-        #return None
-
     async def _raiseOnStrict(self, ctor, mesg, **info):
         await self.warn(f'{ctor.__name__}: {mesg} {info!r}')
         if self.strict:
             raise ctor(mesg=mesg, **info)
         return False
-
-    #def splice(self, name, **info):
-        #'''
-        #Construct a partial splice record for later feeding into Snap.stor method
-        #'''
-        #return (name, info)
-
-    #########################################################################
-
-    #def _getNodeFnib(self, name, valu):
-        #'''
-        #return a form, norm, info, buid tuple
-        #'''
-        #form = self.model.form(name)
-        #if form is None:
-            #raise s_exc.NoSuchForm(name=name)
-
-        #try:
-            #norm, info = form.type.norm(valu)
-        #except s_exc.BadTypeValu as e:
-            #raise s_exc.BadPropValu(prop=form.name, valu=valu, mesg=e.get('mesg'),
-                                    #name=e.get('name')) from None
-        #except Exception as e:
-            #raise s_exc.BadPropValu(prop=form.name, valu=valu, mesg=str(e))
-
-        #buid = s_common.buid((form.name, norm))
-        #return form, norm, info, buid
 
     async def addNodes(self, nodedefs):
         '''
@@ -917,8 +805,6 @@ class Snap(s_base.Base):
         Returns:
             (list): A list of xact messages.
         '''
-
-        # TODO make this produce splices and call without lift
         for (formname, formvalu), forminfo in nodedefs:
             try:
                 props = forminfo.get('props')
