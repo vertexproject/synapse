@@ -1407,10 +1407,12 @@ class LibLayer(Lib):
             'list': self._libLayerList,
         })
 
-    async def _libLayerAdd(self, ldef={}):
+    async def _libLayerAdd(self, ldef=None):
         '''
         Add a layer to the cortex.
         '''
+        if ldef is None:
+            ldef = {}
         ldef['creator'] = self.runt.user.iden
 
         useriden = self.runt.user.iden
@@ -1543,14 +1545,6 @@ class View(Prim):
             'fork': self._methViewFork,
             'merge': self._methViewMerge,
         })
-
-    async def _methViewFork(self):
-
-        self.runt.reqAllowed(('view', 'add'))
-
-        view = await self.valu.fork(owner=self.runt.user.iden)
-
-        return View(self.runt, view)
 
     async def _methViewPack(self):
         return self.valu
