@@ -12,11 +12,10 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-minver = (0, 1, 0)
-maxver = (0, 1, None)
+reqver = '>=0.1.0,<0.2.0'
 
 async def runcmdr(argv, item):  # pragma: no cover
-    s_version.reqVersion(item._getSynVers(), minver=minver, maxver=maxver)
+    s_version.reqVersion(item._getSynVers(), reqver)
 
     cmdr = await s_cmdr.getItemCmdr(item)
     await cmdr.addSignalHandlers()
@@ -42,10 +41,8 @@ async def main(argv):  # pragma: no cover
             await runcmdr(argv, item)
         except s_exc.BadVersion as e:
             valu = s_version.fmtVersion(*e.get('valu'))
-            pminver = s_version.fmtVersion(*["*" if v is None else v for v in minver])
-            pmaxver = s_version.fmtVersion(*["*" if v is None else v for v in maxver])
-            print(f'Cortex version {valu} is outside of the cmdr supported range ({pminver}, {pmaxver}).')
-            print(f'Please use a version of Synapse which supports {valu}')
+            print(f'Proxy version {valu} is outside of the cmdr supported range ({reqver}).')
+            print(f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
 
 if __name__ == '__main__': # pragma: no cover
     warnings.filterwarnings("default", category=PendingDeprecationWarning)
