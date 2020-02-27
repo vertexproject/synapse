@@ -191,22 +191,25 @@ def reqVersion(valu, minver=None, maxver=None):
         raise s_exc.BadVersion(mesg='requires minver or maxver.')
 
     if maxver:
-        assert maxver[0] is not None
-        assert len(maxver) == 3
-
+        if maxver[0] is None:
+            raise s_exc.BadVersion(mesg='maxver[0] must not be None.')
+        if len(maxver) != 3:
+            raise s_exc.BadVersion(mesg='maxver must be a semver tuple of 3 items.')
         checkv = tuple([sys.maxsize if v is None else v for v in maxver])
         if valu > checkv:
             raise s_exc.BadVersion(mesg='Version is larger than max version.',
-                               valu=valu, maxver=maxver)
+                                   valu=valu, maxver=maxver)
 
     if minver:
-        assert minver[0] is not None
-        assert len(minver) == 3
+        if minver[0] is None:
+            raise s_exc.BadVersion(mesg='minver[0] must not be None.')
+        if len(minver) != 3:
+            raise s_exc.BadVersion(mesg='minver must be a semver tuple of 3 items.')
 
         checkv = tuple([0 if v is None else v for v in minver])
         if valu < checkv:
             raise s_exc.BadVersion(mesg='Version is less than than minimum version.',
-                               valu=valu, minver=minver)
+                                   valu=valu, minver=minver)
 
 ##############################################################################
 # The following are touched during the release process by bumpversion.
