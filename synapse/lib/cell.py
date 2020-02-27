@@ -445,6 +445,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._initCellSlab(readonly=readonly)
 
+        self.setNexsRoot(await self._initNexsRoot())
+
         self.hive = await self._initCellHive()
 
         # self.cellinfo, a HiveDict for general purpose persistent storage
@@ -469,8 +471,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                                         name='auth:passwd')
             user = await self.auth.getUserByName('root')
             await user.setPasswd(auth_passwd)
-
-        self.setNexsRoot(await self._initNexsRoot())
 
         await self._initCellHttp()
 
@@ -662,7 +662,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         isnew = not self.slab.dbexists('hive')
 
         db = self.slab.initdb('hive')
-        hive = await s_hive.SlabHive.anit(self.slab, db=db)
+        hive = await s_hive.SlabHive.anit(self.slab, db=db, nexsroot=self.nexsroot)
         self.onfini(hive)
 
         if isnew:
@@ -805,11 +805,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Set or change the value of a key in the cell default hive
         '''
-        return await self._push('hive:setkey', path, valu)
-
-    @s_nexus.Pusher.onPush('hive:setkey')
-    async def _onSetHiveKey(self, path, value):
-        return await self.hive.set(path, value)
+        return await self.hive.set(path, valu, nexs=True)
 
     async def popHiveKey(self, path):
         '''
@@ -817,11 +813,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         Note:  this is for expert emergency use only.
         '''
-        return await self._push('hive:popkey', path)
-
-    @s_nexus.Pusher.onPush('hive:popkey')
-    async def _onPopHiveKey(self, path):
-        return await self.hive.pop(path)
+        return await self.hive.pop(path, nexs=True)
 
     async def saveHiveTree(self, path=()):
         return await self.hive.saveHiveTree(path=path)

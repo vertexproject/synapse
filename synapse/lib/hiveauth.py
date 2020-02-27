@@ -216,30 +216,6 @@ class Auth(s_nexus.Pusher):
         # since any user info *may* effect auth
         user.clearAuthCache()
 
-    async def getUserVar(self, iden, name, default=None):
-        user = await self.reqUser(iden)
-        return user.vars.get(name, default=default)
-
-    @s_nexus.Pusher.onPushAuto('user:var:set')
-    async def setUserVar(self, iden, name, valu):
-        user = await self.reqUser(iden)
-        await user.vars.set(name, valu)
-
-    @s_nexus.Pusher.onPushAuto('user:var:pop')
-    async def popUserVar(self, iden, name, default=None):
-        user = await self.reqUser(iden)
-        return await user.vars.pop(name, default=default)
-
-    async def itemsUserVar(self, iden):
-        user = await self.reqUser(iden)
-        for item in user.vars.items():
-            yield item
-
-    @s_nexus.Pusher.onPushAuto('user:profile')
-    async def setUserProfile(self, iden, name, valu):
-        user = await self.reqUser(iden)
-        await user.profile.set(name, valu)
-
     @s_nexus.Pusher.onPushAuto('role:info')
     async def setRoleInfo(self, iden, name, valu, gateiden=None):
         role = await self.reqRole(iden)
@@ -597,12 +573,11 @@ class HiveUser(HiveRuler):
 
         # arbitrary profile data for application layer use
         prof = await self.node.open(('profile',))
-        self.profile = await prof.dict()
+        self.profile = await prof.dict(nexs=True)
 
-        # vars cache for persistent user level data storage
         # TODO: max size check / max count check?
-        _vars = await self.node.open(('vars',))
-        self.vars = await _vars.dict()
+        varz = await self.node.open(('vars',))
+        self.vars = await varz.dict(nexs=True)
 
         self.permcache = s_cache.FixedCache(self._allowed)
 

@@ -645,6 +645,6 @@ def config(conf, confdefs):
 
     return conf
 
-def deprecated(meth):
-    mesg = f'API ({meth}) is deprecated in 0.2.0.'
+def deprecated(name):
+    mesg = f'"{name}" is deprecated in 0.2.0.'
     warnings.warn(mesg, DeprecationWarning)

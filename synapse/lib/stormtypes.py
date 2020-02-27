@@ -966,11 +966,12 @@ class Bool(Prim):
     pass
 
 class LibUser(Lib):
+
     def addLibFuncs(self):
-        uservars = LibUserVars(self.runt, ())
         self.locls.update({
             'name': self._libUserName,
-            'vars': uservars
+            'vars': StormHiveDict(self.runt, self.runt.user.vars),
+            'profile': StormHiveDict(self.runt, self.runt.user.profile),
         })
 
     async def _libUserName(self, path=None):
@@ -1029,44 +1030,35 @@ class LibGlobals(Lib):
                 ret.append((key, valu))
         return ret
 
-class LibUserVars(Lib):
-    '''
-    Global persistent per-user Storm variables
-    '''
-    def __init__(self, runt, name):
-        Lib.__init__(self, runt, name)
-        self.useriden = runt.user.iden
+class StormHiveDict(Prim):
 
-    def addLibFuncs(self):
+    def __init__(self, runt, info):
+        Prim.__init__(self, None)
+        self.runt = runt
+        self.info = info
         self.locls.update({
-            'get': self._methGet,
-            'pop': self._methPop,
-            'set': self._methSet,
-            'list': self._methList,
+            'get': self.info.get,
+            'pop': self.info.pop,
+            'set': self.info.set,
+            'list': self.list,
         })
 
-    def _reqStr(self, name):
+    async def set(self, name, valu):
+
         if not isinstance(name, str):
             mesg = 'The name of a persistent variable must be a string.'
             raise s_exc.StormRuntimeError(mesg=mesg, name=name)
 
-    async def _methGet(self, name, default=None):
-        self._reqStr(name)
-        return await self.auth.getUserVar(self.useriden, name, default=default)
+        return await self.info.set(name, valu)
 
-    async def _methPop(self, name, default=None):
-        self._reqStr(name)
-        return await self.auth.popUserVar(self.useriden, name, default=default)
+    def list(self):
+        return list(self.info.items())
 
-    async def _methSet(self, name, valu):
-        self._reqStr(name)
-        return await self.auth.setUserVar(self.useriden, name, valu)
+    def __iter__(self):
+        return list(self.info.items())
 
-    async def _methList(self):
-        ret = []
-        async for key, valu in self.auth.itemsUserVar(self.useriden):
-            ret.append((key, valu))
-        return ret
+    def value(self):
+        return self.info.pack()
 
 class LibVars(Lib):
 
@@ -1551,6 +1543,14 @@ class View(Prim):
             'fork': self._methViewFork,
             'merge': self._methViewMerge,
         })
+
+    async def _methViewFork(self):
+
+        self.runt.reqAllowed(('view', 'add'))
+
+        view = await self.valu.fork(owner=self.runt.user.iden)
+
+        return View(self.runt, view)
 
     async def _methViewPack(self):
         return self.valu

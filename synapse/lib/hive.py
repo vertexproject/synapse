@@ -8,6 +8,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
+import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.lib.lmdbslab as s_slab
@@ -72,27 +73,28 @@ class Node(s_base.Base):
         full = self.full + path
         return await self.hive.pop(full)
 
-    async def dict(self):
+    async def dict(self, nexs=False):
         '''
         Get a HiveDict for this Node.
 
         Returns:
             HiveDict: A HiveDict for this Node.
         '''
-        return await HiveDict.anit(self.hive, self)
+        return await HiveDict.anit(self.hive, self, nexs=nexs)
 
     def __iter__(self):
         for name, node in self.kids.items():
             yield name, node
 
-class Hive(s_base.Base, s_telepath.Aware):
+class Hive(s_nexus.Pusher, s_telepath.Aware):
     '''
     An optionally persistent atomically accessed tree which implements
     primitives for use in making distributed/clustered services.
     '''
-    async def __anit__(self, conf=None):
+    async def __anit__(self, conf=None, nexsroot=None):
 
-        await s_base.Base.__anit__(self)
+        await s_nexus.Pusher.__anit__(self, 'hive', nexsroot=nexsroot)
+
         s_telepath.Aware.__init__(self)
 
         if conf is None:
@@ -250,7 +252,7 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         await root.pop(())
 
-    async def dict(self, full):
+    async def dict(self, full, nexs=False):
         '''
         Open a HiveDict at the given full path.
 
@@ -261,7 +263,7 @@ class Hive(s_base.Base, s_telepath.Aware):
             HiveDict: A HiveDict for the full path.
         '''
         node = await self.open(full)
-        return await HiveDict.anit(self, node)
+        return await HiveDict.anit(self, node, nexs=False)
 
     async def _initNodePath(self, base, path, valu):
 
@@ -326,10 +328,17 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         return node
 
-    async def set(self, full, valu):
+    async def set(self, full, valu, nexs=False):
         '''
         A set operation at the hive level (full path).
         '''
+        if nexs:
+            return await self._push('hive:set', full, valu)
+
+        return await self._set(full, valu)
+
+    @s_nexus.Pusher.onPush('hive:set')
+    async def _set(self, full, valu):
         node = await self._getHiveNode(full)
 
         oldv = node.valu
@@ -355,10 +364,18 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         return newv
 
-    async def pop(self, full):
+    async def pop(self, full, nexs=False):
         '''
         Remove and return the value for the given node.
         '''
+        if nexs:
+            return await self._push('hive:pop', full)
+
+        return await self._pop(full)
+
+    @s_nexus.Pusher.onPush('hive:pop')
+    async def _pop(self, full):
+
         node = self.nodes.get(full)
         if node is None:
             return
@@ -416,10 +433,10 @@ class Hive(s_base.Base, s_telepath.Aware):
 
 class SlabHive(Hive):
 
-    async def __anit__(self, slab, db=None, conf=None):
+    async def __anit__(self, slab, db=None, conf=None, nexsroot=None):
         self.db = db
         self.slab = slab
-        await Hive.__anit__(self, conf=conf)
+        await Hive.__anit__(self, conf=conf, nexsroot=nexsroot)
         self.slab.onfini(self.fini)
 
     async def _storLoadHive(self):
@@ -491,8 +508,8 @@ class HiveApi(s_base.Base):
         await self.msgq.put(('hive:sync', {'iden': iden}))
         return
 
-    async def setAndSync(self, path, valu, iden):
-        valu = await self.hive.set(path, valu)
+    async def setAndSync(self, path, valu, iden, nexs=False):
+        valu = await self.hive.set(path, valu, nexs=nexs)
         await self.msgq.put(('hive:sync', {'iden': iden}))
         return valu
 
@@ -501,8 +518,8 @@ class HiveApi(s_base.Base):
         await self.msgq.put(('hive:sync', {'iden': iden}))
         return valu
 
-    async def popAndSync(self, path, iden):
-        valu = await self.hive.pop(path)
+    async def popAndSync(self, path, iden, nexs=False):
+        valu = await self.hive.pop(path, nexs=nexs)
         await self.msgq.put(('hive:sync', {'iden': iden}))
         return valu
 
@@ -605,9 +622,9 @@ class TeleHive(Hive):
 
                 todo.append((kidn, kidp, kidt))
 
-    async def set(self, path, valu):
+    async def set(self, path, valu, nexs=False):
         iden, evnt = self._getSyncIden()
-        valu = await self.proxy.setAndSync(path, valu, iden)
+        valu = await self.proxy.setAndSync(path, valu, iden, nexs=nexs)
         await evnt.wait()
         return valu
 
@@ -617,9 +634,9 @@ class TeleHive(Hive):
         await evnt.wait()
         return valu
 
-    async def pop(self, path):
+    async def pop(self, path, nexs=False):
         iden, evnt = self._getSyncIden()
-        valu = await self.proxy.popAndSync(path, iden)
+        valu = await self.proxy.popAndSync(path, iden, nexs=nexs)
         await evnt.wait()
         return valu
 
@@ -653,12 +670,13 @@ class TeleHive(Hive):
 class HiveDict(s_base.Base):
     '''
     '''
-    async def __anit__(self, hive, node):
+    async def __anit__(self, hive, node, nexs=False):
 
         await s_base.Base.__anit__(self)
 
         self.defs = {}
 
+        self.nexs = nexs
         self.hive = hive
         self.node = node
 
@@ -674,7 +692,7 @@ class HiveDict(s_base.Base):
 
     async def set(self, name, valu):
         full = self.node.full + (name,)
-        return await self.hive.set(full, valu)
+        return await self.hive.set(full, valu, nexs=self.nexs)
 
     def setdefault(self, name, valu):
         self.defs[name] = valu
@@ -697,7 +715,7 @@ class HiveDict(s_base.Base):
 
         retn = node.valu
 
-        await node.hive.pop(node.full)
+        await node.hive.pop(node.full, nexs=self.nexs)
 
         return retn
 
