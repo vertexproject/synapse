@@ -253,27 +253,30 @@ class MigrationTest(s_t_utils.SynTest):
         bobo = core.auth.usersbyname['bobo']
         self.false(bobo.info.get('admin'))
         self.sorteq(['all', 'friends'], [core.auth.rolesbyiden[riden].name for riden in bobo.info.get('roles')])
-        boborules = [(True, ('tag:add', 'bobotag')), (True, ('queue', 'get')), (True, ('queue', 'boboq')),
+        boborules = [(True, ('node', 'tag', 'add', 'bobotag')), (True, ('queue', 'get')), (True, ('queue', 'boboq')),
                      (True, ('queue', 'put'))]
-        self.sorteq(boborules, bobo.info.get('rules', ()))
+        self.sorteq(boborules, bobo.info.get('rules', []))
 
         fred = core.auth.usersbyname['fred']
         self.false(fred.info.get('admin'))
         self.sorteq(['all', 'ninjas'], [core.auth.rolesbyiden[riden].name for riden in fred.info.get('roles')])
-        fredrules = [(True, ('tag:add', 'trgtag')), (True, ('trigger', 'add')), (True, ('trigger', 'get')),
+        fredrules = [(True, ('node', 'tag', 'add', 'trgtag')), (True, ('trigger', 'add')), (True, ('trigger', 'get')),
                      (True, ('queue', 'get')), (True, ('queue', 'add')), (True, ('cron',))]
-        self.sorteq(fredrules, fred.info.get('rules', ()))
+        self.sorteq(fredrules, fred.info.get('rules', []))
 
-        # trigger idens
+        # role attributes
+        friends = core.auth.rolesbyname['friends']
+        friendrules = [(True, ('queue', 'fredq', 'get')), (True, ('cron', 'get'))]
+        self.sorteq(friendrules, friends.info.get('rules', []))
+
+        # load vals for user perm tests
         tagtrg = (await core.nodes('syn:trigger:cond=tag:add'))[0].ndef[1]
         nodetrg = (await core.nodes('syn:trigger:cond=node:add'))[0].ndef[1]
 
-        # crons
         crons = await core.listCronJobs()
         fredcron = [c for c in crons if c[1]['useriden'] == fred.iden][0]
         bobocron = [c for c in crons if c[1]['useriden'] == bobo.iden][0]
 
-        # views
         defview = await core.hive.get(('cellinfo', 'defaultview'))
         secview = [k for k in core.views.keys() if k != defview][0]
 

@@ -250,16 +250,34 @@ class MigrAuth:
         await self._trnAuthUsers()
         await self._trnAuthGates()
 
+    async def _trnAuthRules(self, rules):
+        '''
+        Generic rule translations that need to occur for any rule set.
+
+        Actions:
+            - Convert ('storm', 'queue', ...) rules to ('queue', ...)
+            - Convert node/prop/tag rules to node.foo.bar format (assumes these are in 0th position)
+        '''
+        for i, rule in enumerate(rules):
+            if rule[1][:2] == ('storm', 'queue'):
+                rules[i] = (rule[0], rule[1][1:])
+
+            elif any([rule[1][0].startswith(m) for m in ('prop:', 'tag:')]):
+                rules[i] = (rule[0], tuple(['node'] + rule[1][0].split(':') + list(rule[1][1:])))
+
+            elif rule[1][0].startswith('node:'):
+                rules[i] = (rule[0], tuple(rule[1][0].split(':') + list(rule[1][1:])))
+
+        return rules
+
     async def _trnAuthRoles(self):
         '''
         Actions:
             - Add 'all' role with no rules if it doesn't exist
-            - Convert ('storm', 'queue', ...) rules to ('queue', ...)
+            - Convert rules
         '''
         for riden, rvals in self.rolesbyiden.items():
-            for i, rule in enumerate(rvals.get('rules', [])):
-                if rule[1][:2] == ('storm', 'queue'):
-                    rvals['rules'][i] = (rule[0], rule[1][1:])
+            rvals['rules'] = await self._trnAuthRules(rvals.get('rules', []))
 
         if 'all' not in self.rolesbyname:
             iden = s_common.guid()
@@ -270,7 +288,7 @@ class MigrAuth:
         '''
         Actions:
             - Add 'all' role each user
-            - Convert ('storm', 'queue', ...) rules to ('queue', ...)
+            - Convert rules
         '''
         allrole = self.rolesbyname['all']
         for uiden, uvals in self.usersbyiden.items():
@@ -278,13 +296,12 @@ class MigrAuth:
             roles.append(allrole)
             uvals['roles'] = roles
 
-            for i, rule in enumerate(uvals.get('rules', [])):
-                if rule[1][:2] == ('storm', 'queue'):
-                    uvals['rules'][i] = (rule[0], rule[1][1:])
+            uvals['rules'] = await self._trnAuthRules(uvals.get('rules', []))
 
     async def _trnAuthGates(self):
         '''
         Actions:
+            - Convert rules
             - Create cortex authgate with no roles or users if it doesn't exist
             - Create trigger authgates with users=owner w/admin True
             - Create queue authgates with users=owner w/admin True
@@ -293,6 +310,12 @@ class MigrAuth:
             - Add root user to all authgates (except cortex) if it doesn't exist
             - Change authgate name 'layr' to 'layer'
         '''
+        for aiden, avals in self.authgatesbyiden.items():
+            for riden, rvals in avals['rolesbyiden'].items():
+                rvals['rules'] = await self._trnAuthRules(rvals.get('rules', []))
+            for uiden, uvals in avals['usersbyiden'].items():
+                uvals['rules'] = await self._trnAuthRules(uvals.get('rules', []))
+
         if 'cortex' not in self.authgatesbyname:
             self.authgatesbyname['cortex'].append('cortex')
             self.authgatesbyiden['cortex'] = {
