@@ -50,7 +50,7 @@ setup(
         'docs': [
             'sphinx>=1.8.2,<2.0.0',
             'jupyter>=1.0.0,<2.0.0',
-            'hide-code>=0.5.2,<1.0.0',
+            'hide-code>=0.5.2,<0.5.3',
             'nbstripout>=0.3.3,<1.0.0',
             'sphinx-rtd-theme>=0.4.2,<1.0.0',
         ],

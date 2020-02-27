@@ -3,6 +3,37 @@ Synapse Changelog
 *****************
 
 
+v0.1.52 - TBD
+=============
+
+Features and Enhancements
+-------------------------
+
+- Allow the benchmarking tool to save records off in JSON format.  Add a script to post-process records for aggregation.
+  (`#1535 <https://github.com/vertexproject/synapse/pull/1535>`_)
+  (`#1544 <https://github.com/vertexproject/synapse/pull/1544>`_)
+- Add per-user default View options.
+  (`#1537 <https://github.com/vertexproject/synapse/pull/1537>`_)
+
+Bugfix
+--------
+
+- Corrected spelling for ``ou:org:dissolved``.  This secondary property was previously ``disolved``.  This does have an
+  associated model migration.
+  (`#1527 <https://github.com/vertexproject/synapse/pull/1527>`_)
+- Corrected an issue with the ``hide-code`` library breaking our documentation tests.
+  (`#1527 <https://github.com/vertexproject/synapse/pull/1527>`_)
+- Fix an issue where norming a ``geo:latlong`` value could produce an different value from the input system-mode value.
+  (`#1539 <https://github.com/vertexproject/synapse/pull/1539>`_)
+- Fix an issue with the memory lock loop tests to be more reliable.
+  (`#1543 <https://github.com/vertexproject/synapse/pull/1543>`_)
+
+Improved Documentation
+----------------------
+- Update User Guide documentation with additional glossary documentation.
+  (`#1540 <https://github.com/vertexproject/synapse/pull/1540>`_)
+
+
 v0.1.51 - 2019-02-13
 ====================
 
