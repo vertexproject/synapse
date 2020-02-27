@@ -1415,6 +1415,7 @@ class InetModelTest(s_t_utils.SynTest):
         valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'vertexmc'), 0)
         input_props = {
             'url': 'https://vertex.link/messages/0',
+            'client': 'tcp://1.2.3.4',
             'text': 'a cool Message',
             'file': 'sha256:' + 64 * 'F'
         }
@@ -1423,6 +1424,8 @@ class InetModelTest(s_t_utils.SynTest):
             'from': ('vertex.link', 'visi'),
             'time': 0,
             'url': 'https://vertex.link/messages/0',
+            'client': 'tcp://1.2.3.4',
+            'client:ipv4': 0x01020304,
             'text': 'a cool Message',
             'file': 'sha256:' + 64 * 'f'
         }
@@ -1440,6 +1443,7 @@ class InetModelTest(s_t_utils.SynTest):
             'text': 'my cooL POST',
             'time': 0,
             'url': 'https://vertex.link/mypost',
+            'client': 'tcp://1.2.3.4',
             'file': 64 * 'f',
             'replyto': 32 * 'b',
             'repost': 32 * 'c',
@@ -1448,6 +1452,8 @@ class InetModelTest(s_t_utils.SynTest):
             'acct': ('vertex.link', 'vertexmc'),
             'acct:site': 'vertex.link',
             'acct:user': 'vertexmc',
+            'client': 'tcp://1.2.3.4',
+            'client:ipv4': 0x01020304,
             'text': 'my cooL POST',
             'time': 0,
             'url': 'https://vertex.link/mypost',
