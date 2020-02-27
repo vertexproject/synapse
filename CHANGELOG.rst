@@ -14,6 +14,13 @@ Features and Enhancements
   (`#1544 <https://github.com/vertexproject/synapse/pull/1544>`_)
 - Add per-user default View options.
   (`#1537 <https://github.com/vertexproject/synapse/pull/1537>`_)
+- Add ``client`` and associated subs to the ``inet:web:mesg`` and ``inet:web:post`` forms.
+  (`#1545 <https://github.com/vertexproject/synapse/pull/1545>`_)
+- Lock the command line tools in ``synapse.tools`` with interact with remote Cortex and Cell objects to only work if
+  the remote objects are also served up from 0.1.x server code.
+  (`#1546 <https://github.com/vertexproject/synapse/pull/1546>`_)
+- Embed Synapse version information into the Cell and Cortex objects for future version checking.
+  (`#1547 <https://github.com/vertexproject/synapse/pull/1547>`_)
 
 Bugfix
 --------
