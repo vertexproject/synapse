@@ -18,8 +18,7 @@ import synapse.lib.encoding as s_encoding
 
 logger = logging.getLogger(__name__)
 
-minver = (0, 1, 0)
-maxver = (0, 1, None)
+reqver = '>=0.1.0,<0.2.0'
 
 def getItems(*paths):
     items = []
@@ -104,13 +103,12 @@ async def main(argv, outp=None):
     elif opts.cortex:
         async with await s_telepath.openurl(opts.cortex) as core:
             try:
-                s_version.reqVersion(core._getSynVers(), minver=minver, maxver=maxver)
+                s_version.reqVersion(core._getSynVers(), reqver)
             except s_exc.BadVersion as e:
                 valu = s_version.fmtVersion(*e.get('valu'))
-                pminver = s_version.fmtVersion(*["*" if v is None else v for v in minver])
-                pmaxver = s_version.fmtVersion(*["*" if v is None else v for v in maxver])
-                print(f'Cortex version {valu} is outside of the cmdr supported range ({pminver}, {pmaxver}).')
-                print(f'Please use a version of Synapse which supports {valu}')
+                print(f'Cortex version {valu} is outside of the feed tool supported range ({reqver}).')
+                print(f'Please use a version of Synapse which supports {valu}; '
+                      f'current version is {s_version.verstring}.')
                 return 1
             await addFeedData(core, outp, opts.format, opts.debug,
                               chunksize=opts.chunksize,
