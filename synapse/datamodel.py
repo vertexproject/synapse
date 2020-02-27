@@ -264,8 +264,8 @@ class Form:
                 pnorms[prop] = formprop.type.norm(valu)[0]
 
         return (buid, {
-                    'ndef': ndef,
-                    'props': pnorms,
+                'ndef': ndef,
+                'props': pnorms,
                 })
 
     def setProp(self, name, prop):
@@ -406,7 +406,7 @@ class ModelInfo:
 
         # Load all the forms
         for _, mdef in mods:
-            for formname, formopts, propdefs in mdef.get('forms', ()):
+            for formname, _, propdefs in mdef.get('forms', ()):
 
                 self.formnames.add(formname)
                 self.propnames.add(formname)
@@ -633,7 +633,7 @@ class Model:
         self.modeldefs.extend(mods)
 
         # load all the base type ctors in order...
-        for modlname, mdef in mods:
+        for _, mdef in mods:
 
             for name, ctor, opts, info in mdef.get('ctors', ()):
                 item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts)
@@ -641,17 +641,17 @@ class Model:
                 self._modeldef['ctors'].append((name, ctor, opts, info))
 
         # load all the types in order...
-        for modlname, mdef in mods:
+        for _, mdef in mods:
             for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
                 self.addType(typename, basename, typeopts, typeinfo)
 
         # Load all the universal properties
-        for modlname, mdef in mods:
+        for _, mdef in mods:
             for univname, typedef, univinfo in mdef.get('univs', ()):
                 self.addUnivProp(univname, typedef, univinfo)
 
         # now we can load all the forms...
-        for modlname, mdef in mods:
+        for _, mdef in mods:
 
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 self.addForm(formname, forminfo, propdefs)
@@ -709,7 +709,6 @@ class Model:
 
         base = '.' + name
         univ = Prop(self, None, base, tdef, info)
-        #univ = Univ(self, base, tdef, info)
 
         self.props[base] = univ
         self.univlook[base] = univ

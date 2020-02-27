@@ -416,10 +416,9 @@ class Proxy(s_base.Base):
     async def taskv2(self, todo, name=None):
 
         mesg = ('t2:init', {
-                    'todo': todo,
-                    'name': name,
-                    'sess': self.sess,
-        })
+                'todo': todo,
+                'name': name,
+                'sess': self.sess})
 
         link = await self.getPoolLink()
 
@@ -482,10 +481,9 @@ class Proxy(s_base.Base):
         task = Task()
 
         mesg = ('task:init', {
-                    'task': task.iden,
-                    'todo': todo,
-                    'name': name,
-        })
+                'task': task.iden,
+                'todo': todo,
+                'name': name, })
 
         self.tasks[task.iden] = task
 
