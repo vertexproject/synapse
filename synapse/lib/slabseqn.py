@@ -136,7 +136,7 @@ class SlabSeqn:
         retn = False
 
         startkey = s_common.int64en(offs)
-        for lkey, lval in self.slab.scanByRange(startkey, db=self.db):
+        for lkey, _ in self.slab.scanByRange(startkey, db=self.db):
             retn = True
             self.slab.delete(lkey, db=self.db)
 
