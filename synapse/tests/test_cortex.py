@@ -2578,6 +2578,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         conf = {'layers:lockmemory': True}
         async with self.getTestCoreAndProxy(conf=conf) as (realcore, core):
+            slab = realcore.view.layers[0].layrslab
+            self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
+
             nstat = await core.stat()
             layr = nstat.get('layer')
             self.gt(layr.get('lock_goal'), 0)

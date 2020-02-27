@@ -431,6 +431,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'slab.lmdb')
             async with await s_lmdbslab.Slab.anit(path, map_size=1024, lockmemory=True) as slab:
+                self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
                 mapcount = getFileMapCount('slab.lmdb/data.mdb')
                 self.eq(1, mapcount)
 
