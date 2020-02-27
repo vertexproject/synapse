@@ -621,7 +621,7 @@ class Migrator(s_base.Base):
         if migr:
             path = os.path.join(self.dest, self.migrdir, 'migr.lmdb')
             if self.migrslab is None:
-                self.migrslab = await s_lmdbslab.Slab.anit(path, readonly=False)
+                self.migrslab = await s_lmdbslab.Slab.anit(path, map_async=True, readonly=False)
             self.migrdb = self.migrslab.initdb('migr')
             self.onfini(self.migrslab.fini)
 
@@ -636,7 +636,7 @@ class Migrator(s_base.Base):
         if cell:
             path = os.path.join(self.dest, 'slabs', 'cell.lmdb')
             if self.cellslab is None:
-                self.cellslab = await s_lmdbslab.Slab.anit(path, readonly=False)
+                self.cellslab = await s_lmdbslab.Slab.anit(path, map_async=True, readonly=False)
             self.onfini(self.cellslab.fini)
 
             # triggers
@@ -741,12 +741,16 @@ class Migrator(s_base.Base):
         src_tot = 0
         dest_tot = 0
         diff_tot = 0
-        for form, scnt in src_fcnt.items():
+        for form in set(list(src_fcnt.keys()) + list(dest_fcnt.keys())):
+            scnt = src_fcnt.get(form, 0)
             src_tot += scnt
+
             dcnt = dest_fcnt.get(form, 0)
             dest_tot += dcnt
+
             diff = dcnt - scnt
             diff_tot += diff
+
             rprt.append(f'{form:<35}{scnt:<15}{dcnt:<15}{diff:<15}')
             if addlog is not None:
                 await self._migrlogAdd(addlog, 'stat', f'{iden}:form:{form}', (scnt, dcnt))
