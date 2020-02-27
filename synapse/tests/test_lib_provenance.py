@@ -12,7 +12,6 @@ from synapse.tests.utils import alist
 class ProvenanceTest(s_t_utils.SynTest):
 
     async def test_prov(self):
-        self.skip('FIXME figure out if we keep provenance')
 
         s_provenance.reset()
 
@@ -33,25 +32,32 @@ class ProvenanceTest(s_t_utils.SynTest):
 
             splices = await alist(core.splices(0, 1000))
 
-            self.len(6, splices)
-            idens = [splice[1]['prov'] for splice in splices]
+            self.len(9, splices)
+            idens = [splice[1][1].get('prov') for splice in splices]
+
+            # source splices
             self.eq(idens[0], idens[1])
             self.eq(idens[0], idens[2])
-            self.eq(idens[3], idens[4])
-            self.eq(idens[7], idens[8])
 
-            # node:add and prop:set
+            # test:str add
+            self.eq(idens[3], idens[4])
+
+            # trigger
             self.eq(idens[5], idens[6])
 
+            # test:int delnode
+            self.eq(idens[7], idens[8])
+
+            provs = [await core.getProvStack(iden) for iden in idens]
+
             # The source splices
-            prov1 = await core.getProvStack(idens[0])
-            self.eq(({}, ()), prov1)
+            self.eq(({}, ()), provs[0])
 
             # The test:str splices
-            prov2 = await core.getProvStack(idens[3])
-            rootiden = prov2[1][0][1]['user']
+            prov = provs[3][1]
+            rootiden = prov[0][1]['user']
             s2 = ('storm', {'q': '[ test:str=foo ]', 'user': rootiden})
-            self.eq((s2, ), prov2[1])
+            self.eq((s2, ), prov)
 
             # Validate that the iden calc itself is correct
             rawprov = ({}, [('storm', (('q', '[ test:str=foo ]'), ('user', rootiden)))])
@@ -59,21 +65,20 @@ class ProvenanceTest(s_t_utils.SynTest):
             self.eq(hash, idens[3])
 
             # The trigger splices
-            prov3 = await core.getProvStack(idens[5])
+            prov = provs[5][1]
             s3 = ('trig', {'cond': 'node:add', 'form': 'test:str', 'tag': None, 'prop': None})
             s4 = ('storm', {'q': '[ test:int=1 ]', 'user': rootiden})
-            self.eq((s2, s3, s4), prov3[1])
+            self.eq((s2, s3, s4), prov)
 
             # prop:del/node:del
-            prov4 = await core.getProvStack(idens[7])
-
+            prov = provs[7][1]
             ds2 = ('storm', {'q': 'test:int | delnode', 'user': rootiden})
             ds3 = ('stormcmd', {'name': 'delnode', 'argv': ()})
-            self.eq((ds2, ds3), prov4[1])
+            self.eq((ds2, ds3), prov)
 
             # Test the streaming API
             provstacks = await alist(core.provStacks(0, 1000))
-            correct = [(idens[0], prov1), (idens[3], prov2), (idens[5], prov3), (idens[7], prov4)]
+            correct = [(idens[0], provs[0]), (idens[3], provs[3]), (idens[5], provs[5]), (idens[7], provs[7])]
             self.eq(provstacks, correct)
 
             # Force recursion exception to be thrown

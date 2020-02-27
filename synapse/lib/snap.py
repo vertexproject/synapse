@@ -82,11 +82,16 @@ class Snap(s_base.Base):
     def disableTriggers(self):
         self.trigson = False
 
-    def getSnapMeta(self):
+    async def getSnapMeta(self):
         '''
-        Retrieve snap metadata to store along side edits.
+        Retrieve snap metadata to store along side nodeEdits.
         '''
-        return {'time': s_common.now(), 'user': self.user.iden}
+        now = s_common.now()
+        user = self.user.iden
+        wasnew, providen, provstack = self.core.provstor.commit()
+        if wasnew:
+            await self.fire('prov:new', time=now, user=user, prov=providen, provstack=provstack)
+        return {'time': now, 'user': user, 'prov': providen}
 
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):
@@ -574,7 +579,11 @@ class Snap(s_base.Base):
            Pretty much only useful for node data actions
 
         '''
-        meta = self.getSnapMeta()
+        if self.readonly:
+            mesg = 'The snapshot is in read-only mode.'
+            raise s_exc.IsReadOnly(mesg=mesg)
+
+        meta = await self.getSnapMeta()
         todo = s_common.todo('storNodeEdits', edits, meta)
         return await self.core.dyncall(self.wlyr.iden, todo)
 
@@ -702,7 +711,7 @@ class Snap(s_base.Base):
             s_node.Node: A Node object. It may return None if the snap is unable to add or lift the node.
         '''
         if self.readonly:
-            mesg = 'The snapshot is in ready only mode.'
+            mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
         form = self.core.model.form(name)

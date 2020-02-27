@@ -2126,7 +2126,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr('No terminal defined', mesgs)
 
                 ##################
-                # oldsplices = len(await alist(prox.splices(0, 1000)))
+                oldsplicespos = (await alist(prox.splices(0, 1000)))[-1][0][0]
 
                 # Start simple: add a cron job that creates a node every minute
                 q = "cron.add --minute +1 {[graph:node='*' :type=m1]}"
@@ -2144,18 +2144,18 @@ class StormTypesTest(s_test.SynTest):
                 await self.agenlen(1, prox.eval('graph:node:type=m1'))
 
                 # Make sure the provenance of the new splices looks right
-                # FIXME: pending provstack
-                # splices = await alist(prox.splices(oldsplices, 1000))
-                # self.gt(len(splices), 1)
+                splices = await alist(prox.splices(oldsplicespos + 1, 1000))
+                self.gt(len(splices), 1)
 
-                # aliases = [splice[1]['prov'] for splice in splices]
-                # self.true(all(a == aliases[0] for a in aliases))
-                # prov = await prox.getProvStack(aliases[0])
-                # rootiden = prov[1][1][1]['user']
-                # correct = ({}, (
-                #            ('cron', {'iden': guid}),
-                #            ('storm', {'q': "[graph:node='*' :type=m1]", 'user': rootiden})))
-                # self.eq(prov, correct)
+                aliases = [splice[1][1].get('prov') for splice in splices]
+                self.nn(aliases[0])
+                self.true(all(a == aliases[0] for a in aliases))
+                prov = await prox.getProvStack(aliases[0])
+                rootiden = prov[1][1][1]['user']
+                correct = ({}, (
+                           ('cron', {'iden': guid}),
+                           ('storm', {'q': "[graph:node='*' :type=m1]", 'user': rootiden})))
+                self.eq(prov, correct)
 
                 q = f"cron.mod {guid[:6]} {{[graph:node='*' :type=m2]}}"
                 mesgs = await core.streamstorm(q).list()
