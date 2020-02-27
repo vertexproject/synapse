@@ -182,6 +182,28 @@ def parseVersionParts(text, seps=vseps):
 
 
 def reqVersion(valu, minver=None, maxver=None):
+    '''
+    Require a given version tuple is inside the bounds of a minimum and/or maximum bound.
+
+    Args:
+        valu (int, int, int): Major, minor and patch value to check.
+        minver (int, int, int): Minimum values for major, minor and patch values.
+        maxver (int, int, int): Maximum values for major, minor and patch values.
+
+    Notes:
+        The minor and patch values for ``minver`` and ``maxver`` may accept ``None``.
+        Those values will be placed with ``0`` and ``sys.maxint`` respectively, which
+        allows wildcarding minor and patch levels.
+
+        Minver or Maxver can be omitted, and that will omit checking for lower bounds
+        and upper bounds, respectively.  At least one of the arguments must be provided.
+
+    Returns:
+        None: If the value is in bounds of minver and maxver.
+
+    Raises:
+        s_exc.BadVersion: If a precondition is incorrect or a version value is out of bounds.
+    '''
 
     if valu[0] is None:
         raise s_exc.BadVersion(mesg='valu[0] must not be None.')

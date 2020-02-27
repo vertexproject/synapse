@@ -18,7 +18,8 @@ class VersionTest(s_t_utils.SynTest):
 
     def test_req_version(self):
 
-        # Vers, minver, maxver, result
+        # Test vectors are laid out in the order:
+        #   Vers, minver, maxver, result
         tsts = [
 
             # Basic ranging without wildcards
