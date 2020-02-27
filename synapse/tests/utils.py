@@ -1101,8 +1101,8 @@ class SynTest(unittest.TestCase):
             shutil.rmtree(tempdir, ignore_errors=True)
 
     def getTestFilePath(self, *names):
-        import synapse.tests.common
-        path = os.path.dirname(synapse.tests.common.__file__)
+        import synapse.tests.__init__
+        path = os.path.dirname(synapse.tests.__init__.__file__)
         return os.path.join(path, 'files', *names)
 
     @contextlib.contextmanager
