@@ -48,8 +48,7 @@ class CmdCronTest(s_t_utils.SynTest):
                         non-zero amounts.  However, we are running in the same asyncio loop as the agenda.  Just
                         sleep(0) in a loop until the cron job is not running anymore
                         '''
-
-                        for i in range(30):
+                        for _ in range(30):
                             await asyncio.sleep(0)
                             crons = await core.listCronJobs()
                             cron = [c for c in crons if c.get('iden') == guid][0]
@@ -118,8 +117,6 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(outp.expect('BadSyntax'))
 
                     ##################
-                    #oldsplices = len(await alist(core.splices(0, 1000)))
-
                     # Start simple: add a cron job that creates a node every minute
                     outp.clear()
                     await cmdr.runCmdLine("cron add -M +1 {[graph:node='*' :type=m1]}")
