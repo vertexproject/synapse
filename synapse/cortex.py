@@ -34,7 +34,6 @@ import synapse.lib.version as s_version
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
-import synapse.lib.slaboffs as s_slaboffs
 import synapse.lib.stormhttp as s_stormhttp
 import synapse.lib.stormwhois as s_stormwhois
 import synapse.lib.provenance as s_provenance
@@ -709,11 +708,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Enable cron jobs running.',
             'type': 'boolean'
         },
-        'dedicated': {
-            'default': False,
-            'description': 'The cortex is free to use most of the resources of the system.',
-            'type': 'boolean'
-        },
         'layer:lmdb:map_async': {
             'default': True,
             'description': 'Set the default lmdb:map_async value in LMDB layers.',
@@ -729,7 +723,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Enable provenance tracking for all writes',
             'type': 'boolean'
         },
-
         'modules': {
             'default': [],
             'description': 'A list of module classes to load.',
