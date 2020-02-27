@@ -10,6 +10,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
+import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,8 @@ Manage permissions of users, roles, and objects in a remote cell.
 outp = None
 
 min_authgate_vers = (0, 1, 33)
+minver = (0, 1, 0)
+maxver = (0, 1, None)
 
 denyallow = ['deny', 'allow']
 def reprrule(rule, authgater=None):
@@ -171,29 +174,39 @@ async def handleModify(opts):
     else:
         return 0
 
+async def runcellauth(opts, cell):
+    if opts.name:
+        for name in opts.name:
+            user = await cell.getAuthInfo(name)
+            if user is None:
+                outp.printf(f'no such user: {opts.name}')
+                return 1
+
+            await printuser(user, cell=cell, details=opts.detail)
+        return 0
+
+    outp.printf(f'getting users and roles')
+
+    outp.printf('users:')
+    for user in await cell.getAuthUsers():
+        outp.printf(f'    {user}')
+
+    outp.printf('roles:')
+    for role in await cell.getAuthRoles():
+        outp.printf(f'    {role}')
+
 async def handleList(opts):
     try:
         async with await s_telepath.openurl(opts.cellurl) as cell:
 
-            if opts.name:
-                for name in opts.name:
-                    user = await cell.getAuthInfo(name)
-                    if user is None:
-                        outp.printf(f'no such user: {opts.name}')
-                        return 1
+            await runcellauth(opts, cell)
 
-                    await printuser(user, cell=cell, details=opts.detail)
-                return 0
-
-            outp.printf(f'getting users and roles')
-
-            outp.printf('users:')
-            for user in await cell.getAuthUsers():
-                outp.printf(f'    {user}')
-
-            outp.printf('roles:')
-            for role in await cell.getAuthRoles():
-                outp.printf(f'    {role}')
+    except s_exc.BadVersion as e:
+        valu = s_version.fmtVersion(*e.get('valu'))
+        pminver = s_version.fmtVersion(*["*" if v is None else v for v in minver])
+        pmaxver = s_version.fmtVersion(*["*" if v is None else v for v in maxver])
+        print(f'Cell version {valu} is outside of the cellauth supported range ({pminver}, {pmaxver}).')
+        print(f'Please use a version of Synapse which supports {valu}')
 
     except Exception as e:  # pragma: no cover
 
