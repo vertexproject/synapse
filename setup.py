@@ -44,6 +44,7 @@ setup(
         'prompt-toolkit>=2.0.7,<2.1.0',
         'lark-parser>=0.7.1,<0.8.0,!=0.7.4',
         'Pygments>=2.3.0,<2.4.0',
+        'packaging>=20.0,<21.0'
     ],
 
     extras_require={

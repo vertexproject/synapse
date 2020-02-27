@@ -9,63 +9,34 @@ import synapse.lib.version as s_version
 
 class VersionTest(s_t_utils.SynTest):
 
-    def _runreqtest(self, valu, minver, maxver, exp):
+    def _runreqtest(self, valu, reqver, exp):
         if exp is None:
-            self.none(s_version.reqVersion(valu, minver, maxver))
+            self.none(s_version.reqVersion(valu, reqver))
         else:
             with self.raises(exp):
-                s_version.reqVersion(valu, minver, maxver)
+                s_version.reqVersion(valu, reqver)
 
     def test_req_version(self):
 
         # Test vectors are laid out in the order:
-        #   Vers, minver, maxver, result
+        #   Vers, reqver, result
         tsts = [
+            ((0, 1, 98), '>=0.1.99,<=0.1.101', s_exc.BadVersion),
+            ((0, 1, 99), '>=0.1.99,<=0.1.101', None),
+            ((0, 1, 100), '>=0.1.99,<=0.1.101', None),
+            ((0, 1, 101), '>=0.1.99,<=0.1.101', None),
+            ((0, 1, 102), '>=0.1.99,<=0.1.101', s_exc.BadVersion),
 
-            # Basic ranging without wildcards
-            ((0, 1, 98), (0, 1, 99), (0, 1, 101), s_exc.BadVersion),
-            ((0, 1, 99), (0, 1, 99), (0, 1, 101), None),
-            ((0, 1, 100), (0, 1, 99), (0, 1, 101), None),
-            ((0, 1, 101), (0, 1, 99), (0, 1, 101), None),
-            ((0, 1, 102), (0, 1, 99), (0, 1, 101), s_exc.BadVersion),
+            ((0, 1, 0), '>=0.1.0,<0.2.0', None),
+            ((0, 1, 100), '>=0.1.0,<0.2.0', None),
+            ((0, 2, 0), '>=0.1.0,<0.2.0', s_exc.BadVersion),
 
-            # Add a patch version wildcard for min and max values
-            ((0, 1, 100), (0, 1, 0), (0, 1, None), None),
-            ((0, 1, 98), (0, 1, None), (0, 1, 101), None),
-
-            # Add a floor wildcard of 0, 0, 0
-            ((0, 1, 98), (0, None, None), (0, 1, 101), None),
-            ((0, 2, 0), (0, None, None), (0, 1, 101), s_exc.BadVersion),
-
-            # Add a ceiling wildcard
-            ((1, 2, 3), (1, 2, 0), (1, None, None), None),
-            ((2, 0, 0), (1, 2, 0), (1, None, None), s_exc.BadVersion),
-
-            ((0, 2, 0), (0, 2, 0), (0, 2, None), None),
-            ((0, 2, 1), (0, 2, 0), (0, 2, None), None),
-            ((0, 3, 0), (0, 2, 0), (0, 2, None), s_exc.BadVersion),
-
-            # # No minvalu required, just a max value
-            ((0, 1, 99), None, (0, 1, 100), None),
-            ((0, 1, 100), None, (0, 1, 100), None),
-            ((0, 2, 0), None, (0, 1, 100), s_exc.BadVersion),
-            ((0, 2, 0), None, (0, 1, None), s_exc.BadVersion),
-            #
-            # # No maxvalu required, just a min value
-            ((0, 1, 100), (0, 1, 100), None, None),
-            ((0, 1, 101), (0, 1, 100), None, None),
-            ((0, 0, 100), (0, 1, 100), None, s_exc.BadVersion),
-            ((0, 0, 100), (0, 1, None), None, s_exc.BadVersion),
-
-            # Sad paths
-            ((0, 2, 0), None, None, s_exc.BadVersion),
-            ((None, 2, 0), None, None, s_exc.BadVersion),
-            ((1, 2, 3, 4), None, None, s_exc.BadVersion),
-            ((0, 2, 0), (None, 1, 2), None, s_exc.BadVersion),
-            ((0, 2, 0), None, (None, 1, 2), s_exc.BadVersion),
-            ((0, 2, 0), (1, 2, 3, 4), None, s_exc.BadVersion),
-            ((0, 2, 0), None, (1, 2, 3, 4), s_exc.BadVersion),
+            ((0, 2, 0), '>=0.2.0,<0.3.0', None),
+            ((0, 1, 51), '>=0.2.0,<0.3.0', s_exc.BadVersion),
+            ((0, 2, 51), '>=0.2.0,<0.3.0', None),
+            ((0, 2, 51), '>=0.2.0,<0.3.0,!=0.2.51', s_exc.BadVersion),
         ]
+
         for vec in tsts:
             self._runreqtest(*vec)
 

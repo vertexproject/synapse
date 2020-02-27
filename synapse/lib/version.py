@@ -2,10 +2,12 @@
 Synapse utilites for dealing with Semvar versioning.
 This includes the Synapse version information.
 '''
-import sys
 import string
 
 import regex
+
+import packaging.version as p_version
+import packaging.specifiers as p_specifiers
 
 # This module is imported during synapse.__init__.  As such, we can't pull
 # arbitrary modules from Synapse here. synapse.exc is currently safe,
@@ -181,22 +183,13 @@ def parseVersionParts(text, seps=vseps):
     return ret
 
 
-def reqVersion(valu, minver=None, maxver=None):
+def reqVersion(valu, reqver):
     '''
-    Require a given version tuple is inside the bounds of a minimum and/or maximum bound.
+    Require a given version tuple is valid for a given requirements string.
 
     Args:
         valu (int, int, int): Major, minor and patch value to check.
-        minver (int, int, int): Minimum values for major, minor and patch values.
-        maxver (int, int, int): Maximum values for major, minor and patch values.
-
-    Notes:
-        The minor and patch values for ``minver`` and ``maxver`` may accept ``None``.
-        Those values will be placed with ``0`` and ``sys.maxint`` respectively, which
-        allows wildcarding minor and patch levels.
-
-        Minver or Maxver can be omitted, and that will omit checking for lower bounds
-        and upper bounds, respectively.  At least one of the arguments must be provided.
+        reqver (str): A requirements version string.
 
     Returns:
         None: If the value is in bounds of minver and maxver.
@@ -205,33 +198,13 @@ def reqVersion(valu, minver=None, maxver=None):
         s_exc.BadVersion: If a precondition is incorrect or a version value is out of bounds.
     '''
 
-    if valu[0] is None:
-        raise s_exc.BadVersion(mesg='valu[0] must not be None.')
-    if len(valu) != 3:
-        raise s_exc.BadVersion(mesg='value must be a semver tuple of 3 items.')
-    if (minver or maxver) is None:
-        raise s_exc.BadVersion(mesg='requires minver or maxver.')
+    spec = p_specifiers.SpecifierSet(reqver)
+    verstr = fmtVersion(*valu)
+    vers = p_version.Version(verstr)
 
-    if maxver:
-        if maxver[0] is None:
-            raise s_exc.BadVersion(mesg='maxver[0] must not be None.')
-        if len(maxver) != 3:
-            raise s_exc.BadVersion(mesg='maxver must be a semver tuple of 3 items.')
-        checkv = tuple([sys.maxsize if v is None else v for v in maxver])
-        if valu > checkv:
-            raise s_exc.BadVersion(mesg='Version is larger than max version.',
-                                   valu=valu, maxver=maxver)
-
-    if minver:
-        if minver[0] is None:
-            raise s_exc.BadVersion(mesg='minver[0] must not be None.')
-        if len(minver) != 3:
-            raise s_exc.BadVersion(mesg='minver must be a semver tuple of 3 items.')
-
-        checkv = tuple([0 if v is None else v for v in minver])
-        if valu < checkv:
-            raise s_exc.BadVersion(mesg='Version is less than than minimum version.',
-                                   valu=valu, minver=minver)
+    if vers not in spec:
+        raise s_exc.BadVersion(mesg='Version is not',
+                               valu=valu, verstr=verstr, reqver=reqver)
 
 ##############################################################################
 # The following are touched during the release process by bumpversion.
