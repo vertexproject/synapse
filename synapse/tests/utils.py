@@ -92,10 +92,6 @@ class TestType(s_types.Type):
     def _normPyStr(self, valu):
         return valu.lower(), {}
 
-    #def indx(self, norm):
-        # make this purposely fragile...
-        #return norm.encode('utf8')
-
 class ThreeType(s_types.Type):
 
     stortype = s_layer.STOR_TYPE_U8
@@ -1306,6 +1302,7 @@ class SynTest(unittest.TestCase):
 
     async def execToolMain(self, func, argv):
         outp = self.getTestOutp()
+
         def execmain():
             return func(argv, outp=outp)
         retn = await s_coro.executor(execmain)
@@ -1513,11 +1510,10 @@ class SynTest(unittest.TestCase):
         Assert that the length of an object is equal to X
         '''
         gtyps = (
-                 s_coro.GenrHelp,
-                 s_telepath.Genr,
-                 s_telepath.GenrIter,
-                 types.GeneratorType,
-                 )
+            s_coro.GenrHelp,
+            s_telepath.Genr,
+            s_telepath.GenrIter,
+            types.GeneratorType)
 
         if isinstance(obj, gtyps):
             obj = list(obj)
