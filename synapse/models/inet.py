@@ -2107,6 +2107,15 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The web account that received the message.'
                         }),
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The source address of the message.'
+                        }),
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The source IPv4 address of the message.'
+                        }),
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The source IPv6 address of the message.'
+                        }),
                         ('time', ('time', {}), {
                             'ro': True,
                             'doc': 'The date and time at which the message was sent.'
@@ -2130,6 +2139,15 @@ class InetModule(s_module.CoreModule):
                         ('acct:site', ('inet:fqdn', {}), {
                             'ro': True,
                             'doc': 'The site or service associated with the account.'
+                        }),
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The source address of the post.'
+                        }),
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The source IPv4 address of the post.'
+                        }),
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The source IPv6 address of the post.'
                         }),
                         ('acct:user', ('inet:user', {}), {
                             'ro': True,

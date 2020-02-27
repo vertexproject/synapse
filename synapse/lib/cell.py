@@ -26,6 +26,7 @@ import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
+
 import synapse.lib.lmdbslab as s_lmdbslab
 
 logger = logging.getLogger(__name__)
@@ -393,7 +394,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     cellapi = CellApi
 
-    confdefs = {}  # This should be a JSONSchema properties list for an object.
+    confdefs = {}  # type: ignore  # This should be a JSONSchema properties list for an object.
     confbase = {
         'auth:passwd': {
             'description': 'Set to <passwd> (local only) to bootstrap the root user password.',
@@ -448,6 +449,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.setNexsRoot(await self._initNexsRoot())
 
         self.hive = await self._initCellHive()
+
+        # self.cellinfo, a HiveDict for general purpose persistent storage
+        node = await self.hive.open(('cellinfo',))
+        self.cellinfo = await node.dict()
+        self.onfini(node)
+
+        if self.inaugural:
+            await self.cellinfo.set('synapse:version', s_version.version)
+
+        synvers = self.cellinfo.get('synapse:version')
+        if synvers is None or synvers < s_version.version:
+            await self.cellinfo.set('synapse:version', s_version.version)
+
+        self.auth = await self._initCellAuth()
 
         # self.cellinfo, a HiveDict for general purpose persistent storage
         node = await self.hive.open(('cellinfo',))

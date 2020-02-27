@@ -96,6 +96,7 @@ server for starting any cell, ``synapse.servers.cell``.  These servers will crea
 additional RPC or HTTP API listening servers as necessary.  Those are the preferred ways to run an application
 implemented via a ``Cell``.
 
+.. _arch-telepath:
 
 Telepath RPC
 ============

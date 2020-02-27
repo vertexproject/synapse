@@ -1405,6 +1405,7 @@ class InetModelTest(s_t_utils.SynTest):
         valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'vertexmc'), 0)
         input_props = {
             'url': 'https://vertex.link/messages/0',
+            'client': 'tcp://1.2.3.4',
             'text': 'a cool Message',
             'file': 'sha256:' + 64 * 'F'
         }
@@ -1413,14 +1414,29 @@ class InetModelTest(s_t_utils.SynTest):
             'from': ('vertex.link', 'visi'),
             'time': 0,
             'url': 'https://vertex.link/messages/0',
+            'client': 'tcp://1.2.3.4',
+            'client:ipv4': 0x01020304,
             'text': 'a cool Message',
             'file': 'sha256:' + 64 * 'f'
         }
         expected_ndef = (formname, (('vertex.link', 'visi'), ('vertex.link', 'vertexmc'), 0))
+
+        valu2 = (('vertex.link', 'visi'), ('vertex.link', 'epiphyte'), 0)
+        inputs2 = {'client': '::1'}
+        expected2 = {
+            'client': 'tcp://::1',
+            'client:ipv6': '::1',
+        }
+
         async with self.getTestCore() as core:
+
             async with await core.snap() as snap:
+
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
+
+                node = await snap.addNode('inet:web:mesg', valu2, props=inputs2)
+                self.checkNode(node, (('inet:web:mesg', valu2), expected2))
 
     async def test_web_post(self):
         formname = 'inet:web:post'
@@ -1430,6 +1446,7 @@ class InetModelTest(s_t_utils.SynTest):
             'text': 'my cooL POST',
             'time': 0,
             'url': 'https://vertex.link/mypost',
+            'client': 'tcp://1.2.3.4',
             'file': 64 * 'f',
             'replyto': 32 * 'b',
             'repost': 32 * 'c',
@@ -1438,6 +1455,8 @@ class InetModelTest(s_t_utils.SynTest):
             'acct': ('vertex.link', 'vertexmc'),
             'acct:site': 'vertex.link',
             'acct:user': 'vertexmc',
+            'client': 'tcp://1.2.3.4',
+            'client:ipv4': 0x01020304,
             'text': 'my cooL POST',
             'time': 0,
             'url': 'https://vertex.link/mypost',
@@ -1445,11 +1464,22 @@ class InetModelTest(s_t_utils.SynTest):
             'replyto': 32 * 'b',
             'repost': 32 * 'c',
         }
+
+        node2 = s_common.guid()
+        inputs2 = {'client': '::1'}
+        expected2 = {
+            'client': 'tcp://::1',
+            'client:ipv6': '::1',
+        }
+
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
+
+                node = await snap.addNode('inet:web:post', node2, props=inputs2)
+                self.checkNode(node, (('inet:web:post', node2), expected2))
 
     async def test_whois_contact(self):
         formname = 'inet:whois:contact'

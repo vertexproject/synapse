@@ -302,6 +302,7 @@ def benchmarkAll(confignames: List = None, num_procs=1, workfactor=1000, tmpdir=
             fn = f'{s_time.repr(tick, pack=True)}_{configname}.json'
             if jsonprefix:
                 fn = f'{jsonprefix}{fn}'
+                data['prefix'] = jsonprefix
             s_common.jssave(data, jsondir, fn)
 
 def getParser():
