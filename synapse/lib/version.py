@@ -183,13 +183,17 @@ def parseVersionParts(text, seps=vseps):
     return ret
 
 
-def reqVersion(valu, reqver):
+def reqVersion(valu, reqver,
+               exc=s_exc.BadVersion,
+               mesg='Provided version does not match required version.'):
     '''
     Require a given version tuple is valid for a given requirements string.
 
     Args:
         valu (int, int, int): Major, minor and patch value to check.
         reqver (str): A requirements version string.
+        exc (s_exc.SynErr): The synerr class to raise.
+        mesg (str): The message to pass in the exception.
 
     Returns:
         None: If the value is in bounds of minver and maxver.
@@ -203,8 +207,7 @@ def reqVersion(valu, reqver):
     vers = p_version.Version(verstr)
 
     if vers not in spec:
-        raise s_exc.BadVersion(mesg='Version is not',
-                               valu=valu, verstr=verstr, reqver=reqver)
+        raise exc(mesg=mesg, valu=valu, verstr=verstr, reqver=reqver)
 
 ##############################################################################
 # The following are touched during the release process by bumpversion.
