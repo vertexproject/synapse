@@ -28,6 +28,44 @@ Backward Compatibility Breaks
 
 - FIXME add one liners and/or additional bullets here and visi will explain them :D
 
+v0.1.52 - 2019-02-27
+====================
+
+Features and Enhancements
+-------------------------
+
+- Allow the benchmarking tool to save records off in JSON format.  Add a script to post-process records for aggregation.
+  (`#1535 <https://github.com/vertexproject/synapse/pull/1535>`_)
+  (`#1544 <https://github.com/vertexproject/synapse/pull/1544>`_)
+- Add per-user default View options.
+  (`#1537 <https://github.com/vertexproject/synapse/pull/1537>`_)
+- Add ``client`` and associated subs to the ``inet:web:mesg`` and ``inet:web:post`` forms.
+  (`#1545 <https://github.com/vertexproject/synapse/pull/1545>`_)
+- Lock the command line tools in ``synapse.tools`` with interact with remote Cortex and Cell objects to only work if
+  the remote objects are also served up from 0.1.x server code.
+  (`#1546 <https://github.com/vertexproject/synapse/pull/1546>`_)
+- Embed Synapse version information into the Cell and Cortex objects for future version checking.
+  (`#1547 <https://github.com/vertexproject/synapse/pull/1547>`_)
+
+Bugfix
+--------
+
+- Corrected spelling for ``ou:org:dissolved``.  This secondary property was previously ``disolved``.  This does have an
+  associated model migration.
+  (`#1527 <https://github.com/vertexproject/synapse/pull/1527>`_)
+- Corrected an issue with the ``hide-code`` library breaking our documentation tests.
+  (`#1527 <https://github.com/vertexproject/synapse/pull/1527>`_)
+- Fix an issue where norming a ``geo:latlong`` value could produce an different value from the input system-mode value.
+  (`#1539 <https://github.com/vertexproject/synapse/pull/1539>`_)
+- Fix an issue with the memory lock loop tests to be more reliable.
+  (`#1543 <https://github.com/vertexproject/synapse/pull/1543>`_)
+
+Improved Documentation
+----------------------
+- Update User Guide documentation with additional glossary documentation.
+  (`#1540 <https://github.com/vertexproject/synapse/pull/1540>`_)
+
+
 v0.1.51 - 2019-02-13
 ====================
 

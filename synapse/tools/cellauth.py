@@ -10,6 +10,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
+import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ Manage permissions of users, roles, and objects in a remote cell.
 outp = None
 
 min_authgate_vers = (0, 1, 33)
+reqver = '>=0.2.0,<0.3.0'
 
 denyallow = ['deny', 'allow']
 def reprrule(rule, authgater=None):
@@ -84,7 +86,7 @@ async def handleModify(opts):
 
     try:
         async with await s_telepath.openurl(opts.cellurl) as cell:
-
+            s_version.reqVersion(cell._getSynVers(), reqver)
             if cell._getSynVers() >= min_authgate_vers:
                 cell_supports_authgate = True
 
@@ -164,6 +166,12 @@ async def handleModify(opts):
 
             await printuser(user)
 
+    except s_exc.BadVersion as e:
+        valu = s_version.fmtVersion(*e.get('valu'))
+        outp.printf(f'Cell version {valu} is outside of the cellauth supported range ({reqver}).')
+        outp.printf(f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
+        return 1
+
     except Exception as e:  # pragma: no cover
 
         if opts.debug:
@@ -178,7 +186,7 @@ async def handleModify(opts):
 async def handleList(opts):
     try:
         async with await s_telepath.openurl(opts.cellurl) as cell:
-
+            s_version.reqVersion(cell._getSynVers(), reqver)
             if opts.name:
                 user = await cell.getAuthInfo(opts.name[0])
                 if user is None:
@@ -197,6 +205,12 @@ async def handleList(opts):
             outp.printf('roles:')
             for role in await cell.getAuthRoles():
                 outp.printf(f'    {role}')
+
+    except s_exc.BadVersion as e:
+        valu = s_version.fmtVersion(*e.get('valu'))
+        outp.printf(f'Cell version {valu} is outside of the cellauth supported range ({reqver}).')
+        outp.printf(f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
+        return 1
 
     except Exception as e:  # pragma: no cover
 

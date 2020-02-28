@@ -12,9 +12,11 @@ import synapse.lib.cmd as s_cmd
 import synapse.lib.base as s_base
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.output as s_output
+import synapse.lib.version as s_version
+
+reqver = '>=0.2.0,<0.3.0'
 
 async def main(argv, outp=s_output.stdout):
-
     pars = makeargparser()
 
     try:
@@ -39,6 +41,15 @@ async def main(argv, outp=s_output.stdout):
         outp.printf(f'Exporting CSV rows to: {path}')
 
         async with await s_telepath.openurl(opts.cortex) as core:
+
+            try:
+                s_version.reqVersion(core._getSynVers(), reqver)
+            except s_exc.BadVersion as e:
+                valu = s_version.fmtVersion(*e.get('valu'))
+                outp.printf(f'Cortex version {valu} is outside of the csvtool supported range ({reqver}).')
+                outp.printf(f'Please use a version of Synapse which supports {valu}; '
+                            f'current version is {s_version.verstring}.')
+                return 1
 
             with open(path, 'w') as fd:
 
@@ -89,7 +100,7 @@ async def main(argv, outp=s_output.stdout):
 
     async def addCsvData(core):
 
-        newcount, nodecount = 0, 0
+        nodecount = 0
 
         for rows in rowgenr:
 
@@ -126,12 +137,23 @@ async def main(argv, outp=s_output.stdout):
 
     else:
         async with await s_telepath.openurl(opts.cortex) as core:
+
+            try:
+                s_version.reqVersion(core._getSynVers(), reqver)
+            except s_exc.BadVersion as e:
+                valu = s_version.fmtVersion(*e.get('valu'))
+                outp.printf(f'Cortex version {valu} is outside of the csvtool supported range ({reqver}).')
+                outp.printf(f'Please use a version of Synapse which supports {valu}; '
+                            f'current version is {s_version.verstring}.')
+                return 1
+
             nodecount = await addCsvData(core)
 
     if logfd is not None:
         logfd.close()
 
     outp.printf('%d nodes.' % (nodecount, ))
+    return 0
 
 def makeargparser():
     desc = '''
@@ -191,5 +213,5 @@ def makeargparser():
     pars.add_argument('csvfiles', nargs='+', help='CSV files to load.')
     return pars
 
-if __name__ == '__main__': # pragma: no cover
-    asyncio.run(s_base.main(main(sys.argv[1:])))
+if __name__ == '__main__':  # pragma: no cover
+    sys.exit(asyncio.run(s_base.main(main(sys.argv[1:]))))

@@ -10,6 +10,7 @@ import synapse.cortex as s_cortex
 
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
+import synapse.lib.version as s_version
 
 import synapse.tools.backup as s_tools_backup
 
@@ -1454,6 +1455,11 @@ class CortexBasicTest(s_t_utils.SynTest):
         data = ('foo', 'bar', 'baz')
 
         async with self.getTestCoreAndProxy() as (core, proxy):
+
+            corever = core.cellinfo.get('cortex:version')
+            cellver = core.cellinfo.get('synapse:version')
+            self.eq(corever, s_version.version)
+            self.eq(corever, cellver)
 
             nodes = ((('inet:user', 'visi'), {}),)
 
@@ -3769,7 +3775,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(s_common.ehex(sha2), '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
 
                 unset = False
-                for i in range(20):
+                for _ in range(20):
                     aset = core.axready.is_set()
                     if aset is False:
                         unset = True

@@ -45,6 +45,8 @@ logger = logging.getLogger(__name__)
 A Cortex implements the synapse hypergraph object.
 '''
 
+reqver = '>=0.2.0,<0.3.0'
+
 class CoreApi(s_cell.CellApi):
     '''
     The CoreApi is exposed when connecting to a Cortex over Telepath.
@@ -761,9 +763,8 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self.cellinfo.set('cortex:version', s_version.version)
 
         corevers = self.cellinfo.get('cortex:version')
-        if corevers is None:
-            mesg = 'cortex:version is unset. please upgrade this cortex to version 2.'
-            raise s_exc.BadStorageVersion(mesg=mesg)
+        s_version.reqVersion(corevers, reqver, exc=s_exc.BadStorageVersion,
+                             mesg='cortex version in storage is incompatible with running software')
 
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use
