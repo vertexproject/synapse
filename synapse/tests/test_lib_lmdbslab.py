@@ -242,11 +242,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 # Trigger a grow/bump in the middle of a scan; make sure new nodes come after current scan position
                 iter = slab.scanByRange(b'', db=foo)
-                for i in range(50):
+                for _ in range(50):
                     next(iter)
 
                 iterback = slab.scanByRangeBack(b'ffffffffffffffffffffffffffffffff', db=foo)
-                for i in range(50):
+                for _ in range(50):
                     next(iterback)
 
                 multikey = b'\xff\xff\xff\xfe' + s_common.guid(2000).encode('utf8')
@@ -379,7 +379,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 # Partially read through scan
                 iter = slab.scanByRange(lmin=key, lmax=key, db=foo)
-                for i in range(60):
+                for _ in range(60):
                     next(iter)
 
                 # Trigger a bump by writing a bunch; make sure we're not writing into the middle of the scan

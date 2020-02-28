@@ -457,7 +457,7 @@ class Node:
         # order matters...
         edits = []
 
-        for sublen, subtag in subtags:
+        for _, subtag in subtags:
 
             edits.extend(self._getTagPropDel(subtag))
             edits.append((s_layer.EDIT_TAG_DEL, (subtag, None)))
@@ -468,28 +468,6 @@ class Node:
         nodeedit = (self.buid, self.form.name, edits)
 
         await self.snap.addNodeEdit(nodeedit)
-
-        #removed.append((name, curv))
-
-        #edits = [(s_layer.EDIT_TAG_DEL, (name, curv)) for (name, curv) in removed]
-
-        #for name, curv in removed:
-
-            #for (tagproptag, tagpropprop) in list(self.tagprops.keys()):
-
-                #if tagproptag != name:
-                    #continue
-
-                # TODO add these to edits...
-                #await self.delTagProp(name, tagpropprop)
-
-        #nodeedit = (self.buid, self.form.name, edits)
-
-        #await self.snap.addNodeEdit(nodeedit)
-
-        # fire all the handlers / triggers
-        #[await self.snap.view.runTagDel(self, t, v) for (t, v) in removed]
-        #[await self.snap.wlyr.fire('tag:del', tag=t, valu=v, node=self.iden()) for (t, v) in removed]
 
     def _getTagPropDel(self, tag):
 
@@ -563,7 +541,7 @@ class Node:
             (s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)),
         )
 
-        sode = await self.snap.addNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.addNodeEdit((self.buid, self.form.name, edits))
 
     async def delete(self, force=False):
         '''
