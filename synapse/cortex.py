@@ -776,6 +776,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.splicers = {}
         self.feedfuncs = {}
         self.stormcmds = {}
+
+        self.mirror = False
         self.spawnpool = None
 
         self.storm_cmd_ctors = {}
@@ -1751,6 +1753,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Note:
             This cortex *must* be initialized from a backup of the target cortex!
         '''
+        self.mirror = True
         self.schedCoro(self._initCoreMirror(url))
 
     async def _initCoreMirror(self, url):

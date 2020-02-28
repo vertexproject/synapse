@@ -3256,7 +3256,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=path00) as core00:
 
+                self.false(core00.mirror)
+
                 await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+                await core00.nodes('$lib.queue.add(hehe)')
+                await core00.nodes('trigger.add node:add --form inet:fqdn --query {$lib.queue.get(hehe).put($node.repr())}')
 
                 url = core00.getLocalUrl()
 
@@ -3268,6 +3272,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                     evnt = await core01.getNexusOffsEvent(offs)
 
                     await core01.initCoreMirror(url)
+
+                    self.true(core01.mirror)
                     self.true(await s_coro.event_wait(evnt, timeout=2.0))
 
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
@@ -3278,6 +3284,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.true(await s_coro.event_wait(evnt, timeout=2.0))
 
                     self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
+                    self.len(2, await core01.nodes('for ($offs, $fqdn) in $lib.queue.get(hehe).gets(wait=0) { inet:fqdn=$fqdn }'))
 
                     msgs = await core01.streamstorm('queue.list').list()
                     self.stormIsInPrint('visi', msgs)
@@ -3295,6 +3302,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core01.initCoreMirror(url)
                     self.true(await s_coro.event_wait(evnt, timeout=2.0))
 
+                    await core01.nodes('[ inet:fqdn=woot.com ]')
+
+                    self.len(4, await core01.nodes('for ($offs, $fqdn) in $lib.queue.get(hehe).gets(wait=0) { inet:fqdn=$fqdn }'))
+
             # now lets start up in the opposite order...
             async with await s_cortex.Cortex.anit(dirn=path01) as core01:
 
@@ -3302,13 +3313,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 async with await s_cortex.Cortex.anit(dirn=path00) as core00:
 
-                    await core00.nodes('[ inet:ipv4=6.6.6.6 ]')
+                    self.len(1, await core00.nodes('[ inet:ipv4=6.6.6.6 ]'))
 
                     offs = await core00.getNexusOffs() - 1
                     evnt = await core01.getNexusOffsEvent(offs)
                     self.true(await s_coro.event_wait(evnt, timeout=2.0))
 
-                    self.len(1, (await core01.nodes('inet:ipv4=6.6.6.6')))
+                    self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
 
                 # what happens if *he* goes down and comes back up again?
                 async with await s_cortex.Cortex.anit(dirn=path00) as core00:
