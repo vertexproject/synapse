@@ -819,6 +819,11 @@ class Migrator(s_base.Base):
                     os.remove(dpath)
                 shutil.copy(spath, dpath)
 
+            elif spath.endswith('axon'):
+                if exists:
+                    shutil.rmtree(dpath)
+                s_backup.backup(spath, dpath)
+
             elif spath.endswith('slabs'):
                 # delete the non-nexus items from the destination if they exist
                 if exists:
