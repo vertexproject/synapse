@@ -68,8 +68,10 @@ class Type:
 
         self.storlifts = {
             '=': self._storLiftNorm,
+            '~=': self._storLiftRegx,
             '?=': self._storLiftSafe,
             'in=': self._storLiftIn,
+            'range=': self._storLiftRange,
         }
 
         self.postTypeInit()
@@ -93,6 +95,14 @@ class Type:
         #       lift operation that requires a simple norm(valu)
         norm, info = self.norm(valu)
         return ((cmpr, norm, self.stortype),)
+
+    def _storLiftRange(self, cmpr, valu):
+        minv, minfo = self.norm(valu[0])
+        maxv, maxfo = self.norm(valu[1])
+        return ((cmpr, (minv, maxv), self.stortype),)
+
+    def _storLiftRegx(self, cmpr, valu):
+        return ((cmpr, valu, self.stortype),)
 
     def getStorCmprs(self, cmpr, valu):
 

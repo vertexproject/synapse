@@ -46,6 +46,8 @@ class View(s_nexus.Pusher):  # type: ignore
         self.iden = node.name()
         self.info = await node.dict()
 
+        self.core = core
+
         trignode = await node.open(('triggers',))
         self.trigdict = await trignode.dict()
 
@@ -59,8 +61,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
             except Exception:
                 logger.exception(f'Failed to load trigger {tdef!r}')
-
-        self.core = core
 
         await s_nexus.Pusher.__anit__(self, iden=self.iden, nexsroot=core.nexsroot)
 

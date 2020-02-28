@@ -2582,6 +2582,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             counts = nstat.get('formcounts')
             self.eq(counts.get('test:str'), 1)
 
+    async def test_stat_lock(self):
+        self.thisHostMust(hasmemlocking=True)
         conf = {'layers:lockmemory': True}
         async with self.getTestCoreAndProxy(conf=conf) as (realcore, core):
             slab = realcore.view.layers[0].layrslab

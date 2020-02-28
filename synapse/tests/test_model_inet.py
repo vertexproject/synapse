@@ -25,6 +25,7 @@ class InetModelTest(s_t_utils.SynTest):
             await self.agenlen(3, core.eval('inet:ipv4=1.2.3.1-1.2.3.3'))
             await self.agenlen(3, core.eval('[inet:ipv4=1.2.3.1-1.2.3.3]'))
             await self.agenlen(3, core.eval('inet:ipv4 +inet:ipv4=1.2.3.1-1.2.3.3'))
+            await self.agenlen(3, core.eval('inet:ipv4*range=(1.2.3.1, 1.2.3.3)'))
 
     async def test_ipv4_filt_cidr(self):
 
@@ -422,6 +423,11 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(2, nodes)
             self.eq({'vertex.link', 'api.vertex.link'}, {n.ndef[1] for n in nodes})
+
+            q = 'inet:fqdn~=api'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq({'api.vertex.link'}, {n.ndef[1] for n in nodes})
 
             # Cannot filter on a empty string
             q = 'inet:fqdn="*.link" +inet:fqdn=""'
