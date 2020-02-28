@@ -212,8 +212,6 @@ class Snap(s_base.Base):
         return await self.getNodeByBuid(buid)
 
     async def nodesByTagProp(self, form, tag, name):
-        '''
-        '''
         prop = self.core.model.getTagProp(name)
         if prop is None:
             mesg = f'No tag property named {name}'
@@ -239,6 +237,8 @@ class Snap(s_base.Base):
         for layr in self.layers:
             genr = layr.liftByTagPropValu(form, tag, name, cmprvals)
             async for node in self._joinStorGenr(layr, genr):
+                if node.bylayer['tagprops'].get((tag, prop.name)) != layr:
+                    continue
                 yield node
 
     async def _joinStorNode(self, buid, cache):
@@ -351,6 +351,8 @@ class Snap(s_base.Base):
         formname = None
         if not prop.isuniv:
             formname = prop.form.name
+
+        # Prop is secondary prop
 
         for layr in self.layers:
             genr = layr.liftByProp(formname, prop.name)

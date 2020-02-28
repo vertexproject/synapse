@@ -357,7 +357,6 @@ class SnapTest(s_t_utils.SynTest):
         '''
         Test a two layer cortex where a lift operation gives the wrong result, with tagprops
         '''
-        self.skip('FIXME pretty please')
         async with self._getTestCoreMultiLayer() as (view0, view1):
             await view0.core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
 
@@ -370,21 +369,10 @@ class SnapTest(s_t_utils.SynTest):
             self.len(1, await view0.nodes('#woot:score=20'))
             self.len(0, await view1.nodes('#woot:score=20'))
 
-            async with self.getTestCore() as core2:
-                await core2.addTagProp('score', ('int', {}), {'doc': 'hi there'})
-                for core in (view1, view0):
-                    config = {'url': core.getLocalUrl('*/layer')}
-                    layr = await core2.addLayer(type='remote', config=config)
-                    await core2.view.addLayer(layr)
-
-                self.len(1, await core2.nodes('#woot:score=40'))
-                self.len(0, await core2.nodes('#woot:score=20'))
-
     async def test_cortex_lift_layers_dup_tagprop(self):
         '''
         Test a two layer cortex where a lift operation might give the same node twice incorrectly
         '''
-        self.skip('FIXME pretty please')
         async with self._getTestCoreMultiLayer() as (view0, view1):
             await view0.core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
 
