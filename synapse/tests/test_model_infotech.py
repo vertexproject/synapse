@@ -182,9 +182,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('semver:build'), 'exp.sha.5114f85')
                 self.eq(node.get('url'), url1)
                 # callback node creation checks
-                nodes = await alist(snap.getNodesBy('it:dev:str', 'V1.0.1-beta+exp.sha.5114f85'))
+                nodes = await snap.nodes('it:dev:str=V1.0.1-beta+exp.sha.5114f85')
                 self.len(1, nodes)
-                nodes = await alist(snap.getNodesBy('it:dev:str', 'amd64'))
+                nodes = await snap.nodes('it:dev:str=amd64')
                 self.len(1, nodes)
 
                 host0 = s_common.guid()
@@ -270,24 +270,23 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], 'evil RAT')
                 self.eq(node.get('norm'), 'evil rat')
 
-                pipe = 'MyPipe'
-                node = await snap.addNode('it:dev:pipe', pipe)
-                self.eq(node.ndef[1], pipe)
-                nodes = await alist(snap.getNodesBy('it:dev:str', pipe))
+                node = await snap.addNode('it:dev:pipe', 'MyPipe')
+                self.eq(node.ndef[1], 'MyPipe')
+                nodes = await snap.nodes('it:dev:str=MyPipe')
                 self.len(1, nodes)
                 # The callback created node also has norm set on it
-                self.eq(nodes[0].get('norm'), pipe.lower())
+                self.eq(nodes[0].get('norm'), 'mypipe')
 
-                mutex = 'MyMutxex'
-                node = await snap.addNode('it:dev:mutex', mutex)
-                self.eq(node.ndef[1], mutex)
-                nodes = await alist(snap.getNodesBy('it:dev:str', mutex))
+                node = await snap.addNode('it:dev:mutex', 'MyMutex')
+                self.eq(node.ndef[1], 'MyMutex')
+                nodes = await snap.nodes('it:dev:str=MyMutex')
                 self.len(1, nodes)
 
                 key = 'HKEY_LOCAL_MACHINE\\Foo\\Bar'
                 node = await snap.addNode('it:dev:regkey', key)
                 self.eq(node.ndef[1], key)
-                nodes = await alist(snap.getNodesBy('it:dev:str', key))
+                opts = {'vars': {'key': key}}
+                nodes = await snap.nodes('it:dev:str=$key', opts=opts)
                 self.len(1, nodes)
 
                 fbyts = 'sha256:' + 64 * 'f'
@@ -298,17 +297,18 @@ class InfotechModelTest(s_t_utils.SynTest):
                     ('bytes', fbyts),
                 ]
                 for prop, valu in valus:
-                    guid = s_common.guid((key, valu))
+
+                    iden = s_common.guid((key, valu))
                     props = {
                         'key': key,
                         prop: valu,
                     }
-                    node = await snap.addNode('it:dev:regval', guid, props)
-                    self.eq(node.ndef[1], guid)
+                    node = await snap.addNode('it:dev:regval', iden, props)
+                    self.eq(node.ndef[1], iden)
                     self.eq(node.get('key'), key)
                     self.eq(node.get(prop), valu)
 
-                nodes = await alist(snap.getNodesBy('it:dev:str', key))
+                nodes = await snap.nodes('it:dev:str=HKEY_LOCAL_MACHINE\\Foo\\Bar')
                 self.len(1, nodes)
 
     async def test_it_semvertype(self):

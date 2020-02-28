@@ -1,27 +1,20 @@
 import asyncio
 import logging
 import argparse
-import collections
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
-import synapse.lib.boss as s_boss
-import synapse.lib.hive as s_hive
-import synapse.lib.link as s_link
-import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
-import synapse.lib.view as s_view
-import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
+import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
-import synapse.lib.dyndeps as s_dyndeps
+import synapse.lib.grammar as s_grammar
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -191,6 +184,83 @@ Examples:
 
 '''
 
+reqValidPkgdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string'},
+        'version': {
+            'type': ['array', 'number'],
+            'items': {'type': 'number'}
+        },
+        'modules': {
+            'type': ['array', 'null'],
+            'items': {'$ref': '#/definitions/module'}
+        },
+        'commands': {
+            'type': ['array', 'null'],
+            'items': {'$ref': '#/definitions/command'}
+        },
+        'desc': {'type': 'string'},
+        'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden}
+    },
+    'additionalProperties': True,
+    'required': ['name', 'version'],
+    'definitions': {
+        'module': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'storm': {'type': 'string'}
+            },
+            'additionalProperties': True,
+            'required': ['name', 'storm']
+        },
+        'command': {
+            'type': 'object',
+            'properties': {
+                'name': {
+                    'type': 'string',
+                    'pattern': s_grammar.re_scmd
+                },
+                'storm': {'type': 'string'}
+            },
+            'additionalProperties': True,
+            'required': ['name', 'storm']
+        }
+    }
+})
+
+reqValidDdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string'},
+        'storm': {'type': 'string'},
+        'view': {'type': 'string', 'pattern': s_config.re_iden},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'stormopts': {
+            'oneOf': [
+                {'type': 'null'},
+                {'$ref': '#/definitions/stormopts'}
+            ]
+        }
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'user', 'storm'],
+    'definitions': {
+        'stormopts': {
+            'type': 'object',
+            'properties': {
+                'spawn': {'type': 'boolean'},
+                'repr': {'type': 'boolean'},
+                'path': {'type': 'string'},
+                'show': {'type': 'array', 'items': {'type': 'string'}}
+            },
+            'additionalProperties': True,
+        },
+    }
+})
+
 stormcmds = (
     {
         'name': 'queue.add',
@@ -248,6 +318,65 @@ stormcmds = (
                 $lib.print("    ({name}): {desc}", name=$flname, desc=$flinfo.desc)
             }
         '''
+    },
+    {
+        'name': 'layer.add',
+        'descr': 'Add a layer to the cortex.',
+        'cmdargs': (
+            ('--lockmemory', {'help': 'Should the layer lock memory for performance.',
+                              'action': 'store_true'}),
+            ('--readonly', {'help': 'Should the layer be readonly.',
+                            'action': 'store_true'}),
+            ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': int}),
+            ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
+        ),
+        'storm': '''
+            $layer = $lib.layer.add($cmdopts)
+            $lib.print("Layer added: {iden}", iden=$layer.iden)
+        ''',
+    },
+    {
+        'name': 'layer.del',
+        'descr': 'Delete a layer from the cortex.',
+        'cmdargs': (
+            ('iden', {'help': 'Iden of the layer to delete.'}),
+        ),
+        'storm': '''
+            $lib.layer.del($cmdopts.iden)
+            $lib.print("Layer deleted: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
+    {
+        'name': 'layer.get',
+        'descr': 'Get a layer from the cortex.',
+        'cmdargs': (
+            ('iden', {'nargs': '?',
+                      'help': 'Iden of the layer to get. If no iden is provided, the main layer will be returned.'}),
+        ),
+        'storm': '''
+            $layr = $lib.layer.get($cmdopts.iden)
+            $layrvalu = $layr.pack()
+
+            $lib.print("Layer {iden} ctor: {ctor} readonly: {readonly}",
+                       iden=$layrvalu.iden,
+                       ctor=$layrvalu.ctor,
+                       readonly=$layrvalu.readonly)
+        ''',
+    },
+    {
+        'name': 'layer.list',
+        'descr': 'List the layers in the cortex.',
+        'cmdargs': (),
+        'storm': '''
+            $lib.print('Layers:')
+            for $layr in $lib.layer.list() {
+                $layrvalu = $layr.pack()
+                $lib.print("  {iden} ctor: {ctor} readonly: {readonly}",
+                           iden=$layrvalu.iden,
+                           ctor=$layrvalu.ctor,
+                           readonly=$layrvalu.readonly)
+            }
+        ''',
     },
     {
         'name': 'pkg.list',
@@ -330,7 +459,7 @@ stormcmds = (
             ('iden', {'help': 'Iden of the view to fork.'}),
         ),
         'storm': '''
-            $forkview = $lib.view.fork($cmdopts.iden)
+            $forkview = $lib.view.get($cmdopts.iden).fork()
             $lib.print("View {iden} forked to new view: {forkiden}",
                         iden=$cmdopts.iden,
                         forkiden=$forkview.pack().iden)
@@ -340,7 +469,8 @@ stormcmds = (
         'name': 'view.get',
         'descr': 'Get a view from the cortex.',
         'cmdargs': (
-            ('iden', {'nargs': '?', 'help': 'Iden of the view to get. If no iden is provided, the main view will be returned.'}),
+            ('iden', {'nargs': '?',
+                      'help': 'Iden of the view to get. If no iden is provided, the main view will be returned.'}),
         ),
         'storm': '''
             $view = $lib.view.get($cmdopts.iden)
@@ -380,9 +510,20 @@ stormcmds = (
         'descr': 'Merge a forked view into its parent view.',
         'cmdargs': (
             ('iden', {'help': 'Iden of the view to merge.'}),
+            ('--delete', {'default': False, 'action': 'store_true',
+                          'help': 'Once the merge is complete, delete the layer and view.'}),
         ),
         'storm': '''
-            $lib.view.merge($cmdopts.iden)
+            $view = $lib.view.get($cmdopts.iden)
+
+            $view.merge()
+
+            if $cmdopts.delete {
+                $layriden = $view.pack().layers.index(0).iden
+
+                $lib.view.del($view.iden)
+                $lib.layer.del($layriden)
+            }
             $lib.print("View merged: {iden}", iden=$cmdopts.iden)
         ''',
     },
@@ -394,17 +535,12 @@ stormcmds = (
             ('--form', {'help': 'Form to fire on.'}),
             ('--tag', {'help': 'Tag to fire on.'}),
             ('--prop', {'help': 'Property to fire on.'}),
-            ('--query', {'help': 'Query for the trigger to execute.'}),
+            ('--query', {'help': 'Query for the trigger to execute.', 'required': True}),
             ('--disabled', {'default': False, 'action': 'store_true',
                             'help': 'Create the trigger in disabled state.'}),
         ),
         'storm': '''
-            $iden = $lib.trigger.add($cmdopts.condition,
-                                     $cmdopts.form,
-                                     $cmdopts.tag,
-                                     $cmdopts.prop,
-                                     $cmdopts.query,
-                                     $cmdopts.disabled)
+            $trig = $lib.trigger.add($cmdopts)
 
             $lib.print("Added trigger: {iden}", iden=$iden)
         ''',
@@ -440,25 +576,36 @@ stormcmds = (
             $triggers = $lib.trigger.list()
 
             if $triggers {
+
                 $lib.print("user       iden         en? cond      object                    storm query")
 
                 for $trigger in $triggers {
-                    $user = $trigger.user.ljust(10)
-                    $iden = $trigger.idenshort.ljust(12)
-                    $enabled = $trigger.enabled.ljust(3)
+                    $user = $trigger.username.ljust(10)
+                    $iden = $trigger.iden.ljust(12)
+                    $enabled = $lib.model.type(bool).repr($trigger.enabled).ljust(6)
                     $cond = $trigger.cond.ljust(9)
 
+                    $fo = ""
+                    if $($trigger.form) {
+                        $fo = $trigger.form
+                    }
+
+                    $pr = ""
+                    if $($trigger.prop) {
+                        $pr = $trigger.prop
+                    }
+
                     if $cond.startswith('tag:') {
-                        $obj = $trigger.form.ljust(14)
+                        $obj = $fo.ljust(14)
                         $obj2 = $trigger.tag.ljust(10)
                     } else {
-                        $obj = $trigger.prop.ljust(14)
-                        $obj2 = $trigger.form.ljust(10)
+                        $obj = $pr.ljust(14)
+                        $obj2 = $fo.ljust(10)
                     }
 
                     $lib.print("{user} {iden} {enabled} {cond} {obj} {obj2} {query}",
                               user=$user, iden=$iden, enabled=$enabled, cond=$cond,
-                              obj=$obj, obj2=$obj2, query=$trigger.query)
+                              obj=$obj, obj2=$obj2, query=$trigger.storm)
                 }
             } else {
                 $lib.print("No triggers found")
@@ -503,7 +650,7 @@ stormcmds = (
             ('--yearly', {'help': 'Fixed parameters for a yearly job.'}),
         ),
         'storm': '''
-            $iden = $lib.cron.add(query=$cmdopts.query,
+            $cron = $lib.cron.add(query=$cmdopts.query,
                                   minute=$cmdopts.minute,
                                   hour=$cmdopts.hour,
                                   day=$cmdopts.day,
@@ -514,7 +661,7 @@ stormcmds = (
                                   monthly=$cmdopts.monthly,
                                   yearly=$cmdopts.yearly)
 
-            $lib.print("Created cron job: {iden}", iden=$iden)
+            $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
     },
     {
@@ -528,13 +675,13 @@ stormcmds = (
             ('--dt', {'help': 'Datetime(s) to execute at.'}),
         ),
         'storm': '''
-            $iden = $lib.cron.at(query=$cmdopts.query,
+            $cron = $lib.cron.at(query=$cmdopts.query,
                                  minute=$cmdopts.minute,
                                  hour=$cmdopts.hour,
                                  day=$cmdopts.day,
                                  dt=$cmdopts.dt)
 
-            $lib.print("Created cron job: {iden}", iden=$iden)
+            $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
     },
     {
@@ -544,8 +691,8 @@ stormcmds = (
             ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
         ),
         'storm': '''
-            $iden = $lib.cron.del($cmdopts.iden)
-            $lib.print("Deleted cron job: {iden}", iden=$iden)
+            $lib.cron.del($cmdopts.iden)
+            $lib.print("Deleted cron job: {iden}", iden=$cmdopts.iden)
         ''',
     },
     {
@@ -565,12 +712,15 @@ stormcmds = (
         'descr': "List existing cron jobs in the cortex.",
         'cmdargs': (),
         'storm': '''
-            $jobs = $lib.cron.list()
+            $crons = $lib.cron.list()
 
-            if $jobs {
+            if $crons {
                 $lib.print("user       iden       en? rpt? now? err? # start last start       last end         query")
 
-                for $job in $jobs {
+                for $cron in $crons {
+
+                    $job = $cron.pprint()
+
                     $user = $job.user.ljust(10)
                     $iden = $job.idenshort.ljust(10)
                     $enabled = $job.enabled.ljust(3)
@@ -581,7 +731,7 @@ stormcmds = (
                     $laststart = $job.laststart.ljust(16)
                     $lastend = $job.lastend.ljust(16)
 
-                    $lib.print("{user} {iden} {enabled} {isrecur} {isrunning} {iserr} {startcount} {laststart} {lastend} {query}",
+       $lib.print("{user} {iden} {enabled} {isrecur} {isrunning} {iserr} {startcount} {laststart} {lastend} {query}",
                                user=$user, iden=$iden, enabled=$enabled, isrecur=$isrecur,
                                isrunning=$isrunning, iserr=$iserr, startcount=$startcount,
                                laststart=$laststart, lastend=$lastend, query=$job.query)
@@ -598,9 +748,11 @@ stormcmds = (
             ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
         ),
         'storm': '''
-            $job = $lib.cron.stat($cmdopts.iden)
+            $cron = $lib.cron.get($cmdopts.iden)
 
-            if $job {
+            if $cron {
+                $job = $cron.pprint()
+
                 $lib.print('iden:            {iden}', iden=$job.iden)
                 $lib.print('user:            {user}', user=$job.user)
                 $lib.print('enabled:         {enabled}', enabled=$job.enabled)
@@ -742,12 +894,18 @@ class StormDmon(s_base.Base):
             mesg = evnt[1].get('mesg', '')
             logger.info(f'Dmon - {self.iden} - {mesg}')
 
+        def dmonWarn(evnt):
+            mesg = evnt[1].get('mesg', '')
+            logger.info(f'Dmon - {self.iden} - WARNING: {mesg}')
+
         while not self.isfini:
 
             try:
 
                 self.status = 'running'
                 async with await self.core.snap(user=self.user, view=view) as snap:
+
+                    snap.on('warn', dmonWarn)
                     snap.on('print', dmonPrint)
 
                     async for nodepath in snap.storm(text, opts=opts, user=self.user):
@@ -760,7 +918,7 @@ class StormDmon(s_base.Base):
                     self.status = 'exited'
                     await self.waitfini(timeout=1)
 
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError:
                 logger.warning(f'Dmon loop cancelled: ({self.iden})')
                 raise
 
@@ -792,7 +950,7 @@ class Runtime:
         self.snap = snap
         self.user = user
 
-        self.model = snap.getDataModel()
+        self.model = snap.core.getDataModel()
 
         self.task = asyncio.current_task()
 
@@ -812,10 +970,13 @@ class Runtime:
         self.modulefuncs = {}
 
         self.proxies = {}
-        self.elevated = False
 
-    def getStormMod(self, name):
-        return self.snap.getStormMod(name)
+    async def dyncall(self, iden, todo, gatekeys=()):
+        return await self.snap.core.dyncall(iden, todo, gatekeys=gatekeys)
+
+    async def dyniter(self, iden, todo, gatekeys=()):
+        async for item in self.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
+            yield item
 
     async def getStormQuery(self, text):
         return self.snap.core.getStormQuery(text)
@@ -844,9 +1005,6 @@ class Runtime:
 
     async def warn(self, mesg, **info):
         return await self.snap.warn(mesg, **info)
-
-    def elevate(self):
-        self.elevated = True
 
     def tick(self):
         pass
@@ -907,39 +1065,16 @@ class Runtime:
             if node is not None:
                 yield node, self.initPath(node)
 
-    def reqLayerAllowed(self, perms):
-        if self._allowed(perms, ask_layer=True):
-            return
+    def layerConfirm(self, perms):
+        iden = self.snap.wlyr.iden
+        return self.user.confirm(perms, gateiden=iden)
 
-        perm = '.'.join(perms)
-        mesg = f'User must have permission {perm} on write layer'
-        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
-
-    def reqAllowed(self, perms):
+    def confirm(self, perms, gateiden=None):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
 
         '''
-        if self._allowed(perms):
-            return True
-
-        perm = '.'.join(perms)
-        mesg = f'User must have permission {perm}'
-        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
-
-    @s_cache.memoize(size=100)
-    def _allowed(self, perms, ask_layer=False):
-        '''
-        Note:
-            Caching results is acceptable because the cache lifetime is that of a single query
-        '''
-        if self.user is None or self.user.admin or self.elevated:
-            return True
-
-        if ask_layer:
-            return self.snap.wlyr.allowed(self.user, perms)
-        else:
-            return self.user.allowed(perms)
+        return self.user.confirm(perms, gateiden=gateiden)
 
     def loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
@@ -1119,7 +1254,7 @@ class Cmd:
     name = 'cmd'
     pkgname = ''
     svciden = ''
-    forms = {}
+    forms = {}  # type: ignore
 
     def __init__(self, argv):
         self.opts = None
@@ -1144,7 +1279,7 @@ class Cmd:
         self.pars.printf = snap.printf
         try:
             self.opts = self.pars.parse_args(self.argv)
-        except s_exc.BadSyntax as e:
+        except s_exc.BadSyntax:
             pass
         for line in self.pars.mesgs:
             await snap.printf(line)
@@ -1163,12 +1298,15 @@ class Cmd:
         '''
         if name.startswith('$'):
             varn = name[1:]
+
             def func(path):
                 return path.getVar(varn, defv=None)
             return func
 
         if name.startswith(':'):
+
             prop = name[1:]
+
             def func(path):
                 return path.node.get(prop)
             return func
@@ -1196,6 +1334,41 @@ class Cmd:
 
         mesg = 'Unknown prop/variable syntax'
         raise s_exc.BadSyntax(mesg=mesg, valu=name)
+
+    @classmethod
+    def getStorNode(cls, form):
+        ndef = (form.name, form.type.norm(cls.name)[0])
+        buid = s_common.buid(ndef)
+
+        props = {
+            'doc': cls.getCmdBrief()
+        }
+
+        inpt = cls.forms.get('input')
+        outp = cls.forms.get('output')
+
+        if inpt:
+            props['input'] = tuple(inpt)
+
+        if outp:
+            props['output'] = tuple(outp)
+
+        if cls.svciden:
+            props['svciden'] = cls.svciden
+
+        if cls.pkgname:
+            props['package'] = cls.pkgname
+
+        pnorms = {}
+        for prop, valu in props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
+
+        return (buid, {
+            'ndef': ndef,
+            'props': pnorms,
+        })
 
 class PureCmd(Cmd):
 
@@ -1476,7 +1649,7 @@ class DelNodeCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         if self.opts.force:
-            if runt.user is not None and not runt.user.admin:
+            if runt.user is not None and not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'
                 raise s_exc.AuthDeny(mesg=mesg)
 
@@ -1485,9 +1658,9 @@ class DelNodeCmd(Cmd):
 
             # make sure we can delete the tags...
             for tag in node.tags.keys():
-                runt.reqLayerAllowed(('tag:del', *tag.split('.')))
+                runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
-            runt.reqLayerAllowed(('node:del', node.form.name))
+            runt.layerConfirm(('node', 'del', node.form.name))
 
             await node.delete(force=self.opts.force)
 
@@ -1499,22 +1672,6 @@ class DelNodeCmd(Cmd):
         # a bit odd, but we need to be detected as a generator
         if False:
             yield
-
-class SudoCmd(Cmd):
-    '''
-    Use admin privileges to bypass standard query permissions.
-
-    Example:
-
-        sudo | [ inet:fqdn=vertex.link ]
-    '''
-    name = 'sudo'
-
-    async def execStormCmd(self, runt, genr):
-        runt.reqAllowed(('storm', 'cmd', 'sudo'))
-        runt.elevate()
-        async for item in genr:
-            yield item
 
 # TODO
 # class AddNodeCmd(Cmd):     # addnode inet:ipv4 1.2.3.4 5.6.7.8
@@ -1541,11 +1698,11 @@ class ReIndexCmd(Cmd):
     name = 'reindex'
 
     def getArgParser(self):
+        # FIXME: does any of this still apply?
         pars = Cmd.getArgParser(self)
         mutx = pars.add_mutually_exclusive_group(required=True)
         mutx.add_argument('--type', default=None, help='Re-index all properties of a specified type.')
         mutx.add_argument('--subs', default=False, action='store_true', help='Re-parse and set sub props.')
-        mutx.add_argument('--form-counts', default=False, action='store_true', help='Re-calculate all form counts.')
         mutx.add_argument('--fire-handler', default=None,
                           help='Fire onAdd/wasSet/runTagAdd commands for a fully qualified form/property'
                                ' or tag name on inbound nodes.')
@@ -1555,7 +1712,7 @@ class ReIndexCmd(Cmd):
 
         snap = runt.snap
 
-        if snap.user is not None and not snap.user.admin:
+        if snap.user is not None and not snap.user.isAdmin():
             await snap.warn('reindex requires an admin')
             return
 
@@ -1600,22 +1757,16 @@ class ReIndexCmd(Cmd):
 
             return
 
-        if self.opts.form_counts:
-            await snap.printf(f'reindex form counts (full) beginning...')
-            await snap.core._calcFormCounts()
-            await snap.printf(f'...done')
-            return
-
         if self.opts.fire_handler:
             obj = None
             name = None
             tname = None
 
             if self.opts.fire_handler.startswith('#'):
-                name, _ = runt.snap.model.prop('syn:tag').type.norm(self.opts.fire_handler)
+                name, _ = runt.model.prop('syn:tag').type.norm(self.opts.fire_handler)
                 tname = '#' + name
             else:
-                obj = runt.snap.model.prop(self.opts.fire_handler)
+                obj = runt.model.prop(self.opts.fire_handler)
                 if obj is None:
                     raise s_exc.NoSuchProp(mesg='',
                                            name=self.opts.fire_handler)
@@ -1663,7 +1814,9 @@ class MoveTagCmd(Cmd):
     async def execStormCmd(self, runt, genr):
         snap = runt.snap
 
-        nodes = [node async for node in snap.getNodesBy('syn:tag', self.opts.oldtag)]
+        opts = {'vars': {'tag': self.opts.oldtag}}
+        nodes = await snap.nodes('syn:tag=$tag', opts=opts)
+
         if not nodes:
             raise s_exc.BadOperArg(mesg='Cannot move a tag which does not exist.',
                                    oldtag=self.opts.oldtag)
@@ -1683,7 +1836,8 @@ class MoveTagCmd(Cmd):
         retag = {oldstr: newstr}
 
         # first we set all the syn:tag:isnow props
-        async for node in snap.getNodesBy('syn:tag', self.opts.oldtag, cmpr='^='):
+        oldtag = self.opts.oldtag.strip('#')
+        async for node in snap.nodesByPropValu('syn:tag', '^=', oldtag):
 
             tagstr = node.ndef[1]
             tagparts = tagstr.split('.')
@@ -1712,7 +1866,7 @@ class MoveTagCmd(Cmd):
 
         # now we re-tag all the nodes...
         count = 0
-        async for node in snap.getNodesBy(f'#{oldstr}'):
+        async for node in snap.nodesByTag(oldstr):
 
             count += 1
 
@@ -1853,11 +2007,15 @@ class GraphCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('--degrees', type=int, default=1, help='How many degrees to graph out.')
 
-        pars.add_argument('--pivot', default=[], action='append', help='Specify a storm pivot for all nodes. (must quote)')
-        pars.add_argument('--filter', default=[], action='append', help='Specify a storm filter for all nodes. (must quote)')
+        pars.add_argument('--pivot', default=[], action='append',
+                          help='Specify a storm pivot for all nodes. (must quote)')
+        pars.add_argument('--filter', default=[], action='append',
+                          help='Specify a storm filter for all nodes. (must quote)')
 
-        pars.add_argument('--form-pivot', default=[], nargs=2, action='append', help='Specify a <form> <pivot> form specific pivot.')
-        pars.add_argument('--form-filter', default=[], nargs=2, action='append', help='Specify a <form> <filter> form specific filter.')
+        pars.add_argument('--form-pivot', default=[], nargs=2, action='append',
+                          help='Specify a <form> <pivot> form specific pivot.')
+        pars.add_argument('--form-filter', default=[], nargs=2, action='append',
+                          help='Specify a <form> <filter> form specific filter.')
 
         return pars
 
@@ -2091,7 +2249,7 @@ class SpliceListCmd(Cmd):
 
         i = 0
 
-        async for splice in runt.snap.spliceHistory():
+        async for splice in runt.snap.core.spliceHistory(runt.user):
 
             if maxtime and maxtime < splice[1]['time']:
                 continue
@@ -2100,43 +2258,45 @@ class SpliceListCmd(Cmd):
                 return
 
             guid = s_common.guid(splice)
-            splicebuid = s_common.buid(('syn:splice', guid))
 
             buid = s_common.buid(splice[1]['ndef'])
             iden = s_common.ehex(buid)
 
-            rows = [('*syn:splice', guid)]
-            rows.append(('splice', splice))
-
-            rows.append(('.created', s_common.now()))
-            rows.append(('type', splice[0]))
-            rows.append(('iden', iden))
-
-            rows.append(('form', splice[1]['ndef'][0]))
-            rows.append(('time', splice[1]['time']))
-            rows.append(('user', splice[1]['user']))
-            rows.append(('prov', splice[1]['prov']))
+            props = {'.created': s_common.now(),
+                     'splice': splice,
+                     'type': splice[0],
+                     'iden': iden,
+                     'form': splice[1]['ndef'][0],
+                     'time': splice[1]['time'],
+                     'user': splice[1]['user'],
+                     'prov': splice[1]['prov'],
+                     }
 
             prop = splice[1].get('prop')
             if prop:
-                rows.append(('prop', prop))
+                props['prop'] = prop
 
             tag = splice[1].get('tag')
             if tag:
-                rows.append(('tag', tag))
+                props['tag'] = tag
 
             if 'valu' in splice[1]:
-                rows.append(('valu', splice[1]['valu']))
+                props['valu'] = splice[1]['valu']
             elif splice[0] == 'node:del':
-                rows.append(('valu', splice[1]['ndef'][1]))
-
-            if 'curv' in splice[1]:
-                rows.append(('oldv', splice[1]['curv']))
+                props['valu'] = splice[1]['ndef'][1]
 
             if 'oldv' in splice[1]:
-                rows.append(('oldv', splice[1]['oldv']))
+                props['oldv'] = splice[1]['oldv']
 
-            node = s_node.Node(runt.snap, splicebuid, rows)
+            fullnode = (buid, {
+                'ndef': ('syn:splice', guid),
+                'tags': {},
+                'props': props,
+                'tagprops': {},
+            })
+
+            node = s_node.Node(runt.snap, fullnode)
+
             yield (node, runt.initPath(node))
 
             i += 1
@@ -2195,10 +2355,10 @@ class SpliceUndoCmd(Cmd):
 
             oldv = splice.props.get('oldv')
             if oldv is not None:
-                runt.reqLayerAllowed(('prop:set', prop.full))
+                runt.layerConfirm(('node', 'prop', 'set', prop.full))
                 await node.set(name, oldv)
             else:
-                runt.reqLayerAllowed(('prop:del', prop.full))
+                runt.layerConfirm(('node', 'prop', 'del', prop.full))
                 await node.pop(name)
 
     async def undoPropDel(self, runt, splice, node):
@@ -2214,16 +2374,16 @@ class SpliceUndoCmd(Cmd):
 
             valu = splice.props.get('valu')
 
-            runt.reqLayerAllowed(('prop:set', prop.full))
+            runt.layerConfirm(('node', 'prop', 'set', prop.full))
             await node.set(name, valu)
 
     async def undoNodeAdd(self, runt, splice, node):
 
         if node:
             for tag in node.tags.keys():
-                runt.reqLayerAllowed(('tag:del', *tag.split('.')))
+                runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
-            runt.reqLayerAllowed(('node:del', node.form.name))
+            runt.layerConfirm(('node', 'del', node.form.name))
             await node.delete(force=self.opts.force)
 
     async def undoNodeDel(self, runt, splice, node):
@@ -2233,7 +2393,7 @@ class SpliceUndoCmd(Cmd):
             valu = splice.props.get('valu')
 
             if form and (valu is not None):
-                runt.reqLayerAllowed(('node:add', form))
+                runt.layerConfirm(('node', 'add', form))
                 await runt.snap.addNode(form, valu)
 
     async def undoTagAdd(self, runt, splice, node):
@@ -2241,12 +2401,13 @@ class SpliceUndoCmd(Cmd):
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
-            runt.reqLayerAllowed(('tag:del', *parts))
+            runt.layerConfirm(('node', 'tag', 'del', *parts))
+
             await node.delTag(tag)
 
             oldv = splice.props.get('oldv')
             if oldv is not None:
-                runt.reqLayerAllowed(('tag:add', *parts))
+                runt.layerConfirm(('node', 'tag', 'add', *parts))
                 await node.addTag(tag, valu=oldv)
 
     async def undoTagDel(self, runt, splice, node):
@@ -2254,7 +2415,7 @@ class SpliceUndoCmd(Cmd):
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
-            runt.reqLayerAllowed(('tag:add', *parts))
+            runt.layerConfirm(('node', 'tag', 'add', *parts))
 
             valu = splice.props.get('valu')
             if valu is not None:
@@ -2265,14 +2426,15 @@ class SpliceUndoCmd(Cmd):
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
+
             prop = splice.props.get('prop')
 
             oldv = splice.props.get('oldv')
             if oldv is not None:
-                runt.reqLayerAllowed(('tag:add', *parts))
+                runt.layerConfirm(('node', 'tag', 'add', *parts))
                 await node.setTagProp(tag, prop, oldv)
             else:
-                runt.reqLayerAllowed(('tag:del', *parts))
+                runt.layerConfirm(('node', 'tag', 'del', *parts))
                 await node.delTagProp(tag, prop)
 
     async def undoTagPropDel(self, runt, splice, node):
@@ -2280,7 +2442,7 @@ class SpliceUndoCmd(Cmd):
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
-            runt.reqLayerAllowed(('tag:add', *parts))
+            runt.layerConfirm(('node', 'tag', 'add', *parts))
 
             prop = splice.props.get('prop')
 
@@ -2291,7 +2453,7 @@ class SpliceUndoCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         if self.opts.force:
-            if not runt.user.admin:
+            if not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'
                 raise s_exc.AuthDeny(mesg=mesg)
 

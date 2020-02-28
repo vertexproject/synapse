@@ -28,8 +28,8 @@ class IntlGovTest(SynTest):
             formname = 'fake:m49'
             expected_ndef = (formname, 17)
             async with await core.snap() as snap:
-                await self.asyncraises(s_exc.BadPropValu, snap.addNode(formname, 3417))
-                await self.asyncraises(s_exc.BadPropValu, snap.addNode(formname, 0))
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode(formname, 3417))
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode(formname, 0))
                 n0 = await snap.addNode(formname, 17)
 
             self.eq(n0.ndef, expected_ndef)

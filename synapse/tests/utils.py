@@ -51,6 +51,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
 import synapse.lib.const as s_const
+import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
@@ -83,17 +84,17 @@ class LibTst(s_stormtypes.Lib):
 
 class TestType(s_types.Type):
 
+    stortype = s_layer.STOR_TYPE_UTF8
+
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
         return valu.lower(), {}
 
-    def indx(self, norm):
-        # make this purposely fragile...
-        return norm.encode('utf8')
-
 class ThreeType(s_types.Type):
+
+    stortype = s_layer.STOR_TYPE_U8
 
     def norm(self, valu):
         return 3, {'subs': {'three': 3}}
@@ -101,10 +102,9 @@ class ThreeType(s_types.Type):
     def repr(self, valu):
         return '3'
 
-    def indx(self, norm):
-        return '3'.encode('utf8')
-
 class TestSubType(s_types.Type):
+
+    stortype = s_layer.STOR_TYPE_U32
 
     def norm(self, valu):
         valu = int(valu)
@@ -113,8 +113,28 @@ class TestSubType(s_types.Type):
     def repr(self, norm):
         return str(norm)
 
-    def indx(self, norm):
-        return norm.to_bytes(4, 'big')
+class TestRunt:
+
+    def __init__(self, name, **kwargs):
+        self.name = name
+        self.props = kwargs
+        self.props.setdefault('.created', s_common.now())
+
+    def getStorNode(self, form):
+
+        ndef = (form.name, form.type.norm(self.name)[0])
+        buid = s_common.buid(ndef)
+
+        pnorms = {}
+        for prop, valu in self.props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
+
+        return (buid, {
+            'ndef': ndef,
+            'props': pnorms,
+        })
 
 testmodel = {
 
@@ -135,6 +155,7 @@ testmodel = {
         ('test:ival', ('ival', {}), {}),
 
         ('test:int', ('int', {}), {}),
+        ('test:float', ('float', {}), {}),
         ('test:str', ('str', {}), {}),
         ('test:migr', ('str', {}), {}),
         ('test:auto', ('str', {}), {}),
@@ -178,17 +199,10 @@ testmodel = {
         )),
         ('test:type10', {}, (
 
-            ('intprop', ('int', {'min': 20, 'max': 30}), {
-                'defval': 20}),
-
-            ('strprop', ('str', {'lower': 1}), {
-                'defval': 'asdf'}),
-
-            ('guidprop', ('guid', {'lower': 1}), {
-                'defval': '*'}),
-
-            ('locprop', ('loc', {}), {
-                'defval': '??'}),
+            ('intprop', ('int', {'min': 20, 'max': 30}), {}),
+            ('strprop', ('str', {'lower': 1}), {}),
+            ('guidprop', ('guid', {'lower': 1}), {}),
+            ('locprop', ('loc', {}), {}),
         )),
 
         ('test:cycle0', {}, (
@@ -213,6 +227,11 @@ testmodel = {
 
         ('test:int', {}, (
             ('loc', ('loc', {}), {}),
+        )),
+
+        ('test:float', {}, (
+            ('closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
+            ('open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
         )),
 
         ('test:edge', {}, (
@@ -327,17 +346,12 @@ class TestModule(s_module.CoreModule):
         self.healthy = True
         self.core.addHealthFunc(self._testModHealth)
 
-        self._runtsByBuid = {}
-        self._runtsByPropValu = collections.defaultdict(list)
-        await self._initTestRunts()
+        form = self.model.form('test:runt')
+        self.core.addRuntLift(form.full, self._testRuntLift)
 
-        # Add runt lift helpers
-        for form in ('test:runt',):
-            form = self.model.form(form)
-            self.core.addRuntLift(form.full, self._testRuntLift)
-            for name, prop in form.props.items():
-                pfull = prop.full
-                self.core.addRuntLift(pfull, self._testRuntLift)
+        for prop in form.props.values():
+            self.core.addRuntLift(prop.full, self._testRuntLift)
+
         self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
         self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
 
@@ -354,25 +368,52 @@ class TestModule(s_module.CoreModule):
             await snap.addNode('test:str', name)
 
     async def _testRuntLift(self, full, valu=None, cmpr=None):
-        # runt lift helpers must decide what comparators they support
-        if cmpr is not None and cmpr != '=':
-            raise s_exc.BadCmprValu(mesg='Test runts do not support cmpr which is not equality',
-                                    cmpr=cmpr)
 
-        # Runt lift helpers must support their own normalization for data retrieval
-        if valu is not None:
-            prop = self.model.prop(full)
-            valu, _ = prop.type.norm(valu)
+        now = s_common.now()
+        modl = self.core.model
 
-        # runt lift helpers must then yield buid/rows pairs for Node object creation.
-        if valu is None:
-            buids = self._runtsByPropValu.get(full, ())
+        runtdefs = [
+            (' BEEP ', {'tick': modl.type('time').norm('2001')[0], 'lulz': 'beep.sys', '.created': now}),
+            ('boop', {'tick': modl.type('time').norm('2010')[0], '.created': now}),
+            ('blah', {'tick': modl.type('time').norm('2010')[0], 'lulz': 'blah.sys'}),
+            ('woah', {}),
+        ]
+
+        runts = {}
+        for name, props in runtdefs:
+            runts[name] = TestRunt(name, **props)
+
+        genr = runts.values
+
+        async for node in self._doRuntLift(genr, full, valu, cmpr):
+            yield node
+
+    async def _doRuntLift(self, genr, full, valu=None, cmpr=None):
+
+        if cmpr is not None:
+            filt = self.model.prop(full).type.getCmprCtor(cmpr)(valu)
+            if filt is None:
+                raise s_exc.BadCmprValu(cmpr=cmpr)
+
+        fullprop = self.model.prop(full)
+        if fullprop.isform:
+
+            if cmpr is None:
+                for obj in genr():
+                    yield obj.getStorNode(fullprop)
+                return
+
+            for obj in genr():
+                sode = obj.getStorNode(fullprop)
+                if filt(sode[1]['ndef'][1]):
+                    yield sode
         else:
-            buids = self._runtsByPropValu.get((full, valu), ())
+            for obj in genr():
+                sode = obj.getStorNode(fullprop.form)
+                propval = sode[1]['props'].get(fullprop.name)
 
-        rowsets = [(buid, self._runtsByBuid.get(buid, ())) for buid in buids]
-        for buid, rows in rowsets:
-            yield buid, rows
+                if propval is not None and (cmpr is None or filt(propval)):
+                    yield sode
 
     async def _testRuntPropSetLulz(self, node, prop, valu):
         curv = node.get(prop.name)
@@ -397,47 +438,6 @@ class TestModule(s_module.CoreModule):
         # storage of row data, so a re-lift of the node would not reflect the
         # change that a user made here.
         return True
-
-    async def _initTestRunts(self):
-        modl = self.core.model
-        fnme = 'test:runt'
-        form = modl.form(fnme)
-        now = s_common.now()
-        data = [(' BEEP ', {'tick': modl.type('time').norm('2001')[0], 'lulz': 'beep.sys', '.created': now}),
-                ('boop', {'tick': modl.type('time').norm('2010')[0], '.created': now}),
-                ('blah', {'tick': modl.type('time').norm('2010')[0], 'lulz': 'blah.sys'}),
-                ('woah', {}),
-                ]
-        for pprop, propd in data:
-            props = {}
-            pnorm, _ = form.type.norm(pprop)
-
-            for k, v in propd.items():
-                prop = form.props.get(k)
-                if prop:
-                    norm, _ = prop.type.norm(v)
-                    props[k] = norm
-
-            props.setdefault('.created', s_common.now())
-
-            rows = [('*' + fnme, pnorm)]
-            for k, v in props.items():
-                rows.append((k, v))
-
-            buid = s_common.buid((fnme, pnorm))
-            self._runtsByBuid[buid] = rows
-
-            # Allow for indirect lookup to a set of buids
-            self._runtsByPropValu[fnme].append(buid)
-            self._runtsByPropValu[(fnme, pnorm)].append(buid)
-            for k, propvalu in props.items():
-                prop = fnme + ':' + k
-                if k.startswith('.'):
-                    prop = fnme + k
-                self._runtsByPropValu[prop].append(buid)
-                if modl.prop(prop).type.indx(propvalu):
-                    # Can the secondary property be indexed for lift?
-                    self._runtsByPropValu[(prop, propvalu)].append(buid)
 
     def getModelDefs(self):
         return (
@@ -492,7 +492,8 @@ class TstOutPut(s_output.OutPutStr):
         outs = str(self)
         if outs.find(substr) == -1:
             if throw:
-                raise Exception('TestOutPut.expect(%s) not in %s' % (substr, outs))
+                mesg = 'TestOutPut.expect(%s) not in %s' % (substr, outs)
+                raise s_exc.SynErr(mesg=mesg)
             return False
         return True
 
@@ -856,6 +857,18 @@ class SynTest(unittest.TestCase):
                         mock.MagicMock(return_value=None)) as patch:  # type: mock.MagicMock
             yield patch
 
+    @contextlib.contextmanager
+    def withSetLoggingMock(self):
+        '''
+        Context manager to mock calls to the setlogging function to avoid unittests calling logging.basicconfig.
+
+        Returns:
+            mock.MagicMock: Yields a mock.MagikMock object.
+        '''
+        with mock.patch('synapse.common.setlogging',
+                        mock.MagicMock(return_value=None)) as patch:  # type: mock.MagicMock
+            yield patch
+
     def getMagicPromptLines(self, patch):
         '''
         Get the text lines from a MagicMock object from withCliPromptMock.
@@ -942,7 +955,8 @@ class SynTest(unittest.TestCase):
             s_cortex.Cortex: A Cortex object.
         '''
         if conf is None:
-            conf = {'layer:lmdb:map_async': True}
+            conf = {'layer:lmdb:map_async': True,
+                    'provenance:en': True}
 
         conf = copy.deepcopy(conf)
 
@@ -1034,11 +1048,6 @@ class SynTest(unittest.TestCase):
         kwargs.update({'host': host, 'port': port})
         return s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
-    async def agetTestProxy(self, dmon, name, **kwargs):
-        host, port = dmon.addr
-        kwargs.update({'host': host, 'port': port})
-        return await s_telepath.openurl(f'tcp:///{name}', **kwargs)
-
     @contextlib.contextmanager
     def getTestDir(self, mirror=None, copyfrom=None, chdir=False):
         '''
@@ -1089,8 +1098,8 @@ class SynTest(unittest.TestCase):
             shutil.rmtree(tempdir, ignore_errors=True)
 
     def getTestFilePath(self, *names):
-        import synapse.tests.common
-        path = os.path.dirname(synapse.tests.common.__file__)
+        import synapse.tests.__init__
+        path = os.path.dirname(synapse.tests.__init__.__file__)
         return os.path.join(path, 'files', *names)
 
     @contextlib.contextmanager
@@ -1294,6 +1303,7 @@ class SynTest(unittest.TestCase):
 
     async def execToolMain(self, func, argv):
         outp = self.getTestOutp()
+
         def execmain():
             return func(argv, outp=outp)
         retn = await s_coro.executor(execmain)
@@ -1501,11 +1511,10 @@ class SynTest(unittest.TestCase):
         Assert that the length of an object is equal to X
         '''
         gtyps = (
-                 s_coro.GenrHelp,
-                 s_telepath.Genr,
-                 s_telepath.GenrIter,
-                 types.GeneratorType,
-                 )
+            s_coro.GenrHelp,
+            s_telepath.Genr,
+            s_telepath.GenrIter,
+            types.GeneratorType)
 
         if isinstance(obj, gtyps):
             obj = list(obj)
@@ -1575,12 +1584,10 @@ class SynTest(unittest.TestCase):
         self.isinstance(obj[1], dict)
 
     @contextlib.contextmanager
-    def getTestConfDir(self, name, boot=None, conf=None):
+    def getTestConfDir(self, name, conf=None):
         with self.getTestDir() as dirn:
             cdir = os.path.join(dirn, name)
             s_common.makedirs(cdir)
-            if boot:
-                s_common.yamlsave(boot, cdir, 'boot.yaml')
             if conf:
                 s_common.yamlsave(conf, cdir, 'cell.yaml')
             yield dirn
@@ -1686,17 +1693,17 @@ class SynTest(unittest.TestCase):
         creator = await core.auth.addRole('creator')
 
         await creator.setRules((
-            (True, ('node:add',)),
-            (True, ('prop:set',)),
-            (True, ('tag:add',)),
+            (True, ('node', 'add')),
+            (True, ('node', 'prop', 'set')),
+            (True, ('node', 'tag', 'add')),
             (True, ('feed:data',)),
         ))
 
         deleter = await core.auth.addRole('deleter')
         await deleter.setRules((
-            (True, ('node:del',)),
-            (True, ('prop:del',)),
-            (True, ('tag:del',)),
+            (True, ('node', 'del')),
+            (True, ('node', 'prop', 'del')),
+            (True, ('node', 'tag', 'del')),
         ))
 
         iadd = await core.auth.addUser('icanadd')

@@ -76,8 +76,7 @@ def backup_lmdb(envpath, dstdir):
     tick = time.time()
 
     # use the builtin lmdb command
-    ret = lmdb.tool.cmd_copy(opts, args[1:])
-    logger.warning(f'lmdb ret: {ret}')
+    lmdb.tool.cmd_copy(opts, args[1:])
 
     tock = time.time()
     logger.info(f'backup took: {tock-tick:.2f} seconds')

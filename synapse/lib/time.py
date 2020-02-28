@@ -12,7 +12,7 @@ def parse(text, base=None, chop=False):
     '''
     Parse a time string into an epoch millis value.
     '''
-    #TODO: use base to facilitate relative time offsets
+    # TODO: use base to facilitate relative time offsets
     text = text.strip().lower()
     text = (''.join([c for c in text if c.isdigit()]))
 

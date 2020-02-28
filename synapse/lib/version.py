@@ -190,7 +190,7 @@ def reqVersion(valu, reqver,
     Require a given version tuple is valid for a given requirements string.
 
     Args:
-        valu (int, int, int): Major, minor and patch value to check.
+        valu Optional[Tuple[int, int, int]]: Major, minor and patch value to check.
         reqver (str): A requirements version string.
         exc (s_exc.SynErr): The synerr class to raise.
         mesg (str): The message to pass in the exception.
@@ -201,6 +201,9 @@ def reqVersion(valu, reqver,
     Raises:
         s_exc.BadVersion: If a precondition is incorrect or a version value is out of bounds.
     '''
+    if valu is None:
+        mesg = 'Version value is missing.  ' + mesg
+        raise exc(mesg=mesg, valu=valu, reqver=reqver)
 
     spec = p_specifiers.SpecifierSet(reqver)
     verstr = fmtVersion(*valu)
@@ -212,5 +215,5 @@ def reqVersion(valu, reqver,
 ##############################################################################
 # The following are touched during the release process by bumpversion.
 # Do not modify these directly.
-version = (0, 1, 52)
+version = (0, 2, 0)
 verstring = '.'.join([str(x) for x in version])

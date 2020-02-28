@@ -14,7 +14,7 @@ import synapse.lib.cmdr as s_cmdr
 import synapse.lib.output as s_output
 import synapse.lib.version as s_version
 
-reqver = '>=0.1.0,<0.2.0'
+reqver = '>=0.2.0,<0.3.0'
 
 async def main(argv, outp=s_output.stdout):
     pars = makeargparser()
@@ -100,7 +100,7 @@ async def main(argv, outp=s_output.stdout):
 
     async def addCsvData(core):
 
-        newcount, nodecount = 0, 0
+        nodecount = 0
 
         for rows in rowgenr:
 
@@ -110,10 +110,7 @@ async def main(argv, outp=s_output.stdout):
 
             async for mesg in core.storm(text, opts=stormopts):
 
-                if mesg[0] == 'node:add':
-                    newcount += 1
-
-                elif mesg[0] == 'node':
+                if mesg[0] == 'node':
                     nodecount += 1
 
                 elif mesg[0] == 'err' and not opts.debug:
@@ -132,11 +129,11 @@ async def main(argv, outp=s_output.stdout):
         if opts.cli:
             await s_cmdr.runItemCmdr(core, outp, True)
 
-        return newcount, nodecount
+        return nodecount
 
     if opts.test:
         async with s_cortex.getTempCortex() as core:
-            newcount, nodecount = await addCsvData(core)
+            nodecount = await addCsvData(core)
 
     else:
         async with await s_telepath.openurl(opts.cortex) as core:
@@ -147,15 +144,15 @@ async def main(argv, outp=s_output.stdout):
                 valu = s_version.fmtVersion(*e.get('valu'))
                 outp.printf(f'Cortex version {valu} is outside of the csvtool supported range ({reqver}).')
                 outp.printf(f'Please use a version of Synapse which supports {valu}; '
-                      f'current version is {s_version.verstring}.')
+                            f'current version is {s_version.verstring}.')
                 return 1
 
-            newcount, nodecount = await addCsvData(core)
+            nodecount = await addCsvData(core)
 
     if logfd is not None:
         logfd.close()
 
-    outp.printf('%d nodes (%d created).' % (nodecount, newcount,))
+    outp.printf('%d nodes.' % (nodecount, ))
     return 0
 
 def makeargparser():

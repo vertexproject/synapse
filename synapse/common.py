@@ -14,6 +14,7 @@ import logging
 import binascii
 import builtins
 import tempfile
+import warnings
 import functools
 import itertools
 import threading
@@ -154,6 +155,12 @@ def vertup(vstr):
 
     '''
     return tuple([int(x) for x in vstr.split('.')])
+
+def todo(name, *args, **kwargs):
+    '''
+    Construct and return a todo tuple of (name, args, kwargs).
+    '''
+    return (name, args, kwargs)
 
 def genpath(*paths):
     path = os.path.join(*paths)
@@ -637,3 +644,7 @@ def config(conf, confdefs):
         conf.setdefault(name, info.get('defval'))
 
     return conf
+
+def deprecated(name):
+    mesg = f'"{name}" is deprecated in 0.2.0.'
+    warnings.warn(mesg, DeprecationWarning)

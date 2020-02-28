@@ -20,7 +20,7 @@ MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
 
 class UpLoad(s_base.Base):
 
-    async def __anit__(self, axon):
+    async def __anit__(self, axon):  # type: ignore
 
         await s_base.Base.__anit__(self)
 
@@ -78,13 +78,14 @@ class UpLoad(s_base.Base):
         self._reset()
         return rsize, sha256
 
-class UpLoadShare(UpLoad, s_share.Share):
+class UpLoadShare(UpLoad, s_share.Share):  # type: ignore
     typename = 'upload'
+
     async def __anit__(self, axon, link):
         await UpLoad.__anit__(self, axon)
         await s_share.Share.__anit__(self, link, None)
 
-class AxonApi(s_cell.CellApi, s_share.Share):
+class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 
     async def __anit__(self, cell, link, user):
         await s_cell.CellApi.__anit__(self, cell, link, user)
@@ -132,9 +133,8 @@ class AxonApi(s_cell.CellApi, s_share.Share):
 class Axon(s_cell.Cell):
 
     cellapi = AxonApi
-    confdefs = ()
 
-    async def __anit__(self, dirn, conf=None):
+    async def __anit__(self, dirn, conf=None):  # type: ignore
 
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
 
@@ -143,7 +143,7 @@ class Axon(s_cell.Cell):
         self.dmon.share('axon', self)
 
         path = s_common.gendir(self.dirn, 'axon.lmdb')
-        self.axonslab = await s_lmdbslab.Slab.anit(path, map_async=True)
+        self.axonslab = await s_lmdbslab.Slab.anit(path)
         self.sizes = self.axonslab.initdb('sizes')
         self.onfini(self.axonslab.fini)
 
@@ -165,7 +165,7 @@ class Axon(s_cell.Cell):
 
     async def _initBlobStor(self):
         path = s_common.gendir(self.dirn, 'blob.lmdb')
-        self.blobslab = await s_lmdbslab.Slab.anit(path, map_async=True)
+        self.blobslab = await s_lmdbslab.Slab.anit(path)
         self.blobs = self.blobslab.initdb('blobs')
         self.onfini(self.blobslab.fini)
 
@@ -186,7 +186,7 @@ class Axon(s_cell.Cell):
         if not await self.has(sha256):
             raise s_exc.NoSuchFile(sha256=s_common.ehex(sha256))
 
-        for lkey, byts in self.blobslab.scanByPref(sha256, db=self.blobs):
+        for _, byts in self.blobslab.scanByPref(sha256, db=self.blobs):
             yield byts
 
     async def put(self, byts):

@@ -42,6 +42,7 @@ async def unixlisten(path, onlink):
     Start an PF_UNIX server listening on the given path.
     '''
     info = {'path': path, 'unix': True}
+
     async def onconn(reader, writer):
         link = await Link.anit(reader, writer, info=info)
         link.schedCoro(onlink(link))
@@ -128,7 +129,10 @@ class Link(s_base.Base):
 
         async def fini():
             self.writer.close()
-            await self.writer.wait_closed()
+            try:
+                await self.writer.wait_closed()
+            except (BrokenPipeError, ConnectionResetError) as e:
+                logger.debug('Link error waiting on close: %s', str(e))
 
         self.onfini(fini)
 
@@ -228,20 +232,18 @@ class Link(s_base.Base):
                     await self.fini()
                     return None
 
-                for size, mesg in self.feed(byts):
+                for _, mesg in self.feed(byts):
                     self.rxqu.append(mesg)
-
-            except (BrokenPipeError, ConnectionResetError) as e:
-                logger.warning('%s', str(e))
-                await self.fini()
-                return None
 
             except asyncio.CancelledError:
                 await self.fini()
                 raise
 
-            except Exception:
-                logger.exception('rx error')
+            except Exception as e:
+                if isinstance(e, (BrokenPipeError, ConnectionResetError)):
+                    logger.warning('rx error: %s', e)
+                else:
+                    logger.exception('rx error')
                 await self.fini()
                 return None
 

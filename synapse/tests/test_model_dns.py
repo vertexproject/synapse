@@ -93,7 +93,7 @@ class DnsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('query:name:ipv6'), '::ffff:1.2.3.4')
 
                 # Ensure that lift via prefix for inet:dns:name type works
-                nodes = await alist(snap.getNodesBy('inet:dns:request:query:name', 'vertex', cmpr='^='))
+                nodes = await snap.nodes('inet:dns:request:query:name^=vertex')
                 self.len(1, nodes)
 
                 # Ensure that subs are broken out for inet:dns:query

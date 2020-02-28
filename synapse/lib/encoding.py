@@ -32,13 +32,13 @@ def _de_utf8(byts, **opts):
     return byts.decode('utf8')
 
 decoders = {
-    'utf8': _de_utf8,
-    'base64': _de_base64,
+    'utf8': _de_utf8,  # type: ignore
+    'base64': _de_base64,  # type: ignore
 }
 
 encoders = {
-    'utf8': _en_utf8,
-    'base64': _en_base64,
+    'utf8': _en_utf8,  # type: ignore
+    'base64': _en_base64,  # type: ignore
 }
 
 def decode(name, byts, **opts):
@@ -101,7 +101,7 @@ def _xml_stripns(e):
 
 
 def _fmt_xml(fd, gest):
-    #TODO stream XML for huge files
+    # TODO stream XML for huge files
     elem = x_etree.fromstring(fd.read())
     _xml_stripns(elem)
     yield {elem.tag: elem}

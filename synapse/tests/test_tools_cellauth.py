@@ -43,7 +43,7 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('icanadd')
             outp.expect('admin: False')
             outp.expect('role: creator')
-            self.false(outp.expect('allow: node:add', throw=False))
+            self.false(outp.expect('allow: node.add', throw=False))
 
             argv = [coreurl, 'list', 'creator']
             outp = self.getTestOutp()
@@ -57,7 +57,7 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('icanadd')
             outp.expect('admin: False')
             outp.expect('role: creator')
-            outp.expect('allow: node:add', throw=False)
+            outp.expect('allow: node.add', throw=False)
 
     async def test_cellauth_user(self):
 
@@ -187,8 +187,10 @@ class CellAuthTest(s_t_utils.SynTest):
 
             coreurl = core.getLocalUrl()
 
-            rule = 'node:add'
-            nrule = '!node:add'
+            rule = 'node.add'
+            rulerepr = repr((True, ['node', 'add']))
+            nrule = '!node.add'
+            nrulerepr = repr((False, ['node', 'add']))
             name = 'foo'
 
             outp = self.getTestOutp()
@@ -199,23 +201,22 @@ class CellAuthTest(s_t_utils.SynTest):
             argv = [coreurl, 'modify', '--addrule', rule, name]
             await s_cellauth.main(argv, outp)
             # print(str(outp))
-            outp.expect(f'adding rule to {name}: (True, [{rule!r}])')
-            user = await prox.getAuthInfo(name)
-            self.eq(user[1].get('rules'),
-                    ((True, ('node:add',)),))
+            outp.expect(f'adding rule to {name}: {rulerepr}')
+            user = await prox.getUserInfo(name)
+            self.eq(user.get('rules'),
+                    ((True, ('node', 'add',)),))
 
             outp.clear()
             argv = [coreurl, 'modify', '--delrule', '0', 'foo']
             await s_cellauth.main(argv, outp)
             # print(str(outp))
             outp.expect(f'deleting rule index: 0')
-            user = await prox.getAuthInfo(name)
-            self.eq(user[1].get('rules'), ())
+            user = await prox.getUserInfo(name)
+            self.eq(user.get('rules'), ())
 
             outp.clear()
             viewiden = core.view.iden
             argv = [coreurl, 'modify', '--addrule', nrule, name, '--object', viewiden]
             await s_cellauth.main(argv, outp)
 
-            outp.expect(f'adding rule to {name}: (False, [{rule!r}])')
-            outp.expect(f'deny: node:add on {viewiden}')
+            outp.expect(f'adding rule to {name}: {nrulerepr}')

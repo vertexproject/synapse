@@ -25,6 +25,7 @@ class InetModelTest(s_t_utils.SynTest):
             await self.agenlen(3, core.eval('inet:ipv4=1.2.3.1-1.2.3.3'))
             await self.agenlen(3, core.eval('[inet:ipv4=1.2.3.1-1.2.3.3]'))
             await self.agenlen(3, core.eval('inet:ipv4 +inet:ipv4=1.2.3.1-1.2.3.3'))
+            await self.agenlen(3, core.eval('inet:ipv4*range=(1.2.3.1, 1.2.3.3)'))
 
     async def test_ipv4_filt_cidr(self):
 
@@ -127,7 +128,7 @@ class InetModelTest(s_t_utils.SynTest):
 
                 valu = '456'
                 expected_ndef = (formname, 456)
-                expected_props = {'name': '??'}
+                expected_props = {}
                 node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
@@ -286,7 +287,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(t.norm(email), expected)
 
             valu = t.norm('bob\udcfesmith@woot.com')[0]
-            self.eq(b'bob\xed\xb3\xbesmith@woot.com', t.indx(valu))
 
             # Form Tests ======================================================
             valu = 'UnitTest@Vertex.link'
@@ -381,14 +381,13 @@ class InetModelTest(s_t_utils.SynTest):
             expected_ndef = (formname, valu)
 
             # Demonstrate cascading formation
-            # FIXME use checkNode
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('domain'), 'vertex.link')
                 self.eq(node.get('host'), 'api')
-                self.eq(node.get('issuffix'), 0)
-                self.eq(node.get('iszone'), 0)
+                #self.eq(node.get('issuffix'), 0)
+                #self.eq(node.get('iszone'), 0)
                 self.eq(node.get('zone'), 'vertex.link')
 
             async with await core.snap() as snap:
@@ -413,16 +412,22 @@ class InetModelTest(s_t_utils.SynTest):
 
             # Demonstrate wildcard
             async with await core.snap() as snap:
-                await self.agenlen(3, snap.getNodesBy(formname, '*'))
-                await self.agenlen(3, snap.getNodesBy(formname, '*link'))
-                await self.agenlen(2, snap.getNodesBy(formname, '*.link'))
-                await self.agenlen(1, snap.getNodesBy(formname, '*.vertex.link'))
-                await self.agenraises(s_exc.BadLiftValu, snap.getNodesBy(formname, 'api.*.link'))
+                self.len(3, await snap.nodes('inet:fqdn="*"'))
+                self.len(3, await snap.nodes('inet:fqdn="*link"'))
+                self.len(2, await snap.nodes('inet:fqdn="*.link"'))
+                self.len(1, await snap.nodes('inet:fqdn="*.vertex.link"'))
+                with self.raises(s_exc.BadLiftValu):
+                    await snap.nodes('inet:fqdn=api.*.link')
 
             q = 'inet:fqdn="*.link" +inet:fqdn="*vertex.link"'
             nodes = await core.nodes(q)
             self.len(2, nodes)
             self.eq({'vertex.link', 'api.vertex.link'}, {n.ndef[1] for n in nodes})
+
+            q = 'inet:fqdn~=api'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq({'api.vertex.link'}, {n.ndef[1] for n in nodes})
 
             # Cannot filter on a empty string
             q = 'inet:fqdn="*.link" +inet:fqdn=""'
@@ -737,7 +742,6 @@ class InetModelTest(s_t_utils.SynTest):
                     'place': place,
                 }
                 expected_props = {
-                    'asn': 0,
                     'ipv4': 16909060,
                     'loc': 'cool',
                     'latlong': (0.0, 2.0),
@@ -750,8 +754,6 @@ class InetModelTest(s_t_utils.SynTest):
 
                 valu_str = '::1'
                 expected_props = {
-                    'asn': 0,
-                    'loc': '??',
                 }
                 expected_ndef = (formname, valu_str)
                 node = await snap.addNode(formname, valu_str)
@@ -776,7 +778,7 @@ class InetModelTest(s_t_utils.SynTest):
 
                 node = await snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('vendor'), '??')
+                self.none(node.get('vendor'))
 
                 node = await snap.addNode(formname, valu, props={'vendor': 'Cool'})
                 self.eq(node.ndef, expected_ndef)
@@ -874,10 +876,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(t.norm('<visi@vertex.link>'), ('visi@vertex.link', {'subs': {'email': 'visi@vertex.link'}}))
 
             valu = t.norm('bob\udcfesmith@woot.com')[0]
-            self.eq(b'bob\xed\xb3\xbesmith@woot.com', t.indx(valu))
-            self.eq(b'bob\xed\xb3\xbesmith', t.indxByPref('bob\udcfesmith')[0][1])
-
-            self.raises(s_exc.NoSuchFunc, t.norm, 20)
 
             # Form Tests ======================================================
             valu = '"UnitTest"    <UnitTest@Vertex.link>'
@@ -891,9 +889,9 @@ class InetModelTest(s_t_utils.SynTest):
                 await snap.addNode(formname, '"UnitTest1')
                 await snap.addNode(formname, '"UnitTest12')
 
-                await self.agenlen(3, snap.getNodesBy(formname, 'unittest', cmpr='^='))
-                await self.agenlen(2, snap.getNodesBy(formname, 'unittest1', cmpr='^='))
-                await self.agenlen(1, snap.getNodesBy(formname, 'unittest12', cmpr='^='))
+                self.len(3, await snap.nodes('inet:rfc2822:addr^=unittest'))
+                self.len(2, await snap.nodes('inet:rfc2822:addr^=unittest1'))
+                self.len(1, await snap.nodes('inet:rfc2822:addr^=unittest12'))
 
     async def test_server(self):
         formname = 'inet:server'
@@ -971,8 +969,6 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
             valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')[0]
-            self.eq(b'http://www.googlesites.com/hehe\xed\xb3\xbestuff.asp',
-                    t.indx(valu))
 
             # Form Tests ======================================================
             async with await core.snap() as snap:
@@ -1193,7 +1189,7 @@ class InetModelTest(s_t_utils.SynTest):
             # Type Tests
             t = core.model.type(formname)
 
-            self.raises(s_exc.NoSuchFunc, t.norm, 'vertex.link/person1')  # No longer a sepr
+            self.raises(s_exc.BadTypeValu, t.norm, 'vertex.link/person1')
             enorm = ('vertex.link', 'person1')
             edata = {'subs': {'user': 'person1',
                               'site': 'vertex.link',
@@ -1687,7 +1683,7 @@ class InetModelTest(s_t_utils.SynTest):
                 # bad country code
                 guid = s_common.guid()
                 props = {'country': 'u9'}
-                await self.asyncraises(s_exc.BadPropValu, snap.addNode('inet:whois:iprec', guid, props=props))
+                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('inet:whois:iprec', guid, props=props))
 
     async def test_whois_ipcontact(self):
         pscontact = s_common.guid()

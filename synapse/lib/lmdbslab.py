@@ -19,6 +19,7 @@ import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
+import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
 import synapse.lib.thisplat as s_thisplat
@@ -157,14 +158,14 @@ class SlabDict:
 
 class SlabAbrv:
     '''
-    A utility for translating arbitrary name strings into fixed with id bytes
+    A utility for translating arbitrary bytes into fixed with id bytes
     '''
 
     def __init__(self, slab, name):
 
         self.slab = slab
-        self.name2abrv = slab.initdb(f'{name}:name2abrv')
-        self.abrv2name = slab.initdb(f'{name}:abrv2name')
+        self.name2abrv = slab.initdb(f'{name}:byts2abrv')
+        self.abrv2name = slab.initdb(f'{name}:abrv2byts')
 
         self.offs = 0
 
@@ -173,16 +174,15 @@ class SlabAbrv:
             self.offs = s_common.int64un(item[0]) + 1
 
     @s_cache.memoize(10000)
-    def abrvToName(self, abrv):
+    def abrvToByts(self, abrv):
         byts = self.slab.get(abrv, db=self.abrv2name)
         if byts is not None:
-            return byts.decode()
+            return byts
 
     @s_cache.memoize(10000)
-    def nameToAbrv(self, name):
+    def bytsToAbrv(self, byts):
 
-        lkey = name.encode()
-        abrv = self.slab.get(lkey, db=self.name2abrv)
+        abrv = self.slab.get(byts, db=self.name2abrv)
         if abrv is not None:
             return abrv
 
@@ -190,18 +190,79 @@ class SlabAbrv:
 
         self.offs += 1
 
-        self.slab.put(lkey, abrv, db=self.name2abrv)
-        self.slab.put(abrv, lkey, db=self.abrv2name)
+        self.slab.put(byts, abrv, db=self.name2abrv)
+        self.slab.put(abrv, byts, db=self.abrv2name)
 
         return abrv
 
-class MultiQueue:
+    @s_cache.memoize(10000)
+    def nameToAbrv(self, name):
+        return self.bytsToAbrv(name.encode())
+
+    @s_cache.memoize(10000)
+    def bytsToInt(self, byts):
+        abrv = self.bytsToAbrv(byts)
+        return s_common.int64un(abrv)
+
+class HotCount(s_base.Base):
+    '''
+    A hot-loop capable counter that only sync's on commit.
+    '''
+    async def __anit__(self, slab, name):
+        await s_base.Base.__anit__(self)
+
+        self.slab = slab
+        self.cache = collections.defaultdict(int)
+        self.dirty = set()
+
+        self.countdb = self.slab.initdb(name, integerkey=True)
+
+        for lkey, lval in self.slab.scanByFull(db=self.countdb):
+            self.cache[lkey] = s_common.int64un(lval)
+
+        slab.on('commit', self._onSlabCommit)
+
+        self.onfini(self.sync)
+
+    async def _onSlabCommit(self, mesg):
+        if self.dirty:
+            self.sync()
+
+    def inc(self, name: str, valu=1):
+        byts = name.encode()
+        self.cache[byts] += valu
+        self.dirty.add(byts)
+
+    def set(self, name: str, valu: int):
+        byts = name.encode()
+        self.cache[byts] = valu
+        self.dirty.add(byts)
+
+    def get(self, name: str, defv=0):
+        return self.cache.get(name.encode(), defv)
+
+    def sync(self):
+
+        tups = [(p, s_common.int64en(self.cache[p])) for p in self.dirty]
+        if not tups:
+            return
+
+        self.slab.putmulti(tups, db=self.countdb)
+        self.dirty.clear()
+
+    def pack(self):
+        return {n.decode(): v for (n, v) in self.cache.items()}
+
+class MultiQueue(s_base.Base):
     '''
     Allows creation/consumption of multiple durable queues in a slab.
     '''
-    def __init__(self, slab, name):
+    async def __anit__(self, slab, name, nexsroot: s_nexus.NexsRoot = None, auth=None):  # type: ignore
+
+        await s_base.Base.__anit__(self)
 
         self.slab = slab
+        self.auth = auth
 
         self.abrv = slab.getNameAbrv(f'{name}:abrv')
         self.qdata = self.slab.initdb(f'{name}:qdata')
@@ -210,7 +271,7 @@ class MultiQueue:
         self.queues = SlabDict(self.slab, db=self.slab.initdb(f'{name}:meta'))
         self.offsets = SlabDict(self.slab, db=self.slab.initdb(f'{name}:offs'))
 
-        self.waiters = collections.defaultdict(asyncio.Event)
+        self.waiters = collections.defaultdict(asyncio.Event)  # type: ignore
 
     def list(self):
         return [self.status(n) for n in self.queues.keys()]
@@ -238,17 +299,15 @@ class MultiQueue:
     def offset(self, name):
         return self.offsets.get(name)
 
-    def add(self, name, info):
+    async def add(self, name, info):
 
         if self.queues.get(name) is not None:
-            mesg = f'A queue exists with the name {name}.'
+            mesg = f'A queue already exists with the name {name}.'
             raise s_exc.DupName(mesg=mesg, name=name)
 
-        item = self.queues.get(name)
-        if item is None:
-            self.queues.set(name, info)
-            self.sizes.set(name, 0)
-            self.offsets.set(name, 0)
+        self.queues.set(name, info)
+        self.sizes.set(name, 0)
+        self.offsets.set(name, 0)
 
     async def rem(self, name):
 
@@ -273,10 +332,10 @@ class MultiQueue:
             return itemoffs, item
         return -1, None
 
-    def put(self, name, item):
-        return self.puts(name, (item,))
+    async def put(self, name, item):
+        return await self.puts(name, (item,))
 
-    def puts(self, name, items):
+    async def puts(self, name, items):
 
         if self.queues.get(name) is None:
             mesg = f'No queue named {name}.'
@@ -350,7 +409,7 @@ class MultiQueue:
         indx = s_common.int64en(offs)
         abrv = self.abrv.nameToAbrv(name)
 
-        for lkey, lval in self.slab.scanByRange(abrv + int64min, abrv + indx, db=self.qdata):
+        for lkey, _ in self.slab.scanByRange(abrv + int64min, abrv + indx, db=self.qdata):
             self.slab.delete(lkey, db=self.qdata)
             self.sizes.set(name, self.sizes.get(name) - 1)
             await asyncio.sleep(0)
@@ -406,13 +465,16 @@ class Slab(s_base.Base):
     A "monolithic" LMDB instance for use in a asyncio loop thread.
     '''
     COMMIT_PERIOD = 0.5  # time between commits
+    DEFAULT_MAPSIZE = s_const.gibibyte
+    DEFAULT_GROWSIZE = None
 
     async def __anit__(self, path, **kwargs):
 
         await s_base.Base.__anit__(self)
 
-        kwargs.setdefault('map_size', s_const.gibibyte)
+        kwargs.setdefault('map_size', self.DEFAULT_MAPSIZE)
         kwargs.setdefault('lockmemory', False)
+        kwargs.setdefault('map_async', True)
 
         opts = kwargs
 
@@ -440,10 +502,11 @@ class Slab(s_base.Base):
         opts.setdefault('writemap', True)
 
         self.maxsize = opts.pop('maxsize', None)
-        self.growsize = opts.pop('growsize', None)
+        self.growsize = opts.pop('growsize', self.DEFAULT_GROWSIZE)
 
         self.readonly = opts.get('readonly', False)
         self.lockmemory = opts.pop('lockmemory', False)
+        opts.setdefault('map_async', True)
 
         self.mapsize = _mapsizeround(mapsize)
         if self.maxsize is not None:
@@ -499,11 +562,18 @@ class Slab(s_base.Base):
 
         shutil.rmtree(self.path, ignore_errors=True)
 
+    async def getHotCount(self, name):
+        item = await HotCount.anit(self, name)
+        self.onfini(item)
+        return item
+
     def getNameAbrv(self, name):
         return SlabAbrv(self, name)
 
-    def getMultiQueue(self, name):
-        return MultiQueue(self, name)
+    async def getMultiQueue(self, name, nexsroot=None):
+        mq = await MultiQueue.anit(self, name, nexsroot=None)
+        self.onfini(mq)
+        return mq
 
     def statinfo(self):
         return {
@@ -729,15 +799,15 @@ class Slab(s_base.Base):
         self.locking_memory = False
         logger.debug('memory locking thread ended')
 
-    def initdb(self, name, dupsort=False):
+    def initdb(self, name, dupsort=False, integerkey=False):
         while True:
             try:
                 if self.readonly:
                     # In a readonly environment, we can't make our own write transaction, but we
                     # can have the lmdb module create one for us by not specifying the transaction
-                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort)
+                    db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort, integerkey=integerkey)
                 else:
-                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort)
+                    db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort, integerkey=integerkey)
                     self.dirty = True
                     self.forcecommit()
 
@@ -1093,6 +1163,7 @@ class Scan:
         self.atitem = None
         self.bumped = False
         self.iterfunc = None
+        self.curs = None
 
     def __enter__(self):
         self.slab._acqXactForReading()
@@ -1104,6 +1175,7 @@ class Scan:
         self.bump()
         self.slab.scans.discard(self)
         self.slab._relXactForReading()
+        self.curs = None
 
     def last_key(self):
         '''
