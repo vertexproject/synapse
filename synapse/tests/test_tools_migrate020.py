@@ -511,6 +511,11 @@ class MigrationTest(s_t_utils.SynTest):
             self.gt(offslogs0[0]['val'][0], 0)
             self.gt(offslogs0[1]['val'][0], 0)
 
+            # check the saved file
+            offsyaml = s_common.yamlload(dest0, 'migration', 'lyroffs.yaml')
+            offslogdict = {x['key']: {'nextoffs': x['val'][0], 'created': x['val'][1]} for x in offslogs0}
+            self.eq(offsyaml, offslogdict)
+
             await migr0.fini()
 
             # run migration again
@@ -540,8 +545,12 @@ class MigrationTest(s_t_utils.SynTest):
                 self.len(2, offslogs)  # one entry for each layer
                 self.gt(offslogs[0]['val'][0], 0)
                 self.gt(offslogs[1]['val'][0], 0)
-                self.gt(offslogs[0]['val'][1], offslogs0[0]['val'][1]) # timestamp should be updated
+                self.gt(offslogs[0]['val'][1], offslogs0[0]['val'][1])  # timestamp should be updated
                 self.gt(offslogs[1]['val'][1], offslogs0[1]['val'][1])
+
+                # check the saved file
+                offsyaml = s_common.yamlload(dest, 'migration', 'lyroffs.yaml')
+                self.eq(offsyaml, {x['key']: {'nextoffs': x['val'][0], 'created': x['val'][1]} for x in offslogs})
 
                 await migr.fini()
 
