@@ -233,6 +233,7 @@ async def getTempCoreProx(mods=None):
     prox = await acm.__aenter__()
     # Use object.__setattr__ to hulk smash and avoid proxy getattr magick
     object.__setattr__(prox, '_acm', acm)
+
     async def onfini():
         await prox._acm.__aexit__(None, None, None)
     prox.onfini(onfini)

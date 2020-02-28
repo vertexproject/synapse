@@ -100,12 +100,12 @@ def getShareInfo(item):
 
     try:
         setattr(item, key, info)
-    except Exception as e:  # pragma: no cover
+    except Exception:  # pragma: no cover
         logger.exception(f'Failed to set magic on {item}')
 
     try:
         setattr(item.__class__, key, info)
-    except Exception as e:  # pragma: no cover
+    except Exception:  # pragma: no cover
         logger.exception(f'Failed to set magic on {item.__class__}')
 
     return info

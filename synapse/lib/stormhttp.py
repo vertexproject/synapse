@@ -15,7 +15,7 @@ class LibHttp(s_stormtypes.Lib):
         self.locls.update({
             'get': self._httpEasyGet,
             'post': self._httpPost,
-            #'session':
+            # 'session':
         })
 
     async def _httpEasyGet(self, url, headers=None, ssl_verify=True):

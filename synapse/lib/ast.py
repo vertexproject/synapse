@@ -278,7 +278,7 @@ class SubGraph:
 
         if self.rules.get('refs'):
 
-            for prop, ndef in node.getNodeRefs():
+            for _, ndef in node.getNodeRefs():
                 pivonode = await node.snap.getNodeByNdef(ndef)
                 if pivonode is None:
                     continue
@@ -1210,7 +1210,7 @@ class PivotToTags(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            for name, valu in node.getTags(leaf=leaf):
+            for name, _ in node.getTags(leaf=leaf):
 
                 if not await filter(name, path):
                     continue

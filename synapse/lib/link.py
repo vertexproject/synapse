@@ -42,6 +42,7 @@ async def unixlisten(path, onlink):
     Start an PF_UNIX server listening on the given path.
     '''
     info = {'path': path, 'unix': True}
+
     async def onconn(reader, writer):
         link = await Link.anit(reader, writer, info=info)
         link.schedCoro(onlink(link))
@@ -231,7 +232,7 @@ class Link(s_base.Base):
                     await self.fini()
                     return None
 
-                for size, mesg in self.feed(byts):
+                for _, mesg in self.feed(byts):
                     self.rxqu.append(mesg)
 
             except asyncio.CancelledError:

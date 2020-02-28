@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 re_iden = '^[0-9a-f]{32}$'
 
-JS_VALIDATORS = {}
+JS_VALIDATORS = {}  # type: ignore
 
 def getJsSchema(confbase, confdefs):
     '''
@@ -191,12 +191,10 @@ class Config(c_abc.MutableMapping):
                 # Do not use the default value!
                 if default:
                     akwargs['action'] = 'store_false'
-                    akwargs['help'] = akwargs['help'] + \
-                                      ' Set this option to disable this option.'
+                    akwargs['help'] = akwargs['help'] + ' Set this option to disable this option.'
                 else:
                     akwargs['action'] = 'store_true'
-                    akwargs['help'] = akwargs['help'] + \
-                                      ' Set this option to enable this option.'
+                    akwargs['help'] = akwargs['help'] + ' Set this option to enable this option.'
 
             parsed_name = name.replace(':', '-')
             replace_name = name.replace(':', '_')
@@ -247,7 +245,7 @@ class Config(c_abc.MutableMapping):
         Returns:
             None: Returns None.
         '''
-        for (name, info) in self.json_schema.get('properties', {}).items():
+        for name, _ in self.json_schema.get('properties', {}).items():
             envar = make_envar_name(name, prefix=self.envar_prefix)
             envv = os.getenv(envar)
             if envv is not None:
@@ -390,66 +388,66 @@ async def main(ctor,
                outp=s_output.stdout,
                envar_prefix=None,
                ):
-        '''
-        Cell configuration launcher helper.
+    '''
+    Cell configuration launcher helper.
 
-        Args:
-            ctor: Synapse Cell ctor.
-            argv (list): List of arguments to parse.
-            pars (argparse.ArgumentParser): Optional, a user provided ArgumentParser. Useful when combined with the cb.
-            cb (callable): Optional callback function which takes the cell, opts and outp as arguments.
-            outp (s_output.Output): An output instance for printing output.
-            envar_prefix (str): A envar prefix for collecting envar based configuration data.
+    Args:
+        ctor: Synapse Cell ctor.
+        argv (list): List of arguments to parse.
+        pars (argparse.ArgumentParser): Optional, a user provided ArgumentParser. Useful when combined with the cb.
+        cb (callable): Optional callback function which takes the cell, opts and outp as arguments.
+        outp (s_output.Output): An output instance for printing output.
+        envar_prefix (str): A envar prefix for collecting envar based configuration data.
 
-        Notes:
-            This does the following items:
+    Notes:
+        This does the following items:
 
-                - Create a Config object from the Cell Ctor.
-                - Create (or inject) argument options into an Argument Parser from the Config object.
-                - Parses the provided arguments.
-                - Sets logging for the process.
-                - Loads configuration data from the parsed options and environment variables.
-                - Creates the Cell from the Cell Ctor.
-                - Executes the provided callback function.
-                - Returns the Cell.
+            - Create a Config object from the Cell Ctor.
+            - Create (or inject) argument options into an Argument Parser from the Config object.
+            - Parses the provided arguments.
+            - Sets logging for the process.
+            - Loads configuration data from the parsed options and environment variables.
+            - Creates the Cell from the Cell Ctor.
+            - Executes the provided callback function.
+            - Returns the Cell.
 
-            Provided ArgumentParser instances will have the following argument injected into it in order
-            to provide the location where the cell is started from, and to do default logging configuration.
+        Provided ArgumentParser instances will have the following argument injected into it in order
+        to provide the location where the cell is started from, and to do default logging configuration.
 
-            ::
+        ::
 
-                pars.add_argument('celldir', type=str,
-                                  help='The directory for the Cell to use for storage.')
-                pars.add_argument('--log-level', default='INFO',
-                                  choices=s_const.LOG_LEVEL_CHOICES,
-                                  help='Specify the Python logging log level.', type=str.upper)
+            pars.add_argument('celldir', type=str,
+                                help='The directory for the Cell to use for storage.')
+            pars.add_argument('--log-level', default='INFO',
+                                choices=s_const.LOG_LEVEL_CHOICES,
+                                help='Specify the Python logging log level.', type=str.upper)
 
-        Returns:
-            The Synapse Cell made from the provided Ctor.
-        '''
-        conf = Config.getConfFromCell(ctor, envar_prefix=envar_prefix)
-        pars = conf.getArgumentParser(pars=pars)
-        # Inject celldir & logging argument so we can rely on having it around.
-        pars.add_argument('celldir', type=str,
-                          help=f'The directory for the {ctor.getCellType()} to use for storage.')
-        pars.add_argument('--log-level', default='INFO', choices=s_const.LOG_LEVEL_CHOICES,
-                          help='Specify the Python logging log level.', type=str.upper)
-        opts = pars.parse_args(argv)
+    Returns:
+        The Synapse Cell made from the provided Ctor.
+    '''
+    conf = Config.getConfFromCell(ctor, envar_prefix=envar_prefix)
+    pars = conf.getArgumentParser(pars=pars)
+    # Inject celldir & logging argument so we can rely on having it around.
+    pars.add_argument('celldir', type=str,
+                      help=f'The directory for the {ctor.getCellType()} to use for storage.')
+    pars.add_argument('--log-level', default='INFO', choices=s_const.LOG_LEVEL_CHOICES,
+                      help='Specify the Python logging log level.', type=str.upper)
+    opts = pars.parse_args(argv)
 
-        s_common.setlogging(logger, defval=opts.log_level)
+    s_common.setlogging(logger, defval=opts.log_level)
 
-        conf.setConfFromOpts(opts)
-        conf.setConfFromEnvs()
+    conf.setConfFromOpts(opts)
+    conf.setConfFromEnvs()
 
-        outp.printf(f'starting {ctor.getCellType()}: {opts.celldir}')
+    outp.printf(f'starting {ctor.getCellType()}: {opts.celldir}')
 
-        cell = await ctor.anit(opts.celldir, conf=conf)
+    cell = await ctor.anit(opts.celldir, conf=conf)
 
-        try:
-            if cb:
-                await cb(cell, opts, outp)
-        except Exception:
-            await cell.fini()
-            raise
-        else:
-            return cell
+    try:
+        if cb:
+            await cb(cell, opts, outp)
+    except Exception:
+        await cell.fini()
+        raise
+    else:
+        return cell

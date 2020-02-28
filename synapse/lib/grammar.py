@@ -197,7 +197,7 @@ class AstConverter(lark.Transformer):
             elif isinstance(kid, s_ast.SubQuery):
                 newkid = kid.text
             else:
-                assert False, 'Unexpected rule'  # pragma: no cover
+                raise AssertionError('Unexpected rule')  # pragma: no cover
             argv.append(newkid)
 
         return s_ast.Const(tuple(argv))

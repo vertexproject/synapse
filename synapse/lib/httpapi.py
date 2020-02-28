@@ -378,7 +378,7 @@ class AuthUsersV1(Handler):
             if archived not in (0, 1):
                 return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.')
 
-        except Exception as e:
+        except Exception:
             return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.')
 
         if archived:

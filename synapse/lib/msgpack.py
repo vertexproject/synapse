@@ -67,7 +67,7 @@ def isok(item):
     try:
         en(item)
         return True
-    except Exception as e:
+    except Exception:
         return False
 
 def iterfd(fd):

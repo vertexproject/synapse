@@ -1,5 +1,4 @@
 import types
-import hashlib
 
 import synapse.common as s_common
 

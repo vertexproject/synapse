@@ -731,7 +731,7 @@ stormcmds = (
                     $laststart = $job.laststart.ljust(16)
                     $lastend = $job.lastend.ljust(16)
 
-                    $lib.print("{user} {iden} {enabled} {isrecur} {isrunning} {iserr} {startcount} {laststart} {lastend} {query}",
+       $lib.print("{user} {iden} {enabled} {isrecur} {isrunning} {iserr} {startcount} {laststart} {lastend} {query}",
                                user=$user, iden=$iden, enabled=$enabled, isrecur=$isrecur,
                                isrunning=$isrunning, iserr=$iserr, startcount=$startcount,
                                laststart=$laststart, lastend=$lastend, query=$job.query)
@@ -2007,11 +2007,15 @@ class GraphCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('--degrees', type=int, default=1, help='How many degrees to graph out.')
 
-        pars.add_argument('--pivot', default=[], action='append', help='Specify a storm pivot for all nodes. (must quote)')
-        pars.add_argument('--filter', default=[], action='append', help='Specify a storm filter for all nodes. (must quote)')
+        pars.add_argument('--pivot', default=[], action='append',
+                          help='Specify a storm pivot for all nodes. (must quote)')
+        pars.add_argument('--filter', default=[], action='append',
+                          help='Specify a storm filter for all nodes. (must quote)')
 
-        pars.add_argument('--form-pivot', default=[], nargs=2, action='append', help='Specify a <form> <pivot> form specific pivot.')
-        pars.add_argument('--form-filter', default=[], nargs=2, action='append', help='Specify a <form> <filter> form specific filter.')
+        pars.add_argument('--form-pivot', default=[], nargs=2, action='append',
+                          help='Specify a <form> <pivot> form specific pivot.')
+        pars.add_argument('--form-filter', default=[], nargs=2, action='append',
+                          help='Specify a <form> <filter> form specific filter.')
 
         return pars
 
@@ -2254,7 +2258,6 @@ class SpliceListCmd(Cmd):
                 return
 
             guid = s_common.guid(splice)
-            splicebuid = s_common.buid(('syn:splice', guid))
 
             buid = s_common.buid(splice[1]['ndef'])
             iden = s_common.ehex(buid)
