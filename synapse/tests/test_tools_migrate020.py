@@ -502,6 +502,15 @@ class MigrationTest(s_t_utils.SynTest):
 
             await self._checkStats(tdata0, migr0, locallyrs0)
 
+            # get layer offsets
+            offslogs0 = []
+            for iden in locallyrs0:
+                offslogs0 += [log async for log in migr0._migrlogGet('nodes', 'nextoffs', iden)]
+
+            self.len(2, offslogs0)  # one entry for each layer
+            self.gt(offslogs0[0]['val'][0], 0)
+            self.gt(offslogs0[1]['val'][0], 0)
+
             await migr0.fini()
 
             # run migration again
@@ -522,6 +531,17 @@ class MigrationTest(s_t_utils.SynTest):
                 await migr.migrate()
 
                 await self._checkStats(tdata, migr, locallyrs)
+
+                # get layer offsets
+                offslogs = []
+                for iden in locallyrs:
+                    offslogs += [log async for log in migr._migrlogGet('nodes', 'nextoffs', iden)]
+
+                self.len(2, offslogs)  # one entry for each layer
+                self.gt(offslogs[0]['val'][0], 0)
+                self.gt(offslogs[1]['val'][0], 0)
+                self.gt(offslogs[0]['val'][1], offslogs0[0]['val'][1]) # timestamp should be updated
+                self.gt(offslogs[1]['val'][1], offslogs0[1]['val'][1])
 
                 await migr.fini()
 

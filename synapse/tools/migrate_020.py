@@ -24,6 +24,7 @@ import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.modules as s_modules
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.slabseqn as s_slabseqn
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 
@@ -1154,6 +1155,16 @@ class Migrator(s_base.Base):
         src_slab = await s_lmdbslab.Slab.anit(path, **self.srcslabopts)
         src_bybuid = src_slab.initdb('bybuid')  # <buid><prop>=<valu>
         self.onfini(src_slab.fini)
+
+        # record offset
+        path = os.path.join(self.src, 'layers', iden, 'splices.lmdb')
+        spliceslab = await s_lmdbslab.Slab.anit(path, **self.srcslabopts)
+        self.onfini(spliceslab.fini)
+        splicelog = s_slabseqn.SlabSeqn(spliceslab, 'splices')
+        nextindx = splicelog.index()
+
+        logger.info(f'Saved splicelog next offset {nextindx} for layer {iden}')
+        await self._migrlogAdd(migrop, 'nextoffs', iden, (nextindx, s_common.now()))
 
         # migrate data
         src_fcnt = collections.defaultdict(int)
