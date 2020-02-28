@@ -1727,7 +1727,7 @@ class Migrator(s_base.Base):
         return None
 
 async def main(argv, outp=s_output.stdout):
-    pars = argparse.ArgumentParser(prog='synapse.tools.migrate_stor', description='Tool for migrating Synapse storage.')
+    pars = argparse.ArgumentParser(prog='synapse.tools.migrate_020', description='Tool for migrating Synapse storage.')
     pars.add_argument('--src', required=True, type=str, help='Source cortex dirn to migrate from.')
     pars.add_argument('--dest', required=False, type=str, help='Destination cortex dirn to migrate to.')
     pars.add_argument('--migr-ops', required=False, type=str.lower, nargs='+', choices=ALL_MIGROPS,
