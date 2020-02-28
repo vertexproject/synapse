@@ -360,7 +360,7 @@ workflows:
               only: /.*/
             branches:
               only:
-                - master
+                - 01x
 
       - python37:
           filters:
@@ -386,7 +386,7 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - 01x
 
       - docker_tags:
           requires:
