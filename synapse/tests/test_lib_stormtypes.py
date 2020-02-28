@@ -2354,13 +2354,13 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await asbond.storm(f'cron.del {guid[:6]}').list()
                     self.stormIsInErr('iden does not match any', mesgs)
 
-                    mesgs = await asbond.storm( 'cron.add --hourly 15 {#bar}').list()
+                    mesgs = await asbond.storm('cron.add --hourly 15 {#bar}').list()
                     self.stormIsInErr('User must have permission cron.add', mesgs)
 
                     # Give explicit perm
 
                     await prox.addAuthRule('bond', (True, ('cron', 'add')))
-                    await asbond.storm( 'cron.add --hourly 15 {#bar}').list()
+                    await asbond.storm('cron.add --hourly 15 {#bar}').list()
 
                     mesgs = await asbond.storm('cron.list').list()
                     self.stormIsInPrint('bond', mesgs)
