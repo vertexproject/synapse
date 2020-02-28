@@ -1841,6 +1841,8 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInPrint('No triggers found', mesgs)
 
                 q = f'trigger.mod {goodbuid2} {{[ test:str=yep ]}}'
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInErr('iden does not match any', mesgs)
 
                 q = f'trigger.disable {goodbuid2}'
                 mesgs = await asbond.storm(q).list()
@@ -1854,7 +1856,19 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('iden does not match any', mesgs)
 
+                q = 'trigger.add node:add --form test:str --query {[ test:int=1 ]}'
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInErr('User must have permission trigger.add', mesgs)
+
                 # Give explicit perm
+
+                await prox.addAuthRule('bond', (True, ('trigger', 'add')))
+                mesgs = await asbond.storm(q).list()
+
+                q = 'trigger.list'
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInPrint('bond', mesgs)
+
                 await prox.addAuthRule('bond', (True, ('trigger', 'get')))
 
                 mesgs = await asbond.storm('trigger.list').list()
@@ -2340,7 +2354,16 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await asbond.storm(f'cron.del {guid[:6]}').list()
                     self.stormIsInErr('iden does not match any', mesgs)
 
+                    mesgs = await asbond.storm( 'cron.add --hourly 15 {#bar}').list()
+                    self.stormIsInErr('User must have permission cron.add', mesgs)
+
                     # Give explicit perm
+
+                    await prox.addAuthRule('bond', (True, ('cron', 'add')))
+                    await asbond.storm( 'cron.add --hourly 15 {#bar}').list()
+
+                    mesgs = await asbond.storm('cron.list').list()
+                    self.stormIsInPrint('bond', mesgs)
 
                     await prox.addAuthRule('bond', (True, ('cron', 'get')))
 
