@@ -20,7 +20,7 @@ Manage permissions of users, roles, and objects in a remote cell.
 outp = None
 
 min_authgate_vers = (0, 1, 33)
-reqver = '>=0.1.0,<0.2.0'
+reqver = '>=0.2.0,<0.3.0'
 
 denyallow = ['deny', 'allow']
 def reprrule(rule, authgater=None):

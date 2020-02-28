@@ -12,7 +12,7 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-reqver = '>=0.1.0,<0.2.0'
+reqver = '>=0.2.0,<0.3.0'
 
 async def runcmdr(argv, item):  # pragma: no cover
     cmdr = await s_cmdr.getItemCmdr(item)

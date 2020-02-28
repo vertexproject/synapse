@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 A Cortex implements the synapse hypergraph object.
 '''
 
-reqver = '>=0.1.0,<0.2.0'
+reqver = '>=0.2.0,<0.3.0'
 
 class CoreApi(s_cell.CellApi):
     '''
@@ -759,8 +759,12 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
 
+        if self.inaugural:
+            await self.cellinfo.set('cortex:version', s_version.version)
+
         corevers = self.cellinfo.get('cortex:version')
-        s_version.reqVersion(corevers, reqver, exc=s_exc.BadCoreStore, mesg='cortex version')
+        s_version.reqVersion(corevers, reqver, exc=s_exc.BadStorageVersion,
+                             mesg='cortex version in storage is incompatible with running software')
 
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use

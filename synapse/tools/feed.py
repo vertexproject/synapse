@@ -18,7 +18,7 @@ import synapse.lib.encoding as s_encoding
 
 logger = logging.getLogger(__name__)
 
-reqver = '>=0.1.0,<0.2.0'
+reqver = '>=0.2.0,<0.3.0'
 
 def getItems(*paths):
     items = []
