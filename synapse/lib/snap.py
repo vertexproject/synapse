@@ -52,7 +52,6 @@ class Snap(s_base.Base):
         self.core = view.core
         self.view = view
         self.user = user
-        self.store_splices = self.core.conf.get('splice:en')
 
         self.layers = list(reversed(view.layers))
         self.wlyr = self.layers[-1]

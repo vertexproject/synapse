@@ -91,6 +91,7 @@ reqValidLdef = s_config.getJsValidator({
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'lockmemory': {'type': 'boolean'},
+        'logedits': {'type': 'boolean'}, 'default': True
     },
     'additionalProperties': True,
     'required': ['iden', 'creator', 'lockmemory'],
@@ -813,6 +814,7 @@ class Layer(s_nexus.Pusher):
 
         self.lockmemory = self.layrinfo.get('lockmemory')
         self.growsize = self.layrinfo.get('growsize')
+        self.logedits = self.layrinfo.get('logedits')
         path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
 
         self.fresh = not os.path.exists(path)
@@ -941,7 +943,8 @@ class Layer(s_nexus.Pusher):
         self.countdb = self.layrslab.initdb('counters')
         self.nodedata = self.layrslab.initdb('nodedata')
 
-        self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
+        if self.logedits:
+            self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
 
     def getSpawnInfo(self):
         return self.pack()
@@ -1135,10 +1138,12 @@ class Layer(s_nexus.Pusher):
         '''
         Execute a series of node edit operations, returning the updated nodes.
         '''
-        changes = [(e[0], e[1], await self._storNodeEdit(e)) for e in nodeedits]
-        offs = self.nodeeditlog.add((changes, meta))
 
-        [(await wind.put((offs, changes))) for wind in tuple(self.windows)]
+        changes = [(e[0], e[1], await self._storNodeEdit(e)) for e in nodeedits]
+
+        if self.logedits:
+            offs = self.nodeeditlog.add((changes, meta))
+            [(await wind.put((offs, changes))) for wind in tuple(self.windows)]
 
         return changes
 
@@ -1774,11 +1779,17 @@ class Layer(s_nexus.Pusher):
 
         Nodeedits will be flattened into splices before being yielded.
         '''
+        if not self.logedits:
+            return
+
         for offset, (nodeedits, meta) in self.nodeeditlog.slice(offs, size):
             async for splice in self.makeSplices(offset, nodeedits, meta):
                 yield splice
 
     async def splicesBack(self, offs, size=None):
+
+        if not self.logedits:
+            return
 
         if size:
             for offset, (nodeedits, meta) in self.nodeeditlog.sliceBack(offs, size):
@@ -1795,6 +1806,9 @@ class Layer(s_nexus.Pusher):
 
         Once caught up with storage, yield them in realtime.
         '''
+        if not self.logedits:
+            return
+
         for offs, splice in self.nodeeditlog.iter(offs):
             yield (offs, splice[0])
 
@@ -1914,6 +1928,9 @@ class Layer(s_nexus.Pusher):
             yield wind
 
     def getNodeEditOffset(self):
+        if not self.logedits:
+            return 0
+
         return self.nodeeditlog.index()
 
     async def waitUpstreamOffs(self, iden, offs):
