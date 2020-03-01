@@ -160,20 +160,29 @@ class ApptRec:
         # Truncate the seconds part
         newdt = lastdt.replace(second=0)
 
+        # Note: self.reqdict is sorted from largest unit to smallest
         for unit, newval in self.reqdict.items():
             dtkey = _TimeunitToDatetime[unit]
+
             if unit is TimeUnit.DAYOFWEEK:
                 newdt = newdt.replace(**newvals)
                 newvals = {}
                 newval = newdt.day + (6 + newval - newdt.weekday()) % 7 + 1
                 if newval > calendar.monthrange(newdt.year, newdt.month)[1]:
                     newval -= 7
+
+            elif unit is TimeUnit.YEAR:
+                # As we change the year, clamp the day of the month to a valid value (only matters on leap day)
+                dayval = _dayofmonth(newdt.day, newdt.month, newval)
+                newvals['day'] = dayval
+
             elif unit is TimeUnit.MONTH:
                 # As we change the month, clamp the day of the month to a valid value
                 newdt = newdt.replace(**newvals)
                 newvals = {}
                 dayval = _dayofmonth(newdt.day, newval, newdt.year)
                 newvals['day'] = dayval
+
             elif unit is TimeUnit.DAYOFMONTH:
                 newdt = newdt.replace(**newvals)
                 newvals = {}
