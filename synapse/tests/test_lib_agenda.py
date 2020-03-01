@@ -42,6 +42,18 @@ class AgendaTest(s_t_utils.SynTest):
         newts = ar.nexttime(now)
         self.eq(newts, datetime.datetime(year=2019, month=12, day=3, hour=2, minute=2, tzinfo=tz.utc).timestamp())
 
+        # It is leap day 2020, one shot next year
+        now = datetime.datetime(year=2020, month=2, day=29, hour=2, minute=2, tzinfo=tz.utc).timestamp()  # Monday
+        ar = s_agenda.ApptRec({s_tu.YEAR: 2021})
+        newts = ar.nexttime(now)
+        self.eq(newts, datetime.datetime(year=2021, month=2, day=28, hour=2, minute=2, tzinfo=tz.utc).timestamp())
+
+        # It is leap day 2020, one shot next year, Halloween
+        now = datetime.datetime(year=2020, month=2, day=29, hour=2, minute=2, tzinfo=tz.utc).timestamp()  # Monday
+        ar = s_agenda.ApptRec({s_tu.DAYOFMONTH: 31, s_tu.YEAR: 2021, s_tu.MONTH: 10})
+        newts = ar.nexttime(now)
+        self.eq(newts, datetime.datetime(year=2021, month=10, day=31, hour=2, minute=2, tzinfo=tz.utc).timestamp())
+
         # No inc, month req: One shot in July
         ar = s_agenda.ApptRec({s_tu.MONTH: 7})
         now = datetime.datetime(year=2018, month=12, day=3, hour=2, minute=2, tzinfo=tz.utc).timestamp()  # Monday
