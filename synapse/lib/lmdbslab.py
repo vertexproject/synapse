@@ -33,13 +33,6 @@ MAX_DOUBLE_SIZE = 100 * s_const.gibibyte
 int64min = s_common.int64en(0)
 int64max = s_common.int64en(0xffffffffffffffff)
 
-class LmdbDatabase():
-    def __init__(self, db, dupsort):
-        self.db = db
-        self.dupsort = dupsort
-
-_DefaultDB = LmdbDatabase(None, False)
-
 class Hist:
     '''
     A class for storing items in a slab by time.
@@ -551,10 +544,12 @@ class Slab(s_base.Base):
     def __repr__(self):
         return 'Slab: %r' % (self.path,)
 
-    def trash(self):
+    async def trash(self):
         '''
         Deletes underlying storage
         '''
+        await self.fini()
+
         try:
             os.unlink(self.optspath)
         except FileNotFoundError:  # pragma: no cover

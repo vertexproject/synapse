@@ -893,14 +893,9 @@ class Layer(s_nexus.Pusher):
 
     async def truncate(self):
 
-        await self.layrslab.fini()
-        await self.nodeeditslab.fini()
-
-        path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
-        shutil.rmtree(path, ignore_errors=True)
-
-        path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
-        shutil.rmtree(path, ignore_errors=True)
+        await self.layrslab.trash()
+        await self.nodeeditslab.trash()
+        await self.dataslab.trash()
 
         await self._initLayerStorage()
 
@@ -916,8 +911,12 @@ class Layer(s_nexus.Pusher):
         }
 
         path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
+        nodedatapath = s_common.genpath(self.dirn, 'nodedata.lmdb')
 
         self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
+        self.dataslab = await s_lmdbslab.Slab.anit(nodedatapath, map_async=True,
+                                                   readahead=False, readonly=self.readonly)
+
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
         path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
@@ -930,6 +929,7 @@ class Layer(s_nexus.Pusher):
 
         self.onfini(self.layrslab)
         self.onfini(self.nodeeditslab)
+        self.onfini(self.dataslab)
 
         self.bybuid = self.layrslab.initdb('bybuid')
 
@@ -939,7 +939,7 @@ class Layer(s_nexus.Pusher):
         self.bytagprop = self.layrslab.initdb('bytagprop', dupsort=True)
 
         self.countdb = self.layrslab.initdb('counters')
-        self.nodedata = self.layrslab.initdb('nodedata')
+        self.nodedata = self.dataslab.initdb('nodedata')
 
         self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
 
