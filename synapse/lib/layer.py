@@ -1798,7 +1798,6 @@ class Layer(s_nexus.Pusher):
         for offs, splice in self.nodeeditlog.iter(offs):
             yield (offs, splice[0])
 
-        # FIXME:  discuss: use offsets instead of window?
         async with self.getNodeEditWindow() as wind:
             async for offs, splice in wind:
                 yield (offs, splice)
