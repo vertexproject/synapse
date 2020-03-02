@@ -535,7 +535,7 @@ class Slab(s_base.Base):
             self.memlocktask = s_coro.executor(self._memorylockloop)
             self.onfini(memlockfini)
 
-        self.dbnames = {}
+        self.dbnames = {None: (None, False)}  # prepopulate the default DB for speed
 
         self.onfini(self._onCoFini)
         if not self.readonly:
@@ -843,7 +843,7 @@ class Slab(s_base.Base):
 
     def get(self, lkey, db=None):
         self._acqXactForReading()
-        realdb, dupsort = self.dbnames.get(db, (None, False))
+        realdb, dupsort = self.dbnames[db]
         try:
             return self.xact.get(lkey, db=realdb)
         finally:
@@ -854,7 +854,7 @@ class Slab(s_base.Base):
         Return the last key/value pair from the given db.
         '''
         self._acqXactForReading()
-        realdb, dupsort = self.dbnames.get(db, (None, False))
+        realdb, dupsort = self.dbnames[db]
         try:
             with self.xact.cursor(db=realdb) as curs:
                 if not curs.last():
@@ -865,7 +865,7 @@ class Slab(s_base.Base):
 
     def stat(self, db=None):
         self._acqXactForReading()
-        realdb, dupsort = self.dbnames.get(db, (None, False))
+        realdb, dupsort = self.dbnames[db]
         try:
             return self.xact.stat(db=realdb)
         finally:
@@ -1039,7 +1039,7 @@ class Slab(s_base.Base):
         if self.readonly:
             raise s_exc.IsReadOnly()
 
-        realdb, dupsort = self.dbnames.get(db, (None, False))
+        realdb, dupsort = self.dbnames[db]
 
         try:
             self.dirty = True
@@ -1064,7 +1064,7 @@ class Slab(s_base.Base):
         if not isinstance(kvpairs, list):
             kvpairs = list(kvpairs)
 
-        realdb, dupsort = self.dbnames.get(db, (None, False))
+        realdb, dupsort = self.dbnames[db]
 
         try:
             self.dirty = True
@@ -1096,10 +1096,10 @@ class Slab(s_base.Base):
             If any rows already exist in the target database, this method returns an error.  This means that one cannot
             use destdbname=None unless there are no explicit databases in the destination slab.
         '''
-        sourcedb, dupsort = self.dbnames.get(sourcedbname)
+        sourcedb, dupsort = self.dbnames[sourcedbname]
 
         destslab.initdb(destdbname, dupsort)
-        destdb, _ = destslab.dbnames.get(destdbname)
+        destdb, _ = destslab.dbnames[destdbname]
 
         statdict = destslab.stat(db=destdbname)
         if statdict['entries'] > 0:
@@ -1153,7 +1153,7 @@ class Scan:
     '''
     def __init__(self, slab, db):
         self.slab = slab
-        self.db, self.dupsort = slab.dbnames.get(db, (None, False))
+        self.db, self.dupsort = slab.dbnames[db]
 
         self.atitem = None
         self.bumped = False
