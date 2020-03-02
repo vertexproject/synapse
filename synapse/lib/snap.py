@@ -191,7 +191,7 @@ class Snap(s_base.Base):
         return list(self.core.views.values())
 
     async def addTrigger(self, condition, query, info, disabled=False):
-        return await self.core.addTrigger(condition, query, info=info, disabled=disabled)
+        return await self.core.addTrigger(condition, query, info=info, disabled=disabled, user=self.user, view=self.view)
 
     async def delTrigger(self, iden):
         return await self.core.delTrigger(iden)
