@@ -3,6 +3,24 @@ Synapse Changelog
 *****************
 
 
+v0.1.53 - 2019-03-02
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add support for loading YAML files when using the ``--optsfile`` argument to the Cmdr CLI to execute a Storm query.
+  (`#1554 <https://github.com/vertexproject/synapse/pull/1554>`_)
+
+Bugfix
+--------
+
+- Make the Agenda subsystem respect leap years properly.
+  (`#1550 <https://github.com/vertexproject/synapse/pull/1550>`_)
+- Make the ``trigger.add`` Storm command add the trigger as the current user.
+  (`#1549 <https://github.com/vertexproject/synapse/pull/1549>`_)
+
+
 v0.1.52 - 2019-02-27
 ====================
 
