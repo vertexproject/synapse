@@ -440,10 +440,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.gt(slab.mapsize, mapsize)
 
                 # Make sure there is still only one map
-                # Keep waiting until resize events are done.
-                if (slab.resizeevent.is_set() and not slab.lockdoneevent.is_set()):
-                    while slab.resizeevent.is_set():
-                        self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
                 self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
 
                 mapcount = getFileMapCount('slab.lmdb/data.mdb')
@@ -720,10 +716,6 @@ class LmdbSlabMemLockTest(s_t_utils.SynTest):
                     count += 1
                     slab.put(s_common.guid(count).encode('utf8'), s_common.guid(count).encode('utf8') + byts, db=foo)
 
-                # Keep waiting until resize events are done.
-                if (slab.resizeevent.is_set() and not slab.lockdoneevent.is_set()):
-                    while slab.resizeevent.is_set():
-                        self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
                 self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
 
                 lockmem = s_thisplat.getCurrentLockedMemory()
