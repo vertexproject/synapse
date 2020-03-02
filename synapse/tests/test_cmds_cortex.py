@@ -353,21 +353,27 @@ class CmdCoreTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
+            test_opts = {'vars': {'hehe': 'woot.com'}}
             dirn = s_common.gendir(core.dirn, 'junk')
 
             optsfile = os.path.join(dirn, 'woot.json')
+            optsfile_yaml = os.path.join(dirn, 'woot.yaml')
             stormfile = os.path.join(dirn, 'woot.storm')
 
             with s_common.genfile(stormfile) as fd:
                 fd.write(b'[ inet:fqdn=$hehe ]')
 
-            with s_common.genfile(optsfile) as fd:
-                fd.write(b'{"vars": {"hehe": "woot.com"}}')
+            s_common.jssave(test_opts, optsfile)
+            s_common.yamlsave(test_opts, optsfile_yaml)
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
-
             await cmdr.runCmdLine(f'storm --optsfile {optsfile} --file {stormfile}')
+            self.true(outp.expect('inet:fqdn=woot.com'))
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
+            await cmdr.runCmdLine(f'storm --optsfile {optsfile_yaml} --file {stormfile}')
             self.true(outp.expect('inet:fqdn=woot.com'))
 
             # Sad path cases
