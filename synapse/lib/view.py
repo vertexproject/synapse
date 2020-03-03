@@ -448,13 +448,13 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         CHUNKSIZE = 1000
-        fromoff = 0
+        fromoff = (0, 0, 0)
 
         async with await self.parent.snap(user=user) as snap:
             while True:
 
                 splicecount = 0
-                async for _, splice in fromlayr.splices(fromoff, CHUNKSIZE):
+                async for offs, splice in fromlayr.splices(fromoff, CHUNKSIZE):
 
                     check = self.permCheck.get(splice[0])
                     if check is None:
@@ -468,7 +468,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 if splicecount < CHUNKSIZE:
                     break
 
-                fromoff += CHUNKSIZE
+                fromoff = (offs[0], offs[1], offs[2] + 1)
+
                 await asyncio.sleep(0)
 
     async def runTagAdd(self, node, tag, valu):
