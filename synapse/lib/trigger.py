@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 Conditions = set((
     'tag:add',
     'tag:del',
-    'tag:add',
     'node:add',
     'node:del',
     'prop:set',
