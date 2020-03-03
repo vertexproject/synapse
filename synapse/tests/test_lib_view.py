@@ -91,8 +91,6 @@ class ViewTest(s_t_utils.SynTest):
     async def test_view_trigger(self):
         async with self.getTestCore() as core:
 
-            root = await core.auth.getUserByName('root')
-
             # Fork the main view
             vdef2 = await core.view.fork()
             view2_iden = vdef2.get('iden')

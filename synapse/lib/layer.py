@@ -893,14 +893,9 @@ class Layer(s_nexus.Pusher):
 
     async def truncate(self):
 
-        await self.layrslab.fini()
-        await self.nodeeditslab.fini()
-
-        path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
-        shutil.rmtree(path, ignore_errors=True)
-
-        path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
-        shutil.rmtree(path, ignore_errors=True)
+        await self.layrslab.trash()
+        await self.nodeeditslab.trash()
+        await self.dataslab.trash()
 
         await self._initLayerStorage()
 
@@ -916,8 +911,12 @@ class Layer(s_nexus.Pusher):
         }
 
         path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
+        nodedatapath = s_common.genpath(self.dirn, 'nodedata.lmdb')
 
         self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
+        self.dataslab = await s_lmdbslab.Slab.anit(nodedatapath, map_async=True,
+                                                   readahead=False, readonly=self.readonly)
+
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
         path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
@@ -930,6 +929,7 @@ class Layer(s_nexus.Pusher):
 
         self.onfini(self.layrslab)
         self.onfini(self.nodeeditslab)
+        self.onfini(self.dataslab)
 
         self.bybuid = self.layrslab.initdb('bybuid')
 
@@ -939,7 +939,7 @@ class Layer(s_nexus.Pusher):
         self.bytagprop = self.layrslab.initdb('bytagprop', dupsort=True)
 
         self.countdb = self.layrslab.initdb('counters')
-        self.nodedata = self.layrslab.initdb('nodedata')
+        self.nodedata = self.dataslab.initdb('nodedata')
 
         self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
 
@@ -1481,7 +1481,7 @@ class Layer(s_nexus.Pusher):
         name, valu, oldv = edit[1]
         abrv = self.getPropAbrv(name, None)
 
-        oldb = self.layrslab.replace(buid + abrv, s_msgpack.en(valu), db=self.nodedata)
+        oldb = self.dataslab.replace(buid + abrv, s_msgpack.en(valu), db=self.nodedata)
 
         if oldb is not None:
             oldv = s_msgpack.un(oldb)
@@ -1497,7 +1497,7 @@ class Layer(s_nexus.Pusher):
         name, valu = edit[1]
         abrv = self.getPropAbrv(name, None)
 
-        oldb = self.layrslab.pop(buid + abrv, db=self.nodedata)
+        oldb = self.dataslab.pop(buid + abrv, db=self.nodedata)
         if oldb is None:
             return None
 
@@ -1578,16 +1578,17 @@ class Layer(s_nexus.Pusher):
         '''
         abrv = self.getPropAbrv(name, None)
 
-        byts = self.layrslab.get(buid + abrv, db=self.nodedata)
+        byts = self.dataslab.get(buid + abrv, db=self.nodedata)
         if byts is None:
             return False, None
+
         return True, s_msgpack.un(byts)
 
     async def iterNodeData(self, buid):
         '''
         Return a generator of all a buid's node data
         '''
-        for lkey, byts in self.layrslab.scanByPref(buid, db=self.nodedata):
+        for lkey, byts in self.dataslab.scanByPref(buid, db=self.nodedata):
             abrv = lkey[32:]
 
             valu = s_msgpack.un(byts)
@@ -1748,8 +1749,8 @@ class Layer(s_nexus.Pusher):
         '''
         Remove all node data for a buid
         '''
-        for lkey, _ in self.layrslab.scanByPref(buid, db=self.nodedata):
-            self.layrslab.delete(lkey, db=self.nodedata)
+        for lkey, _ in self.dataslab.scanByPref(buid, db=self.nodedata):
+            self.dataslab.delete(lkey, db=self.nodedata)
 
     # TODO: Hack until we get interval trees pushed all the way through
     def _cmprIval(self, item, othr):
