@@ -360,8 +360,6 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.core.boss.promote('storm', user=user, info={'merging': self.iden})
 
         async with await self.parent.snap(user=user) as snap:
-            snap.disableTriggers()
-            snap.strict = False
 
             with snap.getStormRuntime(user=user):
                 meta = await snap.getSnapMeta()

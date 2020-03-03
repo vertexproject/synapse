@@ -1,3 +1,4 @@
+import os
 import json
 import queue
 import shlex
@@ -214,7 +215,7 @@ class StormCmd(s_cli.Cmd):
         --path: Get path information about returned nodes.
         --show <names>: Limit storm events (server-side) to the comma sep list)
         --file <path>: Run the storm query specified in the given file path.
-        --optsfile <path>: Run the query with the given options from a JSON file.
+        --optsfile <path>: Run the query with the given options from a JSON/YAML file.
         --spawn: (EXPERIMENTAL!) Run the query within a spawned sub-process runtime (read-only).
 
     Examples:
@@ -359,13 +360,10 @@ class StormCmd(s_cli.Cmd):
         stormopts = {}
         optsfile = opts.get('optsfile')
         if optsfile is not None:
-            try:
-                with open(optsfile) as fd:
-                    stormopts = json.loads(fd.read())
-
-            except FileNotFoundError:
+            if not os.path.isfile(optsfile):
                 self.printf('optsfile not found: %s' % (optsfile,))
                 return
+            stormopts = s_common.yamlload(optsfile)
 
         hide_unknown = opts.get('hide-unknown', self._cmd_cli.locs.get('storm:hide-unknown'))
         core = self.getCmdItem()
