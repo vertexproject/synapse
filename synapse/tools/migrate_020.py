@@ -581,9 +581,9 @@ class Migrator(s_base.Base):
             await self._migrHiveAuth()
 
         # full layer data migration
-        wlyr = await self._destGetWlyr(self.dest, storinfo, iden)
         for iden in locallyrs:
             logger.info(f'Starting migration for storage {storinfo.get("iden")} and layer {iden}')
+            wlyr = await self._destGetWlyr(self.dest, storinfo, iden)
 
             if 'nodes' in self.migrops:
                 await self._migrNodes(iden, wlyr)

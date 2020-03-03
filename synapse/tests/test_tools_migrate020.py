@@ -71,7 +71,7 @@ def tupleize(obj):
 # updated for jsonschema and a new test value
 class MigrSvcApi(s_stormsvc.StormSvc, s_cell.CellApi):
     _storm_svc_name = 'turtle'
-    _storm_svc_pkgs = ({
+    _storm_svc_pkgs = ({  # type: ignore
         'name': 'turtle',
         'version': (0, 0, 1),
         'commands': ({'name': 'newcmd', 'storm': '[ inet:fqdn=$lib.service.get($cmdconf.svciden).test() ]'},),
@@ -83,7 +83,7 @@ class MigrSvcApi(s_stormsvc.StormSvc, s_cell.CellApi):
 class MigrStormsvc(s_cell.Cell):
     cellapi = MigrSvcApi
     confdefs = (
-        ('myfqdn', {'type': 'string', 'default': 'snoop.io', 'description': 'A test fqdn'}),
+        ('myfqdn', {'type': 'string', 'default': 'snoop.io', 'description': 'A test fqdn'}),  # type: ignore
     )
 
     async def __anit__(self, dirn, conf=None):
@@ -228,7 +228,7 @@ class MigrationTest(s_t_utils.SynTest):
         self.len(2, await core.nodes('inet:dns:a:ipv4=1.2.3.4'))
 
         # check that triggers are active
-        root = await core.auth.getUserByName('root')
+        await core.auth.getUserByName('root')
         self.len(2, await core.eval('syn:trigger').list())
         tnodes = await core.nodes('[ inet:ipv4=9.9.9.9 ]')
         self.nn(tnodes[0].tags.get('trgtag'))
@@ -281,7 +281,7 @@ class MigrationTest(s_t_utils.SynTest):
         defview = await core.hive.get(('cellinfo', 'defaultview'))
         secview = [k for k in core.views.keys() if k != defview][0]
 
-        ## user permissions
+        # user permissions
         # bobo
         # - read main view
         # - read/write to forked view via role
@@ -796,7 +796,7 @@ class MigrationTest(s_t_utils.SynTest):
     async def test_migr_dirn(self):
         with self.getRegrDir('cortexes', REGR_VER) as src:
             with self.getTestDir() as dest:
-                locallyrs = os.listdir(os.path.join(src, 'layers'))
+                os.listdir(os.path.join(src, 'layers'))
 
                 conf = {
                     'src': src,
