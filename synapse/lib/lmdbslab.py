@@ -745,7 +745,9 @@ class Slab(s_base.Base):
                 memstart, memlen = s_thisplat.getFileMappedRegion(path)
             except s_exc.NoSuchFile:
                 logger.warning('map not found for %s', path)
-                self.schedCallSafe(self.lockdoneevent.set)
+
+                if not self.resizeevent.is_set():
+                    self.schedCallSafe(self.lockdoneevent.set)
                 continue
 
             if memlen > max_to_lock:
@@ -789,7 +791,8 @@ class Slab(s_base.Base):
                 first_end = False
                 logger.info('completed prefaulting and locking slab')
 
-            self.schedCallSafe(self.lockdoneevent.set)
+            if not self.resizeevent.is_set():
+                self.schedCallSafe(self.lockdoneevent.set)
 
         self.locking_memory = False
         logger.debug('memory locking thread ended')
