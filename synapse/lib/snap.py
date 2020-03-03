@@ -648,11 +648,8 @@ class Snap(s_base.Base):
                     node.tags[tag] = valu
                     node.bylayer['tags'][tag] = wlyr
 
-                    if oldv is None:
-                        callbacks.append((self.view.runTagAdd, (node, tag, valu), {}))
-                        callbacks.append((self.wlyr.fire, ('tag:add', ), {'tag': tag, 'node': node.iden()}))
-
-                    callbacks.append((self.view.runTagSet, (node, tag, valu, oldv), {}))
+                    callbacks.append((self.view.runTagAdd, (node, tag, valu), {}))
+                    callbacks.append((self.wlyr.fire, ('tag:add', ), {'tag': tag, 'node': node.iden()}))
                     continue
 
                 if edit[0] == s_layer.EDIT_TAG_DEL:
