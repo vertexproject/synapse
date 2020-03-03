@@ -585,6 +585,24 @@ class Migrator(s_base.Base):
             if 'nodedata' in self.migrops:
                 await self._migrNodeData(iden, wlyr)
 
+        await self._dumpOffsets()
+
+    async def _dumpOffsets(self):
+        '''
+        Dump layer offsets into yaml file, overwriting if it exists.
+        '''
+        yamlout = {}
+        async for offslog in self._migrlogGet('nodes', 'nextoffs'):
+            yamlout[offslog['key']] = {
+                'nextoffs': offslog['val'][0],
+                'created': offslog['val'][1],
+            }
+
+        path = os.path.join(self.dest, self.migrdir, 'lyroffs.yaml')
+        s_common.yamlsave(yamlout, path)
+
+        logger.info(f'Saved layer offsets to {path}')
+
     async def dumpErrors(self):
         '''
         Fetch all node migration errors and dump to an mpk file.
@@ -1680,7 +1698,7 @@ class Migrator(s_base.Base):
         return None
 
 async def main(argv, outp=s_output.stdout):
-    pars = argparse.ArgumentParser(prog='synapse.tools.migrate_stor', description='Tool for migrating Synapse storage.')
+    pars = argparse.ArgumentParser(prog='synapse.tools.migrate_020', description='Tool for migrating Synapse storage.')
     pars.add_argument('--src', required=True, type=str, help='Source cortex dirn to migrate from.')
     pars.add_argument('--dest', required=False, type=str, help='Destination cortex dirn to migrate to.')
     pars.add_argument('--migr-ops', required=False, type=str.lower, nargs='+', choices=ALL_MIGROPS,
