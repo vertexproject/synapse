@@ -104,14 +104,38 @@ class LayerApi(s_cell.CellApi):
 
         self.layr = layr
         self.liftperm = ('layer:lift', self.layr.iden)
+        self.writeperm = ('layer:write', self.layr.iden)
 
     async def iterLayerNodeEdits(self):
         '''
         Scan the full layer and yield artificial nodeedit sets.
         '''
+
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.iterLayerNodeEdits():
             yield item
+
+    async def storNodeEdits(self, nodeedits):
+
+        await self._reqUserAllowed(self.writeperm)
+
+        meta = {
+            'time': s_common.now(),
+            'user': self.user.iden
+        }
+
+        return await self.layr.storNodeEdits(nodeedits, meta)
+
+    async def storNodeEditsNoLift(self, nodeedits):
+
+        await self._reqUserAllowed(self.writeperm)
+
+        meta = {
+            'time': s_common.now(),
+            'user': self.user.iden
+        }
+
+        await self.layr.storNodeEditsNoLift(nodeedits, meta)
 
     async def syncNodeEdits(self, offs):
         '''

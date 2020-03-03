@@ -400,18 +400,25 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getFeedFuncs()
 
-    async def addFeedData(self, name, items, seqn=None):
+    async def addFeedData(self, name, items, *, viewiden=None):
 
-        wlyr = self.cell.view.layers[0]
+        if viewiden is not None:
+            view = self.getView(viewiden)
+            if view is None:
+                raise s_exc.NoSuchView(iden=viewiden)
 
+        else:
+            view = self.cell.view
+
+        wlyr = view.layers[0]
         parts = name.split('.')
 
         self.user.confirm(('feed:data', *parts), gateiden=wlyr.iden)
 
-        async with await self.cell.snap(user=self.user) as snap:
+        async with await self.cell.snap(user=self.user, view=view) as snap:
             with s_provenance.claim('feed:data', name=name, user=snap.user.iden):
                 snap.strict = False
-                return await snap.addFeedData(name, items, seqn=seqn)
+                return await snap.addFeedData(name, items)
 
     async def count(self, text, opts=None):
         '''
@@ -1956,7 +1963,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         self.setFeedFunc('syn.nodes', self._addSynNodes)
         self.setFeedFunc('syn.splice', self._addSynSplice)
-        self.setFeedFunc('syn.ingest', self._addSynIngest)
+        self.setFeedFunc('syn.nodeedits', self._addSynNodeEdits)
 
     def _initCortexHttpApi(self):
         '''
@@ -2627,7 +2634,6 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _onFeedTagAdd(self, snap, mesg):
 
         ndef = mesg[1].get('ndef')
-
         tag = mesg[1].get('tag')
         valu = mesg[1].get('valu')
 
@@ -2660,6 +2666,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await node.setTagProp(tag, prop, valu)
 
     async def _onFeedTagPropDel(self, snap, mesg):
+
         tag = mesg[1].get('tag')
         prop = mesg[1].get('prop')
         ndef = mesg[1].get('ndef')
@@ -2668,92 +2675,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         if node is not None:
             await node.delTagProp(tag, prop)
 
-    async def _addSynIngest(self, snap, items):
+    async def _addSynNodeEdits(self, snap, items):
 
         for item in items:
-            try:
-                pnodes = self._getSynIngestNodes(item)
-                logger.info('Made [%s] nodes.', len(pnodes))
-                async for node in snap.addNodes(pnodes):
-                    yield node
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                logger.exception('Failed to process ingest [%r]', item)
-                continue
-
-    def _getSynIngestNodes(self, item):
-        '''
-        Get a list of packed nodes from a ingest definition.
-        '''
-        pnodes = []
-        seen = item.get('seen')
-        # Track all the ndefs we make so we can make sources
-        ndefs = []
-
-        # Make the form nodes
-        tags = item.get('tags', {})
-        forms = item.get('forms', {})
-        for form, valus in forms.items():
-            for valu in valus:
-                ndef = [form, valu]
-                ndefs.append(ndef)
-                obj = [ndef, {'tags': tags}]
-                if seen:
-                    obj[1]['props'] = {'.seen': seen}
-                pnodes.append(obj)
-
-        # Make the packed nodes
-        nodes = item.get('nodes', ())
-        for pnode in nodes:
-            ndefs.append(pnode[0])
-            pnode[1].setdefault('tags', {})
-            for tag, valu in tags.items():
-                # Tag in the packed node has a higher predecence
-                # than the tag in the whole ingest set of data.
-                pnode[1]['tags'].setdefault(tag, valu)
-            if seen:
-                pnode[1].setdefault('props', {})
-                pnode[1]['props'].setdefault('.seen', seen)
-            pnodes.append(pnode)
-
-        # Make edges
-        for srcdef, etyp, destndefs in item.get('edges', ()):
-            for destndef in destndefs:
-                ndef = [etyp, [srcdef, destndef]]
-                ndefs.append(ndef)
-                obj = [ndef, {}]
-                if seen:
-                    obj[1]['props'] = {'.seen': seen}
-                if tags:
-                    obj[1]['tags'] = tags.copy()
-                pnodes.append(obj)
-
-        # Make time based edges
-        for srcdef, etyp, destndefs in item.get('time:edges', ()):
-            for destndef, time in destndefs:
-                ndef = [etyp, [srcdef, destndef, time]]
-                ndefs.append(ndef)
-                obj = [ndef, {}]
-                if seen:
-                    obj[1]['props'] = {'.seen': seen}
-                if tags:
-                    obj[1]['tags'] = tags.copy()
-                pnodes.append(obj)
-
-        # Make the source node and links
-        source = item.get('source')
-        if source:
-            # Base object
-            obj = [['meta:source', source], {}]
-            pnodes.append(obj)
-
-            # Subsequent links
-            for ndef in ndefs:
-                obj = [['meta:seen', (source, ndef)],
-                       {'props': {'.seen': seen}}]
-                pnodes.append(obj)
-        return pnodes
+            yield snap.addNodeEdits(item)
 
     def getCoreMod(self, name):
         return self.modules.get(name)
@@ -2906,21 +2831,30 @@ class Cortex(s_cell.Cell):  # type: ignore
             async for node in snap.addNodes(nodedefs):
                 yield node
 
-    async def addFeedData(self, name, items, seqn=None):
+    async def addFeedData(self, name, items, *, viewiden=None):
         '''
         Add data using a feed/parser function.
 
         Args:
             name (str): The name of the feed record format.
             items (list): A list of items to ingest.
-            seqn ((str,int)): An (iden, offs) tuple for this feed chunk.
+            iden (str): The iden of a view to use.
+                If a view is not specified, the default view is used.
 
         Returns:
             (int): The next expected offset (or None) if seqn is None.
         '''
-        async with await self.snap() as snap:
+
+        if viewiden is not None:
+            view = self.getView(viewiden)
+            if view is None:
+                raise s_exc.NoSuchView(iden=viewiden)
+        else:
+            view = None
+
+        async with await self.snap(view=view) as snap:
             snap.strict = False
-            return await snap.addFeedData(name, items, seqn=seqn)
+            return await snap.addFeedData(name, items)
 
     async def snap(self, user=None, view=None):
         '''
