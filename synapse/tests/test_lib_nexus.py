@@ -23,7 +23,7 @@ class SampleNexus(s_nexus.Pusher):
     async def doathing2(self, eventdict):
         return await self._push('thing:doathing2', eventdict, 'foo')
 
-    @s_nexus.Pusher.onPush('thing:doathing2', passoff=True)
+    @s_nexus.Pusher.onPush('thing:doathing2')
     async def _doathing2handler(self, eventdict, anotherparm, nexsoff=None):
         eventdict['gotindex'] = nexsoff
         return anotherparm
@@ -69,6 +69,17 @@ class NexusTest(s_t_utils.SynTest):
                     self.eq('bar', await testkid.doathing(eventdict))
                     self.eq(2, eventdict.get('happened'))
 
-                    # Check offset passing
-                    self.eq('foo', await testkid.doathing2(eventdict))
-                    self.eq(1, eventdict.get('gotindex'))
+    async def test_nexus_no_logging(self):
+        '''
+        Pushers/NexsRoot works with dologging=False
+        '''
+        with self.getTestDir() as dirn:
+            async with await SampleNexus.anit(1) as nexus1, \
+                    await s_nexus.NexsRoot.anit(dirn, dologging=False) as nexsroot:
+                eventdict = {'specialpush': 0}
+                self.eq('foo', await nexus1.doathing(eventdict))
+                self.eq(1, eventdict.get('happened'))
+                async with await SampleNexus2.anit(2, nexsroot=nexsroot) as testkid:
+                    eventdict = {'specialpush': 0}
+                    self.eq('bar', await testkid.doathing(eventdict))
+                    self.eq(2, eventdict.get('happened'))

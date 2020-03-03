@@ -91,6 +91,7 @@ reqValidLdef = s_config.getJsValidator({
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'lockmemory': {'type': 'boolean'},
+        'logedits': {'type': 'boolean'}, 'default': True
     },
     'additionalProperties': True,
     'required': ['iden', 'creator', 'lockmemory'],
@@ -837,6 +838,7 @@ class Layer(s_nexus.Pusher):
 
         self.lockmemory = self.layrinfo.get('lockmemory')
         self.growsize = self.layrinfo.get('growsize')
+        self.logedits = self.layrinfo.get('logedits')
         path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
 
         self.fresh = not os.path.exists(path)
@@ -965,14 +967,15 @@ class Layer(s_nexus.Pusher):
         self.countdb = self.layrslab.initdb('counters')
         self.nodedata = self.dataslab.initdb('nodedata')
 
-        self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
+        if self.logedits:
+            self.nodeeditlog = s_slabseqn.SlabSeqn(self.nodeeditslab, 'nodeedits')
 
     def getSpawnInfo(self):
         return self.pack()
 
     async def stat(self):
         return {
-            'nodeeditlog_indx': self.nodeeditlog.index(),
+            'nodeeditlog_indx': (self.nodeeditlog.index(), 0, 0),
             **self.layrslab.statinfo()
         }
 
@@ -1159,10 +1162,12 @@ class Layer(s_nexus.Pusher):
         '''
         Execute a series of node edit operations, returning the updated nodes.
         '''
-        changes = [(e[0], e[1], await self._storNodeEdit(e)) for e in nodeedits]
-        offs = self.nodeeditlog.add((changes, meta))
 
-        [(await wind.put((offs, changes))) for wind in tuple(self.windows)]
+        changes = [(e[0], e[1], await self._storNodeEdit(e)) for e in nodeedits]
+
+        if self.logedits:
+            offs = self.nodeeditlog.add((changes, meta))
+            [(await wind.put((offs, changes))) for wind in tuple(self.windows)]
 
         return changes
 
@@ -1793,25 +1798,60 @@ class Layer(s_nexus.Pusher):
     async def setModelVers(self, vers):
         await self.layrinfo.set('model:version', vers)
 
-    async def splices(self, offs, size):
+    async def splices(self, offs, size=None):
         '''
         Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
 
         Nodeedits will be flattened into splices before being yielded.
         '''
-        for offset, (nodeedits, meta) in self.nodeeditlog.slice(offs, size):
+        if not self.logedits:
+            return
+
+        if offs is None:
+            offs = (0, 0, 0)
+
+        count = 0
+        for offset, (nodeedits, meta) in self.nodeeditlog.slice(offs[0], size):
             async for splice in self.makeSplices(offset, nodeedits, meta):
+
+                if splice[0] < offs:
+                    continue
+
+                if count >= size:
+                    return
+
                 yield splice
+                count = count + 1
 
     async def splicesBack(self, offs, size=None):
 
+        if not self.logedits:
+            return
+
+        if offs is None:
+            offs = (0, 0, 0)
+
         if size:
-            for offset, (nodeedits, meta) in self.nodeeditlog.sliceBack(offs, size):
-                async for splice in self.makeSplices(offset, nodeedits, meta):
+
+            count = 0
+            for offset, (nodeedits, meta) in self.nodeeditlog.sliceBack(offs[0], size):
+                async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
+
+                    if splice[0] > offs:
+                        continue
+
+                    if count >= size:
+                        return
+
                     yield splice
+                    count += 1
         else:
-            for offset, (nodeedits, meta) in self.nodeeditlog.iterBack(offs):
-                async for splice in self.makeSplices(offset, nodeedits, meta):
+            for offset, (nodeedits, meta) in self.nodeeditlog.iterBack(offs[0]):
+                async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
+
+                    if splice[0] > offs:
+                        continue
+
                     yield splice
 
     async def syncNodeEdits(self, offs):
@@ -1820,36 +1860,53 @@ class Layer(s_nexus.Pusher):
 
         Once caught up with storage, yield them in realtime.
         '''
+        if not self.logedits:
+            return
+
         for offs, splice in self.nodeeditlog.iter(offs):
             yield (offs, splice[0])
 
-        # FIXME:  discuss: use offsets instead of window?
         async with self.getNodeEditWindow() as wind:
             async for offs, splice in wind:
                 yield (offs, splice)
 
-    async def makeSplices(self, offs, nodeedits, meta):
+    async def makeSplices(self, offs, nodeedits, meta, reverse=False):
         '''
         Flatten a set of nodeedits into splices.
         '''
+        if meta is None:
+            meta = {}
+
         user = meta.get('user')
         time = meta.get('time')
         prov = meta.get('prov')
 
-        for nodeoffs, (buid, form, edits) in enumerate(nodeedits):
+        if reverse:
+            nodegenr = reversed(list(enumerate(nodeedits)))
+        else:
+            nodegenr = enumerate(nodeedits)
+
+        for nodeoffs, (buid, form, edits) in nodegenr:
 
             formvalu = None
 
-            for editoffs, (edit, info) in enumerate(edits):
+            if reverse:
+                editgenr = reversed(list(enumerate(edits)))
+            else:
+                editgenr = enumerate(edits)
+
+            for editoffs, (edit, info) in editgenr:
 
                 if edit == EDIT_NODEDATA_SET or edit == EDIT_NODEDATA_DEL:
                     continue
 
                 spliceoffs = (offs, nodeoffs, editoffs)
+
                 props = {
                     'time': time,
                     'user': user,
                 }
+
                 if prov is not None:
                     props['prov'] = prov
 
@@ -1939,6 +1996,9 @@ class Layer(s_nexus.Pusher):
             yield wind
 
     def getNodeEditOffset(self):
+        if not self.logedits:
+            return 0
+
         return self.nodeeditlog.index()
 
     async def waitUpstreamOffs(self, iden, offs):

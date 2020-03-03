@@ -30,7 +30,7 @@ class ProvenanceTest(s_t_utils.SynTest):
 
             await self.agenlen(0, core.eval('test:int | delnode'))
 
-            splices = await alist(core.splices(0, 1000))
+            splices = await alist(core.splices(None, 1000))
 
             self.len(9, splices)
             idens = [splice[1][1].get('prov') for splice in splices]
