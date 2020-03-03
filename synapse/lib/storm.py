@@ -1845,6 +1845,18 @@ class SleepCmd(Cmd):
 class GraphCmd(Cmd):
     '''
     Generate a subgraph from the given input nodes and command line options.
+
+    Example:
+
+        inet:fqdn | graph
+                    --degrees 2
+                    --filter { -#nope }
+                    --pivot { <- meta:seen <- meta:source }
+                    --form-pivot inet:fqdn {<- * | limit 20}
+                    --form-pivot inet:fqdn {-> * | limit 20}
+                    --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
+                    --form-pivot syn:tag {-> *}
+                    --form-pivot * {-> #}
     '''
     name = 'graph'
 
