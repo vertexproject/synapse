@@ -948,7 +948,7 @@ class Layer(s_nexus.Pusher):
 
     async def stat(self):
         return {
-            'nodeeditlog_indx': self.nodeeditlog.index(),
+            'nodeeditlog_indx': (self.nodeeditlog.index(), 0, 0),
             **self.layrslab.statinfo()
         }
 
@@ -1769,25 +1769,55 @@ class Layer(s_nexus.Pusher):
     async def setModelVers(self, vers):
         await self.layrinfo.set('model:version', vers)
 
-    async def splices(self, offs, size):
+    async def splices(self, offs, size=None):
         '''
         Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
 
         Nodeedits will be flattened into splices before being yielded.
         '''
-        for offset, (nodeedits, meta) in self.nodeeditlog.slice(offs, size):
+
+        if offs is None:
+            offs = (0, 0, 0)
+
+        count = 0
+        for offset, (nodeedits, meta) in self.nodeeditlog.slice(offs[0], size):
             async for splice in self.makeSplices(offset, nodeedits, meta):
+
+                if splice[0] < offs:
+                    continue
+
+                if count >= size:
+                    return
+
                 yield splice
+                count = count + 1
 
     async def splicesBack(self, offs, size=None):
 
+        if offs is None:
+            offs = (0, 0, 0)
+
         if size:
-            for offset, (nodeedits, meta) in self.nodeeditlog.sliceBack(offs, size):
-                async for splice in self.makeSplices(offset, nodeedits, meta):
+
+            count = 0
+            for offset, (nodeedits, meta) in self.nodeeditlog.sliceBack(offs[0], size):
+                async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
+
+                    if splice[0] > offs:
+                        continue
+
+                    if count >= size:
+                        return
+
                     yield splice
+                    count += 1
         else:
-            for offset, (nodeedits, meta) in self.nodeeditlog.iterBack(offs):
-                async for splice in self.makeSplices(offset, nodeedits, meta):
+            for offset, (nodeedits, meta) in self.nodeeditlog.iterBack(offs[0]):
+                async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
+
+                    if splice[0] > offs:
+                        continue
+
                     yield splice
 
     async def syncNodeEdits(self, offs):
@@ -1804,28 +1834,43 @@ class Layer(s_nexus.Pusher):
             async for offs, splice in wind:
                 yield (offs, splice)
 
-    async def makeSplices(self, offs, nodeedits, meta):
+    async def makeSplices(self, offs, nodeedits, meta, reverse=False):
         '''
         Flatten a set of nodeedits into splices.
         '''
+        if meta is None:
+            meta = {}
+
         user = meta.get('user')
         time = meta.get('time')
         prov = meta.get('prov')
 
-        for nodeoffs, (buid, form, edits) in enumerate(nodeedits):
+        if reverse:
+            nodegenr = reversed(list(enumerate(nodeedits)))
+        else:
+            nodegenr = enumerate(nodeedits)
+
+        for nodeoffs, (buid, form, edits) in nodegenr:
 
             formvalu = None
 
-            for editoffs, (edit, info) in enumerate(edits):
+            if reverse:
+                editgenr = reversed(list(enumerate(edits)))
+            else:
+                editgenr = enumerate(edits)
+
+            for editoffs, (edit, info) in editgenr:
 
                 if edit == EDIT_NODEDATA_SET or edit == EDIT_NODEDATA_DEL:
                     continue
 
                 spliceoffs = (offs, nodeoffs, editoffs)
+
                 props = {
                     'time': time,
                     'user': user,
                 }
+
                 if prov is not None:
                     props['prov'] = prov
 
