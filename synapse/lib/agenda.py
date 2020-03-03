@@ -699,12 +699,19 @@ class Agenda(s_base.Base):
 
             now = time.time()
             while self.apptheap and self.apptheap[0].nexttime <= now:
+
                 appt = heapq.heappop(self.apptheap)
                 appt.updateNexttime(now)
+
                 if appt.nexttime:
                     heapq.heappush(self.apptheap, appt)
+
                 if not appt.enabled:
                     continue
+
+                if self.core.mirror:
+                    continue
+
                 if appt.isrunning:
                     logger.warning(
                         'Appointment %s is still running from previous time when scheduled to run.  Skipping.',
