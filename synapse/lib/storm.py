@@ -577,7 +577,7 @@ stormcmds = (
 
             if $triggers {
 
-                $lib.print("user       iden         en? cond      object                    storm query")
+                $lib.print("user       iden                             en?    cond      object                    storm query")
 
                 for $trigger in $triggers {
                     $user = $trigger.username.ljust(10)
@@ -599,8 +599,14 @@ stormcmds = (
                         $obj = $fo.ljust(14)
                         $obj2 = $trigger.tag.ljust(10)
                     } else {
-                        $obj = $pr.ljust(14)
-                        $obj2 = $fo.ljust(10)
+                        if $pr {
+                            $obj = $pr.ljust(14)
+                        } elif $fo {
+                            $obj = $fo.ljust(14)
+                        } else {
+                            $obj = '<missing>     '
+                        }
+                        $obj2 = '          '
                     }
 
                     $lib.print("{user} {iden} {enabled} {cond} {obj} {obj2} {query}",
