@@ -1904,13 +1904,7 @@ class StormTypesTest(s_test.SynTest):
             # Trigger is created disabled, so no nodes yet
             await self.agenlen(0, core.eval('test:int=6'))
 
-            # FIXME: not gonna work
-            # waiter = core.waiter(1, 'core:trigger:action')
-
             await core.storm(f'trigger.enable {goodbuid2}').list()
-            # evnts = await waiter.wait(1)
-
-            # self.eq(evnts[0][1].get('action'), 'enable')
 
             # Trigger is enabled, so it should fire
             await core.storm('[ test:type10=1 :intprop=25 ]').list()

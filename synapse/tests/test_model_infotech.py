@@ -630,7 +630,6 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('path:base'), 'yourfiles.rar')
                 self.eq(node.get('path:ext'), 'rar')
 
-                # FIXME - This test would be cleaner with stable guid generation
                 rprops = {
                     'host': host,
                     'proc': proc,

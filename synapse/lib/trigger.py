@@ -10,6 +10,7 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.cache as s_cache
 import synapse.lib.config as s_config
+import synapse.lib.grammar as s_grammar
 import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,6 @@ logger = logging.getLogger(__name__)
 Conditions = set((
     'tag:add',
     'tag:del',
-    'tag:set',
     'node:add',
     'node:del',
     'prop:set',
@@ -25,13 +25,20 @@ Conditions = set((
 
 RecursionDepth = contextvars.ContextVar('RecursionDepth', default=0)
 
-# TODO: standardize regex for form/prop/tags
-reqValidTdef = s_config.getJsValidator({
+# TODO: standardize locations for form/prop/tags regex
+
+tagrestr = r'((\w+|\*|\*\*)\.)*(\w+|\*|\*\*)'  # tag with optional single or double * as segment
+_tagre, _formre, _propre = (f'^{re}$' for re in (tagrestr, s_grammar.formrestr, s_grammar.proporunivrestr))
+
+_tagtrigvalid = {'properties': {'form': {'type': 'string', 'pattern': _formre},
+                                'tag': {'type': 'string', 'pattern': _tagre}},
+                 'required': ['tag']}
+TrigSchema = {
     'type': 'object',
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
-        'cond': {'enum': ['node:add', 'node:del', 'tag:add', 'tag:set', 'tag:del', 'prop:set']},
+        'cond': {'enum': ['node:add', 'node:del', 'tag:add', 'tag:del', 'prop:set']},
         'storm': {'type': 'string'},
         'enabled': {'type': 'boolean'},
     },
@@ -48,22 +55,21 @@ reqValidTdef = s_config.getJsValidator({
         },
         {
             'if': {'properties': {'cond': {'const': 'tag:add'}}},
-            'then': {'properties': {'form': {'type': 'string'}, 'tag': {'type': 'string'}}, 'required': ['tag']},
-        },
-        {
-            'if': {'properties': {'cond': {'const': 'tag:set'}}},
-            'then': {'properties': {'form': {'type': 'string'}, 'tag': {'type': 'string'}}, 'required': ['tag']},
+            'then': _tagtrigvalid,
         },
         {
             'if': {'properties': {'cond': {'const': 'tag:del'}}},
-            'then': {'properties': {'form': {'type': 'string'}, 'tag': {'type': 'string'}}, 'required': ['tag']},
+            'then': _tagtrigvalid,
         },
         {
             'if': {'properties': {'cond': {'const': 'prop:set'}}},
-            'then': {'properties': {'prop': {'type': 'string'}}, 'required': ['prop']},
+            'then': {'properties': {'prop': {'type': 'string', 'pattern': _propre}}, 'required': ['prop']},
         },
     ],
-})
+}
+
+def reqValidTdef(conf):
+    s_config.Config(TrigSchema, conf=conf).reqConfValid()
 
 class Triggers:
     '''
@@ -137,29 +143,6 @@ class Triggers:
 
             # check for form agnostic globs
             globs = self.tagaddglobs.get(None)
-            if globs is not None:
-                for _, trig in globs.get(tag):
-                    await trig.execute(node, vars=vars)
-
-    async def runTagSet(self, node, tag, oldv):
-
-        vars = {'tag': tag}
-        with self._recursion_check():
-
-            for trig in self.tagset.get((node.form.name, tag), ()):
-                await trig.execute(node, vars=vars)
-
-            for trig in self.tagset.get((None, tag), ()):
-                await trig.execute(node, vars=vars)
-
-            # check for form specific globs
-            globs = self.tagsetglobs.get(node.form.name)
-            if globs is not None:
-                for _, trig in globs.get(tag):
-                    await trig.execute(node, vars=vars)
-
-            # check for form agnostic globs
-            globs = self.tagsetglobs.get(None)
             if globs is not None:
                 for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars)
@@ -242,26 +225,11 @@ class Triggers:
             else:
                 self.tagdelglobs[form].add(tag, trig)
 
-        elif cond == 'tag:set':
-
-            if '*' not in tag:
-                self.tagset[(form, tag)].append(trig)
-            else:
-                # we have a glob add
-                self.tagsetglobs[form].add(tag, trig)
-
         self.triggers[trig.iden] = trig
         return trig
 
     def list(self):
         return list(self.triggers.items())
-
-    def _reqTrig(self, iden):
-        trig = self.triggers.get(iden)
-        if trig is None:
-            mesg = f'No trigger with iden {iden}'
-            raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
-        return trig
 
     def pop(self, iden):
 
@@ -311,6 +279,8 @@ class Triggers:
             globs = self.tagdelglobs.get(form)
             globs.rem(tag, trig)
             return trig
+
+        raise AssertionError('trigger has invalid condition')
 
     def get(self, iden):
         trig = self.triggers.get(iden)

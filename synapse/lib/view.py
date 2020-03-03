@@ -487,9 +487,6 @@ class View(s_nexus.Pusher):  # type: ignore
         # Run any trigger handlers
         await self.triggers.runTagAdd(node, tag)
 
-    async def runTagSet(self, node, tag, valu, oldv):
-        await self.triggers.runTagSet(node, tag, oldv)
-
     async def runTagDel(self, node, tag, valu):
 
         funcs = itertools.chain(self.core.ontagdels.get(tag, ()), (x[1] for x in self.core.ontagdelglobs.get(tag)))
