@@ -2120,7 +2120,8 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr('No terminal defined', mesgs)
 
                 ##################
-                oldsplicespos = (await alist(prox.splices(0, 1000)))[-1][0][0]
+                oldsplicespos = (await alist(prox.splices(None, 1000)))[-1][0][0]
+                nextoffs = (oldsplicespos + 1, 0, 0)
 
                 # Start simple: add a cron job that creates a node every minute
                 q = "cron.add --minute +1 {[graph:node='*' :type=m1]}"
@@ -2138,7 +2139,7 @@ class StormTypesTest(s_test.SynTest):
                 await self.agenlen(1, prox.eval('graph:node:type=m1'))
 
                 # Make sure the provenance of the new splices looks right
-                splices = await alist(prox.splices(oldsplicespos + 1, 1000))
+                splices = await alist(prox.splices(nextoffs, 1000))
                 self.gt(len(splices), 1)
 
                 aliases = [splice[1][1].get('prov') for splice in splices]
