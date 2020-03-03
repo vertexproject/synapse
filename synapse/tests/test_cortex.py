@@ -2535,6 +2535,34 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
             await self.agenlen(2, core.eval('test:str'))
 
+    async def test_cortex_logchanges_off(self):
+        '''
+        Everything still works when no nexus log is kept
+        '''
+        conf = {'layer:lmdb:map_async': True,
+                'provenance:en': True,
+                'logchanges': False,
+                'layers:logedits': True,
+                }
+        async with self.getTestCore(conf=conf) as core:
+            async with await core.snap() as snap:
+                await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
+            await self.agenlen(2, core.eval('test:str'))
+
+    async def test_cortex_logedits_off(self):
+        '''
+        Everything still works when no layer log is kept
+        '''
+        conf = {'layer:lmdb:map_async': True,
+                'provenance:en': True,
+                'logchanges': True,
+                'layers:logedits': False,
+                }
+        async with self.getTestCore(conf=conf) as core:
+            async with await core.snap() as snap:
+                await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
+            await self.agenlen(2, core.eval('test:str'))
+
     async def test_feed_syn_nodes(self):
         async with self.getTestCore() as core0:
             q = '[test:int=1 test:int=2 test:int=3]'

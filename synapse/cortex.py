@@ -720,6 +720,11 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Should new layers lock memory for performance by default.',
             'type': 'boolean'
         },
+        'layers:logedits': {
+            'default': True,
+            'description': 'Whether nodeedits are logged in each layer.',
+            'type': 'boolean'
+        },
         'provenance:en': {
             'default': False,
             'description': 'Enable provenance tracking for all writes',
@@ -734,11 +739,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             'default': 8,
             'description': 'The max number of spare processes to keep around in the storm spawn pool.',
             'type': 'integer'
-        },
-        'splice:en': {
-            'default': True,
-            'description': 'Enable storing splices for layer changes.',
-            'type': 'boolean'
         },
         'storm:log': {
             'default': False,
@@ -2360,6 +2360,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         ldef['iden'] = s_common.guid()
         ldef.setdefault('creator', self.auth.rootuser.iden)
         ldef.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
+        ldef.setdefault('logedits', self.conf.get('layers:logedits'))
 
         s_layer.reqValidLdef(ldef)
 

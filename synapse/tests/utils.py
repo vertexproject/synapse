@@ -956,7 +956,10 @@ class SynTest(unittest.TestCase):
         '''
         if conf is None:
             conf = {'layer:lmdb:map_async': True,
-                    'provenance:en': True}
+                    'provenance:en': True,
+                    'logchanges': True,
+                    'layers:logedits': True,
+                    }
 
         conf = copy.deepcopy(conf)
 
