@@ -1999,6 +1999,18 @@ class SleepCmd(Cmd):
 class GraphCmd(Cmd):
     '''
     Generate a subgraph from the given input nodes and command line options.
+
+    Example:
+
+        inet:fqdn | graph
+                    --degrees 2
+                    --filter { -#nope }
+                    --pivot { <- meta:seen <- meta:source }
+                    --form-pivot inet:fqdn {<- * | limit 20}
+                    --form-pivot inet:fqdn {-> * | limit 20}
+                    --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
+                    --form-pivot syn:tag {-> *}
+                    --form-pivot * {-> #}
     '''
     name = 'graph'
 
@@ -2251,10 +2263,14 @@ class SpliceListCmd(Cmd):
 
         async for splice in runt.snap.core.spliceHistory(runt.user):
 
-            if maxtime and maxtime < splice[1]['time']:
+            splicetime = splice[1].get('time')
+            if splicetime is None:
+                splicetime = 0
+
+            if maxtime and maxtime < splicetime:
                 continue
 
-            if mintime and mintime > splice[1]['time']:
+            if mintime and mintime > splicetime:
                 return
 
             guid = s_common.guid(splice)
@@ -2267,9 +2283,9 @@ class SpliceListCmd(Cmd):
                      'type': splice[0],
                      'iden': iden,
                      'form': splice[1]['ndef'][0],
-                     'time': splice[1]['time'],
-                     'user': splice[1]['user'],
-                     'prov': splice[1]['prov'],
+                     'time': splicetime,
+                     'user': splice[1].get('user'),
+                     'prov': splice[1].get('prov'),
                      }
 
             prop = splice[1].get('prop')
