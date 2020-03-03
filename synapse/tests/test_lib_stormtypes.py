@@ -2012,7 +2012,7 @@ class StormTypesTest(s_test.SynTest):
 
                 q = 'trigger.add node:add --form test:str --query {[ test:int=1 ]}'
                 mesgs = await asbond.storm(q).list()
-                self.stormIsInErr('User must have permission trigger.add', mesgs)
+                self.stormIsInErr('must have permission trigger.add', mesgs)
 
                 # Give explicit perm
 
@@ -2520,17 +2520,17 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInErr('iden does not match any', mesgs)
 
                     mesgs = await asbond.storm('cron.add --hourly 15 {#bar}').list()
-                    self.stormIsInErr('User must have permission cron.add', mesgs)
+                    self.stormIsInErr('must have permission cron.add', mesgs)
 
                     # Give explicit perm
 
                     await prox.addAuthRule('bond', (True, ('cron', 'add')))
+                    await prox.addAuthRule('bond', (True, ('cron', 'get')))
+
                     await asbond.storm('cron.add --hourly 15 {#bar}').list()
 
                     mesgs = await asbond.storm('cron.list').list()
                     self.stormIsInPrint('bond', mesgs)
-
-                    await prox.addAuthRule('bond', (True, ('cron', 'get')))
 
                     mesgs = await asbond.storm('cron.list').list()
                     self.stormIsInPrint('user', mesgs)
