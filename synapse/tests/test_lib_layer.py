@@ -243,8 +243,8 @@ class LayerTest(s_t_utils.SynTest):
             layr = core.view.layers[0]
             root = await core.auth.getUserByName('root')
 
-            splices = await alist(layr.splices(0, 10))
-            spliceoffs = splices[-1][0][0] + 1
+            splices = await alist(layr.splices(None, 10))
+            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
 
             await core.addTagProp('risk', ('int', {'minval': 0, 'maxval': 100}), {'doc': 'risk score'})
 
@@ -259,7 +259,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(splice[1]['user'], root.iden)
             self.nn(splice[1].get('time'))
 
-            spliceoffs = splices[-1][0][0] + 1
+            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
 
             # Convert a prop:set splice with no oldv
             await core.nodes("test:str=foo [ :tick=2000 ]")
@@ -275,7 +275,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(splice[1]['user'], root.iden)
             self.nn(splice[1].get('time'))
 
-            spliceoffs = splices[-1][0][0] + 1
+            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
 
             # Convert a prop:set splice with an oldv
             await core.nodes("test:str=foo [ :tick=2001 ]")
@@ -291,7 +291,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(splice[1]['user'], root.iden)
             self.nn(splice[1].get('time'))
 
-            spliceoffs = splices[-1][0][0] + 1
+            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
 
             # Convert a prop:del splice
             await core.nodes("test:str=foo [ -:tick ]")
@@ -306,7 +306,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(splice[1]['user'], root.iden)
             self.nn(splice[1].get('time'))
 
-            spliceoffs = splices[-1][0][0] + 1
+            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
 
             # Convert a tag:add splice with no oldv
             await core.nodes("test:str=foo [ +#haha=2000 ]")
@@ -322,7 +322,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(splice[1]['user'], root.iden)
             self.nn(splice[1].get('time'))
 
-            spliceoffs = splices[-1][0][0] + 1
+            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
 
             # Convert a tag:add splice with an oldv
             await core.nodes("test:str=foo [ +#haha=2001 ]")
@@ -338,7 +338,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(splice[1]['user'], root.iden)
             self.nn(splice[1].get('time'))
 
-            spliceoffs = splices[-1][0][0] + 1
+            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
 
             # Convert a tag:del splice
             await core.nodes("test:str=foo [ -#haha ]")
@@ -353,7 +353,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(splice[1]['user'], root.iden)
             self.nn(splice[1].get('time'))
 
-            spliceoffs = splices[-1][0][0] + 1
+            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
 
             # Convert a tag:prop:add splice with no oldv
             await core.nodes("test:str=foo [ +#rep:risk=50 ]")
@@ -370,7 +370,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(splice[1]['user'], root.iden)
             self.nn(splice[1].get('time'))
 
-            spliceoffs = splices[-1][0][0] + 1
+            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
 
             # Convert a tag:prop:add splice with an oldv
             await core.nodes("test:str=foo [ +#rep:risk=0 ]")
@@ -387,7 +387,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(splice[1]['user'], root.iden)
             self.nn(splice[1].get('time'))
 
-            spliceoffs = splices[-1][0][0] + 1
+            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
 
             # Convert a tag:prop:del splice
             await core.nodes("test:str=foo [ -#rep:risk ]")
@@ -403,7 +403,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(splice[1]['user'], root.iden)
             self.nn(splice[1].get('time'))
 
-            spliceoffs = splices[-1][0][0] + 1
+            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
 
             # Convert a node:del splice
             await core.nodes('test:str=foo | delnode')
