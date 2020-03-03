@@ -540,7 +540,7 @@ class MigrationTest(s_t_utils.SynTest):
                 self.len(2, offslogs)  # one entry for each layer
                 self.gt(offslogs[0]['val'][0], 0)
                 self.gt(offslogs[1]['val'][0], 0)
-                self.gt(offslogs[0]['val'][1], offslogs0[0]['val'][1]) # timestamp should be updated
+                self.gt(offslogs[0]['val'][1], offslogs0[0]['val'][1])  # timestamp should be updated
                 self.gt(offslogs[1]['val'][1], offslogs0[1]['val'][1])
 
                 await migr.fini()
@@ -550,11 +550,6 @@ class MigrationTest(s_t_utils.SynTest):
                     # check core data
                     await self._checkCore(core, tdata)
                     await self._checkAuth(core)
-
-                    # check that hive information didn't get duplicated
-                    hnode = await core.hive.open(('cortex', 'storage'))
-                    hdict = await hnode.dict()
-                    self.len(1, [x for x in hdict.items()])
 
     async def test_migr_assvr(self):
         '''
@@ -768,11 +763,11 @@ class MigrationTest(s_t_utils.SynTest):
             # so we can check that the cortex is not startable as 020
             await self.asyncraises(s_exc.BadStorageVersion, s_cortex.Cortex.anit(dest, conf=None))
 
-    async def test_migr_cellyaml(self):
+    async def test_migr_cell(self):
         conf = {
             'src': None,
             'dest': None,
-            'migrops': [op for op in s_migr.ALL_MIGROPS if op != 'cellyaml'],
+            'migrops': [op for op in s_migr.ALL_MIGROPS if op != 'cell'],
         }
 
         async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
@@ -782,7 +777,7 @@ class MigrationTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadConfValu, s_cortex.Cortex.anit(dest, conf=None))
 
         async with self._getTestMigrCore(conf) as (tdata, dest, locallyrs, migr):
-            migr.migrops.append('cellyaml')
+            migr.migrops.append('cell')
             os.remove(os.path.join(migr.src, 'cell.yaml'))
 
             await migr.migrate()
@@ -907,7 +902,7 @@ class MigrationTest(s_t_utils.SynTest):
             self.none(err)
             ne = (ne[0], 'foo:bar', ne[2])
 
-            storinfo = await migr._migrHiveStorInfo()
-            wlyr = await migr._destGetWlyr(migr.dest, storinfo, locallyrs[0])
+            lyrinfo = await migr._migrHiveLayerInfo(locallyrs[0])
+            wlyr = await migr._destGetWlyr(migr.dest, locallyrs[0], lyrinfo)
             res = await migr._destAddNodes(wlyr, ne, 'nexus')
             self.isin('Unable to store nodeedits', res.get('mesg', ''))
