@@ -171,7 +171,7 @@ class Pusher(s_base.Base, metaclass=RegMethType):
 
         def onfini():
             prev = nexsroot._nexskids.pop(self.nexsiden, None)
-            assert prev is not None
+            assert prev is not None, f'Failed removing {self.nexsiden}'
 
         self.onfini(onfini)
 

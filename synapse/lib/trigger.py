@@ -148,29 +148,6 @@ class Triggers:
                 for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars)
 
-    async def runTagSet(self, node, tag, oldv):
-
-        vars = {'tag': tag}
-        with self._recursion_check():
-
-            for trig in self.tagset.get((node.form.name, tag), ()):
-                await trig.execute(node, vars=vars)
-
-            for trig in self.tagset.get((None, tag), ()):
-                await trig.execute(node, vars=vars)
-
-            # check for form specific globs
-            globs = self.tagsetglobs.get(node.form.name)
-            if globs is not None:
-                for _, trig in globs.get(tag):
-                    await trig.execute(node, vars=vars)
-
-            # check for form agnostic globs
-            globs = self.tagsetglobs.get(None)
-            if globs is not None:
-                for _, trig in globs.get(tag):
-                    await trig.execute(node, vars=vars)
-
     async def runTagDel(self, node, tag):
 
         vars = {'tag': tag}
@@ -248,14 +225,6 @@ class Triggers:
                 self.tagdel[(form, tag)].append(trig)
             else:
                 self.tagdelglobs[form].add(tag, trig)
-
-        elif cond == 'tag:add':
-
-            if '*' not in tag:
-                self.tagset[(form, tag)].append(trig)
-            else:
-                # we have a glob add
-                self.tagsetglobs[form].add(tag, trig)
 
         self.triggers[trig.iden] = trig
         return trig
