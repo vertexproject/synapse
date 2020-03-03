@@ -86,14 +86,16 @@ class SyncMigrator(s_cell.Cell):
 
         queue = self._queues.get(lyriden)
         if queue is None:
-            self._queues[lyriden] = await s_queue.Window.anit(maxsize=None)
+            queue = await s_queue.Window.anit(maxsize=None)
+            self.onfini(queue.fini)
+            self._queues[lyriden] = queue
 
         pulltask = self._pull_tasks.get(lyriden)
-        if pulltask is None:
+        if pulltask is None or pulltask.done():
             self._pull_tasks[lyriden] = self.schedCoro(self._srcPullLyrSplices(lyriden))
 
         pushtask = self._push_tasks.get(lyriden)
-        if pushtask is None:
+        if pushtask is None or pushtask.done():
             self._push_tasks[lyriden] = self.schedCoro(self._destPushLyrNodeedits(lyriden))
 
     async def _setLyrOffset(self, pushorpull, lyriden, offset):
@@ -104,9 +106,9 @@ class SyncMigrator(s_cell.Cell):
 
     async def _getLyrOffset(self, pushorpull, lyriden):
         if pushorpull == 'pull':
-            return self.pull_offs.get(lyriden)
+            return self.pull_offs.get(lyriden, default=0)
         elif pushorpull == 'push':
-            return self.push_offs.get(lyriden)
+            return self.push_offs.get(lyriden, default=0)
 
     async def _setLyrErr(self, lyriden, offset, mesg):
         pass  # TODO
@@ -120,16 +122,15 @@ class SyncMigrator(s_cell.Cell):
     async def _srcPullLyrSplices(self, lyriden):
         poll_s = self.poll_s
         queue = self._queues.get(lyriden)
-        async with await s_telepath.openurl(f'{self.src}/cortex/layer/{lyriden}') as prx:
-            while True:
+        async with await s_telepath.openurl(os.path.join(self.src, 'cortex', 'layer', lyriden)) as prx:
+            while not self.isfini:
                 startoffs = await self._getLyrOffset('pull', lyriden)
                 logger.info(f'Pulling splices for layer {lyriden} starting from offset {startoffs}')
                 self.pull_last_start[lyriden] = s_common.now()
 
-                lastoffs = await self._srcIterLyrSplices(prx, startoffs, queue)
+                nextoffs = await self._srcIterLyrSplices(prx, startoffs, queue)
 
-                if lastoffs > startoffs:
-                    await self._setLyrOffset('pull', lyriden, lastoffs + 1)
+                await self._setLyrOffset('pull', lyriden, nextoffs)
 
                 logger.info(f'All splices from {lyriden} have been read; offsets: {startoffs} -> {lastoffs}')
                 await asyncio.sleep(poll_s)
@@ -152,7 +153,7 @@ class SyncMigrator(s_cell.Cell):
 
     async def _destPushLyrNodeedits(self, lyriden):
         queue = self._queues.get(lyriden)
-        async with await s_telepath.openurl(f'{self.dest}/cortex/layer/{lyriden}') as prx:
+        async with await s_telepath.openurl(os.path.join(self.dest, 'cortex', 'layer', lyriden)) as prx:
             logger.info(f'Starting {lyriden} splice queue reader')
             self.push_last_start[lyriden] = s_common.now()
             await self._destIterLyrNodeedits(prx, queue, lyriden)
