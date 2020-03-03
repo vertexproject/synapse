@@ -2471,6 +2471,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         # validate ddef before firing task
         s_storm.reqValidDdef(ddef)
 
+        # FIXME:  no such call
         await self.auth.reqUser(ddef['user'])
 
         # raises if parser failure
