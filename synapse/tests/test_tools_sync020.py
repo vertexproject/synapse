@@ -96,7 +96,6 @@ class SyncTest(s_t_utils.SynTest):
 
                 info = await fkcore.dmon.listen('tcp://127.0.0.1:0/')
                 fkcore.dmon.test_addr = info
-                host, port = info
 
                 fkurl = fkcore.getLocalUrl()
                 yield fkcore, fkurl
@@ -145,7 +144,7 @@ class SyncTest(s_t_utils.SynTest):
 
             async with await s_telepath.openurl(os.path.join(fkurl, 'cortex', 'layer', wlyr)) as prx:
                 async with await s_queue.Window.anit(maxsize=None) as queue:
-                    nextoffs_exp = fkcore.splicelog[wlyr]['nextoffs']
+                    nextoffs_exp = len(fkcore.splicelog[wlyr]['splices'])
                     nextoffs = await sync._srcIterLyrSplices(prx, 0, queue)
                     self.eq(nextoffs, nextoffs_exp)
                     self.len(nextoffs, queue.linklist)
