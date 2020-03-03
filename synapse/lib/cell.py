@@ -16,13 +16,17 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
+import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
-import synapse.lib.compat as s_compat
+import synapse.lib.const as s_const
+import synapse.lib.nexus as s_nexus
+import synapse.lib.config as s_config
 import synapse.lib.health as s_health
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.version as s_version
+import synapse.lib.hiveauth as s_hiveauth
 
-import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
 
 logger = logging.getLogger(__name__)
@@ -37,7 +41,7 @@ def adminapi(f):
     @functools.wraps(f)
     def func(*args, **kwargs):
 
-        if args[0].user is not None and not args[0].user.admin:
+        if args[0].user is not None and not args[0].user.isAdmin():
             raise s_exc.AuthDeny(mesg='User is not an admin.',
                                  user=args[0].user.name)
 
@@ -131,7 +135,7 @@ class CellApi(s_base.Base):
         to impersonate a user.  Used mostly by services
         that manage their own authentication/sessions.
         '''
-        if not self.user.admin:
+        if not self.user.isAdmin():
             mesg = 'setCellUser() caller must be admin.'
             raise s_exc.AuthDeny(mesg=mesg)
 
@@ -175,55 +179,22 @@ class CellApi(s_base.Base):
         raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
                              task=iden, user=str(self.user), perm=perm)
 
-    async def listHiveKey(self, path=None):
-        if path is None:
-            path = ()
-        perm = ('hive:get',) + path
-        await self._reqUserAllowed(perm)
-        items = self.cell.hive.dir(path)
-        if items is None:
-            return None
-        return [item[0] for item in items]
-
-    async def getHiveKey(self, path):
-        '''
-        Get the value of a key in the cell default hive
-        '''
-        perm = ('hive:get',) + path
-        await self._reqUserAllowed(perm)
-        return await self.cell.hive.get(path)
-
-    async def setHiveKey(self, path, value):
-        '''
-        Set or change the value of a key in the cell default hive
-        '''
-        perm = ('hive:set',) + path
-        await self._reqUserAllowed(perm)
-        return await self.cell.hive.set(path, value)
-
-    async def popHiveKey(self, path):
-        '''
-        Remove and return the value of a key in the cell default hive
-        '''
-        perm = ('hive:pop',) + path
-        await self._reqUserAllowed(perm)
-        return await self.cell.hive.pop(path)
-
-    async def saveHiveTree(self, path=()):
-        perm = ('hive:get',) + path
-        await self._reqUserAllowed(perm)
-        return await self.cell.hive.saveHiveTree(path=path)
-
-    async def loadHiveTree(self, tree, path=(), trim=False):
-        perm = ('hive:set',) + path
-        await self._reqUserAllowed(perm)
-        return await self.cell.hive.loadHiveTree(tree, path=path, trim=trim)
-
     @adminapi
     async def addAuthUser(self, name):
+
+        # Note:  change handling is implemented inside auth
         user = await self.cell.auth.addUser(name)
         await self.cell.fire('user:mod', act='adduser', name=name)
         return user.pack()
+
+    @adminapi
+    async def dyncall(self, iden, todo, gatekeys=()):
+        return await self.cell.dyncall(iden, todo, gatekeys=gatekeys)
+
+    @adminapi
+    async def dyniter(self, iden, todo, gatekeys=()):
+        async for item in self.cell.dyniter(iden, todo, gatekeys=gatekeys):
+            yield item
 
     @adminapi
     async def delAuthUser(self, name):
@@ -238,62 +209,105 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def delAuthRole(self, name):
-        await self.cell.fire('user:mod', act='delrole', name=name)
         await self.cell.auth.delRole(name)
+        await self.cell.fire('user:mod', act='delrole', name=name)
 
     @adminapi
     async def getAuthUsers(self, archived=False):
-        if archived:
-            return [u.name for u in self.cell.auth.users()]
-        return [u.name for u in self.cell.auth.users() if not u.info.get('archived')]
+        '''
+        Args:
+            archived (bool):  If true, list all users, else list non-archived users
+        '''
+        return [u.name for u in self.cell.auth.users() if archived or not u.info.get('archived')]
 
     @adminapi
     async def getAuthRoles(self):
         return [r.name for r in self.cell.auth.roles()]
 
     @adminapi
-    async def addAuthRule(self, name, rule, indx=None, iden=None):
-        item = await self.cell.auth.getRulerByName(name, iden=iden)
-        retn = await item.addRule(rule, indx=indx)
-        await self.cell.fire('user:mod', act='addrule', name=name, rule=rule, indx=indx, iden=iden)
+    async def addUserRule(self, name, rule, indx=None, gateiden=None):
+        user = await self.cell.auth.reqUserByName(name)
+        retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
         return retn
 
     @adminapi
-    async def delAuthRule(self, name, rule, iden=None):
-        item = await self.cell.auth.getRulerByName(name, iden=iden)
-        retn = await item.delRule(rule)
-        await self.cell.fire('user:mod', act='delrule', name=name, rule=rule, iden=iden)
+    async def addRoleRule(self, name, rule, indx=None, gateiden=None):
+        role = await self.cell.auth.reqRoleByName(name)
+        retn = await role.addRule(rule, indx=indx, gateiden=gateiden)
         return retn
 
     @adminapi
-    async def delAuthRuleIndx(self, name, indx, iden=None):
-        item = await self.cell.auth.getRulerByName(name, iden=iden)
-        retn = await item.delRuleIndx(indx)
-        await self.cell.fire('user:mod', act='delrule:indx', name=name, indx=indx, iden=iden)
-        return retn
+    async def delUserRule(self, name, rule, gateiden=None):
+        user = await self.cell.auth.reqUserByName(name)
+        return await user.delRule(rule, gateiden=gateiden)
 
     @adminapi
-    async def setAuthAdmin(self, name, admin):
-        '''
-        Set the admin status of the given user/role.
-        '''
-        item = await self.cell.auth.getRulerByName(name)
-        await item.setAdmin(admin)
-        await self.cell.fire('user:mod', act='setadmin', name=name, admin=admin)
+    async def delRoleRule(self, name, rule, gateiden=None):
+        role = await self.cell.auth.reqRoleByName(name)
+        return await role.delRule(rule, gateiden=gateiden)
+
+    @adminapi
+    async def setUserAdmin(self, name, admin, gateiden=None):
+        user = await self.cell.auth.reqUserByName(name)
+        await user.setAdmin(admin, gateiden=gateiden)
+
+    @adminapi
+    async def setRoleAdmin(self, name, admin, gateiden=None):
+        role = await self.cell.auth.reqRoleByName(name)
+        await role.setAdmin(admin, gateiden=gateiden)
+
+    @adminapi
+    async def getAuthInfo(self, name):
+        s_common.deprecated('getAuthInfo')
+        user = await self.cell.auth.getUserByName(name)
+        if user is not None:
+            info = user.pack()
+            info['roles'] = [self.cell.auth.role(r).name for r in info['roles']]
+            return info
+
+        role = await self.cell.auth.getRoleByName(name)
+        if role is not None:
+            return role.pack()
+
+        raise s_exc.NoSuchName(name=name)
+
+    @adminapi
+    async def addAuthRule(self, name, rule, indx=None, gateiden=None):
+        s_common.deprecated('addAuthRule')
+        item = await self.cell.auth.getUserByName(name)
+        if item is None:
+            item = await self.cell.auth.getRoleByName(name)
+        await item.addRule(rule, indx=indx, gateiden=gateiden)
+
+    @adminapi
+    async def delAuthRule(self, name, rule, gateiden=None):
+        s_common.deprecated('delAuthRule')
+        item = await self.cell.auth.getUserByName(name)
+        if item is None:
+            item = await self.cell.auth.getRoleByName(name)
+        await item.delRule(rule, gateiden=gateiden)
+
+    @adminapi
+    async def setAuthAdmin(self, name, isadmin):
+        s_common.deprecated('setAuthAdmin')
+        item = await self.cell.auth.getUserByName(name)
+        if item is None:
+            item = await self.cell.auth.getRoleByName(name)
+        await item.setAdmin(isadmin)
 
     async def setUserPasswd(self, name, passwd):
-        user = self.cell.auth.getUserByName(name)
+        user = await self.cell.auth.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(user=name)
-        if self.user.admin or self.user.iden == user.iden:
-            await user.setPasswd(passwd)
-            await self.cell.fire('user:mod', act='setpasswd', name=name)
-            return
-        raise s_exc.AuthDeny(mesg='Cannot change user password.', user=user.name)
+        if not (self.user.isAdmin() or self.user.iden == user.iden):
+            raise s_exc.AuthDeny(mesg='Cannot change user password.', user=user.name)
+
+        await user.setPasswd(passwd)
+        await self.cell.fire('user:mod', act='setpasswd', name=name)
 
     @adminapi
     async def setUserLocked(self, name, locked):
-        user = self.cell.auth.getUserByName(name)
+        user = await self.cell.auth.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(user=name)
 
@@ -302,7 +316,7 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def setUserArchived(self, name, archived):
-        user = self.cell.auth.getUserByName(name)
+        user = await self.cell.auth.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(user=name)
 
@@ -311,7 +325,7 @@ class CellApi(s_base.Base):
 
     @adminapi
     async def addUserRole(self, username, rolename):
-        user = self.cell.auth.getUserByName(username)
+        user = await self.cell.auth.getUserByName(username)
         if user is None:
             raise s_exc.NoSuchUser(user=username)
 
@@ -321,43 +335,30 @@ class CellApi(s_base.Base):
     @adminapi
     async def delUserRole(self, username, rolename):
 
-        user = self.cell.auth.getUserByName(username)
+        user = await self.cell.auth.getUserByName(username)
         if user is None:
             raise s_exc.NoSuchUser(user=username)
 
         await user.revoke(rolename)
         await self.cell.fire('user:mod', act='revoke', name=username, role=rolename)
 
-    async def getAuthInfo(self, name):
-        '''
-        An API endpoint for getting user and role info.
+    async def getUserInfo(self, name):
+        user = await self.cell.auth.reqUserByName(name)
+        if self.user.isAdmin() or self.user.iden == user.iden:
+            info = user.pack()
+            info['roles'] = [self.cell.auth.role(r).name for r in info['roles']]
+            return info
 
-        Args:
-            name (str): Name of the item requested.
+        mesg = 'getUserInfo denied for non-admin and non-self'
+        raise s_exc.AuthDeny(mesg=mesg)
 
-        Notes:
-            Authinfo for an item is available to a remote user under the following conditions:
-            1. The remote user is an admin.
-            2. The remote user is requesting their authitem data.
-            3. The remote user is requesting role information for roles they have.
+    async def getRoleInfo(self, name):
+        role = await self.cell.auth.reqRoleByName(name)
+        if self.user.isAdmin() or role.iden in self.user.info.get('roles', ()):
+            return role.pack()
 
-        Returns:
-            tuple(str, dict): The name and packed information about the auth item.
-        '''
-        item = await self.cell.auth.getRulerByName(name)
-        pack = item.pack()
-        item_iden = pack.get('iden')
-
-        if self.user.admin or \
-                (pack.get('type') == 'user' and self.user.iden == item_iden) or \
-                (pack.get('type') == 'role' and self.user.hasRole(item_iden)):
-            # translate role guids to names for back compat
-            if pack.get('type') == 'user':
-                pack['roles'] = [self.cell.auth.role(r).name for r in pack['roles']]
-            return (name, pack)
-
-        raise s_exc.AuthDeny(mesg='User does not have permission to get authinfo for the requested item.',
-                             name=name)
+        mesg = 'getRoleInfo denied for non-admin and non-member'
+        raise s_exc.AuthDeny(mesg=mesg)
 
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health',))
@@ -367,58 +368,60 @@ class CellApi(s_base.Base):
     async def getDmonSessions(self):
         return await self.cell.getDmonSessions()
 
-class PassThroughApi(CellApi):
-    '''
-    Class that passes through methods made on it to its cell.
-    '''
-    allowed_methods = []  # type: ignore
+    @adminapi
+    async def listHiveKey(self, path=None):
+        return await self.cell.listHiveKey(path=path)
 
-    async def __anit__(self, cell, link, user):
-        await CellApi.__anit__(self, cell, link, user)
+    @adminapi
+    async def getHiveKey(self, path):
+        return await self.cell.getHiveKey(path)
 
-        for f in self.allowed_methods:
-            # N.B. this curious double nesting is due to Python's closure mechanism (f is essentially captured by name)
-            def funcapply(f):
-                def func(*args, **kwargs):
-                    return getattr(cell, f)(*args, **kwargs)
-                return func
-            setattr(self, f, funcapply(f))
+    @adminapi
+    async def setHiveKey(self, path, valu):
+        return await self.cell.setHiveKey(path, valu)
 
-bootdefs = (
+    @adminapi
+    async def popHiveKey(self, path):
+        return await self.cell.popHiveKey(path)
 
-    ('insecure', {'defval': False, 'doc': 'Disable all authentication checking. (INSECURE!)'}),
+    @adminapi
+    async def saveHiveTree(self, path=()):
+        return await self.cell.saveHiveTree(path=path)
 
-    ('auth:admin', {'defval': None, 'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
-
-    ('hive', {'defval': None, 'doc': 'Set to a Hive telepath URL or list of URLs'}),
-
-)
-
-class Cell(s_base.Base, s_telepath.Aware):
+class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
     '''
     cellapi = CellApi
 
-    # config options that are in all cells...
-    confdefs = ()
-    confbase = ()
+    confdefs = {}  # type: ignore  # This should be a JSONSchema properties list for an object.
+    confbase = {
+        'auth:passwd': {
+            'description': 'Set to <passwd> (local only) to bootstrap the root user password.',
+            'type': 'string'
+        },
+        'hive': {
+            'description': 'Set to a Hive telepath URL.',
+            'type': 'string'
+        },
+    }
 
-    async def __anit__(self, dirn, conf=None, readonly=False):
-
-        await s_base.Base.__anit__(self)
+    async def __anit__(self, dirn, conf=None, readonly=False, *args, **kwargs):
 
         s_telepath.Aware.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
 
         self.auth = None
+        self.inaugural = False
+        self.remote_hive = False
 
         # each cell has a guid
         path = s_common.genpath(dirn, 'cell.guid')
 
         # generate a guid file if needed
         if not os.path.isfile(path):
+            self.inaugural = True
             with open(path, 'w') as fd:
                 fd.write(s_common.guid())
 
@@ -426,57 +429,65 @@ class Cell(s_base.Base, s_telepath.Aware):
         with open(path, 'r') as fd:
             self.iden = fd.read().strip()
 
-        boot = self._loadCellYaml('boot.yaml')
-        self.boot = s_common.config(boot, bootdefs)
-
-        await self._initCellDmon()
-
         if conf is None:
             conf = {}
 
-        [conf.setdefault(k, v) for (k, v) in self._loadCellYaml('cell.yaml').items()]
+        self.conf = self._initCellConf(conf)
 
-        self.conf = s_common.config(conf, self.confdefs + self.confbase)
+        await s_nexus.Pusher.__anit__(self, self.iden)
+
+        await self._initCellDmon()
 
         self.cmds = {}
-        self.insecure = self.boot.get('insecure', False)
-
         self.sessions = {}
-        self.httpsonly = self.conf.get('https:only', False)
 
         self.boss = await s_boss.Boss.anit()
         self.onfini(self.boss)
 
         await self._initCellSlab(readonly=readonly)
 
+        self.setNexsRoot(await self._initNexsRoot())
+
         self.hive = await self._initCellHive()
-        self.auth = await self._initCellAuth()
-
-        # check and migrate old cell auth
-        oldauth = s_common.genpath(self.dirn, 'auth')
-        if os.path.isdir(oldauth):
-            await s_compat.cellAuthToHive(oldauth, self.auth)
-            os.rename(oldauth, oldauth + '.old')
-
-        admin = self.boot.get('auth:admin')
-        if admin is not None:
-
-            name, passwd = admin.split(':', 1)
-
-            user = self.auth.getUserByName(name)
-            if user is None:
-                user = await self.auth.addUser(name)
-
-            await user.setAdmin(True)
-            await user.setPasswd(passwd)
-            self.insecure = False
-
-        await self._initCellHttp()
 
         # self.cellinfo, a HiveDict for general purpose persistent storage
         node = await self.hive.open(('cellinfo',))
         self.cellinfo = await node.dict()
         self.onfini(node)
+
+        if self.inaugural:
+            await self.cellinfo.set('synapse:version', s_version.version)
+
+        synvers = self.cellinfo.get('synapse:version')
+        if synvers is None or synvers < s_version.version:
+            await self.cellinfo.set('synapse:version', s_version.version)
+
+        self.auth = await self._initCellAuth()
+
+        # self.cellinfo, a HiveDict for general purpose persistent storage
+        node = await self.hive.open(('cellinfo',))
+        self.cellinfo = await node.dict()
+        self.onfini(node)
+
+        if self.inaugural:
+            await self.cellinfo.set('synapse:version', s_version.version)
+
+        synvers = self.cellinfo.get('synapse:version')
+        if synvers is None or synvers < s_version.version:
+            await self.cellinfo.set('synapse:version', s_version.version)
+
+        self.auth = await self._initCellAuth()
+
+        auth_passwd = self.conf.get('auth:passwd')
+        if auth_passwd is not None:
+            if self.remote_hive:
+                # This is a invalid configuration - bail
+                raise s_exc.BadConfValu(mesg='Cannot set root password on a cell configured to use a remote hive.',
+                                        name='auth:passwd')
+            user = await self.auth.getUserByName('root')
+            await user.setPasswd(auth_passwd)
+
+        await self._initCellHttp()
 
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
@@ -485,6 +496,42 @@ class Cell(s_base.Base, s_telepath.Aware):
             [await s.fini() for s in self.sessions.values()]
 
         self.onfini(fini)
+
+        self.dynitems = {
+            'auth': self.auth,
+            'cell': self
+        }
+
+    async def _initNexsRoot(self):
+        nexsroot = await s_nexus.NexsRoot.anit(self.dirn)
+        self.onfini(nexsroot.fini)
+        return nexsroot
+
+    async def dyniter(self, iden, todo, gatekeys=()):
+
+        for useriden, perm, gateiden in gatekeys:
+            (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
+
+        item = self.dynitems.get(iden)
+        name, args, kwargs = todo
+
+        meth = getattr(item, name)
+        async for item in meth(*args, **kwargs):
+            yield item
+
+    async def dyncall(self, iden, todo, gatekeys=()):
+
+        for useriden, perm, gateiden in gatekeys:
+            (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
+
+        item = self.dynitems.get(iden)
+        if item is None:
+            raise s_exc.NoSuchIden(mesg=iden)
+
+        name, args, kwargs = todo
+        meth = getattr(item, name)
+
+        return await s_coro.ornot(meth, *args, **kwargs)
 
     async def getConfOpt(self, name):
         return self.conf.get(name)
@@ -534,12 +581,6 @@ class Cell(s_base.Base, s_telepath.Aware):
             sslctx = self.initSslCtx(certpath, pkeypath)
 
         serv = self.wapp.listen(port, address=addr, ssl_options=sslctx)
-        self.httpds.append(serv)
-        return list(serv._sockets.values())[0].getsockname()
-
-    async def addHttpPort(self, port, host='0.0.0.0'):
-        addr = socket.gethostbyname(host)
-        serv = self.wapp.listen(port, address=addr)
         self.httpds.append(serv)
         return list(serv._sockets.values())[0].getsockname()
 
@@ -630,12 +671,13 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         hurl = self.conf.get('hive')
         if hurl is not None:
+            self.remote_hive = True
             return await s_hive.openurl(hurl)
 
         isnew = not self.slab.dbexists('hive')
 
         db = self.slab.initdb('hive')
-        hive = await s_hive.SlabHive.anit(self.slab, db=db)
+        hive = await s_hive.SlabHive.anit(self.slab, db=db, nexsroot=self.nexsroot)
         self.onfini(hive)
 
         if isnew:
@@ -663,7 +705,7 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     async def _initCellAuth(self):
         node = await self.hive.open(('auth',))
-        auth = await s_hive.HiveAuth.anit(node)
+        auth = await s_hiveauth.Auth.anit(node)
 
         self.onfini(auth.fini)
         return auth
@@ -676,6 +718,14 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     def getLocalUrl(self, share='*', user='root'):
         return f'cell://{user}@{self.dirn}:{share}'
+
+    def _initCellConf(self, conf):
+        if isinstance(conf, dict):
+            conf = s_config.Config.getConfFromCell(self, conf=conf)
+        for k, v in self._loadCellYaml('cell.yaml').items():
+            conf.setdefault(k, v)
+        conf.reqConfValid()
+        return conf
 
     def _loadCellYaml(self, *path):
 
@@ -690,31 +740,32 @@ class Cell(s_base.Base, s_telepath.Aware):
     async def getTeleApi(self, link, mesg, path):
 
         # if auth is disabled or it's a unix socket, they're root.
-        if self.insecure or link.get('unix'):
+        if link.get('unix'):
             name = 'root'
             auth = mesg[1].get('auth')
             if auth is not None:
                 name, info = auth
 
-            user = self.auth.getUserByName(name)
+            user = await self.auth.getUserByName(name)
             if user is None:
                 raise s_exc.NoSuchUser(name=name)
 
         else:
-            user = self._getCellUser(mesg)
+            user = await self._getCellUser(mesg)
 
         return await self.getCellApi(link, user, path)
 
     async def getCellApi(self, link, user, path):
         return await self.cellapi.anit(self, link, user)
 
-    def getCellType(self):
-        return self.__class__.__name__.lower()
+    @classmethod
+    def getCellType(cls):
+        return cls.__name__.lower()
 
     def getCellIden(self):
         return self.iden
 
-    def _getCellUser(self, mesg):
+    async def _getCellUser(self, mesg):
 
         auth = mesg[1].get('auth')
         if auth is None:
@@ -722,7 +773,7 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         name, info = auth
 
-        user = self.auth.getUserByName(name)
+        user = await self.auth.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(name=name, mesg=f'No such user: {name}.')
 
@@ -740,7 +791,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         return health.pack()
 
     def addHealthFunc(self, func):
-        '''Register a callback function to get a HeaalthCheck object.'''
+        '''Register a callback function to get a HealthCheck object.'''
         self._health_funcs.append(func)
 
     async def _cellHealth(self, health):
@@ -748,3 +799,46 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     async def getDmonSessions(self):
         return await self.dmon.getSessInfo()
+
+    # ----- Change distributed Auth methods ----
+
+    async def listHiveKey(self, path=None):
+        if path is None:
+            path = ()
+        items = self.hive.dir(path)
+        if items is None:
+            return None
+        return [item[0] for item in items]
+
+    async def getHiveKey(self, path):
+        '''
+        Get the value of a key in the cell default hive
+        '''
+        return await self.hive.get(path)
+
+    async def setHiveKey(self, path, valu):
+        '''
+        Set or change the value of a key in the cell default hive
+        '''
+        return await self.hive.set(path, valu, nexs=True)
+
+    async def popHiveKey(self, path):
+        '''
+        Remove and return the value of a key in the cell default hive.
+
+        Note:  this is for expert emergency use only.
+        '''
+        return await self.hive.pop(path, nexs=True)
+
+    async def saveHiveTree(self, path=()):
+        return await self.hive.saveHiveTree(path=path)
+
+    async def loadHiveTree(self, tree, path=(), trim=False):
+        '''
+        Note:  this is for expert emergency use only.
+        '''
+        return await self._push('hive:loadtree', tree, path, trim)
+
+    @s_nexus.Pusher.onPush('hive:loadtree')
+    async def _onLoadHiveTree(self, tree, path, trim):
+        return await self.hive.loadHiveTree(tree, path=path, trim=trim)

@@ -123,7 +123,7 @@ _RIGHTPIVOT: "->"
 _LEFTPIVOT:  "<-"
 
 _liftprop: liftformtag | liftpropby | liftprop | liftbyarray
-            | liftbytagprop | liftbyformtagprop | liftbyonlytagprop
+            | liftbytagprop | liftbyformtagprop
 
 liftformtag.1: PROPNAME tagname [_WS? _cmpr _valu]
 _DEREF:  "*"
@@ -133,12 +133,9 @@ liftbyarray: (PROPNAME | _DEREF _varvalu) _WS? "*[" _WS? _safe_cmpr _WS? _valu _
 lifttagtag: "#" tagname [_WS? _cmpr _valu]
 liftbytag: tagname [_WS? _cmpr _valu]
 liftbytagprop: tagprop [_WS? _cmpr _valu]
-liftbyonlytagprop: onlytagprop [_WS? _cmpr _valu]
 liftbyformtagprop: formtagprop [_WS? _cmpr _valu]
 tagname: "#" _WS? (_varvalu | TAG)
 tagprop: "#" TAG ":" BASEPROP
-_ONLYTAGPROP: "#:"
-onlytagprop: _ONLYTAGPROP BASEPROP
 formtagprop: PROPNAME "#" TAG ":" BASEPROP
 
 _funcarg: (VARTOKN | kwarg)

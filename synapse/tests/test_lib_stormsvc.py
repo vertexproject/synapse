@@ -91,14 +91,17 @@ class NewServiceAPI(s_cell.CellApi, s_stormsvc.StormSvc):
     )
 
 class ChangingService(s_cell.Cell):
-    confdefs = (
-        ('updated', {'type': 'bool', 'defval': False,
-                     'doc': 'If true, serve new cell api'}),
-    )
+    confdefs = {
+        'updated': {
+            'type': 'boolean',
+            'default': False,
+            'description': 'If true, serve new cell api.',
+        }
+    }
 
     async def getTeleApi(self, link, mesg, path):
 
-        user = self._getCellUser(mesg)
+        user = await self._getCellUser(mesg)
 
         if self.conf.get('updated'):
             return await NewServiceAPI.anit(self, link, user)
@@ -515,23 +518,23 @@ class StormSvcTest(s_test.SynTest):
                         'url': durl,
                     }
                     with patchcore(core, 'setStormSvcEvents', badSetStormSvcEvents):
-                        ssvc = await core.addStormSvc(sdef)
-                        await ssvc.ready.wait()
-                        await core.delStormSvc(ssvc.iden)
+                        svci = await core.addStormSvc(sdef)
+                        self.true(await core.waitStormSvc('dead', timeout=0.2))
+                        await core.delStormSvc(svci.get('iden'))
 
                     self.len(1, badiden)
-                    self.eq(ssvc.iden, badiden.pop())
+                    self.eq(svci.get('iden'), badiden.pop())
 
                     async def badRunStormSvcAdd(iden):
                         badiden.append(iden)
                         raise s_exc.SynErr('Kaboom')
 
                     with patchcore(core, '_runStormSvcAdd', badRunStormSvcAdd):
-                        ssvc = await core.addStormSvc(sdef)
-                        await ssvc.ready.wait()
-                        await core.delStormSvc(ssvc.iden)
+                        svci = await core.addStormSvc(sdef)
+                        self.true(await core.waitStormSvc('dead', timeout=0.2))
+                        await core.delStormSvc(svci.get('iden'))
                     self.len(1, badiden)
-                    self.eq(ssvc.iden, badiden[0])
+                    self.eq(svci.get('iden'), badiden[0])
 
     async def test_storm_svc_restarts(self):
 
@@ -541,7 +544,7 @@ class StormSvcTest(s_test.SynTest):
                     async with await ChangingService.anit(svcd) as chng:
                         chng.dmon.share('chng', chng)
 
-                        root = chng.auth.getUserByName('root')
+                        root = await chng.auth.getUserByName('root')
                         await root.setPasswd('root')
 
                         info = await chng.dmon.listen('tcp://127.0.0.1:0/')

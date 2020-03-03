@@ -102,8 +102,6 @@ class FileTest(s_t_utils.SynTest):
             self.eq('foo.exe', norm)
             self.eq('exe', subs.get('ext'))
 
-            self.eq(b'oh\xed\xb3\xbesnap', base.indx('oh\udcfesnap'))
-            self.eq(b'oh\xed\xb3\xbes', base.indxByPref('oh\udcfes')[0][1])
             self.raises(s_exc.BadTypeValu, base.norm, 'foo/bar.exe')
             self.raises(s_exc.BadTypeValu, base.norm, '/haha')
 
@@ -136,9 +134,6 @@ class FileTest(s_t_utils.SynTest):
             self.none(subs.get('dir'))
             self.eq(subs.get('base'), 'foo')
 
-            self.eq(b'c:/the/real/world/\xed\xb3\xbeis/messy', path.indx('c:/the/real/world/\udcfeis/messy'))
-            self.eq(b'c:/the/real/world/\xed\xb3\xbe', path.indxByPref('c:/the/real/world/\udcfe')[0][1])
-
             async with await core.snap() as snap:
 
                 node = await snap.addNode('file:path', '/foo/bar/baz.exe')
@@ -148,10 +143,10 @@ class FileTest(s_t_utils.SynTest):
                 self.eq(node.get('dir'), '/foo/bar')
                 self.nn(await snap.getNodeByNdef(('file:path', '/foo/bar')))
 
-                nodes = await alist(snap.getNodesBy('file:path', '/foo/bar/b', cmpr='^='))
+                nodes = await snap.nodes('file:path^="/foo/bar/b"')
                 self.len(1, nodes)
                 self.eq(node.ndef, nodes[0].ndef)
-                nodes = await alist(snap.getNodesBy('file:base', 'baz', cmpr='^='))
+                nodes = await snap.nodes('file:base^=baz')
                 self.len(1, nodes)
                 self.eq(node.get('base'), nodes[0].ndef[1])
 
@@ -215,12 +210,3 @@ class FileTest(s_t_utils.SynTest):
 
             node = nodes[0]
             self.eq(node.ndef, ('file:ismime', (guid, 'text/plain')))
-
-            # Ensure no file:ismime node is made for defvals
-            nodes = await core.eval('[ file:bytes="*"]').list()
-            guid = nodes[0].ndef[1]
-            self.eq('??', nodes[0].get('mime'))
-
-            opts = {'vars': {'guid': guid}}
-            nodes = await core.eval('file:ismime:file=$guid', opts=opts).list()
-            self.len(0, nodes)

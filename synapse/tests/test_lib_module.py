@@ -23,8 +23,6 @@ class BarMod(s_module.CoreModule):
         ('hehe', {'defval': 'haha'}),
         ('duck', {}),
     )
-    def preCoreModule(self):
-        self.core.addLayerCtor('newp', int)
 
     def initCoreModule(self):
         self.data = {}
@@ -59,8 +57,6 @@ class CoreModTest(s_t_utils.SynTest):
             # preload a config file for the BarModule
             dirn = s_common.gendir(core.dirn, 'mods', 'barmod')
             s_common.yamlsave({'test': 1, 'duck': 'quack'}, dirn, 'conf.yaml')
-            # barmodule loads a layerctor
-            self.false(core.layrctors.get('newp') is int)
 
             barmod = await core.loadCoreModule(bar_ctor)
 
@@ -69,7 +65,6 @@ class CoreModTest(s_t_utils.SynTest):
                                   'hehe': 'haha',
                                   'duck': 'quack',
                                   })
-            self.true(core.layrctors.get('newp') is int)
 
         self.eq(barmod.data, {'fini': True})
 
@@ -92,7 +87,6 @@ class CoreModTest(s_t_utils.SynTest):
             conf['modules'].append(foo_ctor)
             s_common.yamlsave(conf, dirn, 'cell.yaml')
             conf = s_common.yamlload(dirn, 'cell.yaml')
-            print(conf)
 
             with self.setTstEnvars(SYN_TEST_MOD_FAIL_PRE=1) as cm:
                 with self.getAsyncLoggerStream('synapse.cortex', 'preCoreModuleFail') as stream:

@@ -7,10 +7,10 @@ import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lookup.pe as s_l_pe
 
-class FileBase(s_types.StrBase):
+class FileBase(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def indxByPref(self, valu):
@@ -33,10 +33,10 @@ class FileBase(s_types.StrBase):
 
         return norm, {'subs': subs}
 
-class FilePath(s_types.StrBase):
+class FilePath(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def indxByPref(self, valu):
@@ -88,17 +88,14 @@ class FilePath(s_types.StrBase):
 
         return fullpath, {'subs': subs}
 
-class FileBytes(s_types.Type):
+class FileBytes(s_types.Str):
 
     def postTypeInit(self):
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyList)
         self.setNormFunc(tuple, self._normPyList)
         self.setNormFunc(bytes, self._normPyBytes)
-
-    def indx(self, norm):
-        # impossible for the normed value to be too long for indx
-        return norm.encode('utf8')
 
     def _normPyList(self, valu):
         guid, info = self.modl.type('guid').norm(valu)

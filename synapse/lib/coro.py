@@ -67,7 +67,7 @@ async def event_wait(event: asyncio.Event, timeout=None):
     Wait on an an asyncio event with an optional timeout
 
     Returns:
-        true if the event got set, None if timed out
+        true if the event got set, False if timed out
     '''
     if timeout is None:
         await event.wait()

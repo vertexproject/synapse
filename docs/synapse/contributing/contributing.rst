@@ -163,7 +163,6 @@ The following items should be considered when contributing to Synapse:
     import foolib.thing as f_thing
     # Synapse Code
     import synapse.common as s_common
-    import synapse.compat as s_compat
     import synapse.cortex as s_cortex
     import synapse.lib.config as s_config
 
@@ -205,7 +204,7 @@ The following items should be considered when contributing to Synapse:
     # NOT this
     privateInternalThingDontUseMe()
 
-  - The corralary to this is that any function which is not private may be
+  - The corollary to this is that any function which is not private may be
     called arbitrarily at any time, so avoid public API functions which are
     tightly bound to instance state. For example, if a processing routine is
     broken into smaller subroutines for readability or testability, these
@@ -213,7 +212,7 @@ The following items should be considered when contributing to Synapse:
 
 
 * Function calls with mandatory arguments should be called with positional
-  arguments.  Do not use keyword arguments unless neccesary.
+  arguments.  Do not use keyword arguments unless necessary.
 
   ::
 
@@ -245,14 +244,6 @@ The following items should be considered when contributing to Synapse:
       # NOT this - it performs the string format() call regardless of
       # whether or not the message is going to be logged.
       logger.info('I am a message from {} about {}'.format('bob', 'a duck'))
-
-* It may be neccesary from time to time to include non-ASCII characters. Use
-  UTF8 formatting for such source files and use the following encoding
-  declaration at the top of the source file.
-
-  ::
-
-     # -*- coding: utf-8 -*-
 
 * Convenience methods are available for unit tests, primarily through the
   SynTest class. This is a subclass of unittest.TestCase and provides many
@@ -290,7 +281,7 @@ The following items should be considered when contributing to Synapse:
   check a return value than to handle an exception.
 
   Raising exceptions is reserved for "exceptional circumstances" and should
-  NEVER be used for normal program flow.
+  not be used for normal program flow.
 
   ::
 

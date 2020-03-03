@@ -9,10 +9,12 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('[ test:int=10 ]')
             nodes = await alist(core.eval('test:int=10'))
             self.len(1, nodes)
-            self.eq(1, core.counts.get('test:int'))
+            self.eq(1, (await core.getFormCounts()).get('test:int'))
 
             # Fork the main view
-            view2 = await core.view.fork()
+            vdef2 = await core.view.fork()
+            view2_iden = vdef2.get('iden')
+            view2 = core.getView(view2_iden)
 
             # The new view has the same nodes as the old view
             nodes = await alist(view2.eval('test:int=10'))
@@ -23,7 +25,7 @@ class ViewTest(s_t_utils.SynTest):
             # A node added to the parent after the fork is still seen by the child
             nodes = await alist(view2.eval('test:int=11'))
             self.len(1, nodes)
-            self.eq(2, core.counts.get('test:int'))
+            self.eq(2, (await core.getFormCounts()).get('test:int'))
 
             # A node added to the child is not seen by the parent
             nodes = await alist(view2.eval('[ test:int=12 ]'))
@@ -31,11 +33,16 @@ class ViewTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:int=12')
             self.len(0, nodes)
-            self.eq(2, core.counts.get('test:int'))
+            self.eq(2, (await core.view.getFormCounts()).get('test:int'))
 
             # Deleting nodes from the child view should not affect the main
             await alist(view2.eval('test:int | delnode'))
-            self.eq(2, core.counts.get('test:int'))
+
+            self.eq(2, (await core.view.getFormCounts()).get('test:int'))
+            nodes = await alist(view2.eval('test:int=10'))
+            self.len(1, nodes)
+
+            self.eq(2, (await core.getFormCounts()).get('test:int'))
             await self.agenlen(0, view2.eval('test:int=12'))
 
             # Until we get tombstoning, the child view can't delete a node in the lower layer
@@ -49,11 +56,11 @@ class ViewTest(s_t_utils.SynTest):
                 await self.agenlen(1, view2.eval('[test:int=$val]', opts={'vars': {'val': i + 1000}}))
 
             # Forker and forkee have their layer configuration frozen
-            tmplayr = await core.addLayer()
-            await self.asyncraises(s_exc.ReadOnlyLayer, core.view.addLayer(tmplayr))
-            await self.asyncraises(s_exc.ReadOnlyLayer, view2.addLayer(tmplayr))
-            await self.asyncraises(s_exc.ReadOnlyLayer, core.view.setLayers([tmplayr]))
-            await self.asyncraises(s_exc.ReadOnlyLayer, view2.setLayers([tmplayr]))
+            tmpiden = await core.addLayer()
+            await self.asyncraises(s_exc.ReadOnlyLayer, core.view.addLayer(tmpiden))
+            await self.asyncraises(s_exc.ReadOnlyLayer, view2.addLayer(tmpiden))
+            await self.asyncraises(s_exc.ReadOnlyLayer, core.view.setLayers([tmpiden]))
+            await self.asyncraises(s_exc.ReadOnlyLayer, view2.setLayers([tmpiden]))
 
             # You can't merge a non-forked view
             await self.asyncraises(s_exc.SynErr, view2.core.view.merge())
@@ -64,7 +71,10 @@ class ViewTest(s_t_utils.SynTest):
             view2.parent.layers[0].readonly = False
 
             # You can't delete a view or merge it if it has children
-            view3 = await view2.fork()
+            vdef3 = await view2.fork()
+            view3_iden = vdef3.get('iden')
+            view3 = core.getView(view3_iden)
+
             await self.asyncraises(s_exc.SynErr, view2.merge())
             await self.asyncraises(s_exc.SynErr, view2.core.delView(view2.iden))
             await view3.core.delView(view3.iden)
@@ -76,13 +86,23 @@ class ViewTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:int=12')
             self.len(1, nodes)
 
+            # FIXME: Test perms (from proxy)
+
     async def test_view_trigger(self):
         async with self.getTestCore() as core:
+
             # Fork the main view
-            view2 = await core.view.fork()
+            vdef2 = await core.view.fork()
+            view2_iden = vdef2.get('iden')
+            view2 = core.getView(view2_iden)
 
             # A trigger inherited from the main view fires on the forked view when the condition matches
-            await core.addTrigger('node:add', '[ test:str=mainhit ]', info={'form': 'test:int'})
+            await core.view.addTrigger({
+                'cond': 'node:add',
+                'form': 'test:int',
+                'storm': '[ test:str=mainhit ]'
+            })
+
             nodes = await alist(core.eval('[ test:int=11 ]', opts={'view': view2.iden}))
             self.len(1, nodes)
 
@@ -93,7 +113,12 @@ class ViewTest(s_t_utils.SynTest):
             self.len(0, nodes)
 
             # A trigger on the child view fires on the child view but not the main view
-            await view2.addTrigger('node:add', '[ test:str=forkhit ]', info={'form': 'test:int'})
+            await view2.addTrigger({
+                'cond': 'node:add',
+                'form': 'test:int',
+                'storm': '[ test:str=forkhit ]',
+            })
+
             nodes = await alist(view2.eval('[ test:int=12 ]'))
 
             nodes = await view2.nodes('test:str=forkhit')
@@ -107,4 +132,4 @@ class ViewTest(s_t_utils.SynTest):
             self.len(2, trigs)
 
             await view2.fini()
-            await view2.trash()
+            await view2.delete()

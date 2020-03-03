@@ -1,20 +1,31 @@
 import asyncio
 import logging
 import itertools
-import contextlib
+import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
-import synapse.lib.hive as s_hive
 import synapse.lib.snap as s_snap
+import synapse.lib.nexus as s_nexus
+import synapse.lib.config as s_config
 import synapse.lib.trigger as s_trigger
 
 logger = logging.getLogger(__name__)
 
-class View(s_hive.AuthGater):
+reqValidVdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'parent': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'parent', 'creator'],
+})
+
+class View(s_nexus.Pusher):  # type: ignore
     '''
     A view represents a cortex as seen from a specific set of layers.
 
@@ -22,8 +33,6 @@ class View(s_hive.AuthGater):
     interact with a subset of the layers configured in a Cortex.
     '''
     snapctor = s_snap.Snap.anit
-
-    authgatetype = 'view'
 
     async def __anit__(self, core, node):
         '''
@@ -34,41 +43,64 @@ class View(s_hive.AuthGater):
             node (HiveNode): The hive node containing the view info.
         '''
         self.node = node
-
         self.iden = node.name()
+        self.info = await node.dict()
+
         self.core = core
 
-        await s_hive.AuthGater.__anit__(self, self.core.auth)
+        trignode = await node.open(('triggers',))
+        self.trigdict = await trignode.dict()
+
+        self.triggers = s_trigger.Triggers(self)
+        for _, tdef in self.trigdict.items():
+            try:
+                self.triggers.load(tdef)
+
+            except asyncio.CancelledError:
+                raise
+
+            except Exception:
+                logger.exception(f'Failed to load trigger {tdef!r}')
+
+        await s_nexus.Pusher.__anit__(self, iden=self.iden, nexsroot=core.nexsroot)
 
         self.layers = []
         self.invalid = None
         self.parent = None  # The view this view was forked from
-        self.worldreadable = True  # Default read permissions of this view
+
+        parent = self.info.get('parent')
+        if parent is not None:
+            self.parent = self.core.getView(parent)
 
         self.permCheck = {
-            'node:add': self._nodeAddPerms,
-            'node:del': self._nodeDelPerms,
-            'prop:set': self._propSetPerms,
-            'prop:del': self._propDelPerms,
-            'tag:add': self._tagAddPerms,
-            'tag:del': self._tagDelPerms,
-            'tag:prop:set': self._tagPropSetPerms,
-            'tag:prop:del': self._tagPropDelPerms,
+            'node:add': self._nodeAddConfirm,
+            'node:del': self._nodeDelConfirm,
+            'prop:set': self._propSetConfirm,
+            'prop:del': self._propDelConfirm,
+            'tag:add': self._tagAddConfirm,
+            'tag:del': self._tagDelConfirm,
+            'tag:prop:set': self._tagPropSetConfirm,
+            'tag:prop:del': self._tagPropDelConfirm,
         }
 
         # isolate some initialization to easily override for SpawnView.
-        await self._initViewInfo()
         await self._initViewLayers()
 
-    async def _initViewInfo(self):
+    def pack(self):
+        d = {'iden': self.iden}
+        d.update(self.info.pack())
 
-        self.iden = self.node.name()
+        layrinfo = [l.pack() for l in self.layers]
+        d['layers'] = layrinfo
 
-        self.info = await self.node.dict()
-        self.info.setdefault('owner', 'root')
-        self.info.setdefault('layers', ())
+        return d
 
-        self.triggers = s_trigger.Triggers(self)
+    async def getFormCounts(self):
+        counts = collections.defaultdict(int)
+        for layr in self.layers:
+            for name, valu in (await layr.getFormCounts()).items():
+                counts[name] += valu
+        return counts
 
     async def _initViewLayers(self):
 
@@ -83,18 +115,12 @@ class View(s_hive.AuthGater):
 
             self.layers.append(layr)
 
-    def allowed(self, hiveuser, perm, elev=True, default=None):
-        if self.worldreadable and perm == ('view', 'read'):
-            default = True
-
-        return s_hive.AuthGater.allowed(self, hiveuser, perm, elev=elev, default=default)
-
     async def eval(self, text, opts=None, user=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
         if user is None:
-            user = self.core.auth.getUserByName('root')
+            user = await self.core.auth.getUserByName('root')
 
         info = {'query': text}
         if opts is not None:
@@ -114,7 +140,7 @@ class View(s_hive.AuthGater):
             (Node, Path) tuples
         '''
         if user is None:
-            user = self.core.auth.getUserByName('root')
+            user = await self.core.auth.getUserByName('root')
 
         info = {'query': text}
         if opts is not None:
@@ -149,7 +175,7 @@ class View(s_hive.AuthGater):
         chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
 
         if user is None:
-            user = self.core.auth.getUserByName('root')
+            user = await self.core.auth.getUserByName('root')
 
         synt = await self.core.boss.promote('storm', user=user, info=info)
 
@@ -198,11 +224,10 @@ class View(s_hive.AuthGater):
                 await chan.put(('err', enfo))
 
             finally:
-                if cancelled:
-                    return
-                tock = s_common.now()
-                took = tock - tick
-                await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
+                if not cancelled:
+                    tock = s_common.now()
+                    took = tock - tick
+                    await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
 
         await synt.worker(runStorm())
 
@@ -217,7 +242,7 @@ class View(s_hive.AuthGater):
 
     async def iterStormPodes(self, text, opts=None, user=None):
         if user is None:
-            user = self.auth.getUserByName('root')
+            user = await self.core.auth.getUserByName('root')
 
         info = {'query': text}
         if opts is not None:
@@ -236,14 +261,8 @@ class View(s_hive.AuthGater):
 
         return await self.snapctor(self, user)
 
-    def pack(self):
-        return {
-            'iden': self.iden,
-            'owner': self.info.get('owner'),
-            'layers': self.info.get('layers'),
-        }
-
-    async def addLayer(self, layr, indx=None):
+    @s_nexus.Pusher.onPushAuto('view:addlayer')
+    async def addLayer(self, layriden, indx=None):
 
         for view in self.core.views.values():
             if view.parent is self:
@@ -252,14 +271,18 @@ class View(s_hive.AuthGater):
         if self.parent is not None:
             raise s_exc.ReadOnlyLayer(mesg='May not change layers of forked view')
 
+        layr = self.core.layers.get(layriden)
+        if layr is None:
+            raise s_exc.NoSuchLayer(iden=layriden)
+
         if indx is None:
             self.layers.append(layr)
-
         else:
             self.layers.insert(indx, layr)
 
         await self.info.set('layers', [l.iden for l in self.layers])
 
+    @s_nexus.Pusher.onPushAuto('view:setlayers')
     async def setLayers(self, layers):
         '''
         Set the view layers from a list of idens.
@@ -288,124 +311,122 @@ class View(s_hive.AuthGater):
 
         await self.info.set('layers', layers)
 
-    async def fork(self, **layrinfo):
+    async def fork(self, ldef=None, vdef=None):
         '''
         Make a new view inheriting from this view with the same layers and a new write layer on top
 
         Args:
+            ldef:  layer parameter dict
+            vdef:  view parameter dict
             Passed through to cortex.addLayer
 
         Returns:
             new view object, with an iden the same as the new write layer iden
         '''
-        writlayr = await self.core.addLayer(**layrinfo)
-        self.onfini(writlayr)
+        if ldef is None:
+            ldef = {}
 
-        viewiden = s_common.guid()
-        owner = layrinfo.get('owner', 'root')
-        layeridens = [writlayr.iden] + [l.iden for l in self.layers]
+        if vdef is None:
+            vdef = {}
 
-        view = await self.core.addView(viewiden, owner, layeridens)
-        view.worldreadable = False
-        view.parent = self
+        ldef = await self.core.addLayer(ldef)
+        layriden = ldef.get('iden')
 
-        return view
+        vdef['parent'] = self.iden
+        vdef['layers'] = [layriden] + [l.iden for l in self.layers]
 
-    async def merge(self, user=None):
+        return await self.core.addView(vdef)
+
+    async def merge(self, useriden=None):
         '''
         Merge this view into its parent.  All changes made to this view will be applied to the parent.
 
         When complete, delete this view.
+
+        Note:
+            The view's own write layer will *not* be deleted.
         '''
         fromlayr = self.layers[0]
-        if self.parent is None:
-            raise s_exc.SynErr('Cannot merge a view than has not been forked')
 
-        if self.parent.layers[0].readonly:
-            raise s_exc.ReadOnlyLayer(mesg="May not merge if the parent's write layer is read-only")
+        if useriden is None:
+            user = await self.core.auth.getUserByName('root')
+        else:
+            user = await self.core.auth.reqUser(useriden)
 
-        for view in self.core.views.values():
-            if view.parent is not None and view.parent == self:
-                raise s_exc.SynErr(mesg='Cannot merge a view that has children itself')
+        await self.mergeAllowed(user)
 
-        CHUNKSIZE = 1000
-        fromoff = 0
-
-        if user is None:
-            user = self.core.auth.getUserByName('root')
+        parentlayr = self.parent.layers[0]
 
         await self.core.boss.promote('storm', user=user, info={'merging': self.iden})
+
         async with await self.parent.snap(user=user) as snap:
-            snap.disableTriggers()
-            snap.strict = False
-            while True:
-                splicechunk = [x async for x in fromlayr.splices(fromoff, CHUNKSIZE)]
 
-                await snap.addFeedData('syn.splice', splicechunk)
+            with snap.getStormRuntime(user=user):
+                meta = await snap.getSnapMeta()
 
-                if len(splicechunk) < CHUNKSIZE:
-                    break
+                async for nodeedits in fromlayr.iterLayerNodeEdits():
+                    await parentlayr.storNodeEditsNoLift([nodeedits], meta)
 
-                fromoff += CHUNKSIZE
-                await asyncio.sleep(0)
+        await fromlayr.truncate()
 
-        await self.core.delView(self.iden)
+    def _confirm(self, user, perms):
+        layriden = self.layers[0].iden
+        if user.allowed(perms, gateiden=layriden):
+            return
 
-    def _reqAllowed(self, user, parentlayr, perms):
-        if not parentlayr.allowed(user, perms):
-            perm = '.'.join(perms)
-            mesg = f'User must have permission {perm} on write layer'
-            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
+        perm = '.'.join(perms)
+        mesg = f'User must have permission {perm} on write layer {layriden} of view {self.iden}'
+        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
 
-    async def _nodeAddPerms(self, user, snap, parentlayr, splice):
-        perms = ('node:add', splice['ndef'][0])
-        self._reqAllowed(user, parentlayr, perms)
+    async def _nodeAddConfirm(self, user, snap, splice):
+        perms = ('node', 'add', splice['ndef'][0])
+        self.parent._confirm(user, perms)
 
-    async def _nodeDelPerms(self, user, snap, parentlayr, splice):
+    async def _nodeDelConfirm(self, user, snap, splice):
         buid = s_common.buid(splice['ndef'])
         node = await snap.getNodeByBuid(buid)
 
         if node is not None:
             for tag in node.tags.keys():
-                perms = ('tag:del', *tag.split('.'))
-                self._reqAllowed(user, parentlayr, perms)
+                perms = ('node', 'tag', 'del', *tag.split('.'))
+                self.parent._confirm(user, perms)
 
-            perms = ('node:del', splice['ndef'][0])
-            self._reqAllowed(user, parentlayr, perms)
+            perms = ('node', 'del', splice['ndef'][0])
+            self.parent._confirm(user, perms)
 
-    async def _propSetPerms(self, user, snap, parentlayr, splice):
+    async def _propSetConfirm(self, user, snap, splice):
         ndef = splice.get('ndef')
         prop = splice.get('prop')
+        full = f'{ndef[0]}:{prop}'
+        perms = ('node', 'prop', 'set', full)
+        self.parent._confirm(user, perms)
 
-        perms = ('prop:set', ':'.join([ndef[0], prop]))
-        self._reqAllowed(user, parentlayr, perms)
-
-    async def _propDelPerms(self, user, snap, parentlayr, splice):
+    async def _propDelConfirm(self, user, snap, splice):
         ndef = splice.get('ndef')
         prop = splice.get('prop')
+        full = f'{ndef[0]}:{prop}'
+        perms = ('node', 'prop', 'del', full)
+        self.parent._confirm(user, perms)
 
-        perms = ('prop:del', ':'.join([ndef[0], prop]))
-        self._reqAllowed(user, parentlayr, perms)
-
-    async def _tagAddPerms(self, user, snap, parentlayr, splice):
+    async def _tagAddConfirm(self, user, snap, splice):
         tag = splice.get('tag')
-        perms = ('tag:add', *tag.split('.'))
-        self._reqAllowed(user, parentlayr, perms)
+        perms = ('node', 'tag', 'add', *tag.split('.'))
+        self.parent._confirm(user, perms)
 
-    async def _tagDelPerms(self, user, snap, parentlayr, splice):
+    async def _tagDelConfirm(self, user, snap, splice):
         tag = splice.get('tag')
-        perms = ('tag:del', *tag.split('.'))
-        self._reqAllowed(user, parentlayr, perms)
+        perms = ('node', 'tag', 'del', *tag.split('.'))
+        self.parent._confirm(user, perms)
 
-    async def _tagPropSetPerms(self, user, snap, parentlayr, splice):
+    async def _tagPropSetConfirm(self, user, snap, splice):
         tag = splice.get('tag')
-        perms = ('tag:add', *tag.split('.'))
-        self._reqAllowed(user, parentlayr, perms)
+        perms = ('node', 'tag', 'add', *tag.split('.'))
+        self.parent._confirm(user, perms)
 
-    async def _tagPropDelPerms(self, user, snap, parentlayr, splice):
+    async def _tagPropDelConfirm(self, user, snap, splice):
         tag = splice.get('tag')
-        perms = ('tag:del', *tag.split('.'))
-        self._reqAllowed(user, parentlayr, perms)
+        perms = ('node', 'tag', 'del', *tag.split('.'))
+        self.parent._confirm(user, perms)
 
     async def mergeAllowed(self, user=None):
         '''
@@ -413,18 +434,18 @@ class View(s_hive.AuthGater):
         '''
         fromlayr = self.layers[0]
         if self.parent is None:
-            raise s_exc.SynErr('Cannot merge a view than has not been forked')
+            raise s_exc.CantMergeView(mesg=f'Cannot merge a view {self.iden} than has not been forked')
 
         parentlayr = self.parent.layers[0]
         if parentlayr.readonly:
             raise s_exc.ReadOnlyLayer(mesg="May not merge if the parent's write layer is read-only")
 
         for view in self.core.views.values():
-            if view.parent is not None and view.parent == self:
-                raise s_exc.SynErr(mesg='Cannot merge a view that has children itself')
+            if view.parent == self:
+                raise s_exc.CantMergeView(mesg='Cannot merge a view that has children itself')
 
-        if user is None or user.admin:
-            return True
+        if user is None or user.isAdmin() or user.isAdmin(gateiden=parentlayr.iden):
+            return
 
         CHUNKSIZE = 1000
         fromoff = 0
@@ -433,14 +454,14 @@ class View(s_hive.AuthGater):
             while True:
 
                 splicecount = 0
-                async for splice in fromlayr.splices(fromoff, CHUNKSIZE):
+                async for _, splice in fromlayr.splices(fromoff, CHUNKSIZE):
 
                     check = self.permCheck.get(splice[0])
                     if check is None:
                         raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge',
                                            splicetype=splice[0])
 
-                    await check(user, snap, parentlayr, splice[1])
+                    await check(user, snap, splice[1])
 
                     splicecount += 1
 
@@ -464,6 +485,9 @@ class View(s_hive.AuthGater):
 
         # Run any trigger handlers
         await self.triggers.runTagAdd(node, tag)
+
+    async def runTagSet(self, node, tag, valu, oldv):
+        await self.triggers.runTagSet(node, tag, oldv)
 
     async def runTagDel(self, node, tag, valu):
 
@@ -497,6 +521,9 @@ class View(s_hive.AuthGater):
             await self.parent.runNodeDel(node)
 
     async def runPropSet(self, node, prop, oldv):
+        '''
+        Handle when a prop set trigger event fired
+        '''
         if not node.snap.trigson:
             return
 
@@ -505,49 +532,53 @@ class View(s_hive.AuthGater):
         if self.parent is not None:
             await self.parent.runPropSet(node, prop, oldv)
 
-    async def addTrigger(self, condition, query, info, disabled=False, user=None):
+    async def addTrigger(self, tdef):
         '''
         Adds a trigger to the view.
         '''
-        if user is None:
-            user = self.core.auth.getUserByName('root')
+        tdef['iden'] = s_common.guid()
 
-        iden = self.triggers.add(user.iden, condition, query, info=info)
-        if disabled:
-            self.triggers.disable(iden)
-        await self.core.fire('core:trigger:action', iden=iden, action='add')
-        return iden
+        root = await self.core.auth.getUserByName('root')
+
+        tdef.setdefault('user', root.iden)
+        tdef.setdefault('enabled', True)
+
+        s_trigger.reqValidTdef(tdef)
+
+        return await self._push('trigger:add', tdef)
+
+    @s_nexus.Pusher.onPush('trigger:add')
+    async def _onPushAddTrigger(self, tdef):
+
+        s_trigger.reqValidTdef(tdef)
+
+        user = self.core.auth.user(tdef['user'])
+        self.core.getStormQuery(tdef['storm'])
+
+        trig = self.triggers.load(tdef)
+
+        await self.trigdict.set(trig.iden, tdef)
+        await self.core.auth.addAuthGate(trig.iden, 'trigger')
+        await user.setAdmin(True, gateiden=tdef.get('iden'))
+
+        return trig.pack()
 
     async def getTrigger(self, iden):
-        return await self.triggers.get(iden)
+        return self.triggers.get(iden)
 
+    @s_nexus.Pusher.onPushAuto('trigger:del')
     async def delTrigger(self, iden):
         '''
         Delete a trigger from the view.
         '''
-        self.triggers.delete(iden)
-        await self.core.fire('core:trigger:action', iden=iden, action='delete')
+        trig = self.triggers.pop(iden)
+        await self.trigdict.pop(trig.iden)
+        await self.core.auth.delAuthGate(trig.iden)
 
-    async def updateTrigger(self, iden, query):
-        '''
-        Change an existing trigger's query.
-        '''
-        self.triggers.mod(iden, query)
-        await self.core.fire('core:trigger:action', iden=iden, action='mod')
-
-    async def enableTrigger(self, iden):
-        '''
-        Enable an existing trigger.
-        '''
-        self.triggers.enable(iden)
-        await self.core.fire('core:trigger:action', iden=iden, action='enable')
-
-    async def disableTrigger(self, iden):
-        '''
-        Disable an existing trigger.
-        '''
-        self.triggers.disable(iden)
-        await self.core.fire('core:trigger:action', iden=iden, action='disable')
+    @s_nexus.Pusher.onPushAuto('trigger:set')
+    async def setTriggerInfo(self, iden, name, valu):
+        trig = self.triggers.get(iden)
+        await trig.set(name, valu)
 
     async def listTriggers(self):
         '''
@@ -558,16 +589,14 @@ class View(s_hive.AuthGater):
             trigs.extend(await self.parent.listTriggers())
         return trigs
 
-    async def trash(self):
+    async def delete(self):
         '''
-        Delete the underlying storage for the view.
+        Delete the metadata for this view.
 
         Note: this does not delete any layer storage.
         '''
-        await s_hive.AuthGater.trash(self)
-
-        for (iden, _) in self.triggers.list():
-            self.triggers.delete(iden)
+        await self.fini()
+        await self.node.pop()
 
     def getSpawnInfo(self):
         return {

@@ -1,3 +1,5 @@
+import asyncio
+
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -11,8 +13,7 @@ class CortexServerTest(s_t_utils.SynTest):
 
     async def test_server(self):
 
-        with self.getTestDir() as dirn:
-
+        with self.getTestDir() as dirn, self.withSetLoggingMock() as mock:
             outp = self.getTestOutp()
             guid = s_common.guid()
 
@@ -35,9 +36,11 @@ class CortexServerTest(s_t_utils.SynTest):
                     podes = await s_t_utils.alist(proxy.eval(f'ou:org={guid}'))
                     self.len(1, podes)
 
+            self.eq(2, mock.call_count)
+
     async def test_server_mirror(self):
 
-        with self.getTestDir() as dirn:
+        with self.getTestDir() as dirn, self.withSetLoggingMock() as mock:
 
             path00 = s_common.gendir(dirn, 'core00')
             path01 = s_common.gendir(dirn, 'core01')
@@ -57,23 +60,26 @@ class CortexServerTest(s_t_utils.SynTest):
 
                 # add a node for core01 to sync before window
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
+                offs = core00.nexsroot.getOffset()
 
                 async with await s_s_cortex.main(argv, outp=outp) as core01:
 
-                    evnt00 = await core01._getWaitFor('inet:ipv4', '5.5.5.5')
-                    await evnt00.wait()
+                    # TODO functionalize this API on the cortex (cell?)
+                    await core01.nexsroot.waitForOffset(offs - 1)
+
                     self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
 
                     # add a node for core01 to sync via window
-                    evnt01 = await core01._getWaitFor('inet:ipv4', '6.6.6.6')
                     self.len(1, await core00.nodes('[ inet:ipv4=6.6.6.6 ]'))
 
-                    await evnt01.wait()
+                    offs = core00.nexsroot.getOffset()
+                    await core01.nexsroot.waitForOffset(offs - 1)
+
                     self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
 
     async def test_server_mirror_badiden(self):
 
-        with self.getTestDir() as dirn:
+        with self.getTestDir() as dirn, self.withSetLoggingMock() as mock:
 
             path00 = s_common.gendir(dirn, 'core00')
             path01 = s_common.gendir(dirn, 'core01')

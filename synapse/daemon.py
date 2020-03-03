@@ -5,7 +5,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -136,7 +135,9 @@ async def t2call(link, meth, args, kwargs):
 
             first = True
             if isinstance(valu, types.AsyncGeneratorType):
+
                 async for item in valu:
+
                     if first:
                         await link.tx(('t2:genr', {}))
                         first = False
@@ -312,7 +313,7 @@ class Daemon(s_base.Base):
             except Exception as e:  # pragma: no cover
                 logger.warning('Error during socket server close()', exc_info=e)
 
-        for name, share in self.shared.items():
+        for _, share in self.shared.items():
             if isinstance(share, s_base.Base):
                 await share.fini()
 
@@ -352,6 +353,9 @@ class Daemon(s_base.Base):
 
         except asyncio.CancelledError: # pragma: no cover
             raise
+
+        except ConnectionResetError:
+            logger.debug('Dmon.onLinkMesg Handler: connection reset')
 
         except Exception:
             logger.exception('Dmon.onLinkMesg Handler: %.80r' % (mesg,))
@@ -401,6 +405,7 @@ class Daemon(s_base.Base):
                 raise s_exc.NoSuchName(name=name)
 
             sess = await Sess.anit()
+
             async def sessfini():
                 self.sessions.pop(sess.iden, None)
 

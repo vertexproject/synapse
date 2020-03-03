@@ -1,7 +1,8 @@
-import warnings
 import functools
 
 import synapse.exc as s_exc
+import synapse.common as s_common
+
 import synapse.lib.cli as s_cli
 import synapse.lib.cmd as s_cmd
 import synapse.lib.grammar as s_grammar
@@ -107,17 +108,15 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 '''
     _cmd_name = 'trigger'
 
-    _cmd_syntax = (  # type: ignore
-        ('line', {'type': 'glob'}),
-    )
+    _cmd_syntax = (('line', {'type': 'glob'}),)  # type: ignore
 
-    async def _match_idens(self, core, prefix):
+    async def _match_idens(self, core, prefix, view=None):
         '''
         Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
         exactly one.
         '''
-        idens = [iden for iden, trig in await core.listTriggers()]
-        matches = [iden for iden in idens if iden.startswith(prefix)]
+        triglist = await self._get_list(core, view)
+        matches = [trig['iden'] for trig in triglist if trig['iden'].startswith(prefix)]
         if len(matches) == 1:
             return matches[0]
         elif len(matches) == 0:
@@ -129,6 +128,8 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
     def _make_argparser(self):
 
         parser = s_cmd.Parser(prog='trigger', outp=self, description=self.__doc__)
+        help = 'The iden of the view where the trigger is/will be applied.  Defaults to the cortex default view.'
+        parser.add_argument('--view', type=str, default=None, help=help)
 
         subparsers = parser.add_subparsers(title='subcommands', required=True, dest='cmd',
                                            parser_class=functools.partial(s_cmd.Parser, outp=self))
@@ -213,12 +214,37 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         # Remove the curly braces
         query = query[1:-1]
 
-        iden = await core.addTrigger(cond, query, info={'form': form, 'tag': tag, 'prop': prop},
-                                     disabled=opts.disabled)
+        tdef = {'cond': cond, 'storm': query}
+
+        if form is not None:
+            tdef['form'] = form
+
+        if prop is not None:
+            tdef['prop'] = prop
+
+        if tag is not None:
+            tdef['tag'] = tag
+
+        opts = {'vars': {'tdef': tdef}, 'view': opts.view}
+
+        iden = await core.callStorm('return($lib.trigger.add($tdef).get(iden))', opts=opts)
+        iden = 'foo'
+
         self.printf(f'Added trigger {iden}')
 
+    async def _get_list(self, core, view):
+        opts = {'view': view}
+
+        return await core.callStorm('''
+            $trigs = $lib.list()
+            for $trig in $lib.trigger.list() {
+                $trigs.append($trig.pack())
+            }
+            return ($trigs)
+        ''', opts=opts)
+
     async def _handle_list(self, core, opts):
-        triglist = await core.listTriggers()
+        triglist = await self._get_list(core, opts.view)
 
         if not triglist:
             self.printf('No triggers found')
@@ -226,18 +252,20 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
         self.printf(f'{"user":10} {"iden":12} {"en?":3} {"cond":9} {"object":14} {"":10} {"storm query"}')
 
-        for iden, trig in triglist:
+        for trig in triglist:
+            iden = trig['iden']
             idenf = iden[:8] + '..'
-            user = trig.get('username') or '<None>'
-            query = trig.get('storm') or '<missing>'
-            cond = trig.get('cond') or '<missing'
+            user = trig.get('username', '<None>')
+            query = trig.get('storm', '<missing>')
+            cond = trig.get('cond', '<missing')
             enabled = 'Y' if trig.get('enabled', True) else 'N'
             if cond.startswith('tag:'):
-                tag = '#' + (trig.get('tag') or '<missing>')
-                form = trig.get('form') or ''
+                tag = '#' + trig.get('tag', '<missing>')
+                form = trig.get('form', '')
                 obj, obj2 = form, tag
             else:
-                obj, obj2 = trig.get('prop') or trig.get('form') or '<missing>', ''
+                obj = trig.get('prop', trig.get('form', '<missing>'))
+                obj2 = ''
 
             self.printf(f'{user:10} {idenf:12} {enabled:3} {cond:9} {obj:14} {obj2:10} {query}')
 
@@ -249,40 +277,47 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
             return
         # remove the curly braces
         query = query[1:-1]
-        iden = await self._match_idens(core, prefix)
+        iden = await self._match_idens(core, prefix, view=opts.view)
         if iden is None:
             return
-        await core.updateTrigger(iden, query)
+
+        opts = {'vars': {'iden': iden, 'storm': query}, 'view': opts.view}
+        await core.callStorm('$lib.trigger.get($iden).set(storm, $storm)', opts=opts)
+
         self.printf(f'Modified trigger {iden}')
 
     async def _handle_del(self, core, opts):
         prefix = opts.prefix
-        iden = await self._match_idens(core, prefix)
+        iden = await self._match_idens(core, prefix, view=opts.view)
         if iden is None:
             return
-        await core.delTrigger(iden)
+
+        opts = {'vars': {'iden': iden}, 'view': opts.view}
+        await core.callStorm('$lib.trigger.del($iden)', opts=opts)
+
         self.printf(f'Deleted trigger {iden}')
 
     async def _handle_enable(self, core, opts):
         prefix = opts.prefix
-        iden = await self._match_idens(core, prefix)
+        iden = await self._match_idens(core, prefix, view=opts.view)
         if iden is None:
             return
-        await core.enableTrigger(iden)
+        opts = {'vars': {'iden': iden}, 'view': opts.view}
+        await core.callStorm('$lib.trigger.get($iden).set(enabled, $(1))', opts=opts)
         self.printf(f'Enabled trigger {iden}')
 
     async def _handle_disable(self, core, opts):
         prefix = opts.prefix
-        iden = await self._match_idens(core, prefix)
+        iden = await self._match_idens(core, prefix, view=opts.view)
         if iden is None:
             return
-        await core.disableTrigger(iden)
+        opts = {'vars': {'iden': iden}, 'view': opts.view}
+        await core.callStorm('$lib.trigger.get($iden).set(enabled, $(0))', opts=opts)
         self.printf(f'Disabled trigger {iden}')
 
     async def runCmdOpts(self, opts):
-        mesg = 'The trigger command will be deprecated in 0.2.x, ' \
-               'triggers should be accessed via storm commands instead'
-        warnings.warn(mesg, PendingDeprecationWarning)
+
+        s_common.deprecated('cmdr> trigger')
 
         line = opts.get('line')
         if line is None:

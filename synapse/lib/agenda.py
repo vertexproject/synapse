@@ -13,11 +13,59 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.config as s_config
 import synapse.lib.provenance as s_provenance
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
 logger = logging.getLogger(__name__)
+
+reqValidCdef = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'storm': {'type': 'string'},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'incunit': {
+            'oneOf': [
+                {'type': 'null'},
+                {'enum': ['year', 'month', 'dayofmonth', 'dayofweek', 'day', 'hour', 'minute']}
+            ]
+        },
+        'incvals': {
+            'type': ['array', 'number', 'null'],
+            'items': {'type': 'number'}
+        },
+        'reqs': {
+            'oneOf': [
+                {
+                    '$ref': '#/definitions/req',
+                },
+                {
+                    'type': ['array'],
+                    'items': {'$ref': '#/definitions/req'},
+                },
+            ]
+        },
+    },
+    'additionalProperties': False,
+    'required': ['creator', 'storm'],
+    'dependencices': {
+        'incvals': ['incunit'],
+        'incunit': ['incvals'],
+    },
+    'definitions': {
+        'req': {
+            'type': 'object',
+            'properties': {
+                'minute': {'type': 'number'},
+                'hour': {'type': 'number'},
+                'dayofmonth': {'type': 'number'},
+                'month': {'type': 'number'},
+                'year': {'type': 'number'},
+            }
+        }
+    }
+})
 
 def _dayofmonth(hardday, month, year):
     '''
@@ -160,20 +208,29 @@ class ApptRec:
         # Truncate the seconds part
         newdt = lastdt.replace(second=0)
 
+        # Note: self.reqdict is sorted from largest unit to smallest
         for unit, newval in self.reqdict.items():
             dtkey = _TimeunitToDatetime[unit]
+
             if unit is TimeUnit.DAYOFWEEK:
                 newdt = newdt.replace(**newvals)
                 newvals = {}
                 newval = newdt.day + (6 + newval - newdt.weekday()) % 7 + 1
                 if newval > calendar.monthrange(newdt.year, newdt.month)[1]:
                     newval -= 7
+
+            elif unit is TimeUnit.YEAR:
+                # As we change the year, clamp the day of the month to a valid value (only matters on leap day)
+                dayval = _dayofmonth(newdt.day, newdt.month, newval)
+                newvals['day'] = dayval
+
             elif unit is TimeUnit.MONTH:
                 # As we change the month, clamp the day of the month to a valid value
                 newdt = newdt.replace(**newvals)
                 newvals = {}
                 dayval = _dayofmonth(newdt.day, newval, newdt.year)
                 newvals['day'] = dayval
+
             elif unit is TimeUnit.DAYOFMONTH:
                 newdt = newdt.replace(**newvals)
                 newvals = {}
@@ -240,7 +297,7 @@ class _Appt:
     Each such entry has a list of ApptRecs.  Each time the appointment is scheduled, the nexttime of the appointment is
     the lowest nexttime of all its ApptRecs.
     '''
-    def __init__(self, stor, iden, recur, indx, query, useriden, recs, nexttime=None):
+    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None):
         self.doc = ''
         self.name = ''
         self.stor = stor
@@ -248,7 +305,7 @@ class _Appt:
         self.recur = recur # does this appointment repeat
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
         self.query = query  # query to run
-        self.useriden = useriden # user iden to run query as
+        self.creator = creator # user iden to run query as
         self.recs = recs  # List[ApptRec]  list of the individual entries to calculate next time from
         self._recidxnexttime = None # index of rec who is up next
 
@@ -270,14 +327,26 @@ class _Appt:
         self.lastresult = None
         self.enabled = True
 
-    def getRuntInfo(self):
-        buid = s_common.buid(('syn:cron', self.iden))
-        return buid, (
-            ('*syn:cron', self.iden),
-            ('doc', self.doc),
-            ('name', self.name),
-            ('storm', self.query),
-        )
+    def getStorNode(self, form):
+        ndef = (form.name, form.type.norm(self.iden)[0])
+        buid = s_common.buid(ndef)
+
+        props = {
+            'doc': self.doc,
+            'name': self.name,
+            'storm': self.query,
+        }
+
+        pnorms = {}
+        for prop, valu in props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
+
+        return (buid, {
+            'ndef': ndef,
+            'props': pnorms
+        })
 
     def __eq__(self, other):
         ''' For heap logic to sort upcoming events lower '''
@@ -297,7 +366,7 @@ class _Appt:
             'iden': self.iden,
             'indx': self.indx,
             'query': self.query,
-            'useriden': self.useriden,
+            'creator': self.creator,
             'recs': [d.pack() for d in self.recs],
             'nexttime': self.nexttime,
             'startcount': self.startcount,
@@ -312,7 +381,7 @@ class _Appt:
         if val['ver'] != 1:
             raise s_exc.BadStorageVersion(mesg=f"Found version {val['ver']}")  # pragma: no cover
         recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
-        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['useriden'], recs, val['nexttime'])
+        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['creator'], recs, val['nexttime'])
         appt.doc = val.get('doc', '')
         appt.name = val.get('name', '')
         appt.startcount = val['startcount']
@@ -361,17 +430,6 @@ class _Appt:
             self.nexttime = None
             return
 
-    async def reqAllowed(self, user, perm):
-        if not await self.allowed(user, perm):
-            mesg = 'User does not own or have permissions to cron job.'
-            raise s_exc.AuthDeny(perm=perm, mesg=mesg)
-
-    async def allowed(self, user, perm):
-        if user.iden == self.useriden:
-            return True
-
-        return user.allowed(perm)
-
     async def setDoc(self, text):
         '''
         Set the doc field of an appointment.
@@ -409,21 +467,6 @@ class Agenda(s_base.Base):
         self.enabled = False
         self._schedtask = None  # The task of the scheduler loop.  Doesn't run until we're enabled
         await self._load_all()
-
-    async def onLiftRunts(self, full, valu=None, cmpr=None):
-
-        if valu is None:
-            for iden, cjob in self.appts.items():
-                yield cjob.getRuntInfo()
-
-            return
-
-        iden = str(valu)
-        cjob = self.appts.get(iden)
-        if cjob is None:
-            return
-
-        yield cjob.getRuntInfo()
 
     async def start(self):
         '''
@@ -507,7 +550,7 @@ class Agenda(s_base.Base):
     def list(self):
         return list(self.appts.items())
 
-    async def add(self, useriden, query: str, reqs, incunit=None, incvals=None, doc=''):
+    async def add(self, cdef):
         '''
         Persistently adds an appointment
 
@@ -531,13 +574,16 @@ class Agenda(s_base.Base):
         Returns:
             iden of new appointment
         '''
-        iden = s_common.guid()
+        iden = cdef['iden']
+        incunit = cdef.get('incunit')
+        incvals = cdef.get('incvals')
+        reqs = cdef.get('reqs', {})
+        query = cdef.get('storm')
+        creator = cdef.get('creator')
+
         recur = incunit is not None
         indx = self._next_indx
         self._next_indx += 1
-
-        if reqs is None:
-            reqs = {}
 
         if not query:
             raise ValueError('empty query')
@@ -552,7 +598,7 @@ class Agenda(s_base.Base):
             reqs = [reqs]
 
         # Find all combinations of values in reqdict values and incvals values
-        recs = []
+        recs = []  # type: ignore
         for req in reqs:
 
             reqdicts = self._dictproduct(req)
@@ -560,14 +606,14 @@ class Agenda(s_base.Base):
                 incvals = (incvals, )
             recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
 
-        appt = _Appt(self, iden, recur, indx, query, useriden, recs)
+        appt = _Appt(self, iden, recur, indx, query, creator, recs)
         self._addappt(iden, appt)
 
-        appt.doc = doc
+        appt.doc = cdef.get('doc', '')
 
         await self._storeAppt(appt)
 
-        return iden
+        return appt.pack()
 
     async def get(self, iden):
 
@@ -670,9 +716,9 @@ class Agenda(s_base.Base):
         '''
         Fire off the task to make the storm query
         '''
-        user = self.core.auth.user(appt.useriden)
+        user = self.core.auth.user(appt.creator)
         if user is None:
-            logger.warning('Unknown user %s in stored appointment', appt.useriden)
+            logger.warning('Unknown user %s in stored appointment', appt.creator)
             await self._markfailed(appt)
             return
         await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user,

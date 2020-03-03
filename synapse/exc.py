@@ -78,6 +78,9 @@ class NoPropValu(SynErr): pass
 
 class BadOptValu(SynErr): pass
 class BadPropValu(SynErr): pass
+class BadVersion(SynErr):
+    '''Generic Bad Version exception.'''
+    pass
 class BadStorageVersion(SynErr):
     ''' Stored persistent data is incompatible with running software '''
     pass
@@ -92,6 +95,7 @@ class CantDelNode(SynErr): pass
 class CantDelProp(SynErr): pass
 class CantDelUniv(SynErr): pass
 class CantDelRootUser(SynErr): pass
+class CantMergeView(SynErr): pass
 class CantRevLayer(SynErr): pass
 class CliFini(SynErr):
     '''
@@ -117,6 +121,7 @@ class DataAlreadyExists(SynErr):
 
 class DbOutOfSpace(SynErr): pass
 class DupName(SynErr): pass
+class DupIden(SynErr): pass
 class DupFileName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupRoleName(SynErr): pass
@@ -174,13 +179,18 @@ class NoSuchPivot(SynErr): pass
 class NoSuchProp(SynErr): pass
 class NoSuchUniv(SynErr): pass
 class NoSuchRole(SynErr): pass
-class NoSuchStor(SynErr): pass
 class NoSuchType(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchVar(SynErr): pass
 class NoSuchView(SynErr): pass
 class NoSuchTagProp(SynErr): pass
 class NoSuchStormSvc(SynErr): pass
+
+class NoSuchStor(SynErr):
+    def __init__(self, name):
+        SynErr.__init__(self, mesg=f'No storage type found named {name!r}', name=name)
+
+class NotANumberCompared(SynErr): pass
 
 class ParserExit(SynErr):
     ''' Raised by synapse.lib.cmd.Parser on Parser exit() '''

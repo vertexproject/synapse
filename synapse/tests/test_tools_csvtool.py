@@ -61,7 +61,7 @@ class CsvToolTest(s_t_utils.SynTest):
 
             await s_csvtool.main(argv, outp=outp)
             outp.expect('oh hai')
-            outp.expect('2 nodes (9 created)')
+            outp.expect('2 nodes')
 
     async def test_csvtool_missingvals(self):
 
@@ -87,7 +87,7 @@ class CsvToolTest(s_t_utils.SynTest):
             await s_csvtool.main(argv, outp=outp)
             outp.expect('hello hello')
             outp.expect("'fqdn': 'google.com'")
-            outp.expect('3 nodes (15 created)')
+            outp.expect('3 nodes')
 
     async def test_csvtool_local(self):
 
@@ -107,7 +107,7 @@ class CsvToolTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
 
             await s_csvtool.main(argv, outp=outp)
-            outp.expect('2 nodes (9 created)')
+            outp.expect('2 nodes')
 
     async def test_csvtool_cli(self):
 
@@ -135,7 +135,7 @@ class CsvToolTest(s_t_utils.SynTest):
                     await s_csvtool.main(argv, outp=outp)
 
             outp.expect('inet:fqdn=google.com')
-            outp.expect('2 nodes (9 created)')
+            outp.expect('2 nodes')
 
     async def test_csvtool_export(self):
 

@@ -86,7 +86,7 @@ class SnapTest(s_t_utils.SynTest):
                     # Test read, then a bunch of reads, then read coherency
 
                     await alist(snap.addNodes([(('test:int', x), {}) for x in range(1, 20)]))
-                    nodes = await alist(snap.getNodesBy('test:int'))
+                    nodes = await alist(snap.nodesByProp('test:int'))
 
                     self.eq(nodes[0].buid, node0.buid)
                     self.eq(id(nodes[0]), id(node0))
@@ -124,9 +124,31 @@ class SnapTest(s_t_utils.SynTest):
                 self.ge(node.props.get('.created', 0), 5)
                 self.eq(node.tags.get('cool'), (1, 2))
 
-                nodes = await alist(snap.getNodesBy('test:str', 'hehe'))
+                nodes = await alist(snap.nodesByPropValu('test:str', '=', 'hehe'))
                 self.len(1, nodes)
                 self.eq(nodes[0], node)
+
+    async def test_addNodesAuto(self):
+        '''
+        Secondary props that are forms when set make nodes
+        '''
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+
+                node = await snap.addNode('test:guid', '*')
+                await node.set('size', 42)
+                nodes = await alist(snap.nodesByPropValu('test:int', '=', 42))
+                self.len(1, nodes)
+
+                # For good measure, set a secondary prop that is itself a comp type that has an element that is a form
+                node = await snap.addNode('test:haspivcomp', 42)
+                await node.set('have', ('woot', 'rofl'))
+                nodes = await alist(snap.nodesByPropValu('test:pivcomp', '=', ('woot', 'rofl')))
+                self.len(1, nodes)
+                nodes = await alist(snap.nodesByProp('test:pivcomp:lulz'))
+                self.len(1, nodes)
+                nodes = await alist(snap.nodesByPropValu('test:str', '=', 'rofl'))
+                self.len(1, nodes)
 
     async def test_addNodeRace(self):
         ''' Test when a reader might retrieve a partially constructed node '''
@@ -219,64 +241,65 @@ class SnapTest(s_t_utils.SynTest):
     @contextlib.asynccontextmanager
     async def _getTestCoreMultiLayer(self):
         '''
-        Custom logic to make a second cortex that puts another cortex's layer underneath.
+        Create a cortex with a second view which has an additional layer above the main layer.
 
         Notes:
             This method is broken out so subclasses can override.
         '''
         async with self.getTestCore() as core0:
 
-            async with self.getTestCore() as core1:
+            view0 = core0.view
+            layr0 = view0.layers[0]
 
-                config = {'url': core0.getLocalUrl('*/layer')}
-                layr = await core1.addLayer(type='remote', config=config)
+            ldef1 = await core0.addLayer()
+            layr1 = core0.getLayer(ldef1.get('iden'))
+            vdef1 = await core0.addView({'layers': [layr1.iden, layr0.iden]})
 
-                await core1.view.addLayer(layr)
-                yield core0, core1
+            yield view0, core0.getView(vdef1.get('iden'))
 
     async def test_cortex_lift_layers_simple(self):
-        async with self._getTestCoreMultiLayer() as (core0, core1):
-            ''' Test that you can write to core0 and read it from core 1 '''
-            self.len(1, await core0.eval('[ inet:ipv4=1.2.3.4 :asn=42 +#woot=(2014, 2015)]').list())
-            self.len(1, await core1.eval('inet:ipv4').list())
-            self.len(1, await core1.eval('inet:ipv4=1.2.3.4').list())
-            self.len(1, await core1.eval('inet:ipv4:asn=42').list())
-            self.len(1, await core1.eval('inet:ipv4 +:asn=42').list())
-            self.len(1, await core1.eval('inet:ipv4 +#woot').list())
+        async with self._getTestCoreMultiLayer() as (view0, view1):
+            ''' Test that you can write to view0 and read it from view1 '''
+            self.len(1, await alist(view0.eval('[ inet:ipv4=1.2.3.4 :asn=42 +#woot=(2014, 2015)]')))
+            self.len(1, await alist(view1.eval('inet:ipv4')))
+            self.len(1, await alist(view1.eval('inet:ipv4=1.2.3.4')))
+            self.len(1, await alist(view1.eval('inet:ipv4:asn=42')))
+            self.len(1, await alist(view1.eval('inet:ipv4 +:asn=42')))
+            self.len(1, await alist(view1.eval('inet:ipv4 +#woot')))
 
     async def test_cortex_lift_layers_bad_filter(self):
         '''
         Test a two layer cortex where a lift operation gives the wrong result
         '''
-        async with self._getTestCoreMultiLayer() as (core0, core1):
+        async with self._getTestCoreMultiLayer() as (view0, view1):
 
-            self.len(1, await core0.eval('[ inet:ipv4=1.2.3.4 :asn=42 +#woot=(2014, 2015)]').list())
-            self.len(1, await core1.eval('inet:ipv4=1.2.3.4 [ :asn=31337 +#woot=2016 ]').list())
+            self.len(1, await alist(view0.eval('[ inet:ipv4=1.2.3.4 :asn=42 +#woot=(2014, 2015)]')))
+            self.len(1, await alist(view1.eval('inet:ipv4=1.2.3.4 [ :asn=31337 +#woot=2016 ]')))
 
-            self.len(0, await core0.eval('inet:ipv4:asn=31337').list())
-            self.len(1, await core1.eval('inet:ipv4:asn=31337').list())
+            self.len(0, await alist(view0.eval('inet:ipv4:asn=31337')))
+            self.len(1, await alist(view1.eval('inet:ipv4:asn=31337')))
 
-            self.len(1, await core0.eval('inet:ipv4:asn=42').list())
-            self.len(0, await core1.eval('inet:ipv4:asn=42').list())
+            self.len(1, await alist(view0.eval('inet:ipv4:asn=42')))
+            self.len(0, await alist(view1.eval('inet:ipv4:asn=42')))
 
     async def test_cortex_lift_layers_dup(self):
         '''
         Test a two layer cortex where a lift operation might give the same node twice incorrectly
         '''
-        async with self._getTestCoreMultiLayer() as (core0, core1):
-            # add to core1 first so we can cause creation in both...
-            self.len(1, await core1.eval('[ inet:ipv4=1.2.3.4 :asn=42 ]').list())
-            self.len(1, await core0.eval('[ inet:ipv4=1.2.3.4 :asn=42 ]').list())
+        async with self._getTestCoreMultiLayer() as (view0, view1):
+            # add to view1 first so we can cause creation in both...
+            self.len(1, await alist(view1.eval('[ inet:ipv4=1.2.3.4 :asn=42 ]')))
+            self.len(1, await alist(view0.eval('[ inet:ipv4=1.2.3.4 :asn=42 ]')))
 
             # lift by primary and ensure only one...
-            self.len(1, await core1.eval('inet:ipv4').list())
+            self.len(1, await alist(view1.eval('inet:ipv4')))
 
             # lift by secondary and ensure only one...
-            self.len(1, await core1.eval('inet:ipv4:asn=42').list())
+            self.len(1, await alist(view1.eval('inet:ipv4:asn=42')))
 
             # now set one to a diff value that we will ask for but should be masked
-            self.len(1, await core0.eval('[ inet:ipv4=1.2.3.4 :asn=99 ]').list())
-            self.len(0, await core1.eval('inet:ipv4:asn=99').list())
+            self.len(1, await alist(view0.eval('[ inet:ipv4=1.2.3.4 :asn=99 ]')))
+            self.len(0, await alist(view1.eval('inet:ipv4:asn=99')))
 
     async def test_cortex_lift_bytype(self):
         async with self.getTestCore() as core:
@@ -329,3 +352,33 @@ class SnapTest(s_t_utils.SynTest):
                 new_node0 = await snap0.getNodeByNdef(('test:str', 'node0'))
                 self.ne(id(original_node0), id(new_node0))
                 self.notin('foo.bar.baz', new_node0.tags)
+
+    async def test_cortex_lift_layers_bad_filter_tagprop(self):
+        '''
+        Test a two layer cortex where a lift operation gives the wrong result, with tagprops
+        '''
+        async with self._getTestCoreMultiLayer() as (view0, view1):
+            await view0.core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
+
+            self.len(1, await view0.nodes('[ test:int=10 +#woot:score=20 ]'))
+            self.len(1, await view1.nodes('[ test:int=10 +#woot:score=40 ]'))
+
+            self.len(0, await view0.nodes('#woot:score=40'))
+            self.len(1, await view1.nodes('#woot:score=40'))
+
+            self.len(1, await view0.nodes('#woot:score=20'))
+            self.len(0, await view1.nodes('#woot:score=20'))
+
+    async def test_cortex_lift_layers_dup_tagprop(self):
+        '''
+        Test a two layer cortex where a lift operation might give the same node twice incorrectly
+        '''
+        async with self._getTestCoreMultiLayer() as (view0, view1):
+            await view0.core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
+
+            self.len(1, await view1.nodes('[ test:int=10 +#woot:score=20 ]'))
+            self.len(1, await view0.nodes('[ test:int=10 +#woot:score=20 ]'))
+
+            self.len(1, await view1.nodes('#woot:score=20'))
+
+            self.len(1, await view0.nodes('[ test:int=10 +#woot:score=40 ]'))

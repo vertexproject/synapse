@@ -8,7 +8,7 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-class SemVer(s_types.Type):
+class SemVer(s_types.Int):
     '''
     Provides support for parsing a semantic version string into its component
     parts. This normalizes a version string into an integer to allow version
@@ -24,6 +24,7 @@ class SemVer(s_types.Type):
     strings if that information is present.
     '''
     def postTypeInit(self):
+        s_types.Int.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
@@ -58,9 +59,6 @@ class SemVer(s_types.Type):
         major, minor, patch = s_version.unpackVersion(valu)
         valu = s_version.fmtVersion(major, minor, patch)
         return valu
-
-    def indx(self, valu):
-        return valu.to_bytes(8, 'big')
 
 class ItModule(s_module.CoreModule):
     async def initCoreModule(self):
@@ -113,9 +111,10 @@ class ItModule(s_module.CoreModule):
         # Check to see if name is available and set it if possible
         prop = node.get('software')
         if prop:
-            snodes = [n async for n in node.snap.getNodesBy('it:prod:soft', prop)]
-            if snodes:
-                name = snodes[0].get('name')
+            opts = {'vars': {'soft': prop}}
+            nodes = await node.snap.nodes('it:prod:soft=$soft', opts=opts)
+            if nodes:
+                name = nodes[0].get('name')
                 if name:
                     await node.set('software:name', name)
 
@@ -322,7 +321,6 @@ class ItModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'doc': 'A free-form description of the host.',
                     }),
-                    #  FIXME we probably eventually need a bunch of stuff here...
                     ('ipv4', ('inet:ipv4', {}), {
                         'doc': 'The last known ipv4 address for the host.'
                     }),

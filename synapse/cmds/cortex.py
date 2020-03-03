@@ -1,3 +1,4 @@
+import os
 import json
 import queue
 import shlex
@@ -44,7 +45,7 @@ Examples:
     log --on --nodes-only --path /my/awesome/log/directory/stormnodes20010203.mpk
     '''
     _cmd_name = 'log'
-    _cmd_syntax = (  # type: ignore
+    _cmd_syntax = (
         ('line', {'type': 'glob'}),
     )
 
@@ -186,7 +187,7 @@ Examples:
 
         try:
             opts = self._make_argparser().parse_args(shlex.split(line))
-        except s_exc.ParserExit as e:
+        except s_exc.ParserExit:
             return
 
         if opts.on:
@@ -214,7 +215,7 @@ class StormCmd(s_cli.Cmd):
         --path: Get path information about returned nodes.
         --show <names>: Limit storm events (server-side) to the comma sep list)
         --file <path>: Run the storm query specified in the given file path.
-        --optsfile <path>: Run the query with the given options from a JSON file.
+        --optsfile <path>: Run the query with the given options from a JSON/YAML file.
         --spawn: (EXPERIMENTAL!) Run the query within a spawned sub-process runtime (read-only).
 
     Examples:
@@ -225,7 +226,7 @@ class StormCmd(s_cli.Cmd):
 
     _cmd_name = 'storm'
     _cmd_syntax = (
-        ('--hide-tags', {}),
+        ('--hide-tags', {}),  # type: ignore
         ('--show', {'type': 'valu'}),
         ('--file', {'type': 'valu'}),
         ('--optsfile', {'type': 'valu'}),
@@ -352,20 +353,17 @@ class StormCmd(s_cli.Cmd):
                 with open(filename, 'r') as fd:
                     text = fd.read()
 
-            except FileNotFoundError as e:
+            except FileNotFoundError:
                 self.printf('file not found: %s' % (filename,))
                 return
 
         stormopts = {}
         optsfile = opts.get('optsfile')
         if optsfile is not None:
-            try:
-                with open(optsfile) as fd:
-                    stormopts = json.loads(fd.read())
-
-            except FileNotFoundError as e:
+            if not os.path.isfile(optsfile):
                 self.printf('optsfile not found: %s' % (optsfile,))
                 return
+            stormopts = s_common.yamlload(optsfile)
 
         hide_unknown = opts.get('hide-unknown', self._cmd_cli.locs.get('storm:hide-unknown'))
         core = self.getCmdItem()

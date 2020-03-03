@@ -29,10 +29,8 @@ logger = logging.getLogger(__name__)
 class Cmd:
     '''
     Base class for modular commands in the synapse CLI.
-
-    FIXME: document the _cmd_syntax definitions.
     '''
-    _cmd_name = 'FIXME'
+    _cmd_name = 'fixme'
     _cmd_syntax = ()
 
     def __init__(self, cli, **opts):
@@ -87,7 +85,6 @@ class Cmd:
         opts = {}
 
         args = collections.deque([synt for synt in self._cmd_syntax if not synt[0].startswith('-')])
-
         switches = {synt[0]: synt for synt in self._cmd_syntax if synt[0].startswith('-')}
 
         # populate defaults and lists
@@ -359,8 +356,6 @@ class Cli(s_base.Base):
         '''
         while not self.isfini:
 
-            # FIXME completion
-
             self.cmdtask = None
 
             try:
@@ -471,9 +466,9 @@ class CmdHelp(Cmd):
 
     '''
     _cmd_name = 'help'
-    _cmd_syntax = [
-        ('cmds', {'type': 'list'})
-    ]
+    _cmd_syntax = (  # type: ignore
+        ('cmds', {'type': 'list'}),
+    )
 
     async def runCmdOpts(self, opts):
         cmds = opts.get('cmds')

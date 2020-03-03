@@ -147,8 +147,8 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             # Warning test
             guid = s_common.guid()
-            podes = await alist(core.eval(f'[test:guid={guid}]'))
-            podes = await alist(core.eval(f'[test:edge=(("test:guid", {guid}), ("test:str", abcd))]'))
+            await alist(core.eval(f'[test:guid={guid}]'))
+            await alist(core.eval(f'[test:edge=(("test:guid", {guid}), ("test:str", abcd))]'))
 
             q = 'storm test:str=abcd <- test:edge :n1:form -> *'
             outp = self.getTestOutp()
@@ -281,7 +281,6 @@ class CmdCoreTest(s_t_utils.SynTest):
                 with s_common.genfile(fp) as fd:
                     genr = s_encoding.iterdata(fd, close_fd=False, format='mpk')
                     objs = list(genr)
-                self.eq(objs[0][0], 'node:add')
 
                 outp = self.getTestOutp()
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
@@ -325,7 +324,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('log --on --nodes-only')
                 cmdr.locs['log:fmt'] = 'newp'
                 with self.getAsyncLoggerStream('synapse.cmds.cortex',
-                                                     'Unknown encoding format: newp') as stream:
+                                               'Unknown encoding format: newp') as stream:
                     await cmdr.runCmdLine('storm test:str')
                     self.true(await stream.wait(2))
 
@@ -353,21 +352,27 @@ class CmdCoreTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
+            test_opts = {'vars': {'hehe': 'woot.com'}}
             dirn = s_common.gendir(core.dirn, 'junk')
 
             optsfile = os.path.join(dirn, 'woot.json')
+            optsfile_yaml = os.path.join(dirn, 'woot.yaml')
             stormfile = os.path.join(dirn, 'woot.storm')
 
             with s_common.genfile(stormfile) as fd:
                 fd.write(b'[ inet:fqdn=$hehe ]')
 
-            with s_common.genfile(optsfile) as fd:
-                fd.write(b'{"vars": {"hehe": "woot.com"}}')
+            s_common.jssave(test_opts, optsfile)
+            s_common.yamlsave(test_opts, optsfile_yaml)
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
-
             await cmdr.runCmdLine(f'storm --optsfile {optsfile} --file {stormfile}')
+            self.true(outp.expect('inet:fqdn=woot.com'))
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
+            await cmdr.runCmdLine(f'storm --optsfile {optsfile_yaml} --file {stormfile}')
             self.true(outp.expect('inet:fqdn=woot.com'))
 
             # Sad path cases

@@ -20,8 +20,11 @@ def chop_imei(imei):
     cd = int(imei[14:15])
     return valu, {'subs': {'tac': tac, 'serial': snr, 'cd': cd}}
 
-class Phone(s_types.Type):
+class Phone(s_types.Str):
+
     def postTypeInit(self):
+        s_types.Str.postTypeInit(self)
+        self.opts['globsuffix'] = True
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
@@ -48,30 +51,10 @@ class Phone(s_types.Type):
                                     mesg='phone int must be greater than 0')
         return self._normPyStr(str(valu))
 
-    def indx(self, valu):
-        '''
-
-        Args:
-            valu (str): Value to encode
-
-        Returns:
-            bytes: Encoded value
-        '''
-        return valu.encode('utf8')
-
-    def indxByEq(self, valu):
-        if isinstance(valu, str) and valu.endswith('*'):
-            norm, _ = self._normPyStr(valu)
-            return (
-                ('pref', self.indx(norm)),
-            )
-        return s_types.Type.indxByEq(self, valu)
-
     def repr(self, valu):
-        # FIXME implement more geo aware reprs
         # XXX geo-aware reprs are practically a function of cc which
         # XXX the raw value may only have after doing a s_l_phone lookup
-        if valu[0] == '1':  # FIXME Length check
+        if valu[0] == '1' and len(valu) == 11:
             area = valu[1:4]
             pref = valu[4:7]
             numb = valu[7:11]
@@ -100,17 +83,12 @@ def imeicsum(text):
 
     return str(chek)
 
-class Imsi(s_types.Type):
-    def postTypeInit(self):
-        self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(int, self._normPyInt)
+class Imsi(s_types.Int):
 
-    def _normPyStr(self, valu):
-        digs = digits(valu)
-        if not digs:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='requires a digit string')
-        return self._normPyInt(int(digs))
+    def postTypeInit(self):
+        self.opts['size'] = 8
+        self.opts['signed'] = False
+        return s_types.Int.postTypeInit(self)
 
     def _normPyInt(self, valu):
         imsi = str(valu)
@@ -123,29 +101,13 @@ class Imsi(s_types.Type):
         # TODO full imsi analysis tree
         return valu, {'subs': {'mcc': mcc}}
 
-    def indx(self, valu):
-        '''
-
-        Args:
-            valu (int):
-
-        Returns:
-            bytes:
-        '''
-        return valu.to_bytes(8, byteorder='big')
-
 # TODO: support pre 2004 "old" imei format
-class Imei(s_types.Type):
-    def postTypeInit(self):
-        self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(int, self._normPyInt)
+class Imei(s_types.Int):
 
-    def _normPyStr(self, valu):
-        digs = digits(valu)
-        if not digs:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='requires a digit string')
-        return self._normPyInt(int(digs))
+    def postTypeInit(self):
+        self.opts['size'] = 8
+        self.opts['signed'] = False
+        return s_types.Int.postTypeInit(self)
 
     def _normPyInt(self, valu):
         imei = str(valu)
@@ -166,17 +128,6 @@ class Imei(s_types.Type):
 
         raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                 mesg='Failed to norm IMEI')
-
-    def indx(self, valu):
-        '''
-
-        Args:
-            valu (int):
-
-        Returns:
-            bytes:
-        '''
-        return valu.to_bytes(7, byteorder='big')
 
 class TelcoModule(s_module.CoreModule):
     def getModelDefs(self):

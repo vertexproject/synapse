@@ -9,6 +9,7 @@ import regex
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.chop as s_chop
+import synapse.lib.layer as s_layer
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
 import synapse.lib.module as s_module
@@ -16,7 +17,7 @@ import synapse.lookup.iana as s_l_iana
 
 logger = logging.getLogger(__name__)
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
-srv6re = regex.compile(r'^\[([a-f0-9:]+)\]:(\d+)$')
+srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\]:(\d+)$')
 
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 
@@ -40,10 +41,10 @@ def getAddrType(ip):
 
     return 'unicast'
 
-class Addr(s_types.StrBase):
+class Addr(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _getPort(self, valu):
@@ -106,8 +107,8 @@ class Addr(s_types.StrBase):
 
                 return f'{proto}://[{ipv6}]:{port}', {'subs': subs}
 
-            raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                    mesg='invalid IPv6 w/ port')
+            mesg = f'Invalid IPv6 w/port ({orig})'
+            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
 
         elif valu.count(':') >= 2:
             ipv6 = self.modl.type('inet:ipv6').norm(valu)[0]
@@ -125,10 +126,10 @@ class Addr(s_types.StrBase):
 
         return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs}
 
-class Cidr4(s_types.StrBase):
+class Cidr4(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
@@ -156,10 +157,10 @@ class Cidr4(s_types.StrBase):
         }
         return norm, info
 
-class Cidr6(s_types.StrBase):
+class Cidr6(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
@@ -178,10 +179,10 @@ class Cidr6(s_types.StrBase):
         }
         return norm, info
 
-class Email(s_types.StrBase):
+class Email(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
@@ -205,8 +206,44 @@ class Email(s_types.StrBase):
 
 class Fqdn(s_types.Type):
 
+    stortype = s_layer.STOR_TYPE_FQDN
+
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
+        self.storlifts.update({
+            '=': self._storLiftEq,
+        })
+
+    def _storLiftEq(self, cmpr, valu):
+
+        if type(valu) == str:
+
+            if valu == '':
+                mesg = 'Cannot generate fqdn index bytes for a empty string.'
+                raise s_exc.BadLiftValu(valu=valu, name=self.name, mesg=mesg)
+
+            if valu == '*':
+                return (
+                    ('=', '*', self.stortype),
+                )
+
+            if valu.startswith('*.'):
+                norm, info = self.norm(valu[2:])
+                return (
+                    ('=', f'*.{norm}', self.stortype),
+                )
+
+            if valu.startswith('*'):
+                norm, info = self.norm(valu[1:])
+                return (
+                    ('=', f'*{norm}', self.stortype),
+                )
+
+            if '*' in valu:
+                mesg = 'Wild card may only appear at the beginning.'
+                raise s_exc.BadLiftValu(valu=valu, name=self.name, mesg=mesg)
+
+        return self._storLiftNorm(cmpr, valu)
 
     def _ctorCmprEq(self, text):
         if text == '':
@@ -261,30 +298,30 @@ class Fqdn(s_types.Type):
         if len(parts) == 2:
             subs['domain'] = parts[1]
         else:
-            subs['sfx'] = 1
+            subs['issuffix'] = 1
 
         return valu, {'subs': subs}
 
-    def indx(self, norm):
-        return norm[::-1].encode('utf8')
+    #def indx(self, norm):
+        #return norm[::-1].encode('utf8')
 
-    def indxByEq(self, valu):
+    #def liftByEq(self, valu):
 
-        if valu == '':
-            raise s_exc.BadLiftValu(valu=valu, name=self.name,
-                                    mesg='Cannot generate fqdn index bytes for a empty string.')
+        #if valu == '':
+            #raise s_exc.BadLiftValu(valu=valu, name=self.name,
+                                    #mesg='Cannot generate fqdn index bytes for a empty string.')
 
-        if valu[0] == '*':
-            indx = valu[1:][::-1].encode('utf8')
-            return (
-                ('pref', indx),
-            )
+        #if valu[0] == '*':
+            #indx = valu[1:][::-1].encode('utf8')
+            #return (
+                #('pref', indx),
+            #)
 
-        if valu.find('*') != -1:
-            raise s_exc.BadLiftValu(valu=valu, name=self.name,
-                                    mesg='Wild card may only appear at the beginning.')
+        #if valu.find('*') != -1:
+            #raise s_exc.BadLiftValu(valu=valu, name=self.name,
+                                    #mesg='Wild card may only appear at the beginning.')
 
-        return s_types.Type.indxByEq(self, valu)
+        #return s_types.Type.indxByEq(self, valu)
 
     def repr(self, valu):
         try:
@@ -292,13 +329,21 @@ class Fqdn(s_types.Type):
         except UnicodeError:
             return valu
 
+import synapse.lib.layer as s_layer
+
 class IPv4(s_types.Type):
     '''
     The base type for an IPv4 address.
     '''
+    stortype = s_layer.STOR_TYPE_U32
+
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
+
+        self.storlifts.update({
+            '=': self._storLiftEq,
+        })
 
     def _ctorCmprEq(self, valu):
 
@@ -367,11 +412,9 @@ class IPv4(s_types.Type):
         norm = int.from_bytes(byts, 'big')
         return self._normPyInt(norm)
 
-    def indx(self, norm):
-        return norm.to_bytes(4, 'big')
-
     def repr(self, norm):
-        return socket.inet_ntoa(self.indx(norm))
+        byts = norm.to_bytes(4, 'big')
+        return socket.inet_ntoa(byts)
 
     def getNetRange(self, text):
         minstr, maxstr = text.split('-')
@@ -388,7 +431,7 @@ class IPv4(s_types.Type):
         minv = norm & mask[0]
         return minv, minv + mask[1]
 
-    def indxByEq(self, valu):
+    def _storLiftEq(self, cmpr, valu):
 
         if type(valu) == str:
 
@@ -396,25 +439,24 @@ class IPv4(s_types.Type):
                 minv, maxv = self.getCidrRange(valu)
                 maxv -= 1
                 return (
-                    ('range', (self.indx(minv), self.indx(maxv))),
+                    ('range=', (minv, maxv), self.stortype),
                 )
 
             if valu.find('-') != -1:
                 minv, maxv = self.getNetRange(valu)
                 return (
-                    ('range', (self.indx(minv), self.indx(maxv))),
+                    ('range=', (minv, maxv), self.stortype),
                 )
 
-        return s_types.Type.indxByEq(self, valu)
+        return self._storLiftNorm(cmpr, valu)
 
 class IPv6(s_types.Type):
+
+    stortype = s_layer.STOR_TYPE_IPV6
 
     def postTypeInit(self):
         self.setNormFunc(int, self._normPyStr)
         self.setNormFunc(str, self._normPyStr)
-
-    def indx(self, norm):
-        return ipaddress.IPv6Address(norm).packed
 
     def _normPyStr(self, valu):
 
@@ -485,13 +527,13 @@ class IPv6Range(s_types.Range):
 
         return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
 
-class Rfc2822Addr(s_types.StrBase):
+class Rfc2822Addr(s_types.Str):
     '''
     An RFC 2822 compatible email address parser
     '''
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def indxByPref(self, valu):
@@ -536,10 +578,10 @@ class Rfc2822Addr(s_types.StrBase):
 
         return valu, {'subs': subs}
 
-class Url(s_types.StrBase):
+class Url(s_types.Str):
 
     def postTypeInit(self):
-        s_types.StrBase.postTypeInit(self)
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _ctorCmprEq(self, text):
@@ -710,8 +752,12 @@ class InetModule(s_module.CoreModule):
         domain = node.get('domain')
 
         if domain is None:
+            await node.set('iszone', False)
             await node.set('issuffix', True)
             return
+
+        if node.get('issuffix') is None:
+            await node.set('issuffix', False)
 
         # almost certainly in the cache anyway....
         parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
@@ -720,6 +766,8 @@ class InetModule(s_module.CoreModule):
             await node.set('iszone', True)
             await node.set('zone', fqdn)
             return
+
+        await node.set('iszone', False)
 
         if parent.get('iszone'):
             await node.set('zone', domain)
@@ -734,7 +782,7 @@ class InetModule(s_module.CoreModule):
         fqdn = node.ndef[1]
 
         issuffix = node.get('issuffix')
-        async for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
+        async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
             await child.set('iszone', issuffix)
 
     async def _onSetFqdnIsZone(self, node, oldv):
@@ -767,7 +815,7 @@ class InetModule(s_module.CoreModule):
         fqdn = node.ndef[1]
         zone = node.get('zone')
 
-        async for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
+        async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
 
             # if they are their own zone level, skip
             if child.get('iszone'):
