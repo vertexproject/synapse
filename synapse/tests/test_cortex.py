@@ -1385,6 +1385,36 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(pnfo)
             self.eq(pnfo['type'][0], 'inet:asn')
 
+            modelt = model['types']
+
+            fname = 'inet:dns:rev'
+            cmodel = core.model.form(fname)
+            modelf = model['forms'][fname]
+            self.eq(cmodel.type.stortype, modelt[fname].get('stortype'))
+
+            self.eq(cmodel.prop('ipv4').type.stortype,
+                    modelt.get(modelf['props']['ipv4']['type'][0], {}).get('stortype'))
+            self.eq(cmodel.prop('.created').type.stortype,
+                    modelt.get(modelf['props']['.created']['type'][0], {}).get('stortype'))
+
+            fname = 'file:bytes'
+            cmodel = core.model.form(fname)
+            modelf = model['forms'][fname]
+            self.eq(cmodel.type.stortype, modelt[fname].get('stortype'))
+
+            self.eq(cmodel.prop('size').type.stortype,
+                    modelt.get(modelf['props']['size']['type'][0], {}).get('stortype'))
+            self.eq(cmodel.prop('sha256').type.stortype,
+                    modelt.get(modelf['props']['sha256']['type'][0], {}).get('stortype'))
+
+            fname = 'test:int'
+            cmodel = core.model.form(fname)
+            modelf = model['forms'][fname]
+            self.eq(cmodel.type.stortype, modelt[fname].get('stortype'))
+
+            self.eq(cmodel.prop('.test:univ').type.stortype,
+                    modelt.get(modelf['props']['.test:univ']['type'][0], {}).get('stortype'))
+
     async def test_storm_graph(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
