@@ -13,11 +13,6 @@ class DnsName(s_types.Str):
 
         self.setNormFunc(str, self._normPyStr)
 
-    def indxByPref(self, valu):
-        valu = valu.lower()
-        valu = valu.strip()
-        return s_types.Str.indxByPref(self, valu)
-
     def _normPyStr(self, valu):
         # Backwards compatible
         norm = valu.lower()

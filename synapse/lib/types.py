@@ -49,12 +49,6 @@ class Type:
         self._cmpr_ctors = {}   # cmpr string to filter function constructor map
         self._cmpr_ctor_lift = {} # if set, create a cmpr which is passed along with indx ops
 
-        # self.indxcmpr = {
-        #    '=': self.indxByEq,
-        #    'in=': self.indxByIn,
-        #    'range=': self.indxByRange,
-        # }
-
         self.setCmprCtor('=', self._ctorCmprEq)
         self.setCmprCtor('!=', self._ctorCmprNe)
         self.setCmprCtor('~=', self._ctorCmprRe)
@@ -148,19 +142,6 @@ class Type:
 
     def _normStormNode(self, node):
         return self.norm(node.ndef[1])
-
-    def _getIndxChop(self, indx):
-        '''
-        A helper method for Type subclasses to use for a simple way to truncate
-        indx bytes.
-        '''
-        # cut down an index value to 256 bytes...
-        if len(indx) <= 256:
-            return indx
-
-        base = indx[:248]
-        sufx = xxhash.xxh64(indx).digest()
-        return base + sufx
 
     def pack(self):
         return {
@@ -441,15 +422,6 @@ class Array(Type):
     def repr(self, valu):
         return [self.arraytype.repr(v) for v in valu]
 
-    # #def indx(self, norm):
-    #     # return a tuple of indx bytes and the layer will know what to do
-    #     #vals = []
-    #     # prop=[foo,bar]
-    #     #vals.append(b'\x00' + s_common.buid(norm))
-    #     ## prop*contains=foo
-    #     #[vals.append(b'\x01' + self.arraytype.indx(v)) for v in norm]
-    #     #return vals
-
 class Comp(Type):
 
     stortype = s_layer.STOR_TYPE_MSGP
@@ -516,9 +488,6 @@ class Comp(Type):
 
         return tuple(vals)
 
-    def indx(self, norm):
-        return s_common.buid(norm)
-
 class FieldHelper(collections.defaultdict):
     '''
     Helper for Comp types. Performs Type lookup/creation upon first use.
@@ -570,9 +539,6 @@ class Guid(Type):
                                     mesg='valu is not a guid.')
 
         return valu, {}
-
-    def indx(self, norm):
-        return s_common.uhex(norm)
 
 class Hex(Type):
 
@@ -1264,9 +1230,6 @@ class Data(Type):
         byts = s_msgpack.en(valu)
         return s_msgpack.un(byts), {}
 
-    def indx(self, norm):
-        return None
-
 class NodeProp(Type):
 
     stortype = s_layer.STOR_TYPE_MSGP
@@ -1333,9 +1296,6 @@ class Range(Type):
                                     mesg='minval cannot be greater than maxval')
 
         return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
-
-    def indx(self, norm):
-        return self.subtype.indx(norm[0]) + self.subtype.indx(norm[1])
 
     def repr(self, norm):
         subx = self.subtype.repr(norm[0])
