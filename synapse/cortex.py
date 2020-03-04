@@ -26,6 +26,7 @@ import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
+import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
@@ -2852,7 +2853,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Parse storm query text and return a Query object.
         '''
-        query = copy.deepcopy(s_grammar.parseQuery(text))
+        query = copy.deepcopy(s_parser.parseQuery(text))
         query.init(self)
         return query
 

@@ -477,12 +477,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
         '''
         forcecommit in runSyncLoop can very occasionally trigger a mapfull
         '''
-        # fake_confdefs = (
-        #     ('lmdb:mapsize', {'type': 'int', 'defval': s_const.mebibyte}),
-        #     ('lmdb:maxsize', {'type': 'int', 'defval': None}),
-        #     ('lmdb:growsize', {'type': 'int', 'defval': 128 * s_const.kibibyte}),
-        #     ('lmdb:readahead', {'type': 'bool', 'defval': True}),
-        # )
         with patch('synapse.lib.lmdbslab.Slab.DEFAULT_MAPSIZE', s_const.mebibyte), \
                 patch('synapse.lib.lmdbslab.Slab.DEFAULT_GROWSIZE', 128 * s_const.kibibyte):
             batchsize = 4000

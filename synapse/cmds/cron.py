@@ -10,7 +10,7 @@ import synapse.common as s_common
 import synapse.lib.cli as s_cli
 import synapse.lib.cmd as s_cmd
 import synapse.lib.time as s_time
-import synapse.lib.grammar as s_grammar
+import synapse.lib.parser as s_parser
 
 StatHelp = '''
 Gives detailed information about a single cron job.
@@ -590,7 +590,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
         core = self.getCmdItem()
 
-        argv = s_grammar.Parser(line).stormcmdargs()
+        argv = s_parser.Parser(line).stormcmdargs()
         try:
             opts = self._make_argparser().parse_args(argv)
         except s_exc.ParserExit:
@@ -670,7 +670,7 @@ Examples:
 
         core = self.getCmdItem()
 
-        argv = s_grammar.Parser(line).stormcmdargs()
+        argv = s_parser.Parser(line).stormcmdargs()
         # Currently, using an argparser is overkill for this command.  Using for future extensibility (and help).
         try:
             opts = self._make_argparser().parse_args(argv)
