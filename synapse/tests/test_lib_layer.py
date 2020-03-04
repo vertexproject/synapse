@@ -3,6 +3,7 @@ import asyncio
 import contextlib
 
 import synapse.common as s_common
+import synapse.telepath as s_telepath
 
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
@@ -543,3 +544,36 @@ class LayerTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar=2015 ]')
             self.eq((1325376000000, 1420070400001), nodes[0].getTag('foo.bar'))
+
+    async def test_layer_nodeedits(self):
+
+        async with self.getTestCoreAndProxy() as (core0, prox0):
+
+            nodelist0 = []
+            nodelist0.extend(await core0.nodes('[ test:str=foo ]'))
+            nodelist0.extend(await core0.nodes('[ inet:ipv4=1.2.3.4 .seen=(2012,2014) +#foo.bar=(2012, 2014) ]'))
+
+            count = 0
+            editlist = []
+            async for _, nodeedits in prox0.syncLayerNodeEdits(0):
+                editlist.append(nodeedits)
+                count += 1
+                if count == 7:
+                    break
+
+            async with self.getTestCore() as core1:
+
+                url = core1.getLocalUrl('*/layer')
+
+                async with await s_telepath.openurl(url) as layrprox:
+
+                    for nodeedits in editlist:
+                        await layrprox.storNodeEdits(nodeedits)
+
+                    nodelist1 = []
+                    nodelist1.extend(await core1.nodes('test:str'))
+                    nodelist1.extend(await core1.nodes('inet:ipv4'))
+
+                    nodelist0 = [ node.pack() for node in nodelist0 ]
+                    nodelist1 = [ node.pack() for node in nodelist1 ]
+                    self.eq(nodelist0, nodelist1)

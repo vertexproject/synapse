@@ -2609,6 +2609,34 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.NoSuchView, core.addFeedData('syn.splice', [mesg], viewiden='badiden'))
             await self.asyncraises(s_exc.NoSuchView, prox.addFeedData('syn.splice', [mesg], viewiden='badiden'))
 
+    async def test_feed_syn_nodeedits(self):
+
+        async with self.getTestCoreAndProxy() as (core0, prox0):
+
+            nodelist0 = []
+            nodelist0.extend(await core0.nodes('[ test:str=foo ]'))
+            nodelist0.extend(await core0.nodes('[ inet:ipv4=1.2.3.4 .seen=(2012,2014) +#foo.bar=(2012, 2014) ]'))
+
+            count = 0
+            editlist = []
+            async for _, nodeedits in prox0.syncLayerNodeEdits(0):
+                editlist.append(nodeedits)
+                count += 1
+                if count == 7:
+                    break
+
+            async with self.getTestCoreAndProxy() as (core1, prox1):
+
+                await prox1.addFeedData('syn.nodeedits', editlist)
+
+                nodelist1 = []
+                nodelist1.extend(await core1.nodes('test:str'))
+                nodelist1.extend(await core1.nodes('inet:ipv4'))
+
+                nodelist0 = [ node.pack() for node in nodelist0 ]
+                nodelist1 = [ node.pack() for node in nodelist1 ]
+                self.eq(nodelist0, nodelist1)
+
     async def test_stat(self):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
