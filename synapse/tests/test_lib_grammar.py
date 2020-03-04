@@ -5,6 +5,7 @@ import lark  # type: ignore
 
 import synapse.exc as s_exc
 
+import synapse.lib.parser as s_parser
 import synapse.lib.datfile as s_datfile
 import synapse.lib.grammar as s_grammar
 
@@ -1045,7 +1046,7 @@ class GrammarTest(s_t_utils.SynTest):
     async def test_parser(self):
         self.maxDiff = None
         for i, query in enumerate(_Queries):
-            parser = s_grammar.Parser(query)
+            parser = s_parser.Parser(query)
             tree = parser.query()
 
             self.eq(str(tree), _ParseResults[i])
@@ -1059,7 +1060,7 @@ class GrammarTest(s_t_utils.SynTest):
             '+1',
             "{ [ graph:node='*' :type=m1]}"
             )
-        parser = s_grammar.Parser(q)
+        parser = s_parser.Parser(q)
         args = parser.stormcmdargs()
         self.eq(args, correct)
 
@@ -1074,11 +1075,11 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(('xyz', 10), s_grammar.nom('   xyz    ', 0, 'wxyz', trim=True))
 
     def test_parse_cmd_string(self):
-        self.eq(('newp', 9), s_grammar.parse_cmd_string('help newp', 5))
+        self.eq(('newp', 9), s_parser.parse_cmd_string('help newp', 5))
 
     def test_syntax_error(self):
         query = 'test:str --> *'
-        parser = s_grammar.Parser(query)
+        parser = s_parser.Parser(query)
         self.raises(s_exc.BadSyntax, parser.query)
 
     async def test_quotes(self):

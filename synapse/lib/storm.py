@@ -1679,15 +1679,6 @@ class DelNodeCmd(Cmd):
         if False:
             yield
 
-# TODO
-# class AddNodeCmd(Cmd):     # addnode inet:ipv4 1.2.3.4 5.6.7.8
-# class DelPropCmd(Cmd):     # | delprop baz
-# class SetPropCmd(Cmd):     # | setprop foo bar
-# class AddTagCmd(Cmd):      # | addtag --time 2015 #hehe.haha
-# class DelTagCmd(Cmd):      # | deltag #foo.bar
-# class SeenCmd(Cmd):        # | seen --from <guid>update .seen and seen=(src,node).seen
-# class SourcesCmd(Cmd):     # | sources ( <nodes> -> seen:ndef :source -> source )
-
 class ReIndexCmd(Cmd):
     '''
     Use admin privileges to re index/normalize node properties.

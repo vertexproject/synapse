@@ -665,8 +665,6 @@ class TeleHive(Hive):
 
             return self.nodes.get(path)
 
-    # TODO: async def append(self, path, valu):
-
 class HiveDict(s_base.Base):
     '''
     '''

@@ -161,12 +161,6 @@ class Snap(s_base.Base):
     async def nodes(self, text, opts=None, user=None):
         return [n async for n in self.eval(text, opts=opts, user=user)]
 
-    async def setOffset(self, iden, offs):
-        return await self.wlyr.setOffset(iden, offs)
-
-    async def getOffset(self, iden, offs):
-        return await self.wlyr.getOffset(iden, offs)
-
     async def clearCache(self):
         self.tagcache.clear()
         self.buidcache.clear()
