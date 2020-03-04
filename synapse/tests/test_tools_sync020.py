@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 import logging
+import itertools
 import contextlib
 
 import synapse.cortex as s_cortex
@@ -16,6 +17,11 @@ import synapse.tools.sync_020 as s_sync
 import synapse.tools.migrate_020 as s_migr
 
 REGR_VER = '0.1.51-migr'
+
+# Nodes that are expected to be unmigratable
+NOMIGR_NDEF = [
+    ["migr:test", 22],
+]
 
 def getAssetBytes(*paths):
     fp = os.path.join(*paths)
@@ -62,7 +68,7 @@ class FakeCore(s_cell.Cell):
 
     async def loadSplicelog(self, splicelog):
         for lyriden, items in splicelog.items():
-            self.splicelog[lyriden] = items
+            self.splicelog[lyriden] = tupleize(items)
 
     async def splices(self, offs, size):
         imax = size - 1
@@ -138,6 +144,37 @@ class SyncTest(s_t_utils.SynTest):
                 async with await s_sync.SyncMigrator.anit(dirn, conf) as sync:
                     yield core, turl, fkcore, fkurl, sync
 
+    async def _checkCore(self, core):
+        with self.getRegrDir('assets', REGR_VER) as assetdir:
+            podesj = getAssetJson(assetdir, 'splicepodes.json')
+            podesj = [p for p in podesj if p[0] not in NOMIGR_NDEF]
+            tpodes = tupleize(podesj)
+
+            # check all nodes
+            nodes = await core.nodes('.created -meta:source:name=test')
+
+            podes = [n.pack(dorepr=True) for n in nodes]
+            self.gt(len(podes), 0)
+
+            # handle the case where a tag with tagprops was deleted but tag:prop:del splices aren't generated
+            for pode in podes:
+                tags = pode[1]['tags'].keys()
+                pode[1]['tagprops'] = {k: v for k, v in pode[1]['tagprops'].items() if k in tags}
+                pode[1]['tagpropreprs'] = {k: v for k, v in pode[1]['tagpropreprs'].items() if k in tags}
+
+            try:
+                self.eq(podes, tpodes)
+            except AssertionError:
+                # print a more useful diff on error
+                notincore = list(itertools.filterfalse(lambda x: x in podes, tpodes))
+                notintest = list(itertools.filterfalse(lambda x: x in tpodes, podes))
+                self.eq(notincore, notintest)  # should be empty, therefore equal
+                raise
+
+            # manually check node subset
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+            self.len(2, await core.nodes('inet:dns:a:ipv4=1.2.3.4'))
+
     async def test_sync_srcIterLyrSplices(self):
         async with self._getSyncSvc() as (core, turl, fkcore, fkurl, sync):
             wlyr = core.view.layers[-1].iden
@@ -148,3 +185,52 @@ class SyncTest(s_t_utils.SynTest):
                     nextoffs = await sync._srcIterLyrSplices(prx, 0, queue)
                     self.eq(nextoffs, nextoffs_exp)
                     self.len(nextoffs, queue.linklist)
+
+    async def test_sync_trnNodeSplicesToNodeedits(self):
+        async with self._getSyncSvc() as (core, turl, fkcore, fkurl, sync):
+            wlyr = core.view.layers[-1]
+            wlyr_splices = fkcore.splicelog[wlyr.iden]['splices']
+            num_splices = len(wlyr_splices)
+
+            # create node batches for generating nodeedits
+            batches = []
+            nodesplices = []
+            ndef = None
+            for i, splice in enumerate(wlyr_splices):
+                splice_ndef = splice[1]['ndef']
+
+                if (ndef is not None and splice_ndef != ndef) or i == num_splices - 1:
+                    batches.append((ndef, nodesplices))
+                    nodesplices = []
+
+                ndef = splice_ndef
+                nodesplices.append(splice)
+
+            # load the destination model into the sync service
+            model = await core.getModelDict()
+            sync.model.update(model)
+
+            # generate nodeedits
+            nodeedits = []
+            errs = []
+            for ndef, splices in batches:
+                err, ne, meta = await sync._trnNodeSplicesToNodeedit(ndef, splices)
+                if err is None:
+                    nodeedits.append((ne, meta))
+                else:
+                    errs.append(err)
+
+            # expect one error for migration module not loaded in 0.20 cortex
+            self.len(1, errs)
+            self.isin('migr:test', errs[0]['mesg'])
+            self.eq(len(batches) - 1, len(nodeedits))
+
+            # feed nodeedits to 0.2.x cortex and get back the sodes
+            sodes = []
+            for ne, meta in nodeedits:
+                sodes.extend(await wlyr.storNodeEdits([ne], meta))
+
+            self.eq(len(nodeedits), len(sodes))
+
+            # check that the destination cortex has all of the post-splice updated data
+            await self._checkCore(core)

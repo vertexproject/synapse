@@ -13,6 +13,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.cell as s_cell
 import synapse.lib.base as s_base
 import synapse.lib.queue as s_queue
+import synapse.lib.layer as s_layer
 import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 
@@ -64,7 +65,7 @@ class SyncMigrator(s_cell.Cell):
         self.push_offs = await self.hive.dict(('sync:pushoffs', ))
         self.errors = await self.hive.dict(('sync:errors', ))  # TODO
 
-        self.model = None  # TODO
+        self.model = {}
 
         self._pull_tasks = {}  # lyriden: task
         self._push_tasks = {}  # lyriden: task
@@ -92,6 +93,7 @@ class SyncMigrator(s_cell.Cell):
     async def _startLyrSync(self, lyriden, nextoffs):
         '''
         Starts up the sync process for a given layer and starting offset.
+        Always retrieves a fresh datamodel.
         Creates layer queue and fires layer push/pull tasks if they do not already exist.
 
         Args:
@@ -99,6 +101,8 @@ class SyncMigrator(s_cell.Cell):
             nextoffs (int): The layer offset to start sync from
         '''
         await self._setLyrOffset('pull', lyriden, nextoffs)
+
+        await self._loadDatamodel()
 
         queue = self._queues.get(lyriden)
         if queue is None:
@@ -151,7 +155,12 @@ class SyncMigrator(s_cell.Cell):
         pass  # TODO
 
     async def _loadDatamodel(self):
-        pass  # TODO
+        '''
+        Retrieve the datamodel (with stortypes) from the destination cortex.
+        '''
+        async with await s_telepath.openurl(os.path.join(self.dest, 'cortex')) as prx:
+            model = await prx.getModelDict()
+            self.model.update(model)
 
     async def _srcPullLyrSplices(self, lyriden):
         '''
@@ -200,39 +209,131 @@ class SyncMigrator(s_cell.Cell):
 
         return curoffs
 
-    async def _trnSpliceToEdit(self, splice):
-        '''
-        Translate an individual splice to a nodeedit edit syntax.
-
-        Args:
-            splice (tuple): (<edit>, {<splice info>})
-
-        Returns:
-            (tuple): (<edit type>, <info>, ...)
-        '''
-        return splice  # TODO
-
     async def _trnNodeSplicesToNodeedit(self, ndef, splices):
         '''
         Translate a batch of splices for a given node into a nodeedit set
-
-        TODO: Error handling
 
         Args:
             ndef (tuple): (<form>, <valu>)
             splices (list): [ (<edit>, {<splice info>}), ...]
 
         Returns:
-            (tuple): (cond, nodeedit)
+            (tuple): (cond, nodeedit, meta)
                 cond: None or error dict
                 nodeedit: (<buid>, <form>, [edits]) where edits is list of (<type>, <info>)
+                meta: nodeedit meta dict
         '''
         buid = s_common.buid(ndef)
         form = ndef[0]
+        fval = ndef[1]
+        meta = None
 
-        edits = [await self._trnSpliceToEdit(splice) for splice in splices]
+        stype_f = await self._destGetStortype(form=form)
+        if stype_f is None:
+            err = {'mesg': f'Unable to determine stortype type for form {form}', 'splices': splices}
+            logger.warning(err['mesg'])
+            return err, None, None
 
-        return None, (buid, form, edits)
+        edits = []
+
+        for splice in splices:
+            spedit = splice[0]
+            props = splice[1]
+
+            # by definition all of these splices have the same meta (same node and same prov)
+            if meta is None:
+                meta = {k: v for k, v in props.items() if k in ('time', 'user', 'prov')}
+
+            if spedit == 'node:add':
+                edit = s_layer.EDIT_NODE_ADD
+                edits.append((edit, (fval, stype_f)))
+
+            elif spedit == 'node:del':
+                edit = s_layer.EDIT_NODE_DEL
+                edits.append((edit, (fval, stype_f)))
+
+            elif spedit in ('prop:set', 'prop:del'):
+                prop = props.get('prop')
+                pval = props.get('valu')
+
+                stype_p = await self._destGetStortype(form=form, prop=prop)
+                if stype_p is None:
+                    err = {'mesg': f'Unable to determine stortype type for prop {form}:{prop}', 'splice': splice}
+                    logger.warning(err)
+                    return err, None, None
+
+                if spedit == 'prop:set':
+                    edit = s_layer.EDIT_PROP_SET
+                    edits.append((edit, (prop, pval, None, stype_p)))
+
+                elif spedit == 'prop:del':
+                    edit = s_layer.EDIT_PROP_DEL
+                    edits.append((edit, (prop, pval, stype_p)))
+
+            elif spedit in ('tag:add', 'tag:del'):
+                tag = props.get('tag')
+                tval = props.get('valu')
+                toldv = props.get('oldv')
+
+                if spedit == 'tag:add':
+                    edit = s_layer.EDIT_TAG_SET
+                    edits.append((edit, (tag, tval, toldv)))
+
+                elif spedit == 'tag:del':
+                    edit = s_layer.EDIT_TAG_DEL
+                    edits.append((edit, (tag, tval)))
+
+            elif spedit in ('tag:prop:set', 'tag:prop:del'):
+                tag = props.get('tag')
+                prop = props.get('prop')
+                tval = props.get('valu')
+                tcurv = props.get('curv')
+
+                stype_tp = await self._destGetStortype(tagprop=prop)
+                if stype_tp is None:
+                    err = {'mesg': f'Unable to determine stortype type for tag prop {tag}:{prop}', 'splice': splice}
+                    logger.warning(err)
+                    return err, None, None
+
+                if spedit == 'tag:prop:set':
+                    edit = s_layer.EDIT_TAGPROP_SET
+                    edits.append((edit, (tag, prop, tval, tcurv, stype_tp)))
+
+                elif spedit == 'tag:prop:del':
+                    edit = s_layer.EDIT_TAGPROP_DEL
+                    edits.append((edit, (tag, prop, tval, stype_tp)))
+
+            else:
+                err = {'mesg': 'Unrecognized splice edit', 'splice': splice}
+                logger.warning(err)
+                return err, None, None
+
+        return None, (buid, form, edits), meta
+
+    async def _destGetStortype(self, form=None, prop=None, tagprop=None):
+        '''
+        Get the stortype integer for a given form, form prop, or tag prop.
+
+        Args:
+            form (str or None): Form name
+            prop (str or None): Prop name (form must be specified in this case)
+            tagprop (str or None): Tag prop name
+
+        Returns:
+            (int or None): Stortype integer or None if not found
+        '''
+        mtype = None
+
+        if form is not None:
+            if prop is None:
+                mtype = form
+            else:
+                mtype = self.model['forms'].get(form, {})['props'].get(prop, {})['type'][0]
+
+        elif tagprop is not None:
+            mtype = self.model['tagprops'].get(tagprop, {})['type'][0]
+
+        return self.model['types'].get(mtype, {}).get('stortype')
 
     async def _destPushLyrNodeedits(self, lyriden):
         '''
@@ -251,7 +352,7 @@ class SyncMigrator(s_cell.Cell):
     async def _destIterLyrNodeedits(self, prx, queue, lyriden):
         '''
         Batch available source splices in a queue as nodeedits and push to the destination layer proxy.
-
+        Nodeedit batch boundaries are defined by the ndef and prov iden.
         Will run as long as queue is not fini'd.
 
         Args:
@@ -263,6 +364,7 @@ class SyncMigrator(s_cell.Cell):
         batch_size = self.batch_size
 
         ndef = None
+        prov = None
         nodesplices = []
         nodeedits = []
 
@@ -270,13 +372,14 @@ class SyncMigrator(s_cell.Cell):
         errs = 0
         async for offs, splice in queue:
             splice_ndef = splice[1]['ndef']
+            splice_prov = splice[1].get('prov')
 
-            # current splice is a new node so create prior node nodeedit
-            # and optionally push to destination layer
-            if ndef is not None and splice_ndef != ndef:
-                err, ne = await self._trnNodeSplicesToNodeedit(ndef, nodesplices)
+            # current splice is a new node or has no prov iden
+            # so create prior node nodeedit and push to destination layer if at batch size
+            if (ndef is not None and splice_ndef != ndef) or (prov is not None and splice_prov != prov):
+                err, ne, meta = await self._trnNodeSplicesToNodeedit(ndef, nodesplices)
                 if err is None:
-                    nodeedits.append(ne)
+                    nodeedits.append((ne, meta))
                 else:
                     errs += 1
                     pass  # TODO
@@ -289,6 +392,7 @@ class SyncMigrator(s_cell.Cell):
                     nodeedits = []
 
             ndef = splice_ndef
+            prov = splice_prov
             nodesplices.append(splice)
 
             cnt += 1
@@ -298,9 +402,9 @@ class SyncMigrator(s_cell.Cell):
 
         # finish last node splices
         if len(nodesplices) > 0:
-            err, ne = await self._trnNodeSplicesToNodeedit(ndef, nodesplices)
+            err, ne, meta = await self._trnNodeSplicesToNodeedit(ndef, nodesplices)
             if err is None:
-                nodeedits.append(ne)
+                nodeedits.append((ne, meta))
             else:
                 errs += 1
                 pass  # TODO
