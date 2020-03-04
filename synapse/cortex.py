@@ -403,13 +403,9 @@ class CoreApi(s_cell.CellApi):
 
     async def addFeedData(self, name, items, *, viewiden=None):
 
-        if viewiden is not None:
-            view = self.cell.getView(viewiden)
-            if view is None:
-                raise s_exc.NoSuchView(iden=viewiden)
-
-        else:
-            view = self.cell.view
+        view = self.cell.getView(viewiden)
+        if view is None:
+            raise s_exc.NoSuchView(iden=viewiden)
 
         wlyr = view.layers[0]
         parts = name.split('.')
@@ -419,7 +415,7 @@ class CoreApi(s_cell.CellApi):
         async with await self.cell.snap(user=self.user, view=view) as snap:
             with s_provenance.claim('feed:data', name=name, user=snap.user.iden):
                 snap.strict = False
-                return await snap.addFeedData(name, items)
+                await snap.addFeedData(name, items)
 
     async def count(self, text, opts=None):
         '''
@@ -2845,21 +2841,15 @@ class Cortex(s_cell.Cell):  # type: ignore
             items (list): A list of items to ingest.
             iden (str): The iden of a view to use.
                 If a view is not specified, the default view is used.
-
-        Returns:
-            (int): The next expected offset (or None) if seqn is None.
         '''
 
-        if viewiden is not None:
-            view = self.getView(viewiden)
-            if view is None:
-                raise s_exc.NoSuchView(iden=viewiden)
-        else:
-            view = None
+        view = self.getView(viewiden)
+        if view is None:
+            raise s_exc.NoSuchView(iden=viewiden)
 
         async with await self.snap(view=view) as snap:
             snap.strict = False
-            return await snap.addFeedData(name, items)
+            await snap.addFeedData(name, items)
 
     async def snap(self, user=None, view=None):
         '''
